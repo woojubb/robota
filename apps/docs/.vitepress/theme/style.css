@@ -1,0 +1,28 @@
+:root {
+    --vp-c-brand: #3a70ff;
+    --vp-c-brand-light: #587eff;
+    --vp-c-brand-lighter: #7a97ff;
+    --vp-c-brand-dark: #0f4cee;
+    --vp-c-brand-darker: #0038cf;
+}
+
+.dark {
+    --vp-c-brand: #5c8eff;
+    --vp-c-brand-light: #7ea1ff;
+    --vp-c-brand-lighter: #9db6ff;
+    --vp-c-brand-dark: #3a70ff;
+    --vp-c-brand-darker: #1e5afe;
+}
+
+/* 언어 전환기 스타일 */
+.VPNavBarMenuLink.VPNavBarMenuGroup {
+    font-weight: bold;
+}
+
+/* 모바일 반응형 */
+@media (max-width: 767px) {
+    .VPNavBar {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
