@@ -1,0 +1,68 @@
+name: Deploy Docs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - 'packages/**'
+      - 'apps/docs/**'
+      - '.github/workflows/deploy-docs.yml'
+  workflow_dispatch:
+
+# 수동으로 워크플로우를 실행할 수 있게 함
+
+# 저장소에 쓰기 권한 허용
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+# 동시에 하나의 배포만 허용
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: Generate API Docs
+        run: pnpm docs:generate
+
+      - name: Build Docs
+        run: |
+          cd apps/docs
+          pnpm run build
+
+      # 빌드 결과물에 .nojekyll 파일 추가 (GitHub Pages에서 Jekyll 처리 방지)
+      - name: Add .nojekyll file
+        run: touch apps/docs/.vitepress/dist/.nojekyll
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: ./apps/docs/.vitepress/dist
+          branch: gh-pages
+          clean: true

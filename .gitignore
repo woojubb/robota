@@ -1,0 +1,87 @@
+# dependencies (bun install)
+node_modules
+node_modules/.pnpm
+
+# output
+out
+dist
+dist-ssr
+*.tgz
+
+# generated files
+packages/**/*.js
+packages/**/*.js.map
+packages/**/*.d.ts
+packages/**/*.d.ts.map
+
+# code coverage
+coverage
+*.lcov
+
+# logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# dotenv environment variable files
+.env
+.env.*
+!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# caches
+.eslintcache
+.cache
+*.tsbuildinfo
+
+# IntelliJ based IDEs
+.idea
+**/.idea
+
+# Finder (MacOS) folder config
+.DS_Store
+
+# 환경 변수
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# 빌드 산출물
+dist/
+
+# 에디터 설정
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.iml
+
+# macOS
+.DS_Store
+
+# 로그 파일
+*.log
+
+# Build files
+.turbo
+.output
+.vercel
+.netlify
+.next
+
+# VitePress 관련 파일
+apps/docs/.vitepress/
+
+# VitePress 임시 디렉토리
+**/.temp
+
+# 패키지 README 파일 (docs 디렉토리에서 관리)
+packages/*/README.md

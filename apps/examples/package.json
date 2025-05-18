@@ -1,0 +1,39 @@
+{
+    "name": "robota-examples",
+    "version": "0.1.4",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "echo 'No build step required for examples'",
+        "test": "echo 'No tests available for examples'",
+        "lint": "eslint ./**/*.ts",
+        "lint:fix": "eslint ./**/*.ts --fix",
+        "start:basic": "tsx basic/simple-conversation.ts",
+        "start:basic:advanced": "tsx basic/advanced-features.ts",
+        "start:function-calling": "tsx function-calling/weather-calculator.ts",
+        "start:function-tool-provider": "tsx function-tool-provider/zod-function-provider.ts",
+        "start:all-examples": "pnpm start:basic && pnpm start:basic:advanced && pnpm start:function-calling",
+        "start:all": "echo '모든 예제를 순차적으로 실행합니다' && pnpm start:basic && pnpm start:function-calling"
+    },
+    "dependencies": {
+        "@robota-sdk/anthropic": "workspace:*",
+        "@robota-sdk/core": "workspace:*",
+        "@robota-sdk/mcp": "workspace:*",
+        "@robota-sdk/openai": "workspace:*",
+        "@robota-sdk/tools": "workspace:*",
+        "@modelcontextprotocol/sdk": "^1.11.2",
+        "axios": "^1.9.0",
+        "chalk": "^5.4.1",
+        "dotenv": "^16.5.0",
+        "openai": "^4.98.0",
+        "zod": "^3.22.0"
+    },
+    "devDependencies": {
+        "@types/dotenv": "^8.2.3",
+        "@typescript-eslint/eslint-plugin": "^6.18.0",
+        "@typescript-eslint/parser": "^6.18.0",
+        "eslint": "^8.56.0",
+        "tsx": "^4.0.0",
+        "typescript": "^5.0.0"
+    }
+}
