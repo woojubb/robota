@@ -4,6 +4,14 @@
   "private": true,
   "description": "쉽게 Agentic AI를 만들 수 있는 JavaScript 라이브러리",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/woojubb/robota.git"
+  },
+  "homepage": "https://github.com/woojubb/robota#readme",
+  "bugs": {
+    "url": "https://github.com/woojubb/robota/issues"
+  },
   "scripts": {
     "build": "pnpm run -r build",
     "build:deps": "pnpm --filter @robota-sdk/core build && pnpm --filter @robota-sdk/tools build && pnpm --filter \"@robota-sdk/!(core|tools)\" build",

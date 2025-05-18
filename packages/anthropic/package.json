@@ -1,11 +1,20 @@
 {
   "name": "@robota-sdk/anthropic",
   "version": "0.2.4",
-  "description": "Robota를 위한 Anthropic 통합 패키지",
+  "description": "Robota's Anthropic integration package",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/woojubb/robota.git",
+    "directory": "packages/anthropic"
+  },
+  "homepage": "https://github.com/woojubb/robota/tree/main/packages/anthropic#readme",
+  "bugs": {
+    "url": "https://github.com/woojubb/robota/issues"
+  },
   "files": [
     "dist"
   ],
