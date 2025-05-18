@@ -1,1 +1,0 @@
-import{_ as e,c as t,o,ae as r}from"./chunks/framework.Cthp9TdA.js";const _=JSON.parse('{"title":"robota-docs","description":"","frontmatter":{},"headers":[],"relativePath":"CHANGELOG.md","filePath":"CHANGELOG.md"}'),n={name:"CHANGELOG.md"};function s(c,a,i,d,h,p){return o(),t("div",null,a[0]||(a[0]=[r("",4)]))}const m=e(n,[["render",s]]);export{_ as __pageData,m as default};
