@@ -83,5 +83,8 @@ apps/docs/.vitepress/
 # VitePress 임시 디렉토리
 **/.temp
 
+# apps 디렉토리 내 마크다운 파일
+apps/**/README.md
+
 # 패키지 README 파일 (docs 디렉토리에서 관리)
 packages/*/README.md

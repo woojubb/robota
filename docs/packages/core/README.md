@@ -2,6 +2,10 @@
 
 Core package for Robota SDK - A TypeScript library for building AI agents with ease.
 
+## Documentation
+
+For full documentation, visit [https://robota.io](https://robota.io)
+
 ## Installation
 
 ```bash

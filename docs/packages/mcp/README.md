@@ -2,6 +2,10 @@
 
 Model Context Protocol (MCP) integration package for Robota SDK.
 
+## Documentation
+
+For full documentation, visit [https://robota.io](https://robota.io)
+
 ## Installation
 
 ```bash

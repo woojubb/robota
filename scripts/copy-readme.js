@@ -16,7 +16,7 @@ const __dirname = path.dirname(__filename);
 process.chdir(path.join(__dirname, '..'));
 
 // 경로 정의
-const docsBasePath = path.resolve(__dirname, '../apps/docs/docs/packages');
+const docsBasePath = path.resolve(__dirname, '../docs/packages');
 const packagesPath = path.resolve(__dirname, '../packages');
 
 // 패키지 목록
