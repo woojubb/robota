@@ -9,16 +9,17 @@ Robota 라이브러리는 지속적인 개선을 통해 코드 품질과 개발�
 코드베이스는 다음과 같이 논리적으로 분리되어 있습니다:
 
 ```
-packages/
-├── core/               # 핵심 기능
-│   ├── robota.ts       # 메인 클래스 
-│   ├── memory.ts       # 메모리 관리
-│   ├── types.ts        # 타입 정의
+robota/
+├── packages/           # 핵심 패키지
+│   ├── core/           # 코어 기능
+│   ├── openai/         # OpenAI 통합
+│   ├── anthropic/      # Anthropic 통합
+│   ├── mcp/            # MCP 구현
+│   ├── tools/          # 도구 시스템
 │   └── ...
-├── openai/             # OpenAI 통합
-├── anthropic/          # Anthropic 통합
-├── tools/              # 도구 시스템
-└── ...
+└── apps/               # 응용 프로그램
+    ├── docs/           # 문서 애플리케이션
+    └── examples/       # 예제 코드
 ```
 
 이러한 모듈화는 다음과 같은 이점을 제공합니다:

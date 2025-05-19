@@ -73,20 +73,16 @@ pnpm example:all
 
 ```
 robota/
-├── packages/           # 핵심 패키지들
+├── packages/           # 핵심 패키지
 │   ├── core/           # 코어 기능
-│   ├── openai/         # OpenAI 제공자
-│   ├── anthropic/      # Anthropic 제공자
+│   ├── openai/         # OpenAI 통합
+│   ├── anthropic/      # Anthropic 통합
+│   ├── mcp/            # MCP 구현
+│   ├── tools/          # 도구 시스템
 │   └── ...
-├── src/                # 소스 코드
-│   ├── core/           # 코어 구현체
-│   ├── agents/         # 에이전트 구현체
-│   ├── examples/       # 예제 (실행 가능)
-│   └── ...
-├── examples/           # 추가 예제 (문서용)
-├── docs/               # 문서
 └── apps/               # 응용 프로그램
-    └── web/            # 웹 애플리케이션
+    ├── docs/           # 문서 애플리케이션
+    └── examples/       # 예제 코드
 ```
 
 ## 참고 사항
