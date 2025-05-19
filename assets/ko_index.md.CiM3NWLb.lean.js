@@ -1,1 +1,0 @@
-import{_ as e,c as r,o as i,ag as o}from"./chunks/framework.BDwTZuFy.js";const f=JSON.parse('{"title":"Robota","description":"","frontmatter":{},"headers":[],"relativePath":"ko/index.md","filePath":"ko/index.md"}'),t={name:"ko/index.md"};function l(n,a,h,s,c,d){return i(),r("div",null,a[0]||(a[0]=[o("",14)]))}const m=e(t,[["render",l]]);export{f as __pageData,m as default};
