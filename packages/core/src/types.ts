@@ -3,6 +3,27 @@
  */
 export type MessageRole = 'user' | 'assistant' | 'system' | 'function';
 
+// ToolProvider와 FunctionSchema 가져오기
+import type { ToolProvider } from '@robota-sdk/tools';
+
+/**
+ * 함수 스키마 인터페이스
+ */
+export interface FunctionSchema {
+  name: string;
+  description?: string;
+  parameters: {
+    type: 'object';
+    properties: Record<string, {
+      type: string;
+      description?: string;
+      enum?: any[];
+      default?: any;
+    }>;
+    required?: string[];
+  };
+}
+
 /**
  * 기본 메시지 인터페이스
  */
@@ -40,24 +61,6 @@ export interface FunctionDefinition {
   parameters?: {
     type: string;
     properties?: Record<string, {
-      type: string;
-      description?: string;
-      enum?: any[];
-      default?: any;
-    }>;
-    required?: string[];
-  };
-}
-
-/**
- * 함수 스키마 인터페이스
- */
-export interface FunctionSchema {
-  name: string;
-  description?: string;
-  parameters: {
-    type: 'object';
-    properties: Record<string, {
       type: string;
       description?: string;
       enum?: any[];
@@ -155,15 +158,37 @@ export interface Transport {
  * Robota 설정 인터페이스
  */
 export interface RobotaOptions {
-  provider?: any; // 제공업체 인터페이스는 각 패키지에서 정의됨 (선택 사항)
-  aiClient?: AIClient; // AI 제공업체 클라이언트 (선택 사항)
-  model?: string; // 사용할 모델명 (선택 사항)
-  temperature?: number; // 모델 온도 (선택 사항)
+  /** 
+   * 도구 제공자 (toolProvider) - MCP, OpenAPI, ZodFunction 등의 도구를 제공하는 Provider
+   * createMcpToolProvider, createOpenAPIToolProvider, createZodFunctionToolProvider 등으로 생성
+   */
+  provider?: ToolProvider;
+
+  /** 
+   * AI 제공업체 클라이언트 - OpenAIProvider, AnthropicProvider 등 
+   */
+  aiClient?: AIClient;
+
+  /** 사용할 모델명 (선택 사항) */
+  model?: string;
+
+  /** 모델 온도 (선택 사항) */
+  temperature?: number;
+
+  /** 시스템 프롬프트 */
   systemPrompt?: string;
+
+  /** 시스템 메시지 배열 */
   systemMessages?: Message[];
-  memory?: any; // 메모리 인터페이스는 별도로 정의됨
+
+  /** 메모리 인터페이스 */
+  memory?: any;
+
+  /** 함수 호출 설정 */
   functionCallConfig?: FunctionCallConfig;
-  onToolCall?: (toolName: string, params: any, result: any) => void; // 도구 호출 콜백
+
+  /** 도구 호출 콜백 */
+  onToolCall?: (toolName: string, params: any, result: any) => void;
 }
 
 /**

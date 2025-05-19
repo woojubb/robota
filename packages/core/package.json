@@ -38,6 +38,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@robota-sdk/tools": "workspace:*",
     "zod": "^3.24.4"
   },
   "devDependencies": {

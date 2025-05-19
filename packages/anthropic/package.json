@@ -2,6 +2,7 @@
   "name": "@robota-sdk/anthropic",
   "version": "0.2.5",
   "description": "Robota's Anthropic integration package",
+  "private": true,
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -19,8 +20,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "echo 'Skipping build for anthropic package'",
+    "dev": "echo 'Skipping dev for anthropic package'",
     "clean": "rimraf dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",

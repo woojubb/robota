@@ -10,15 +10,13 @@
         "lint:fix": "eslint ./**/*.ts --fix",
         "start:basic": "tsx basic/simple-conversation.ts",
         "start:basic:advanced": "tsx basic/advanced-features.ts",
-        "start:function-calling": "tsx function-calling/weather-calculator.ts",
         "start:function-tool-provider": "tsx function-tool-provider/zod-function-provider.ts",
-        "start:all-examples": "pnpm start:basic && pnpm start:basic:advanced && pnpm start:function-calling",
-        "start:all": "echo '모든 예제를 순차적으로 실행합니다' && pnpm start:basic && pnpm start:function-calling"
+        "start:all-examples": "pnpm start:basic && pnpm start:basic:advanced && pnpm start:function-tool-provider",
+        "start:all": "echo '모든 예제를 순차적으로 실행합니다' && pnpm start:basic && pnpm start:function-tool-provider"
     },
     "dependencies": {
         "@robota-sdk/anthropic": "workspace:*",
         "@robota-sdk/core": "workspace:*",
-        "@robota-sdk/mcp": "workspace:*",
         "@robota-sdk/openai": "workspace:*",
         "@robota-sdk/tools": "workspace:*",
         "@modelcontextprotocol/sdk": "^1.11.2",

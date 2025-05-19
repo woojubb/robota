@@ -26,7 +26,7 @@ async function main() {
 
     // Robota 인스턴스 생성
     const robota = new Robota({
-        provider: new OpenAIProvider({
+        aiClient: new OpenAIProvider({
             model: 'gpt-4',
             client: openaiClient
         }),

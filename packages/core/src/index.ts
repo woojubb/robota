@@ -1,7 +1,7 @@
 // 코어 클래스 및 인터페이스 내보내기
 export * from './robota';
 export * from './types';
-export * from './model-context-protocol';
+export * from './tool-provider';
 export * from './memory';
 export * from './tools';
 export * from './utils';
@@ -16,4 +16,11 @@ export {
     Function,
     FunctionOptions,
     FunctionResult
-} from './function'; 
+} from './function';
+
+// 아래 내용은 위의 tool-provider를 통해 이미 내보내지므로 제거 - 중복이 발생하지 않도록 합니다
+// export {
+//     ToolProvider,
+//     createMcpToolProvider,
+//     createOpenAPIToolProvider,
+// } from './tool-provider'; 

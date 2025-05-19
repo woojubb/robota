@@ -235,4 +235,20 @@ export {
 export {
     createZodFunctionToolProvider,
     type ZodFunctionToolProviderOptions
-} from './function-tool-provider'; 
+} from './function-tool-provider';
+
+// ToolProvider 인터페이스 내보내기
+export {
+    ToolProvider
+} from './tool-provider';
+
+// MCP 관련 기능 내보내기
+export {
+    createMcpToolProvider,
+    type MCPClient
+} from './mcp-tool-provider';
+
+// OpenAPI 관련 기능 내보내기
+export {
+    createOpenAPIToolProvider
+} from './openapi-tool-provider'; 

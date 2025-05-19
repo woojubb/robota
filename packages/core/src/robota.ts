@@ -12,7 +12,7 @@ import {
 } from './types';
 import { SimpleMemory } from './memory';
 import type { Memory } from './memory';
-import type { ModelContextProtocol } from './model-context-protocol';
+import type { ToolProvider } from './tool-provider';
 
 /**
  * Robota의 메인 클래스
@@ -21,7 +21,7 @@ import type { ModelContextProtocol } from './model-context-protocol';
  * @example
  * ```ts
  * const robota = new Robota({
- *   provider: new OpenAIProvider({
+ *   aiClient: new OpenAIProvider({
  *     model: 'gpt-4',
  *     client: openaiClient
  *   }),
@@ -32,8 +32,8 @@ import type { ModelContextProtocol } from './model-context-protocol';
  * ```
  */
 export class Robota {
-    private provider?: ModelContextProtocol;
-    private aiClient?: AIClient; // 단일 AI 클라이언트
+    private provider?: ToolProvider; // 도구 제공자 (toolProvider)
+    private aiClient?: AIClient; // AI 클라이언트 (OpenAIProvider 등)
     private model?: string;
     private temperature?: number;
     private systemPrompt?: string;
@@ -53,12 +53,12 @@ export class Robota {
      * @param options - Robota 초기화 옵션
      */
     constructor(options: RobotaOptions) {
-        if (!options.provider && !options.aiClient) {
-            throw new Error('Provider 또는 aiClient 중 하나는 반드시 제공해야 합니다.');
+        if (!options.aiClient && !options.provider) {
+            throw new Error('aiClient 또는 provider 중 하나는 반드시 제공해야 합니다.');
         }
 
-        this.provider = options.provider;
-        this.aiClient = options.aiClient;
+        this.provider = options.provider; // 도구 제공자 (toolProvider)
+        this.aiClient = options.aiClient; // AI 클라이언트 (OpenAIProvider 등)
         this.model = options.model;
         this.temperature = options.temperature;
         this.systemPrompt = options.systemPrompt;
@@ -326,18 +326,8 @@ export class Robota {
      * @returns - AI 모델의 응답
      */
     private async generateResponse(context: Context, options: RunOptions = {}): Promise<ModelResponse> {
-        // Provider가 설정된 경우 기존 로직 사용
-        if (this.provider) {
-            return this.provider.chat(context, {
-                temperature: options.temperature,
-                maxTokens: options.maxTokens,
-                functionCallMode: options.functionCallMode || this.functionCallConfig.defaultMode,
-                forcedFunction: options.forcedFunction,
-                forcedArguments: options.forcedArguments
-            });
-        }
-
-        // AI 클라이언트만 설정된 경우 처리
+        // 도구 제공자(toolProvider)가 있는 경우 - 더 이상 chat 메서드를 직접 호출하지 않음
+        // 대신 언제나 AI 클라이언트를 통해 응답 생성
         if (this.aiClient) {
             const { messages, systemPrompt } = context;
 
@@ -363,6 +353,11 @@ export class Robota {
 
             if (this.model) {
                 requestOptions.model = this.model;
+            }
+
+            // 도구 제공자가 있을 경우 함수 정의 추가
+            if (this.provider?.functions) {
+                requestOptions.functions = this.provider.functions;
             }
 
             // 클라이언트 타입에 따른 처리
@@ -405,25 +400,15 @@ export class Robota {
             }
         }
 
-        throw new Error('유효한 Provider, AI 클라이언트가 설정되지 않았습니다.');
+        throw new Error('유효한 AI 클라이언트가 설정되지 않았습니다.');
     }
 
     /**
      * 스트리밍 응답 생성
      */
     private async generateStream(context: Context, options: RunOptions = {}): Promise<AsyncIterable<StreamingResponseChunk>> {
-        // Provider가 설정된 경우 기존 로직 사용
-        if (this.provider) {
-            return this.provider.chatStream(context, {
-                temperature: options.temperature,
-                maxTokens: options.maxTokens,
-                functionCallMode: options.functionCallMode || this.functionCallConfig.defaultMode,
-                forcedFunction: options.forcedFunction,
-                forcedArguments: options.forcedArguments
-            });
-        }
-
-        // AI 클라이언트 스트리밍 처리 로직
+        // 도구 제공자(toolProvider)가 있는 경우 - 더 이상 chatStream 메서드를 직접 호출하지 않음
+        // AI 클라이언트가 있는 경우
         if (this.aiClient) {
             // 클라이언트 타입에 따른 스트리밍 처리
             switch (this.aiClient.type) {
@@ -442,12 +427,58 @@ export class Robota {
             }
         }
 
-        throw new Error('유효한 Provider, 스트리밍을 지원하는 AI 클라이언트가 설정되지 않았습니다.');
+        throw new Error('유효한 스트리밍을 지원하는 AI 클라이언트가 설정되지 않았습니다.');
     }
 
     /**
- * 리소스 해제
- */
+     * 도구 호출
+     * 
+     * 설정된 도구 제공자를 통해 도구를 호출합니다.
+     * 
+     * @param toolName 호출할 도구 이름
+     * @param parameters 도구에 전달할 파라미터
+     * @returns 도구 호출 결과
+     * @throws 도구 제공자가 설정되지 않았거나 도구 호출 실패 시 오류
+     */
+    async callTool(toolName: string, parameters: Record<string, any>): Promise<any> {
+        if (!this.provider) {
+            throw new Error('도구 제공자(toolProvider)가 설정되지 않았습니다.');
+        }
+
+        try {
+            // 도구 호출 전 파라미터 검증 (필요시)
+            if (this.functionCallConfig.allowedFunctions &&
+                !this.functionCallConfig.allowedFunctions.includes(toolName)) {
+                throw new Error(`도구 '${toolName}'은(는) 허용되지 않습니다.`);
+            }
+
+            // 도구 제공자를 통해 도구 호출
+            const result = await this.provider.callTool(toolName, parameters);
+
+            // 도구 호출 콜백 실행 (설정된 경우)
+            if (this.onToolCall) {
+                this.onToolCall(toolName, parameters, result);
+            }
+
+            return result;
+        } catch (error) {
+            logger.error(`도구 '${toolName}' 호출 중 오류:`, error);
+            throw new Error(`도구 호출 실패: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    /**
+     * 사용 가능한 도구 목록 반환
+     * 
+     * @returns 도구 스키마 목록 또는 빈 배열
+     */
+    getAvailableTools(): FunctionSchema[] {
+        return this.provider?.functions || [];
+    }
+
+    /**
+     * 리소스 해제
+     */
     async close(): Promise<void> {
         try {
             if (this.aiClient?.close) {

@@ -5,20 +5,32 @@ import {
   Message,
   ModelResponse,
   StreamingResponseChunk,
-  removeUndefined
+  removeUndefined,
+  AIClient as AIClientType
 } from '@robota-sdk/core';
-import { ModelContextProtocol } from '@robota-sdk/core';
 import { OpenAIProviderOptions } from './types';
 import { logger } from '@robota-sdk/core';
 
 /**
  * OpenAI 제공업체 구현
+ * 
+ * AIClient 인터페이스를 구현하여 Robota와 통합됩니다.
  */
-export class OpenAIProvider implements ModelContextProtocol {
+export class OpenAIProvider implements AIClientType {
   /**
    * OpenAI 클라이언트 인스턴스
    */
   private client: OpenAI;
+
+  /**
+   * 클라이언트 타입
+   */
+  public type: string = 'openai';
+
+  /**
+   * 클라이언트 인스턴스
+   */
+  public instance: OpenAI;
 
   /**
    * 제공업체 옵션
@@ -38,6 +50,7 @@ export class OpenAIProvider implements ModelContextProtocol {
     }
 
     this.client = options.client;
+    this.instance = options.client;
   }
 
   /**
@@ -201,6 +214,11 @@ export class OpenAIProvider implements ModelContextProtocol {
       max_tokens: options?.maxTokens ?? this.options.maxTokens
     };
 
+    // 도구 제공자 함수 추가
+    if (options?.tools && Array.isArray(options.tools)) {
+      completionOptions.tools = this.formatFunctions(options.tools);
+    }
+
     // 응답 형식이 지정된 경우
     if (this.options.responseFormat) {
       completionOptions.response_format = {
@@ -257,6 +275,11 @@ export class OpenAIProvider implements ModelContextProtocol {
       stream: true
     };
 
+    // 도구 제공자 함수 추가
+    if (options?.tools && Array.isArray(options.tools)) {
+      completionOptions.tools = this.formatFunctions(options.tools);
+    }
+
     // 응답 형식이 지정된 경우
     if (this.options.responseFormat) {
       completionOptions.response_format = {
@@ -280,5 +303,12 @@ export class OpenAIProvider implements ModelContextProtocol {
       logger.error('[OpenAIProvider] 스트리밍 API 호출 오류:', error);
       throw error;
     }
+  }
+
+  /**
+   * 리소스 해제 (필요시)
+   */
+  async close(): Promise<void> {
+    // OpenAI 클라이언트는 특별한 종료 메서드가 없으므로 빈 함수로 구현
   }
 } 

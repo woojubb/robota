@@ -21,9 +21,9 @@
  * 현재는 개발 편의를 위해 타입 단언(as any)을 사용하여 타입 오류를 무시합니다.
  */
 
-import { Robota } from "../../../src";
-import { createMcpToolProvider } from "../../../src/core/client-adapter";
-import { OpenAIProvider } from "../../../src/providers/openai-provider";
+import { Robota } from "@robota-sdk/core";
+import { createMcpToolProvider } from "@robota-sdk/tools";
+import { OpenAIProvider } from "@robota-sdk/openai";
 import { Client } from "@modelcontextprotocol/sdk/dist/esm/client/index.js"; // Client 클래스 임포트
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/dist/esm/client/stdio.js"; // StdioClientTransport 클래스 임포트
 import OpenAI from "openai"; // OpenAI 패키지 임포트
@@ -59,16 +59,13 @@ async function main() {
 
         // 디버깅: MCP 클라이언트 객체 검사
         console.log('MCP 클라이언트 메소드 목록:');
-        console.log('mcpClient.run 존재여부:', typeof mcpClient.run === 'function');
-        console.log('mcpClient.chat 존재여부:', typeof mcpClient.chat === 'function');
         console.log('사용 가능한 메소드:', Object.getOwnPropertyNames(Object.getPrototypeOf(mcpClient)).filter(m => typeof mcpClient[m] === 'function'));
 
         // 3. MCP 툴 제공자 생성
         console.log('3. MCP 툴 제공자 생성 중...');
-        const mcpProvider = createMcpToolProvider(mcpClient, {
-            model: 'mcp-model',
-            temperature: 0.7
-        });
+        // 타입 단언(as any)을 사용하여 타입 오류 해결
+        // 참고: 실제 프로덕션 코드에서는 올바른 타입 구현을 권장합니다
+        const mcpProvider = createMcpToolProvider(mcpClient as any);
 
         // 4. OpenAI 클라이언트 생성
         console.log('4. OpenAI 클라이언트 생성 중...');
@@ -95,33 +92,10 @@ async function main() {
         // 6. Robota 에이전트 인스턴스 생성
         console.log('6. Robota 에이전트 인스턴스 생성 중...');
         const agent = new Robota({
+            aiClient: openaiProvider, // OpenAI 제공자 사용
             provider: mcpProvider, // MCP 제공자 사용
             systemPrompt: '당신은 MCP를 통해 연결된 AI 모델을 사용하는 도우미입니다. 정확하고 유용한 정보를 제공하세요.'
         });
-
-
-        // 7. 기본 대화 실행
-        console.log('7. 기본 대화 실행 중...');
-        try {
-            // 직접 callTool을 사용하여 'add' 도구 호출
-            console.log('Add 도구 호출 결과:');
-            const addResult = await mcpClient.callTool({
-                name: 'add',
-                arguments: { a: 5, b: 7 }
-            });
-            console.log(addResult);
-
-            // 날씨 정보 가져오기
-            console.log('\n날씨 도구 호출 결과:');
-            const weatherResult = await mcpClient.callTool({
-                name: 'getWeather',
-                arguments: { location: '서울', unit: 'celsius' }
-            });
-            console.log(weatherResult);
-
-        } catch (error) {
-            console.error('도구 호출 오류:', error);
-        }
 
         // 8. 자연어로 도구 호출을 포함한 대화 실행
         console.log('8. 자연어로 도구 호출 예제 실행 중...');

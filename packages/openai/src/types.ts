@@ -6,6 +6,21 @@ import OpenAI from 'openai';
  */
 export interface OpenAIProviderOptions extends ProviderOptions {
   /**
+   * 사용할 모델 이름 (기본값: gpt-3.5-turbo)
+   */
+  model: string;
+
+  /**
+   * 온도 (0~1)
+   */
+  temperature?: number;
+
+  /**
+   * 최대 토큰 수
+   */
+  maxTokens?: number;
+
+  /**
    * OpenAI API 키 (옵션: client를 사용하는 경우 필요하지 않음)
    */
   apiKey?: string;

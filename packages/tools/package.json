@@ -39,8 +39,10 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@robota-sdk/core": "workspace:*",
     "zod": "^3.24.4"
+  },
+  "peerDependencies": {
+    "@robota-sdk/core": "workspace:*"
   },
   "devDependencies": {
     "rimraf": "^5.0.5",
