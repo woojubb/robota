@@ -6,13 +6,72 @@ import {
     Message,
     ModelResponse,
     RunOptions,
-    RobotaOptions,
     StreamingResponseChunk,
-    AIClient
+    FunctionCallConfig
 } from './types';
 import { SimpleMemory } from './memory';
 import type { Memory } from './memory';
 import type { ToolProvider } from './tool-provider';
+
+/**
+ * AI 제공업체 클라이언트 타입
+ */
+export type AIClientType = 'openai' | 'anthropic' | 'google' | 'cohere' | string;
+
+/**
+ * 전송 계층 인터페이스
+ */
+export interface Transport {
+    close: () => Promise<void>;
+    // 필요시 추가 메서드
+}
+
+/**
+ * AI 제공업체 클라이언트 인터페이스
+ */
+export interface AIClient {
+    type: AIClientType; // 클라이언트 타입
+    instance: any; // 클라이언트 인스턴스
+    close?: () => Promise<void>; // 클라이언트 연결 종료 메서드 (선택 사항)
+    transport?: Transport; // 전송 계층 (선택 사항)
+}
+
+/**
+ * Robota 설정 인터페이스
+ */
+export interface RobotaOptions {
+    /** 
+     * 도구 제공자 (toolProvider) - MCP, OpenAPI, ZodFunction 등의 도구를 제공하는 Provider
+     * createMcpToolProvider, createOpenAPIToolProvider, createZodFunctionToolProvider 등으로 생성
+     */
+    provider?: ToolProvider;
+
+    /** 
+     * AI 제공업체 클라이언트 - OpenAIProvider, AnthropicProvider 등 
+     */
+    aiClient?: AIClient;
+
+    /** 사용할 모델명 (선택 사항) */
+    model?: string;
+
+    /** 모델 온도 (선택 사항) */
+    temperature?: number;
+
+    /** 시스템 프롬프트 */
+    systemPrompt?: string;
+
+    /** 시스템 메시지 배열 */
+    systemMessages?: Message[];
+
+    /** 메모리 인터페이스 */
+    memory?: any;
+
+    /** 함수 호출 설정 */
+    functionCallConfig?: FunctionCallConfig;
+
+    /** 도구 호출 콜백 */
+    onToolCall?: (toolName: string, params: any, result: any) => void;
+}
 
 /**
  * Robota의 메인 클래스

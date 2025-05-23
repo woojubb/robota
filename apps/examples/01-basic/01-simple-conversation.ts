@@ -1,7 +1,10 @@
 /**
- * 간단한 대화 예제
+ * 01-simple-conversation.ts
  * 
- * 이 예제는 기본적인 Robota 설정과 사용법을 보여줍니다.
+ * 이 예제는 Robota의 가장 기본적인 사용법을 보여줍니다:
+ * - OpenAIProvider를 사용한 간단한 대화
+ * - 메시지 전송 (run 메서드)
+ * - 스트리밍 응답 (runStream 메서드)
  */
 
 import { Robota } from '@robota-sdk/core';
@@ -27,7 +30,7 @@ async function main() {
     // Robota 인스턴스 생성
     const robota = new Robota({
         aiClient: new OpenAIProvider({
-            model: 'gpt-4',
+            model: 'gpt-3.5-turbo', // 모델 명시적 지정
             client: openaiClient
         }),
         systemPrompt: '당신은 도움이 되는 AI 어시스턴트입니다. 간결하고 유용한 응답을 제공하세요.'
@@ -39,14 +42,11 @@ async function main() {
     const response1 = await robota.run('안녕하세요! 타입스크립트에 대해 알려주세요.');
     console.log('응답: ', response1);
 
-    const response2 = await robota.run('타입스크립트와 자바스크립트의 주요 차이점을 3가지만 알려주세요.');
-    console.log('응답: ', response2);
-
     // 스트리밍 응답 예제
     console.log('\n===== 스트리밍 응답 예제 =====');
     console.log('응답: ');
 
-    const stream = await robota.runStream('타입스크립트의 장점에 대해 자세히 설명해주세요.');
+    const stream = await robota.runStream('타입스크립트의 장점에 대해 간략하게 설명해주세요.');
 
     for await (const chunk of stream) {
         process.stdout.write(chunk.content || '');

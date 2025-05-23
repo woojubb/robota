@@ -4,6 +4,9 @@
  * Robota AI 에이전트를 위한 도구 라이브러리
  */
 
+// types.ts에서 타입 내보내기
+export type { FunctionSchema } from './types';
+
 /**
  * 도구 실행 결과 타입
  */

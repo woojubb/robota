@@ -1,5 +1,5 @@
 import { ToolProvider } from './tool-provider';
-import type { FunctionSchema } from '@robota-sdk/core';
+import type { FunctionSchema } from './types';
 
 /**
  * OpenAPI 명세를 기반으로 도구 제공자 생성

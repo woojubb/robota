@@ -1,4 +1,4 @@
-import type { FunctionSchema } from '@robota-sdk/core';
+import type { FunctionSchema } from './types';
 
 /**
  * 도구 제공자(Tool Provider) 인터페이스
