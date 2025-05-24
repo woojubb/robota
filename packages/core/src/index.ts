@@ -6,6 +6,9 @@ export * from './memory';
 export * from './tools';
 export * from './utils';
 
+// Providers 내보내기
+export * from './providers/openai-provider';
+
 // function.ts에서 필요한 항목만 내보내기
 export {
     createFunction,

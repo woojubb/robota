@@ -7,7 +7,7 @@
  * - 스트리밍 응답 (runStream 메서드)
  */
 
-import { Robota } from '@robota-sdk/core';
+import { Robota, OpenAIProvider } from '@robota-sdk/core';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
@@ -26,10 +26,16 @@ async function main() {
         apiKey
     });
 
+    // OpenAI Provider 생성
+    const openaiProvider = new OpenAIProvider(openaiClient);
+
     // Robota 인스턴스 생성
     const robota = new Robota({
-        aiClient: openaiClient,
-        model: 'gpt-3.5-turbo',
+        aiProviders: {
+            'openai': openaiProvider
+        },
+        currentProvider: 'openai',
+        currentModel: 'gpt-3.5-turbo',
         systemPrompt: '당신은 도움이 되는 AI 어시스턴트입니다. 간결하고 유용한 응답을 제공하세요.'
     });
 

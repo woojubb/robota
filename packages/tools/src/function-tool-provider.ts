@@ -8,24 +8,7 @@
 
 import { z } from 'zod';
 import type { ZodFunctionTool, zodFunctionToSchema } from './zod-schema';
-
-// ToolProvider 인터페이스 타입 (실제로는 @robota-sdk/core에서 가져와야 함)
-interface ToolProvider {
-    /**
-     * 도구를 호출합니다. 모든 도구 제공자는 이 인터페이스를 구현해야 합니다.
-     * 
-     * @param toolName 호출할 도구 이름
-     * @param parameters 도구에 전달할 파라미터
-     * @returns 도구 호출 결과
-     */
-    callTool(toolName: string, parameters: Record<string, any>): Promise<any>;
-
-    /**
-     * 도구 제공자가 제공하는 모든 함수 스키마 목록
-     * AI 모델에 도구 목록을 전달할 때 사용됩니다.
-     */
-    functions?: any[];
-}
+import type { ToolProvider } from './tool-provider';
 
 /**
  * Zod 스키마 기반 함수 도구 제공자 옵션
@@ -103,7 +86,7 @@ export function createZodFunctionToolProvider(options: ZodFunctionToolProviderOp
             name: tool.name,
             description: tool.description,
             parameters: {
-                type: "object",
+                type: "object" as const,
                 properties,
                 required: required.length > 0 ? required : undefined
             }

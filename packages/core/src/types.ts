@@ -131,13 +131,3 @@ export interface FunctionCallConfig {
   timeout?: number;
   allowedFunctions?: string[];
 }
-
-/**
- * 대화 컨텍스트 인터페이스
- */
-export interface Context {
-  messages: Message[];
-  systemPrompt?: string;
-  systemMessages?: Message[];
-  metadata?: Record<string, any>;
-}
