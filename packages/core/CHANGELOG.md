@@ -1,5 +1,13 @@
 # @robota-sdk/core
 
+## 0.2.6
+
+### Patch Changes
+
+- Initial release of Robota SDK - A comprehensive JavaScript/TypeScript library for building Agentic AI applications with ease. This release includes core functionality, provider integrations for OpenAI and Anthropic, essential tools, comprehensive documentation, and example implementations.
+- Updated dependencies
+  - @robota-sdk/tools@0.2.6
+
 ## 0.2.5
 
 ### Patch Changes
