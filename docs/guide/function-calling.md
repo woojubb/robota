@@ -6,189 +6,349 @@ lang: en-US
 
 # Function Calling
 
-Function calling is a feature that allows AI models to call predefined functions. This enables AI to interact with external systems, retrieve data, or perform calculations.
+Function calling enables AI models to interact with external systems, retrieve data, or perform calculations through predefined functions. Robota provides a powerful and type-safe tool system for implementing function calling.
+
+## Overview
+
+Robota's function calling system consists of:
+
+- **Tool Providers**: Manage collections of tools that AI can use
+- **Tool Definitions**: Type-safe function definitions with Zod schema validation
+- **Automatic Invocation**: AI automatically determines when and how to use tools
+- **Multiple Tool Types**: Support for Zod tools, MCP tools, and OpenAPI tools
 
 ## Basic Function Calling
 
-Robota에서는 ToolProvider 인터페이스를 구현한 제공업체를 통해 함수 호출 기능을 사용합니다:
+Here's how to set up basic function calling with Zod-based tools:
 
 ```typescript
-import { Robota } from '@robota-sdk/core';
-import { OpenAIProvider } from '@robota-sdk/provider-openai';
-import { createZodToolProvider } from '@robota-sdk/tools';
-import { z } from 'zod';
+import { Robota, OpenAIProvider } from '@robota-sdk/core';
+import { createZodFunctionToolProvider } from '@robota-sdk/tools';
 import OpenAI from 'openai';
-
-// OpenAI 클라이언트 생성
-const openaiClient = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
-// zod 스키마로 함수 정의
-const getWeatherFunction = {
-  name: 'getWeather',
-  description: '특정 위치의 날씨 정보를 가져옵니다.',
-  parameters: z.object({
-    location: z.string().describe('날씨를 검색할 위치 (도시명)'),
-    unit: z.enum(['celsius', 'fahrenheit']).default('celsius').describe('온도 단위')
-  }),
-  execute: async (params: { location: string, unit: 'celsius' | 'fahrenheit' }) => {
-    console.log(`${params.location}의 날씨를 ${params.unit} 단위로 검색 중...`);
-    // 실제 구현에서는 날씨 API 호출
-    return { 
-      temperature: 25, 
-      condition: '맑음', 
-      humidity: 60,
-      unit: params.unit
-    };
-  }
-};
-
-const calculateFunction = {
-  name: 'calculate',
-  description: '수학 표현식을 계산합니다.',
-  parameters: z.object({
-    expression: z.string().describe('계산할 수학 표현식 (예: 2 + 2)')
-  }),
-  execute: async (params: { expression: string }) => {
-    console.log(`계산 중: ${params.expression}`);
-    // 주의: eval은 보안상 위험할 수 있습니다. 실제 사용시 안전한 대안을 고려하세요.
-    return { result: eval(params.expression) };
-  }
-};
-
-// 함수 제공업체 생성
-const toolProvider = createZodToolProvider(
-  {
-    functions: [getWeatherFunction, calculateFunction],
-    model: 'gpt-4',
-    client: openaiClient
-  }
-);
-
-// Robota 인스턴스 생성
-const robota = new Robota({
-  provider: toolProvider,
-  systemPrompt: '당신은 도움이 되는 AI 어시스턴트입니다.'
-});
-
-// 실행
-const result = await robota.run('서울의 날씨가 어떤지 알려주고, 25 + 15의 계산 결과도 보여줘.');
-console.log(result);
-```
-
-## Using zod for Schema Definition
-
-보다 강력한 매개변수 검증을 위해 `zod` 라이브러리를 사용할 수 있습니다:
-
-```typescript
 import { z } from 'zod';
-import { Robota } from '@robota-sdk/core';
-import { createZodToolProvider } from '@robota-sdk/tools';
-import OpenAI from 'openai';
+import dotenv from 'dotenv';
 
-// zod 스키마를 사용한 함수 생성
-const sendEmailFunction = {
-  name: 'sendEmail',
-  description: '지정된 수신자에게 이메일을 보냅니다',
-  parameters: z.object({
-    to: z.string().email('유효한 이메일 주소가 필요합니다'),
-    subject: z.string().min(1, '제목은 비어있을 수 없습니다'),
-    body: z.string(),
-    cc: z.array(z.string().email()).optional(),
-    bcc: z.array(z.string().email()).optional(),
-    attachments: z.array(z.string().url()).optional()
-  }),
-  execute: async (params) => {
-    console.log(`이메일 전송 중: ${params.subject}`);
-    // 실제 이메일 전송 로직
-    return { 
-      status: 'sent',
-      messageId: 'msg-' + Math.random().toString(36).substring(2, 9)
+dotenv.config();
+
+async function main() {
+    // Create OpenAI client
+    const openaiClient = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY
+    });
+
+    // Create OpenAI Provider
+    const openaiProvider = new OpenAIProvider(openaiClient);
+
+    // Define calculator tool
+    const calculatorTool = {
+        name: 'calculate',
+        description: 'Performs mathematical calculations',
+        parameters: z.object({
+            operation: z.enum(['add', 'subtract', 'multiply', 'divide']).describe('Operation to perform'),
+            a: z.number().describe('First number'),
+            b: z.number().describe('Second number')
+        }),
+        handler: async (params) => {
+            const { operation, a, b } = params;
+            console.log(`[Tool] Calculating: ${a} ${operation} ${b}`);
+            
+            let result;
+            switch (operation) {
+                case 'add': result = { result: a + b }; break;
+                case 'subtract': result = { result: a - b }; break;
+                case 'multiply': result = { result: a * b }; break;
+                case 'divide': result = b !== 0 ? { result: a / b } : { error: 'Cannot divide by zero' }; break;
+            }
+            
+            console.log(`[Tool] Result:`, result);
+            return result;
+        }
     };
-  }
+
+    // Create tool provider
+    const toolProvider = createZodFunctionToolProvider({
+        tools: {
+            calculate: calculatorTool
+        }
+    });
+
+    // Create Robota instance with tools
+    const robota = new Robota({
+        aiProviders: {
+            'openai': openaiProvider
+        },
+        currentProvider: 'openai',
+        currentModel: 'gpt-3.5-turbo',
+        toolProviders: [toolProvider],
+        systemPrompt: 'You are a helpful AI assistant. Use the calculate tool for mathematical operations.',
+        debug: true  // Enable tool call logging
+    });
+
+    // AI will automatically use the calculator tool
+    const response = await robota.run('Please calculate 15 multiplied by 7 using the calculator tool.');
+    console.log('Response:', response);
+}
+
+main().catch(console.error);
+```
+
+## Complex Tool Examples
+
+### Weather Tool with Validation
+
+```typescript
+const weatherTool = {
+    name: 'getWeather',
+    description: 'Get current weather information for a location',
+    parameters: z.object({
+        location: z.string().min(1).describe('City name or location'),
+        unit: z.enum(['celsius', 'fahrenheit']).default('celsius').describe('Temperature unit'),
+        includeHumidity: z.boolean().default(false).describe('Include humidity information')
+    }),
+    handler: async ({ location, unit, includeHumidity }) => {
+        console.log(`[Weather Tool] Fetching weather for ${location} in ${unit}`);
+        
+        // Simulate API call
+        const weatherData = {
+            location,
+            temperature: unit === 'celsius' ? 22 : 72,
+            condition: 'sunny',
+            unit: unit === 'celsius' ? 'C' : 'F'
+        };
+
+        if (includeHumidity) {
+            weatherData.humidity = 65;
+        }
+
+        return weatherData;
+    }
+};
+```
+
+### Email Tool with Complex Schema
+
+```typescript
+const emailTool = {
+    name: 'sendEmail',
+    description: 'Send an email to specified recipients',
+    parameters: z.object({
+        to: z.array(z.string().email()).min(1).describe('Email recipients'),
+        subject: z.string().min(1).describe('Email subject'),
+        body: z.string().min(1).describe('Email body content'),
+        cc: z.array(z.string().email()).optional().describe('CC recipients'),
+        bcc: z.array(z.string().email()).optional().describe('BCC recipients'),
+        priority: z.enum(['low', 'normal', 'high']).default('normal').describe('Email priority')
+    }),
+    handler: async ({ to, subject, body, cc, bcc, priority }) => {
+        console.log(`[Email Tool] Sending email: ${subject}`);
+        console.log(`To: ${to.join(', ')}`);
+        if (cc?.length) console.log(`CC: ${cc.join(', ')}`);
+        if (bcc?.length) console.log(`BCC: ${bcc.join(', ')}`);
+        
+        // Simulate email sending
+        return {
+            status: 'sent',
+            messageId: `msg-${Date.now()}`,
+            timestamp: new Date().toISOString()
+        };
+    }
+};
+```
+
+## Multiple Tools Example
+
+Create a comprehensive tool provider with multiple tools:
+
+```typescript
+// Define multiple tools
+const tools = {
+    calculate: {
+        name: 'calculate',
+        description: 'Perform mathematical calculations',
+        parameters: z.object({
+            operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
+            a: z.number(),
+            b: z.number()
+        }),
+        handler: async ({ operation, a, b }) => {
+            const operations = {
+                add: a + b,
+                subtract: a - b,
+                multiply: a * b,
+                divide: b !== 0 ? a / b : null
+            };
+            return { result: operations[operation] };
+        }
+    },
+
+    getWeather: {
+        name: 'getWeather',
+        description: 'Get weather information',
+        parameters: z.object({
+            location: z.string().describe('City name'),
+            unit: z.enum(['celsius', 'fahrenheit']).default('celsius')
+        }),
+        handler: async ({ location, unit }) => {
+            // Simulate weather API
+            return {
+                location,
+                temperature: unit === 'celsius' ? 22 : 72,
+                condition: 'sunny',
+                humidity: 65
+            };
+        }
+    },
+
+    getCurrentTime: {
+        name: 'getCurrentTime',
+        description: 'Get current time in specified timezone',
+        parameters: z.object({
+            timezone: z.string().default('UTC').describe('Timezone (e.g., America/New_York)')
+        }),
+        handler: async ({ timezone }) => {
+            return {
+                time: new Date().toLocaleString('en-US', { timeZone: timezone }),
+                timezone,
+                timestamp: Date.now()
+            };
+        }
+    }
 };
 
-// OpenAI 클라이언트 생성
-const openaiClient = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
-// 함수 제공업체 생성
-const toolProvider = createZodToolProvider(
-  {
-    functions: [sendEmailFunction],
-    model: 'gpt-4',
-    client: openaiClient
-  }
-);
+// Create tool provider with multiple tools
+const multiToolProvider = createZodFunctionToolProvider({ tools });
 
 const robota = new Robota({
-  provider: toolProvider,
-  systemPrompt: '당신은 이메일 전송을 도와주는 어시스턴트입니다.'
+    aiProviders: { 'openai': openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-3.5-turbo',
+    toolProviders: [multiToolProvider],
+    systemPrompt: 'You are a helpful assistant with access to calculator, weather, and time tools.'
 });
 
-// 실행
-const result = await robota.run('contact@example.com으로 회의 일정에 대한 이메일을 보내줘.');
-console.log(result);
+// AI can use multiple tools in a single conversation
+const response = await robota.run(
+    'What is 25 * 4, what is the weather in Tokyo, and what time is it in Japan?'
+);
 ```
 
-## Function Calling Modes
+## Tool Provider Without AI
 
-Robota는 다양한 함수 호출 모드를 지원합니다:
-
-### Auto Mode (Default)
-
-AI가 필요에 따라 함수를 자동으로 호출합니다:
+You can also use tool providers independently without AI:
 
 ```typescript
-// 개별 호출에서 설정
-const result = await robota.run('내일 서울의 날씨가 어떤지 알려줘', {
-  functionCallMode: 'auto' // 기본값이므로 생략 가능
+const toolOnlyRobota = new Robota({
+    toolProviders: [toolProvider],
+    systemPrompt: 'You process requests using available tools.'
 });
 
-// 전역 설정
-robota.setFunctionCallMode('auto');
+// Direct tool usage without AI provider
+const queries = [
+    'Calculate 10 + 5',
+    'What is the weather in Seoul?',
+    'What time is it in New York?'
+];
+
+for (const query of queries) {
+    console.log(`\nUser: ${query}`);
+    const response = await toolOnlyRobota.run(query);
+    console.log(`Assistant: ${response}`);
+}
 ```
 
-### Force Mode
+## Available Tool Information
 
-특정 함수를 강제로 호출하도록 지시합니다:
+Check what tools are available to your AI:
 
 ```typescript
-// 개별 호출에서 설정
-const result = await robota.run('내일 서울의 날씨가 어떤지 알려줘', {
-  functionCallMode: 'force',
-  forcedFunction: 'getWeather',
-  forcedArguments: { location: '서울', unit: 'celsius' }
-});
+// Get available tools
+const availableTools = robota.getAvailableTools();
+console.log('Available tools:', availableTools.map(tool => tool.name));
 
-// 전역 설정 + 개별 호출에서 함수 지정
-robota.setFunctionCallMode('force');
-const result = await robota.run('아무 내용', {
-  forcedFunction: 'getWeather',
-  forcedArguments: { location: '서울' }
-});
+// Print tool schemas
+console.log('Tool schemas:', JSON.stringify(availableTools, null, 2));
 ```
 
-### Disabled Mode
+## Error Handling in Tools
 
-함수 호출을 완전히 비활성화합니다:
+Implement proper error handling in your tool handlers:
 
 ```typescript
-// 개별 호출에서 설정
-const result = await robota.run('안녕하세요!', {
-  functionCallMode: 'disabled'
+const robustCalculatorTool = {
+    name: 'robustCalculate',
+    description: 'Perform calculations with error handling',
+    parameters: z.object({
+        operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
+        a: z.number(),
+        b: z.number()
+    }),
+    handler: async ({ operation, a, b }) => {
+        try {
+            console.log(`Calculating: ${a} ${operation} ${b}`);
+            
+            if (operation === 'divide' && b === 0) {
+                return { 
+                    error: 'Cannot divide by zero',
+                    code: 'DIVISION_BY_ZERO' 
+                };
+            }
+
+            const operations = {
+                add: a + b,
+                subtract: a - b,
+                multiply: a * b,
+                divide: a / b
+            };
+
+            const result = operations[operation];
+            
+            // Validate result
+            if (!isFinite(result)) {
+                return { 
+                    error: 'Result is not a finite number',
+                    code: 'INVALID_RESULT' 
+                };
+            }
+
+            return { 
+                result,
+                operation: `${a} ${operation} ${b} = ${result}`
+            };
+
+        } catch (error) {
+            return { 
+                error: 'Calculation failed',
+                code: 'CALCULATION_ERROR',
+                details: error.message 
+            };
+        }
+    }
+};
+```
+
+## Debugging Tools
+
+Enable debugging to see tool execution details:
+
+```typescript
+const robota = new Robota({
+    aiProviders: { 'openai': openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-3.5-turbo',
+    toolProviders: [toolProvider],
+    debug: true,  // Enable debugging
+    logger: {
+        info: (msg, ...args) => console.log(`ℹ️ ${msg}`, ...args),
+        debug: (msg, ...args) => console.log(`🐛 ${msg}`, ...args),
+        warn: (msg, ...args) => console.warn(`⚠️ ${msg}`, ...args),
+        error: (msg, ...args) => console.error(`❌ ${msg}`, ...args)
+    }
 });
-
-// 전역 설정
-robota.setFunctionCallMode('disabled');
 ```
 
-## Supporting Various Providers
+## Next Steps
 
-Robota는 다양한 제공업체를 통해 함수 호출을 지원합니다:
-
-### OpenAI Tool Provider
-
-```
+- Learn about [Building Agents](./building-agents.md) for more complex AI workflows
+- Explore [AI Providers](../providers.md) for different AI model integrations
+- Check out the complete examples in the `apps/examples` directory
+- Read about [Core Concepts](./core-concepts.md) to understand Robota's architecture
