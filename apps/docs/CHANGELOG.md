@@ -1,5 +1,17 @@
 # robota-docs
 
+## 1.0.3
+
+### Patch Changes
+
+- e896862: Update codebase and documentation to English
+
+  - Update all comments and error messages to English across all packages
+  - Standardize documentation to English-only for better international accessibility
+  - Update VitePress configuration for English documentation site
+  - Update package descriptions to English
+  - Convert build script messages to English for consistency
+
 ## 1.0.2
 
 ### Patch Changes

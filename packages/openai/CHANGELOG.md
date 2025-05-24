@@ -1,5 +1,20 @@
 # @robota-sdk/openai
 
+## 0.2.7
+
+### Patch Changes
+
+- e896862: Update codebase and documentation to English
+
+  - Update all comments and error messages to English across all packages
+  - Standardize documentation to English-only for better international accessibility
+  - Update VitePress configuration for English documentation site
+  - Update package descriptions to English
+  - Convert build script messages to English for consistency
+
+- Updated dependencies [e896862]
+  - @robota-sdk/core@0.2.7
+
 ## 0.2.6
 
 ### Patch Changes
