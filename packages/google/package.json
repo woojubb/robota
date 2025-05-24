@@ -1,6 +1,6 @@
 {
     "name": "@robota-sdk/google",
-    "version": "0.2.5",
+    "version": "0.2.7",
     "description": "Robota's Google AI integration package",
     "type": "module",
     "main": "dist/index.js",
