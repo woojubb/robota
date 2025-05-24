@@ -1,21 +1,21 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 /**
- * Google AI Provider 옵션
+ * Google AI Provider options
  */
 export interface GoogleProviderOptions {
-    /** Google AI client 인스턴스 */
+    /** Google AI client instance */
     client: GoogleGenerativeAI;
 
-    /** 사용할 기본 모델 */
+    /** Default model to use */
     model?: string;
 
-    /** 온도 설정 (0.0 ~ 1.0) */
+    /** Temperature setting (0.0 ~ 1.0) */
     temperature?: number;
 
-    /** 최대 토큰 수 */
+    /** Maximum number of tokens */
     maxTokens?: number;
 
-    /** 응답 형식 */
+    /** Response format */
     responseFormat?: string;
 } 

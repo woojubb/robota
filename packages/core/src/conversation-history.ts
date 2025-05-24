@@ -1,95 +1,95 @@
 import type { FunctionCall, FunctionCallResult } from '@robota-sdk/tools';
 
 /**
- * Universal message role type - AI Provider에 종속되지 않는 중립적인 역할
+ * Universal message role type - Provider-independent neutral role
  */
 export type UniversalMessageRole = 'user' | 'assistant' | 'system' | 'tool';
 
 /**
- * Universal message interface - AI Provider에 독립적인 메시지 구조
+ * Universal message interface - AI Provider-independent message structure
  */
 export interface UniversalMessage {
-    /** 메시지 역할 */
+    /** Message role */
     role: UniversalMessageRole;
 
-    /** 메시지 내용 */
+    /** Message content */
     content: string;
 
-    /** 메시지 발신자 이름 (optional) */
+    /** Message sender name (optional) */
     name?: string;
 
-    /** 함수 호출 정보 (assistant 메시지에서 사용) */
+    /** Function call information (used in assistant messages) */
     functionCall?: FunctionCall;
 
-    /** 도구 실행 결과 (tool 메시지에서 사용) */
+    /** Tool execution result (used in tool messages) */
     toolResult?: FunctionCallResult;
 
-    /** 메시지 생성 시각 */
+    /** Message creation time */
     timestamp: Date;
 
-    /** 추가 메타데이터 */
+    /** Additional metadata */
     metadata?: Record<string, any>;
 }
 
 /**
  * Conversation history interface
  * 
- * 대화 기록을 관리하는 인터페이스로, AI Provider에 종속되지 않는 중립적인 형태로 설계됨
+ * Interface for managing conversation history, designed in a neutral form independent of AI Provider
  */
 export interface ConversationHistory {
     /**
-     * 메시지를 대화 기록에 추가
+     * Add message to conversation history
      */
     addMessage(message: UniversalMessage): void;
 
     /**
-     * 사용자 메시지 추가 (편의 메서드)
+     * Add user message (convenience method)
      */
     addUserMessage(content: string, metadata?: Record<string, any>): void;
 
     /**
-     * 어시스턴트 메시지 추가 (편의 메서드)
+     * Add assistant message (convenience method)
      */
     addAssistantMessage(content: string, functionCall?: FunctionCall, metadata?: Record<string, any>): void;
 
     /**
-     * 시스템 메시지 추가 (편의 메서드)
+     * Add system message (convenience method)
      */
     addSystemMessage(content: string, metadata?: Record<string, any>): void;
 
     /**
-     * 도구 실행 결과 메시지 추가 (편의 메서드)
+     * Add tool execution result message (convenience method)
      */
     addToolMessage(toolResult: FunctionCallResult, metadata?: Record<string, any>): void;
 
     /**
-     * 모든 메시지 가져오기
+     * Get all messages
      */
     getMessages(): UniversalMessage[];
 
     /**
-     * 특정 역할의 메시지만 가져오기
+     * Get messages by specific role
      */
     getMessagesByRole(role: UniversalMessageRole): UniversalMessage[];
 
     /**
-     * 최근 n개의 메시지 가져오기
+     * Get recent n messages
      */
     getRecentMessages(count: number): UniversalMessage[];
 
     /**
-     * 대화 기록 정리
+     * Clear conversation history
      */
     clear(): void;
 
     /**
-     * 메시지 개수 반환
+     * Return message count
      */
     getMessageCount(): number;
 }
 
 /**
- * 기본 대화 기록 구현체
+ * Default conversation history implementation
  */
 export class SimpleConversationHistory implements ConversationHistory {
     private messages: UniversalMessage[] = [];
@@ -169,22 +169,22 @@ export class SimpleConversationHistory implements ConversationHistory {
 
     private _applyMessageLimit(): void {
         if (this.maxMessages > 0 && this.messages.length > this.maxMessages) {
-            // 시스템 메시지는 항상 유지
+            // Always keep system messages
             const systemMessages = this.messages.filter(m => m.role === 'system');
             const nonSystemMessages = this.messages.filter(m => m.role !== 'system');
 
-            // 시스템 메시지를 제외한 메시지만 제한 적용
+            // Apply limit only to non-system messages
             const remainingCount = this.maxMessages - systemMessages.length;
             const trimmedNonSystemMessages = nonSystemMessages.slice(-remainingCount);
 
-            // 시스템 메시지와 제한된 일반 메시지 결합
+            // Combine system messages with limited general messages
             this.messages = [...systemMessages, ...trimmedNonSystemMessages];
         }
     }
 }
 
 /**
- * 시스템 메시지를 유지하는 대화 기록 구현체
+ * Conversation history implementation that maintains system messages
  */
 export class PersistentSystemConversationHistory implements ConversationHistory {
     private history: SimpleConversationHistory;
@@ -194,7 +194,7 @@ export class PersistentSystemConversationHistory implements ConversationHistory 
         this.history = new SimpleConversationHistory(options);
         this.systemPrompt = systemPrompt;
 
-        // 초기 시스템 메시지 추가
+        // Add initial system message
         this.history.addSystemMessage(this.systemPrompt);
     }
 
@@ -236,31 +236,31 @@ export class PersistentSystemConversationHistory implements ConversationHistory 
 
     clear(): void {
         this.history.clear();
-        // 시스템 메시지 다시 추가
+        // Add initial system message
         this.history.addSystemMessage(this.systemPrompt);
     }
 
     /**
-     * 시스템 프롬프트 업데이트
+     * Update system prompt
      */
     updateSystemPrompt(systemPrompt: string): void {
         this.systemPrompt = systemPrompt;
 
-        // 기존 시스템 메시지가 아닌 메시지들만 보존
+        // Keep only non-system messages
         const nonSystemMessages = this.history.getMessages().filter(m => m.role !== 'system');
         this.history.clear();
 
-        // 새로운 시스템 메시지 추가
+        // Add new system message
         this.history.addSystemMessage(this.systemPrompt);
 
-        // 기존 메시지들 다시 추가
+        // Add previous messages again
         for (const message of nonSystemMessages) {
             this.history.addMessage(message);
         }
     }
 
     /**
-     * 현재 시스템 프롬프트 반환
+     * Return current system prompt
      */
     getSystemPrompt(): string {
         return this.systemPrompt;

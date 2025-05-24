@@ -1,11 +1,10 @@
 import { defineConfig } from 'vitepress'
 import { enConfig } from './config/en'
-import { koConfig } from './config/ko'
 
 export default defineConfig({
     // 기본 설정
     title: 'Robota',
-    description: 'JavaScript로 쉽게 Agentic AI를 만들 수 있는 라이브러리',
+    description: 'A simple, powerful library for building AI agents with JavaScript',
 
     // 문서 소스 디렉토리 설정 (임시 디렉토리 사용)
     srcDir: './.temp',
@@ -13,24 +12,12 @@ export default defineConfig({
     // 깨진 링크 무시 설정
     ignoreDeadLinks: true,
 
-    // 다국어 설정
-    locales: {
-        root: {
-            label: 'English',
-            lang: 'en-US',
-            link: '/',
-            ...enConfig
-        },
-        ko: {
-            label: '한국어',
-            lang: 'ko-KR',
-            link: '/ko/',
-            ...koConfig
-        }
-    },
+    // 영어만 지원
+    ...enConfig,
 
     // 테마 설정
     themeConfig: {
+        ...enConfig.themeConfig,
         search: {
             provider: 'local'
         },

@@ -188,38 +188,38 @@ export class OpenAIProvider implements AIProvider {
    */
   async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
     if (!context || typeof context !== 'object') {
-      logger.error('[OpenAIProvider] 유효하지 않은 컨텍스트:', context);
-      throw new Error('유효한 Context 객체가 필요합니다');
+      logger.error('[OpenAIProvider] Invalid context:', context);
+      throw new Error('Valid Context object is required');
     }
 
     const { messages, systemPrompt } = context;
 
     if (!Array.isArray(messages)) {
-      logger.error('[OpenAIProvider] 유효하지 않은 메시지 배열:', messages);
-      throw new Error('유효한 메시지 배열이 필요합니다');
+      logger.error('[OpenAIProvider] Invalid message array:', messages);
+      throw new Error('Valid message array is required');
     }
 
-    // UniversalMessage[]를 OpenAI 형식으로 변환
+    // Convert UniversalMessage[] to OpenAI format
     let formattedMessages: OpenAI.Chat.ChatCompletionMessageParam[];
 
     try {
       formattedMessages = OpenAIConversationAdapter.toOpenAIFormat(messages as UniversalMessage[]);
 
-      // 시스템 프롬프트 추가 (필요한 경우)
+      // Add system prompt if needed
       formattedMessages = OpenAIConversationAdapter.addSystemPromptIfNeeded(formattedMessages, systemPrompt);
     } catch (error) {
-      logger.error('[OpenAIProvider] 메시지 변환 오류:', error);
-      throw new Error('메시지 형식 변환에 실패했습니다');
+      logger.error('[OpenAIProvider] Message conversion error:', error);
+      throw new Error('Failed to convert message format');
     }
 
     if (formattedMessages.length === 0) {
-      logger.error('[OpenAIProvider] 포맷된 메시지가 비어있습니다:', messages);
-      throw new Error('유효한 메시지가 필요합니다');
+      logger.error('[OpenAIProvider] Formatted messages are empty:', messages);
+      throw new Error('Valid messages are required');
     }
 
-    logger.info('[OpenAIProvider] 메시지 전송:', JSON.stringify(formattedMessages, null, 2));
+    logger.info('[OpenAIProvider] Sending messages:', JSON.stringify(formattedMessages, null, 2));
 
-    // OpenAI API 요청 옵션 구성
+    // Configure OpenAI API request options
     const completionOptions: OpenAI.Chat.ChatCompletionCreateParams = {
       model: model || this.options.model,
       messages: formattedMessages,
@@ -227,12 +227,12 @@ export class OpenAIProvider implements AIProvider {
       max_tokens: options?.maxTokens ?? this.options.maxTokens
     };
 
-    // 도구 제공자 함수 추가
+    // Add tool provider functions
     if (options?.tools && Array.isArray(options.tools)) {
       completionOptions.tools = this.formatFunctions(options.tools);
     }
 
-    // 응답 형식이 지정된 경우
+    // Set response format if specified
     if (this.options.responseFormat) {
       completionOptions.response_format = {
         type: this.options.responseFormat as any
@@ -240,52 +240,52 @@ export class OpenAIProvider implements AIProvider {
     }
 
     try {
-      logger.info('[OpenAIProvider] API 요청 옵션:', JSON.stringify(completionOptions, null, 2));
+      logger.info('[OpenAIProvider] API request options:', JSON.stringify(completionOptions, null, 2));
       const response = await this.client.chat.completions.create(completionOptions);
       return this.parseResponse(response);
     } catch (error) {
-      logger.error('[OpenAIProvider] API 호출 오류:', error);
+      logger.error('[OpenAIProvider] API call error:', error);
       throw error;
     }
   }
 
   /**
-   * 모델 채팅 스트리밍 요청
+   * Model chat streaming request
    */
   async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
     if (!context || typeof context !== 'object') {
-      logger.error('[OpenAIProvider] 유효하지 않은 컨텍스트:', context);
-      throw new Error('유효한 Context 객체가 필요합니다');
+      logger.error('[OpenAIProvider] Invalid context:', context);
+      throw new Error('Valid Context object is required');
     }
 
     const { messages, systemPrompt } = context;
 
     if (!Array.isArray(messages)) {
-      logger.error('[OpenAIProvider] 유효하지 않은 메시지 배열:', messages);
-      throw new Error('유효한 메시지 배열이 필요합니다');
+      logger.error('[OpenAIProvider] Invalid message array:', messages);
+      throw new Error('Valid message array is required');
     }
 
-    // UniversalMessage[]를 OpenAI 형식으로 변환
+    // Convert UniversalMessage[] to OpenAI format
     let formattedMessages: OpenAI.Chat.ChatCompletionMessageParam[];
 
     try {
       formattedMessages = OpenAIConversationAdapter.toOpenAIFormat(messages as UniversalMessage[]);
 
-      // 시스템 프롬프트 추가 (필요한 경우)
+      // Add system prompt if needed
       formattedMessages = OpenAIConversationAdapter.addSystemPromptIfNeeded(formattedMessages, systemPrompt);
     } catch (error) {
-      logger.error('[OpenAIProvider] 스트리밍 메시지 변환 오류:', error);
-      throw new Error('메시지 형식 변환에 실패했습니다');
+      logger.error('[OpenAIProvider] Streaming message conversion error:', error);
+      throw new Error('Failed to convert message format');
     }
 
     if (formattedMessages.length === 0) {
-      logger.error('[OpenAIProvider] 포맷된 메시지가 비어있습니다:', messages);
-      throw new Error('유효한 메시지가 필요합니다');
+      logger.error('[OpenAIProvider] Formatted messages are empty:', messages);
+      throw new Error('Valid messages are required');
     }
 
-    logger.info('[OpenAIProvider] 스트리밍 요청 시작:', JSON.stringify(formattedMessages, null, 2));
+    logger.info('[OpenAIProvider] Starting streaming request:', JSON.stringify(formattedMessages, null, 2));
 
-    // OpenAI API 요청 옵션 구성
+    // Configure OpenAI API request options
     const completionOptions: OpenAI.Chat.ChatCompletionCreateParams = {
       model: model || this.options.model,
       messages: formattedMessages,
@@ -294,12 +294,12 @@ export class OpenAIProvider implements AIProvider {
       stream: true
     };
 
-    // 도구 제공자 함수 추가
+    // Add tool provider functions
     if (options?.tools && Array.isArray(options.tools)) {
       completionOptions.tools = this.formatFunctions(options.tools);
     }
 
-    // 응답 형식이 지정된 경우
+    // Set response format if specified
     if (this.options.responseFormat) {
       completionOptions.response_format = {
         type: this.options.responseFormat as any
@@ -307,7 +307,7 @@ export class OpenAIProvider implements AIProvider {
     }
 
     try {
-      logger.info('[OpenAIProvider] 스트리밍 API 요청 옵션:', JSON.stringify({
+      logger.info('[OpenAIProvider] Streaming API request options:', JSON.stringify({
         ...completionOptions,
         stream: true
       }, null, 2));
@@ -318,15 +318,15 @@ export class OpenAIProvider implements AIProvider {
         yield this.parseStreamingChunk(chunk);
       }
     } catch (error) {
-      logger.error('[OpenAIProvider] 스트리밍 API 호출 오류:', error);
+      logger.error('[OpenAIProvider] Streaming API call error:', error);
       throw error;
     }
   }
 
   /**
-   * 리소스 해제 (필요시)
+   * Release resources (if needed)
    */
   async close(): Promise<void> {
-    // OpenAI 클라이언트는 특별한 종료 메서드가 없으므로 빈 함수로 구현
+    // OpenAI client does not have special close method, so implement as empty function
   }
 } 

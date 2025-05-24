@@ -2,20 +2,20 @@ import OpenAI from 'openai';
 import { UniversalMessage } from '@robota-sdk/core';
 
 /**
- * OpenAI ConversationHistory 어댑터
+ * OpenAI ConversationHistory adapter
  * 
- * UniversalMessage를 OpenAI Chat Completions API 형식으로 변환
+ * Converts UniversalMessage to OpenAI Chat Completions API format
  */
 export class OpenAIConversationAdapter {
     /**
-     * UniversalMessage 배열을 OpenAI 메시지 형식으로 변환
+     * Convert UniversalMessage array to OpenAI message format
      */
     static toOpenAIFormat(messages: UniversalMessage[]): OpenAI.Chat.ChatCompletionMessageParam[] {
         return messages.map(msg => this.convertMessage(msg));
     }
 
     /**
-     * 단일 UniversalMessage를 OpenAI 형식으로 변환
+     * Convert a single UniversalMessage to OpenAI format
      */
     static convertMessage(msg: UniversalMessage): OpenAI.Chat.ChatCompletionMessageParam {
         switch (msg.role) {
@@ -51,7 +51,7 @@ export class OpenAIConversationAdapter {
                 };
 
             case 'tool':
-                // OpenAI에서는 tool 역할을 function으로 변환
+                // OpenAI converts tool role to function
                 return {
                     role: 'function',
                     name: msg.name || msg.toolResult?.name || 'unknown_tool',
@@ -59,7 +59,7 @@ export class OpenAIConversationAdapter {
                 };
 
             default:
-                // 알 수 없는 역할은 user로 처리
+                // Unknown roles are handled as user
                 return {
                     role: 'user',
                     content: msg.content
@@ -68,7 +68,7 @@ export class OpenAIConversationAdapter {
     }
 
     /**
-     * 시스템 프롬프트를 메시지 배열에 추가 (필요한 경우)
+     * Add system prompt to message array if needed
      */
     static addSystemPromptIfNeeded(
         messages: OpenAI.Chat.ChatCompletionMessageParam[],
@@ -78,14 +78,14 @@ export class OpenAIConversationAdapter {
             return messages;
         }
 
-        // 이미 시스템 메시지가 있는지 확인
+        // Check if system message already exists
         const hasSystemMessage = messages.some(msg => msg.role === 'system');
 
         if (hasSystemMessage) {
             return messages;
         }
 
-        // 시스템 프롬프트를 맨 앞에 추가
+        // Add system prompt at the beginning
         return [
             { role: 'system', content: systemPrompt },
             ...messages

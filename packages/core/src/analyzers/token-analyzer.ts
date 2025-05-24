@@ -1,4 +1,5 @@
 import { get_encoding, encoding_for_model } from '@dqbd/tiktoken';
+import { logger } from '../utils';
 
 /**
  * Token Analyzer class
@@ -57,8 +58,7 @@ export class TokenAnalyzer {
 
             return tokenCount;
         } catch (error) {
-            // If tiktoken fails, fall back to rough estimation (4 chars per token)
-            console.warn('Failed to calculate tokens with tiktoken, using estimation:', error);
+            logger.warn('Failed to calculate tokens with tiktoken, using estimation:', error);
             return Math.ceil(text.length / 4);
         }
     }
@@ -95,7 +95,7 @@ export class TokenAnalyzer {
 
             return totalTokens;
         } catch (error) {
-            console.warn('Failed to calculate message tokens, using estimation:', error);
+            logger.warn('Failed to calculate message tokens, using estimation:', error);
             // Fall back to simple estimation
             const totalText = messages
                 .map(m => (m.content || '') + (m.name || ''))

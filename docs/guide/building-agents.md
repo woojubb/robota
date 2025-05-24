@@ -202,23 +202,23 @@ const translateTool = new Tool({
 
 // Planning agent creation
 const planningAgent = new PlanningRobota({
-  name: '리서치 에이전트',
-  description: '정보를 검색하고, 요약하고, 번역하는 에이전트',
+  name: 'Research Agent',
+  description: 'An agent that searches, summarizes, and translates information',
   provider: new OpenAIProvider({
     model: 'gpt-4-turbo',
     client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   }),
   tools: [searchTool, summarizeTool, translateTool],
-  systemPrompt: `당신은 정보 리서치 에이전트입니다.
-다음과 같은 단계로 사용자의 리서치 요청을 처리하세요:
-1. 적절한 검색어로 정보를 검색합니다.
-2. 검색 결과를 요약합니다.
-3. 필요한 경우 요약을 번역합니다.
-모든 단계와 판단 과정을 명확하게 설명하세요.`
+  systemPrompt: `You are an information research agent.
+Please handle user research requests following these steps:
+1. Search for information using appropriate search terms.
+2. Summarize the search results.
+3. Translate the summary if necessary.
+Clearly explain all steps and decision-making processes.`
 });
 
 // Planning agent execution
-const result = await planningAgent.run('인공지능의 역사에 대해 조사하고 요약해서 한국어로 번역해줘');
+const result = await planningAgent.run('Research the history of artificial intelligence, summarize it, and translate it to Korean');
 console.log(result);
 ```
 
@@ -238,55 +238,55 @@ const openaiClient = new OpenAI({
 
 // Researcher agent
 const researcherAgent = new Robota({
-  name: '리서처',
-  description: '정보를 검색하고 수집하는 에이전트',
+  name: 'Researcher',
+  description: 'An agent that searches and collects information',
   provider: new OpenAIProvider({
     model: 'gpt-4-turbo',
     client: openaiClient
   }),
-  systemPrompt: '당신은 정보 수집 전문가입니다. 주제에 관한 사실과 데이터를 수집하세요.'
+  systemPrompt: 'You are an information gathering specialist. Collect facts and data about the topic.'
 });
 
 // Writer agent
 const writerAgent = new Robota({
-  name: '작가',
-  description: '수집된 정보를 바탕으로 글을 작성하는 에이전트',
+  name: 'Writer',
+  description: 'An agent that writes content based on collected information',
   provider: new OpenAIProvider({
     model: 'gpt-4-turbo',
     client: openaiClient
   }),
-  systemPrompt: '당신은 글쓰기 전문가입니다. 제공된 정보를 바탕으로 명확하고 매력적인 텍스트를 작성하세요.'
+  systemPrompt: 'You are a writing expert. Create clear and engaging text based on provided information.'
 });
 
 // Editor agent
 const editorAgent = new Robota({
-  name: '편집자',
-  description: '작성된 글을 교정하고 개선하는 에이전트',
+  name: 'Editor',
+  description: 'An agent that proofreads and improves written content',
   provider: new OpenAIProvider({
     model: 'gpt-4-turbo', 
     client: openaiClient
   }),
-  systemPrompt: '당신은 편집 전문가입니다. 텍스트를 검토하고 문법, 명확성, 일관성을 개선하세요.'
+  systemPrompt: 'You are an editing expert. Review and improve text for grammar, clarity, and consistency.'
 });
 
 // Agent team configuration
 const contentTeam = new RobotaTeam({
-  name: '콘텐츠 제작 팀',
+  name: 'Content Creation Team',
   agents: [researcherAgent, writerAgent, editorAgent],
   workflow: async (team, task) => {
     // 1. Researcher collects information
     const researchResult = await team.agents.researcher.run(
-      `다음 주제에 대한 정보를 수집하세요: ${task}`
+      `Collect information about the following topic: ${task}`
     );
     
     // 2. Writer writes a draft
     const draftResult = await team.agents.writer.run(
-      `다음 정보를 바탕으로 글을 작성하세요: ${researchResult}`
+      `Write content based on the following information: ${researchResult}`
     );
     
     // 3. Editor finalizes
     const editedResult = await team.agents.editor.run(
-      `다음 글을 교정하고 개선하세요: ${draftResult}`
+      `Proofread and improve the following content: ${draftResult}`
     );
     
     return editedResult;
@@ -294,7 +294,7 @@ const contentTeam = new RobotaTeam({
 });
 
 // Team execution
-const result = await contentTeam.run('인공지능의 미래와 사회적 영향');
+const result = await contentTeam.run('The future of artificial intelligence and its social impact');
 console.log(result);
 ```
 
@@ -314,9 +314,9 @@ import OpenAI from 'openai';
 // Calculator tool
 const calculatorTool = new Tool({
   name: 'calculator',
-  description: '수학 계산을 수행합니다',
+  description: 'Performs mathematical calculations',
   parameters: z.object({
-    expression: z.string().describe('계산할 수식')
+    expression: z.string().describe('Mathematical expression to calculate')
   }),
   execute: async ({ expression }) => {
     return { result: eval(expression) };
@@ -325,26 +325,26 @@ const calculatorTool = new Tool({
 
 // ReAct agent creation
 const reactAgent = new ReActRobota({
-  name: '수학 도우미',
-  description: '수학 문제를 풀고 설명하는 에이전트',
+  name: 'Math Helper',
+  description: 'An agent that solves and explains mathematical problems',
   provider: new OpenAIProvider({
     model: 'gpt-4-turbo',
     client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   }),
   tools: [calculatorTool],
-  systemPrompt: `당신은 수학 문제를 푸는 에이전트입니다.
-문제를 해결하기 위해 다음 단계를 따르세요:
-1. 문제를 분석합니다. (추론)
-2. 필요한 계산 도구를 사용합니다. (행동)
-3. 결과를 해석합니다. (추론)
-4. 최종 답변을 제공합니다.
-각 단계에서의 생각과 판단을 명확하게 설명하세요.`,
+  systemPrompt: `You are an agent that solves mathematical problems.
+Follow these steps to solve problems:
+1. Analyze the problem. (Reasoning)
+2. Use necessary calculation tools. (Action)
+3. Interpret the results. (Reasoning)
+4. Provide the final answer.
+Clearly explain your thoughts and decisions at each step.`,
   maxIterations: 5,
   chainOfThought: true
 });
 
 // ReAct agent execution
-const result = await reactAgent.run('3^4 더하기 2^5의 값은 얼마인가요? 그리고 그 결과값이 100보다 큰지 확인해주세요.');
+const result = await reactAgent.run('What is 3^4 plus 2^5? And please check if the result is greater than 100.');
 console.log(result);
 ```
 

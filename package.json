@@ -2,7 +2,7 @@
   "name": "robota-monorepo",
   "version": "0.1.0",
   "private": true,
-  "description": "쉽게 Agentic AI를 만들 수 있는 JavaScript 라이브러리",
+  "description": "A simple, powerful library for building AI agents with JavaScript",
   "type": "module",
   "repository": {
     "type": "git",

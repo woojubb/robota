@@ -184,9 +184,9 @@ describe('Robota Analytics Integration', () => {
                 warn: (message: string) => {
                     expect(message).toContain('run() method is deprecated. Use execute() instead.');
                 },
-                error: console.error,
-                info: console.info,
-                debug: console.debug
+                error: () => { },
+                info: () => { },
+                debug: () => { }
             };
 
             const debugRobota = new Robota({
@@ -207,7 +207,10 @@ describe('Robota Analytics Integration', () => {
                 warn: (message: string) => {
                     expect(message).toContain('runStream() method is deprecated. Use executeStream() instead.');
                     warningCalled = true;
-                }
+                },
+                error: () => { },
+                info: () => { },
+                debug: () => { }
             };
 
             const debugRobota = new Robota({
@@ -337,9 +340,9 @@ describe('Robota Analytics Integration', () => {
                 info: (message: string) => {
                     logMessages.push(message);
                 },
-                error: console.error,
-                warn: console.warn,
-                debug: console.debug
+                error: () => { },
+                warn: () => { },
+                debug: () => { }
             };
 
             const debugRobota = new Robota({

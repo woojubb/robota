@@ -1,101 +1,153 @@
 ---
 title: AI Providers & Tools
-description: AI Clients and Tool Providers in Robota
+description: AI Providers and Tool Providers in Robota
 lang: en-US
 ---
 
-# AI Clients and Tool Providers
+# AI Providers and Tool Providers
 
-Robota는 두 가지 주요 구성 요소로 동작합니다:
+Robota operates with two main components:
 
-1. **AI 클라이언트 (AI Clients)**: 다양한 LLM 서비스와 통신하는 인터페이스
-2. **도구 제공자 (Tool Providers)**: AI 모델이 호출할 수 있는 기능을 제공하는 인터페이스
+1. **AI Providers**: Interfaces that communicate with various LLM services
+2. **Tool Providers**: Interfaces that provide functions that AI models can call
 
-## AI 클라이언트
+## AI Providers
 
-AI 클라이언트는 OpenAI, Anthropic 등의 LLM 서비스와 직접 통신하는 역할을 합니다. 각 클라이언트는 특정 API와 통신하고 해당 서비스의 고유 기능을 활용합니다.
+AI providers handle direct communication with LLM services like OpenAI, Anthropic, and Google AI. Each provider communicates with specific APIs and leverages the unique features of their respective services.
 
-### 지원하는 AI 클라이언트
+### Supported AI Providers
 
 #### OpenAI
 
-OpenAI의 GPT 모델과 통합. GPT-3.5, GPT-4 등을 지원합니다.
+Integration with OpenAI's GPT models. Supports GPT-3.5, GPT-4, and more.
 
-자세한 내용은 [OpenAI 클라이언트 문서](providers/openai.md)를 참조하세요.
+For detailed information, see the [OpenAI Provider Documentation](packages/openai/README.md).
 
 #### Anthropic
 
-Anthropic의 Claude 모델과 통합. Claude, Claude Instant 등을 지원합니다.
+Integration with Anthropic's Claude models. Supports Claude, Claude Instant, and more.
 
-자세한 내용은 [Anthropic 클라이언트 문서](providers/anthropic.md)를 참조하세요.
+For detailed information, see the [Anthropic Provider Documentation](packages/anthropic/README.md).
 
-### AI 클라이언트 사용하기
+#### Google AI
 
-각 AI 클라이언트는 일관된 인터페이스를 통해 사용됩니다. API 클라이언트를 직접 주입해야 합니다:
+Integration with Google's Generative AI models. Supports Gemini Pro, Gemini Pro Vision, and more.
+
+For detailed information, see the [Google AI Provider Documentation](packages/google/README.md).
+
+### Using AI Providers
+
+Each AI provider is used through a consistent interface. You must inject the API client directly:
 
 ```typescript
 import { Robota } from '@robota-sdk/core';
-import { OpenAIClient } from '@robota-sdk/openai-client';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 
-// OpenAI API 클라이언트 생성
+// Create OpenAI API client
 const openaiClient = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
   organization: process.env.OPENAI_ORGANIZATION
 });
 
-// OpenAI 클라이언트 설정 (클라이언트 주입 필수)
-const aiClient = new OpenAIClient({
+// Configure OpenAI provider (client injection required)
+const openaiProvider = new OpenAIProvider({
   model: 'gpt-4',
   temperature: 0.7,
   client: openaiClient
 });
 
-// Robota 인스턴스에 AI 클라이언트 연결
-const robota = new Robota({ aiClient });
+// Connect AI provider to Robota instance
+const robota = new Robota({
+  aiProviders: {
+    openai: openaiProvider
+  },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4'
+});
 
-// 실행
-const result = await robota.run('안녕하세요! 오늘 날씨는 어떤가요?');
+// Execute
+const result = await robota.run('Hello! How is the weather today?');
 ```
 
-### 클라이언트 인스턴스 주입 (필수)
+### Client Instance Injection (Required)
 
-Robota는 외부에서 생성된 API 클라이언트를 사용합니다. 이를 통해:
+Robota uses externally created API clients. This approach provides:
 
-1. 애플리케이션 전반에 걸쳐 일관된 클라이언트 설정 유지
-2. 테스트 가능성 및 모킹 개선
-3. 클라이언트 설정에 대한 더 세밀한 제어
+1. Consistent client configuration across the application
+2. Improved testability and mocking capabilities
+3. Fine-grained control over client settings
 
 ```typescript
 import { Robota } from '@robota-sdk/core';
-import { AnthropicClient } from '@robota-sdk/anthropic-client';
+import { AnthropicProvider } from '@robota-sdk/anthropic';
 import Anthropic from '@anthropic-ai/sdk';
 
-// Anthropic 클라이언트 생성
+// Create Anthropic client
 const anthropicClient = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY
 });
 
-// Anthropic 클라이언트 설정 (클라이언트 주입 필수)
-const aiClient = new AnthropicClient({
+// Configure Anthropic provider (client injection required)
+const anthropicProvider = new AnthropicProvider({
   model: 'claude-3-opus',
   temperature: 0.7,
   client: anthropicClient
 });
 
-// Robota 인스턴스에 AI 클라이언트 연결
-const robota = new Robota({ aiClient });
+// Connect AI provider to Robota instance
+const robota = new Robota({
+  aiProviders: {
+    anthropic: anthropicProvider
+  },
+  currentProvider: 'anthropic',
+  currentModel: 'claude-3-opus'
+});
 ```
 
-## 도구 제공자 (Tool Providers)
+### Multiple Provider Setup
 
-도구 제공자는 AI 모델이 호출할 수 있는 기능을 제공합니다. 이를 통해 AI는 외부 시스템과 상호 작용하거나 특정 작업을 수행할 수 있습니다.
+You can configure multiple providers and switch between them:
 
-### 지원하는 도구 제공자 타입
+```typescript
+import { GoogleProvider } from '@robota-sdk/google';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-#### Zod Function 도구 제공자
+// Create Google AI client
+const googleClient = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
 
-Zod 스키마를 기반으로 한 함수 도구를 제공합니다. 이 도구 제공자는 타입 안정성을 보장하고 런타임 유효성 검사를 수행합니다.
+// Configure Google provider
+const googleProvider = new GoogleProvider({
+  model: 'gemini-pro',
+  temperature: 0.7,
+  client: googleClient
+});
+
+// Setup Robota with multiple providers
+const robota = new Robota({
+  aiProviders: {
+    openai: openaiProvider,
+    anthropic: anthropicProvider,
+    google: googleProvider
+  },
+  currentProvider: 'openai', // Default provider
+  currentModel: 'gpt-4'
+});
+
+// Switch providers dynamically
+robota.setCurrentProvider('google');
+robota.setCurrentModel('gemini-pro');
+```
+
+## Tool Providers
+
+Tool providers provide functions that AI models can call. This allows AI to interact with external systems or perform specific tasks.
+
+### Supported Tool Provider Types
+
+#### Zod Function Tool Provider
+
+Provides a function tool based on Zod schema. This tool provider ensures type safety and performs runtime validation.
 
 ```typescript
 import { Robota } from '@robota-sdk/core';
@@ -103,112 +155,112 @@ import { OpenAIClient } from '@robota-sdk/openai-client';
 import { createZodFunctionToolProvider } from '@robota-sdk/tools';
 import { z } from 'zod';
 
-// OpenAI 클라이언트 설정
+// OpenAI client setup
 const aiClient = new OpenAIClient({ /* ... */ });
 
-// 계산기 도구 정의
+// Calculator tool definition
 const calculatorTool = {
   name: 'calculate',
-  description: '수학 계산을 수행합니다',
+  description: 'Performs mathematical calculations',
   parameters: z.object({
     operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
     a: z.number(),
     b: z.number()
   }),
   handler: async ({ operation, a, b }) => {
-    // 계산 로직 구현
+    // Implementation of calculation logic
     switch (operation) {
       case 'add': return { result: a + b };
       case 'subtract': return { result: a - b };
       case 'multiply': return { result: a * b };
-      case 'divide': return b !== 0 ? { result: a / b } : { error: '0으로 나눌 수 없습니다' };
+      case 'divide': return b !== 0 ? { result: a / b } : { error: 'Cannot divide by zero' };
     }
   }
 };
 
-// Zod 함수 도구 제공자 생성
+// Zod function tool provider creation
 const provider = createZodFunctionToolProvider({
   tools: { calculate: calculatorTool }
 });
 
-// Robota 인스턴스 설정
+// Robota instance setup
 const robota = new Robota({
   aiClient,
   provider
 });
 
-// AI가 도구를 사용하도록 요청
-const result = await robota.run('5와 3을 더하면 얼마인가요?');
+// Request AI to use the tool
+const result = await robota.run('What is the result of adding 5 and 3?');
 ```
 
-#### OpenAPI 도구 제공자
+#### OpenAPI Tool Provider
 
-OpenAPI 명세를 기반으로 한 도구를 제공합니다. 이를 통해 REST API와 쉽게 통합할 수 있습니다.
+Provides a tool based on OpenAPI specification. This allows easy integration with REST APIs.
 
 ```typescript
 import { Robota } from '@robota-sdk/core';
 import { OpenAIClient } from '@robota-sdk/openai-client';
 import { createOpenAPIToolProvider } from '@robota-sdk/core';
 
-// OpenAI 클라이언트 설정
+// OpenAI client setup
 const aiClient = new OpenAIClient({ /* ... */ });
 
-// OpenAPI 도구 제공자 생성
+// OpenAPI tool provider creation
 const provider = createOpenAPIToolProvider('https://api.example.com/openapi.json', {
   baseUrl: 'https://api.example.com'
 });
 
-// Robota 인스턴스 설정
+// Robota instance setup
 const robota = new Robota({
   aiClient,
   provider
 });
 
-// AI가 API를 호출하도록 요청
-const result = await robota.run('현재 서울의 날씨는 어떤가요?');
+// Request AI to call the API
+const result = await robota.run('What is the weather in Seoul?');
 ```
 
-#### MCP (Model Context Protocol) 도구 제공자
+#### MCP (Model Context Protocol) Tool Provider
 
-MCP를 지원하는 모델과 통합하기 위한 도구 제공자입니다. `createMcpToolProvider` 함수를 사용하여 MCP 기반 도구 제공자를 생성할 수 있습니다.
+Tool provider for integrating with models that support MCP. `createMcpToolProvider` function can be used to create MCP-based tool provider.
 
 ```typescript
 import { Robota, createMcpToolProvider } from '@robota-sdk/core';
 import { OpenAIClient } from '@robota-sdk/openai-client';
 import { Client, StdioClientTransport } from '@modelcontextprotocol/sdk';
 
-// OpenAI 클라이언트 설정
+// OpenAI client setup
 const aiClient = new OpenAIClient({ /* ... */ });
 
-// MCP 클라이언트 생성
-const transport = new StdioClientTransport(/* 설정 */);
+// MCP client creation
+const transport = new StdioClientTransport(/* setup */);
 const mcpClient = new Client(transport);
 
-// MCP 도구 제공자 생성
+// MCP tool provider creation
 const provider = createMcpToolProvider(mcpClient);
 
-// Robota 인스턴스 설정
+// Robota instance setup
 const robota = new Robota({
   aiClient,
   provider
 });
 
-// 실행
-const result = await robota.run('안녕하세요!');
+// Execute
+const result = await robota.run('Hello!');
 ```
 
-## AI 클라이언트와 도구 제공자의 차이점
+## Differences Between AI Providers and Tool Providers
 
-| 특성 | AI 클라이언트 | 도구 제공자 |
-|------|------------|-----------|
-| 주요 역할 | LLM 서비스와 통신 | AI가 호출할 수 있는 기능 제공 |
-| 상호작용 방식 | 프롬프트 전송, 응답 수신 | 특정 도구/함수 호출 처리 |
-| 예시 | OpenAIClient, AnthropicClient | ZodFunctionToolProvider, OpenAPIToolProvider |
-| Robota 연결 | aiClient 속성 사용 | provider 속성 사용 |
+| Feature | AI Provider | Tool Provider |
+|---------|-------------|-------------|
+| Primary Role | Communicate with LLM services | Provide functions for AI to call |
+| Interaction Method | Send prompts and receive responses | Handle specific tool/function calls |
+| Example | OpenAIClient, AnthropicClient | ZodFunctionToolProvider, OpenAPIToolProvider |
+| Robota Connection | aiClient property usage | provider property usage |
 
-## 상세 문서
+## Detailed Documentation
 
-- [OpenAI 클라이언트](providers/openai.md)
-- [Anthropic 클라이언트](providers/anthropic.md)
-- [도구 제공자](providers/tools.md)
-- [커스텀 구현](providers/custom.md) 
+- [OpenAI Provider](packages/openai/README.md)
+- [Anthropic Provider](packages/anthropic/README.md)
+- [Tool Provider](providers/tools.md)
+- [Custom Implementation](providers/custom.md) 

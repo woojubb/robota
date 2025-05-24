@@ -1,27 +1,27 @@
 import { UniversalMessage } from '@robota-sdk/core';
 
 /**
- * Anthropic ConversationHistory 어댑터
+ * Anthropic ConversationHistory adapter
  * 
- * UniversalMessage를 Anthropic prompt 형식으로 변환
+ * Converts UniversalMessage to Anthropic prompt format
  */
 export class AnthropicConversationAdapter {
     /**
-     * UniversalMessage 배열을 Anthropic prompt 형식으로 변환
+     * Convert UniversalMessage array to Anthropic prompt format
      */
     static toAnthropicPrompt(messages: UniversalMessage[], systemPrompt?: string): string {
         let prompt = '';
 
-        // 시스템 프롬프트 추가 (있는 경우)
+        // Add system prompt if present
         const finalSystemPrompt = this.extractSystemPrompt(messages, systemPrompt);
         if (finalSystemPrompt) {
             prompt += finalSystemPrompt + '\n\n';
         }
 
-        // 메시지들을 Human/Assistant 형식으로 변환
+        // Convert messages to Human/Assistant format
         for (const message of messages) {
             if (message.role === 'system') {
-                continue; // 시스템 메시지는 이미 처리됨
+                continue; // System messages are already processed
             }
 
             if (message.role === 'user') {
@@ -29,19 +29,19 @@ export class AnthropicConversationAdapter {
             } else if (message.role === 'assistant') {
                 let content = message.content;
 
-                // Function call이 있는 경우 내용에 포함
+                // Include function call in content if present
                 if (message.functionCall) {
                     content += `\n\nFunction Call: ${message.functionCall.name}(${JSON.stringify(message.functionCall.arguments)})`;
                 }
 
                 prompt += `\n\nAssistant: ${content}`;
             } else if (message.role === 'tool') {
-                // 도구 결과를 Human 메시지로 변환
+                // Convert tool results to Human message
                 prompt += `\n\nHuman: [Tool Result from ${message.name || 'unknown'}]: ${message.content}`;
             }
         }
 
-        // 마지막이 Human 메시지인 경우 Assistant 프롬프트 추가
+        // Add Assistant prompt if last message is from Human
         if (messages.length > 0 && messages[messages.length - 1].role === 'user') {
             prompt += '\n\nAssistant:';
         }
@@ -50,7 +50,7 @@ export class AnthropicConversationAdapter {
     }
 
     /**
-     * 시스템 메시지들을 추출하여 시스템 프롬프트로 결합
+     * Extract system messages and combine them as system prompt
      */
     static extractSystemPrompt(messages: UniversalMessage[], fallbackSystemPrompt?: string): string | undefined {
         const systemMessages = messages.filter(msg => msg.role === 'system');
@@ -63,7 +63,7 @@ export class AnthropicConversationAdapter {
     }
 
     /**
-     * 메시지 변환 테스트용 헬퍼 (각 메시지를 개별적으로 변환)
+     * Helper for message conversion testing (converts each message individually)
      */
     static convertMessage(msg: UniversalMessage): { role: string; content: string } {
         switch (msg.role) {
@@ -73,7 +73,7 @@ export class AnthropicConversationAdapter {
                     content: msg.content
                 };
 
-            case 'assistant':
+            case 'assistant': {
                 let content = msg.content;
                 if (msg.functionCall) {
                     content += `\n\nFunction Call: ${msg.functionCall.name}(${JSON.stringify(msg.functionCall.arguments)})`;
@@ -82,6 +82,7 @@ export class AnthropicConversationAdapter {
                     role: 'assistant',
                     content
                 };
+            }
 
             case 'tool':
                 return {

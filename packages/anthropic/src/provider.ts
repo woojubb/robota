@@ -50,17 +50,17 @@ export class AnthropicProvider implements AIProvider {
      */
     async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
         if (!context || typeof context !== 'object') {
-            throw new Error('유효한 Context 객체가 필요합니다');
+            throw new Error('Valid Context object is required');
         }
 
         const { messages, systemPrompt } = context;
 
         if (!Array.isArray(messages)) {
-            throw new Error('유효한 메시지 배열이 필요합니다');
+            throw new Error('Valid message array is required');
         }
 
         try {
-            // UniversalMessage[]를 Anthropic prompt 형식으로 변환
+            // Convert UniversalMessage[] to Anthropic prompt format
             const prompt = AnthropicConversationAdapter.toAnthropicPrompt(
                 messages as UniversalMessage[],
                 systemPrompt
@@ -85,17 +85,17 @@ export class AnthropicProvider implements AIProvider {
      */
     async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
         if (!context || typeof context !== 'object') {
-            throw new Error('유효한 Context 객체가 필요합니다');
+            throw new Error('Valid Context object is required');
         }
 
         const { messages, systemPrompt } = context;
 
         if (!Array.isArray(messages)) {
-            throw new Error('유효한 메시지 배열이 필요합니다');
+            throw new Error('Valid message array is required');
         }
 
         try {
-            // UniversalMessage[]를 Anthropic prompt 형식으로 변환
+            // Convert UniversalMessage[] to Anthropic prompt format
             const prompt = AnthropicConversationAdapter.toAnthropicPrompt(
                 messages as UniversalMessage[],
                 systemPrompt
@@ -194,9 +194,9 @@ export class AnthropicProvider implements AIProvider {
     }
 
     /**
-     * 리소스 해제 (필요시)
+     * Release resources (if needed)
      */
     async close(): Promise<void> {
-        // Anthropic 클라이언트는 특별한 종료 메서드가 없으므로 빈 함수로 구현
+        // Anthropic client does not have special close method, so implement as empty function
     }
 } 

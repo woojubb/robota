@@ -2,33 +2,33 @@ import { ToolProvider } from './tool-provider';
 import type { FunctionSchema } from './types';
 
 /**
- * OpenAPI 명세를 기반으로 도구 제공자 생성
+ * Create tool provider based on OpenAPI specification
  * 
- * @param openApiSpec OpenAPI 명세 객체 또는 URL
- * @param options 기본 URL 설정
- * @returns OpenAPI 기반 도구 제공자
+ * @param openApiSpec OpenAPI specification object or URL
+ * @param options Base URL configuration
+ * @returns OpenAPI-based tool provider
  */
 export function createOpenAPIToolProvider(openApiSpec: any, options?: { baseUrl?: string }): ToolProvider {
-    // OpenAPI 명세를 함수로 변환하는 로직
+    // Logic to convert OpenAPI specification to functions
     const convertOpenAPIToFunctions = (spec: any) => {
         const functions: FunctionSchema[] = [];
 
-        // OpenAPI 경로 및 메서드를 함수로 변환
+        // Convert OpenAPI paths and methods to functions
         for (const path in spec.paths) {
             for (const method in spec.paths[path]) {
                 const operation = spec.paths[path][method];
                 const functionName = operation.operationId || `${method}${path.replace(/\//g, '_')}`;
 
-                // 파라미터 생성
+                // Generate parameters
                 const parameters: Record<string, any> = {};
                 const required: string[] = [];
 
-                // 경로, 쿼리, 바디 파라미터 처리
+                // Handle path, query, and body parameters
                 if (operation.parameters) {
                     for (const param of operation.parameters) {
                         parameters[param.name] = {
                             type: param.schema?.type || 'string',
-                            description: param.description || `${param.name} 파라미터`
+                            description: param.description || `${param.name} parameter`
                         };
 
                         if (param.required) {
@@ -37,14 +37,14 @@ export function createOpenAPIToolProvider(openApiSpec: any, options?: { baseUrl?
                     }
                 }
 
-                // 요청 바디 처리
+                // Handle request body
                 if (operation.requestBody?.content?.['application/json']?.schema) {
                     const schema = operation.requestBody.content['application/json'].schema;
                     if (schema.properties) {
                         for (const propName in schema.properties) {
                             parameters[propName] = {
                                 type: schema.properties[propName].type || 'string',
-                                description: schema.properties[propName].description || `${propName} 속성`
+                                description: schema.properties[propName].description || `${propName} property`
                             };
                         }
 
@@ -69,17 +69,17 @@ export function createOpenAPIToolProvider(openApiSpec: any, options?: { baseUrl?
         return functions;
     };
 
-    // 함수 목록 (게으른 초기화)
+    // Function list (lazy initialization)
     let apiFunctions: FunctionSchema[] | null = null;
-    // OpenAPI 스펙 (게으른 초기화)
+    // OpenAPI spec (lazy initialization)
     let apiSpec: any = null;
 
-    // 도구 제공자 객체 생성
+    // Create tool provider object
     const provider: ToolProvider = {
-        // 도구 호출 구현
+        // Tool call implementation
         async callTool(toolName, parameters) {
             try {
-                // OpenAPI 명세 초기화 (필요시)
+                // Initialize OpenAPI specification if needed
                 if (!apiSpec) {
                     apiSpec = typeof openApiSpec === 'string'
                         ? await fetch(openApiSpec).then(res => res.json())
@@ -89,14 +89,14 @@ export function createOpenAPIToolProvider(openApiSpec: any, options?: { baseUrl?
                     provider.functions = apiFunctions;
                 }
 
-                // 도구 이름에 해당하는 API 엔드포인트 찾기
+                // Find API endpoint corresponding to tool name
                 const toolFunction = apiFunctions?.find(fn => fn.name === toolName);
                 if (!toolFunction) {
-                    throw new Error(`도구 '${toolName}'를 찾을 수 없습니다.`);
+                    throw new Error(`Tool '${toolName}' not found.`);
                 }
 
-                // 여기서 실제 API 호출 로직 구현
-                // 예시: fetch를 사용한 API 호출
+                // Implement actual API call logic here
+                // Example: API call using fetch
                 const baseUrl = options?.baseUrl || '';
                 const url = `${baseUrl}/${toolName}`;
 
@@ -109,13 +109,13 @@ export function createOpenAPIToolProvider(openApiSpec: any, options?: { baseUrl?
                 });
 
                 if (!response.ok) {
-                    throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`);
+                    throw new Error(`API call failed: ${response.status} ${response.statusText}`);
                 }
 
                 return await response.json();
             } catch (error) {
-                console.error(`도구 '${toolName}' 호출 중 오류:`, error);
-                throw new Error(`도구 호출 실패: ${error instanceof Error ? error.message : String(error)}`);
+                console.error(`Error calling tool '${toolName}':`, error);
+                throw new Error(`Tool call failed: ${error instanceof Error ? error.message : String(error)}`);
             }
         }
     };

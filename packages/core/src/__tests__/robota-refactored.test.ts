@@ -184,9 +184,9 @@ describe('Robota Refactored Architecture', () => {
                         expect(message).toContain('Estimated tokens:');
                     }
                 },
-                error: console.error,
-                warn: console.warn,
-                debug: console.debug
+                error: () => { },
+                warn: () => { },
+                debug: () => { }
             };
 
             const debugRobota = new Robota({
@@ -363,9 +363,9 @@ describe('Robota Refactored Architecture', () => {
                         warningReceived = true;
                     }
                 },
-                error: console.error,
-                info: console.info,
-                debug: console.debug
+                error: () => { },
+                info: () => { },
+                debug: () => { }
             };
 
             const debugRobota = new Robota({

@@ -212,6 +212,7 @@ class MockProvider implements AIProvider {
 - Add inline comments for complex algorithms or business logic
 - Provide example code
 - **All code comments must be written in English**: JSDoc comments, inline comments, etc., all code comments must be written in English
+- **All log messages and error messages must be written in English**: Logger messages, error messages, console output, etc., must be written in English
 - JSDoc comments should follow standard rules and include parameters, return values, examples, etc.
 
 ### Comment Writing Examples

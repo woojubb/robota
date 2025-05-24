@@ -7,20 +7,20 @@ const rootPath = path.resolve(__dirname, '../../../');
 const docsPath = path.join(rootPath, 'docs');
 const tempDir = path.join(rootPath, 'apps/docs/.temp');
 
-// 임시 디렉토리 초기화
-console.log('문서 복사 시작...');
+// Initialize temporary directory
+console.log('Starting document copy...');
 fs.removeSync(tempDir);
 fs.ensureDirSync(tempDir);
 
-// docs 디렉토리 내용을 .temp로 복사
+// Copy docs directory contents to .temp
 fs.copySync(docsPath, tempDir, {
     filter: (src) => {
-        // .git 등 불필요한 파일은 제외
+        // Exclude unnecessary files like .git
         return !src.includes('node_modules') && !path.basename(src).startsWith('.');
     }
 });
 
-// README.md 파일을 index.md로 변환
+// Convert README.md files to index.md
 const findAndRenameReadme = (dir) => {
     const files = fs.readdirSync(dir, { withFileTypes: true });
 
@@ -32,10 +32,10 @@ const findAndRenameReadme = (dir) => {
         } else if (file.name === 'README.md') {
             const newPath = path.join(dir, 'index.md');
             fs.renameSync(fullPath, newPath);
-            console.log(`✓ README.md를 index.md로 변환: ${fullPath} -> ${newPath}`);
+            console.log(`✓ Converted README.md to index.md: ${fullPath} -> ${newPath}`);
         }
     }
 };
 
 findAndRenameReadme(tempDir);
-console.log('문서 복사 완료!'); 
+console.log('Document copy completed!'); 

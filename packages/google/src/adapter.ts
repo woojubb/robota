@@ -1,22 +1,22 @@
 import type { UniversalMessage } from '@robota-sdk/core';
 
 /**
- * Google AI ConversationHistory 어댑터
+ * Google AI ConversationHistory adapter
  * 
- * UniversalMessage를 Google Generative AI 형식으로 변환
+ * Converts UniversalMessage to Google Generative AI format
  */
 export class GoogleConversationAdapter {
     /**
-     * UniversalMessage 배열을 Google AI 메시지 형식으로 변환
+     * Convert UniversalMessage array to Google AI message format
      */
     static toGoogleFormat(messages: UniversalMessage[]): any[] {
         return messages
-            .filter(msg => msg.role !== 'system') // 시스템 메시지는 별도 처리
+            .filter(msg => msg.role !== 'system') // System messages are handled separately
             .map(msg => this.convertMessage(msg));
     }
 
     /**
-     * 단일 UniversalMessage를 Google AI 형식으로 변환
+     * Convert a single UniversalMessage to Google AI format
      */
     static convertMessage(msg: UniversalMessage): any {
         switch (msg.role) {
@@ -28,7 +28,7 @@ export class GoogleConversationAdapter {
 
             case 'assistant':
                 if (msg.functionCall) {
-                    // Google AI에서는 function call을 parts에 포함
+                    // Google AI includes function calls in parts
                     return {
                         role: 'model',
                         parts: [
@@ -48,7 +48,7 @@ export class GoogleConversationAdapter {
                 };
 
             case 'tool':
-                // 도구 결과를 function response로 변환
+                // Convert tool results to function response
                 return {
                     role: 'function',
                     parts: [
@@ -62,14 +62,14 @@ export class GoogleConversationAdapter {
                 };
 
             case 'system':
-                // 시스템 메시지는 별도 처리되므로 여기서는 user로 변환
+                // System messages are handled separately, convert to user here
                 return {
                     role: 'user',
                     parts: [{ text: `[System]: ${msg.content}` }]
                 };
 
             default:
-                // 알 수 없는 역할은 user로 처리
+                // Unknown roles are handled as user
                 return {
                     role: 'user',
                     parts: [{ text: msg.content }]
@@ -78,7 +78,7 @@ export class GoogleConversationAdapter {
     }
 
     /**
-     * 시스템 메시지들을 추출하여 시스템 instruction으로 결합
+     * Extract system messages and combine them as system instruction
      */
     static extractSystemInstruction(messages: UniversalMessage[], fallbackSystemPrompt?: string): string | undefined {
         const systemMessages = messages.filter(msg => msg.role === 'system');
@@ -91,7 +91,7 @@ export class GoogleConversationAdapter {
     }
 
     /**
-     * 완전한 메시지 변환 파이프라인
+     * Complete message conversion pipeline
      */
     static processMessages(
         messages: UniversalMessage[],
@@ -100,10 +100,10 @@ export class GoogleConversationAdapter {
         contents: any[],
         systemInstruction?: string
     } {
-        // 1. 시스템 instruction 추출
+        // 1. Extract system instruction
         const systemInstruction = this.extractSystemInstruction(messages, systemPrompt);
 
-        // 2. 메시지를 Google AI 형식으로 변환
+        // 2. Convert messages to Google AI format
         const contents = this.toGoogleFormat(messages);
 
         return {

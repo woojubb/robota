@@ -1,4 +1,3 @@
-import type { FunctionCall, Tool } from '@robota-sdk/tools';
 import type { UniversalMessage } from './conversation-history';
 import type { Message, MessageRole } from './interfaces/ai-provider';
 
@@ -148,8 +147,8 @@ export const logger = {
 };
 
 /**
- * UniversalMessage를 기본 Message 형식으로 변환하는 헬퍼 함수
- * AI Provider 어댑터에서 사용할 수 있습니다.
+ * Helper function to convert UniversalMessage to basic Message format
+ * Can be used in AI Provider adapters.
  */
 export function convertUniversalToBaseMessage(universalMessage: UniversalMessage): Message {
   const baseMessage: Message = {
@@ -173,23 +172,23 @@ export function convertUniversalToBaseMessage(universalMessage: UniversalMessage
 }
 
 /**
- * UniversalMessage 배열을 기본 Message 배열로 변환하는 헬퍼 함수
+ * Helper function to convert UniversalMessage array to basic Message array
  */
 export function convertUniversalToBaseMessages(universalMessages: UniversalMessage[]): Message[] {
   return universalMessages.map(convertUniversalToBaseMessage);
 }
 
 /**
- * AI Provider 어댑터가 구현해야 하는 메시지 변환 인터페이스
+ * Message conversion interface that AI Provider adapters should implement
  */
 export interface MessageAdapter<T = any> {
   /**
-   * UniversalMessage를 특정 AI Provider 형식으로 변환
+   * Convert UniversalMessage to specific AI Provider format
    */
   convertFromUniversal(universalMessage: UniversalMessage): T;
 
   /**
-   * UniversalMessage 배열을 특정 AI Provider 형식 배열로 변환
+   * Convert UniversalMessage array to specific AI Provider format array
    */
   convertFromUniversalMessages(universalMessages: UniversalMessage[]): T[];
 } 

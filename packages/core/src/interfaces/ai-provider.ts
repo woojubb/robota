@@ -2,7 +2,7 @@ import type { FunctionCall } from '@robota-sdk/tools';
 import type { UniversalMessage } from '../conversation-history';
 
 /**
- * 메시지 역할 타입
+ * Message role type
  */
 export type MessageRole = 'user' | 'assistant' | 'system' | 'function';
 
@@ -10,7 +10,7 @@ export type MessageRole = 'user' | 'assistant' | 'system' | 'function';
 export type { FunctionCall };
 
 /**
- * 기본 메시지 인터페이스
+ * Basic message interface
  */
 export interface Message {
     role: MessageRole;
@@ -21,7 +21,7 @@ export interface Message {
 }
 
 /**
- * 모델 응답 인터페이스
+ * Model response interface
  */
 export interface ModelResponse {
     content?: string;
@@ -35,7 +35,7 @@ export interface ModelResponse {
 }
 
 /**
- * 스트리밍 응답 청크 인터페이스
+ * Streaming response chunk interface
  */
 export interface StreamingResponseChunk {
     content?: string;
@@ -44,7 +44,7 @@ export interface StreamingResponseChunk {
 }
 
 /**
- * 대화 컨텍스트 인터페이스
+ * Conversation context interface
  */
 export interface Context {
     messages: UniversalMessage[];
@@ -54,18 +54,23 @@ export interface Context {
 }
 
 /**
- * AI 제공업체 인터페이스 (통합 래퍼)
+ * AI provider interface (unified wrapper)
  */
 export interface AIProvider {
-    /** 제공업체 이름 */
+    /** Provider name */
     name: string;
 
-    /** 채팅 요청 */
+    /** Chat request */
     chat(model: string, context: Context, options?: any): Promise<ModelResponse>;
 
-    /** 스트리밍 채팅 요청 (선택 사항) */
+    /** Streaming chat request (optional) */
     chatStream?(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown>;
 
-    /** 리소스 해제 (선택 사항) */
+    /** Resource cleanup (optional) */
     close?(): Promise<void>;
+}
+
+export interface ToolResult {
+    name: string;
+    result: any;
 } 

@@ -1,7 +1,7 @@
 {
     "name": "robota-docs",
     "version": "1.0.2",
-    "description": "Robota 다국어 문서 사이트",
+    "description": "Robota documentation site",
     "private": true,
     "type": "module",
     "scripts": {
