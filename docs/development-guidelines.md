@@ -2,6 +2,8 @@
 
 This document provides guidelines to follow when developing the Robota project.
 
+> **📖 Additional Reference**: For detailed code improvement strategies, implementation patterns, and refactoring guidelines, please refer to [code-improvements.md](./code-improvements.md).
+
 ## Code Structure Principles
 
 ### Module Separation
@@ -256,4 +258,66 @@ import { logger } from '@robota-sdk/core/src/utils';
 logger.info('Information message');
 logger.warn('Warning message');
 logger.error('Error message');
-``` 
+```
+
+## Code Quality and Linting Rules
+
+### Lint Execution Strategy
+
+- **Focus on Development First**: During active development and code writing, focus on implementing functionality and logic rather than fixing lint warnings
+- **Batch Lint Fixes**: Fix lint issues in batches after completing a logical code section or feature implementation
+- **Pre-commit Linting**: Always run `pnpm run lint:fix` before committing code to ensure code quality standards
+- **End-of-Session Cleanup**: At the end of each development session, run lint:fix to clean up accumulated warnings
+
+### Lint Workflow Best Practices
+
+1. **Development Phase**: 
+   - Write code without interrupting flow for minor lint warnings
+   - Focus on logic, functionality, and architecture
+   - Ignore non-critical lint warnings during active coding
+
+2. **Review Phase**: 
+   - Run `pnpm run lint:fix` when ready to review your work
+   - Fix remaining lint issues that couldn't be auto-fixed
+   - Address any critical warnings or errors
+
+3. **Pre-commit Phase**: 
+   - Always run `pnpm run lint:fix` before final commit
+   - Ensure all auto-fixable issues are resolved
+   - Review and address any remaining warnings
+
+### Available Lint Commands
+
+```bash
+# Check lint issues across all packages
+pnpm run lint
+
+# Fix auto-fixable lint issues across all packages
+pnpm run lint:fix
+
+# Fix lint issues in specific package
+pnpm --filter @robota-sdk/core run lint:fix
+pnpm --filter @robota-sdk/openai run lint:fix
+pnpm --filter @robota-sdk/tools run lint:fix
+
+# Fix lint issues in examples
+pnpm --filter robota-examples run lint:fix
+```
+
+### Acceptable Lint Warnings During Development
+
+- **Type-related warnings**: `@typescript-eslint/no-explicit-any` warnings can be addressed later
+- **Unused variable warnings**: Variables that will be used later in development
+- **Import order warnings**: Can be auto-fixed during cleanup phase
+
+### Lint Warnings That Should Be Addressed Immediately
+
+- **Syntax errors**: Fix immediately as they break functionality
+- **Type errors**: Critical type mismatches that affect functionality
+- **Security-related warnings**: Address immediately for security reasons
+
+### IDE Configuration Recommendations
+
+- Configure your IDE to show lint warnings without disrupting development flow
+- Use lint auto-fix on save for critical issues only
+- Set up pre-commit hooks to run `lint:fix` automatically 

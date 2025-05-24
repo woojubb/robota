@@ -12,7 +12,9 @@
         "start:all-basic": "echo '기본 예제들을 순차 실행합니다' && pnpm start:simple-conversation && pnpm start:using-ai-client && pnpm start:multi-ai-providers",
         "start:all-tool-providers": "echo 'Tool Provider 예제들을 순차 실행합니다' && pnpm start:zod-function-provider && pnpm start:using-tool-providers",
         "start:all-examples": "echo '모든 예제를 순차적으로 실행합니다' && pnpm start:all-basic && pnpm start:all-tool-providers",
-        "start:all": "echo '모든 예제를 순차적으로 실행합니다' && pnpm start:simple-conversation && pnpm start:zod-function-provider"
+        "start:all": "echo '모든 예제를 순차적으로 실행합니다' && pnpm start:simple-conversation && pnpm start:zod-function-provider",
+        "lint": "eslint . --ext .ts,.tsx",
+        "lint:fix": "eslint . --ext .ts,.tsx --fix"
     },
     "dependencies": {
         "@robota-sdk/anthropic": "workspace:*",
