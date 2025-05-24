@@ -19,7 +19,7 @@ process.chdir(path.join(__dirname, '..'));
 const packagesPath = path.resolve(__dirname, '../packages');
 
 // 패키지 목록
-const packages = ['core', 'openai', 'anthropic', 'mcp', 'tools'];
+const packages = ['core', 'openai', 'anthropic', 'google', 'tools'];
 
 // 콘솔 출력 색상
 const colors = {
