@@ -5,7 +5,6 @@ import {
   Message,
   ModelResponse,
   StreamingResponseChunk,
-  removeUndefined,
   AIProvider
 } from '@robota-sdk/core';
 import { OpenAIProviderOptions } from './types';
@@ -17,6 +16,22 @@ import { logger } from '@robota-sdk/core';
  * Implements the AIProvider interface to integrate with Robota.
  */
 export class OpenAIProvider implements AIProvider {
+  /**
+   * Provider name
+   */
+  public name: string = 'openai';
+
+  /**
+   * Available models
+   */
+  public availableModels: string[] = [
+    'gpt-4o',
+    'gpt-4o-mini',
+    'gpt-4-turbo',
+    'gpt-4',
+    'gpt-3.5-turbo'
+  ];
+
   /**
    * OpenAI client instance
    */
@@ -179,7 +194,7 @@ export class OpenAIProvider implements AIProvider {
   /**
    * Model chat request
    */
-  async chat(context: Context, options?: any): Promise<ModelResponse> {
+  async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
     if (!context || typeof context !== 'object') {
       logger.error('[OpenAIProvider] 유효하지 않은 컨텍스트:', context);
       throw new Error('유효한 Context 객체가 필요합니다');
@@ -208,7 +223,7 @@ export class OpenAIProvider implements AIProvider {
 
     // OpenAI API 요청 옵션 구성
     const completionOptions: OpenAI.Chat.ChatCompletionCreateParams = {
-      model: this.options.model,
+      model: model || this.options.model,
       messages: formattedMessages,
       temperature: options?.temperature ?? this.options.temperature,
       max_tokens: options?.maxTokens ?? this.options.maxTokens
@@ -239,7 +254,7 @@ export class OpenAIProvider implements AIProvider {
   /**
    * 모델 채팅 스트리밍 요청
    */
-  async *chatStream(context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
+  async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
     if (!context || typeof context !== 'object') {
       logger.error('[OpenAIProvider] 유효하지 않은 컨텍스트:', context);
       throw new Error('유효한 Context 객체가 필요합니다');
@@ -268,7 +283,7 @@ export class OpenAIProvider implements AIProvider {
 
     // OpenAI API 요청 옵션 구성
     const completionOptions: OpenAI.Chat.ChatCompletionCreateParams = {
-      model: this.options.model,
+      model: model || this.options.model,
       messages: formattedMessages,
       temperature: options?.temperature ?? this.options.temperature,
       max_tokens: options?.maxTokens ?? this.options.maxTokens,

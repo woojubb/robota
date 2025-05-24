@@ -42,6 +42,7 @@ export { ConversationService } from './services/conversation-service';
 
 // Utilities
 export { logger } from './utils';
+export { removeUndefined } from './utils';
 
 // Legacy features (for backward compatibility)
 export * from './providers/openai-provider';
