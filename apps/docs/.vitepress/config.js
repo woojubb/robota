@@ -1,6 +1,9 @@
 import { defineConfig } from 'vitepress'
 import { enConfig } from './config/en'
 
+// Google Analytics ID를 환경변수에서 가져오기
+const googleAnalyticsId = process.env.VITE_GA_ID
+
 export default defineConfig({
     // 기본 설정
     title: 'Robota',
@@ -11,6 +14,19 @@ export default defineConfig({
 
     // 깨진 링크 무시 설정
     ignoreDeadLinks: true,
+
+    // Google Analytics 설정
+    head: [
+        ...(googleAnalyticsId ? [
+            ['script', { async: true, src: `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}` }],
+            ['script', {}, `
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${googleAnalyticsId}');
+            `]
+        ] : [])
+    ],
 
     // 영어만 지원
     ...enConfig,

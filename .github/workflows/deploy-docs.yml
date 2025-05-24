@@ -55,6 +55,8 @@ jobs:
         run: |
           cd apps/docs
           pnpm run build
+        env:
+          VITE_GA_ID: ${{ secrets.VITE_GA_ID }}
 
       # 빌드 결과물에 .nojekyll 파일 추가 (GitHub Pages에서 Jekyll 처리 방지)
       - name: Add .nojekyll file
