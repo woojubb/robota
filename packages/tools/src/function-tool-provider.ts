@@ -7,7 +7,7 @@
  */
 
 import { z } from 'zod';
-import type { ZodFunctionTool, zodFunctionToSchema } from './zod-schema';
+import type { ZodFunctionTool } from './zod-schema';
 import type { ToolProvider } from './tool-provider';
 
 /**
@@ -51,8 +51,8 @@ export function createZodFunctionToolProvider(options: ZodFunctionToolProviderOp
     // 도구 정의를 JSON 스키마로 변환
     const functions = Object.values(options.tools).map(tool => {
         // zodFunctionToSchema 함수 대신 직접 스키마 변환 처리
-        let properties: Record<string, any> = {};
-        let required: string[] = [];
+        const properties: Record<string, any> = {};
+        const required: string[] = [];
 
         // Zod 스키마에서 속성 추출
         const shape = tool.parameters.shape || {};

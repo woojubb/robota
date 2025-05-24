@@ -1,10 +1,5 @@
 ---
-description: ./docs 폴더에 기본적인 프로젝트 개요가 있습니다. code-improvements.md, development-guidelines.md 파일 등을 참고하여 개발하면 됩니다. 여기 적혀 있는 것이 최신버전이 아닐 수도 있으니 이 룰과 상반된 프롬프트를 사용자가 입력할 경우 사용자에게 물어보며 사용자가 확인한 사항에 대해서는 해당 문서에 반영합니다. 업데이트 된 부분은 변경점을 적지는 말고 변경된 것을 반영합니다. 각 코드의 주석은 jsdoc 규칙을 이용해 주석을 작성합니다.
-globs: 
-alwaysApply: false
----
----
-description: The ./docs folder contains basic project overview. Please refer to files like code-improvements.md, development-guidelines.md for development. Since what's written here may not be the latest version, if a user inputs a prompt that contradicts this rule, ask the user for clarification and reflect the confirmed matters in the corresponding document. For updated parts, reflect the changes without describing the change points. All code comments should be written using JSDoc conventions.
+description: ./docs 폴더에 기본적인 프로젝트 개요가 있습니다. code-improvements.md, development-guidelines.md 파일 등을 참고하여 개발하면 됩니다. 여기 적혀 있는 것이 최신버전이 아닐 수도 있으니 이 룰과 상반된 프롬프트를 사용자가 입력할 경우 사용자에게 물어보며 사용자가 확인한 사항에 대해서는 해당 문서에 반영합니다. 업데이트 된 부분은 변경점을 적지는 말고 변경된 것을 반영합니다. 각 코드의 주석은 jsdoc 규칙을 이용해 주석을 작성합니다. The ./docs folder contains basic project overview. Please refer to files like code-improvements.md, development-guidelines.md for development. Since what's written here may not be the latest version, if a user inputs a prompt that contradicts this rule, ask the user for clarification and reflect the confirmed matters in the corresponding document. For updated parts, reflect the changes without describing the change points. All code comments should be written using JSDoc conventions.
 globs: 
 alwaysApply: false
 ---
