@@ -1,5 +1,5 @@
 /**
- * Logger 인터페이스
+ * Logger interface
  */
 export interface Logger {
     info(message: string, ...args: any[]): void;

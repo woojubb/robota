@@ -1,6 +1,6 @@
 /**
- * 도구 모듈 (재내보내기)
- * @deprecated 'tool.ts' 파일을 대신 사용하세요.
+ * Tool module (re-export)
+ * @deprecated Use 'tool.ts' file instead.
  */
 
 export * from './tool'; 

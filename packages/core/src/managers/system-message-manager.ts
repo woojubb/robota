@@ -1,17 +1,17 @@
 import type { Message } from '../interfaces/ai-provider';
 
 /**
- * 시스템 메시지 관리 클래스
- * 시스템 프롬프트와 시스템 메시지들을 관리합니다.
+ * System message management class
+ * Manages system prompts and system messages.
  */
 export class SystemMessageManager {
     private systemPrompt?: string;
     private systemMessages?: Message[];
 
     /**
-     * 단일 시스템 프롬프트 설정
+     * Set a single system prompt
      * 
-     * @param prompt - 시스템 프롬프트 내용
+     * @param prompt - System prompt content
      */
     setSystemPrompt(prompt: string): void {
         this.systemPrompt = prompt;
@@ -19,9 +19,9 @@ export class SystemMessageManager {
     }
 
     /**
-     * 여러 시스템 메시지 설정
+     * Set multiple system messages
      * 
-     * @param messages - 시스템 메시지 배열
+     * @param messages - Array of system messages
      */
     setSystemMessages(messages: Message[]): void {
         this.systemPrompt = undefined;
@@ -29,12 +29,12 @@ export class SystemMessageManager {
     }
 
     /**
-     * 기존 시스템 메시지에 새 시스템 메시지 추가
+     * Add a new system message to existing system messages
      * 
-     * @param content - 추가할 시스템 메시지 내용
+     * @param content - Content of the system message to add
      */
     addSystemMessage(content: string): void {
-        // systemPrompt 설정이 있고 systemMessages가 없거나 systemPrompt 설정과 동일한 메시지 하나만 있는 경우
+        // If systemPrompt is set and systemMessages is empty or has only one message identical to systemPrompt
         if (this.systemPrompt) {
             if (!this.systemMessages ||
                 (this.systemMessages.length === 1 &&
@@ -57,28 +57,28 @@ export class SystemMessageManager {
     }
 
     /**
-     * 현재 시스템 프롬프트 반환
+     * Get the current system prompt
      */
     getSystemPrompt(): string | undefined {
         return this.systemPrompt;
     }
 
     /**
-     * 현재 시스템 메시지들 반환
+     * Get the current system messages
      */
     getSystemMessages(): Message[] | undefined {
         return this.systemMessages;
     }
 
     /**
-     * 시스템 메시지가 설정되어 있는지 확인
+     * Check if system messages are configured
      */
     hasSystemMessages(): boolean {
         return !!(this.systemPrompt || (this.systemMessages && this.systemMessages.length > 0));
     }
 
     /**
-     * 시스템 메시지 초기화
+     * Clear system messages
      */
     clear(): void {
         this.systemPrompt = undefined;

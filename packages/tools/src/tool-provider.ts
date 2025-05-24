@@ -1,24 +1,24 @@
 import type { FunctionSchema } from './types';
 
 /**
- * 도구 제공자(Tool Provider) 인터페이스
+ * Tool Provider interface
  * 
- * 다양한 도구 제공자(MCP, OpenAPI, ZodFunction 등)에 대한 통일된 인터페이스
- * 도구 제공자는 AI 모델이 도구를 호출할 수 있도록 하는 역할을 합니다.
+ * Unified interface for various tool providers (MCP, OpenAPI, ZodFunction, etc.)
+ * Tool providers enable AI models to call tools.
  */
 export interface ToolProvider {
     /**
-     * 도구를 호출합니다. 모든 도구 제공자는 이 인터페이스를 구현해야 합니다.
+     * Call a tool. All tool providers must implement this interface.
      * 
-     * @param toolName 호출할 도구 이름
-     * @param parameters 도구에 전달할 파라미터
-     * @returns 도구 호출 결과
+     * @param toolName Name of the tool to call
+     * @param parameters Parameters to pass to the tool
+     * @returns Tool call result
      */
     callTool(toolName: string, parameters: Record<string, any>): Promise<any>;
 
     /**
-     * 도구 제공자가 제공하는 모든 함수 스키마 목록
-     * AI 모델에 도구 목록을 전달할 때 사용됩니다.
+     * List of all function schemas provided by the tool provider
+     * Used when passing tool list to AI models.
      */
     functions?: FunctionSchema[];
 } 

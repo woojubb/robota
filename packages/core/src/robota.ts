@@ -14,61 +14,61 @@ import { FunctionCallManager, type FunctionCallConfig, type FunctionCallMode } f
 import { ConversationService } from './services/conversation-service';
 
 /**
- * Robota 설정 인터페이스
+ * Robota configuration interface
  */
 export interface RobotaOptions {
     /** 
-     * 도구 제공자들 (toolProviders) - MCP, OpenAPI, ZodFunction 등의 도구를 제공하는 Provider들
-     * createMcpToolProvider, createOpenAPIToolProvider, createZodFunctionToolProvider 등으로 생성
+     * Tool providers (toolProviders) - Providers that supply tools like MCP, OpenAPI, ZodFunction, etc.
+     * Created with functions like createMcpToolProvider, createOpenAPIToolProvider, createZodFunctionToolProvider, etc.
      */
     toolProviders?: ToolProvider[];
 
     /** 
-     * AI 제공업체들 - 여러 AI provider를 등록
+     * AI providers - Register multiple AI providers
      */
     aiProviders?: Record<string, AIProvider>;
 
     /** 
-     * 현재 사용할 AI 제공업체 이름
+     * Current AI provider name to use
      */
     currentProvider?: string;
 
     /** 
-     * 현재 사용할 모델명
+     * Current model name to use
      */
     currentModel?: string;
 
-    /** 모델 온도 (선택 사항) */
+    /** Model temperature (optional) */
     temperature?: number;
 
-    /** 최대 토큰 수 (선택 사항) */
+    /** Maximum number of tokens (optional) */
     maxTokens?: number;
 
-    /** 시스템 프롬프트 */
+    /** System prompt */
     systemPrompt?: string;
 
-    /** 시스템 메시지 배열 */
+    /** Array of system messages */
     systemMessages?: Message[];
 
-    /** 메모리 인터페이스 */
+    /** Memory interface */
     memory?: any;
 
-    /** 함수 호출 설정 */
+    /** Function call configuration */
     functionCallConfig?: FunctionCallConfig;
 
-    /** 도구 호출 콜백 */
+    /** Tool call callback */
     onToolCall?: (toolName: string, params: any, result: any) => void;
 
-    /** 커스텀 로거 (기본값: console) */
+    /** Custom logger (default: console) */
     logger?: Logger;
 
-    /** 디버그 모드 (기본값: false) */
+    /** Debug mode (default: false) */
     debug?: boolean;
 }
 
 /**
- * Robota의 메인 클래스 (리팩토링 버전)
- * 에이전트를 초기화하고 실행하는 인터페이스 제공
+ * Main class for Robota (refactored version)
+ * Provides an interface for initializing and running agents
  * 
  * @example
  * ```ts
@@ -76,39 +76,39 @@ export interface RobotaOptions {
  *   aiProviders: { openai: openaiProvider },
  *   currentProvider: 'openai',
  *   currentModel: 'gpt-4',
- *   systemPrompt: '당신은 도움이 되는 AI 어시스턴트입니다.'
+ *   systemPrompt: 'You are a helpful AI assistant.'
  * });
  * 
- * const response = await robota.run('안녕하세요!');
+ * const response = await robota.run('Hello!');
  * ```
  */
 export class Robota {
-    // 매니저들
+    // Managers
     private aiProviderManager: AIProviderManager;
     private toolProviderManager: ToolProviderManager;
     private systemMessageManager: SystemMessageManager;
     private functionCallManager: FunctionCallManager;
     private conversationService: ConversationService;
 
-    // 기본 설정
+    // Basic configuration
     private memory: Memory;
     private onToolCall?: (toolName: string, params: any, result: any) => void;
     private logger: Logger;
     private debug: boolean;
 
     /**
-     * Robota 인스턴스 생성
+     * Create a Robota instance
      * 
-     * @param options - Robota 초기화 옵션
+     * @param options - Robota initialization options
      */
     constructor(options: RobotaOptions) {
-        // 기본 설정
+        // Basic configuration
         this.memory = options.memory || new SimpleMemory();
         this.onToolCall = options.onToolCall;
         this.logger = options.logger || console;
         this.debug = options.debug || false;
 
-        // 매니저들 초기화
+        // Initialize managers
         this.aiProviderManager = new AIProviderManager();
         this.toolProviderManager = new ToolProviderManager(
             this.logger,
@@ -123,24 +123,24 @@ export class Robota {
             this.debug
         );
 
-        // AI 제공업체들 등록
+        // Register AI providers
         if (options.aiProviders) {
             for (const [name, aiProvider] of Object.entries(options.aiProviders)) {
                 this.aiProviderManager.addProvider(name, aiProvider);
             }
         }
 
-        // 현재 AI 설정
+        // Set current AI configuration
         if (options.currentProvider && options.currentModel) {
             this.aiProviderManager.setCurrentAI(options.currentProvider, options.currentModel);
         }
 
-        // Tool Provider들 등록
+        // Register Tool Providers
         if (options.toolProviders) {
             this.toolProviderManager.addProviders(options.toolProviders);
         }
 
-        // 시스템 메시지 설정
+        // Configure system messages
         if (options.systemMessages) {
             this.systemMessageManager.setSystemMessages(options.systemMessages);
         } else if (options.systemPrompt) {
@@ -149,75 +149,75 @@ export class Robota {
     }
 
     // ============================================================
-    // AI Provider 관리 (위임)
+    // AI Provider Management (delegation)
     // ============================================================
 
     /**
-     * AI 제공업체 추가
+     * Add an AI provider
      */
     addAIProvider(name: string, aiProvider: AIProvider): void {
         this.aiProviderManager.addProvider(name, aiProvider);
     }
 
     /**
-     * 현재 AI 제공업체와 모델 설정
+     * Set the current AI provider and model
      */
     setCurrentAI(providerName: string, model: string): void {
         this.aiProviderManager.setCurrentAI(providerName, model);
     }
 
     /**
-     * 등록된 AI 제공업체들과 사용 가능한 모델들 반환
+     * Get registered AI providers and their available models
      */
     getAvailableAIs(): Record<string, string[]> {
         return this.aiProviderManager.getAvailableAIs();
     }
 
     /**
-     * 현재 설정된 AI 제공업체와 모델 반환
+     * Get the currently configured AI provider and model
      */
     getCurrentAI(): { provider?: string; model?: string } {
         return this.aiProviderManager.getCurrentAI();
     }
 
     // ============================================================
-    // 시스템 메시지 관리 (위임)
+    // System Message Management (delegation)
     // ============================================================
 
     /**
-     * 단일 시스템 프롬프트 설정
+     * Set a single system prompt
      */
     setSystemPrompt(prompt: string): void {
         this.systemMessageManager.setSystemPrompt(prompt);
     }
 
     /**
-     * 여러 시스템 메시지 설정
+     * Set multiple system messages
      */
     setSystemMessages(messages: Message[]): void {
         this.systemMessageManager.setSystemMessages(messages);
     }
 
     /**
-     * 기존 시스템 메시지에 새 시스템 메시지 추가
+     * Add a new system message to existing system messages
      */
     addSystemMessage(content: string): void {
         this.systemMessageManager.addSystemMessage(content);
     }
 
     // ============================================================
-    // 함수 호출 관리 (위임)
+    // Function Call Management (delegation)
     // ============================================================
 
     /**
-     * 함수 호출 모드 설정
+     * Set function call mode
      */
     setFunctionCallMode(mode: FunctionCallMode): void {
         this.functionCallManager.setFunctionCallMode(mode);
     }
 
     /**
-     * 함수 호출 설정 구성
+     * Configure function call settings
      */
     configureFunctionCall(config: {
         mode?: FunctionCallMode;
@@ -227,18 +227,18 @@ export class Robota {
     }): void {
         this.functionCallManager.configure(config);
 
-        // Tool Provider Manager에도 허용된 함수 목록 업데이트
+        // Update allowed function list in Tool Provider Manager as well
         if (config.allowedFunctions) {
             this.toolProviderManager.setAllowedFunctions(config.allowedFunctions);
         }
     }
 
     // ============================================================
-    // 실행 메서드
+    // Execution Methods
     // ============================================================
 
     /**
-     * 텍스트 프롬프트 실행
+     * Execute a text prompt
      */
     async run(prompt: string, options: RunOptions = {}): Promise<string> {
         const userMessage: Message = {
@@ -256,7 +256,7 @@ export class Robota {
 
         const response = await this.generateResponse(context, options);
 
-        // assistant 응답을 memory에 추가
+        // Add assistant response to memory
         const assistantMessage: Message = {
             role: 'assistant',
             content: response.content || ''
@@ -267,7 +267,7 @@ export class Robota {
     }
 
     /**
-     * 채팅 메시지 처리 및 응답 생성
+     * Process chat message and generate response
      */
     async chat(message: string, options: RunOptions = {}): Promise<string> {
         const userMessage: Message = {
@@ -295,7 +295,7 @@ export class Robota {
     }
 
     /**
-     * 스트리밍 응답 생성
+     * Generate streaming response
      */
     async runStream(prompt: string, options: RunOptions = {}): Promise<AsyncIterable<StreamingResponseChunk>> {
         const userMessage: Message = {
@@ -315,7 +315,7 @@ export class Robota {
     }
 
     /**
-     * 응답 메시지 추가
+     * Add response message to memory
      */
     addResponseToMemory(response: ModelResponse): void {
         const assistantMessage: Message = {
@@ -326,28 +326,28 @@ export class Robota {
     }
 
     /**
-     * 메모리 초기화
+     * Clear memory
      */
     clearMemory(): void {
         this.memory.clear();
     }
 
     // ============================================================
-    // 내부 헬퍼 메서드
+    // Internal Helper Methods
     // ============================================================
 
     /**
-     * 응답 생성 (내부용)
+     * Generate response (internal use)
      */
     private async generateResponse(context: any, options: RunOptions = {}): Promise<ModelResponse> {
         if (!this.aiProviderManager.isConfigured()) {
-            throw new Error('현재 AI 제공업체와 모델이 설정되지 않았습니다. setCurrentAI() 메서드를 사용하여 설정하세요.');
+            throw new Error('Current AI provider and model are not configured. Use setCurrentAI() method to configure.');
         }
 
         const currentAiProvider = this.aiProviderManager.getCurrentProvider()!;
         const currentModel = this.aiProviderManager.getCurrentModel()!;
 
-        // 함수 호출 모드가 옵션에 없으면 기본 모드 사용
+        // Use default mode if function call mode is not in options
         const enhancedOptions = {
             ...options,
             functionCallMode: options.functionCallMode || this.functionCallManager.getDefaultMode()
@@ -362,7 +362,7 @@ export class Robota {
             async (toolName: string, params: any) => {
                 const result = await this.toolProviderManager.callTool(toolName, params);
 
-                // 콜백 실행
+                // Execute callback
                 if (this.onToolCall) {
                     this.onToolCall(toolName, params, result);
                 }
@@ -373,11 +373,11 @@ export class Robota {
     }
 
     /**
-     * 스트리밍 응답 생성 (내부용)
+     * Generate streaming response (internal use)
      */
     private async generateStream(context: any, options: RunOptions = {}): Promise<AsyncIterable<StreamingResponseChunk>> {
         if (!this.aiProviderManager.isConfigured()) {
-            throw new Error('현재 AI 제공업체와 모델이 설정되지 않았습니다. setCurrentAI() 메서드를 사용하여 설정하세요.');
+            throw new Error('Current AI provider and model are not configured. Use setCurrentAI() method to configure.');
         }
 
         const currentAiProvider = this.aiProviderManager.getCurrentProvider()!;
@@ -393,21 +393,21 @@ export class Robota {
     }
 
     /**
-     * 도구 호출 (공개 API)
+     * Call a tool (public API)
      */
     async callTool(toolName: string, parameters: Record<string, any>): Promise<any> {
         return this.toolProviderManager.callTool(toolName, parameters);
     }
 
     /**
-     * 사용 가능한 도구 목록 반환
+     * Get list of available tools
      */
     getAvailableTools(): any[] {
         return this.toolProviderManager.getAvailableTools();
     }
 
     /**
-     * 리소스 해제
+     * Release resources
      */
     async close(): Promise<void> {
         await this.aiProviderManager.close();

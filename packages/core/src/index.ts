@@ -1,8 +1,8 @@
-// 메인 Robota 클래스
+// Main Robota class
 export { Robota } from './robota';
 export type { RobotaOptions } from './robota';
 
-// 인터페이스들
+// Interfaces
 export type {
     AIProvider,
     Context,
@@ -14,7 +14,7 @@ export type {
 } from './interfaces/ai-provider';
 export type { Logger } from './interfaces/logger';
 
-// 타입들
+// Types
 export type {
     FunctionSchema,
     FunctionCallResult,
@@ -23,30 +23,30 @@ export type {
     ProviderOptions
 } from './types';
 
-// 메모리
+// Memory
 export { SimpleMemory, PersistentSystemMemory } from './memory';
 export type { Memory } from './memory';
 
 // Tool Provider
 export type { ToolProvider } from './tool-provider';
 
-// 매니저들 (필요시 외부에서 직접 사용 가능)
+// Managers (available for direct external use when needed)
 export { AIProviderManager } from './managers/ai-provider-manager';
 export { ToolProviderManager } from './managers/tool-provider-manager';
 export { SystemMessageManager } from './managers/system-message-manager';
 export { FunctionCallManager } from './managers/function-call-manager';
 export type { FunctionCallConfig, FunctionCallMode } from './managers/function-call-manager';
 
-// 서비스들
+// Services
 export { ConversationService } from './services/conversation-service';
 
-// 유틸리티
+// Utilities
 export { logger } from './utils';
 
-// 기존 기능들 (하위 호환성)
+// Legacy features (for backward compatibility)
 export * from './providers/openai-provider';
 
-// function.ts에서 필요한 항목들
+// Required items from function.ts
 export {
     createFunction,
     functionFromCallback,

@@ -1,10 +1,10 @@
 /**
- * 함수 생성 및 호출 유틸리티
+ * Function creation and invocation utilities
  * 
  * @module Function
  * @description
- * AI가 호출할 수 있는 함수를 생성하고 관리하는 유틸리티입니다.
- * zod 라이브러리를 사용하여 함수 매개변수의 유효성 검사를 수행합니다.
+ * Utilities for creating and managing functions that AI can invoke.
+ * Uses the zod library to perform validation of function parameters.
  */
 
 import { z } from 'zod';
@@ -12,14 +12,14 @@ import type { FunctionDefinition, FunctionCallResult, FunctionSchema } from './t
 import type { FunctionCall } from './interfaces/ai-provider';
 
 /**
- * 함수 결과 타입
+ * Function result type
  */
 export type FunctionResult<TResult = any> = {
     result: TResult;
 };
 
 /**
- * 함수 옵션 인터페이스
+ * Function options interface
  */
 export interface FunctionOptions<TParams = any, TResult = any> {
     name: string;
@@ -29,7 +29,7 @@ export interface FunctionOptions<TParams = any, TResult = any> {
 }
 
 /**
- * 함수 인터페이스
+ * Function interface
  */
 export interface Function<TParams = any, TResult = any> {
     name: string;
@@ -39,9 +39,9 @@ export interface Function<TParams = any, TResult = any> {
 }
 
 /**
- * zod 스키마를 JSON 스키마 형식으로 변환
- * @param schema zod 스키마
- * @returns JSON 스키마
+ * Convert zod schema to JSON schema format
+ * @param schema zod schema
+ * @returns JSON schema
  */
 function zodToJsonSchema(schema: z.ZodObject<any>): any {
     const jsonSchema: any = {
@@ -50,7 +50,7 @@ function zodToJsonSchema(schema: z.ZodObject<any>): any {
         required: []
     };
 
-    // zod 스키마의 shape 객체를 JSON 스키마 속성으로 변환
+    // Convert zod schema's shape object to JSON schema properties
     const shape = schema._def.shape();
     const entries = Object.entries(shape);
 
@@ -58,7 +58,7 @@ function zodToJsonSchema(schema: z.ZodObject<any>): any {
         const fieldSchema = convertZodTypeToJsonSchema(value as z.ZodTypeAny, key);
         jsonSchema.properties[key] = fieldSchema;
 
-        // 필수 필드 확인 (optional이 아니고 nullable이 아닌 경우)
+        // Check required fields (when not optional and not nullable)
         if (!isOptionalType(value as z.ZodTypeAny) && !isNullableType(value as z.ZodTypeAny)) {
             if (!jsonSchema.required) {
                 jsonSchema.required = [];
@@ -71,26 +71,26 @@ function zodToJsonSchema(schema: z.ZodObject<any>): any {
 }
 
 /**
- * zod 타입을 JSON 스키마 타입으로 변환
- * @param zodType zod 타입
- * @param fieldName 필드 이름 (오류 메시지용)
- * @returns JSON 스키마 타입
+ * Convert zod type to JSON schema type
+ * @param zodType zod type
+ * @param fieldName field name (for error messages)
+ * @returns JSON schema type
  */
 function convertZodTypeToJsonSchema(zodType: z.ZodTypeAny, fieldName: string): any {
-    // 기본 JSON 스키마 객체
+    // Basic JSON schema object
     const jsonSchema: any = {};
 
-    // 설명 추출
+    // Extract description
     const description = getZodDescription(zodType);
     if (description) {
         jsonSchema.description = description;
     }
 
-    // 타입에 따라 변환
+    // Convert by type
     if (zodType instanceof z.ZodString) {
         jsonSchema.type = 'string';
 
-        // 문자열 제약 조건
+        // String constraints
         if (zodType._def.checks) {
             for (const check of zodType._def.checks) {
                 if (check.kind === 'min') {
@@ -109,7 +109,7 @@ function convertZodTypeToJsonSchema(zodType: z.ZodTypeAny, fieldName: string): a
     } else if (zodType instanceof z.ZodNumber) {
         jsonSchema.type = 'number';
 
-        // 숫자 제약 조건
+        // Number constraints
         if (zodType._def.checks) {
             for (const check of zodType._def.checks) {
                 if (check.kind === 'min') {
@@ -127,7 +127,7 @@ function convertZodTypeToJsonSchema(zodType: z.ZodTypeAny, fieldName: string): a
         jsonSchema.type = 'array';
         jsonSchema.items = convertZodTypeToJsonSchema(zodType._def.type, `${fieldName}[]`);
 
-        // 배열 제약 조건
+        // Array constraints
         if (zodType._def.minLength !== null) {
             jsonSchema.minItems = zodType._def.minLength.value;
         }
@@ -157,7 +157,7 @@ function convertZodTypeToJsonSchema(zodType: z.ZodTypeAny, fieldName: string): a
         Object.assign(jsonSchema, innerSchema);
         jsonSchema.default = zodType._def.defaultValue();
     } else {
-        // 기타 타입은 문자열로 처리
+        // Other types are handled as strings
         jsonSchema.type = 'string';
         console.warn(`Unsupported zod type for field ${fieldName}, using string as fallback`);
     }
@@ -166,16 +166,16 @@ function convertZodTypeToJsonSchema(zodType: z.ZodTypeAny, fieldName: string): a
 }
 
 /**
- * zod 타입에서 설명 추출
- * @param zodType zod 타입
- * @returns 설명 문자열
+ * Extract description from zod type
+ * @param zodType zod type
+ * @returns description string
  */
 function getZodDescription(zodType: z.ZodTypeAny): string | undefined {
-    // zod 타입의 메타데이터에서 설명을 추출
+    // Extract description from zod type metadata
     const description = zodType._def.description;
     if (description) return description;
 
-    // 내부 타입이 있는 경우 재귀적으로 설명 추출
+    // Recursively extract description if there's an inner type
     if (zodType instanceof z.ZodOptional || zodType instanceof z.ZodNullable) {
         return getZodDescription(zodType._def.innerType);
     }
@@ -184,9 +184,9 @@ function getZodDescription(zodType: z.ZodTypeAny): string | undefined {
 }
 
 /**
- * zod 타입이 옵셔널인지 확인
- * @param zodType zod 타입
- * @returns 옵셔널 여부
+ * Check if zod type is optional
+ * @param zodType zod type
+ * @returns whether it's optional
  */
 function isOptionalType(zodType: z.ZodTypeAny): boolean {
     return zodType instanceof z.ZodOptional ||
@@ -194,30 +194,30 @@ function isOptionalType(zodType: z.ZodTypeAny): boolean {
 }
 
 /**
- * zod 타입이 null을 허용하는지 확인
- * @param zodType zod 타입
- * @returns nullable 여부
+ * Check if zod type allows null
+ * @param zodType zod type
+ * @returns whether it's nullable
  */
 function isNullableType(zodType: z.ZodTypeAny): boolean {
     return zodType instanceof z.ZodNullable;
 }
 
 /**
- * 함수 생성
+ * Create a function
  * 
  * @function createFunction
  * @description
- * AI가 호출할 수 있는 함수를 생성합니다.
- * 함수 이름, 설명, 매개변수 스키마, 실행 로직을 정의할 수 있습니다.
+ * Creates a function that AI can invoke.
+ * You can define function name, description, parameter schema, and execution logic.
  * 
- * @template TParams 함수 매개변수 타입
- * @template TResult 함수 반환 결과 타입
- * @param {FunctionOptions<TParams, TResult>} options - 함수 옵션
- * @param {string} options.name - 함수 이름
- * @param {string} [options.description] - 함수 설명
- * @param {z.ZodObject<any> | any} options.parameters - 매개변수 스키마
- * @param {(params: TParams) => Promise<TResult> | TResult} options.execute - 실행 로직
- * @returns {Function<TParams, TResult>} 생성된 함수 객체
+ * @template TParams function parameter type
+ * @template TResult function return result type
+ * @param {FunctionOptions<TParams, TResult>} options - Function options
+ * @param {string} options.name - Function name
+ * @param {string} [options.description] - Function description
+ * @param {z.ZodObject<any> | any} options.parameters - Parameter schema
+ * @param {(params: TParams) => Promise<TResult> | TResult} options.execute - Execution logic
+ * @returns {Function<TParams, TResult>} Created function object
  * 
  * @example
  * ```typescript
@@ -226,14 +226,14 @@ function isNullableType(zodType: z.ZodTypeAny): boolean {
  * 
  * const getWeather = createFunction({
  *   name: 'getWeather',
- *   description: '특정 위치의 날씨 정보를 조회합니다.',
+ *   description: 'Get weather information for a specific location.',
  *   parameters: z.object({
- *     location: z.string().describe('날씨를 조회할 위치 (도시명)'),
- *     unit: z.enum(['celsius', 'fahrenheit']).optional().describe('온도 단위')
+ *     location: z.string().describe('Location to check weather (city name)'),
+ *     unit: z.enum(['celsius', 'fahrenheit']).optional().describe('Temperature unit')
  *   }),
  *   execute: async (params) => {
- *     // 날씨 API 호출 로직
- *     return { temperature: 25, condition: '맑음' };
+ *     // Weather API call logic
+ *     return { temperature: 25, condition: 'sunny' };
  *   }
  * });
  * ```
@@ -243,7 +243,7 @@ export function createFunction<TParams = any, TResult = any>(
 ): Function<TParams, TResult> {
     const { name, description, parameters, execute } = options;
 
-    // zod 스키마를 JSON 스키마로 변환
+    // Convert zod schema to JSON schema
     const schema: FunctionDefinition = {
         name,
         description,
@@ -252,18 +252,18 @@ export function createFunction<TParams = any, TResult = any>(
             : parameters
     };
 
-    // 함수 실행 래퍼
+    // Function execution wrapper
     const wrappedExecute = async (params: TParams): Promise<TResult> => {
         try {
-            // zod 스키마가 있는 경우 매개변수 유효성 검사
+            // Validate parameters if zod schema exists
             if (parameters instanceof z.ZodObject) {
                 parameters.parse(params);
             }
 
-            // 함수 실행
+            // Execute function
             return await Promise.resolve(execute(params));
         } catch (error) {
-            // zod 검증 오류 처리
+            // Handle zod validation errors
             if (error instanceof z.ZodError) {
                 const errorMessage = error.errors.map(e =>
                     `${e.path.join('.')}: ${e.message}`
@@ -272,12 +272,12 @@ export function createFunction<TParams = any, TResult = any>(
                 throw new Error(`Parameter validation failed: ${errorMessage}`);
             }
 
-            // 기타 오류는 그대로 전파
+            // Propagate other errors as is
             throw error;
         }
     };
 
-    // 함수 객체 생성
+    // Create function object
     return {
         name,
         description,
@@ -287,16 +287,16 @@ export function createFunction<TParams = any, TResult = any>(
 }
 
 /**
- * 콜백 함수를 Function 객체로 변환
+ * Convert callback function to Function object
  * 
  * @function functionFromCallback
  * @description
- * 일반 JavaScript 함수를 AI가 호출할 수 있는 Function 객체로 변환합니다.
+ * Converts a regular JavaScript function to a Function object that AI can invoke.
  * 
- * @param {string} name - 함수 이름
- * @param {Function} fn - 변환할 콜백 함수
- * @param {string} [description] - 함수 설명
- * @returns {Function} 생성된 함수 객체
+ * @param {string} name - Function name
+ * @param {Function} fn - Callback function to convert
+ * @param {string} [description] - Function description
+ * @returns {Function} Created function object
  * 
  * @example
  * ```typescript
@@ -305,7 +305,7 @@ export function createFunction<TParams = any, TResult = any>(
  * const calculateSum = functionFromCallback(
  *   'calculateSum',
  *   (a: number, b: number) => a + b,
- *   '두 숫자의 합을 계산합니다.'
+ *   'Calculate the sum of two numbers.'
  * );
  * ```
  */
@@ -314,19 +314,19 @@ export function functionFromCallback(
     fn: (...args: any[]) => any,
     description?: string
 ): Function {
-    // 함수 매개변수 정보 추출
+    // Extract function parameter information
     const fnStr = fn.toString();
     const argsMatch = fnStr.match(/\(([^)]*)\)/);
     const argNames = argsMatch ? argsMatch[1].split(',').map(arg => arg.trim()).filter(Boolean) : [];
 
-    // 매개변수 스키마 생성
+    // Create parameter schema
     const paramSchema = {
         type: 'object',
         properties: Object.fromEntries(argNames.map(name => [name, { type: 'string' }])),
         required: argNames
     };
 
-    // 실행 함수 래핑
+    // Wrap execution function
     const execute = async (params: Record<string, any>) => {
         const args = argNames.map(name => params[name]);
         return await Promise.resolve(fn(...args));
@@ -341,7 +341,7 @@ export function functionFromCallback(
 }
 
 /**
- * 함수 스키마를 Zod 스키마로 변환하는 유틸리티 함수
+ * Utility function to convert function schema to Zod schema
  */
 export function createFunctionSchema(definition: FunctionDefinition) {
     const propertySchemas: Record<string, z.ZodTypeAny> = {};
@@ -374,7 +374,7 @@ export function createFunctionSchema(definition: FunctionDefinition) {
 }
 
 /**
- * 함수 호출 핸들러 타입
+ * Function call handler type
  */
 export type FunctionHandler = (
     args: Record<string, any>,
@@ -382,14 +382,14 @@ export type FunctionHandler = (
 ) => Promise<any>;
 
 /**
- * 함수 호출 레지스트리
+ * Function call registry
  */
 export class FunctionRegistry {
     private functions: Map<string, FunctionHandler> = new Map();
     private definitions: Map<string, FunctionDefinition> = new Map();
 
     /**
-     * 함수를 등록합니다
+     * Register a function
      */
     register(definition: FunctionDefinition, handler: FunctionHandler): void {
         this.functions.set(definition.name, handler);
@@ -397,21 +397,21 @@ export class FunctionRegistry {
     }
 
     /**
-     * 등록된 모든 함수 정의를 반환합니다
+     * Get all registered function definitions
      */
     getAllDefinitions(): FunctionDefinition[] {
         return Array.from(this.definitions.values());
     }
 
     /**
-     * 함수 이름으로 함수 정의를 가져옵니다
+     * Get function definition by name
      */
     getDefinition(name: string): FunctionDefinition | undefined {
         return this.definitions.get(name);
     }
 
     /**
-     * 함수 호출을 실행합니다
+     * Execute function call
      */
     async execute(
         functionCall: FunctionCall,
@@ -421,7 +421,7 @@ export class FunctionRegistry {
         const handler = this.functions.get(name);
 
         if (!handler) {
-            throw new Error(`함수 '${name}'가 등록되지 않았습니다`);
+            throw new Error(`Function '${name}' is not registered`);
         }
 
         try {

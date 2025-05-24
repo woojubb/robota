@@ -7,8 +7,8 @@ import type { Memory } from '../memory';
 import { logger } from '../utils';
 
 /**
- * 대화 서비스 클래스
- * AI와의 대화 처리를 담당합니다.
+ * Conversation service class
+ * Handles conversation processing with AI.
  */
 export class ConversationService {
     private temperature?: number;
@@ -29,12 +29,12 @@ export class ConversationService {
     }
 
     /**
-     * 컨텍스트 준비
+     * Prepare context
      * 
-     * @param memory - 메모리 인스턴스
-     * @param systemPrompt - 옵션 시스템 프롬프트
-     * @param systemMessages - 시스템 메시지들
-     * @param options - 실행 옵션
+     * @param memory - Memory instance
+     * @param systemPrompt - Optional system prompt
+     * @param systemMessages - System messages
+     * @param options - Run options
      */
     prepareContext(
         memory: Memory,
@@ -48,7 +48,7 @@ export class ConversationService {
             messages
         };
 
-        // 시스템 메시지 처리
+        // Handle system messages
         if (options.systemPrompt) {
             context.systemPrompt = options.systemPrompt;
         } else if (systemMessages && systemMessages.length > 0) {
@@ -61,14 +61,14 @@ export class ConversationService {
     }
 
     /**
-     * 응답 생성
+     * Generate response
      * 
-     * @param aiProvider - AI 제공업체
-     * @param model - 모델명
-     * @param context - 대화 컨텍스트
-     * @param options - 실행 옵션
-     * @param availableTools - 사용 가능한 도구들
-     * @param onToolCall - 도구 호출 함수
+     * @param aiProvider - AI provider
+     * @param model - Model name
+     * @param context - Conversation context
+     * @param options - Run options
+     * @param availableTools - Available tools
+     * @param onToolCall - Tool call function
      */
     async generateResponse(
         aiProvider: AIProvider,
@@ -79,7 +79,7 @@ export class ConversationService {
         onToolCall?: (toolName: string, params: any) => Promise<any>
     ): Promise<ModelResponse> {
         try {
-            // AI 제공업체를 통해 응답 생성
+            // Generate response through AI provider
             const response = await aiProvider.chat(model, context, {
                 ...options,
                 temperature: options.temperature ?? this.temperature,
@@ -90,7 +90,7 @@ export class ConversationService {
                 forcedArguments: options.forcedArguments
             });
 
-            // 함수 호출이 있는 경우 자동으로 실행
+            // Automatically execute if there is a function call
             if (response.functionCall && options.functionCallMode !== 'disabled' && onToolCall) {
                 return await this.handleFunctionCall(
                     response,
@@ -105,13 +105,13 @@ export class ConversationService {
 
             return response;
         } catch (error) {
-            logger.error('AI 클라이언트 호출 중 오류 발생:', error);
-            throw new Error(`AI 클라이언트 호출 중 오류: ${error instanceof Error ? error.message : String(error)}`);
+            logger.error('Error occurred during AI client call:', error);
+            throw new Error(`Error during AI client call: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
     /**
-     * 함수 호출 처리
+     * Handle function call
      */
     private async handleFunctionCall(
         response: ModelResponse,
@@ -125,30 +125,30 @@ export class ConversationService {
         const { name, arguments: args } = response.functionCall!;
 
         try {
-            // arguments가 string이면 JSON 파싱, 아니면 그대로 사용
+            // Parse arguments if string, otherwise use as is
             const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args;
 
-            // 도구 호출 로깅
+            // Tool call logging
             if (this.debug) {
-                this.logger.info(`🔧 [도구 호출] ${name}`, parsedArgs);
+                this.logger.info(`🔧 [Tool Call] ${name}`, parsedArgs);
             }
 
-            // 도구 호출
+            // Call tool
             const toolResult = await onToolCall(name, parsedArgs);
 
-            // 도구 결과 로깅
+            // Tool result logging
             if (this.debug) {
-                this.logger.info(`✅ [도구 결과] ${name}`, toolResult);
+                this.logger.info(`✅ [Tool Result] ${name}`, toolResult);
             }
 
-            // 함수 호출 결과를 메시지에 추가
+            // Add function call result to messages
             const functionResultMessage: Message = {
                 role: 'function',
                 name: name,
                 content: JSON.stringify(toolResult)
             };
 
-            // 새로운 컨텍스트 생성 (원본 + 어시스턴트 응답 + 함수 결과)
+            // Create new context (original + assistant response + function result)
             const newContext: Context = {
                 ...context,
                 messages: [
@@ -162,7 +162,7 @@ export class ConversationService {
                 ]
             };
 
-            // 함수 결과를 포함한 최종 응답 생성
+            // Generate final response including function result
             const finalResponse = await aiProvider.chat(model, newContext, {
                 ...options,
                 temperature: options.temperature ?? this.temperature,
@@ -172,9 +172,9 @@ export class ConversationService {
 
             return finalResponse;
         } catch (toolError) {
-            logger.error('도구 호출 중 오류:', toolError);
+            logger.error('Error during tool call:', toolError);
 
-            // 도구 호출 오류를 함수 결과로 추가
+            // Add tool call error as function result
             const errorMessage: Message = {
                 role: 'function',
                 name: name,
@@ -194,7 +194,7 @@ export class ConversationService {
                 ]
             };
 
-            // 오류를 포함한 응답 생성
+            // Generate response including error
             const errorResponse = await aiProvider.chat(model, errorContext, {
                 ...options,
                 temperature: options.temperature ?? this.temperature,
@@ -207,7 +207,7 @@ export class ConversationService {
     }
 
     /**
-     * 스트리밍 응답 생성
+     * Generate streaming response
      */
     async generateStream(
         aiProvider: AIProvider,
@@ -217,7 +217,7 @@ export class ConversationService {
         availableTools: any[] = []
     ): Promise<AsyncIterable<StreamingResponseChunk>> {
         if (!aiProvider.chatStream) {
-            throw new Error(`AI 제공업체는 스트리밍을 지원하지 않습니다.`);
+            throw new Error(`AI provider does not support streaming.`);
         }
 
         try {
@@ -228,8 +228,8 @@ export class ConversationService {
                 tools: availableTools
             });
         } catch (error) {
-            this.logger.error('스트리밍 API 호출 중 오류 발생:', error);
-            throw new Error(`스트리밍 API 호출 중 오류: ${error instanceof Error ? error.message : String(error)}`);
+            this.logger.error('Error occurred during streaming API call:', error);
+            throw new Error(`Error during streaming API call: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 } 

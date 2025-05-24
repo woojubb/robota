@@ -2,8 +2,8 @@ import type { AIProvider, Context, ModelResponse, StreamingResponseChunk } from 
 import { logger } from '../utils';
 
 /**
- * OpenAI Provider 래퍼
- * OpenAI 클라이언트를 통합 AIProvider 인터페이스로 감쌉니다.
+ * OpenAI Provider wrapper
+ * Wraps OpenAI client with unified AIProvider interface.
  */
 export class OpenAIProvider implements AIProvider {
     public readonly name = 'openai';
@@ -16,36 +16,36 @@ export class OpenAIProvider implements AIProvider {
         'gpt-3.5-turbo-1106'
     ];
 
-    private client: any; // OpenAI 클라이언트
+    private client: any; // OpenAI client
 
     constructor(client: any) {
         this.client = client;
     }
 
     /**
-     * 채팅 요청
+     * Chat request
      */
     async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
         if (!this.availableModels.includes(model)) {
-            throw new Error(`OpenAI에서 지원하지 않는 모델입니다: ${model}`);
+            throw new Error(`Model not supported by OpenAI: ${model}`);
         }
 
         try {
             const { messages, systemPrompt } = context;
 
-            // 시스템 프롬프트 추가 (없는 경우)
+            // Add system prompt (if not present)
             const messagesWithSystem = systemPrompt && !messages.some((m: any) => m.role === 'system')
                 ? [{ role: 'system' as const, content: systemPrompt }, ...messages]
                 : messages;
 
-            // OpenAI 형식으로 메시지 변환
+            // Convert messages to OpenAI format
             const formattedMessages = messagesWithSystem.map((m: any) => ({
                 role: m.role,
                 content: m.content,
                 name: m.name
             }));
 
-            // OpenAI API 요청 옵션 구성
+            // Configure OpenAI API request options
             const completionOptions: any = {
                 model,
                 messages: formattedMessages,
@@ -53,7 +53,7 @@ export class OpenAIProvider implements AIProvider {
                 max_tokens: options?.maxTokens
             };
 
-            // 도구가 있을 경우 함수 정의 추가
+            // Add function definitions if tools are present
             if (options?.tools && Array.isArray(options.tools)) {
                 completionOptions.tools = options.tools.map((fn: any) => ({
                     type: 'function',
@@ -65,7 +65,7 @@ export class OpenAIProvider implements AIProvider {
                 }));
             }
 
-            // OpenAI API 호출
+            // Call OpenAI API
             const response = await this.client.chat.completions.create(completionOptions);
 
             return {
@@ -87,35 +87,35 @@ export class OpenAIProvider implements AIProvider {
                 }
             };
         } catch (error) {
-            logger.error('[OpenAIProvider] API 호출 오류:', error);
+            logger.error('[OpenAIProvider] API call error:', error);
             throw error;
         }
     }
 
     /**
-     * 스트리밍 채팅 요청
+     * Streaming chat request
      */
     async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
         if (!this.availableModels.includes(model)) {
-            throw new Error(`OpenAI에서 지원하지 않는 모델입니다: ${model}`);
+            throw new Error(`Model not supported by OpenAI: ${model}`);
         }
 
         try {
             const { messages, systemPrompt } = context;
 
-            // 시스템 프롬프트 추가 (없는 경우)
+            // Add system prompt (if not present)
             const messagesWithSystem = systemPrompt && !messages.some((m: any) => m.role === 'system')
                 ? [{ role: 'system' as const, content: systemPrompt }, ...messages]
                 : messages;
 
-            // OpenAI 형식으로 메시지 변환
+            // Convert messages to OpenAI format
             const formattedMessages = messagesWithSystem.map((m: any) => ({
                 role: m.role,
                 content: m.content,
                 name: m.name
             }));
 
-            // OpenAI API 요청 옵션 구성
+            // Configure OpenAI API request options
             const completionOptions: any = {
                 model,
                 messages: formattedMessages,
@@ -124,7 +124,7 @@ export class OpenAIProvider implements AIProvider {
                 stream: true
             };
 
-            // 도구가 있을 경우 함수 정의 추가
+            // Add function definitions if tools are present
             if (options?.tools && Array.isArray(options.tools)) {
                 completionOptions.tools = options.tools.map((fn: any) => ({
                     type: 'function',
@@ -150,15 +150,15 @@ export class OpenAIProvider implements AIProvider {
                 } as StreamingResponseChunk;
             }
         } catch (error) {
-            logger.error('[OpenAIProvider] 스트리밍 API 호출 오류:', error);
+            logger.error('[OpenAIProvider] Streaming API call error:', error);
             throw error;
         }
     }
 
     /**
-     * 리소스 해제
+     * Release resources
      */
     async close(): Promise<void> {
-        // OpenAI 클라이언트는 특별한 종료 메서드가 없음
+        // OpenAI client has no special close method
     }
 } 

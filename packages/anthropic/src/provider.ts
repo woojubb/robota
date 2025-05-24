@@ -11,16 +11,16 @@ import {
 import { AnthropicProviderOptions } from './types';
 
 /**
- * Anthropic 제공업체 구현
+ * Anthropic provider implementation
  */
 export class AnthropicProvider implements ModelContextProtocol {
     /**
-     * Anthropic 클라이언트 인스턴스
+     * Anthropic client instance
      */
     private client: Anthropic;
 
     /**
-     * 제공업체 옵션
+     * Provider options
      */
     public options: AnthropicProviderOptions;
 
@@ -31,16 +31,16 @@ export class AnthropicProvider implements ModelContextProtocol {
             ...options
         };
 
-        // 클라이언트가 주입되지 않았으면 에러 발생
+        // Throw error if client is not injected
         if (!options.client) {
-            throw new Error('Anthropic 클라이언트가 주입되지 않았습니다. client 옵션은 필수입니다.');
+            throw new Error('Anthropic client is not injected. The client option is required.');
         }
 
         this.client = options.client;
     }
 
     /**
-     * 주어진 컨텍스트로 모델에 요청을 보내고 응답을 받습니다.
+     * Send request to model with given context and receive response.
      */
     async chat(context: Context): Promise<ModelResponse> {
         try {
@@ -53,13 +53,13 @@ export class AnthropicProvider implements ModelContextProtocol {
 
             return this.parseResponse(response);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
-            throw new Error(`Anthropic API 호출 오류: ${errorMessage}`);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            throw new Error(`Anthropic API call error: ${errorMessage}`);
         }
     }
 
     /**
-     * 주어진 컨텍스트로 모델에 스트리밍 요청을 보내고 응답 청크를 받습니다.
+     * Send streaming request to model with given context and receive response chunks.
      */
     async *chatStream(context: Context): AsyncGenerator<StreamingResponseChunk, void, unknown> {
         try {
@@ -75,32 +75,32 @@ export class AnthropicProvider implements ModelContextProtocol {
                 yield this.parseStreamingChunk(chunk);
             }
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
-            throw new Error(`Anthropic API 스트리밍 호출 오류: ${errorMessage}`);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            throw new Error(`Anthropic API streaming call error: ${errorMessage}`);
         }
     }
 
     /**
-     * 메시지를 모델이 이해할 수 있는 형식으로 포맷합니다.
+     * Format messages into a format the model can understand.
      */
     formatMessages(messages: Message[]): any[] {
-        // 이 메서드는 타입 호환성을 위해 존재하지만 실제로는 사용하지 않습니다.
-        // Anthropic v0.5.0에서는 messages 형식이 아닌 prompt 문자열을 사용합니다.
+        // This method exists for type compatibility but is not actually used.
+        // Anthropic v0.5.0 uses prompt strings instead of messages format.
         return [];
     }
 
     /**
-     * 메시지를 Anthropic prompt 형식으로 변환합니다.
+     * Convert messages to Anthropic prompt format.
      */
     private formatPrompt(messages: Message[], systemPrompt?: string): string {
         let prompt = '';
 
-        // 시스템 프롬프트가 있으면 추가
+        // Add system prompt if present
         if (systemPrompt) {
             prompt += systemPrompt + '\n\n';
         }
 
-        // Human/Assistant 교차 형식으로 메시지 추가
+        // Add messages in Human/Assistant alternating format
         for (const message of messages) {
             if (message.role === 'user') {
                 prompt += `\n\nHuman: ${message.content}`;
@@ -109,7 +109,7 @@ export class AnthropicProvider implements ModelContextProtocol {
             }
         }
 
-        // 마지막 사용자 메시지 후에 Assistant 프롬프트 추가
+        // Add Assistant prompt after the last user message
         if (messages.length > 0 && messages[messages.length - 1].role === 'user') {
             prompt += '\n\nAssistant:';
         }
@@ -118,23 +118,23 @@ export class AnthropicProvider implements ModelContextProtocol {
     }
 
     /**
-     * 함수 정의를 모델이 이해할 수 있는 형식으로 포맷합니다.
+     * Format function definitions into a format the model can understand.
      */
     formatFunctions(functions: FunctionDefinition[]): any {
-        // Anthropic API는 아직 함수 호출 기능을 지원하지 않을 수 있습니다.
-        // 여기서는 빈 배열을 반환합니다.
+        // Anthropic API may not yet support function calling features.
+        // Return empty array here.
         return [];
     }
 
     /**
-     * 모델 응답을 표준 형식으로 파싱합니다.
+     * Parse model response into standard format.
      */
     parseResponse(response: any): ModelResponse {
         return {
             content: response.completion || '',
             functionCall: undefined,
             usage: {
-                promptTokens: 0, // Anthropic v0.5.0은 usage 정보를 제공하지 않습니다
+                promptTokens: 0, // Anthropic v0.5.0 does not provide usage information
                 completionTokens: 0,
                 totalTokens: 0
             }
@@ -142,7 +142,7 @@ export class AnthropicProvider implements ModelContextProtocol {
     }
 
     /**
-     * 스트리밍 응답 청크를 표준 형식으로 파싱합니다.
+     * Parse streaming response chunk into standard format.
      */
     parseStreamingChunk(chunk: any): StreamingResponseChunk {
         return {

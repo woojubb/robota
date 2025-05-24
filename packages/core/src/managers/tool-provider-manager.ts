@@ -3,8 +3,8 @@ import type { FunctionSchema } from '../types';
 import type { Logger } from '../interfaces/logger';
 
 /**
- * 도구 제공자 관리 클래스
- * Tool Provider들의 등록, 도구 호출, 조회를 담당합니다.
+ * Tool provider management class
+ * Handles registration, invocation, and retrieval of Tool Providers.
  */
 export class ToolProviderManager {
     private toolProviders: ToolProvider[] = [];
@@ -17,69 +17,69 @@ export class ToolProviderManager {
     }
 
     /**
-     * Tool Provider 추가
+     * Add a Tool Provider
      * 
-     * @param toolProvider - 도구 제공자 인스턴스
+     * @param toolProvider - Tool provider instance
      */
     addProvider(toolProvider: ToolProvider): void {
         this.toolProviders.push(toolProvider);
     }
 
     /**
-     * 여러 Tool Provider들 추가
+     * Add multiple Tool Providers
      * 
-     * @param toolProviders - 도구 제공자 배열
+     * @param toolProviders - Array of tool providers
      */
     addProviders(toolProviders: ToolProvider[]): void {
         this.toolProviders.push(...toolProviders);
     }
 
     /**
-     * 허용된 함수 목록 설정
+     * Set allowed function list
      * 
-     * @param allowedFunctions - 허용된 함수명 배열
+     * @param allowedFunctions - Array of allowed function names
      */
     setAllowedFunctions(allowedFunctions?: string[]): void {
         this.allowedFunctions = allowedFunctions;
     }
 
     /**
-     * 도구 호출
+     * Call a tool
      * 
-     * @param toolName - 호출할 도구 이름
-     * @param parameters - 도구에 전달할 파라미터
-     * @returns 도구 호출 결과
+     * @param toolName - Name of the tool to call
+     * @param parameters - Parameters to pass to the tool
+     * @returns Tool call result
      */
     async callTool(toolName: string, parameters: Record<string, any>): Promise<any> {
         if (this.toolProviders.length === 0) {
-            throw new Error('도구 제공자(toolProviders)가 설정되지 않았습니다.');
+            throw new Error('Tool providers are not configured.');
         }
 
-        // 도구 호출 전 파라미터 검증
+        // Validate parameters before tool call
         if (this.allowedFunctions && !this.allowedFunctions.includes(toolName)) {
-            throw new Error(`도구 '${toolName}'은(는) 허용되지 않습니다.`);
+            throw new Error(`Tool '${toolName}' is not allowed.`);
         }
 
-        // 모든 toolProvider에서 해당 도구를 찾아서 호출
+        // Find and call the tool from all toolProviders
         for (const toolProvider of this.toolProviders) {
             if (toolProvider.functions?.some(fn => fn.name === toolName)) {
                 try {
                     const result = await toolProvider.callTool(toolName, parameters);
                     return result;
                 } catch (error) {
-                    this.logger.error(`도구 '${toolName}' 호출 중 오류:`, error);
-                    throw new Error(`도구 호출 실패: ${error instanceof Error ? error.message : String(error)}`);
+                    this.logger.error(`Error calling tool '${toolName}':`, error);
+                    throw new Error(`Tool call failed: ${error instanceof Error ? error.message : String(error)}`);
                 }
             }
         }
 
-        throw new Error(`도구 '${toolName}'을(를) 찾을 수 없습니다.`);
+        throw new Error(`Tool '${toolName}' not found.`);
     }
 
     /**
-     * 사용 가능한 도구 목록 반환
+     * Get list of available tools
      * 
-     * @returns 도구 스키마 목록
+     * @returns List of tool schemas
      */
     getAvailableTools(): FunctionSchema[] {
         return this.toolProviders.reduce((tools: FunctionSchema[], toolProvider) => {
@@ -91,23 +91,23 @@ export class ToolProviderManager {
     }
 
     /**
-     * 등록된 Tool Provider 개수 반환
+     * Get the number of registered Tool Providers
      */
     getProviderCount(): number {
         return this.toolProviders.length;
     }
 
     /**
-     * Tool Provider가 등록되어 있는지 확인
+     * Check if Tool Providers are registered
      */
     hasProviders(): boolean {
         return this.toolProviders.length > 0;
     }
 
     /**
-     * 특정 도구가 사용 가능한지 확인
+     * Check if a specific tool is available
      * 
-     * @param toolName - 확인할 도구 이름
+     * @param toolName - Name of the tool to check
      */
     hasTool(toolName: string): boolean {
         return this.toolProviders.some(toolProvider =>

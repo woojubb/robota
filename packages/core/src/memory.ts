@@ -1,35 +1,35 @@
 import type { Message } from './interfaces/ai-provider';
 
 /**
- * 메모리 인터페이스
+ * Memory interface
  * 
- * 메모리는 대화 이력을 저장하고 관리하는 역할을 합니다.
+ * Memory is responsible for storing and managing conversation history.
  */
 export interface Memory {
   /**
-   * 메모리에 메시지를 추가합니다.
+   * Add a message to memory.
    */
   addMessage(message: Message): void;
 
   /**
-   * 저장된 모든 메시지를 가져옵니다.
+   * Get all stored messages.
    */
   getMessages(): Message[];
 
   /**
-   * 저장된 메시지를 지웁니다.
+   * Clear stored messages.
    */
   clear(): void;
 }
 
 /**
- * 기본 인메모리 구현
+ * Basic in-memory implementation
  */
 export class SimpleMemory implements Memory {
   private messages: Message[] = [];
 
   /**
-   * 최대 저장 메시지 수 (0은 무제한)
+   * Maximum number of stored messages (0 means unlimited)
    */
   private maxMessages: number;
 
@@ -40,17 +40,17 @@ export class SimpleMemory implements Memory {
   addMessage(message: Message): void {
     this.messages.push(message);
 
-    // 최대 메시지 수 제한 적용
+    // Apply maximum message count limit
     if (this.maxMessages > 0 && this.messages.length > this.maxMessages) {
-      // 시스템 메시지는 항상 유지
+      // Always keep system messages
       const systemMessages = this.messages.filter(m => m.role === 'system');
       const nonSystemMessages = this.messages.filter(m => m.role !== 'system');
 
-      // 비시스템 메시지만 잘라냄
+      // Trim only non-system messages
       const remainingCount = this.maxMessages - systemMessages.length;
       const trimmedNonSystemMessages = nonSystemMessages.slice(-remainingCount);
 
-      // 시스템 메시지와 잘라낸 비시스템 메시지 합치기
+      // Combine system messages with trimmed non-system messages
       this.messages = [...systemMessages, ...trimmedNonSystemMessages];
     }
   }
@@ -65,7 +65,7 @@ export class SimpleMemory implements Memory {
 }
 
 /**
- * 시스템 메시지를 유지하는 메모리
+ * Memory that maintains system messages
  */
 export class PersistentSystemMemory implements Memory {
   private memory: SimpleMemory;
@@ -75,7 +75,7 @@ export class PersistentSystemMemory implements Memory {
     this.memory = new SimpleMemory(options);
     this.systemPrompt = systemPrompt;
 
-    // 시스템 메시지 추가
+    // Add system message
     this.memory.addMessage({
       role: 'system',
       content: this.systemPrompt
@@ -93,7 +93,7 @@ export class PersistentSystemMemory implements Memory {
   clear(): void {
     this.memory.clear();
 
-    // 시스템 메시지 다시 추가
+    // Add system message again
     this.memory.addMessage({
       role: 'system',
       content: this.systemPrompt
@@ -101,22 +101,22 @@ export class PersistentSystemMemory implements Memory {
   }
 
   /**
-   * 시스템 프롬프트 업데이트
+   * Update system prompt
    */
   updateSystemPrompt(systemPrompt: string): void {
     this.systemPrompt = systemPrompt;
 
-    // 기존 시스템 메시지 제거
+    // Remove existing system messages
     const nonSystemMessages = this.memory.getMessages().filter(m => m.role !== 'system');
     this.memory.clear();
 
-    // 새 시스템 메시지 추가
+    // Add new system message
     this.memory.addMessage({
       role: 'system',
       content: this.systemPrompt
     });
 
-    // 기존 비시스템 메시지 다시 추가
+    // Re-add existing non-system messages
     for (const message of nonSystemMessages) {
       this.memory.addMessage(message);
     }

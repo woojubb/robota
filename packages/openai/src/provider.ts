@@ -12,28 +12,28 @@ import { OpenAIProviderOptions } from './types';
 import { logger } from '@robota-sdk/core';
 
 /**
- * OpenAI 제공업체 구현
+ * OpenAI provider implementation
  * 
- * AIProvider 인터페이스를 구현하여 Robota와 통합됩니다.
+ * Implements the AIProvider interface to integrate with Robota.
  */
 export class OpenAIProvider implements AIProvider {
   /**
-   * OpenAI 클라이언트 인스턴스
+   * OpenAI client instance
    */
   private client: OpenAI;
 
   /**
-   * 클라이언트 타입
+   * Client type
    */
   public type: string = 'openai';
 
   /**
-   * 클라이언트 인스턴스
+   * Client instance
    */
   public instance: OpenAI;
 
   /**
-   * 제공업체 옵션
+   * Provider options
    */
   public options: OpenAIProviderOptions;
 
@@ -44,9 +44,9 @@ export class OpenAIProvider implements AIProvider {
       ...options
     };
 
-    // 클라이언트가 주입되지 않았으면 에러 발생
+    // Throw error if client is not injected
     if (!options.client) {
-      throw new Error('OpenAI 클라이언트가 주입되지 않았습니다. client 옵션은 필수입니다.');
+      throw new Error('OpenAI client is not injected. The client option is required.');
     }
 
     this.client = options.client;
@@ -54,11 +54,11 @@ export class OpenAIProvider implements AIProvider {
   }
 
   /**
-   * 메시지를 OpenAI 형식으로 변환
+   * Convert messages to OpenAI format
    */
   formatMessages(messages: Message[]): OpenAI.Chat.ChatCompletionMessageParam[] {
     if (!Array.isArray(messages)) {
-      logger.error('formatMessages: messages는 배열이어야 합니다.', messages);
+      logger.error('formatMessages: messages must be an array.', messages);
       return [];
     }
 
@@ -66,13 +66,13 @@ export class OpenAIProvider implements AIProvider {
 
     for (const message of messages) {
       if (!message || typeof message !== 'object') {
-        logger.error('formatMessages: 유효하지 않은 메시지 형식', message);
+        logger.error('formatMessages: invalid message format', message);
         continue;
       }
 
       const { role, content, name, functionCall } = message;
 
-      // 함수 호출 결과가 있는 경우
+      // If there is a function call result
       if (role === 'function') {
         formattedMessages.push({
           role: 'function',
@@ -82,7 +82,7 @@ export class OpenAIProvider implements AIProvider {
         continue;
       }
 
-      // 함수 호출이 있는 경우
+      // If there is a function call
       if (functionCall) {
         formattedMessages.push({
           role: role === 'user' ? 'user' :
@@ -98,7 +98,7 @@ export class OpenAIProvider implements AIProvider {
         continue;
       }
 
-      // 일반 메시지
+      // Regular message
       formattedMessages.push({
         role: role === 'user' ? 'user' :
           role === 'system' ? 'system' : 'assistant',
@@ -111,7 +111,7 @@ export class OpenAIProvider implements AIProvider {
   }
 
   /**
-   * 함수 정의를 OpenAI 형식으로 변환
+   * Convert function definitions to OpenAI format
    */
   formatFunctions(functions: FunctionDefinition[]): OpenAI.Chat.ChatCompletionTool[] {
     return functions.map(fn => ({
@@ -125,7 +125,7 @@ export class OpenAIProvider implements AIProvider {
   }
 
   /**
-   * OpenAI API 응답을 표준 형식으로 변환
+   * Convert OpenAI API response to standard format
    */
   parseResponse(response: OpenAI.Chat.ChatCompletion): ModelResponse {
     const message = response.choices[0].message;
@@ -143,7 +143,7 @@ export class OpenAIProvider implements AIProvider {
       }
     };
 
-    // 함수 호출이 있는 경우
+    // If there is a function call
     if (message.function_call) {
       result.functionCall = {
         name: message.function_call.name,
@@ -155,7 +155,7 @@ export class OpenAIProvider implements AIProvider {
   }
 
   /**
-   * 스트리밍 응답 청크를 표준 형식으로 변환
+   * Convert streaming response chunk to standard format
    */
   parseStreamingChunk(chunk: OpenAI.Chat.ChatCompletionChunk): StreamingResponseChunk {
     const delta = chunk.choices[0].delta;
@@ -165,7 +165,7 @@ export class OpenAIProvider implements AIProvider {
       isComplete: chunk.choices[0].finish_reason !== null
     };
 
-    // 함수 호출 청크가 있는 경우
+    // If there is a function call chunk
     if (delta.function_call) {
       result.functionCall = {
         name: delta.function_call.name,
@@ -177,7 +177,7 @@ export class OpenAIProvider implements AIProvider {
   }
 
   /**
-   * 모델 채팅 요청
+   * Model chat request
    */
   async chat(context: Context, options?: any): Promise<ModelResponse> {
     if (!context || typeof context !== 'object') {

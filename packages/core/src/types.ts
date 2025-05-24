@@ -1,9 +1,9 @@
-// ToolProvider 가져오기 
+// Import ToolProvider 
 import type { ToolProvider } from '@robota-sdk/tools';
-// FunctionSchema는 내부에서 직접 정의
+// FunctionSchema is defined directly internally
 
 /**
- * 함수 스키마 인터페이스
+ * Function schema interface
  */
 export interface FunctionSchema {
     name: string;
@@ -21,7 +21,7 @@ export interface FunctionSchema {
 }
 
 /**
- * 함수 호출 결과 인터페이스
+ * Function call result interface
  */
 export interface FunctionCallResult {
     name: string;
@@ -30,7 +30,7 @@ export interface FunctionCallResult {
 }
 
 /**
- * 함수 정의 인터페이스
+ * Function definition interface
  */
 export interface FunctionDefinition {
     name: string;
@@ -48,7 +48,7 @@ export interface FunctionDefinition {
 }
 
 /**
- * 제공업체 옵션 인터페이스
+ * Provider options interface
  */
 export interface ProviderOptions {
     model: string;
@@ -59,7 +59,7 @@ export interface ProviderOptions {
 }
 
 /**
- * 실행 옵션 인터페이스
+ * Run options interface
  */
 export interface RunOptions {
     systemPrompt?: string;

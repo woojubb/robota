@@ -1,8 +1,8 @@
 import type { AIProvider } from '../interfaces/ai-provider';
 
 /**
- * AI 제공업체 관리 클래스
- * AI Provider들의 등록, 설정, 조회를 담당합니다.
+ * AI provider management class
+ * Responsible for registering, configuring, and querying AI providers.
  */
 export class AIProviderManager {
     private aiProviders: Record<string, AIProvider> = {};
@@ -10,29 +10,29 @@ export class AIProviderManager {
     private currentModel?: string;
 
     /**
-     * AI 제공업체 추가
+     * Add an AI provider
      * 
-     * @param name - 제공업체 이름
-     * @param aiProvider - AI 제공업체 인스턴스
+     * @param name - Provider name
+     * @param aiProvider - AI provider instance
      */
     addProvider(name: string, aiProvider: AIProvider): void {
         this.aiProviders[name] = aiProvider;
     }
 
     /**
-     * 현재 AI 제공업체와 모델 설정
+     * Set current AI provider and model
      * 
-     * @param providerName - 제공업체 이름
-     * @param model - 모델명
+     * @param providerName - Provider name
+     * @param model - Model name
      */
     setCurrentAI(providerName: string, model: string): void {
         if (!this.aiProviders[providerName]) {
-            throw new Error(`AI 제공업체 '${providerName}'를 찾을 수 없습니다.`);
+            throw new Error(`AI provider '${providerName}' not found.`);
         }
 
         const aiProvider = this.aiProviders[providerName];
         if (!aiProvider.availableModels.includes(model)) {
-            throw new Error(`모델 '${model}'은 제공업체 '${providerName}'에서 지원되지 않습니다. 사용 가능한 모델: ${aiProvider.availableModels.join(', ')}`);
+            throw new Error(`Model '${model}' is not supported by provider '${providerName}'. Available models: ${aiProvider.availableModels.join(', ')}`);
         }
 
         this.currentProvider = providerName;
@@ -40,7 +40,7 @@ export class AIProviderManager {
     }
 
     /**
-     * 등록된 AI 제공업체들과 사용 가능한 모델들 반환
+     * Get registered AI providers and their available models
      */
     getAvailableAIs(): Record<string, string[]> {
         const result: Record<string, string[]> = {};
@@ -51,7 +51,7 @@ export class AIProviderManager {
     }
 
     /**
-     * 현재 설정된 AI 제공업체와 모델 반환
+     * Get currently configured AI provider and model
      */
     getCurrentAI(): { provider?: string; model?: string } {
         return {
@@ -61,7 +61,7 @@ export class AIProviderManager {
     }
 
     /**
-     * 현재 AI 제공업체 인스턴스 반환
+     * Get current AI provider instance
      */
     getCurrentProvider(): AIProvider | null {
         if (!this.currentProvider) {
@@ -71,21 +71,21 @@ export class AIProviderManager {
     }
 
     /**
-     * 현재 모델명 반환
+     * Get current model name
      */
     getCurrentModel(): string | null {
         return this.currentModel || null;
     }
 
     /**
-     * AI 제공업체가 설정되었는지 확인
+     * Check if AI provider is configured
      */
     isConfigured(): boolean {
         return !!(this.currentProvider && this.currentModel);
     }
 
     /**
-     * 모든 AI 제공업체의 리소스 해제
+     * Release resources of all AI providers
      */
     async close(): Promise<void> {
         for (const [name, aiProvider] of Object.entries(this.aiProviders)) {
