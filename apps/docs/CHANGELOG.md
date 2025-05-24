@@ -1,5 +1,16 @@
 # robota-docs
 
+## 1.0.5
+
+### Patch Changes
+
+- Update README.md files across all packages:
+  - Add npm package badges with direct links to npmjs.com
+  - Remove outdated memory-related content from core package
+  - Update API examples to match current implementation (provider-based architecture)
+  - Fix function calling examples to use new toolProviders structure
+  - Remove references to deleted MCP package
+
 ## 1.0.4
 
 ### Patch Changes

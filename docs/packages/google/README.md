@@ -1,5 +1,7 @@
 # @robota-sdk/google
 
+[![npm version](https://badge.fury.io/js/%40robota-sdk%2Fgoogle.svg)](https://www.npmjs.com/package/@robota-sdk/google)
+
 Google AI provider package for Robota SDK.
 
 ## Overview

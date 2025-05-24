@@ -1,5 +1,22 @@
 # robota-examples
 
+## 0.1.9
+
+### Patch Changes
+
+- Update README.md files across all packages:
+  - Add npm package badges with direct links to npmjs.com
+  - Remove outdated memory-related content from core package
+  - Update API examples to match current implementation (provider-based architecture)
+  - Fix function calling examples to use new toolProviders structure
+  - Remove references to deleted MCP package
+- Updated dependencies
+  - @robota-sdk/anthropic@0.2.9
+  - @robota-sdk/core@0.2.9
+  - @robota-sdk/google@0.2.9
+  - @robota-sdk/openai@0.2.9
+  - @robota-sdk/tools@0.2.9
+
 ## 0.1.8
 
 ### Patch Changes

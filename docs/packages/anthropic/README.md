@@ -1,5 +1,7 @@
 # @robota-sdk/anthropic
 
+[![npm version](https://badge.fury.io/js/%40robota-sdk%2Fanthropic.svg)](https://www.npmjs.com/package/@robota-sdk/anthropic)
+
 Anthropic Claude integration package for Robota SDK.
 
 ## Documentation
@@ -30,13 +32,16 @@ const anthropicClient = new Anthropic({
 
 // Create Anthropic provider
 const provider = new AnthropicProvider({
-  model: 'claude-3-opus-20240229',
   client: anthropicClient
 });
 
 // Create Robota instance with Anthropic provider
 const robota = new Robota({
-  provider,
+  aiProviders: {
+    anthropic: provider
+  },
+  currentProvider: 'anthropic',
+  currentModel: 'claude-3-opus-20240229',
   systemPrompt: 'You are Claude, a helpful AI assistant.'
 });
 
@@ -47,34 +52,46 @@ console.log(response);
 
 ## Function Calling
 
-Anthropic provider supports Claude's tool use capabilities:
+Anthropic provider supports Claude's tool use capabilities through tool providers:
 
 ```typescript
 import { Robota } from '@robota-sdk/core';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
+import { createZodFunctionToolProvider } from '@robota-sdk/tools';
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 
-// Initialize provider with tools
-const provider = new AnthropicProvider({
-  model: 'claude-3-opus-20240229',
-  client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }),
-  tools: [
-    {
+// Create tool provider with functions
+const toolProvider = createZodFunctionToolProvider({
+  tools: {
+    calculate: {
       name: 'calculate',
       description: 'Perform mathematical calculations',
       parameters: z.object({
         expression: z.string().describe('Mathematical expression to evaluate')
       }),
-      execute: async (params) => {
+      handler: async (params) => {
         // Implement calculation logic
         return { result: eval(params.expression) };
       }
     }
-  ]
+  }
 });
 
-const robota = new Robota({ provider });
+// Initialize provider
+const provider = new AnthropicProvider({
+  client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+});
+
+const robota = new Robota({
+  aiProviders: {
+    anthropic: provider
+  },
+  currentProvider: 'anthropic',
+  currentModel: 'claude-3-opus-20240229',
+  toolProviders: [toolProvider]
+});
+
 const response = await robota.run('Calculate 15 * 27 + 42');
 ```
 

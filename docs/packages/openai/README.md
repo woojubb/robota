@@ -1,5 +1,7 @@
 # @robota-sdk/openai
 
+[![npm version](https://badge.fury.io/js/%40robota-sdk%2Fopenai.svg)](https://www.npmjs.com/package/@robota-sdk/openai)
+
 OpenAI integration package for Robota SDK.
 
 ## Documentation
@@ -30,13 +32,16 @@ const openaiClient = new OpenAI({
 
 // Create OpenAI provider
 const provider = new OpenAIProvider({
-  model: 'gpt-4',
   client: openaiClient
 });
 
 // Create Robota instance with OpenAI provider
 const robota = new Robota({
-  provider,
+  aiProviders: {
+    openai: provider
+  },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
   systemPrompt: 'You are a helpful AI assistant.'
 });
 
@@ -47,36 +52,48 @@ console.log(response);
 
 ## Function Calling
 
-OpenAI provider supports function calling capabilities:
+OpenAI provider supports function calling capabilities through tool providers:
 
 ```typescript
 import { Robota } from '@robota-sdk/core';
 import { OpenAIProvider } from '@robota-sdk/openai';
+import { createZodFunctionToolProvider } from '@robota-sdk/tools';
 import OpenAI from 'openai';
 import { z } from 'zod';
 
-// Initialize provider with tools
-const provider = new OpenAIProvider({
-  model: 'gpt-4',
-  client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
-  tools: [
-    {
+// Create tool provider with functions
+const toolProvider = createZodFunctionToolProvider({
+  tools: {
+    getWeather: {
       name: 'getWeather',
       description: 'Get weather information for a location',
       parameters: z.object({
         location: z.string().describe('The city name'),
         unit: z.enum(['celsius', 'fahrenheit']).default('celsius')
       }),
-      execute: async (params) => {
+      handler: async (params) => {
         // Implement weather lookup logic
         return { temperature: 22, condition: 'Sunny' };
       }
     }
-  ]
+  }
 });
 
-const robota = new Robota({ provider });
-const response = await robota.run('What's the weather like in Seoul?');
+// Initialize provider
+const provider = new OpenAIProvider({
+  client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+});
+
+const robota = new Robota({
+  aiProviders: {
+    openai: provider
+  },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
+  toolProviders: [toolProvider]
+});
+
+const response = await robota.run('What\'s the weather like in Seoul?');
 ```
 
 ## Models

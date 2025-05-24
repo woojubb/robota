@@ -1,5 +1,7 @@
 # @robota-sdk/tools
 
+[![npm version](https://badge.fury.io/js/%40robota-sdk%2Ftools.svg)](https://www.npmjs.com/package/@robota-sdk/tools)
+
 Tools and utilities package for Robota SDK.
 
 ## Documentation

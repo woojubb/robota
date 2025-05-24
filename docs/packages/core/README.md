@@ -1,5 +1,7 @@
 # @robota-sdk/core
 
+[![npm version](https://badge.fury.io/js/%40robota-sdk%2Fcore.svg)](https://www.npmjs.com/package/@robota-sdk/core)
+
 Core package for Robota SDK - A TypeScript library for building AI agents with ease.
 
 ## Documentation
@@ -72,7 +74,7 @@ for await (const chunk of stream) {
 - Provider-agnostic architecture
 - Support for multiple AI models and providers
 - Streaming responses
-- Conversation memory management
+- Conversation history management
 - System message configuration
 - Manager-based architecture for modularity
 - Re-exports tool and function utilities from `@robota-sdk/tools`
@@ -82,7 +84,7 @@ for await (const chunk of stream) {
 The core package provides:
 - **Robota**: Main agent class with conversation management
 - **Managers**: AI provider, tool provider, system message, and function call managers
-- **Memory**: Conversation memory interfaces and implementations
+- **Conversation History**: Simple and persistent conversation history implementations
 - **Services**: Conversation service for handling AI interactions
 - **Interfaces**: Core interfaces for AI providers, messages, and contexts
 
