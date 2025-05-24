@@ -1,1 +1,0 @@
-import{_ as l,c as a,o as i,ag as r}from"./chunks/framework.BDwTZuFy.js";const c=JSON.parse('{"title":"","description":"","frontmatter":{},"headers":[],"relativePath":"ko/_sidebar.md","filePath":"ko/_sidebar.md"}'),t={name:"ko/_sidebar.md"};function o(h,e,n,p,s,m){return i(),a("div",null,e[0]||(e[0]=[r("",1)]))}const d=l(t,[["render",o]]);export{c as __pageData,d as default};
