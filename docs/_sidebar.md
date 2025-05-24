@@ -1,27 +1,24 @@
 * [Home](/)
-* [Getting Started](getting-started.md)
-* [Core Concepts](core-concepts.md)
-* [Examples](examples.md)
-  * [Example Code](examples-readme.md)
-* [Building Agents](building-agents.md)
+* [AI Providers & Tools](providers.md)
+* [Examples](examples/examples.md)
 * [API Reference](api-reference.md)
-  * [Core](api-reference/core/)
-  * [OpenAI](api-reference/openai/)
-  * [Anthropic](api-reference/anthropic/)
-  * [Google](api-reference/google/)
-  * [Tools](api-reference/tools/)
-* [AI Providers](providers.md)
-  * [OpenAI](providers/openai.md)
-  * [Anthropic](providers/anthropic.md)
-  * [Google](providers/google.md)
-  * [Custom Providers](providers/custom.md)
-* [Protocols](protocols/)
-  * [Model Context Protocol](protocols/model-context-protocol.md)
-  * [MCP Provider](protocols/mcp-provider.md)
-* [Function Calling](function-calling.md)
-* [System Messages](system-messages.md)
-* [Code Improvements](code-improvements.md)
+
+**Getting Started**
+* [Environment Setup](environment-setup.md)
 * [Development Guidelines](development-guidelines.md)
-* [Package Publishing](package-publishing.md)
+
+**Package Documentation**
+* [Core Package](packages/core/)
+* [OpenAI Package](packages/openai/)
+* [Anthropic Package](packages/anthropic/)  
+* [Google Package](packages/google/)
+* [Tools Package](packages/tools/)
+
+**Advanced Topics**
+* [Code Improvements](code-improvements.md)
+* [System Messages](system-messages.md)
 * [OpenAPI Integration](openapi-integration.md)
+* [Package Publishing](package-publishing.md)
+
+**Project Management**
 * [Roadmap](roadmap.md)

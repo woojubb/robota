@@ -1,12 +1,12 @@
 ---
 title: AI Providers & Tools
-description: AI Providers and Tool Providers in Robota
+description: AI Providers and Tool Providers in Robota SDK
 lang: en-US
 ---
 
 # AI Providers and Tool Providers
 
-Robota operates with two main components:
+Robota SDK operates with two main components:
 
 1. **AI Providers**: Interfaces that communicate with various LLM services
 2. **Tool Providers**: Interfaces that provide functions that AI models can call
@@ -17,47 +17,42 @@ AI providers handle direct communication with LLM services like OpenAI, Anthropi
 
 ### Supported AI Providers
 
-#### OpenAI
+#### OpenAI Provider (`@robota-sdk/openai`)
 
-Integration with OpenAI's GPT models. Supports GPT-3.5, GPT-4, and more.
+Integration with OpenAI's GPT models including GPT-3.5, GPT-4, GPT-4o, and more.
 
-For detailed information, see the [OpenAI Provider Documentation](packages/openai/README.md).
+**Installation:**
+```bash
+npm install @robota-sdk/openai openai
+```
 
-#### Anthropic
+**Supported Models:**
+- `gpt-3.5-turbo`
+- `gpt-4`
+- `gpt-4o`
+- `gpt-4o-mini`
+- `gpt-4-turbo`
 
-Integration with Anthropic's Claude models. Supports Claude, Claude Instant, and more.
-
-For detailed information, see the [Anthropic Provider Documentation](packages/anthropic/README.md).
-
-#### Google AI
-
-Integration with Google's Generative AI models. Supports Gemini Pro, Gemini Pro Vision, and more.
-
-For detailed information, see the [Google AI Provider Documentation](providers/google.md).
-
-### Using AI Providers
-
-Each AI provider is used through a consistent interface. You must inject the API client directly:
-
+**Usage:**
 ```typescript
-import { Robota } from '@robota-sdk/core';
-import { OpenAIProvider } from '@robota-sdk/openai';
+import { Robota, OpenAIProvider } from '@robota-sdk/core';
 import OpenAI from 'openai';
 
-// Create OpenAI API client
+// Create OpenAI client
 const openaiClient = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-  organization: process.env.OPENAI_ORGANIZATION
+  organization: process.env.OPENAI_ORGANIZATION // optional
 });
 
-// Configure OpenAI provider (client injection required)
+// Configure OpenAI provider
 const openaiProvider = new OpenAIProvider({
+  client: openaiClient,
   model: 'gpt-4',
   temperature: 0.7,
-  client: openaiClient
+  maxTokens: 1000 // optional
 });
 
-// Connect AI provider to Robota instance
+// Connect to Robota
 const robota = new Robota({
   aiProviders: {
     openai: openaiProvider
@@ -65,19 +60,25 @@ const robota = new Robota({
   currentProvider: 'openai',
   currentModel: 'gpt-4'
 });
-
-// Execute
-const result = await robota.run('Hello! How is the weather today?');
 ```
 
-### Client Instance Injection (Required)
+#### Anthropic Provider (`@robota-sdk/anthropic`)
 
-Robota uses externally created API clients. This approach provides:
+Integration with Anthropic's Claude models including Claude 3 Opus, Sonnet, and Haiku.
 
-1. Consistent client configuration across the application
-2. Improved testability and mocking capabilities
-3. Fine-grained control over client settings
+**Installation:**
+```bash
+npm install @robota-sdk/anthropic @anthropic-ai/sdk
+```
 
+**Supported Models:**
+- `claude-3-5-sonnet-20241022`
+- `claude-3-opus-20240229`
+- `claude-3-sonnet-20240229`
+- `claude-3-haiku-20240307`
+- `claude-instant-1.2`
+
+**Usage:**
 ```typescript
 import { Robota } from '@robota-sdk/core';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
@@ -88,40 +89,95 @@ const anthropicClient = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY
 });
 
-// Configure Anthropic provider (client injection required)
+// Configure Anthropic provider
 const anthropicProvider = new AnthropicProvider({
-  model: 'claude-3-opus',
+  client: anthropicClient,
+  model: 'claude-3-5-sonnet-20241022',
   temperature: 0.7,
-  client: anthropicClient
+  maxTokens: 1000 // optional
 });
 
-// Connect AI provider to Robota instance
+// Connect to Robota
 const robota = new Robota({
   aiProviders: {
     anthropic: anthropicProvider
   },
   currentProvider: 'anthropic',
-  currentModel: 'claude-3-opus'
+  currentModel: 'claude-3-5-sonnet-20241022'
 });
 ```
 
-### Multiple Provider Setup
+#### Google AI Provider (`@robota-sdk/google`)
 
-You can configure multiple providers and switch between them:
+Integration with Google's Generative AI models including Gemini Pro and Gemini Pro Vision.
 
+**Installation:**
+```bash
+npm install @robota-sdk/google @google/generative-ai
+```
+
+**Supported Models:**
+- `gemini-1.5-pro`
+- `gemini-1.5-flash`
+- `gemini-pro`
+- `gemini-pro-vision`
+
+**Usage:**
 ```typescript
+import { Robota } from '@robota-sdk/core';
 import { GoogleProvider } from '@robota-sdk/google';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Create Google AI client
-const googleClient = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
+const googleClient = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
 // Configure Google provider
 const googleProvider = new GoogleProvider({
-  model: 'gemini-pro',
+  client: googleClient,
+  model: 'gemini-1.5-pro',
   temperature: 0.7,
-  client: googleClient
+  maxOutputTokens: 1000 // optional
 });
+
+// Connect to Robota
+const robota = new Robota({
+  aiProviders: {
+    google: googleProvider
+  },
+  currentProvider: 'google',
+  currentModel: 'gemini-1.5-pro'
+});
+```
+
+### Client Instance Injection (Required)
+
+Robota uses externally created API clients for better control and testability:
+
+**Benefits:**
+1. Consistent client configuration across the application
+2. Improved testability and mocking capabilities
+3. Fine-grained control over client settings
+4. Custom retry policies and timeouts
+
+**Example with Multiple Providers:**
+```typescript
+import { Robota } from '@robota-sdk/core';
+import { OpenAIProvider } from '@robota-sdk/openai';
+import { AnthropicProvider } from '@robota-sdk/anthropic';
+import { GoogleProvider } from '@robota-sdk/google';
+import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+// Create clients
+const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const googleClient = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+
+// Create providers
+const openaiProvider = new OpenAIProvider({ client: openaiClient, model: 'gpt-4' });
+const anthropicProvider = new AnthropicProvider({ client: anthropicClient, model: 'claude-3-5-sonnet-20241022' });
+const googleProvider = new GoogleProvider({ client: googleClient, model: 'gemini-1.5-pro' });
 
 // Setup Robota with multiple providers
 const robota = new Robota({
@@ -130,137 +186,355 @@ const robota = new Robota({
     anthropic: anthropicProvider,
     google: googleProvider
   },
-  currentProvider: 'openai', // Default provider
-  currentModel: 'gpt-4'
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
+  systemPrompt: 'You are a helpful AI assistant.'
 });
 
 // Switch providers dynamically
-robota.setCurrentProvider('google');
-robota.setCurrentModel('gemini-pro');
+robota.setCurrentAI('anthropic', 'claude-3-5-sonnet-20241022');
+robota.setCurrentAI('google', 'gemini-1.5-pro');
+
+// Get current configuration
+const currentAI = robota.getCurrentAI();
+console.log(`Current: ${currentAI.provider}/${currentAI.model}`);
 ```
 
 ## Tool Providers
 
-Tool providers provide functions that AI models can call. This allows AI to interact with external systems or perform specific tasks.
+Tool providers enable AI models to call external functions and interact with systems. This allows for powerful integrations and dynamic functionality.
 
 ### Supported Tool Provider Types
 
 #### Zod Function Tool Provider
 
-Provides a function tool based on Zod schema. This tool provider ensures type safety and performs runtime validation.
+Provides type-safe function tools using Zod schemas for parameter validation.
 
+**Installation:**
+```bash
+npm install @robota-sdk/tools zod
+```
+
+**Features:**
+- Runtime parameter validation
+- TypeScript type safety
+- Automatic schema generation
+- Error handling
+
+**Usage:**
 ```typescript
 import { Robota } from '@robota-sdk/core';
-import { OpenAIClient } from '@robota-sdk/openai-client';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import { createZodFunctionToolProvider } from '@robota-sdk/tools';
 import { z } from 'zod';
+import OpenAI from 'openai';
 
-// OpenAI client setup
-const aiClient = new OpenAIClient({ /* ... */ });
-
-// Calculator tool definition
+// Define tools with Zod schemas
 const calculatorTool = {
   name: 'calculate',
   description: 'Performs mathematical calculations',
   parameters: z.object({
-    operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
-    a: z.number(),
-    b: z.number()
+    operation: z.enum(['add', 'subtract', 'multiply', 'divide']).describe('Mathematical operation'),
+    a: z.number().describe('First number'),
+    b: z.number().describe('Second number')
   }),
   handler: async ({ operation, a, b }) => {
-    // Implementation of calculation logic
     switch (operation) {
       case 'add': return { result: a + b };
       case 'subtract': return { result: a - b };
       case 'multiply': return { result: a * b };
-      case 'divide': return b !== 0 ? { result: a / b } : { error: 'Cannot divide by zero' };
+      case 'divide': 
+        if (b === 0) return { error: 'Cannot divide by zero' };
+        return { result: a / b };
+      default:
+        return { error: 'Invalid operation' };
     }
   }
 };
 
-// Zod function tool provider creation
-const provider = createZodFunctionToolProvider({
-  tools: { calculate: calculatorTool }
+const weatherTool = {
+  name: 'getWeather',
+  description: 'Gets current weather for a location',
+  parameters: z.object({
+    location: z.string().describe('City name'),
+    unit: z.enum(['celsius', 'fahrenheit']).optional().default('celsius').describe('Temperature unit')
+  }),
+  handler: async ({ location, unit }) => {
+    // Mock weather data (replace with real API call)
+    return {
+      temperature: unit === 'celsius' ? 22 : 72,
+      condition: 'Partly cloudy',
+      humidity: 65,
+      location,
+      unit
+    };
+  }
+};
+
+// Create tool provider
+const toolProvider = createZodFunctionToolProvider({
+  tools: {
+    calculate: calculatorTool,
+    getWeather: weatherTool
+  }
 });
 
-// Robota instance setup
+// Setup Robota with AI and tools
+const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openaiProvider = new OpenAIProvider({ client: openaiClient, model: 'gpt-4' });
+
 const robota = new Robota({
-  aiClient,
-  provider
+  aiProviders: { openai: openaiProvider },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
+  toolProviders: [toolProvider],
+  systemPrompt: 'You are a helpful assistant with access to calculation and weather tools.'
 });
 
-// Request AI to use the tool
-const result = await robota.run('What is the result of adding 5 and 3?');
-```
-
-#### OpenAPI Tool Provider
-
-Provides a tool based on OpenAPI specification. This allows easy integration with REST APIs.
-
-```typescript
-import { Robota } from '@robota-sdk/core';
-import { OpenAIClient } from '@robota-sdk/openai-client';
-import { createOpenAPIToolProvider } from '@robota-sdk/core';
-
-// OpenAI client setup
-const aiClient = new OpenAIClient({ /* ... */ });
-
-// OpenAPI tool provider creation
-const provider = createOpenAPIToolProvider('https://api.example.com/openapi.json', {
-  baseUrl: 'https://api.example.com'
-});
-
-// Robota instance setup
-const robota = new Robota({
-  aiClient,
-  provider
-});
-
-// Request AI to call the API
-const result = await robota.run('What is the weather in Seoul?');
+// AI will automatically use tools when needed
+const result = await robota.run('What is 25 + 17, and what is the weather like in Seoul?');
 ```
 
 #### MCP (Model Context Protocol) Tool Provider
 
-Tool provider for integrating with models that support MCP. `createMcpToolProvider` function can be used to create MCP-based tool provider.
+Integration with Model Context Protocol for advanced tool ecosystems.
 
 ```typescript
 import { Robota, createMcpToolProvider } from '@robota-sdk/core';
-import { OpenAIClient } from '@robota-sdk/openai-client';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import { Client, StdioClientTransport } from '@modelcontextprotocol/sdk';
+import OpenAI from 'openai';
 
-// OpenAI client setup
-const aiClient = new OpenAIClient({ /* ... */ });
-
-// MCP client creation
-const transport = new StdioClientTransport(/* setup */);
-const mcpClient = new Client(transport);
-
-// MCP tool provider creation
-const provider = createMcpToolProvider(mcpClient);
-
-// Robota instance setup
-const robota = new Robota({
-  aiClient,
-  provider
+// Create MCP client
+const transport = new StdioClientTransport({
+  command: 'path/to/mcp/server',
+  args: ['--config', 'config.json']
+});
+const mcpClient = new Client({
+  name: 'robota-client',
+  version: '1.0.0'
+}, {
+  capabilities: {
+    tools: {}
+  }
 });
 
-// Execute
-const result = await robota.run('Hello!');
+await mcpClient.connect(transport);
+
+// Create MCP tool provider
+const mcpToolProvider = createMcpToolProvider(mcpClient);
+
+// Setup Robota
+const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openaiProvider = new OpenAIProvider({ client: openaiClient, model: 'gpt-4' });
+
+const robota = new Robota({
+  aiProviders: { openai: openaiProvider },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
+  toolProviders: [mcpToolProvider]
+});
+```
+
+#### Custom Function Provider
+
+For creating fully custom tool providers:
+
+```typescript
+import { Robota } from '@robota-sdk/core';
+
+// Custom tool provider implementation
+class CustomToolProvider {
+  name = 'custom-tools';
+  
+  constructor(private tools: Record<string, Function>) {}
+  
+  getAvailableTools() {
+    return Object.keys(this.tools).map(name => ({
+      name,
+      description: this.tools[name].description || `Custom tool: ${name}`,
+      parameters: this.tools[name].schema || {}
+    }));
+  }
+  
+  async executeFunction(name: string, parameters: any) {
+    if (this.tools[name]) {
+      return await this.tools[name](parameters);
+    }
+    throw new Error(`Tool ${name} not found`);
+  }
+}
+
+// Usage
+const customProvider = new CustomToolProvider({
+  currentTime: () => ({ time: new Date().toISOString() }),
+  randomNumber: ({ min = 0, max = 100 }) => ({ number: Math.floor(Math.random() * (max - min + 1)) + min })
+});
+
+const robota = new Robota({
+  aiProviders: { openai: openaiProvider },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
+  toolProviders: [customProvider]
+});
+```
+
+## Advanced Usage Patterns
+
+### Dynamic Provider Switching
+
+```typescript
+// Switch based on task complexity
+const handleUserRequest = async (request: string, complexity: 'simple' | 'complex') => {
+  if (complexity === 'simple') {
+    robota.setCurrentAI('openai', 'gpt-3.5-turbo');
+  } else {
+    robota.setCurrentAI('anthropic', 'claude-3-5-sonnet-20241022');
+  }
+  
+  return await robota.run(request);
+};
+```
+
+### Provider Fallback Strategy
+
+```typescript
+const robustRequest = async (prompt: string) => {
+  const providers = [
+    { name: 'openai', model: 'gpt-4' },
+    { name: 'anthropic', model: 'claude-3-5-sonnet-20241022' },
+    { name: 'google', model: 'gemini-1.5-pro' }
+  ];
+  
+  for (const provider of providers) {
+    try {
+      robota.setCurrentAI(provider.name, provider.model);
+      return await robota.run(prompt);
+    } catch (error) {
+      console.warn(`Provider ${provider.name} failed:`, error);
+      continue;
+    }
+  }
+  
+  throw new Error('All providers failed');
+};
+```
+
+### Cost Optimization
+
+```typescript
+// Route requests based on cost considerations
+const costOptimizedRequest = async (prompt: string) => {
+  const estimatedTokens = prompt.length / 4; // Rough estimation
+  
+  if (estimatedTokens < 1000) {
+    // Use cheaper model for simple requests
+    robota.setCurrentAI('openai', 'gpt-3.5-turbo');
+  } else {
+    // Use more capable model for complex requests
+    robota.setCurrentAI('openai', 'gpt-4');
+  }
+  
+  return await robota.run(prompt);
+};
+```
+
+## Configuration Reference
+
+### Provider Configuration Options
+
+#### OpenAI Provider Options
+```typescript
+interface OpenAIProviderConfig {
+  client: OpenAI;
+  model: string;
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
+  stop?: string | string[];
+}
+```
+
+#### Anthropic Provider Options
+```typescript
+interface AnthropicProviderConfig {
+  client: Anthropic;
+  model: string;
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  topK?: number;
+  stopSequences?: string[];
+}
+```
+
+#### Google Provider Options
+```typescript
+interface GoogleProviderConfig {
+  client: GoogleGenerativeAI;
+  model: string;
+  temperature?: number;
+  maxOutputTokens?: number;
+  topP?: number;
+  topK?: number;
+  stopSequences?: string[];
+}
 ```
 
 ## Differences Between AI Providers and Tool Providers
 
 | Feature | AI Provider | Tool Provider |
 |---------|-------------|-------------|
-| Primary Role | Communicate with LLM services | Provide functions for AI to call |
-| Interaction Method | Send prompts and receive responses | Handle specific tool/function calls |
-| Example | OpenAIClient, AnthropicClient | ZodFunctionToolProvider, OpenAPIToolProvider |
-| Robota Connection | aiClient property usage | provider property usage |
+| **Primary Role** | Communicate with LLM services | Provide callable functions for AI |
+| **Interaction Method** | Send prompts, receive responses | Handle specific function calls |
+| **Configuration** | Model, temperature, tokens | Tool schemas, handlers |
+| **Examples** | OpenAI, Anthropic, Google | Zod tools, MCP, custom functions |
+| **Robota Integration** | `aiProviders` property | `toolProviders` property |
+| **Switching** | `setCurrentAI()` method | Static registration |
 
-## Detailed Documentation
+## Best Practices
 
-- [OpenAI Provider](packages/openai/README.md)
-- [Anthropic Provider](packages/anthropic/README.md)
-- [Tool Provider](providers/tools.md)
-- [Custom Implementation](providers/custom.md) 
+1. **API Key Management**: Store API keys securely in environment variables
+2. **Error Handling**: Implement proper error handling for network failures
+3. **Provider Selection**: Choose models based on task complexity and cost
+4. **Tool Design**: Keep tools focused and well-documented
+5. **Testing**: Test with multiple providers to ensure reliability
+6. **Monitoring**: Track usage and costs across providers
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Authentication Errors**: Verify API keys are correctly set
+2. **Model Not Available**: Check if model is available for your API tier
+3. **Rate Limiting**: Implement retry logic with backoff
+4. **Tool Execution Failures**: Validate tool parameters and error handling
+
+### Debug Mode
+
+Enable debug logging to troubleshoot issues:
+
+```typescript
+const robota = new Robota({
+  // ... configuration
+  debug: true,
+  logger: {
+    info: (msg, ...args) => console.log('INFO:', msg, ...args),
+    debug: (msg, ...args) => console.log('DEBUG:', msg, ...args),
+    warn: (msg, ...args) => console.warn('WARN:', msg, ...args),
+    error: (msg, ...args) => console.error('ERROR:', msg, ...args)
+  }
+});
+```
+
+## Related Documentation
+
+- [Getting Started Guide](./index.md)
+- [Examples](./examples/examples.md)
+- [API Reference](./api-reference.md)
+- [OpenAI Package](./packages/openai.md)
+- [Anthropic Package](./packages/anthropic.md)
+- [Google Package](./packages/google.md)
+- [Tools Package](./packages/tools.md) 
