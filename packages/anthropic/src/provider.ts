@@ -5,14 +5,21 @@ import {
     Message,
     AIProvider,
     ModelResponse,
-    StreamingResponseChunk
+    StreamingResponseChunk,
+    UniversalMessage
 } from '@robota-sdk/core';
 import { AnthropicProviderOptions } from './types';
+import { AnthropicConversationAdapter } from './adapter';
 
 /**
  * Anthropic provider implementation
  */
 export class AnthropicProvider implements AIProvider {
+    /**
+     * Provider name
+     */
+    public name: string = 'anthropic';
+
     /**
      * Anthropic client instance
      */
@@ -41,13 +48,29 @@ export class AnthropicProvider implements AIProvider {
     /**
      * Send request to model with given context and receive response.
      */
-    async chat(context: Context): Promise<ModelResponse> {
+    async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
+        if (!context || typeof context !== 'object') {
+            throw new Error('유효한 Context 객체가 필요합니다');
+        }
+
+        const { messages, systemPrompt } = context;
+
+        if (!Array.isArray(messages)) {
+            throw new Error('유효한 메시지 배열이 필요합니다');
+        }
+
         try {
+            // UniversalMessage[]를 Anthropic prompt 형식으로 변환
+            const prompt = AnthropicConversationAdapter.toAnthropicPrompt(
+                messages as UniversalMessage[],
+                systemPrompt
+            );
+
             const response = await this.client.completions.create({
-                model: this.options.model || 'claude-2',
-                prompt: this.formatPrompt(context.messages, context.systemPrompt),
-                max_tokens_to_sample: this.options.maxTokens || 1000,
-                temperature: this.options.temperature
+                model: model || this.options.model || 'claude-2',
+                prompt: prompt,
+                max_tokens_to_sample: options?.maxTokens ?? this.options.maxTokens ?? 1000,
+                temperature: options?.temperature ?? this.options.temperature
             });
 
             return this.parseResponse(response);
@@ -60,13 +83,29 @@ export class AnthropicProvider implements AIProvider {
     /**
      * Send streaming request to model with given context and receive response chunks.
      */
-    async *chatStream(context: Context): AsyncGenerator<StreamingResponseChunk, void, unknown> {
+    async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
+        if (!context || typeof context !== 'object') {
+            throw new Error('유효한 Context 객체가 필요합니다');
+        }
+
+        const { messages, systemPrompt } = context;
+
+        if (!Array.isArray(messages)) {
+            throw new Error('유효한 메시지 배열이 필요합니다');
+        }
+
         try {
+            // UniversalMessage[]를 Anthropic prompt 형식으로 변환
+            const prompt = AnthropicConversationAdapter.toAnthropicPrompt(
+                messages as UniversalMessage[],
+                systemPrompt
+            );
+
             const stream = await this.client.completions.create({
-                model: this.options.model || 'claude-2',
-                prompt: this.formatPrompt(context.messages, context.systemPrompt),
-                max_tokens_to_sample: this.options.maxTokens || 1000,
-                temperature: this.options.temperature,
+                model: model || this.options.model || 'claude-2',
+                prompt: prompt,
+                max_tokens_to_sample: options?.maxTokens ?? this.options.maxTokens ?? 1000,
+                temperature: options?.temperature ?? this.options.temperature,
                 stream: true
             });
 
@@ -81,6 +120,7 @@ export class AnthropicProvider implements AIProvider {
 
     /**
      * Format messages into a format the model can understand.
+     * @deprecated Use AnthropicConversationAdapter.toAnthropicPrompt instead
      */
     formatMessages(_messages: Message[]): unknown[] {
         // This method exists for type compatibility but is not actually used.
@@ -90,6 +130,7 @@ export class AnthropicProvider implements AIProvider {
 
     /**
      * Convert messages to Anthropic prompt format.
+     * @deprecated Use AnthropicConversationAdapter.toAnthropicPrompt instead
      */
     private formatPrompt(messages: Message[], systemPrompt?: string): string {
         let prompt = '';
@@ -150,5 +191,12 @@ export class AnthropicProvider implements AIProvider {
             content: chunkObj.completion || '',
             functionCall: undefined
         };
+    }
+
+    /**
+     * 리소스 해제 (필요시)
+     */
+    async close(): Promise<void> {
+        // Anthropic 클라이언트는 특별한 종료 메서드가 없으므로 빈 함수로 구현
     }
 } 

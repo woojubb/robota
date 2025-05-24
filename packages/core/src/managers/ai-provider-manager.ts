@@ -30,24 +30,8 @@ export class AIProviderManager {
             throw new Error(`AI provider '${providerName}' not found.`);
         }
 
-        const aiProvider = this.aiProviders[providerName];
-        if (!aiProvider.availableModels.includes(model)) {
-            throw new Error(`Model '${model}' is not supported by provider '${providerName}'. Available models: ${aiProvider.availableModels.join(', ')}`);
-        }
-
         this.currentProvider = providerName;
         this.currentModel = model;
-    }
-
-    /**
-     * Get registered AI providers and their available models
-     */
-    getAvailableAIs(): Record<string, string[]> {
-        const result: Record<string, string[]> = {};
-        for (const [name, aiProvider] of Object.entries(this.aiProviders)) {
-            result[name] = aiProvider.availableModels;
-        }
-        return result;
     }
 
     /**

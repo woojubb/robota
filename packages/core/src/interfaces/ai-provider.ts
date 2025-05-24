@@ -1,4 +1,5 @@
 import type { FunctionCall } from '@robota-sdk/tools';
+import type { UniversalMessage } from '../conversation-history';
 
 /**
  * 메시지 역할 타입
@@ -46,7 +47,7 @@ export interface StreamingResponseChunk {
  * 대화 컨텍스트 인터페이스
  */
 export interface Context {
-    messages: Message[];
+    messages: UniversalMessage[];
     systemPrompt?: string;
     systemMessages?: Message[];
     metadata?: Record<string, any>;
@@ -58,9 +59,6 @@ export interface Context {
 export interface AIProvider {
     /** 제공업체 이름 */
     name: string;
-
-    /** 사용 가능한 모델 목록 */
-    availableModels: string[];
 
     /** 채팅 요청 */
     chat(model: string, context: Context, options?: any): Promise<ModelResponse>;

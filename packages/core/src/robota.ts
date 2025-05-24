@@ -167,13 +167,6 @@ export class Robota {
     }
 
     /**
-     * Get registered AI providers and their available models
-     */
-    getAvailableAIs(): Record<string, string[]> {
-        return this.aiProviderManager.getAvailableAIs();
-    }
-
-    /**
      * Get the currently configured AI provider and model
      */
     getCurrentAI(): { provider?: string; model?: string } {

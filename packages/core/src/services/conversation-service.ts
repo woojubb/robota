@@ -47,7 +47,7 @@ export class ConversationService {
         const universalMessages = conversationHistory.getMessages();
 
         const context: Context = {
-            messages: universalMessages as any // AI Provider will handle format conversion
+            messages: universalMessages
         };
 
         // Handle system messages
@@ -144,10 +144,15 @@ export class ConversationService {
             }
 
             // Add function call result to messages
-            const functionResultMessage: Message = {
-                role: 'function',
+            const functionResultMessage: UniversalMessage = {
+                role: 'tool',
                 name: name,
-                content: JSON.stringify(toolResult)
+                content: JSON.stringify(toolResult),
+                timestamp: new Date(),
+                toolResult: {
+                    name,
+                    result: toolResult
+                }
             };
 
             // Create new context (original + assistant response + function result)
@@ -158,7 +163,8 @@ export class ConversationService {
                     {
                         role: 'assistant',
                         content: response.content || '',
-                        functionCall: response.functionCall
+                        functionCall: response.functionCall,
+                        timestamp: new Date()
                     },
                     functionResultMessage
                 ]
@@ -177,10 +183,15 @@ export class ConversationService {
             logger.error('Error during tool call:', toolError);
 
             // Add tool call error as function result
-            const errorMessage: Message = {
-                role: 'function',
+            const errorMessage: UniversalMessage = {
+                role: 'tool',
                 name: name,
-                content: JSON.stringify({ error: toolError instanceof Error ? toolError.message : String(toolError) })
+                content: JSON.stringify({ error: toolError instanceof Error ? toolError.message : String(toolError) }),
+                timestamp: new Date(),
+                toolResult: {
+                    name,
+                    error: toolError instanceof Error ? toolError.message : String(toolError)
+                }
             };
 
             const errorContext: Context = {
@@ -190,7 +201,8 @@ export class ConversationService {
                     {
                         role: 'assistant',
                         content: response.content || '',
-                        functionCall: response.functionCall
+                        functionCall: response.functionCall,
+                        timestamp: new Date()
                     },
                     errorMessage
                 ]

@@ -1,7 +1,7 @@
 /**
- * @robota-sdk/openai package
+ * @robota-sdk/google package
  * 
- * Provides Provider implementation for using OpenAI API.
+ * Provides Provider implementation for using Google AI API.
  */
 
 // Import all exports from types.ts and provider.ts

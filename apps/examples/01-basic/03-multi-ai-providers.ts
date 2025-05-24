@@ -5,7 +5,7 @@
  * - 여러 AI provider 등록
  * - 현재 사용할 provider와 model 설정
  * - 동적으로 provider 및 model 변경
- * - 사용 가능한 AI provider와 model 목록 확인
+ * - 사용자가 명시적으로 provider와 model을 지정하는 방식
  */
 
 import { Robota, OpenAIProvider } from '@robota-sdk/core';
@@ -41,26 +41,18 @@ async function main() {
             systemPrompt: '당신은 도움이 되는 AI 어시스턴트입니다. 현재 사용 중인 AI 모델에 대해 간단히 언급하고 질문에 답변해주세요.'
         });
 
-        // 1. 사용 가능한 AI provider와 모델 확인
-        console.log('===== 등록된 AI Providers =====');
-        const availableAIs = robota.getAvailableAIs();
-        console.log('사용 가능한 AI Providers와 모델들:');
-        for (const [providerName, models] of Object.entries(availableAIs)) {
-            console.log(`- ${providerName}: ${models.join(', ')}`);
-        }
-
-        // 2. 현재 설정 확인
-        console.log('\n===== 현재 AI 설정 =====');
+        // 1. 현재 설정 확인
+        console.log('===== 현재 AI 설정 =====');
         const currentAI = robota.getCurrentAI();
         console.log(`현재 Provider: ${currentAI.provider}`);
         console.log(`현재 Model: ${currentAI.model}`);
 
-        // 3. 현재 설정으로 대화
+        // 2. 현재 설정으로 대화
         console.log('\n===== GPT-3.5-Turbo로 대화 =====');
         const response1 = await robota.run('안녕하세요! 타입스크립트에 대해 간단히 설명해주세요.');
         console.log('응답:', response1);
 
-        // 4. 다른 모델로 변경
+        // 3. 다른 모델로 변경
         console.log('\n===== GPT-4로 모델 변경 =====');
         robota.setCurrentAI('openai', 'gpt-4');
         const currentAI2 = robota.getCurrentAI();
@@ -70,7 +62,7 @@ async function main() {
         const response2 = await robota.run('이전 질문과 같은 내용을 다시 답변해주세요. 어떤 모델을 사용하고 있는지도 알려주세요.');
         console.log('응답:', response2);
 
-        // 5. 스트리밍 테스트
+        // 4. 스트리밍 테스트
         console.log('\n===== 스트리밍 응답 테스트 =====');
         console.log('응답: ');
         const stream = await robota.runStream('리액트와 뷰의 차이점을 간단히 설명해주세요.');
@@ -80,7 +72,7 @@ async function main() {
         }
         console.log('\n');
 
-        // 6. 런타임에 새 provider 추가 (예시)
+        // 5. 런타임에 새 provider 추가 (예시)
         console.log('\n===== 런타임에 Provider 추가 =====');
         // 만약 Anthropic이 있다면:
         // const anthropicProvider = new AnthropicProvider(anthropicClient);
@@ -90,11 +82,9 @@ async function main() {
         const anotherOpenaiProvider = new OpenAIProvider(openaiClient);
         robota.addAIProvider('openai-alternative', anotherOpenaiProvider);
 
-        const updatedAIs = robota.getAvailableAIs();
-        console.log('업데이트된 AI Providers:');
-        for (const [providerName, models] of Object.entries(updatedAIs)) {
-            console.log(`- ${providerName}: ${models.join(', ')}`);
-        }
+        console.log('openai-alternative provider가 추가되었습니다.');
+        console.log('이제 다음과 같이 사용할 수 있습니다:');
+        console.log('robota.setCurrentAI("openai-alternative", "gpt-4o");');
 
     } catch (error) {
         console.error('오류 발생:', error);

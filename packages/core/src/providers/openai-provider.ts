@@ -7,14 +7,6 @@ import { logger } from '../utils';
  */
 export class OpenAIProvider implements AIProvider {
     public readonly name = 'openai';
-    public readonly availableModels = [
-        'gpt-4',
-        'gpt-4-turbo',
-        'gpt-4-turbo-preview',
-        'gpt-3.5-turbo',
-        'gpt-3.5-turbo-0125',
-        'gpt-3.5-turbo-1106'
-    ];
 
     private client: any; // OpenAI client
 
@@ -26,10 +18,6 @@ export class OpenAIProvider implements AIProvider {
      * Chat request
      */
     async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
-        if (!this.availableModels.includes(model)) {
-            throw new Error(`Model not supported by OpenAI: ${model}`);
-        }
-
         try {
             const { messages, systemPrompt } = context;
 
@@ -96,10 +84,6 @@ export class OpenAIProvider implements AIProvider {
      * Streaming chat request
      */
     async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
-        if (!this.availableModels.includes(model)) {
-            throw new Error(`Model not supported by OpenAI: ${model}`);
-        }
-
         try {
             const { messages, systemPrompt } = context;
 

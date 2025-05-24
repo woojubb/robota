@@ -5,10 +5,12 @@ import {
   Message,
   ModelResponse,
   StreamingResponseChunk,
-  AIProvider
+  AIProvider,
+  UniversalMessage
 } from '@robota-sdk/core';
 import { OpenAIProviderOptions } from './types';
 import { logger } from '@robota-sdk/core';
+import { OpenAIConversationAdapter } from './adapter';
 
 /**
  * OpenAI provider implementation
@@ -20,17 +22,6 @@ export class OpenAIProvider implements AIProvider {
    * Provider name
    */
   public name: string = 'openai';
-
-  /**
-   * Available models
-   */
-  public availableModels: string[] = [
-    'gpt-4o',
-    'gpt-4o-mini',
-    'gpt-4-turbo',
-    'gpt-4',
-    'gpt-3.5-turbo'
-  ];
 
   /**
    * OpenAI client instance
@@ -70,6 +61,7 @@ export class OpenAIProvider implements AIProvider {
 
   /**
    * Convert messages to OpenAI format
+   * @deprecated Use OpenAIConversationAdapter.toOpenAIFormat instead
    */
   formatMessages(messages: Message[]): OpenAI.Chat.ChatCompletionMessageParam[] {
     if (!Array.isArray(messages)) {
@@ -207,15 +199,21 @@ export class OpenAIProvider implements AIProvider {
       throw new Error('유효한 메시지 배열이 필요합니다');
     }
 
-    // 시스템 프롬프트 추가 (없는 경우)
-    const messagesWithSystem = systemPrompt && !messages.some(m => m.role === 'system')
-      ? [{ role: 'system' as const, content: systemPrompt }, ...messages]
-      : messages;
+    // UniversalMessage[]를 OpenAI 형식으로 변환
+    let formattedMessages: OpenAI.Chat.ChatCompletionMessageParam[];
 
-    const formattedMessages = this.formatMessages(messagesWithSystem);
+    try {
+      formattedMessages = OpenAIConversationAdapter.toOpenAIFormat(messages as UniversalMessage[]);
+
+      // 시스템 프롬프트 추가 (필요한 경우)
+      formattedMessages = OpenAIConversationAdapter.addSystemPromptIfNeeded(formattedMessages, systemPrompt);
+    } catch (error) {
+      logger.error('[OpenAIProvider] 메시지 변환 오류:', error);
+      throw new Error('메시지 형식 변환에 실패했습니다');
+    }
 
     if (formattedMessages.length === 0) {
-      logger.error('[OpenAIProvider] 포맷된 메시지가 비어있습니다:', messagesWithSystem);
+      logger.error('[OpenAIProvider] 포맷된 메시지가 비어있습니다:', messages);
       throw new Error('유효한 메시지가 필요합니다');
     }
 
@@ -267,15 +265,21 @@ export class OpenAIProvider implements AIProvider {
       throw new Error('유효한 메시지 배열이 필요합니다');
     }
 
-    // 시스템 프롬프트 추가 (없는 경우)
-    const messagesWithSystem = systemPrompt && !messages.some(m => m.role === 'system')
-      ? [{ role: 'system' as const, content: systemPrompt }, ...messages]
-      : messages;
+    // UniversalMessage[]를 OpenAI 형식으로 변환
+    let formattedMessages: OpenAI.Chat.ChatCompletionMessageParam[];
 
-    const formattedMessages = this.formatMessages(messagesWithSystem);
+    try {
+      formattedMessages = OpenAIConversationAdapter.toOpenAIFormat(messages as UniversalMessage[]);
+
+      // 시스템 프롬프트 추가 (필요한 경우)
+      formattedMessages = OpenAIConversationAdapter.addSystemPromptIfNeeded(formattedMessages, systemPrompt);
+    } catch (error) {
+      logger.error('[OpenAIProvider] 스트리밍 메시지 변환 오류:', error);
+      throw new Error('메시지 형식 변환에 실패했습니다');
+    }
 
     if (formattedMessages.length === 0) {
-      logger.error('[OpenAIProvider] 포맷된 메시지가 비어있습니다:', messagesWithSystem);
+      logger.error('[OpenAIProvider] 포맷된 메시지가 비어있습니다:', messages);
       throw new Error('유효한 메시지가 필요합니다');
     }
 

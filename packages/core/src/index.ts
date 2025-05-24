@@ -50,6 +50,11 @@ export { ConversationService } from './services/conversation-service';
 // Utilities
 export { logger } from './utils';
 export { removeUndefined } from './utils';
+export {
+    convertUniversalToBaseMessage,
+    convertUniversalToBaseMessages
+} from './utils';
+export type { MessageAdapter } from './utils';
 
 // Legacy features (for backward compatibility)
 export * from './providers/openai-provider';
