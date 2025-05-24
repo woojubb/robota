@@ -40,7 +40,7 @@ AI providers - Register multiple AI providers
 
 #### Defined in
 
-[core/src/robota.ts:32](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/robota.ts#L32)
+[core/src/robota.ts:32](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L32)
 
 ___
 
@@ -52,7 +52,7 @@ Conversation history interface
 
 #### Defined in
 
-[core/src/robota.ts:57](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/robota.ts#L57)
+[core/src/robota.ts:57](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L57)
 
 ___
 
@@ -64,7 +64,7 @@ Current model name to use
 
 #### Defined in
 
-[core/src/robota.ts:42](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/robota.ts#L42)
+[core/src/robota.ts:42](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L42)
 
 ___
 
@@ -76,7 +76,7 @@ Current AI provider name to use
 
 #### Defined in
 
-[core/src/robota.ts:37](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/robota.ts#L37)
+[core/src/robota.ts:37](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L37)
 
 ___
 
@@ -88,7 +88,7 @@ Debug mode (default: false)
 
 #### Defined in
 
-[core/src/robota.ts:69](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/robota.ts#L69)
+[core/src/robota.ts:69](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L69)
 
 ___
 
@@ -100,7 +100,7 @@ Function call configuration
 
 #### Defined in
 
-[core/src/robota.ts:60](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/robota.ts#L60)
+[core/src/robota.ts:60](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L60)
 
 ___
 
@@ -112,7 +112,7 @@ Custom logger (default: console)
 
 #### Defined in
 
-[core/src/robota.ts:66](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/robota.ts#L66)
+[core/src/robota.ts:66](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L66)
 
 ___
 
@@ -124,7 +124,7 @@ Maximum request limit (default: 25, 0 = unlimited)
 
 #### Defined in
 
-[core/src/robota.ts:75](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/robota.ts#L75)
+[core/src/robota.ts:75](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L75)
 
 ___
 
@@ -136,7 +136,7 @@ Maximum token limit (default: 4096, 0 = unlimited)
 
 #### Defined in
 
-[core/src/robota.ts:72](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/robota.ts#L72)
+[core/src/robota.ts:72](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L72)
 
 ___
 
@@ -148,7 +148,7 @@ Maximum number of tokens (optional)
 
 #### Defined in
 
-[core/src/robota.ts:48](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/robota.ts#L48)
+[core/src/robota.ts:48](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L48)
 
 ___
 
@@ -176,7 +176,7 @@ Tool call callback
 
 #### Defined in
 
-[core/src/robota.ts:63](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/robota.ts#L63)
+[core/src/robota.ts:63](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L63)
 
 ___
 
@@ -188,7 +188,7 @@ Array of system messages
 
 #### Defined in
 
-[core/src/robota.ts:54](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/robota.ts#L54)
+[core/src/robota.ts:54](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L54)
 
 ___
 
@@ -200,7 +200,7 @@ System prompt
 
 #### Defined in
 
-[core/src/robota.ts:51](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/robota.ts#L51)
+[core/src/robota.ts:51](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L51)
 
 ___
 
@@ -212,7 +212,7 @@ Model temperature (optional)
 
 #### Defined in
 
-[core/src/robota.ts:45](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/robota.ts#L45)
+[core/src/robota.ts:45](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L45)
 
 ___
 
@@ -225,4 +225,4 @@ Created with functions like createMcpToolProvider, createOpenAPIToolProvider, cr
 
 #### Defined in
 
-[core/src/robota.ts:27](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/robota.ts#L27)
+[core/src/robota.ts:27](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L27)

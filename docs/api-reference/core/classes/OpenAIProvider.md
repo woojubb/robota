@@ -49,7 +49,7 @@ Wraps OpenAI client with unified AIProvider interface.
 
 #### Defined in
 
-[core/src/providers/openai-provider.ts:13](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/providers/openai-provider.ts#L13)
+[core/src/providers/openai-provider.ts:13](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/providers/openai-provider.ts#L13)
 
 ## Properties
 
@@ -65,7 +65,7 @@ Provider name
 
 #### Defined in
 
-[core/src/providers/openai-provider.ts:9](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/providers/openai-provider.ts#L9)
+[core/src/providers/openai-provider.ts:9](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/providers/openai-provider.ts#L9)
 
 ## Methods
 
@@ -93,7 +93,7 @@ Chat request
 
 #### Defined in
 
-[core/src/providers/openai-provider.ts:20](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/providers/openai-provider.ts#L20)
+[core/src/providers/openai-provider.ts:20](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/providers/openai-provider.ts#L20)
 
 ___
 
@@ -121,7 +121,7 @@ Streaming chat request
 
 #### Defined in
 
-[core/src/providers/openai-provider.ts:86](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/providers/openai-provider.ts#L86)
+[core/src/providers/openai-provider.ts:86](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/providers/openai-provider.ts#L86)
 
 ___
 
@@ -141,4 +141,4 @@ Release resources
 
 #### Defined in
 
-[core/src/providers/openai-provider.ts:145](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/providers/openai-provider.ts#L145)
+[core/src/providers/openai-provider.ts:145](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/providers/openai-provider.ts#L145)

@@ -352,4 +352,87 @@ pnpm --filter robota-examples run lint:fix
 
 - Configure your IDE to show lint warnings without disrupting development flow
 - Use lint auto-fix on save for critical issues only
-- Set up pre-commit hooks to run `lint:fix` automatically 
+- Set up pre-commit hooks to run `lint:fix` automatically
+
+## Deployment and Release Rules
+
+### Package Publishing Requirements
+
+- **Mandatory Deployment Script**: Always use the `publish-packages` script for npm deployments
+  ```bash
+  pnpm publish-packages
+  ```
+- **Never use direct changeset publish**: Do not use `pnpm changeset publish` directly
+- **Required Pre-deployment Steps**: The `publish-packages` script ensures:
+  - Documentation generation (`docs:generate`)
+  - README file copying (`copy-readme`) 
+  - Proper npm publishing (`changeset publish`)
+  - Git tag pushing (`push-tags`)
+  - Cleanup of temporary files (`cleanup-readme`)
+
+### Deployment Workflow
+
+```bash
+# ✅ Correct deployment process
+pnpm changeset                    # Create changeset
+pnpm publish-packages            # Complete deployment
+
+# ❌ Incorrect - missing steps
+pnpm changeset publish           # Direct publish (missing README, docs, etc.)
+```
+
+### Version Management
+
+- Use semantic versioning (semver) principles
+- Breaking changes require minor version bumps for pre-1.0 releases
+- Patch releases for bug fixes and non-breaking improvements
+- Always create changesets with clear, concise descriptions
+
+## Commit and Changeset Message Guidelines
+
+### Message Length Requirements
+
+- **Maximum 80 characters**: All commit messages and changeset descriptions must be 80 characters or less
+- **Concise and clear**: Focus on essential information only
+- **No detailed explanations**: Save detailed explanations for PR descriptions or documentation
+
+### Good Examples
+
+```bash
+# ✅ Good commit messages (under 80 chars)
+"Remove tools re-exports from core package"
+"Add README files to packages for npm"
+"Fix circular dependency in tools config"
+"Update build scripts for proper deployment"
+
+# ✅ Good changeset descriptions
+"Remove tools re-exports from core. Import from @robota-sdk/tools instead."
+"Add README.md files to packages for better npm documentation."
+"Fix circular dependency between core and tools packages."
+```
+
+### Bad Examples
+
+```bash
+# ❌ Too long and verbose
+"Remove re-export functionality from @robota-sdk/core package because it was creating confusion and circular dependencies with @robota-sdk/tools package, which violates our architectural principles"
+
+# ❌ Too detailed for changeset
+"This commit fixes the architectural issue where @robota-sdk/core was incorrectly re-exporting functionality from @robota-sdk/tools, creating confusion and circular dependencies. The change improves module separation and follows development guidelines."
+```
+
+### Changeset Creation Guidelines
+
+1. **Be specific but brief**: Mention what changed, not why
+2. **Use imperative mood**: "Add", "Remove", "Fix", "Update"
+3. **Focus on user impact**: What users need to know or do
+4. **One line preferred**: Avoid multi-line descriptions unless absolutely necessary
+
+### Commit Message Format
+
+```bash
+# Format: <action>: <brief description>
+git commit -m "feat: add README files to npm packages"
+git commit -m "fix: remove circular dependency in tools"
+git commit -m "refactor: simplify deployment workflow"
+``` 

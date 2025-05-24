@@ -11,7 +11,7 @@ class MockAIProvider implements AIProvider {
         this.responseTokens = responseTokens;
     }
 
-    async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
+    async chat(model: string, _context: Context, _options?: any): Promise<ModelResponse> {
         return {
             content: `Mock response from ${this.name} using ${model}`,
             usage: {
@@ -22,7 +22,7 @@ class MockAIProvider implements AIProvider {
         };
     }
 
-    async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
+    async *chatStream(model: string, _context: Context, _options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
         yield {
             content: `Mock streaming response from ${this.name} using ${model}`,
             isComplete: true

@@ -231,14 +231,18 @@ try {
 - **Error Handling**: Standardized error handling across all tools
 - **Tool Registry**: Centralized tool management and execution
 
-## Migration from Core
+## Package Architecture
 
-Tool and function functionality has been moved from `@robota-sdk/core` to this package. The core package now re-exports these utilities for backward compatibility:
+`@robota-sdk/tools` is designed as a standalone package that provides all tool-related functionality. The `@robota-sdk/core` package uses tools from this package but does not re-export them to maintain clear module separation.
+
+To use tools functionality, import directly from `@robota-sdk/tools`:
 
 ```typescript
-// These imports work the same way
-import { createFunction, FunctionRegistry } from '@robota-sdk/core';
-import { createFunction, FunctionRegistry } from '@robota-sdk/tools';
+// ✅ Correct - Import from tools package
+import { createFunction, ZodTool, FunctionRegistry } from '@robota-sdk/tools';
+
+// ❌ Incorrect - Don't import tools from core package
+// import { createFunction } from '@robota-sdk/core';
 ```
 
 ## License

@@ -25,7 +25,7 @@ import type { ZodToolOptions } from './interfaces';
  * @example
  * ```typescript
  * import { z } from 'zod';
- * import { ZodTool } from '@robota-sdk/core';
+ * import { ZodTool } from '@robota-sdk/tools';
  * 
  * const weatherTool = new ZodTool({
  *   name: 'getWeather',

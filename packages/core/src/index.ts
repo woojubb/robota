@@ -58,17 +58,4 @@ export {
 export type { MessageAdapter } from './utils';
 
 // Legacy features (for backward compatibility)
-export * from './providers/openai-provider';
-
-// Function utilities (re-export from tools package)
-export {
-    createFunction,
-    functionFromCallback,
-    createFunctionSchema,
-    FunctionRegistry
-} from '@robota-sdk/tools';
-export type {
-    FunctionHandler,
-    FunctionOptions,
-    FunctionResult
-} from '@robota-sdk/tools'; 
+export * from './providers/openai-provider'; 

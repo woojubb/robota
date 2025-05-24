@@ -91,7 +91,6 @@ describe('AnalyticsManager', () => {
         it('should filter token usage by date range', async () => {
             // Create test entries with small delays
             const testManager = new AnalyticsManager();
-            const filterStartDate = new Date();
 
             testManager.recordRequest(10, 'openai', 'gpt-4');
 

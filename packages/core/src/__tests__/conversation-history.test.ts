@@ -2,8 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
     SimpleConversationHistory,
     PersistentSystemConversationHistory,
-    type UniversalMessage,
-    type UniversalMessageRole
+    type UniversalMessage
 } from '../conversation-history';
 import type { FunctionCall, FunctionCallResult } from '@robota-sdk/tools';
 

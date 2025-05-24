@@ -1,5 +1,24 @@
 # @robota-sdk/core
 
+## 0.3.1
+
+### Patch Changes
+
+- Add README.md files to packages for better npm documentation.
+- Updated dependencies
+  - @robota-sdk/tools@0.3.1
+
+## 0.3.0
+
+### Minor Changes
+
+- Remove tools re-exports from core. Import from @robota-sdk/tools instead of @robota-sdk/core.
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/tools@0.3.0
+
 ## 0.2.10
 
 ### Patch Changes

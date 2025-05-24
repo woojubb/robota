@@ -8,7 +8,7 @@
  * 
  * @example
  * ```typescript
- * import { ZodTool, McpTool, OpenApiTool, ToolRegistry } from '@robota-sdk/core';
+ * import { ZodTool, McpTool, OpenApiTool, ToolRegistry } from '@robota-sdk/tools';
  * import { z } from 'zod';
  * 
  * // Zod-based tool

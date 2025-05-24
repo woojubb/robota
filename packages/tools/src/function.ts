@@ -221,7 +221,7 @@ function isNullableType(zodType: z.ZodTypeAny): boolean {
  * @example
  * ```typescript
  * import { z } from 'zod';
- * import { createFunction } from '@robota-sdk/core';
+ * import { createFunction } from '@robota-sdk/tools';
  * 
  * const getWeather = createFunction({
  *   name: 'getWeather',
@@ -299,7 +299,7 @@ export function createFunction<TParams = unknown, TResult = unknown>(
  * 
  * @example
  * ```typescript
- * import { functionFromCallback } from '@robota-sdk/core';
+ * import { functionFromCallback } from '@robota-sdk/tools';
  * 
  * const calculateSum = functionFromCallback(
  *   'calculateSum',

@@ -10,7 +10,7 @@ export default defineConfig({
     treeshake: true,
     minify: false,
     target: 'node18',
-    external: ['zod', '@robota-sdk/core'],
+    external: ['zod'],
     tsconfig: './tsconfig.json',
     outExtension({ format }) {
         return {

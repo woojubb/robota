@@ -16,7 +16,6 @@
 - [AnalyticsManager](classes/AnalyticsManager)
 - [ConversationService](classes/ConversationService)
 - [FunctionCallManager](classes/FunctionCallManager)
-- [FunctionRegistry](classes/FunctionRegistry)
 - [OpenAIProvider](classes/OpenAIProvider)
 - [PersistentSystemConversationHistory](classes/PersistentSystemConversationHistory)
 - [Robota](classes/Robota)
@@ -33,7 +32,6 @@
 - [FunctionCallConfig](interfaces/FunctionCallConfig)
 - [FunctionCallResult](interfaces/FunctionCallResult)
 - [FunctionDefinition](interfaces/FunctionDefinition)
-- [FunctionOptions](interfaces/FunctionOptions)
 - [FunctionSchema](interfaces/FunctionSchema)
 - [Logger](interfaces/Logger)
 - [Message](interfaces/Message)
@@ -49,8 +47,6 @@
 ### Type Aliases
 
 - [FunctionCallMode](modules#functioncallmode)
-- [FunctionHandler](modules#functionhandler)
-- [FunctionResult](modules#functionresult)
 - [MessageRole](modules#messagerole)
 - [UniversalMessageRole](modules#universalmessagerole)
 
@@ -62,9 +58,6 @@
 
 - [convertUniversalToBaseMessage](modules#convertuniversaltobasemessage)
 - [convertUniversalToBaseMessages](modules#convertuniversaltobasemessages)
-- [createFunction](modules#createfunction)
-- [createFunctionSchema](modules#createfunctionschema)
-- [functionFromCallback](modules#functionfromcallback)
 - [removeUndefined](modules#removeundefined)
 
 ## Type Aliases
@@ -77,58 +70,7 @@ Function call mode
 
 #### Defined in
 
-[core/src/managers/function-call-manager.ts:4](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/managers/function-call-manager.ts#L4)
-
-___
-
-### FunctionHandler
-
-Ƭ **FunctionHandler**: (`args`: `Record`\<`string`, `any`\>, `context?`: `any`) => `Promise`\<`any`\>
-
-Function call handler type
-
-#### Type declaration
-
-▸ (`args`, `context?`): `Promise`\<`any`\>
-
-##### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `args` | `Record`\<`string`, `any`\> |
-| `context?` | `any` |
-
-##### Returns
-
-`Promise`\<`any`\>
-
-#### Defined in
-
-tools/dist/index.d.ts:158
-
-___
-
-### FunctionResult
-
-Ƭ **FunctionResult**\<`TResult`\>: `Object`
-
-Function result type
-
-#### Type parameters
-
-| Name | Type |
-| :------ | :------ |
-| `TResult` | `unknown` |
-
-#### Type declaration
-
-| Name | Type |
-| :------ | :------ |
-| `result` | `TResult` |
-
-#### Defined in
-
-tools/dist/index.d.ts:65
+[core/src/managers/function-call-manager.ts:4](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/managers/function-call-manager.ts#L4)
 
 ___
 
@@ -140,7 +82,7 @@ Message role type
 
 #### Defined in
 
-[core/src/interfaces/ai-provider.ts:7](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/interfaces/ai-provider.ts#L7)
+[core/src/interfaces/ai-provider.ts:7](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/interfaces/ai-provider.ts#L7)
 
 ___
 
@@ -152,7 +94,7 @@ Universal message role type - Provider-independent neutral role
 
 #### Defined in
 
-[core/src/conversation-history.ts:6](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/conversation-history.ts#L6)
+[core/src/conversation-history.ts:6](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/conversation-history.ts#L6)
 
 ## Variables
 
@@ -172,7 +114,7 @@ Logger utility (console.log replacement)
 
 #### Defined in
 
-[core/src/utils.ts:131](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/utils.ts#L131)
+[core/src/utils.ts:131](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/utils.ts#L131)
 
 ## Functions
 
@@ -195,7 +137,7 @@ Can be used in AI Provider adapters.
 
 #### Defined in
 
-[core/src/utils.ts:153](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/utils.ts#L153)
+[core/src/utils.ts:153](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/utils.ts#L153)
 
 ___
 
@@ -217,135 +159,7 @@ Helper function to convert UniversalMessage array to basic Message array
 
 #### Defined in
 
-[core/src/utils.ts:177](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/utils.ts#L177)
-
-___
-
-### createFunction
-
-▸ **createFunction**\<`TParams`, `TResult`\>(`options`): `ToolFunction`\<`TParams`, `TResult`\>
-
-Create a function
-
-#### Type parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `TParams` | `unknown` | function parameter type |
-| `TResult` | `unknown` | function return result type |
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `options` | [`FunctionOptions`](interfaces/FunctionOptions)\<`TParams`, `TResult`\> | Function options |
-
-#### Returns
-
-`ToolFunction`\<`TParams`, `TResult`\>
-
-Created function object
-
-**`Function`**
-
-createFunction
-
-**`Description`**
-
-Creates a function that AI can invoke.
-You can define function name, description, parameter schema, and execution logic.
-
-**`Example`**
-
-```typescript
-import { z } from 'zod';
-import { createFunction } from '@robota-sdk/core';
-
-const getWeather = createFunction({
-  name: 'getWeather',
-  description: 'Get weather information for a specific location.',
-  parameters: z.object({
-    location: z.string().describe('Location to check weather (city name)'),
-    unit: z.enum(['celsius', 'fahrenheit']).optional().describe('Temperature unit')
-  }),
-  execute: async (params) => {
-    // Weather API call logic
-    return { temperature: 25, condition: 'sunny' };
-  }
-});
-```
-
-#### Defined in
-
-tools/dist/index.d.ts:122
-
-___
-
-### createFunctionSchema
-
-▸ **createFunctionSchema**(`definition`): `z.ZodObject`\<`Record`\<`string`, `z.ZodTypeAny`\>, ``"strip"``, `z.ZodTypeAny`, \{ `[x: string]`: `any`;  }, \{ `[x: string]`: `any`;  }\>
-
-Utility function to convert function schema to Zod schema
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `definition` | [`FunctionDefinition`](interfaces/FunctionDefinition) |
-
-#### Returns
-
-`z.ZodObject`\<`Record`\<`string`, `z.ZodTypeAny`\>, ``"strip"``, `z.ZodTypeAny`, \{ `[x: string]`: `any`;  }, \{ `[x: string]`: `any`;  }\>
-
-#### Defined in
-
-tools/dist/index.d.ts:150
-
-___
-
-### functionFromCallback
-
-▸ **functionFromCallback**(`name`, `fn`, `description?`): `ToolFunction`\<`Record`\<`string`, `any`\>, `any`\>
-
-Convert callback function to Function object
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `name` | `string` | Function name |
-| `fn` | (...`args`: `any`[]) => `any` | Callback function to convert |
-| `description?` | `string` | Function description |
-
-#### Returns
-
-`ToolFunction`\<`Record`\<`string`, `any`\>, `any`\>
-
-Created function object
-
-**`Function`**
-
-functionFromCallback
-
-**`Description`**
-
-Converts a regular JavaScript function to a Function object that AI can invoke.
-
-**`Example`**
-
-```typescript
-import { functionFromCallback } from '@robota-sdk/core';
-
-const calculateSum = functionFromCallback(
-  'calculateSum',
-  (a: number, b: number) => a + b,
-  'Calculate the sum of two numbers.'
-);
-```
-
-#### Defined in
-
-tools/dist/index.d.ts:146
+[core/src/utils.ts:177](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/utils.ts#L177)
 
 ___
 
@@ -375,4 +189,4 @@ Object with undefined values removed
 
 #### Defined in
 
-[core/src/utils.ts:31](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/utils.ts#L31)
+[core/src/utils.ts:31](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/utils.ts#L31)

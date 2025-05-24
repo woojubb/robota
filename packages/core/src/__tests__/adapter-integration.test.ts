@@ -13,7 +13,7 @@ class MockAIProvider implements AIProvider {
         this.name = name;
     }
 
-    async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
+    async chat(model: string, context: Context, _options?: any): Promise<ModelResponse> {
         // Store the context for verification
         this.lastContext = context;
 

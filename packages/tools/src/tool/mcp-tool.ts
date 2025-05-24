@@ -23,7 +23,7 @@ import type { McpToolOptions } from './interfaces';
  * 
  * @example
  * ```typescript
- * import { McpTool } from '@robota-sdk/core';
+ * import { McpTool } from '@robota-sdk/tools';
  * 
  * const mcpTool = new McpTool({
  *   name: 'calculateSum',

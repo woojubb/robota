@@ -52,7 +52,7 @@ Default conversation history implementation
 
 #### Defined in
 
-[core/src/conversation-history.ts:98](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/conversation-history.ts#L98)
+[core/src/conversation-history.ts:98](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/conversation-history.ts#L98)
 
 ## Methods
 
@@ -80,7 +80,7 @@ Add assistant message (convenience method)
 
 #### Defined in
 
-[core/src/conversation-history.ts:116](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/conversation-history.ts#L116)
+[core/src/conversation-history.ts:116](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/conversation-history.ts#L116)
 
 ___
 
@@ -106,7 +106,7 @@ Add message to conversation history
 
 #### Defined in
 
-[core/src/conversation-history.ts:102](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/conversation-history.ts#L102)
+[core/src/conversation-history.ts:102](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/conversation-history.ts#L102)
 
 ___
 
@@ -133,7 +133,7 @@ Add system message (convenience method)
 
 #### Defined in
 
-[core/src/conversation-history.ts:126](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/conversation-history.ts#L126)
+[core/src/conversation-history.ts:126](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/conversation-history.ts#L126)
 
 ___
 
@@ -160,7 +160,7 @@ Add tool execution result message (convenience method)
 
 #### Defined in
 
-[core/src/conversation-history.ts:135](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/conversation-history.ts#L135)
+[core/src/conversation-history.ts:135](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/conversation-history.ts#L135)
 
 ___
 
@@ -187,7 +187,7 @@ Add user message (convenience method)
 
 #### Defined in
 
-[core/src/conversation-history.ts:107](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/conversation-history.ts#L107)
+[core/src/conversation-history.ts:107](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/conversation-history.ts#L107)
 
 ___
 
@@ -207,7 +207,7 @@ Clear conversation history
 
 #### Defined in
 
-[core/src/conversation-history.ts:166](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/conversation-history.ts#L166)
+[core/src/conversation-history.ts:166](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/conversation-history.ts#L166)
 
 ___
 
@@ -227,7 +227,7 @@ Return message count
 
 #### Defined in
 
-[core/src/conversation-history.ts:162](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/conversation-history.ts#L162)
+[core/src/conversation-history.ts:162](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/conversation-history.ts#L162)
 
 ___
 
@@ -247,7 +247,7 @@ Get all messages
 
 #### Defined in
 
-[core/src/conversation-history.ts:150](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/conversation-history.ts#L150)
+[core/src/conversation-history.ts:150](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/conversation-history.ts#L150)
 
 ___
 
@@ -273,7 +273,7 @@ Get messages by specific role
 
 #### Defined in
 
-[core/src/conversation-history.ts:154](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/conversation-history.ts#L154)
+[core/src/conversation-history.ts:154](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/conversation-history.ts#L154)
 
 ___
 
@@ -299,4 +299,4 @@ Get recent n messages
 
 #### Defined in
 
-[core/src/conversation-history.ts:158](https://github.com/woojubb/robota/blob/5baf93af575921706aa46fe1ad8da7f17667ecdd/packages/core/src/conversation-history.ts#L158)
+[core/src/conversation-history.ts:158](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/conversation-history.ts#L158)

@@ -1,5 +1,11 @@
 # robota-docs
 
+## 1.0.7
+
+### Patch Changes
+
+- Add README.md files to packages for better npm documentation.
+
 ## 1.0.6
 
 ### Patch Changes

@@ -15,6 +15,17 @@ import dotenv from 'dotenv';
 // 환경 변수 로드
 dotenv.config();
 
+// 히스토리 확인 함수
+function printHistory(robota: Robota, step: string) {
+    const history = (robota as any).conversationHistory;
+    const messages = history.getMessages();
+    console.log(`\n📋 ${step} - 현재 대화 히스토리 (총 ${messages.length}개):`);
+    messages.forEach((msg: any, index: number) => {
+        console.log(`  ${index + 1}. [${msg.role}] ${msg.content.substring(0, 50)}${msg.content.length > 50 ? '...' : ''}`);
+    });
+    console.log('');
+}
+
 async function main() {
     try {
         // API 키 확인
@@ -46,37 +57,26 @@ async function main() {
 
         console.log('🧪 대화 히스토리 테스트 시작!\n');
 
-        // 히스토리 확인 함수
-        function printHistory(step: string) {
-            const history = (robota as any).conversationHistory;
-            const messages = history.getMessages();
-            console.log(`\n📋 ${step} - 현재 대화 히스토리 (총 ${messages.length}개):`);
-            messages.forEach((msg: any, index: number) => {
-                console.log(`  ${index + 1}. [${msg.role}] ${msg.content.substring(0, 50)}${msg.content.length > 50 ? '...' : ''}`);
-            });
-            console.log('');
-        }
-
         // 초기 상태 확인
-        printHistory('초기 상태');
+        printHistory(robota, '초기 상태');
 
         // 첫 번째 대화
         console.log('🗣️  첫 번째 질문을 합니다...');
         const response1 = await robota.run('안녕하세요! 저는 김철수입니다.');
         console.log(`💬 응답: ${response1}`);
-        printHistory('첫 번째 대화 후');
+        printHistory(robota, '첫 번째 대화 후');
 
         // 두 번째 대화
         console.log('🗣️  두 번째 질문을 합니다...');
         const response2 = await robota.run('제 이름을 기억하시나요?');
         console.log(`💬 응답: ${response2}`);
-        printHistory('두 번째 대화 후');
+        printHistory(robota, '두 번째 대화 후');
 
         // 세 번째 대화
         console.log('🗣️  세 번째 질문을 합니다...');
         const response3 = await robota.run('오늘 날씨가 어떤가요?');
         console.log(`💬 응답: ${response3}`);
-        printHistory('세 번째 대화 후');
+        printHistory(robota, '세 번째 대화 후');
 
         console.log(`\n${'='.repeat(80)}`);
         console.log('🔄 Provider 전환 테스트');
@@ -85,12 +85,12 @@ async function main() {
         // 같은 provider 내에서 모델 전환
         console.log('🔄 gpt-4로 모델 전환...');
         robota.setCurrentAI('openai', 'gpt-4');
-        printHistory('모델 전환 후 (gpt-4)');
+        printHistory(robota, '모델 전환 후 (gpt-4)');
 
         console.log('🗣️  모델 전환 후 질문...');
         const response4 = await robota.run('이전 대화 내용을 요약해주세요.');
         console.log(`💬 응답: ${response4}`);
-        printHistory('모델 전환 후 대화');
+        printHistory(robota, '모델 전환 후 대화');
 
         console.log(`\n${'='.repeat(80)}`);
         console.log('🚨 잘못된 사용법 시뮬레이션 (같은 질문 반복)');
@@ -105,7 +105,7 @@ async function main() {
             console.log(`🗣️  ${i}번째 같은 질문: "${sameQuestion}"`);
             const response = await robota.run(sameQuestion);
             console.log(`💬 응답 ${i}: ${response.substring(0, 100)}...`);
-            printHistory(`${i}번째 같은 질문 후`);
+            printHistory(robota, `${i}번째 같은 질문 후`);
         }
 
         console.log(`\n${'='.repeat(80)}`);
@@ -115,7 +115,7 @@ async function main() {
         // 히스토리 초기화
         console.log('🧹 대화 히스토리 초기화...');
         robota.clearConversationHistory();
-        printHistory('히스토리 초기화 후');
+        printHistory(robota, '히스토리 초기화 후');
 
         // 서로 다른 질문들
         const questions = [
@@ -129,7 +129,7 @@ async function main() {
             console.log(`🗣️  질문 ${i + 1}: "${questions[i]}"`);
             const response = await robota.run(questions[i]);
             console.log(`💬 응답 ${i + 1}: ${response.substring(0, 100)}...`);
-            printHistory(`질문 ${i + 1} 후`);
+            printHistory(robota, `질문 ${i + 1} 후`);
         }
 
         console.log(`\n${'='.repeat(80)}`);

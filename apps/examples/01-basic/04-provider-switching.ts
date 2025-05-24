@@ -106,7 +106,7 @@ async function main() {
             console.log(`${'='.repeat(80)}\n`);
 
             // 각 provider로 응답 받기
-            for (const [providerName, provider] of Object.entries(aiProviders)) {
+            for (const providerName of Object.keys(aiProviders)) {
                 console.log(`🔄 ${providerName.toUpperCase()} Provider로 전환 중...`);
 
                 // Provider와 모델 전환

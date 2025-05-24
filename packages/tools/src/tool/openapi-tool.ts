@@ -23,7 +23,7 @@ import type { OpenApiToolOptions } from './interfaces';
  * 
  * @example
  * ```typescript
- * import { OpenApiTool } from '@robota-sdk/core';
+ * import { OpenApiTool } from '@robota-sdk/tools';
  * 
  * const apiTool = new OpenApiTool({
  *   name: 'userInfo',

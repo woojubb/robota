@@ -18,7 +18,7 @@ import type { ToolInterface } from './interfaces';
  * 
  * @example
  * ```typescript
- * import { ToolRegistry, ZodTool } from '@robota-sdk/core';
+ * import { ToolRegistry, ZodTool } from '@robota-sdk/tools';
  * import { z } from 'zod';
  * 
  * const registry = new ToolRegistry();
