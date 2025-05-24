@@ -3,7 +3,7 @@ import type {
 } from '../types';
 import type { AIProvider, Context, Message, ModelResponse, StreamingResponseChunk } from '../interfaces/ai-provider';
 import type { Logger } from '../interfaces/logger';
-import type { ConversationHistory } from '../conversation-history';
+import type { ConversationHistory, UniversalMessage } from '../conversation-history';
 import { logger } from '../utils';
 
 /**
@@ -42,12 +42,12 @@ export class ConversationService {
         systemMessages?: Message[],
         options: RunOptions = {}
     ): Context {
-        // Get current AI provider to determine appropriate format
-        const currentProvider = 'openai'; // Default to OpenAI format for now
-        const messages = conversationHistory.toProviderFormat(currentProvider);
+        // Get universal messages from conversation history
+        // AI Provider will convert these to appropriate format
+        const universalMessages = conversationHistory.getMessages();
 
         const context: Context = {
-            messages
+            messages: universalMessages as any // AI Provider will handle format conversion
         };
 
         // Handle system messages

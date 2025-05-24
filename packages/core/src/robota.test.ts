@@ -108,10 +108,11 @@ describe('Robota', () => {
             // messages 배열에 사용자 메시지가 포함되어 있는지 확인
             const userMessages = mockProvider.lastContext?.messages.filter(msg => msg.role === 'user');
             expect(userMessages).toHaveLength(1);
-            expect(userMessages?.[0]).toEqual({
+            expect(userMessages?.[0]).toMatchObject({
                 role: 'user',
                 content: '안녕하세요'
             });
+            expect((userMessages?.[0] as any).timestamp).toBeInstanceOf(Date);
 
             // 응답이 올바르게 반환되었는지 확인
             expect(result).toBe('안녕하세요!');

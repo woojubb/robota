@@ -86,11 +86,6 @@ export interface ConversationHistory {
      * 메시지 개수 반환
      */
     getMessageCount(): number;
-
-    /**
-     * 특정 AI Provider 형식으로 변환
-     */
-    toProviderFormat(providerType: string): any[];
 }
 
 /**
@@ -172,23 +167,6 @@ export class SimpleConversationHistory implements ConversationHistory {
         this.messages = [];
     }
 
-    /**
-     * 특정 AI Provider 형식으로 변환
-     */
-    toProviderFormat(providerType: string): any[] {
-        switch (providerType.toLowerCase()) {
-            case 'openai':
-                return this._toOpenAIFormat();
-            case 'anthropic':
-                return this._toAnthropicFormat();
-            case 'google':
-                return this._toGoogleFormat();
-            default:
-                // 기본적으로 OpenAI 형식 반환
-                return this._toOpenAIFormat();
-        }
-    }
-
     private _applyMessageLimit(): void {
         if (this.maxMessages > 0 && this.messages.length > this.maxMessages) {
             // 시스템 메시지는 항상 유지
@@ -202,44 +180,6 @@ export class SimpleConversationHistory implements ConversationHistory {
             // 시스템 메시지와 제한된 일반 메시지 결합
             this.messages = [...systemMessages, ...trimmedNonSystemMessages];
         }
-    }
-
-    private _toOpenAIFormat(): any[] {
-        return this.messages.map(msg => {
-            const baseMessage = {
-                role: msg.role === 'tool' ? 'function' : msg.role,
-                content: msg.content,
-                ...(msg.name && { name: msg.name })
-            };
-
-            if (msg.functionCall) {
-                return {
-                    ...baseMessage,
-                    function_call: {
-                        name: msg.functionCall.name,
-                        arguments: typeof msg.functionCall.arguments === 'string'
-                            ? msg.functionCall.arguments
-                            : JSON.stringify(msg.functionCall.arguments)
-                    }
-                };
-            }
-
-            return baseMessage;
-        });
-    }
-
-    private _toAnthropicFormat(): any[] {
-        return this.messages.map(msg => ({
-            role: msg.role === 'tool' ? 'user' : msg.role,
-            content: msg.content
-        }));
-    }
-
-    private _toGoogleFormat(): any[] {
-        return this.messages.map(msg => ({
-            role: msg.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: msg.content }]
-        }));
     }
 }
 
@@ -298,10 +238,6 @@ export class PersistentSystemConversationHistory implements ConversationHistory 
         this.history.clear();
         // 시스템 메시지 다시 추가
         this.history.addSystemMessage(this.systemPrompt);
-    }
-
-    toProviderFormat(providerType: string): any[] {
-        return this.history.toProviderFormat(providerType);
     }
 
     /**

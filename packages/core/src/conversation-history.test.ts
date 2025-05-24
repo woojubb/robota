@@ -196,53 +196,6 @@ describe('SimpleConversationHistory', () => {
             expect(userMessages[1].content).toBe('User 4');
         });
     });
-
-    describe('Provider 형식 변환', () => {
-        beforeEach(() => {
-            history.addSystemMessage('System prompt');
-            history.addUserMessage('User message');
-            history.addAssistantMessage('Assistant message', {
-                name: 'test_function',
-                arguments: { param: 'value' }
-            });
-            history.addToolMessage({ name: 'tool', result: 'success' });
-        });
-
-        it('OpenAI 형식으로 변환할 수 있어야 함', () => {
-            const openaiFormat = history.toProviderFormat('openai');
-
-            expect(openaiFormat).toHaveLength(4);
-            expect(openaiFormat[0].role).toBe('system');
-            expect(openaiFormat[1].role).toBe('user');
-            expect(openaiFormat[2].role).toBe('assistant');
-            expect(openaiFormat[2].function_call).toBeDefined();
-            expect(openaiFormat[3].role).toBe('function');
-        });
-
-        it('Anthropic 형식으로 변환할 수 있어야 함', () => {
-            const anthropicFormat = history.toProviderFormat('anthropic');
-
-            expect(anthropicFormat).toHaveLength(4);
-            expect(anthropicFormat[0].role).toBe('system');
-            expect(anthropicFormat[3].role).toBe('user'); // tool -> user
-        });
-
-        it('Google 형식으로 변환할 수 있어야 함', () => {
-            const googleFormat = history.toProviderFormat('google');
-
-            expect(googleFormat).toHaveLength(4);
-            expect(googleFormat[1].role).toBe('user');
-            expect(googleFormat[2].role).toBe('model'); // assistant -> model
-            expect(googleFormat[0].parts).toBeDefined();
-        });
-
-        it('알 수 없는 provider는 기본적으로 OpenAI 형식을 사용해야 함', () => {
-            const defaultFormat = history.toProviderFormat('unknown');
-            const openaiFormat = history.toProviderFormat('openai');
-
-            expect(defaultFormat).toEqual(openaiFormat);
-        });
-    });
 });
 
 describe('PersistentSystemConversationHistory', () => {
