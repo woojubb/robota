@@ -8,7 +8,8 @@
  */
 
 import { z } from 'zod';
-import type { FunctionDefinition, FunctionCall, FunctionCallResult, FunctionSchema } from './types';
+import type { FunctionDefinition, FunctionCallResult, FunctionSchema } from './types';
+import type { FunctionCall } from './interfaces/ai-provider';
 
 /**
  * 함수 결과 타입

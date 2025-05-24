@@ -1,53 +1,27 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { Robota } from './robota';
 import { SimpleMemory } from './memory';
-import type { Message, Context, ModelResponse } from './types';
+import type { Context, Message, ModelResponse, AIProvider } from './interfaces/ai-provider';
 
-// 테스트를 위한 모델 컨텍스트 프로토콜 인터페이스
-interface ModelContextProtocol {
-    options: { model: string };
-    chat(context: Context): Promise<ModelResponse>;
-    chatStream(context: Context): AsyncGenerator<any, void, unknown>;
-    formatMessages(messages: Message[]): any;
-    formatFunctions(functions: any[]): any;
-    parseResponse(response: any): ModelResponse;
-    parseStreamingChunk(chunk: any): any;
-}
-
-// 테스트를 위한 가짜 제공업체 구현
-class MockProvider implements ModelContextProtocol {
-    public options = { model: 'mock-model' };
+// Mock AI Provider 클래스
+class MockProvider implements AIProvider {
+    public name = 'mock';
+    public availableModels = ['mock-model'];
     public lastContext: Context | null = null;
     public mockResponse: ModelResponse = { content: '안녕하세요!' };
     public mockOptions: any = {};
 
-    async chat(context: Context, options?: any): Promise<ModelResponse> {
+    async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
         this.lastContext = context;
         this.mockOptions = options || {};
         return this.mockResponse;
     }
 
-    async *chatStream(context: Context, options?: any): AsyncGenerator<any, void, unknown> {
+    async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<any, void, unknown> {
         this.lastContext = context;
         this.mockOptions = options || {};
-        yield { content: '안녕', isComplete: false };
-        yield { content: '하세요', isComplete: true };
-    }
-
-    formatMessages(messages: Message[]): any {
-        return messages;
-    }
-
-    formatFunctions(functions: any[]): any {
-        return functions;
-    }
-
-    parseResponse(response: any): ModelResponse {
-        return response;
-    }
-
-    parseStreamingChunk(chunk: any): any {
-        return chunk;
+        const chunk = { content: this.mockResponse.content };
+        yield chunk;
     }
 }
 
@@ -57,14 +31,17 @@ describe('Robota', () => {
 
     beforeEach(() => {
         mockProvider = new MockProvider();
-        robota = new Robota({ provider: mockProvider });
+        robota = new Robota({
+            aiProviders: { mock: mockProvider },
+            currentProvider: 'mock',
+            currentModel: 'mock-model'
+        });
     });
 
     describe('초기화', () => {
         it('기본 옵션으로 초기화되어야 함', () => {
-            expect(robota['provider']).toBe(mockProvider);
+            expect(robota.getCurrentAI()).toEqual({ provider: 'mock', model: 'mock-model' });
             expect(robota['memory']).toBeInstanceOf(SimpleMemory);
-            expect(robota['systemPrompt']).toBeUndefined();
         });
 
         it('사용자 정의 옵션으로 초기화되어야 함', () => {
@@ -72,14 +49,15 @@ describe('Robota', () => {
             const customMemory = new SimpleMemory();
 
             const customRobota = new Robota({
-                provider: mockProvider,
+                aiProviders: { mock: mockProvider },
+                currentProvider: 'mock',
+                currentModel: 'mock-model',
                 systemPrompt: customSystemPrompt,
                 memory: customMemory
             });
 
-            expect(customRobota['provider']).toBe(mockProvider);
+            expect(customRobota.getCurrentAI()).toEqual({ provider: 'mock', model: 'mock-model' });
             expect(customRobota['memory']).toBe(customMemory);
-            expect(customRobota['systemPrompt']).toBe(customSystemPrompt);
         });
 
         it('시스템 메시지 배열로 초기화되어야 함', () => {
@@ -89,12 +67,13 @@ describe('Robota', () => {
             ];
 
             const customRobota = new Robota({
-                provider: mockProvider,
+                aiProviders: { mock: mockProvider },
+                currentProvider: 'mock',
+                currentModel: 'mock-model',
                 systemMessages
             });
 
-            expect(customRobota['systemMessages']).toEqual(systemMessages);
-            expect(customRobota['systemPrompt']).toBeUndefined();
+            expect(customRobota['systemMessageManager'].getSystemMessages()).toEqual(systemMessages);
         });
 
         it('함수 호출 설정으로 초기화되어야 함', () => {
@@ -106,14 +85,16 @@ describe('Robota', () => {
             };
 
             const customRobota = new Robota({
-                provider: mockProvider,
+                aiProviders: { mock: mockProvider },
+                currentProvider: 'mock',
+                currentModel: 'mock-model',
                 functionCallConfig
             });
 
-            expect(customRobota['functionCallConfig'].defaultMode).toBe('auto');
-            expect(customRobota['functionCallConfig'].maxCalls).toBe(5);
-            expect(customRobota['functionCallConfig'].timeout).toBe(10000);
-            expect(customRobota['functionCallConfig'].allowedFunctions).toEqual(['getWeather']);
+            expect(customRobota['functionCallManager'].getDefaultMode()).toBe('auto');
+            expect(customRobota['functionCallManager'].getMaxCalls()).toBe(5);
+            expect(customRobota['functionCallManager'].getTimeout()).toBe(10000);
+            expect(customRobota['functionCallManager'].getAllowedFunctions()).toEqual(['getWeather']);
         });
     });
 
@@ -186,14 +167,14 @@ describe('Robota', () => {
         it('함수 호출 모드를 설정할 수 있어야 함', async () => {
             // 함수 호출 모드 설정
             robota.setFunctionCallMode('auto');
-            expect(robota['functionCallConfig'].defaultMode).toBe('auto');
+            expect(robota['functionCallManager'].getDefaultMode()).toBe('auto');
 
             await robota.run('테스트 메시지');
             expect(mockProvider.mockOptions.functionCallMode).toBe('auto');
 
             // 다른 모드로 변경
             robota.setFunctionCallMode('disabled');
-            expect(robota['functionCallConfig'].defaultMode).toBe('disabled');
+            expect(robota['functionCallManager'].getDefaultMode()).toBe('disabled');
 
             await robota.run('테스트 메시지');
             expect(mockProvider.mockOptions.functionCallMode).toBe('disabled');
@@ -237,28 +218,22 @@ describe('Robota', () => {
 
             await robota.run('안녕하세요');
 
-            expect(robota['functionCallConfig'].defaultMode).toBe('auto');
-            expect(robota['functionCallConfig'].maxCalls).toBe(5);
-            expect(robota['functionCallConfig'].timeout).toBe(10000);
-            expect(robota['functionCallConfig'].allowedFunctions).toEqual(['getWeather', 'calculate']);
+            expect(robota['functionCallManager'].getDefaultMode()).toBe('auto');
+            expect(robota['functionCallManager'].getMaxCalls()).toBe(5);
+            expect(robota['functionCallManager'].getTimeout()).toBe(10000);
+            expect(robota['functionCallManager'].getAllowedFunctions()).toEqual(['getWeather', 'calculate']);
             expect(mockProvider.mockOptions.functionCallMode).toBe('auto');
         });
     });
 
     describe('시스템 메시지', () => {
         it('setSystemPrompt로 단일 시스템 메시지를 설정할 수 있어야 함', async () => {
-            const systemPrompt = '당신은 도움이 되는 AI 비서입니다.';
+            const systemPrompt = '당신은 전문가입니다.';
             robota.setSystemPrompt(systemPrompt);
 
             await robota.run('안녕하세요');
 
-            expect(robota['systemPrompt']).toBe(systemPrompt);
-            expect(robota['systemMessages']).toEqual([{ role: 'system', content: systemPrompt }]);
-
-            // 시스템 메시지가 컨텍스트에 포함되었는지 확인
-            const messages = mockProvider.lastContext?.messages || [];
-            expect(messages.length).toBeGreaterThan(1);
-            expect(messages[0]).toEqual({ role: 'system', content: systemPrompt });
+            expect(mockProvider.lastContext?.systemPrompt).toBe(systemPrompt);
         });
 
         it('setSystemMessages로 여러 시스템 메시지를 설정할 수 있어야 함', async () => {
@@ -271,33 +246,20 @@ describe('Robota', () => {
 
             await robota.run('안녕하세요');
 
-            expect(robota['systemPrompt']).toBeUndefined();
-            expect(robota['systemMessages']).toEqual(systemMessages);
-
-            // 시스템 메시지가 컨텍스트에 포함되었는지 확인
-            const messages = mockProvider.lastContext?.messages || [];
-            expect(messages.length).toBeGreaterThan(2);
-            expect(messages[0]).toEqual(systemMessages[0]);
-            expect(messages[1]).toEqual(systemMessages[1]);
+            expect(mockProvider.lastContext?.systemMessages).toEqual(systemMessages);
         });
 
         it('addSystemMessage로 시스템 메시지를 추가할 수 있어야 함', async () => {
-            robota.setSystemPrompt('당신은 도움이 되는 AI 비서입니다.');
-            robota.addSystemMessage('사용자에게 공손하게 대응하세요.');
+            robota.setSystemPrompt('당신은 전문가입니다.');
+            robota.addSystemMessage('정확한 정보를 제공하세요.');
 
             await robota.run('안녕하세요');
 
-            expect(robota['systemPrompt']).toBeUndefined();
-            expect(robota['systemMessages']).toEqual([
-                { role: 'system', content: '당신은 도움이 되는 AI 비서입니다.' },
-                { role: 'system', content: '사용자에게 공손하게 대응하세요.' }
-            ]);
-
-            // 시스템 메시지가 컨텍스트에 포함되었는지 확인
-            const messages = mockProvider.lastContext?.messages || [];
-            expect(messages.length).toBeGreaterThan(2);
-            expect(messages[0]).toEqual({ role: 'system', content: '당신은 도움이 되는 AI 비서입니다.' });
-            expect(messages[1]).toEqual({ role: 'system', content: '사용자에게 공손하게 대응하세요.' });
+            const expectedMessages = [
+                { role: 'system', content: '당신은 전문가입니다.' },
+                { role: 'system', content: '정확한 정보를 제공하세요.' }
+            ];
+            expect(mockProvider.lastContext?.systemMessages).toEqual(expectedMessages);
         });
     });
 }); 

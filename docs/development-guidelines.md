@@ -16,6 +16,64 @@
 - 확장 가능성을 고려한 설계
 - 일관된 네이밍 컨벤션 적용
 
+### 아키텍처 패턴
+
+#### 매니저 패턴
+- 기능별로 매니저 클래스를 구성하여 단일 책임 원칙 준수
+- 각 매니저는 특정 도메인의 상태와 동작을 관리
+- 예: `AIProviderManager`, `ToolProviderManager`, `SystemMessageManager`
+
+#### 서비스 레이어
+- 비즈니스 로직은 서비스 클래스로 분리
+- 매니저들을 조합하여 복잡한 비즈니스 프로세스 처리
+- 예: `ConversationService`
+
+#### 의존성 주입과 위임
+- 메인 클래스는 의존성 주입을 통해 매니저들을 구성
+- 공개 API는 적절한 매니저에게 위임하여 구현
+
+## 빌드 시스템 규칙
+
+### 테스트 파일 분리
+
+- **프로덕션 빌드**: 테스트 파일은 프로덕션 빌드에서 제외되어야 함
+- **TypeScript 설정**: `tsconfig.json`에서 테스트 파일을 `exclude`에 포함
+- **테스트용 설정**: 별도의 `tsconfig.test.json`을 사용하여 테스트 실행 시에만 테스트 파일 포함
+
+```json
+// tsconfig.json - 프로덕션 빌드용
+{
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx", 
+    "src/**/*.spec.ts",
+    "src/**/*.spec.tsx"
+  ]
+}
+
+// tsconfig.test.json - 테스트용
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vitest/globals", "node"]
+  },
+  "include": ["src/**/*"],
+  "exclude": []
+}
+```
+
+### 타입 시스템 관리
+
+- **타입 위치**: 타입은 가장 적절한 위치에 정의하여 순환 의존성 방지
+- **타입 재사용**: 공통 타입은 적절한 모듈에서 export하여 재사용
+- **명명 충돌 방지**: `.d.ts`와 `.ts` 파일 간 명명 충돌 주의
+
+### 빌드 도구 설정
+
+- **vitest 설정**: 테스트용 TypeScript 설정 파일 지정
+- **빌드 캐시**: 빌드 문제 발생 시 캐시 정리 후 재시도
+- **타입 체크**: `tsc --noEmit`으로 타입 오류 사전 검증
+
 ## 런타임 및 실행 환경
 
 ### TypeScript 실행
@@ -81,6 +139,30 @@ const result = await mockClient.run(context);
 - 파일별 테스트 작성
 - 관련 테스트는 논리적으로 그룹화
 - 테스트는 독립적으로 실행 가능해야 함
+
+### 리팩토링된 구조 테스트
+
+- **매니저 기반 테스트**: 리팩토링된 매니저 구조에 맞게 테스트 작성
+- **Mock Provider 구현**: 새로운 인터페이스에 맞는 Mock Provider 작성
+- **내부 속성 접근**: 매니저를 통한 내부 상태 검증
+
+```typescript
+// ✅ 매니저 기반 테스트 예시
+it('함수 호출 설정으로 초기화되어야 함', () => {
+    expect(customRobota['functionCallManager'].getDefaultMode()).toBe('auto');
+    expect(customRobota['functionCallManager'].getMaxCalls()).toBe(5);
+});
+
+// ✅ 새로운 구조에 맞는 Mock Provider
+class MockProvider implements AIProvider {
+    public name = 'mock';
+    public availableModels = ['mock-model'];
+    
+    async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
+        // Mock 구현
+    }
+}
+```
 
 ## 문서화 규칙
 

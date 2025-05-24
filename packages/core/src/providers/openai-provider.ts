@@ -1,5 +1,4 @@
-import { AIProvider, Context } from '../robota';
-import { ModelResponse, StreamingResponseChunk } from '../types';
+import type { AIProvider, Context, ModelResponse, StreamingResponseChunk } from '../interfaces/ai-provider';
 import { logger } from '../utils';
 
 /**
@@ -35,7 +34,7 @@ export class OpenAIProvider implements AIProvider {
             const { messages, systemPrompt } = context;
 
             // 시스템 프롬프트 추가 (없는 경우)
-            const messagesWithSystem = systemPrompt && !messages.some(m => m.role === 'system')
+            const messagesWithSystem = systemPrompt && !messages.some((m: any) => m.role === 'system')
                 ? [{ role: 'system' as const, content: systemPrompt }, ...messages]
                 : messages;
 
@@ -105,7 +104,7 @@ export class OpenAIProvider implements AIProvider {
             const { messages, systemPrompt } = context;
 
             // 시스템 프롬프트 추가 (없는 경우)
-            const messagesWithSystem = systemPrompt && !messages.some(m => m.role === 'system')
+            const messagesWithSystem = systemPrompt && !messages.some((m: any) => m.role === 'system')
                 ? [{ role: 'system' as const, content: systemPrompt }, ...messages]
                 : messages;
 

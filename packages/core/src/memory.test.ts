@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { SimpleMemory, PersistentSystemMemory } from './memory';
-import type { Message } from './types';
+import type { Message } from './interfaces/ai-provider';
 
 describe('SimpleMemory', () => {
     let memory: SimpleMemory;
