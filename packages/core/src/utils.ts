@@ -25,14 +25,14 @@ export function splitTextIntoChunks(text: string, chunkSize: number): string[] {
  * @param obj Object to clean
  * @returns Object with undefined values removed
  */
-export function removeUndefined<T extends Record<string, any>>(obj: T): T {
+export function removeUndefined<T extends Record<string, unknown>>(obj: T): T {
   const result = { ...obj };
 
   for (const key in result) {
     if (result[key] === undefined) {
       delete result[key];
     } else if (typeof result[key] === 'object' && result[key] !== null) {
-      result[key] = removeUndefined(result[key]);
+      result[key] = removeUndefined(result[key] as Record<string, unknown>) as T[Extract<keyof T, string>];
     }
   }
 
@@ -93,8 +93,8 @@ export function estimateTokenCount(text: string): number {
  * @param text JSON string fragment
  * @returns Complete JSON objects and remaining string
  */
-export function extractJSONObjects(text: string): { objects: any[], remaining: string } {
-  const objects: any[] = [];
+export function extractJSONObjects(text: string): { objects: unknown[], remaining: string } {
+  const objects: unknown[] = [];
   let remaining = text;
   let match;
 
@@ -126,17 +126,17 @@ export function extractJSONObjects(text: string): { objects: any[], remaining: s
  * Logger utility (console.log replacement)
  */
 export const logger = {
-  info: (...args: any[]) => {
+  info: (...args: unknown[]) => {
     if (process.env.NODE_ENV !== 'production') {
       console.log('[INFO]', ...args);
     }
   },
-  warn: (...args: any[]) => {
+  warn: (...args: unknown[]) => {
     if (process.env.NODE_ENV !== 'production') {
       console.warn('[WARN]', ...args);
     }
   },
-  error: (...args: any[]) => {
+  error: (...args: unknown[]) => {
     if (process.env.NODE_ENV !== 'production') {
       console.error('[ERROR]', ...args);
     }

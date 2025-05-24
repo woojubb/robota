@@ -100,7 +100,7 @@ export class ZodTool<TParams = any, TResult = any> extends BaseTool<TParams, TRe
 
         // Add required fields
         jsonSchema.required = Object.entries(shape)
-            .filter(([_, zodType]) => !this.isOptionalType(zodType as z.ZodTypeAny))
+            .filter(([_key, zodType]) => !this.isOptionalType(zodType as z.ZodTypeAny))
             .map(([key]) => key);
 
         if (jsonSchema.required?.length === 0) {

@@ -34,7 +34,7 @@ export interface RunOptions {
     systemPrompt?: string;
     functionCallMode?: string; // 'auto' | 'force' | 'disabled'
     forcedFunction?: string;
-    forcedArguments?: Record<string, any>;
+    forcedArguments?: Record<string, unknown>;
     temperature?: number;
     maxTokens?: number;
 } 

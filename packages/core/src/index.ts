@@ -54,7 +54,7 @@ export {
     createFunctionSchema,
     FunctionRegistry,
     type FunctionHandler,
-    type Function,
+    type ToolFunction,
     type FunctionOptions,
     type FunctionResult
 } from '@robota-sdk/tools'; 

@@ -3,17 +3,16 @@ import {
     Context,
     FunctionDefinition,
     Message,
-    ModelContextProtocol,
+    AIProvider,
     ModelResponse,
-    StreamingResponseChunk,
-    removeUndefined
+    StreamingResponseChunk
 } from '@robota-sdk/core';
 import { AnthropicProviderOptions } from './types';
 
 /**
  * Anthropic provider implementation
  */
-export class AnthropicProvider implements ModelContextProtocol {
+export class AnthropicProvider implements AIProvider {
     /**
      * Anthropic client instance
      */
@@ -83,7 +82,7 @@ export class AnthropicProvider implements ModelContextProtocol {
     /**
      * Format messages into a format the model can understand.
      */
-    formatMessages(messages: Message[]): any[] {
+    formatMessages(_messages: Message[]): unknown[] {
         // This method exists for type compatibility but is not actually used.
         // Anthropic v0.5.0 uses prompt strings instead of messages format.
         return [];
@@ -120,7 +119,7 @@ export class AnthropicProvider implements ModelContextProtocol {
     /**
      * Format function definitions into a format the model can understand.
      */
-    formatFunctions(functions: FunctionDefinition[]): any {
+    formatFunctions(_functions: FunctionDefinition[]): unknown {
         // Anthropic API may not yet support function calling features.
         // Return empty array here.
         return [];
@@ -129,9 +128,10 @@ export class AnthropicProvider implements ModelContextProtocol {
     /**
      * Parse model response into standard format.
      */
-    parseResponse(response: any): ModelResponse {
+    parseResponse(response: unknown): ModelResponse {
+        const responseObj = response as { completion?: string };
         return {
-            content: response.completion || '',
+            content: responseObj.completion || '',
             functionCall: undefined,
             usage: {
                 promptTokens: 0, // Anthropic v0.5.0 does not provide usage information
@@ -144,9 +144,10 @@ export class AnthropicProvider implements ModelContextProtocol {
     /**
      * Parse streaming response chunk into standard format.
      */
-    parseStreamingChunk(chunk: any): StreamingResponseChunk {
+    parseStreamingChunk(chunk: unknown): StreamingResponseChunk {
+        const chunkObj = chunk as { completion?: string };
         return {
-            content: chunk.completion || '',
+            content: chunkObj.completion || '',
             functionCall: undefined
         };
     }

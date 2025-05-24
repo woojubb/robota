@@ -11,7 +11,7 @@ export interface AnthropicProviderOptions extends ProviderOptions {
  * Anthropic provider class
  */
 export class AnthropicProvider {
-    constructor(options: AnthropicProviderOptions) {
+    constructor(_options: AnthropicProviderOptions) {
         // Initialization logic
     }
 
@@ -19,4 +19,8 @@ export class AnthropicProvider {
 }
 
 export * from './types';
-export * from './provider'; 
+export * from './provider';
+
+export function createAnthropicProvider(_options: AnthropicProviderOptions) {
+    // Implementation of createAnthropicProvider function
+} 

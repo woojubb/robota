@@ -88,7 +88,7 @@ export class AIProviderManager {
      * Release resources of all AI providers
      */
     async close(): Promise<void> {
-        for (const [name, aiProvider] of Object.entries(this.aiProviders)) {
+        for (const [_name, aiProvider] of Object.entries(this.aiProviders)) {
             if (aiProvider.close && typeof aiProvider.close === 'function') {
                 await aiProvider.close();
             }

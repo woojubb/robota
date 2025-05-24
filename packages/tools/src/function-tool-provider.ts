@@ -15,7 +15,7 @@ import type { ToolProvider } from './tool-provider';
  */
 export interface ZodFunctionToolProviderOptions {
     /** 도구 정의 객체 */
-    tools: Record<string, ZodFunctionTool<z.ZodObject<any>>>;
+    tools: Record<string, ZodFunctionTool<z.ZodObject<z.ZodRawShape>>>;
 }
 
 /**
@@ -51,7 +51,11 @@ export function createZodFunctionToolProvider(options: ZodFunctionToolProviderOp
     // 도구 정의를 JSON 스키마로 변환
     const functions = Object.values(options.tools).map(tool => {
         // zodFunctionToSchema 함수 대신 직접 스키마 변환 처리
-        const properties: Record<string, any> = {};
+        const properties: Record<string, {
+            type: string;
+            description?: string;
+            enum?: unknown[];
+        }> = {};
         const required: string[] = [];
 
         // Zod 스키마에서 속성 추출
@@ -99,7 +103,7 @@ export function createZodFunctionToolProvider(options: ZodFunctionToolProviderOp
         functions,
 
         // ToolProvider 인터페이스 구현: callTool
-        async callTool(toolName: string, parameters: Record<string, any>): Promise<any> {
+        async callTool(toolName: string, parameters: Record<string, unknown>): Promise<unknown> {
             const tool = options.tools[toolName];
             if (!tool) {
                 throw new Error(`도구 '${toolName}'를 찾을 수 없습니다.`);

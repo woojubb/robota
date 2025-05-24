@@ -310,7 +310,6 @@ export class OpenAIProvider implements AIProvider {
 
       const stream = await this.client.chat.completions.create(completionOptions);
 
-      // @ts-ignore - OpenAI 스트림 타입 처리가 필요합니다
       for await (const chunk of stream) {
         yield this.parseStreamingChunk(chunk);
       }

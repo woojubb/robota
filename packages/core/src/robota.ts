@@ -1,7 +1,7 @@
 import type {
     RunOptions
 } from './types';
-import type { AIProvider, Context, Message, ModelResponse, StreamingResponseChunk } from './interfaces/ai-provider';
+import type { AIProvider, Message, ModelResponse, StreamingResponseChunk } from './interfaces/ai-provider';
 import type { Logger } from './interfaces/logger';
 import type { Memory } from './memory';
 import type { ToolProvider } from '@robota-sdk/tools';

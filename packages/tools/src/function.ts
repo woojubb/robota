@@ -8,19 +8,19 @@
  */
 
 import { z } from 'zod';
-import type { FunctionDefinition, FunctionCallResult, FunctionSchema, FunctionCall } from './types';
+import type { FunctionDefinition, FunctionCallResult, FunctionCall } from './types';
 
 /**
  * Function result type
  */
-export type FunctionResult<TResult = any> = {
+export type FunctionResult<TResult = unknown> = {
     result: TResult;
 };
 
 /**
  * Function options interface
  */
-export interface FunctionOptions<TParams = any, TResult = any> {
+export interface FunctionOptions<TParams = unknown, TResult = unknown> {
     name: string;
     description?: string;
     parameters: z.ZodObject<any> | any;
@@ -30,7 +30,7 @@ export interface FunctionOptions<TParams = any, TResult = any> {
 /**
  * Function interface
  */
-export interface Function<TParams = any, TResult = any> {
+export interface ToolFunction<TParams = unknown, TResult = unknown> {
     name: string;
     description?: string;
     schema: FunctionDefinition;
@@ -237,9 +237,9 @@ function isNullableType(zodType: z.ZodTypeAny): boolean {
  * });
  * ```
  */
-export function createFunction<TParams = any, TResult = any>(
+export function createFunction<TParams = unknown, TResult = unknown>(
     options: FunctionOptions<TParams, TResult>
-): Function<TParams, TResult> {
+): ToolFunction<TParams, TResult> {
     const { name, description, parameters, execute } = options;
 
     // Convert zod schema to JSON schema
@@ -312,7 +312,7 @@ export function functionFromCallback(
     name: string,
     fn: (...args: any[]) => any,
     description?: string
-): Function {
+): ToolFunction<Record<string, any>, any> {
     // Extract function parameter information
     const fnStr = fn.toString();
     const argsMatch = fnStr.match(/\(([^)]*)\)/);
