@@ -3,10 +3,10 @@ import type {
 } from './types';
 import type { AIProvider, Message, ModelResponse, StreamingResponseChunk } from './interfaces/ai-provider';
 import type { Logger } from './interfaces/logger';
-import type { Memory } from './memory';
+import type { ConversationHistory } from './conversation-history';
 import type { ToolProvider } from '@robota-sdk/tools';
 
-import { SimpleMemory } from './memory';
+import { SimpleConversationHistory } from './conversation-history';
 import { AIProviderManager } from './managers/ai-provider-manager';
 import { ToolProviderManager } from './managers/tool-provider-manager';
 import { SystemMessageManager } from './managers/system-message-manager';
@@ -50,8 +50,8 @@ export interface RobotaOptions {
     /** Array of system messages */
     systemMessages?: Message[];
 
-    /** Memory interface */
-    memory?: any;
+    /** Conversation history interface */
+    conversationHistory?: ConversationHistory;
 
     /** Function call configuration */
     functionCallConfig?: FunctionCallConfig;
@@ -91,7 +91,7 @@ export class Robota {
     private conversationService: ConversationService;
 
     // Basic configuration
-    private memory: Memory;
+    private conversationHistory: ConversationHistory;
     private onToolCall?: (toolName: string, params: any, result: any) => void;
     private logger: Logger;
     private debug: boolean;
@@ -103,7 +103,7 @@ export class Robota {
      */
     constructor(options: RobotaOptions) {
         // Basic configuration
-        this.memory = options.memory || new SimpleMemory();
+        this.conversationHistory = options.conversationHistory || new SimpleConversationHistory();
         this.onToolCall = options.onToolCall;
         this.logger = options.logger || console;
         this.debug = options.debug || false;
@@ -199,7 +199,7 @@ export class Robota {
     }
 
     /**
-     * Add a new system message to existing system messages
+     * Add a system message
      */
     addSystemMessage(content: string): void {
         this.systemMessageManager.addSystemMessage(content);
@@ -241,14 +241,10 @@ export class Robota {
      * Execute a text prompt
      */
     async run(prompt: string, options: RunOptions = {}): Promise<string> {
-        const userMessage: Message = {
-            role: 'user',
-            content: prompt
-        };
-        this.memory.addMessage(userMessage);
+        this.conversationHistory.addUserMessage(prompt);
 
         const context = this.conversationService.prepareContext(
-            this.memory,
+            this.conversationHistory,
             this.systemMessageManager.getSystemPrompt(),
             this.systemMessageManager.getSystemMessages(),
             options
@@ -256,12 +252,8 @@ export class Robota {
 
         const response = await this.generateResponse(context, options);
 
-        // Add assistant response to memory
-        const assistantMessage: Message = {
-            role: 'assistant',
-            content: response.content || ''
-        };
-        this.memory.addMessage(assistantMessage);
+        // Add assistant response to conversation history
+        this.conversationHistory.addAssistantMessage(response.content || '', response.functionCall);
 
         return response.content || '';
     }
@@ -270,14 +262,10 @@ export class Robota {
      * Process chat message and generate response
      */
     async chat(message: string, options: RunOptions = {}): Promise<string> {
-        const userMessage: Message = {
-            role: 'user',
-            content: message
-        };
-        this.memory.addMessage(userMessage);
+        this.conversationHistory.addUserMessage(message);
 
         const context = this.conversationService.prepareContext(
-            this.memory,
+            this.conversationHistory,
             this.systemMessageManager.getSystemPrompt(),
             this.systemMessageManager.getSystemMessages(),
             options
@@ -285,11 +273,7 @@ export class Robota {
 
         const response = await this.generateResponse(context, options);
 
-        const assistantMessage: Message = {
-            role: 'assistant',
-            content: response.content || ''
-        };
-        this.memory.addMessage(assistantMessage);
+        this.conversationHistory.addAssistantMessage(response.content || '', response.functionCall);
 
         return response.content || '';
     }
@@ -298,14 +282,10 @@ export class Robota {
      * Generate streaming response
      */
     async runStream(prompt: string, options: RunOptions = {}): Promise<AsyncIterable<StreamingResponseChunk>> {
-        const userMessage: Message = {
-            role: 'user',
-            content: prompt
-        };
-        this.memory.addMessage(userMessage);
+        this.conversationHistory.addUserMessage(prompt);
 
         const context = this.conversationService.prepareContext(
-            this.memory,
+            this.conversationHistory,
             this.systemMessageManager.getSystemPrompt(),
             this.systemMessageManager.getSystemMessages(),
             options
@@ -315,21 +295,17 @@ export class Robota {
     }
 
     /**
-     * Add response message to memory
+     * Add response message to conversation history
      */
-    addResponseToMemory(response: ModelResponse): void {
-        const assistantMessage: Message = {
-            role: 'assistant',
-            content: response.content || ''
-        };
-        this.memory.addMessage(assistantMessage);
+    addResponseToConversationHistory(response: ModelResponse): void {
+        this.conversationHistory.addAssistantMessage(response.content || '', response.functionCall);
     }
 
     /**
-     * Clear memory
+     * Clear conversation history
      */
-    clearMemory(): void {
-        this.memory.clear();
+    clearConversationHistory(): void {
+        this.conversationHistory.clear();
     }
 
     // ============================================================

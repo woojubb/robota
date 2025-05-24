@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Robota } from './robota';
-import { SimpleMemory } from './memory';
+import { SimpleConversationHistory } from './conversation-history';
 import type { Context, ModelResponse, AIProvider } from './interfaces/ai-provider';
 
 // Mock AI Provider 클래스
@@ -41,23 +41,23 @@ describe('Robota', () => {
     describe('초기화', () => {
         it('기본 옵션으로 초기화되어야 함', () => {
             expect(robota.getCurrentAI()).toEqual({ provider: 'mock', model: 'mock-model' });
-            expect(robota['memory']).toBeInstanceOf(SimpleMemory);
+            expect(robota['conversationHistory']).toBeInstanceOf(SimpleConversationHistory);
         });
 
         it('사용자 정의 옵션으로 초기화되어야 함', () => {
             const customSystemPrompt = '당신은 도움이 되는 AI입니다.';
-            const customMemory = new SimpleMemory();
+            const customConversationHistory = new SimpleConversationHistory();
 
             const customRobota = new Robota({
                 aiProviders: { mock: mockProvider },
                 currentProvider: 'mock',
                 currentModel: 'mock-model',
                 systemPrompt: customSystemPrompt,
-                memory: customMemory
+                conversationHistory: customConversationHistory
             });
 
             expect(customRobota.getCurrentAI()).toEqual({ provider: 'mock', model: 'mock-model' });
-            expect(customRobota['memory']).toBe(customMemory);
+            expect(customRobota['conversationHistory']).toBe(customConversationHistory);
         });
 
         it('시스템 메시지 배열로 초기화되어야 함', () => {
@@ -135,31 +135,25 @@ describe('Robota', () => {
             mockProvider.mockResponse = { content: '첫 번째 응답' };
             await robota.chat('첫 번째 메시지');
 
-            // 사용자 메시지와 응답이 메모리에 저장되었는지 확인
-            expect(robota['memory'].getMessages()).toHaveLength(2);
-            expect(robota['memory'].getMessages()[0]).toEqual({
-                role: 'user',
-                content: '첫 번째 메시지'
-            });
-            expect(robota['memory'].getMessages()[1]).toEqual({
-                role: 'assistant',
-                content: '첫 번째 응답'
-            });
+            // 사용자 메시지와 응답이 대화 기록에 저장되었는지 확인
+            expect(robota['conversationHistory'].getMessageCount()).toBe(2);
+            const messages = robota['conversationHistory'].getMessages();
+            expect(messages[0].role).toBe('user');
+            expect(messages[0].content).toBe('첫 번째 메시지');
+            expect(messages[1].role).toBe('assistant');
+            expect(messages[1].content).toBe('첫 번째 응답');
 
             // 두 번째 메시지 전송
             mockProvider.mockResponse = { content: '두 번째 응답' };
             await robota.chat('두 번째 메시지');
 
             // 전체 대화 기록 확인
-            expect(robota['memory'].getMessages()).toHaveLength(4);
-            expect(robota['memory'].getMessages()[2]).toEqual({
-                role: 'user',
-                content: '두 번째 메시지'
-            });
-            expect(robota['memory'].getMessages()[3]).toEqual({
-                role: 'assistant',
-                content: '두 번째 응답'
-            });
+            const allMessages = robota['conversationHistory'].getMessages();
+            expect(allMessages).toHaveLength(4);
+            expect(allMessages[2].role).toBe('user');
+            expect(allMessages[2].content).toBe('두 번째 메시지');
+            expect(allMessages[3].role).toBe('assistant');
+            expect(allMessages[3].content).toBe('두 번째 응답');
         });
     });
 

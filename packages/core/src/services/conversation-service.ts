@@ -3,7 +3,7 @@ import type {
 } from '../types';
 import type { AIProvider, Context, Message, ModelResponse, StreamingResponseChunk } from '../interfaces/ai-provider';
 import type { Logger } from '../interfaces/logger';
-import type { Memory } from '../memory';
+import type { ConversationHistory } from '../conversation-history';
 import { logger } from '../utils';
 
 /**
@@ -31,18 +31,20 @@ export class ConversationService {
     /**
      * Prepare context
      * 
-     * @param memory - Memory instance
+     * @param conversationHistory - ConversationHistory instance
      * @param systemPrompt - Optional system prompt
      * @param systemMessages - System messages
      * @param options - Run options
      */
     prepareContext(
-        memory: Memory,
+        conversationHistory: ConversationHistory,
         systemPrompt?: string,
         systemMessages?: Message[],
         options: RunOptions = {}
     ): Context {
-        const messages = memory ? memory.getMessages() : [];
+        // Get current AI provider to determine appropriate format
+        const currentProvider = 'openai'; // Default to OpenAI format for now
+        const messages = conversationHistory.toProviderFormat(currentProvider);
 
         const context: Context = {
             messages

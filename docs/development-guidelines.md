@@ -130,10 +130,13 @@ const result = await mockClient.run(context);
 
 ### Example Code Creation Rules
 
-- **Create examples only when requested by users**: Do not create example code preemptively unless explicitly requested
-- **Real implementation preferred**: When examples are created, use real implementations rather than mock or dummy data
-- **Complete and executable**: Examples should be complete and immediately executable
+- **Never create examples automatically**: Do not automatically create example code after completing development work, regardless of the feature complexity or importance
+- **Create examples only when explicitly requested by users**: Example code should only be created when users specifically ask for examples, demonstrations, or usage patterns
+- **No preemptive example creation**: Even if you think an example would be helpful, do not create one unless the user requests it
+- **Real implementation preferred**: When examples are created (upon user request), use real implementations rather than mock or dummy data
+- **Complete and executable**: Examples should be complete and immediately executable when created
 - **User-focused**: Examples should demonstrate actual usage patterns that users would employ
+- **Ask before creating**: If you believe an example would be beneficial, ask the user if they would like you to create one rather than creating it proactively
 
 ## Test Rules
 

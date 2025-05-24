@@ -23,9 +23,16 @@ export type {
     ProviderOptions
 } from './types';
 
-// Memory
-export { SimpleMemory, PersistentSystemMemory } from './memory';
-export type { Memory } from './memory';
+// Conversation History
+export {
+    SimpleConversationHistory,
+    PersistentSystemConversationHistory
+} from './conversation-history';
+export type {
+    ConversationHistory,
+    UniversalMessage,
+    UniversalMessageRole
+} from './conversation-history';
 
 // Tool Provider (re-export from tools package)
 export type { ToolProvider } from '@robota-sdk/tools';
@@ -52,9 +59,10 @@ export {
     createFunction,
     functionFromCallback,
     createFunctionSchema,
-    FunctionRegistry,
-    type FunctionHandler,
-    type ToolFunction,
-    type FunctionOptions,
-    type FunctionResult
+    FunctionRegistry
+} from '@robota-sdk/tools';
+export type {
+    FunctionHandler,
+    FunctionOptions,
+    FunctionResult
 } from '@robota-sdk/tools'; 
