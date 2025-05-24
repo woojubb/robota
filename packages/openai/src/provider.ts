@@ -6,7 +6,7 @@ import {
   ModelResponse,
   StreamingResponseChunk,
   removeUndefined,
-  AIClient as AIClientType
+  AIProvider
 } from '@robota-sdk/core';
 import { OpenAIProviderOptions } from './types';
 import { logger } from '@robota-sdk/core';
@@ -14,9 +14,9 @@ import { logger } from '@robota-sdk/core';
 /**
  * OpenAI 제공업체 구현
  * 
- * AIClient 인터페이스를 구현하여 Robota와 통합됩니다.
+ * AIProvider 인터페이스를 구현하여 Robota와 통합됩니다.
  */
-export class OpenAIProvider implements AIClientType {
+export class OpenAIProvider implements AIProvider {
   /**
    * OpenAI 클라이언트 인스턴스
    */

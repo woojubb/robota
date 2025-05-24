@@ -14,29 +14,6 @@ import type { Memory } from './memory';
 import type { ToolProvider } from './tool-provider';
 
 /**
- * AI 제공업체 클라이언트 타입
- */
-export type AIClientType = 'openai' | 'anthropic' | 'google' | 'cohere' | string;
-
-/**
- * 전송 계층 인터페이스
- */
-export interface Transport {
-    close: () => Promise<void>;
-    // 필요시 추가 메서드
-}
-
-/**
- * AI 제공업체 클라이언트 인터페이스
- */
-export interface AIClient {
-    type: AIClientType; // 클라이언트 타입
-    instance: any; // 클라이언트 인스턴스
-    close?: () => Promise<void>; // 클라이언트 연결 종료 메서드 (선택 사항)
-    transport?: Transport; // 전송 계층 (선택 사항)
-}
-
-/**
  * Robota 설정 인터페이스
  */
 export interface RobotaOptions {
@@ -47,15 +24,18 @@ export interface RobotaOptions {
     provider?: ToolProvider;
 
     /** 
-     * AI 제공업체 클라이언트 - OpenAIProvider, AnthropicProvider 등 
+     * AI 클라이언트 - OpenAI, Anthropic 등의 외부 라이브러리 클라이언트 인스턴스
      */
-    aiClient?: AIClient;
+    aiClient: any;
 
-    /** 사용할 모델명 (선택 사항) */
-    model?: string;
+    /** 사용할 모델명 */
+    model: string;
 
     /** 모델 온도 (선택 사항) */
     temperature?: number;
+
+    /** 최대 토큰 수 (선택 사항) */
+    maxTokens?: number;
 
     /** 시스템 프롬프트 */
     systemPrompt?: string;
@@ -92,9 +72,10 @@ export interface RobotaOptions {
  */
 export class Robota {
     private provider?: ToolProvider; // 도구 제공자 (toolProvider)
-    private aiClient?: AIClient; // AI 클라이언트 (OpenAIProvider 등)
-    private model?: string;
+    private aiClient: any; // AI 클라이언트 (OpenAI, Anthropic 등)
+    private model: string;
     private temperature?: number;
+    private maxTokens?: number;
     private systemPrompt?: string;
     private systemMessages?: Message[];
     private memory: Memory;
@@ -112,14 +93,18 @@ export class Robota {
      * @param options - Robota 초기화 옵션
      */
     constructor(options: RobotaOptions) {
-        if (!options.aiClient && !options.provider) {
-            throw new Error('aiClient 또는 provider 중 하나는 반드시 제공해야 합니다.');
+        if (!options.aiClient) {
+            throw new Error('aiClient는 반드시 제공해야 합니다.');
+        }
+        if (!options.model) {
+            throw new Error('model은 반드시 제공해야 합니다.');
         }
 
         this.provider = options.provider; // 도구 제공자 (toolProvider)
-        this.aiClient = options.aiClient; // AI 클라이언트 (OpenAIProvider 등)
+        this.aiClient = options.aiClient; // AI 클라이언트
         this.model = options.model;
         this.temperature = options.temperature;
+        this.maxTokens = options.maxTokens;
         this.systemPrompt = options.systemPrompt;
         this.memory = options.memory || new SimpleMemory();
         this.onToolCall = options.onToolCall;
@@ -385,9 +370,7 @@ export class Robota {
      * @returns - AI 모델의 응답
      */
     private async generateResponse(context: Context, options: RunOptions = {}): Promise<ModelResponse> {
-        // 도구 제공자(toolProvider)가 있는 경우 - 더 이상 chat 메서드를 직접 호출하지 않음
-        // 대신 언제나 AI 클라이언트를 통해 응답 생성
-        if (this.aiClient) {
+        try {
             const { messages, systemPrompt } = context;
 
             // 시스템 프롬프트 추가 (없는 경우)
@@ -395,98 +378,121 @@ export class Robota {
                 ? [{ role: 'system' as const, content: systemPrompt }, ...messages]
                 : messages;
 
-            // 요청 옵션 구성
-            const requestOptions: any = {
-                messages: messagesWithSystem.map(m => ({
-                    role: m.role,
-                    content: m.content,
-                    function_call: m.functionCall,
-                    name: m.name
-                })),
-                temperature: options.temperature || this.temperature || 0.7,
+            // OpenAI 형식으로 메시지 변환
+            const formattedMessages = messagesWithSystem.map(m => ({
+                role: m.role,
+                content: m.content,
+                name: m.name
+            }));
+
+            // OpenAI API 요청 옵션 구성
+            const completionOptions: any = {
+                model: this.model,
+                messages: formattedMessages,
+                temperature: options.temperature ?? this.temperature ?? 0.7,
+                max_tokens: options.maxTokens ?? this.maxTokens
             };
-
-            if (options.maxTokens) {
-                requestOptions.max_tokens = options.maxTokens;
-            }
-
-            if (this.model) {
-                requestOptions.model = this.model;
-            }
 
             // 도구 제공자가 있을 경우 함수 정의 추가
             if (this.provider?.functions) {
-                requestOptions.functions = this.provider.functions;
+                completionOptions.tools = this.provider.functions.map(fn => ({
+                    type: 'function',
+                    function: {
+                        name: fn.name,
+                        description: fn.description || '',
+                        parameters: fn.parameters || { type: 'object', properties: {} }
+                    }
+                }));
             }
 
-            // 클라이언트 타입에 따른 처리
-            try {
-                switch (this.aiClient.type) {
-                    case 'openai': {
-                        // OpenAI API를 사용하여 응답 생성
-                        const openaiResponse = await this.aiClient.instance.chat.completions.create(requestOptions);
-                        return {
-                            content: openaiResponse.choices[0]?.message?.content || "",
-                            functionCall: openaiResponse.choices[0]?.message?.function_call ? {
-                                name: openaiResponse.choices[0].message.function_call.name,
-                                arguments: typeof openaiResponse.choices[0].message.function_call.arguments === 'string'
-                                    ? JSON.parse(openaiResponse.choices[0].message.function_call.arguments)
-                                    : openaiResponse.choices[0].message.function_call.arguments
-                            } : undefined,
-                            usage: openaiResponse.usage ? {
-                                promptTokens: openaiResponse.usage.prompt_tokens,
-                                completionTokens: openaiResponse.usage.completion_tokens,
-                                totalTokens: openaiResponse.usage.total_tokens
-                            } : undefined
-                        };
-                    }
-                    case 'anthropic': {
-                        // Anthropic API를 사용하여 응답 생성
-                        const anthropicResponse = await this.aiClient.instance.messages.create(requestOptions);
-                        return {
-                            content: anthropicResponse.content[0]?.text || "",
-                            // Anthropic의 함수 호출 처리는 다를 수 있음
-                            functionCall: undefined,
-                            usage: undefined
-                        };
-                    }
-                    default:
-                        throw new Error(`지원되지 않는 AI 클라이언트 타입: ${this.aiClient.type}`);
+            // OpenAI API 호출
+            const response = await this.aiClient.chat.completions.create(completionOptions);
+
+            return {
+                content: response.choices[0]?.message?.content || "",
+                functionCall: response.choices[0]?.message?.function_call ? {
+                    name: response.choices[0].message.function_call.name,
+                    arguments: typeof response.choices[0].message.function_call.arguments === 'string'
+                        ? JSON.parse(response.choices[0].message.function_call.arguments)
+                        : response.choices[0].message.function_call.arguments
+                } : undefined,
+                usage: response.usage ? {
+                    promptTokens: response.usage.prompt_tokens,
+                    completionTokens: response.usage.completion_tokens,
+                    totalTokens: response.usage.total_tokens
+                } : undefined,
+                metadata: {
+                    model: response.model,
+                    finishReason: response.choices[0].finish_reason
                 }
-            } catch (error) {
-                logger.error('AI 클라이언트 호출 중 오류 발생:', error);
-                throw new Error(`AI 클라이언트 호출 중 오류: ${error instanceof Error ? error.message : String(error)}`);
-            }
+            };
+        } catch (error) {
+            logger.error('AI 클라이언트 호출 중 오류 발생:', error);
+            throw new Error(`AI 클라이언트 호출 중 오류: ${error instanceof Error ? error.message : String(error)}`);
         }
-
-        throw new Error('유효한 AI 클라이언트가 설정되지 않았습니다.');
     }
 
     /**
      * 스트리밍 응답 생성
      */
     private async generateStream(context: Context, options: RunOptions = {}): Promise<AsyncIterable<StreamingResponseChunk>> {
-        // 도구 제공자(toolProvider)가 있는 경우 - 더 이상 chatStream 메서드를 직접 호출하지 않음
-        // AI 클라이언트가 있는 경우
-        if (this.aiClient) {
-            // 클라이언트 타입에 따른 스트리밍 처리
-            switch (this.aiClient.type) {
-                case 'openai':
-                    // OpenAI 스트리밍 처리 로직
-                    // TODO: OpenAI 스트림 API 구현
-                    break;
-                case 'anthropic':
-                    // Anthropic 스트리밍 처리 로직
-                    // TODO: Anthropic 스트림 API 구현
-                    break;
-                default:
-                    // 기타 제공업체 스트리밍 처리
-                    // TODO: 커스텀 스트리밍 처리 구현
-                    break;
-            }
+        const { messages, systemPrompt } = context;
+
+        // 시스템 프롬프트 추가 (없는 경우)
+        const messagesWithSystem = systemPrompt && !messages.some(m => m.role === 'system')
+            ? [{ role: 'system' as const, content: systemPrompt }, ...messages]
+            : messages;
+
+        // OpenAI 형식으로 메시지 변환
+        const formattedMessages = messagesWithSystem.map(m => ({
+            role: m.role,
+            content: m.content,
+            name: m.name
+        }));
+
+        // OpenAI API 요청 옵션 구성
+        const completionOptions: any = {
+            model: this.model,
+            messages: formattedMessages,
+            temperature: options.temperature ?? this.temperature ?? 0.7,
+            max_tokens: options.maxTokens ?? this.maxTokens,
+            stream: true
+        };
+
+        // 도구 제공자가 있을 경우 함수 정의 추가
+        if (this.provider?.functions) {
+            completionOptions.tools = this.provider.functions.map(fn => ({
+                type: 'function',
+                function: {
+                    name: fn.name,
+                    description: fn.description || '',
+                    parameters: fn.parameters || { type: 'object', properties: {} }
+                }
+            }));
         }
 
-        throw new Error('유효한 스트리밍을 지원하는 AI 클라이언트가 설정되지 않았습니다.');
+        try {
+            const stream = await this.aiClient.chat.completions.create(completionOptions);
+
+            async function* generateChunks() {
+                for await (const chunk of stream) {
+                    const delta = chunk.choices[0].delta;
+                    yield {
+                        content: delta.content || undefined,
+                        isComplete: chunk.choices[0].finish_reason !== null,
+                        functionCall: delta.function_call ? {
+                            name: delta.function_call.name,
+                            arguments: delta.function_call.arguments
+                        } : undefined
+                    } as StreamingResponseChunk;
+                }
+            }
+
+            return generateChunks();
+        } catch (error) {
+            logger.error('스트리밍 API 호출 중 오류 발생:', error);
+            throw new Error(`스트리밍 API 호출 중 오류: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
     /**
@@ -540,11 +546,9 @@ export class Robota {
      */
     async close(): Promise<void> {
         try {
-            if (this.aiClient?.close) {
+            // 대부분의 AI 클라이언트는 특별한 종료 메서드가 없으므로 빈 함수로 구현
+            if (this.aiClient?.close && typeof this.aiClient.close === 'function') {
                 await this.aiClient.close();
-            }
-            if (this.aiClient?.transport?.close) {
-                await this.aiClient.transport.close();
             }
         } catch (error) {
             logger.error('리소스 해제 중 오류 발생:', error);

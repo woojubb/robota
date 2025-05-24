@@ -2,13 +2,12 @@
  * 01-simple-conversation.ts
  * 
  * 이 예제는 Robota의 가장 기본적인 사용법을 보여줍니다:
- * - OpenAIProvider를 사용한 간단한 대화
+ * - OpenAI 클라이언트를 사용한 간단한 대화
  * - 메시지 전송 (run 메서드)
  * - 스트리밍 응답 (runStream 메서드)
  */
 
 import { Robota } from '@robota-sdk/core';
-import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
@@ -29,10 +28,8 @@ async function main() {
 
     // Robota 인스턴스 생성
     const robota = new Robota({
-        aiClient: new OpenAIProvider({
-            model: 'gpt-3.5-turbo', // 모델 명시적 지정
-            client: openaiClient
-        }),
+        aiClient: openaiClient,
+        model: 'gpt-3.5-turbo',
         systemPrompt: '당신은 도움이 되는 AI 어시스턴트입니다. 간결하고 유용한 응답을 제공하세요.'
     });
 

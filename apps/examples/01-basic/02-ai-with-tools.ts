@@ -2,13 +2,12 @@
  * 02-ai-with-tools.ts
  * 
  * 이 예제는 Robota에서 AI와 도구를 함께 사용하는 방법을 보여줍니다:
- * - OpenAIProvider를 aiClient로 사용
+ * - OpenAI 클라이언트를 aiClient로 사용
  * - 간단한 도구 정의 및 사용
  * - 도구 직접 호출하기
  */
 
 import { Robota } from '@robota-sdk/core';
-import { OpenAIProvider } from '@robota-sdk/openai';
 import { createZodFunctionToolProvider } from '@robota-sdk/tools';
 import OpenAI from 'openai';
 import { z } from 'zod';
@@ -28,12 +27,6 @@ async function main() {
         // OpenAI 클라이언트 생성
         const openaiClient = new OpenAI({
             apiKey
-        });
-
-        // OpenAI Provider 생성
-        const aiClient = new OpenAIProvider({
-            model: 'gpt-3.5-turbo',
-            client: openaiClient
         });
 
         // 간단한 계산기 도구 정의
@@ -67,7 +60,8 @@ async function main() {
 
         // AI와 도구를 함께 사용하는 Robota 인스턴스
         const robota = new Robota({
-            aiClient,
+            aiClient: openaiClient,
+            model: 'gpt-3.5-turbo',
             provider: toolProvider,
             systemPrompt: '당신은 유용한 AI 비서입니다. 필요한 경우 계산 도구를 사용하여 사용자를 도울 수 있습니다.'
         });
