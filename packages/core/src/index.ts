@@ -27,8 +27,8 @@ export type {
 export { SimpleMemory, PersistentSystemMemory } from './memory';
 export type { Memory } from './memory';
 
-// Tool Provider
-export type { ToolProvider } from './tool-provider';
+// Tool Provider (re-export from tools package)
+export type { ToolProvider } from '@robota-sdk/tools';
 
 // Managers (available for direct external use when needed)
 export { AIProviderManager } from './managers/ai-provider-manager';
@@ -46,14 +46,14 @@ export { logger } from './utils';
 // Legacy features (for backward compatibility)
 export * from './providers/openai-provider';
 
-// Required items from function.ts
+// Function utilities (re-export from tools package)
 export {
     createFunction,
     functionFromCallback,
     createFunctionSchema,
     FunctionRegistry,
-    FunctionHandler,
-    Function,
-    FunctionOptions,
-    FunctionResult
-} from './function'; 
+    type FunctionHandler,
+    type Function,
+    type FunctionOptions,
+    type FunctionResult
+} from '@robota-sdk/tools'; 

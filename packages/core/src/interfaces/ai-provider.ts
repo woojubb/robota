@@ -1,15 +1,12 @@
+import type { FunctionCall } from '@robota-sdk/tools';
+
 /**
  * 메시지 역할 타입
  */
 export type MessageRole = 'user' | 'assistant' | 'system' | 'function';
 
-/**
- * 함수 호출 인터페이스
- */
-export interface FunctionCall {
-    name: string;
-    arguments: Record<string, any> | string;
-}
+// Re-export FunctionCall from tools package
+export type { FunctionCall };
 
 /**
  * 기본 메시지 인터페이스

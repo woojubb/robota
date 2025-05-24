@@ -4,7 +4,7 @@ import type {
 import type { AIProvider, Context, Message, ModelResponse, StreamingResponseChunk } from './interfaces/ai-provider';
 import type { Logger } from './interfaces/logger';
 import type { Memory } from './memory';
-import type { ToolProvider } from './tool-provider';
+import type { ToolProvider } from '@robota-sdk/tools';
 
 import { SimpleMemory } from './memory';
 import { AIProviderManager } from './managers/ai-provider-manager';

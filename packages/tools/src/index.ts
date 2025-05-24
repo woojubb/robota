@@ -5,7 +5,19 @@
  */
 
 // Export types from types.ts
-export type { FunctionSchema } from './types';
+export type { FunctionSchema, FunctionDefinition, FunctionCallResult, FunctionCall } from './types';
+
+// Export function utilities
+export {
+    createFunction,
+    functionFromCallback,
+    createFunctionSchema,
+    FunctionRegistry,
+    type FunctionHandler,
+    type Function,
+    type FunctionOptions,
+    type FunctionResult
+} from './function';
 
 /**
  * Tool execution result type
@@ -254,4 +266,7 @@ export {
 // OpenAPI related features export
 export {
     createOpenAPIToolProvider
-} from './openapi-tool-provider'; 
+} from './openapi-tool-provider';
+
+// Modern tool system export
+export * from './tool'; 

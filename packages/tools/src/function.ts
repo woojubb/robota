@@ -8,8 +8,7 @@
  */
 
 import { z } from 'zod';
-import type { FunctionDefinition, FunctionCallResult, FunctionSchema } from './types';
-import type { FunctionCall } from './interfaces/ai-provider';
+import type { FunctionDefinition, FunctionCallResult, FunctionSchema, FunctionCall } from './types';
 
 /**
  * Function result type

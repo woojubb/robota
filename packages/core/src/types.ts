@@ -1,51 +1,20 @@
-// Import ToolProvider 
-import type { ToolProvider } from '@robota-sdk/tools';
-// FunctionSchema is defined directly internally
+// Import types from tools package
+import type {
+    ToolProvider,
+    FunctionSchema,
+    FunctionDefinition,
+    FunctionCallResult,
+    FunctionCall
+} from '@robota-sdk/tools';
 
-/**
- * Function schema interface
- */
-export interface FunctionSchema {
-    name: string;
-    description?: string;
-    parameters: {
-        type: 'object';
-        properties: Record<string, {
-            type: string;
-            description?: string;
-            enum?: any[];
-            default?: any;
-        }>;
-        required?: string[];
-    };
-}
-
-/**
- * Function call result interface
- */
-export interface FunctionCallResult {
-    name: string;
-    result?: any;
-    error?: string;
-}
-
-/**
- * Function definition interface
- */
-export interface FunctionDefinition {
-    name: string;
-    description?: string;
-    parameters?: {
-        type: string;
-        properties?: Record<string, {
-            type: string;
-            description?: string;
-            enum?: any[];
-            default?: any;
-        }>;
-        required?: string[];
-    };
-}
+// Re-export Function types from tools package
+export type {
+    FunctionSchema,
+    FunctionDefinition,
+    FunctionCallResult,
+    FunctionCall,
+    ToolProvider
+};
 
 /**
  * Provider options interface

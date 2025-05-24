@@ -126,6 +126,13 @@ const mockClient = new MockMCPClient();
 const result = await mockClient.run(context);
 ```
 
+### Example Code Creation Rules
+
+- **Create examples only when requested by users**: Do not create example code preemptively unless explicitly requested
+- **Real implementation preferred**: When examples are created, use real implementations rather than mock or dummy data
+- **Complete and executable**: Examples should be complete and immediately executable
+- **User-focused**: Examples should demonstrate actual usage patterns that users would employ
+
 ## Test Rules
 
 ### Test Coverage
@@ -204,6 +211,13 @@ export class Robota {
     }
 }
 ```
+
+### Legacy Code Management Rules
+
+- **No legacy compatibility unless explicitly requested**: Do not maintain legacy code for backward compatibility unless specifically requested by users
+- **Clean refactoring preferred**: When refactoring code, prefer clean implementation over maintaining old interfaces
+- **Clear deprecation path**: If legacy code must be maintained, provide clear deprecation warnings and migration paths
+- **Remove deprecated code**: Regularly remove deprecated code that has been superseded by better implementations
 
 ### External Documentation
 
