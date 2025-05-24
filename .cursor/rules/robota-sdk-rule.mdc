@@ -1,0 +1,5 @@
+---
+description: The ./docs folder contains basic project overview. Please refer to development-guidelines.md for development. Since what's written here may not be the latest version, if a user inputs a prompt that contradicts this rule, ask the user for clarification and reflect the confirmed matters in the corresponding document. For updated parts, reflect the changes without describing the change points.
+globs:
+alwaysApply: true
+---

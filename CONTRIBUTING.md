@@ -30,10 +30,10 @@ Robota는 모노레포 구조로 설계되었으며, 다음과 같은 패키지�
 - `packages/core`: 핵심 모듈과 공통 인터페이스
 - `packages/openai`: OpenAI 통합
 - `packages/anthropic`: Anthropic 통합
-- `packages/langchain`: LangChain 통합
-- `packages/replicate`: Replicate 통합
+- `packages/mcp`: MCP(Model Context Protocol) 통합
 - `packages/tools`: 도구 및 유틸리티
-- `website`: 문서 웹사이트
+- `apps/docs`: 문서 웹사이트
+- `apps/examples`: 예제 코드
 
 ## 새 기능 개발
 

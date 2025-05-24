@@ -1,155 +1,234 @@
-import { logger } from './utils';
-import {
-    Context,
-    FunctionCallMode,
-    FunctionSchema,
-    Message,
-    ModelResponse,
-    RunOptions,
-    RobotaOptions,
-    StreamingResponseChunk,
-    AIClient
+import type {
+    RunOptions
 } from './types';
-import { SimpleMemory } from './memory';
-import type { Memory } from './memory';
-import type { ModelContextProtocol } from './model-context-protocol';
+import type { AIProvider, Message, ModelResponse, StreamingResponseChunk } from './interfaces/ai-provider';
+import type { Logger } from './interfaces/logger';
+import type { ConversationHistory } from './conversation-history';
+import type { ToolProvider } from '@robota-sdk/tools';
+
+import { SimpleConversationHistory } from './conversation-history';
+import { AIProviderManager } from './managers/ai-provider-manager';
+import { ToolProviderManager } from './managers/tool-provider-manager';
+import { SystemMessageManager } from './managers/system-message-manager';
+import { FunctionCallManager, type FunctionCallConfig, type FunctionCallMode } from './managers/function-call-manager';
+import { AnalyticsManager } from './managers/analytics-manager';
+import { RequestLimitManager } from './managers/request-limit-manager';
+import { TokenAnalyzer } from './analyzers/token-analyzer';
+import { ConversationService } from './services/conversation-service';
 
 /**
- * Robota의 메인 클래스
- * 에이전트를 초기화하고 실행하는 인터페이스 제공
+ * Robota configuration interface
+ */
+export interface RobotaOptions {
+    /** 
+     * Tool providers (toolProviders) - Providers that supply tools like MCP, OpenAPI, ZodFunction, etc.
+     * Created with functions like createMcpToolProvider, createOpenAPIToolProvider, createZodFunctionToolProvider, etc.
+     */
+    toolProviders?: ToolProvider[];
+
+    /** 
+     * AI providers - Register multiple AI providers
+     */
+    aiProviders?: Record<string, AIProvider>;
+
+    /** 
+     * Current AI provider name to use
+     */
+    currentProvider?: string;
+
+    /** 
+     * Current model name to use
+     */
+    currentModel?: string;
+
+    /** Model temperature (optional) */
+    temperature?: number;
+
+    /** Maximum number of tokens (optional) */
+    maxTokens?: number;
+
+    /** System prompt */
+    systemPrompt?: string;
+
+    /** Array of system messages */
+    systemMessages?: Message[];
+
+    /** Conversation history interface */
+    conversationHistory?: ConversationHistory;
+
+    /** Function call configuration */
+    functionCallConfig?: FunctionCallConfig;
+
+    /** Tool call callback */
+    onToolCall?: (toolName: string, params: any, result: any) => void;
+
+    /** Custom logger (default: console) */
+    logger?: Logger;
+
+    /** Debug mode (default: false) */
+    debug?: boolean;
+
+    /** Maximum token limit (default: 4096, 0 = unlimited) */
+    maxTokenLimit?: number;
+
+    /** Maximum request limit (default: 25, 0 = unlimited) */
+    maxRequestLimit?: number;
+}
+
+/**
+ * Main class for Robota (refactored version)
+ * Provides an interface for initializing and running agents
  * 
  * @example
  * ```ts
  * const robota = new Robota({
- *   provider: new OpenAIProvider({
- *     model: 'gpt-4',
- *     client: openaiClient
- *   }),
- *   systemPrompt: '당신은 도움이 되는 AI 어시스턴트입니다.'
+ *   aiProviders: { openai: openaiProvider },
+ *   currentProvider: 'openai',
+ *   currentModel: 'gpt-4',
+ *   systemPrompt: 'You are a helpful AI assistant.'
  * });
  * 
- * const response = await robota.run('안녕하세요!');
+ * const response = await robota.execute('Hello!');
  * ```
  */
 export class Robota {
-    private provider?: ModelContextProtocol;
-    private aiClient?: AIClient; // 단일 AI 클라이언트
-    private model?: string;
-    private temperature?: number;
-    private systemPrompt?: string;
-    private systemMessages?: Message[];
-    private memory: Memory;
-    private functionCallConfig: {
-        defaultMode?: FunctionCallMode;
-        maxCalls: number;
-        timeout: number;
-        allowedFunctions?: string[];
-    };
+    // Managers and Analyzers
+    private aiProviderManager: AIProviderManager;
+    private toolProviderManager: ToolProviderManager;
+    private systemMessageManager: SystemMessageManager;
+    private functionCallManager: FunctionCallManager;
+    private analyticsManager: AnalyticsManager;
+    private requestLimitManager: RequestLimitManager;
+    private tokenAnalyzer: TokenAnalyzer;
+    private conversationService: ConversationService;
+
+    // Basic configuration
+    private conversationHistory: ConversationHistory;
     private onToolCall?: (toolName: string, params: any, result: any) => void;
+    private logger: Logger;
+    private debug: boolean;
 
     /**
-     * Robota 인스턴스 생성
+     * Create a Robota instance
      * 
-     * @param options - Robota 초기화 옵션
+     * @param options - Robota initialization options
      */
     constructor(options: RobotaOptions) {
-        if (!options.provider && !options.aiClient) {
-            throw new Error('Provider 또는 aiClient 중 하나는 반드시 제공해야 합니다.');
-        }
-
-        this.provider = options.provider;
-        this.aiClient = options.aiClient;
-        this.model = options.model;
-        this.temperature = options.temperature;
-        this.systemPrompt = options.systemPrompt;
-        this.memory = options.memory || new SimpleMemory();
+        // Basic configuration
+        this.conversationHistory = options.conversationHistory || new SimpleConversationHistory();
         this.onToolCall = options.onToolCall;
+        this.logger = options.logger || console;
+        this.debug = options.debug || false;
 
-        // 시스템 메시지 배열 초기화
-        if (options.systemMessages) {
-            this.systemMessages = options.systemMessages;
-        } else if (options.systemPrompt) {
-            this.systemMessages = [{ role: 'system', content: options.systemPrompt }];
+        // Initialize managers and analyzers
+        this.aiProviderManager = new AIProviderManager();
+        this.toolProviderManager = new ToolProviderManager(
+            this.logger,
+            options.functionCallConfig?.allowedFunctions
+        );
+        this.systemMessageManager = new SystemMessageManager();
+        this.functionCallManager = new FunctionCallManager(options.functionCallConfig);
+        this.analyticsManager = new AnalyticsManager();
+        this.requestLimitManager = new RequestLimitManager(
+            options.maxTokenLimit ?? 4096,  // Default: 4096 tokens
+            options.maxRequestLimit ?? 25    // Default: 25 requests
+        );
+        this.tokenAnalyzer = new TokenAnalyzer();
+        this.conversationService = new ConversationService(
+            options.temperature,
+            options.maxTokens,
+            this.logger,
+            this.debug
+        );
+
+        // Register AI providers
+        if (options.aiProviders) {
+            for (const [name, aiProvider] of Object.entries(options.aiProviders)) {
+                this.aiProviderManager.addProvider(name, aiProvider);
+            }
         }
 
-        // 함수 호출 설정 초기화
-        this.functionCallConfig = {
-            defaultMode: options.functionCallConfig?.defaultMode || 'auto',
-            maxCalls: options.functionCallConfig?.maxCalls || 10,
-            timeout: options.functionCallConfig?.timeout || 30000,
-            allowedFunctions: options.functionCallConfig?.allowedFunctions
-        };
+        // Set current AI configuration
+        if (options.currentProvider && options.currentModel) {
+            this.aiProviderManager.setCurrentAI(options.currentProvider, options.currentModel);
+        }
+
+        // Register Tool Providers
+        if (options.toolProviders) {
+            this.toolProviderManager.addProviders(options.toolProviders);
+        }
+
+        // Configure system messages
+        if (options.systemMessages) {
+            this.systemMessageManager.setSystemMessages(options.systemMessages);
+        } else if (options.systemPrompt) {
+            this.systemMessageManager.setSystemPrompt(options.systemPrompt);
+        }
     }
 
     // ============================================================
-    // 시스템 메시지 관리
+    // AI Provider Management (delegation)
     // ============================================================
 
     /**
-     * 단일 시스템 프롬프트 설정
-     * 
-     * @param prompt - 시스템 프롬프트 내용
+     * Add an AI provider
+     */
+    addAIProvider(name: string, aiProvider: AIProvider): void {
+        this.aiProviderManager.addProvider(name, aiProvider);
+    }
+
+    /**
+     * Set the current AI provider and model
+     */
+    setCurrentAI(providerName: string, model: string): void {
+        this.aiProviderManager.setCurrentAI(providerName, model);
+    }
+
+    /**
+     * Get the currently configured AI provider and model
+     */
+    getCurrentAI(): { provider?: string; model?: string } {
+        return this.aiProviderManager.getCurrentAI();
+    }
+
+    // ============================================================
+    // System Message Management (delegation)
+    // ============================================================
+
+    /**
+     * Set a single system prompt
      */
     setSystemPrompt(prompt: string): void {
-        this.systemPrompt = prompt;
-        this.systemMessages = [{ role: 'system', content: prompt }];
+        this.systemMessageManager.setSystemPrompt(prompt);
     }
 
     /**
-     * 여러 시스템 메시지 설정
-     * 
-     * @param messages - 시스템 메시지 배열
+     * Set multiple system messages
      */
     setSystemMessages(messages: Message[]): void {
-        this.systemPrompt = undefined;
-        this.systemMessages = messages;
+        this.systemMessageManager.setSystemMessages(messages);
     }
 
     /**
-     * 기존 시스템 메시지에 새 시스템 메시지 추가
-     * 
-     * @param content - 추가할 시스템 메시지 내용
+     * Add a system message
      */
     addSystemMessage(content: string): void {
-        // systemPrompt 설정이 있고 systemMessages가 없거나 systemPrompt 설정과 동일한 메시지 하나만 있는 경우
-        if (this.systemPrompt) {
-            if (!this.systemMessages ||
-                (this.systemMessages.length === 1 &&
-                    this.systemMessages[0].role === 'system' &&
-                    this.systemMessages[0].content === this.systemPrompt)) {
-                this.systemMessages = [
-                    { role: 'system', content: this.systemPrompt },
-                    { role: 'system', content }
-                ];
-            } else {
-                this.systemMessages.push({ role: 'system', content });
-            }
-            this.systemPrompt = undefined;
-        } else {
-            if (!this.systemMessages) {
-                this.systemMessages = [];
-            }
-            this.systemMessages.push({ role: 'system', content });
-        }
+        this.systemMessageManager.addSystemMessage(content);
     }
 
     // ============================================================
-    // 함수 호출 관리
+    // Function Call Management (delegation)
     // ============================================================
 
     /**
-     * 함수 호출 모드 설정
-     * 
-     * @param mode - 함수 호출 모드 ('auto', 'force', 'disabled')
+     * Set function call mode
      */
     setFunctionCallMode(mode: FunctionCallMode): void {
-        this.functionCallConfig.defaultMode = mode;
+        this.functionCallManager.setFunctionCallMode(mode);
     }
 
     /**
-     * 함수 호출 설정 구성
-     * 
-     * @param config - 함수 호출 구성 옵션
+     * Configure function call settings
      */
     configureFunctionCall(config: {
         mode?: FunctionCallMode;
@@ -157,307 +236,350 @@ export class Robota {
         timeout?: number;
         allowedFunctions?: string[];
     }): void {
-        if (config.mode) {
-            this.functionCallConfig.defaultMode = config.mode;
-        }
-        if (config.maxCalls !== undefined) {
-            this.functionCallConfig.maxCalls = config.maxCalls;
-        }
-        if (config.timeout !== undefined) {
-            this.functionCallConfig.timeout = config.timeout;
-        }
+        this.functionCallManager.configure(config);
+
+        // Update allowed function list in Tool Provider Manager as well
         if (config.allowedFunctions) {
-            this.functionCallConfig.allowedFunctions = config.allowedFunctions;
+            this.toolProviderManager.setAllowedFunctions(config.allowedFunctions);
         }
     }
 
     // ============================================================
-    // 실행 메서드
+    // Request Limit Management (delegation)
     // ============================================================
 
     /**
-     * 텍스트 프롬프트 실행
-     * 
-     * @param prompt - 사용자 프롬프트
-     * @param options - 실행 옵션
-     * @returns 모델 응답 내용
+     * Set maximum token limit (0 = unlimited)
+     */
+    setMaxTokenLimit(limit: number): void {
+        this.requestLimitManager.setMaxTokens(limit);
+    }
+
+    /**
+     * Set maximum request limit (0 = unlimited)
+     */
+    setMaxRequestLimit(limit: number): void {
+        this.requestLimitManager.setMaxRequests(limit);
+    }
+
+    /**
+     * Get current maximum token limit
+     */
+    getMaxTokenLimit(): number {
+        return this.requestLimitManager.getMaxTokens();
+    }
+
+    /**
+     * Get current maximum request limit
+     */
+    getMaxRequestLimit(): number {
+        return this.requestLimitManager.getMaxRequests();
+    }
+
+    /**
+     * Get comprehensive limit information
+     */
+    getLimitInfo() {
+        return this.requestLimitManager.getLimitInfo();
+    }
+
+    // ============================================================
+    // Analytics Management (delegation)
+    // ============================================================
+
+    /**
+     * Get total number of requests made
+     */
+    getRequestCount(): number {
+        return this.analyticsManager.getRequestCount();
+    }
+
+    /**
+     * Get total number of tokens used
+     */
+    getTotalTokensUsed(): number {
+        return this.analyticsManager.getTotalTokensUsed();
+    }
+
+    /**
+     * Get detailed analytics data
+     */
+    getAnalytics() {
+        return this.analyticsManager.getAnalytics();
+    }
+
+    /**
+     * Reset all analytics data
+     */
+    resetAnalytics(): void {
+        this.analyticsManager.reset();
+        this.requestLimitManager.reset();
+    }
+
+    /**
+     * Get token usage for a specific time period
+     */
+    getTokenUsageByPeriod(startDate: Date, endDate?: Date) {
+        return this.analyticsManager.getTokenUsageByPeriod(startDate, endDate);
+    }
+
+    // ============================================================
+    // Execution Methods
+    // ============================================================
+
+    /**
+     * Execute a text prompt
+     * @deprecated Use execute() instead. This method will be removed in a future version.
      */
     async run(prompt: string, options: RunOptions = {}): Promise<string> {
-        const context = this.initializeContext(prompt, options);
-        const response = await this.generateResponse(context, options);
+        if (this.debug) {
+            this.logger.warn('run() method is deprecated. Use execute() instead.');
+        }
+        return this.execute(prompt, options);
+    }
 
-        if (response.functionCall && options.functionCallMode !== 'disabled') {
-            // 함수 호출은 제공업체가 처리해야 함
-            logger.warn('함수 호출은 Provider 객체에서 처리되어야 합니다.');
-            return response.content || '';
+    /**
+     * Execute a text prompt
+     */
+    async execute(prompt: string, options: RunOptions = {}): Promise<string> {
+        this.conversationHistory.addUserMessage(prompt);
+
+        const context = this.conversationService.prepareContext(
+            this.conversationHistory,
+            this.systemMessageManager.getSystemPrompt(),
+            this.systemMessageManager.getSystemMessages(),
+            options
+        );
+
+        // Check request limit first
+        this.requestLimitManager.checkRequestLimit();
+
+        // Pre-calculate tokens to check limits before making the API call
+        const currentAI = this.aiProviderManager.getCurrentAI();
+        const currentModel = currentAI.model || 'unknown';
+
+        if (!this.requestLimitManager.isTokensUnlimited()) {
+            try {
+                // Calculate estimated tokens for the request
+                const estimatedTokens = this.tokenAnalyzer.calculateMessagesTokens(
+                    context.messages,
+                    currentModel
+                );
+
+                if (this.debug) {
+                    this.logger.info(`🔍 [Token Estimation] Model: ${currentModel}, Estimated tokens: ${estimatedTokens}`);
+                }
+
+                // Check if estimated tokens would exceed the limit
+                this.requestLimitManager.checkEstimatedTokenLimit(estimatedTokens);
+            } catch (error) {
+                this.logger.error('Token limit check failed:', error);
+                throw error;
+            }
         }
 
-        // assistant 응답을 memory에 추가
-        const assistantMessage: Message = {
-            role: 'assistant',
-            content: response.content || ''
-        };
-        this.memory.addMessage(assistantMessage);
+        const response = await this.generateResponse(context, options);
+
+        // Record analytics and limit data with actual token usage
+        if (response.usage?.totalTokens) {
+            // Record in limit manager first (this may throw if limits exceeded)
+            this.requestLimitManager.recordRequest(response.usage.totalTokens);
+
+            // Then record in analytics for historical data
+            this.analyticsManager.recordRequest(
+                response.usage.totalTokens,
+                currentAI.provider || 'unknown',
+                currentModel
+            );
+        }
+
+        // Add assistant response to conversation history
+        this.conversationHistory.addAssistantMessage(response.content || '', response.functionCall);
 
         return response.content || '';
     }
 
     /**
-     * 채팅 메시지 처리 및 응답 생성
-     * 
-     * @param message - 사용자 메시지
-     * @param options - 실행 옵션
-     * @returns 모델 응답 내용
+     * Process chat message and generate response
      */
     async chat(message: string, options: RunOptions = {}): Promise<string> {
-        const userMessage: Message = {
-            role: 'user',
-            content: message
-        };
-        this.memory.addMessage(userMessage);
+        this.conversationHistory.addUserMessage(message);
 
-        const context = this.prepareContext(options);
+        const context = this.conversationService.prepareContext(
+            this.conversationHistory,
+            this.systemMessageManager.getSystemPrompt(),
+            this.systemMessageManager.getSystemMessages(),
+            options
+        );
+
+        // Check request limit first
+        this.requestLimitManager.checkRequestLimit();
+
+        // Pre-calculate tokens to check limits before making the API call
+        const currentAI = this.aiProviderManager.getCurrentAI();
+        const currentModel = currentAI.model || 'unknown';
+
+        if (!this.requestLimitManager.isTokensUnlimited()) {
+            try {
+                // Calculate estimated tokens for the request
+                const estimatedTokens = this.tokenAnalyzer.calculateMessagesTokens(
+                    context.messages,
+                    currentModel
+                );
+
+                if (this.debug) {
+                    this.logger.info(`🔍 [Token Estimation] Model: ${currentModel}, Estimated tokens: ${estimatedTokens}`);
+                }
+
+                // Check if estimated tokens would exceed the limit
+                this.requestLimitManager.checkEstimatedTokenLimit(estimatedTokens);
+            } catch (error) {
+                this.logger.error('Token limit check failed:', error);
+                throw error;
+            }
+        }
 
         const response = await this.generateResponse(context, options);
 
-        if (response.functionCall && options.functionCallMode !== 'disabled') {
-            // 함수 호출은 제공업체가 처리해야 함
-            logger.warn('함수 호출은 Provider 객체에서 처리되어야 합니다.');
-            return response.content || '';
+        // Record analytics and limit data with actual token usage
+        if (response.usage?.totalTokens) {
+            // Record in limit manager first (this may throw if limits exceeded)
+            this.requestLimitManager.recordRequest(response.usage.totalTokens);
+
+            // Then record in analytics for historical data
+            this.analyticsManager.recordRequest(
+                response.usage.totalTokens,
+                currentAI.provider || 'unknown',
+                currentModel
+            );
         }
 
-        const assistantMessage: Message = {
-            role: 'assistant',
-            content: response.content || ''
-        };
-        this.memory.addMessage(assistantMessage);
+        this.conversationHistory.addAssistantMessage(response.content || '', response.functionCall);
 
         return response.content || '';
     }
 
     /**
-     * 스트리밍 응답 생성
-     * 
-     * @param prompt - 사용자 프롬프트
-     * @param options - 실행 옵션
-     * @returns 스트리밍 응답 청크 이터레이터
+     * Generate streaming response
+     * @deprecated Use executeStream() instead. This method will be removed in a future version.
      */
     async runStream(prompt: string, options: RunOptions = {}): Promise<AsyncIterable<StreamingResponseChunk>> {
-        const context = this.initializeContext(prompt, options);
+        if (this.debug) {
+            this.logger.warn('runStream() method is deprecated. Use executeStream() instead.');
+        }
+        return this.executeStream(prompt, options);
+    }
+
+    /**
+     * Generate streaming response
+     */
+    async executeStream(prompt: string, options: RunOptions = {}): Promise<AsyncIterable<StreamingResponseChunk>> {
+        this.conversationHistory.addUserMessage(prompt);
+
+        const context = this.conversationService.prepareContext(
+            this.conversationHistory,
+            this.systemMessageManager.getSystemPrompt(),
+            this.systemMessageManager.getSystemMessages(),
+            options
+        );
+
+        // Note: For streaming, token counting is more complex as we need to collect all chunks
+        // We'll handle analytics when the stream completes or delegate to the implementation
         return this.generateStream(context, options);
     }
 
     /**
-     * 응답 메시지 추가
-     * 
-     * @param response - 모델 응답
+     * Add response message to conversation history
      */
-    addResponseToMemory(response: ModelResponse): void {
-        const assistantMessage: Message = {
-            role: 'assistant',
-            content: response.content || ''
-        };
-        this.memory.addMessage(assistantMessage);
+    addResponseToConversationHistory(response: ModelResponse): void {
+        this.conversationHistory.addAssistantMessage(response.content || '', response.functionCall);
     }
 
     /**
-     * 메모리 초기화
+     * Clear conversation history
      */
-    clearMemory(): void {
-        this.memory.clear();
+    clearConversationHistory(): void {
+        this.conversationHistory.clear();
     }
 
     // ============================================================
-    // 내부 헬퍼 메서드
+    // Internal Helper Methods
     // ============================================================
 
     /**
-     * 컨텍스트 초기화
-     * 
-     * @private
-     * @param prompt - 사용자 프롬프트
-     * @param options - 실행 옵션
-     * @returns 초기화된 컨텍스트
+     * Generate response (internal use)
      */
-    private initializeContext(prompt: string, options: RunOptions): Context {
-        const userMessage: Message = {
-            role: 'user',
-            content: prompt
-        };
-
-        // 사용자 메시지 추가
-        this.memory.addMessage(userMessage);
-
-        return this.prepareContext(options);
-    }
-
-    /**
-     * 컨텍스트 준비
-     * 
-     * @private
-     * @param options - 실행 옵션
-     * @returns 준비된 컨텍스트
-     */
-    private prepareContext(options: RunOptions): Context {
-        const messages = this.memory ? this.memory.getMessages() : [];
-
-        const context: Context = {
-            messages
-        };
-
-        // 시스템 메시지 처리
-        if (options.systemPrompt) {
-            context.systemPrompt = options.systemPrompt;
-        } else if (this.systemMessages && this.systemMessages.length > 0) {
-            // 시스템 메시지가 있으면 메시지 배열 앞에 추가
-            context.messages = [...this.systemMessages, ...messages];
-        } else if (this.systemPrompt) {
-            context.systemPrompt = this.systemPrompt;
+    private async generateResponse(context: any, options: RunOptions = {}): Promise<ModelResponse> {
+        if (!this.aiProviderManager.isConfigured()) {
+            throw new Error('Current AI provider and model are not configured. Use setCurrentAI() method to configure.');
         }
 
-        return context;
-    }
+        const currentAiProvider = this.aiProviderManager.getCurrentProvider()!;
+        const currentModel = this.aiProviderManager.getCurrentModel()!;
 
-    /**
-     * 응답 생성
-     * 
-     * @param context - 대화 컨텍스트
-     * @param options - 모델 실행 옵션
-     * @returns - AI 모델의 응답
-     */
-    private async generateResponse(context: Context, options: RunOptions = {}): Promise<ModelResponse> {
-        // Provider가 설정된 경우 기존 로직 사용
-        if (this.provider) {
-            return this.provider.chat(context, {
-                temperature: options.temperature,
-                maxTokens: options.maxTokens,
-                functionCallMode: options.functionCallMode || this.functionCallConfig.defaultMode,
-                forcedFunction: options.forcedFunction,
-                forcedArguments: options.forcedArguments
-            });
-        }
+        // Use default mode if function call mode is not in options
+        const enhancedOptions = {
+            ...options,
+            functionCallMode: options.functionCallMode || this.functionCallManager.getDefaultMode()
+        };
 
-        // AI 클라이언트만 설정된 경우 처리
-        if (this.aiClient) {
-            const { messages, systemPrompt } = context;
+        return this.conversationService.generateResponse(
+            currentAiProvider,
+            currentModel,
+            context,
+            enhancedOptions,
+            this.toolProviderManager.getAvailableTools(),
+            async (toolName: string, params: any) => {
+                const result = await this.toolProviderManager.callTool(toolName, params);
 
-            // 시스템 프롬프트 추가 (없는 경우)
-            const messagesWithSystem = systemPrompt && !messages.some(m => m.role === 'system')
-                ? [{ role: 'system' as const, content: systemPrompt }, ...messages]
-                : messages;
-
-            // 요청 옵션 구성
-            const requestOptions: any = {
-                messages: messagesWithSystem.map(m => ({
-                    role: m.role,
-                    content: m.content,
-                    function_call: m.functionCall,
-                    name: m.name
-                })),
-                temperature: options.temperature || this.temperature || 0.7,
-            };
-
-            if (options.maxTokens) {
-                requestOptions.max_tokens = options.maxTokens;
-            }
-
-            if (this.model) {
-                requestOptions.model = this.model;
-            }
-
-            // 클라이언트 타입에 따른 처리
-            try {
-                switch (this.aiClient.type) {
-                    case 'openai': {
-                        // OpenAI API를 사용하여 응답 생성
-                        const openaiResponse = await this.aiClient.instance.chat.completions.create(requestOptions);
-                        return {
-                            content: openaiResponse.choices[0]?.message?.content || "",
-                            functionCall: openaiResponse.choices[0]?.message?.function_call ? {
-                                name: openaiResponse.choices[0].message.function_call.name,
-                                arguments: typeof openaiResponse.choices[0].message.function_call.arguments === 'string'
-                                    ? JSON.parse(openaiResponse.choices[0].message.function_call.arguments)
-                                    : openaiResponse.choices[0].message.function_call.arguments
-                            } : undefined,
-                            usage: openaiResponse.usage ? {
-                                promptTokens: openaiResponse.usage.prompt_tokens,
-                                completionTokens: openaiResponse.usage.completion_tokens,
-                                totalTokens: openaiResponse.usage.total_tokens
-                            } : undefined
-                        };
-                    }
-                    case 'anthropic': {
-                        // Anthropic API를 사용하여 응답 생성
-                        const anthropicResponse = await this.aiClient.instance.messages.create(requestOptions);
-                        return {
-                            content: anthropicResponse.content[0]?.text || "",
-                            // Anthropic의 함수 호출 처리는 다를 수 있음
-                            functionCall: undefined,
-                            usage: undefined
-                        };
-                    }
-                    default:
-                        throw new Error(`지원되지 않는 AI 클라이언트 타입: ${this.aiClient.type}`);
+                // Execute callback
+                if (this.onToolCall) {
+                    this.onToolCall(toolName, params, result);
                 }
-            } catch (error) {
-                logger.error('AI 클라이언트 호출 중 오류 발생:', error);
-                throw new Error(`AI 클라이언트 호출 중 오류: ${error instanceof Error ? error.message : String(error)}`);
-            }
-        }
 
-        throw new Error('유효한 Provider, AI 클라이언트가 설정되지 않았습니다.');
+                return result;
+            }
+        );
     }
 
     /**
-     * 스트리밍 응답 생성
+     * Generate streaming response (internal use)
      */
-    private async generateStream(context: Context, options: RunOptions = {}): Promise<AsyncIterable<StreamingResponseChunk>> {
-        // Provider가 설정된 경우 기존 로직 사용
-        if (this.provider) {
-            return this.provider.chatStream(context, {
-                temperature: options.temperature,
-                maxTokens: options.maxTokens,
-                functionCallMode: options.functionCallMode || this.functionCallConfig.defaultMode,
-                forcedFunction: options.forcedFunction,
-                forcedArguments: options.forcedArguments
-            });
+    private async generateStream(context: any, options: RunOptions = {}): Promise<AsyncIterable<StreamingResponseChunk>> {
+        if (!this.aiProviderManager.isConfigured()) {
+            throw new Error('Current AI provider and model are not configured. Use setCurrentAI() method to configure.');
         }
 
-        // AI 클라이언트 스트리밍 처리 로직
-        if (this.aiClient) {
-            // 클라이언트 타입에 따른 스트리밍 처리
-            switch (this.aiClient.type) {
-                case 'openai':
-                    // OpenAI 스트리밍 처리 로직
-                    // TODO: OpenAI 스트림 API 구현
-                    break;
-                case 'anthropic':
-                    // Anthropic 스트리밍 처리 로직
-                    // TODO: Anthropic 스트림 API 구현
-                    break;
-                default:
-                    // 기타 제공업체 스트리밍 처리
-                    // TODO: 커스텀 스트리밍 처리 구현
-                    break;
-            }
-        }
+        const currentAiProvider = this.aiProviderManager.getCurrentProvider()!;
+        const currentModel = this.aiProviderManager.getCurrentModel()!;
 
-        throw new Error('유효한 Provider, 스트리밍을 지원하는 AI 클라이언트가 설정되지 않았습니다.');
+        return this.conversationService.generateStream(
+            currentAiProvider,
+            currentModel,
+            context,
+            options,
+            this.toolProviderManager.getAvailableTools()
+        );
     }
 
     /**
- * 리소스 해제
- */
+     * Call a tool (public API)
+     */
+    async callTool(toolName: string, parameters: Record<string, any>): Promise<any> {
+        return this.toolProviderManager.callTool(toolName, parameters);
+    }
+
+    /**
+     * Get list of available tools
+     */
+    getAvailableTools(): any[] {
+        return this.toolProviderManager.getAvailableTools();
+    }
+
+    /**
+     * Release resources
+     */
     async close(): Promise<void> {
-        try {
-            if (this.aiClient?.close) {
-                await this.aiClient.close();
-            }
-            if (this.aiClient?.transport?.close) {
-                await this.aiClient.transport.close();
-            }
-        } catch (error) {
-            logger.error('리소스 해제 중 오류 발생:', error);
-        }
+        await this.aiProviderManager.close();
     }
 } 

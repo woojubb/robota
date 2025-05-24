@@ -57,6 +57,9 @@ lerna-debug.log*
 
 # 빌드 산출물
 dist/
+# VitePress 캐시 및 빌드 디렉토리만 제외
+apps/docs/.vitepress/cache/
+apps/docs/.vitepress/dist/
 
 # 에디터 설정
 .vscode/*
@@ -77,11 +80,11 @@ dist/
 .netlify
 .next
 
-# VitePress 관련 파일
-apps/docs/.vitepress/
-
 # VitePress 임시 디렉토리
 **/.temp
+
+# apps 디렉토리 내 마크다운 파일
+apps/**/README.md
 
 # 패키지 README 파일 (docs 디렉토리에서 관리)
 packages/*/README.md

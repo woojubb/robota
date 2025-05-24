@@ -1,13 +1,17 @@
+import type { FunctionCall, Tool } from '@robota-sdk/tools';
+import type { UniversalMessage } from './conversation-history';
+import type { Message, MessageRole } from './interfaces/ai-provider';
+
 /**
- * 유틸리티 함수 모음
+ * Utility functions collection
  */
 
 /**
- * 문자열을 청크로 나누는 함수
+ * Function to split text into chunks
  * 
- * @param text 나눌 문자열
- * @param chunkSize 각 청크의 최대 크기
- * @returns 문자열 청크 배열
+ * @param text Text to split
+ * @param chunkSize Maximum size of each chunk
+ * @returns Array of text chunks
  */
 export function splitTextIntoChunks(text: string, chunkSize: number): string[] {
   const chunks: string[] = [];
@@ -20,19 +24,19 @@ export function splitTextIntoChunks(text: string, chunkSize: number): string[] {
 }
 
 /**
- * 객체에서 undefined 값을 제거하는 함수
+ * Function to remove undefined values from object
  * 
- * @param obj 정리할 객체
- * @returns undefined 값이 제거된 객체
+ * @param obj Object to clean
+ * @returns Object with undefined values removed
  */
-export function removeUndefined<T extends Record<string, any>>(obj: T): T {
+export function removeUndefined<T extends Record<string, unknown>>(obj: T): T {
   const result = { ...obj };
 
   for (const key in result) {
     if (result[key] === undefined) {
       delete result[key];
     } else if (typeof result[key] === 'object' && result[key] !== null) {
-      result[key] = removeUndefined(result[key]);
+      result[key] = removeUndefined(result[key] as Record<string, unknown>) as T[Extract<keyof T, string>];
     }
   }
 
@@ -40,10 +44,10 @@ export function removeUndefined<T extends Record<string, any>>(obj: T): T {
 }
 
 /**
- * 문자열이 JSON인지 확인하는 함수
+ * Function to check if a string is JSON
  * 
- * @param str 확인할 문자열
- * @returns JSON 여부
+ * @param str String to check
+ * @returns Whether it's JSON
  */
 export function isJSON(str: string): boolean {
   try {
@@ -55,9 +59,9 @@ export function isJSON(str: string): boolean {
 }
 
 /**
- * 지연 함수
+ * Delay function
  * 
- * @param ms 지연 시간(밀리초)
+ * @param ms Delay time in milliseconds
  * @returns Promise
  */
 export function delay(ms: number): Promise<void> {
@@ -65,41 +69,41 @@ export function delay(ms: number): Promise<void> {
 }
 
 /**
- * 토큰 수 대략적 추정 함수
+ * Function to roughly estimate token count
  * 
- * @param text 측정할 텍스트
- * @returns 대략적인 토큰 수
+ * @param text Text to measure
+ * @returns Approximate token count
  */
 export function estimateTokenCount(text: string): number {
-  // 영어 기준으로 토큰은 대략 단어 수의 1.3배
-  // 한국어는 글자 단위로 토큰화되므로 글자 수에 가까움
-  // 여기서는 간단한 추정을 위해 단어 수와 글자 수의 조합 사용
+  // For English, tokens are roughly 1.3 times the number of words
+  // Korean is tokenized by character, so it's close to character count
+  // Here we use a combination of word count and character count for simple estimation
 
-  // 영어 단어 추출
+  // Extract English words
   const englishWords = text.match(/[a-zA-Z]+/g)?.length || 0;
 
-  // 한글 글자 추출
+  // Extract Korean characters
   const koreanChars = text.match(/[가-힣]/g)?.length || 0;
 
-  // 숫자 및 특수문자
+  // Numbers and special characters
   const others = text.length - (text.match(/[a-zA-Z가-힣]/g)?.join('').length || 0);
 
   return Math.ceil(englishWords * 1.3 + koreanChars + others * 0.5);
 }
 
 /**
- * 문자열 스트림에서 완성된 JSON 객체를 추출하는 함수
+ * Function to extract complete JSON objects from a string stream
  * 
- * @param text JSON 문자열 조각
- * @returns 완성된 JSON 객체와 남은 문자열
+ * @param text JSON string fragment
+ * @returns Complete JSON objects and remaining string
  */
-export function extractJSONObjects(text: string): { objects: any[], remaining: string } {
-  const objects: any[] = [];
+export function extractJSONObjects(text: string): { objects: unknown[], remaining: string } {
+  const objects: unknown[] = [];
   let remaining = text;
   let match;
 
-  // JSON 객체 탐색을 위한 정규식
-  // 정확한 JSON 추출을 위한 간단한 방법이지만, 중첩된 객체에서는 실패할 수 있음
+  // Regular expression for JSON object exploration
+  // Simple method for accurate JSON extraction, but may fail with nested objects
   const regex = /{(?:[^{}]|{(?:[^{}]|{[^{}]*})*})*}/g;
 
   while ((match = regex.exec(remaining)) !== null) {
@@ -108,13 +112,13 @@ export function extractJSONObjects(text: string): { objects: any[], remaining: s
       const jsonObj = JSON.parse(jsonStr);
       objects.push(jsonObj);
 
-      // 매칭된 부분을 제거
+      // Remove matched part
       remaining = remaining.slice(0, match.index) + remaining.slice(match.index + jsonStr.length);
 
-      // 정규식 인덱스 리셋
+      // Reset regex index
       regex.lastIndex = 0;
     } catch (e) {
-      // 유효하지 않은 JSON은 무시
+      // Ignore invalid JSON
       regex.lastIndex = match.index + 1;
     }
   }
@@ -123,22 +127,69 @@ export function extractJSONObjects(text: string): { objects: any[], remaining: s
 }
 
 /**
- * logger 유틸리티 (console.log 대체)
+ * Logger utility (console.log replacement)
  */
 export const logger = {
-  info: (...args: any[]) => {
+  info: (...args: unknown[]) => {
     if (process.env.NODE_ENV !== 'production') {
       console.log('[INFO]', ...args);
     }
   },
-  warn: (...args: any[]) => {
+  warn: (...args: unknown[]) => {
     if (process.env.NODE_ENV !== 'production') {
       console.warn('[WARN]', ...args);
     }
   },
-  error: (...args: any[]) => {
+  error: (...args: unknown[]) => {
     if (process.env.NODE_ENV !== 'production') {
       console.error('[ERROR]', ...args);
     }
   }
-}; 
+};
+
+/**
+ * UniversalMessage를 기본 Message 형식으로 변환하는 헬퍼 함수
+ * AI Provider 어댑터에서 사용할 수 있습니다.
+ */
+export function convertUniversalToBaseMessage(universalMessage: UniversalMessage): Message {
+  const baseMessage: Message = {
+    role: universalMessage.role === 'tool' ? 'function' : universalMessage.role as MessageRole,
+    content: universalMessage.content
+  };
+
+  if (universalMessage.name) {
+    baseMessage.name = universalMessage.name;
+  }
+
+  if (universalMessage.functionCall) {
+    baseMessage.functionCall = universalMessage.functionCall;
+  }
+
+  if (universalMessage.toolResult) {
+    baseMessage.functionResult = universalMessage.toolResult;
+  }
+
+  return baseMessage;
+}
+
+/**
+ * UniversalMessage 배열을 기본 Message 배열로 변환하는 헬퍼 함수
+ */
+export function convertUniversalToBaseMessages(universalMessages: UniversalMessage[]): Message[] {
+  return universalMessages.map(convertUniversalToBaseMessage);
+}
+
+/**
+ * AI Provider 어댑터가 구현해야 하는 메시지 변환 인터페이스
+ */
+export interface MessageAdapter<T = any> {
+  /**
+   * UniversalMessage를 특정 AI Provider 형식으로 변환
+   */
+  convertFromUniversal(universalMessage: UniversalMessage): T;
+
+  /**
+   * UniversalMessage 배열을 특정 AI Provider 형식 배열로 변환
+   */
+  convertFromUniversalMessages(universalMessages: UniversalMessage[]): T[];
+} 

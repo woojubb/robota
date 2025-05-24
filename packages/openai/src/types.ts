@@ -2,36 +2,51 @@ import { ProviderOptions } from '@robota-sdk/core';
 import OpenAI from 'openai';
 
 /**
- * OpenAI 제공업체 옵션
+ * OpenAI provider options
  */
 export interface OpenAIProviderOptions extends ProviderOptions {
   /**
-   * OpenAI API 키 (옵션: client를 사용하는 경우 필요하지 않음)
+   * Model name to use (default: gpt-3.5-turbo)
+   */
+  model: string;
+
+  /**
+   * Temperature (0~1)
+   */
+  temperature?: number;
+
+  /**
+   * Maximum number of tokens
+   */
+  maxTokens?: number;
+
+  /**
+   * OpenAI API key (optional: not required when using client)
    */
   apiKey?: string;
 
   /**
-   * OpenAI 조직 ID (선택사항)
+   * OpenAI organization ID (optional)
    */
   organization?: string;
 
   /**
-   * API 요청 타임아웃 (밀리초)
+   * API request timeout (milliseconds)
    */
   timeout?: number;
 
   /**
-   * API 기본 URL (기본값: 'https://api.openai.com/v1')
+   * API base URL (default: 'https://api.openai.com/v1')
    */
   baseURL?: string;
 
   /**
-   * 응답 형식 (기본값: 'json')
+   * Response format (default: 'json')
    */
   responseFormat?: 'json' | 'text';
 
   /**
-   * OpenAI 클라이언트 인스턴스 (필수)
+   * OpenAI client instance (required)
    */
   client: OpenAI;
 } 

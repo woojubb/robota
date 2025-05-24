@@ -1,0 +1,57 @@
+{
+    "name": "@robota-sdk/google",
+    "version": "0.2.5",
+    "description": "Robota's Google AI integration package",
+    "type": "module",
+    "main": "dist/index.js",
+    "module": "dist/index.mjs",
+    "types": "dist/index.d.ts",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/woojubb/robota.git",
+        "directory": "packages/google"
+    },
+    "homepage": "https://github.com/woojubb/robota/tree/main/packages/google#readme",
+    "bugs": {
+        "url": "https://github.com/woojubb/robota/issues"
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "dev": "tsup --watch",
+        "clean": "rimraf dist",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run --passWithNoTests",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage",
+        "lint": "eslint src --ext .ts,.tsx",
+        "lint:fix": "eslint src --ext .ts,.tsx --fix"
+    },
+    "keywords": [
+        "ai",
+        "agent",
+        "llm",
+        "google",
+        "gemini",
+        "palm",
+        "function-calling",
+        "typescript"
+    ],
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "@robota-sdk/core": "workspace:*",
+        "@google/generative-ai": "^0.20.0"
+    },
+    "devDependencies": {
+        "rimraf": "^5.0.5",
+        "tsup": "^8.0.1",
+        "typescript": "^5.3.3",
+        "vitest": "^1.1.0"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}

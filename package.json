@@ -4,12 +4,21 @@
   "private": true,
   "description": "쉽게 Agentic AI를 만들 수 있는 JavaScript 라이브러리",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/woojubb/robota.git"
+  },
+  "homepage": "https://github.com/woojubb/robota#readme",
+  "bugs": {
+    "url": "https://github.com/woojubb/robota/issues"
+  },
   "scripts": {
     "build": "pnpm run -r build",
     "build:deps": "pnpm --filter @robota-sdk/core build && pnpm --filter @robota-sdk/tools build && pnpm --filter \"@robota-sdk/!(core|tools)\" build",
     "test": "pnpm run -r test",
     "typecheck": "pnpm --filter @robota-sdk/core typecheck && pnpm --filter @robota-sdk/tools typecheck && pnpm --filter @robota-sdk/openai typecheck",
     "lint": "pnpm run -r lint",
+    "lint:fix": "pnpm run -r lint:fix",
     "dev": "pnpm run -r dev",
     "clean": "pnpm run -r clean",
     "clean:js": "find ./src -type f \\( -name \"*.js\" -o -name \"*.js.map\" -o -name \"*.d.ts\" -o -name \"*.d.ts.map\" \\) -not -path \"*/node_modules/*\" -delete",

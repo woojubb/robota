@@ -1,5 +1,20 @@
 # robota-examples
 
+## 0.1.5
+
+### Patch Changes
+
+- be155aa: Repository URL change and package metadata update.
+
+  Migrated from the previous repository to a new one and updated package metadata including descriptions, keywords, and license information. This change provides the correct repository links on the npm package page.
+
+- Updated dependencies [be155aa]
+  - @robota-sdk/anthropic@0.2.5
+  - @robota-sdk/core@0.2.5
+  - @robota-sdk/mcp@0.2.5
+  - @robota-sdk/openai@0.2.5
+  - @robota-sdk/tools@0.2.5
+
 ## 0.1.4
 
 ### Patch Changes

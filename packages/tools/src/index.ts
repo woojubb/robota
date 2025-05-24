@@ -1,36 +1,51 @@
 /**
  * @module @robota-sdk/tools
  * 
- * Robota AI 에이전트를 위한 도구 라이브러리
+ * Tool library for Robota AI agents
  */
 
+// Export types from types.ts
+export type { FunctionSchema, FunctionDefinition, FunctionCallResult, FunctionCall } from './types';
+
+// Export function utilities
+export {
+    createFunction,
+    functionFromCallback,
+    createFunctionSchema,
+    FunctionRegistry,
+    type FunctionHandler,
+    type ToolFunction,
+    type FunctionOptions,
+    type FunctionResult
+} from './function';
+
 /**
- * 도구 실행 결과 타입
+ * Tool execution result type
  */
 export interface ToolResult<T = any> {
     /**
-     * 도구 실행 성공 여부
+     * Whether tool execution was successful
      */
     success: boolean;
 
     /**
-     * 도구 실행 결과 데이터
+     * Tool execution result data
      */
     data?: T;
 
     /**
-     * 도구 실행 중 발생한 오류
+     * Error that occurred during tool execution
      */
     error?: string;
 
     /**
-     * 추가 메타데이터
+     * Additional metadata
      */
     metadata?: Record<string, any>;
 }
 
 /**
- * 도구 파라미터 타입
+ * Tool parameter type
  */
 export interface ToolParameter {
     name: string;
@@ -41,75 +56,75 @@ export interface ToolParameter {
 }
 
 /**
- * 도구 인터페이스
+ * Tool interface
  */
 export interface Tool<TInput = any, TOutput = any> {
     /**
-     * 도구 이름
+     * Tool name
      */
     name: string;
 
     /**
-     * 도구 설명
+     * Tool description
      */
     description?: string;
 
     /**
-     * 도구 파라미터 정의
+     * Tool parameter definitions
      */
     parameters?: ToolParameter[];
 
     /**
-     * 도구 실행 함수
+     * Tool execution function
      * 
-     * @param input - 도구 입력 파라미터
-     * @returns 실행 결과
+     * @param input - Tool input parameters
+     * @returns Execution result
      */
     execute: (input: TInput) => Promise<ToolResult<TOutput>>;
 }
 
 /**
- * 도구 생성 옵션
+ * Tool creation options
  */
 export interface CreateToolOptions<TInput = any, TOutput = any> {
     /**
-     * 도구 이름
+     * Tool name
      */
     name: string;
 
     /**
-     * 도구 설명
+     * Tool description
      */
     description?: string;
 
     /**
-     * 도구 파라미터 정의
+     * Tool parameter definitions
      */
     parameters?: ToolParameter[];
 
     /**
-     * 도구 실행 함수
+     * Tool execution function
      */
     execute: (input: TInput) => Promise<TOutput | ToolResult<TOutput>>;
 }
 
 /**
- * 도구 생성 함수
+ * Tool creation function
  * 
- * @param options - 도구 생성 옵션
- * @returns 생성된 도구
+ * @param options - Tool creation options
+ * @returns Created tool
  * 
  * @example
  * ```ts
  * const weatherTool = createTool({
  *   name: 'getWeather',
- *   description: '특정 위치의 날씨 정보를 가져옵니다',
+ *   description: 'Get weather information for a specific location',
  *   parameters: [
- *     { name: 'location', type: 'string', description: '위치 (도시명)', required: true }
+ *     { name: 'location', type: 'string', description: 'Location (city name)', required: true }
  *   ],
  *   execute: async ({ location }) => {
- *     // 날씨 API 호출 로직
- *     return { temperature: 25, humidity: 60, conditions: '맑음' };
+ *     // Weather API call logic
+ *     return { temperature: 25, humidity: 60, conditions: 'sunny' };
  *   }
  * });
  * ```
@@ -125,12 +140,12 @@ export function createTool<TInput = any, TOutput = any>(
             try {
                 const result = await options.execute(input);
 
-                // 이미 ToolResult 형식이면 그대로 반환
+                // Return as is if already in ToolResult format
                 if (result && typeof result === 'object' && 'success' in result) {
                     return result as ToolResult<TOutput>;
                 }
 
-                // 일반 결과를 ToolResult로 래핑
+                // Wrap general result in ToolResult
                 return {
                     success: true,
                     data: result
@@ -146,17 +161,17 @@ export function createTool<TInput = any, TOutput = any>(
 }
 
 /**
- * 도구 레지스트리 클래스
+ * Tool registry class
  * 
- * 여러 도구를 등록하고 관리하는 클래스
+ * Class for registering and managing multiple tools
  */
 export class ToolRegistry {
     private tools: Map<string, Tool> = new Map();
 
     /**
-     * 도구 등록
+     * Register a tool
      * 
-     * @param tool - 등록할 도구
+     * @param tool - Tool to register
      */
     register(tool: Tool): ToolRegistry {
         this.tools.set(tool.name, tool);
@@ -164,9 +179,9 @@ export class ToolRegistry {
     }
 
     /**
-     * 여러 도구 등록
+     * Register multiple tools
      * 
-     * @param tools - 등록할 도구 배열
+     * @param tools - Array of tools to register
      */
     registerMany(tools: Tool[]): ToolRegistry {
         for (const tool of tools) {
@@ -176,30 +191,30 @@ export class ToolRegistry {
     }
 
     /**
-     * 도구 가져오기
+     * Get a tool
      * 
-     * @param name - 가져올 도구 이름
-     * @returns 도구 또는 undefined
+     * @param name - Name of the tool to get
+     * @returns Tool or undefined
      */
     getTool(name: string): Tool | undefined {
         return this.tools.get(name);
     }
 
     /**
-     * 모든 도구 가져오기
+     * Get all tools
      * 
-     * @returns 모든 등록된 도구 배열
+     * @returns Array of all registered tools
      */
     getAllTools(): Tool[] {
         return Array.from(this.tools.values());
     }
 
     /**
-     * 도구 실행
+     * Execute a tool
      * 
-     * @param name - 실행할 도구 이름
-     * @param input - 도구 입력 파라미터
-     * @returns 도구 실행 결과
+     * @param name - Name of the tool to execute
+     * @param input - Tool input parameters
+     * @returns Tool execution result
      */
     async executeTool<TInput = any, TOutput = any>(
         name: string,
@@ -210,7 +225,7 @@ export class ToolRegistry {
         if (!tool) {
             return {
                 success: false,
-                error: `도구 '${name}'을(를) 찾을 수 없습니다`
+                error: `Tool '${name}' not found`
             };
         }
 
@@ -225,7 +240,7 @@ export class ToolRegistry {
     }
 }
 
-// Zod 관련 기능 내보내기
+// Zod related features export
 export {
     zodToJsonSchema,
     zodFunctionToSchema,
@@ -235,4 +250,23 @@ export {
 export {
     createZodFunctionToolProvider,
     type ZodFunctionToolProviderOptions
-} from './function-tool-provider'; 
+} from './function-tool-provider';
+
+// ToolProvider interface export
+export {
+    ToolProvider
+} from './tool-provider';
+
+// MCP related features export
+export {
+    createMcpToolProvider,
+    type MCPClient
+} from './mcp-tool-provider';
+
+// OpenAPI related features export
+export {
+    createOpenAPIToolProvider
+} from './openapi-tool-provider';
+
+// Modern tool system export
+export * from './tool'; 

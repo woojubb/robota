@@ -1,9 +1,10 @@
 /**
- * @robota-sdk/openai 패키지
+ * @robota-sdk/openai package
  * 
- * OpenAI API를 사용하기 위한 Provider 구현을 제공합니다.
+ * Provides Provider implementation for using OpenAI API.
  */
 
-// types.ts와 provider.ts에서 모든 export를 가져옵니다.
+// Import all exports from types.ts and provider.ts
 export * from './provider';
-export * from './types'; 
+export * from './types';
+export * from './adapter'; 

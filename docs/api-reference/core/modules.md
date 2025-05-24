@@ -6,39 +6,32 @@
 
 ### Classes
 
-- [FunctionRegistry](classes/FunctionRegistry)
+- [AIProviderManager](classes/AIProviderManager)
+- [ConversationService](classes/ConversationService)
+- [FunctionCallManager](classes/FunctionCallManager)
 - [PersistentSystemMemory](classes/PersistentSystemMemory)
 - [Robota](classes/Robota)
 - [SimpleMemory](classes/SimpleMemory)
-- [SimpleTool](classes/SimpleTool)
-- [ToolRegistry](classes/ToolRegistry)
+- [SystemMessageManager](classes/SystemMessageManager)
+- [ToolProviderManager](classes/ToolProviderManager)
 
 ### Interfaces
 
-- [AIClient](interfaces/AIClient)
+- [AIProvider](interfaces/AIProvider)
 - [Context](interfaces/Context)
-- [FunctionCall](interfaces/FunctionCall)
 - [FunctionCallConfig](interfaces/FunctionCallConfig)
-- [FunctionCallResult](interfaces/FunctionCallResult)
-- [FunctionDefinition](interfaces/FunctionDefinition)
-- [FunctionSchema](interfaces/FunctionSchema)
-- [MCPClient](interfaces/MCPClient)
+- [Logger](interfaces/Logger)
 - [Memory](interfaces/Memory)
 - [Message](interfaces/Message)
-- [ModelContextProtocol](interfaces/ModelContextProtocol)
 - [ModelResponse](interfaces/ModelResponse)
 - [ProviderOptions](interfaces/ProviderOptions)
 - [RobotaOptions](interfaces/RobotaOptions)
 - [RunOptions](interfaces/RunOptions)
 - [StreamingResponseChunk](interfaces/StreamingResponseChunk)
-- [Tool](interfaces/Tool)
-- [ToolOptions](interfaces/ToolOptions)
 
 ### Type Aliases
 
-- [AIClientType](modules#aiclienttype)
 - [FunctionCallMode](modules#functioncallmode)
-- [FunctionHandler](modules#functionhandler)
 - [MessageRole](modules#messagerole)
 
 ### Variables
@@ -47,7 +40,6 @@
 
 ### Functions
 
-- [createFunctionSchema](modules#createfunctionschema)
 - [delay](modules#delay)
 - [estimateTokenCount](modules#estimatetokencount)
 - [extractJSONObjects](modules#extractjsonobjects)
@@ -55,19 +47,26 @@
 - [removeUndefined](modules#removeundefined)
 - [splitTextIntoChunks](modules#splittextintochunks)
 
+### Re-exported from @robota-sdk/tools
+
+The following items are re-exported from `@robota-sdk/tools` for backward compatibility:
+
+#### Types
+- [FunctionCall](modules#functioncall)
+- [FunctionCallResult](modules#functioncallresult)
+- [FunctionDefinition](modules#functiondefinition)
+- [FunctionSchema](modules#functionschema)
+- [ToolProvider](modules#toolprovider)
+
+#### Classes
+- [FunctionRegistry](modules#functionregistry)
+
+#### Functions
+- [createFunction](modules#createfunction)
+- [createFunctionSchema](modules#createfunctionschema)
+- [functionFromCallback](modules#functionfromcallback)
+
 ## Type Aliases
-
-### AIClientType
-
-Ƭ **AIClientType**: ``"openai"`` \| ``"anthropic"`` \| ``"google"`` \| ``"cohere"`` \| `string`
-
-AI 제공업체 클라이언트 타입
-
-#### Defined in
-
-[packages/core/src/types.ts:147](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L147)
-
-___
 
 ### FunctionCallMode
 
@@ -78,33 +77,6 @@ ___
 #### Defined in
 
 [packages/core/src/types.ts:107](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L107)
-
-___
-
-### FunctionHandler
-
-Ƭ **FunctionHandler**: (`args`: `Record`\<`string`, `any`\>, `context?`: `any`) => `Promise`\<`any`\>
-
-함수 호출 핸들러 타입
-
-#### Type declaration
-
-▸ (`args`, `context?`): `Promise`\<`any`\>
-
-##### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `args` | `Record`\<`string`, `any`\> |
-| `context?` | `any` |
-
-##### Returns
-
-`Promise`\<`any`\>
-
-#### Defined in
-
-[packages/core/src/function-calling.ts:40](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/function-calling.ts#L40)
 
 ___
 
@@ -139,28 +111,6 @@ logger 유틸리티 (console.log 대체)
 [packages/core/src/utils.ts:128](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/utils.ts#L128)
 
 ## Functions
-
-### createFunctionSchema
-
-▸ **createFunctionSchema**(`definition`): `ZodObject`\<`Record`\<`string`, `ZodTypeAny`\>, ``"strip"``, `ZodTypeAny`, {}, {}\>
-
-함수 스키마를 Zod 스키마로 변환하는 유틸리티 함수
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `definition` | [`FunctionDefinition`](interfaces/FunctionDefinition) |
-
-#### Returns
-
-`ZodObject`\<`Record`\<`string`, `ZodTypeAny`\>, ``"strip"``, `ZodTypeAny`, {}, {}\>
-
-#### Defined in
-
-[packages/core/src/function-calling.ts:7](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/function-calling.ts#L7)
-
-___
 
 ### delay
 
@@ -273,45 +223,4 @@ ___
 
 | Name | Type |
 | :------ | :------ |
-| `T` | extends `Record`\<`string`, `any`\> |
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `obj` | `T` | 정리할 객체 |
-
-#### Returns
-
-`T`
-
-undefined 값이 제거된 객체
-
-#### Defined in
-
-[packages/core/src/utils.ts:28](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/utils.ts#L28)
-
-___
-
-### splitTextIntoChunks
-
-▸ **splitTextIntoChunks**(`text`, `chunkSize`): `string`[]
-
-문자열을 청크로 나누는 함수
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `text` | `string` | 나눌 문자열 |
-| `chunkSize` | `number` | 각 청크의 최대 크기 |
-
-#### Returns
-
-`string`[]
-
-문자열 청크 배열
-
-#### Defined in
-
-[packages/core/src/utils.ts:12](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/utils.ts#L12)
+| `T` | extends `Record`\<`string`, `

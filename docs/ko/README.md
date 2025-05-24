@@ -1,36 +1,153 @@
-# Robota
+# Robota - AI 에이전트 프레임워크
 
-에이전틱 AI(Agentic AI) 애플리케이션을 쉽게 구축할 수 있는 타입스크립트 라이브러리입니다.
+Robota는 JavaScript/TypeScript로 작성된 AI 에이전트 프레임워크입니다. 이 프로젝트는 pnpm 모노레포로 구성되어 있으며, 필요에 따라 bun을 사용하여 예제를 실행할 수 있습니다.
 
-## 문서
+## 프로젝트 구조
 
-### API 참조
+```
+robota/
+├── packages/           # 핵심 패키지
+│   ├── core/           # 코어 기능
+│   ├── openai/         # OpenAI 통합
+│   ├── anthropic/      # Anthropic 통합
+│   ├── mcp/            # MCP 구현
+│   ├── tools/          # 도구 시스템
+│   └── ...
+└── apps/               # 응용 프로그램
+    ├── docs/           # 문서 애플리케이션
+    └── examples/       # 예제 코드
+```
 
-이 API 참조 문서는 다음 패키지에 대한 정보를 포함합니다:
+## 설치 방법
 
-- [Core](api-reference/core/)
-- [OpenAI](api-reference/openai/)
-- [Anthropic](api-reference/anthropic/)
-- [Tools](api-reference/tools/)
+### 요구 사항
 
-### 제공자 (Providers)
+- Node.js 18 이상
+- pnpm 8 이상
+- bun 1 이상 (선택 사항)
 
-- [OpenAI](providers/openai.md)
-- [Anthropic](providers/anthropic.md)
-- [커스텀 제공자](providers/custom.md)
+### 설치
 
-## 시작하기
+```bash
+# pnpm 설치 (아직 설치하지 않은 경우)
+npm install -g pnpm
 
-Robota를 시작하려면:
+# bun 설치 (아직 설치하지 않은 경우)
+curl -fsSL https://bun.sh/install | bash
 
-1. [시작하기](getting-started.md) 가이드를 읽어보세요.
-2. [예제](examples.md)를 살펴보세요.
-3. [핵심 개념](core-concepts.md)을 이해하세요.
-4. [함수 호출](function-calling.md)에 대해 알아보세요.
-5. [에이전트 구축](building-agents.md) 방법을 배워보세요.
+# 의존성 설치
+pnpm install
+```
 
-자세한 내용은 [문서](https://robota.ai/docs)를 참조하세요.
+## 예제 실행
 
-## 기여하기
+### pnpm으로 실행
 
-Robota에 기여하고 싶으시다면 [기여 가이드라인](contributing.md)을 참조하세요. 
+```bash
+# 기본 대화 예제
+pnpm example:basic
+
+# 함수 호출 예제
+pnpm example:function-calling
+
+# 도구 사용 예제
+pnpm example:tools
+
+# 에이전트 예제
+pnpm example:agents
+
+# 시스템 메시지 예제
+pnpm example:system-messages
+
+# MCP 통합 예제
+pnpm example:mcp
+
+# 모든 예제 실행
+pnpm example:all
+```
+
+### bun으로 직접 실행
+
+```bash
+# 예제 디렉토리로 이동
+cd src/examples
+
+# 기본 대화 예제
+bun run basic/simple-conversation.ts
+
+# 함수 호출 예제
+bun run function-calling/weather-calculator.ts
+
+# 도구 사용 예제
+bun run tools/tool-examples.ts
+
+# 에이전트 예제
+bun run agents/research-agent.ts
+
+# MCP 통합 예제
+bun run mcp/mcp-example.ts
+```
+
+## 개발
+
+### 패키지 빌드
+
+```bash
+# 모든 패키지 빌드
+pnpm build
+
+# 핵심 의존성 먼저 빌드
+pnpm build:deps
+```
+
+### 타입 체크
+
+```bash
+pnpm typecheck
+```
+
+## 환경 변수
+
+예제를 실행하기 위해서는 `.env` 파일을 생성하고 필요한 환경 변수를 설정해야 합니다:
+
+```
+# OpenAI API 키 (필수)
+OPENAI_API_KEY=your_api_key_here
+
+# 날씨 API 키 (선택 사항)
+WEATHER_API_KEY=your_weather_api_key_here
+
+# MCP API 키 (MCP 예제 실행 시 필요)
+MCP_API_KEY=your_mcp_api_key_here
+```
+
+## 주요 기능
+
+### Model Context Protocol (MCP) 지원
+
+Robota는 이제 Model Context Protocol을 지원합니다. MCP를 통해 다양한 AI 모델 제공자와 표준화된 방식으로 통신할 수 있습니다:
+
+```typescript
+import { Robota, createMcpToolProvider } from 'robota';
+import { Client, StdioClientTransport } from '@modelcontextprotocol/sdk';
+
+// MCP 클라이언트 생성
+const transport = new StdioClientTransport(/* 설정 */);
+const mcpClient = new Client(transport);
+
+// MCP 제공자 초기화
+const provider = createMcpToolProvider(mcpClient, {
+  model: 'model-name', // 사용할 모델 이름
+  temperature: 0.7
+});
+
+// Robota 인스턴스에 제공자 연결
+const robota = new Robota({ provider });
+
+// 실행
+const result = await robota.run('안녕하세요! MCP를 통해 연결된 AI 모델과 대화 중입니다.');
+```
+
+## 라이선스
+
+MIT 

@@ -1,11 +1,20 @@
 {
   "name": "@robota-sdk/core",
-  "version": "0.2.4",
-  "description": "Robota의 핵심 기능을 제공하는 패키지",
+  "version": "0.2.5",
+  "description": "Robota's core functionality package",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/woojubb/robota.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/woojubb/robota/tree/main/packages/core#readme",
+  "bugs": {
+    "url": "https://github.com/woojubb/robota/issues"
+  },
   "files": [
     "dist"
   ],
@@ -17,7 +26,8 @@
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint src --ext .ts,.tsx"
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix"
   },
   "keywords": [
     "ai",
@@ -29,6 +39,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@dqbd/tiktoken": "^1.0.21",
+    "@robota-sdk/tools": "workspace:*",
     "zod": "^3.24.4"
   },
   "devDependencies": {

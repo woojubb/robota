@@ -8,19 +8,16 @@ Robota는 JavaScript/TypeScript로 작성된 AI 에이전트 프레임워크입�
 
 ```
 robota/
-├── src/
-│   ├── packages/         # 라이브러리 패키지
-│   │   ├── core/         # 핵심 기능
-│   │   ├── tools/        # 도구 모듈
-│   │   └── openai/       # OpenAI 통합 모듈
-│   └── examples/         # 예제 코드
-│       ├── basic/        # 기본 대화 예제
-│       ├── function-calling/ # 함수 호출 예제
-│       ├── tools/        # 도구 사용 예제
-│       ├── agents/       # 에이전트 예제
-│       └── mcp/          # MCP 통합 예제
-├── pnpm-workspace.yaml   # 워크스페이스 설정
-└── package.json          # 루트 패키지 설정
+├── packages/           # 핵심 패키지
+│   ├── core/           # 코어 기능
+│   ├── openai/         # OpenAI 통합
+│   ├── anthropic/      # Anthropic 통합
+│   ├── mcp/            # MCP 구현
+│   ├── tools/          # 도구 시스템
+│   └── ...
+└── apps/               # 응용 프로그램
+    ├── docs/           # 문서 애플리케이션
+    └── examples/       # 예제 코드
 ```
 
 ## 설치 방법

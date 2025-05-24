@@ -35,12 +35,16 @@ import { z } from 'zod';
  * // }
  * ```
  */
-export function zodToJsonSchema(schema: z.ZodObject<any>): any {
+export function zodToJsonSchema(schema: z.ZodObject<z.ZodRawShape>): {
+    type: string;
+    properties: Record<string, unknown>;
+    required?: string[];
+} {
     // z.object에서 속성 추출
     const shape = schema._def.shape();
 
     // JSON 스키마 속성 구성
-    const properties: Record<string, any> = {};
+    const properties: Record<string, unknown> = {};
     const required: string[] = [];
 
     // 각 속성에 대해 처리
@@ -49,7 +53,7 @@ export function zodToJsonSchema(schema: z.ZodObject<any>): any {
         const typeObj = zodType as z.ZodTypeAny;
 
         // 기본 속성 정보
-        let property: any = {};
+        let property: Record<string, unknown> = {};
 
         // 타입 처리
         if (typeObj instanceof z.ZodNumber) {
@@ -65,7 +69,7 @@ export function zodToJsonSchema(schema: z.ZodObject<any>): any {
             property.type = "array";
             // 배열 아이템 타입 처리
             if (typeObj._def.type instanceof z.ZodObject) {
-                property.items = zodToJsonSchema(typeObj._def.type as z.ZodObject<any>);
+                property.items = zodToJsonSchema(typeObj._def.type as z.ZodObject<z.ZodRawShape>);
             }
         } else if (typeObj instanceof z.ZodObject) {
             // 중첩 객체 처리
@@ -98,7 +102,7 @@ export function zodToJsonSchema(schema: z.ZodObject<any>): any {
 /**
  * Zod 스키마 기반 함수 도구 정의 인터페이스
  */
-export interface ZodFunctionTool<T extends z.ZodObject<any>> {
+export interface ZodFunctionTool<T extends z.ZodObject<z.ZodRawShape>> {
     /** 도구 이름 */
     name: string;
     /** 도구 설명 */
@@ -106,7 +110,7 @@ export interface ZodFunctionTool<T extends z.ZodObject<any>> {
     /** 도구 매개변수 스키마 */
     parameters: T;
     /** 도구 핸들러 함수 */
-    handler: (params: z.infer<T>) => Promise<any>;
+    handler: (params: z.infer<T>) => Promise<unknown>;
 }
 
 /**
@@ -115,7 +119,7 @@ export interface ZodFunctionTool<T extends z.ZodObject<any>> {
  * @param tool - Zod 기반 함수 도구 정의
  * @returns Robota 호환 함수 스키마
  */
-export function zodFunctionToSchema<T extends z.ZodObject<any>>(tool: ZodFunctionTool<T>) {
+export function zodFunctionToSchema<T extends z.ZodObject<z.ZodRawShape>>(tool: ZodFunctionTool<T>) {
     return {
         name: tool.name,
         description: tool.description,

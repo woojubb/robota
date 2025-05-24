@@ -1,11 +1,20 @@
 {
   "name": "@robota-sdk/openai",
-  "version": "0.2.4",
-  "description": "Robota를 위한 OpenAI 통합 패키지",
+  "version": "0.2.5",
+  "description": "Robota's OpenAI integration package",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/woojubb/robota.git",
+    "directory": "packages/openai"
+  },
+  "homepage": "https://github.com/woojubb/robota/tree/main/packages/openai#readme",
+  "bugs": {
+    "url": "https://github.com/woojubb/robota/issues"
+  },
   "files": [
     "dist"
   ],
@@ -17,7 +26,8 @@
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint src --ext .ts,.tsx"
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix"
   },
   "keywords": [
     "ai",

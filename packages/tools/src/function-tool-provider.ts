@@ -7,32 +7,22 @@
  */
 
 import { z } from 'zod';
-import type { ZodFunctionTool, zodFunctionToSchema } from './zod-schema';
+import type { ZodFunctionTool } from './zod-schema';
+import type { ToolProvider } from './tool-provider';
 
 /**
  * Zod 스키마 기반 함수 도구 제공자 옵션
  */
 export interface ZodFunctionToolProviderOptions {
-    /** 모델 이름 */
-    model: string;
-    /** 온도 (0~1) */
-    temperature?: number;
-    /** 최대 토큰 수 */
-    maxTokens?: number;
     /** 도구 정의 객체 */
-    tools: Record<string, ZodFunctionTool<z.ZodObject<any>>>;
-    /** 
-     * 사용자 지정 메시지 처리 함수 (선택적)
-     * 정의하지 않으면 기본 응답을 반환합니다.
-     */
-    processMessage?: (message: string, tools: Record<string, ZodFunctionTool<z.ZodObject<any>>>) => Promise<any>;
+    tools: Record<string, ZodFunctionTool<z.ZodObject<z.ZodRawShape>>>;
 }
 
 /**
  * Zod 스키마 기반 함수 도구 제공자를 생성합니다.
  * 
  * @param options - 함수 도구 제공자 옵션
- * @returns 도구 제공자 인스턴스
+ * @returns 도구 제공자 인스턴스 (ToolProvider 인터페이스 구현)
  * 
  * @example
  * ```typescript
@@ -47,129 +37,85 @@ export interface ZodFunctionToolProviderOptions {
  * };
  * 
  * const provider = createZodFunctionToolProvider({
- *   model: 'function-model',
  *   tools: { add: calculatorTool }
  * });
  * 
  * const robota = new Robota({
- *   provider,
+ *   aiClient: openaiProvider,
+ *   provider: provider,
  *   systemPrompt: '당신은 도움이 되는 계산기입니다.'
  * });
  * ```
  */
-export function createZodFunctionToolProvider(options: ZodFunctionToolProviderOptions): any {
-    // 기본 메시지 처리 함수
-    const defaultProcessMessage = async (message: string, tools: Record<string, ZodFunctionTool<z.ZodObject<any>>>): Promise<any> => {
-        // 기본 응답 생성
-        return { content: `'${message}'에 대한 응답입니다.` };
-    };
-
-    // 함수 호출 처리 함수
-    const processMessageWithTools = options.processMessage || defaultProcessMessage;
-
-    // 채팅 함수 구현
-    const chat = async (requestOptions: any): Promise<any> => {
-        // 마지막 사용자 메시지 가져오기
-        const lastUserMessage = requestOptions.messages
-            .slice().reverse()
-            .find((msg: { role: string }) => msg.role === 'user')?.content || '';
-
-        try {
-            // 메시지 처리 및 응답 생성
-            const response = await processMessageWithTools(lastUserMessage, options.tools);
-            return response;
-        } catch (error) {
-            console.error('함수 도구 처리 중 오류 발생:', error);
-            return { content: `오류가 발생했습니다: ${error instanceof Error ? error.message : String(error)}` };
-        }
-    };
-
-    // 스트리밍 함수 구현 (선택적)
-    const stream = async function* (requestOptions: any): AsyncIterable<any> {
-        try {
-            // 일반 응답 생성
-            const response = await chat(requestOptions);
-
-            // 응답을 단어 단위로 나누어 스트리밍 (간단한 구현)
-            if (response.content) {
-                const words = response.content.split(' ');
-                for (const word of words) {
-                    yield { content: word + ' ' };
-                    await new Promise(resolve => setTimeout(resolve, 50)); // 작은 지연 추가
-                }
-            }
-
-            // 함수 호출이 있는 경우 완전한 응답 전달
-            if (response.function_call) {
-                yield response;
-            }
-        } catch (error) {
-            console.error('스트리밍 처리 중 오류 발생:', error);
-            yield { content: `오류가 발생했습니다: ${error instanceof Error ? error.message : String(error)}` };
-        }
-    };
-
+export function createZodFunctionToolProvider(options: ZodFunctionToolProviderOptions): ToolProvider {
     // 도구 정의를 JSON 스키마로 변환
     const functions = Object.values(options.tools).map(tool => {
-        // zodFunctionToSchema 함수를 직접 구현
+        // zodFunctionToSchema 함수 대신 직접 스키마 변환 처리
+        const properties: Record<string, {
+            type: string;
+            description?: string;
+            enum?: unknown[];
+        }> = {};
+        const required: string[] = [];
+
+        // Zod 스키마에서 속성 추출
+        const shape = tool.parameters.shape || {};
+        for (const propName in shape) {
+            const prop = shape[propName];
+
+            // 속성 타입 및 설명 추출
+            let type = 'string';
+            if (prop._def.typeName === 'ZodNumber') type = 'number';
+            if (prop._def.typeName === 'ZodBoolean') type = 'boolean';
+            if (prop._def.typeName === 'ZodArray') type = 'array';
+            if (prop._def.typeName === 'ZodObject') type = 'object';
+
+            properties[propName] = {
+                type,
+                description: prop._def.description || `${propName} 매개변수`
+            };
+
+            // enum 값이 있는 경우 추가
+            if (prop._def.typeName === 'ZodEnum') {
+                properties[propName].enum = prop._def.values;
+            }
+
+            // 필수 속성인 경우 required 배열에 추가
+            if (!prop._def.isOptional) {
+                required.push(propName);
+            }
+        }
+
         return {
             name: tool.name,
             description: tool.description,
             parameters: {
-                type: "object",
-                properties: {},
-                required: []
+                type: "object" as const,
+                properties,
+                required: required.length > 0 ? required : undefined
             }
         };
     });
 
     // 함수 도구 제공자 객체 반환 (ToolProvider 인터페이스 구현)
     return {
-        id: 'zod-function-tool-provider',
-        options: {
-            model: options.model
-        },
-        async generateCompletion(context: any): Promise<any> {
-            const requestOptions = {
-                model: options.model,
-                messages: context.messages,
-                functions: functions,
-                temperature: options.temperature,
-                max_tokens: options.maxTokens
-            };
+        // 함수 스키마 목록
+        functions,
 
-            const response = await chat(requestOptions);
+        // ToolProvider 인터페이스 구현: callTool
+        async callTool(toolName: string, parameters: Record<string, unknown>): Promise<unknown> {
+            const tool = options.tools[toolName];
+            if (!tool) {
+                throw new Error(`도구 '${toolName}'를 찾을 수 없습니다.`);
+            }
 
-            return {
-                content: response.content,
-                functionCall: response.function_call ? {
-                    name: response.function_call.name,
-                    arguments: JSON.parse(response.function_call.arguments || '{}')
-                } : undefined
-            };
-        },
-        async generateCompletionStream(context: any): Promise<AsyncIterable<any>> {
-            const requestOptions = {
-                model: options.model,
-                messages: context.messages,
-                functions: functions,
-                temperature: options.temperature,
-                max_tokens: options.maxTokens,
-                stream: true
-            };
-
-            // 스트리밍 처리
-            return (async function* () {
-                for await (const chunk of stream(requestOptions)) {
-                    yield {
-                        content: chunk.content,
-                        functionCall: chunk.function_call ? {
-                            name: chunk.function_call.name,
-                            arguments: JSON.parse(chunk.function_call.arguments || '{}')
-                        } : undefined
-                    };
-                }
-            })();
+            try {
+                // 도구 핸들러 호출
+                return await tool.handler(parameters);
+            } catch (error) {
+                console.error(`도구 '${toolName}' 호출 중 오류:`, error);
+                throw new Error(`도구 호출 실패: ${error instanceof Error ? error.message : String(error)}`);
+            }
         }
     };
 } 

@@ -1,22 +1,34 @@
 import type { ProviderOptions } from '@robota-sdk/core';
 
 /**
- * Anthropic 제공업체 옵션
+ * Anthropic provider options
  */
 export interface AnthropicProviderOptions extends ProviderOptions {
     apiKey: string;
 }
 
 /**
- * Anthropic 제공업체 클래스
+ * Anthropic provider class
  */
 export class AnthropicProvider {
-    constructor(options: AnthropicProviderOptions) {
-        // 초기화 로직
+    constructor(_options: AnthropicProviderOptions) {
+        // Initialization logic
     }
 
-    // 구현 예정
+    // To be implemented
 }
 
+/**
+ * @robota-sdk/anthropic package
+ * 
+ * Provides Provider implementation for using Anthropic API.
+ */
+
+// Import all exports from types.ts and provider.ts
+export * from './provider';
 export * from './types';
-export * from './provider'; 
+export * from './adapter';
+
+export function createAnthropicProvider(_options: AnthropicProviderOptions) {
+    // Implementation of createAnthropicProvider function
+} 

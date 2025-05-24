@@ -5,23 +5,41 @@ import {
   Message,
   ModelResponse,
   StreamingResponseChunk,
-  removeUndefined
+  AIProvider,
+  UniversalMessage
 } from '@robota-sdk/core';
-import { ModelContextProtocol } from '@robota-sdk/core';
 import { OpenAIProviderOptions } from './types';
 import { logger } from '@robota-sdk/core';
+import { OpenAIConversationAdapter } from './adapter';
 
 /**
- * OpenAI 제공업체 구현
+ * OpenAI provider implementation
+ * 
+ * Implements the AIProvider interface to integrate with Robota.
  */
-export class OpenAIProvider implements ModelContextProtocol {
+export class OpenAIProvider implements AIProvider {
   /**
-   * OpenAI 클라이언트 인스턴스
+   * Provider name
+   */
+  public name: string = 'openai';
+
+  /**
+   * OpenAI client instance
    */
   private client: OpenAI;
 
   /**
-   * 제공업체 옵션
+   * Client type
+   */
+  public type: string = 'openai';
+
+  /**
+   * Client instance
+   */
+  public instance: OpenAI;
+
+  /**
+   * Provider options
    */
   public options: OpenAIProviderOptions;
 
@@ -32,20 +50,22 @@ export class OpenAIProvider implements ModelContextProtocol {
       ...options
     };
 
-    // 클라이언트가 주입되지 않았으면 에러 발생
+    // Throw error if client is not injected
     if (!options.client) {
-      throw new Error('OpenAI 클라이언트가 주입되지 않았습니다. client 옵션은 필수입니다.');
+      throw new Error('OpenAI client is not injected. The client option is required.');
     }
 
     this.client = options.client;
+    this.instance = options.client;
   }
 
   /**
-   * 메시지를 OpenAI 형식으로 변환
+   * Convert messages to OpenAI format
+   * @deprecated Use OpenAIConversationAdapter.toOpenAIFormat instead
    */
   formatMessages(messages: Message[]): OpenAI.Chat.ChatCompletionMessageParam[] {
     if (!Array.isArray(messages)) {
-      logger.error('formatMessages: messages는 배열이어야 합니다.', messages);
+      logger.error('formatMessages: messages must be an array.', messages);
       return [];
     }
 
@@ -53,13 +73,13 @@ export class OpenAIProvider implements ModelContextProtocol {
 
     for (const message of messages) {
       if (!message || typeof message !== 'object') {
-        logger.error('formatMessages: 유효하지 않은 메시지 형식', message);
+        logger.error('formatMessages: invalid message format', message);
         continue;
       }
 
       const { role, content, name, functionCall } = message;
 
-      // 함수 호출 결과가 있는 경우
+      // If there is a function call result
       if (role === 'function') {
         formattedMessages.push({
           role: 'function',
@@ -69,7 +89,7 @@ export class OpenAIProvider implements ModelContextProtocol {
         continue;
       }
 
-      // 함수 호출이 있는 경우
+      // If there is a function call
       if (functionCall) {
         formattedMessages.push({
           role: role === 'user' ? 'user' :
@@ -85,7 +105,7 @@ export class OpenAIProvider implements ModelContextProtocol {
         continue;
       }
 
-      // 일반 메시지
+      // Regular message
       formattedMessages.push({
         role: role === 'user' ? 'user' :
           role === 'system' ? 'system' : 'assistant',
@@ -98,7 +118,7 @@ export class OpenAIProvider implements ModelContextProtocol {
   }
 
   /**
-   * 함수 정의를 OpenAI 형식으로 변환
+   * Convert function definitions to OpenAI format
    */
   formatFunctions(functions: FunctionDefinition[]): OpenAI.Chat.ChatCompletionTool[] {
     return functions.map(fn => ({
@@ -112,7 +132,7 @@ export class OpenAIProvider implements ModelContextProtocol {
   }
 
   /**
-   * OpenAI API 응답을 표준 형식으로 변환
+   * Convert OpenAI API response to standard format
    */
   parseResponse(response: OpenAI.Chat.ChatCompletion): ModelResponse {
     const message = response.choices[0].message;
@@ -130,7 +150,7 @@ export class OpenAIProvider implements ModelContextProtocol {
       }
     };
 
-    // 함수 호출이 있는 경우
+    // If there is a function call
     if (message.function_call) {
       result.functionCall = {
         name: message.function_call.name,
@@ -142,7 +162,7 @@ export class OpenAIProvider implements ModelContextProtocol {
   }
 
   /**
-   * 스트리밍 응답 청크를 표준 형식으로 변환
+   * Convert streaming response chunk to standard format
    */
   parseStreamingChunk(chunk: OpenAI.Chat.ChatCompletionChunk): StreamingResponseChunk {
     const delta = chunk.choices[0].delta;
@@ -152,7 +172,7 @@ export class OpenAIProvider implements ModelContextProtocol {
       isComplete: chunk.choices[0].finish_reason !== null
     };
 
-    // 함수 호출 청크가 있는 경우
+    // If there is a function call chunk
     if (delta.function_call) {
       result.functionCall = {
         name: delta.function_call.name,
@@ -164,9 +184,9 @@ export class OpenAIProvider implements ModelContextProtocol {
   }
 
   /**
-   * 모델 채팅 요청
+   * Model chat request
    */
-  async chat(context: Context, options?: any): Promise<ModelResponse> {
+  async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
     if (!context || typeof context !== 'object') {
       logger.error('[OpenAIProvider] 유효하지 않은 컨텍스트:', context);
       throw new Error('유효한 Context 객체가 필요합니다');
@@ -179,15 +199,21 @@ export class OpenAIProvider implements ModelContextProtocol {
       throw new Error('유효한 메시지 배열이 필요합니다');
     }
 
-    // 시스템 프롬프트 추가 (없는 경우)
-    const messagesWithSystem = systemPrompt && !messages.some(m => m.role === 'system')
-      ? [{ role: 'system' as const, content: systemPrompt }, ...messages]
-      : messages;
+    // UniversalMessage[]를 OpenAI 형식으로 변환
+    let formattedMessages: OpenAI.Chat.ChatCompletionMessageParam[];
 
-    const formattedMessages = this.formatMessages(messagesWithSystem);
+    try {
+      formattedMessages = OpenAIConversationAdapter.toOpenAIFormat(messages as UniversalMessage[]);
+
+      // 시스템 프롬프트 추가 (필요한 경우)
+      formattedMessages = OpenAIConversationAdapter.addSystemPromptIfNeeded(formattedMessages, systemPrompt);
+    } catch (error) {
+      logger.error('[OpenAIProvider] 메시지 변환 오류:', error);
+      throw new Error('메시지 형식 변환에 실패했습니다');
+    }
 
     if (formattedMessages.length === 0) {
-      logger.error('[OpenAIProvider] 포맷된 메시지가 비어있습니다:', messagesWithSystem);
+      logger.error('[OpenAIProvider] 포맷된 메시지가 비어있습니다:', messages);
       throw new Error('유효한 메시지가 필요합니다');
     }
 
@@ -195,11 +221,16 @@ export class OpenAIProvider implements ModelContextProtocol {
 
     // OpenAI API 요청 옵션 구성
     const completionOptions: OpenAI.Chat.ChatCompletionCreateParams = {
-      model: this.options.model,
+      model: model || this.options.model,
       messages: formattedMessages,
       temperature: options?.temperature ?? this.options.temperature,
       max_tokens: options?.maxTokens ?? this.options.maxTokens
     };
+
+    // 도구 제공자 함수 추가
+    if (options?.tools && Array.isArray(options.tools)) {
+      completionOptions.tools = this.formatFunctions(options.tools);
+    }
 
     // 응답 형식이 지정된 경우
     if (this.options.responseFormat) {
@@ -221,7 +252,7 @@ export class OpenAIProvider implements ModelContextProtocol {
   /**
    * 모델 채팅 스트리밍 요청
    */
-  async *chatStream(context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
+  async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
     if (!context || typeof context !== 'object') {
       logger.error('[OpenAIProvider] 유효하지 않은 컨텍스트:', context);
       throw new Error('유효한 Context 객체가 필요합니다');
@@ -234,15 +265,21 @@ export class OpenAIProvider implements ModelContextProtocol {
       throw new Error('유효한 메시지 배열이 필요합니다');
     }
 
-    // 시스템 프롬프트 추가 (없는 경우)
-    const messagesWithSystem = systemPrompt && !messages.some(m => m.role === 'system')
-      ? [{ role: 'system' as const, content: systemPrompt }, ...messages]
-      : messages;
+    // UniversalMessage[]를 OpenAI 형식으로 변환
+    let formattedMessages: OpenAI.Chat.ChatCompletionMessageParam[];
 
-    const formattedMessages = this.formatMessages(messagesWithSystem);
+    try {
+      formattedMessages = OpenAIConversationAdapter.toOpenAIFormat(messages as UniversalMessage[]);
+
+      // 시스템 프롬프트 추가 (필요한 경우)
+      formattedMessages = OpenAIConversationAdapter.addSystemPromptIfNeeded(formattedMessages, systemPrompt);
+    } catch (error) {
+      logger.error('[OpenAIProvider] 스트리밍 메시지 변환 오류:', error);
+      throw new Error('메시지 형식 변환에 실패했습니다');
+    }
 
     if (formattedMessages.length === 0) {
-      logger.error('[OpenAIProvider] 포맷된 메시지가 비어있습니다:', messagesWithSystem);
+      logger.error('[OpenAIProvider] 포맷된 메시지가 비어있습니다:', messages);
       throw new Error('유효한 메시지가 필요합니다');
     }
 
@@ -250,12 +287,17 @@ export class OpenAIProvider implements ModelContextProtocol {
 
     // OpenAI API 요청 옵션 구성
     const completionOptions: OpenAI.Chat.ChatCompletionCreateParams = {
-      model: this.options.model,
+      model: model || this.options.model,
       messages: formattedMessages,
       temperature: options?.temperature ?? this.options.temperature,
       max_tokens: options?.maxTokens ?? this.options.maxTokens,
       stream: true
     };
+
+    // 도구 제공자 함수 추가
+    if (options?.tools && Array.isArray(options.tools)) {
+      completionOptions.tools = this.formatFunctions(options.tools);
+    }
 
     // 응답 형식이 지정된 경우
     if (this.options.responseFormat) {
@@ -272,7 +314,6 @@ export class OpenAIProvider implements ModelContextProtocol {
 
       const stream = await this.client.chat.completions.create(completionOptions);
 
-      // @ts-ignore - OpenAI 스트림 타입 처리가 필요합니다
       for await (const chunk of stream) {
         yield this.parseStreamingChunk(chunk);
       }
@@ -280,5 +321,12 @@ export class OpenAIProvider implements ModelContextProtocol {
       logger.error('[OpenAIProvider] 스트리밍 API 호출 오류:', error);
       throw error;
     }
+  }
+
+  /**
+   * 리소스 해제 (필요시)
+   */
+  async close(): Promise<void> {
+    // OpenAI 클라이언트는 특별한 종료 메서드가 없으므로 빈 함수로 구현
   }
 } 
