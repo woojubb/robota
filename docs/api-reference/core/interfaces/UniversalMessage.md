@@ -1,0 +1,101 @@
+[Core API](../../) / [Exports](../modules) / UniversalMessage
+
+# Interface: UniversalMessage
+
+Universal message interface - AI Provider-independent message structure
+
+## Table of contents
+
+### Properties
+
+- [content](UniversalMessage#content)
+- [functionCall](UniversalMessage#functioncall)
+- [metadata](UniversalMessage#metadata)
+- [name](UniversalMessage#name)
+- [role](UniversalMessage#role)
+- [timestamp](UniversalMessage#timestamp)
+- [toolResult](UniversalMessage#toolresult)
+
+## Properties
+
+### content
+
+• **content**: `string`
+
+Message content
+
+#### Defined in
+
+[core/src/conversation-history.ts:16](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/conversation-history.ts#L16)
+
+___
+
+### functionCall
+
+• `Optional` **functionCall**: [`FunctionCall`](FunctionCall)
+
+Function call information (used in assistant messages)
+
+#### Defined in
+
+[core/src/conversation-history.ts:22](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/conversation-history.ts#L22)
+
+___
+
+### metadata
+
+• `Optional` **metadata**: `Record`\<`string`, `any`\>
+
+Additional metadata
+
+#### Defined in
+
+[core/src/conversation-history.ts:31](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/conversation-history.ts#L31)
+
+___
+
+### name
+
+• `Optional` **name**: `string`
+
+Message sender name (optional)
+
+#### Defined in
+
+[core/src/conversation-history.ts:19](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/conversation-history.ts#L19)
+
+___
+
+### role
+
+• **role**: [`UniversalMessageRole`](../modules#universalmessagerole)
+
+Message role
+
+#### Defined in
+
+[core/src/conversation-history.ts:13](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/conversation-history.ts#L13)
+
+___
+
+### timestamp
+
+• **timestamp**: `Date`
+
+Message creation time
+
+#### Defined in
+
+[core/src/conversation-history.ts:28](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/conversation-history.ts#L28)
+
+___
+
+### toolResult
+
+• `Optional` **toolResult**: [`FunctionCallResult`](FunctionCallResult)
+
+Tool execution result (used in tool messages)
+
+#### Defined in
+
+[core/src/conversation-history.ts:25](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/conversation-history.ts#L25)

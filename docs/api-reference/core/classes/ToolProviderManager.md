@@ -1,0 +1,207 @@
+[Core API](../../) / [Exports](../modules) / ToolProviderManager
+
+# Class: ToolProviderManager
+
+Tool provider management class
+Handles registration, invocation, and retrieval of Tool Providers.
+
+## Table of contents
+
+### Constructors
+
+- [constructor](ToolProviderManager#constructor)
+
+### Methods
+
+- [addProvider](ToolProviderManager#addprovider)
+- [addProviders](ToolProviderManager#addproviders)
+- [callTool](ToolProviderManager#calltool)
+- [getAvailableTools](ToolProviderManager#getavailabletools)
+- [getProviderCount](ToolProviderManager#getprovidercount)
+- [hasProviders](ToolProviderManager#hasproviders)
+- [hasTool](ToolProviderManager#hastool)
+- [setAllowedFunctions](ToolProviderManager#setallowedfunctions)
+
+## Constructors
+
+### constructor
+
+• **new ToolProviderManager**(`logger`, `allowedFunctions?`): [`ToolProviderManager`](ToolProviderManager)
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `logger` | [`Logger`](../interfaces/Logger) |
+| `allowedFunctions?` | `string`[] |
+
+#### Returns
+
+[`ToolProviderManager`](ToolProviderManager)
+
+#### Defined in
+
+[core/src/managers/tool-provider-manager.ts:14](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/tool-provider-manager.ts#L14)
+
+## Methods
+
+### addProvider
+
+▸ **addProvider**(`toolProvider`): `void`
+
+Add a Tool Provider
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `toolProvider` | [`ToolProvider`](../interfaces/ToolProvider) | Tool provider instance |
+
+#### Returns
+
+`void`
+
+#### Defined in
+
+[core/src/managers/tool-provider-manager.ts:24](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/tool-provider-manager.ts#L24)
+
+___
+
+### addProviders
+
+▸ **addProviders**(`toolProviders`): `void`
+
+Add multiple Tool Providers
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `toolProviders` | [`ToolProvider`](../interfaces/ToolProvider)[] | Array of tool providers |
+
+#### Returns
+
+`void`
+
+#### Defined in
+
+[core/src/managers/tool-provider-manager.ts:33](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/tool-provider-manager.ts#L33)
+
+___
+
+### callTool
+
+▸ **callTool**(`toolName`, `parameters`): `Promise`\<`any`\>
+
+Call a tool
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `toolName` | `string` | Name of the tool to call |
+| `parameters` | `Record`\<`string`, `any`\> | Parameters to pass to the tool |
+
+#### Returns
+
+`Promise`\<`any`\>
+
+Tool call result
+
+#### Defined in
+
+[core/src/managers/tool-provider-manager.ts:53](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/tool-provider-manager.ts#L53)
+
+___
+
+### getAvailableTools
+
+▸ **getAvailableTools**(): [`FunctionSchema`](../interfaces/FunctionSchema)[]
+
+Get list of available tools
+
+#### Returns
+
+[`FunctionSchema`](../interfaces/FunctionSchema)[]
+
+List of tool schemas
+
+#### Defined in
+
+[core/src/managers/tool-provider-manager.ts:84](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/tool-provider-manager.ts#L84)
+
+___
+
+### getProviderCount
+
+▸ **getProviderCount**(): `number`
+
+Get the number of registered Tool Providers
+
+#### Returns
+
+`number`
+
+#### Defined in
+
+[core/src/managers/tool-provider-manager.ts:96](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/tool-provider-manager.ts#L96)
+
+___
+
+### hasProviders
+
+▸ **hasProviders**(): `boolean`
+
+Check if Tool Providers are registered
+
+#### Returns
+
+`boolean`
+
+#### Defined in
+
+[core/src/managers/tool-provider-manager.ts:103](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/tool-provider-manager.ts#L103)
+
+___
+
+### hasTool
+
+▸ **hasTool**(`toolName`): `boolean`
+
+Check if a specific tool is available
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `toolName` | `string` | Name of the tool to check |
+
+#### Returns
+
+`boolean`
+
+#### Defined in
+
+[core/src/managers/tool-provider-manager.ts:112](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/tool-provider-manager.ts#L112)
+
+___
+
+### setAllowedFunctions
+
+▸ **setAllowedFunctions**(`allowedFunctions?`): `void`
+
+Set allowed function list
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `allowedFunctions?` | `string`[] | Array of allowed function names |
+
+#### Returns
+
+`void`
+
+#### Defined in
+
+[core/src/managers/tool-provider-manager.ts:42](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/tool-provider-manager.ts#L42)

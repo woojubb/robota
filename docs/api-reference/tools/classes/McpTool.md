@@ -1,0 +1,326 @@
+[Tools API](../../) / [Exports](../modules) / McpTool
+
+# Class: McpTool\<TParams, TResult\>
+
+MCP schema-based tool class
+
+ McpTool
+
+**`Description`**
+
+Tool that uses MCP (Model Context Protocol) schema format for parameter definition.
+
+**`Example`**
+
+```typescript
+import { McpTool } from '@robota-sdk/core';
+
+const mcpTool = new McpTool({
+  name: 'calculateSum',
+  description: 'Calculate the sum of two numbers',
+  category: 'math',
+  parameters: {
+    type: 'object',
+    properties: {
+      a: {
+        type: 'number',
+        description: 'First number'
+      },
+      b: {
+        type: 'number',
+        description: 'Second number'
+      }
+    },
+    required: ['a', 'b']
+  },
+  execute: async (params) => {
+    const result = params.a + params.b;
+    return {
+      status: 'success',
+      data: { sum: result }
+    };
+  }
+});
+```
+
+## Type parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `TParams` | `any` | Tool parameter type |
+| `TResult` | `any` | Tool result type |
+
+## Hierarchy
+
+- [`BaseTool`](BaseTool)\<`TParams`, `TResult`\>
+
+  ↳ **`McpTool`**
+
+## Table of contents
+
+### Constructors
+
+- [constructor](McpTool#constructor)
+
+### Properties
+
+- [category](McpTool#category)
+- [description](McpTool#description)
+- [name](McpTool#name)
+- [version](McpTool#version)
+
+### Accessors
+
+- [schema](McpTool#schema)
+
+### Methods
+
+- [execute](McpTool#execute)
+- [toFunctionDefinition](McpTool#tofunctiondefinition)
+- [toFunctionSchema](McpTool#tofunctionschema)
+- [toString](McpTool#tostring)
+- [create](McpTool#create)
+
+## Constructors
+
+### constructor
+
+• **new McpTool**\<`TParams`, `TResult`\>(`options`): [`McpTool`](McpTool)\<`TParams`, `TResult`\>
+
+Constructor
+
+#### Type parameters
+
+| Name | Type |
+| :------ | :------ |
+| `TParams` | `any` |
+| `TResult` | `any` |
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `options` | [`McpToolOptions`](../interfaces/McpToolOptions)\<`TParams`, `TResult`\> | MCP tool options |
+
+#### Returns
+
+[`McpTool`](McpTool)\<`TParams`, `TResult`\>
+
+#### Overrides
+
+[BaseTool](BaseTool).[constructor](BaseTool#constructor)
+
+#### Defined in
+
+[packages/tools/src/tool/mcp-tool.ts:71](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/mcp-tool.ts#L71)
+
+## Properties
+
+### category
+
+• `Optional` `Readonly` **category**: `string`
+
+Tool category
+
+#### Inherited from
+
+[BaseTool](BaseTool).[category](BaseTool#category)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:39](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L39)
+
+___
+
+### description
+
+• `Readonly` **description**: `string`
+
+Tool description
+
+#### Inherited from
+
+[BaseTool](BaseTool).[description](BaseTool#description)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:34](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L34)
+
+___
+
+### name
+
+• `Readonly` **name**: `string`
+
+Tool name
+
+#### Inherited from
+
+[BaseTool](BaseTool).[name](BaseTool#name)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:29](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L29)
+
+___
+
+### version
+
+• `Optional` `Readonly` **version**: `string`
+
+Tool version
+
+#### Inherited from
+
+[BaseTool](BaseTool).[version](BaseTool#version)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:44](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L44)
+
+## Accessors
+
+### schema
+
+• `get` **schema**(): `any`
+
+Tool schema (returns MCP schema)
+
+#### Returns
+
+`any`
+
+MCP schema
+
+#### Overrides
+
+BaseTool.schema
+
+#### Defined in
+
+[packages/tools/src/tool/mcp-tool.ts:81](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/mcp-tool.ts#L81)
+
+## Methods
+
+### execute
+
+▸ **execute**(`params`): `Promise`\<`ToolResult`\<`TResult`\>\>
+
+Execute tool
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `params` | `TParams` | Tool parameters |
+
+#### Returns
+
+`Promise`\<`ToolResult`\<`TResult`\>\>
+
+Tool execution result
+
+#### Inherited from
+
+[BaseTool](BaseTool).[execute](BaseTool#execute)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:108](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L108)
+
+___
+
+### toFunctionDefinition
+
+▸ **toFunctionDefinition**(): [`FunctionDefinition`](../interfaces/FunctionDefinition)
+
+Convert to function definition
+
+#### Returns
+
+[`FunctionDefinition`](../interfaces/FunctionDefinition)
+
+Function definition
+
+#### Inherited from
+
+[BaseTool](BaseTool).[toFunctionDefinition](BaseTool#tofunctiondefinition)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:158](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L158)
+
+___
+
+### toFunctionSchema
+
+▸ **toFunctionSchema**(): [`FunctionSchema`](../interfaces/FunctionSchema)
+
+Convert to function schema
+
+#### Returns
+
+[`FunctionSchema`](../interfaces/FunctionSchema)
+
+Function schema
+
+#### Inherited from
+
+[BaseTool](BaseTool).[toFunctionSchema](BaseTool#tofunctionschema)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:145](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L145)
+
+___
+
+### toString
+
+▸ **toString**(): `string`
+
+Generate string representation
+
+#### Returns
+
+`string`
+
+String representation of the tool
+
+#### Inherited from
+
+[BaseTool](BaseTool).[toString](BaseTool#tostring)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:171](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L171)
+
+___
+
+### create
+
+▸ **create**\<`TParams`, `TResult`\>(`options`): [`McpTool`](McpTool)\<`TParams`, `TResult`\>
+
+MCP tool creation helper method
+
+#### Type parameters
+
+| Name | Type |
+| :------ | :------ |
+| `TParams` | `any` |
+| `TResult` | `any` |
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `options` | [`McpToolOptions`](../interfaces/McpToolOptions)\<`TParams`, `TResult`\> | MCP tool options |
+
+#### Returns
+
+[`McpTool`](McpTool)\<`TParams`, `TResult`\>
+
+McpTool instance
+
+#### Defined in
+
+[packages/tools/src/tool/mcp-tool.ts:145](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/mcp-tool.ts#L145)

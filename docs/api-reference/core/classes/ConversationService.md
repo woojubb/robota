@@ -1,0 +1,119 @@
+[Core API](../../) / [Exports](../modules) / ConversationService
+
+# Class: ConversationService
+
+Conversation service class
+Handles conversation processing with AI.
+
+## Table of contents
+
+### Constructors
+
+- [constructor](ConversationService#constructor)
+
+### Methods
+
+- [generateResponse](ConversationService#generateresponse)
+- [generateStream](ConversationService#generatestream)
+- [prepareContext](ConversationService#preparecontext)
+
+## Constructors
+
+### constructor
+
+• **new ConversationService**(`temperature?`, `maxTokens?`, `logger?`, `debug?`): [`ConversationService`](ConversationService)
+
+#### Parameters
+
+| Name | Type | Default value |
+| :------ | :------ | :------ |
+| `temperature?` | `number` | `undefined` |
+| `maxTokens?` | `number` | `undefined` |
+| `logger` | [`Logger`](../interfaces/Logger) | `console` |
+| `debug` | `boolean` | `false` |
+
+#### Returns
+
+[`ConversationService`](ConversationService)
+
+#### Defined in
+
+[core/src/services/conversation-service.ts:19](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/services/conversation-service.ts#L19)
+
+## Methods
+
+### generateResponse
+
+▸ **generateResponse**(`aiProvider`, `model`, `context`, `options?`, `availableTools?`, `onToolCall?`): `Promise`\<[`ModelResponse`](../interfaces/ModelResponse)\>
+
+Generate response
+
+#### Parameters
+
+| Name | Type | Default value | Description |
+| :------ | :------ | :------ | :------ |
+| `aiProvider` | [`AIProvider`](../interfaces/AIProvider) | `undefined` | AI provider |
+| `model` | `string` | `undefined` | Model name |
+| `context` | [`Context`](../interfaces/Context) | `undefined` | Conversation context |
+| `options` | [`RunOptions`](../interfaces/RunOptions) | `{}` | Run options |
+| `availableTools` | `any`[] | `[]` | Available tools |
+| `onToolCall?` | (`toolName`: `string`, `params`: `any`) => `Promise`\<`any`\> | `undefined` | Tool call function |
+
+#### Returns
+
+`Promise`\<[`ModelResponse`](../interfaces/ModelResponse)\>
+
+#### Defined in
+
+[core/src/services/conversation-service.ts:75](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/services/conversation-service.ts#L75)
+
+___
+
+### generateStream
+
+▸ **generateStream**(`aiProvider`, `model`, `context`, `options?`, `availableTools?`): `Promise`\<`AsyncIterable`\<[`StreamingResponseChunk`](../interfaces/StreamingResponseChunk), `any`, `any`\>\>
+
+Generate streaming response
+
+#### Parameters
+
+| Name | Type | Default value |
+| :------ | :------ | :------ |
+| `aiProvider` | [`AIProvider`](../interfaces/AIProvider) | `undefined` |
+| `model` | `string` | `undefined` |
+| `context` | [`Context`](../interfaces/Context) | `undefined` |
+| `options` | [`RunOptions`](../interfaces/RunOptions) | `{}` |
+| `availableTools` | `any`[] | `[]` |
+
+#### Returns
+
+`Promise`\<`AsyncIterable`\<[`StreamingResponseChunk`](../interfaces/StreamingResponseChunk), `any`, `any`\>\>
+
+#### Defined in
+
+[core/src/services/conversation-service.ts:226](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/services/conversation-service.ts#L226)
+
+___
+
+### prepareContext
+
+▸ **prepareContext**(`conversationHistory`, `systemPrompt?`, `systemMessages?`, `options?`): [`Context`](../interfaces/Context)
+
+Prepare context
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `conversationHistory` | [`ConversationHistory`](../interfaces/ConversationHistory) | ConversationHistory instance |
+| `systemPrompt?` | `string` | Optional system prompt |
+| `systemMessages?` | [`Message`](../interfaces/Message)[] | System messages |
+| `options` | [`RunOptions`](../interfaces/RunOptions) | Run options |
+
+#### Returns
+
+[`Context`](../interfaces/Context)
+
+#### Defined in
+
+[core/src/services/conversation-service.ts:39](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/services/conversation-service.ts#L39)

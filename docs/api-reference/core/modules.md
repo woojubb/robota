@@ -7,11 +7,14 @@
 ### Classes
 
 - [AIProviderManager](classes/AIProviderManager)
+- [AnalyticsManager](classes/AnalyticsManager)
 - [ConversationService](classes/ConversationService)
 - [FunctionCallManager](classes/FunctionCallManager)
-- [PersistentSystemMemory](classes/PersistentSystemMemory)
+- [FunctionRegistry](classes/FunctionRegistry)
+- [OpenAIProvider](classes/OpenAIProvider)
+- [PersistentSystemConversationHistory](classes/PersistentSystemConversationHistory)
 - [Robota](classes/Robota)
-- [SimpleMemory](classes/SimpleMemory)
+- [SimpleConversationHistory](classes/SimpleConversationHistory)
 - [SystemMessageManager](classes/SystemMessageManager)
 - [ToolProviderManager](classes/ToolProviderManager)
 
@@ -19,20 +22,31 @@
 
 - [AIProvider](interfaces/AIProvider)
 - [Context](interfaces/Context)
+- [ConversationHistory](interfaces/ConversationHistory)
+- [FunctionCall](interfaces/FunctionCall)
 - [FunctionCallConfig](interfaces/FunctionCallConfig)
+- [FunctionCallResult](interfaces/FunctionCallResult)
+- [FunctionDefinition](interfaces/FunctionDefinition)
+- [FunctionOptions](interfaces/FunctionOptions)
+- [FunctionSchema](interfaces/FunctionSchema)
 - [Logger](interfaces/Logger)
-- [Memory](interfaces/Memory)
 - [Message](interfaces/Message)
+- [MessageAdapter](interfaces/MessageAdapter)
 - [ModelResponse](interfaces/ModelResponse)
 - [ProviderOptions](interfaces/ProviderOptions)
 - [RobotaOptions](interfaces/RobotaOptions)
 - [RunOptions](interfaces/RunOptions)
 - [StreamingResponseChunk](interfaces/StreamingResponseChunk)
+- [ToolProvider](interfaces/ToolProvider)
+- [UniversalMessage](interfaces/UniversalMessage)
 
 ### Type Aliases
 
 - [FunctionCallMode](modules#functioncallmode)
+- [FunctionHandler](modules#functionhandler)
+- [FunctionResult](modules#functionresult)
 - [MessageRole](modules#messagerole)
+- [UniversalMessageRole](modules#universalmessagerole)
 
 ### Variables
 
@@ -40,31 +54,12 @@
 
 ### Functions
 
-- [delay](modules#delay)
-- [estimateTokenCount](modules#estimatetokencount)
-- [extractJSONObjects](modules#extractjsonobjects)
-- [isJSON](modules#isjson)
-- [removeUndefined](modules#removeundefined)
-- [splitTextIntoChunks](modules#splittextintochunks)
-
-### Re-exported from @robota-sdk/tools
-
-The following items are re-exported from `@robota-sdk/tools` for backward compatibility:
-
-#### Types
-- [FunctionCall](modules#functioncall)
-- [FunctionCallResult](modules#functioncallresult)
-- [FunctionDefinition](modules#functiondefinition)
-- [FunctionSchema](modules#functionschema)
-- [ToolProvider](modules#toolprovider)
-
-#### Classes
-- [FunctionRegistry](modules#functionregistry)
-
-#### Functions
+- [convertUniversalToBaseMessage](modules#convertuniversaltobasemessage)
+- [convertUniversalToBaseMessages](modules#convertuniversaltobasemessages)
 - [createFunction](modules#createfunction)
 - [createFunctionSchema](modules#createfunctionschema)
 - [functionFromCallback](modules#functionfromcallback)
+- [removeUndefined](modules#removeundefined)
 
 ## Type Aliases
 
@@ -72,11 +67,62 @@ The following items are re-exported from `@robota-sdk/tools` for backward compat
 
 Ƭ **FunctionCallMode**: ``"auto"`` \| ``"force"`` \| ``"disabled"``
 
-함수 호출 모드
+Function call mode
 
 #### Defined in
 
-[packages/core/src/types.ts:107](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L107)
+[core/src/managers/function-call-manager.ts:4](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/function-call-manager.ts#L4)
+
+___
+
+### FunctionHandler
+
+Ƭ **FunctionHandler**: (`args`: `Record`\<`string`, `any`\>, `context?`: `any`) => `Promise`\<`any`\>
+
+Function call handler type
+
+#### Type declaration
+
+▸ (`args`, `context?`): `Promise`\<`any`\>
+
+##### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `args` | `Record`\<`string`, `any`\> |
+| `context?` | `any` |
+
+##### Returns
+
+`Promise`\<`any`\>
+
+#### Defined in
+
+tools/dist/index.d.ts:158
+
+___
+
+### FunctionResult
+
+Ƭ **FunctionResult**\<`TResult`\>: `Object`
+
+Function result type
+
+#### Type parameters
+
+| Name | Type |
+| :------ | :------ |
+| `TResult` | `unknown` |
+
+#### Type declaration
+
+| Name | Type |
+| :------ | :------ |
+| `result` | `TResult` |
+
+#### Defined in
+
+tools/dist/index.d.ts:65
 
 ___
 
@@ -84,11 +130,23 @@ ___
 
 Ƭ **MessageRole**: ``"user"`` \| ``"assistant"`` \| ``"system"`` \| ``"function"``
 
-메시지 역할 타입
+Message role type
 
 #### Defined in
 
-[packages/core/src/types.ts:4](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L4)
+[core/src/interfaces/ai-provider.ts:7](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/interfaces/ai-provider.ts#L7)
+
+___
+
+### UniversalMessageRole
+
+Ƭ **UniversalMessageRole**: ``"user"`` \| ``"assistant"`` \| ``"system"`` \| ``"tool"``
+
+Universal message role type - Provider-independent neutral role
+
+#### Defined in
+
+[core/src/conversation-history.ts:6](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/conversation-history.ts#L6)
 
 ## Variables
 
@@ -96,120 +154,192 @@ ___
 
 • `Const` **logger**: `Object`
 
-logger 유틸리티 (console.log 대체)
+Logger utility (console.log replacement)
 
 #### Type declaration
 
 | Name | Type |
 | :------ | :------ |
-| `error` | (...`args`: `any`[]) => `void` |
-| `info` | (...`args`: `any`[]) => `void` |
-| `warn` | (...`args`: `any`[]) => `void` |
+| `error` | (...`args`: `unknown`[]) => `void` |
+| `info` | (...`args`: `unknown`[]) => `void` |
+| `warn` | (...`args`: `unknown`[]) => `void` |
 
 #### Defined in
 
-[packages/core/src/utils.ts:128](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/utils.ts#L128)
+[core/src/utils.ts:131](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/utils.ts#L131)
 
 ## Functions
 
-### delay
+### convertUniversalToBaseMessage
 
-▸ **delay**(`ms`): `Promise`\<`void`\>
+▸ **convertUniversalToBaseMessage**(`universalMessage`): [`Message`](interfaces/Message)
 
-지연 함수
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `ms` | `number` | 지연 시간(밀리초) |
-
-#### Returns
-
-`Promise`\<`void`\>
-
-Promise
-
-#### Defined in
-
-[packages/core/src/utils.ts:63](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/utils.ts#L63)
-
-___
-
-### estimateTokenCount
-
-▸ **estimateTokenCount**(`text`): `number`
-
-토큰 수 대략적 추정 함수
+Helper function to convert UniversalMessage to basic Message format
+Can be used in AI Provider adapters.
 
 #### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `text` | `string` | 측정할 텍스트 |
-
-#### Returns
-
-`number`
-
-대략적인 토큰 수
-
-#### Defined in
-
-[packages/core/src/utils.ts:73](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/utils.ts#L73)
-
-___
-
-### extractJSONObjects
-
-▸ **extractJSONObjects**(`text`): `Object`
-
-문자열 스트림에서 완성된 JSON 객체를 추출하는 함수
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `text` | `string` | JSON 문자열 조각 |
-
-#### Returns
-
-`Object`
-
-완성된 JSON 객체와 남은 문자열
 
 | Name | Type |
 | :------ | :------ |
-| `objects` | `any`[] |
-| `remaining` | `string` |
+| `universalMessage` | [`UniversalMessage`](interfaces/UniversalMessage) |
+
+#### Returns
+
+[`Message`](interfaces/Message)
 
 #### Defined in
 
-[packages/core/src/utils.ts:96](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/utils.ts#L96)
+[core/src/utils.ts:153](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/utils.ts#L153)
 
 ___
 
-### isJSON
+### convertUniversalToBaseMessages
 
-▸ **isJSON**(`str`): `boolean`
+▸ **convertUniversalToBaseMessages**(`universalMessages`): [`Message`](interfaces/Message)[]
 
-문자열이 JSON인지 확인하는 함수
+Helper function to convert UniversalMessage array to basic Message array
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `universalMessages` | [`UniversalMessage`](interfaces/UniversalMessage)[] |
+
+#### Returns
+
+[`Message`](interfaces/Message)[]
+
+#### Defined in
+
+[core/src/utils.ts:177](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/utils.ts#L177)
+
+___
+
+### createFunction
+
+▸ **createFunction**\<`TParams`, `TResult`\>(`options`): `ToolFunction`\<`TParams`, `TResult`\>
+
+Create a function
+
+#### Type parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `TParams` | `unknown` | function parameter type |
+| `TResult` | `unknown` | function return result type |
 
 #### Parameters
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `str` | `string` | 확인할 문자열 |
+| `options` | [`FunctionOptions`](interfaces/FunctionOptions)\<`TParams`, `TResult`\> | Function options |
 
 #### Returns
 
-`boolean`
+`ToolFunction`\<`TParams`, `TResult`\>
 
-JSON 여부
+Created function object
+
+**`Function`**
+
+createFunction
+
+**`Description`**
+
+Creates a function that AI can invoke.
+You can define function name, description, parameter schema, and execution logic.
+
+**`Example`**
+
+```typescript
+import { z } from 'zod';
+import { createFunction } from '@robota-sdk/core';
+
+const getWeather = createFunction({
+  name: 'getWeather',
+  description: 'Get weather information for a specific location.',
+  parameters: z.object({
+    location: z.string().describe('Location to check weather (city name)'),
+    unit: z.enum(['celsius', 'fahrenheit']).optional().describe('Temperature unit')
+  }),
+  execute: async (params) => {
+    // Weather API call logic
+    return { temperature: 25, condition: 'sunny' };
+  }
+});
+```
 
 #### Defined in
 
-[packages/core/src/utils.ts:48](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/utils.ts#L48)
+tools/dist/index.d.ts:122
+
+___
+
+### createFunctionSchema
+
+▸ **createFunctionSchema**(`definition`): `z.ZodObject`\<`Record`\<`string`, `z.ZodTypeAny`\>, ``"strip"``, `z.ZodTypeAny`, \{ `[x: string]`: `any`;  }, \{ `[x: string]`: `any`;  }\>
+
+Utility function to convert function schema to Zod schema
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `definition` | [`FunctionDefinition`](interfaces/FunctionDefinition) |
+
+#### Returns
+
+`z.ZodObject`\<`Record`\<`string`, `z.ZodTypeAny`\>, ``"strip"``, `z.ZodTypeAny`, \{ `[x: string]`: `any`;  }, \{ `[x: string]`: `any`;  }\>
+
+#### Defined in
+
+tools/dist/index.d.ts:150
+
+___
+
+### functionFromCallback
+
+▸ **functionFromCallback**(`name`, `fn`, `description?`): `ToolFunction`\<`Record`\<`string`, `any`\>, `any`\>
+
+Convert callback function to Function object
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `name` | `string` | Function name |
+| `fn` | (...`args`: `any`[]) => `any` | Callback function to convert |
+| `description?` | `string` | Function description |
+
+#### Returns
+
+`ToolFunction`\<`Record`\<`string`, `any`\>, `any`\>
+
+Created function object
+
+**`Function`**
+
+functionFromCallback
+
+**`Description`**
+
+Converts a regular JavaScript function to a Function object that AI can invoke.
+
+**`Example`**
+
+```typescript
+import { functionFromCallback } from '@robota-sdk/core';
+
+const calculateSum = functionFromCallback(
+  'calculateSum',
+  (a: number, b: number) => a + b,
+  'Calculate the sum of two numbers.'
+);
+```
+
+#### Defined in
+
+tools/dist/index.d.ts:146
 
 ___
 
@@ -217,10 +347,26 @@ ___
 
 ▸ **removeUndefined**\<`T`\>(`obj`): `T`
 
-객체에서 undefined 값을 제거하는 함수
+Function to remove undefined values from object
 
 #### Type parameters
 
 | Name | Type |
 | :------ | :------ |
-| `T` | extends `Record`\<`string`, `
+| `T` | extends `Record`\<`string`, `unknown`\> |
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `obj` | `T` | Object to clean |
+
+#### Returns
+
+`T`
+
+Object with undefined values removed
+
+#### Defined in
+
+[core/src/utils.ts:31](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/utils.ts#L31)

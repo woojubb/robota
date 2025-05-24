@@ -2,7 +2,7 @@
 
 # Interface: ModelResponse
 
-모델 응답 인터페이스
+Model response interface
 
 ## Table of contents
 
@@ -21,7 +21,7 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:74](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L74)
+[core/src/interfaces/ai-provider.ts:27](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/interfaces/ai-provider.ts#L27)
 
 ___
 
@@ -31,7 +31,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:75](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L75)
+[core/src/interfaces/ai-provider.ts:28](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/interfaces/ai-provider.ts#L28)
 
 ___
 
@@ -41,7 +41,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:81](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L81)
+[core/src/interfaces/ai-provider.ts:34](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/interfaces/ai-provider.ts#L34)
 
 ___
 
@@ -59,4 +59,4 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:76](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L76)
+[core/src/interfaces/ai-provider.ts:29](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/interfaces/ai-provider.ts#L29)

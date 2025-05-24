@@ -1,5 +1,16 @@
 # robota-docs
 
+## 1.0.6
+
+### Patch Changes
+
+- Add Google provider documentation and improve docs build process
+
+  - Add comprehensive documentation for @robota-sdk/google package
+  - Update sidebar and navigation to include Google provider
+  - Integrate Google provider into automated API docs generation
+  - Improve build scripts to auto-generate docs during build/publish
+
 ## 1.0.5
 
 ### Patch Changes

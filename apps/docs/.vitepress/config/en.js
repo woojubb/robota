@@ -37,7 +37,20 @@ export const enConfig = {
                         { text: 'Core', link: '/api-reference/core/' },
                         { text: 'Tools', link: '/api-reference/tools/' },
                         { text: 'OpenAI', link: '/api-reference/openai/' },
-                        { text: 'Anthropic', link: '/api-reference/anthropic/' }
+                        { text: 'Anthropic', link: '/api-reference/anthropic/' },
+                        { text: 'Google', link: '/api-reference/google/' }
+                    ]
+                }
+            ],
+            '/providers/': [
+                {
+                    text: 'AI Providers',
+                    items: [
+                        { text: 'Overview', link: '/providers' },
+                        { text: 'OpenAI', link: '/providers/openai' },
+                        { text: 'Anthropic', link: '/providers/anthropic' },
+                        { text: 'Google', link: '/providers/google' },
+                        { text: 'Custom Providers', link: '/providers/custom' }
                     ]
                 }
             ],

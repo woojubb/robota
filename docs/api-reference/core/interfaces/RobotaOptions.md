@@ -2,33 +2,87 @@
 
 # Interface: RobotaOptions
 
-Robota 설정 인터페이스
+Robota configuration interface
 
 ## Table of contents
 
 ### Properties
 
-- [aiClient](RobotaOptions#aiclient)
+- [aiProviders](RobotaOptions#aiproviders)
+- [conversationHistory](RobotaOptions#conversationhistory)
+- [currentModel](RobotaOptions#currentmodel)
+- [currentProvider](RobotaOptions#currentprovider)
+- [debug](RobotaOptions#debug)
 - [functionCallConfig](RobotaOptions#functioncallconfig)
-- [mcpClient](RobotaOptions#mcpclient)
-- [memory](RobotaOptions#memory)
-- [model](RobotaOptions#model)
-- [onFunctionCall](RobotaOptions#onfunctioncall)
+- [logger](RobotaOptions#logger)
+- [maxRequestLimit](RobotaOptions#maxrequestlimit)
+- [maxTokenLimit](RobotaOptions#maxtokenlimit)
+- [maxTokens](RobotaOptions#maxtokens)
 - [onToolCall](RobotaOptions#ontoolcall)
-- [provider](RobotaOptions#provider)
 - [systemMessages](RobotaOptions#systemmessages)
 - [systemPrompt](RobotaOptions#systemprompt)
 - [temperature](RobotaOptions#temperature)
+- [toolProviders](RobotaOptions#toolproviders)
 
 ## Properties
 
-### aiClient
+### aiProviders
 
-• `Optional` **aiClient**: [`AIClient`](AIClient)
+• `Optional` **aiProviders**: `Record`\<`string`, [`AIProvider`](AIProvider)\>
+
+AI providers - Register multiple AI providers
 
 #### Defined in
 
-[packages/core/src/types.ts:163](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L163)
+[core/src/robota.ts:32](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L32)
+
+___
+
+### conversationHistory
+
+• `Optional` **conversationHistory**: [`ConversationHistory`](ConversationHistory)
+
+Conversation history interface
+
+#### Defined in
+
+[core/src/robota.ts:57](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L57)
+
+___
+
+### currentModel
+
+• `Optional` **currentModel**: `string`
+
+Current model name to use
+
+#### Defined in
+
+[core/src/robota.ts:42](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L42)
+
+___
+
+### currentProvider
+
+• `Optional` **currentProvider**: `string`
+
+Current AI provider name to use
+
+#### Defined in
+
+[core/src/robota.ts:37](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L37)
+
+___
+
+### debug
+
+• `Optional` **debug**: `boolean`
+
+Debug mode (default: false)
+
+#### Defined in
+
+[core/src/robota.ts:69](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L69)
 
 ___
 
@@ -36,71 +90,67 @@ ___
 
 • `Optional` **functionCallConfig**: [`FunctionCallConfig`](FunctionCallConfig)
 
+Function call configuration
+
 #### Defined in
 
-[packages/core/src/types.ts:169](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L169)
+[core/src/robota.ts:60](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L60)
 
 ___
 
-### mcpClient
+### logger
 
-• `Optional` **mcpClient**: [`MCPClient`](MCPClient)
+• `Optional` **logger**: [`Logger`](Logger)
+
+Custom logger (default: console)
 
 #### Defined in
 
-[packages/core/src/types.ts:162](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L162)
+[core/src/robota.ts:66](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L66)
 
 ___
 
-### memory
+### maxRequestLimit
 
-• `Optional` **memory**: `any`
+• `Optional` **maxRequestLimit**: `number`
+
+Maximum request limit (default: 25, 0 = unlimited)
 
 #### Defined in
 
-[packages/core/src/types.ts:168](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L168)
+[core/src/robota.ts:75](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L75)
 
 ___
 
-### model
+### maxTokenLimit
 
-• `Optional` **model**: `string`
+• `Optional` **maxTokenLimit**: `number`
+
+Maximum token limit (default: 4096, 0 = unlimited)
 
 #### Defined in
 
-[packages/core/src/types.ts:164](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L164)
+[core/src/robota.ts:72](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L72)
 
 ___
 
-### onFunctionCall
+### maxTokens
 
-• `Optional` **onFunctionCall**: (`functionName`: `string`, `args`: `any`, `result`: `any`) => `void`
+• `Optional` **maxTokens**: `number`
 
-#### Type declaration
-
-▸ (`functionName`, `args`, `result`): `void`
-
-##### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `functionName` | `string` |
-| `args` | `any` |
-| `result` | `any` |
-
-##### Returns
-
-`void`
+Maximum number of tokens (optional)
 
 #### Defined in
 
-[packages/core/src/types.ts:170](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L170)
+[core/src/robota.ts:48](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L48)
 
 ___
 
 ### onToolCall
 
 • `Optional` **onToolCall**: (`toolName`: `string`, `params`: `any`, `result`: `any`) => `void`
+
+Tool call callback
 
 #### Type declaration
 
@@ -120,17 +170,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:171](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L171)
-
-___
-
-### provider
-
-• `Optional` **provider**: `any`
-
-#### Defined in
-
-[packages/core/src/types.ts:161](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L161)
+[core/src/robota.ts:63](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L63)
 
 ___
 
@@ -138,9 +178,11 @@ ___
 
 • `Optional` **systemMessages**: [`Message`](Message)[]
 
+Array of system messages
+
 #### Defined in
 
-[packages/core/src/types.ts:167](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L167)
+[core/src/robota.ts:54](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L54)
 
 ___
 
@@ -148,9 +190,11 @@ ___
 
 • `Optional` **systemPrompt**: `string`
 
+System prompt
+
 #### Defined in
 
-[packages/core/src/types.ts:166](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L166)
+[core/src/robota.ts:51](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L51)
 
 ___
 
@@ -158,6 +202,21 @@ ___
 
 • `Optional` **temperature**: `number`
 
+Model temperature (optional)
+
 #### Defined in
 
-[packages/core/src/types.ts:165](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L165)
+[core/src/robota.ts:45](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L45)
+
+___
+
+### toolProviders
+
+• `Optional` **toolProviders**: [`ToolProvider`](ToolProvider)[]
+
+Tool providers (toolProviders) - Providers that supply tools like MCP, OpenAPI, ZodFunction, etc.
+Created with functions like createMcpToolProvider, createOpenAPIToolProvider, createZodFunctionToolProvider, etc.
+
+#### Defined in
+
+[core/src/robota.ts:27](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L27)

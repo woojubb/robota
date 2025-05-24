@@ -1,0 +1,56 @@
+[Core API](../../) / [Exports](../modules) / ToolProvider
+
+# Interface: ToolProvider
+
+Tool Provider interface
+
+Unified interface for various tool providers (MCP, OpenAPI, ZodFunction, etc.)
+Tool providers enable AI models to call tools.
+
+## Table of contents
+
+### Properties
+
+- [functions](ToolProvider#functions)
+
+### Methods
+
+- [callTool](ToolProvider#calltool)
+
+## Properties
+
+### functions
+
+• `Optional` **functions**: [`FunctionSchema`](FunctionSchema)[]
+
+List of all function schemas provided by the tool provider
+Used when passing tool list to AI models.
+
+#### Defined in
+
+tools/dist/index.d.ts:271
+
+## Methods
+
+### callTool
+
+▸ **callTool**(`toolName`, `parameters`): `Promise`\<`any`\>
+
+Call a tool. All tool providers must implement this interface.
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `toolName` | `string` | Name of the tool to call |
+| `parameters` | `Record`\<`string`, `any`\> | Parameters to pass to the tool |
+
+#### Returns
+
+`Promise`\<`any`\>
+
+Tool call result
+
+#### Defined in
+
+tools/dist/index.d.ts:266

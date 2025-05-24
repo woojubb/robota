@@ -2,13 +2,12 @@
 
 # Interface: Context
 
-대화 컨텍스트 인터페이스
+Conversation context interface
 
 ## Table of contents
 
 ### Properties
 
-- [functions](Context#functions)
 - [messages](Context#messages)
 - [metadata](Context#metadata)
 - [systemMessages](Context#systemmessages)
@@ -16,23 +15,13 @@
 
 ## Properties
 
-### functions
-
-• `Optional` **functions**: [`FunctionSchema`](FunctionSchema)[]
-
-#### Defined in
-
-[packages/core/src/types.ts:179](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L179)
-
-___
-
 ### messages
 
-• **messages**: [`Message`](Message)[]
+• **messages**: [`UniversalMessage`](UniversalMessage)[]
 
 #### Defined in
 
-[packages/core/src/types.ts:178](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L178)
+[core/src/interfaces/ai-provider.ts:50](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/interfaces/ai-provider.ts#L50)
 
 ___
 
@@ -42,7 +31,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:182](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L182)
+[core/src/interfaces/ai-provider.ts:53](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/interfaces/ai-provider.ts#L53)
 
 ___
 
@@ -52,7 +41,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:181](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L181)
+[core/src/interfaces/ai-provider.ts:52](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/interfaces/ai-provider.ts#L52)
 
 ___
 
@@ -62,4 +51,4 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:180](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L180)
+[core/src/interfaces/ai-provider.ts:51](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/interfaces/ai-provider.ts#L51)

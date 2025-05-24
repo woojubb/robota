@@ -6,6 +6,7 @@
 
 ### Classes
 
+- [OpenAIConversationAdapter](classes/OpenAIConversationAdapter)
 - [OpenAIProvider](classes/OpenAIProvider)
 
 ### Interfaces

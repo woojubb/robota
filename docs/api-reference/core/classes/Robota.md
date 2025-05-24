@@ -2,21 +2,20 @@
 
 # Class: Robota
 
-Robota의 메인 클래스
-에이전트를 초기화하고 실행하는 인터페이스 제공
+Main class for Robota (refactored version)
+Provides an interface for initializing and running agents
 
 **`Example`**
 
 ```ts
 const robota = new Robota({
-  provider: new OpenAIProvider({
-    model: 'gpt-4',
-    client: openaiClient
-  }),
-  systemPrompt: '당신은 도움이 되는 AI 어시스턴트입니다.'
+  aiProviders: { openai: openaiProvider },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
+  systemPrompt: 'You are a helpful AI assistant.'
 });
 
-const response = await robota.run('안녕하세요!');
+const response = await robota.execute('Hello!');
 ```
 
 ## Table of contents
@@ -27,21 +26,32 @@ const response = await robota.run('안녕하세요!');
 
 ### Methods
 
-- [addResponseToMemory](Robota#addresponsetomemory)
+- [addAIProvider](Robota#addaiprovider)
+- [addResponseToConversationHistory](Robota#addresponsetoconversationhistory)
 - [addSystemMessage](Robota#addsystemmessage)
-- [callMcpTool](Robota#callmcptool)
+- [callTool](Robota#calltool)
 - [chat](Robota#chat)
-- [clearMemory](Robota#clearmemory)
-- [closeMcpClient](Robota#closemcpclient)
+- [clearConversationHistory](Robota#clearconversationhistory)
+- [close](Robota#close)
 - [configureFunctionCall](Robota#configurefunctioncall)
-- [getMcpResource](Robota#getmcpresource)
-- [listMcpTools](Robota#listmcptools)
-- [registerFunction](Robota#registerfunction)
-- [registerFunctions](Robota#registerfunctions)
+- [execute](Robota#execute)
+- [executeStream](Robota#executestream)
+- [getAnalytics](Robota#getanalytics)
+- [getAvailableTools](Robota#getavailabletools)
+- [getCurrentAI](Robota#getcurrentai)
+- [getLimitInfo](Robota#getlimitinfo)
+- [getMaxRequestLimit](Robota#getmaxrequestlimit)
+- [getMaxTokenLimit](Robota#getmaxtokenlimit)
+- [getRequestCount](Robota#getrequestcount)
+- [getTokenUsageByPeriod](Robota#gettokenusagebyperiod)
+- [getTotalTokensUsed](Robota#gettotaltokensused)
+- [resetAnalytics](Robota#resetanalytics)
 - [run](Robota#run)
 - [runStream](Robota#runstream)
-- [runWithMcpTool](Robota#runwithmcptool)
+- [setCurrentAI](Robota#setcurrentai)
 - [setFunctionCallMode](Robota#setfunctioncallmode)
+- [setMaxRequestLimit](Robota#setmaxrequestlimit)
+- [setMaxTokenLimit](Robota#setmaxtokenlimit)
 - [setSystemMessages](Robota#setsystemmessages)
 - [setSystemPrompt](Robota#setsystemprompt)
 
@@ -51,13 +61,13 @@ const response = await robota.run('안녕하세요!');
 
 • **new Robota**(`options`): [`Robota`](Robota)
 
-Robota 인스턴스 생성
+Create a Robota instance
 
 #### Parameters
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `options` | [`RobotaOptions`](../interfaces/RobotaOptions) | Robota 초기화 옵션 |
+| `options` | [`RobotaOptions`](../interfaces/RobotaOptions) | Robota initialization options |
 
 #### Returns
 
@@ -65,21 +75,22 @@ Robota 인스턴스 생성
 
 #### Defined in
 
-[packages/core/src/robota.ts:61](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L61)
+[core/src/robota.ts:116](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L116)
 
 ## Methods
 
-### addResponseToMemory
+### addAIProvider
 
-▸ **addResponseToMemory**(`response`): `void`
+▸ **addAIProvider**(`name`, `aiProvider`): `void`
 
-응답 메시지 추가
+Add an AI provider
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `response` | [`ModelResponse`](../interfaces/ModelResponse) | 모델 응답 |
+| Name | Type |
+| :------ | :------ |
+| `name` | `string` |
+| `aiProvider` | [`AIProvider`](../interfaces/AIProvider) |
 
 #### Returns
 
@@ -87,7 +98,29 @@ Robota 인스턴스 생성
 
 #### Defined in
 
-[packages/core/src/robota.ts:434](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L434)
+[core/src/robota.ts:176](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L176)
+
+___
+
+### addResponseToConversationHistory
+
+▸ **addResponseToConversationHistory**(`response`): `void`
+
+Add response message to conversation history
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `response` | [`ModelResponse`](../interfaces/ModelResponse) |
+
+#### Returns
+
+`void`
+
+#### Defined in
+
+[core/src/robota.ts:494](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L494)
 
 ___
 
@@ -95,13 +128,13 @@ ___
 
 ▸ **addSystemMessage**(`content`): `void`
 
-기존 시스템 메시지에 새 시스템 메시지 추가
+Add a system message
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `content` | `string` | 추가할 시스템 메시지 내용 |
+| Name | Type |
+| :------ | :------ |
+| `content` | `string` |
 
 #### Returns
 
@@ -109,32 +142,30 @@ ___
 
 #### Defined in
 
-[packages/core/src/robota.ts:258](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L258)
+[core/src/robota.ts:215](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L215)
 
 ___
 
-### callMcpTool
+### callTool
 
-▸ **callMcpTool**(`toolName`, `params`): `Promise`\<`any`\>
+▸ **callTool**(`toolName`, `parameters`): `Promise`\<`any`\>
 
-MCP 도구 호출
+Call a tool (public API)
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `toolName` | `string` | 도구 이름 |
-| `params` | `any` | 도구 매개변수 |
+| Name | Type |
+| :------ | :------ |
+| `toolName` | `string` |
+| `parameters` | `Record`\<`string`, `any`\> |
 
 #### Returns
 
 `Promise`\<`any`\>
 
-도구 호출 결과
-
 #### Defined in
 
-[packages/core/src/robota.ts:156](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L156)
+[core/src/robota.ts:568](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L568)
 
 ___
 
@@ -142,32 +173,30 @@ ___
 
 ▸ **chat**(`message`, `options?`): `Promise`\<`string`\>
 
-채팅 메시지 처리 및 응답 생성
+Process chat message and generate response
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `message` | `string` | 사용자 메시지 |
-| `options` | [`RunOptions`](../interfaces/RunOptions) | 실행 옵션 |
+| Name | Type |
+| :------ | :------ |
+| `message` | `string` |
+| `options` | [`RunOptions`](../interfaces/RunOptions) |
 
 #### Returns
 
 `Promise`\<`string`\>
 
-모델 응답 내용
-
 #### Defined in
 
-[packages/core/src/robota.ts:393](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L393)
+[core/src/robota.ts:405](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L405)
 
 ___
 
-### clearMemory
+### clearConversationHistory
 
-▸ **clearMemory**(): `void`
+▸ **clearConversationHistory**(): `void`
 
-메모리 초기화
+Clear conversation history
 
 #### Returns
 
@@ -175,15 +204,15 @@ ___
 
 #### Defined in
 
-[packages/core/src/robota.ts:445](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L445)
+[core/src/robota.ts:501](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L501)
 
 ___
 
-### closeMcpClient
+### close
 
-▸ **closeMcpClient**(): `Promise`\<`void`\>
+▸ **close**(): `Promise`\<`void`\>
 
-MCP 클라이언트 회기 종료
+Release resources
 
 #### Returns
 
@@ -191,7 +220,7 @@ MCP 클라이언트 회기 종료
 
 #### Defined in
 
-[packages/core/src/robota.ts:939](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L939)
+[core/src/robota.ts:582](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L582)
 
 ___
 
@@ -199,17 +228,17 @@ ___
 
 ▸ **configureFunctionCall**(`config`): `void`
 
-함수 호출 설정 구성
+Configure function call settings
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `config` | `Object` | 함수 호출 구성 옵션 |
-| `config.allowedFunctions?` | `string`[] | - |
-| `config.maxCalls?` | `number` | - |
-| `config.mode?` | [`FunctionCallMode`](../modules#functioncallmode) | - |
-| `config.timeout?` | `number` | - |
+| Name | Type |
+| :------ | :------ |
+| `config` | `Object` |
+| `config.allowedFunctions?` | `string`[] |
+| `config.maxCalls?` | `number` |
+| `config.mode?` | [`FunctionCallMode`](../modules#functioncallmode) |
+| `config.timeout?` | `number` |
 
 #### Returns
 
@@ -217,64 +246,241 @@ ___
 
 #### Defined in
 
-[packages/core/src/robota.ts:299](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L299)
+[core/src/robota.ts:233](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L233)
 
 ___
 
-### getMcpResource
+### execute
 
-▸ **getMcpResource**(`uri`): `Promise`\<`any`\>
+▸ **execute**(`prompt`, `options?`): `Promise`\<`string`\>
 
-MCP 리소스 가져오기
+Execute a text prompt
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `uri` | `string` | 리소스 URI |
+| Name | Type |
+| :------ | :------ |
+| `prompt` | `string` |
+| `options` | [`RunOptions`](../interfaces/RunOptions) |
 
 #### Returns
 
-`Promise`\<`any`\>
-
-리소스 내용
+`Promise`\<`string`\>
 
 #### Defined in
 
-[packages/core/src/robota.ts:186](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L186)
+[core/src/robota.ts:344](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L344)
 
 ___
 
-### listMcpTools
+### executeStream
 
-▸ **listMcpTools**(): `Promise`\<`any`[]\>
+▸ **executeStream**(`prompt`, `options?`): `Promise`\<`AsyncIterable`\<[`StreamingResponseChunk`](../interfaces/StreamingResponseChunk), `any`, `any`\>\>
 
-MCP 도구 목록 가져오기
-
-#### Returns
-
-`Promise`\<`any`[]\>
-
-MCP 도구 목록
-
-#### Defined in
-
-[packages/core/src/robota.ts:131](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L131)
-
-___
-
-### registerFunction
-
-▸ **registerFunction**(`schema`, `fn`): `void`
-
-단일 함수 등록
+Generate streaming response
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `schema` | [`FunctionSchema`](../interfaces/FunctionSchema) | 함수 스키마 |
-| `fn` | `Function` | 함수 구현 |
+| Name | Type |
+| :------ | :------ |
+| `prompt` | `string` |
+| `options` | [`RunOptions`](../interfaces/RunOptions) |
+
+#### Returns
+
+`Promise`\<`AsyncIterable`\<[`StreamingResponseChunk`](../interfaces/StreamingResponseChunk), `any`, `any`\>\>
+
+#### Defined in
+
+[core/src/robota.ts:476](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L476)
+
+___
+
+### getAnalytics
+
+▸ **getAnalytics**(): `Object`
+
+Get detailed analytics data
+
+#### Returns
+
+`Object`
+
+| Name | Type |
+| :------ | :------ |
+| `averageTokensPerRequest` | `number` |
+| `requestCount` | `number` |
+| `tokenUsageHistory` | \{ `model`: `string` ; `provider`: `string` ; `timestamp`: `Date` ; `tokens`: `number`  }[] |
+| `totalTokensUsed` | `number` |
+
+#### Defined in
+
+[core/src/robota.ts:307](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L307)
+
+___
+
+### getAvailableTools
+
+▸ **getAvailableTools**(): `any`[]
+
+Get list of available tools
+
+#### Returns
+
+`any`[]
+
+#### Defined in
+
+[core/src/robota.ts:575](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L575)
+
+___
+
+### getCurrentAI
+
+▸ **getCurrentAI**(): `Object`
+
+Get the currently configured AI provider and model
+
+#### Returns
+
+`Object`
+
+| Name | Type |
+| :------ | :------ |
+| `model?` | `string` |
+| `provider?` | `string` |
+
+#### Defined in
+
+[core/src/robota.ts:190](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L190)
+
+___
+
+### getLimitInfo
+
+▸ **getLimitInfo**(): `Object`
+
+Get comprehensive limit information
+
+#### Returns
+
+`Object`
+
+| Name | Type |
+| :------ | :------ |
+| `currentRequestCount` | `number` |
+| `currentTokensUsed` | `number` |
+| `isRequestsUnlimited` | `boolean` |
+| `isTokensUnlimited` | `boolean` |
+| `maxRequests` | `number` |
+| `maxTokens` | `number` |
+| `remainingRequests?` | `number` |
+| `remainingTokens?` | `number` |
+
+#### Defined in
+
+[core/src/robota.ts:282](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L282)
+
+___
+
+### getMaxRequestLimit
+
+▸ **getMaxRequestLimit**(): `number`
+
+Get current maximum request limit
+
+#### Returns
+
+`number`
+
+#### Defined in
+
+[core/src/robota.ts:275](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L275)
+
+___
+
+### getMaxTokenLimit
+
+▸ **getMaxTokenLimit**(): `number`
+
+Get current maximum token limit
+
+#### Returns
+
+`number`
+
+#### Defined in
+
+[core/src/robota.ts:268](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L268)
+
+___
+
+### getRequestCount
+
+▸ **getRequestCount**(): `number`
+
+Get total number of requests made
+
+#### Returns
+
+`number`
+
+#### Defined in
+
+[core/src/robota.ts:293](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L293)
+
+___
+
+### getTokenUsageByPeriod
+
+▸ **getTokenUsageByPeriod**(`startDate`, `endDate?`): `Object`
+
+Get token usage for a specific time period
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `startDate` | `Date` |
+| `endDate?` | `Date` |
+
+#### Returns
+
+`Object`
+
+| Name | Type |
+| :------ | :------ |
+| `requestCount` | `number` |
+| `totalTokens` | `number` |
+| `usageHistory` | \{ `model`: `string` ; `provider`: `string` ; `timestamp`: `Date` ; `tokens`: `number`  }[] |
+
+#### Defined in
+
+[core/src/robota.ts:322](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L322)
+
+___
+
+### getTotalTokensUsed
+
+▸ **getTotalTokensUsed**(): `number`
+
+Get total number of tokens used
+
+#### Returns
+
+`number`
+
+#### Defined in
+
+[core/src/robota.ts:300](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L300)
+
+___
+
+### resetAnalytics
+
+▸ **resetAnalytics**(): `void`
+
+Reset all analytics data
 
 #### Returns
 
@@ -282,29 +488,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/robota.ts:352](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L352)
-
-___
-
-### registerFunctions
-
-▸ **registerFunctions**(`functions`): `void`
-
-여러 함수 등록
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `functions` | `Record`\<`string`, `Function`\> | 함수 이름과 구현을 담은 객체 |
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[packages/core/src/robota.ts:324](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L324)
+[core/src/robota.ts:314](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L314)
 
 ___
 
@@ -312,24 +496,26 @@ ___
 
 ▸ **run**(`prompt`, `options?`): `Promise`\<`string`\>
 
-텍스트 프롬프트 실행
+Execute a text prompt
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `prompt` | `string` | 사용자 프롬프트 |
-| `options` | [`RunOptions`](../interfaces/RunOptions) | 실행 옵션 |
+| Name | Type |
+| :------ | :------ |
+| `prompt` | `string` |
+| `options` | [`RunOptions`](../interfaces/RunOptions) |
 
 #### Returns
 
 `Promise`\<`string`\>
 
-모델 응답 내용
+**`Deprecated`**
+
+Use execute() instead. This method will be removed in a future version.
 
 #### Defined in
 
-[packages/core/src/robota.ts:375](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L375)
+[core/src/robota.ts:334](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L334)
 
 ___
 
@@ -337,50 +523,49 @@ ___
 
 ▸ **runStream**(`prompt`, `options?`): `Promise`\<`AsyncIterable`\<[`StreamingResponseChunk`](../interfaces/StreamingResponseChunk), `any`, `any`\>\>
 
-스트리밍 응답 생성
+Generate streaming response
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `prompt` | `string` | 사용자 프롬프트 |
-| `options` | [`RunOptions`](../interfaces/RunOptions) | 실행 옵션 |
+| Name | Type |
+| :------ | :------ |
+| `prompt` | `string` |
+| `options` | [`RunOptions`](../interfaces/RunOptions) |
 
 #### Returns
 
 `Promise`\<`AsyncIterable`\<[`StreamingResponseChunk`](../interfaces/StreamingResponseChunk), `any`, `any`\>\>
 
-스트리밍 응답 청크 이터레이터
+**`Deprecated`**
+
+Use executeStream() instead. This method will be removed in a future version.
 
 #### Defined in
 
-[packages/core/src/robota.ts:424](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L424)
+[core/src/robota.ts:466](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L466)
 
 ___
 
-### runWithMcpTool
+### setCurrentAI
 
-▸ **runWithMcpTool**(`toolName`, `params`, `followUp?`): `Promise`\<`string`\>
+▸ **setCurrentAI**(`providerName`, `model`): `void`
 
-MCP 도구를 사용하여 작업 실행
+Set the current AI provider and model
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `toolName` | `string` | 도구 이름 |
-| `params` | `any` | 도구 매개변수 |
-| `followUp?` | `string` | 도구 호출 후 후속 프롬프트 |
+| Name | Type |
+| :------ | :------ |
+| `providerName` | `string` |
+| `model` | `string` |
 
 #### Returns
 
-`Promise`\<`string`\>
-
-실행 결과
+`void`
 
 #### Defined in
 
-[packages/core/src/robota.ts:208](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L208)
+[core/src/robota.ts:183](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L183)
 
 ___
 
@@ -388,13 +573,13 @@ ___
 
 ▸ **setFunctionCallMode**(`mode`): `void`
 
-함수 호출 모드 설정
+Set function call mode
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `mode` | [`FunctionCallMode`](../modules#functioncallmode) | 함수 호출 모드 ('auto', 'force', 'disabled') |
+| Name | Type |
+| :------ | :------ |
+| `mode` | [`FunctionCallMode`](../modules#functioncallmode) |
 
 #### Returns
 
@@ -402,7 +587,51 @@ ___
 
 #### Defined in
 
-[packages/core/src/robota.ts:290](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L290)
+[core/src/robota.ts:226](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L226)
+
+___
+
+### setMaxRequestLimit
+
+▸ **setMaxRequestLimit**(`limit`): `void`
+
+Set maximum request limit (0 = unlimited)
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `limit` | `number` |
+
+#### Returns
+
+`void`
+
+#### Defined in
+
+[core/src/robota.ts:261](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L261)
+
+___
+
+### setMaxTokenLimit
+
+▸ **setMaxTokenLimit**(`limit`): `void`
+
+Set maximum token limit (0 = unlimited)
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `limit` | `number` |
+
+#### Returns
+
+`void`
+
+#### Defined in
+
+[core/src/robota.ts:254](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L254)
 
 ___
 
@@ -410,13 +639,13 @@ ___
 
 ▸ **setSystemMessages**(`messages`): `void`
 
-여러 시스템 메시지 설정
+Set multiple system messages
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `messages` | [`Message`](../interfaces/Message)[] | 시스템 메시지 배열 |
+| Name | Type |
+| :------ | :------ |
+| `messages` | [`Message`](../interfaces/Message)[] |
 
 #### Returns
 
@@ -424,7 +653,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/robota.ts:248](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L248)
+[core/src/robota.ts:208](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L208)
 
 ___
 
@@ -432,13 +661,13 @@ ___
 
 ▸ **setSystemPrompt**(`prompt`): `void`
 
-단일 시스템 프롬프트 설정
+Set a single system prompt
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `prompt` | `string` | 시스템 프롬프트 내용 |
+| Name | Type |
+| :------ | :------ |
+| `prompt` | `string` |
 
 #### Returns
 
@@ -446,4 +675,4 @@ ___
 
 #### Defined in
 
-[packages/core/src/robota.ts:238](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/robota.ts#L238)
+[core/src/robota.ts:201](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/robota.ts#L201)

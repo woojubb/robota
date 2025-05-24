@@ -2,7 +2,7 @@
 
 # Interface: OpenAIProviderOptions
 
-OpenAI 제공업체 옵션
+OpenAI provider options
 
 ## Hierarchy
 
@@ -32,11 +32,11 @@ OpenAI 제공업체 옵션
 
 • `Optional` **apiKey**: `string`
 
-OpenAI API 키 (옵션: client를 사용하는 경우 필요하지 않음)
+OpenAI API key (optional: not required when using client)
 
 #### Defined in
 
-[openai/src/types.ts:11](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/openai/src/types.ts#L11)
+[openai/src/types.ts:26](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/types.ts#L26)
 
 ___
 
@@ -44,11 +44,11 @@ ___
 
 • `Optional` **baseURL**: `string`
 
-API 기본 URL (기본값: 'https://api.openai.com/v1')
+API base URL (default: 'https://api.openai.com/v1')
 
 #### Defined in
 
-[openai/src/types.ts:26](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/openai/src/types.ts#L26)
+[openai/src/types.ts:41](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/types.ts#L41)
 
 ___
 
@@ -56,11 +56,11 @@ ___
 
 • **client**: `OpenAI`
 
-OpenAI 클라이언트 인스턴스 (필수)
+OpenAI client instance (required)
 
 #### Defined in
 
-[openai/src/types.ts:36](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/openai/src/types.ts#L36)
+[openai/src/types.ts:51](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/types.ts#L51)
 
 ___
 
@@ -68,13 +68,15 @@ ___
 
 • `Optional` **maxTokens**: `number`
 
-#### Inherited from
+Maximum number of tokens
+
+#### Overrides
 
 ProviderOptions.maxTokens
 
 #### Defined in
 
-core/dist/index.d.ts:93
+[openai/src/types.ts:21](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/types.ts#L21)
 
 ___
 
@@ -82,13 +84,15 @@ ___
 
 • **model**: `string`
 
-#### Inherited from
+Model name to use (default: gpt-3.5-turbo)
+
+#### Overrides
 
 ProviderOptions.model
 
 #### Defined in
 
-core/dist/index.d.ts:91
+[openai/src/types.ts:11](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/types.ts#L11)
 
 ___
 
@@ -96,11 +100,11 @@ ___
 
 • `Optional` **organization**: `string`
 
-OpenAI 조직 ID (선택사항)
+OpenAI organization ID (optional)
 
 #### Defined in
 
-[openai/src/types.ts:16](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/openai/src/types.ts#L16)
+[openai/src/types.ts:31](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/types.ts#L31)
 
 ___
 
@@ -108,11 +112,11 @@ ___
 
 • `Optional` **responseFormat**: ``"json"`` \| ``"text"``
 
-응답 형식 (기본값: 'json')
+Response format (default: 'json')
 
 #### Defined in
 
-[openai/src/types.ts:31](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/openai/src/types.ts#L31)
+[openai/src/types.ts:46](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/types.ts#L46)
 
 ___
 
@@ -126,7 +130,7 @@ ProviderOptions.stopSequences
 
 #### Defined in
 
-core/dist/index.d.ts:94
+core/dist/index.d.ts:11
 
 ___
 
@@ -140,7 +144,7 @@ ProviderOptions.streamMode
 
 #### Defined in
 
-core/dist/index.d.ts:95
+core/dist/index.d.ts:12
 
 ___
 
@@ -148,13 +152,15 @@ ___
 
 • `Optional` **temperature**: `number`
 
-#### Inherited from
+Temperature (0~1)
+
+#### Overrides
 
 ProviderOptions.temperature
 
 #### Defined in
 
-core/dist/index.d.ts:92
+[openai/src/types.ts:16](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/types.ts#L16)
 
 ___
 
@@ -162,8 +168,8 @@ ___
 
 • `Optional` **timeout**: `number`
 
-API 요청 타임아웃 (밀리초)
+API request timeout (milliseconds)
 
 #### Defined in
 
-[openai/src/types.ts:21](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/openai/src/types.ts#L21)
+[openai/src/types.ts:36](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/types.ts#L36)

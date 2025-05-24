@@ -1,0 +1,219 @@
+[Google API](../../) / [Exports](../modules) / GoogleProvider
+
+# Class: GoogleProvider
+
+Google AI provider implementation
+
+## Implements
+
+- `AIProvider`
+
+## Table of contents
+
+### Constructors
+
+- [constructor](GoogleProvider#constructor)
+
+### Properties
+
+- [name](GoogleProvider#name)
+- [options](GoogleProvider#options)
+
+### Methods
+
+- [chat](GoogleProvider#chat)
+- [chatStream](GoogleProvider#chatstream)
+- [close](GoogleProvider#close)
+- [formatFunctions](GoogleProvider#formatfunctions)
+- [parseResponse](GoogleProvider#parseresponse)
+- [parseStreamingChunk](GoogleProvider#parsestreamingchunk)
+
+## Constructors
+
+### constructor
+
+• **new GoogleProvider**(`options`): [`GoogleProvider`](GoogleProvider)
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `options` | [`GoogleProviderOptions`](../interfaces/GoogleProviderOptions) |
+
+#### Returns
+
+[`GoogleProvider`](GoogleProvider)
+
+#### Defined in
+
+[provider.ts:32](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/google/src/provider.ts#L32)
+
+## Properties
+
+### name
+
+• **name**: `string` = `'google'`
+
+Provider name
+
+#### Implementation of
+
+AIProvider.name
+
+#### Defined in
+
+[provider.ts:20](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/google/src/provider.ts#L20)
+
+___
+
+### options
+
+• **options**: [`GoogleProviderOptions`](../interfaces/GoogleProviderOptions)
+
+Provider options
+
+#### Defined in
+
+[provider.ts:30](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/google/src/provider.ts#L30)
+
+## Methods
+
+### chat
+
+▸ **chat**(`model`, `context`, `options?`): `Promise`\<`ModelResponse`\>
+
+Send request to model with given context and receive response.
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `model` | `string` |
+| `context` | `Context` |
+| `options?` | `any` |
+
+#### Returns
+
+`Promise`\<`ModelResponse`\>
+
+#### Implementation of
+
+AIProvider.chat
+
+#### Defined in
+
+[provider.ts:50](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/google/src/provider.ts#L50)
+
+___
+
+### chatStream
+
+▸ **chatStream**(`model`, `context`, `options?`): `AsyncGenerator`\<`StreamingResponseChunk`, `void`, `unknown`\>
+
+Send streaming request to model with given context and receive response chunks.
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `model` | `string` |
+| `context` | `Context` |
+| `options?` | `any` |
+
+#### Returns
+
+`AsyncGenerator`\<`StreamingResponseChunk`, `void`, `unknown`\>
+
+#### Implementation of
+
+AIProvider.chatStream
+
+#### Defined in
+
+[provider.ts:95](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/google/src/provider.ts#L95)
+
+___
+
+### close
+
+▸ **close**(): `Promise`\<`void`\>
+
+리소스 해제 (필요시)
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+AIProvider.close
+
+#### Defined in
+
+[provider.ts:184](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/google/src/provider.ts#L184)
+
+___
+
+### formatFunctions
+
+▸ **formatFunctions**(`_functions`): `unknown`
+
+Format function definitions into a format the model can understand.
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `_functions` | `FunctionDefinition`[] |
+
+#### Returns
+
+`unknown`
+
+#### Defined in
+
+[provider.ts:142](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/google/src/provider.ts#L142)
+
+___
+
+### parseResponse
+
+▸ **parseResponse**(`response`): `ModelResponse`
+
+Parse model response into standard format.
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `response` | `any` |
+
+#### Returns
+
+`ModelResponse`
+
+#### Defined in
+
+[provider.ts:150](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/google/src/provider.ts#L150)
+
+___
+
+### parseStreamingChunk
+
+▸ **parseStreamingChunk**(`chunk`): `StreamingResponseChunk`
+
+Parse streaming response chunk into standard format.
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `chunk` | `any` |
+
+#### Returns
+
+`StreamingResponseChunk`
+
+#### Defined in
+
+[provider.ts:171](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/google/src/provider.ts#L171)

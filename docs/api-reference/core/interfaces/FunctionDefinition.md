@@ -2,7 +2,7 @@
 
 # Interface: FunctionDefinition
 
-함수 정의 인터페이스
+Function definition interface
 
 ## Table of contents
 
@@ -20,7 +20,7 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:39](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L39)
+tools/dist/index.d.ts:25
 
 ___
 
@@ -30,7 +30,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:38](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L38)
+tools/dist/index.d.ts:24
 
 ___
 
@@ -48,4 +48,4 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:40](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L40)
+tools/dist/index.d.ts:26

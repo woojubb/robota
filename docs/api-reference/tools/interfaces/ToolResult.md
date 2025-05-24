@@ -2,7 +2,7 @@
 
 # Interface: ToolResult\<T\>
 
-도구 실행 결과 타입
+Tool execution result type
 
 ## Type parameters
 
@@ -25,11 +25,11 @@
 
 • `Optional` **data**: `T`
 
-도구 실행 결과 데이터
+Tool execution result data
 
 #### Defined in
 
-[index.ts:19](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L19)
+[packages/tools/src/index.ts:34](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L34)
 
 ___
 
@@ -37,11 +37,11 @@ ___
 
 • `Optional` **error**: `string`
 
-도구 실행 중 발생한 오류
+Error that occurred during tool execution
 
 #### Defined in
 
-[index.ts:24](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L24)
+[packages/tools/src/index.ts:39](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L39)
 
 ___
 
@@ -49,11 +49,11 @@ ___
 
 • `Optional` **metadata**: `Record`\<`string`, `any`\>
 
-추가 메타데이터
+Additional metadata
 
 #### Defined in
 
-[index.ts:29](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L29)
+[packages/tools/src/index.ts:44](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L44)
 
 ___
 
@@ -61,8 +61,8 @@ ___
 
 • **success**: `boolean`
 
-도구 실행 성공 여부
+Whether tool execution was successful
 
 #### Defined in
 
-[index.ts:14](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L14)
+[packages/tools/src/index.ts:29](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L29)

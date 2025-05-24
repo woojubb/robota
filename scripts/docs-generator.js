@@ -49,6 +49,7 @@ const API_CATEGORIES = [
     { name: 'Core', pattern: 'packages/core/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'core/src/index.ts') },
     { name: 'OpenAI', pattern: 'packages/openai/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'openai/src/index.ts') },
     { name: 'Anthropic', pattern: 'packages/anthropic/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'anthropic/src/index.ts') },
+    { name: 'Google', pattern: 'packages/google/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'google/src/index.ts') },
     { name: 'MCP', pattern: 'packages/mcp/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'mcp/src/index.ts') },
     { name: 'Tools', pattern: 'packages/tools/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'tools/src/index.ts') },
 ];

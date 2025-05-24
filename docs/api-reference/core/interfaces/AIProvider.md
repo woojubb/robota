@@ -1,0 +1,97 @@
+[Core API](../../) / [Exports](../modules) / AIProvider
+
+# Interface: AIProvider
+
+AI provider interface (unified wrapper)
+
+## Implemented by
+
+- [`OpenAIProvider`](../classes/OpenAIProvider)
+
+## Table of contents
+
+### Properties
+
+- [name](AIProvider#name)
+
+### Methods
+
+- [chat](AIProvider#chat)
+- [chatStream](AIProvider#chatstream)
+- [close](AIProvider#close)
+
+## Properties
+
+### name
+
+• **name**: `string`
+
+Provider name
+
+#### Defined in
+
+[core/src/interfaces/ai-provider.ts:61](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/interfaces/ai-provider.ts#L61)
+
+## Methods
+
+### chat
+
+▸ **chat**(`model`, `context`, `options?`): `Promise`\<[`ModelResponse`](ModelResponse)\>
+
+Chat request
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `model` | `string` |
+| `context` | [`Context`](Context) |
+| `options?` | `any` |
+
+#### Returns
+
+`Promise`\<[`ModelResponse`](ModelResponse)\>
+
+#### Defined in
+
+[core/src/interfaces/ai-provider.ts:64](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/interfaces/ai-provider.ts#L64)
+
+___
+
+### chatStream
+
+▸ **chatStream**(`model`, `context`, `options?`): `AsyncGenerator`\<[`StreamingResponseChunk`](StreamingResponseChunk), `void`, `unknown`\>
+
+Streaming chat request (optional)
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `model` | `string` |
+| `context` | [`Context`](Context) |
+| `options?` | `any` |
+
+#### Returns
+
+`AsyncGenerator`\<[`StreamingResponseChunk`](StreamingResponseChunk), `void`, `unknown`\>
+
+#### Defined in
+
+[core/src/interfaces/ai-provider.ts:67](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/interfaces/ai-provider.ts#L67)
+
+___
+
+### close
+
+▸ **close**(): `Promise`\<`void`\>
+
+Resource cleanup (optional)
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Defined in
+
+[core/src/interfaces/ai-provider.ts:70](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/interfaces/ai-provider.ts#L70)

@@ -1,0 +1,252 @@
+[Tools API](../../) / [Exports](../modules) / BaseTool
+
+# Class: BaseTool\<TParams, TResult\>
+
+Base tool abstract class
+
+**`Abstract`**
+
+BaseTool
+
+**`Implements`**
+
+**`Description`**
+
+Provides base implementation for all tools.
+Common functionality is implemented here, schema-related methods are implemented in subclasses.
+
+## Type parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `TParams` | `any` | Tool parameter type |
+| `TResult` | `any` | Tool result type |
+
+## Hierarchy
+
+- **`BaseTool`**
+
+  ↳ [`ZodTool`](ZodTool)
+
+  ↳ [`McpTool`](McpTool)
+
+  ↳ [`OpenApiTool`](OpenApiTool)
+
+## Implements
+
+- [`ToolInterface`](../interfaces/ToolInterface)
+
+## Table of contents
+
+### Constructors
+
+- [constructor](BaseTool#constructor)
+
+### Properties
+
+- [category](BaseTool#category)
+- [description](BaseTool#description)
+- [name](BaseTool#name)
+- [version](BaseTool#version)
+
+### Accessors
+
+- [schema](BaseTool#schema)
+
+### Methods
+
+- [execute](BaseTool#execute)
+- [toFunctionDefinition](BaseTool#tofunctiondefinition)
+- [toFunctionSchema](BaseTool#tofunctionschema)
+- [toString](BaseTool#tostring)
+
+## Constructors
+
+### constructor
+
+• **new BaseTool**\<`TParams`, `TResult`\>(`options`): [`BaseTool`](BaseTool)\<`TParams`, `TResult`\>
+
+Constructor
+
+#### Type parameters
+
+| Name | Type |
+| :------ | :------ |
+| `TParams` | `any` |
+| `TResult` | `any` |
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `options` | [`BaseToolOptions`](../interfaces/BaseToolOptions)\<`TParams`, `TResult`\> | Base tool options |
+
+#### Returns
+
+[`BaseTool`](BaseTool)\<`TParams`, `TResult`\>
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:71](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L71)
+
+## Properties
+
+### category
+
+• `Optional` `Readonly` **category**: `string`
+
+Tool category
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:39](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L39)
+
+___
+
+### description
+
+• `Readonly` **description**: `string`
+
+Tool description
+
+#### Implementation of
+
+[ToolInterface](../interfaces/ToolInterface).[description](../interfaces/ToolInterface#description)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:34](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L34)
+
+___
+
+### name
+
+• `Readonly` **name**: `string`
+
+Tool name
+
+#### Implementation of
+
+[ToolInterface](../interfaces/ToolInterface).[name](../interfaces/ToolInterface#name)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:29](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L29)
+
+___
+
+### version
+
+• `Optional` `Readonly` **version**: `string`
+
+Tool version
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:44](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L44)
+
+## Accessors
+
+### schema
+
+• `get` **schema**(): `any`
+
+Tool schema (implemented by subclasses)
+
+#### Returns
+
+`any`
+
+#### Implementation of
+
+[ToolInterface](../interfaces/ToolInterface).[schema](../interfaces/ToolInterface#schema)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:85](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L85)
+
+## Methods
+
+### execute
+
+▸ **execute**(`params`): `Promise`\<`ToolResult`\<`TResult`\>\>
+
+Execute tool
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `params` | `TParams` | Tool parameters |
+
+#### Returns
+
+`Promise`\<`ToolResult`\<`TResult`\>\>
+
+Tool execution result
+
+#### Implementation of
+
+[ToolInterface](../interfaces/ToolInterface).[execute](../interfaces/ToolInterface#execute)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:108](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L108)
+
+___
+
+### toFunctionDefinition
+
+▸ **toFunctionDefinition**(): [`FunctionDefinition`](../interfaces/FunctionDefinition)
+
+Convert to function definition
+
+#### Returns
+
+[`FunctionDefinition`](../interfaces/FunctionDefinition)
+
+Function definition
+
+#### Implementation of
+
+[ToolInterface](../interfaces/ToolInterface).[toFunctionDefinition](../interfaces/ToolInterface#tofunctiondefinition)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:158](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L158)
+
+___
+
+### toFunctionSchema
+
+▸ **toFunctionSchema**(): [`FunctionSchema`](../interfaces/FunctionSchema)
+
+Convert to function schema
+
+#### Returns
+
+[`FunctionSchema`](../interfaces/FunctionSchema)
+
+Function schema
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:145](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L145)
+
+___
+
+### toString
+
+▸ **toString**(): `string`
+
+Generate string representation
+
+#### Returns
+
+`string`
+
+String representation of the tool
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:171](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L171)

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/anthropic",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "description": "Robota's Anthropic integration package",
   "type": "module",
   "main": "dist/index.js",

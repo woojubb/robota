@@ -1,0 +1,334 @@
+[Tools API](../../) / [Exports](../modules) / OpenApiTool
+
+# Class: OpenApiTool\<TParams, TResult\>
+
+OpenAPI schema-based tool class
+
+ OpenApiTool
+
+**`Description`**
+
+Tool that uses OpenAPI specification schema format for parameter definition.
+
+**`Example`**
+
+```typescript
+import { OpenApiTool } from '@robota-sdk/core';
+
+const apiTool = new OpenApiTool({
+  name: 'userInfo',
+  description: 'Get user information by ID',
+  category: 'api',
+  parameters: {
+    type: 'object',
+    properties: {
+      userId: {
+        type: 'string',
+        description: 'Unique user identifier'
+      },
+      includeProfile: {
+        type: 'boolean',
+        description: 'Whether to include detailed profile information',
+        default: false
+      }
+    },
+    required: ['userId']
+  },
+  execute: async (params) => {
+    // API call logic
+    const userInfo = { id: params.userId, name: 'John Doe' };
+    return {
+      status: 'success',
+      data: userInfo
+    };
+  }
+});
+```
+
+## Type parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `TParams` | `any` | Tool parameter type |
+| `TResult` | `any` | Tool result type |
+
+## Hierarchy
+
+- [`BaseTool`](BaseTool)\<`TParams`, `TResult`\>
+
+  ↳ **`OpenApiTool`**
+
+## Table of contents
+
+### Constructors
+
+- [constructor](OpenApiTool#constructor)
+
+### Properties
+
+- [category](OpenApiTool#category)
+- [description](OpenApiTool#description)
+- [name](OpenApiTool#name)
+- [version](OpenApiTool#version)
+
+### Accessors
+
+- [schema](OpenApiTool#schema)
+
+### Methods
+
+- [execute](OpenApiTool#execute)
+- [toFunctionDefinition](OpenApiTool#tofunctiondefinition)
+- [toFunctionSchema](OpenApiTool#tofunctionschema)
+- [toString](OpenApiTool#tostring)
+- [create](OpenApiTool#create)
+
+## Constructors
+
+### constructor
+
+• **new OpenApiTool**\<`TParams`, `TResult`\>(`options`): [`OpenApiTool`](OpenApiTool)\<`TParams`, `TResult`\>
+
+Constructor
+
+#### Type parameters
+
+| Name | Type |
+| :------ | :------ |
+| `TParams` | `any` |
+| `TResult` | `any` |
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `options` | [`OpenApiToolOptions`](../interfaces/OpenApiToolOptions)\<`TParams`, `TResult`\> | OpenAPI tool options |
+
+#### Returns
+
+[`OpenApiTool`](OpenApiTool)\<`TParams`, `TResult`\>
+
+#### Overrides
+
+[BaseTool](BaseTool).[constructor](BaseTool#constructor)
+
+#### Defined in
+
+[packages/tools/src/tool/openapi-tool.ts:69](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/openapi-tool.ts#L69)
+
+## Properties
+
+### category
+
+• `Optional` `Readonly` **category**: `string`
+
+Tool category
+
+#### Inherited from
+
+[BaseTool](BaseTool).[category](BaseTool#category)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:39](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L39)
+
+___
+
+### description
+
+• `Readonly` **description**: `string`
+
+Tool description
+
+#### Inherited from
+
+[BaseTool](BaseTool).[description](BaseTool#description)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:34](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L34)
+
+___
+
+### name
+
+• `Readonly` **name**: `string`
+
+Tool name
+
+#### Inherited from
+
+[BaseTool](BaseTool).[name](BaseTool#name)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:29](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L29)
+
+___
+
+### version
+
+• `Optional` `Readonly` **version**: `string`
+
+Tool version
+
+#### Inherited from
+
+[BaseTool](BaseTool).[version](BaseTool#version)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:44](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L44)
+
+## Accessors
+
+### schema
+
+• `get` **schema**(): `Object`
+
+Tool schema (returns OpenAPI schema)
+
+#### Returns
+
+`Object`
+
+OpenAPI schema
+
+| Name | Type |
+| :------ | :------ |
+| `properties` | `Record`\<`string`, \{ `default?`: `any` ; `description?`: `string` ; `enum?`: `any`[] ; `type`: `string`  }\> |
+| `required?` | `string`[] |
+| `type` | ``"object"`` |
+
+#### Overrides
+
+BaseTool.schema
+
+#### Defined in
+
+[packages/tools/src/tool/openapi-tool.ts:79](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/openapi-tool.ts#L79)
+
+## Methods
+
+### execute
+
+▸ **execute**(`params`): `Promise`\<`ToolResult`\<`TResult`\>\>
+
+Execute tool
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `params` | `TParams` | Tool parameters |
+
+#### Returns
+
+`Promise`\<`ToolResult`\<`TResult`\>\>
+
+Tool execution result
+
+#### Inherited from
+
+[BaseTool](BaseTool).[execute](BaseTool#execute)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:108](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L108)
+
+___
+
+### toFunctionDefinition
+
+▸ **toFunctionDefinition**(): [`FunctionDefinition`](../interfaces/FunctionDefinition)
+
+Convert to function definition
+
+#### Returns
+
+[`FunctionDefinition`](../interfaces/FunctionDefinition)
+
+Function definition
+
+#### Inherited from
+
+[BaseTool](BaseTool).[toFunctionDefinition](BaseTool#tofunctiondefinition)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:158](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L158)
+
+___
+
+### toFunctionSchema
+
+▸ **toFunctionSchema**(): [`FunctionSchema`](../interfaces/FunctionSchema)
+
+Convert to function schema
+
+#### Returns
+
+[`FunctionSchema`](../interfaces/FunctionSchema)
+
+Function schema
+
+#### Inherited from
+
+[BaseTool](BaseTool).[toFunctionSchema](BaseTool#tofunctionschema)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:145](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L145)
+
+___
+
+### toString
+
+▸ **toString**(): `string`
+
+Generate string representation
+
+#### Returns
+
+`string`
+
+String representation of the tool
+
+#### Inherited from
+
+[BaseTool](BaseTool).[toString](BaseTool#tostring)
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:171](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/base-tool.ts#L171)
+
+___
+
+### create
+
+▸ **create**\<`TParams`, `TResult`\>(`options`): [`OpenApiTool`](OpenApiTool)\<`TParams`, `TResult`\>
+
+OpenAPI tool creation helper method
+
+#### Type parameters
+
+| Name | Type |
+| :------ | :------ |
+| `TParams` | `any` |
+| `TResult` | `any` |
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `options` | [`OpenApiToolOptions`](../interfaces/OpenApiToolOptions)\<`TParams`, `TResult`\> | OpenAPI tool options |
+
+#### Returns
+
+[`OpenApiTool`](OpenApiTool)\<`TParams`, `TResult`\>
+
+OpenApiTool instance
+
+#### Defined in
+
+[packages/tools/src/tool/openapi-tool.ts:145](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/tool/openapi-tool.ts#L145)

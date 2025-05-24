@@ -2,7 +2,7 @@
 
 # Interface: RunOptions
 
-실행 옵션 인터페이스
+Run options interface
 
 ## Table of contents
 
@@ -19,11 +19,11 @@
 
 ### forcedArguments
 
-• `Optional` **forcedArguments**: `Record`\<`string`, `any`\>
+• `Optional` **forcedArguments**: `Record`\<`string`, `unknown`\>
 
 #### Defined in
 
-[packages/core/src/types.ts:116](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L116)
+[core/src/types.ts:37](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/types.ts#L37)
 
 ___
 
@@ -33,17 +33,17 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:115](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L115)
+[core/src/types.ts:36](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/types.ts#L36)
 
 ___
 
 ### functionCallMode
 
-• `Optional` **functionCallMode**: [`FunctionCallMode`](../modules#functioncallmode)
+• `Optional` **functionCallMode**: `string`
 
 #### Defined in
 
-[packages/core/src/types.ts:114](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L114)
+[core/src/types.ts:35](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/types.ts#L35)
 
 ___
 
@@ -53,7 +53,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:118](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L118)
+[core/src/types.ts:39](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/types.ts#L39)
 
 ___
 
@@ -63,7 +63,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:113](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L113)
+[core/src/types.ts:34](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/types.ts#L34)
 
 ___
 
@@ -73,4 +73,4 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:117](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L117)
+[core/src/types.ts:38](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/types.ts#L38)

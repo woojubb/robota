@@ -2,7 +2,7 @@
 
 # Interface: FunctionCallConfig
 
-함수 호출 설정 인터페이스
+Function call configuration interface
 
 ## Table of contents
 
@@ -21,7 +21,7 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:128](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L128)
+[core/src/managers/function-call-manager.ts:13](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/function-call-manager.ts#L13)
 
 ___
 
@@ -31,7 +31,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:125](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L125)
+[core/src/managers/function-call-manager.ts:10](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/function-call-manager.ts#L10)
 
 ___
 
@@ -41,7 +41,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:126](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L126)
+[core/src/managers/function-call-manager.ts:11](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/function-call-manager.ts#L11)
 
 ___
 
@@ -51,4 +51,4 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:127](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L127)
+[core/src/managers/function-call-manager.ts:12](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/function-call-manager.ts#L12)

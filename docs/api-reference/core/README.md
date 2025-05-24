@@ -1,157 +1,155 @@
 Core API / [Exports](modules)
 
-# Robota - AI 에이전트 프레임워크
+# Robota - AI Agent Framework
 
-Robota는 JavaScript/TypeScript로 작성된 AI 에이전트 프레임워크입니다. 이 프로젝트는 pnpm 모노레포로 구성되어 있으며, 필요에 따라 bun을 사용하여 예제를 실행할 수 있습니다.
+Robota is an AI agent framework written in JavaScript/TypeScript. This project is structured as a pnpm monorepo, with the option to run examples using bun.
 
-## 프로젝트 구조
+## Project Structure
 
 ```
 robota/
-├── packages/           # 핵심 패키지
-│   ├── core/           # 코어 기능
-│   ├── openai/         # OpenAI 통합
-│   ├── anthropic/      # Anthropic 통합
-│   ├── mcp/            # MCP 구현
-│   ├── tools/          # 도구 시스템
+├── packages/           # Core packages
+│   ├── core/           # Core functionality
+│   ├── openai/         # OpenAI integration
+│   ├── anthropic/      # Anthropic integration
+│   ├── mcp/            # MCP implementation
+│   ├── tools/          # Tool system
 │   └── ...
-└── apps/               # 응용 프로그램
-    ├── docs/           # 문서 애플리케이션
-    └── examples/       # 예제 코드
+└── apps/               # Applications
+    ├── docs/           # Documentation app
+    └── examples/       # Example code
 ```
 
-## 설치 방법
+## Installation
 
-### 요구 사항
+### Requirements
 
-- Node.js 18 이상
-- pnpm 8 이상
-- bun 1 이상 (선택 사항)
+- Node.js 18 or higher
+- pnpm 8 or higher
+- bun 1 or higher (optional)
 
-### 설치
+### Setup
 
 ```bash
-# pnpm 설치 (아직 설치하지 않은 경우)
+# Install pnpm (if not already installed)
 npm install -g pnpm
 
-# bun 설치 (아직 설치하지 않은 경우)
+# Install bun (if not already installed)
 curl -fsSL https://bun.sh/install | bash
 
-# 의존성 설치
+# Install dependencies
 pnpm install
 ```
 
-## 예제 실행
+## Running Examples
 
-### pnpm으로 실행
+### With pnpm
 
 ```bash
-# 기본 대화 예제
+# Basic conversation example
 pnpm example:basic
 
-# 함수 호출 예제
+# Function calling example
 pnpm example:function-calling
 
-# 도구 사용 예제
+# Tools usage example
 pnpm example:tools
 
-# 에이전트 예제
+# Agent example
 pnpm example:agents
 
-# 시스템 메시지 예제
+# System messages example
 pnpm example:system-messages
 
-# MCP 통합 예제
+# MCP integration example
 pnpm example:mcp
 
-# 모든 예제 실행
+# Run all examples
 pnpm example:all
 ```
 
-### bun으로 직접 실행
+### Directly with bun
 
 ```bash
-# 예제 디렉토리로 이동
+# Navigate to examples directory
 cd src/examples
 
-# 기본 대화 예제
+# Basic conversation example
 bun run basic/simple-conversation.ts
 
-# 함수 호출 예제
+# Function calling example
 bun run function-calling/weather-calculator.ts
 
-# 도구 사용 예제
+# Tools usage example
 bun run tools/tool-examples.ts
 
-# 에이전트 예제
+# Agent example
 bun run agents/research-agent.ts
 
-# MCP 통합 예제
+# MCP integration example
 bun run mcp/mcp-example.ts
 ```
 
-## 개발
+## Development
 
-### 패키지 빌드
+### Building Packages
 
 ```bash
-# 모든 패키지 빌드
+# Build all packages
 pnpm build
 
-# 핵심 의존성 먼저 빌드
+# Build core dependencies first
 pnpm build:deps
 ```
 
-### 타입 체크
+### Type Checking
 
 ```bash
 pnpm typecheck
 ```
 
-## 환경 변수
+## Environment Variables
 
-예제를 실행하기 위해서는 `.env` 파일을 생성하고 필요한 환경 변수를 설정해야 합니다:
+To run examples, create a `.env` file in the project root and set the necessary environment variables:
 
 ```
-# OpenAI API 키 (필수)
+# OpenAI API key (required)
 OPENAI_API_KEY=your_api_key_here
 
-# 날씨 API 키 (선택 사항)
+# Weather API key (optional)
 WEATHER_API_KEY=your_weather_api_key_here
 
-# MCP API 키 (MCP 예제 실행 시 필요)
+# MCP API key (needed for MCP examples)
 MCP_API_KEY=your_mcp_api_key_here
 ```
 
-## 주요 기능
+## Key Features
 
-### Model Context Protocol (MCP) 지원
+### Model Context Protocol (MCP) Support
 
-Robota는 이제 Model Context Protocol을 지원합니다. MCP를 통해 다양한 AI 모델 제공자와 표준화된 방식으로 통신할 수 있습니다:
+Robota now supports the Model Context Protocol. With MCP, you can communicate with various AI model providers in a standardized way:
 
 ```typescript
-import { Robota, MCPProvider } from 'robota';
+import { Robota, createMcpToolProvider } from 'robota';
 import { Client, StdioClientTransport } from '@modelcontextprotocol/sdk';
 
-// MCP 클라이언트 생성
-const transport = new StdioClientTransport(/* 설정 */);
+// Create MCP client
+const transport = new StdioClientTransport(/* config */);
 const mcpClient = new Client(transport);
 
-// MCP 제공자 초기화
-const provider = new MCPProvider({
-  type: 'client',
-  client: mcpClient,
-  model: 'model-name', // 사용할 모델 이름
+// Initialize MCP provider
+const provider = createMcpToolProvider(mcpClient, {
+  model: 'model-name', // Model name to use
   temperature: 0.7
 });
 
-// Robota 인스턴스에 제공자 연결
+// Connect provider to Robota instance
 const robota = new Robota({ provider });
 
-// 실행
-const result = await robota.run('안녕하세요! MCP를 통해 연결된 AI 모델과 대화 중입니다.');
+// Execute
+const result = await robota.run('Hello! I am chatting with an AI model connected through MCP.');
 ```
 
-## 라이선스
+## License
 
 MIT

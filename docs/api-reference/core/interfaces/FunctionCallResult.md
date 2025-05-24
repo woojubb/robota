@@ -2,7 +2,7 @@
 
 # Interface: FunctionCallResult
 
-함수 호출 결과 인터페이스
+Function call result interface
 
 ## Table of contents
 
@@ -20,7 +20,7 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:31](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L31)
+tools/dist/index.d.ts:50
 
 ___
 
@@ -30,7 +30,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:29](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L29)
+tools/dist/index.d.ts:48
 
 ___
 
@@ -40,4 +40,4 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:30](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/types.ts#L30)
+tools/dist/index.d.ts:49

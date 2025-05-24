@@ -2,9 +2,9 @@
 
 # Class: ToolRegistry
 
-도구 레지스트리 클래스
+Tool registry class
 
-여러 도구를 등록하고 관리하는 클래스
+Class for registering and managing multiple tools
 
 ## Table of contents
 
@@ -36,7 +36,7 @@
 
 ▸ **executeTool**\<`TInput`, `TOutput`\>(`name`, `input`): `Promise`\<[`ToolResult`](../interfaces/ToolResult)\<`TOutput`\>\>
 
-도구 실행
+Execute a tool
 
 #### Type parameters
 
@@ -49,18 +49,18 @@
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `name` | `string` | 실행할 도구 이름 |
-| `input` | `TInput` | 도구 입력 파라미터 |
+| `name` | `string` | Name of the tool to execute |
+| `input` | `TInput` | Tool input parameters |
 
 #### Returns
 
 `Promise`\<[`ToolResult`](../interfaces/ToolResult)\<`TOutput`\>\>
 
-도구 실행 결과
+Tool execution result
 
 #### Defined in
 
-[index.ts:204](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L204)
+[packages/tools/src/index.ts:219](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L219)
 
 ___
 
@@ -68,17 +68,17 @@ ___
 
 ▸ **getAllTools**(): [`Tool`](../interfaces/Tool)\<`any`, `any`\>[]
 
-모든 도구 가져오기
+Get all tools
 
 #### Returns
 
 [`Tool`](../interfaces/Tool)\<`any`, `any`\>[]
 
-모든 등록된 도구 배열
+Array of all registered tools
 
 #### Defined in
 
-[index.ts:193](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L193)
+[packages/tools/src/index.ts:208](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L208)
 
 ___
 
@@ -86,23 +86,23 @@ ___
 
 ▸ **getTool**(`name`): `undefined` \| [`Tool`](../interfaces/Tool)\<`any`, `any`\>
 
-도구 가져오기
+Get a tool
 
 #### Parameters
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `name` | `string` | 가져올 도구 이름 |
+| `name` | `string` | Name of the tool to get |
 
 #### Returns
 
 `undefined` \| [`Tool`](../interfaces/Tool)\<`any`, `any`\>
 
-도구 또는 undefined
+Tool or undefined
 
 #### Defined in
 
-[index.ts:184](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L184)
+[packages/tools/src/index.ts:199](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L199)
 
 ___
 
@@ -110,13 +110,13 @@ ___
 
 ▸ **register**(`tool`): [`ToolRegistry`](ToolRegistry)
 
-도구 등록
+Register a tool
 
 #### Parameters
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `tool` | [`Tool`](../interfaces/Tool)\<`any`, `any`\> | 등록할 도구 |
+| `tool` | [`Tool`](../interfaces/Tool)\<`any`, `any`\> | Tool to register |
 
 #### Returns
 
@@ -124,7 +124,7 @@ ___
 
 #### Defined in
 
-[index.ts:161](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L161)
+[packages/tools/src/index.ts:176](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L176)
 
 ___
 
@@ -132,13 +132,13 @@ ___
 
 ▸ **registerMany**(`tools`): [`ToolRegistry`](ToolRegistry)
 
-여러 도구 등록
+Register multiple tools
 
 #### Parameters
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `tools` | [`Tool`](../interfaces/Tool)\<`any`, `any`\>[] | 등록할 도구 배열 |
+| `tools` | [`Tool`](../interfaces/Tool)\<`any`, `any`\>[] | Array of tools to register |
 
 #### Returns
 
@@ -146,4 +146,4 @@ ___
 
 #### Defined in
 
-[index.ts:171](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L171)
+[packages/tools/src/index.ts:186](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L186)

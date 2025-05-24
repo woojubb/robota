@@ -1,0 +1,82 @@
+[Tools API](../../) / [Exports](../modules) / ZodFunctionTool
+
+# Interface: ZodFunctionTool\<T\>
+
+Zod 스키마 기반 함수 도구 정의 인터페이스
+
+## Type parameters
+
+| Name | Type |
+| :------ | :------ |
+| `T` | extends `z.ZodObject`\<`z.ZodRawShape`\> |
+
+## Table of contents
+
+### Properties
+
+- [description](ZodFunctionTool#description)
+- [handler](ZodFunctionTool#handler)
+- [name](ZodFunctionTool#name)
+- [parameters](ZodFunctionTool#parameters)
+
+## Properties
+
+### description
+
+• **description**: `string`
+
+도구 설명
+
+#### Defined in
+
+[packages/tools/src/zod-schema.ts:109](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/zod-schema.ts#L109)
+
+___
+
+### handler
+
+• **handler**: (`params`: `TypeOf`\<`T`\>) => `Promise`\<`unknown`\>
+
+도구 핸들러 함수
+
+#### Type declaration
+
+▸ (`params`): `Promise`\<`unknown`\>
+
+##### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `params` | `TypeOf`\<`T`\> |
+
+##### Returns
+
+`Promise`\<`unknown`\>
+
+#### Defined in
+
+[packages/tools/src/zod-schema.ts:113](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/zod-schema.ts#L113)
+
+___
+
+### name
+
+• **name**: `string`
+
+도구 이름
+
+#### Defined in
+
+[packages/tools/src/zod-schema.ts:107](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/zod-schema.ts#L107)
+
+___
+
+### parameters
+
+• **parameters**: `T`
+
+도구 매개변수 스키마
+
+#### Defined in
+
+[packages/tools/src/zod-schema.ts:111](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/zod-schema.ts#L111)

@@ -2,7 +2,7 @@
 
 # Interface: ToolParameter
 
-도구 파라미터 타입
+Tool parameter type
 
 ## Table of contents
 
@@ -22,7 +22,7 @@
 
 #### Defined in
 
-[index.ts:40](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L40)
+[packages/tools/src/index.ts:55](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L55)
 
 ___
 
@@ -32,7 +32,7 @@ ___
 
 #### Defined in
 
-[index.ts:38](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L38)
+[packages/tools/src/index.ts:53](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L53)
 
 ___
 
@@ -42,7 +42,7 @@ ___
 
 #### Defined in
 
-[index.ts:36](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L36)
+[packages/tools/src/index.ts:51](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L51)
 
 ___
 
@@ -52,7 +52,7 @@ ___
 
 #### Defined in
 
-[index.ts:39](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L39)
+[packages/tools/src/index.ts:54](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L54)
 
 ___
 
@@ -62,4 +62,4 @@ ___
 
 #### Defined in
 
-[index.ts:37](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L37)
+[packages/tools/src/index.ts:52](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L52)

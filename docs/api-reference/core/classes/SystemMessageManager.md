@@ -1,0 +1,162 @@
+[Core API](../../) / [Exports](../modules) / SystemMessageManager
+
+# Class: SystemMessageManager
+
+System message management class
+Manages system prompts and system messages.
+
+## Table of contents
+
+### Constructors
+
+- [constructor](SystemMessageManager#constructor)
+
+### Methods
+
+- [addSystemMessage](SystemMessageManager#addsystemmessage)
+- [clear](SystemMessageManager#clear)
+- [getSystemMessages](SystemMessageManager#getsystemmessages)
+- [getSystemPrompt](SystemMessageManager#getsystemprompt)
+- [hasSystemMessages](SystemMessageManager#hassystemmessages)
+- [setSystemMessages](SystemMessageManager#setsystemmessages)
+- [setSystemPrompt](SystemMessageManager#setsystemprompt)
+
+## Constructors
+
+### constructor
+
+• **new SystemMessageManager**(): [`SystemMessageManager`](SystemMessageManager)
+
+#### Returns
+
+[`SystemMessageManager`](SystemMessageManager)
+
+## Methods
+
+### addSystemMessage
+
+▸ **addSystemMessage**(`content`): `void`
+
+Add a new system message to existing system messages
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `content` | `string` | Content of the system message to add |
+
+#### Returns
+
+`void`
+
+#### Defined in
+
+[core/src/managers/system-message-manager.ts:36](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/system-message-manager.ts#L36)
+
+___
+
+### clear
+
+▸ **clear**(): `void`
+
+Clear system messages
+
+#### Returns
+
+`void`
+
+#### Defined in
+
+[core/src/managers/system-message-manager.ts:83](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/system-message-manager.ts#L83)
+
+___
+
+### getSystemMessages
+
+▸ **getSystemMessages**(): `undefined` \| [`Message`](../interfaces/Message)[]
+
+Get the current system messages
+
+#### Returns
+
+`undefined` \| [`Message`](../interfaces/Message)[]
+
+#### Defined in
+
+[core/src/managers/system-message-manager.ts:69](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/system-message-manager.ts#L69)
+
+___
+
+### getSystemPrompt
+
+▸ **getSystemPrompt**(): `undefined` \| `string`
+
+Get the current system prompt
+
+#### Returns
+
+`undefined` \| `string`
+
+#### Defined in
+
+[core/src/managers/system-message-manager.ts:62](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/system-message-manager.ts#L62)
+
+___
+
+### hasSystemMessages
+
+▸ **hasSystemMessages**(): `boolean`
+
+Check if system messages are configured
+
+#### Returns
+
+`boolean`
+
+#### Defined in
+
+[core/src/managers/system-message-manager.ts:76](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/system-message-manager.ts#L76)
+
+___
+
+### setSystemMessages
+
+▸ **setSystemMessages**(`messages`): `void`
+
+Set multiple system messages
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `messages` | [`Message`](../interfaces/Message)[] | Array of system messages |
+
+#### Returns
+
+`void`
+
+#### Defined in
+
+[core/src/managers/system-message-manager.ts:26](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/system-message-manager.ts#L26)
+
+___
+
+### setSystemPrompt
+
+▸ **setSystemPrompt**(`prompt`): `void`
+
+Set a single system prompt
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `prompt` | `string` | System prompt content |
+
+#### Returns
+
+`void`
+
+#### Defined in
+
+[core/src/managers/system-message-manager.ts:16](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/core/src/managers/system-message-manager.ts#L16)

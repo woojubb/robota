@@ -33,7 +33,7 @@ For detailed information, see the [Anthropic Provider Documentation](packages/an
 
 Integration with Google's Generative AI models. Supports Gemini Pro, Gemini Pro Vision, and more.
 
-For detailed information, see the [Google AI Provider Documentation](packages/google/README.md).
+For detailed information, see the [Google AI Provider Documentation](providers/google.md).
 
 ### Using AI Providers
 

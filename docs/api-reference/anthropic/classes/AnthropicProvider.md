@@ -2,7 +2,7 @@
 
 # Class: AnthropicProvider
 
-Anthropic 제공업체 클래스
+Anthropic provider class
 
 ## Table of contents
 
@@ -14,13 +14,13 @@ Anthropic 제공업체 클래스
 
 ### constructor
 
-• **new AnthropicProvider**(`options`): [`AnthropicProvider`](AnthropicProvider)
+• **new AnthropicProvider**(`_options`): [`AnthropicProvider`](AnthropicProvider)
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `options` | [`AnthropicProviderOptions`](../interfaces/AnthropicProviderOptions) |
+| `_options` | [`AnthropicProviderOptions`](../interfaces/AnthropicProviderOptions) |
 
 #### Returns
 
@@ -28,4 +28,4 @@ Anthropic 제공업체 클래스
 
 #### Defined in
 
-[anthropic/src/index.ts:14](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/anthropic/src/index.ts#L14)
+[anthropic/src/index.ts:14](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/anthropic/src/index.ts#L14)

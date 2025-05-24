@@ -2,7 +2,7 @@
 
 # Class: FunctionRegistry
 
-함수 호출 레지스트리
+Function call registry
 
 ## Table of contents
 
@@ -33,7 +33,7 @@
 
 ▸ **execute**(`functionCall`, `context?`): `Promise`\<[`FunctionCallResult`](../interfaces/FunctionCallResult)\>
 
-함수 호출을 실행합니다
+Execute function call
 
 #### Parameters
 
@@ -48,7 +48,7 @@
 
 #### Defined in
 
-[packages/core/src/function-calling.ts:77](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/function-calling.ts#L77)
+tools/dist/index.d.ts:180
 
 ___
 
@@ -56,7 +56,7 @@ ___
 
 ▸ **getAllDefinitions**(): [`FunctionDefinition`](../interfaces/FunctionDefinition)[]
 
-등록된 모든 함수 정의를 반환합니다
+Get all registered function definitions
 
 #### Returns
 
@@ -64,7 +64,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/function-calling.ts:63](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/function-calling.ts#L63)
+tools/dist/index.d.ts:172
 
 ___
 
@@ -72,7 +72,7 @@ ___
 
 ▸ **getDefinition**(`name`): `undefined` \| [`FunctionDefinition`](../interfaces/FunctionDefinition)
 
-함수 이름으로 함수 정의를 가져옵니다
+Get function definition by name
 
 #### Parameters
 
@@ -86,7 +86,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/function-calling.ts:70](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/function-calling.ts#L70)
+tools/dist/index.d.ts:176
 
 ___
 
@@ -94,7 +94,7 @@ ___
 
 ▸ **register**(`definition`, `handler`): `void`
 
-함수를 등록합니다
+Register a function
 
 #### Parameters
 
@@ -109,4 +109,4 @@ ___
 
 #### Defined in
 
-[packages/core/src/function-calling.ts:55](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/core/src/function-calling.ts#L55)
+tools/dist/index.d.ts:168

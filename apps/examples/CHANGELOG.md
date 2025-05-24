@@ -1,5 +1,23 @@
 # robota-examples
 
+## 0.1.10
+
+### Patch Changes
+
+- Add Google provider documentation and improve docs build process
+
+  - Add comprehensive documentation for @robota-sdk/google package
+  - Update sidebar and navigation to include Google provider
+  - Integrate Google provider into automated API docs generation
+  - Improve build scripts to auto-generate docs during build/publish
+
+- Updated dependencies
+  - @robota-sdk/anthropic@0.2.10
+  - @robota-sdk/core@0.2.10
+  - @robota-sdk/google@0.2.10
+  - @robota-sdk/openai@0.2.10
+  - @robota-sdk/tools@0.2.10
+
 ## 0.1.9
 
 ### Patch Changes

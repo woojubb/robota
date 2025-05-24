@@ -2,7 +2,7 @@
 
 # Interface: Tool\<TInput, TOutput\>
 
-도구 인터페이스
+Tool interface
 
 ## Type parameters
 
@@ -26,11 +26,11 @@
 
 • `Optional` **description**: `string`
 
-도구 설명
+Tool description
 
 #### Defined in
 
-[index.ts:55](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L55)
+[packages/tools/src/index.ts:70](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L70)
 
 ___
 
@@ -38,7 +38,7 @@ ___
 
 • **execute**: (`input`: `TInput`) => `Promise`\<[`ToolResult`](ToolResult)\<`TOutput`\>\>
 
-도구 실행 함수
+Tool execution function
 
 #### Type declaration
 
@@ -48,7 +48,7 @@ ___
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `input` | `TInput` | 도구 입력 파라미터 |
+| `input` | `TInput` | Tool input parameters |
 
 ##### Returns
 
@@ -56,7 +56,7 @@ ___
 
 #### Defined in
 
-[index.ts:68](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L68)
+[packages/tools/src/index.ts:83](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L83)
 
 ___
 
@@ -64,11 +64,11 @@ ___
 
 • **name**: `string`
 
-도구 이름
+Tool name
 
 #### Defined in
 
-[index.ts:50](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L50)
+[packages/tools/src/index.ts:65](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L65)
 
 ___
 
@@ -76,8 +76,8 @@ ___
 
 • `Optional` **parameters**: [`ToolParameter`](ToolParameter)[]
 
-도구 파라미터 정의
+Tool parameter definitions
 
 #### Defined in
 
-[index.ts:60](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/tools/src/index.ts#L60)
+[packages/tools/src/index.ts:75](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/index.ts#L75)

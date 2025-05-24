@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/core",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "description": "Robota's core functionality package",
   "type": "module",
   "main": "dist/index.js",

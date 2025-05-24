@@ -1,0 +1,112 @@
+[Tools API](../../) / [Exports](../modules) / FunctionRegistry
+
+# Class: FunctionRegistry
+
+Function call registry
+
+## Table of contents
+
+### Constructors
+
+- [constructor](FunctionRegistry#constructor)
+
+### Methods
+
+- [execute](FunctionRegistry#execute)
+- [getAllDefinitions](FunctionRegistry#getalldefinitions)
+- [getDefinition](FunctionRegistry#getdefinition)
+- [register](FunctionRegistry#register)
+
+## Constructors
+
+### constructor
+
+• **new FunctionRegistry**(): [`FunctionRegistry`](FunctionRegistry)
+
+#### Returns
+
+[`FunctionRegistry`](FunctionRegistry)
+
+## Methods
+
+### execute
+
+▸ **execute**(`functionCall`, `context?`): `Promise`\<[`FunctionCallResult`](../interfaces/FunctionCallResult)\>
+
+Execute function call
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `functionCall` | [`FunctionCall`](../interfaces/FunctionCall) |
+| `context?` | `any` |
+
+#### Returns
+
+`Promise`\<[`FunctionCallResult`](../interfaces/FunctionCallResult)\>
+
+#### Defined in
+
+[packages/tools/src/function.ts:415](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/function.ts#L415)
+
+___
+
+### getAllDefinitions
+
+▸ **getAllDefinitions**(): [`FunctionDefinition`](../interfaces/FunctionDefinition)[]
+
+Get all registered function definitions
+
+#### Returns
+
+[`FunctionDefinition`](../interfaces/FunctionDefinition)[]
+
+#### Defined in
+
+[packages/tools/src/function.ts:401](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/function.ts#L401)
+
+___
+
+### getDefinition
+
+▸ **getDefinition**(`name`): `undefined` \| [`FunctionDefinition`](../interfaces/FunctionDefinition)
+
+Get function definition by name
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `name` | `string` |
+
+#### Returns
+
+`undefined` \| [`FunctionDefinition`](../interfaces/FunctionDefinition)
+
+#### Defined in
+
+[packages/tools/src/function.ts:408](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/function.ts#L408)
+
+___
+
+### register
+
+▸ **register**(`definition`, `handler`): `void`
+
+Register a function
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `definition` | [`FunctionDefinition`](../interfaces/FunctionDefinition) |
+| `handler` | [`FunctionHandler`](../modules#functionhandler) |
+
+#### Returns
+
+`void`
+
+#### Defined in
+
+[packages/tools/src/function.ts:393](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/tools/src/function.ts#L393)

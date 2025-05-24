@@ -2,11 +2,13 @@
 
 # Class: OpenAIProvider
 
-OpenAI 제공업체 구현
+OpenAI provider implementation
+
+Implements the AIProvider interface to integrate with Robota.
 
 ## Implements
 
-- `ModelContextProtocol`
+- `AIProvider`
 
 ## Table of contents
 
@@ -16,12 +18,16 @@ OpenAI 제공업체 구현
 
 ### Properties
 
+- [instance](OpenAIProvider#instance)
+- [name](OpenAIProvider#name)
 - [options](OpenAIProvider#options)
+- [type](OpenAIProvider#type)
 
 ### Methods
 
 - [chat](OpenAIProvider#chat)
 - [chatStream](OpenAIProvider#chatstream)
+- [close](OpenAIProvider#close)
 - [formatFunctions](OpenAIProvider#formatfunctions)
 - [formatMessages](OpenAIProvider#formatmessages)
 - [parseResponse](OpenAIProvider#parseresponse)
@@ -45,36 +51,73 @@ OpenAI 제공업체 구현
 
 #### Defined in
 
-[openai/src/provider.ts:28](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/openai/src/provider.ts#L28)
+[openai/src/provider.ts:46](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/provider.ts#L46)
 
 ## Properties
+
+### instance
+
+• **instance**: `OpenAI`
+
+Client instance
+
+#### Defined in
+
+[openai/src/provider.ts:39](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/provider.ts#L39)
+
+___
+
+### name
+
+• **name**: `string` = `'openai'`
+
+Provider name
+
+#### Implementation of
+
+AIProvider.name
+
+#### Defined in
+
+[openai/src/provider.ts:24](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/provider.ts#L24)
+
+___
 
 ### options
 
 • **options**: [`OpenAIProviderOptions`](../interfaces/OpenAIProviderOptions)
 
-제공업체 옵션
-
-#### Implementation of
-
-ModelContextProtocol.options
+Provider options
 
 #### Defined in
 
-[openai/src/provider.ts:26](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/openai/src/provider.ts#L26)
+[openai/src/provider.ts:44](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/provider.ts#L44)
+
+___
+
+### type
+
+• **type**: `string` = `'openai'`
+
+Client type
+
+#### Defined in
+
+[openai/src/provider.ts:34](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/provider.ts#L34)
 
 ## Methods
 
 ### chat
 
-▸ **chat**(`context`, `options?`): `Promise`\<`ModelResponse`\>
+▸ **chat**(`model`, `context`, `options?`): `Promise`\<`ModelResponse`\>
 
-모델 채팅 요청
+Model chat request
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
+| `model` | `string` |
 | `context` | `Context` |
 | `options?` | `any` |
 
@@ -84,24 +127,25 @@ ModelContextProtocol.options
 
 #### Implementation of
 
-ModelContextProtocol.chat
+AIProvider.chat
 
 #### Defined in
 
-[openai/src/provider.ts:169](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/openai/src/provider.ts#L169)
+[openai/src/provider.ts:189](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/provider.ts#L189)
 
 ___
 
 ### chatStream
 
-▸ **chatStream**(`context`, `options?`): `AsyncGenerator`\<`StreamingResponseChunk`, `void`, `unknown`\>
+▸ **chatStream**(`model`, `context`, `options?`): `AsyncGenerator`\<`StreamingResponseChunk`, `void`, `unknown`\>
 
-모델 채팅 스트리밍 요청
+Model chat streaming request
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
+| `model` | `string` |
 | `context` | `Context` |
 | `options?` | `any` |
 
@@ -111,11 +155,31 @@ ___
 
 #### Implementation of
 
-ModelContextProtocol.chatStream
+AIProvider.chatStream
 
 #### Defined in
 
-[openai/src/provider.ts:229](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/openai/src/provider.ts#L229)
+[openai/src/provider.ts:255](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/provider.ts#L255)
+
+___
+
+### close
+
+▸ **close**(): `Promise`\<`void`\>
+
+Release resources (if needed)
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+AIProvider.close
+
+#### Defined in
+
+[openai/src/provider.ts:329](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/provider.ts#L329)
 
 ___
 
@@ -123,7 +187,7 @@ ___
 
 ▸ **formatFunctions**(`functions`): `ChatCompletionTool`[]
 
-함수 정의를 OpenAI 형식으로 변환
+Convert function definitions to OpenAI format
 
 #### Parameters
 
@@ -135,13 +199,9 @@ ___
 
 `ChatCompletionTool`[]
 
-#### Implementation of
-
-ModelContextProtocol.formatFunctions
-
 #### Defined in
 
-[openai/src/provider.ts:103](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/openai/src/provider.ts#L103)
+[openai/src/provider.ts:123](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/provider.ts#L123)
 
 ___
 
@@ -149,7 +209,7 @@ ___
 
 ▸ **formatMessages**(`messages`): `ChatCompletionMessageParam`[]
 
-메시지를 OpenAI 형식으로 변환
+Convert messages to OpenAI format
 
 #### Parameters
 
@@ -161,13 +221,13 @@ ___
 
 `ChatCompletionMessageParam`[]
 
-#### Implementation of
+**`Deprecated`**
 
-ModelContextProtocol.formatMessages
+Use OpenAIConversationAdapter.toOpenAIFormat instead
 
 #### Defined in
 
-[openai/src/provider.ts:46](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/openai/src/provider.ts#L46)
+[openai/src/provider.ts:66](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/provider.ts#L66)
 
 ___
 
@@ -175,7 +235,7 @@ ___
 
 ▸ **parseResponse**(`response`): `ModelResponse`
 
-OpenAI API 응답을 표준 형식으로 변환
+Convert OpenAI API response to standard format
 
 #### Parameters
 
@@ -187,13 +247,9 @@ OpenAI API 응답을 표준 형식으로 변환
 
 `ModelResponse`
 
-#### Implementation of
-
-ModelContextProtocol.parseResponse
-
 #### Defined in
 
-[openai/src/provider.ts:117](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/openai/src/provider.ts#L117)
+[openai/src/provider.ts:137](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/provider.ts#L137)
 
 ___
 
@@ -201,7 +257,7 @@ ___
 
 ▸ **parseStreamingChunk**(`chunk`): `StreamingResponseChunk`
 
-스트리밍 응답 청크를 표준 형식으로 변환
+Convert streaming response chunk to standard format
 
 #### Parameters
 
@@ -213,10 +269,6 @@ ___
 
 `StreamingResponseChunk`
 
-#### Implementation of
-
-ModelContextProtocol.parseStreamingChunk
-
 #### Defined in
 
-[openai/src/provider.ts:147](https://github.com/woojubb/robota/blob/1202ed01072674e4ff6307d72c09a57873f8f949/packages/openai/src/provider.ts#L147)
+[openai/src/provider.ts:167](https://github.com/woojubb/robota/blob/67406abb83c9116fb1693a24e5876025b7fb3063/packages/openai/src/provider.ts#L167)
