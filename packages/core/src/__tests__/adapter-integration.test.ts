@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SimpleConversationHistory, PersistentSystemConversationHistory } from './conversation-history';
-import { ConversationService } from './services/conversation-service';
-import type { AIProvider, Context, ModelResponse } from './interfaces/ai-provider';
+import { SimpleConversationHistory, PersistentSystemConversationHistory } from '../conversation-history';
+import { ConversationService } from '../services/conversation-service';
+import type { AIProvider, Context, ModelResponse } from '../interfaces/ai-provider';
 
 // Mock AI Provider for testing
 class MockAIProvider implements AIProvider {

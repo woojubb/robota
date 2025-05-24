@@ -42,6 +42,7 @@ export { AIProviderManager } from './managers/ai-provider-manager';
 export { ToolProviderManager } from './managers/tool-provider-manager';
 export { SystemMessageManager } from './managers/system-message-manager';
 export { FunctionCallManager } from './managers/function-call-manager';
+export { AnalyticsManager } from './managers/analytics-manager';
 export type { FunctionCallConfig, FunctionCallMode } from './managers/function-call-manager';
 
 // Services

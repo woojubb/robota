@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Robota } from './robota';
-import { SimpleConversationHistory } from './conversation-history';
-import type { Context, ModelResponse, AIProvider } from './interfaces/ai-provider';
+import { Robota } from '../robota';
+import { SimpleConversationHistory } from '../conversation-history';
+import type { Context, ModelResponse, AIProvider } from '../interfaces/ai-provider';
 
 // Mock AI Provider 클래스
 class MockProvider implements AIProvider {

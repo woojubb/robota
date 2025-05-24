@@ -46,6 +46,7 @@ This document provides guidelines to follow when developing the Robota project.
 // tsconfig.json - For production build
 {
   "exclude": [
+    "src/**/__tests__/**/*",
     "src/**/*.test.ts",
     "src/**/*.test.tsx", 
     "src/**/*.spec.ts",
@@ -151,6 +152,33 @@ const result = await mockClient.run(context);
 - Write tests for each file
 - Group related tests logically
 - Tests should be able to run independently
+
+### Test File Organization
+
+- **Use `__tests__` directories**: All test files should be placed in `__tests__` directories within their respective modules
+- **Mirror source structure**: Test file organization should mirror the source code structure
+- **Naming convention**: Test files should follow the pattern `*.test.ts` or `*.spec.ts`
+
+```
+src/
+├── __tests__/                    # Main module tests
+│   ├── robota.test.ts
+│   ├── conversation-history.test.ts
+│   └── adapter-integration.test.ts
+├── managers/
+│   ├── __tests__/                # Manager-specific tests
+│   │   ├── analytics-manager.test.ts
+│   │   └── request-limit-manager.test.ts
+│   ├── analytics-manager.ts
+│   └── request-limit-manager.ts
+└── analyzers/
+    ├── __tests__/                # Analyzer-specific tests
+    │   └── token-analyzer.test.ts
+    └── token-analyzer.ts
+```
+
+- **Import path adjustments**: When moving test files to `__tests__` directories, update import paths to use relative paths (`../` for parent directory)
+- **Test discovery**: Test runners (vitest) automatically discover test files in `__tests__` directories
 
 ### Testing Refactored Structure
 

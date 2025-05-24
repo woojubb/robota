@@ -11,6 +11,9 @@ import { AIProviderManager } from './managers/ai-provider-manager';
 import { ToolProviderManager } from './managers/tool-provider-manager';
 import { SystemMessageManager } from './managers/system-message-manager';
 import { FunctionCallManager, type FunctionCallConfig, type FunctionCallMode } from './managers/function-call-manager';
+import { AnalyticsManager } from './managers/analytics-manager';
+import { RequestLimitManager } from './managers/request-limit-manager';
+import { TokenAnalyzer } from './analyzers/token-analyzer';
 import { ConversationService } from './services/conversation-service';
 
 /**
@@ -64,6 +67,12 @@ export interface RobotaOptions {
 
     /** Debug mode (default: false) */
     debug?: boolean;
+
+    /** Maximum token limit (default: 4096, 0 = unlimited) */
+    maxTokenLimit?: number;
+
+    /** Maximum request limit (default: 25, 0 = unlimited) */
+    maxRequestLimit?: number;
 }
 
 /**
@@ -79,15 +88,18 @@ export interface RobotaOptions {
  *   systemPrompt: 'You are a helpful AI assistant.'
  * });
  * 
- * const response = await robota.run('Hello!');
+ * const response = await robota.execute('Hello!');
  * ```
  */
 export class Robota {
-    // Managers
+    // Managers and Analyzers
     private aiProviderManager: AIProviderManager;
     private toolProviderManager: ToolProviderManager;
     private systemMessageManager: SystemMessageManager;
     private functionCallManager: FunctionCallManager;
+    private analyticsManager: AnalyticsManager;
+    private requestLimitManager: RequestLimitManager;
+    private tokenAnalyzer: TokenAnalyzer;
     private conversationService: ConversationService;
 
     // Basic configuration
@@ -108,7 +120,7 @@ export class Robota {
         this.logger = options.logger || console;
         this.debug = options.debug || false;
 
-        // Initialize managers
+        // Initialize managers and analyzers
         this.aiProviderManager = new AIProviderManager();
         this.toolProviderManager = new ToolProviderManager(
             this.logger,
@@ -116,6 +128,12 @@ export class Robota {
         );
         this.systemMessageManager = new SystemMessageManager();
         this.functionCallManager = new FunctionCallManager(options.functionCallConfig);
+        this.analyticsManager = new AnalyticsManager();
+        this.requestLimitManager = new RequestLimitManager(
+            options.maxTokenLimit ?? 4096,  // Default: 4096 tokens
+            options.maxRequestLimit ?? 25    // Default: 25 requests
+        );
+        this.tokenAnalyzer = new TokenAnalyzer();
         this.conversationService = new ConversationService(
             options.temperature,
             options.maxTokens,
@@ -227,13 +245,103 @@ export class Robota {
     }
 
     // ============================================================
+    // Request Limit Management (delegation)
+    // ============================================================
+
+    /**
+     * Set maximum token limit (0 = unlimited)
+     */
+    setMaxTokenLimit(limit: number): void {
+        this.requestLimitManager.setMaxTokens(limit);
+    }
+
+    /**
+     * Set maximum request limit (0 = unlimited)
+     */
+    setMaxRequestLimit(limit: number): void {
+        this.requestLimitManager.setMaxRequests(limit);
+    }
+
+    /**
+     * Get current maximum token limit
+     */
+    getMaxTokenLimit(): number {
+        return this.requestLimitManager.getMaxTokens();
+    }
+
+    /**
+     * Get current maximum request limit
+     */
+    getMaxRequestLimit(): number {
+        return this.requestLimitManager.getMaxRequests();
+    }
+
+    /**
+     * Get comprehensive limit information
+     */
+    getLimitInfo() {
+        return this.requestLimitManager.getLimitInfo();
+    }
+
+    // ============================================================
+    // Analytics Management (delegation)
+    // ============================================================
+
+    /**
+     * Get total number of requests made
+     */
+    getRequestCount(): number {
+        return this.analyticsManager.getRequestCount();
+    }
+
+    /**
+     * Get total number of tokens used
+     */
+    getTotalTokensUsed(): number {
+        return this.analyticsManager.getTotalTokensUsed();
+    }
+
+    /**
+     * Get detailed analytics data
+     */
+    getAnalytics() {
+        return this.analyticsManager.getAnalytics();
+    }
+
+    /**
+     * Reset all analytics data
+     */
+    resetAnalytics(): void {
+        this.analyticsManager.reset();
+        this.requestLimitManager.reset();
+    }
+
+    /**
+     * Get token usage for a specific time period
+     */
+    getTokenUsageByPeriod(startDate: Date, endDate?: Date) {
+        return this.analyticsManager.getTokenUsageByPeriod(startDate, endDate);
+    }
+
+    // ============================================================
     // Execution Methods
     // ============================================================
 
     /**
      * Execute a text prompt
+     * @deprecated Use execute() instead. This method will be removed in a future version.
      */
     async run(prompt: string, options: RunOptions = {}): Promise<string> {
+        if (this.debug) {
+            this.logger.warn('run() method is deprecated. Use execute() instead.');
+        }
+        return this.execute(prompt, options);
+    }
+
+    /**
+     * Execute a text prompt
+     */
+    async execute(prompt: string, options: RunOptions = {}): Promise<string> {
         this.conversationHistory.addUserMessage(prompt);
 
         const context = this.conversationService.prepareContext(
@@ -243,7 +351,47 @@ export class Robota {
             options
         );
 
+        // Check request limit first
+        this.requestLimitManager.checkRequestLimit();
+
+        // Pre-calculate tokens to check limits before making the API call
+        const currentAI = this.aiProviderManager.getCurrentAI();
+        const currentModel = currentAI.model || 'unknown';
+
+        if (!this.requestLimitManager.isTokensUnlimited()) {
+            try {
+                // Calculate estimated tokens for the request
+                const estimatedTokens = this.tokenAnalyzer.calculateMessagesTokens(
+                    context.messages,
+                    currentModel
+                );
+
+                if (this.debug) {
+                    this.logger.info(`🔍 [Token Estimation] Model: ${currentModel}, Estimated tokens: ${estimatedTokens}`);
+                }
+
+                // Check if estimated tokens would exceed the limit
+                this.requestLimitManager.checkEstimatedTokenLimit(estimatedTokens);
+            } catch (error) {
+                this.logger.error('Token limit check failed:', error);
+                throw error;
+            }
+        }
+
         const response = await this.generateResponse(context, options);
+
+        // Record analytics and limit data with actual token usage
+        if (response.usage?.totalTokens) {
+            // Record in limit manager first (this may throw if limits exceeded)
+            this.requestLimitManager.recordRequest(response.usage.totalTokens);
+
+            // Then record in analytics for historical data
+            this.analyticsManager.recordRequest(
+                response.usage.totalTokens,
+                currentAI.provider || 'unknown',
+                currentModel
+            );
+        }
 
         // Add assistant response to conversation history
         this.conversationHistory.addAssistantMessage(response.content || '', response.functionCall);
@@ -264,7 +412,47 @@ export class Robota {
             options
         );
 
+        // Check request limit first
+        this.requestLimitManager.checkRequestLimit();
+
+        // Pre-calculate tokens to check limits before making the API call
+        const currentAI = this.aiProviderManager.getCurrentAI();
+        const currentModel = currentAI.model || 'unknown';
+
+        if (!this.requestLimitManager.isTokensUnlimited()) {
+            try {
+                // Calculate estimated tokens for the request
+                const estimatedTokens = this.tokenAnalyzer.calculateMessagesTokens(
+                    context.messages,
+                    currentModel
+                );
+
+                if (this.debug) {
+                    this.logger.info(`🔍 [Token Estimation] Model: ${currentModel}, Estimated tokens: ${estimatedTokens}`);
+                }
+
+                // Check if estimated tokens would exceed the limit
+                this.requestLimitManager.checkEstimatedTokenLimit(estimatedTokens);
+            } catch (error) {
+                this.logger.error('Token limit check failed:', error);
+                throw error;
+            }
+        }
+
         const response = await this.generateResponse(context, options);
+
+        // Record analytics and limit data with actual token usage
+        if (response.usage?.totalTokens) {
+            // Record in limit manager first (this may throw if limits exceeded)
+            this.requestLimitManager.recordRequest(response.usage.totalTokens);
+
+            // Then record in analytics for historical data
+            this.analyticsManager.recordRequest(
+                response.usage.totalTokens,
+                currentAI.provider || 'unknown',
+                currentModel
+            );
+        }
 
         this.conversationHistory.addAssistantMessage(response.content || '', response.functionCall);
 
@@ -273,8 +461,19 @@ export class Robota {
 
     /**
      * Generate streaming response
+     * @deprecated Use executeStream() instead. This method will be removed in a future version.
      */
     async runStream(prompt: string, options: RunOptions = {}): Promise<AsyncIterable<StreamingResponseChunk>> {
+        if (this.debug) {
+            this.logger.warn('runStream() method is deprecated. Use executeStream() instead.');
+        }
+        return this.executeStream(prompt, options);
+    }
+
+    /**
+     * Generate streaming response
+     */
+    async executeStream(prompt: string, options: RunOptions = {}): Promise<AsyncIterable<StreamingResponseChunk>> {
         this.conversationHistory.addUserMessage(prompt);
 
         const context = this.conversationService.prepareContext(
@@ -284,6 +483,8 @@ export class Robota {
             options
         );
 
+        // Note: For streaming, token counting is more complex as we need to collect all chunks
+        // We'll handle analytics when the stream completes or delegate to the implementation
         return this.generateStream(context, options);
     }
 
