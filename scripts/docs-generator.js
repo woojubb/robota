@@ -52,6 +52,8 @@ const ROOT_DIR = process.cwd(); // Using process.cwd() since script runs from ro
 const PACKAGES_DIR = path.join(ROOT_DIR, 'packages');
 const DOCS_DIR = path.join(ROOT_DIR, 'docs');
 const OUTPUT_DIR = path.join(DOCS_DIR, 'api-reference');
+const APPS_DOCS_DIR = path.join(ROOT_DIR, 'apps/docs');
+const TEMP_DIR = path.join(APPS_DOCS_DIR, '.temp');
 
 // API categories
 const API_CATEGORIES = [
@@ -311,8 +313,69 @@ function fixDocumentLinks(categoryDir, categoryName) {
     console.log(`✅ Document link paths fixed successfully for ${categoryName} category`);
 }
 
+// Copy public directory files to .temp directory
+function copyPublicFiles() {
+    console.log('📁 Copying public directory files to .temp...');
+
+    const publicDir = path.join(APPS_DOCS_DIR, 'public');
+    const tempPublicDir = path.join(TEMP_DIR, 'public');
+
+    if (!fs.existsSync(publicDir)) {
+        console.log('⚠️ Public directory does not exist, skipping...');
+        return;
+    }
+
+    // Create temp public directory if it doesn't exist
+    if (!fs.existsSync(tempPublicDir)) {
+        fs.mkdirSync(tempPublicDir, { recursive: true });
+    }
+
+    // Copy all files from public to temp/public
+    try {
+        const files = fs.readdirSync(publicDir);
+        for (const file of files) {
+            const srcPath = path.join(publicDir, file);
+            const destPath = path.join(tempPublicDir, file);
+
+            if (fs.statSync(srcPath).isDirectory()) {
+                // Recursively copy directories
+                copyDirectoryRecursive(srcPath, destPath);
+            } else {
+                // Copy files
+                fs.copyFileSync(srcPath, destPath);
+                console.log(`✅ Copied: ${file}`);
+            }
+        }
+        console.log('✅ Public files copied successfully to .temp/public/');
+    } catch (error) {
+        console.error('⚠️ Error copying public files:', error);
+    }
+}
+
+// Helper function to recursively copy directories
+function copyDirectoryRecursive(src, dest) {
+    if (!fs.existsSync(dest)) {
+        fs.mkdirSync(dest, { recursive: true });
+    }
+
+    const files = fs.readdirSync(src);
+    for (const file of files) {
+        const srcPath = path.join(src, file);
+        const destPath = path.join(dest, file);
+
+        if (fs.statSync(srcPath).isDirectory()) {
+            copyDirectoryRecursive(srcPath, destPath);
+        } else {
+            fs.copyFileSync(srcPath, destPath);
+        }
+    }
+}
+
 async function main() {
     console.log('🔍 Starting API documentation generation...');
+
+    // Copy public files first
+    copyPublicFiles();
 
     // Generate API index page
     generateApiIndexPage();
