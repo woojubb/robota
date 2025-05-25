@@ -2,13 +2,13 @@
   "name": "robota-monorepo",
   "version": "0.1.0",
   "private": true,
-  "description": "A simple, powerful library for building AI agents with JavaScript",
+  "description": "A simple, powerful TypeScript library for building AI agents with function calling, tool integration, and multi-provider support for OpenAI, Anthropic, and Google AI",
   "type": "module",
   "repository": {
     "type": "git",
     "url": "https://github.com/woojubb/robota.git"
   },
-  "homepage": "https://github.com/woojubb/robota#readme",
+  "homepage": "https://robota.io/",
   "bugs": {
     "url": "https://github.com/woojubb/robota/issues"
   },
@@ -42,9 +42,27 @@
     "agent",
     "llm",
     "function-calling",
-    "typescript"
+    "typescript",
+    "javascript",
+    "openai",
+    "anthropic",
+    "google-ai",
+    "claude",
+    "gpt",
+    "gemini",
+    "chatbot",
+    "conversational-ai",
+    "artificial-intelligence",
+    "machine-learning",
+    "nlp",
+    "natural-language-processing",
+    "sdk",
+    "library",
+    "tool-integration",
+    "multi-provider",
+    "robota"
   ],
-  "author": "",
+  "author": "Robota SDK Team",
   "license": "MIT",
   "devDependencies": {
     "@changesets/cli": "^2.29.4",

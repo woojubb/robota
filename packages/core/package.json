@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/core",
   "version": "0.3.1",
-  "description": "Robota's core functionality package",
+  "description": "Core functionality for building AI agents with TypeScript - conversation management, function calling, and multi-provider support for OpenAI, Anthropic, and Google AI",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -11,7 +11,7 @@
     "url": "https://github.com/woojubb/robota.git",
     "directory": "packages/core"
   },
-  "homepage": "https://github.com/woojubb/robota/tree/main/packages/core#readme",
+  "homepage": "https://robota.io/",
   "bugs": {
     "url": "https://github.com/woojubb/robota/issues"
   },
@@ -34,9 +34,28 @@
     "agent",
     "llm",
     "function-calling",
-    "typescript"
+    "typescript",
+    "javascript",
+    "openai",
+    "anthropic",
+    "google-ai",
+    "claude",
+    "gpt",
+    "gemini",
+    "chatbot",
+    "conversational-ai",
+    "artificial-intelligence",
+    "machine-learning",
+    "nlp",
+    "natural-language-processing",
+    "sdk",
+    "library",
+    "tool-integration",
+    "multi-provider",
+    "conversation-management",
+    "robota"
   ],
-  "author": "",
+  "author": "Robota SDK Team",
   "license": "MIT",
   "dependencies": {
     "@dqbd/tiktoken": "^1.0.21",

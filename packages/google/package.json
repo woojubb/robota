@@ -1,7 +1,7 @@
 {
     "name": "@robota-sdk/google",
     "version": "0.3.1",
-    "description": "Robota's Google AI integration package",
+    "description": "Google AI integration for Robota SDK - Gemini Pro, Gemini Flash, function calling, and tool integration with Google's Generative AI",
     "type": "module",
     "main": "dist/index.js",
     "module": "dist/index.mjs",
@@ -11,7 +11,7 @@
         "url": "https://github.com/woojubb/robota.git",
         "directory": "packages/google"
     },
-    "homepage": "https://github.com/woojubb/robota/tree/main/packages/google#readme",
+    "homepage": "https://robota.io/",
     "bugs": {
         "url": "https://github.com/woojubb/robota/issues"
     },
@@ -35,11 +35,28 @@
         "llm",
         "google",
         "gemini",
+        "gemini-pro",
+        "gemini-flash",
         "palm",
+        "google-ai",
         "function-calling",
-        "typescript"
+        "typescript",
+        "javascript",
+        "chatbot",
+        "conversational-ai",
+        "artificial-intelligence",
+        "machine-learning",
+        "nlp",
+        "natural-language-processing",
+        "sdk",
+        "library",
+        "tool-integration",
+        "robota",
+        "google-api",
+        "ai-integration",
+        "generative-ai"
     ],
-    "author": "",
+    "author": "Robota SDK Team",
     "license": "MIT",
     "dependencies": {
         "@robota-sdk/core": "workspace:*",

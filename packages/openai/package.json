@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/openai",
   "version": "0.3.1",
-  "description": "Robota's OpenAI integration package",
+  "description": "OpenAI integration for Robota SDK - GPT-4, GPT-3.5, function calling, and tool integration with OpenAI's API",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -11,7 +11,7 @@
     "url": "https://github.com/woojubb/robota.git",
     "directory": "packages/openai"
   },
-  "homepage": "https://github.com/woojubb/robota/tree/main/packages/openai#readme",
+  "homepage": "https://robota.io/",
   "bugs": {
     "url": "https://github.com/woojubb/robota/issues"
   },
@@ -35,10 +35,26 @@
     "llm",
     "openai",
     "gpt",
+    "gpt-4",
+    "gpt-3.5",
+    "chatgpt",
     "function-calling",
-    "typescript"
+    "typescript",
+    "javascript",
+    "chatbot",
+    "conversational-ai",
+    "artificial-intelligence",
+    "machine-learning",
+    "nlp",
+    "natural-language-processing",
+    "sdk",
+    "library",
+    "tool-integration",
+    "robota",
+    "openai-api",
+    "ai-integration"
   ],
-  "author": "",
+  "author": "Robota SDK Team",
   "license": "MIT",
   "dependencies": {
     "@robota-sdk/core": "workspace:*",

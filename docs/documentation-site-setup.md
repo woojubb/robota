@@ -98,7 +98,7 @@ The documentation site is automatically deployed via GitHub Actions:
   - `apps/docs/**`
   - `.github/workflows/deploy-docs.yml`
 - **Deploy Target**: GitHub Pages (`gh-pages` branch)
-- **URL**: https://woojubb.github.io/robota/
+- **URL**: https://robota.io/
 
 ### Documentation Updates
 

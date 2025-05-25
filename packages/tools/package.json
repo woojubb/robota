@@ -18,7 +18,7 @@
     "url": "https://github.com/woojubb/robota.git",
     "directory": "packages/tools"
   },
-  "homepage": "https://github.com/woojubb/robota/tree/main/packages/tools#readme",
+  "homepage": "https://robota.io/",
   "bugs": {
     "url": "https://github.com/woojubb/robota/issues"
   },
@@ -56,7 +56,7 @@
     "tool-provider",
     "ai-integration"
   ],
-  "author": "",
+  "author": "Robota SDK Team",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0",
