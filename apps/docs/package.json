@@ -7,7 +7,7 @@
     "scripts": {
         "copy": "node scripts/copy-docs.js",
         "dev": "node scripts/copy-docs.js && vitepress dev",
-        "build": "node scripts/copy-docs.js && vitepress build",
+        "build": "node scripts/copy-docs.js && vitepress build && node scripts/copy-public.js",
         "preview": "vitepress preview"
     },
     "dependencies": {

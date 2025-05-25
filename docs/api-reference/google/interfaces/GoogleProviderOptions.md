@@ -30,7 +30,7 @@ Google AI client instance
 
 #### Defined in
 
-[types.ts:8](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/google/src/types.ts#L8)
+[types.ts:8](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/google/src/types.ts#L8)
 
 ___
 
@@ -42,7 +42,7 @@ Maximum number of tokens
 
 #### Defined in
 
-[types.ts:17](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/google/src/types.ts#L17)
+[types.ts:17](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/google/src/types.ts#L17)
 
 ___
 
@@ -54,7 +54,7 @@ Default model to use
 
 #### Defined in
 
-[types.ts:11](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/google/src/types.ts#L11)
+[types.ts:11](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/google/src/types.ts#L11)
 
 ___
 
@@ -66,7 +66,7 @@ Response format
 
 #### Defined in
 
-[types.ts:20](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/google/src/types.ts#L20)
+[types.ts:20](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/google/src/types.ts#L20)
 
 ___
 
@@ -78,4 +78,4 @@ Temperature setting (0.0 ~ 1.0)
 
 #### Defined in
 
-[types.ts:14](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/google/src/types.ts#L14)
+[types.ts:14](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/google/src/types.ts#L14)

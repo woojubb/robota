@@ -36,7 +36,7 @@ Provider name
 
 #### Defined in
 
-[core/src/interfaces/ai-provider.ts:61](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/interfaces/ai-provider.ts#L61)
+[core/src/interfaces/ai-provider.ts:61](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/interfaces/ai-provider.ts#L61)
 
 ## Methods
 
@@ -60,7 +60,7 @@ Chat request
 
 #### Defined in
 
-[core/src/interfaces/ai-provider.ts:64](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/interfaces/ai-provider.ts#L64)
+[core/src/interfaces/ai-provider.ts:64](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/interfaces/ai-provider.ts#L64)
 
 ___
 
@@ -84,7 +84,7 @@ Streaming chat request (optional)
 
 #### Defined in
 
-[core/src/interfaces/ai-provider.ts:67](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/interfaces/ai-provider.ts#L67)
+[core/src/interfaces/ai-provider.ts:67](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/interfaces/ai-provider.ts#L67)
 
 ___
 
@@ -100,4 +100,4 @@ Resource cleanup (optional)
 
 #### Defined in
 
-[core/src/interfaces/ai-provider.ts:70](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/interfaces/ai-provider.ts#L70)
+[core/src/interfaces/ai-provider.ts:70](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/interfaces/ai-provider.ts#L70)

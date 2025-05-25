@@ -47,7 +47,7 @@ Handles registration, invocation, and retrieval of Tool Providers.
 
 #### Defined in
 
-[core/src/managers/tool-provider-manager.ts:14](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/managers/tool-provider-manager.ts#L14)
+[core/src/managers/tool-provider-manager.ts:14](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/managers/tool-provider-manager.ts#L14)
 
 ## Methods
 
@@ -69,7 +69,7 @@ Add a Tool Provider
 
 #### Defined in
 
-[core/src/managers/tool-provider-manager.ts:24](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/managers/tool-provider-manager.ts#L24)
+[core/src/managers/tool-provider-manager.ts:24](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/managers/tool-provider-manager.ts#L24)
 
 ___
 
@@ -91,7 +91,7 @@ Add multiple Tool Providers
 
 #### Defined in
 
-[core/src/managers/tool-provider-manager.ts:33](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/managers/tool-provider-manager.ts#L33)
+[core/src/managers/tool-provider-manager.ts:33](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/managers/tool-provider-manager.ts#L33)
 
 ___
 
@@ -116,7 +116,7 @@ Tool call result
 
 #### Defined in
 
-[core/src/managers/tool-provider-manager.ts:53](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/managers/tool-provider-manager.ts#L53)
+[core/src/managers/tool-provider-manager.ts:53](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/managers/tool-provider-manager.ts#L53)
 
 ___
 
@@ -134,7 +134,7 @@ List of tool schemas
 
 #### Defined in
 
-[core/src/managers/tool-provider-manager.ts:84](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/managers/tool-provider-manager.ts#L84)
+[core/src/managers/tool-provider-manager.ts:84](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/managers/tool-provider-manager.ts#L84)
 
 ___
 
@@ -150,7 +150,7 @@ Get the number of registered Tool Providers
 
 #### Defined in
 
-[core/src/managers/tool-provider-manager.ts:96](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/managers/tool-provider-manager.ts#L96)
+[core/src/managers/tool-provider-manager.ts:96](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/managers/tool-provider-manager.ts#L96)
 
 ___
 
@@ -166,7 +166,7 @@ Check if Tool Providers are registered
 
 #### Defined in
 
-[core/src/managers/tool-provider-manager.ts:103](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/managers/tool-provider-manager.ts#L103)
+[core/src/managers/tool-provider-manager.ts:103](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/managers/tool-provider-manager.ts#L103)
 
 ___
 
@@ -188,7 +188,7 @@ Check if a specific tool is available
 
 #### Defined in
 
-[core/src/managers/tool-provider-manager.ts:112](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/managers/tool-provider-manager.ts#L112)
+[core/src/managers/tool-provider-manager.ts:112](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/managers/tool-provider-manager.ts#L112)
 
 ___
 
@@ -210,4 +210,4 @@ Set allowed function list
 
 #### Defined in
 
-[core/src/managers/tool-provider-manager.ts:42](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/managers/tool-provider-manager.ts#L42)
+[core/src/managers/tool-provider-manager.ts:42](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/managers/tool-provider-manager.ts#L42)
