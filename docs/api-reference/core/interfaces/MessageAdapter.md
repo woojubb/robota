@@ -43,7 +43,7 @@ Convert UniversalMessage to specific AI Provider format
 
 #### Defined in
 
-[core/src/utils.ts:188](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/utils.ts#L188)
+[core/src/utils.ts:188](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/utils.ts#L188)
 
 ___
 
@@ -65,4 +65,4 @@ Convert UniversalMessage array to specific AI Provider format array
 
 #### Defined in
 
-[core/src/utils.ts:193](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/utils.ts#L193)
+[core/src/utils.ts:193](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/utils.ts#L193)

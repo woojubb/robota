@@ -1,5 +1,13 @@
 # @robota-sdk/openai
 
+## 0.3.2
+
+### Patch Changes
+
+- e69ce1c: Enhance SEO and update URLs to robota.io domain
+- Updated dependencies [e69ce1c]
+  - @robota-sdk/core@0.3.2
+
 ## 0.3.1
 
 ### Patch Changes

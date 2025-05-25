@@ -1,5 +1,11 @@
 # robota-docs
 
+## 1.0.8
+
+### Patch Changes
+
+- e69ce1c: Enhance SEO and update URLs to robota.io domain
+
 ## 1.0.7
 
 ### Patch Changes

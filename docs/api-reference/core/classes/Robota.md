@@ -81,7 +81,7 @@ Create a Robota instance
 
 #### Defined in
 
-[core/src/robota.ts:116](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L116)
+[core/src/robota.ts:116](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L116)
 
 ## Methods
 
@@ -104,7 +104,7 @@ Add an AI provider
 
 #### Defined in
 
-[core/src/robota.ts:176](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L176)
+[core/src/robota.ts:176](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L176)
 
 ___
 
@@ -126,7 +126,7 @@ Add response message to conversation history
 
 #### Defined in
 
-[core/src/robota.ts:494](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L494)
+[core/src/robota.ts:494](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L494)
 
 ___
 
@@ -148,7 +148,7 @@ Add a system message
 
 #### Defined in
 
-[core/src/robota.ts:215](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L215)
+[core/src/robota.ts:215](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L215)
 
 ___
 
@@ -171,7 +171,7 @@ Call a tool (public API)
 
 #### Defined in
 
-[core/src/robota.ts:568](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L568)
+[core/src/robota.ts:568](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L568)
 
 ___
 
@@ -194,7 +194,7 @@ Process chat message and generate response
 
 #### Defined in
 
-[core/src/robota.ts:405](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L405)
+[core/src/robota.ts:405](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L405)
 
 ___
 
@@ -210,7 +210,7 @@ Clear conversation history
 
 #### Defined in
 
-[core/src/robota.ts:501](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L501)
+[core/src/robota.ts:501](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L501)
 
 ___
 
@@ -226,7 +226,7 @@ Release resources
 
 #### Defined in
 
-[core/src/robota.ts:582](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L582)
+[core/src/robota.ts:582](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L582)
 
 ___
 
@@ -252,7 +252,7 @@ Configure function call settings
 
 #### Defined in
 
-[core/src/robota.ts:233](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L233)
+[core/src/robota.ts:233](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L233)
 
 ___
 
@@ -275,7 +275,7 @@ Execute a text prompt
 
 #### Defined in
 
-[core/src/robota.ts:344](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L344)
+[core/src/robota.ts:344](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L344)
 
 ___
 
@@ -298,7 +298,7 @@ Generate streaming response
 
 #### Defined in
 
-[core/src/robota.ts:476](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L476)
+[core/src/robota.ts:476](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L476)
 
 ___
 
@@ -321,7 +321,7 @@ Get detailed analytics data
 
 #### Defined in
 
-[core/src/robota.ts:307](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L307)
+[core/src/robota.ts:307](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L307)
 
 ___
 
@@ -337,7 +337,7 @@ Get list of available tools
 
 #### Defined in
 
-[core/src/robota.ts:575](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L575)
+[core/src/robota.ts:575](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L575)
 
 ___
 
@@ -358,7 +358,7 @@ Get the currently configured AI provider and model
 
 #### Defined in
 
-[core/src/robota.ts:190](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L190)
+[core/src/robota.ts:190](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L190)
 
 ___
 
@@ -385,7 +385,7 @@ Get comprehensive limit information
 
 #### Defined in
 
-[core/src/robota.ts:282](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L282)
+[core/src/robota.ts:282](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L282)
 
 ___
 
@@ -401,7 +401,7 @@ Get current maximum request limit
 
 #### Defined in
 
-[core/src/robota.ts:275](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L275)
+[core/src/robota.ts:275](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L275)
 
 ___
 
@@ -417,7 +417,7 @@ Get current maximum token limit
 
 #### Defined in
 
-[core/src/robota.ts:268](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L268)
+[core/src/robota.ts:268](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L268)
 
 ___
 
@@ -433,7 +433,7 @@ Get total number of requests made
 
 #### Defined in
 
-[core/src/robota.ts:293](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L293)
+[core/src/robota.ts:293](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L293)
 
 ___
 
@@ -462,7 +462,7 @@ Get token usage for a specific time period
 
 #### Defined in
 
-[core/src/robota.ts:322](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L322)
+[core/src/robota.ts:322](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L322)
 
 ___
 
@@ -478,7 +478,7 @@ Get total number of tokens used
 
 #### Defined in
 
-[core/src/robota.ts:300](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L300)
+[core/src/robota.ts:300](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L300)
 
 ___
 
@@ -494,7 +494,7 @@ Reset all analytics data
 
 #### Defined in
 
-[core/src/robota.ts:314](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L314)
+[core/src/robota.ts:314](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L314)
 
 ___
 
@@ -521,7 +521,7 @@ Use execute() instead. This method will be removed in a future version.
 
 #### Defined in
 
-[core/src/robota.ts:334](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L334)
+[core/src/robota.ts:334](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L334)
 
 ___
 
@@ -548,7 +548,7 @@ Use executeStream() instead. This method will be removed in a future version.
 
 #### Defined in
 
-[core/src/robota.ts:466](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L466)
+[core/src/robota.ts:466](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L466)
 
 ___
 
@@ -571,7 +571,7 @@ Set the current AI provider and model
 
 #### Defined in
 
-[core/src/robota.ts:183](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L183)
+[core/src/robota.ts:183](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L183)
 
 ___
 
@@ -593,7 +593,7 @@ Set function call mode
 
 #### Defined in
 
-[core/src/robota.ts:226](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L226)
+[core/src/robota.ts:226](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L226)
 
 ___
 
@@ -615,7 +615,7 @@ Set maximum request limit (0 = unlimited)
 
 #### Defined in
 
-[core/src/robota.ts:261](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L261)
+[core/src/robota.ts:261](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L261)
 
 ___
 
@@ -637,7 +637,7 @@ Set maximum token limit (0 = unlimited)
 
 #### Defined in
 
-[core/src/robota.ts:254](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L254)
+[core/src/robota.ts:254](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L254)
 
 ___
 
@@ -659,7 +659,7 @@ Set multiple system messages
 
 #### Defined in
 
-[core/src/robota.ts:208](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L208)
+[core/src/robota.ts:208](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L208)
 
 ___
 
@@ -681,4 +681,4 @@ Set a single system prompt
 
 #### Defined in
 
-[core/src/robota.ts:201](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/core/src/robota.ts#L201)
+[core/src/robota.ts:201](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/robota.ts#L201)

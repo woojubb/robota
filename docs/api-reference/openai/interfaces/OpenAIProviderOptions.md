@@ -42,7 +42,7 @@ OpenAI API key (optional: not required when using client)
 
 #### Defined in
 
-[openai/src/types.ts:26](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/openai/src/types.ts#L26)
+[openai/src/types.ts:26](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/openai/src/types.ts#L26)
 
 ___
 
@@ -54,7 +54,7 @@ API base URL (default: 'https://api.openai.com/v1')
 
 #### Defined in
 
-[openai/src/types.ts:41](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/openai/src/types.ts#L41)
+[openai/src/types.ts:41](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/openai/src/types.ts#L41)
 
 ___
 
@@ -66,7 +66,7 @@ OpenAI client instance (required)
 
 #### Defined in
 
-[openai/src/types.ts:51](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/openai/src/types.ts#L51)
+[openai/src/types.ts:51](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/openai/src/types.ts#L51)
 
 ___
 
@@ -82,7 +82,7 @@ ProviderOptions.maxTokens
 
 #### Defined in
 
-[openai/src/types.ts:21](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/openai/src/types.ts#L21)
+[openai/src/types.ts:21](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/openai/src/types.ts#L21)
 
 ___
 
@@ -98,7 +98,7 @@ ProviderOptions.model
 
 #### Defined in
 
-[openai/src/types.ts:11](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/openai/src/types.ts#L11)
+[openai/src/types.ts:11](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/openai/src/types.ts#L11)
 
 ___
 
@@ -110,7 +110,7 @@ OpenAI organization ID (optional)
 
 #### Defined in
 
-[openai/src/types.ts:31](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/openai/src/types.ts#L31)
+[openai/src/types.ts:31](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/openai/src/types.ts#L31)
 
 ___
 
@@ -122,7 +122,7 @@ Response format (default: 'json')
 
 #### Defined in
 
-[openai/src/types.ts:46](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/openai/src/types.ts#L46)
+[openai/src/types.ts:46](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/openai/src/types.ts#L46)
 
 ___
 
@@ -166,7 +166,7 @@ ProviderOptions.temperature
 
 #### Defined in
 
-[openai/src/types.ts:16](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/openai/src/types.ts#L16)
+[openai/src/types.ts:16](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/openai/src/types.ts#L16)
 
 ___
 
@@ -178,4 +178,4 @@ API request timeout (milliseconds)
 
 #### Defined in
 
-[openai/src/types.ts:36](https://github.com/woojubb/robota/blob/b0cf7aa96e615a2c6055b8b6239ad3905ce992d6/packages/openai/src/types.ts#L36)
+[openai/src/types.ts:36](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/openai/src/types.ts#L36)

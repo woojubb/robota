@@ -1,5 +1,17 @@
 # robota-examples
 
+## 0.1.15
+
+### Patch Changes
+
+- e69ce1c: Enhance SEO and update URLs to robota.io domain
+- Updated dependencies [e69ce1c]
+  - @robota-sdk/anthropic@0.3.2
+  - @robota-sdk/core@0.3.2
+  - @robota-sdk/google@0.3.2
+  - @robota-sdk/openai@0.3.2
+  - @robota-sdk/tools@0.3.2
+
 ## 0.1.14
 
 ### Patch Changes
