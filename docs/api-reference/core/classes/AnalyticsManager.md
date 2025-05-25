@@ -57,7 +57,7 @@ Get detailed analytics data
 
 #### Defined in
 
-[core/src/managers/analytics-manager.ts:45](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/managers/analytics-manager.ts#L45)
+[core/src/managers/analytics-manager.ts:45](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/managers/analytics-manager.ts#L45)
 
 ___
 
@@ -73,7 +73,7 @@ Get total number of requests made
 
 #### Defined in
 
-[core/src/managers/analytics-manager.ts:31](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/managers/analytics-manager.ts#L31)
+[core/src/managers/analytics-manager.ts:31](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/managers/analytics-manager.ts#L31)
 
 ___
 
@@ -102,7 +102,7 @@ Get token usage for a specific time period
 
 #### Defined in
 
-[core/src/managers/analytics-manager.ts:75](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/managers/analytics-manager.ts#L75)
+[core/src/managers/analytics-manager.ts:75](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/managers/analytics-manager.ts#L75)
 
 ___
 
@@ -118,7 +118,7 @@ Get total number of tokens used
 
 #### Defined in
 
-[core/src/managers/analytics-manager.ts:38](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/managers/analytics-manager.ts#L38)
+[core/src/managers/analytics-manager.ts:38](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/managers/analytics-manager.ts#L38)
 
 ___
 
@@ -142,7 +142,7 @@ Record a new request and token usage
 
 #### Defined in
 
-[core/src/managers/analytics-manager.ts:16](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/managers/analytics-manager.ts#L16)
+[core/src/managers/analytics-manager.ts:16](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/managers/analytics-manager.ts#L16)
 
 ___
 
@@ -158,4 +158,4 @@ Reset all analytics data
 
 #### Defined in
 
-[core/src/managers/analytics-manager.ts:64](https://github.com/woojubb/robota/blob/e69ce1ca400ca7c668b510fd1c73d0c3c98d531f/packages/core/src/managers/analytics-manager.ts#L64)
+[core/src/managers/analytics-manager.ts:64](https://github.com/woojubb/robota/blob/89842967edeeb7f25153b1e33bdb8662b56d56c4/packages/core/src/managers/analytics-manager.ts#L64)
