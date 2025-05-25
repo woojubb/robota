@@ -7,6 +7,11 @@
 * [Environment Setup](environment-setup.md)
 * [Development Guidelines](development-guidelines.md)
 
+**Development Standards**
+* [Testing Guidelines](testing-guidelines.md)
+* [Build and Deployment](build-and-deployment.md)
+* [Code Quality Standards](code-quality-standards.md)
+
 **Package Documentation**
 * [Core Package](packages/core/)
 * [OpenAI Package](packages/openai/)
