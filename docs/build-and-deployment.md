@@ -132,6 +132,20 @@ pnpm changeset publish           # Direct publish (missing README, docs, etc.)
 2. **Use imperative mood**: "Add", "Remove", "Fix", "Update"
 3. **Focus on user impact**: What users need to know or do
 4. **One line preferred**: Avoid multi-line descriptions unless absolutely necessary
+5. **80-character limit**: Changeset descriptions must be 80 characters or less
+
+### Changeset Message Examples
+
+```bash
+# ✅ Good changeset messages (under 80 chars)
+"Enhance SEO and update URLs to robota.io domain"
+"Add function calling support for all providers"
+"Fix memory leak in conversation history"
+"Update TypeScript to v5.3 for better performance"
+
+# ❌ Bad changeset messages (too long)
+"This changeset enhances the SEO capabilities of the documentation site and updates all package URLs from the old GitHub Pages domain to the new custom domain robota.io"
+```
 
 ### Commit Message Format
 
