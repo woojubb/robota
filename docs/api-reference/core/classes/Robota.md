@@ -21,7 +21,7 @@ const robota = new Robota({
   systemPrompt: 'You are a helpful AI assistant.'
 });
 
-const response = await robota.execute('Hello!');
+const response = await robota.run('Hello!');
 ```
 
 ## Table of contents
