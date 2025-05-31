@@ -17,7 +17,7 @@ on:
 
 # 저장소에 쓰기 권한 허용
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -43,17 +43,12 @@ jobs:
         with:
           version: 8
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
       - name: Build Documentation
         run: pnpm docs:build
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './apps/docs/.vitepress/dist'
-
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: ./apps/docs/.vitepress/dist
+          branch: gh-pages
+          clean: true
