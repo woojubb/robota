@@ -77,9 +77,8 @@
     "vitest": "^1.6.1"
   },
   "engines": {
-    "node": ">=18.0.0",
-    "pnpm": ">=8.0.0",
-    "bun": ">=1.0.0"
+    "node": ">=22.14.0",
+    "pnpm": "8.15.4"
   },
   "packageManager": "pnpm@8.15.4",
   "dependencies": {
@@ -94,5 +93,8 @@
     "packages/tools",
     "apps/examples",
     "apps/docs"
-  ]
+  ],
+  "volta": {
+    "node": "22.14.0"
+  }
 }
