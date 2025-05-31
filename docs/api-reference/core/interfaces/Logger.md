@@ -4,7 +4,7 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[Core API](../../) / [Exports](../modules) / Logger
+[core](../../) / [Exports](../modules) / Logger
 
 # Interface: Logger
 
@@ -38,7 +38,7 @@ Logger interface
 
 #### Defined in
 
-[interfaces/logger.ts:5](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/interfaces/logger.ts#L5)
+[interfaces/logger.ts:5](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/interfaces/logger.ts#L5)
 
 ___
 
@@ -59,7 +59,7 @@ ___
 
 #### Defined in
 
-[interfaces/logger.ts:6](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/interfaces/logger.ts#L6)
+[interfaces/logger.ts:6](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/interfaces/logger.ts#L6)
 
 ___
 
@@ -80,7 +80,7 @@ ___
 
 #### Defined in
 
-[interfaces/logger.ts:7](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/interfaces/logger.ts#L7)
+[interfaces/logger.ts:7](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/interfaces/logger.ts#L7)
 
 ___
 
@@ -101,4 +101,4 @@ ___
 
 #### Defined in
 
-[interfaces/logger.ts:8](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/interfaces/logger.ts#L8)
+[interfaces/logger.ts:8](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/interfaces/logger.ts#L8)

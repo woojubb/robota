@@ -4,7 +4,7 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[Tools API](../../) / [Exports](../modules) / CreateToolOptions
+[tools](../../) / [Exports](../modules) / CreateToolOptions
 
 # Interface: CreateToolOptions\<TInput, TOutput\>
 
@@ -36,7 +36,7 @@ Tool name
 
 #### Defined in
 
-[packages/tools/src/index.ts:93](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/index.ts#L93)
+[packages/tools/src/index.ts:93](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/index.ts#L93)
 
 ___
 
@@ -48,7 +48,7 @@ Tool description
 
 #### Defined in
 
-[packages/tools/src/index.ts:98](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/index.ts#L98)
+[packages/tools/src/index.ts:98](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/index.ts#L98)
 
 ___
 
@@ -60,7 +60,7 @@ Tool parameter definitions
 
 #### Defined in
 
-[packages/tools/src/index.ts:103](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/index.ts#L103)
+[packages/tools/src/index.ts:103](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/index.ts#L103)
 
 ___
 
@@ -86,4 +86,4 @@ Tool execution function
 
 #### Defined in
 
-[packages/tools/src/index.ts:108](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/index.ts#L108)
+[packages/tools/src/index.ts:108](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/index.ts#L108)

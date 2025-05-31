@@ -4,7 +4,7 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[Tools API](../../) / [Exports](../modules) / ToolProvider
+[tools](../../) / [Exports](../modules) / ToolProvider
 
 # Interface: ToolProvider
 
@@ -34,7 +34,7 @@ Used when passing tool list to AI models.
 
 #### Defined in
 
-[packages/tools/src/tool-provider.ts:23](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool-provider.ts#L23)
+[packages/tools/src/tool-provider.ts:23](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool-provider.ts#L23)
 
 ## Methods
 
@@ -59,4 +59,4 @@ Tool call result
 
 #### Defined in
 
-[packages/tools/src/tool-provider.ts:17](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool-provider.ts#L17)
+[packages/tools/src/tool-provider.ts:17](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool-provider.ts#L17)

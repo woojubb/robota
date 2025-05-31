@@ -4,7 +4,7 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[Tools API](../../) / [Exports](../modules) / ToolInterface
+[tools](../../) / [Exports](../modules) / ToolInterface
 
 # Interface: ToolInterface
 
@@ -41,7 +41,7 @@ Tool name
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:33](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/interfaces.ts#L33)
+[packages/tools/src/tool/interfaces.ts:33](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/interfaces.ts#L33)
 
 ___
 
@@ -53,7 +53,7 @@ Tool description
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:38](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/interfaces.ts#L38)
+[packages/tools/src/tool/interfaces.ts:38](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/interfaces.ts#L38)
 
 ___
 
@@ -65,7 +65,7 @@ Tool schema
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:43](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/interfaces.ts#L43)
+[packages/tools/src/tool/interfaces.ts:43](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/interfaces.ts#L43)
 
 ___
 
@@ -91,7 +91,7 @@ Tool execution function
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:48](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/interfaces.ts#L48)
+[packages/tools/src/tool/interfaces.ts:48](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/interfaces.ts#L48)
 
 ## Methods
 
@@ -107,4 +107,4 @@ Convert to function definition
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:53](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/interfaces.ts#L53)
+[packages/tools/src/tool/interfaces.ts:53](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/interfaces.ts#L53)

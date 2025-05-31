@@ -4,7 +4,7 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[Anthropic API](../../) / [Exports](../modules) / AnthropicProviderOptions
+[anthropic](../../) / [Exports](../modules) / AnthropicProviderOptions
 
 # Interface: AnthropicProviderOptions
 
@@ -35,7 +35,7 @@ Anthropic provider options
 
 #### Defined in
 
-[anthropic/src/index.ts:7](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/anthropic/src/index.ts#L7)
+[anthropic/src/index.ts:7](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/anthropic/src/index.ts#L7)
 
 ___
 

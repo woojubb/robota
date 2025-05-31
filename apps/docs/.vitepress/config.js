@@ -73,8 +73,74 @@ export default defineConfig({
                 },
                 // sidebar 완성 후 중복 제거
                 sideBarResolved: (sidebar) => {
+                    // 디버깅: sidebar 구조 확인
+                    // console.log('sideBarResolved sidebar:', JSON.stringify(sidebar, null, 2));
+                    const isPackageRoot = (key, link) => {
+                        if (key !== '/api-reference/') return false;
+
+                        if (!link) return false;
+
+                        if (link.split('/').length !== 4) return false;
+
+                        const packagePath = link.split('/').slice(0, 4).join('/');
+
+                        return packagePath === link;
+                    };
+
+                    // 링크가 없는 항목들에 기본 링크 생성
+                    const ensureLinks = (key, basePath = '/', items) => {
+                        if (!items) return items;
+
+                        return items.map(item => {
+
+                            // 링크가 없는 경우 기본 링크 생성
+                            if (!item.link && item.items?.length) {
+                                // 폴더인 경우, 텍스트를 기반으로 링크 생성
+                                const folderPath = item?.text?.toLowerCase().replace(/\s+/g, '-') || '';
+                                const newLink = `${basePath}${folderPath ? `${folderPath}/` : ''}`;
+
+                                item.isPackageRoot = isPackageRoot(key, newLink);
+
+                                // item.link = newLink;
+                            } else {
+                                item.isPackageRoot = isPackageRoot(key, item.link);
+                            }
+
+                            // 하위 항목들도 재귀적으로 처리
+                            if (item.items) {
+                                const folderPath = item?.text?.toLowerCase().replace(/\s+/g, '-') || '';
+                                const newBasePath = `${basePath}${folderPath ? `${folderPath}/` : ''}`;
+                                item.items = ensureLinks(key, newBasePath, item.items);
+                            }
+
+                            return item;
+                        });
+                    };
+
+                    const fixText = (key, items) => {
+                        if (!items) return items;
+
+                        return items.map(item => {
+                            if (key === '/api-reference/') {
+                                if (!item.link && item.items?.length && item.isPackageRoot) {
+                                    item.text = `@robota-sdk/${item.text}`;
+                                } else if (item.link && item.isPackageRoot && item.link.endsWith('/README.html')) {
+                                    item.text = `Overview`;
+                                } else if (item.text && !item.link && item.items?.length) {
+                                    const text = item.text;
+                                    item.text = text.charAt(0).toUpperCase() + text.slice(1);
+                                }
+                            }
+
+                            if (item.items) {
+                                item.items = fixText(key, item.items);
+                            }
+                            return item;
+                        });
+                    }
+
                     // README.html 링크를 올바른 경로로 변환하고 텍스트 개선
-                    const fixReadmeLinks = (items) => {
+                    const fixReadmeLinks = (key, items) => {
                         if (!items) return items;
 
                         return items.map(item => {
@@ -85,37 +151,9 @@ export default defineConfig({
                                 item.link = item.link.replace('README.html', '');
                             }
 
-                            // API reference의 README 링크 텍스트를 "Overview"로 변경
-                            if (item.link && item.link.match(/\/api-reference\/[^\/]+\/$/) &&
-                                (item.text?.includes('API') || item.text?.includes('README'))) {
-                                // 패키지명 추출 (예: /api-reference/anthropic/ -> anthropic)
-                                const packageName = item.link.split('/')[2];
-                                const capitalizedName = packageName.charAt(0).toUpperCase() + packageName.slice(1);
-                                item.text = `${capitalizedName} Overview`;
-                            }
-
                             // 하위 항목들도 재귀적으로 처리
                             if (item.items) {
-                                item.items = fixReadmeLinks(item.items);
-                            }
-
-                            return item;
-                        });
-                    };
-
-                    // 패키지 폴더명을 대문자로 변경
-                    const capitalizePackageNames = (items) => {
-                        if (!items) return items;
-
-                        return items.map(item => {
-                            // API reference의 패키지 폴더인 경우 (anthropic, core, google, openai, tools)
-                            if (item.text && ['anthropic', 'core', 'google', 'openai', 'tools'].includes(item.text.toLowerCase())) {
-                                item.text = item.text.charAt(0).toUpperCase() + item.text.slice(1);
-                            }
-
-                            // 하위 항목들도 재귀적으로 처리
-                            if (item.items) {
-                                item.items = capitalizePackageNames(item.items);
+                                item.items = fixReadmeLinks(key, item.items);
                             }
 
                             return item;
@@ -125,29 +163,11 @@ export default defineConfig({
                     // 모든 sidebar 섹션에 대해 처리
                     Object.keys(sidebar).forEach(key => {
                         if (Array.isArray(sidebar[key])) {
-                            sidebar[key] = fixReadmeLinks(sidebar[key]);
-                            sidebar[key] = capitalizePackageNames(sidebar[key]);
+                            sidebar[key] = ensureLinks(key, key, sidebar[key]);
+                            sidebar[key] = fixText(key, sidebar[key]);
+                            sidebar[key] = fixReadmeLinks(key, sidebar[key]);
                         }
                     });
-
-                    // API reference 섹션에서 중복된 Introduction 항목 제거
-                    if (sidebar['/api-reference/']) {
-                        sidebar['/api-reference/'] = sidebar['/api-reference/'].map(section => {
-                            // Introduction 섹션인 경우
-                            if (section.text === 'Introduction' && section.items) {
-                                // 첫 번째 항목이 Introduction이고 링크가 있으면 제거
-                                const filteredItems = section.items.filter(item => {
-                                    return !(item.text === 'Introduction' && item.link);
-                                });
-
-                                return {
-                                    ...section,
-                                    items: filteredItems
-                                };
-                            }
-                            return section;
-                        });
-                    }
 
                     return sidebar;
                 }

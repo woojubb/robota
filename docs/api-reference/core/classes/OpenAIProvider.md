@@ -4,7 +4,7 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[Core API](../../) / [Exports](../modules) / OpenAIProvider
+[core](../../) / [Exports](../modules) / OpenAIProvider
 
 # Class: OpenAIProvider
 
@@ -49,7 +49,7 @@ Wraps OpenAI client with unified AIProvider interface.
 
 #### Defined in
 
-[providers/openai-provider.ts:13](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/providers/openai-provider.ts#L13)
+[providers/openai-provider.ts:13](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/providers/openai-provider.ts#L13)
 
 ## Properties
 
@@ -65,7 +65,7 @@ Provider name
 
 #### Defined in
 
-[providers/openai-provider.ts:9](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/providers/openai-provider.ts#L9)
+[providers/openai-provider.ts:9](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/providers/openai-provider.ts#L9)
 
 ## Methods
 
@@ -93,7 +93,7 @@ Chat request
 
 #### Defined in
 
-[providers/openai-provider.ts:20](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/providers/openai-provider.ts#L20)
+[providers/openai-provider.ts:20](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/providers/openai-provider.ts#L20)
 
 ___
 
@@ -121,7 +121,7 @@ Streaming chat request
 
 #### Defined in
 
-[providers/openai-provider.ts:86](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/providers/openai-provider.ts#L86)
+[providers/openai-provider.ts:86](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/providers/openai-provider.ts#L86)
 
 ___
 
@@ -141,4 +141,4 @@ Release resources
 
 #### Defined in
 
-[providers/openai-provider.ts:145](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/providers/openai-provider.ts#L145)
+[providers/openai-provider.ts:145](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/providers/openai-provider.ts#L145)

@@ -4,7 +4,7 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[Google API](../../) / [Exports](../modules) / GoogleProviderOptions
+[google](../../) / [Exports](../modules) / GoogleProviderOptions
 
 # Interface: GoogleProviderOptions
 
@@ -30,7 +30,7 @@ Google AI client instance
 
 #### Defined in
 
-[types.ts:8](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/google/src/types.ts#L8)
+[types.ts:8](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/google/src/types.ts#L8)
 
 ___
 
@@ -42,7 +42,7 @@ Default model to use
 
 #### Defined in
 
-[types.ts:11](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/google/src/types.ts#L11)
+[types.ts:11](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/google/src/types.ts#L11)
 
 ___
 
@@ -54,7 +54,7 @@ Temperature setting (0.0 ~ 1.0)
 
 #### Defined in
 
-[types.ts:14](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/google/src/types.ts#L14)
+[types.ts:14](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/google/src/types.ts#L14)
 
 ___
 
@@ -66,7 +66,7 @@ Maximum number of tokens
 
 #### Defined in
 
-[types.ts:17](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/google/src/types.ts#L17)
+[types.ts:17](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/google/src/types.ts#L17)
 
 ___
 
@@ -78,4 +78,4 @@ Response format
 
 #### Defined in
 
-[types.ts:20](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/google/src/types.ts#L20)
+[types.ts:20](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/google/src/types.ts#L20)

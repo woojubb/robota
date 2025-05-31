@@ -4,7 +4,7 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[Core API](../../) / [Exports](../modules) / Message
+[core](../../) / [Exports](../modules) / Message
 
 # Interface: Message
 
@@ -28,7 +28,7 @@ Basic message interface
 
 #### Defined in
 
-[interfaces/ai-provider.ts:13](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/interfaces/ai-provider.ts#L13)
+[interfaces/ai-provider.ts:13](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/interfaces/ai-provider.ts#L13)
 
 ___
 
@@ -38,7 +38,7 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:14](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/interfaces/ai-provider.ts#L14)
+[interfaces/ai-provider.ts:14](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/interfaces/ai-provider.ts#L14)
 
 ___
 
@@ -48,7 +48,7 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:15](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/interfaces/ai-provider.ts#L15)
+[interfaces/ai-provider.ts:15](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/interfaces/ai-provider.ts#L15)
 
 ___
 
@@ -58,7 +58,7 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:16](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/interfaces/ai-provider.ts#L16)
+[interfaces/ai-provider.ts:16](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/interfaces/ai-provider.ts#L16)
 
 ___
 
@@ -68,4 +68,4 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:17](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/interfaces/ai-provider.ts#L17)
+[interfaces/ai-provider.ts:17](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/interfaces/ai-provider.ts#L17)

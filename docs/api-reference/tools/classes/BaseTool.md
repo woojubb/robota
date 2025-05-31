@@ -4,7 +4,7 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[Tools API](../../) / [Exports](../modules) / BaseTool
+[tools](../../) / [Exports](../modules) / BaseTool
 
 # Class: BaseTool\<TParams, TResult\>
 
@@ -93,7 +93,7 @@ Constructor
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:71](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/base-tool.ts#L71)
+[packages/tools/src/tool/base-tool.ts:71](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/base-tool.ts#L71)
 
 ## Properties
 
@@ -109,7 +109,7 @@ Tool name
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:29](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/base-tool.ts#L29)
+[packages/tools/src/tool/base-tool.ts:29](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/base-tool.ts#L29)
 
 ___
 
@@ -125,7 +125,7 @@ Tool description
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:34](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/base-tool.ts#L34)
+[packages/tools/src/tool/base-tool.ts:34](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/base-tool.ts#L34)
 
 ___
 
@@ -137,7 +137,7 @@ Tool category
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:39](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/base-tool.ts#L39)
+[packages/tools/src/tool/base-tool.ts:39](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/base-tool.ts#L39)
 
 ___
 
@@ -149,7 +149,7 @@ Tool version
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:44](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/base-tool.ts#L44)
+[packages/tools/src/tool/base-tool.ts:44](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/base-tool.ts#L44)
 
 ## Accessors
 
@@ -169,7 +169,7 @@ Tool schema (implemented by subclasses)
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:85](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/base-tool.ts#L85)
+[packages/tools/src/tool/base-tool.ts:85](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/base-tool.ts#L85)
 
 ## Methods
 
@@ -197,7 +197,7 @@ Tool execution result
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:108](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/base-tool.ts#L108)
+[packages/tools/src/tool/base-tool.ts:108](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/base-tool.ts#L108)
 
 ___
 
@@ -215,7 +215,7 @@ Function schema
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:145](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/base-tool.ts#L145)
+[packages/tools/src/tool/base-tool.ts:145](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/base-tool.ts#L145)
 
 ___
 
@@ -237,7 +237,7 @@ Function definition
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:158](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/base-tool.ts#L158)
+[packages/tools/src/tool/base-tool.ts:158](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/base-tool.ts#L158)
 
 ___
 
@@ -255,4 +255,4 @@ String representation of the tool
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:171](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/base-tool.ts#L171)
+[packages/tools/src/tool/base-tool.ts:171](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/base-tool.ts#L171)

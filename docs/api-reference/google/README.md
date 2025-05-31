@@ -4,9 +4,9 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[Google API](../) / Exports
+[google](../) / Exports
 
-# Google API
+# google
 
 ## Table of contents
 

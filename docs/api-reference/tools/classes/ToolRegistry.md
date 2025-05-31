@@ -4,7 +4,7 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[Tools API](../../) / [Exports](../modules) / ToolRegistry
+[tools](../../) / [Exports](../modules) / ToolRegistry
 
 # Class: ToolRegistry
 
@@ -56,7 +56,7 @@ Register a tool
 
 #### Defined in
 
-[packages/tools/src/index.ts:176](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/index.ts#L176)
+[packages/tools/src/index.ts:176](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/index.ts#L176)
 
 ___
 
@@ -78,7 +78,7 @@ Register multiple tools
 
 #### Defined in
 
-[packages/tools/src/index.ts:186](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/index.ts#L186)
+[packages/tools/src/index.ts:186](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/index.ts#L186)
 
 ___
 
@@ -102,7 +102,7 @@ Tool or undefined
 
 #### Defined in
 
-[packages/tools/src/index.ts:199](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/index.ts#L199)
+[packages/tools/src/index.ts:199](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/index.ts#L199)
 
 ___
 
@@ -120,7 +120,7 @@ Array of all registered tools
 
 #### Defined in
 
-[packages/tools/src/index.ts:208](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/index.ts#L208)
+[packages/tools/src/index.ts:208](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/index.ts#L208)
 
 ___
 
@@ -152,4 +152,4 @@ Tool execution result
 
 #### Defined in
 
-[packages/tools/src/index.ts:219](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/index.ts#L219)
+[packages/tools/src/index.ts:219](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/index.ts#L219)

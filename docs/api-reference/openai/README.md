@@ -4,9 +4,9 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[OpenAI API](../) / Exports
+[openai](../) / Exports
 
-# OpenAI API
+# openai
 
 ## Table of contents
 

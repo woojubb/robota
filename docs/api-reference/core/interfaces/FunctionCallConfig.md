@@ -4,7 +4,7 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[Core API](../../) / [Exports](../modules) / FunctionCallConfig
+[core](../../) / [Exports](../modules) / FunctionCallConfig
 
 # Interface: FunctionCallConfig
 
@@ -27,7 +27,7 @@ Function call configuration interface
 
 #### Defined in
 
-[managers/function-call-manager.ts:10](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/managers/function-call-manager.ts#L10)
+[managers/function-call-manager.ts:10](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/managers/function-call-manager.ts#L10)
 
 ___
 
@@ -37,7 +37,7 @@ ___
 
 #### Defined in
 
-[managers/function-call-manager.ts:11](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/managers/function-call-manager.ts#L11)
+[managers/function-call-manager.ts:11](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/managers/function-call-manager.ts#L11)
 
 ___
 
@@ -47,7 +47,7 @@ ___
 
 #### Defined in
 
-[managers/function-call-manager.ts:12](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/managers/function-call-manager.ts#L12)
+[managers/function-call-manager.ts:12](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/managers/function-call-manager.ts#L12)
 
 ___
 
@@ -57,4 +57,4 @@ ___
 
 #### Defined in
 
-[managers/function-call-manager.ts:13](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/managers/function-call-manager.ts#L13)
+[managers/function-call-manager.ts:13](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/managers/function-call-manager.ts#L13)

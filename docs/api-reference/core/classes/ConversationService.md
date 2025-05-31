@@ -4,7 +4,7 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[Core API](../../) / [Exports](../modules) / ConversationService
+[core](../../) / [Exports](../modules) / ConversationService
 
 # Class: ConversationService
 
@@ -44,7 +44,7 @@ Handles conversation processing with AI.
 
 #### Defined in
 
-[services/conversation-service.ts:19](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/services/conversation-service.ts#L19)
+[services/conversation-service.ts:19](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/services/conversation-service.ts#L19)
 
 ## Methods
 
@@ -69,7 +69,7 @@ Prepare context
 
 #### Defined in
 
-[services/conversation-service.ts:39](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/services/conversation-service.ts#L39)
+[services/conversation-service.ts:39](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/services/conversation-service.ts#L39)
 
 ___
 
@@ -96,7 +96,7 @@ Generate response
 
 #### Defined in
 
-[services/conversation-service.ts:75](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/services/conversation-service.ts#L75)
+[services/conversation-service.ts:75](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/services/conversation-service.ts#L75)
 
 ___
 
@@ -122,4 +122,4 @@ Generate streaming response
 
 #### Defined in
 
-[services/conversation-service.ts:226](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/services/conversation-service.ts#L226)
+[services/conversation-service.ts:226](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/services/conversation-service.ts#L226)

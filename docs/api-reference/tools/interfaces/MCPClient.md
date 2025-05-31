@@ -4,7 +4,7 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[Tools API](../../) / [Exports](../modules) / MCPClient
+[tools](../../) / [Exports](../modules) / MCPClient
 
 # Interface: MCPClient
 
@@ -41,7 +41,7 @@ Compatible with Client from @modelcontextprotocol/sdk
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:9](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/mcp-tool-provider.ts#L9)
+[packages/tools/src/mcp-tool-provider.ts:9](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/mcp-tool-provider.ts#L9)
 
 ___
 
@@ -65,7 +65,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:10](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/mcp-tool-provider.ts#L10)
+[packages/tools/src/mcp-tool-provider.ts:10](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/mcp-tool-provider.ts#L10)
 
 ___
 
@@ -90,4 +90,4 @@ ___
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:12](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/mcp-tool-provider.ts#L12)
+[packages/tools/src/mcp-tool-provider.ts:12](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/mcp-tool-provider.ts#L12)

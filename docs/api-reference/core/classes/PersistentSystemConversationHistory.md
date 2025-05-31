@@ -4,7 +4,7 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[Core API](../../) / [Exports](../modules) / PersistentSystemConversationHistory
+[core](../../) / [Exports](../modules) / PersistentSystemConversationHistory
 
 # Class: PersistentSystemConversationHistory
 
@@ -55,7 +55,7 @@ Conversation history implementation that maintains system messages
 
 #### Defined in
 
-[conversation-history.ts:193](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/conversation-history.ts#L193)
+[conversation-history.ts:193](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/conversation-history.ts#L193)
 
 ## Methods
 
@@ -81,7 +81,7 @@ Add message to conversation history
 
 #### Defined in
 
-[conversation-history.ts:201](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/conversation-history.ts#L201)
+[conversation-history.ts:201](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/conversation-history.ts#L201)
 
 ___
 
@@ -108,7 +108,7 @@ Add user message (convenience method)
 
 #### Defined in
 
-[conversation-history.ts:205](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/conversation-history.ts#L205)
+[conversation-history.ts:205](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/conversation-history.ts#L205)
 
 ___
 
@@ -136,7 +136,7 @@ Add assistant message (convenience method)
 
 #### Defined in
 
-[conversation-history.ts:209](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/conversation-history.ts#L209)
+[conversation-history.ts:209](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/conversation-history.ts#L209)
 
 ___
 
@@ -163,7 +163,7 @@ Add system message (convenience method)
 
 #### Defined in
 
-[conversation-history.ts:213](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/conversation-history.ts#L213)
+[conversation-history.ts:213](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/conversation-history.ts#L213)
 
 ___
 
@@ -190,7 +190,7 @@ Add tool execution result message (convenience method)
 
 #### Defined in
 
-[conversation-history.ts:217](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/conversation-history.ts#L217)
+[conversation-history.ts:217](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/conversation-history.ts#L217)
 
 ___
 
@@ -210,7 +210,7 @@ Get all messages
 
 #### Defined in
 
-[conversation-history.ts:221](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/conversation-history.ts#L221)
+[conversation-history.ts:221](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/conversation-history.ts#L221)
 
 ___
 
@@ -236,7 +236,7 @@ Get messages by specific role
 
 #### Defined in
 
-[conversation-history.ts:225](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/conversation-history.ts#L225)
+[conversation-history.ts:225](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/conversation-history.ts#L225)
 
 ___
 
@@ -262,7 +262,7 @@ Get recent n messages
 
 #### Defined in
 
-[conversation-history.ts:229](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/conversation-history.ts#L229)
+[conversation-history.ts:229](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/conversation-history.ts#L229)
 
 ___
 
@@ -282,7 +282,7 @@ Return message count
 
 #### Defined in
 
-[conversation-history.ts:233](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/conversation-history.ts#L233)
+[conversation-history.ts:233](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/conversation-history.ts#L233)
 
 ___
 
@@ -302,7 +302,7 @@ Clear conversation history
 
 #### Defined in
 
-[conversation-history.ts:237](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/conversation-history.ts#L237)
+[conversation-history.ts:237](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/conversation-history.ts#L237)
 
 ___
 
@@ -324,7 +324,7 @@ Update system prompt
 
 #### Defined in
 
-[conversation-history.ts:246](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/conversation-history.ts#L246)
+[conversation-history.ts:246](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/conversation-history.ts#L246)
 
 ___
 
@@ -340,4 +340,4 @@ Return current system prompt
 
 #### Defined in
 
-[conversation-history.ts:265](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/conversation-history.ts#L265)
+[conversation-history.ts:265](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/conversation-history.ts#L265)

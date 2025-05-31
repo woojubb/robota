@@ -57,11 +57,11 @@ const TEMP_DIR = path.join(APPS_DOCS_DIR, '.temp');
 
 // API categories
 const API_CATEGORIES = [
-    { name: 'Core', pattern: 'packages/core/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'core/src/index.ts') },
-    { name: 'OpenAI', pattern: 'packages/openai/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'openai/src/index.ts') },
-    { name: 'Anthropic', pattern: 'packages/anthropic/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'anthropic/src/index.ts') },
-    { name: 'Google', pattern: 'packages/google/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'google/src/index.ts') },
-    { name: 'Tools', pattern: 'packages/tools/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'tools/src/index.ts') },
+    { name: 'core', pattern: 'packages/core/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'core/src/index.ts') },
+    { name: 'openai', pattern: 'packages/openai/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'openai/src/index.ts') },
+    { name: 'anthropic', pattern: 'packages/anthropic/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'anthropic/src/index.ts') },
+    { name: 'google', pattern: 'packages/google/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'google/src/index.ts') },
+    { name: 'tools', pattern: 'packages/tools/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'tools/src/index.ts') },
 ];
 
 // Generate API documentation main file
@@ -81,21 +81,6 @@ ${API_CATEGORIES.map(category => `- [${category.name}](${category.name.toLowerCa
 
     const indexPath = path.resolve(OUTPUT_DIR, 'README.md');
     fs.writeFileSync(indexPath, content);
-
-    // Generate main API reference sidebar - REMOVED for auto-sidebar plugin
-    // const sidebarContent = `${AUTO_GENERATED_WARNING}* [API Reference](README.md)
-    //
-    // **Core Packages**
-    // ${API_CATEGORIES.filter(cat => ['Core', 'Tools'].includes(cat.name))
-    //             .map(category => `* [${category.name}](${category.name.toLowerCase()}/)`).join('\n')}
-    //
-    // **AI Providers**
-    // ${API_CATEGORIES.filter(cat => ['OpenAI', 'Anthropic', 'Google'].includes(cat.name))
-    //             .map(category => `* [${category.name}](${category.name.toLowerCase()}/)`).join('\n')}
-    // `;
-    //
-    // const sidebarPath = path.resolve(OUTPUT_DIR, '_sidebar.md');
-    // fs.writeFileSync(sidebarPath, sidebarContent);
 }
 
 // Generate API documentation using TypeDoc
@@ -135,7 +120,7 @@ async function generateDocsForCategory(category) {
             return 0;
         }
 
-        const command = `npx typedoc --options ${path.join(ROOT_DIR, 'typedoc.json')} --out ${categoryDir} --entryPoints ${entryPoint} --tsconfig ${tsconfigPath} --name "${name} API"`;
+        const command = `npx typedoc --options ${path.join(ROOT_DIR, 'typedoc.json')} --out ${categoryDir} --entryPoints ${entryPoint} --tsconfig ${tsconfigPath} --name "${name}"`;
 
         console.log(`🔄 Converting ${name} TypeScript to Markdown...`);
         execSync(command, { stdio: 'pipe' }); // 로그 숨김

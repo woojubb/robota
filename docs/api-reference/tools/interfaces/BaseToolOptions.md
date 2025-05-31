@@ -4,7 +4,7 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[Tools API](../../) / [Exports](../modules) / BaseToolOptions
+[tools](../../) / [Exports](../modules) / BaseToolOptions
 
 # Interface: BaseToolOptions\<TParams, TResult\>
 
@@ -48,7 +48,7 @@ Base tool options interface
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:63](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/interfaces.ts#L63)
+[packages/tools/src/tool/interfaces.ts:63](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/interfaces.ts#L63)
 
 ___
 
@@ -58,7 +58,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:64](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/interfaces.ts#L64)
+[packages/tools/src/tool/interfaces.ts:64](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/interfaces.ts#L64)
 
 ___
 
@@ -68,7 +68,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:65](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/interfaces.ts#L65)
+[packages/tools/src/tool/interfaces.ts:65](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/interfaces.ts#L65)
 
 ___
 
@@ -78,7 +78,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:66](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/interfaces.ts#L66)
+[packages/tools/src/tool/interfaces.ts:66](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/interfaces.ts#L66)
 
 ___
 
@@ -88,7 +88,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:67](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/interfaces.ts#L67)
+[packages/tools/src/tool/interfaces.ts:67](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/interfaces.ts#L67)
 
 ___
 
@@ -112,7 +112,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:68](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/interfaces.ts#L68)
+[packages/tools/src/tool/interfaces.ts:68](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/interfaces.ts#L68)
 
 ___
 
@@ -136,7 +136,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:69](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/interfaces.ts#L69)
+[packages/tools/src/tool/interfaces.ts:69](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/interfaces.ts#L69)
 
 ___
 
@@ -160,4 +160,4 @@ ___
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:70](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/tools/src/tool/interfaces.ts#L70)
+[packages/tools/src/tool/interfaces.ts:70](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/tools/src/tool/interfaces.ts#L70)

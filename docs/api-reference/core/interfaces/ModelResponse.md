@@ -4,7 +4,7 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[Core API](../../) / [Exports](../modules) / ModelResponse
+[core](../../) / [Exports](../modules) / ModelResponse
 
 # Interface: ModelResponse
 
@@ -27,7 +27,7 @@ Model response interface
 
 #### Defined in
 
-[interfaces/ai-provider.ts:24](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/interfaces/ai-provider.ts#L24)
+[interfaces/ai-provider.ts:24](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/interfaces/ai-provider.ts#L24)
 
 ___
 
@@ -37,7 +37,7 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:25](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/interfaces/ai-provider.ts#L25)
+[interfaces/ai-provider.ts:25](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/interfaces/ai-provider.ts#L25)
 
 ___
 
@@ -55,7 +55,7 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:26](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/interfaces/ai-provider.ts#L26)
+[interfaces/ai-provider.ts:26](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/interfaces/ai-provider.ts#L26)
 
 ___
 
@@ -65,4 +65,4 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:31](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/interfaces/ai-provider.ts#L31)
+[interfaces/ai-provider.ts:31](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/core/src/interfaces/ai-provider.ts#L31)
