@@ -27,7 +27,7 @@ Model response interface
 
 #### Defined in
 
-[interfaces/ai-provider.ts:24](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/core/src/interfaces/ai-provider.ts#L24)
+[interfaces/ai-provider.ts:24](https://github.com/woojubb/robota/blob/a39243840a0f22218a66a8ddebc99aed85ae89e7/packages/core/src/interfaces/ai-provider.ts#L24)
 
 ___
 
@@ -37,7 +37,7 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:25](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/core/src/interfaces/ai-provider.ts#L25)
+[interfaces/ai-provider.ts:25](https://github.com/woojubb/robota/blob/a39243840a0f22218a66a8ddebc99aed85ae89e7/packages/core/src/interfaces/ai-provider.ts#L25)
 
 ___
 
@@ -55,7 +55,7 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:26](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/core/src/interfaces/ai-provider.ts#L26)
+[interfaces/ai-provider.ts:26](https://github.com/woojubb/robota/blob/a39243840a0f22218a66a8ddebc99aed85ae89e7/packages/core/src/interfaces/ai-provider.ts#L26)
 
 ___
 
@@ -65,4 +65,4 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:31](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/core/src/interfaces/ai-provider.ts#L31)
+[interfaces/ai-provider.ts:31](https://github.com/woojubb/robota/blob/a39243840a0f22218a66a8ddebc99aed85ae89e7/packages/core/src/interfaces/ai-provider.ts#L31)

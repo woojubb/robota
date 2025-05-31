@@ -277,9 +277,27 @@ function fixDocumentLinks(categoryDir, categoryName) {
                 return `](${path}${anchor || ''})`;
             });
 
-            // 4. Change modules links to README
+            // 4. Change modules links to README or current page anchors
             content = content.replace(/\]\(modules\)/g, '](README)');
             content = content.replace(/\]\(\.\/modules\)/g, '](./README)');
+
+            // 5. Fix modules.html links with anchors - convert to current page anchors
+            content = content.replace(/\]\(\.\/modules\.html(#[^)]+)\)/g, (match, anchor) => {
+                return `](${anchor})`;
+            });
+            content = content.replace(/\]\(modules\.html(#[^)]+)\)/g, (match, anchor) => {
+                return `](${anchor})`;
+            });
+
+            // 6. Fix modules#anchor links - convert to current page anchors (for README.md files)
+            if (fileName === 'README.md' || fileName === 'modules.md') {
+                content = content.replace(/\]\(modules(#[^)]+)\)/g, (match, anchor) => {
+                    return `](${anchor})`;
+                });
+                content = content.replace(/\]\(\.\/modules(#[^)]+)\)/g, (match, anchor) => {
+                    return `](${anchor})`;
+                });
+            }
 
             // Save file
             fs.writeFileSync(mdFile, content);
