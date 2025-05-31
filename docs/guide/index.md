@@ -4,16 +4,29 @@ description: Robota SDK Documentation Guide
 lang: en-US
 ---
 
-# Robota SDK Guide
+# Getting Started Guide
 
-Robota SDK is a powerful TypeScript library built with a modular Manager pattern architecture that makes it easy to create sophisticated AI agents. With Robota SDK, you can:
+Learn how to use Robota SDK to build powerful AI agents with multi-provider support and function calling.
 
-- **Build AI Agents with Manager Pattern**: Clean separation of concerns with specialized managers
-- **Multi-Provider Support**: Seamlessly work with OpenAI, Anthropic, and Google AI
-- **Type-Safe Function Calling**: Zod schemas, MCP integration, and custom tool providers  
-- **Built-in Analytics**: Comprehensive usage tracking and request limit management
-- **Real-time Streaming**: Streaming responses across all supported providers
-- **Conversation Management**: Persistent history with configurable limits
+## What is Robota SDK?
+
+Robota SDK is a TypeScript library that makes it easy to create sophisticated AI agents with:
+
+- **Multi-Provider Support**: OpenAI, Anthropic, and Google AI
+- **Type-Safe Function Calling**: Zod schemas and tool integration
+- **Conversation Management**: Built-in history and analytics
+- **Real-time Streaming**: Streaming responses across all providers
+
+## Guide Sections
+
+- **[Getting Started](./getting-started.md)** - Installation, setup, and first agent
+- **[Core Concepts](./core-concepts.md)** - Understanding the architecture
+- **[Function Calling](./function-calling.md)** - Adding tools and functions
+- **[Building Agents](./building-agents.md)** - Advanced patterns and best practices
+
+## Next Steps
+
+Start with [Getting Started](./getting-started.md) to create your first AI agent, or explore [Examples](../examples/) for real-world usage patterns.
 
 ## Documentation Sections
 

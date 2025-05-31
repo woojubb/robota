@@ -5,18 +5,29 @@ sidebar_position: 9
 
 # API Reference
 
-This API reference document contains information about the following packages:
+Complete API documentation for all Robota SDK packages.
 
-## Library Components
+## Core Packages
 
-- [Core](api-reference/core/) - Base classes and interfaces
-- [Tools](api-reference/tools/) - Tools and utilities
+- **[Core](api-reference/core/)** - Main Robota class, managers, and core interfaces
+- **[Tools](api-reference/tools/)** - Function calling, tool providers, and schemas
 
-## Providers
+## AI Providers
 
-- [OpenAI](api-reference/openai/) - OpenAI provider API
-- [Anthropic](api-reference/anthropic/) - Anthropic provider API
+- **[OpenAI](api-reference/openai/)** - OpenAI provider and conversation adapters
+- **[Anthropic](api-reference/anthropic/)** - Anthropic provider and Claude integration
+- **[Google](api-reference/google/)** - Google AI provider and Gemini integration
 
-## Protocols
+## Quick Links
 
-- [MCP](api-reference/mcp/) - Model Context Protocol implementation
+- **Getting Started**: See [Guide](guide/) for setup and basic usage
+- **Examples**: Browse [Examples](examples/) for practical code samples
+- **Providers**: Learn about [AI Providers](providers/) configuration
+
+## Package Structure
+
+Each package documentation includes:
+- Classes and interfaces
+- Type definitions
+- Usage examples
+- Configuration options

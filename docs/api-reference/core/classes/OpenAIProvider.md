@@ -49,7 +49,7 @@ Wraps OpenAI client with unified AIProvider interface.
 
 #### Defined in
 
-[providers/openai-provider.ts:13](https://github.com/woojubb/robota/blob/a39243840a0f22218a66a8ddebc99aed85ae89e7/packages/core/src/providers/openai-provider.ts#L13)
+[providers/openai-provider.ts:13](https://github.com/woojubb/robota/blob/8d56176726b5cbc3c1257c839c6ee08ce5478dc7/packages/core/src/providers/openai-provider.ts#L13)
 
 ## Properties
 
@@ -65,7 +65,7 @@ Provider name
 
 #### Defined in
 
-[providers/openai-provider.ts:9](https://github.com/woojubb/robota/blob/a39243840a0f22218a66a8ddebc99aed85ae89e7/packages/core/src/providers/openai-provider.ts#L9)
+[providers/openai-provider.ts:9](https://github.com/woojubb/robota/blob/8d56176726b5cbc3c1257c839c6ee08ce5478dc7/packages/core/src/providers/openai-provider.ts#L9)
 
 ## Methods
 
@@ -93,7 +93,7 @@ Chat request
 
 #### Defined in
 
-[providers/openai-provider.ts:20](https://github.com/woojubb/robota/blob/a39243840a0f22218a66a8ddebc99aed85ae89e7/packages/core/src/providers/openai-provider.ts#L20)
+[providers/openai-provider.ts:20](https://github.com/woojubb/robota/blob/8d56176726b5cbc3c1257c839c6ee08ce5478dc7/packages/core/src/providers/openai-provider.ts#L20)
 
 ___
 
@@ -121,7 +121,7 @@ Streaming chat request
 
 #### Defined in
 
-[providers/openai-provider.ts:86](https://github.com/woojubb/robota/blob/a39243840a0f22218a66a8ddebc99aed85ae89e7/packages/core/src/providers/openai-provider.ts#L86)
+[providers/openai-provider.ts:86](https://github.com/woojubb/robota/blob/8d56176726b5cbc3c1257c839c6ee08ce5478dc7/packages/core/src/providers/openai-provider.ts#L86)
 
 ___
 
@@ -141,4 +141,4 @@ Release resources
 
 #### Defined in
 
-[providers/openai-provider.ts:145](https://github.com/woojubb/robota/blob/a39243840a0f22218a66a8ddebc99aed85ae89e7/packages/core/src/providers/openai-provider.ts#L145)
+[providers/openai-provider.ts:145](https://github.com/woojubb/robota/blob/8d56176726b5cbc3c1257c839c6ee08ce5478dc7/packages/core/src/providers/openai-provider.ts#L145)
