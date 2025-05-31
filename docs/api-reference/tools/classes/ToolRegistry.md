@@ -20,11 +20,11 @@ Class for registering and managing multiple tools
 
 ### Methods
 
-- [executeTool](ToolRegistry#executetool)
-- [getAllTools](ToolRegistry#getalltools)
-- [getTool](ToolRegistry#gettool)
 - [register](ToolRegistry#register)
 - [registerMany](ToolRegistry#registermany)
+- [getTool](ToolRegistry#gettool)
+- [getAllTools](ToolRegistry#getalltools)
+- [executeTool](ToolRegistry#executetool)
 
 ## Constructors
 
@@ -37,6 +37,92 @@ Class for registering and managing multiple tools
 [`ToolRegistry`](ToolRegistry)
 
 ## Methods
+
+### register
+
+▸ **register**(`tool`): [`ToolRegistry`](ToolRegistry)
+
+Register a tool
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `tool` | [`Tool`](../interfaces/Tool)\<`any`, `any`\> | Tool to register |
+
+#### Returns
+
+[`ToolRegistry`](ToolRegistry)
+
+#### Defined in
+
+[packages/tools/src/index.ts:176](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/index.ts#L176)
+
+___
+
+### registerMany
+
+▸ **registerMany**(`tools`): [`ToolRegistry`](ToolRegistry)
+
+Register multiple tools
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `tools` | [`Tool`](../interfaces/Tool)\<`any`, `any`\>[] | Array of tools to register |
+
+#### Returns
+
+[`ToolRegistry`](ToolRegistry)
+
+#### Defined in
+
+[packages/tools/src/index.ts:186](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/index.ts#L186)
+
+___
+
+### getTool
+
+▸ **getTool**(`name`): `undefined` \| [`Tool`](../interfaces/Tool)\<`any`, `any`\>
+
+Get a tool
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `name` | `string` | Name of the tool to get |
+
+#### Returns
+
+`undefined` \| [`Tool`](../interfaces/Tool)\<`any`, `any`\>
+
+Tool or undefined
+
+#### Defined in
+
+[packages/tools/src/index.ts:199](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/index.ts#L199)
+
+___
+
+### getAllTools
+
+▸ **getAllTools**(): [`Tool`](../interfaces/Tool)\<`any`, `any`\>[]
+
+Get all tools
+
+#### Returns
+
+[`Tool`](../interfaces/Tool)\<`any`, `any`\>[]
+
+Array of all registered tools
+
+#### Defined in
+
+[packages/tools/src/index.ts:208](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/index.ts#L208)
+
+___
 
 ### executeTool
 
@@ -66,90 +152,4 @@ Tool execution result
 
 #### Defined in
 
-[packages/tools/src/index.ts:219](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/index.ts#L219)
-
-___
-
-### getAllTools
-
-▸ **getAllTools**(): [`Tool`](../interfaces/Tool)\<`any`, `any`\>[]
-
-Get all tools
-
-#### Returns
-
-[`Tool`](../interfaces/Tool)\<`any`, `any`\>[]
-
-Array of all registered tools
-
-#### Defined in
-
-[packages/tools/src/index.ts:208](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/index.ts#L208)
-
-___
-
-### getTool
-
-▸ **getTool**(`name`): `undefined` \| [`Tool`](../interfaces/Tool)\<`any`, `any`\>
-
-Get a tool
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `name` | `string` | Name of the tool to get |
-
-#### Returns
-
-`undefined` \| [`Tool`](../interfaces/Tool)\<`any`, `any`\>
-
-Tool or undefined
-
-#### Defined in
-
-[packages/tools/src/index.ts:199](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/index.ts#L199)
-
-___
-
-### register
-
-▸ **register**(`tool`): [`ToolRegistry`](ToolRegistry)
-
-Register a tool
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `tool` | [`Tool`](../interfaces/Tool)\<`any`, `any`\> | Tool to register |
-
-#### Returns
-
-[`ToolRegistry`](ToolRegistry)
-
-#### Defined in
-
-[packages/tools/src/index.ts:176](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/index.ts#L176)
-
-___
-
-### registerMany
-
-▸ **registerMany**(`tools`): [`ToolRegistry`](ToolRegistry)
-
-Register multiple tools
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `tools` | [`Tool`](../interfaces/Tool)\<`any`, `any`\>[] | Array of tools to register |
-
-#### Returns
-
-[`ToolRegistry`](ToolRegistry)
-
-#### Defined in
-
-[packages/tools/src/index.ts:186](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/index.ts#L186)
+[packages/tools/src/index.ts:219](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/index.ts#L219)

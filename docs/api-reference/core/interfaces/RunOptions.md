@@ -14,32 +14,22 @@ Run options interface
 
 ### Properties
 
-- [forcedArguments](RunOptions#forcedarguments)
-- [forcedFunction](RunOptions#forcedfunction)
-- [functionCallMode](RunOptions#functioncallmode)
-- [maxTokens](RunOptions#maxtokens)
 - [systemPrompt](RunOptions#systemprompt)
+- [functionCallMode](RunOptions#functioncallmode)
+- [forcedFunction](RunOptions#forcedfunction)
+- [forcedArguments](RunOptions#forcedarguments)
 - [temperature](RunOptions#temperature)
+- [maxTokens](RunOptions#maxtokens)
 
 ## Properties
 
-### forcedArguments
+### systemPrompt
 
-• `Optional` **forcedArguments**: `Record`\<`string`, `unknown`\>
-
-#### Defined in
-
-[core/src/types.ts:37](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/types.ts#L37)
-
-___
-
-### forcedFunction
-
-• `Optional` **forcedFunction**: `string`
+• `Optional` **systemPrompt**: `string`
 
 #### Defined in
 
-[core/src/types.ts:36](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/types.ts#L36)
+[core/src/types.ts:34](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/types.ts#L34)
 
 ___
 
@@ -49,27 +39,27 @@ ___
 
 #### Defined in
 
-[core/src/types.ts:35](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/types.ts#L35)
+[core/src/types.ts:35](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/types.ts#L35)
 
 ___
 
-### maxTokens
+### forcedFunction
 
-• `Optional` **maxTokens**: `number`
+• `Optional` **forcedFunction**: `string`
 
 #### Defined in
 
-[core/src/types.ts:39](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/types.ts#L39)
+[core/src/types.ts:36](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/types.ts#L36)
 
 ___
 
-### systemPrompt
+### forcedArguments
 
-• `Optional` **systemPrompt**: `string`
+• `Optional` **forcedArguments**: `Record`\<`string`, `unknown`\>
 
 #### Defined in
 
-[core/src/types.ts:34](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/types.ts#L34)
+[core/src/types.ts:37](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/types.ts#L37)
 
 ___
 
@@ -79,4 +69,14 @@ ___
 
 #### Defined in
 
-[core/src/types.ts:38](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/types.ts#L38)
+[core/src/types.ts:38](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/types.ts#L38)
+
+___
+
+### maxTokens
+
+• `Optional` **maxTokens**: `number`
+
+#### Defined in
+
+[core/src/types.ts:39](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/types.ts#L39)

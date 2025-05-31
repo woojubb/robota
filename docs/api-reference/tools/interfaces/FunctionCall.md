@@ -14,20 +14,10 @@ Function call interface
 
 ### Properties
 
-- [arguments](FunctionCall#arguments)
 - [name](FunctionCall#name)
+- [arguments](FunctionCall#arguments)
 
 ## Properties
-
-### arguments
-
-• **arguments**: `string` \| `Record`\<`string`, `any`\>
-
-#### Defined in
-
-[packages/tools/src/types.ts:42](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/types.ts#L42)
-
-___
 
 ### name
 
@@ -35,4 +25,14 @@ ___
 
 #### Defined in
 
-[packages/tools/src/types.ts:41](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/types.ts#L41)
+[packages/tools/src/types.ts:41](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/types.ts#L41)
+
+___
+
+### arguments
+
+• **arguments**: `string` \| `Record`\<`string`, `any`\>
+
+#### Defined in
+
+[packages/tools/src/types.ts:42](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/types.ts#L42)

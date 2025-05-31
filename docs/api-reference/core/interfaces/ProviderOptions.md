@@ -14,23 +14,13 @@ Provider options interface
 
 ### Properties
 
-- [maxTokens](ProviderOptions#maxtokens)
 - [model](ProviderOptions#model)
+- [temperature](ProviderOptions#temperature)
+- [maxTokens](ProviderOptions#maxtokens)
 - [stopSequences](ProviderOptions#stopsequences)
 - [streamMode](ProviderOptions#streammode)
-- [temperature](ProviderOptions#temperature)
 
 ## Properties
-
-### maxTokens
-
-• `Optional` **maxTokens**: `number`
-
-#### Defined in
-
-[core/src/types.ts:25](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/types.ts#L25)
-
-___
 
 ### model
 
@@ -38,27 +28,7 @@ ___
 
 #### Defined in
 
-[core/src/types.ts:23](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/types.ts#L23)
-
-___
-
-### stopSequences
-
-• `Optional` **stopSequences**: `string`[]
-
-#### Defined in
-
-[core/src/types.ts:26](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/types.ts#L26)
-
-___
-
-### streamMode
-
-• `Optional` **streamMode**: `boolean`
-
-#### Defined in
-
-[core/src/types.ts:27](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/types.ts#L27)
+[core/src/types.ts:23](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/types.ts#L23)
 
 ___
 
@@ -68,4 +38,34 @@ ___
 
 #### Defined in
 
-[core/src/types.ts:24](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/types.ts#L24)
+[core/src/types.ts:24](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/types.ts#L24)
+
+___
+
+### maxTokens
+
+• `Optional` **maxTokens**: `number`
+
+#### Defined in
+
+[core/src/types.ts:25](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/types.ts#L25)
+
+___
+
+### stopSequences
+
+• `Optional` **stopSequences**: `string`[]
+
+#### Defined in
+
+[core/src/types.ts:26](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/types.ts#L26)
+
+___
+
+### streamMode
+
+• `Optional` **streamMode**: `boolean`
+
+#### Defined in
+
+[core/src/types.ts:27](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/types.ts#L27)

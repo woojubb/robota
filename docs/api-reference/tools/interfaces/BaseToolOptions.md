@@ -31,72 +31,24 @@ Base tool options interface
 
 ### Properties
 
-- [afterExecute](BaseToolOptions#afterexecute)
-- [beforeExecute](BaseToolOptions#beforeexecute)
-- [category](BaseToolOptions#category)
-- [description](BaseToolOptions#description)
-- [execute](BaseToolOptions#execute)
 - [name](BaseToolOptions#name)
-- [validateParams](BaseToolOptions#validateparams)
+- [description](BaseToolOptions#description)
+- [category](BaseToolOptions#category)
 - [version](BaseToolOptions#version)
+- [validateParams](BaseToolOptions#validateparams)
+- [execute](BaseToolOptions#execute)
+- [beforeExecute](BaseToolOptions#beforeexecute)
+- [afterExecute](BaseToolOptions#afterexecute)
 
 ## Properties
 
-### afterExecute
+### name
 
-• `Optional` **afterExecute**: (`result`: `ToolResult`\<`TResult`\>) => `ToolResult`\<`TResult`\> \| `Promise`\<`ToolResult`\<`TResult`\>\>
-
-#### Type declaration
-
-▸ (`result`): `ToolResult`\<`TResult`\> \| `Promise`\<`ToolResult`\<`TResult`\>\>
-
-##### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `result` | `ToolResult`\<`TResult`\> |
-
-##### Returns
-
-`ToolResult`\<`TResult`\> \| `Promise`\<`ToolResult`\<`TResult`\>\>
+• **name**: `string`
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:70](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L70)
-
-___
-
-### beforeExecute
-
-• `Optional` **beforeExecute**: (`params`: `TParams`) => `TParams` \| `Promise`\<`TParams`\>
-
-#### Type declaration
-
-▸ (`params`): `TParams` \| `Promise`\<`TParams`\>
-
-##### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `params` | `TParams` |
-
-##### Returns
-
-`TParams` \| `Promise`\<`TParams`\>
-
-#### Defined in
-
-[packages/tools/src/tool/interfaces.ts:69](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L69)
-
-___
-
-### category
-
-• `Optional` **category**: `string`
-
-#### Defined in
-
-[packages/tools/src/tool/interfaces.ts:65](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L65)
+[packages/tools/src/tool/interfaces.ts:63](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/interfaces.ts#L63)
 
 ___
 
@@ -106,7 +58,37 @@ ___
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:64](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L64)
+[packages/tools/src/tool/interfaces.ts:64](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/interfaces.ts#L64)
+
+___
+
+### category
+
+• `Optional` **category**: `string`
+
+#### Defined in
+
+[packages/tools/src/tool/interfaces.ts:65](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/interfaces.ts#L65)
+
+___
+
+### version
+
+• `Optional` **version**: `string`
+
+#### Defined in
+
+[packages/tools/src/tool/interfaces.ts:66](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/interfaces.ts#L66)
+
+___
+
+### validateParams
+
+• `Optional` **validateParams**: `boolean`
+
+#### Defined in
+
+[packages/tools/src/tool/interfaces.ts:67](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/interfaces.ts#L67)
 
 ___
 
@@ -130,34 +112,52 @@ ___
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:68](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L68)
+[packages/tools/src/tool/interfaces.ts:68](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/interfaces.ts#L68)
 
 ___
 
-### name
+### beforeExecute
 
-• **name**: `string`
+• `Optional` **beforeExecute**: (`params`: `TParams`) => `TParams` \| `Promise`\<`TParams`\>
+
+#### Type declaration
+
+▸ (`params`): `TParams` \| `Promise`\<`TParams`\>
+
+##### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `params` | `TParams` |
+
+##### Returns
+
+`TParams` \| `Promise`\<`TParams`\>
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:63](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L63)
+[packages/tools/src/tool/interfaces.ts:69](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/interfaces.ts#L69)
 
 ___
 
-### validateParams
+### afterExecute
 
-• `Optional` **validateParams**: `boolean`
+• `Optional` **afterExecute**: (`result`: `ToolResult`\<`TResult`\>) => `ToolResult`\<`TResult`\> \| `Promise`\<`ToolResult`\<`TResult`\>\>
+
+#### Type declaration
+
+▸ (`result`): `ToolResult`\<`TResult`\> \| `Promise`\<`ToolResult`\<`TResult`\>\>
+
+##### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `result` | `ToolResult`\<`TResult`\> |
+
+##### Returns
+
+`ToolResult`\<`TResult`\> \| `Promise`\<`ToolResult`\<`TResult`\>\>
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:67](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L67)
-
-___
-
-### version
-
-• `Optional` **version**: `string`
-
-#### Defined in
-
-[packages/tools/src/tool/interfaces.ts:66](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L66)
+[packages/tools/src/tool/interfaces.ts:70](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/interfaces.ts#L70)

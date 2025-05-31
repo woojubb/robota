@@ -22,18 +22,18 @@ Conversation history implementation that maintains system messages
 
 ### Methods
 
-- [addAssistantMessage](PersistentSystemConversationHistory#addassistantmessage)
 - [addMessage](PersistentSystemConversationHistory#addmessage)
+- [addUserMessage](PersistentSystemConversationHistory#addusermessage)
+- [addAssistantMessage](PersistentSystemConversationHistory#addassistantmessage)
 - [addSystemMessage](PersistentSystemConversationHistory#addsystemmessage)
 - [addToolMessage](PersistentSystemConversationHistory#addtoolmessage)
-- [addUserMessage](PersistentSystemConversationHistory#addusermessage)
-- [clear](PersistentSystemConversationHistory#clear)
-- [getMessageCount](PersistentSystemConversationHistory#getmessagecount)
 - [getMessages](PersistentSystemConversationHistory#getmessages)
 - [getMessagesByRole](PersistentSystemConversationHistory#getmessagesbyrole)
 - [getRecentMessages](PersistentSystemConversationHistory#getrecentmessages)
-- [getSystemPrompt](PersistentSystemConversationHistory#getsystemprompt)
+- [getMessageCount](PersistentSystemConversationHistory#getmessagecount)
+- [clear](PersistentSystemConversationHistory#clear)
 - [updateSystemPrompt](PersistentSystemConversationHistory#updatesystemprompt)
+- [getSystemPrompt](PersistentSystemConversationHistory#getsystemprompt)
 
 ## Constructors
 
@@ -55,37 +55,9 @@ Conversation history implementation that maintains system messages
 
 #### Defined in
 
-[core/src/conversation-history.ts:193](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L193)
+[core/src/conversation-history.ts:193](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L193)
 
 ## Methods
-
-### addAssistantMessage
-
-▸ **addAssistantMessage**(`content`, `functionCall?`, `metadata?`): `void`
-
-Add assistant message (convenience method)
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `content` | `string` |
-| `functionCall?` | [`FunctionCall`](../interfaces/FunctionCall) |
-| `metadata?` | `Record`\<`string`, `any`\> |
-
-#### Returns
-
-`void`
-
-#### Implementation of
-
-[ConversationHistory](../interfaces/ConversationHistory).[addAssistantMessage](../interfaces/ConversationHistory#addassistantmessage)
-
-#### Defined in
-
-[core/src/conversation-history.ts:209](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L209)
-
-___
 
 ### addMessage
 
@@ -109,61 +81,7 @@ Add message to conversation history
 
 #### Defined in
 
-[core/src/conversation-history.ts:201](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L201)
-
-___
-
-### addSystemMessage
-
-▸ **addSystemMessage**(`content`, `metadata?`): `void`
-
-Add system message (convenience method)
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `content` | `string` |
-| `metadata?` | `Record`\<`string`, `any`\> |
-
-#### Returns
-
-`void`
-
-#### Implementation of
-
-[ConversationHistory](../interfaces/ConversationHistory).[addSystemMessage](../interfaces/ConversationHistory#addsystemmessage)
-
-#### Defined in
-
-[core/src/conversation-history.ts:213](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L213)
-
-___
-
-### addToolMessage
-
-▸ **addToolMessage**(`toolResult`, `metadata?`): `void`
-
-Add tool execution result message (convenience method)
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `toolResult` | [`FunctionCallResult`](../interfaces/FunctionCallResult) |
-| `metadata?` | `Record`\<`string`, `any`\> |
-
-#### Returns
-
-`void`
-
-#### Implementation of
-
-[ConversationHistory](../interfaces/ConversationHistory).[addToolMessage](../interfaces/ConversationHistory#addtoolmessage)
-
-#### Defined in
-
-[core/src/conversation-history.ts:217](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L217)
+[core/src/conversation-history.ts:201](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L201)
 
 ___
 
@@ -190,15 +108,23 @@ Add user message (convenience method)
 
 #### Defined in
 
-[core/src/conversation-history.ts:205](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L205)
+[core/src/conversation-history.ts:205](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L205)
 
 ___
 
-### clear
+### addAssistantMessage
 
-▸ **clear**(): `void`
+▸ **addAssistantMessage**(`content`, `functionCall?`, `metadata?`): `void`
 
-Clear conversation history
+Add assistant message (convenience method)
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `content` | `string` |
+| `functionCall?` | [`FunctionCall`](../interfaces/FunctionCall) |
+| `metadata?` | `Record`\<`string`, `any`\> |
 
 #### Returns
 
@@ -206,31 +132,65 @@ Clear conversation history
 
 #### Implementation of
 
-[ConversationHistory](../interfaces/ConversationHistory).[clear](../interfaces/ConversationHistory#clear)
+[ConversationHistory](../interfaces/ConversationHistory).[addAssistantMessage](../interfaces/ConversationHistory#addassistantmessage)
 
 #### Defined in
 
-[core/src/conversation-history.ts:237](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L237)
+[core/src/conversation-history.ts:209](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L209)
 
 ___
 
-### getMessageCount
+### addSystemMessage
 
-▸ **getMessageCount**(): `number`
+▸ **addSystemMessage**(`content`, `metadata?`): `void`
 
-Return message count
+Add system message (convenience method)
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `content` | `string` |
+| `metadata?` | `Record`\<`string`, `any`\> |
 
 #### Returns
 
-`number`
+`void`
 
 #### Implementation of
 
-[ConversationHistory](../interfaces/ConversationHistory).[getMessageCount](../interfaces/ConversationHistory#getmessagecount)
+[ConversationHistory](../interfaces/ConversationHistory).[addSystemMessage](../interfaces/ConversationHistory#addsystemmessage)
 
 #### Defined in
 
-[core/src/conversation-history.ts:233](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L233)
+[core/src/conversation-history.ts:213](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L213)
+
+___
+
+### addToolMessage
+
+▸ **addToolMessage**(`toolResult`, `metadata?`): `void`
+
+Add tool execution result message (convenience method)
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `toolResult` | [`FunctionCallResult`](../interfaces/FunctionCallResult) |
+| `metadata?` | `Record`\<`string`, `any`\> |
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+[ConversationHistory](../interfaces/ConversationHistory).[addToolMessage](../interfaces/ConversationHistory#addtoolmessage)
+
+#### Defined in
+
+[core/src/conversation-history.ts:217](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L217)
 
 ___
 
@@ -250,7 +210,7 @@ Get all messages
 
 #### Defined in
 
-[core/src/conversation-history.ts:221](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L221)
+[core/src/conversation-history.ts:221](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L221)
 
 ___
 
@@ -276,7 +236,7 @@ Get messages by specific role
 
 #### Defined in
 
-[core/src/conversation-history.ts:225](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L225)
+[core/src/conversation-history.ts:225](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L225)
 
 ___
 
@@ -302,23 +262,47 @@ Get recent n messages
 
 #### Defined in
 
-[core/src/conversation-history.ts:229](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L229)
+[core/src/conversation-history.ts:229](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L229)
 
 ___
 
-### getSystemPrompt
+### getMessageCount
 
-▸ **getSystemPrompt**(): `string`
+▸ **getMessageCount**(): `number`
 
-Return current system prompt
+Return message count
 
 #### Returns
 
-`string`
+`number`
+
+#### Implementation of
+
+[ConversationHistory](../interfaces/ConversationHistory).[getMessageCount](../interfaces/ConversationHistory#getmessagecount)
 
 #### Defined in
 
-[core/src/conversation-history.ts:265](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L265)
+[core/src/conversation-history.ts:233](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L233)
+
+___
+
+### clear
+
+▸ **clear**(): `void`
+
+Clear conversation history
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+[ConversationHistory](../interfaces/ConversationHistory).[clear](../interfaces/ConversationHistory#clear)
+
+#### Defined in
+
+[core/src/conversation-history.ts:237](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L237)
 
 ___
 
@@ -340,4 +324,20 @@ Update system prompt
 
 #### Defined in
 
-[core/src/conversation-history.ts:246](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L246)
+[core/src/conversation-history.ts:246](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L246)
+
+___
+
+### getSystemPrompt
+
+▸ **getSystemPrompt**(): `string`
+
+Return current system prompt
+
+#### Returns
+
+`string`
+
+#### Defined in
+
+[core/src/conversation-history.ts:265](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L265)

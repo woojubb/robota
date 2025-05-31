@@ -12,53 +12,77 @@
 
 ### Classes
 
-- [BaseTool](classes/BaseTool)
 - [FunctionRegistry](classes/FunctionRegistry)
+- [ToolRegistry](classes/ToolRegistry)
+- [BaseTool](classes/BaseTool)
 - [McpTool](classes/McpTool)
 - [OpenApiTool](classes/OpenApiTool)
-- [ToolRegistry](classes/ToolRegistry)
 - [ZodTool](classes/ZodTool)
 
 ### Interfaces
 
-- [BaseToolOptions](interfaces/BaseToolOptions)
-- [CreateToolOptions](interfaces/CreateToolOptions)
-- [FunctionCall](interfaces/FunctionCall)
-- [FunctionCallResult](interfaces/FunctionCallResult)
-- [FunctionDefinition](interfaces/FunctionDefinition)
+- [ZodFunctionToolProviderOptions](interfaces/ZodFunctionToolProviderOptions)
 - [FunctionOptions](interfaces/FunctionOptions)
-- [FunctionSchema](interfaces/FunctionSchema)
+- [ToolFunction](interfaces/ToolFunction)
+- [ToolResult](interfaces/ToolResult)
+- [ToolParameter](interfaces/ToolParameter)
+- [Tool](interfaces/Tool)
+- [CreateToolOptions](interfaces/CreateToolOptions)
 - [MCPClient](interfaces/MCPClient)
+- [ToolProvider](interfaces/ToolProvider)
+- [ToolInterface](interfaces/ToolInterface)
+- [BaseToolOptions](interfaces/BaseToolOptions)
+- [ZodToolOptions](interfaces/ZodToolOptions)
 - [McpToolOptions](interfaces/McpToolOptions)
 - [OpenApiToolOptions](interfaces/OpenApiToolOptions)
-- [Tool](interfaces/Tool)
-- [ToolFunction](interfaces/ToolFunction)
-- [ToolInterface](interfaces/ToolInterface)
-- [ToolParameter](interfaces/ToolParameter)
-- [ToolProvider](interfaces/ToolProvider)
-- [ToolResult](interfaces/ToolResult)
+- [FunctionSchema](interfaces/FunctionSchema)
+- [FunctionDefinition](interfaces/FunctionDefinition)
+- [FunctionCall](interfaces/FunctionCall)
+- [FunctionCallResult](interfaces/FunctionCallResult)
 - [ZodFunctionTool](interfaces/ZodFunctionTool)
-- [ZodFunctionToolProviderOptions](interfaces/ZodFunctionToolProviderOptions)
-- [ZodToolOptions](interfaces/ZodToolOptions)
 
 ### Type Aliases
 
-- [FunctionHandler](modules#functionhandler)
 - [FunctionResult](modules#functionresult)
+- [FunctionHandler](modules#functionhandler)
 
 ### Functions
 
+- [createZodFunctionToolProvider](modules#createzodfunctiontoolprovider)
 - [createFunction](modules#createfunction)
+- [functionFromCallback](modules#functionfromcallback)
 - [createFunctionSchema](modules#createfunctionschema)
+- [createTool](modules#createtool)
 - [createMcpToolProvider](modules#createmcptoolprovider)
 - [createOpenAPIToolProvider](modules#createopenapitoolprovider)
-- [createTool](modules#createtool)
-- [createZodFunctionToolProvider](modules#createzodfunctiontoolprovider)
-- [functionFromCallback](modules#functionfromcallback)
-- [zodFunctionToSchema](modules#zodfunctiontoschema)
 - [zodToJsonSchema](modules#zodtojsonschema)
+- [zodFunctionToSchema](modules#zodfunctiontoschema)
 
 ## Type Aliases
+
+### FunctionResult
+
+Ƭ **FunctionResult**\<`TResult`\>: `Object`
+
+Function result type
+
+#### Type parameters
+
+| Name | Type |
+| :------ | :------ |
+| `TResult` | `unknown` |
+
+#### Type declaration
+
+| Name | Type |
+| :------ | :------ |
+| `result` | `TResult` |
+
+#### Defined in
+
+[packages/tools/src/function.ts:16](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L16)
+
+___
 
 ### FunctionHandler
 
@@ -83,33 +107,57 @@ Function call handler type
 
 #### Defined in
 
-[packages/tools/src/function.ts:378](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function.ts#L378)
+[packages/tools/src/function.ts:378](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L378)
 
-___
+## Functions
 
-### FunctionResult
+### createZodFunctionToolProvider
 
-Ƭ **FunctionResult**\<`TResult`\>: `Object`
+▸ **createZodFunctionToolProvider**(`options`): [`ToolProvider`](interfaces/ToolProvider)
 
-Function result type
+Zod 스키마 기반 함수 도구 제공자를 생성합니다.
 
-#### Type parameters
+#### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `TResult` | `unknown` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `options` | [`ZodFunctionToolProviderOptions`](interfaces/ZodFunctionToolProviderOptions) | 함수 도구 제공자 옵션 |
 
-#### Type declaration
+#### Returns
 
-| Name | Type |
-| :------ | :------ |
-| `result` | `TResult` |
+[`ToolProvider`](interfaces/ToolProvider)
+
+도구 제공자 인스턴스 (ToolProvider 인터페이스 구현)
+
+**`Example`**
+
+```typescript
+const calculatorTool = {
+  name: 'add',
+  description: '두 숫자를 더합니다',
+  parameters: z.object({
+    a: z.number().describe('첫 번째 숫자'),
+    b: z.number().describe('두 번째 숫자')
+  }),
+  handler: async ({ a, b }) => ({ result: a + b })
+};
+
+const provider = createZodFunctionToolProvider({
+  tools: { add: calculatorTool }
+});
+
+const robota = new Robota({
+  aiClient: openaiProvider,
+  provider: provider,
+  systemPrompt: '당신은 도움이 되는 계산기입니다.'
+});
+```
 
 #### Defined in
 
-[packages/tools/src/function.ts:16](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function.ts#L16)
+[packages/tools/src/function-tool-provider.ts:50](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function-tool-provider.ts#L50)
 
-## Functions
+___
 
 ### createFunction
 
@@ -167,7 +215,53 @@ const getWeather = createFunction({
 
 #### Defined in
 
-[packages/tools/src/function.ts:240](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function.ts#L240)
+[packages/tools/src/function.ts:240](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L240)
+
+___
+
+### functionFromCallback
+
+▸ **functionFromCallback**(`name`, `fn`, `description?`): [`ToolFunction`](interfaces/ToolFunction)\<`Record`\<`string`, `any`\>, `any`\>
+
+Convert callback function to Function object
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `name` | `string` | Function name |
+| `fn` | (...`args`: `any`[]) => `any` | Callback function to convert |
+| `description?` | `string` | Function description |
+
+#### Returns
+
+[`ToolFunction`](interfaces/ToolFunction)\<`Record`\<`string`, `any`\>, `any`\>
+
+Created function object
+
+**`Function`**
+
+functionFromCallback
+
+**`Description`**
+
+Converts a regular JavaScript function to a Function object that AI can invoke.
+
+**`Example`**
+
+```typescript
+import { functionFromCallback } from '@robota-sdk/tools';
+
+const calculateSum = functionFromCallback(
+  'calculateSum',
+  (a: number, b: number) => a + b,
+  'Calculate the sum of two numbers.'
+);
+```
+
+#### Defined in
+
+[packages/tools/src/function.ts:311](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L311)
 
 ___
 
@@ -189,57 +283,7 @@ Utility function to convert function schema to Zod schema
 
 #### Defined in
 
-[packages/tools/src/function.ts:345](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function.ts#L345)
-
-___
-
-### createMcpToolProvider
-
-▸ **createMcpToolProvider**(`mcpClient`): [`ToolProvider`](interfaces/ToolProvider)
-
-MCP(Model Context Protocol) based tool provider creation function
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `mcpClient` | [`MCPClient`](interfaces/MCPClient) | MCP client instance |
-
-#### Returns
-
-[`ToolProvider`](interfaces/ToolProvider)
-
-MCP-based tool provider object
-
-#### Defined in
-
-[packages/tools/src/mcp-tool-provider.ts:22](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/mcp-tool-provider.ts#L22)
-
-___
-
-### createOpenAPIToolProvider
-
-▸ **createOpenAPIToolProvider**(`openApiSpec`, `options?`): [`ToolProvider`](interfaces/ToolProvider)
-
-Create tool provider based on OpenAPI specification
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `openApiSpec` | `any` | OpenAPI specification object or URL |
-| `options?` | `Object` | Base URL configuration |
-| `options.baseUrl?` | `string` | - |
-
-#### Returns
-
-[`ToolProvider`](interfaces/ToolProvider)
-
-OpenAPI-based tool provider
-
-#### Defined in
-
-[packages/tools/src/openapi-tool-provider.ts:11](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/openapi-tool-provider.ts#L11)
+[packages/tools/src/function.ts:345](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L345)
 
 ___
 
@@ -286,101 +330,108 @@ const weatherTool = createTool({
 
 #### Defined in
 
-[packages/tools/src/index.ts:132](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/index.ts#L132)
+[packages/tools/src/index.ts:132](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/index.ts#L132)
 
 ___
 
-### createZodFunctionToolProvider
+### createMcpToolProvider
 
-▸ **createZodFunctionToolProvider**(`options`): [`ToolProvider`](interfaces/ToolProvider)
+▸ **createMcpToolProvider**(`mcpClient`): [`ToolProvider`](interfaces/ToolProvider)
 
-Zod 스키마 기반 함수 도구 제공자를 생성합니다.
+MCP(Model Context Protocol) based tool provider creation function
 
 #### Parameters
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `options` | [`ZodFunctionToolProviderOptions`](interfaces/ZodFunctionToolProviderOptions) | 함수 도구 제공자 옵션 |
+| `mcpClient` | [`MCPClient`](interfaces/MCPClient) | MCP client instance |
 
 #### Returns
 
 [`ToolProvider`](interfaces/ToolProvider)
 
-도구 제공자 인스턴스 (ToolProvider 인터페이스 구현)
-
-**`Example`**
-
-```typescript
-const calculatorTool = {
-  name: 'add',
-  description: '두 숫자를 더합니다',
-  parameters: z.object({
-    a: z.number().describe('첫 번째 숫자'),
-    b: z.number().describe('두 번째 숫자')
-  }),
-  handler: async ({ a, b }) => ({ result: a + b })
-};
-
-const provider = createZodFunctionToolProvider({
-  tools: { add: calculatorTool }
-});
-
-const robota = new Robota({
-  aiClient: openaiProvider,
-  provider: provider,
-  systemPrompt: '당신은 도움이 되는 계산기입니다.'
-});
-```
+MCP-based tool provider object
 
 #### Defined in
 
-[packages/tools/src/function-tool-provider.ts:50](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function-tool-provider.ts#L50)
+[packages/tools/src/mcp-tool-provider.ts:22](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/mcp-tool-provider.ts#L22)
 
 ___
 
-### functionFromCallback
+### createOpenAPIToolProvider
 
-▸ **functionFromCallback**(`name`, `fn`, `description?`): [`ToolFunction`](interfaces/ToolFunction)\<`Record`\<`string`, `any`\>, `any`\>
+▸ **createOpenAPIToolProvider**(`openApiSpec`, `options?`): [`ToolProvider`](interfaces/ToolProvider)
 
-Convert callback function to Function object
+Create tool provider based on OpenAPI specification
 
 #### Parameters
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `name` | `string` | Function name |
-| `fn` | (...`args`: `any`[]) => `any` | Callback function to convert |
-| `description?` | `string` | Function description |
+| `openApiSpec` | `any` | OpenAPI specification object or URL |
+| `options?` | `Object` | Base URL configuration |
+| `options.baseUrl?` | `string` | - |
 
 #### Returns
 
-[`ToolFunction`](interfaces/ToolFunction)\<`Record`\<`string`, `any`\>, `any`\>
+[`ToolProvider`](interfaces/ToolProvider)
 
-Created function object
+OpenAPI-based tool provider
 
-**`Function`**
+#### Defined in
 
-functionFromCallback
+[packages/tools/src/openapi-tool-provider.ts:11](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/openapi-tool-provider.ts#L11)
 
-**`Description`**
+___
 
-Converts a regular JavaScript function to a Function object that AI can invoke.
+### zodToJsonSchema
+
+▸ **zodToJsonSchema**(`schema`): `Object`
+
+Zod 객체 스키마를 JSON 스키마로 변환합니다.
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `schema` | `ZodObject`\<`ZodRawShape`, `UnknownKeysParam`, `ZodTypeAny`, {}, {}\> | 변환할 Zod 객체 스키마 |
+
+#### Returns
+
+`Object`
+
+JSON 스키마 객체
+
+| Name | Type |
+| :------ | :------ |
+| `type` | `string` |
+| `properties` | `Record`\<`string`, `unknown`\> |
+| `required?` | `string`[] |
 
 **`Example`**
 
 ```typescript
-import { functionFromCallback } from '@robota-sdk/tools';
+const userSchema = z.object({
+  name: z.string().describe('사용자 이름'),
+  age: z.number().min(0).describe('사용자 나이'),
+  email: z.string().email().optional().describe('이메일 주소')
+});
 
-const calculateSum = functionFromCallback(
-  'calculateSum',
-  (a: number, b: number) => a + b,
-  'Calculate the sum of two numbers.'
-);
+const jsonSchema = zodToJsonSchema(userSchema);
+// {
+//   type: 'object',
+//   properties: {
+//     name: { type: 'string', description: '사용자 이름' },
+//     age: { type: 'number', description: '사용자 나이' },
+//     email: { type: 'string', description: '이메일 주소' }
+//   },
+//   required: ['name', 'age']
+// }
 ```
 
 #### Defined in
 
-[packages/tools/src/function.ts:311](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function.ts#L311)
+[packages/tools/src/zod-schema.ts:38](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/zod-schema.ts#L38)
 
 ___
 
@@ -410,64 +461,13 @@ Robota 호환 함수 스키마
 
 | Name | Type |
 | :------ | :------ |
-| `description` | `string` |
 | `name` | `string` |
-| `parameters` | \{ `properties`: `Record`\<`string`, `unknown`\> ; `required?`: `string`[] ; `type`: `string`  } |
+| `description` | `string` |
+| `parameters` | \{ `type`: `string` ; `properties`: `Record`\<`string`, `unknown`\> ; `required?`: `string`[]  } |
+| `parameters.type` | `string` |
 | `parameters.properties` | `Record`\<`string`, `unknown`\> |
 | `parameters.required?` | `string`[] |
-| `parameters.type` | `string` |
 
 #### Defined in
 
-[packages/tools/src/zod-schema.ts:122](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/zod-schema.ts#L122)
-
-___
-
-### zodToJsonSchema
-
-▸ **zodToJsonSchema**(`schema`): `Object`
-
-Zod 객체 스키마를 JSON 스키마로 변환합니다.
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `schema` | `ZodObject`\<`ZodRawShape`, `UnknownKeysParam`, `ZodTypeAny`, {}, {}\> | 변환할 Zod 객체 스키마 |
-
-#### Returns
-
-`Object`
-
-JSON 스키마 객체
-
-| Name | Type |
-| :------ | :------ |
-| `properties` | `Record`\<`string`, `unknown`\> |
-| `required?` | `string`[] |
-| `type` | `string` |
-
-**`Example`**
-
-```typescript
-const userSchema = z.object({
-  name: z.string().describe('사용자 이름'),
-  age: z.number().min(0).describe('사용자 나이'),
-  email: z.string().email().optional().describe('이메일 주소')
-});
-
-const jsonSchema = zodToJsonSchema(userSchema);
-// {
-//   type: 'object',
-//   properties: {
-//     name: { type: 'string', description: '사용자 이름' },
-//     age: { type: 'number', description: '사용자 나이' },
-//     email: { type: 'string', description: '이메일 주소' }
-//   },
-//   required: ['name', 'age']
-// }
-```
-
-#### Defined in
-
-[packages/tools/src/zod-schema.ts:38](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/zod-schema.ts#L38)
+[packages/tools/src/zod-schema.ts:122](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/zod-schema.ts#L122)

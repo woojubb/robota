@@ -20,12 +20,24 @@ Zod 스키마 기반 함수 도구 정의 인터페이스
 
 ### Properties
 
-- [description](ZodFunctionTool#description)
-- [handler](ZodFunctionTool#handler)
 - [name](ZodFunctionTool#name)
+- [description](ZodFunctionTool#description)
 - [parameters](ZodFunctionTool#parameters)
+- [handler](ZodFunctionTool#handler)
 
 ## Properties
+
+### name
+
+• **name**: `string`
+
+도구 이름
+
+#### Defined in
+
+[packages/tools/src/zod-schema.ts:107](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/zod-schema.ts#L107)
+
+___
 
 ### description
 
@@ -35,7 +47,19 @@ Zod 스키마 기반 함수 도구 정의 인터페이스
 
 #### Defined in
 
-[packages/tools/src/zod-schema.ts:109](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/zod-schema.ts#L109)
+[packages/tools/src/zod-schema.ts:109](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/zod-schema.ts#L109)
+
+___
+
+### parameters
+
+• **parameters**: `T`
+
+도구 매개변수 스키마
+
+#### Defined in
+
+[packages/tools/src/zod-schema.ts:111](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/zod-schema.ts#L111)
 
 ___
 
@@ -61,28 +85,4 @@ ___
 
 #### Defined in
 
-[packages/tools/src/zod-schema.ts:113](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/zod-schema.ts#L113)
-
-___
-
-### name
-
-• **name**: `string`
-
-도구 이름
-
-#### Defined in
-
-[packages/tools/src/zod-schema.ts:107](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/zod-schema.ts#L107)
-
-___
-
-### parameters
-
-• **parameters**: `T`
-
-도구 매개변수 스키마
-
-#### Defined in
-
-[packages/tools/src/zod-schema.ts:111](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/zod-schema.ts#L111)
+[packages/tools/src/zod-schema.ts:113](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/zod-schema.ts#L113)

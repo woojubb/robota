@@ -19,14 +19,14 @@ Manages function call settings and modes.
 
 ### Methods
 
+- [setFunctionCallMode](FunctionCallManager#setfunctioncallmode)
 - [configure](FunctionCallManager#configure)
-- [getAllowedFunctions](FunctionCallManager#getallowedfunctions)
-- [getConfig](FunctionCallManager#getconfig)
 - [getDefaultMode](FunctionCallManager#getdefaultmode)
 - [getMaxCalls](FunctionCallManager#getmaxcalls)
 - [getTimeout](FunctionCallManager#gettimeout)
+- [getAllowedFunctions](FunctionCallManager#getallowedfunctions)
+- [getConfig](FunctionCallManager#getconfig)
 - [isFunctionAllowed](FunctionCallManager#isfunctionallowed)
-- [setFunctionCallMode](FunctionCallManager#setfunctioncallmode)
 
 ## Constructors
 
@@ -46,9 +46,31 @@ Manages function call settings and modes.
 
 #### Defined in
 
-[core/src/managers/function-call-manager.ts:28](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/function-call-manager.ts#L28)
+[core/src/managers/function-call-manager.ts:28](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/function-call-manager.ts#L28)
 
 ## Methods
+
+### setFunctionCallMode
+
+▸ **setFunctionCallMode**(`mode`): `void`
+
+Set function call mode
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `mode` | [`FunctionCallMode`](../modules#functioncallmode) | Function call mode ('auto', 'force', 'disabled') |
+
+#### Returns
+
+`void`
+
+#### Defined in
+
+[core/src/managers/function-call-manager.ts:42](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/function-call-manager.ts#L42)
+
+___
 
 ### configure
 
@@ -61,10 +83,10 @@ Configure function call settings
 | Name | Type | Description |
 | :------ | :------ | :------ |
 | `config` | `Object` | Function call configuration options |
-| `config.allowedFunctions?` | `string`[] | - |
-| `config.maxCalls?` | `number` | - |
 | `config.mode?` | [`FunctionCallMode`](../modules#functioncallmode) | - |
+| `config.maxCalls?` | `number` | - |
 | `config.timeout?` | `number` | - |
+| `config.allowedFunctions?` | `string`[] | - |
 
 #### Returns
 
@@ -72,39 +94,7 @@ Configure function call settings
 
 #### Defined in
 
-[core/src/managers/function-call-manager.ts:51](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/function-call-manager.ts#L51)
-
-___
-
-### getAllowedFunctions
-
-▸ **getAllowedFunctions**(): `undefined` \| `string`[]
-
-Get allowed functions list
-
-#### Returns
-
-`undefined` \| `string`[]
-
-#### Defined in
-
-[core/src/managers/function-call-manager.ts:95](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/function-call-manager.ts#L95)
-
-___
-
-### getConfig
-
-▸ **getConfig**(): [`FunctionCallConfig`](../interfaces/FunctionCallConfig)
-
-Get complete configuration
-
-#### Returns
-
-[`FunctionCallConfig`](../interfaces/FunctionCallConfig)
-
-#### Defined in
-
-[core/src/managers/function-call-manager.ts:102](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/function-call-manager.ts#L102)
+[core/src/managers/function-call-manager.ts:51](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/function-call-manager.ts#L51)
 
 ___
 
@@ -120,7 +110,7 @@ Get current function call mode
 
 #### Defined in
 
-[core/src/managers/function-call-manager.ts:74](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/function-call-manager.ts#L74)
+[core/src/managers/function-call-manager.ts:74](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/function-call-manager.ts#L74)
 
 ___
 
@@ -136,7 +126,7 @@ Get maximum call count
 
 #### Defined in
 
-[core/src/managers/function-call-manager.ts:81](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/function-call-manager.ts#L81)
+[core/src/managers/function-call-manager.ts:81](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/function-call-manager.ts#L81)
 
 ___
 
@@ -152,7 +142,39 @@ Get timeout setting
 
 #### Defined in
 
-[core/src/managers/function-call-manager.ts:88](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/function-call-manager.ts#L88)
+[core/src/managers/function-call-manager.ts:88](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/function-call-manager.ts#L88)
+
+___
+
+### getAllowedFunctions
+
+▸ **getAllowedFunctions**(): `undefined` \| `string`[]
+
+Get allowed functions list
+
+#### Returns
+
+`undefined` \| `string`[]
+
+#### Defined in
+
+[core/src/managers/function-call-manager.ts:95](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/function-call-manager.ts#L95)
+
+___
+
+### getConfig
+
+▸ **getConfig**(): [`FunctionCallConfig`](../interfaces/FunctionCallConfig)
+
+Get complete configuration
+
+#### Returns
+
+[`FunctionCallConfig`](../interfaces/FunctionCallConfig)
+
+#### Defined in
+
+[core/src/managers/function-call-manager.ts:102](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/function-call-manager.ts#L102)
 
 ___
 
@@ -174,26 +196,4 @@ Check if a specific function is allowed
 
 #### Defined in
 
-[core/src/managers/function-call-manager.ts:111](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/function-call-manager.ts#L111)
-
-___
-
-### setFunctionCallMode
-
-▸ **setFunctionCallMode**(`mode`): `void`
-
-Set function call mode
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `mode` | [`FunctionCallMode`](../modules#functioncallmode) | Function call mode ('auto', 'force', 'disabled') |
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[core/src/managers/function-call-manager.ts:42](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/function-call-manager.ts#L42)
+[core/src/managers/function-call-manager.ts:111](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/function-call-manager.ts#L111)

@@ -21,12 +21,22 @@ Function options interface
 
 ### Properties
 
-- [description](FunctionOptions#description)
-- [execute](FunctionOptions#execute)
 - [name](FunctionOptions#name)
+- [description](FunctionOptions#description)
 - [parameters](FunctionOptions#parameters)
+- [execute](FunctionOptions#execute)
 
 ## Properties
+
+### name
+
+• **name**: `string`
+
+#### Defined in
+
+[packages/tools/src/function.ts:24](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L24)
+
+___
 
 ### description
 
@@ -34,7 +44,17 @@ Function options interface
 
 #### Defined in
 
-[packages/tools/src/function.ts:25](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function.ts#L25)
+[packages/tools/src/function.ts:25](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L25)
+
+___
+
+### parameters
+
+• **parameters**: `any`
+
+#### Defined in
+
+[packages/tools/src/function.ts:26](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L26)
 
 ___
 
@@ -58,24 +78,4 @@ ___
 
 #### Defined in
 
-[packages/tools/src/function.ts:27](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function.ts#L27)
-
-___
-
-### name
-
-• **name**: `string`
-
-#### Defined in
-
-[packages/tools/src/function.ts:24](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function.ts#L24)
-
-___
-
-### parameters
-
-• **parameters**: `any`
-
-#### Defined in
-
-[packages/tools/src/function.ts:26](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function.ts#L26)
+[packages/tools/src/function.ts:27](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L27)

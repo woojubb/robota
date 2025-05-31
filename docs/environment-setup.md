@@ -50,23 +50,42 @@ pnpm build
 
 ## 예제 실행
 
-Robota는 다양한 예제를 제공합니다. 다음 명령어로 실행할 수 있습니다:
+모든 예제는 `apps/examples` 디렉토리에 위치합니다. 먼저 해당 디렉토리로 이동하세요:
 
 ```bash
-# 기본 예제
-pnpm example:basic
+cd apps/examples
+```
 
-# 함수 호출 예제
-pnpm example:function-calling
+### 방법 1: 패키지 스크립트 사용
 
-# 도구 사용 예제
-pnpm example:tools
+```bash
+# 개별 예제 실행
+pnpm start:simple-conversation
+pnpm start:using-ai-client
+pnpm start:multi-ai-providers
+pnpm start:provider-switching
+pnpm start:zod-function-provider
+pnpm start:using-tool-providers
 
-# 에이전트 예제
-pnpm example:agents
+# 예제 그룹 실행
+pnpm start:all-basic          # 모든 기본 예제
+pnpm start:all-tool-providers # 모든 도구 제공자 예제
+pnpm start:all-examples       # 모든 예제 순차 실행
+pnpm start:all                # 빠른 데모
+```
 
-# 모든 예제 실행
-pnpm example:all
+### 방법 2: 직접 파일 실행
+
+```bash
+# bun 사용 (가장 빠름)
+bun run 01-basic/01-simple-conversation.ts
+bun run 01-basic/02-ai-with-tools.ts
+bun run 01-basic/03-multi-ai-providers.ts
+
+# pnpm + tsx 사용
+pnpm tsx 01-basic/01-simple-conversation.ts
+pnpm tsx 02-functions/01-zod-function-tools.ts
+pnpm tsx 03-integrations/01-mcp-client.ts
 ```
 
 ## 프로젝트 구조

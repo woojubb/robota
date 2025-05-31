@@ -20,12 +20,12 @@ Responsible for registering, configuring, and querying AI providers.
 ### Methods
 
 - [addProvider](AIProviderManager#addprovider)
-- [close](AIProviderManager#close)
-- [getCurrentAI](AIProviderManager#getcurrentai)
-- [getCurrentModel](AIProviderManager#getcurrentmodel)
-- [getCurrentProvider](AIProviderManager#getcurrentprovider)
-- [isConfigured](AIProviderManager#isconfigured)
 - [setCurrentAI](AIProviderManager#setcurrentai)
+- [getCurrentAI](AIProviderManager#getcurrentai)
+- [getCurrentProvider](AIProviderManager#getcurrentprovider)
+- [getCurrentModel](AIProviderManager#getcurrentmodel)
+- [isConfigured](AIProviderManager#isconfigured)
+- [close](AIProviderManager#close)
 
 ## Constructors
 
@@ -58,92 +58,7 @@ Add an AI provider
 
 #### Defined in
 
-[core/src/managers/ai-provider-manager.ts:18](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/ai-provider-manager.ts#L18)
-
-___
-
-### close
-
-▸ **close**(): `Promise`\<`void`\>
-
-Release resources of all AI providers
-
-#### Returns
-
-`Promise`\<`void`\>
-
-#### Defined in
-
-[core/src/managers/ai-provider-manager.ts:74](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/ai-provider-manager.ts#L74)
-
-___
-
-### getCurrentAI
-
-▸ **getCurrentAI**(): `Object`
-
-Get currently configured AI provider and model
-
-#### Returns
-
-`Object`
-
-| Name | Type |
-| :------ | :------ |
-| `model?` | `string` |
-| `provider?` | `string` |
-
-#### Defined in
-
-[core/src/managers/ai-provider-manager.ts:40](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/ai-provider-manager.ts#L40)
-
-___
-
-### getCurrentModel
-
-▸ **getCurrentModel**(): ``null`` \| `string`
-
-Get current model name
-
-#### Returns
-
-``null`` \| `string`
-
-#### Defined in
-
-[core/src/managers/ai-provider-manager.ts:60](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/ai-provider-manager.ts#L60)
-
-___
-
-### getCurrentProvider
-
-▸ **getCurrentProvider**(): ``null`` \| [`AIProvider`](../interfaces/AIProvider)
-
-Get current AI provider instance
-
-#### Returns
-
-``null`` \| [`AIProvider`](../interfaces/AIProvider)
-
-#### Defined in
-
-[core/src/managers/ai-provider-manager.ts:50](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/ai-provider-manager.ts#L50)
-
-___
-
-### isConfigured
-
-▸ **isConfigured**(): `boolean`
-
-Check if AI provider is configured
-
-#### Returns
-
-`boolean`
-
-#### Defined in
-
-[core/src/managers/ai-provider-manager.ts:67](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/ai-provider-manager.ts#L67)
+[core/src/managers/ai-provider-manager.ts:18](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/ai-provider-manager.ts#L18)
 
 ___
 
@@ -166,4 +81,89 @@ Set current AI provider and model
 
 #### Defined in
 
-[core/src/managers/ai-provider-manager.ts:28](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/ai-provider-manager.ts#L28)
+[core/src/managers/ai-provider-manager.ts:28](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/ai-provider-manager.ts#L28)
+
+___
+
+### getCurrentAI
+
+▸ **getCurrentAI**(): `Object`
+
+Get currently configured AI provider and model
+
+#### Returns
+
+`Object`
+
+| Name | Type |
+| :------ | :------ |
+| `provider?` | `string` |
+| `model?` | `string` |
+
+#### Defined in
+
+[core/src/managers/ai-provider-manager.ts:40](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/ai-provider-manager.ts#L40)
+
+___
+
+### getCurrentProvider
+
+▸ **getCurrentProvider**(): ``null`` \| [`AIProvider`](../interfaces/AIProvider)
+
+Get current AI provider instance
+
+#### Returns
+
+``null`` \| [`AIProvider`](../interfaces/AIProvider)
+
+#### Defined in
+
+[core/src/managers/ai-provider-manager.ts:50](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/ai-provider-manager.ts#L50)
+
+___
+
+### getCurrentModel
+
+▸ **getCurrentModel**(): ``null`` \| `string`
+
+Get current model name
+
+#### Returns
+
+``null`` \| `string`
+
+#### Defined in
+
+[core/src/managers/ai-provider-manager.ts:60](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/ai-provider-manager.ts#L60)
+
+___
+
+### isConfigured
+
+▸ **isConfigured**(): `boolean`
+
+Check if AI provider is configured
+
+#### Returns
+
+`boolean`
+
+#### Defined in
+
+[core/src/managers/ai-provider-manager.ts:67](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/ai-provider-manager.ts#L67)
+
+___
+
+### close
+
+▸ **close**(): `Promise`\<`void`\>
+
+Release resources of all AI providers
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Defined in
+
+[core/src/managers/ai-provider-manager.ts:74](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/ai-provider-manager.ts#L74)

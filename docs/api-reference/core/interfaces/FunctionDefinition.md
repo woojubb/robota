@@ -14,21 +14,11 @@ Function definition interface
 
 ### Properties
 
-- [description](FunctionDefinition#description)
 - [name](FunctionDefinition#name)
+- [description](FunctionDefinition#description)
 - [parameters](FunctionDefinition#parameters)
 
 ## Properties
-
-### description
-
-• `Optional` **description**: `string`
-
-#### Defined in
-
-tools/dist/index.d.ts:25
-
-___
 
 ### name
 
@@ -40,6 +30,16 @@ tools/dist/index.d.ts:24
 
 ___
 
+### description
+
+• `Optional` **description**: `string`
+
+#### Defined in
+
+tools/dist/index.d.ts:25
+
+___
+
 ### parameters
 
 • `Optional` **parameters**: `Object`
@@ -48,9 +48,9 @@ ___
 
 | Name | Type |
 | :------ | :------ |
-| `properties?` | `Record`\<`string`, \{ `default?`: `any` ; `description?`: `string` ; `enum?`: `any`[] ; `type`: `string`  }\> |
-| `required?` | `string`[] |
 | `type` | `string` |
+| `properties?` | `Record`\<`string`, \{ `type`: `string` ; `description?`: `string` ; `enum?`: `any`[] ; `default?`: `any`  }\> |
+| `required?` | `string`[] |
 
 #### Defined in
 

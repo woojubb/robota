@@ -14,20 +14,10 @@ Function call interface
 
 ### Properties
 
-- [arguments](FunctionCall#arguments)
 - [name](FunctionCall#name)
+- [arguments](FunctionCall#arguments)
 
 ## Properties
-
-### arguments
-
-• **arguments**: `string` \| `Record`\<`string`, `any`\>
-
-#### Defined in
-
-tools/dist/index.d.ts:42
-
-___
 
 ### name
 
@@ -36,3 +26,13 @@ ___
 #### Defined in
 
 tools/dist/index.d.ts:41
+
+___
+
+### arguments
+
+• **arguments**: `string` \| `Record`\<`string`, `any`\>
+
+#### Defined in
+
+tools/dist/index.d.ts:42

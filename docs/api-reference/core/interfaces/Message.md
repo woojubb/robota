@@ -14,13 +14,23 @@ Basic message interface
 
 ### Properties
 
+- [role](Message#role)
 - [content](Message#content)
+- [name](Message#name)
 - [functionCall](Message#functioncall)
 - [functionResult](Message#functionresult)
-- [name](Message#name)
-- [role](Message#role)
 
 ## Properties
+
+### role
+
+• **role**: [`MessageRole`](../modules#messagerole)
+
+#### Defined in
+
+[core/src/interfaces/ai-provider.ts:16](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/ai-provider.ts#L16)
+
+___
 
 ### content
 
@@ -28,27 +38,7 @@ Basic message interface
 
 #### Defined in
 
-[core/src/interfaces/ai-provider.ts:17](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/ai-provider.ts#L17)
-
-___
-
-### functionCall
-
-• `Optional` **functionCall**: [`FunctionCall`](FunctionCall)
-
-#### Defined in
-
-[core/src/interfaces/ai-provider.ts:19](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/ai-provider.ts#L19)
-
-___
-
-### functionResult
-
-• `Optional` **functionResult**: `any`
-
-#### Defined in
-
-[core/src/interfaces/ai-provider.ts:20](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/ai-provider.ts#L20)
+[core/src/interfaces/ai-provider.ts:17](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/ai-provider.ts#L17)
 
 ___
 
@@ -58,14 +48,24 @@ ___
 
 #### Defined in
 
-[core/src/interfaces/ai-provider.ts:18](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/ai-provider.ts#L18)
+[core/src/interfaces/ai-provider.ts:18](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/ai-provider.ts#L18)
 
 ___
 
-### role
+### functionCall
 
-• **role**: [`MessageRole`](../modules#messagerole)
+• `Optional` **functionCall**: [`FunctionCall`](FunctionCall)
 
 #### Defined in
 
-[core/src/interfaces/ai-provider.ts:16](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/ai-provider.ts#L16)
+[core/src/interfaces/ai-provider.ts:19](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/ai-provider.ts#L19)
+
+___
+
+### functionResult
+
+• `Optional` **functionResult**: `any`
+
+#### Defined in
+
+[core/src/interfaces/ai-provider.ts:20](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/ai-provider.ts#L20)

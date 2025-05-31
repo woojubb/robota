@@ -14,15 +14,27 @@ Universal message interface - AI Provider-independent message structure
 
 ### Properties
 
-- [content](UniversalMessage#content)
-- [functionCall](UniversalMessage#functioncall)
-- [metadata](UniversalMessage#metadata)
-- [name](UniversalMessage#name)
 - [role](UniversalMessage#role)
-- [timestamp](UniversalMessage#timestamp)
+- [content](UniversalMessage#content)
+- [name](UniversalMessage#name)
+- [functionCall](UniversalMessage#functioncall)
 - [toolResult](UniversalMessage#toolresult)
+- [timestamp](UniversalMessage#timestamp)
+- [metadata](UniversalMessage#metadata)
 
 ## Properties
+
+### role
+
+• **role**: [`UniversalMessageRole`](../modules#universalmessagerole)
+
+Message role
+
+#### Defined in
+
+[core/src/conversation-history.ts:13](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L13)
+
+___
 
 ### content
 
@@ -32,31 +44,7 @@ Message content
 
 #### Defined in
 
-[core/src/conversation-history.ts:16](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L16)
-
-___
-
-### functionCall
-
-• `Optional` **functionCall**: [`FunctionCall`](FunctionCall)
-
-Function call information (used in assistant messages)
-
-#### Defined in
-
-[core/src/conversation-history.ts:22](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L22)
-
-___
-
-### metadata
-
-• `Optional` **metadata**: `Record`\<`string`, `any`\>
-
-Additional metadata
-
-#### Defined in
-
-[core/src/conversation-history.ts:31](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L31)
+[core/src/conversation-history.ts:16](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L16)
 
 ___
 
@@ -68,31 +56,19 @@ Message sender name (optional)
 
 #### Defined in
 
-[core/src/conversation-history.ts:19](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L19)
+[core/src/conversation-history.ts:19](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L19)
 
 ___
 
-### role
+### functionCall
 
-• **role**: [`UniversalMessageRole`](../modules#universalmessagerole)
+• `Optional` **functionCall**: [`FunctionCall`](FunctionCall)
 
-Message role
-
-#### Defined in
-
-[core/src/conversation-history.ts:13](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L13)
-
-___
-
-### timestamp
-
-• **timestamp**: `Date`
-
-Message creation time
+Function call information (used in assistant messages)
 
 #### Defined in
 
-[core/src/conversation-history.ts:28](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L28)
+[core/src/conversation-history.ts:22](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L22)
 
 ___
 
@@ -104,4 +80,28 @@ Tool execution result (used in tool messages)
 
 #### Defined in
 
-[core/src/conversation-history.ts:25](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L25)
+[core/src/conversation-history.ts:25](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L25)
+
+___
+
+### timestamp
+
+• **timestamp**: `Date`
+
+Message creation time
+
+#### Defined in
+
+[core/src/conversation-history.ts:28](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L28)
+
+___
+
+### metadata
+
+• `Optional` **metadata**: `Record`\<`string`, `any`\>
+
+Additional metadata
+
+#### Defined in
+
+[core/src/conversation-history.ts:31](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L31)

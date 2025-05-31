@@ -15,9 +15,9 @@ Conversation context interface
 ### Properties
 
 - [messages](Context#messages)
-- [metadata](Context#metadata)
-- [systemMessages](Context#systemmessages)
 - [systemPrompt](Context#systemprompt)
+- [systemMessages](Context#systemmessages)
+- [metadata](Context#metadata)
 
 ## Properties
 
@@ -27,27 +27,7 @@ Conversation context interface
 
 #### Defined in
 
-[core/src/interfaces/ai-provider.ts:50](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/ai-provider.ts#L50)
-
-___
-
-### metadata
-
-• `Optional` **metadata**: `Record`\<`string`, `any`\>
-
-#### Defined in
-
-[core/src/interfaces/ai-provider.ts:53](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/ai-provider.ts#L53)
-
-___
-
-### systemMessages
-
-• `Optional` **systemMessages**: [`Message`](Message)[]
-
-#### Defined in
-
-[core/src/interfaces/ai-provider.ts:52](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/ai-provider.ts#L52)
+[core/src/interfaces/ai-provider.ts:50](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/ai-provider.ts#L50)
 
 ___
 
@@ -57,4 +37,24 @@ ___
 
 #### Defined in
 
-[core/src/interfaces/ai-provider.ts:51](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/ai-provider.ts#L51)
+[core/src/interfaces/ai-provider.ts:51](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/ai-provider.ts#L51)
+
+___
+
+### systemMessages
+
+• `Optional` **systemMessages**: [`Message`](Message)[]
+
+#### Defined in
+
+[core/src/interfaces/ai-provider.ts:52](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/ai-provider.ts#L52)
+
+___
+
+### metadata
+
+• `Optional` **metadata**: `Record`\<`string`, `any`\>
+
+#### Defined in
+
+[core/src/interfaces/ai-provider.ts:53](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/ai-provider.ts#L53)

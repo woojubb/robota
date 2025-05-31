@@ -16,8 +16,8 @@ Model response interface
 
 - [content](ModelResponse#content)
 - [functionCall](ModelResponse#functioncall)
-- [metadata](ModelResponse#metadata)
 - [usage](ModelResponse#usage)
+- [metadata](ModelResponse#metadata)
 
 ## Properties
 
@@ -27,7 +27,7 @@ Model response interface
 
 #### Defined in
 
-[core/src/interfaces/ai-provider.ts:27](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/ai-provider.ts#L27)
+[core/src/interfaces/ai-provider.ts:27](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/ai-provider.ts#L27)
 
 ___
 
@@ -37,17 +37,7 @@ ___
 
 #### Defined in
 
-[core/src/interfaces/ai-provider.ts:28](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/ai-provider.ts#L28)
-
-___
-
-### metadata
-
-• `Optional` **metadata**: `Record`\<`string`, `any`\>
-
-#### Defined in
-
-[core/src/interfaces/ai-provider.ts:34](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/ai-provider.ts#L34)
+[core/src/interfaces/ai-provider.ts:28](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/ai-provider.ts#L28)
 
 ___
 
@@ -59,10 +49,20 @@ ___
 
 | Name | Type |
 | :------ | :------ |
-| `completionTokens` | `number` |
 | `promptTokens` | `number` |
+| `completionTokens` | `number` |
 | `totalTokens` | `number` |
 
 #### Defined in
 
-[core/src/interfaces/ai-provider.ts:29](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/ai-provider.ts#L29)
+[core/src/interfaces/ai-provider.ts:29](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/ai-provider.ts#L29)
+
+___
+
+### metadata
+
+• `Optional` **metadata**: `Record`\<`string`, `any`\>
+
+#### Defined in
+
+[core/src/interfaces/ai-provider.ts:34](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/ai-provider.ts#L34)

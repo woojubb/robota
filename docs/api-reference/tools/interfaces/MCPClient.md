@@ -15,36 +15,11 @@ Compatible with Client from @modelcontextprotocol/sdk
 
 ### Properties
 
-- [callTool](MCPClient#calltool)
 - [chat](MCPClient#chat)
 - [stream](MCPClient#stream)
+- [callTool](MCPClient#calltool)
 
 ## Properties
-
-### callTool
-
-• **callTool**: (`toolName`: `string`, `parameters`: `Record`\<`string`, `any`\>) => `Promise`\<`any`\>
-
-#### Type declaration
-
-▸ (`toolName`, `parameters`): `Promise`\<`any`\>
-
-##### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `toolName` | `string` |
-| `parameters` | `Record`\<`string`, `any`\> |
-
-##### Returns
-
-`Promise`\<`any`\>
-
-#### Defined in
-
-[packages/tools/src/mcp-tool-provider.ts:12](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/mcp-tool-provider.ts#L12)
-
-___
 
 ### chat
 
@@ -66,7 +41,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:9](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/mcp-tool-provider.ts#L9)
+[packages/tools/src/mcp-tool-provider.ts:9](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/mcp-tool-provider.ts#L9)
 
 ___
 
@@ -90,4 +65,29 @@ ___
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:10](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/mcp-tool-provider.ts#L10)
+[packages/tools/src/mcp-tool-provider.ts:10](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/mcp-tool-provider.ts#L10)
+
+___
+
+### callTool
+
+• **callTool**: (`toolName`: `string`, `parameters`: `Record`\<`string`, `any`\>) => `Promise`\<`any`\>
+
+#### Type declaration
+
+▸ (`toolName`, `parameters`): `Promise`\<`any`\>
+
+##### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `toolName` | `string` |
+| `parameters` | `Record`\<`string`, `any`\> |
+
+##### Returns
+
+`Promise`\<`any`\>
+
+#### Defined in
+
+[packages/tools/src/mcp-tool-provider.ts:12](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/mcp-tool-provider.ts#L12)

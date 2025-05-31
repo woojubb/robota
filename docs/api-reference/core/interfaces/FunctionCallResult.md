@@ -14,21 +14,11 @@ Function call result interface
 
 ### Properties
 
-- [error](FunctionCallResult#error)
 - [name](FunctionCallResult#name)
 - [result](FunctionCallResult#result)
+- [error](FunctionCallResult#error)
 
 ## Properties
-
-### error
-
-• `Optional` **error**: `string`
-
-#### Defined in
-
-tools/dist/index.d.ts:50
-
-___
 
 ### name
 
@@ -47,3 +37,13 @@ ___
 #### Defined in
 
 tools/dist/index.d.ts:49
+
+___
+
+### error
+
+• `Optional` **error**: `string`
+
+#### Defined in
+
+tools/dist/index.d.ts:50

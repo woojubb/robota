@@ -24,20 +24,20 @@ Implements the AIProvider interface to integrate with Robota.
 
 ### Properties
 
-- [instance](OpenAIProvider#instance)
 - [name](OpenAIProvider#name)
-- [options](OpenAIProvider#options)
 - [type](OpenAIProvider#type)
+- [instance](OpenAIProvider#instance)
+- [options](OpenAIProvider#options)
 
 ### Methods
 
+- [formatMessages](OpenAIProvider#formatmessages)
+- [formatFunctions](OpenAIProvider#formatfunctions)
+- [parseResponse](OpenAIProvider#parseresponse)
+- [parseStreamingChunk](OpenAIProvider#parsestreamingchunk)
 - [chat](OpenAIProvider#chat)
 - [chatStream](OpenAIProvider#chatstream)
 - [close](OpenAIProvider#close)
-- [formatFunctions](OpenAIProvider#formatfunctions)
-- [formatMessages](OpenAIProvider#formatmessages)
-- [parseResponse](OpenAIProvider#parseresponse)
-- [parseStreamingChunk](OpenAIProvider#parsestreamingchunk)
 
 ## Constructors
 
@@ -57,21 +57,9 @@ Implements the AIProvider interface to integrate with Robota.
 
 #### Defined in
 
-[openai/src/provider.ts:46](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/openai/src/provider.ts#L46)
+[openai/src/provider.ts:46](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/openai/src/provider.ts#L46)
 
 ## Properties
-
-### instance
-
-• **instance**: `OpenAI`
-
-Client instance
-
-#### Defined in
-
-[openai/src/provider.ts:39](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/openai/src/provider.ts#L39)
-
-___
 
 ### name
 
@@ -85,19 +73,7 @@ AIProvider.name
 
 #### Defined in
 
-[openai/src/provider.ts:24](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/openai/src/provider.ts#L24)
-
-___
-
-### options
-
-• **options**: [`OpenAIProviderOptions`](../interfaces/OpenAIProviderOptions)
-
-Provider options
-
-#### Defined in
-
-[openai/src/provider.ts:44](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/openai/src/provider.ts#L44)
+[openai/src/provider.ts:24](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/openai/src/provider.ts#L24)
 
 ___
 
@@ -109,9 +85,125 @@ Client type
 
 #### Defined in
 
-[openai/src/provider.ts:34](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/openai/src/provider.ts#L34)
+[openai/src/provider.ts:34](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/openai/src/provider.ts#L34)
+
+___
+
+### instance
+
+• **instance**: `OpenAI`
+
+Client instance
+
+#### Defined in
+
+[openai/src/provider.ts:39](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/openai/src/provider.ts#L39)
+
+___
+
+### options
+
+• **options**: [`OpenAIProviderOptions`](../interfaces/OpenAIProviderOptions)
+
+Provider options
+
+#### Defined in
+
+[openai/src/provider.ts:44](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/openai/src/provider.ts#L44)
 
 ## Methods
+
+### formatMessages
+
+▸ **formatMessages**(`messages`): `ChatCompletionMessageParam`[]
+
+Convert messages to OpenAI format
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `messages` | `Message`[] |
+
+#### Returns
+
+`ChatCompletionMessageParam`[]
+
+**`Deprecated`**
+
+Use OpenAIConversationAdapter.toOpenAIFormat instead
+
+#### Defined in
+
+[openai/src/provider.ts:66](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/openai/src/provider.ts#L66)
+
+___
+
+### formatFunctions
+
+▸ **formatFunctions**(`functions`): `ChatCompletionTool`[]
+
+Convert function definitions to OpenAI format
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `functions` | `FunctionDefinition`[] |
+
+#### Returns
+
+`ChatCompletionTool`[]
+
+#### Defined in
+
+[openai/src/provider.ts:123](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/openai/src/provider.ts#L123)
+
+___
+
+### parseResponse
+
+▸ **parseResponse**(`response`): `ModelResponse`
+
+Convert OpenAI API response to standard format
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `response` | `ChatCompletion` |
+
+#### Returns
+
+`ModelResponse`
+
+#### Defined in
+
+[openai/src/provider.ts:137](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/openai/src/provider.ts#L137)
+
+___
+
+### parseStreamingChunk
+
+▸ **parseStreamingChunk**(`chunk`): `StreamingResponseChunk`
+
+Convert streaming response chunk to standard format
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `chunk` | `ChatCompletionChunk` |
+
+#### Returns
+
+`StreamingResponseChunk`
+
+#### Defined in
+
+[openai/src/provider.ts:167](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/openai/src/provider.ts#L167)
+
+___
 
 ### chat
 
@@ -137,7 +229,7 @@ AIProvider.chat
 
 #### Defined in
 
-[openai/src/provider.ts:189](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/openai/src/provider.ts#L189)
+[openai/src/provider.ts:189](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/openai/src/provider.ts#L189)
 
 ___
 
@@ -165,7 +257,7 @@ AIProvider.chatStream
 
 #### Defined in
 
-[openai/src/provider.ts:255](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/openai/src/provider.ts#L255)
+[openai/src/provider.ts:255](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/openai/src/provider.ts#L255)
 
 ___
 
@@ -185,96 +277,4 @@ AIProvider.close
 
 #### Defined in
 
-[openai/src/provider.ts:329](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/openai/src/provider.ts#L329)
-
-___
-
-### formatFunctions
-
-▸ **formatFunctions**(`functions`): `ChatCompletionTool`[]
-
-Convert function definitions to OpenAI format
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `functions` | `FunctionDefinition`[] |
-
-#### Returns
-
-`ChatCompletionTool`[]
-
-#### Defined in
-
-[openai/src/provider.ts:123](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/openai/src/provider.ts#L123)
-
-___
-
-### formatMessages
-
-▸ **formatMessages**(`messages`): `ChatCompletionMessageParam`[]
-
-Convert messages to OpenAI format
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `messages` | `Message`[] |
-
-#### Returns
-
-`ChatCompletionMessageParam`[]
-
-**`Deprecated`**
-
-Use OpenAIConversationAdapter.toOpenAIFormat instead
-
-#### Defined in
-
-[openai/src/provider.ts:66](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/openai/src/provider.ts#L66)
-
-___
-
-### parseResponse
-
-▸ **parseResponse**(`response`): `ModelResponse`
-
-Convert OpenAI API response to standard format
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `response` | `ChatCompletion` |
-
-#### Returns
-
-`ModelResponse`
-
-#### Defined in
-
-[openai/src/provider.ts:137](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/openai/src/provider.ts#L137)
-
-___
-
-### parseStreamingChunk
-
-▸ **parseStreamingChunk**(`chunk`): `StreamingResponseChunk`
-
-Convert streaming response chunk to standard format
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `chunk` | `ChatCompletionChunk` |
-
-#### Returns
-
-`StreamingResponseChunk`
-
-#### Defined in
-
-[openai/src/provider.ts:167](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/openai/src/provider.ts#L167)
+[openai/src/provider.ts:329](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/openai/src/provider.ts#L329)

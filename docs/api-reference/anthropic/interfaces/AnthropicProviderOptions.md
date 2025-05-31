@@ -21,11 +21,11 @@ Anthropic provider options
 ### Properties
 
 - [apiKey](AnthropicProviderOptions#apikey)
-- [maxTokens](AnthropicProviderOptions#maxtokens)
 - [model](AnthropicProviderOptions#model)
+- [temperature](AnthropicProviderOptions#temperature)
+- [maxTokens](AnthropicProviderOptions#maxtokens)
 - [stopSequences](AnthropicProviderOptions#stopsequences)
 - [streamMode](AnthropicProviderOptions#streammode)
-- [temperature](AnthropicProviderOptions#temperature)
 
 ## Properties
 
@@ -35,21 +35,7 @@ Anthropic provider options
 
 #### Defined in
 
-[anthropic/src/index.ts:7](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/anthropic/src/index.ts#L7)
-
-___
-
-### maxTokens
-
-• `Optional` **maxTokens**: `number`
-
-#### Inherited from
-
-ProviderOptions.maxTokens
-
-#### Defined in
-
-core/dist/index.d.ts:10
+[anthropic/src/index.ts:7](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/anthropic/src/index.ts#L7)
 
 ___
 
@@ -64,6 +50,34 @@ ProviderOptions.model
 #### Defined in
 
 core/dist/index.d.ts:8
+
+___
+
+### temperature
+
+• `Optional` **temperature**: `number`
+
+#### Inherited from
+
+ProviderOptions.temperature
+
+#### Defined in
+
+core/dist/index.d.ts:9
+
+___
+
+### maxTokens
+
+• `Optional` **maxTokens**: `number`
+
+#### Inherited from
+
+ProviderOptions.maxTokens
+
+#### Defined in
+
+core/dist/index.d.ts:10
 
 ___
 
@@ -92,17 +106,3 @@ ProviderOptions.streamMode
 #### Defined in
 
 core/dist/index.d.ts:12
-
-___
-
-### temperature
-
-• `Optional` **temperature**: `number`
-
-#### Inherited from
-
-ProviderOptions.temperature
-
-#### Defined in
-
-core/dist/index.d.ts:9

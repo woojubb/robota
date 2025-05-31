@@ -21,12 +21,24 @@ Tool interface
 
 ### Properties
 
-- [description](Tool#description)
-- [execute](Tool#execute)
 - [name](Tool#name)
+- [description](Tool#description)
 - [parameters](Tool#parameters)
+- [execute](Tool#execute)
 
 ## Properties
+
+### name
+
+• **name**: `string`
+
+Tool name
+
+#### Defined in
+
+[packages/tools/src/index.ts:65](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/index.ts#L65)
+
+___
 
 ### description
 
@@ -36,7 +48,19 @@ Tool description
 
 #### Defined in
 
-[packages/tools/src/index.ts:70](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/index.ts#L70)
+[packages/tools/src/index.ts:70](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/index.ts#L70)
+
+___
+
+### parameters
+
+• `Optional` **parameters**: [`ToolParameter`](ToolParameter)[]
+
+Tool parameter definitions
+
+#### Defined in
+
+[packages/tools/src/index.ts:75](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/index.ts#L75)
 
 ___
 
@@ -62,28 +86,4 @@ Tool execution function
 
 #### Defined in
 
-[packages/tools/src/index.ts:83](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/index.ts#L83)
-
-___
-
-### name
-
-• **name**: `string`
-
-Tool name
-
-#### Defined in
-
-[packages/tools/src/index.ts:65](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/index.ts#L65)
-
-___
-
-### parameters
-
-• `Optional` **parameters**: [`ToolParameter`](ToolParameter)[]
-
-Tool parameter definitions
-
-#### Defined in
-
-[packages/tools/src/index.ts:75](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/index.ts#L75)
+[packages/tools/src/index.ts:83](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/index.ts#L83)

@@ -14,21 +14,11 @@ Function call result interface
 
 ### Properties
 
-- [error](FunctionCallResult#error)
 - [name](FunctionCallResult#name)
 - [result](FunctionCallResult#result)
+- [error](FunctionCallResult#error)
 
 ## Properties
-
-### error
-
-• `Optional` **error**: `string`
-
-#### Defined in
-
-[packages/tools/src/types.ts:51](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/types.ts#L51)
-
-___
 
 ### name
 
@@ -36,7 +26,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/types.ts:49](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/types.ts#L49)
+[packages/tools/src/types.ts:49](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/types.ts#L49)
 
 ___
 
@@ -46,4 +36,14 @@ ___
 
 #### Defined in
 
-[packages/tools/src/types.ts:50](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/types.ts#L50)
+[packages/tools/src/types.ts:50](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/types.ts#L50)
+
+___
+
+### error
+
+• `Optional` **error**: `string`
+
+#### Defined in
+
+[packages/tools/src/types.ts:51](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/types.ts#L51)

@@ -14,21 +14,11 @@ Function schema interface
 
 ### Properties
 
-- [description](FunctionSchema#description)
 - [name](FunctionSchema#name)
+- [description](FunctionSchema#description)
 - [parameters](FunctionSchema#parameters)
 
 ## Properties
-
-### description
-
-• `Optional` **description**: `string`
-
-#### Defined in
-
-[packages/tools/src/types.ts:6](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/types.ts#L6)
-
-___
 
 ### name
 
@@ -36,7 +26,17 @@ ___
 
 #### Defined in
 
-[packages/tools/src/types.ts:5](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/types.ts#L5)
+[packages/tools/src/types.ts:5](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/types.ts#L5)
+
+___
+
+### description
+
+• `Optional` **description**: `string`
+
+#### Defined in
+
+[packages/tools/src/types.ts:6](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/types.ts#L6)
 
 ___
 
@@ -48,10 +48,10 @@ ___
 
 | Name | Type |
 | :------ | :------ |
-| `properties` | `Record`\<`string`, \{ `default?`: `any` ; `description?`: `string` ; `enum?`: `any`[] ; `type`: `string`  }\> |
-| `required?` | `string`[] |
 | `type` | ``"object"`` |
+| `properties` | `Record`\<`string`, \{ `type`: `string` ; `description?`: `string` ; `enum?`: `any`[] ; `default?`: `any`  }\> |
+| `required?` | `string`[] |
 
 #### Defined in
 
-[packages/tools/src/types.ts:7](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/types.ts#L7)
+[packages/tools/src/types.ts:7](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/types.ts#L7)

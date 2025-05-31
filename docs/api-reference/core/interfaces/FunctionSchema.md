@@ -14,21 +14,11 @@ Function schema interface
 
 ### Properties
 
-- [description](FunctionSchema#description)
 - [name](FunctionSchema#name)
+- [description](FunctionSchema#description)
 - [parameters](FunctionSchema#parameters)
 
 ## Properties
-
-### description
-
-• `Optional` **description**: `string`
-
-#### Defined in
-
-tools/dist/index.d.ts:8
-
-___
 
 ### name
 
@@ -40,6 +30,16 @@ tools/dist/index.d.ts:7
 
 ___
 
+### description
+
+• `Optional` **description**: `string`
+
+#### Defined in
+
+tools/dist/index.d.ts:8
+
+___
+
 ### parameters
 
 • **parameters**: `Object`
@@ -48,9 +48,9 @@ ___
 
 | Name | Type |
 | :------ | :------ |
-| `properties` | `Record`\<`string`, \{ `default?`: `any` ; `description?`: `string` ; `enum?`: `any`[] ; `type`: `string`  }\> |
-| `required?` | `string`[] |
 | `type` | ``"object"`` |
+| `properties` | `Record`\<`string`, \{ `type`: `string` ; `description?`: `string` ; `enum?`: `any`[] ; `default?`: `any`  }\> |
+| `required?` | `string`[] |
 
 #### Defined in
 

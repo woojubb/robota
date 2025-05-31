@@ -19,12 +19,12 @@ Manages analytics data collection (requests and token usage history)
 
 ### Methods
 
-- [getAnalytics](AnalyticsManager#getanalytics)
-- [getRequestCount](AnalyticsManager#getrequestcount)
-- [getTokenUsageByPeriod](AnalyticsManager#gettokenusagebyperiod)
-- [getTotalTokensUsed](AnalyticsManager#gettotaltokensused)
 - [recordRequest](AnalyticsManager#recordrequest)
+- [getRequestCount](AnalyticsManager#getrequestcount)
+- [getTotalTokensUsed](AnalyticsManager#gettotaltokensused)
+- [getAnalytics](AnalyticsManager#getanalytics)
 - [reset](AnalyticsManager#reset)
+- [getTokenUsageByPeriod](AnalyticsManager#gettokenusagebyperiod)
 
 ## Constructors
 
@@ -38,26 +38,27 @@ Manages analytics data collection (requests and token usage history)
 
 ## Methods
 
-### getAnalytics
+### recordRequest
 
-▸ **getAnalytics**(): `Object`
+▸ **recordRequest**(`tokensUsed`, `provider`, `model`): `void`
 
-Get detailed analytics data
+Record a new request and token usage
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `tokensUsed` | `number` | Number of tokens used in this request |
+| `provider` | `string` | AI provider name |
+| `model` | `string` | Model name |
 
 #### Returns
 
-`Object`
-
-| Name | Type |
-| :------ | :------ |
-| `averageTokensPerRequest` | `number` |
-| `requestCount` | `number` |
-| `tokenUsageHistory` | \{ `model`: `string` ; `provider`: `string` ; `timestamp`: `Date` ; `tokens`: `number`  }[] |
-| `totalTokensUsed` | `number` |
+`void`
 
 #### Defined in
 
-[core/src/managers/analytics-manager.ts:45](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/analytics-manager.ts#L45)
+[core/src/managers/analytics-manager.ts:16](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/analytics-manager.ts#L16)
 
 ___
 
@@ -73,7 +74,62 @@ Get total number of requests made
 
 #### Defined in
 
-[core/src/managers/analytics-manager.ts:31](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/analytics-manager.ts#L31)
+[core/src/managers/analytics-manager.ts:31](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/analytics-manager.ts#L31)
+
+___
+
+### getTotalTokensUsed
+
+▸ **getTotalTokensUsed**(): `number`
+
+Get total number of tokens used
+
+#### Returns
+
+`number`
+
+#### Defined in
+
+[core/src/managers/analytics-manager.ts:38](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/analytics-manager.ts#L38)
+
+___
+
+### getAnalytics
+
+▸ **getAnalytics**(): `Object`
+
+Get detailed analytics data
+
+#### Returns
+
+`Object`
+
+| Name | Type |
+| :------ | :------ |
+| `requestCount` | `number` |
+| `totalTokensUsed` | `number` |
+| `averageTokensPerRequest` | `number` |
+| `tokenUsageHistory` | \{ `timestamp`: `Date` ; `tokens`: `number` ; `provider`: `string` ; `model`: `string`  }[] |
+
+#### Defined in
+
+[core/src/managers/analytics-manager.ts:45](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/analytics-manager.ts#L45)
+
+___
+
+### reset
+
+▸ **reset**(): `void`
+
+Reset all analytics data
+
+#### Returns
+
+`void`
+
+#### Defined in
+
+[core/src/managers/analytics-manager.ts:64](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/analytics-manager.ts#L64)
 
 ___
 
@@ -96,66 +152,10 @@ Get token usage for a specific time period
 
 | Name | Type |
 | :------ | :------ |
-| `requestCount` | `number` |
 | `totalTokens` | `number` |
-| `usageHistory` | \{ `model`: `string` ; `provider`: `string` ; `timestamp`: `Date` ; `tokens`: `number`  }[] |
+| `requestCount` | `number` |
+| `usageHistory` | \{ `timestamp`: `Date` ; `tokens`: `number` ; `provider`: `string` ; `model`: `string`  }[] |
 
 #### Defined in
 
-[core/src/managers/analytics-manager.ts:75](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/analytics-manager.ts#L75)
-
-___
-
-### getTotalTokensUsed
-
-▸ **getTotalTokensUsed**(): `number`
-
-Get total number of tokens used
-
-#### Returns
-
-`number`
-
-#### Defined in
-
-[core/src/managers/analytics-manager.ts:38](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/analytics-manager.ts#L38)
-
-___
-
-### recordRequest
-
-▸ **recordRequest**(`tokensUsed`, `provider`, `model`): `void`
-
-Record a new request and token usage
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `tokensUsed` | `number` | Number of tokens used in this request |
-| `provider` | `string` | AI provider name |
-| `model` | `string` | Model name |
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[core/src/managers/analytics-manager.ts:16](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/analytics-manager.ts#L16)
-
-___
-
-### reset
-
-▸ **reset**(): `void`
-
-Reset all analytics data
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[core/src/managers/analytics-manager.ts:64](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/analytics-manager.ts#L64)
+[core/src/managers/analytics-manager.ts:75](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/analytics-manager.ts#L75)

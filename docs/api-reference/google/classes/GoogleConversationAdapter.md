@@ -20,10 +20,10 @@ Converts UniversalMessage to Google Generative AI format
 
 ### Methods
 
+- [toGoogleFormat](GoogleConversationAdapter#togoogleformat)
 - [convertMessage](GoogleConversationAdapter#convertmessage)
 - [extractSystemInstruction](GoogleConversationAdapter#extractsysteminstruction)
 - [processMessages](GoogleConversationAdapter#processmessages)
-- [toGoogleFormat](GoogleConversationAdapter#togoogleformat)
 
 ## Constructors
 
@@ -36,6 +36,28 @@ Converts UniversalMessage to Google Generative AI format
 [`GoogleConversationAdapter`](GoogleConversationAdapter)
 
 ## Methods
+
+### toGoogleFormat
+
+▸ **toGoogleFormat**(`messages`): `any`[]
+
+Convert UniversalMessage array to Google AI message format
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `messages` | `UniversalMessage`[] |
+
+#### Returns
+
+`any`[]
+
+#### Defined in
+
+[adapter.ts:12](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/adapter.ts#L12)
+
+___
 
 ### convertMessage
 
@@ -55,7 +77,7 @@ Convert a single UniversalMessage to Google AI format
 
 #### Defined in
 
-[adapter.ts:21](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/adapter.ts#L21)
+[adapter.ts:21](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/adapter.ts#L21)
 
 ___
 
@@ -78,7 +100,7 @@ Extract system messages and combine them as system instruction
 
 #### Defined in
 
-[adapter.ts:83](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/adapter.ts#L83)
+[adapter.ts:83](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/adapter.ts#L83)
 
 ___
 
@@ -106,26 +128,4 @@ Complete message conversion pipeline
 
 #### Defined in
 
-[adapter.ts:96](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/adapter.ts#L96)
-
-___
-
-### toGoogleFormat
-
-▸ **toGoogleFormat**(`messages`): `any`[]
-
-Convert UniversalMessage array to Google AI message format
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `messages` | `UniversalMessage`[] |
-
-#### Returns
-
-`any`[]
-
-#### Defined in
-
-[adapter.ts:12](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/adapter.ts#L12)
+[adapter.ts:96](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/adapter.ts#L96)

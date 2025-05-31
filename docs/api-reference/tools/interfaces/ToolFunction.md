@@ -21,12 +21,22 @@ Function interface
 
 ### Properties
 
-- [description](ToolFunction#description)
-- [execute](ToolFunction#execute)
 - [name](ToolFunction#name)
+- [description](ToolFunction#description)
 - [schema](ToolFunction#schema)
+- [execute](ToolFunction#execute)
 
 ## Properties
+
+### name
+
+• **name**: `string`
+
+#### Defined in
+
+[packages/tools/src/function.ts:34](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L34)
+
+___
 
 ### description
 
@@ -34,7 +44,17 @@ Function interface
 
 #### Defined in
 
-[packages/tools/src/function.ts:35](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function.ts#L35)
+[packages/tools/src/function.ts:35](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L35)
+
+___
+
+### schema
+
+• **schema**: [`FunctionDefinition`](FunctionDefinition)
+
+#### Defined in
+
+[packages/tools/src/function.ts:36](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L36)
 
 ___
 
@@ -58,24 +78,4 @@ ___
 
 #### Defined in
 
-[packages/tools/src/function.ts:37](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function.ts#L37)
-
-___
-
-### name
-
-• **name**: `string`
-
-#### Defined in
-
-[packages/tools/src/function.ts:34](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function.ts#L34)
-
-___
-
-### schema
-
-• **schema**: [`FunctionDefinition`](FunctionDefinition)
-
-#### Defined in
-
-[packages/tools/src/function.ts:36](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function.ts#L36)
+[packages/tools/src/function.ts:37](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L37)

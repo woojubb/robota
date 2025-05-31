@@ -20,9 +20,9 @@ Converts UniversalMessage to Anthropic prompt format
 
 ### Methods
 
-- [convertMessage](AnthropicConversationAdapter#convertmessage)
-- [extractSystemPrompt](AnthropicConversationAdapter#extractsystemprompt)
 - [toAnthropicPrompt](AnthropicConversationAdapter#toanthropicprompt)
+- [extractSystemPrompt](AnthropicConversationAdapter#extractsystemprompt)
+- [convertMessage](AnthropicConversationAdapter#convertmessage)
 
 ## Constructors
 
@@ -36,30 +36,26 @@ Converts UniversalMessage to Anthropic prompt format
 
 ## Methods
 
-### convertMessage
+### toAnthropicPrompt
 
-▸ **convertMessage**(`msg`): `Object`
+▸ **toAnthropicPrompt**(`messages`, `systemPrompt?`): `string`
 
-Helper for message conversion testing (converts each message individually)
+Convert UniversalMessage array to Anthropic prompt format
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `msg` | `UniversalMessage` |
+| `messages` | `UniversalMessage`[] |
+| `systemPrompt?` | `string` |
 
 #### Returns
 
-`Object`
-
-| Name | Type |
-| :------ | :------ |
-| `content` | `string` |
-| `role` | `string` |
+`string`
 
 #### Defined in
 
-[anthropic/src/adapter.ts:68](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/anthropic/src/adapter.ts#L68)
+[anthropic/src/adapter.ts:12](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/anthropic/src/adapter.ts#L12)
 
 ___
 
@@ -82,27 +78,31 @@ Extract system messages and combine them as system prompt
 
 #### Defined in
 
-[anthropic/src/adapter.ts:55](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/anthropic/src/adapter.ts#L55)
+[anthropic/src/adapter.ts:55](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/anthropic/src/adapter.ts#L55)
 
 ___
 
-### toAnthropicPrompt
+### convertMessage
 
-▸ **toAnthropicPrompt**(`messages`, `systemPrompt?`): `string`
+▸ **convertMessage**(`msg`): `Object`
 
-Convert UniversalMessage array to Anthropic prompt format
+Helper for message conversion testing (converts each message individually)
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | `UniversalMessage`[] |
-| `systemPrompt?` | `string` |
+| `msg` | `UniversalMessage` |
 
 #### Returns
 
-`string`
+`Object`
+
+| Name | Type |
+| :------ | :------ |
+| `role` | `string` |
+| `content` | `string` |
 
 #### Defined in
 
-[anthropic/src/adapter.ts:12](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/anthropic/src/adapter.ts#L12)
+[anthropic/src/adapter.ts:68](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/anthropic/src/adapter.ts#L68)

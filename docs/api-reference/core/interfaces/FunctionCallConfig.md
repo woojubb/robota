@@ -14,22 +14,12 @@ Function call configuration interface
 
 ### Properties
 
-- [allowedFunctions](FunctionCallConfig#allowedfunctions)
 - [defaultMode](FunctionCallConfig#defaultmode)
 - [maxCalls](FunctionCallConfig#maxcalls)
 - [timeout](FunctionCallConfig#timeout)
+- [allowedFunctions](FunctionCallConfig#allowedfunctions)
 
 ## Properties
-
-### allowedFunctions
-
-• `Optional` **allowedFunctions**: `string`[]
-
-#### Defined in
-
-[core/src/managers/function-call-manager.ts:13](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/function-call-manager.ts#L13)
-
-___
 
 ### defaultMode
 
@@ -37,7 +27,7 @@ ___
 
 #### Defined in
 
-[core/src/managers/function-call-manager.ts:10](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/function-call-manager.ts#L10)
+[core/src/managers/function-call-manager.ts:10](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/function-call-manager.ts#L10)
 
 ___
 
@@ -47,7 +37,7 @@ ___
 
 #### Defined in
 
-[core/src/managers/function-call-manager.ts:11](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/function-call-manager.ts#L11)
+[core/src/managers/function-call-manager.ts:11](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/function-call-manager.ts#L11)
 
 ___
 
@@ -57,4 +47,14 @@ ___
 
 #### Defined in
 
-[core/src/managers/function-call-manager.ts:12](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/function-call-manager.ts#L12)
+[core/src/managers/function-call-manager.ts:12](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/function-call-manager.ts#L12)
+
+___
+
+### allowedFunctions
+
+• `Optional` **allowedFunctions**: `string`[]
+
+#### Defined in
+
+[core/src/managers/function-call-manager.ts:13](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/function-call-manager.ts#L13)

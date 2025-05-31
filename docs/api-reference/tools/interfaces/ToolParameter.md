@@ -14,33 +14,13 @@ Tool parameter type
 
 ### Properties
 
-- [defaultValue](ToolParameter#defaultvalue)
-- [description](ToolParameter#description)
 - [name](ToolParameter#name)
-- [required](ToolParameter#required)
 - [type](ToolParameter#type)
+- [description](ToolParameter#description)
+- [required](ToolParameter#required)
+- [defaultValue](ToolParameter#defaultvalue)
 
 ## Properties
-
-### defaultValue
-
-• `Optional` **defaultValue**: `any`
-
-#### Defined in
-
-[packages/tools/src/index.ts:55](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/index.ts#L55)
-
-___
-
-### description
-
-• `Optional` **description**: `string`
-
-#### Defined in
-
-[packages/tools/src/index.ts:53](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/index.ts#L53)
-
-___
 
 ### name
 
@@ -48,17 +28,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/index.ts:51](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/index.ts#L51)
-
-___
-
-### required
-
-• `Optional` **required**: `boolean`
-
-#### Defined in
-
-[packages/tools/src/index.ts:54](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/index.ts#L54)
+[packages/tools/src/index.ts:51](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/index.ts#L51)
 
 ___
 
@@ -68,4 +38,34 @@ ___
 
 #### Defined in
 
-[packages/tools/src/index.ts:52](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/index.ts#L52)
+[packages/tools/src/index.ts:52](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/index.ts#L52)
+
+___
+
+### description
+
+• `Optional` **description**: `string`
+
+#### Defined in
+
+[packages/tools/src/index.ts:53](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/index.ts#L53)
+
+___
+
+### required
+
+• `Optional` **required**: `boolean`
+
+#### Defined in
+
+[packages/tools/src/index.ts:54](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/index.ts#L54)
+
+___
+
+### defaultValue
+
+• `Optional` **defaultValue**: `any`
+
+#### Defined in
+
+[packages/tools/src/index.ts:55](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/index.ts#L55)

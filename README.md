@@ -41,51 +41,42 @@ pnpm install
 
 ## Running Examples
 
-### With pnpm
+All examples are located in the `apps/examples` directory. Navigate there first:
 
 ```bash
-# Basic conversation example
-pnpm example:basic
-
-# Function calling example
-pnpm example:function-calling
-
-# Tools usage example
-pnpm example:tools
-
-# Agent example
-pnpm example:agents
-
-# System messages example
-pnpm example:system-messages
-
-# MCP integration example
-pnpm example:mcp
-
-# Run all examples
-pnpm example:all
+cd apps/examples
 ```
 
-### Directly with bun
+### Method 1: Using Package Scripts
 
 ```bash
-# Navigate to examples directory
-cd src/examples
+# Individual examples
+pnpm start:simple-conversation
+pnpm start:using-ai-client
+pnpm start:multi-ai-providers
+pnpm start:provider-switching
+pnpm start:zod-function-provider
+pnpm start:using-tool-providers
 
-# Basic conversation example
-bun run basic/simple-conversation.ts
+# Example groups
+pnpm start:all-basic          # All basic examples
+pnpm start:all-tool-providers # All tool provider examples
+pnpm start:all-examples       # All examples sequentially
+pnpm start:all                # Quick demo
+```
 
-# Function calling example
-bun run function-calling/weather-calculator.ts
+### Method 2: Direct File Execution
 
-# Tools usage example
-bun run tools/tool-examples.ts
+```bash
+# With bun (fastest)
+bun run 01-basic/01-simple-conversation.ts
+bun run 01-basic/02-ai-with-tools.ts
+bun run 01-basic/03-multi-ai-providers.ts
 
-# Agent example
-bun run agents/research-agent.ts
-
-# MCP integration example
-bun run mcp/mcp-example.ts
+# With pnpm + tsx
+pnpm tsx 01-basic/01-simple-conversation.ts
+pnpm tsx 02-functions/01-zod-function-tools.ts
+pnpm tsx 03-integrations/01-mcp-client.ts
 ```
 
 ## Development

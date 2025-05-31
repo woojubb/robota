@@ -22,16 +22,28 @@ Base interface that all tools must implement.
 
 ### Properties
 
-- [description](ToolInterface#description)
-- [execute](ToolInterface#execute)
 - [name](ToolInterface#name)
+- [description](ToolInterface#description)
 - [schema](ToolInterface#schema)
+- [execute](ToolInterface#execute)
 
 ### Methods
 
 - [toFunctionDefinition](ToolInterface#tofunctiondefinition)
 
 ## Properties
+
+### name
+
+• **name**: `string`
+
+Tool name
+
+#### Defined in
+
+[packages/tools/src/tool/interfaces.ts:33](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/interfaces.ts#L33)
+
+___
 
 ### description
 
@@ -41,7 +53,19 @@ Tool description
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:38](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L38)
+[packages/tools/src/tool/interfaces.ts:38](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/interfaces.ts#L38)
+
+___
+
+### schema
+
+• **schema**: `any`
+
+Tool schema
+
+#### Defined in
+
+[packages/tools/src/tool/interfaces.ts:43](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/interfaces.ts#L43)
 
 ___
 
@@ -67,31 +91,7 @@ Tool execution function
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:48](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L48)
-
-___
-
-### name
-
-• **name**: `string`
-
-Tool name
-
-#### Defined in
-
-[packages/tools/src/tool/interfaces.ts:33](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L33)
-
-___
-
-### schema
-
-• **schema**: `any`
-
-Tool schema
-
-#### Defined in
-
-[packages/tools/src/tool/interfaces.ts:43](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L43)
+[packages/tools/src/tool/interfaces.ts:48](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/interfaces.ts#L48)
 
 ## Methods
 
@@ -107,4 +107,4 @@ Convert to function definition
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:53](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L53)
+[packages/tools/src/tool/interfaces.ts:53](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/interfaces.ts#L53)

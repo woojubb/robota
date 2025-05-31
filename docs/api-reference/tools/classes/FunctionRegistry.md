@@ -18,10 +18,10 @@ Function call registry
 
 ### Methods
 
-- [execute](FunctionRegistry#execute)
+- [register](FunctionRegistry#register)
 - [getAllDefinitions](FunctionRegistry#getalldefinitions)
 - [getDefinition](FunctionRegistry#getdefinition)
-- [register](FunctionRegistry#register)
+- [execute](FunctionRegistry#execute)
 
 ## Constructors
 
@@ -35,26 +35,26 @@ Function call registry
 
 ## Methods
 
-### execute
+### register
 
-▸ **execute**(`functionCall`, `context?`): `Promise`\<[`FunctionCallResult`](../interfaces/FunctionCallResult)\>
+▸ **register**(`definition`, `handler`): `void`
 
-Execute function call
+Register a function
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `functionCall` | [`FunctionCall`](../interfaces/FunctionCall) |
-| `context?` | `any` |
+| `definition` | [`FunctionDefinition`](../interfaces/FunctionDefinition) |
+| `handler` | [`FunctionHandler`](../modules#functionhandler) |
 
 #### Returns
 
-`Promise`\<[`FunctionCallResult`](../interfaces/FunctionCallResult)\>
+`void`
 
 #### Defined in
 
-[packages/tools/src/function.ts:415](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function.ts#L415)
+[packages/tools/src/function.ts:393](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L393)
 
 ___
 
@@ -70,7 +70,7 @@ Get all registered function definitions
 
 #### Defined in
 
-[packages/tools/src/function.ts:401](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function.ts#L401)
+[packages/tools/src/function.ts:401](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L401)
 
 ___
 
@@ -92,27 +92,27 @@ Get function definition by name
 
 #### Defined in
 
-[packages/tools/src/function.ts:408](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function.ts#L408)
+[packages/tools/src/function.ts:408](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L408)
 
 ___
 
-### register
+### execute
 
-▸ **register**(`definition`, `handler`): `void`
+▸ **execute**(`functionCall`, `context?`): `Promise`\<[`FunctionCallResult`](../interfaces/FunctionCallResult)\>
 
-Register a function
+Execute function call
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `definition` | [`FunctionDefinition`](../interfaces/FunctionDefinition) |
-| `handler` | [`FunctionHandler`](../modules#functionhandler) |
+| `functionCall` | [`FunctionCall`](../interfaces/FunctionCall) |
+| `context?` | `any` |
 
 #### Returns
 
-`void`
+`Promise`\<[`FunctionCallResult`](../interfaces/FunctionCallResult)\>
 
 #### Defined in
 
-[packages/tools/src/function.ts:393](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/function.ts#L393)
+[packages/tools/src/function.ts:415](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L415)

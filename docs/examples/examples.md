@@ -21,20 +21,50 @@ GOOGLE_API_KEY=your_google_api_key_here          # Optional
 
 ## Running Examples
 
+All examples are located in the `apps/examples` directory. You can run them in two ways:
+
+### Method 1: Direct File Execution (Recommended)
+
 Navigate to the examples directory and run TypeScript files directly:
 
 ```bash
 # Navigate to examples directory
 cd apps/examples
 
-# Run specific examples using bun (recommended)
+# Run examples directly with bun (fastest)
 bun run 01-basic/01-simple-conversation.ts
 bun run 01-basic/02-ai-with-tools.ts
 bun run 01-basic/03-multi-ai-providers.ts
 
-# Or using pnpm
+# Or with pnpm + tsx
 pnpm tsx 01-basic/01-simple-conversation.ts
+pnpm tsx 02-functions/01-zod-function-tools.ts
 ```
+
+### Method 2: Using Package Scripts
+
+The examples package provides convenient npm scripts for common workflows:
+
+```bash
+# Navigate to examples directory
+cd apps/examples
+
+# Run individual examples
+pnpm start:simple-conversation
+pnpm start:using-ai-client
+pnpm start:multi-ai-providers
+pnpm start:provider-switching
+pnpm start:zod-function-provider
+pnpm start:using-tool-providers
+
+# Run example groups
+pnpm start:all-basic          # All basic examples
+pnpm start:all-tool-providers # All tool provider examples
+pnpm start:all-examples       # All examples sequentially
+pnpm start:all                # Quick demo (selected examples)
+```
+
+> **Note**: All example commands should be run from the `apps/examples` directory, not from the project root.
 
 ## Example Categories
 

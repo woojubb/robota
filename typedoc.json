@@ -1,0 +1,45 @@
+{
+    "plugin": [
+        "typedoc-plugin-markdown"
+    ],
+    "excludePrivate": true,
+    "excludeProtected": true,
+    "skipErrorChecking": true,
+    "sort": [
+        "source-order"
+    ],
+    "kindSortOrder": [
+        "Reference",
+        "Project",
+        "Module",
+        "Namespace",
+        "Enum",
+        "EnumMember",
+        "Class",
+        "Interface",
+        "TypeAlias",
+        "Constructor",
+        "Property",
+        "Variable",
+        "Function",
+        "Accessor",
+        "Method",
+        "Parameter",
+        "TypeParameter",
+        "TypeLiteral",
+        "CallSignature",
+        "ConstructorSignature",
+        "IndexSignature",
+        "GetSignature",
+        "SetSignature"
+    ],
+    "categorizeByGroup": false,
+    "defaultCategory": "Other",
+    "categoryOrder": [
+        "Classes",
+        "Interfaces",
+        "Type Aliases",
+        "Variables",
+        "Functions"
+    ]
+}

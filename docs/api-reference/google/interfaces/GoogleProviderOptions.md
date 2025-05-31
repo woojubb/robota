@@ -15,10 +15,10 @@ Google AI Provider options
 ### Properties
 
 - [client](GoogleProviderOptions#client)
-- [maxTokens](GoogleProviderOptions#maxtokens)
 - [model](GoogleProviderOptions#model)
-- [responseFormat](GoogleProviderOptions#responseformat)
 - [temperature](GoogleProviderOptions#temperature)
+- [maxTokens](GoogleProviderOptions#maxtokens)
+- [responseFormat](GoogleProviderOptions#responseformat)
 
 ## Properties
 
@@ -30,19 +30,7 @@ Google AI client instance
 
 #### Defined in
 
-[types.ts:8](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/types.ts#L8)
-
-___
-
-### maxTokens
-
-• `Optional` **maxTokens**: `number`
-
-Maximum number of tokens
-
-#### Defined in
-
-[types.ts:17](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/types.ts#L17)
+[types.ts:8](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/types.ts#L8)
 
 ___
 
@@ -54,19 +42,7 @@ Default model to use
 
 #### Defined in
 
-[types.ts:11](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/types.ts#L11)
-
-___
-
-### responseFormat
-
-• `Optional` **responseFormat**: `string`
-
-Response format
-
-#### Defined in
-
-[types.ts:20](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/types.ts#L20)
+[types.ts:11](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/types.ts#L11)
 
 ___
 
@@ -78,4 +54,28 @@ Temperature setting (0.0 ~ 1.0)
 
 #### Defined in
 
-[types.ts:14](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/types.ts#L14)
+[types.ts:14](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/types.ts#L14)
+
+___
+
+### maxTokens
+
+• `Optional` **maxTokens**: `number`
+
+Maximum number of tokens
+
+#### Defined in
+
+[types.ts:17](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/types.ts#L17)
+
+___
+
+### responseFormat
+
+• `Optional` **responseFormat**: `string`
+
+Response format
+
+#### Defined in
+
+[types.ts:20](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/types.ts#L20)

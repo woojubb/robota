@@ -50,9 +50,9 @@ Common functionality is implemented here, schema-related methods are implemented
 
 ### Properties
 
-- [category](BaseTool#category)
-- [description](BaseTool#description)
 - [name](BaseTool#name)
+- [description](BaseTool#description)
+- [category](BaseTool#category)
 - [version](BaseTool#version)
 
 ### Accessors
@@ -62,8 +62,8 @@ Common functionality is implemented here, schema-related methods are implemented
 ### Methods
 
 - [execute](BaseTool#execute)
-- [toFunctionDefinition](BaseTool#tofunctiondefinition)
 - [toFunctionSchema](BaseTool#tofunctionschema)
+- [toFunctionDefinition](BaseTool#tofunctiondefinition)
 - [toString](BaseTool#tostring)
 
 ## Constructors
@@ -93,19 +93,23 @@ Constructor
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:71](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/base-tool.ts#L71)
+[packages/tools/src/tool/base-tool.ts:71](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/base-tool.ts#L71)
 
 ## Properties
 
-### category
+### name
 
-• `Optional` `Readonly` **category**: `string`
+• `Readonly` **name**: `string`
 
-Tool category
+Tool name
+
+#### Implementation of
+
+[ToolInterface](../interfaces/ToolInterface).[name](../interfaces/ToolInterface#name)
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:39](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/base-tool.ts#L39)
+[packages/tools/src/tool/base-tool.ts:29](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/base-tool.ts#L29)
 
 ___
 
@@ -121,23 +125,19 @@ Tool description
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:34](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/base-tool.ts#L34)
+[packages/tools/src/tool/base-tool.ts:34](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/base-tool.ts#L34)
 
 ___
 
-### name
+### category
 
-• `Readonly` **name**: `string`
+• `Optional` `Readonly` **category**: `string`
 
-Tool name
-
-#### Implementation of
-
-[ToolInterface](../interfaces/ToolInterface).[name](../interfaces/ToolInterface#name)
+Tool category
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:29](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/base-tool.ts#L29)
+[packages/tools/src/tool/base-tool.ts:39](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/base-tool.ts#L39)
 
 ___
 
@@ -149,7 +149,7 @@ Tool version
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:44](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/base-tool.ts#L44)
+[packages/tools/src/tool/base-tool.ts:44](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/base-tool.ts#L44)
 
 ## Accessors
 
@@ -169,7 +169,7 @@ Tool schema (implemented by subclasses)
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:85](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/base-tool.ts#L85)
+[packages/tools/src/tool/base-tool.ts:85](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/base-tool.ts#L85)
 
 ## Methods
 
@@ -197,7 +197,25 @@ Tool execution result
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:108](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/base-tool.ts#L108)
+[packages/tools/src/tool/base-tool.ts:108](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/base-tool.ts#L108)
+
+___
+
+### toFunctionSchema
+
+▸ **toFunctionSchema**(): [`FunctionSchema`](../interfaces/FunctionSchema)
+
+Convert to function schema
+
+#### Returns
+
+[`FunctionSchema`](../interfaces/FunctionSchema)
+
+Function schema
+
+#### Defined in
+
+[packages/tools/src/tool/base-tool.ts:145](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/base-tool.ts#L145)
 
 ___
 
@@ -219,25 +237,7 @@ Function definition
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:158](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/base-tool.ts#L158)
-
-___
-
-### toFunctionSchema
-
-▸ **toFunctionSchema**(): [`FunctionSchema`](../interfaces/FunctionSchema)
-
-Convert to function schema
-
-#### Returns
-
-[`FunctionSchema`](../interfaces/FunctionSchema)
-
-Function schema
-
-#### Defined in
-
-[packages/tools/src/tool/base-tool.ts:145](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/base-tool.ts#L145)
+[packages/tools/src/tool/base-tool.ts:158](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/base-tool.ts#L158)
 
 ___
 
@@ -255,4 +255,4 @@ String representation of the tool
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:171](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/base-tool.ts#L171)
+[packages/tools/src/tool/base-tool.ts:171](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/tool/base-tool.ts#L171)

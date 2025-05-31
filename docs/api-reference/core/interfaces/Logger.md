@@ -14,54 +14,12 @@ Logger interface
 
 ### Methods
 
-- [debug](Logger#debug)
-- [error](Logger#error)
 - [info](Logger#info)
+- [debug](Logger#debug)
 - [warn](Logger#warn)
+- [error](Logger#error)
 
 ## Methods
-
-### debug
-
-▸ **debug**(`message`, `...args`): `void`
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `message` | `string` |
-| `...args` | `any`[] |
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[core/src/interfaces/logger.ts:6](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/logger.ts#L6)
-
-___
-
-### error
-
-▸ **error**(`message`, `...args`): `void`
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `message` | `string` |
-| `...args` | `any`[] |
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[core/src/interfaces/logger.ts:8](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/logger.ts#L8)
-
-___
 
 ### info
 
@@ -80,7 +38,28 @@ ___
 
 #### Defined in
 
-[core/src/interfaces/logger.ts:5](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/logger.ts#L5)
+[core/src/interfaces/logger.ts:5](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/logger.ts#L5)
+
+___
+
+### debug
+
+▸ **debug**(`message`, `...args`): `void`
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `message` | `string` |
+| `...args` | `any`[] |
+
+#### Returns
+
+`void`
+
+#### Defined in
+
+[core/src/interfaces/logger.ts:6](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/logger.ts#L6)
 
 ___
 
@@ -101,4 +80,25 @@ ___
 
 #### Defined in
 
-[core/src/interfaces/logger.ts:7](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/logger.ts#L7)
+[core/src/interfaces/logger.ts:7](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/logger.ts#L7)
+
+___
+
+### error
+
+▸ **error**(`message`, `...args`): `void`
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `message` | `string` |
+| `...args` | `any`[] |
+
+#### Returns
+
+`void`
+
+#### Defined in
+
+[core/src/interfaces/logger.ts:8](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/logger.ts#L8)

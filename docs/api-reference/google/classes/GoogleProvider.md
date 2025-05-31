@@ -29,10 +29,10 @@ Google AI provider implementation
 
 - [chat](GoogleProvider#chat)
 - [chatStream](GoogleProvider#chatstream)
-- [close](GoogleProvider#close)
 - [formatFunctions](GoogleProvider#formatfunctions)
 - [parseResponse](GoogleProvider#parseresponse)
 - [parseStreamingChunk](GoogleProvider#parsestreamingchunk)
+- [close](GoogleProvider#close)
 
 ## Constructors
 
@@ -52,7 +52,7 @@ Google AI provider implementation
 
 #### Defined in
 
-[provider.ts:32](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/provider.ts#L32)
+[provider.ts:32](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/provider.ts#L32)
 
 ## Properties
 
@@ -68,7 +68,7 @@ AIProvider.name
 
 #### Defined in
 
-[provider.ts:20](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/provider.ts#L20)
+[provider.ts:20](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/provider.ts#L20)
 
 ___
 
@@ -80,7 +80,7 @@ Provider options
 
 #### Defined in
 
-[provider.ts:30](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/provider.ts#L30)
+[provider.ts:30](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/provider.ts#L30)
 
 ## Methods
 
@@ -108,7 +108,7 @@ AIProvider.chat
 
 #### Defined in
 
-[provider.ts:50](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/provider.ts#L50)
+[provider.ts:50](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/provider.ts#L50)
 
 ___
 
@@ -136,27 +136,7 @@ AIProvider.chatStream
 
 #### Defined in
 
-[provider.ts:95](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/provider.ts#L95)
-
-___
-
-### close
-
-▸ **close**(): `Promise`\<`void`\>
-
-리소스 해제 (필요시)
-
-#### Returns
-
-`Promise`\<`void`\>
-
-#### Implementation of
-
-AIProvider.close
-
-#### Defined in
-
-[provider.ts:184](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/provider.ts#L184)
+[provider.ts:95](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/provider.ts#L95)
 
 ___
 
@@ -178,7 +158,7 @@ Format function definitions into a format the model can understand.
 
 #### Defined in
 
-[provider.ts:142](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/provider.ts#L142)
+[provider.ts:142](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/provider.ts#L142)
 
 ___
 
@@ -200,7 +180,7 @@ Parse model response into standard format.
 
 #### Defined in
 
-[provider.ts:150](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/provider.ts#L150)
+[provider.ts:150](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/provider.ts#L150)
 
 ___
 
@@ -222,4 +202,24 @@ Parse streaming response chunk into standard format.
 
 #### Defined in
 
-[provider.ts:171](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/provider.ts#L171)
+[provider.ts:171](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/provider.ts#L171)
+
+___
+
+### close
+
+▸ **close**(): `Promise`\<`void`\>
+
+리소스 해제 (필요시)
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+AIProvider.close
+
+#### Defined in
+
+[provider.ts:184](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/google/src/provider.ts#L184)

@@ -19,9 +19,9 @@ Handles conversation processing with AI.
 
 ### Methods
 
+- [prepareContext](ConversationService#preparecontext)
 - [generateResponse](ConversationService#generateresponse)
 - [generateStream](ConversationService#generatestream)
-- [prepareContext](ConversationService#preparecontext)
 
 ## Constructors
 
@@ -44,9 +44,34 @@ Handles conversation processing with AI.
 
 #### Defined in
 
-[core/src/services/conversation-service.ts:19](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/services/conversation-service.ts#L19)
+[core/src/services/conversation-service.ts:19](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/services/conversation-service.ts#L19)
 
 ## Methods
+
+### prepareContext
+
+▸ **prepareContext**(`conversationHistory`, `systemPrompt?`, `systemMessages?`, `options?`): [`Context`](../interfaces/Context)
+
+Prepare context
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `conversationHistory` | [`ConversationHistory`](../interfaces/ConversationHistory) | ConversationHistory instance |
+| `systemPrompt?` | `string` | Optional system prompt |
+| `systemMessages?` | [`Message`](../interfaces/Message)[] | System messages |
+| `options` | [`RunOptions`](../interfaces/RunOptions) | Run options |
+
+#### Returns
+
+[`Context`](../interfaces/Context)
+
+#### Defined in
+
+[core/src/services/conversation-service.ts:39](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/services/conversation-service.ts#L39)
+
+___
 
 ### generateResponse
 
@@ -71,7 +96,7 @@ Generate response
 
 #### Defined in
 
-[core/src/services/conversation-service.ts:75](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/services/conversation-service.ts#L75)
+[core/src/services/conversation-service.ts:75](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/services/conversation-service.ts#L75)
 
 ___
 
@@ -97,29 +122,4 @@ Generate streaming response
 
 #### Defined in
 
-[core/src/services/conversation-service.ts:226](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/services/conversation-service.ts#L226)
-
-___
-
-### prepareContext
-
-▸ **prepareContext**(`conversationHistory`, `systemPrompt?`, `systemMessages?`, `options?`): [`Context`](../interfaces/Context)
-
-Prepare context
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `conversationHistory` | [`ConversationHistory`](../interfaces/ConversationHistory) | ConversationHistory instance |
-| `systemPrompt?` | `string` | Optional system prompt |
-| `systemMessages?` | [`Message`](../interfaces/Message)[] | System messages |
-| `options` | [`RunOptions`](../interfaces/RunOptions) | Run options |
-
-#### Returns
-
-[`Context`](../interfaces/Context)
-
-#### Defined in
-
-[core/src/services/conversation-service.ts:39](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/services/conversation-service.ts#L39)
+[core/src/services/conversation-service.ts:226](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/services/conversation-service.ts#L226)

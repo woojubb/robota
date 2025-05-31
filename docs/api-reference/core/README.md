@@ -12,43 +12,43 @@
 
 ### Classes
 
+- [SimpleConversationHistory](classes/SimpleConversationHistory)
+- [PersistentSystemConversationHistory](classes/PersistentSystemConversationHistory)
 - [AIProviderManager](classes/AIProviderManager)
 - [AnalyticsManager](classes/AnalyticsManager)
-- [ConversationService](classes/ConversationService)
 - [FunctionCallManager](classes/FunctionCallManager)
-- [OpenAIProvider](classes/OpenAIProvider)
-- [PersistentSystemConversationHistory](classes/PersistentSystemConversationHistory)
-- [Robota](classes/Robota)
-- [SimpleConversationHistory](classes/SimpleConversationHistory)
 - [SystemMessageManager](classes/SystemMessageManager)
 - [ToolProviderManager](classes/ToolProviderManager)
+- [OpenAIProvider](classes/OpenAIProvider)
+- [Robota](classes/Robota)
+- [ConversationService](classes/ConversationService)
 
 ### Interfaces
 
-- [AIProvider](interfaces/AIProvider)
-- [Context](interfaces/Context)
-- [ConversationHistory](interfaces/ConversationHistory)
-- [FunctionCall](interfaces/FunctionCall)
-- [FunctionCallConfig](interfaces/FunctionCallConfig)
-- [FunctionCallResult](interfaces/FunctionCallResult)
-- [FunctionDefinition](interfaces/FunctionDefinition)
-- [FunctionSchema](interfaces/FunctionSchema)
-- [Logger](interfaces/Logger)
-- [Message](interfaces/Message)
-- [MessageAdapter](interfaces/MessageAdapter)
-- [ModelResponse](interfaces/ModelResponse)
-- [ProviderOptions](interfaces/ProviderOptions)
-- [RobotaOptions](interfaces/RobotaOptions)
-- [RunOptions](interfaces/RunOptions)
-- [StreamingResponseChunk](interfaces/StreamingResponseChunk)
-- [ToolProvider](interfaces/ToolProvider)
 - [UniversalMessage](interfaces/UniversalMessage)
+- [ConversationHistory](interfaces/ConversationHistory)
+- [Message](interfaces/Message)
+- [ModelResponse](interfaces/ModelResponse)
+- [StreamingResponseChunk](interfaces/StreamingResponseChunk)
+- [Context](interfaces/Context)
+- [AIProvider](interfaces/AIProvider)
+- [Logger](interfaces/Logger)
+- [FunctionCallConfig](interfaces/FunctionCallConfig)
+- [RobotaOptions](interfaces/RobotaOptions)
+- [ProviderOptions](interfaces/ProviderOptions)
+- [RunOptions](interfaces/RunOptions)
+- [MessageAdapter](interfaces/MessageAdapter)
+- [FunctionSchema](interfaces/FunctionSchema)
+- [FunctionDefinition](interfaces/FunctionDefinition)
+- [FunctionCall](interfaces/FunctionCall)
+- [FunctionCallResult](interfaces/FunctionCallResult)
+- [ToolProvider](interfaces/ToolProvider)
 
 ### Type Aliases
 
-- [FunctionCallMode](modules#functioncallmode)
-- [MessageRole](modules#messagerole)
 - [UniversalMessageRole](modules#universalmessagerole)
+- [MessageRole](modules#messagerole)
+- [FunctionCallMode](modules#functioncallmode)
 
 ### Variables
 
@@ -56,21 +56,21 @@
 
 ### Functions
 
+- [removeUndefined](modules#removeundefined)
 - [convertUniversalToBaseMessage](modules#convertuniversaltobasemessage)
 - [convertUniversalToBaseMessages](modules#convertuniversaltobasemessages)
-- [removeUndefined](modules#removeundefined)
 
 ## Type Aliases
 
-### FunctionCallMode
+### UniversalMessageRole
 
-Ƭ **FunctionCallMode**: ``"auto"`` \| ``"force"`` \| ``"disabled"``
+Ƭ **UniversalMessageRole**: ``"user"`` \| ``"assistant"`` \| ``"system"`` \| ``"tool"``
 
-Function call mode
+Universal message role type - Provider-independent neutral role
 
 #### Defined in
 
-[core/src/managers/function-call-manager.ts:4](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/managers/function-call-manager.ts#L4)
+[core/src/conversation-history.ts:6](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/conversation-history.ts#L6)
 
 ___
 
@@ -82,19 +82,19 @@ Message role type
 
 #### Defined in
 
-[core/src/interfaces/ai-provider.ts:7](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/interfaces/ai-provider.ts#L7)
+[core/src/interfaces/ai-provider.ts:7](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/ai-provider.ts#L7)
 
 ___
 
-### UniversalMessageRole
+### FunctionCallMode
 
-Ƭ **UniversalMessageRole**: ``"user"`` \| ``"assistant"`` \| ``"system"`` \| ``"tool"``
+Ƭ **FunctionCallMode**: ``"auto"`` \| ``"force"`` \| ``"disabled"``
 
-Universal message role type - Provider-independent neutral role
+Function call mode
 
 #### Defined in
 
-[core/src/conversation-history.ts:6](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L6)
+[core/src/managers/function-call-manager.ts:4](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/managers/function-call-manager.ts#L4)
 
 ## Variables
 
@@ -108,60 +108,15 @@ Logger utility (console.log replacement)
 
 | Name | Type |
 | :------ | :------ |
-| `error` | (...`args`: `unknown`[]) => `void` |
 | `info` | (...`args`: `unknown`[]) => `void` |
 | `warn` | (...`args`: `unknown`[]) => `void` |
+| `error` | (...`args`: `unknown`[]) => `void` |
 
 #### Defined in
 
-[core/src/utils.ts:131](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/utils.ts#L131)
+[core/src/utils.ts:131](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/utils.ts#L131)
 
 ## Functions
-
-### convertUniversalToBaseMessage
-
-▸ **convertUniversalToBaseMessage**(`universalMessage`): [`Message`](interfaces/Message)
-
-Helper function to convert UniversalMessage to basic Message format
-Can be used in AI Provider adapters.
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `universalMessage` | [`UniversalMessage`](interfaces/UniversalMessage) |
-
-#### Returns
-
-[`Message`](interfaces/Message)
-
-#### Defined in
-
-[core/src/utils.ts:153](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/utils.ts#L153)
-
-___
-
-### convertUniversalToBaseMessages
-
-▸ **convertUniversalToBaseMessages**(`universalMessages`): [`Message`](interfaces/Message)[]
-
-Helper function to convert UniversalMessage array to basic Message array
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `universalMessages` | [`UniversalMessage`](interfaces/UniversalMessage)[] |
-
-#### Returns
-
-[`Message`](interfaces/Message)[]
-
-#### Defined in
-
-[core/src/utils.ts:177](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/utils.ts#L177)
-
-___
 
 ### removeUndefined
 
@@ -189,4 +144,49 @@ Object with undefined values removed
 
 #### Defined in
 
-[core/src/utils.ts:31](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/utils.ts#L31)
+[core/src/utils.ts:31](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/utils.ts#L31)
+
+___
+
+### convertUniversalToBaseMessage
+
+▸ **convertUniversalToBaseMessage**(`universalMessage`): [`Message`](interfaces/Message)
+
+Helper function to convert UniversalMessage to basic Message format
+Can be used in AI Provider adapters.
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `universalMessage` | [`UniversalMessage`](interfaces/UniversalMessage) |
+
+#### Returns
+
+[`Message`](interfaces/Message)
+
+#### Defined in
+
+[core/src/utils.ts:153](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/utils.ts#L153)
+
+___
+
+### convertUniversalToBaseMessages
+
+▸ **convertUniversalToBaseMessages**(`universalMessages`): [`Message`](interfaces/Message)[]
+
+Helper function to convert UniversalMessage array to basic Message array
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `universalMessages` | [`UniversalMessage`](interfaces/UniversalMessage)[] |
+
+#### Returns
+
+[`Message`](interfaces/Message)[]
+
+#### Defined in
+
+[core/src/utils.ts:177](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/utils.ts#L177)
