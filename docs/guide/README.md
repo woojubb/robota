@@ -4,7 +4,7 @@ description: Robota SDK Documentation Guide
 lang: en-US
 ---
 
-# Getting Started Guide
+# Getting Started
 
 Learn how to use Robota SDK to build powerful AI agents with multi-provider support and function calling.
 

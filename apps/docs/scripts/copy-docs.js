@@ -20,22 +20,4 @@ fs.copySync(docsPath, tempDir, {
     }
 });
 
-// Convert README.md files to index.md
-const findAndRenameReadme = (dir) => {
-    const files = fs.readdirSync(dir, { withFileTypes: true });
-
-    for (const file of files) {
-        const fullPath = path.join(dir, file.name);
-
-        if (file.isDirectory()) {
-            findAndRenameReadme(fullPath);
-        } else if (file.name === 'README.md') {
-            const newPath = path.join(dir, 'index.md');
-            fs.renameSync(fullPath, newPath);
-            console.log(`✓ Converted README.md to index.md: ${fullPath} -> ${newPath}`);
-        }
-    }
-};
-
-findAndRenameReadme(tempDir);
 console.log('Document copy completed!'); 

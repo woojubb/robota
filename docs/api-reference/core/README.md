@@ -66,7 +66,7 @@ Universal message role type - Provider-independent neutral role
 
 #### Defined in
 
-[conversation-history.ts:6](https://github.com/woojubb/robota/blob/8d56176726b5cbc3c1257c839c6ee08ce5478dc7/packages/core/src/conversation-history.ts#L6)
+[conversation-history.ts:6](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/conversation-history.ts#L6)
 
 ___
 
@@ -78,7 +78,7 @@ Message role type
 
 #### Defined in
 
-[interfaces/ai-provider.ts:7](https://github.com/woojubb/robota/blob/8d56176726b5cbc3c1257c839c6ee08ce5478dc7/packages/core/src/interfaces/ai-provider.ts#L7)
+[interfaces/ai-provider.ts:7](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/interfaces/ai-provider.ts#L7)
 
 ___
 
@@ -90,7 +90,7 @@ Function call mode
 
 #### Defined in
 
-[managers/function-call-manager.ts:4](https://github.com/woojubb/robota/blob/8d56176726b5cbc3c1257c839c6ee08ce5478dc7/packages/core/src/managers/function-call-manager.ts#L4)
+[managers/function-call-manager.ts:4](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/managers/function-call-manager.ts#L4)
 
 ## Variables
 
@@ -116,7 +116,7 @@ Logger utility (console.log replacement)
 
 #### Defined in
 
-[utils.ts:131](https://github.com/woojubb/robota/blob/8d56176726b5cbc3c1257c839c6ee08ce5478dc7/packages/core/src/utils.ts#L131)
+[utils.ts:131](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/utils.ts#L131)
 
 ## Functions
 
@@ -146,7 +146,7 @@ Object with undefined values removed
 
 #### Defined in
 
-[utils.ts:31](https://github.com/woojubb/robota/blob/8d56176726b5cbc3c1257c839c6ee08ce5478dc7/packages/core/src/utils.ts#L31)
+[utils.ts:31](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/utils.ts#L31)
 
 ___
 
@@ -169,7 +169,7 @@ Can be used in AI Provider adapters.
 
 #### Defined in
 
-[utils.ts:153](https://github.com/woojubb/robota/blob/8d56176726b5cbc3c1257c839c6ee08ce5478dc7/packages/core/src/utils.ts#L153)
+[utils.ts:153](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/utils.ts#L153)
 
 ___
 
@@ -191,4 +191,4 @@ Helper function to convert UniversalMessage array to basic Message array
 
 #### Defined in
 
-[utils.ts:177](https://github.com/woojubb/robota/blob/8d56176726b5cbc3c1257c839c6ee08ce5478dc7/packages/core/src/utils.ts#L177)
+[utils.ts:177](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/utils.ts#L177)

@@ -81,6 +81,21 @@ ${API_CATEGORIES.map(category => `- [${category.name}](${category.name.toLowerCa
 
     const indexPath = path.resolve(OUTPUT_DIR, 'README.md');
     fs.writeFileSync(indexPath, content);
+
+    // Generate main API reference sidebar - REMOVED for auto-sidebar plugin
+    // const sidebarContent = `${AUTO_GENERATED_WARNING}* [API Reference](README.md)
+    //
+    // **Core Packages**
+    // ${API_CATEGORIES.filter(cat => ['Core', 'Tools'].includes(cat.name))
+    //             .map(category => `* [${category.name}](${category.name.toLowerCase()}/)`).join('\n')}
+    //
+    // **AI Providers**
+    // ${API_CATEGORIES.filter(cat => ['OpenAI', 'Anthropic', 'Google'].includes(cat.name))
+    //             .map(category => `* [${category.name}](${category.name.toLowerCase()}/)`).join('\n')}
+    // `;
+    //
+    // const sidebarPath = path.resolve(OUTPUT_DIR, '_sidebar.md');
+    // fs.writeFileSync(sidebarPath, sidebarContent);
 }
 
 // Generate API documentation using TypeDoc
@@ -134,7 +149,10 @@ async function generateDocsForCategory(category) {
         // Fix link paths
         fixDocumentLinks(categoryDir, name.toLowerCase());
 
-        console.log(`✅ ${name} API documentation converted successfully`);
+        // Generate sidebar for API reference categories
+        generateApiSidebar(categoryDir, name);
+
+        console.log(`✅ Generated API docs for ${name} (${files.length} files)`);
         return files.length;
     } catch (error) {
         console.error(`⚠️ Error occurred while generating ${name} category API documentation:`, error);
@@ -142,85 +160,51 @@ async function generateDocsForCategory(category) {
     }
 }
 
-// Fix file structure: rename modules.md to README.md and remove incorrect README.md
+// Fix file structure and create proper README.md for each category
 function fixFileStructure(categoryDir, categoryName) {
     const modulesPath = path.join(categoryDir, 'modules.md');
     const readmePath = path.join(categoryDir, 'README.md');
+    const parentReadmePath = path.join(OUTPUT_DIR, 'README.md');
 
-    // If modules.md exists: rename modules.md to README.md
+    // 첫 번째 패키지(Core)인 경우 프로젝트 README.md를 상위 폴더로 이동
+    if (categoryName === 'Core' && fs.existsSync(readmePath)) {
+        // 프로젝트 전체 README.md를 api-reference 루트로 이동
+        fs.copyFileSync(readmePath, parentReadmePath);
+        console.log(`📄 Moved project README.md to api-reference root`);
+    }
+
+    // modules.md를 README.md로 변환
     if (fs.existsSync(modulesPath)) {
-        // Remove existing README.md if it exists (TypeDoc generated project overview)
+        // modules.md가 있으면 README.md로 이름 변경
         if (fs.existsSync(readmePath)) {
+            // 기존 README.md가 있으면 삭제 (프로젝트 전체 README.md이므로 불필요)
             fs.unlinkSync(readmePath);
+            console.log(`🗑️  Removed project README.md from ${categoryName}`);
         }
 
-        // Read modules.md content
-        let content = fs.readFileSync(modulesPath, 'utf-8');
-
-        // Fix incorrect references in content
-        content = content.replace(/\[.*?\]\(\.\.\/\) \/ Exports/g, `${categoryName} API`);
-        content = content.replace(/# .*? API/g, `# ${categoryName} API`);
-
-        // Save as README.md
-        fs.writeFileSync(readmePath, content);
-
-        // Remove existing modules.md
-        fs.unlinkSync(modulesPath);
+        fs.renameSync(modulesPath, readmePath);
+        console.log(`📄 Converted modules.md to README.md for ${categoryName}`);
+    } else {
+        console.log(`⚠️  modules.md not found in ${categoryName}`);
     }
-    // If modules.md doesn't exist: fix or create new README.md content
-    else {
-        let content = '';
+}
 
-        // Check existing README.md if it exists
-        if (fs.existsSync(readmePath)) {
-            content = fs.readFileSync(readmePath, 'utf-8');
+// Remove TypeDoc generated index files that cause sidebar duplication
+function removeTypeDocIndexFiles(categoryDir) {
+    const categoryName = path.basename(categoryDir);
+    const filesToRemove = ['modules.md'];
 
-            // Check if it's an incorrect README.md with project-wide description
-            if (content.includes('Robota is an AI agent framework') || content.includes('Project Structure')) {
-                fs.unlinkSync(readmePath);
-                content = '';
-            }
-        }
-
-        // Create new README.md if it doesn't exist or was incorrect
-        if (!fs.existsSync(readmePath)) {
-            // Check classes and interfaces directories
-            const classesDir = path.join(categoryDir, 'classes');
-            const interfacesDir = path.join(categoryDir, 'interfaces');
-
-            let tableOfContents = `# ${categoryName} API
-
-## Table of contents
-
-`;
-
-            // Add classes section
-            if (fs.existsSync(classesDir)) {
-                const classFiles = fs.readdirSync(classesDir).filter(f => f.endsWith('.md'));
-                if (classFiles.length > 0) {
-                    tableOfContents += `### Classes
-
-${classFiles.map(f => `- [${f.replace('.md', '')}](classes/${f.replace('.md', '')})`).join('\n')}
-
-`;
-                }
-            }
-
-            // Add interfaces section
-            if (fs.existsSync(interfacesDir)) {
-                const interfaceFiles = fs.readdirSync(interfacesDir).filter(f => f.endsWith('.md'));
-                if (interfaceFiles.length > 0) {
-                    tableOfContents += `### Interfaces
-
-${interfaceFiles.map(f => `- [${f.replace('.md', '')}](interfaces/${f.replace('.md', '')})`).join('\n')}
-
-`;
-                }
-            }
-
-            fs.writeFileSync(readmePath, tableOfContents);
+    // Remove modules.md only
+    for (const file of filesToRemove) {
+        const filePath = path.join(categoryDir, file);
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            console.log(`🗑️  Removed ${file} from ${categoryName}`);
         }
     }
+
+    // Keep the original TypeDoc generated README.md
+    console.log(`📄 Keeping original README.md for ${categoryName}`);
 }
 
 // Add auto-generated warnings to all generated files
@@ -240,6 +224,100 @@ function addAutoGeneratedWarnings(categoryDir) {
             console.error(`⚠️ Error occurred while adding warning header to ${mdFile}:`, error);
         }
     }
+}
+
+// Generate sidebar for API reference categories - DISABLED for auto-sidebar plugin
+function generateApiSidebar(categoryDir, categoryName) {
+    // Sidebar generation disabled - using auto-sidebar plugin instead
+    return;
+
+    // try {
+    //     const sidebarPath = path.join(categoryDir, '_sidebar.md');
+    //
+    //     // Check what files and directories exist
+    //     const classesDir = path.join(categoryDir, 'classes');
+    //     const interfacesDir = path.join(categoryDir, 'interfaces');
+    //     const enumsDir = path.join(categoryDir, 'enums');
+    //     const typesDir = path.join(categoryDir, 'types');
+    //
+    //     let sidebarContent = `${AUTO_GENERATED_WARNING}* [${categoryName} API](README.md)
+    //
+    // `;
+    //
+    //     // Add classes section
+    //     if (fs.existsSync(classesDir)) {
+    //         const classFiles = fs.readdirSync(classesDir)
+    //             .filter(f => f.endsWith('.md'))
+    //             .sort();
+    //
+    //         if (classFiles.length > 0) {
+    //             sidebarContent += `**Classes**\n`;
+    //             for (const file of classFiles) {
+    //                 const className = file.replace('.md', '');
+    //                 sidebarContent += `* [${className}](classes/${className})\n`;
+    //             }
+    //             sidebarContent += '\n';
+    //         }
+    //     }
+    //
+    //     // Add interfaces section
+    //     if (fs.existsSync(interfacesDir)) {
+    //         const interfaceFiles = fs.readdirSync(interfacesDir)
+    //             .filter(f => f.endsWith('.md'))
+    //             .sort();
+    //
+    //         if (interfaceFiles.length > 0) {
+    //             sidebarContent += `**Interfaces**\n`;
+    //             for (const file of interfaceFiles) {
+    //                 const interfaceName = file.replace('.md', '');
+    //                 sidebarContent += `* [${interfaceName}](interfaces/${interfaceName})\n`;
+    //             }
+    //             sidebarContent += '\n';
+    //         }
+    //     }
+    //
+    //     // Add enums section
+    //     if (fs.existsSync(enumsDir)) {
+    //         const enumFiles = fs.readdirSync(enumsDir)
+    //             .filter(f => f.endsWith('.md'))
+    //             .sort();
+    //
+    //         if (enumFiles.length > 0) {
+    //             sidebarContent += `**Enums**\n`;
+    //             for (const file of enumFiles) {
+    //                 const enumName = file.replace('.md', '');
+    //                 sidebarContent += `* [${enumName}](enums/${enumName})\n`;
+    //             }
+    //             sidebarContent += '\n';
+    //         }
+    //     }
+    //
+    //     // Add types section
+    //     if (fs.existsSync(typesDir)) {
+    //         const typeFiles = fs.readdirSync(typesDir)
+    //             .filter(f => f.endsWith('.md'))
+    //             .sort();
+    //
+    //         if (typeFiles.length > 0) {
+    //             sidebarContent += `**Types**\n`;
+    //             for (const file of typeFiles) {
+    //                 const typeName = file.replace('.md', '');
+    //                 sidebarContent += `* [${typeName}](types/${typeName})\n`;
+    //             }
+    //             sidebarContent += '\n';
+    //         }
+    //     }
+    //
+    //     // Add navigation links
+    //     sidebarContent += `**Navigation**\n`;
+    //     sidebarContent += `* [← Back to API Reference](../)\n`;
+    //
+    //     // Write sidebar file
+    //     fs.writeFileSync(sidebarPath, sidebarContent);
+    //
+    // } catch (error) {
+    //     console.error(`⚠️ Error occurred while generating sidebar for ${categoryName}:`, error);
+    // }
 }
 
 // Fix link paths in API documentation (relative paths -> absolute paths)
@@ -360,14 +438,42 @@ function copyDirectoryRecursive(src, dest) {
     }
 }
 
+// Clean API reference directory before generation
+function cleanApiReferenceDir() {
+    if (fs.existsSync(OUTPUT_DIR)) {
+        console.log('🧹 Cleaning existing API reference directory...');
+
+        // README.md 파일 백업
+        const readmePath = path.join(OUTPUT_DIR, 'README.md');
+        let readmeContent = null;
+        if (fs.existsSync(readmePath)) {
+            readmeContent = fs.readFileSync(readmePath, 'utf-8');
+        }
+
+        // 전체 폴더 삭제
+        fs.rmSync(OUTPUT_DIR, { recursive: true, force: true });
+
+        // 폴더 재생성
+        fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+
+        // README.md 파일 복원
+        if (readmeContent) {
+            fs.writeFileSync(readmePath, readmeContent);
+            console.log('📄 Preserved existing README.md');
+        }
+
+        console.log('✅ API reference directory cleaned');
+    }
+}
+
 async function main() {
     console.log('🔄 Converting TypeScript to API documentation...');
 
+    // Clean existing API reference directory
+    cleanApiReferenceDir();
+
     // Copy public files first
     copyPublicFiles();
-
-    // Generate API index page
-    generateApiIndexPage();
 
     // Generate documentation for each category
     let totalDocs = 0;

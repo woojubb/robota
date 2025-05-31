@@ -26,7 +26,7 @@ Streaming response chunk interface
 
 #### Defined in
 
-[interfaces/ai-provider.ts:38](https://github.com/woojubb/robota/blob/8d56176726b5cbc3c1257c839c6ee08ce5478dc7/packages/core/src/interfaces/ai-provider.ts#L38)
+[interfaces/ai-provider.ts:38](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/interfaces/ai-provider.ts#L38)
 
 ___
 
@@ -36,7 +36,7 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:39](https://github.com/woojubb/robota/blob/8d56176726b5cbc3c1257c839c6ee08ce5478dc7/packages/core/src/interfaces/ai-provider.ts#L39)
+[interfaces/ai-provider.ts:39](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/interfaces/ai-provider.ts#L39)
 
 ___
 
@@ -46,4 +46,4 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:40](https://github.com/woojubb/robota/blob/8d56176726b5cbc3c1257c839c6ee08ce5478dc7/packages/core/src/interfaces/ai-provider.ts#L40)
+[interfaces/ai-provider.ts:40](https://github.com/woojubb/robota/blob/a30a05a48bffaad2a16dd1a2033d90e93b7392cf/packages/core/src/interfaces/ai-provider.ts#L40)

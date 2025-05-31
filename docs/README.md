@@ -1,14 +1,21 @@
+---
+layout: home
+title: Robota SDK
+description: A powerful TypeScript library for building AI agents with multi-provider support
+lang: en-US
+---
+
 # Robota SDK
 
 A powerful TypeScript library for building AI agents with multi-provider support, function calling, and tool integration.
 
 ## Features
 
-- **Multi-Provider Support**: OpenAI, Anthropic, Google AI with easy provider switching
-- **Type-Safe Function Calling**: Zod-based tools, MCP integration, OpenAPI support
-- **Conversation Management**: Built-in history management with configurable limits
-- **Analytics & Monitoring**: Request tracking, token usage analytics, limit management
-- **Streaming Support**: Real-time streaming across all providers
+- **Multi-Provider Support**: OpenAI, Anthropic, Google AI with seamless switching
+- **Type-Safe Function Calling**: Zod schemas and tool integration
+- **Streaming Support**: Real-time responses from all providers
+- **Conversation Management**: Built-in history and context management
+- **Modular Architecture**: Clean separation of concerns
 
 ## Quick Start
 
@@ -30,22 +37,42 @@ const response = await robota.run('Hello! How can I help you today?');
 console.log(response);
 ```
 
+## Installation
+
+```bash
+# Core package
+npm install @robota-sdk/core
+
+# AI Providers (choose one or more)
+npm install @robota-sdk/openai openai
+npm install @robota-sdk/anthropic @anthropic-ai/sdk
+npm install @robota-sdk/google @google/generative-ai
+
+# Tools for function calling
+npm install @robota-sdk/tools zod
+```
+
 ## Documentation
 
 ### For Users
-- **[Getting Started Guide](guide/)** - Installation, setup, and basic usage
+- **[Getting Started](getting-started/)** - Installation, setup, and basic usage
+- **[Guide](guide/)** - Core concepts and advanced features
 - **[AI Providers](providers/)** - OpenAI, Anthropic, Google AI configuration
 - **[Examples](examples/)** - Comprehensive examples and tutorials
-- **[API Reference](api-reference/)** - Complete API documentation
+- **[Protocols](protocols/)** - Model Context Protocol and integrations
 
-### For Contributors
-- **[Development Setup](development-guidelines.md)** - Environment setup and architecture
-- **[Testing Guidelines](testing-guidelines.md)** - Testing patterns and best practices
-- **[Build & Deployment](build-and-deployment.md)** - CI/CD and release process
+### For Developers
+- **[Development](development/)** - Development guidelines and setup
+- **[Project](project/)** - Project roadmap and information
+- **[Packages](packages/)** - Individual package documentation
 
-## Current Version
+## Supported Providers
 
-Core package: v0.3.2 - Latest stable release
+| Provider | Models | Features |
+|----------|--------|----------|
+| **OpenAI** | GPT-4, GPT-3.5 | Function calling, streaming, vision |
+| **Anthropic** | Claude 3.5 Sonnet, Claude 3 | Large context, advanced reasoning |
+| **Google** | Gemini 1.5 Pro, Gemini Flash | Multimodal, long context |
 
 ## License
 
