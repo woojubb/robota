@@ -80,7 +80,7 @@ Function result type
 
 #### Defined in
 
-[packages/tools/src/function.ts:16](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L16)
+[packages/tools/src/function.ts:16](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/tools/src/function.ts#L16)
 
 ___
 
@@ -107,7 +107,7 @@ Function call handler type
 
 #### Defined in
 
-[packages/tools/src/function.ts:378](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L378)
+[packages/tools/src/function.ts:378](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/tools/src/function.ts#L378)
 
 ## Functions
 
@@ -155,7 +155,7 @@ const robota = new Robota({
 
 #### Defined in
 
-[packages/tools/src/function-tool-provider.ts:50](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function-tool-provider.ts#L50)
+[packages/tools/src/function-tool-provider.ts:50](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/tools/src/function-tool-provider.ts#L50)
 
 ___
 
@@ -215,7 +215,7 @@ const getWeather = createFunction({
 
 #### Defined in
 
-[packages/tools/src/function.ts:240](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L240)
+[packages/tools/src/function.ts:240](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/tools/src/function.ts#L240)
 
 ___
 
@@ -261,7 +261,7 @@ const calculateSum = functionFromCallback(
 
 #### Defined in
 
-[packages/tools/src/function.ts:311](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L311)
+[packages/tools/src/function.ts:311](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/tools/src/function.ts#L311)
 
 ___
 
@@ -283,7 +283,7 @@ Utility function to convert function schema to Zod schema
 
 #### Defined in
 
-[packages/tools/src/function.ts:345](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/function.ts#L345)
+[packages/tools/src/function.ts:345](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/tools/src/function.ts#L345)
 
 ___
 
@@ -330,7 +330,7 @@ const weatherTool = createTool({
 
 #### Defined in
 
-[packages/tools/src/index.ts:132](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/index.ts#L132)
+[packages/tools/src/index.ts:132](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/tools/src/index.ts#L132)
 
 ___
 
@@ -354,7 +354,7 @@ MCP-based tool provider object
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:22](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/mcp-tool-provider.ts#L22)
+[packages/tools/src/mcp-tool-provider.ts:22](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/tools/src/mcp-tool-provider.ts#L22)
 
 ___
 
@@ -380,7 +380,7 @@ OpenAPI-based tool provider
 
 #### Defined in
 
-[packages/tools/src/openapi-tool-provider.ts:11](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/openapi-tool-provider.ts#L11)
+[packages/tools/src/openapi-tool-provider.ts:11](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/tools/src/openapi-tool-provider.ts#L11)
 
 ___
 
@@ -431,7 +431,7 @@ const jsonSchema = zodToJsonSchema(userSchema);
 
 #### Defined in
 
-[packages/tools/src/zod-schema.ts:38](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/zod-schema.ts#L38)
+[packages/tools/src/zod-schema.ts:38](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/tools/src/zod-schema.ts#L38)
 
 ___
 
@@ -470,4 +470,4 @@ Robota 호환 함수 스키마
 
 #### Defined in
 
-[packages/tools/src/zod-schema.ts:122](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/zod-schema.ts#L122)
+[packages/tools/src/zod-schema.ts:122](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/tools/src/zod-schema.ts#L122)

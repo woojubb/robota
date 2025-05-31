@@ -16,9 +16,6 @@ export type { Logger } from './interfaces/logger';
 
 // Types
 export type {
-    FunctionSchema,
-    FunctionCallResult,
-    FunctionDefinition,
     RunOptions,
     ProviderOptions
 } from './types';
@@ -33,9 +30,6 @@ export type {
     UniversalMessage,
     UniversalMessageRole
 } from './conversation-history';
-
-// Tool Provider (re-export from tools package)
-export type { ToolProvider } from '@robota-sdk/tools';
 
 // Managers (available for direct external use when needed)
 export { AIProviderManager } from './managers/ai-provider-manager';

@@ -26,17 +26,17 @@ Streaming response chunk interface
 
 #### Defined in
 
-[core/src/interfaces/ai-provider.ts:41](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/ai-provider.ts#L41)
+[interfaces/ai-provider.ts:38](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/core/src/interfaces/ai-provider.ts#L38)
 
 ___
 
 ### functionCall
 
-• `Optional` **functionCall**: `Partial`\<[`FunctionCall`](FunctionCall)\>
+• `Optional` **functionCall**: `Partial`\<`FunctionCall`\>
 
 #### Defined in
 
-[core/src/interfaces/ai-provider.ts:42](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/ai-provider.ts#L42)
+[interfaces/ai-provider.ts:39](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/core/src/interfaces/ai-provider.ts#L39)
 
 ___
 
@@ -46,4 +46,4 @@ ___
 
 #### Defined in
 
-[core/src/interfaces/ai-provider.ts:43](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/core/src/interfaces/ai-provider.ts#L43)
+[interfaces/ai-provider.ts:40](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/core/src/interfaces/ai-provider.ts#L40)

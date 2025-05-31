@@ -41,7 +41,7 @@ Compatible with Client from @modelcontextprotocol/sdk
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:9](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/mcp-tool-provider.ts#L9)
+[packages/tools/src/mcp-tool-provider.ts:9](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/tools/src/mcp-tool-provider.ts#L9)
 
 ___
 
@@ -65,7 +65,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:10](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/mcp-tool-provider.ts#L10)
+[packages/tools/src/mcp-tool-provider.ts:10](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/tools/src/mcp-tool-provider.ts#L10)
 
 ___
 
@@ -90,4 +90,4 @@ ___
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:12](https://github.com/woojubb/robota/blob/e9a16308aa7c5860eec707b38c4a69831f29dd9f/packages/tools/src/mcp-tool-provider.ts#L12)
+[packages/tools/src/mcp-tool-provider.ts:12](https://github.com/woojubb/robota/blob/2c1c4aef16a84934e441dd6579d5850ff27457e2/packages/tools/src/mcp-tool-provider.ts#L12)

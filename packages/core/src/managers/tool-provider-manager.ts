@@ -1,5 +1,4 @@
-import type { ToolProvider } from '@robota-sdk/tools';
-import type { FunctionSchema } from '../types';
+import type { ToolProvider, FunctionSchema } from '@robota-sdk/tools';
 import type { Logger } from '../interfaces/logger';
 
 /**

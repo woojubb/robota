@@ -6,9 +6,6 @@ import type { UniversalMessage } from '../conversation-history';
  */
 export type MessageRole = 'user' | 'assistant' | 'system' | 'function';
 
-// Re-export FunctionCall from tools package
-export type { FunctionCall };
-
 /**
  * Basic message interface
  */
