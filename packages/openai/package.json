@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/openai",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "OpenAI integration for Robota SDK - GPT-4, GPT-3.5, function calling, and tool integration with OpenAI's API",
   "type": "module",
   "main": "dist/index.js",
@@ -58,6 +58,7 @@
   "license": "MIT",
   "dependencies": {
     "@robota-sdk/core": "workspace:*",
+    "@robota-sdk/tools": "workspace:*",
     "openai": "^4.97.0"
   },
   "devDependencies": {

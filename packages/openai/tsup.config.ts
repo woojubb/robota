@@ -8,5 +8,5 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   treeshake: true,
-  external: ['openai', '@robota-sdk/core'],
+  external: ['openai', '@robota-sdk/core', '@robota-sdk/tools'],
 }); 

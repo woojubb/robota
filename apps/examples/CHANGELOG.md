@@ -1,5 +1,17 @@
 # robota-examples
 
+## 0.1.16
+
+### Patch Changes
+
+- Fix type imports and external deps; update docs paths and build config
+- Updated dependencies
+  - @robota-sdk/anthropic@0.3.3
+  - @robota-sdk/google@0.3.3
+  - @robota-sdk/openai@0.3.3
+  - @robota-sdk/core@0.3.3
+  - @robota-sdk/tools@0.3.3
+
 ## 0.1.15
 
 ### Patch Changes

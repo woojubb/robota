@@ -8,7 +8,6 @@ export type {
     Context,
     Message,
     MessageRole,
-    FunctionCall,
     ModelResponse,
     StreamingResponseChunk
 } from './interfaces/ai-provider';

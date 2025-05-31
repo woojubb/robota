@@ -8,5 +8,5 @@ export default defineConfig({
     sourcemap: true,
     clean: true,
     treeshake: true,
-    external: ['@anthropic-ai/sdk', '@robota-sdk/core'],
+    external: ['@anthropic-ai/sdk', '@robota-sdk/core', '@robota-sdk/tools'],
 }); 

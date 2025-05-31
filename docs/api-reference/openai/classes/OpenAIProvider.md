@@ -57,7 +57,7 @@ Implements the AIProvider interface to integrate with Robota.
 
 #### Defined in
 
-[openai/src/provider.ts:46](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/openai/src/provider.ts#L46)
+[openai/src/provider.ts:46](https://github.com/woojubb/robota/blob/1932a2ce46e4833a6ba7efc7b507276de39139b4/packages/openai/src/provider.ts#L46)
 
 ## Properties
 
@@ -73,7 +73,7 @@ AIProvider.name
 
 #### Defined in
 
-[openai/src/provider.ts:24](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/openai/src/provider.ts#L24)
+[openai/src/provider.ts:24](https://github.com/woojubb/robota/blob/1932a2ce46e4833a6ba7efc7b507276de39139b4/packages/openai/src/provider.ts#L24)
 
 ___
 
@@ -85,7 +85,7 @@ Client type
 
 #### Defined in
 
-[openai/src/provider.ts:34](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/openai/src/provider.ts#L34)
+[openai/src/provider.ts:34](https://github.com/woojubb/robota/blob/1932a2ce46e4833a6ba7efc7b507276de39139b4/packages/openai/src/provider.ts#L34)
 
 ___
 
@@ -97,7 +97,7 @@ Client instance
 
 #### Defined in
 
-[openai/src/provider.ts:39](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/openai/src/provider.ts#L39)
+[openai/src/provider.ts:39](https://github.com/woojubb/robota/blob/1932a2ce46e4833a6ba7efc7b507276de39139b4/packages/openai/src/provider.ts#L39)
 
 ___
 
@@ -109,7 +109,7 @@ Provider options
 
 #### Defined in
 
-[openai/src/provider.ts:44](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/openai/src/provider.ts#L44)
+[openai/src/provider.ts:44](https://github.com/woojubb/robota/blob/1932a2ce46e4833a6ba7efc7b507276de39139b4/packages/openai/src/provider.ts#L44)
 
 ## Methods
 
@@ -135,7 +135,7 @@ Use OpenAIConversationAdapter.toOpenAIFormat instead
 
 #### Defined in
 
-[openai/src/provider.ts:66](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/openai/src/provider.ts#L66)
+[openai/src/provider.ts:66](https://github.com/woojubb/robota/blob/1932a2ce46e4833a6ba7efc7b507276de39139b4/packages/openai/src/provider.ts#L66)
 
 ___
 
@@ -157,7 +157,7 @@ Convert function definitions to OpenAI format
 
 #### Defined in
 
-[openai/src/provider.ts:123](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/openai/src/provider.ts#L123)
+[openai/src/provider.ts:123](https://github.com/woojubb/robota/blob/1932a2ce46e4833a6ba7efc7b507276de39139b4/packages/openai/src/provider.ts#L123)
 
 ___
 
@@ -179,7 +179,7 @@ Convert OpenAI API response to standard format
 
 #### Defined in
 
-[openai/src/provider.ts:137](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/openai/src/provider.ts#L137)
+[openai/src/provider.ts:137](https://github.com/woojubb/robota/blob/1932a2ce46e4833a6ba7efc7b507276de39139b4/packages/openai/src/provider.ts#L137)
 
 ___
 
@@ -201,7 +201,7 @@ Convert streaming response chunk to standard format
 
 #### Defined in
 
-[openai/src/provider.ts:167](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/openai/src/provider.ts#L167)
+[openai/src/provider.ts:167](https://github.com/woojubb/robota/blob/1932a2ce46e4833a6ba7efc7b507276de39139b4/packages/openai/src/provider.ts#L167)
 
 ___
 
@@ -229,7 +229,7 @@ AIProvider.chat
 
 #### Defined in
 
-[openai/src/provider.ts:189](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/openai/src/provider.ts#L189)
+[openai/src/provider.ts:189](https://github.com/woojubb/robota/blob/1932a2ce46e4833a6ba7efc7b507276de39139b4/packages/openai/src/provider.ts#L189)
 
 ___
 
@@ -257,7 +257,7 @@ AIProvider.chatStream
 
 #### Defined in
 
-[openai/src/provider.ts:255](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/openai/src/provider.ts#L255)
+[openai/src/provider.ts:255](https://github.com/woojubb/robota/blob/1932a2ce46e4833a6ba7efc7b507276de39139b4/packages/openai/src/provider.ts#L255)
 
 ___
 
@@ -277,4 +277,4 @@ AIProvider.close
 
 #### Defined in
 
-[openai/src/provider.ts:329](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/openai/src/provider.ts#L329)
+[openai/src/provider.ts:329](https://github.com/woojubb/robota/blob/1932a2ce46e4833a6ba7efc7b507276de39139b4/packages/openai/src/provider.ts#L329)

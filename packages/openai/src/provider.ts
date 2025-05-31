@@ -1,13 +1,13 @@
 import OpenAI from 'openai';
 import {
   Context,
-  FunctionDefinition,
   Message,
   ModelResponse,
   StreamingResponseChunk,
   AIProvider,
   UniversalMessage
 } from '@robota-sdk/core';
+import type { FunctionDefinition } from '@robota-sdk/tools';
 import { OpenAIProviderOptions } from './types';
 import { logger } from '@robota-sdk/core';
 import { OpenAIConversationAdapter } from './adapter';

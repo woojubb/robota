@@ -35,7 +35,7 @@ Anthropic provider options
 
 #### Defined in
 
-[anthropic/src/index.ts:7](https://github.com/woojubb/robota/blob/335c946c6def16741d65d32d464806b216f9a4d4/packages/anthropic/src/index.ts#L7)
+[anthropic/src/index.ts:7](https://github.com/woojubb/robota/blob/1932a2ce46e4833a6ba7efc7b507276de39139b4/packages/anthropic/src/index.ts#L7)
 
 ___
 
@@ -49,7 +49,7 @@ ProviderOptions.model
 
 #### Defined in
 
-core/dist/index.d.ts:8
+core/dist/index.d.ts:7
 
 ___
 
@@ -63,7 +63,7 @@ ProviderOptions.temperature
 
 #### Defined in
 
-core/dist/index.d.ts:9
+core/dist/index.d.ts:8
 
 ___
 
@@ -77,7 +77,7 @@ ProviderOptions.maxTokens
 
 #### Defined in
 
-core/dist/index.d.ts:10
+core/dist/index.d.ts:9
 
 ___
 
@@ -91,7 +91,7 @@ ProviderOptions.stopSequences
 
 #### Defined in
 
-core/dist/index.d.ts:11
+core/dist/index.d.ts:10
 
 ___
 
@@ -105,4 +105,4 @@ ProviderOptions.streamMode
 
 #### Defined in
 
-core/dist/index.d.ts:12
+core/dist/index.d.ts:11

@@ -7,4 +7,6 @@ export default defineConfig({
     splitting: false,
     sourcemap: true,
     clean: true,
+    treeshake: true,
+    external: ['@google/generative-ai', '@robota-sdk/core', '@robota-sdk/tools'],
 }); 

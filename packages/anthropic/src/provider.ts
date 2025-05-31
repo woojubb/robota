@@ -1,13 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk';
 import {
     Context,
-    FunctionDefinition,
     Message,
     AIProvider,
     ModelResponse,
     StreamingResponseChunk,
     UniversalMessage
 } from '@robota-sdk/core';
+import type { FunctionDefinition, FunctionCall } from '@robota-sdk/tools';
 import { AnthropicProviderOptions } from './types';
 import { AnthropicConversationAdapter } from './adapter';
 

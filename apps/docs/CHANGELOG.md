@@ -1,5 +1,11 @@
 # robota-docs
 
+## 1.0.9
+
+### Patch Changes
+
+- Fix type imports and external deps; update docs paths and build config
+
 ## 1.0.8
 
 ### Patch Changes

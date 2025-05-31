@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/anthropic",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Anthropic Claude integration for Robota SDK - Claude 3, Claude 2, function calling, and tool integration with Anthropic's API",
   "type": "module",
   "main": "dist/index.js",
@@ -58,6 +58,7 @@
   "license": "MIT",
   "dependencies": {
     "@robota-sdk/core": "workspace:*",
+    "@robota-sdk/tools": "workspace:*",
     "@anthropic-ai/sdk": "^0.24.0"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/core",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Core functionality for building AI agents with TypeScript - conversation management, function calling, and multi-provider support for OpenAI, Anthropic, and Google AI",
   "type": "module",
   "main": "dist/index.js",

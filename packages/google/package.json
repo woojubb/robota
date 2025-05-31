@@ -1,6 +1,6 @@
 {
     "name": "@robota-sdk/google",
-    "version": "0.3.2",
+    "version": "0.3.3",
     "description": "Google AI integration for Robota SDK - Gemini Pro, Gemini Flash, function calling, and tool integration with Google's Generative AI",
     "type": "module",
     "main": "dist/index.js",
@@ -60,6 +60,7 @@
     "license": "MIT",
     "dependencies": {
         "@robota-sdk/core": "workspace:*",
+        "@robota-sdk/tools": "workspace:*",
         "@google/generative-ai": "^0.20.0"
     },
     "devDependencies": {

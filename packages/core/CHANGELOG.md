@@ -1,5 +1,13 @@
 # @robota-sdk/core
 
+## 0.3.3
+
+### Patch Changes
+
+- Fix type imports and external deps; update docs paths and build config
+- Updated dependencies
+  - @robota-sdk/tools@0.3.3
+
 ## 0.3.2
 
 ### Patch Changes

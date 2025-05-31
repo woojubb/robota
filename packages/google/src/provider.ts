@@ -1,12 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type {
     Context,
-    FunctionDefinition,
     AIProvider,
     ModelResponse,
     StreamingResponseChunk,
     UniversalMessage
 } from '@robota-sdk/core';
+import type { FunctionDefinition } from '@robota-sdk/tools';
 import type { GoogleProviderOptions } from './types';
 import { GoogleConversationAdapter } from './adapter';
 
