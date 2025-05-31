@@ -41,7 +41,7 @@ Tool description
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:38](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/tools/src/tool/interfaces.ts#L38)
+[packages/tools/src/tool/interfaces.ts:38](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L38)
 
 ___
 
@@ -67,7 +67,7 @@ Tool execution function
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:48](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/tools/src/tool/interfaces.ts#L48)
+[packages/tools/src/tool/interfaces.ts:48](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L48)
 
 ___
 
@@ -79,7 +79,7 @@ Tool name
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:33](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/tools/src/tool/interfaces.ts#L33)
+[packages/tools/src/tool/interfaces.ts:33](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L33)
 
 ___
 
@@ -91,7 +91,7 @@ Tool schema
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:43](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/tools/src/tool/interfaces.ts#L43)
+[packages/tools/src/tool/interfaces.ts:43](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L43)
 
 ## Methods
 
@@ -107,4 +107,4 @@ Convert to function definition
 
 #### Defined in
 
-[packages/tools/src/tool/interfaces.ts:53](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/tools/src/tool/interfaces.ts#L53)
+[packages/tools/src/tool/interfaces.ts:53](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool/interfaces.ts#L53)

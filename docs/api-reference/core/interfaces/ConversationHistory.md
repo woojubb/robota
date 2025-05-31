@@ -54,7 +54,7 @@ Add assistant message (convenience method)
 
 #### Defined in
 
-[core/src/conversation-history.ts:53](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/conversation-history.ts#L53)
+[core/src/conversation-history.ts:53](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L53)
 
 ___
 
@@ -76,7 +76,7 @@ Add message to conversation history
 
 #### Defined in
 
-[core/src/conversation-history.ts:43](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/conversation-history.ts#L43)
+[core/src/conversation-history.ts:43](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L43)
 
 ___
 
@@ -99,7 +99,7 @@ Add system message (convenience method)
 
 #### Defined in
 
-[core/src/conversation-history.ts:58](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/conversation-history.ts#L58)
+[core/src/conversation-history.ts:58](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L58)
 
 ___
 
@@ -122,7 +122,7 @@ Add tool execution result message (convenience method)
 
 #### Defined in
 
-[core/src/conversation-history.ts:63](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/conversation-history.ts#L63)
+[core/src/conversation-history.ts:63](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L63)
 
 ___
 
@@ -145,7 +145,7 @@ Add user message (convenience method)
 
 #### Defined in
 
-[core/src/conversation-history.ts:48](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/conversation-history.ts#L48)
+[core/src/conversation-history.ts:48](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L48)
 
 ___
 
@@ -161,7 +161,7 @@ Clear conversation history
 
 #### Defined in
 
-[core/src/conversation-history.ts:83](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/conversation-history.ts#L83)
+[core/src/conversation-history.ts:83](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L83)
 
 ___
 
@@ -177,7 +177,7 @@ Return message count
 
 #### Defined in
 
-[core/src/conversation-history.ts:88](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/conversation-history.ts#L88)
+[core/src/conversation-history.ts:88](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L88)
 
 ___
 
@@ -193,7 +193,7 @@ Get all messages
 
 #### Defined in
 
-[core/src/conversation-history.ts:68](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/conversation-history.ts#L68)
+[core/src/conversation-history.ts:68](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L68)
 
 ___
 
@@ -215,7 +215,7 @@ Get messages by specific role
 
 #### Defined in
 
-[core/src/conversation-history.ts:73](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/conversation-history.ts#L73)
+[core/src/conversation-history.ts:73](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L73)
 
 ___
 
@@ -237,4 +237,4 @@ Get recent n messages
 
 #### Defined in
 
-[core/src/conversation-history.ts:78](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/core/src/conversation-history.ts#L78)
+[core/src/conversation-history.ts:78](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/core/src/conversation-history.ts#L78)

@@ -55,7 +55,7 @@ Convert a single UniversalMessage to Google AI format
 
 #### Defined in
 
-[adapter.ts:21](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/google/src/adapter.ts#L21)
+[adapter.ts:21](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/adapter.ts#L21)
 
 ___
 
@@ -78,7 +78,7 @@ Extract system messages and combine them as system instruction
 
 #### Defined in
 
-[adapter.ts:83](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/google/src/adapter.ts#L83)
+[adapter.ts:83](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/adapter.ts#L83)
 
 ___
 
@@ -106,7 +106,7 @@ Complete message conversion pipeline
 
 #### Defined in
 
-[adapter.ts:96](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/google/src/adapter.ts#L96)
+[adapter.ts:96](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/adapter.ts#L96)
 
 ___
 
@@ -128,4 +128,4 @@ Convert UniversalMessage array to Google AI message format
 
 #### Defined in
 
-[adapter.ts:12](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/google/src/adapter.ts#L12)
+[adapter.ts:12](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/google/src/adapter.ts#L12)

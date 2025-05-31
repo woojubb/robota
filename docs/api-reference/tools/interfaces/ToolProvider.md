@@ -34,7 +34,7 @@ Used when passing tool list to AI models.
 
 #### Defined in
 
-[packages/tools/src/tool-provider.ts:23](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/tools/src/tool-provider.ts#L23)
+[packages/tools/src/tool-provider.ts:23](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool-provider.ts#L23)
 
 ## Methods
 
@@ -59,4 +59,4 @@ Tool call result
 
 #### Defined in
 
-[packages/tools/src/tool-provider.ts:17](https://github.com/woojubb/robota/blob/8f648f4ea0cfa488c5bb8d1bbd3b037ae7f0ab4b/packages/tools/src/tool-provider.ts#L17)
+[packages/tools/src/tool-provider.ts:17](https://github.com/woojubb/robota/blob/4f21f71cc775c491f2f7e354b7e5fc2c2396f413/packages/tools/src/tool-provider.ts#L17)
