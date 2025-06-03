@@ -32,7 +32,7 @@ Message role
 
 #### Defined in
 
-[conversation-history.ts:13](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/core/src/conversation-history.ts#L13)
+[conversation-history.ts:13](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L13)
 
 ___
 
@@ -44,7 +44,7 @@ Message content
 
 #### Defined in
 
-[conversation-history.ts:16](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/core/src/conversation-history.ts#L16)
+[conversation-history.ts:16](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L16)
 
 ___
 
@@ -56,7 +56,7 @@ Message sender name (optional)
 
 #### Defined in
 
-[conversation-history.ts:19](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/core/src/conversation-history.ts#L19)
+[conversation-history.ts:19](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L19)
 
 ___
 
@@ -68,7 +68,7 @@ Function call information (used in assistant messages)
 
 #### Defined in
 
-[conversation-history.ts:22](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/core/src/conversation-history.ts#L22)
+[conversation-history.ts:22](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L22)
 
 ___
 
@@ -80,7 +80,7 @@ Tool execution result (used in tool messages)
 
 #### Defined in
 
-[conversation-history.ts:25](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/core/src/conversation-history.ts#L25)
+[conversation-history.ts:25](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L25)
 
 ___
 
@@ -92,7 +92,7 @@ Message creation time
 
 #### Defined in
 
-[conversation-history.ts:28](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/core/src/conversation-history.ts#L28)
+[conversation-history.ts:28](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L28)
 
 ___
 
@@ -104,4 +104,4 @@ Additional metadata
 
 #### Defined in
 
-[conversation-history.ts:31](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/core/src/conversation-history.ts#L31)
+[conversation-history.ts:31](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L31)

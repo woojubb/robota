@@ -32,7 +32,9 @@ const anthropicClient = new Anthropic({
 
 // Create Anthropic provider
 const provider = new AnthropicProvider({
-  client: anthropicClient
+  client: anthropicClient,
+  model: 'claude-3-5-sonnet-20241022',
+  temperature: 0.7
 });
 
 // Create Robota instance with Anthropic provider
@@ -41,7 +43,7 @@ const robota = new Robota({
     anthropic: provider
   },
   currentProvider: 'anthropic',
-  currentModel: 'claude-3-opus-20240229',
+  currentModel: 'claude-3-5-sonnet-20241022',
   systemPrompt: 'You are Claude, a helpful AI assistant.'
 });
 
@@ -80,7 +82,9 @@ const toolProvider = createZodFunctionToolProvider({
 
 // Initialize provider
 const provider = new AnthropicProvider({
-  client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }),
+  model: 'claude-3-5-sonnet-20241022',
+  temperature: 0.7
 });
 
 const robota = new Robota({
@@ -88,19 +92,34 @@ const robota = new Robota({
     anthropic: provider
   },
   currentProvider: 'anthropic',
-  currentModel: 'claude-3-opus-20240229',
+  currentModel: 'claude-3-5-sonnet-20241022',
   toolProviders: [toolProvider]
 });
 
 const response = await robota.run('Calculate 15 * 27 + 42');
 ```
 
+## Provider Options
+
+```typescript
+interface AnthropicProviderOptions {
+  client: Anthropic;        // Required: Anthropic client instance
+  model?: string;           // Optional: Model name (default: 'claude-2')
+  temperature?: number;     // Optional: 0-1, default 0.7
+  maxTokens?: number;       // Optional: Max tokens to generate
+  apiKey?: string;          // Optional: API key (if not set in client)
+  timeout?: number;         // Optional: Request timeout in ms
+  baseURL?: string;         // Optional: Custom API base URL
+}
+```
+
 ## Supported Models
 
 Works with all Claude models including:
-- Claude 3 Opus
-- Claude 3 Sonnet
-- Claude 3 Haiku
+- claude-3-5-sonnet-20241022
+- claude-3-opus-20240229
+- claude-3-sonnet-20240229
+- claude-3-haiku-20240307
 - And future Claude models
 
 ## License
