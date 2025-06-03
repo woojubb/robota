@@ -1,5 +1,11 @@
 # robota-docs
 
+## 1.0.11
+
+### Patch Changes
+
+- Fix workspace dependencies & update README docs for all packages
+
 ## 1.0.10
 
 ### Patch Changes

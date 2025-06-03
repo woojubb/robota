@@ -1,5 +1,14 @@
 # @robota-sdk/openai
 
+## 0.3.5
+
+### Patch Changes
+
+- Fix workspace dependencies & update README docs for all packages
+- Updated dependencies
+  - @robota-sdk/tools@0.3.5
+  - @robota-sdk/core@0.3.5
+
 ## 0.3.4
 
 ### Patch Changes

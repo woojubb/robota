@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/tools",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Tools and utilities package for Robota SDK - providing AI function calling and tool integration capabilities",
   "type": "module",
   "main": "dist/index.js",
