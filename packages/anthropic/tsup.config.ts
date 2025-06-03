@@ -3,10 +3,19 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
     entry: ['src/index.ts'],
     format: ['esm', 'cjs'],
-    dts: true,
+    dts: {
+        resolve: true,
+        compilerOptions: {
+            composite: false
+        }
+    },
     splitting: false,
     sourcemap: true,
     clean: true,
     treeshake: true,
-    external: ['@anthropic-ai/sdk', '@robota-sdk/core', '@robota-sdk/tools'],
+    external: [
+        // External dependencies that should not be bundled
+        /^@robota-sdk\/.*/,  // All @robota-sdk packages
+        '@anthropic-ai/sdk'
+    ],
 }); 
