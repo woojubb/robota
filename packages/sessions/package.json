@@ -1,7 +1,7 @@
 {
     "name": "@robota-sdk/sessions",
-    "version": "0.1.0",
-    "description": "Multi-session and chat management for Robota SDK - Session lifecycle, chat switching, and conversation history management with memory optimization",
+    "version": "0.3.3",
+    "description": "Session and chat management for Robota SDK - multi-session support with independent workspaces",
     "type": "module",
     "main": "dist/index.js",
     "module": "dist/index.mjs",
