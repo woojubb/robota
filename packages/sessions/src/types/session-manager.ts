@@ -1,12 +1,11 @@
 import type { Session, SessionConfig } from './session';
-import type { StorageConfig } from './storage';
 
 export interface SessionManagerConfig {
-    storage?: StorageConfig;
     maxActiveSessions?: number;
     autoCleanup?: boolean;
     cleanupInterval?: number; // milliseconds
     memoryThreshold?: number; // MB
+    storage?: any; // 추후 구현
 }
 
 export interface SessionManager {

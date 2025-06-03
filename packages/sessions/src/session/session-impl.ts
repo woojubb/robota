@@ -6,7 +6,6 @@ import type {
 } from '../types/session';
 import { SessionState } from '../types/session';
 import type { ChatInstance, ChatConfig } from '../types/chat';
-import type { SessionEventType } from '../types/events';
 import { ChatInstanceImpl } from '../chat/chat-instance';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -27,10 +26,10 @@ export class SessionImpl implements Session {
         this.config = {
             sessionName: config.sessionName || `Session ${new Date().getTime()}`,
             description: config.description,
-            autoSave: config.autoSave ?? true,
-            saveInterval: config.saveInterval || 300000, // 5분
-            maxChats: config.maxChats || 50,
-            retentionPeriod: config.retentionPeriod || 30 // 30일
+            autoSave: false, // 기본값 false로 변경
+            saveInterval: config.saveInterval || 300000,
+            maxChats: config.maxChats || 20, // 50에서 20으로 줄임
+            retentionPeriod: config.retentionPeriod || 30
         };
 
         this.metadata = {
@@ -47,12 +46,12 @@ export class SessionImpl implements Session {
         };
     }
 
-    // Chat Management
+    // Chat Management - 간소화
     async createNewChat(config?: ChatConfig): Promise<ChatInstance> {
         this._updateLastAccessed();
 
-        if (this.metadata.chatCount >= (this.config.maxChats || 50)) {
-            throw new Error(`Maximum number of chats (${this.config.maxChats}) reached for session`);
+        if (this.metadata.chatCount >= (this.config.maxChats || 20)) {
+            throw new Error(`최대 채팅 수 (${this.config.maxChats})에 도달했습니다`);
         }
 
         const chat = new ChatInstanceImpl(
@@ -67,10 +66,6 @@ export class SessionImpl implements Session {
         // 첫 번째 채팅이면 자동으로 활성화
         if (this.metadata.chatCount === 1) {
             await this.switchToChat(chat.metadata.chatId);
-        }
-
-        if (this.config.autoSave) {
-            await this.save();
         }
 
         return chat;
@@ -89,7 +84,7 @@ export class SessionImpl implements Session {
 
         const chat = this.chats.get(chatId);
         if (!chat) {
-            throw new Error(`Chat with id ${chatId} not found in session`);
+            throw new Error(`채팅 ID ${chatId}를 찾을 수 없습니다`);
         }
 
         // 기존 활성 채팅 비활성화
@@ -104,10 +99,6 @@ export class SessionImpl implements Session {
         chat.activate();
         this.activeChatId = chatId;
         this.metadata.activeChatId = chatId;
-
-        if (this.config.autoSave) {
-            await this.save();
-        }
     }
 
     async removeChat(chatId: string): Promise<void> {
@@ -115,7 +106,7 @@ export class SessionImpl implements Session {
 
         const chat = this.chats.get(chatId);
         if (!chat) {
-            throw new Error(`Chat with id ${chatId} not found in session`);
+            throw new Error(`채팅 ID ${chatId}를 찾을 수 없습니다`);
         }
 
         // 활성 채팅이면 다른 채팅으로 전환하거나 비활성화
@@ -131,10 +122,6 @@ export class SessionImpl implements Session {
 
         this.chats.delete(chatId);
         this.metadata.chatCount--;
-
-        if (this.config.autoSave) {
-            await this.save();
-        }
     }
 
     getActiveChat(): ChatInstance | undefined {
@@ -144,23 +131,19 @@ export class SessionImpl implements Session {
         return this.chats.get(this.activeChatId);
     }
 
-    // Session State Management
+    // Session State Management - 간소화
     async pause(): Promise<void> {
         this._updateLastAccessed();
-
         this.metadata.state = SessionState.PAUSED;
 
         // 모든 채팅 비활성화
         for (const chat of this.chats.values()) {
             chat.deactivate();
         }
-
-        await this.save();
     }
 
     async resume(): Promise<void> {
         this._updateLastAccessed();
-
         this.metadata.state = SessionState.ACTIVE;
 
         // 활성 채팅이 있으면 다시 활성화
@@ -170,21 +153,16 @@ export class SessionImpl implements Session {
                 activeChat.activate();
             }
         }
-
-        await this.save();
     }
 
     async archive(): Promise<void> {
         this._updateLastAccessed();
-
         this.metadata.state = SessionState.ARCHIVED;
 
         // 모든 채팅 비활성화
         for (const chat of this.chats.values()) {
             chat.deactivate();
         }
-
-        await this.save();
     }
 
     async terminate(): Promise<void> {
@@ -200,19 +178,13 @@ export class SessionImpl implements Session {
         this.metadata.chatCount = 0;
     }
 
-    // Lifecycle
+    // Lifecycle - 단순화
     async save(): Promise<void> {
-        // Storage 구현 후 실제 저장 로직 추가
         this.metadata.updatedAt = new Date();
-
-        // 모든 채팅도 저장
-        for (const chat of this.chats.values()) {
-            await chat.save();
-        }
     }
 
     async load(): Promise<void> {
-        // Storage 구현 후 실제 로드 로직 추가
+        // 스토리지 구현 시 추가
     }
 
     // Utils
@@ -221,8 +193,6 @@ export class SessionImpl implements Session {
     }
 
     updateConfig(config: Partial<SessionConfig>): void {
-        this._updateLastAccessed();
-
         Object.assign(this.config, config);
 
         if (config.sessionName) {
@@ -231,23 +201,21 @@ export class SessionImpl implements Session {
         if (config.description !== undefined) {
             this.metadata.description = config.description;
         }
+
+        this._updateLastAccessed();
     }
 
     getStats(): SessionStats {
         let totalMessages = 0;
-        let memoryUsage = 0;
-
         for (const chat of this.chats.values()) {
-            const chatStats = chat.getStats();
-            totalMessages += chatStats.messageCount;
-            memoryUsage += chatStats.memoryUsage;
+            totalMessages += chat.metadata.messageCount;
         }
 
         return {
             chatCount: this.metadata.chatCount,
             totalMessages,
-            memoryUsage,
-            diskUsage: 0, // Storage 구현 후 계산
+            memoryUsage: 0, // 나중에 구현
+            diskUsage: 0, // 나중에 구현
             createdAt: this.metadata.createdAt,
             lastActivity: this.metadata.lastAccessedAt,
             uptime: Date.now() - this._startTime.getTime()

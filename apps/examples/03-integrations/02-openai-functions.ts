@@ -1,9 +1,9 @@
 /**
  * 02-openai-functions.ts
  * 
- * 이 예제는 Robota와 OpenAI 함수 호출 기능을 통합하는 방법을 보여줍니다:
- * - OpenAI Function Calling API 직접 사용
- * - Robota의 도구 체계와 연동
+ * This example demonstrates how to integrate Robota with OpenAI function calling features:
+ * - Use OpenAI Function Calling API directly
+ * - Integrate with Robota's tool system
  */
 
 import { Robota } from '@robota-sdk/core';
@@ -13,53 +13,53 @@ import OpenAI from 'openai';
 import { z } from 'zod';
 import dotenv from 'dotenv';
 
-// 환경 변수 로드
+// Load environment variables
 dotenv.config();
 
 async function main() {
     try {
-        console.log("===== OpenAI 함수 호출 통합 예제 =====");
+        console.log("===== OpenAI Function Calling Integration Example =====");
 
-        // API 키 확인
+        // Check API key
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
-            throw new Error('OPENAI_API_KEY 환경 변수가 필요합니다');
+            throw new Error('OPENAI_API_KEY environment variable is required');
         }
 
-        // OpenAI 클라이언트 생성
+        // Create OpenAI client
         const openaiClient = new OpenAI({ apiKey });
 
-        // 날씨 API 도구 정의
+        // Define weather API tool
         const weatherTool = {
             name: 'getWeather',
-            description: '특정 위치의 현재 날씨 정보를 조회합니다',
+            description: 'Retrieve current weather information for a specific location',
             parameters: z.object({
-                location: z.string().describe('날씨를 조회할 도시 이름'),
-                unit: z.enum(['celsius', 'fahrenheit']).optional().default('celsius').describe('온도 단위')
+                location: z.string().describe('City name to check weather'),
+                unit: z.enum(['celsius', 'fahrenheit']).optional().default('celsius').describe('Temperature unit')
             }),
             handler: async (params: { [key: string]: any }) => {
                 const location = params.location;
                 const unit = params.unit || 'celsius';
-                console.log(`getWeather 함수 호출: ${location}, ${unit}`);
+                console.log(`getWeather function called: ${location}, ${unit}`);
 
-                // 실제 API 호출 대신 모의 데이터 반환
+                // Return mock data instead of actual API call
                 const weatherData: Record<string, any> = {
-                    '서울': { temp: 22, condition: '맑음', humidity: 65 },
-                    '부산': { temp: 25, condition: '구름 조금', humidity: 70 },
-                    '제주': { temp: 27, condition: '흐림', humidity: 80 },
-                    '뉴욕': { temp: 19, condition: '비', humidity: 75 },
-                    '런던': { temp: 16, condition: '안개', humidity: 85 },
-                    '도쿄': { temp: 24, condition: '맑음', humidity: 68 },
+                    'Seoul': { temp: 22, condition: 'Clear', humidity: 65 },
+                    'Busan': { temp: 25, condition: 'Partly Cloudy', humidity: 70 },
+                    'Jeju': { temp: 27, condition: 'Cloudy', humidity: 80 },
+                    'New York': { temp: 19, condition: 'Rainy', humidity: 75 },
+                    'London': { temp: 16, condition: 'Foggy', humidity: 85 },
+                    'Tokyo': { temp: 24, condition: 'Clear', humidity: 68 },
                 };
 
-                // 도시 이름 매칭 시도
+                // Attempt city name matching
                 const cityMatch = Object.keys(weatherData).find(
                     city => location.toLowerCase().includes(city.toLowerCase())
                 );
 
                 if (!cityMatch) {
                     return {
-                        error: '해당 위치의 날씨 정보를 찾을 수 없습니다',
+                        error: 'Weather information not found for this location',
                         available_cities: Object.keys(weatherData).join(', ')
                     };
                 }
@@ -79,30 +79,30 @@ async function main() {
             }
         };
 
-        // 번역 도구 정의
+        // Define translation tool
         const translateTool = {
             name: 'translateText',
-            description: '텍스트를 다른 언어로 번역합니다',
+            description: 'Translate text to another language',
             parameters: z.object({
-                text: z.string().describe('번역할 텍스트'),
-                target_language: z.string().describe('대상 언어 (예: 영어, 한국어, 일본어, 중국어, 프랑스어)')
+                text: z.string().describe('Text to translate'),
+                target_language: z.string().describe('Target language (e.g., English, Korean, Japanese, Chinese, French)')
             }),
             handler: async (params: { [key: string]: any }) => {
                 const text = params.text;
                 const target_language = params.target_language;
-                console.log(`translateText 함수 호출: "${text}" -> ${target_language}`);
+                console.log(`translateText function called: "${text}" -> ${target_language}`);
 
-                // 실제 번역 API 호출 대신 모의 응답
-                // 실제 구현에서는 번역 API를 사용해야 합니다
+                // Mock response instead of actual translation API call
+                // In real implementation, translation API should be used
                 return {
                     original_text: text,
-                    translated_text: `[${target_language}로 번역된 텍스트: ${text}]`,
+                    translated_text: `[Text translated to ${target_language}: ${text}]`,
                     target_language
                 };
             }
         };
 
-        // 도구 제공자 생성
+        // Create tool provider
         const toolProvider = createZodFunctionToolProvider({
             tools: {
                 getWeather: weatherTool,
@@ -110,58 +110,58 @@ async function main() {
             }
         });
 
-        // OpenAI 제공자 생성
+        // Create OpenAI provider
         const aiProvider = new OpenAIProvider({
             model: 'gpt-3.5-turbo',
             client: openaiClient
         });
 
-        // Robota 인스턴스 생성
+        // Create Robota instance
         const robota = new Robota({
             aiClient: aiProvider,
             provider: toolProvider,
-            systemPrompt: '당신은 날씨 정보와 번역 기능을 제공하는 유능한 어시스턴트입니다. 사용자의 질문에 적절한 도구를 사용하여 답변하세요.'
+            systemPrompt: 'You are a capable assistant that provides weather information and translation services. Please use appropriate tools to answer user questions.'
         });
 
-        // 테스트 질문들
+        // Test questions
         const questions = [
-            '오늘 서울의 날씨가 어때?',
-            '도쿄의 기온이 어떤가요? 화씨로 알려주세요.',
-            '"안녕하세요. 반갑습니다"를 영어로 번역해주세요.',
-            '런던 날씨와 "좋은 하루 되세요"를 일본어로 번역해줘요.'
+            'How is the weather in Seoul today?',
+            'What is the temperature in Tokyo? Please tell me in Fahrenheit.',
+            'Please translate "Hello. Nice to meet you" to Korean.',
+            'Tell me the weather in London and translate "Have a good day" to Japanese.'
         ];
 
-        // 순차적으로 질문 처리
+        // Process questions sequentially
         for (const question of questions) {
-            console.log(`\n사용자: ${question}`);
+            console.log(`\nUser: ${question}`);
             try {
                 const response = await robota.run(question);
-                console.log(`어시스턴트: ${response}`);
+                console.log(`Assistant: ${response}`);
             } catch (err) {
-                console.error(`오류 발생: ${err}`);
+                console.error(`Error occurred: ${err}`);
             }
         }
 
-        // 스트리밍 응답 예제
-        console.log("\n----- 스트리밍 응답 예제 -----");
-        console.log("사용자: 서울과 뉴욕의 날씨를 비교해서 알려줘");
-        console.log("어시스턴트: ");
+        // Streaming response example
+        console.log("\n----- Streaming Response Example -----");
+        console.log("User: Compare the weather between Seoul and New York");
+        console.log("Assistant: ");
 
         try {
-            const stream = await robota.runStream("서울과 뉴욕의 날씨를 비교해서 알려줘");
+            const stream = await robota.runStream("Compare the weather between Seoul and New York");
             for await (const chunk of stream) {
                 process.stdout.write(chunk.content || "");
             }
             console.log("\n");
         } catch (err) {
-            console.error("스트리밍 응답 오류:", err);
+            console.error("Streaming response error:", err);
         }
 
-        console.log("===== OpenAI 함수 호출 통합 예제 완료 =====");
+        console.log("===== OpenAI Function Calling Integration Example Completed =====");
     } catch (error) {
-        console.error("오류 발생:", error);
+        console.error("Error occurred:", error);
     }
 }
 
-// 실행
+// Execute
 main().catch(console.error); 

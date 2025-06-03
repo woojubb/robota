@@ -4,17 +4,14 @@ import type {
     ChatConfig,
     ChatMetadata,
     ChatStats,
-    MessageContent,
-    EnhancedConversationHistory
+    MessageContent
 } from '../types/chat';
-import { EnhancedConversationHistoryImpl } from '../conversation-history/enhanced-conversation-history';
 import { v4 as uuidv4 } from 'uuid';
 
 export class ChatInstanceImpl implements ChatInstance {
     public readonly metadata: ChatMetadata;
     public readonly config: ChatConfig;
     public readonly robota: Robota;
-    public readonly history: EnhancedConversationHistory;
 
     private _isActive: boolean = false;
     private _startTime: Date;
@@ -30,7 +27,7 @@ export class ChatInstanceImpl implements ChatInstance {
             chatName: config.chatName || `Chat ${new Date().getTime()}`,
             description: config.description,
             robotaConfig: config.robotaConfig || robotaConfig,
-            autoSave: config.autoSave ?? true,
+            autoSave: config.autoSave ?? false,
             maxHistorySize: config.maxHistorySize || 1000
         };
 
@@ -46,13 +43,8 @@ export class ChatInstanceImpl implements ChatInstance {
             isActive: false
         };
 
-        this.history = new EnhancedConversationHistoryImpl(
-            this.config.maxHistorySize
-        );
-
         this.robota = new Robota({
-            ...this.config.robotaConfig,
-            conversationHistory: this.history
+            ...this.config.robotaConfig
         });
     }
 
@@ -63,125 +55,14 @@ export class ChatInstanceImpl implements ChatInstance {
         const messageText = typeof content === 'string' ? content : content.text || '';
 
         try {
-            // Get response from Robota (this will automatically add to history)
             const response = await this.robota.run(messageText);
 
-            this.metadata.messageCount = this.history.getMessageCount();
-
-            if (this.config.autoSave) {
-                await this.save();
-            }
+            this.metadata.messageCount = this.robota.getRequestCount();
 
             return response;
         } catch (error) {
             throw new Error(`Failed to send message: ${error}`);
         }
-    }
-
-    async regenerateResponse(): Promise<string> {
-        this._updateLastAccessed();
-
-        const messages = this.history.getMessages();
-        if (messages.length === 0) {
-            throw new Error('No messages to regenerate response for');
-        }
-
-        // Find last user message
-        const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
-        if (!lastUserMessage) {
-            throw new Error('No user message found to regenerate response');
-        }
-
-        // Clear history and rebuild up to last user message
-        const messagesUpToUser = messages.slice(0, messages.indexOf(lastUserMessage) + 1);
-        this.history.clear();
-
-        messagesUpToUser.forEach(msg => {
-            this.history.addMessage(msg);
-        });
-
-        try {
-            // Generate new response
-            const response = await this.robota.run(lastUserMessage.content);
-
-            this.metadata.messageCount = this.history.getMessageCount();
-
-            if (this.config.autoSave) {
-                await this.save();
-            }
-
-            return response;
-        } catch (error) {
-            throw new Error(`Failed to regenerate response: ${error}`);
-        }
-    }
-
-    async editMessage(messageId: string, newContent: MessageContent): Promise<void> {
-        this._updateLastAccessed();
-
-        const messageText = typeof newContent === 'string' ? newContent : newContent.text || '';
-        const messages = this.history.getMessages();
-        const messageIndex = messages.findIndex(m => (m as any).id === messageId);
-
-        if (messageIndex === -1) {
-            throw new Error(`Message with id ${messageId} not found`);
-        }
-
-        if (this.history.updateMessage(messageIndex, messageText)) {
-            if (this.config.autoSave) {
-                await this.save();
-            }
-        }
-    }
-
-    async deleteMessage(messageId: string): Promise<void> {
-        this._updateLastAccessed();
-
-        const messages = this.history.getMessages();
-        const messageIndex = messages.findIndex(m => (m as any).id === messageId);
-
-        if (messageIndex === -1) {
-            throw new Error(`Message with id ${messageId} not found`);
-        }
-
-        if (this.history.removeMessage(messageIndex)) {
-            this.metadata.messageCount--;
-
-            if (this.config.autoSave) {
-                await this.save();
-            }
-        }
-    }
-
-    // Configuration
-    async updateRobotaConfig(config: any): Promise<void> {
-        this._updateLastAccessed();
-
-        const oldConfig = this.config.robotaConfig;
-
-        // Update local config
-        this.config.robotaConfig = { ...this.config.robotaConfig, ...config };
-
-        // Track configuration change
-        this.history.addConfigurationChange({
-            id: uuidv4(),
-            timestamp: new Date(),
-            type: 'other',
-            description: 'Robota configuration updated',
-            oldValue: oldConfig,
-            newValue: config
-        });
-
-        // Note: Robota doesn't have updateConfiguration method,
-        // so we would need to recreate the instance or find another way
-
-        if (this.config.autoSave) {
-            await this.save();
-        }
-    }
-
-    getRobotaConfig(): any {
-        return this.config.robotaConfig;
     }
 
     // State Management
@@ -203,36 +84,56 @@ export class ChatInstanceImpl implements ChatInstance {
         this._updateLastAccessed();
     }
 
+    // 간소화된 메서드들
+    async updateRobotaConfig(config: any): Promise<void> {
+        this._updateLastAccessed();
+        this.config.robotaConfig = { ...this.config.robotaConfig, ...config };
+    }
+
+    getRobotaConfig(): any {
+        return this.config.robotaConfig;
+    }
+
+    // 사용하지 않는 복잡한 기능들 제거
+    async regenerateResponse(): Promise<string> {
+        throw new Error('아직 구현되지 않음');
+    }
+
+    async editMessage(messageId: string, newContent: MessageContent): Promise<void> {
+        throw new Error('아직 구현되지 않음');
+    }
+
+    async deleteMessage(messageId: string): Promise<void> {
+        throw new Error('아직 구현되지 않음');
+    }
+
     async exportHistory(): Promise<string> {
-        return this.history.export();
+        throw new Error('아직 구현되지 않음');
     }
 
     async importHistory(data: string): Promise<void> {
-        this.history.import(data);
-        this.metadata.messageCount = this.history.getMessageCount();
-        this._updateLastAccessed();
+        throw new Error('아직 구현되지 않음');
     }
 
-    // Lifecycle
+    // Lifecycle - 일단 비워둠
     async save(): Promise<void> {
-        // This will be implemented when storage is integrated
         this.metadata.updatedAt = new Date();
     }
 
     async load(): Promise<void> {
-        // This will be implemented when storage is integrated
+        // 스토리지 구현 시 추가
     }
 
     // Utils
     getStats(): ChatStats {
         return {
             messageCount: this.metadata.messageCount,
-            configurationChanges: this.history.getConfigurationChangeCount(),
-            memoryUsage: this.history.getMemoryUsage(),
+            configurationChanges: 0,
+            memoryUsage: 0,
             createdAt: this.metadata.createdAt,
             lastActivity: this.metadata.lastAccessedAt,
             totalTokens: this.robota.getTotalTokensUsed(),
-            averageResponseTime: undefined // Can be implemented later
+            averageResponseTime: undefined
         };
     }
 
@@ -252,5 +153,13 @@ export class ChatInstanceImpl implements ChatInstance {
     private _updateLastAccessed(): void {
         this.metadata.lastAccessedAt = new Date();
         this.metadata.updatedAt = new Date();
+    }
+
+    // history 프로퍼티를 위한 getter (호환성)
+    get history() {
+        return {
+            getMessageCount: () => this.robota.getRequestCount(),
+            clear: () => this.robota.clearConversationHistory(),
+        } as any;
     }
 } 

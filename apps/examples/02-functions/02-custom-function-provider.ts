@@ -1,10 +1,10 @@
 /**
  * 02-custom-function-provider.ts
  * 
- * 이 예제는 커스텀 함수 제공자를 구현하는 방법을 보여줍니다:
- * - 직접 Tool Provider 인터페이스 구현
- * - 함수를 JSON Schema로 변환
- * - OpenAI와 함께 사용
+ * This example demonstrates how to implement a custom function provider:
+ * - Directly implement Tool Provider interface
+ * - Convert functions to JSON Schema
+ * - Use with OpenAI
  */
 
 import { Robota } from "@robota-sdk/core";
@@ -14,10 +14,10 @@ import OpenAI from "openai";
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
 
-// 환경 변수 로드
+// Load environment variables
 dotenv.config();
 
-// JSON Schema 타입 정의
+// JSON Schema type definition
 type JSONSchema = {
     type: string;
     properties?: Record<string, any>;
@@ -26,8 +26,8 @@ type JSONSchema = {
 };
 
 /**
- * 사용자 정의 함수 도구 제공자 클래스
- * ToolProvider 인터페이스를 직접 구현합니다
+ * Custom function tool provider class
+ * Directly implements the ToolProvider interface
  */
 class CustomFunctionToolProvider implements ToolProvider {
     private functions: Record<string, {
@@ -46,7 +46,7 @@ class CustomFunctionToolProvider implements ToolProvider {
         handler: (params: any) => Promise<any>;
     }>) {
         this.functions = functions;
-        // FunctionSchema 배열로 변환
+        // Convert to FunctionSchema array
         this.functionSchemas = Object.values(functions).map(fn => ({
             name: fn.name,
             description: fn.description,
@@ -54,9 +54,9 @@ class CustomFunctionToolProvider implements ToolProvider {
         }));
     }
 
-    // 도구 목록 반환
+    // Return tool list
     getTools() {
-        // OpenAI 함수 호출 형식으로 변환
+        // Convert to OpenAI function call format
         return Object.values(this.functions).map(fn => ({
             type: 'function' as const,
             function: {
@@ -67,27 +67,27 @@ class CustomFunctionToolProvider implements ToolProvider {
         }));
     }
 
-    // 함수 호출
+    // Function call
     async callFunction(name: string, params: any) {
         const fn = this.functions[name];
         if (!fn) {
-            throw new Error(`함수가 존재하지 않습니다: ${name}`);
+            throw new Error(`Function does not exist: ${name}`);
         }
-        console.log(`함수 '${name}' 호출:`, params);
+        console.log(`Function '${name}' called:`, params);
         return await fn.handler(params);
     }
 
-    // 도구 이름 받기 
+    // Get tool names
     getToolNames() {
         return Object.keys(this.functions);
     }
 
-    // 도구 호출하기
+    // Call tool
     async callTool(name: string, params: any) {
         return this.callFunction(name, params);
     }
 
-    // 도구 ID 생성
+    // Generate tool ID
     createToolCallId() {
         return randomUUID();
     }
@@ -95,35 +95,35 @@ class CustomFunctionToolProvider implements ToolProvider {
 
 async function main() {
     try {
-        // API 키 확인
+        // Check API key
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
-            throw new Error('OPENAI_API_KEY 환경 변수가 필요합니다');
+            throw new Error('OPENAI_API_KEY environment variable is required');
         }
 
-        // OpenAI 클라이언트 생성
+        // Create OpenAI client
         const openaiClient = new OpenAI({
             apiKey
         });
 
-        // 사용자 정의 함수들 정의
+        // Define custom functions
         const customFunctions = {
             fetchStockPrice: {
                 name: 'fetchStockPrice',
-                description: '주식의 현재 가격을 조회합니다',
+                description: 'Fetch current stock price',
                 schema: {
                     type: 'object',
                     properties: {
                         symbol: {
                             type: 'string',
-                            description: '주식 심볼 (예: AAPL, MSFT, GOOG)'
+                            description: 'Stock symbol (e.g., AAPL, MSFT, GOOG)'
                         }
                     },
                     required: ['symbol']
                 },
                 handler: async (params: { symbol: string }) => {
                     const { symbol } = params;
-                    // 실제로는 API 호출, 여기서는 예시 데이터
+                    // In reality, this would be an API call, here using example data
                     const stockPrices: Record<string, number> = {
                         'AAPL': 182.63,
                         'MSFT': 410.34,
@@ -139,21 +139,21 @@ async function main() {
 
             convertCurrency: {
                 name: 'convertCurrency',
-                description: '통화 간 금액을 변환합니다',
+                description: 'Convert amount between currencies',
                 schema: {
                     type: 'object',
                     properties: {
                         amount: {
                             type: 'number',
-                            description: '변환할 금액'
+                            description: 'Amount to convert'
                         },
                         from: {
                             type: 'string',
-                            description: '변환할 통화 (예: USD, EUR, KRW)'
+                            description: 'Source currency (e.g., USD, EUR, KRW)'
                         },
                         to: {
                             type: 'string',
-                            description: '변환 대상 통화 (예: USD, EUR, KRW)'
+                            description: 'Target currency (e.g., USD, EUR, KRW)'
                         }
                     },
                     required: ['amount', 'from', 'to']
@@ -161,7 +161,7 @@ async function main() {
                 handler: async (params: { amount: number; from: string; to: string }) => {
                     const { amount, from, to } = params;
 
-                    // 예시 환율 데이터 (실제로는 API 호출)
+                    // Example exchange rate data (in reality, this would be API calls)
                     const exchangeRates: Record<string, Record<string, number>> = {
                         'USD': { 'EUR': 0.92, 'KRW': 1350.45, 'JPY': 154.32 },
                         'EUR': { 'USD': 1.09, 'KRW': 1470.23, 'JPY': 168.75 },
@@ -169,14 +169,14 @@ async function main() {
                         'JPY': { 'USD': 0.0065, 'EUR': 0.0059, 'KRW': 8.85 }
                     };
 
-                    // 같은 통화면 그대로 반환
+                    // Return as-is if same currency
                     if (from === to) {
                         return { amount, currency: to };
                     }
 
-                    // 환율 확인
+                    // Check exchange rate
                     if (!exchangeRates[from] || !exchangeRates[from][to]) {
-                        return { error: `지원되지 않는 통화 변환: ${from} -> ${to}` };
+                        return { error: `Unsupported currency conversion: ${from} -> ${to}` };
                     }
 
                     const rate = exchangeRates[from][to];
@@ -191,41 +191,41 @@ async function main() {
             }
         };
 
-        // 사용자 정의 함수 제공자 생성
+        // Create custom function provider
         const customProvider = new CustomFunctionToolProvider(customFunctions);
 
-        // OpenAI 제공자 생성
+        // Create OpenAI provider
         const aiClient = new OpenAIProvider({
             model: 'gpt-3.5-turbo',
             client: openaiClient
         });
 
-        // Robota 인스턴스 생성
+        // Create Robota instance
         const robota = new Robota({
             aiClient,
             provider: customProvider,
-            systemPrompt: '당신은 금융 정보를 제공하는 AI 비서입니다. 사용자의 요청에 대해 주식 가격과 통화 변환 도구를 사용하여 정확한 정보를 제공해주세요.'
+            systemPrompt: 'You are an AI assistant that provides financial information. Please use stock price and currency conversion tools to provide accurate information for user requests.'
         });
 
-        // 테스트 쿼리
+        // Test queries
         const queries = [
-            "애플 주식의 현재 가격이 얼마야?",
-            "마이크로소프트와 구글의 주가를 알려줘",
-            "100 달러는 몇 유로인가요?",
-            "5000 원을 달러로 바꾸면 얼마야?"
+            "What's the current price of Apple stock?",
+            "Tell me the stock prices of Microsoft and Google",
+            "How much is 100 dollars in euros?",
+            "How much is 5000 Korean won in dollars?"
         ];
 
-        // 순차적으로 질문 처리
+        // Process queries sequentially
         for (const query of queries) {
-            console.log(`\n사용자: ${query}`);
+            console.log(`\nUser: ${query}`);
             const response = await robota.run(query);
-            console.log(`로봇: ${response}`);
+            console.log(`Robot: ${response}`);
         }
 
     } catch (error) {
-        console.error("오류 발생:", error);
+        console.error("Error occurred:", error);
     }
 }
 
-// 실행
+// Execute
 main().catch(console.error); 

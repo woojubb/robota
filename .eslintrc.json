@@ -52,7 +52,9 @@
     },
     {
       "files": [
-        "apps/examples/**/*"
+        "apps/examples/**/*",
+        "apps/docs/**/*",
+        "apps/services/**/*"
       ],
       "rules": {
         "no-console": "off"

@@ -8,7 +8,9 @@
         "copy": "node scripts/copy-docs.js",
         "dev": "node scripts/copy-docs.js && vitepress dev",
         "build": "node scripts/copy-docs.js && vitepress build && node scripts/copy-public.js",
-        "preview": "vitepress preview"
+        "preview": "vitepress preview",
+        "lint": "eslint . --ext .ts,.tsx,.js,.jsx --ignore-pattern dist --ignore-pattern node_modules",
+        "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --ignore-pattern dist --ignore-pattern node_modules --fix"
     },
     "dependencies": {
         "vue": "^3.3.4"
@@ -16,6 +18,9 @@
     "devDependencies": {
         "fs-extra": "^11.1.1",
         "vite-plugin-vitepress-auto-sidebar": "^1.7.1",
-        "vitepress": "^1.0.0"
+        "vitepress": "^1.0.0",
+        "@typescript-eslint/eslint-plugin": "^6.18.0",
+        "@typescript-eslint/parser": "^6.18.0",
+        "eslint": "^8.56.0"
     }
 }

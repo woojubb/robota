@@ -10,20 +10,14 @@ import { v4 as uuidv4 } from 'uuid';
 export class SessionManagerImpl implements SessionManager {
     private sessions: Map<string, Session> = new Map();
     private userSessions: Map<string, Set<string>> = new Map();
-    private config: SessionManagerConfig & {
-        maxActiveSessions: number;
-        autoCleanup: boolean;
-        cleanupInterval: number;
-        memoryThreshold: number;
-    };
+    private config: SessionManagerConfig;
 
     constructor(config: SessionManagerConfig = {}) {
         this.config = {
-            ...config,
-            maxActiveSessions: config.maxActiveSessions || 50,
+            maxActiveSessions: config.maxActiveSessions || 10, // 50에서 10으로 줄임
             autoCleanup: config.autoCleanup ?? true,
-            cleanupInterval: config.cleanupInterval || 300000, // 5분
-            memoryThreshold: config.memoryThreshold || 500, // 500MB
+            cleanupInterval: config.cleanupInterval || 3600000, // 1시간으로 변경
+            memoryThreshold: config.memoryThreshold || 100, // 100MB로 줄임
             storage: config.storage
         };
     }
@@ -31,8 +25,8 @@ export class SessionManagerImpl implements SessionManager {
     async createSession(userId: string, config?: SessionConfig): Promise<Session> {
         // 사용자별 세션 수 제한 확인
         const userSessionIds = this.userSessions.get(userId) || new Set();
-        if (userSessionIds.size >= this.config.maxActiveSessions) {
-            throw new Error(`Maximum sessions (${this.config.maxActiveSessions}) reached for user ${userId}`);
+        if (userSessionIds.size >= this.config.maxActiveSessions!) {
+            throw new Error(`사용자 ${userId}의 최대 세션 수 (${this.config.maxActiveSessions})에 도달했습니다`);
         }
 
         // 새 세션 생성
@@ -121,17 +115,18 @@ export class SessionManagerImpl implements SessionManager {
         return count;
     }
 
+    // 간소화된 정리 로직
     async cleanup(): Promise<void> {
         if (!this.config.autoCleanup) {
             return;
         }
 
-        // 간단한 정리 로직: 30일 이상 비활성 세션 제거
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        // 7일 이상 비활성 세션 제거 (30일에서 줄임)
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
         const sessionsToRemove: string[] = [];
 
         for (const [sessionId, session] of this.sessions) {
-            if (session.metadata.lastAccessedAt < thirtyDaysAgo) {
+            if (session.metadata.lastAccessedAt < sevenDaysAgo) {
                 sessionsToRemove.push(sessionId);
             }
         }
@@ -151,17 +146,13 @@ export class SessionManagerImpl implements SessionManager {
         this.userSessions.clear();
     }
 
-    // 간단한 통계 메서드
+    // 간소화된 통계
     getStats(): SessionManagerStats {
-        let totalMemory = 0;
         let activeSessions = 0;
         let pausedSessions = 0;
         let archivedSessions = 0;
 
         for (const session of this.sessions.values()) {
-            const stats = session.getStats();
-            totalMemory += stats.memoryUsage;
-
             switch (session.getState()) {
                 case 'active':
                     activeSessions++;
@@ -180,7 +171,7 @@ export class SessionManagerImpl implements SessionManager {
             activeSessions,
             pausedSessions,
             archivedSessions,
-            memoryUsage: totalMemory
+            memoryUsage: 0 // 나중에 구현
         };
     }
 } 

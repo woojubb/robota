@@ -3,7 +3,12 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
     entry: ['src/index.ts'],
     format: ['esm', 'cjs'],
-    dts: true,
+    dts: {
+        resolve: true,
+        compilerOptions: {
+            composite: false
+        }
+    },
     splitting: false,
     sourcemap: true,
     clean: true,
@@ -11,7 +16,7 @@ export default defineConfig({
     minify: false,
     target: 'node18',
     external: ['zod'],
-    tsconfig: './tsconfig.json',
+    skipNodeModulesBundle: true,
     outExtension({ format }) {
         return {
             js: format === 'cjs' ? '.js' : '.mjs'
