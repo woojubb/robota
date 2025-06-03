@@ -1,79 +1,79 @@
 /**
  * 06-token-and-request-limits.ts
  * 
- * 이 예제는 Robota의 토큰 및 요청 제한 기능을 보여줍니다:
- * - 기본 제한 설정 (maxTokens: 4096, maxRequests: 25)
- * - 커스텀 제한 설정
- * - 무제한 설정 (0 값 사용)
- * - 사전 토큰 계산을 통한 비용 절약
- * - 제한 초과 시 에러 처리
- * - 실시간 제한 정보 모니터링
- * - 애널리틱스 데이터 수집
+ * This example demonstrates Robota's token and request limitation features:
+ * - Default limit settings (maxTokens: 4096, maxRequests: 25)
+ * - Custom limit settings
+ * - Unlimited settings (using 0 value)
+ * - Cost savings through pre-token calculation
+ * - Error handling when limits are exceeded
+ * - Real-time limit information monitoring
+ * - Analytics data collection
  */
 
 import { Robota, OpenAIProvider } from '@robota-sdk/core';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
-// 환경 변수 로드
+// Load environment variables
 dotenv.config();
 
 async function main() {
-    // API 키 검증
+    // Validate API key
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-        throw new Error('OPENAI_API_KEY 환경 변수가 필요합니다');
+        throw new Error('OPENAI_API_KEY environment variable is required');
     }
 
-    // OpenAI 클라이언트 생성
+    // Create OpenAI client
     const openaiClient = new OpenAI({
         apiKey
     });
 
-    // OpenAI Provider 생성
+    // Create OpenAI Provider
     const openaiProvider = new OpenAIProvider(openaiClient);
 
-    console.log('🚀 Robota 토큰 및 요청 제한 기능 예제\n');
+    console.log('🚀 Robota Token and Request Limit Features Example\n');
 
-    // 1. 기본 제한 설정 예제
+    // 1. Default limit settings example
     await demonstrateDefaultLimits(openaiProvider);
 
-    // 2. 커스텀 제한 설정 예제
+    // 2. Custom limit settings example
     await demonstrateCustomLimits(openaiProvider);
 
-    // 3. 무제한 설정 예제
+    // 3. Unlimited settings example
     await demonstrateUnlimitedMode(openaiProvider);
 
-    // 4. 사전 토큰 계산을 통한 비용 절약 예제
+    // 4. Cost savings through pre-token calculation example
     await demonstrateTokenPrevention(openaiProvider);
 
-    // 5. 요청 제한 예제
+    // 5. Request limit example
     await demonstrateRequestLimits(openaiProvider);
 
-    // 6. 실시간 모니터링 예제
+    // 6. Real-time monitoring example
     await demonstrateRealTimeMonitoring(openaiProvider);
 
-    console.log('\n✅ 모든 예제가 완료되었습니다!');
+    console.log('\n✅ All examples completed!');
 }
 
 async function demonstrateDefaultLimits(openaiProvider: OpenAIProvider) {
-    console.log('=== 1. 기본 제한 설정 예제 ===');
+    console.log('=== 1. Default Limit Settings Example ===');
 
-    // 기본 설정으로 Robota 생성 (maxTokens: 4096, maxRequests: 25)
+    // Create Robota with default settings (maxTokens: 4096, maxRequests: 25)
     const robota = new Robota({
         aiProviders: { 'openai': openaiProvider },
         currentProvider: 'openai',
         currentModel: 'gpt-3.5-turbo',
-        systemPrompt: '간결하게 답변해주세요.'
+        systemPrompt: 'Please respond concisely.'
     });
 
-    // 기본 제한 확인
-    console.log(`기본 토큰 제한: ${robota.getMaxTokenLimit()}`);
-    console.log(`기본 요청 제한: ${robota.getMaxRequestLimit()}`);
+    // Check default limits
+    console.log(`Default token limit: ${robota.getMaxTokenLimit()}`);
+    console.log(`Default request limit: ${robota.getMaxRequestLimit()}`);
 
-    // 제한 정보 출력
+    // Output limit information
     const limitInfo = robota.getLimitInfo();
-    console.log('현재 제한 상태:', {
+    console.log('Current limit status:', {
         maxTokens: limitInfo.maxTokens,
         maxRequests: limitInfo.maxRequests,
         remainingTokens: limitInfo.remainingTokens,
@@ -82,211 +82,211 @@ async function demonstrateDefaultLimits(openaiProvider: OpenAIProvider) {
         isRequestsUnlimited: limitInfo.isRequestsUnlimited
     });
 
-    // 몇 개의 요청 실행
-    const response = await robota.execute('타입스크립트란 무엇인가요?');
-    console.log(`응답: ${response.substring(0, 100)}...`);
+    // Execute some requests
+    const response = await robota.execute('What is TypeScript?');
+    console.log(`Response: ${response.substring(0, 100)}...`);
 
-    // 사용량 확인
-    console.log(`사용된 토큰: ${robota.getTotalTokensUsed()}`);
-    console.log(`실행된 요청: ${robota.getRequestCount()}\n`);
+    // Check usage
+    console.log(`Tokens used: ${robota.getTotalTokensUsed()}`);
+    console.log(`Requests executed: ${robota.getRequestCount()}\n`);
 }
 
 async function demonstrateCustomLimits(openaiProvider: OpenAIProvider) {
-    console.log('=== 2. 커스텀 제한 설정 예제 ===');
+    console.log('=== 2. Custom Limit Settings Example ===');
 
-    // 낮은 제한으로 설정
+    // Set low limits
     const robota = new Robota({
         aiProviders: { 'openai': openaiProvider },
         currentProvider: 'openai',
         currentModel: 'gpt-3.5-turbo',
-        systemPrompt: '간결하게 답변해주세요.',
-        maxTokenLimit: 200,  // 매우 낮은 토큰 제한
-        maxRequestLimit: 3   // 3회 요청만 허용
+        systemPrompt: 'Please respond concisely.',
+        maxTokenLimit: 200,  // Very low token limit
+        maxRequestLimit: 3   // Only 3 requests allowed
     });
 
-    console.log(`설정된 토큰 제한: ${robota.getMaxTokenLimit()}`);
-    console.log(`설정된 요청 제한: ${robota.getMaxRequestLimit()}`);
+    console.log(`Set token limit: ${robota.getMaxTokenLimit()}`);
+    console.log(`Set request limit: ${robota.getMaxRequestLimit()}`);
 
     try {
-        // 첫 번째 요청
-        const response1 = await robota.execute('안녕하세요');
-        console.log(`1번째 요청 성공: ${response1.substring(0, 50)}...`);
+        // First request
+        const response1 = await robota.execute('Hello');
+        console.log(`1st request success: ${response1.substring(0, 50)}...`);
 
-        // 두 번째 요청
-        const response2 = await robota.execute('날씨는 어때요?');
-        console.log(`2번째 요청 성공: ${response2.substring(0, 50)}...`);
+        // Second request
+        const response2 = await robota.execute('How is the weather?');
+        console.log(`2nd request success: ${response2.substring(0, 50)}...`);
 
-        // 세 번째 요청 (토큰 제한에 걸릴 수 있음)
-        const response3 = await robota.execute('프로그래밍에 대해 자세히 설명해주세요.');
-        console.log(`3번째 요청 성공: ${response3.substring(0, 50)}...`);
+        // Third request (may hit token limit)
+        const response3 = await robota.execute('Please explain programming in detail.');
+        console.log(`3rd request success: ${response3.substring(0, 50)}...`);
 
     } catch (error) {
-        console.log(`제한 초과 에러: ${(error as Error).message}`);
+        console.log(`Limit exceeded error: ${(error as Error).message}`);
     }
 
-    console.log(`최종 토큰 사용량: ${robota.getTotalTokensUsed()}`);
-    console.log(`최종 요청 수: ${robota.getRequestCount()}\n`);
+    console.log(`Final token usage: ${robota.getTotalTokensUsed()}`);
+    console.log(`Final request count: ${robota.getRequestCount()}\n`);
 }
 
 async function demonstrateUnlimitedMode(openaiProvider: OpenAIProvider) {
-    console.log('=== 3. 무제한 설정 예제 ===');
+    console.log('=== 3. Unlimited Settings Example ===');
 
-    // 무제한 설정 (0 값 사용)
+    // Unlimited settings (using 0 value)
     const robota = new Robota({
         aiProviders: { 'openai': openaiProvider },
         currentProvider: 'openai',
         currentModel: 'gpt-3.5-turbo',
-        systemPrompt: '간결하게 답변해주세요.',
-        maxTokenLimit: 0,    // 무제한
-        maxRequestLimit: 0   // 무제한
+        systemPrompt: 'Please respond concisely.',
+        maxTokenLimit: 0,    // Unlimited
+        maxRequestLimit: 0   // Unlimited
     });
 
     const limitInfo = robota.getLimitInfo();
-    console.log('무제한 모드 확인:');
-    console.log(`토큰 무제한: ${limitInfo.isTokensUnlimited}`);
-    console.log(`요청 무제한: ${limitInfo.isRequestsUnlimited}`);
-    console.log(`남은 토큰: ${limitInfo.remainingTokens ?? '무제한'}`);
-    console.log(`남은 요청: ${limitInfo.remainingRequests ?? '무제한'}`);
+    console.log('Unlimited mode check:');
+    console.log(`Tokens unlimited: ${limitInfo.isTokensUnlimited}`);
+    console.log(`Requests unlimited: ${limitInfo.isRequestsUnlimited}`);
+    console.log(`Remaining tokens: ${limitInfo.remainingTokens ?? 'Unlimited'}`);
+    console.log(`Remaining requests: ${limitInfo.remainingRequests ?? 'Unlimited'}`);
 
-    // 무제한 모드에서는 많은 요청도 가능
-    const response = await robota.execute('타입스크립트의 장점을 상세히 설명해주세요.');
-    console.log(`응답: ${response.substring(0, 100)}...`);
-    console.log(`토큰 사용량: ${robota.getTotalTokensUsed()}\n`);
+    // In unlimited mode, many requests are possible
+    const response = await robota.execute('Please explain the advantages of TypeScript in detail.');
+    console.log(`Response: ${response.substring(0, 100)}...`);
+    console.log(`Token usage: ${robota.getTotalTokensUsed()}\n`);
 }
 
 async function demonstrateTokenPrevention(openaiProvider: OpenAIProvider) {
-    console.log('=== 4. 사전 토큰 계산을 통한 비용 절약 예제 ===');
+    console.log('=== 4. Cost Savings Through Pre-Token Calculation Example ===');
 
-    // 매우 낮은 토큰 제한 설정
+    // Set very low token limit
     const robota = new Robota({
         aiProviders: { 'openai': openaiProvider },
         currentProvider: 'openai',
         currentModel: 'gpt-3.5-turbo',
-        systemPrompt: '간결하게 답변해주세요.',
-        maxTokenLimit: 50,   // 매우 낮은 제한
-        debug: true          // 디버그 모드로 토큰 계산 과정 확인
+        systemPrompt: 'Please respond concisely.',
+        maxTokenLimit: 50,   // Very low limit
+        debug: true          // Debug mode to see token calculation process
     });
 
-    console.log(`매우 낮은 토큰 제한 설정: ${robota.getMaxTokenLimit()}`);
+    console.log(`Very low token limit set: ${robota.getMaxTokenLimit()}`);
 
     try {
-        // 짧은 메시지 (성공할 것)
-        console.log('\n짧은 메시지 시도...');
-        const shortResponse = await robota.execute('안녕');
-        console.log(`✅ 성공: ${shortResponse}`);
-        console.log(`사용된 토큰: ${robota.getTotalTokensUsed()}`);
+        // Short message (should succeed)
+        console.log('\nTrying short message...');
+        const shortResponse = await robota.execute('Hello');
+        console.log(`✅ Success: ${shortResponse}`);
+        console.log(`Tokens used: ${robota.getTotalTokensUsed()}`);
 
-        // 긴 메시지 (사전 계산으로 차단될 것)
-        console.log('\n긴 메시지 시도...');
-        await robota.execute('타입스크립트의 모든 기능과 장점, 단점, 그리고 자바스크립트와의 차이점에 대해 매우 상세하게 설명해주세요. 또한 실제 프로젝트에서 어떻게 활용하는지와 베스트 프랙티스도 알려주세요.');
+        // Long message (will be blocked by pre-calculation)
+        console.log('\nTrying long message...');
+        await robota.execute('Please explain all features, advantages, disadvantages of TypeScript, and differences from JavaScript in great detail. Also tell me how to use it in actual projects and best practices.');
 
     } catch (error) {
-        console.log(`❌ 사전 토큰 계산으로 요청 차단: ${(error as Error).message}`);
-        console.log('💰 API 비용 절약 성공! 실제 API 호출 없이 제한 초과를 감지했습니다.');
+        console.log(`❌ Request blocked by pre-token calculation: ${(error as Error).message}`);
+        console.log('💰 API cost saved! Limit exceeded detected without actual API call.');
     }
 
-    console.log(`최종 토큰 사용량: ${robota.getTotalTokensUsed()}\n`);
+    console.log(`Final token usage: ${robota.getTotalTokensUsed()}\n`);
 }
 
 async function demonstrateRequestLimits(openaiProvider: OpenAIProvider) {
-    console.log('=== 5. 요청 제한 예제 ===');
+    console.log('=== 5. Request Limit Example ===');
 
-    // 요청 수 제한
+    // Request count limit
     const robota = new Robota({
         aiProviders: { 'openai': openaiProvider },
         currentProvider: 'openai',
         currentModel: 'gpt-3.5-turbo',
-        systemPrompt: '간결하게 답변해주세요.',
-        maxTokenLimit: 5000,  // 충분한 토큰
-        maxRequestLimit: 2    // 단 2회 요청만 허용
+        systemPrompt: 'Please respond concisely.',
+        maxTokenLimit: 5000,  // Sufficient tokens
+        maxRequestLimit: 2    // Only 2 requests allowed
     });
 
-    console.log(`요청 제한: ${robota.getMaxRequestLimit()}회`);
+    console.log(`Request limit: ${robota.getMaxRequestLimit()} times`);
 
     try {
-        // 첫 번째 요청
-        console.log('1번째 요청...');
-        await robota.execute('안녕하세요');
-        console.log(`✅ 1번째 요청 성공 (남은 요청: ${robota.getLimitInfo().remainingRequests})`);
+        // First request
+        console.log('1st request...');
+        await robota.execute('Hello');
+        console.log(`✅ 1st request success (remaining requests: ${robota.getLimitInfo().remainingRequests})`);
 
-        // 두 번째 요청
-        console.log('2번째 요청...');
-        await robota.execute('감사합니다');
-        console.log(`✅ 2번째 요청 성공 (남은 요청: ${robota.getLimitInfo().remainingRequests})`);
+        // Second request
+        console.log('2nd request...');
+        await robota.execute('Thank you');
+        console.log(`✅ 2nd request success (remaining requests: ${robota.getLimitInfo().remainingRequests})`);
 
-        // 세 번째 요청 (제한 초과)
-        console.log('3번째 요청...');
-        await robota.execute('또 다른 질문');
+        // Third request (exceeds limit)
+        console.log('3rd request...');
+        await robota.execute('Another question');
 
     } catch (error) {
-        console.log(`❌ 요청 제한 초과: ${(error as Error).message}`);
+        console.log(`❌ Request limit exceeded: ${(error as Error).message}`);
     }
 
-    console.log(`최종 요청 수: ${robota.getRequestCount()}\n`);
+    console.log(`Final request count: ${robota.getRequestCount()}\n`);
 }
 
 async function demonstrateRealTimeMonitoring(openaiProvider: OpenAIProvider) {
-    console.log('=== 6. 실시간 모니터링 예제 ===');
+    console.log('=== 6. Real-time Monitoring Example ===');
 
     const robota = new Robota({
         aiProviders: { 'openai': openaiProvider },
         currentProvider: 'openai',
         currentModel: 'gpt-3.5-turbo',
-        systemPrompt: '간결하게 답변해주세요.',
+        systemPrompt: 'Please respond concisely.',
         maxTokenLimit: 500,
         maxRequestLimit: 5
     });
 
-    // 모니터링 함수
+    // Monitoring function
     function printStatus(step: string) {
         const limitInfo = robota.getLimitInfo();
         const analytics = robota.getAnalytics();
 
-        console.log(`\n[${step}] 현재 상태:`);
-        console.log(`  토큰: ${limitInfo.currentTokensUsed}/${limitInfo.maxTokens} (남은: ${limitInfo.remainingTokens})`);
-        console.log(`  요청: ${limitInfo.currentRequestCount}/${limitInfo.maxRequests} (남은: ${limitInfo.remainingRequests})`);
-        console.log(`  평균 토큰/요청: ${analytics.averageTokensPerRequest.toFixed(1)}`);
+        console.log(`\n[${step}] Current status:`);
+        console.log(`  Tokens: ${limitInfo.currentTokensUsed}/${limitInfo.maxTokens} (remaining: ${limitInfo.remainingTokens})`);
+        console.log(`  Requests: ${limitInfo.currentRequestCount}/${limitInfo.maxRequests} (remaining: ${limitInfo.remainingRequests})`);
+        console.log(`  Average tokens/request: ${analytics.averageTokensPerRequest.toFixed(1)}`);
     }
 
-    printStatus('시작');
+    printStatus('Start');
 
-    // 여러 요청 실행하며 모니터링
+    // Execute multiple requests while monitoring
     const questions = [
-        '안녕하세요',
-        '타입스크립트란?',
-        'React는 무엇인가요?',
-        'Node.js 설명'
+        'Hello',
+        'What is TypeScript?',
+        'What is React?',
+        'Explain Node.js'
     ];
 
     for (let i = 0; i < questions.length; i++) {
         try {
-            console.log(`\n질문 ${i + 1}: "${questions[i]}"`);
+            console.log(`\nQuestion ${i + 1}: "${questions[i]}"`);
             const response = await robota.execute(questions[i]);
-            console.log(`응답: ${response.substring(0, 80)}...`);
-            printStatus(`요청 ${i + 1} 완료`);
+            console.log(`Response: ${response.substring(0, 80)}...`);
+            printStatus(`Request ${i + 1} completed`);
 
         } catch (error) {
-            console.log(`❌ 요청 ${i + 1} 실패: ${(error as Error).message}`);
+            console.log(`❌ Request ${i + 1} failed: ${(error as Error).message}`);
             break;
         }
     }
 
-    // 최종 애널리틱스
+    // Final analytics
     const finalAnalytics = robota.getAnalytics();
-    console.log('\n📊 최종 애널리틱스:');
-    console.log(`  총 요청 수: ${finalAnalytics.requestCount}`);
-    console.log(`  총 토큰 사용량: ${finalAnalytics.totalTokensUsed}`);
-    console.log(`  평균 토큰/요청: ${finalAnalytics.averageTokensPerRequest.toFixed(1)}`);
+    console.log('\n📊 Final analytics:');
+    console.log(`  Total requests: ${finalAnalytics.requestCount}`);
+    console.log(`  Total token usage: ${finalAnalytics.totalTokensUsed}`);
+    console.log(`  Average tokens/request: ${finalAnalytics.averageTokensPerRequest.toFixed(1)}`);
 
-    // 시간대별 사용량 (최근 1분)
+    // Usage by time period (last 1 minute)
     const oneMinuteAgo = new Date(Date.now() - 60000);
     const recentUsage = robota.getTokenUsageByPeriod(oneMinuteAgo);
-    console.log(`  최근 1분간: ${recentUsage.requestCount}요청, ${recentUsage.totalTokens}토큰`);
+    console.log(`  Last 1 minute: ${recentUsage.requestCount} requests, ${recentUsage.totalTokens} tokens`);
 
     console.log('\n');
 }
 
-// 실행
+// Execute
 main().catch(error => {
-    console.error('오류 발생:', error);
+    console.error('Error occurred:', error);
 }); 

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/openai",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "OpenAI integration for Robota SDK - GPT-4, GPT-3.5, function calling, and tool integration with OpenAI's API",
   "type": "module",
   "main": "dist/index.js",
@@ -57,11 +57,18 @@
   "author": "Robota SDK Team",
   "license": "MIT",
   "dependencies": {
-    "@robota-sdk/core": "workspace:*",
-    "@robota-sdk/tools": "workspace:*",
     "openai": "^4.97.0"
   },
+  "peerDependencies": {
+    "@robota-sdk/core": "workspace:*",
+    "@robota-sdk/tools": "workspace:*"
+  },
   "devDependencies": {
+    "@robota-sdk/core": "workspace:*",
+    "@robota-sdk/tools": "workspace:*",
+    "@typescript-eslint/eslint-plugin": "^6.18.0",
+    "@typescript-eslint/parser": "^6.18.0",
+    "eslint": "^8.56.0",
     "rimraf": "^5.0.5",
     "tsup": "^8.0.1",
     "typescript": "^5.3.3",

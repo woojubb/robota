@@ -1,22 +1,30 @@
 # Development
 
-개발자를 위한 가이드와 참고 문서들입니다.
+Guides and reference documents for developers.
 
-## 개발 가이드
+## Development Guides
 
-- **[Development Guidelines](./development-guidelines.md)** - 개발 가이드라인과 코딩 표준
-- **[Testing Guidelines](./testing-guidelines.md)** - 테스트 작성 및 실행 가이드
-- **[Build and Deployment](./build-and-deployment.md)** - 빌드 및 배포 프로세스
+- **[Development Guidelines](./development-guidelines.md)** - Development guidelines and coding standards
+- **[Testing Guidelines](./testing-guidelines.md)** - Guide for writing and running tests
+- **[Build and Deployment](./build-and-deployment.md)** - Build and deployment processes
+- **[Environment Setup](./environment-setup.md)** - Development environment setup guide
+- **[Package Publishing](./package-publishing.md)** - Package publishing guide
 
-## 기술 문서
+## Code Quality and Improvement
 
-- **[System Messages](./system-messages.md)** - 시스템 메시지 설계 및 사용법
-- **[OpenAPI Integration](./openapi-integration.md)** - OpenAPI 스펙 통합 가이드
+- **[Code Quality Standards](./code-quality-standards.md)** - Code quality standards and linting guidelines
+- **[Code Improvements](./code-improvements.md)** - Code improvement work and refactoring details
 
-## 시작하기
+## Technical Documentation
 
-개발에 참여하기 전에 다음 문서들을 확인해주세요:
+- **[System Messages](./system-messages.md)** - System message design and usage
+- **[OpenAPI Integration](./openapi-integration.md)** - OpenAPI specification integration guide
+- **[Documentation Site Setup](./documentation-site-setup.md)** - Documentation site setup and management
 
-1. [Development Guidelines](./development-guidelines.md) - 코딩 스타일과 규칙
-2. [Testing Guidelines](./testing-guidelines.md) - 테스트 작성 방법
-3. [Build and Deployment](./build-and-deployment.md) - 프로젝트 빌드 방법 
+## Getting Started
+
+Before contributing to development, please review these documents:
+
+1. [Development Guidelines](./development-guidelines.md) - Coding style and rules
+2. [Testing Guidelines](./testing-guidelines.md) - How to write tests
+3. [Build and Deployment](./build-and-deployment.md) - How to build the project 

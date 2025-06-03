@@ -1,0 +1,1 @@
+export { ChatInstanceImpl } from './chat-instance'; 
