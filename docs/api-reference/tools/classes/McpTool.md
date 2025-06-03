@@ -118,7 +118,7 @@ Constructor
 
 #### Defined in
 
-[packages/tools/src/tool/mcp-tool.ts:71](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/tools/src/tool/mcp-tool.ts#L71)
+[packages/tools/src/tool/mcp-tool.ts:71](https://github.com/woojubb/robota/blob/0e6d99d8d244aac339f469fd8ddc268c965a0382/packages/tools/src/tool/mcp-tool.ts#L71)
 
 ## Properties
 
@@ -134,7 +134,7 @@ Tool name
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:29](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/tools/src/tool/base-tool.ts#L29)
+[packages/tools/src/tool/base-tool.ts:29](https://github.com/woojubb/robota/blob/0e6d99d8d244aac339f469fd8ddc268c965a0382/packages/tools/src/tool/base-tool.ts#L29)
 
 ___
 
@@ -150,7 +150,7 @@ Tool description
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:34](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/tools/src/tool/base-tool.ts#L34)
+[packages/tools/src/tool/base-tool.ts:34](https://github.com/woojubb/robota/blob/0e6d99d8d244aac339f469fd8ddc268c965a0382/packages/tools/src/tool/base-tool.ts#L34)
 
 ___
 
@@ -166,7 +166,7 @@ Tool category
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:39](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/tools/src/tool/base-tool.ts#L39)
+[packages/tools/src/tool/base-tool.ts:39](https://github.com/woojubb/robota/blob/0e6d99d8d244aac339f469fd8ddc268c965a0382/packages/tools/src/tool/base-tool.ts#L39)
 
 ___
 
@@ -182,7 +182,7 @@ Tool version
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:44](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/tools/src/tool/base-tool.ts#L44)
+[packages/tools/src/tool/base-tool.ts:44](https://github.com/woojubb/robota/blob/0e6d99d8d244aac339f469fd8ddc268c965a0382/packages/tools/src/tool/base-tool.ts#L44)
 
 ## Accessors
 
@@ -204,7 +204,7 @@ BaseTool.schema
 
 #### Defined in
 
-[packages/tools/src/tool/mcp-tool.ts:81](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/tools/src/tool/mcp-tool.ts#L81)
+[packages/tools/src/tool/mcp-tool.ts:81](https://github.com/woojubb/robota/blob/0e6d99d8d244aac339f469fd8ddc268c965a0382/packages/tools/src/tool/mcp-tool.ts#L81)
 
 ## Methods
 
@@ -232,7 +232,7 @@ Tool execution result
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:108](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/tools/src/tool/base-tool.ts#L108)
+[packages/tools/src/tool/base-tool.ts:108](https://github.com/woojubb/robota/blob/0e6d99d8d244aac339f469fd8ddc268c965a0382/packages/tools/src/tool/base-tool.ts#L108)
 
 ___
 
@@ -254,7 +254,7 @@ Function schema
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:145](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/tools/src/tool/base-tool.ts#L145)
+[packages/tools/src/tool/base-tool.ts:145](https://github.com/woojubb/robota/blob/0e6d99d8d244aac339f469fd8ddc268c965a0382/packages/tools/src/tool/base-tool.ts#L145)
 
 ___
 
@@ -276,7 +276,7 @@ Function definition
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:158](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/tools/src/tool/base-tool.ts#L158)
+[packages/tools/src/tool/base-tool.ts:158](https://github.com/woojubb/robota/blob/0e6d99d8d244aac339f469fd8ddc268c965a0382/packages/tools/src/tool/base-tool.ts#L158)
 
 ___
 
@@ -298,7 +298,7 @@ String representation of the tool
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:171](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/tools/src/tool/base-tool.ts#L171)
+[packages/tools/src/tool/base-tool.ts:171](https://github.com/woojubb/robota/blob/0e6d99d8d244aac339f469fd8ddc268c965a0382/packages/tools/src/tool/base-tool.ts#L171)
 
 ___
 
@@ -329,4 +329,4 @@ McpTool instance
 
 #### Defined in
 
-[packages/tools/src/tool/mcp-tool.ts:145](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/tools/src/tool/mcp-tool.ts#L145)
+[packages/tools/src/tool/mcp-tool.ts:145](https://github.com/woojubb/robota/blob/0e6d99d8d244aac339f469fd8ddc268c965a0382/packages/tools/src/tool/mcp-tool.ts#L145)

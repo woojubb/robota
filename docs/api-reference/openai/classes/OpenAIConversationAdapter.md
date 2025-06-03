@@ -54,7 +54,7 @@ Convert UniversalMessage array to OpenAI message format
 
 #### Defined in
 
-[openai/src/adapter.ts:13](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/openai/src/adapter.ts#L13)
+[openai/src/adapter.ts:13](https://github.com/woojubb/robota/blob/0e6d99d8d244aac339f469fd8ddc268c965a0382/packages/openai/src/adapter.ts#L13)
 
 ___
 
@@ -76,7 +76,7 @@ Convert a single UniversalMessage to OpenAI format
 
 #### Defined in
 
-[openai/src/adapter.ts:20](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/openai/src/adapter.ts#L20)
+[openai/src/adapter.ts:20](https://github.com/woojubb/robota/blob/0e6d99d8d244aac339f469fd8ddc268c965a0382/packages/openai/src/adapter.ts#L20)
 
 ___
 
@@ -99,4 +99,4 @@ Add system prompt to message array if needed
 
 #### Defined in
 
-[openai/src/adapter.ts:73](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/openai/src/adapter.ts#L73)
+[openai/src/adapter.ts:73](https://github.com/woojubb/robota/blob/0e6d99d8d244aac339f469fd8ddc268c965a0382/packages/openai/src/adapter.ts#L73)

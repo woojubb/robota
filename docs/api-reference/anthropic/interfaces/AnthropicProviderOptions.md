@@ -35,7 +35,7 @@ Anthropic provider options
 
 #### Defined in
 
-[anthropic/src/index.ts:7](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/anthropic/src/index.ts#L7)
+[anthropic/src/index.ts:7](https://github.com/woojubb/robota/blob/0e6d99d8d244aac339f469fd8ddc268c965a0382/packages/anthropic/src/index.ts#L7)
 
 ___
 

@@ -30,7 +30,7 @@
     "readme:copy": "node scripts/copy-readme.cjs copy",
     "readme:cleanup": "node scripts/copy-readme.cjs cleanup",
     "git:push-tags": "git push --tags",
-    "publish:packages": "pnpm run typedoc:convert && pnpm readme:copy && pnpm changeset version && pnpm install && pnpm publish -r && pnpm git:push-tags && pnpm readme:cleanup",
+    "publish:packages": "pnpm run typedoc:convert && pnpm readme:copy && pnpm changeset version && pnpm install && pnpm publish -r --no-git-checks && pnpm git:push-tags && pnpm readme:cleanup",
     "publish:packages-legacy": "node scripts/publish.js",
     "ci:publish": "pnpm publish -r"
   },
