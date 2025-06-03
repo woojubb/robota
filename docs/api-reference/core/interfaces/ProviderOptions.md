@@ -28,7 +28,7 @@ Provider options interface
 
 #### Defined in
 
-[types.ts:5](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/core/src/types.ts#L5)
+[types.ts:5](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/core/src/types.ts#L5)
 
 ___
 
@@ -38,7 +38,7 @@ ___
 
 #### Defined in
 
-[types.ts:6](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/core/src/types.ts#L6)
+[types.ts:6](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/core/src/types.ts#L6)
 
 ___
 
@@ -48,7 +48,7 @@ ___
 
 #### Defined in
 
-[types.ts:7](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/core/src/types.ts#L7)
+[types.ts:7](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/core/src/types.ts#L7)
 
 ___
 
@@ -58,7 +58,7 @@ ___
 
 #### Defined in
 
-[types.ts:8](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/core/src/types.ts#L8)
+[types.ts:8](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/core/src/types.ts#L8)
 
 ___
 
@@ -68,4 +68,4 @@ ___
 
 #### Defined in
 
-[types.ts:9](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/core/src/types.ts#L9)
+[types.ts:9](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/core/src/types.ts#L9)

@@ -52,7 +52,7 @@ Google AI provider implementation
 
 #### Defined in
 
-[provider.ts:32](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/google/src/provider.ts#L32)
+[provider.ts:32](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/google/src/provider.ts#L32)
 
 ## Properties
 
@@ -68,7 +68,7 @@ AIProvider.name
 
 #### Defined in
 
-[provider.ts:20](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/google/src/provider.ts#L20)
+[provider.ts:20](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/google/src/provider.ts#L20)
 
 ___
 
@@ -80,7 +80,7 @@ Provider options
 
 #### Defined in
 
-[provider.ts:30](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/google/src/provider.ts#L30)
+[provider.ts:30](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/google/src/provider.ts#L30)
 
 ## Methods
 
@@ -108,7 +108,7 @@ AIProvider.chat
 
 #### Defined in
 
-[provider.ts:50](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/google/src/provider.ts#L50)
+[provider.ts:50](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/google/src/provider.ts#L50)
 
 ___
 
@@ -136,7 +136,7 @@ AIProvider.chatStream
 
 #### Defined in
 
-[provider.ts:95](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/google/src/provider.ts#L95)
+[provider.ts:95](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/google/src/provider.ts#L95)
 
 ___
 
@@ -158,7 +158,7 @@ Format function definitions into a format the model can understand.
 
 #### Defined in
 
-[provider.ts:142](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/google/src/provider.ts#L142)
+[provider.ts:142](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/google/src/provider.ts#L142)
 
 ___
 
@@ -180,7 +180,7 @@ Parse model response into standard format.
 
 #### Defined in
 
-[provider.ts:150](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/google/src/provider.ts#L150)
+[provider.ts:150](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/google/src/provider.ts#L150)
 
 ___
 
@@ -202,7 +202,7 @@ Parse streaming response chunk into standard format.
 
 #### Defined in
 
-[provider.ts:171](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/google/src/provider.ts#L171)
+[provider.ts:171](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/google/src/provider.ts#L171)
 
 ___
 
@@ -222,4 +222,4 @@ AIProvider.close
 
 #### Defined in
 
-[provider.ts:184](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/google/src/provider.ts#L184)
+[provider.ts:184](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/google/src/provider.ts#L184)

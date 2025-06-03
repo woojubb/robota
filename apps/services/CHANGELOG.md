@@ -1,5 +1,11 @@
 # robota-services
 
+## 0.1.3
+
+### Patch Changes
+
+- Update publishing docs with proper deployment guidelines
+
 ## 0.1.2
 
 ### Patch Changes

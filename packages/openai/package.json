@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/openai",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "OpenAI integration for Robota SDK - GPT-4, GPT-3.5, function calling, and tool integration with OpenAI's API",
   "type": "module",
   "main": "dist/index.js",

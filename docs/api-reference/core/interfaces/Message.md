@@ -28,7 +28,7 @@ Basic message interface
 
 #### Defined in
 
-[interfaces/ai-provider.ts:13](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/core/src/interfaces/ai-provider.ts#L13)
+[interfaces/ai-provider.ts:13](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/core/src/interfaces/ai-provider.ts#L13)
 
 ___
 
@@ -38,7 +38,7 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:14](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/core/src/interfaces/ai-provider.ts#L14)
+[interfaces/ai-provider.ts:14](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/core/src/interfaces/ai-provider.ts#L14)
 
 ___
 
@@ -48,7 +48,7 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:15](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/core/src/interfaces/ai-provider.ts#L15)
+[interfaces/ai-provider.ts:15](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/core/src/interfaces/ai-provider.ts#L15)
 
 ___
 
@@ -58,7 +58,7 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:16](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/core/src/interfaces/ai-provider.ts#L16)
+[interfaces/ai-provider.ts:16](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/core/src/interfaces/ai-provider.ts#L16)
 
 ___
 
@@ -68,4 +68,4 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:17](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/core/src/interfaces/ai-provider.ts#L17)
+[interfaces/ai-provider.ts:17](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/core/src/interfaces/ai-provider.ts#L17)

@@ -1,5 +1,13 @@
 # @robota-sdk/tools
 
+## 0.3.6
+
+### Patch Changes
+
+- Update publishing docs with proper deployment guidelines
+- Updated dependencies
+  - @robota-sdk/core@0.3.6
+
 ## 0.3.5
 
 ### Patch Changes

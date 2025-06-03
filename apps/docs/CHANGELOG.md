@@ -1,5 +1,11 @@
 # robota-docs
 
+## 1.0.12
+
+### Patch Changes
+
+- Update publishing docs with proper deployment guidelines
+
 ## 1.0.11
 
 ### Patch Changes

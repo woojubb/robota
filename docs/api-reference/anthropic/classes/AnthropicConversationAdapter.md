@@ -55,7 +55,7 @@ Convert UniversalMessage array to Anthropic prompt format
 
 #### Defined in
 
-[anthropic/src/adapter.ts:12](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/anthropic/src/adapter.ts#L12)
+[anthropic/src/adapter.ts:12](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/anthropic/src/adapter.ts#L12)
 
 ___
 
@@ -78,7 +78,7 @@ Extract system messages and combine them as system prompt
 
 #### Defined in
 
-[anthropic/src/adapter.ts:55](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/anthropic/src/adapter.ts#L55)
+[anthropic/src/adapter.ts:55](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/anthropic/src/adapter.ts#L55)
 
 ___
 
@@ -105,4 +105,4 @@ Helper for message conversion testing (converts each message individually)
 
 #### Defined in
 
-[anthropic/src/adapter.ts:68](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/anthropic/src/adapter.ts#L68)
+[anthropic/src/adapter.ts:68](https://github.com/woojubb/robota/blob/e6131eaf5aa8ad4c0727d0e3d64ac06416590fdf/packages/anthropic/src/adapter.ts#L68)
