@@ -32,7 +32,9 @@ const openaiClient = new OpenAI({
 
 // Create OpenAI provider
 const provider = new OpenAIProvider({
-  client: openaiClient
+  client: openaiClient,
+  model: 'gpt-4',
+  temperature: 0.7
 });
 
 // Create Robota instance with OpenAI provider
@@ -81,7 +83,9 @@ const toolProvider = createZodFunctionToolProvider({
 
 // Initialize provider
 const provider = new OpenAIProvider({
-  client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+  model: 'gpt-4',
+  temperature: 0.7
 });
 
 const robota = new Robota({
@@ -94,6 +98,22 @@ const robota = new Robota({
 });
 
 const response = await robota.run('What\'s the weather like in Seoul?');
+```
+
+## Provider Options
+
+```typescript
+interface OpenAIProviderOptions {
+  client: OpenAI;           // Required: OpenAI client instance
+  model: string;            // Required: Model name (e.g., 'gpt-4')
+  temperature?: number;     // Optional: 0-1, default 0.7
+  maxTokens?: number;       // Optional: Max tokens to generate
+  apiKey?: string;          // Optional: API key (if not set in client)
+  organization?: string;    // Optional: OpenAI organization
+  timeout?: number;         // Optional: Request timeout in ms
+  baseURL?: string;         // Optional: Custom API base URL
+  responseFormat?: 'json' | 'text';  // Optional: Response format
+}
 ```
 
 ## Models

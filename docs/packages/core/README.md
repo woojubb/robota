@@ -18,8 +18,6 @@ npm install @robota-sdk/core
 
 `@robota-sdk/core` provides the foundation for building AI agents with Robota SDK. Built with a clean Manager pattern architecture, it separates concerns across specialized managers while providing a unified API through the main Robota class.
 
-**Current Version:** 0.3.2
-
 ## Architecture Overview
 
 ### Manager Pattern

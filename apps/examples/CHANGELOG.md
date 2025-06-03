@@ -1,5 +1,31 @@
 # robota-examples
 
+## 0.1.19
+
+### Patch Changes
+
+- Update publishing docs with proper deployment guidelines
+- Updated dependencies
+  - @robota-sdk/anthropic@0.3.6
+  - @robota-sdk/sessions@0.3.6
+  - @robota-sdk/google@0.3.6
+  - @robota-sdk/openai@0.3.6
+  - @robota-sdk/tools@0.3.6
+  - @robota-sdk/core@0.3.6
+
+## 0.1.18
+
+### Patch Changes
+
+- Fix workspace dependencies & update README docs for all packages
+- Updated dependencies
+  - @robota-sdk/anthropic@0.3.5
+  - @robota-sdk/sessions@0.3.5
+  - @robota-sdk/google@0.3.5
+  - @robota-sdk/openai@0.3.5
+  - @robota-sdk/tools@0.3.5
+  - @robota-sdk/core@0.3.5
+
 ## 0.1.17
 
 ### Patch Changes

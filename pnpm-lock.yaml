@@ -344,13 +344,13 @@ importers:
 
   packages/tools:
     dependencies:
-      '@robota-sdk/core':
-        specifier: workspace:*
-        version: link:../core
       zod:
         specifier: ^3.24.4
         version: 3.24.4
     devDependencies:
+      '@robota-sdk/core':
+        specifier: workspace:*
+        version: link:../core
       '@types/node':
         specifier: ^20.10.6
         version: 20.17.46
