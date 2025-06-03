@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/tools",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Tools and utilities package for Robota SDK - providing AI function calling and tool integration capabilities",
   "type": "module",
   "main": "dist/index.js",
@@ -69,6 +69,7 @@
     "@robota-sdk/core": "workspace:*"
   },
   "devDependencies": {
+    "@robota-sdk/core": "workspace:*",
     "@types/node": "^20.10.6",
     "rimraf": "^5.0.5",
     "tsup": "^8.0.1",

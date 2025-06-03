@@ -1,11 +1,11 @@
 /**
  * 02-ai-with-tools.ts
  * 
- * 이 예제는 Robota에서 AI와 도구를 함께 사용하는 방법을 보여줍니다:
- * - OpenAI 클라이언트를 aiClient로 사용
- * - 간단한 도구 정의 및 등록
- * - AI가 자동으로 필요한 도구를 호출하는 플로우
- * - 복잡한 계산도 AI가 단계별로 처리
+ * This example demonstrates how to use AI with tools in Robota:
+ * - Using OpenAI client as aiClient
+ * - Simple tool definition and registration
+ * - AI automatically calling necessary tools
+ * - AI handling complex calculations step by step
  */
 
 import { Robota, OpenAIProvider } from '@robota-sdk/core';
@@ -16,63 +16,63 @@ import { z } from 'zod';
 import dotenv from 'dotenv';
 import chalk from 'chalk';
 
-// 환경 변수 로드
+// Load environment variables
 dotenv.config();
 
 async function main() {
     try {
-        // API 키 검증
+        // Validate API key
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
-            throw new Error('OPENAI_API_KEY 환경 변수가 필요합니다');
+            throw new Error('OPENAI_API_KEY environment variable is required');
         }
 
-        // OpenAI 클라이언트 생성
+        // Create OpenAI client
         const openaiClient = new OpenAI({
             apiKey
         });
 
-        // OpenAI Provider 생성
+        // Create OpenAI Provider
         const openaiProvider = new OpenAIProvider(openaiClient);
 
-        // 간단한 계산기 도구 정의
+        // Define simple calculator tool
         const calculatorTool = {
             name: 'calculate',
-            description: '수학 계산을 수행합니다',
+            description: 'Performs mathematical calculations',
             parameters: z.object({
-                operation: z.enum(['add', 'subtract', 'multiply', 'divide']).describe('수행할 연산'),
-                a: z.number().describe('첫 번째 숫자'),
-                b: z.number().describe('두 번째 숫자')
+                operation: z.enum(['add', 'subtract', 'multiply', 'divide']).describe('Operation to perform'),
+                a: z.number().describe('First number'),
+                b: z.number().describe('Second number')
             }),
             handler: async (params) => {
                 const { operation, a, b } = params;
-                console.log(`[도구 핸들러] 계산 수행: ${a} ${operation} ${b}`);
+                console.log(`[Tool Handler] Performing calculation: ${a} ${operation} ${b}`);
                 let result;
                 switch (operation) {
                     case 'add': result = { result: a + b }; break;
                     case 'subtract': result = { result: a - b }; break;
                     case 'multiply': result = { result: a * b }; break;
-                    case 'divide': result = b !== 0 ? { result: a / b } : { error: '0으로 나눌 수 없습니다' }; break;
-                    default: result = { error: '지원되지 않는 연산입니다' };
+                    case 'divide': result = b !== 0 ? { result: a / b } : { error: 'Cannot divide by zero' }; break;
+                    default: result = { error: 'Unsupported operation' };
                 }
-                console.log(`[도구 핸들러] 계산 결과:`, result);
+                console.log(`[Tool Handler] Calculation result:`, result);
                 return result;
             }
         };
 
-        // 도구 제공자 생성
+        // Create tool provider
         const toolProvider = createZodFunctionToolProvider({
             tools: {
                 calculate: calculatorTool
             }
         });
 
-        // 도구 제공자 디버그
-        console.log('도구 제공자:', toolProvider);
-        console.log('도구 제공자 functions:', toolProvider.functions);
-        console.log('functions 개수:', toolProvider.functions?.length || 0);
+        // Debug tool provider
+        console.log('Tool Provider:', toolProvider);
+        console.log('Tool Provider functions:', toolProvider.functions);
+        console.log('Functions count:', toolProvider.functions?.length || 0);
 
-        // 커스텀 로거 정의
+        // Define custom logger
         const customLogger: Logger = {
             info: (message: string, ...args: any[]) => console.log(chalk.blue('ℹ️'), message, ...args),
             debug: (message: string, ...args: any[]) => console.log(chalk.gray('🐛'), message, ...args),
@@ -80,7 +80,7 @@ async function main() {
             error: (message: string, ...args: any[]) => console.error(chalk.red('❌'), message, ...args)
         };
 
-        // AI와 도구를 함께 사용하는 Robota 인스턴스 (커스텀 로거 사용)
+        // Robota instance using AI and tools together (with custom logger)
         const robota = new Robota({
             aiProviders: {
                 'openai': openaiProvider
@@ -88,49 +88,49 @@ async function main() {
             currentProvider: 'openai',
             currentModel: 'gpt-3.5-turbo',
             toolProviders: [toolProvider],
-            systemPrompt: '당신은 유용한 AI 비서입니다. 수학 계산이 필요한 경우 반드시 calculate 도구를 사용해야 합니다. 직접 계산하지 마세요.',
-            debug: true,  // 도구 호출 로깅 활성화
-            logger: customLogger  // 커스텀 로거 사용
+            systemPrompt: 'You are a helpful AI assistant. When mathematical calculations are needed, you must use the calculate tool. Do not calculate directly.',
+            debug: true,  // Enable tool call logging
+            logger: customLogger  // Use custom logger
         });
 
-        // Robota 인스턴스 디버그
-        console.log('Robota toolProviders 개수:', robota['toolProviders']?.length || 0);
+        // Debug Robota instance
+        console.log('Robota toolProviders count:', robota['toolProviders']?.length || 0);
 
-        // 사용 가능한 도구 확인
-        console.log('===== 사용 가능한 도구들 =====');
+        // Check available tools
+        console.log('===== Available Tools =====');
         const availableTools = robota.getAvailableTools();
-        console.log('등록된 도구들:', availableTools.map(tool => tool.name));
-        console.log('도구 스키마:', JSON.stringify(availableTools, null, 2));
+        console.log('Registered tools:', availableTools.map(tool => tool.name));
+        console.log('Tool schemas:', JSON.stringify(availableTools, null, 2));
 
-        // 도구 없이 간단한 대화
-        console.log('\n===== 일반 대화 예제 =====');
+        // Simple conversation without tools
+        console.log('\n===== General Conversation Example =====');
         try {
-            const response1 = await robota.run('안녕하세요! 오늘 날씨가 어때요?');
-            console.log('응답:', response1);
+            const response1 = await robota.run('Hello! How is the weather today?');
+            console.log('Response:', response1);
         } catch (error) {
-            console.error('일반 대화 오류:', error);
+            console.error('General conversation error:', error);
         }
 
-        // 도구를 사용하는 대화
-        console.log('\n===== 도구 사용 예제 =====');
+        // Conversation using tools
+        console.log('\n===== Tool Usage Example =====');
         try {
-            console.log('도구 사용 요청 시작...');
-            const response2 = await robota.run('계산 도구를 사용해서 5와 7을 곱해주세요.');
-            console.log('응답:', response2);
+            console.log('Starting tool usage request...');
+            const response2 = await robota.run('Please use the calculation tool to multiply 5 and 7.');
+            console.log('Response:', response2);
         } catch (error) {
-            console.error('도구 사용 오류:', error);
+            console.error('Tool usage error:', error);
         }
 
-        console.log('\n===== 복잡한 계산 예제 =====');
+        console.log('\n===== Complex Calculation Example =====');
         try {
-            const response3 = await robota.run('100을 25로 나누고, 그 결과에 3을 더해주세요.');
-            console.log('응답:', response3);
+            const response3 = await robota.run('Please divide 100 by 25, then add 3 to the result.');
+            console.log('Response:', response3);
         } catch (error) {
-            console.error('복잡한 계산 오류:', error);
+            console.error('Complex calculation error:', error);
         }
 
-        // 기본 console 로거 및 debug 모드 비활성화 테스트
-        console.log('\n===== 기본 로거 & debug 비활성화 테스트 =====');
+        // Test with default console logger and debug mode disabled
+        console.log('\n===== Default Logger & Debug Disabled Test =====');
         const robotaDefault = new Robota({
             aiProviders: {
                 'openai': openaiProvider
@@ -138,20 +138,20 @@ async function main() {
             currentProvider: 'openai',
             currentModel: 'gpt-3.5-turbo',
             toolProviders: [toolProvider],
-            debug: false  // debug 모드 비활성화 (기본값)
+            debug: false  // Disable debug mode (default)
         });
 
         try {
-            const response4 = await robotaDefault.run('10을 2로 나누어주세요.');
-            console.log('응답 (로깅 없음):', response4);
+            const response4 = await robotaDefault.run('Please divide 10 by 2.');
+            console.log('Response (no logging):', response4);
         } catch (error) {
-            console.error('기본 로거 테스트 오류:', error);
+            console.error('Default logger test error:', error);
         }
 
     } catch (error) {
-        console.error('오류 발생:', error);
+        console.error('Error occurred:', error);
     }
 }
 
-// 실행
+// Execute
 main().catch(console.error); 
