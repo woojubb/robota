@@ -1,9 +1,9 @@
 /**
  * 01-mcp-client.ts
  * 
- * MCP 클라이언트를 Robota 에이전트와 통합하는 예제입니다.
- * - MCP(Model Context Protocol) 서버와 통신
- * - Robota 에이전트와 함께 사용
+ * Example of integrating MCP client with Robota agent.
+ * - Communicate with MCP (Model Context Protocol) server
+ * - Use together with Robota agent
  */
 
 import { Robota } from "@robota-sdk/core";
@@ -15,26 +15,26 @@ import OpenAI from "openai";
 import path from 'path';
 import dotenv from 'dotenv';
 
-// 환경 변수 로드
+// Load environment variables
 dotenv.config();
 
 async function main() {
     try {
-        console.log('MCP 에이전트 예제 시작...');
+        console.log('Starting MCP agent example...');
 
-        // 1. MCP 서버 경로 설정
+        // 1. Set MCP server path
         const serverPath = path.resolve(__dirname, '../../services/mcp-server.ts');
-        console.log(`MCP 서버 경로: ${serverPath}`);
+        console.log(`MCP server path: ${serverPath}`);
 
-        // 2. MCP 트랜스포트 생성
-        console.log('1. MCP 트랜스포트 생성 중...');
+        // 2. Create MCP transport
+        console.log('1. Creating MCP transport...');
         const transport = new StdioClientTransport({
             command: 'npx',
             args: ['ts-node', serverPath],
         });
 
-        // 3. MCP 클라이언트 인스턴스 생성
-        console.log('2. MCP 클라이언트 생성 중...');
+        // 3. Create MCP client instance
+        console.log('2. Creating MCP client...');
         const mcpClient = new Client({
             name: 'simple-client',
             version: '1.0',
@@ -42,85 +42,85 @@ async function main() {
 
         await mcpClient.connect(transport);
 
-        // 4. MCP 툴 제공자 생성 
-        console.log('3. MCP 툴 제공자 생성 중...');
-        // 타입 단언(as any)을 사용하여 타입 오류 해결
+        // 4. Create MCP tool provider
+        console.log('3. Creating MCP tool provider...');
+        // Use type assertion (as any) to resolve type errors
         const mcpProvider = createMcpToolProvider(mcpClient as any);
 
-        // 5. OpenAI API 키 확인
-        console.log('4. OpenAI 클라이언트 생성 중...');
+        // 5. Check OpenAI API key
+        console.log('4. Creating OpenAI client...');
         if (!process.env.OPENAI_API_KEY) {
-            console.warn('경고: OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.');
+            console.warn('Warning: OPENAI_API_KEY environment variable is not set.');
             process.exit(1);
         }
 
-        // 6. OpenAI 클라이언트 생성
+        // 6. Create OpenAI client
         const openaiClient = new OpenAI({
             apiKey: process.env.OPENAI_API_KEY || ''
         });
 
-        // 7. OpenAI 제공자 생성
-        console.log('5. OpenAI 제공자 생성 중...');
+        // 7. Create OpenAI provider
+        console.log('5. Creating OpenAI provider...');
         const openaiProvider = new OpenAIProvider({
             model: 'gpt-3.5-turbo',
             temperature: 0.7,
             client: openaiClient
         });
 
-        // 8. Robota 에이전트 인스턴스 생성
-        console.log('6. Robota 에이전트 인스턴스 생성 중...');
+        // 8. Create Robota agent instance
+        console.log('6. Creating Robota agent instance...');
         const agent = new Robota({
-            aiClient: openaiProvider, // OpenAI 제공자 사용
-            provider: mcpProvider, // MCP 제공자 사용
-            systemPrompt: '당신은 MCP를 통해 연결된 AI 모델을 사용하는 도우미입니다. 정확하고 유용한 정보를 제공하세요.'
+            aiClient: openaiProvider, // Use OpenAI provider
+            provider: mcpProvider, // Use MCP provider
+            systemPrompt: 'You are an assistant using AI models connected through MCP. Provide accurate and useful information.'
         });
 
-        // 9. 계산 도구 호출 예제
-        console.log('\n----- 계산 도구 호출 예제 -----');
+        // 9. Calculation tool call example
+        console.log('\n----- Calculation Tool Call Example -----');
         try {
-            const response1 = await agent.run('5와 7을 더해주세요.');
-            console.log(`사용자: 5와 7을 더해주세요.`);
-            console.log(`응답: ${response1}`);
+            const response1 = await agent.run('Please add 5 and 7.');
+            console.log(`User: Please add 5 and 7.`);
+            console.log(`Response: ${response1}`);
         } catch (error) {
-            console.error('계산 도구 호출 오류:', error);
+            console.error('Calculation tool call error:', error);
         }
 
-        // 10. 날씨 정보 요청 대화 실행
-        console.log('\n----- 날씨 정보 요청 예제 -----');
+        // 10. Weather information request conversation execution
+        console.log('\n----- Weather Information Request Example -----');
         try {
-            const response2 = await agent.run('서울의 현재 날씨를 알려주세요.');
-            console.log(`사용자: 서울의 현재 날씨를 알려주세요.`);
-            console.log(`응답: ${response2}`);
+            const response2 = await agent.run('Please tell me the current weather in Seoul.');
+            console.log(`User: Please tell me the current weather in Seoul.`);
+            console.log(`Response: ${response2}`);
         } catch (error) {
-            console.error('날씨 정보 요청 오류:', error);
+            console.error('Weather information request error:', error);
         }
 
-        // 11. 추가 날씨 정보 요청 (화씨 단위)
-        console.log('\n----- 추가 날씨 정보 요청 예제 (화씨 단위) -----');
+        // 11. Additional weather information request (Fahrenheit unit)
+        console.log('\n----- Additional Weather Information Request Example (Fahrenheit) -----');
         try {
-            const response3 = await agent.run('제주도의 날씨를 화씨로 알려주세요.');
-            console.log(`사용자: 제주도의 날씨를 화씨로 알려주세요.`);
-            console.log(`응답: ${response3}`);
+            const response3 = await agent.run('Please tell me the weather in Jeju in Fahrenheit.');
+            console.log(`User: Please tell me the weather in Jeju in Fahrenheit.`);
+            console.log(`Response: ${response3}`);
         } catch (error) {
-            console.error('추가 날씨 정보 요청 오류:', error);
+            console.error('Additional weather information request error:', error);
         }
 
-        // 12. 연결 종료
-        console.log('\n연결 종료 중...');
+        // 12. Close connection
+        console.log('\nClosing connection...');
         try {
-            // Robota 에이전트 종료
+            // Close Robota agent
             await agent.close?.();
-            console.log('Robota 인스턴스가 종료되었습니다.');
+            console.log('Robota instance has been closed.');
         } catch (error) {
-            console.error('연결 종료 오류:', error);
+            console.error('Connection close error:', error);
         }
 
-        console.log('\n===== MCP 클라이언트 예제 완료 =====');
+        console.log('\n===== MCP Client Example Completed =====');
     } catch (error) {
-        console.error('오류 발생:', error);
+        console.error('Error occurred:', error);
         process.exit(1);
     }
 }
 
-// 프로그램 실행
+// Execute program
 main().catch(console.error); 
