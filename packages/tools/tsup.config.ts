@@ -15,7 +15,11 @@ export default defineConfig({
     treeshake: true,
     minify: false,
     target: 'node18',
-    external: ['zod'],
+    external: [
+        // External dependencies that should not be bundled
+        /^@robota-sdk\/.*/,  // All @robota-sdk packages
+        'zod'
+    ],
     skipNodeModulesBundle: true,
     outExtension({ format }) {
         return {

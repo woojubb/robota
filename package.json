@@ -30,8 +30,9 @@
     "readme:copy": "node scripts/copy-readme.js",
     "readme:cleanup": "node scripts/cleanup-readme.js",
     "git:push-tags": "git push --tags",
-    "publish:packages": "pnpm run typedoc:convert && pnpm readme:copy && pnpm changeset publish && pnpm git:push-tags && pnpm readme:cleanup",
-    "publish:packages-legacy": "node scripts/publish.js"
+    "publish:packages": "pnpm run typedoc:convert && pnpm readme:copy && pnpm changeset version && pnpm install && pnpm publish -r && pnpm git:push-tags && pnpm readme:cleanup",
+    "publish:packages-legacy": "node scripts/publish.js",
+    "ci:publish": "pnpm publish -r"
   },
   "keywords": [
     "ai",

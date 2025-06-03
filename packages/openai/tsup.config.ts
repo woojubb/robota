@@ -13,5 +13,9 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   treeshake: true,
-  external: ['openai', '@robota-sdk/core', '@robota-sdk/tools'],
+  external: [
+    // External dependencies that should not be bundled
+    /^@robota-sdk\/.*/,  // All @robota-sdk packages
+    'openai'
+  ],
 }); 

@@ -26,7 +26,7 @@ Function definition interface
 
 #### Defined in
 
-[packages/tools/src/types.ts:23](https://github.com/woojubb/robota/blob/1932a2ce46e4833a6ba7efc7b507276de39139b4/packages/tools/src/types.ts#L23)
+[packages/tools/src/types.ts:23](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/tools/src/types.ts#L23)
 
 ___
 
@@ -36,7 +36,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/types.ts:24](https://github.com/woojubb/robota/blob/1932a2ce46e4833a6ba7efc7b507276de39139b4/packages/tools/src/types.ts#L24)
+[packages/tools/src/types.ts:24](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/tools/src/types.ts#L24)
 
 ___
 
@@ -54,4 +54,4 @@ ___
 
 #### Defined in
 
-[packages/tools/src/types.ts:25](https://github.com/woojubb/robota/blob/1932a2ce46e4833a6ba7efc7b507276de39139b4/packages/tools/src/types.ts#L25)
+[packages/tools/src/types.ts:25](https://github.com/woojubb/robota/blob/c6e34b812a694c385f1812d97d6be11a99d1b8c0/packages/tools/src/types.ts#L25)

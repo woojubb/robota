@@ -15,7 +15,12 @@ export default defineConfig({
     treeshake: true,
     minify: false,
     target: 'node18',
-    external: ['@robota-sdk/core', '@robota-sdk/tools', 'uuid'],
+    external: [
+        // External dependencies that should not be bundled
+        /^@robota-sdk\/.*/,  // All @robota-sdk packages
+        'uuid'
+    ],
+    skipNodeModulesBundle: true,
     outExtension({ format }) {
         return {
             js: format === 'cjs' ? '.js' : '.mjs'

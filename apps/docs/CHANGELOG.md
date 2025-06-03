@@ -1,5 +1,11 @@
 # robota-docs
 
+## 1.0.10
+
+### Patch Changes
+
+- f77f18e: Add sessions package for multi-session & chat management in workspaces
+
 ## 1.0.9
 
 ### Patch Changes

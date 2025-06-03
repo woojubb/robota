@@ -1,6 +1,6 @@
 {
     "name": "@robota-sdk/google",
-    "version": "0.3.3",
+    "version": "0.3.4",
     "description": "Google AI integration for Robota SDK - Gemini Pro, Gemini Flash, function calling, and tool integration with Google's Generative AI",
     "type": "module",
     "main": "dist/index.js",
@@ -59,11 +59,15 @@
     "author": "Robota SDK Team",
     "license": "MIT",
     "dependencies": {
-        "@robota-sdk/core": "workspace:*",
-        "@robota-sdk/tools": "workspace:*",
         "@google/generative-ai": "^0.20.0"
     },
+    "peerDependencies": {
+        "@robota-sdk/core": "workspace:*",
+        "@robota-sdk/tools": "workspace:*"
+    },
     "devDependencies": {
+        "@robota-sdk/core": "workspace:*",
+        "@robota-sdk/tools": "workspace:*",
         "@typescript-eslint/eslint-plugin": "^6.18.0",
         "@typescript-eslint/parser": "^6.18.0",
         "eslint": "^8.56.0",

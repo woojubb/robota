@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/core",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Core functionality for building AI agents with TypeScript - conversation management, function calling, and multi-provider support for OpenAI, Anthropic, and Google AI",
   "type": "module",
   "main": "dist/index.js",
@@ -59,10 +59,13 @@
   "license": "MIT",
   "dependencies": {
     "@dqbd/tiktoken": "^1.0.21",
-    "@robota-sdk/tools": "workspace:*",
     "zod": "^3.24.4"
   },
+  "peerDependencies": {
+    "@robota-sdk/tools": "workspace:*"
+  },
   "devDependencies": {
+    "@robota-sdk/tools": "workspace:*",
     "@typescript-eslint/eslint-plugin": "^6.18.0",
     "@typescript-eslint/parser": "^6.18.0",
     "@vitest/coverage-v8": "^3.1.3",
