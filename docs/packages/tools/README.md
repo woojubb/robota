@@ -2,7 +2,7 @@
 
 [![npm version](https://badge.fury.io/js/%40robota-sdk%2Ftools.svg)](https://www.npmjs.com/package/@robota-sdk/tools)
 
-Tools and utilities package for Robota SDK.
+Tools and utilities package for Robota SDK - Type-safe function calling with Zod schema validation and OpenAPI integration.
 
 ## Documentation
 
@@ -11,131 +11,98 @@ For full documentation, visit [https://robota.io](https://robota.io)
 ## Installation
 
 ```bash
-npm install @robota-sdk/tools @robota-sdk/core
+npm install @robota-sdk/tools @robota-sdk/core zod
 ```
 
 ## Overview
 
-`@robota-sdk/tools` provides a comprehensive collection of tools and utilities for building AI agents with Robota SDK. This package includes:
+`@robota-sdk/tools` provides a comprehensive collection of tools and utilities for building AI agents with Robota SDK. This package includes type-safe function calling, OpenAPI integration, and a modern tool architecture for extending AI capabilities.
 
-- **Modern Tool Architecture**: Inheritance-based tool system with type-safe validation
-- **Function Creation Utilities**: Zod-based function tools with automatic schema conversion
-- **Tool Providers**: Pre-built providers for MCP, OpenAPI, and custom tools
-- **Schema Validation**: Type-safe parameter validation and JSON schema conversion
+## Key Features & Advantages
+
+### 🛠️ **Type-Safe Function Calling**
+- Zod schema-based type-safe function definitions
+- Automatic parameter validation and type inference
+- Extensible tool system architecture
+- Runtime validation with detailed error messages
+
+### 🔧 **OpenAPI Integration**
+- Automatic tool generation from Swagger/OpenAPI specifications
+- Quick AI agent integration with existing REST APIs
+- Type-safe API client generation
+- Dynamic API discovery and tool creation
+
+### 🏗️ **Modern Tool Architecture**
+- Inheritance-based tool system with abstract base classes
+- Modular design for maximum extensibility
+- Plugin-style tool and provider system
+- Multiple protocol support (MCP, OpenAPI, custom schemas)
+
+### 📊 **Schema Validation & Conversion**
+- Automatic Zod to JSON schema transformation
+- Type-safe parameter validation
+- Comprehensive error handling
+- Tool registry for centralized management
 
 ## Modern Tool System
 
 The package provides a modular tool architecture with abstract base classes and specific implementations:
 
-### BaseTool Abstract Class
+### Type-Safe Function Tools with Zod
 
 ```typescript
-import { BaseTool } from '@robota-sdk/tools';
-import { z } from 'zod';
-
-class CustomTool extends BaseTool<{ input: string }, string> {
-  name = 'customTool';
-  description = 'A custom tool example';
-  
-  // Define parameter schema
-  protected defineParametersSchema() {
-    return z.object({
-      input: z.string().describe('Input text to process')
-    });
-  }
-  
-  // Implement execution logic
-  protected async executeImplementation(params: { input: string }): Promise<string> {
-    return `Processed: ${params.input}`;
-  }
-  
-  // Convert to JSON schema
-  toJsonSchema() {
-    return {
-      name: this.name,
-      description: this.description,
-      parameters: {
-        type: 'object',
-        properties: {
-          input: { type: 'string', description: 'Input text to process' }
-        },
-        required: ['input']
-      }
-    };
-  }
-}
-```
-
-### ZodTool for Schema Validation
-
-```typescript
-import { ZodTool } from '@robota-sdk/tools';
-import { z } from 'zod';
-
-const weatherTool = new ZodTool({
-  name: 'getWeather',
-  description: 'Get weather information for a location',
-  parameters: z.object({
-    location: z.string().describe('City name'),
-    unit: z.enum(['celsius', 'fahrenheit']).optional().default('celsius')
-  }),
-  execute: async (params) => {
-    const { location, unit } = params;
-    // Weather API call logic
-    return { temperature: 22, condition: 'Sunny', unit };
-  }
-});
-
-// Convert to JSON schema automatically
-const schema = weatherTool.toJsonSchema();
-```
-
-### Tool Providers
-
-Create tool providers for different schema types:
-
-```typescript
+import { createZodFunctionToolProvider } from '@robota-sdk/tools';
 import { Robota } from '@robota-sdk/core';
-import { 
-  createZodFunctionToolProvider, 
-  createMcpToolProvider,
-  createOpenAPIToolProvider 
-} from '@robota-sdk/tools';
 import { z } from 'zod';
 
-// Zod-based function tools
-const zodProvider = createZodFunctionToolProvider({
+// Create advanced calculator tool
+const calculatorTool = createZodFunctionToolProvider({
   tools: {
     calculate: {
       name: 'calculate',
       description: 'Perform mathematical calculations',
       parameters: z.object({
         operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
-        a: z.number(),
-        b: z.number()
+        a: z.number().describe('First number'),
+        b: z.number().describe('Second number')
       }),
       handler: async ({ operation, a, b }) => {
         switch (operation) {
-          case 'add': return a + b;
-          case 'subtract': return a - b;
-          case 'multiply': return a * b;
-          case 'divide': return a / b;
+          case 'add': return { result: a + b };
+          case 'subtract': return { result: a - b };
+          case 'multiply': return { result: a * b };
+          case 'divide': return { result: a / b };
         }
+      }
+    },
+    getWeather: {
+      name: 'getWeather',
+      description: 'Get weather information for a location',
+      parameters: z.object({
+        location: z.string().describe('City name'),
+        unit: z.enum(['celsius', 'fahrenheit']).optional().default('celsius'),
+        includeForecast: z.boolean().optional().default(false)
+      }),
+      handler: async ({ location, unit, includeForecast }) => {
+        // Weather API integration
+        const result = {
+          location,
+          temperature: 22,
+          condition: 'Sunny',
+          unit
+        };
+        
+        if (includeForecast) {
+          result.forecast = [
+            { day: 'Tomorrow', temp: 24, condition: 'Partly Cloudy' },
+            { day: 'Day After', temp: 20, condition: 'Rainy' }
+          ];
+        }
+        
+        return result;
       }
     }
   }
-});
-
-// MCP (Model Context Protocol) tools
-const mcpProvider = createMcpToolProvider({
-  serverUrl: 'http://localhost:3001',
-  capabilities: ['tools']
-});
-
-// OpenAPI-based tools
-const openApiProvider = createOpenAPIToolProvider({
-  spec: './api-spec.json',
-  baseURL: 'https://api.example.com'
 });
 
 // Use with Robota
@@ -143,75 +110,152 @@ const robota = new Robota({
   aiProviders: { /* AI providers */ },
   currentProvider: 'openai',
   currentModel: 'gpt-4',
-  toolProviders: [zodProvider, mcpProvider, openApiProvider]
+  toolProviders: [calculatorTool],
+  systemPrompt: 'Use the calculator and weather tools to help users.'
+});
+
+const response = await robota.run('Calculate 15 * 7 and get weather for Seoul with forecast');
+```
+
+### OpenAPI Integration
+
+Automatically generate tools from OpenAPI specifications:
+
+```typescript
+import { createOpenAPIToolProvider } from '@robota-sdk/tools';
+
+// Create tools from OpenAPI specification
+const apiToolProvider = createOpenAPIToolProvider({
+  spec: './api-spec.json', // Path to OpenAPI spec
+  baseURL: 'https://api.example.com',
+  authentication: {
+    type: 'bearer',
+    token: process.env.API_TOKEN
+  },
+  includeOperations: ['getUserProfile', 'updateUserData', 'searchProducts'], // Optional: filter operations
+  customHeaders: {
+    'User-Agent': 'Robota-SDK/1.0'
+  }
+});
+
+// Alternative: Load from URL
+const remoteApiProvider = createOpenAPIToolProvider({
+  specUrl: 'https://api.example.com/openapi.json',
+  baseURL: 'https://api.example.com'
+});
+
+const robota = new Robota({
+  aiProviders: { /* AI providers */ },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
+  toolProviders: [apiToolProvider],
+  systemPrompt: 'You can access user data and search products using the API tools.'
+});
+
+const response = await robota.run('Get my user profile and search for laptops under $1000');
+```
+
+### BaseTool Abstract Class
+
+Create custom tools with the modern architecture:
+
+```typescript
+import { BaseTool } from '@robota-sdk/tools';
+import { z } from 'zod';
+
+class WebScrapingTool extends BaseTool<{ url: string; selector?: string }, { content: string; title: string }> {
+  name = 'scrapeWebPage';
+  description = 'Scrape content from a web page';
+  
+  // Define parameter schema
+  protected defineParametersSchema() {
+    return z.object({
+      url: z.string().url().describe('URL to scrape'),
+      selector: z.string().optional().describe('CSS selector for specific content')
+    });
+  }
+  
+  // Implement execution logic
+  protected async executeImplementation(params: { url: string; selector?: string }) {
+    // Web scraping implementation
+    const content = `Scraped content from ${params.url}`;
+    const title = 'Page Title';
+    
+    if (params.selector) {
+      // Apply CSS selector logic
+    }
+    
+    return { content, title };
+  }
+  
+  // Convert to JSON schema automatically
+  toJsonSchema() {
+    return {
+      name: this.name,
+      description: this.description,
+      parameters: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', format: 'uri', description: 'URL to scrape' },
+          selector: { type: 'string', description: 'CSS selector for specific content' }
+        },
+        required: ['url']
+      }
+    };
+  }
+}
+
+// Use custom tool
+const webTool = new WebScrapingTool();
+const customToolProvider = createZodFunctionToolProvider({
+  tools: { scrapeWeb: webTool }
 });
 ```
 
-## Function Creation Utilities
-
-Create functions that AI can invoke with automatic parameter validation:
+### ZodTool for Advanced Validation
 
 ```typescript
-import { createFunction, functionFromCallback } from '@robota-sdk/tools';
+import { ZodTool } from '@robota-sdk/tools';
 import { z } from 'zod';
 
-// Create a function with Zod schema
-const addFunction = createFunction({
-  name: 'add',
-  description: 'Add two numbers',
+const advancedAnalysisTool = new ZodTool({
+  name: 'analyzeData',
+  description: 'Perform advanced data analysis',
   parameters: z.object({
-    a: z.number().describe('First number'),
-    b: z.number().describe('Second number')
+    data: z.array(z.number()).describe('Array of numerical data'),
+    analysisType: z.enum(['mean', 'median', 'mode', 'regression']).default('mean'),
+    options: z.object({
+      precision: z.number().min(1).max(10).default(2),
+      includeVisualization: z.boolean().default(false)
+    }).optional()
   }),
   execute: async (params) => {
-    return { result: params.a + params.b };
+    const { data, analysisType, options = {} } = params;
+    
+    let result: number;
+    switch (analysisType) {
+      case 'mean':
+        result = data.reduce((a, b) => a + b, 0) / data.length;
+        break;
+      case 'median':
+        const sorted = data.sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        result = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        break;
+      // ... other analysis types
+    }
+    
+    return {
+      analysisType,
+      result: Number(result.toFixed(options.precision || 2)),
+      dataPoints: data.length,
+      visualization: options.includeVisualization ? 'Chart generated' : null
+    };
   }
 });
 
-// Convert existing callback to Function
-const multiplyFunction = functionFromCallback(
-  'multiply',
-  (a: number, b: number) => a * b,
-  'Multiply two numbers'
-);
-
-// Function registry for management
-import { FunctionRegistry } from '@robota-sdk/tools';
-
-const registry = new FunctionRegistry();
-registry.register(addFunction.schema, (args) => addFunction.execute(args));
-registry.register(multiplyFunction.schema, (args) => multiplyFunction.execute(args));
-```
-
-## Schema Validation
-
-Type-safe validation with detailed error handling:
-
-```typescript
-import { createFunctionSchema } from '@robota-sdk/tools';
-import { z } from 'zod';
-
-// Convert function definition to Zod schema
-const schema = createFunctionSchema({
-  name: 'processData',
-  parameters: {
-    type: 'object',
-    properties: {
-      data: { type: 'string' },
-      options: { type: 'object' }
-    },
-    required: ['data']
-  }
-});
-
-// Validate parameters
-try {
-  const validatedParams = schema.parse({ data: 'test', options: {} });
-  // Use validated parameters
-} catch (error) {
-  // Handle validation errors
-  console.error('Validation failed:', error);
-}
+// Convert to JSON schema automatically
+const schema = advancedAnalysisTool.toJsonSchema();
 ```
 
 ## Available Tool Types

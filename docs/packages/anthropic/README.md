@@ -2,7 +2,7 @@
 
 [![npm version](https://badge.fury.io/js/%40robota-sdk%2Fanthropic.svg)](https://www.npmjs.com/package/@robota-sdk/anthropic)
 
-Anthropic Claude integration package for Robota SDK.
+Anthropic Claude integration package for Robota SDK - Large context, advanced reasoning with Claude 3.5 Sonnet and Claude 3.
 
 ## Documentation
 
@@ -16,7 +16,31 @@ npm install @robota-sdk/anthropic @robota-sdk/core @anthropic-ai/sdk
 
 ## Overview
 
-`@robota-sdk/anthropic` provides integration with Anthropic's Claude models for Robota SDK. This package allows you to use Claude models within the Robota framework for building AI agents.
+`@robota-sdk/anthropic` provides comprehensive integration with Anthropic's Claude models for Robota SDK. This package allows you to use Claude models with their exceptional large context windows and advanced reasoning capabilities within the Robota framework for building AI agents.
+
+## Key Features
+
+### 🧠 **Advanced Models**
+- **Claude 3.5 Sonnet**: Latest model with enhanced reasoning and coding capabilities
+- **Claude 3 Opus**: Highest intelligence for complex tasks
+- **Claude 3 Sonnet**: Balanced performance and speed
+- **Claude 3 Haiku**: Fast responses for simple tasks
+
+### 📚 **Large Context Support**
+- Large context windows for processing extensive documents
+- Superior document understanding and analysis
+- Enhanced memory for complex conversations
+
+### ⚡ **Real-Time Streaming**
+- Real-time streaming responses for better user experience
+- Chunk-based processing for immediate feedback
+- Background processing and asynchronous responses
+
+### 🛠️ **Advanced Features**
+- Type-safe tool use with Zod schema validation
+- Automatic parameter validation and type inference
+- Comprehensive error handling and logging
+- Dynamic model switching and configuration
 
 ## Basic Usage
 
@@ -44,7 +68,7 @@ const robota = new Robota({
   },
   currentProvider: 'anthropic',
   currentModel: 'claude-3-5-sonnet-20241022',
-  systemPrompt: 'You are Claude, a helpful AI assistant.'
+  systemPrompt: 'You are Claude, a helpful AI assistant created by Anthropic.'
 });
 
 // Run a simple conversation
@@ -52,9 +76,21 @@ const response = await robota.run('Tell me about the benefits of AI assistants')
 console.log(response);
 ```
 
-## Function Calling
+## Streaming Responses
 
-Anthropic provider supports Claude's tool use capabilities through tool providers:
+Experience real-time AI responses with streaming:
+
+```typescript
+// Streaming response for immediate feedback
+const stream = await robota.runStream('Write a detailed analysis of machine learning trends');
+for await (const chunk of stream) {
+  process.stdout.write(chunk.content || '');
+}
+```
+
+## Tool Use (Function Calling)
+
+Anthropic provider supports Claude's advanced tool use capabilities through tool providers:
 
 ```typescript
 import { Robota } from '@robota-sdk/core';
@@ -76,6 +112,22 @@ const toolProvider = createZodFunctionToolProvider({
         // Implement calculation logic
         return { result: eval(params.expression) };
       }
+    },
+    analyzeText: {
+      name: 'analyzeText',
+      description: 'Analyze text for sentiment and key themes',
+      parameters: z.object({
+        text: z.string().describe('Text to analyze'),
+        analysisType: z.enum(['sentiment', 'themes', 'summary']).default('sentiment')
+      }),
+      handler: async ({ text, analysisType }) => {
+        // Implement text analysis logic
+        return { 
+          type: analysisType,
+          result: `Analysis of: ${text.substring(0, 50)}...`,
+          confidence: 0.95
+        };
+      }
     }
   }
 });
@@ -96,7 +148,33 @@ const robota = new Robota({
   toolProviders: [toolProvider]
 });
 
-const response = await robota.run('Calculate 15 * 27 + 42');
+const response = await robota.run('Calculate 15 * 27 + 42 and analyze the sentiment of "I love AI technology"');
+```
+
+## Multi-Provider Setup
+
+Seamlessly switch between Anthropic and other providers:
+
+```typescript
+import { OpenAIProvider } from '@robota-sdk/openai';
+import { GoogleProvider } from '@robota-sdk/google';
+
+const robota = new Robota({
+  aiProviders: {
+    anthropic: anthropicProvider,
+    openai: openaiProvider,
+    google: googleProvider
+  },
+  currentProvider: 'anthropic',
+  currentModel: 'claude-3-5-sonnet-20241022'
+});
+
+// Dynamic provider switching
+robota.setCurrentAI('anthropic', 'claude-3-5-sonnet-20241022');
+const claudeResponse = await robota.run('Provide detailed analysis using Claude');
+
+robota.setCurrentAI('anthropic', 'claude-3-haiku-20240307');
+const haikuResponse = await robota.run('Quick response using Claude Haiku');
 ```
 
 ## Provider Options

@@ -1,14 +1,34 @@
 # @robota-sdk/sessions
 
-Session and chat management for Robota SDK - multi-session support with independent workspaces.
+[![npm version](https://badge.fury.io/js/%40robota-sdk%2Fsessions.svg)](https://www.npmjs.com/package/@robota-sdk/sessions)
+
+Multi-agent session and chat management for Robota SDK - Independent workspaces with conversation persistence.
+
+## Documentation
+
+For full documentation, visit [https://robota.io](https://robota.io)
+
+## Installation
+
+```bash
+npm install @robota-sdk/sessions @robota-sdk/core
+```
 
 ## Overview
 
-The `@robota-sdk/sessions` package provides comprehensive session and chat management capabilities for the Robota SDK ecosystem. It enables you to create, manage, and switch between multiple AI conversation sessions with independent configurations and chat histories.
+The `@robota-sdk/sessions` package provides comprehensive session and chat management capabilities for the Robota SDK ecosystem. It enables you to create, manage, and switch between multiple AI conversation sessions with independent configurations and chat histories, supporting advanced multi-agent workflows.
 
-## Features
+## Key Features & Advantages
 
-- **🔄 Multi-Session Management**: Create and manage multiple AI conversation sessions
+### 👥 **Multi-Agent Management**
+- **Session Management**: Create and manage multiple AI conversation sessions
+- **Independent Workspaces**: Each agent can have its own configuration and chat history
+- **Dynamic Agent Switching**: Seamlessly switch between different agent contexts
+- **Conversation Persistence**: Automatic conversation history tracking and storage
+- **Agent Orchestration**: Coordinate multiple agents for complex workflows
+
+### 🔄 **Advanced Session Features**
+- **Multi-Session Management**: Create and manage multiple AI conversation sessions
 - **💬 Chat History Management**: Automatic conversation history tracking and persistence
 - **⚙️ Independent Configurations**: Each session can have its own AI provider settings
 - **🔀 Session Switching**: Seamlessly switch between different conversation contexts
@@ -16,46 +36,113 @@ The `@robota-sdk/sessions` package provides comprehensive session and chat manag
 - **🛠️ Runtime Configuration**: Dynamic session configuration updates
 - **🔧 TypeScript Support**: Full TypeScript support with comprehensive type definitions
 
-## Installation
-
-```bash
-npm install @robota-sdk/sessions
-```
-
 ## Quick Start
 
 ```typescript
 import { SessionManager } from '@robota-sdk/sessions';
 import { OpenAIProvider } from '@robota-sdk/openai';
+import { AnthropicProvider } from '@robota-sdk/anthropic';
 
-// Create a session manager
+// Create a session manager for multiple agents
 const sessionManager = new SessionManager();
 
-// Create a new session with OpenAI
-const session = sessionManager.createSession({
-  name: 'Customer Support Chat',
+// Create a customer support agent
+const supportAgent = sessionManager.createSession({
+  name: 'Customer Support Agent',
   provider: new OpenAIProvider({
     apiKey: process.env.OPENAI_API_KEY!,
     model: 'gpt-4'
-  })
+  }),
+  systemPrompt: 'You are a helpful customer support agent.'
 });
 
-// Send a message
-const response = await session.sendMessage('Hello, how can I help you today?');
-console.log(response.content);
-
-// Create another session for a different context
-const codeSession = sessionManager.createSession({
-  name: 'Code Assistant',
-  provider: new OpenAIProvider({
-    apiKey: process.env.OPENAI_API_KEY!,
-    model: 'gpt-4',
-    systemPrompt: 'You are an expert programming assistant.'
-  })
+// Create a code review agent
+const codeAgent = sessionManager.createSession({
+  name: 'Code Review Agent',
+  provider: new AnthropicProvider({
+    apiKey: process.env.ANTHROPIC_API_KEY!,
+    model: 'claude-3-5-sonnet-20241022'
+  }),
+  systemPrompt: 'You are an expert code reviewer focused on best practices.'
 });
 
-// Switch between sessions
-sessionManager.setActiveSession(codeSession.id);
+// Switch between agents dynamically
+sessionManager.setActiveSession(supportAgent.id);
+const supportResponse = await supportAgent.sendMessage('I need help with my order');
+
+sessionManager.setActiveSession(codeAgent.id);
+const codeResponse = await codeAgent.sendMessage('Please review this TypeScript code');
+
+// Each agent maintains its own conversation history
+console.log('Support history:', supportAgent.getChatHistory());
+console.log('Code review history:', codeAgent.getChatHistory());
+```
+
+## Multi-Agent Workflows
+
+Coordinate multiple specialized agents for complex tasks:
+
+```typescript
+import { SessionManager } from '@robota-sdk/sessions';
+import { OpenAIProvider } from '@robota-sdk/openai';
+import { AnthropicProvider } from '@robota-sdk/anthropic';
+import { GoogleProvider } from '@robota-sdk/google';
+
+const sessionManager = new SessionManager({
+  maxHistoryLength: 100,
+  autoSave: true,
+  storage: 'memory'
+});
+
+// Create specialized agents for different tasks
+const agents = {
+  // Research agent with large context
+  researcher: sessionManager.createSession({
+    name: 'Research Agent',
+    provider: new AnthropicProvider({
+      model: 'claude-3-5-sonnet-20241022'
+    }),
+    systemPrompt: 'You are a research specialist. Analyze information thoroughly and provide detailed insights.'
+  }),
+
+  // Writing agent with creativity
+  writer: sessionManager.createSession({
+    name: 'Content Writer',
+    provider: new OpenAIProvider({
+      model: 'gpt-4',
+      temperature: 0.8
+    }),
+    systemPrompt: 'You are a creative content writer. Create engaging and well-structured content.'
+  }),
+
+  // Data analyst with multimodal capabilities
+  analyst: sessionManager.createSession({
+    name: 'Data Analyst',
+    provider: new GoogleProvider({
+      model: 'gemini-1.5-pro'
+    }),
+    systemPrompt: 'You are a data analyst. Interpret data and create insights with visualizations.'
+  })
+};
+
+// Workflow coordination
+async function runMultiAgentWorkflow(topic: string) {
+  // Step 1: Research
+  sessionManager.setActiveSession(agents.researcher.id);
+  const research = await agents.researcher.sendMessage(`Research the topic: ${topic}`);
+  
+  // Step 2: Content creation
+  sessionManager.setActiveSession(agents.writer.id);
+  const content = await agents.writer.sendMessage(`Write an article based on this research: ${research.content}`);
+  
+  // Step 3: Data analysis
+  sessionManager.setActiveSession(agents.analyst.id);
+  const analysis = await agents.analyst.sendMessage(`Analyze trends related to: ${topic}`);
+  
+  return { research, content, analysis };
+}
+
+const result = await runMultiAgentWorkflow('AI trends in 2024');
 ```
 
 ## Core Concepts
