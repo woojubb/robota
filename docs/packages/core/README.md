@@ -2,7 +2,7 @@
 
 [![npm version](https://badge.fury.io/js/%40robota-sdk%2Fcore.svg)](https://www.npmjs.com/package/@robota-sdk/core)
 
-Core package for Robota SDK - A TypeScript library for building AI agents with a modular Manager pattern architecture.
+Core package for Robota SDK - A powerful AI agent framework with a modular Manager pattern architecture.
 
 ## Documentation
 
@@ -17,6 +17,34 @@ npm install @robota-sdk/core
 ## Overview
 
 `@robota-sdk/core` provides the foundation for building AI agents with Robota SDK. Built with a clean Manager pattern architecture, it separates concerns across specialized managers while providing a unified API through the main Robota class.
+
+## Key Features & Advantages
+
+### 🚀 **Multi-Provider Support**
+- **OpenAI**: GPT-4, GPT-3.5 - Function calling, streaming, vision support
+- **Anthropic**: Claude 3.5 Sonnet, Claude 3 - Large context, advanced reasoning
+- **Google AI**: Gemini 1.5 Pro, Gemini Flash - Multimodal, long context
+- Seamless switching between providers and dynamic configuration
+
+### ⚡ **Real-Time Streaming Responses**
+- Real-time streaming support across all providers
+- Chunk-based response processing for fast user experience
+- Background processing and asynchronous responses
+
+### 📊 **Analytics & Monitoring**
+- Detailed usage statistics including request count and token usage
+- Real-time limit management (token and request limits)
+- Comprehensive logging system for debugging
+
+### 🏗️ **Modular Architecture**
+- Clean separation of concerns with high extensibility
+- Independent usage of each component
+- Plugin-style tool and provider system
+
+### 🛠️ **Type-Safe Function Calling**
+- Zod schema-based type-safe function definitions
+- Automatic parameter validation and type inference
+- Extensible tool system architecture
 
 ## Architecture Overview
 
