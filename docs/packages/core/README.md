@@ -221,15 +221,6 @@ const robota = new Robota({
 });
 ```
 
-## Migration from Previous Versions
-
-### Key Changes in v0.3.x
-- **Manager Pattern**: Complete refactoring to Manager-based architecture
-- **Enhanced Analytics**: Comprehensive usage tracking and monitoring
-- **Request Limits**: Built-in token and request limit enforcement
-- **Improved Error Handling**: Better error messages and debugging support
-- **API Consistency**: Unified API patterns across all managers
-
 ### Tool Integration
 Tool and function creation utilities are provided by the `@robota-sdk/tools` package:
 - `createZodFunctionToolProvider` - Zod schema-based tools

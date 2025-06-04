@@ -75,19 +75,19 @@ export function delay(ms: number): Promise<void> {
  */
 export function estimateTokenCount(text: string): number {
   // For English, tokens are roughly 1.3 times the number of words
-  // Korean is tokenized by character, so it's close to character count
+  // For other languages, character-based tokenization is used
   // Here we use a combination of word count and character count for simple estimation
 
   // Extract English words
   const englishWords = text.match(/[a-zA-Z]+/g)?.length || 0;
 
-  // Extract Korean characters
-  const koreanChars = text.match(/[가-힣]/g)?.length || 0;
+  // Extract non-ASCII characters (including Korean, Chinese, Japanese, etc.)
+  const nonAsciiChars = text.match(/[^\x00-\x7F]/g)?.length || 0;
 
   // Numbers and special characters
-  const others = text.length - (text.match(/[a-zA-Z가-힣]/g)?.join('').length || 0);
+  const others = text.length - (text.match(/[a-zA-Z\x00-\x7F]/g)?.join('').length || 0);
 
-  return Math.ceil(englishWords * 1.3 + koreanChars + others * 0.5);
+  return Math.ceil(englishWords * 1.3 + nonAsciiChars + others * 0.5);
 }
 
 /**
