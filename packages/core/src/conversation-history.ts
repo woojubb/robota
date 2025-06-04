@@ -2,29 +2,18 @@ import type { FunctionCall, FunctionCallResult } from '@robota-sdk/tools';
 
 /**
  * Universal message role type - Provider-independent neutral role
+ * 
+ * @public
  */
 export type UniversalMessageRole = 'user' | 'assistant' | 'system' | 'tool';
 
 /**
- * Universal message interface - AI Provider-independent message structure
+ * Base message interface with common properties
+ * 
+ * @public
  */
-export interface UniversalMessage {
-    /** Message role */
-    role: UniversalMessageRole;
-
-    /** Message content */
-    content: string;
-
-    /** Message sender name (optional) */
-    name?: string;
-
-    /** Function call information (used in assistant messages) */
-    functionCall?: FunctionCall;
-
-    /** Tool execution result (used in tool messages) */
-    toolResult?: FunctionCallResult;
-
-    /** Message creation time */
+export interface BaseMessage {
+    /** Message creation timestamp */
     timestamp: Date;
 
     /** Additional metadata */
@@ -32,146 +21,584 @@ export interface UniversalMessage {
 }
 
 /**
+ * User message interface - for messages from users/humans
+ * 
+ * @public
+ */
+export interface UserMessage extends BaseMessage {
+    /** Message role - always 'user' */
+    role: 'user';
+
+    /** User message content */
+    content: string;
+
+    /** Optional user identifier */
+    name?: string;
+}
+
+/**
+ * Assistant message interface - for AI assistant responses
+ * 
+ * @public
+ */
+export interface AssistantMessage extends BaseMessage {
+    /** Message role - always 'assistant' */
+    role: 'assistant';
+
+    /** Assistant response content (can be null when making tool calls) */
+    content: string | null;
+
+    /** Function call made by the assistant (if any) - legacy format */
+    functionCall?: FunctionCall;
+
+    /** Tool calls made by the assistant (OpenAI tool calling format) */
+    toolCalls?: Array<{
+        id: string;
+        type: 'function';
+        function: {
+            name: string;
+            arguments: string;
+        };
+    }>;
+}
+
+/**
+ * System message interface - for system instructions and prompts
+ * 
+ * @public
+ */
+export interface SystemMessage extends BaseMessage {
+    /** Message role - always 'system' */
+    role: 'system';
+
+    /** System instruction content */
+    content: string;
+
+    /** Optional system message identifier */
+    name?: string;
+}
+
+/**
+ * Tool message interface - for tool execution results
+ * 
+ * @public
+ */
+export interface ToolMessage extends BaseMessage {
+    /** Message role - always 'tool' */
+    role: 'tool';
+
+    /** Tool execution result summary */
+    content: string;
+
+    /** Name of the tool that was executed (legacy format) */
+    name?: string;
+
+    /** Tool call ID for OpenAI tool calling format */
+    toolCallId?: string;
+
+    /** Complete tool execution result (legacy format) */
+    toolResult?: FunctionCallResult;
+}
+
+/**
+ * Universal message union type - Provider-independent message structure
+ * 
+ * This union type ensures type safety by requiring specific properties
+ * based on the message role, preventing invalid combinations.
+ * 
+ * @example
+ * ```typescript
+ * // Type-safe user message
+ * const userMsg: UniversalMessage = {
+ *   role: 'user',
+ *   content: 'Hello!',
+ *   timestamp: new Date()
+ * };
+ * 
+ * // Type-safe assistant message with function call
+ * const assistantMsg: UniversalMessage = {
+ *   role: 'assistant',
+ *   content: 'I need to call a function',
+ *   functionCall: { name: 'search', arguments: '{"query": "test"}' },
+ *   timestamp: new Date()
+ * };
+ * ```
+ * 
+ * @public
+ */
+export type UniversalMessage = UserMessage | AssistantMessage | SystemMessage | ToolMessage;
+
+/**
+ * Type guard functions for message type checking
+ */
+
+/**
+ * Check if a message is a user message
+ * 
+ * @param message - Message to check
+ * @returns True if the message is a user message
+ * 
+ * @example
+ * ```typescript
+ * if (isUserMessage(message)) {
+ *   // TypeScript knows message is UserMessage here
+ *   console.log(`User said: ${message.content}`);
+ * }
+ * ```
+ */
+export function isUserMessage(message: UniversalMessage): message is UserMessage {
+    return message.role === 'user';
+}
+
+/**
+ * Check if a message is an assistant message
+ * 
+ * @param message - Message to check
+ * @returns True if the message is an assistant message
+ */
+export function isAssistantMessage(message: UniversalMessage): message is AssistantMessage {
+    return message.role === 'assistant';
+}
+
+/**
+ * Check if a message is a system message
+ * 
+ * @param message - Message to check
+ * @returns True if the message is a system message
+ */
+export function isSystemMessage(message: UniversalMessage): message is SystemMessage {
+    return message.role === 'system';
+}
+
+/**
+ * Check if a message is a tool message
+ * 
+ * @param message - Message to check
+ * @returns True if the message is a tool message
+ */
+export function isToolMessage(message: UniversalMessage): message is ToolMessage {
+    return message.role === 'tool';
+}
+
+/**
+ * Message factory functions for creating type-safe messages
+ */
+
+/**
+ * Create a user message
+ * 
+ * @param content - Message content
+ * @param options - Optional message properties
+ * @returns Type-safe user message
+ * 
+ * @example
+ * ```typescript
+ * const message = createUserMessage('Hello!', {
+ *   name: 'john',
+ *   metadata: { sessionId: '123' }
+ * });
+ * ```
+ */
+export function createUserMessage(
+    content: string,
+    options?: { name?: string; metadata?: Record<string, any> }
+): UserMessage {
+    return {
+        role: 'user',
+        content,
+        name: options?.name,
+        timestamp: new Date(),
+        metadata: options?.metadata
+    };
+}
+
+/**
+ * Create an assistant message
+ * 
+ * @param content - Message content (can be null for tool-only messages)
+ * @param options - Optional message properties
+ * @returns Type-safe assistant message
+ */
+export function createAssistantMessage(
+    content: string | null,
+    options?: {
+        functionCall?: FunctionCall;
+        toolCalls?: Array<{
+            id: string;
+            type: 'function';
+            function: {
+                name: string;
+                arguments: string;
+            };
+        }>;
+        metadata?: Record<string, any>;
+    }
+): AssistantMessage {
+    return {
+        role: 'assistant',
+        content,
+        functionCall: options?.functionCall,
+        toolCalls: options?.toolCalls,
+        timestamp: new Date(),
+        metadata: options?.metadata
+    };
+}
+
+/**
+ * Create a system message
+ * 
+ * @param content - Message content
+ * @param options - Optional message properties
+ * @returns Type-safe system message
+ */
+export function createSystemMessage(
+    content: string,
+    options?: { name?: string; metadata?: Record<string, any> }
+): SystemMessage {
+    return {
+        role: 'system',
+        content,
+        name: options?.name,
+        timestamp: new Date(),
+        metadata: options?.metadata
+    };
+}
+
+/**
+ * Create a tool message
+ * 
+ * @param content - Tool execution result content
+ * @param options - Optional message properties (either toolResult for legacy or toolCallId for OpenAI)
+ * @returns Type-safe tool message
+ */
+export function createToolMessage(
+    content: string,
+    options?: {
+        toolResult?: FunctionCallResult;
+        toolCallId?: string;
+        name?: string;
+        metadata?: Record<string, any>;
+    }
+): ToolMessage {
+    return {
+        role: 'tool',
+        content,
+        name: options?.name || options?.toolResult?.name,
+        toolCallId: options?.toolCallId,
+        toolResult: options?.toolResult,
+        timestamp: new Date(),
+        metadata: options?.metadata
+    };
+}
+
+/**
  * Conversation history interface
  * 
- * Interface for managing conversation history, designed in a neutral form independent of AI Provider
+ * Interface for managing conversation history, designed in a provider-independent way.
+ * Provides type-safe methods for adding different message types and querying the history.
+ * 
+ * @example
+ * ```typescript
+ * const history: ConversationHistory = new SimpleConversationHistory();
+ * 
+ * // Add messages using type-safe methods
+ * history.addUserMessage('Hello!');
+ * history.addAssistantMessage('Hi there!');
+ * 
+ * // Query messages with type safety
+ * const userMessages = history.getMessagesByRole('user');
+ * ```
+ * 
+ * @public
  */
 export interface ConversationHistory {
     /**
-     * Add message to conversation history
+     * Add a message to conversation history
+     * 
+     * @param message - Universal message to add
+     * 
+     * @example
+     * ```typescript
+     * const message = createUserMessage('Hello!');
+     * history.addMessage(message);
+     * ```
      */
     addMessage(message: UniversalMessage): void;
 
     /**
      * Add user message (convenience method)
+     * 
+     * @param content - User message content
+     * @param metadata - Optional metadata
+     * 
+     * @example
+     * ```typescript
+     * history.addUserMessage('How are you?', { sessionId: '123' });
+     * ```
      */
     addUserMessage(content: string, metadata?: Record<string, any>): void;
 
     /**
      * Add assistant message (convenience method)
+     * 
+     * @param content - Assistant response content
+     * @param functionCall - Optional function call made by assistant
+     * @param metadata - Optional metadata
+     * 
+     * @example
+     * ```typescript
+     * history.addAssistantMessage('I need to search for that', {
+     *   name: 'search',
+     *   arguments: '{"query": "example"}'
+     * });
+     * ```
      */
     addAssistantMessage(content: string, functionCall?: FunctionCall, metadata?: Record<string, any>): void;
 
     /**
      * Add system message (convenience method)
+     * 
+     * @param content - System instruction content
+     * @param metadata - Optional metadata
+     * 
+     * @example
+     * ```typescript
+     * history.addSystemMessage('You are a helpful assistant.');
+     * ```
      */
     addSystemMessage(content: string, metadata?: Record<string, any>): void;
 
     /**
      * Add tool execution result message (convenience method)
+     * 
+     * @param toolResult - Tool execution result
+     * @param metadata - Optional metadata
+     * 
+     * @example
+     * ```typescript
+     * history.addToolMessage({
+     *   name: 'search',
+     *   result: { results: ['item1', 'item2'] }
+     * });
+     * ```
      */
     addToolMessage(toolResult: FunctionCallResult, metadata?: Record<string, any>): void;
 
     /**
-     * Get all messages
+     * Get all messages in chronological order
+     * 
+     * @returns Array of all messages
      */
     getMessages(): UniversalMessage[];
 
     /**
-     * Get messages by specific role
+     * Get messages filtered by specific role
+     * 
+     * @param role - Message role to filter by
+     * @returns Array of messages with the specified role
+     * 
+     * @example
+     * ```typescript
+     * const userMessages = history.getMessagesByRole('user');
+     * const systemMessages = history.getMessagesByRole('system');
+     * ```
      */
     getMessagesByRole(role: UniversalMessageRole): UniversalMessage[];
 
     /**
-     * Get recent n messages
+     * Get the most recent n messages
+     * 
+     * @param count - Number of recent messages to return
+     * @returns Array of recent messages
+     * 
+     * @example
+     * ```typescript
+     * const lastFiveMessages = history.getRecentMessages(5);
+     * ```
      */
     getRecentMessages(count: number): UniversalMessage[];
 
     /**
-     * Clear conversation history
+     * Clear all conversation history
+     * 
+     * @example
+     * ```typescript
+     * history.clear(); // Remove all messages
+     * ```
      */
     clear(): void;
 
     /**
-     * Return message count
+     * Get total message count
+     * 
+     * @returns Number of messages in history
      */
     getMessageCount(): number;
 }
 
 /**
  * Default conversation history implementation
+ * 
+ * Provides a simple in-memory storage for conversation messages with optional
+ * message count limiting. Supports all message types with type safety.
+ * 
+ * @example
+ * ```typescript
+ * // Basic usage
+ * const history = new SimpleConversationHistory();
+ * history.addUserMessage('Hello!');
+ * history.addAssistantMessage('Hi there!');
+ * 
+ * // With message limit
+ * const limitedHistory = new SimpleConversationHistory({ maxMessages: 10 });
+ * ```
+ * 
+ * @public
  */
 export class SimpleConversationHistory implements ConversationHistory {
+    /** @internal Array storing all messages */
     private messages: UniversalMessage[] = [];
-    private maxMessages: number;
 
+    /** @internal Maximum message count (0 = unlimited) */
+    private readonly maxMessages: number;
+
+    /**
+     * Create a new SimpleConversationHistory instance
+     * 
+     * @param options - Configuration options
+     * @param options.maxMessages - Maximum number of messages to keep (0 = unlimited)
+     * 
+     * @example
+     * ```typescript
+     * // Unlimited messages
+     * const history = new SimpleConversationHistory();
+     * 
+     * // Limited to 50 messages
+     * const limitedHistory = new SimpleConversationHistory({ maxMessages: 50 });
+     * ```
+     */
     constructor(options?: { maxMessages?: number }) {
         this.maxMessages = options?.maxMessages || 0;
     }
 
+    /**
+     * Add a message to conversation history
+     * 
+     * Appends the message to the history and applies message count limits if configured.
+     * System messages are always preserved when applying limits.
+     * 
+     * @param message - Universal message to add
+     */
     addMessage(message: UniversalMessage): void {
         this.messages.push(message);
         this._applyMessageLimit();
     }
 
+    /**
+     * Add user message using type-safe factory
+     * 
+     * @param content - User message content
+     * @param metadata - Optional metadata
+     */
     addUserMessage(content: string, metadata?: Record<string, any>): void {
-        this.addMessage({
-            role: 'user',
-            content,
-            timestamp: new Date(),
-            metadata
-        });
+        this.addMessage(createUserMessage(content, { metadata }));
     }
 
+    /**
+     * Add assistant message using type-safe factory
+     * 
+     * @param content - Assistant response content
+     * @param functionCall - Optional function call made by assistant
+     * @param metadata - Optional metadata
+     */
     addAssistantMessage(content: string, functionCall?: FunctionCall, metadata?: Record<string, any>): void {
-        this.addMessage({
-            role: 'assistant',
-            content,
-            functionCall,
-            timestamp: new Date(),
-            metadata
-        });
+        this.addMessage(createAssistantMessage(content, { functionCall, metadata }));
     }
 
+    /**
+     * Add system message using type-safe factory
+     * 
+     * @param content - System instruction content
+     * @param metadata - Optional metadata
+     */
     addSystemMessage(content: string, metadata?: Record<string, any>): void {
-        this.addMessage({
-            role: 'system',
-            content,
-            timestamp: new Date(),
-            metadata
-        });
+        this.addMessage(createSystemMessage(content, { metadata }));
     }
 
+    /**
+     * Add tool execution result message using type-safe factory
+     * 
+     * @param toolResult - Tool execution result
+     * @param metadata - Optional metadata
+     */
     addToolMessage(toolResult: FunctionCallResult, metadata?: Record<string, any>): void {
-        const content = toolResult.error
-            ? `Tool execution error: ${toolResult.error}`
-            : `Tool result: ${JSON.stringify(toolResult.result)}`;
-
-        this.addMessage({
-            role: 'tool',
-            content,
-            name: toolResult.name,
+        this.addMessage(createToolMessage(toolResult.error ? `Tool execution error: ${toolResult.error}` : `Tool result: ${JSON.stringify(toolResult.result)}`, {
             toolResult,
-            timestamp: new Date(),
+            name: toolResult.name,
             metadata
-        });
+        }));
     }
 
+    /**
+     * Get all messages in chronological order
+     * 
+     * @returns Defensive copy of all messages
+     */
     getMessages(): UniversalMessage[] {
         return [...this.messages];
     }
 
+    /**
+     * Get messages filtered by specific role with type safety
+     * 
+     * @param role - Message role to filter by
+     * @returns Array of messages with the specified role
+     */
     getMessagesByRole(role: UniversalMessageRole): UniversalMessage[] {
         return this.messages.filter(msg => msg.role === role);
     }
 
+    /**
+     * Get the most recent n messages
+     * 
+     * @param count - Number of recent messages to return
+     * @returns Array of recent messages in chronological order
+     */
     getRecentMessages(count: number): UniversalMessage[] {
         return this.messages.slice(-count);
     }
 
+    /**
+     * Get total message count
+     * 
+     * @returns Number of messages currently stored
+     */
     getMessageCount(): number {
         return this.messages.length;
     }
 
+    /**
+     * Clear all conversation history
+     * 
+     * Removes all messages from the history.
+     */
     clear(): void {
         this.messages = [];
     }
 
+    /**
+     * Apply message count limits while preserving system messages
+     * 
+     * When maxMessages is set and exceeded, this method removes older messages
+     * while always preserving system messages which are important for context.
+     * 
+     * @internal
+     */
     private _applyMessageLimit(): void {
         if (this.maxMessages > 0 && this.messages.length > this.maxMessages) {
             // Always keep system messages
-            const systemMessages = this.messages.filter(m => m.role === 'system');
-            const nonSystemMessages = this.messages.filter(m => m.role !== 'system');
+            const systemMessages = this.messages.filter(isSystemMessage);
+            const nonSystemMessages = this.messages.filter(msg => !isSystemMessage(msg));
 
             // Apply limit only to non-system messages
             const remainingCount = this.maxMessages - systemMessages.length;
@@ -185,11 +612,44 @@ export class SimpleConversationHistory implements ConversationHistory {
 
 /**
  * Conversation history implementation that maintains system messages
+ * 
+ * Extends SimpleConversationHistory with automatic system prompt management.
+ * The system prompt is automatically maintained and can be updated dynamically.
+ * 
+ * @example
+ * ```typescript
+ * const history = new PersistentSystemConversationHistory(
+ *   'You are a helpful assistant.',
+ *   { maxMessages: 20 }
+ * );
+ * 
+ * history.addUserMessage('Hello!');
+ * history.updateSystemPrompt('You are a coding expert.');
+ * ```
+ * 
+ * @public
  */
 export class PersistentSystemConversationHistory implements ConversationHistory {
-    private history: SimpleConversationHistory;
+    /** @internal Underlying conversation history */
+    private readonly history: SimpleConversationHistory;
+
+    /** @internal Current system prompt */
     private systemPrompt: string;
 
+    /**
+     * Create a new PersistentSystemConversationHistory instance
+     * 
+     * @param systemPrompt - Initial system prompt to set
+     * @param options - Configuration options passed to underlying SimpleConversationHistory
+     * 
+     * @example
+     * ```typescript
+     * const history = new PersistentSystemConversationHistory(
+     *   'You are an AI assistant specialized in TypeScript development.',
+     *   { maxMessages: 50 }
+     * );
+     * ```
+     */
     constructor(systemPrompt: string, options?: { maxMessages?: number }) {
         this.history = new SimpleConversationHistory(options);
         this.systemPrompt = systemPrompt;
@@ -198,69 +658,142 @@ export class PersistentSystemConversationHistory implements ConversationHistory 
         this.history.addSystemMessage(this.systemPrompt);
     }
 
+    /**
+     * Add a message to conversation history (delegates to underlying history)
+     * 
+     * @param message - Universal message to add
+     */
     addMessage(message: UniversalMessage): void {
         this.history.addMessage(message);
     }
 
+    /**
+     * Add user message (delegates to underlying history)
+     * 
+     * @param content - User message content
+     * @param metadata - Optional metadata
+     */
     addUserMessage(content: string, metadata?: Record<string, any>): void {
         this.history.addUserMessage(content, metadata);
     }
 
+    /**
+     * Add assistant message (delegates to underlying history)
+     * 
+     * @param content - Assistant response content
+     * @param functionCall - Optional function call made by assistant
+     * @param metadata - Optional metadata
+     */
     addAssistantMessage(content: string, functionCall?: FunctionCall, metadata?: Record<string, any>): void {
         this.history.addAssistantMessage(content, functionCall, metadata);
     }
 
+    /**
+     * Add system message (delegates to underlying history)
+     * 
+     * @param content - System instruction content
+     * @param metadata - Optional metadata
+     */
     addSystemMessage(content: string, metadata?: Record<string, any>): void {
         this.history.addSystemMessage(content, metadata);
     }
 
+    /**
+     * Add tool execution result message (delegates to underlying history)
+     * 
+     * @param toolResult - Tool execution result
+     * @param metadata - Optional metadata
+     */
     addToolMessage(toolResult: FunctionCallResult, metadata?: Record<string, any>): void {
         this.history.addToolMessage(toolResult, metadata);
     }
 
+    /**
+     * Get all messages (delegates to underlying history)
+     * 
+     * @returns Array of all messages including system messages
+     */
     getMessages(): UniversalMessage[] {
         return this.history.getMessages();
     }
 
+    /**
+     * Get messages by role (delegates to underlying history)
+     * 
+     * @param role - Message role to filter by
+     * @returns Array of messages with the specified role
+     */
     getMessagesByRole(role: UniversalMessageRole): UniversalMessage[] {
         return this.history.getMessagesByRole(role);
     }
 
+    /**
+     * Get recent messages (delegates to underlying history)
+     * 
+     * @param count - Number of recent messages to return
+     * @returns Array of recent messages
+     */
     getRecentMessages(count: number): UniversalMessage[] {
         return this.history.getRecentMessages(count);
     }
 
+    /**
+     * Get message count (delegates to underlying history)
+     * 
+     * @returns Total number of messages including system messages
+     */
     getMessageCount(): number {
         return this.history.getMessageCount();
     }
 
+    /**
+     * Clear conversation history but preserve system prompt
+     * 
+     * Clears all messages and re-adds the current system prompt.
+     */
     clear(): void {
         this.history.clear();
-        // Add initial system message
         this.history.addSystemMessage(this.systemPrompt);
     }
 
     /**
-     * Update system prompt
+     * Update the system prompt and refresh system messages
+     * 
+     * Removes old system messages, updates the system prompt, and adds
+     * the new system prompt as a system message.
+     * 
+     * @param systemPrompt - New system prompt to set
+     * 
+     * @example
+     * ```typescript
+     * history.updateSystemPrompt('You are now a specialized code reviewer.');
+     * ```
      */
     updateSystemPrompt(systemPrompt: string): void {
         this.systemPrompt = systemPrompt;
 
-        // Keep only non-system messages
-        const nonSystemMessages = this.history.getMessages().filter(m => m.role !== 'system');
-        this.history.clear();
+        // Remove existing system messages
+        const messages = this.history.getMessages();
+        const nonSystemMessages = messages.filter(msg => !isSystemMessage(msg));
 
-        // Add new system message
+        // Clear history and add new system message
+        this.history.clear();
         this.history.addSystemMessage(this.systemPrompt);
 
-        // Add previous messages again
-        for (const message of nonSystemMessages) {
-            this.history.addMessage(message);
-        }
+        // Re-add non-system messages
+        nonSystemMessages.forEach(message => this.history.addMessage(message));
     }
 
     /**
-     * Return current system prompt
+     * Get the current system prompt
+     * 
+     * @returns Current system prompt string
+     * 
+     * @example
+     * ```typescript
+     * const currentPrompt = history.getSystemPrompt();
+     * console.log('Current system prompt:', currentPrompt);
+     * ```
      */
     getSystemPrompt(): string {
         return this.systemPrompt;

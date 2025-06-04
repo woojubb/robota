@@ -41,9 +41,22 @@ export interface OpenAIProviderOptions extends ProviderOptions {
   baseURL?: string;
 
   /**
-   * Response format (default: 'json')
+   * Response format (default: 'text')
+   * - 'text': Plain text response
+   * - 'json_object': Legacy JSON mode (requires system message)
+   * - 'json_schema': Structured Outputs with schema validation
    */
-  responseFormat?: 'json' | 'text';
+  responseFormat?: 'text' | 'json_object' | 'json_schema';
+
+  /**
+   * JSON schema for structured outputs (required when responseFormat is 'json_schema')
+   */
+  jsonSchema?: {
+    name: string;
+    description?: string;
+    schema?: Record<string, unknown>;
+    strict?: boolean;
+  };
 
   /**
    * OpenAI client instance (required)

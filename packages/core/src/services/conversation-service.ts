@@ -126,10 +126,10 @@ export class ConversationService {
     ): Promise<ModelResponse> {
         const { name, arguments: args } = response.functionCall!;
 
-        try {
-            // Parse arguments if string, otherwise use as is
-            const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args;
+        // Parse arguments once at the beginning
+        const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args;
 
+        try {
             // Tool call logging
             if (this.debug) {
                 this.logger.info(`🔧 [Tool Call] ${name}`, parsedArgs);
@@ -143,34 +143,41 @@ export class ConversationService {
                 this.logger.info(`✅ [Tool Result] ${name}`, toolResult);
             }
 
-            // Add function call result to messages
-            const functionResultMessage: UniversalMessage = {
+            // Create assistant message with legacy function_call format (for compatibility)
+            const assistantMessage: UniversalMessage = {
+                role: 'assistant',
+                content: response.content || '',
+                timestamp: new Date(),
+                functionCall: {
+                    name: name,
+                    arguments: parsedArgs
+                }
+            };
+
+            // Create tool response message (for internal history only - filtered out for OpenAI)
+            const toolResponseMessage: UniversalMessage = {
                 role: 'tool',
-                name: name,
                 content: JSON.stringify(toolResult),
                 timestamp: new Date(),
+                name: name,
                 toolResult: {
-                    name,
+                    name: name,
                     result: toolResult
                 }
             };
 
-            // Create new context (original + assistant response + function result)
+            // Create new context with tool result included in the conversation
             const newContext: Context = {
                 ...context,
                 messages: [
                     ...context.messages,
-                    {
-                        role: 'assistant',
-                        content: response.content || '',
-                        functionCall: response.functionCall,
-                        timestamp: new Date()
-                    },
-                    functionResultMessage
+                    assistantMessage,
+                    toolResponseMessage
                 ]
             };
 
             // Generate final response including function result
+            // Tool messages will be filtered out by OpenAI adapter
             const finalResponse = await aiProvider.chat(model, newContext, {
                 ...options,
                 temperature: options.temperature ?? this.temperature,
@@ -182,15 +189,26 @@ export class ConversationService {
         } catch (toolError) {
             logger.error('Error during tool call:', toolError);
 
-            // Add tool call error as function result
+            // Create assistant message with function call
+            const assistantMessage: UniversalMessage = {
+                role: 'assistant',
+                content: response.content || '',
+                timestamp: new Date(),
+                functionCall: {
+                    name: name,
+                    arguments: parsedArgs
+                }
+            };
+
+            // Add tool call error as tool response (for internal history only)
             const errorMessage: UniversalMessage = {
                 role: 'tool',
-                name: name,
                 content: JSON.stringify({ error: toolError instanceof Error ? toolError.message : String(toolError) }),
                 timestamp: new Date(),
+                name: name,
                 toolResult: {
-                    name,
-                    error: toolError instanceof Error ? toolError.message : String(toolError)
+                    name: name,
+                    result: { error: toolError instanceof Error ? toolError.message : String(toolError) }
                 }
             };
 
@@ -198,17 +216,13 @@ export class ConversationService {
                 ...context,
                 messages: [
                     ...context.messages,
-                    {
-                        role: 'assistant',
-                        content: response.content || '',
-                        functionCall: response.functionCall,
-                        timestamp: new Date()
-                    },
+                    assistantMessage,
                     errorMessage
                 ]
             };
 
             // Generate response including error
+            // Tool messages will be filtered out by OpenAI adapter
             const errorResponse = await aiProvider.chat(model, errorContext, {
                 ...options,
                 temperature: options.temperature ?? this.temperature,

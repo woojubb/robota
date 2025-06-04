@@ -26,12 +26,20 @@ export class OpenAIProvider implements AIProvider {
                 ? [{ role: 'system' as const, content: systemPrompt }, ...messages]
                 : messages;
 
-            // Convert messages to OpenAI format
-            const formattedMessages = messagesWithSystem.map((m: any) => ({
-                role: m.role,
-                content: m.content,
-                name: m.name
-            }));
+            // Convert messages to OpenAI format and filter out tool messages
+            const formattedMessages = messagesWithSystem
+                .filter((m: any) => m.role !== 'tool') // Filter out tool messages - they're for internal history only
+                .map((m: any) => ({
+                    role: m.role,
+                    content: m.content,
+                    name: m.name
+                }));
+
+            // Debug: Log the messages being sent to OpenAI
+            console.log('Debug [Core OpenAI Provider] - Messages being sent to OpenAI:');
+            console.log(JSON.stringify(formattedMessages, null, 2));
+            console.log('Original messages count:', messagesWithSystem.length);
+            console.log('Filtered messages count:', formattedMessages.length);
 
             // Configure OpenAI API request options
             const completionOptions: any = {
@@ -92,12 +100,20 @@ export class OpenAIProvider implements AIProvider {
                 ? [{ role: 'system' as const, content: systemPrompt }, ...messages]
                 : messages;
 
-            // Convert messages to OpenAI format
-            const formattedMessages = messagesWithSystem.map((m: any) => ({
-                role: m.role,
-                content: m.content,
-                name: m.name
-            }));
+            // Convert messages to OpenAI format and filter out tool messages
+            const formattedMessages = messagesWithSystem
+                .filter((m: any) => m.role !== 'tool') // Filter out tool messages - they're for internal history only
+                .map((m: any) => ({
+                    role: m.role,
+                    content: m.content,
+                    name: m.name
+                }));
+
+            // Debug: Log the messages being sent to OpenAI
+            console.log('Debug [Core OpenAI Provider Streaming] - Messages being sent to OpenAI:');
+            console.log(JSON.stringify(formattedMessages, null, 2));
+            console.log('Original messages count:', messagesWithSystem.length);
+            console.log('Filtered messages count:', formattedMessages.length);
 
             // Configure OpenAI API request options
             const completionOptions: any = {

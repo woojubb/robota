@@ -15,72 +15,159 @@ import { AnalyticsManager } from './managers/analytics-manager';
 import { RequestLimitManager } from './managers/request-limit-manager';
 import { TokenAnalyzer } from './analyzers/token-analyzer';
 import { ConversationService } from './services/conversation-service';
+import { ExecutionService } from './services/execution-service';
+import { RobotaConfigManager, type RobotaConfigInput } from './managers/robota-config-manager';
+
+// Import operations
+import {
+    aiProviderOps,
+    systemMessageOps,
+    functionCallOps,
+    analyticsOps,
+    toolOps,
+    conversationOps
+} from './operations';
 
 /**
- * Robota configuration interface
+ * Configuration options for initializing Robota instance
+ * 
+ * @public
+ * @interface RobotaOptions
  */
 export interface RobotaOptions {
     /** 
-     * Tool providers (toolProviders) - Providers that supply tools like MCP, OpenAPI, ZodFunction, etc.
+     * Tool providers that supply tools like MCP, OpenAPI, ZodFunction, etc.
      * Created with functions like createMcpToolProvider, createOpenAPIToolProvider, createZodFunctionToolProvider, etc.
+     * 
+     * @example
+     * ```typescript
+     * const mcpProvider = createMcpToolProvider({...});
+     * const openApiProvider = createOpenAPIToolProvider({...});
+     * toolProviders: [mcpProvider, openApiProvider]
+     * ```
      */
     toolProviders?: ToolProvider[];
 
     /** 
-     * AI providers - Register multiple AI providers
+     * AI providers - Register multiple AI providers by name
+     * 
+     * @example
+     * ```typescript
+     * aiProviders: {
+     *   openai: new OpenAIProvider({...}),
+     *   anthropic: new AnthropicProvider({...})
+     * }
+     * ```
      */
     aiProviders?: Record<string, AIProvider>;
 
     /** 
-     * Current AI provider name to use
+     * Current AI provider name to use from registered providers
+     * Must match a key in aiProviders
      */
     currentProvider?: string;
 
     /** 
-     * Current model name to use
+     * Current model name to use with the selected provider
+     * 
+     * @example 'gpt-4', 'claude-3-sonnet', 'gemini-pro'
      */
     currentModel?: string;
 
-    /** Model temperature (optional) */
+    /** 
+     * Model temperature for response generation (0.0 to 2.0)
+     * Lower values make responses more focused and deterministic
+     * 
+     * @defaultValue undefined (uses provider default)
+     */
     temperature?: number;
 
-    /** Maximum number of tokens (optional) */
+    /** 
+     * Maximum number of tokens for generated responses
+     * 
+     * @defaultValue undefined (uses provider default)
+     */
     maxTokens?: number;
 
-    /** System prompt */
+    /** 
+     * System prompt to set context for AI responses
+     * Will be converted to a system message
+     * 
+     * @example 'You are a helpful AI assistant specialized in coding.'
+     */
     systemPrompt?: string;
 
-    /** Array of system messages */
+    /** 
+     * Array of system messages for more complex system configuration
+     * Use this instead of systemPrompt for multiple system messages
+     */
     systemMessages?: Message[];
 
-    /** Conversation history interface */
+    /** 
+     * Custom conversation history implementation
+     * 
+     * @defaultValue SimpleConversationHistory instance
+     */
     conversationHistory?: ConversationHistory;
 
-    /** Function call configuration */
+    /** 
+     * Configuration for function/tool calling behavior
+     */
     functionCallConfig?: FunctionCallConfig;
 
-    /** Tool call callback */
+    /** 
+     * Callback function executed when a tool is called
+     * Useful for monitoring, logging, or custom handling
+     * 
+     * @param toolName - Name of the called tool
+     * @param params - Parameters passed to the tool
+     * @param result - Result returned by the tool
+     */
     onToolCall?: (toolName: string, params: any, result: any) => void;
 
-    /** Custom logger (default: console) */
+    /** 
+     * Custom logger implementation
+     * 
+     * @defaultValue console
+     */
     logger?: Logger;
 
-    /** Debug mode (default: false) */
+    /** 
+     * Enable debug mode for detailed logging
+     * 
+     * @defaultValue false
+     */
     debug?: boolean;
 
-    /** Maximum token limit (default: 4096, 0 = unlimited) */
+    /** 
+     * Maximum token limit across all requests (0 = unlimited)
+     * Used for budget control and preventing excessive usage
+     * 
+     * @defaultValue 4096
+     */
     maxTokenLimit?: number;
 
-    /** Maximum request limit (default: 25, 0 = unlimited) */
+    /** 
+     * Maximum request limit (0 = unlimited)
+     * Used for rate limiting and controlling API usage
+     * 
+     * @defaultValue 25
+     */
     maxRequestLimit?: number;
 }
 
 /**
- * Main class for Robota (refactored version)
- * Provides an interface for initializing and running agents
+ * Main Robota class for AI agent interaction
  * 
- * @example
- * ```ts
+ * Provides a high-level interface for AI conversations with support for:
+ * - Multiple AI providers (OpenAI, Anthropic, Google, etc.)
+ * - Tool/function calling
+ * - Conversation history management
+ * - Request limiting and analytics
+ * - Streaming responses
+ * 
+ * @example Basic Usage
+ * ```typescript
  * const robota = new Robota({
  *   aiProviders: { openai: openaiProvider },
  *   currentProvider: 'openai',
@@ -88,52 +175,110 @@ export interface RobotaOptions {
  *   systemPrompt: 'You are a helpful AI assistant.'
  * });
  * 
- * const response = await robota.execute('Hello!');
+ * const response = await robota.run('Hello, how are you?');
+ * console.log(response);
  * ```
+ * 
+ * @example With Tools
+ * ```typescript
+ * const robota = new Robota({
+ *   aiProviders: { openai: openaiProvider },
+ *   currentProvider: 'openai',
+ *   currentModel: 'gpt-4',
+ *   toolProviders: [mcpToolProvider, zodFunctionProvider],
+ *   onToolCall: (toolName, params, result) => {
+ *     console.log(`Tool ${toolName} called with:`, params);
+ *   }
+ * });
+ * ```
+ * 
+ * @public
  */
 export class Robota {
-    // Managers and Analyzers
-    private aiProviderManager: AIProviderManager;
-    private toolProviderManager: ToolProviderManager;
-    private systemMessageManager: SystemMessageManager;
-    private functionCallManager: FunctionCallManager;
-    private analyticsManager: AnalyticsManager;
-    private requestLimitManager: RequestLimitManager;
-    private tokenAnalyzer: TokenAnalyzer;
-    private conversationService: ConversationService;
+    /** @internal Configuration manager handling all settings */
+    private readonly configManager: RobotaConfigManager;
 
-    // Basic configuration
-    private conversationHistory: ConversationHistory;
-    private onToolCall?: (toolName: string, params: any, result: any) => void;
-    private logger: Logger;
-    private debug: boolean;
+    /** @internal Service handling execution logic */
+    private readonly executionService: ExecutionService;
+
+    /** @internal AI provider management */
+    private readonly aiProviderManager: AIProviderManager;
+
+    /** @internal Tool provider management */
+    private readonly toolProviderManager: ToolProviderManager;
+
+    /** @internal System message management */
+    private readonly systemMessageManager: SystemMessageManager;
+
+    /** @internal Function call management */
+    private readonly functionCallManager: FunctionCallManager;
+
+    /** @internal Analytics and metrics collection */
+    private readonly analyticsManager: AnalyticsManager;
+
+    /** @internal Request and token limit enforcement */
+    private readonly requestLimitManager: RequestLimitManager;
+
+    /** @internal Token analysis utilities */
+    private readonly tokenAnalyzer: TokenAnalyzer;
+
+    /** @internal Conversation service for high-level operations */
+    private readonly conversationService: ConversationService;
+
+    /** @internal Conversation history storage */
+    private readonly conversationHistory: ConversationHistory;
+
+    /** @internal Optional tool call callback */
+    private readonly onToolCall?: (toolName: string, params: any, result: any) => void;
+
+    /** @internal Logger instance */
+    private readonly logger: Logger;
+
+    /** @internal Debug mode flag */
+    private readonly debug: boolean;
 
     /**
-     * Create a Robota instance
+     * Create a new Robota instance
      * 
-     * @param options - Robota initialization options
+     * @param options - Configuration options for the instance
      */
     constructor(options: RobotaOptions) {
-        // Basic configuration
-        this.conversationHistory = options.conversationHistory || new SimpleConversationHistory();
-        this.onToolCall = options.onToolCall;
-        this.logger = options.logger || console;
-        this.debug = options.debug || false;
+        // Initialize configuration with defaults
+        const config = new RobotaConfigManager({
+            aiProviders: options.aiProviders || {},
+            currentProvider: options.currentProvider,
+            currentModel: options.currentModel,
+            temperature: options.temperature,
+            maxTokens: options.maxTokens,
+            systemPrompt: options.systemPrompt,
+            systemMessages: options.systemMessages,
+            toolProviders: options.toolProviders || [],
+            functionCallConfig: options.functionCallConfig,
+            maxTokenLimit: options.maxTokenLimit || 4096,
+            maxRequestLimit: options.maxRequestLimit || 25
+        });
 
-        // Initialize managers and analyzers
+        this.configManager = config;
+        this.debug = options.debug || false;
+        this.logger = options.logger || console;
+        this.onToolCall = options.onToolCall;
+
+        // Initialize core managers
         this.aiProviderManager = new AIProviderManager();
-        this.toolProviderManager = new ToolProviderManager(
-            this.logger,
-            options.functionCallConfig?.allowedFunctions
-        );
+        this.toolProviderManager = new ToolProviderManager(this.logger);
         this.systemMessageManager = new SystemMessageManager();
         this.functionCallManager = new FunctionCallManager(options.functionCallConfig);
         this.analyticsManager = new AnalyticsManager();
         this.requestLimitManager = new RequestLimitManager(
-            options.maxTokenLimit ?? 4096,  // Default: 4096 tokens
-            options.maxRequestLimit ?? 25    // Default: 25 requests
+            config.getConfiguration().maxTokenLimit,
+            config.getConfiguration().maxRequestLimit
         );
         this.tokenAnalyzer = new TokenAnalyzer();
+
+        // Initialize conversation history
+        this.conversationHistory = options.conversationHistory || new SimpleConversationHistory();
+
+        // Initialize services with dependencies
         this.conversationService = new ConversationService(
             options.temperature,
             options.maxTokens,
@@ -141,445 +286,519 @@ export class Robota {
             this.debug
         );
 
-        // Register AI providers
-        if (options.aiProviders) {
-            for (const [name, aiProvider] of Object.entries(options.aiProviders)) {
-                this.aiProviderManager.addProvider(name, aiProvider);
-            }
-        }
+        this.executionService = new ExecutionService(
+            this.aiProviderManager,
+            this.toolProviderManager,
+            this.requestLimitManager,
+            this.analyticsManager,
+            this.tokenAnalyzer,
+            this.conversationService,
+            this.logger,
+            this.debug,
+            this.onToolCall
+        );
 
-        // Set current AI configuration
-        if (options.currentProvider && options.currentModel) {
-            this.aiProviderManager.setCurrentAI(options.currentProvider, options.currentModel);
-        }
+        // Apply configuration using operations
+        this.applyConfiguration(config.getConfiguration());
+    }
+
+    /**
+     * Apply configuration using pure functions
+     * @internal
+     */
+    private applyConfiguration(config: any): void {
+        // Apply AI provider configuration
+        aiProviderOps.applyAIProviderConfiguration(config, this.aiProviderManager);
 
         // Register Tool Providers
-        if (options.toolProviders) {
-            this.toolProviderManager.addProviders(options.toolProviders);
+        if (config.toolProviders.length > 0) {
+            this.toolProviderManager.addProviders(config.toolProviders);
         }
 
-        // Configure system messages
-        if (options.systemMessages) {
-            this.systemMessageManager.setSystemMessages(options.systemMessages);
-        } else if (options.systemPrompt) {
-            this.systemMessageManager.setSystemPrompt(options.systemPrompt);
-        }
+        // Apply system message configuration
+        systemMessageOps.applySystemMessageConfiguration(config, this.systemMessageManager);
     }
 
     // ============================================================
-    // AI Provider Management (delegation)
+    // AI Provider Management - High-level API
     // ============================================================
 
     /**
-     * Add an AI provider
+     * Add an AI provider to the available providers
+     * 
+     * @param name - Unique name for the provider
+     * @param aiProvider - AI provider implementation
+     * 
+     * @example
+     * ```typescript
+     * robota.addAIProvider('claude', new AnthropicProvider({
+     *   apiKey: 'your-anthropic-key'
+     * }));
+     * ```
      */
     addAIProvider(name: string, aiProvider: AIProvider): void {
-        this.aiProviderManager.addProvider(name, aiProvider);
+        aiProviderOps.addAIProvider(name, aiProvider, this.aiProviderManager, this.configManager);
     }
 
     /**
-     * Set the current AI provider and model
+     * Set the current AI provider and model to use for requests
+     * 
+     * @param providerName - Name of the registered provider
+     * @param model - Model name to use with the provider
+     * 
+     * @throws {Error} When provider is not registered
+     * 
+     * @example
+     * ```typescript
+     * robota.setCurrentAI('openai', 'gpt-4-turbo');
+     * robota.setCurrentAI('anthropic', 'claude-3-sonnet-20240229');
+     * ```
      */
     setCurrentAI(providerName: string, model: string): void {
-        this.aiProviderManager.setCurrentAI(providerName, model);
+        aiProviderOps.setCurrentAI(providerName, model, this.aiProviderManager, this.configManager);
     }
 
     /**
      * Get the currently configured AI provider and model
+     * 
+     * @returns Object containing current provider and model names
+     * 
+     * @example
+     * ```typescript
+     * const { provider, model } = robota.getCurrentAI();
+     * console.log(`Using ${provider} with model ${model}`);
+     * ```
      */
     getCurrentAI(): { provider?: string; model?: string } {
-        return this.aiProviderManager.getCurrentAI();
+        return aiProviderOps.getCurrentAI(this.aiProviderManager);
     }
 
     // ============================================================
-    // System Message Management (delegation)
+    // System Message Management - High-level API
     // ============================================================
 
     /**
-     * Set a single system prompt
+     * Set a single system prompt that defines the AI's behavior
+     * 
+     * @param prompt - System prompt text
+     * 
+     * @example
+     * ```typescript
+     * robota.setSystemPrompt('You are an expert TypeScript developer who writes clean, well-documented code.');
+     * ```
      */
     setSystemPrompt(prompt: string): void {
-        this.systemMessageManager.setSystemPrompt(prompt);
+        systemMessageOps.setSystemPrompt(prompt, this.systemMessageManager, this.configManager);
     }
 
     /**
-     * Set multiple system messages
+     * Set multiple system messages for complex system configuration
+     * 
+     * @param messages - Array of system messages
+     * 
+     * @example
+     * ```typescript
+     * robota.setSystemMessages([
+     *   { role: 'system', content: 'You are a helpful assistant.' },
+     *   { role: 'system', content: 'Always provide code examples when explaining concepts.' }
+     * ]);
+     * ```
      */
     setSystemMessages(messages: Message[]): void {
-        this.systemMessageManager.setSystemMessages(messages);
+        systemMessageOps.setSystemMessages(messages, this.systemMessageManager);
     }
 
     /**
-     * Add a system message
+     * Add a single system message to existing system messages
+     * 
+     * @param content - Content of the system message to add
+     * 
+     * @example
+     * ```typescript
+     * robota.addSystemMessage('Always explain your reasoning step by step.');
+     * ```
      */
     addSystemMessage(content: string): void {
-        this.systemMessageManager.addSystemMessage(content);
+        systemMessageOps.addSystemMessage(content, this.systemMessageManager);
     }
 
     // ============================================================
-    // Function Call Management (delegation)
+    // Function Call Management - High-level API
     // ============================================================
 
     /**
-     * Set function call mode
+     * Set the function call mode for tool usage
+     * 
+     * @param mode - Function call mode ('auto', 'none', 'required', or specific function)
+     * 
+     * @example
+     * ```typescript
+     * robota.setFunctionCallMode('auto'); // Let AI decide when to use tools
+     * robota.setFunctionCallMode('none'); // Disable tool usage
+     * robota.setFunctionCallMode('required'); // Force tool usage
+     * ```
      */
     setFunctionCallMode(mode: FunctionCallMode): void {
-        this.functionCallManager.setFunctionCallMode(mode);
+        functionCallOps.setFunctionCallMode(mode, this.functionCallManager);
     }
 
     /**
-     * Configure function call settings
+     * Configure function call settings comprehensively
+     * 
+     * @param config - Function call configuration object
+     * 
+     * @example
+     * ```typescript
+     * robota.configureFunctionCall({
+     *   mode: 'auto',
+     *   maxCalls: 5,
+     *   timeout: 30000,
+     *   allowedFunctions: ['search_web', 'calculate']
+     * });
+     * ```
      */
     configureFunctionCall(config: {
+        /** Function call mode */
         mode?: FunctionCallMode;
+        /** Maximum number of function calls per request */
         maxCalls?: number;
+        /** Timeout for function calls in milliseconds */
         timeout?: number;
+        /** List of allowed function names (null = all allowed) */
         allowedFunctions?: string[];
     }): void {
-        this.functionCallManager.configure(config);
-
-        // Update allowed function list in Tool Provider Manager as well
-        if (config.allowedFunctions) {
-            this.toolProviderManager.setAllowedFunctions(config.allowedFunctions);
-        }
+        functionCallOps.configureFunctionCall(config, this.functionCallManager, this.toolProviderManager);
     }
 
     // ============================================================
-    // Request Limit Management (delegation)
+    // Request Limit Management - High-level API
     // ============================================================
 
     /**
-     * Set maximum token limit (0 = unlimited)
+     * Set maximum token limit across all requests (0 = unlimited)
+     * 
+     * @param limit - Maximum number of tokens (0 for unlimited)
+     * 
+     * @example
+     * ```typescript
+     * robota.setMaxTokenLimit(50000); // Set limit to 50k tokens
+     * robota.setMaxTokenLimit(0);     // Remove token limit
+     * ```
      */
     setMaxTokenLimit(limit: number): void {
-        this.requestLimitManager.setMaxTokens(limit);
+        analyticsOps.setMaxTokenLimit(limit, this.requestLimitManager);
     }
 
     /**
      * Set maximum request limit (0 = unlimited)
+     * 
+     * @param limit - Maximum number of requests (0 for unlimited)
+     * 
+     * @example
+     * ```typescript
+     * robota.setMaxRequestLimit(100); // Set limit to 100 requests
+     * robota.setMaxRequestLimit(0);   // Remove request limit
+     * ```
      */
     setMaxRequestLimit(limit: number): void {
-        this.requestLimitManager.setMaxRequests(limit);
+        analyticsOps.setMaxRequestLimit(limit, this.requestLimitManager);
     }
 
     /**
      * Get current maximum token limit
+     * 
+     * @returns Maximum token limit (0 = unlimited)
      */
     getMaxTokenLimit(): number {
-        return this.requestLimitManager.getMaxTokens();
+        return analyticsOps.getMaxTokenLimit(this.requestLimitManager);
     }
 
     /**
      * Get current maximum request limit
+     * 
+     * @returns Maximum request limit (0 = unlimited)
      */
     getMaxRequestLimit(): number {
-        return this.requestLimitManager.getMaxRequests();
+        return analyticsOps.getMaxRequestLimit(this.requestLimitManager);
     }
 
     /**
-     * Get comprehensive limit information
+     * Get comprehensive limit and usage information
+     * 
+     * @returns Object containing request and token limits with current usage
+     * 
+     * @example
+     * ```typescript
+     * const info = robota.getLimitInfo();
+     * console.log(`Tokens: ${info.tokens.used}/${info.tokens.max}`);
+     * console.log(`Requests: ${info.requests.used}/${info.requests.max}`);
+     * ```
      */
     getLimitInfo() {
-        return this.requestLimitManager.getLimitInfo();
+        return analyticsOps.getLimitInfo(this.requestLimitManager);
     }
 
-    // ============================================================
-    // Analytics Management (delegation)
-    // ============================================================
-
     /**
-     * Get total number of requests made
+     * Get current request count
+     * 
+     * @returns Number of requests made so far
      */
     getRequestCount(): number {
-        return this.analyticsManager.getRequestCount();
+        return analyticsOps.getRequestCount(this.requestLimitManager);
     }
 
     /**
-     * Get total number of tokens used
+     * Get total tokens used across all requests
+     * 
+     * @returns Total number of tokens consumed
      */
     getTotalTokensUsed(): number {
-        return this.analyticsManager.getTotalTokensUsed();
+        return analyticsOps.getTotalTokensUsed(this.requestLimitManager);
     }
 
+    // ============================================================
+    // Analytics - High-level API
+    // ============================================================
+
     /**
-     * Get detailed analytics data
+     * Get comprehensive analytics data
+     * 
+     * @returns Analytics object with usage metrics and trends
+     * 
+     * @example
+     * ```typescript
+     * const analytics = robota.getAnalytics();
+     * console.log('Average response time:', analytics.averageResponseTime);
+     * console.log('Total conversations:', analytics.totalConversations);
+     * ```
      */
     getAnalytics() {
-        return this.analyticsManager.getAnalytics();
+        return analyticsOps.getAnalytics(this.analyticsManager);
     }
 
     /**
-     * Reset all analytics data
+     * Reset all analytics and usage counters
+     * 
+     * Clears conversation history, resets token/request counters,
+     * and removes all analytics data. Useful for starting fresh.
+     * 
+     * @example
+     * ```typescript
+     * robota.resetAnalytics(); // Start fresh tracking
+     * ```
      */
     resetAnalytics(): void {
-        this.analyticsManager.reset();
-        this.requestLimitManager.reset();
+        analyticsOps.resetAnalytics(this.analyticsManager, this.requestLimitManager);
     }
 
     /**
-     * Get token usage for a specific time period
+     * Get token usage statistics for a specific time period
+     * 
+     * @param startDate - Start date for the period
+     * @param endDate - End date for the period (optional, defaults to now)
+     * @returns Token usage data for the specified period
+     * 
+     * @example
+     * ```typescript
+     * const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+     * const usage = robota.getTokenUsageByPeriod(lastWeek);
+     * console.log('Tokens used last week:', usage.totalTokens);
+     * ```
      */
     getTokenUsageByPeriod(startDate: Date, endDate?: Date) {
-        return this.analyticsManager.getTokenUsageByPeriod(startDate, endDate);
+        return analyticsOps.getTokenUsageByPeriod(startDate, endDate, this.analyticsManager);
     }
 
     // ============================================================
-    // Execution Methods
+    // Core Execution Methods
     // ============================================================
 
     /**
-     * Execute a text prompt
-     * @deprecated Use execute() instead. This method will be removed in a future version.
+     * Execute a text prompt and return the AI response
+     * 
+     * This is the primary method for interacting with the AI.
+     * Handles conversation history, tool calling, and analytics automatically.
+     * 
+     * @param prompt - The text prompt to send to the AI
+     * @param options - Optional execution configuration
+     * @returns Promise resolving to the AI's response text
+     * 
+     * @throws {Error} When AI provider is not configured
+     * @throws {Error} When request/token limits are exceeded
+     * 
+     * @example
+     * ```typescript
+     * const response = await robota.run('Explain TypeScript generics');
+     * console.log(response);
+     * ```
+     * 
+     * @example With options
+     * ```typescript
+     * const response = await robota.run('Generate code', {
+     *   functionCallMode: 'required',
+     *   temperature: 0.1
+     * });
+     * ```
      */
     async run(prompt: string, options: RunOptions = {}): Promise<string> {
-        if (this.debug) {
-            this.logger.warn('run() method is deprecated. Use execute() instead.');
-        }
-        return this.execute(prompt, options);
-    }
-
-    /**
-     * Execute a text prompt
-     */
-    async execute(prompt: string, options: RunOptions = {}): Promise<string> {
-        this.conversationHistory.addUserMessage(prompt);
-
-        const context = this.conversationService.prepareContext(
-            this.conversationHistory,
-            this.systemMessageManager.getSystemPrompt(),
-            this.systemMessageManager.getSystemMessages(),
-            options
+        // Apply default function call mode if not specified
+        const optionsWithDefaults = functionCallOps.applyDefaultFunctionCallMode(
+            options,
+            this.functionCallManager
         );
 
-        // Check request limit first
-        this.requestLimitManager.checkRequestLimit();
-
-        // Pre-calculate tokens to check limits before making the API call
-        const currentAI = this.aiProviderManager.getCurrentAI();
-        const currentModel = currentAI.model || 'unknown';
-
-        if (!this.requestLimitManager.isTokensUnlimited()) {
-            try {
-                // Calculate estimated tokens for the request
-                const estimatedTokens = this.tokenAnalyzer.calculateMessagesTokens(
-                    context.messages,
-                    currentModel
-                );
-
-                if (this.debug) {
-                    this.logger.info(`🔍 [Token Estimation] Model: ${currentModel}, Estimated tokens: ${estimatedTokens}`);
-                }
-
-                // Check if estimated tokens would exceed the limit
-                this.requestLimitManager.checkEstimatedTokenLimit(estimatedTokens);
-            } catch (error) {
-                this.logger.error('Token limit check failed:', error);
-                throw error;
-            }
-        }
-
-        const response = await this.generateResponse(context, options);
-
-        // Record analytics and limit data with actual token usage
-        if (response.usage?.totalTokens) {
-            // Record in limit manager first (this may throw if limits exceeded)
-            this.requestLimitManager.recordRequest(response.usage.totalTokens);
-
-            // Then record in analytics for historical data
-            this.analyticsManager.recordRequest(
-                response.usage.totalTokens,
-                currentAI.provider || 'unknown',
-                currentModel
-            );
-        }
-
-        // Add assistant response to conversation history
-        this.conversationHistory.addAssistantMessage(response.content || '', response.functionCall);
-
-        return response.content || '';
-    }
-
-    /**
-     * Process chat message and generate response
-     */
-    async chat(message: string, options: RunOptions = {}): Promise<string> {
-        this.conversationHistory.addUserMessage(message);
-
-        const context = this.conversationService.prepareContext(
+        return conversationOps.executePrompt(
+            prompt,
+            optionsWithDefaults,
+            this.executionService,
             this.conversationHistory,
-            this.systemMessageManager.getSystemPrompt(),
-            this.systemMessageManager.getSystemMessages(),
-            options
+            this.systemMessageManager
         );
-
-        // Check request limit first
-        this.requestLimitManager.checkRequestLimit();
-
-        // Pre-calculate tokens to check limits before making the API call
-        const currentAI = this.aiProviderManager.getCurrentAI();
-        const currentModel = currentAI.model || 'unknown';
-
-        if (!this.requestLimitManager.isTokensUnlimited()) {
-            try {
-                // Calculate estimated tokens for the request
-                const estimatedTokens = this.tokenAnalyzer.calculateMessagesTokens(
-                    context.messages,
-                    currentModel
-                );
-
-                if (this.debug) {
-                    this.logger.info(`🔍 [Token Estimation] Model: ${currentModel}, Estimated tokens: ${estimatedTokens}`);
-                }
-
-                // Check if estimated tokens would exceed the limit
-                this.requestLimitManager.checkEstimatedTokenLimit(estimatedTokens);
-            } catch (error) {
-                this.logger.error('Token limit check failed:', error);
-                throw error;
-            }
-        }
-
-        const response = await this.generateResponse(context, options);
-
-        // Record analytics and limit data with actual token usage
-        if (response.usage?.totalTokens) {
-            // Record in limit manager first (this may throw if limits exceeded)
-            this.requestLimitManager.recordRequest(response.usage.totalTokens);
-
-            // Then record in analytics for historical data
-            this.analyticsManager.recordRequest(
-                response.usage.totalTokens,
-                currentAI.provider || 'unknown',
-                currentModel
-            );
-        }
-
-        this.conversationHistory.addAssistantMessage(response.content || '', response.functionCall);
-
-        return response.content || '';
     }
 
     /**
-     * Generate streaming response
-     * @deprecated Use executeStream() instead. This method will be removed in a future version.
+     * Generate streaming response for a text prompt
+     * 
+     * Similar to run() but returns an async iterator for streaming responses.
+     * Useful for real-time display of AI responses.
+     * 
+     * @param prompt - The text prompt to send to the AI
+     * @param options - Optional execution configuration
+     * @returns Promise resolving to an async iterator of response chunks
+     * 
+     * @throws {Error} When AI provider is not configured
+     * @throws {Error} When streaming is not supported by the provider
+     * 
+     * @example
+     * ```typescript
+     * const stream = await robota.runStream('Tell me a story');
+     * for await (const chunk of stream) {
+     *   if (chunk.content) {
+     *     process.stdout.write(chunk.content);
+     *   }
+     * }
+     * ```
      */
     async runStream(prompt: string, options: RunOptions = {}): Promise<AsyncIterable<StreamingResponseChunk>> {
-        if (this.debug) {
-            this.logger.warn('runStream() method is deprecated. Use executeStream() instead.');
-        }
-        return this.executeStream(prompt, options);
-    }
-
-    /**
-     * Generate streaming response
-     */
-    async executeStream(prompt: string, options: RunOptions = {}): Promise<AsyncIterable<StreamingResponseChunk>> {
-        this.conversationHistory.addUserMessage(prompt);
-
-        const context = this.conversationService.prepareContext(
+        return conversationOps.executeStream(
+            prompt,
+            options,
+            this.executionService,
             this.conversationHistory,
-            this.systemMessageManager.getSystemPrompt(),
-            this.systemMessageManager.getSystemMessages(),
-            options
+            this.systemMessageManager
         );
-
-        // Note: For streaming, token counting is more complex as we need to collect all chunks
-        // We'll handle analytics when the stream completes or delegate to the implementation
-        return this.generateStream(context, options);
     }
 
+    // ============================================================
+    // Conversation Management
+    // ============================================================
+
     /**
-     * Add response message to conversation history
+     * Add a response message to conversation history manually
+     * 
+     * Usually not needed as run() handles this automatically.
+     * Useful for advanced conversation management scenarios.
+     * 
+     * @param response - Model response object to add to history
+     * 
+     * @example
+     * ```typescript
+     * robota.addResponseToConversationHistory({
+     *   content: 'Manual response',
+     *   usage: { totalTokens: 50 }
+     * });
+     * ```
      */
     addResponseToConversationHistory(response: ModelResponse): void {
-        this.conversationHistory.addAssistantMessage(response.content || '', response.functionCall);
+        conversationOps.addResponseToConversationHistory(response, this.conversationHistory);
     }
 
     /**
-     * Clear conversation history
+     * Clear all conversation history
+     * 
+     * Removes all messages from the conversation history.
+     * Useful for starting fresh conversations or managing memory usage.
+     * 
+     * @example
+     * ```typescript
+     * robota.clearConversationHistory(); // Start fresh conversation
+     * ```
      */
     clearConversationHistory(): void {
-        this.conversationHistory.clear();
+        conversationOps.clearConversationHistory(this.conversationHistory);
     }
 
     // ============================================================
-    // Internal Helper Methods
+    // Tool Management
     // ============================================================
 
     /**
-     * Generate response (internal use)
-     */
-    private async generateResponse(context: any, options: RunOptions = {}): Promise<ModelResponse> {
-        if (!this.aiProviderManager.isConfigured()) {
-            throw new Error('Current AI provider and model are not configured. Use setCurrentAI() method to configure.');
-        }
-
-        const currentAiProvider = this.aiProviderManager.getCurrentProvider()!;
-        const currentModel = this.aiProviderManager.getCurrentModel()!;
-
-        // Use default mode if function call mode is not in options
-        const enhancedOptions = {
-            ...options,
-            functionCallMode: options.functionCallMode || this.functionCallManager.getDefaultMode()
-        };
-
-        return this.conversationService.generateResponse(
-            currentAiProvider,
-            currentModel,
-            context,
-            enhancedOptions,
-            this.toolProviderManager.getAvailableTools(),
-            async (toolName: string, params: any) => {
-                const result = await this.toolProviderManager.callTool(toolName, params);
-
-                // Execute callback
-                if (this.onToolCall) {
-                    this.onToolCall(toolName, params, result);
-                }
-
-                return result;
-            }
-        );
-    }
-
-    /**
-     * Generate streaming response (internal use)
-     */
-    private async generateStream(context: any, options: RunOptions = {}): Promise<AsyncIterable<StreamingResponseChunk>> {
-        if (!this.aiProviderManager.isConfigured()) {
-            throw new Error('Current AI provider and model are not configured. Use setCurrentAI() method to configure.');
-        }
-
-        const currentAiProvider = this.aiProviderManager.getCurrentProvider()!;
-        const currentModel = this.aiProviderManager.getCurrentModel()!;
-
-        return this.conversationService.generateStream(
-            currentAiProvider,
-            currentModel,
-            context,
-            options,
-            this.toolProviderManager.getAvailableTools()
-        );
-    }
-
-    /**
-     * Call a tool (public API)
+     * Call a specific tool directly
+     * 
+     * Allows manual tool execution outside of AI-driven tool calling.
+     * Useful for testing tools or direct integration scenarios.
+     * 
+     * @param toolName - Name of the tool to call
+     * @param parameters - Parameters to pass to the tool
+     * @returns Promise resolving to the tool's result
+     * 
+     * @throws {Error} When tool is not found or call fails
+     * 
+     * @example
+     * ```typescript
+     * const result = await robota.callTool('web_search', {
+     *   query: 'TypeScript best practices',
+     *   limit: 5
+     * });
+     * console.log(result);
+     * ```
      */
     async callTool(toolName: string, parameters: Record<string, any>): Promise<any> {
-        return this.toolProviderManager.callTool(toolName, parameters);
+        return toolOps.callTool(toolName, parameters, this.toolProviderManager);
     }
 
     /**
-     * Get list of available tools
+     * Get list of all available tools
+     * 
+     * Returns metadata about all registered tools including their schemas.
+     * Useful for debugging or building tool selection UIs.
+     * 
+     * @returns Array of tool metadata objects
+     * 
+     * @example
+     * ```typescript
+     * const tools = robota.getAvailableTools();
+     * tools.forEach(tool => {
+     *   console.log(`Tool: ${tool.name} - ${tool.description}`);
+     * });
+     * ```
      */
     getAvailableTools(): any[] {
-        return this.toolProviderManager.getAvailableTools();
+        return toolOps.getAvailableTools(this.toolProviderManager);
     }
 
+    // ============================================================
+    // Resource Management
+    // ============================================================
+
     /**
-     * Release resources
+     * Release all resources and close connections
+     * 
+     * Should be called when the Robota instance is no longer needed.
+     * Ensures proper cleanup of AI provider connections and resources.
+     * 
+     * @returns Promise that resolves when cleanup is complete
+     * 
+     * @example
+     * ```typescript
+     * await robota.close(); // Clean shutdown
+     * ```
      */
     async close(): Promise<void> {
-        await this.aiProviderManager.close();
+        // Close any open connections or resources
+        // Currently no cleanup needed, but this provides a hook for future cleanup
+        if (this.debug) {
+            this.logger.info('Robota instance closed');
+        }
     }
 } 

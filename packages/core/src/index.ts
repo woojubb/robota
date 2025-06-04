@@ -22,12 +22,21 @@ export type {
 // Conversation History
 export {
     SimpleConversationHistory,
-    PersistentSystemConversationHistory
+    PersistentSystemConversationHistory,
+    isUserMessage,
+    isAssistantMessage,
+    isSystemMessage,
+    isToolMessage
 } from './conversation-history';
 export type {
     ConversationHistory,
     UniversalMessage,
-    UniversalMessageRole
+    UniversalMessageRole,
+    UserMessage,
+    AssistantMessage,
+    SystemMessage,
+    ToolMessage,
+    BaseMessage
 } from './conversation-history';
 
 // Managers (available for direct external use when needed)

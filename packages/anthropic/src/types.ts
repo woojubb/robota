@@ -3,6 +3,9 @@ import Anthropic from '@anthropic-ai/sdk';
 
 /**
  * Anthropic provider options
+ * 
+ * Note: Anthropic API doesn't support response format configuration.
+ * JSON output can be requested through prompt instructions.
  */
 export interface AnthropicProviderOptions extends ProviderOptions {
     /**
