@@ -1,9 +1,9 @@
 /**
  * 03-api-integration.ts
  * 
- * 이 예제는 Robota와 외부 API를 통합하는 방법을 보여줍니다:
- * - 외부 API 호출을 위한 도구 구현
- * - API 결과를 처리하고 응답하는 방법
+ * This example demonstrates how to integrate Robota with external APIs:
+ * - Implementing tools for external API calls
+ * - Processing API results and generating responses
  */
 
 import { Robota } from '@robota-sdk/core';
@@ -13,40 +13,40 @@ import OpenAI from 'openai';
 import { z } from 'zod';
 import dotenv from 'dotenv';
 
-// 환경 변수 로드
+// Load environment variables
 dotenv.config();
 
 async function main() {
     try {
-        console.log("===== 외부 API 통합 예제 =====");
+        console.log("===== External API Integration Example =====");
 
-        // API 키 확인
+        // Check API key
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
-            throw new Error('OPENAI_API_KEY 환경 변수가 필요합니다');
+            throw new Error('OPENAI_API_KEY environment variable is required');
         }
 
-        // OpenAI 클라이언트 생성
+        // Create OpenAI client
         const openaiClient = new OpenAI({ apiKey });
 
-        // 환율 변환 API 도구 정의
+        // Define exchange rate API tool
         const exchangeRateTool = {
             name: 'getExchangeRate',
-            description: '두 통화 간의 환율 정보를 조회합니다',
+            description: 'Get exchange rate information between two currencies',
             parameters: z.object({
-                from_currency: z.string().describe('변환할 통화 코드 (예: USD, EUR, KRW)'),
-                to_currency: z.string().describe('대상 통화 코드 (예: USD, EUR, KRW)'),
-                amount: z.number().optional().describe('변환할 금액 (기본값: 1)')
+                from_currency: z.string().describe('Source currency code (e.g., USD, EUR, KRW)'),
+                to_currency: z.string().describe('Target currency code (e.g., USD, EUR, KRW)'),
+                amount: z.number().optional().describe('Amount to convert (default: 1)')
             }),
             handler: async (params: { [key: string]: any }) => {
                 const from = params.from_currency.toUpperCase();
                 const to = params.to_currency.toUpperCase();
                 const amount = params.amount || 1;
 
-                console.log(`환율 조회: ${from} -> ${to}, 금액: ${amount}`);
+                console.log(`Fetching exchange rate: ${from} -> ${to}, amount: ${amount}`);
 
                 try {
-                    // 모의 환율 데이터 (실제로는 API 호출)
+                    // Mock exchange rate data (in real implementation, call actual API)
                     const exchangeRates: Record<string, Record<string, number>> = {
                         'USD': { 'EUR': 0.92, 'KRW': 1350.45, 'JPY': 154.32, 'GBP': 0.78 },
                         'EUR': { 'USD': 1.09, 'KRW': 1470.23, 'JPY': 168.75, 'GBP': 0.85 },
@@ -57,7 +57,7 @@ async function main() {
 
                     if (!exchangeRates[from] || !exchangeRates[from][to]) {
                         return {
-                            error: `지원되지 않는 통화 변환: ${from} -> ${to}`,
+                            error: `Unsupported currency conversion: ${from} -> ${to}`,
                             supported_currencies: Object.keys(exchangeRates).join(', ')
                         };
                     }
@@ -73,27 +73,27 @@ async function main() {
                         converted_amount: convertedAmount
                     };
                 } catch (error) {
-                    return { error: `환율 조회 실패: ${(error as Error).message}` };
+                    return { error: `Exchange rate fetch failed: ${(error as Error).message}` };
                 }
             }
         };
 
-        // 주식 시세 조회 API 도구 정의
+        // Define stock quote API tool
         const stockQuoteTool = {
             name: 'getStockQuote',
-            description: '주식 심볼에 대한 현재 시세를 조회합니다',
+            description: 'Get current stock price for a given symbol',
             parameters: z.object({
-                symbol: z.string().describe('주식 심볼 (예: AAPL, MSFT, GOOG)'),
-                include_details: z.boolean().optional().default(false).describe('추가 세부 정보 포함 여부')
+                symbol: z.string().describe('Stock symbol (e.g., AAPL, MSFT, GOOG)'),
+                include_details: z.boolean().optional().default(false).describe('Whether to include additional details')
             }),
             handler: async (params: { [key: string]: any }) => {
                 const symbol = params.symbol.toUpperCase();
                 const includeDetails = params.include_details || false;
 
-                console.log(`주식 시세 조회: ${symbol}, 상세정보: ${includeDetails}`);
+                console.log(`Fetching stock quote: ${symbol}, details: ${includeDetails}`);
 
                 try {
-                    // 모의 주식 데이터 (실제로는 주식 API 호출)
+                    // Mock stock data (in real implementation, call actual stock API)
                     const stocks: Record<string, any> = {
                         'AAPL': { price: 182.63, change: 1.25, change_percent: 0.69, volume: 52_500_000, company: 'Apple Inc.' },
                         'MSFT': { price: 410.34, change: -2.45, change_percent: -0.59, volume: 28_300_000, company: 'Microsoft Corporation' },
@@ -105,14 +105,14 @@ async function main() {
 
                     if (!stocks[symbol]) {
                         return {
-                            error: `주식 심볼을 찾을 수 없음: ${symbol}`,
+                            error: `Stock symbol not found: ${symbol}`,
                             available_symbols: Object.keys(stocks).join(', ')
                         };
                     }
 
                     const stockData = stocks[symbol];
 
-                    // 기본 정보 반환
+                    // Return basic information
                     const result: Record<string, any> = {
                         symbol: symbol,
                         price: stockData.price,
@@ -121,7 +121,7 @@ async function main() {
                         company: stockData.company
                     };
 
-                    // 추가 세부 정보 요청 시 포함
+                    // Include additional details if requested
                     if (includeDetails) {
                         result.volume = stockData.volume;
                         result.market_cap = Math.round(stockData.price * (stockData.volume * 10));
@@ -131,12 +131,12 @@ async function main() {
 
                     return result;
                 } catch (error) {
-                    return { error: `주식 시세 조회 실패: ${(error as Error).message}` };
+                    return { error: `Stock quote fetch failed: ${(error as Error).message}` };
                 }
             }
         };
 
-        // 도구 제공자 생성
+        // Create tool provider
         const toolProvider = createZodFunctionToolProvider({
             tools: {
                 getExchangeRate: exchangeRateTool,
@@ -144,59 +144,61 @@ async function main() {
             }
         });
 
-        // OpenAI 제공자 생성
+        // Create OpenAI provider
         const aiProvider = new OpenAIProvider({
             model: 'gpt-3.5-turbo',
             client: openaiClient
         });
 
-        // Robota 인스턴스 생성
+        // Create Robota instance
         const robota = new Robota({
-            aiClient: aiProvider,
-            provider: toolProvider,
-            systemPrompt: '당신은 금융 정보를 제공하는 어시스턴트입니다. 사용자의 질문에 적절한 도구를 사용하여 환율과 주식 정보를 정확하게 알려주세요.'
+            aiProviders: { 'openai': aiProvider },
+            currentProvider: 'openai',
+            currentModel: 'gpt-3.5-turbo',
+            toolProviders: [toolProvider],
+            systemPrompt: 'You are a financial information assistant. Use appropriate tools to provide accurate exchange rate and stock information in response to user questions.'
         });
 
-        // 테스트 질문들
+        // Test questions
         const questions = [
-            '달러를 원화로 바꾸면 얼마예요?',
-            '100 유로는 몇 달러인가요?',
-            '애플 주식 현재 가격이 얼마죠?',
-            '테슬라와 마이크로소프트 주가를 비교해서 알려줘',
-            '애플 주식에 대해 모든 정보를 알려주세요'
+            'How much is 1 USD in KRW?',
+            'What is 100 EUR in USD?',
+            'What is the current Apple stock price?',
+            'Compare Tesla and Microsoft stock prices',
+            'Tell me everything about Apple stock'
         ];
 
-        // 순차적으로 질문 처리
+        // Process questions sequentially
         for (const question of questions) {
-            console.log(`\n사용자: ${question}`);
+            console.log(`\nUser: ${question}`);
             try {
                 const response = await robota.run(question);
-                console.log(`어시스턴트: ${response}`);
+                console.log(`Assistant: ${response}`);
             } catch (err) {
-                console.error(`오류 발생: ${err}`);
+                console.error(`Error occurred: ${err}`);
             }
         }
 
-        // 스트리밍 예제
-        console.log("\n----- 스트리밍 응답 예제 -----");
-        console.log("사용자: 애플과 구글 주식을 비교하고 50,000원을 달러로 환전하면 얼마인지 계산해줘.");
-        console.log("어시스턴트: ");
+        // Streaming example
+        console.log("\n----- Streaming Response Example -----");
+        console.log("User: Compare Apple and Google stocks and calculate how much $1000 would be in KRW.");
+        console.log("Assistant: ");
 
         try {
-            const stream = await robota.runStream("애플과 구글 주식을 비교하고 50,000원을 달러로 환전하면 얼마인지 계산해줘.");
+            const stream = await robota.runStream("Compare Apple and Google stocks and calculate how much $1000 would be in KRW.");
             for await (const chunk of stream) {
                 process.stdout.write(chunk.content || "");
             }
             console.log('\n');
         } catch (err) {
-            console.error("스트리밍 응답 오류:", err);
+            console.error("Streaming response error:", err);
         }
 
-        console.log("===== 외부 API 통합 예제 완료 =====");
+        console.log("===== External API Integration Example Complete =====");
     } catch (error) {
-        console.error("오류 발생:", error);
+        console.error("Error occurred:", error);
     }
 }
 
-// 실행
+// Execute
 main().catch(console.error); 
