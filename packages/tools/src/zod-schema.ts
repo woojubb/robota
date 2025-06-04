@@ -15,25 +15,7 @@ import { z } from 'zod';
  * @param schema - 변환할 Zod 객체 스키마
  * @returns JSON 스키마 객체
  * 
- * @example
- * ```typescript
- * const userSchema = z.object({
- *   name: z.string().describe('사용자 이름'),
- *   age: z.number().min(0).describe('사용자 나이'),
- *   email: z.string().email().optional().describe('이메일 주소')
- * });
- * 
- * const jsonSchema = zodToJsonSchema(userSchema);
- * // {
- * //   type: 'object',
- * //   properties: {
- * //     name: { type: 'string', description: '사용자 이름' },
- * //     age: { type: 'number', description: '사용자 나이' },
- * //     email: { type: 'string', description: '이메일 주소' }
- * //   },
- * //   required: ['name', 'age']
- * // }
- * ```
+ * @see {@link ../../apps/examples/02-functions | Function Tool Examples}
  */
 export function zodToJsonSchema(schema: z.ZodObject<z.ZodRawShape>): {
     type: string;

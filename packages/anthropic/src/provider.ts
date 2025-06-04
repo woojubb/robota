@@ -14,23 +14,10 @@ import { AnthropicConversationAdapter } from './adapter';
 /**
  * Anthropic provider implementation for Robota
  * 
- * Provides integration with Anthropic's Claude models and other services.
+ * Provides integration with Anthropic's Claude models.
  * Implements the universal AIProvider interface for consistent usage across providers.
  * 
- * @example
- * ```typescript
- * import Anthropic from '@anthropic-ai/sdk';
- * 
- * const client = new Anthropic({
- *   apiKey: 'your-anthropic-api-key'
- * });
- * 
- * const provider = new AnthropicProvider({
- *   client,
- *   model: 'claude-3-sonnet-20240229',
- *   temperature: 0.7
- * });
- * ```
+ * @see {@link ../../../apps/examples/03-integrations | Provider Integration Examples}
  * 
  * @public
  */
@@ -59,16 +46,6 @@ export class AnthropicProvider implements AIProvider {
      * @param options - Configuration options for the Anthropic provider
      * 
      * @throws {Error} When client is not provided in options
-     * 
-     * @example
-     * ```typescript
-     * const provider = new AnthropicProvider({
-     *   client: new Anthropic({ apiKey: 'your-key' }),
-     *   model: 'claude-3-opus-20240229',
-     *   temperature: 0.8,
-     *   maxTokens: 4096
-     * });
-     * ```
      */
     constructor(options: AnthropicProviderOptions) {
         this.options = {
@@ -99,21 +76,6 @@ export class AnthropicProvider implements AIProvider {
      * @throws {Error} When context is invalid
      * @throws {Error} When messages array is invalid
      * @throws {Error} When Anthropic API call fails
-     * 
-     * @example
-     * ```typescript
-     * const response = await provider.chat('claude-3-sonnet-20240229', {
-     *   messages: [
-     *     { role: 'user', content: 'Hello, how are you?' }
-     *   ],
-     *   systemPrompt: 'You are a helpful assistant.'
-     * }, {
-     *   temperature: 0.7,
-     *   maxTokens: 1000
-     * });
-     * 
-     * console.log(response.content);
-     * ```
      */
     async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
         // Validate context parameter
@@ -170,23 +132,6 @@ export class AnthropicProvider implements AIProvider {
      * @throws {Error} When context is invalid
      * @throws {Error} When messages array is invalid
      * @throws {Error} When Anthropic streaming API call fails
-     * 
-     * @example
-     * ```typescript
-     * const stream = provider.chatStream('claude-3-sonnet-20240229', {
-     *   messages: [{ role: 'user', content: 'Tell me a story' }]
-     * });
-     * 
-     * for await (const chunk of stream) {
-     *   if (chunk.content) {
-     *     process.stdout.write(chunk.content);
-     *   }
-     *   if (chunk.isComplete) {
-     *     console.log('\nStream completed');
-     *     break;
-     *   }
-     * }
-     * ```
      */
     async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
         // Validate context parameter
@@ -326,11 +271,6 @@ export class AnthropicProvider implements AIProvider {
      * Anthropic client doesn't require explicit cleanup, so this is a no-op.
      * 
      * @returns Promise that resolves when cleanup is complete
-     * 
-     * @example
-     * ```typescript
-     * await provider.close(); // Clean shutdown
-     * ```
      */
     async close(): Promise<void> {
         // Anthropic client doesn't have explicit close method

@@ -13,31 +13,9 @@ import type { ToolInterface } from './interfaces';
  * Tool registry class
  * 
  * @class ToolRegistry
- * @description
- * Manages a collection of tools with registration, retrieval, and organization capabilities.
+ * @description Manages a collection of tools with registration, retrieval, and organization capabilities.
  * 
- * @example
- * ```typescript
- * import { ToolRegistry, ZodTool } from '@robota-sdk/tools';
- * import { z } from 'zod';
- * 
- * const registry = new ToolRegistry();
- * 
- * const mathTool = new ZodTool({
- *   name: 'add',
- *   description: 'Add two numbers',
- *   category: 'math',
- *   parameters: z.object({
- *     a: z.number(),
- *     b: z.number()
- *   }),
- *   execute: async ({ a, b }) => ({ status: 'success', data: a + b })
- * });
- * 
- * registry.register(mathTool);
- * const tool = registry.get('add');
- * const mathTools = registry.getByCategory('math');
- * ```
+ * @see {@link ../../../../apps/examples/02-functions | Function Tool Examples}
  */
 export class ToolRegistry {
     /**

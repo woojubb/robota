@@ -101,28 +101,12 @@ export interface ToolMessage extends BaseMessage {
 }
 
 /**
- * Universal message union type - Provider-independent message structure
+ * Universal message type covering all possible message variations
  * 
  * This union type ensures type safety by requiring specific properties
  * based on the message role, preventing invalid combinations.
  * 
- * @example
- * ```typescript
- * // Type-safe user message
- * const userMsg: UniversalMessage = {
- *   role: 'user',
- *   content: 'Hello!',
- *   timestamp: new Date()
- * };
- * 
- * // Type-safe assistant message with function call
- * const assistantMsg: UniversalMessage = {
- *   role: 'assistant',
- *   content: 'I need to call a function',
- *   functionCall: { name: 'search', arguments: '{"query": "test"}' },
- *   timestamp: new Date()
- * };
- * ```
+ * @see {@link ../../apps/examples/04-sessions | Session and Conversation Examples}
  * 
  * @public
  */
@@ -137,14 +121,6 @@ export type UniversalMessage = UserMessage | AssistantMessage | SystemMessage | 
  * 
  * @param message - Message to check
  * @returns True if the message is a user message
- * 
- * @example
- * ```typescript
- * if (isUserMessage(message)) {
- *   // TypeScript knows message is UserMessage here
- *   console.log(`User said: ${message.content}`);
- * }
- * ```
  */
 export function isUserMessage(message: UniversalMessage): message is UserMessage {
     return message.role === 'user';
@@ -190,14 +166,6 @@ export function isToolMessage(message: UniversalMessage): message is ToolMessage
  * @param content - Message content
  * @param options - Optional message properties
  * @returns Type-safe user message
- * 
- * @example
- * ```typescript
- * const message = createUserMessage('Hello!', {
- *   name: 'john',
- *   metadata: { sessionId: '123' }
- * });
- * ```
  */
 export function createUserMessage(
     content: string,
@@ -297,17 +265,7 @@ export function createToolMessage(
  * Interface for managing conversation history, designed in a provider-independent way.
  * Provides type-safe methods for adding different message types and querying the history.
  * 
- * @example
- * ```typescript
- * const history: ConversationHistory = new SimpleConversationHistory();
- * 
- * // Add messages using type-safe methods
- * history.addUserMessage('Hello!');
- * history.addAssistantMessage('Hi there!');
- * 
- * // Query messages with type safety
- * const userMessages = history.getMessagesByRole('user');
- * ```
+ * @see {@link ../../apps/examples/04-sessions | Session and Conversation Examples}
  * 
  * @public
  */
@@ -316,12 +274,6 @@ export interface ConversationHistory {
      * Add a message to conversation history
      * 
      * @param message - Universal message to add
-     * 
-     * @example
-     * ```typescript
-     * const message = createUserMessage('Hello!');
-     * history.addMessage(message);
-     * ```
      */
     addMessage(message: UniversalMessage): void;
 
@@ -330,11 +282,6 @@ export interface ConversationHistory {
      * 
      * @param content - User message content
      * @param metadata - Optional metadata
-     * 
-     * @example
-     * ```typescript
-     * history.addUserMessage('How are you?', { sessionId: '123' });
-     * ```
      */
     addUserMessage(content: string, metadata?: Record<string, any>): void;
 
@@ -344,14 +291,6 @@ export interface ConversationHistory {
      * @param content - Assistant response content
      * @param functionCall - Optional function call made by assistant
      * @param metadata - Optional metadata
-     * 
-     * @example
-     * ```typescript
-     * history.addAssistantMessage('I need to search for that', {
-     *   name: 'search',
-     *   arguments: '{"query": "example"}'
-     * });
-     * ```
      */
     addAssistantMessage(content: string, functionCall?: FunctionCall, metadata?: Record<string, any>): void;
 
@@ -360,11 +299,6 @@ export interface ConversationHistory {
      * 
      * @param content - System instruction content
      * @param metadata - Optional metadata
-     * 
-     * @example
-     * ```typescript
-     * history.addSystemMessage('You are a helpful assistant.');
-     * ```
      */
     addSystemMessage(content: string, metadata?: Record<string, any>): void;
 
@@ -373,14 +307,6 @@ export interface ConversationHistory {
      * 
      * @param toolResult - Tool execution result
      * @param metadata - Optional metadata
-     * 
-     * @example
-     * ```typescript
-     * history.addToolMessage({
-     *   name: 'search',
-     *   result: { results: ['item1', 'item2'] }
-     * });
-     * ```
      */
     addToolMessage(toolResult: FunctionCallResult, metadata?: Record<string, any>): void;
 
@@ -396,12 +322,6 @@ export interface ConversationHistory {
      * 
      * @param role - Message role to filter by
      * @returns Array of messages with the specified role
-     * 
-     * @example
-     * ```typescript
-     * const userMessages = history.getMessagesByRole('user');
-     * const systemMessages = history.getMessagesByRole('system');
-     * ```
      */
     getMessagesByRole(role: UniversalMessageRole): UniversalMessage[];
 
@@ -410,21 +330,11 @@ export interface ConversationHistory {
      * 
      * @param count - Number of recent messages to return
      * @returns Array of recent messages
-     * 
-     * @example
-     * ```typescript
-     * const lastFiveMessages = history.getRecentMessages(5);
-     * ```
      */
     getRecentMessages(count: number): UniversalMessage[];
 
     /**
      * Clear all conversation history
-     * 
-     * @example
-     * ```typescript
-     * history.clear(); // Remove all messages
-     * ```
      */
     clear(): void;
 
@@ -442,16 +352,7 @@ export interface ConversationHistory {
  * Provides a simple in-memory storage for conversation messages with optional
  * message count limiting. Supports all message types with type safety.
  * 
- * @example
- * ```typescript
- * // Basic usage
- * const history = new SimpleConversationHistory();
- * history.addUserMessage('Hello!');
- * history.addAssistantMessage('Hi there!');
- * 
- * // With message limit
- * const limitedHistory = new SimpleConversationHistory({ maxMessages: 10 });
- * ```
+ * @see {@link ../../apps/examples/04-sessions | Session and Conversation Examples}
  * 
  * @public
  */
@@ -467,15 +368,6 @@ export class SimpleConversationHistory implements ConversationHistory {
      * 
      * @param options - Configuration options
      * @param options.maxMessages - Maximum number of messages to keep (0 = unlimited)
-     * 
-     * @example
-     * ```typescript
-     * // Unlimited messages
-     * const history = new SimpleConversationHistory();
-     * 
-     * // Limited to 50 messages
-     * const limitedHistory = new SimpleConversationHistory({ maxMessages: 50 });
-     * ```
      */
     constructor(options?: { maxMessages?: number }) {
         this.maxMessages = options?.maxMessages || 0;
@@ -616,16 +508,7 @@ export class SimpleConversationHistory implements ConversationHistory {
  * Extends SimpleConversationHistory with automatic system prompt management.
  * The system prompt is automatically maintained and can be updated dynamically.
  * 
- * @example
- * ```typescript
- * const history = new PersistentSystemConversationHistory(
- *   'You are a helpful assistant.',
- *   { maxMessages: 20 }
- * );
- * 
- * history.addUserMessage('Hello!');
- * history.updateSystemPrompt('You are a coding expert.');
- * ```
+ * @see {@link ../../apps/examples/04-sessions | Session and Conversation Examples}
  * 
  * @public
  */
@@ -641,14 +524,6 @@ export class PersistentSystemConversationHistory implements ConversationHistory 
      * 
      * @param systemPrompt - Initial system prompt to set
      * @param options - Configuration options passed to underlying SimpleConversationHistory
-     * 
-     * @example
-     * ```typescript
-     * const history = new PersistentSystemConversationHistory(
-     *   'You are an AI assistant specialized in TypeScript development.',
-     *   { maxMessages: 50 }
-     * );
-     * ```
      */
     constructor(systemPrompt: string, options?: { maxMessages?: number }) {
         this.history = new SimpleConversationHistory(options);
@@ -763,11 +638,6 @@ export class PersistentSystemConversationHistory implements ConversationHistory 
      * the new system prompt as a system message.
      * 
      * @param systemPrompt - New system prompt to set
-     * 
-     * @example
-     * ```typescript
-     * history.updateSystemPrompt('You are now a specialized code reviewer.');
-     * ```
      */
     updateSystemPrompt(systemPrompt: string): void {
         this.systemPrompt = systemPrompt;
@@ -788,12 +658,6 @@ export class PersistentSystemConversationHistory implements ConversationHistory 
      * Get the current system prompt
      * 
      * @returns Current system prompt string
-     * 
-     * @example
-     * ```typescript
-     * const currentPrompt = history.getSystemPrompt();
-     * console.log('Current system prompt:', currentPrompt);
-     * ```
      */
     getSystemPrompt(): string {
         return this.systemPrompt;

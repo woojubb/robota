@@ -6,30 +6,7 @@
  * Modern tool system with inheritance-based architecture.
  * Provides base class functionality and schema-specific implementations.
  * 
- * @example
- * ```typescript
- * import { ZodTool, McpTool, OpenApiTool, ToolRegistry } from '@robota-sdk/tools';
- * import { z } from 'zod';
- * 
- * // Zod-based tool
- * const zodTool = new ZodTool({
- *   name: 'calculator',
- *   description: 'Perform calculations',
- *   parameters: z.object({
- *     operation: z.enum(['add', 'subtract']),
- *     a: z.number(),
- *     b: z.number()
- *   }),
- *   execute: async (params) => {
- *     const result = params.operation === 'add' ? params.a + params.b : params.a - params.b;
- *     return { status: 'success', data: result };
- *   }
- * });
- * 
- * // Tool registry
- * const registry = new ToolRegistry();
- * registry.register(zodTool);
- * ```
+ * @see {@link ../../../apps/examples/02-functions | Function Tool Examples}
  */
 
 // Modern tool implementations

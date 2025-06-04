@@ -15,45 +15,12 @@ import type { OpenApiToolOptions } from './interfaces';
  * 
  * @class OpenApiTool
  * @extends BaseTool
- * @description
- * Tool that uses OpenAPI specification schema format for parameter definition.
+ * @description Tool that uses OpenAPI specification schema format for parameter definition.
  * 
  * @template TParams - Tool parameter type
  * @template TResult - Tool result type
  * 
- * @example
- * ```typescript
- * import { OpenApiTool } from '@robota-sdk/tools';
- * 
- * const apiTool = new OpenApiTool({
- *   name: 'userInfo',
- *   description: 'Get user information by ID',
- *   category: 'api',
- *   parameters: {
- *     type: 'object',
- *     properties: {
- *       userId: {
- *         type: 'string',
- *         description: 'Unique user identifier'
- *       },
- *       includeProfile: {
- *         type: 'boolean',
- *         description: 'Whether to include detailed profile information',
- *         default: false
- *       }
- *     },
- *     required: ['userId']
- *   },
- *   execute: async (params) => {
- *     // API call logic
- *     const userInfo = { id: params.userId, name: 'John Doe' };
- *     return {
- *       status: 'success',
- *       data: userInfo
- *     };
- *   }
- * });
- * ```
+ * @see {@link ../../../../apps/examples/03-integrations/03-api-integration.ts | API Integration Example}
  */
 export class OpenApiTool<TParams = any, TResult = any> extends BaseTool<TParams, TResult> {
     /**

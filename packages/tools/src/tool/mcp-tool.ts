@@ -21,37 +21,7 @@ import type { McpToolOptions } from './interfaces';
  * @template TParams - Tool parameter type
  * @template TResult - Tool result type
  * 
- * @example
- * ```typescript
- * import { McpTool } from '@robota-sdk/tools';
- * 
- * const mcpTool = new McpTool({
- *   name: 'calculateSum',
- *   description: 'Calculate the sum of two numbers',
- *   category: 'math',
- *   parameters: {
- *     type: 'object',
- *     properties: {
- *       a: {
- *         type: 'number',
- *         description: 'First number'
- *       },
- *       b: {
- *         type: 'number',
- *         description: 'Second number'
- *       }
- *     },
- *     required: ['a', 'b']
- *   },
- *   execute: async (params) => {
- *     const result = params.a + params.b;
- *     return {
- *       status: 'success',
- *       data: { sum: result }
- *     };
- *   }
- * });
- * ```
+ * @see {@link ../../../../apps/examples/03-integrations/01-mcp-client.ts | MCP Integration Example}
  */
 export class McpTool<TParams = any, TResult = any> extends BaseTool<TParams, TResult> {
     /**
