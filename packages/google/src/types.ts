@@ -16,6 +16,15 @@ export interface GoogleProviderOptions {
     /** Maximum number of tokens */
     maxTokens?: number;
 
-    /** Response format */
-    responseFormat?: string;
+    /** 
+     * Response MIME type
+     * - 'text/plain': Plain text response (default)
+     * - 'application/json': JSON response format
+     */
+    responseMimeType?: 'text/plain' | 'application/json';
+
+    /** 
+     * Response schema for JSON output (only used when responseMimeType is 'application/json')
+     */
+    responseSchema?: Record<string, unknown>;
 } 

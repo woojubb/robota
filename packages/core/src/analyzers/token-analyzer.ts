@@ -40,7 +40,8 @@ export class TokenAnalyzer {
                 const mappedModel = modelMapping[model] || model;
 
                 try {
-                    encoding = encoding_for_model(mappedModel as any);
+                    // Type assertion with proper error handling
+                    encoding = encoding_for_model(mappedModel as Parameters<typeof encoding_for_model>[0]);
                 } catch (error) {
                     // Fall back to cl100k_base encoding for unknown models
                     encoding = get_encoding('cl100k_base');

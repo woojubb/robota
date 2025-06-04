@@ -13,36 +13,76 @@ import { logger } from '@robota-sdk/core';
 import { OpenAIConversationAdapter } from './adapter';
 
 /**
- * OpenAI provider implementation
+ * OpenAI provider implementation for Robota
  * 
- * Implements the AIProvider interface to integrate with Robota.
+ * Provides integration with OpenAI's GPT models and other services.
+ * Implements the universal AIProvider interface for consistent usage across providers.
+ * 
+ * @example
+ * ```typescript
+ * import OpenAI from 'openai';
+ * 
+ * const client = new OpenAI({
+ *   apiKey: 'your-openai-api-key'
+ * });
+ * 
+ * const provider = new OpenAIProvider({
+ *   client,
+ *   temperature: 0.7,
+ *   maxTokens: 2048
+ * });
+ * ```
+ * 
+ * @public
  */
 export class OpenAIProvider implements AIProvider {
   /**
-   * Provider name
+   * Provider identifier name
+   * @readonly
    */
-  public name: string = 'openai';
+  public readonly name: string = 'openai';
 
   /**
    * OpenAI client instance
+   * @internal
    */
-  private client: OpenAI;
+  private readonly client: OpenAI;
 
   /**
-   * Client type
+   * Client type identifier
+   * @readonly
    */
-  public type: string = 'openai';
+  public readonly type: string = 'openai';
 
   /**
-   * Client instance
+   * OpenAI client instance (alias for backwards compatibility)
+   * @readonly
+   * @deprecated Use the private client property instead
    */
-  public instance: OpenAI;
+  public readonly instance: OpenAI;
 
   /**
-   * Provider options
+   * Provider configuration options
+   * @readonly
    */
-  public options: OpenAIProviderOptions;
+  public readonly options: OpenAIProviderOptions;
 
+  /**
+   * Create a new OpenAI provider instance
+   * 
+   * @param options - Configuration options for the OpenAI provider
+   * 
+   * @throws {Error} When client is not provided in options
+   * 
+   * @example
+   * ```typescript
+   * const provider = new OpenAIProvider({
+   *   client: new OpenAI({ apiKey: 'your-key' }),
+   *   temperature: 0.8,
+   *   maxTokens: 4096
+   * });
+   * ```
+   */
   constructor(options: OpenAIProviderOptions) {
     this.options = {
       temperature: 0.7,
@@ -50,75 +90,34 @@ export class OpenAIProvider implements AIProvider {
       ...options
     };
 
-    // Throw error if client is not injected
+    // Validate required client injection
     if (!options.client) {
       throw new Error('OpenAI client is not injected. The client option is required.');
     }
 
     this.client = options.client;
-    this.instance = options.client;
+    this.instance = options.client; // Maintain backwards compatibility
   }
 
   /**
-   * Convert messages to OpenAI format
-   * @deprecated Use OpenAIConversationAdapter.toOpenAIFormat instead
-   */
-  formatMessages(messages: Message[]): OpenAI.Chat.ChatCompletionMessageParam[] {
-    if (!Array.isArray(messages)) {
-      logger.error('formatMessages: messages must be an array.', messages);
-      return [];
-    }
-
-    const formattedMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
-
-    for (const message of messages) {
-      if (!message || typeof message !== 'object') {
-        logger.error('formatMessages: invalid message format', message);
-        continue;
-      }
-
-      const { role, content, name, functionCall } = message;
-
-      // If there is a function call result
-      if (role === 'function') {
-        formattedMessages.push({
-          role: 'function',
-          name: name || '',
-          content: typeof content === 'string' ? content : JSON.stringify(content)
-        });
-        continue;
-      }
-
-      // If there is a function call
-      if (functionCall) {
-        formattedMessages.push({
-          role: role === 'user' ? 'user' :
-            role === 'system' ? 'system' : 'assistant',
-          content: content || '',
-          function_call: {
-            name: functionCall.name,
-            arguments: typeof functionCall.arguments === 'string'
-              ? functionCall.arguments
-              : JSON.stringify(functionCall.arguments)
-          }
-        });
-        continue;
-      }
-
-      // Regular message
-      formattedMessages.push({
-        role: role === 'user' ? 'user' :
-          role === 'system' ? 'system' : 'assistant',
-        content: content || '',
-        name
-      });
-    }
-
-    return formattedMessages;
-  }
-
-  /**
-   * Convert function definitions to OpenAI format
+   * Convert function definitions to OpenAI tool format
+   * 
+   * Transforms universal function definitions into OpenAI's specific tool format
+   * required by the Chat Completions API.
+   * 
+   * @param functions - Array of universal function definitions
+   * @returns Array of OpenAI-formatted tools
+   * 
+   * @example
+   * ```typescript
+   * const functions = [{
+   *   name: 'get_weather',
+   *   description: 'Get current weather',
+   *   parameters: { type: 'object', properties: { location: { type: 'string' } } }
+   * }];
+   * 
+   * const tools = provider.formatFunctions(functions);
+   * ```
    */
   formatFunctions(functions: FunctionDefinition[]): OpenAI.Chat.ChatCompletionTool[] {
     return functions.map(fn => ({
@@ -132,7 +131,15 @@ export class OpenAIProvider implements AIProvider {
   }
 
   /**
-   * Convert OpenAI API response to standard format
+   * Convert OpenAI API response to universal ModelResponse format
+   * 
+   * Transforms the OpenAI-specific response format into the standard format
+   * used across all providers in Robota.
+   * 
+   * @param response - Raw response from OpenAI Chat Completions API
+   * @returns Parsed model response in universal format
+   * 
+   * @internal
    */
   parseResponse(response: OpenAI.Chat.ChatCompletion): ModelResponse {
     const message = response.choices[0].message;
@@ -146,11 +153,12 @@ export class OpenAIProvider implements AIProvider {
       } : undefined,
       metadata: {
         model: response.model,
-        finishReason: response.choices[0].finish_reason
+        finishReason: response.choices[0].finish_reason,
+        systemFingerprint: response.system_fingerprint
       }
     };
 
-    // If there is a function call
+    // Handle function calls (legacy format)
     if (message.function_call) {
       result.functionCall = {
         name: message.function_call.name,
@@ -158,11 +166,30 @@ export class OpenAIProvider implements AIProvider {
       };
     }
 
+    // Handle tool calls (current format)
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      const toolCall = message.tool_calls[0];
+      if (toolCall.type === 'function') {
+        result.functionCall = {
+          name: toolCall.function.name,
+          arguments: toolCall.function.arguments
+        };
+      }
+    }
+
     return result;
   }
 
   /**
-   * Convert streaming response chunk to standard format
+   * Convert OpenAI streaming response chunk to universal format
+   * 
+   * Transforms individual chunks from OpenAI's streaming response into the
+   * standard StreamingResponseChunk format used across all providers.
+   * 
+   * @param chunk - Raw chunk from OpenAI streaming API
+   * @returns Parsed streaming response chunk
+   * 
+   * @internal
    */
   parseStreamingChunk(chunk: OpenAI.Chat.ChatCompletionChunk): StreamingResponseChunk {
     const delta = chunk.choices[0].delta;
@@ -172,7 +199,7 @@ export class OpenAIProvider implements AIProvider {
       isComplete: chunk.choices[0].finish_reason !== null
     };
 
-    // If there is a function call chunk
+    // Handle function call chunks (legacy format)
     if (delta.function_call) {
       result.functionCall = {
         name: delta.function_call.name,
@@ -180,13 +207,53 @@ export class OpenAIProvider implements AIProvider {
       };
     }
 
+    // Handle tool call chunks (current format)
+    if (delta.tool_calls && delta.tool_calls.length > 0) {
+      const toolCall = delta.tool_calls[0];
+      if (toolCall.type === 'function') {
+        result.functionCall = {
+          name: toolCall.function?.name,
+          arguments: toolCall.function?.arguments
+        };
+      }
+    }
+
     return result;
   }
 
   /**
-   * Model chat request
+   * Send a chat request to OpenAI and receive a complete response
+   * 
+   * Processes the provided context and sends it to OpenAI's Chat Completions API.
+   * Handles message format conversion, error handling, and response parsing.
+   * 
+   * @param model - Model name to use (e.g., 'gpt-4', 'gpt-3.5-turbo')
+   * @param context - Context object containing messages and system prompt
+   * @param options - Optional generation parameters and tools
+   * @returns Promise resolving to the model's response
+   * 
+   * @throws {Error} When context is invalid
+   * @throws {Error} When messages array is invalid
+   * @throws {Error} When message format conversion fails
+   * @throws {Error} When OpenAI API call fails
+   * 
+   * @example
+   * ```typescript
+   * const response = await provider.chat('gpt-4', {
+   *   messages: [
+   *     { role: 'user', content: 'Hello, how are you?' }
+   *   ],
+   *   systemPrompt: 'You are a helpful assistant.'
+   * }, {
+   *   temperature: 0.7,
+   *   tools: availableFunctions
+   * });
+   * 
+   * console.log(response.content);
+   * ```
    */
   async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
+    // Validate context parameter
     if (!context || typeof context !== 'object') {
       logger.error('[OpenAIProvider] Invalid context:', context);
       throw new Error('Valid Context object is required');
@@ -194,37 +261,26 @@ export class OpenAIProvider implements AIProvider {
 
     const { messages, systemPrompt } = context;
 
+    // Validate messages array
     if (!Array.isArray(messages)) {
       logger.error('[OpenAIProvider] Invalid message array:', messages);
       throw new Error('Valid message array is required');
     }
 
-    // Convert UniversalMessage[] to OpenAI format
-    let formattedMessages: OpenAI.Chat.ChatCompletionMessageParam[];
+    // Convert messages to OpenAI format and filter out tool messages
+    const openaiMessages = OpenAIConversationAdapter.toOpenAIFormat(context.messages);
 
-    try {
-      formattedMessages = OpenAIConversationAdapter.toOpenAIFormat(messages as UniversalMessage[]);
+    // Debug: Log the messages being sent
+    console.log('Debug - Messages being sent to OpenAI:');
+    console.log(JSON.stringify(openaiMessages, null, 2));
+    console.log('Original messages count:', context.messages.length);
+    console.log('Filtered messages count:', openaiMessages.length);
 
-      // Add system prompt if needed
-      formattedMessages = OpenAIConversationAdapter.addSystemPromptIfNeeded(formattedMessages, systemPrompt);
-    } catch (error) {
-      logger.error('[OpenAIProvider] Message conversion error:', error);
-      throw new Error('Failed to convert message format');
-    }
-
-    if (formattedMessages.length === 0) {
-      logger.error('[OpenAIProvider] Formatted messages are empty:', messages);
-      throw new Error('Valid messages are required');
-    }
-
-    logger.info('[OpenAIProvider] Sending messages:', JSON.stringify(formattedMessages, null, 2));
-
-    // Configure OpenAI API request options
     const completionOptions: OpenAI.Chat.ChatCompletionCreateParams = {
-      model: model || this.options.model,
-      messages: formattedMessages,
-      temperature: options?.temperature ?? this.options.temperature,
-      max_tokens: options?.maxTokens ?? this.options.maxTokens
+      model,
+      messages: openaiMessages,
+      max_tokens: options?.maxTokens || this.options.maxTokens,
+      temperature: options?.temperature || this.options.temperature,
     };
 
     // Add tool provider functions
@@ -234,9 +290,19 @@ export class OpenAIProvider implements AIProvider {
 
     // Set response format if specified
     if (this.options.responseFormat) {
-      completionOptions.response_format = {
-        type: this.options.responseFormat as any
-      };
+      if (this.options.responseFormat === 'text') {
+        completionOptions.response_format = { type: 'text' };
+      } else if (this.options.responseFormat === 'json_object') {
+        completionOptions.response_format = { type: 'json_object' };
+      } else if (this.options.responseFormat === 'json_schema') {
+        if (!this.options.jsonSchema) {
+          throw new Error('jsonSchema is required when responseFormat is "json_schema"');
+        }
+        completionOptions.response_format = {
+          type: 'json_schema',
+          json_schema: this.options.jsonSchema
+        };
+      }
     }
 
     try {
@@ -250,9 +316,41 @@ export class OpenAIProvider implements AIProvider {
   }
 
   /**
-   * Model chat streaming request
+   * Send a streaming chat request to OpenAI and receive response chunks
+   * 
+   * Similar to chat() but returns an async iterator that yields response chunks
+   * as they arrive from OpenAI's streaming API. Useful for real-time display
+   * of responses or handling large responses incrementally.
+   * 
+   * @param model - Model name to use
+   * @param context - Context object containing messages and system prompt
+   * @param options - Optional generation parameters and tools
+   * @returns Async generator yielding response chunks
+   * 
+   * @throws {Error} When context is invalid
+   * @throws {Error} When messages array is invalid
+   * @throws {Error} When message format conversion fails
+   * @throws {Error} When OpenAI streaming API call fails
+   * 
+   * @example
+   * ```typescript
+   * const stream = provider.chatStream('gpt-4', {
+   *   messages: [{ role: 'user', content: 'Tell me a story' }]
+   * });
+   * 
+   * for await (const chunk of stream) {
+   *   if (chunk.content) {
+   *     process.stdout.write(chunk.content);
+   *   }
+   *   if (chunk.isComplete) {
+   *     console.log('\nStream completed');
+   *     break;
+   *   }
+   * }
+   * ```
    */
   async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
+    // Validate context parameter
     if (!context || typeof context !== 'object') {
       logger.error('[OpenAIProvider] Invalid context:', context);
       throw new Error('Valid Context object is required');
@@ -260,37 +358,26 @@ export class OpenAIProvider implements AIProvider {
 
     const { messages, systemPrompt } = context;
 
+    // Validate messages array
     if (!Array.isArray(messages)) {
       logger.error('[OpenAIProvider] Invalid message array:', messages);
       throw new Error('Valid message array is required');
     }
 
-    // Convert UniversalMessage[] to OpenAI format
-    let formattedMessages: OpenAI.Chat.ChatCompletionMessageParam[];
+    // Convert messages to OpenAI format and filter out tool messages
+    const openaiMessages = OpenAIConversationAdapter.toOpenAIFormat(context.messages);
 
-    try {
-      formattedMessages = OpenAIConversationAdapter.toOpenAIFormat(messages as UniversalMessage[]);
+    // Debug: Log the messages being sent
+    console.log('Debug - Messages being sent to OpenAI:');
+    console.log(JSON.stringify(openaiMessages, null, 2));
+    console.log('Original messages count:', context.messages.length);
+    console.log('Filtered messages count:', openaiMessages.length);
 
-      // Add system prompt if needed
-      formattedMessages = OpenAIConversationAdapter.addSystemPromptIfNeeded(formattedMessages, systemPrompt);
-    } catch (error) {
-      logger.error('[OpenAIProvider] Streaming message conversion error:', error);
-      throw new Error('Failed to convert message format');
-    }
-
-    if (formattedMessages.length === 0) {
-      logger.error('[OpenAIProvider] Formatted messages are empty:', messages);
-      throw new Error('Valid messages are required');
-    }
-
-    logger.info('[OpenAIProvider] Starting streaming request:', JSON.stringify(formattedMessages, null, 2));
-
-    // Configure OpenAI API request options
     const completionOptions: OpenAI.Chat.ChatCompletionCreateParams = {
-      model: model || this.options.model,
-      messages: formattedMessages,
-      temperature: options?.temperature ?? this.options.temperature,
-      max_tokens: options?.maxTokens ?? this.options.maxTokens,
+      model,
+      messages: openaiMessages,
+      max_tokens: options?.maxTokens || this.options.maxTokens,
+      temperature: options?.temperature || this.options.temperature,
       stream: true
     };
 
@@ -301,9 +388,19 @@ export class OpenAIProvider implements AIProvider {
 
     // Set response format if specified
     if (this.options.responseFormat) {
-      completionOptions.response_format = {
-        type: this.options.responseFormat as any
-      };
+      if (this.options.responseFormat === 'text') {
+        completionOptions.response_format = { type: 'text' };
+      } else if (this.options.responseFormat === 'json_object') {
+        completionOptions.response_format = { type: 'json_object' };
+      } else if (this.options.responseFormat === 'json_schema') {
+        if (!this.options.jsonSchema) {
+          throw new Error('jsonSchema is required when responseFormat is "json_schema"');
+        }
+        completionOptions.response_format = {
+          type: 'json_schema',
+          json_schema: this.options.jsonSchema
+        };
+      }
     }
 
     try {
@@ -324,9 +421,20 @@ export class OpenAIProvider implements AIProvider {
   }
 
   /**
-   * Release resources (if needed)
+   * Release resources and close connections
+   * 
+   * Performs cleanup operations when the provider is no longer needed.
+   * OpenAI client doesn't require explicit cleanup, so this is a no-op.
+   * 
+   * @returns Promise that resolves when cleanup is complete
+   * 
+   * @example
+   * ```typescript
+   * await provider.close(); // Clean shutdown
+   * ```
    */
   async close(): Promise<void> {
-    // OpenAI client does not have special close method, so implement as empty function
+    // OpenAI client doesn't have explicit close method
+    // This is implemented as no-op for interface compliance
   }
 } 

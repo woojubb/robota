@@ -12,24 +12,64 @@ import { AnthropicProviderOptions } from './types';
 import { AnthropicConversationAdapter } from './adapter';
 
 /**
- * Anthropic provider implementation
+ * Anthropic provider implementation for Robota
+ * 
+ * Provides integration with Anthropic's Claude models and other services.
+ * Implements the universal AIProvider interface for consistent usage across providers.
+ * 
+ * @example
+ * ```typescript
+ * import Anthropic from '@anthropic-ai/sdk';
+ * 
+ * const client = new Anthropic({
+ *   apiKey: 'your-anthropic-api-key'
+ * });
+ * 
+ * const provider = new AnthropicProvider({
+ *   client,
+ *   model: 'claude-3-sonnet-20240229',
+ *   temperature: 0.7
+ * });
+ * ```
+ * 
+ * @public
  */
 export class AnthropicProvider implements AIProvider {
     /**
-     * Provider name
+     * Provider identifier name
+     * @readonly
      */
-    public name: string = 'anthropic';
+    public readonly name: string = 'anthropic';
 
     /**
      * Anthropic client instance
+     * @internal
      */
-    private client: Anthropic;
+    private readonly client: Anthropic;
 
     /**
-     * Provider options
+     * Provider configuration options
+     * @readonly
      */
-    public options: AnthropicProviderOptions;
+    public readonly options: AnthropicProviderOptions;
 
+    /**
+     * Create a new Anthropic provider instance
+     * 
+     * @param options - Configuration options for the Anthropic provider
+     * 
+     * @throws {Error} When client is not provided in options
+     * 
+     * @example
+     * ```typescript
+     * const provider = new AnthropicProvider({
+     *   client: new Anthropic({ apiKey: 'your-key' }),
+     *   model: 'claude-3-opus-20240229',
+     *   temperature: 0.8,
+     *   maxTokens: 4096
+     * });
+     * ```
+     */
     constructor(options: AnthropicProviderOptions) {
         this.options = {
             temperature: 0.7,
@@ -37,7 +77,7 @@ export class AnthropicProvider implements AIProvider {
             ...options
         };
 
-        // Throw error if client is not injected
+        // Validate required client injection
         if (!options.client) {
             throw new Error('Anthropic client is not injected. The client option is required.');
         }
@@ -46,32 +86,67 @@ export class AnthropicProvider implements AIProvider {
     }
 
     /**
-     * Send request to model with given context and receive response.
+     * Send a chat request to Anthropic and receive a complete response
+     * 
+     * Processes the provided context and sends it to Anthropic's Messages API.
+     * Handles message format conversion, error handling, and response parsing.
+     * 
+     * @param model - Model name to use (e.g., 'claude-3-sonnet-20240229', 'claude-3-opus-20240229')
+     * @param context - Context object containing messages and system prompt
+     * @param options - Optional generation parameters
+     * @returns Promise resolving to the model's response
+     * 
+     * @throws {Error} When context is invalid
+     * @throws {Error} When messages array is invalid
+     * @throws {Error} When Anthropic API call fails
+     * 
+     * @example
+     * ```typescript
+     * const response = await provider.chat('claude-3-sonnet-20240229', {
+     *   messages: [
+     *     { role: 'user', content: 'Hello, how are you?' }
+     *   ],
+     *   systemPrompt: 'You are a helpful assistant.'
+     * }, {
+     *   temperature: 0.7,
+     *   maxTokens: 1000
+     * });
+     * 
+     * console.log(response.content);
+     * ```
      */
     async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
+        // Validate context parameter
         if (!context || typeof context !== 'object') {
             throw new Error('Valid Context object is required');
         }
 
         const { messages, systemPrompt } = context;
 
+        // Validate messages array
         if (!Array.isArray(messages)) {
             throw new Error('Valid message array is required');
         }
 
         try {
-            // Convert UniversalMessage[] to Anthropic prompt format
-            const prompt = AnthropicConversationAdapter.toAnthropicPrompt(
-                messages as UniversalMessage[],
-                systemPrompt
+            // Convert UniversalMessage[] to Anthropic Messages format
+            const anthropicMessages = AnthropicConversationAdapter.toAnthropicMessages(
+                messages as UniversalMessage[]
             );
 
-            const response = await this.client.completions.create({
-                model: model || this.options.model || 'claude-2',
-                prompt: prompt,
-                max_tokens_to_sample: options?.maxTokens ?? this.options.maxTokens ?? 1000,
+            const requestParams: any = {
+                model: model || this.options.model || 'claude-3-sonnet-20240229',
+                max_tokens: options?.maxTokens ?? this.options.maxTokens ?? 1000,
+                messages: anthropicMessages,
                 temperature: options?.temperature ?? this.options.temperature
-            });
+            };
+
+            // Add system prompt if provided
+            if (systemPrompt) {
+                requestParams.system = systemPrompt;
+            }
+
+            const response = await this.client.messages.create(requestParams);
 
             return this.parseResponse(response);
         } catch (error) {
@@ -81,122 +156,184 @@ export class AnthropicProvider implements AIProvider {
     }
 
     /**
-     * Send streaming request to model with given context and receive response chunks.
+     * Send a streaming chat request to Anthropic and receive response chunks
+     * 
+     * Similar to chat() but returns an async iterator that yields response chunks
+     * as they arrive from Anthropic's streaming API. Useful for real-time display
+     * of responses or handling large responses incrementally.
+     * 
+     * @param model - Model name to use
+     * @param context - Context object containing messages and system prompt
+     * @param options - Optional generation parameters
+     * @returns Async generator yielding response chunks
+     * 
+     * @throws {Error} When context is invalid
+     * @throws {Error} When messages array is invalid
+     * @throws {Error} When Anthropic streaming API call fails
+     * 
+     * @example
+     * ```typescript
+     * const stream = provider.chatStream('claude-3-sonnet-20240229', {
+     *   messages: [{ role: 'user', content: 'Tell me a story' }]
+     * });
+     * 
+     * for await (const chunk of stream) {
+     *   if (chunk.content) {
+     *     process.stdout.write(chunk.content);
+     *   }
+     *   if (chunk.isComplete) {
+     *     console.log('\nStream completed');
+     *     break;
+     *   }
+     * }
+     * ```
      */
     async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
+        // Validate context parameter
         if (!context || typeof context !== 'object') {
             throw new Error('Valid Context object is required');
         }
 
         const { messages, systemPrompt } = context;
 
+        // Validate messages array
         if (!Array.isArray(messages)) {
             throw new Error('Valid message array is required');
         }
 
         try {
-            // Convert UniversalMessage[] to Anthropic prompt format
-            const prompt = AnthropicConversationAdapter.toAnthropicPrompt(
-                messages as UniversalMessage[],
-                systemPrompt
+            // Convert UniversalMessage[] to Anthropic Messages format
+            const anthropicMessages = AnthropicConversationAdapter.toAnthropicMessages(
+                messages as UniversalMessage[]
             );
 
-            const stream = await this.client.completions.create({
-                model: model || this.options.model || 'claude-2',
-                prompt: prompt,
-                max_tokens_to_sample: options?.maxTokens ?? this.options.maxTokens ?? 1000,
+            const requestParams: any = {
+                model: model || this.options.model || 'claude-3-sonnet-20240229',
+                max_tokens: options?.maxTokens ?? this.options.maxTokens ?? 1000,
+                messages: anthropicMessages,
                 temperature: options?.temperature ?? this.options.temperature,
                 stream: true
-            });
+            };
+
+            // Add system prompt if provided
+            if (systemPrompt) {
+                requestParams.system = systemPrompt;
+            }
+
+            const stream = await this.client.messages.create(requestParams) as any;
 
             for await (const chunk of stream) {
                 yield this.parseStreamingChunk(chunk);
             }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            throw new Error(`Anthropic API streaming call error: ${errorMessage}`);
+            throw new Error(`Anthropic streaming API call error: ${errorMessage}`);
         }
     }
 
     /**
-     * Format messages into a format the model can understand.
-     * @deprecated Use AnthropicConversationAdapter.toAnthropicPrompt instead
-     */
-    formatMessages(_messages: Message[]): unknown[] {
-        // This method exists for type compatibility but is not actually used.
-        // Anthropic v0.5.0 uses prompt strings instead of messages format.
-        return [];
-    }
-
-    /**
-     * Convert messages to Anthropic prompt format.
-     * @deprecated Use AnthropicConversationAdapter.toAnthropicPrompt instead
-     */
-    private formatPrompt(messages: Message[], systemPrompt?: string): string {
-        let prompt = '';
-
-        // Add system prompt if present
-        if (systemPrompt) {
-            prompt += systemPrompt + '\n\n';
-        }
-
-        // Add messages in Human/Assistant alternating format
-        for (const message of messages) {
-            if (message.role === 'user') {
-                prompt += `\n\nHuman: ${message.content}`;
-            } else if (message.role === 'assistant') {
-                prompt += `\n\nAssistant: ${message.content}`;
-            }
-        }
-
-        // Add Assistant prompt after the last user message
-        if (messages.length > 0 && messages[messages.length - 1].role === 'user') {
-            prompt += '\n\nAssistant:';
-        }
-
-        return prompt;
-    }
-
-    /**
-     * Format function definitions into a format the model can understand.
+     * Format function definitions for Anthropic
+     * 
+     * @param _functions - Array of function definitions to format
+     * @returns Formatted functions (currently returns empty array as Anthropic function calling has limited support)
+     * 
+     * @remarks
+     * Anthropic API may not yet fully support function calling features in the same way as OpenAI.
+     * This method returns empty array as placeholder for future implementation.
      */
     formatFunctions(_functions: FunctionDefinition[]): unknown {
-        // Anthropic API may not yet support function calling features.
-        // Return empty array here.
+        // TODO: Implement Anthropic function calling support when available
+        // Anthropic API may not yet support function calling features
         return [];
     }
 
     /**
-     * Parse model response into standard format.
+     * Parse Anthropic response into universal ModelResponse format
+     * 
+     * Extracts content, usage information, and metadata from the Anthropic response
+     * and converts it to the standard format used across all providers.
+     * 
+     * @param response - Raw response from Anthropic Messages API
+     * @returns Parsed model response in universal format
+     * 
+     * @internal
      */
-    parseResponse(response: unknown): ModelResponse {
-        const responseObj = response as { completion?: string };
+    parseResponse(response: any): ModelResponse {
+        // Extract content from Messages API response
+        const content = response.content?.[0]?.text || '';
+
         return {
-            content: responseObj.completion || '',
-            functionCall: undefined,
-            usage: {
-                promptTokens: 0, // Anthropic v0.5.0 does not provide usage information
+            content,
+            functionCall: undefined, // Function calling support to be implemented
+            usage: response.usage ? {
+                promptTokens: response.usage.input_tokens || 0,
+                completionTokens: response.usage.output_tokens || 0,
+                totalTokens: (response.usage.input_tokens || 0) + (response.usage.output_tokens || 0)
+            } : {
+                promptTokens: 0,
                 completionTokens: 0,
                 totalTokens: 0
+            },
+            metadata: {
+                model: response.model,
+                finishReason: response.stop_reason,
+                messageId: response.id
             }
         };
     }
 
     /**
-     * Parse streaming response chunk into standard format.
+     * Parse Anthropic streaming response chunk into universal format
+     * 
+     * Converts individual chunks from the streaming response into the standard
+     * StreamingResponseChunk format used across all providers.
+     * 
+     * @param chunk - Raw chunk from Anthropic streaming API
+     * @returns Parsed streaming response chunk
+     * 
+     * @internal
      */
-    parseStreamingChunk(chunk: unknown): StreamingResponseChunk {
-        const chunkObj = chunk as { completion?: string };
+    parseStreamingChunk(chunk: any): StreamingResponseChunk {
+        // Handle different chunk types from Messages API streaming
+        if (chunk.type === 'content_block_delta') {
+            return {
+                content: chunk.delta?.text || '',
+                functionCall: undefined,
+                isComplete: false
+            };
+        }
+
+        if (chunk.type === 'message_stop') {
+            return {
+                content: '',
+                functionCall: undefined,
+                isComplete: true
+            };
+        }
+
+        // Default case for other chunk types
         return {
-            content: chunkObj.completion || '',
-            functionCall: undefined
+            content: '',
+            functionCall: undefined,
+            isComplete: false
         };
     }
 
     /**
-     * Release resources (if needed)
+     * Release resources and close connections
+     * 
+     * Performs cleanup operations when the provider is no longer needed.
+     * Anthropic client doesn't require explicit cleanup, so this is a no-op.
+     * 
+     * @returns Promise that resolves when cleanup is complete
+     * 
+     * @example
+     * ```typescript
+     * await provider.close(); // Clean shutdown
+     * ```
      */
     async close(): Promise<void> {
-        // Anthropic client does not have special close method, so implement as empty function
+        // Anthropic client doesn't have explicit close method
+        // This is implemented as no-op for interface compliance
     }
 } 

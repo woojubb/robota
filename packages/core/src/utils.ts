@@ -1,4 +1,5 @@
 import type { UniversalMessage } from './conversation-history';
+import { isUserMessage, isAssistantMessage, isToolMessage } from './conversation-history';
 import type { Message, MessageRole } from './interfaces/ai-provider';
 
 /**
@@ -153,18 +154,19 @@ export const logger = {
 export function convertUniversalToBaseMessage(universalMessage: UniversalMessage): Message {
   const baseMessage: Message = {
     role: universalMessage.role === 'tool' ? 'function' : universalMessage.role as MessageRole,
-    content: universalMessage.content
+    content: universalMessage.content || ''
   };
 
-  if (universalMessage.name) {
+  // Use type guards to safely access properties
+  if (isUserMessage(universalMessage) && universalMessage.name) {
     baseMessage.name = universalMessage.name;
   }
 
-  if (universalMessage.functionCall) {
+  if (isAssistantMessage(universalMessage) && universalMessage.functionCall) {
     baseMessage.functionCall = universalMessage.functionCall;
   }
 
-  if (universalMessage.toolResult) {
+  if (isToolMessage(universalMessage) && universalMessage.toolResult) {
     baseMessage.functionResult = universalMessage.toolResult;
   }
 

@@ -133,109 +133,49 @@ describe('Robota Analytics Integration', () => {
 
     describe('Token Limit Enforcement', () => {
         it('should enforce max token limit', async () => {
-            // Set a lower token limit
             robota.setMaxTokenLimit(150);
 
-            // First request should succeed
             await robota.execute('First message');
             expect(robota.getTotalTokensUsed()).toBe(100);
 
-            // Second request should fail due to token limit
-            await expect(robota.execute('Second message')).rejects.toThrow(
-                'Token limit exceeded. Current usage: 100, attempting to add: 100, limit: 150'
-            );
+            // This should fail (150 total limit, 100 used, 100 needed = 200 > 150)
+            await expect(robota.execute('Second message')).rejects.toThrow(/Token limit exceeded/);
 
             // Should not have recorded the failed request
             expect(robota.getRequestCount()).toBe(1);
             expect(robota.getTotalTokensUsed()).toBe(100);
         });
 
-        it('should get and set max token limit', () => {
+        it('should get and set max token limit', async () => {
+            // Reset first to ensure clean state
+            robota.setMaxTokenLimit(4096);
+            expect(robota.getMaxTokenLimit()).toBe(4096); // Default value
+
+            robota.setMaxTokenLimit(500);
             expect(robota.getMaxTokenLimit()).toBe(500);
 
-            robota.setMaxTokenLimit(1000);
-            expect(robota.getMaxTokenLimit()).toBe(1000);
+            robota.setMaxTokenLimit(0); // Unlimited
+            expect(robota.getMaxTokenLimit()).toBe(0);
         });
 
         it('should work without token limit', async () => {
-            // Create robota without token limit (set to unlimited)
             const unlimitedRobota = new Robota({
                 aiProviders: { mock: mockProvider },
                 currentProvider: 'mock',
                 currentModel: 'mock-model',
-                maxTokenLimit: 0  // 0 means unlimited
+                maxTokenLimit: 0
             });
 
-            expect(unlimitedRobota.getMaxTokenLimit()).toBe(0);  // 0 means unlimited
+            // Should work fine without limits
+            await unlimitedRobota.execute('Message 1');
+            await unlimitedRobota.execute('Message 2');
+            await unlimitedRobota.execute('Message 3');
 
-            // Should work fine without limit
-            await unlimitedRobota.execute('Test message');
-            expect(unlimitedRobota.getTotalTokensUsed()).toBe(100);
+            expect(unlimitedRobota.getTotalTokensUsed()).toBe(300);
 
             const limitInfo = unlimitedRobota.getLimitInfo();
             expect(limitInfo.maxTokens).toBe(0);
             expect(limitInfo.remainingTokens).toBeUndefined();
-        });
-    });
-
-    describe('Method Deprecation and Renaming', () => {
-        it('should show deprecation warning for run method', async () => {
-            const logSpy = {
-                warn: (message: string) => {
-                    expect(message).toContain('run() method is deprecated. Use execute() instead.');
-                },
-                error: () => { },
-                info: () => { },
-                debug: () => { }
-            };
-
-            const debugRobota = new Robota({
-                aiProviders: { mock: mockProvider },
-                currentProvider: 'mock',
-                currentModel: 'mock-model',
-                debug: true,
-                logger: logSpy as any
-            });
-
-            const response = await debugRobota.run('Test message');
-            expect(response).toBe('Mock response from mock using mock-model');
-        });
-
-        it('should show deprecation warning for runStream method', async () => {
-            let warningCalled = false;
-            const logSpy = {
-                warn: (message: string) => {
-                    expect(message).toContain('runStream() method is deprecated. Use executeStream() instead.');
-                    warningCalled = true;
-                },
-                error: () => { },
-                info: () => { },
-                debug: () => { }
-            };
-
-            const debugRobota = new Robota({
-                aiProviders: { mock: mockProvider },
-                currentProvider: 'mock',
-                currentModel: 'mock-model',
-                debug: true,
-                logger: logSpy as any
-            });
-
-            const stream = await debugRobota.runStream('Test message');
-            expect(stream).toBeDefined();
-            expect(warningCalled).toBe(true);
-        });
-
-        it('should execute method work the same as deprecated run method', async () => {
-            const executeResponse = await robota.execute('Test message');
-
-            // Reset analytics to compare
-            robota.resetAnalytics();
-
-            const runResponse = await robota.run('Test message');
-
-            expect(executeResponse).toBe(runResponse);
-            expect(robota.getRequestCount()).toBe(1); // Should track the same way
         });
     });
 

@@ -1,4 +1,5 @@
-import type { UniversalMessage } from '@robota-sdk/core';
+import type { UniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage } from '@robota-sdk/core';
+import type { Content, Part } from '@google/generative-ai';
 
 /**
  * Google AI ConversationHistory adapter
@@ -9,7 +10,7 @@ export class GoogleConversationAdapter {
     /**
      * Convert UniversalMessage array to Google AI message format
      */
-    static toGoogleFormat(messages: UniversalMessage[]): any[] {
+    static toGoogleFormat(messages: UniversalMessage[]): Content[] {
         return messages
             .filter(msg => msg.role !== 'system') // System messages are handled separately
             .map(msg => this.convertMessage(msg));
@@ -18,70 +19,78 @@ export class GoogleConversationAdapter {
     /**
      * Convert a single UniversalMessage to Google AI format
      */
-    static convertMessage(msg: UniversalMessage): any {
-        switch (msg.role) {
-            case 'user':
-                return {
-                    role: 'user',
-                    parts: [{ text: msg.content }]
-                };
+    static convertMessage(msg: UniversalMessage): Content {
+        const messageRole = msg.role;
 
-            case 'assistant':
-                if (msg.functionCall) {
-                    // Google AI includes function calls in parts
-                    return {
-                        role: 'model',
-                        parts: [
-                            { text: msg.content },
-                            {
-                                functionCall: {
-                                    name: msg.functionCall.name,
-                                    args: msg.functionCall.arguments
-                                }
-                            }
-                        ]
-                    };
-                }
+        // Handle user messages
+        if (messageRole === 'user') {
+            const userMsg = msg as UserMessage;
+            return {
+                role: 'user',
+                parts: [{ text: userMsg.content }]
+            };
+        }
+
+        // Handle assistant messages
+        if (messageRole === 'assistant') {
+            const assistantMsg = msg as AssistantMessage;
+            if (assistantMsg.functionCall) {
+                const parts: Part[] = [{ text: assistantMsg.content || '' }];
+
+                // Add function call part if it exists
+                parts.push({
+                    functionCall: {
+                        name: assistantMsg.functionCall.name,
+                        args: assistantMsg.functionCall.arguments
+                    }
+                } as Part);
+
                 return {
                     role: 'model',
-                    parts: [{ text: msg.content }]
+                    parts
                 };
-
-            case 'tool':
-                // Convert tool results to function response
-                return {
-                    role: 'function',
-                    parts: [
-                        {
-                            functionResponse: {
-                                name: msg.name || msg.toolResult?.name || 'unknown_tool',
-                                response: msg.toolResult?.result || msg.content
-                            }
-                        }
-                    ]
-                };
-
-            case 'system':
-                // System messages are handled separately, convert to user here
-                return {
-                    role: 'user',
-                    parts: [{ text: `[System]: ${msg.content}` }]
-                };
-
-            default:
-                // Unknown roles are handled as user
-                return {
-                    role: 'user',
-                    parts: [{ text: msg.content }]
-                };
+            }
+            return {
+                role: 'model',
+                parts: [{ text: assistantMsg.content || '' }]
+            };
         }
+
+        // Handle tool messages
+        if (messageRole === 'tool') {
+            const toolMsg = msg as ToolMessage;
+            return {
+                role: 'function',
+                parts: [
+                    {
+                        functionResponse: {
+                            name: toolMsg.name,
+                            response: toolMsg.toolResult?.result || toolMsg.content
+                        }
+                    } as Part
+                ]
+            };
+        }
+
+        // Handle system messages (convert to user)
+        if (messageRole === 'system') {
+            const systemMsg = msg as SystemMessage;
+            return {
+                role: 'user',
+                parts: [{ text: `[System]: ${systemMsg.content}` }]
+            };
+        }
+
+        // This should never happen but TypeScript requires exhaustive checking
+        const _exhaustiveCheck: never = msg;
+        return _exhaustiveCheck;
     }
 
     /**
      * Extract system messages and combine them as system instruction
      */
     static extractSystemInstruction(messages: UniversalMessage[], fallbackSystemPrompt?: string): string | undefined {
-        const systemMessages = messages.filter(msg => msg.role === 'system');
+        const systemMessages = messages.filter(msg => msg.role === 'system') as SystemMessage[];
 
         if (systemMessages.length > 0) {
             return systemMessages.map(msg => msg.content).join('\n\n');
@@ -97,7 +106,7 @@ export class GoogleConversationAdapter {
         messages: UniversalMessage[],
         systemPrompt?: string
     ): {
-        contents: any[],
+        contents: Content[],
         systemInstruction?: string
     } {
         // 1. Extract system instruction

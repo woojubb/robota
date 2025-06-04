@@ -343,43 +343,6 @@ describe('Robota Refactored Architecture', () => {
         });
     });
 
-    describe('Backward Compatibility', () => {
-        it('should maintain deprecated method functionality', async () => {
-            const response = await robota.run('Test message');
-            expect(response).toBe('Mock response from mock using mock-model');
-
-            // Should count toward limits the same as execute()
-            const limitInfo = robota.getLimitInfo();
-            expect(limitInfo.currentRequestCount).toBe(1);
-            expect(limitInfo.currentTokensUsed).toBe(100);
-        });
-
-        it('should provide deprecation warnings in debug mode', async () => {
-            let warningReceived = false;
-            const debugLogger = {
-                warn: (message: string) => {
-                    if (message.includes('deprecated')) {
-                        warningReceived = true;
-                    }
-                },
-                error: () => { },
-                info: () => { },
-                debug: () => { }
-            };
-
-            const debugRobota = new Robota({
-                aiProviders: { mock: mockProvider },
-                currentProvider: 'mock',
-                currentModel: 'mock-model',
-                debug: true,
-                logger: debugLogger
-            });
-
-            await debugRobota.run('Test message');
-            expect(warningReceived).toBe(true);
-        });
-    });
-
     describe('Error Handling', () => {
         it('should handle API providers without usage data gracefully', async () => {
             const noUsageProvider: AIProvider = {

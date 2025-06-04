@@ -11,24 +11,64 @@ import type { GoogleProviderOptions } from './types';
 import { GoogleConversationAdapter } from './adapter';
 
 /**
- * Google AI provider implementation
+ * Google AI provider implementation for Robota
+ * 
+ * Provides integration with Google's Generative AI services including Gemini models.
+ * Implements the universal AIProvider interface for consistent usage across providers.
+ * 
+ * @example
+ * ```typescript
+ * import { GoogleGenerativeAI } from '@google/generative-ai';
+ * 
+ * const client = new GoogleGenerativeAI({
+ *   apiKey: 'your-google-api-key'
+ * });
+ * 
+ * const provider = new GoogleProvider({
+ *   client,
+ *   model: 'gemini-1.5-pro',
+ *   temperature: 0.7
+ * });
+ * ```
+ * 
+ * @public
  */
 export class GoogleProvider implements AIProvider {
     /**
-     * Provider name
+     * Provider identifier name
+     * @readonly
      */
-    public name: string = 'google';
+    public readonly name: string = 'google';
 
     /**
      * Google AI client instance
+     * @internal
      */
-    private client: GoogleGenerativeAI;
+    private readonly client: GoogleGenerativeAI;
 
     /**
-     * Provider options
+     * Provider configuration options
+     * @readonly
      */
-    public options: GoogleProviderOptions;
+    public readonly options: GoogleProviderOptions;
 
+    /**
+     * Create a new Google AI provider instance
+     * 
+     * @param options - Configuration options for the Google provider
+     * 
+     * @throws {Error} When client is not provided in options
+     * 
+     * @example
+     * ```typescript
+     * const provider = new GoogleProvider({
+     *   client: new GoogleGenerativeAI({ apiKey: 'your-key' }),
+     *   model: 'gemini-1.5-pro',
+     *   temperature: 0.8,
+     *   maxTokens: 2048
+     * });
+     * ```
+     */
     constructor(options: GoogleProviderOptions) {
         this.options = {
             temperature: 0.7,
@@ -36,7 +76,7 @@ export class GoogleProvider implements AIProvider {
             ...options
         };
 
-        // Throw error if client is not injected
+        // Validate required client injection
         if (!options.client) {
             throw new Error('Google AI client is not injected. The client option is required.');
         }
@@ -45,38 +85,68 @@ export class GoogleProvider implements AIProvider {
     }
 
     /**
-     * Send request to model with given context and receive response.
+     * Send a chat request to Google AI and receive a complete response
+     * 
+     * @param model - Model name to use (e.g., 'gemini-1.5-pro', 'gemini-1.5-flash')
+     * @param context - Context object containing messages and system prompt
+     * @param options - Optional generation parameters
+     * @returns Promise resolving to the model's response
+     * 
+     * @throws {Error} When context is invalid
+     * @throws {Error} When messages array is invalid
+     * @throws {Error} When Google AI API call fails
+     * 
+     * @example
+     * ```typescript
+     * const response = await provider.chat('gemini-1.5-pro', {
+     *   messages: [
+     *     { role: 'user', content: 'Hello, how are you?' }
+     *   ],
+     *   systemPrompt: 'You are a helpful assistant.'
+     * });
+     * 
+     * console.log(response.content);
+     * ```
      */
     async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
+        // Validate context parameter
         if (!context || typeof context !== 'object') {
-            throw new Error('유효한 Context 객체가 필요합니다');
+            throw new Error('Valid Context object is required');
         }
 
         const { messages, systemPrompt } = context;
 
+        // Validate messages array
         if (!Array.isArray(messages)) {
-            throw new Error('유효한 메시지 배열이 필요합니다');
+            throw new Error('Valid message array is required');
         }
 
         try {
-            // UniversalMessage[]를 Google AI 형식으로 변환
+            // Convert UniversalMessage[] to Google AI format
             const { contents, systemInstruction } = GoogleConversationAdapter.processMessages(
                 messages as UniversalMessage[],
                 systemPrompt
             );
 
-            // Google AI 모델 가져오기
+            // Get Google AI model instance
             const generativeModel = this.client.getGenerativeModel({
                 model: model || this.options.model || 'gemini-1.5-flash',
                 systemInstruction: systemInstruction
             });
 
-            // 생성 구성
+            // Configure generation parameters
             const generationConfig = {
                 temperature: options?.temperature ?? this.options.temperature,
                 maxOutputTokens: options?.maxTokens ?? this.options.maxTokens,
+                ...(this.options.responseMimeType && {
+                    responseMimeType: this.options.responseMimeType
+                }),
+                ...(this.options.responseSchema && {
+                    responseSchema: this.options.responseSchema
+                })
             };
 
+            // Generate content
             const result = await generativeModel.generateContent({
                 contents,
                 generationConfig
@@ -90,38 +160,72 @@ export class GoogleProvider implements AIProvider {
     }
 
     /**
-     * Send streaming request to model with given context and receive response chunks.
+     * Send a streaming chat request to Google AI and receive response chunks
+     * 
+     * Generates an async iterator that yields response chunks as they arrive.
+     * Useful for real-time display of responses or handling large responses incrementally.
+     * 
+     * @param model - Model name to use
+     * @param context - Context object containing messages and system prompt
+     * @param options - Optional generation parameters
+     * @returns Async generator yielding response chunks
+     * 
+     * @throws {Error} When context is invalid
+     * @throws {Error} When messages array is invalid
+     * @throws {Error} When Google AI API streaming call fails
+     * 
+     * @example
+     * ```typescript
+     * const stream = provider.chatStream('gemini-1.5-pro', {
+     *   messages: [{ role: 'user', content: 'Tell me a story' }]
+     * });
+     * 
+     * for await (const chunk of stream) {
+     *   if (chunk.content) {
+     *     process.stdout.write(chunk.content);
+     *   }
+     * }
+     * ```
      */
     async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
+        // Validate context parameter
         if (!context || typeof context !== 'object') {
-            throw new Error('유효한 Context 객체가 필요합니다');
+            throw new Error('Valid Context object is required');
         }
 
         const { messages, systemPrompt } = context;
 
+        // Validate messages array
         if (!Array.isArray(messages)) {
-            throw new Error('유효한 메시지 배열이 필요합니다');
+            throw new Error('Valid message array is required');
         }
 
         try {
-            // UniversalMessage[]를 Google AI 형식으로 변환
+            // Convert UniversalMessage[] to Google AI format
             const { contents, systemInstruction } = GoogleConversationAdapter.processMessages(
                 messages as UniversalMessage[],
                 systemPrompt
             );
 
-            // Google AI 모델 가져오기
+            // Get Google AI model instance
             const generativeModel = this.client.getGenerativeModel({
                 model: model || this.options.model || 'gemini-1.5-flash',
                 systemInstruction: systemInstruction
             });
 
-            // 생성 구성
+            // Configure generation parameters
             const generationConfig = {
                 temperature: options?.temperature ?? this.options.temperature,
                 maxOutputTokens: options?.maxTokens ?? this.options.maxTokens,
+                ...(this.options.responseMimeType && {
+                    responseMimeType: this.options.responseMimeType
+                }),
+                ...(this.options.responseSchema && {
+                    responseSchema: this.options.responseSchema
+                })
             };
 
+            // Generate streaming content
             const result = await generativeModel.generateContentStream({
                 contents,
                 generationConfig
@@ -137,51 +241,99 @@ export class GoogleProvider implements AIProvider {
     }
 
     /**
-     * Format function definitions into a format the model can understand.
+     * Format function definitions for Google AI
+     * 
+     * @param _functions - Array of function definitions to format
+     * @returns Formatted functions (currently returns empty array as Google AI function calling is pending implementation)
+     * 
+     * @remarks
+     * Google AI function calling support is planned for future implementation.
+     * Currently returns empty array as placeholder.
      */
     formatFunctions(_functions: FunctionDefinition[]): unknown {
-        // Google AI function calling 지원 구현 예정
+        // TODO: Implement Google AI function calling support
+        // Google AI function calling feature implementation pending
         return [];
     }
 
     /**
-     * Parse model response into standard format.
+     * Parse Google AI response into universal ModelResponse format
+     * 
+     * Extracts content, usage information, and metadata from the Google AI response
+     * and converts it to the standard format used across all providers.
+     * 
+     * @param response - Raw response from Google AI API
+     * @returns Parsed model response in universal format
+     * 
+     * @internal
      */
     parseResponse(response: any): ModelResponse {
         const text = response.response?.text() || '';
 
+        // Extract usage information from response if available
+        const usageMetadata = response.response?.usageMetadata;
+        const usage = usageMetadata ? {
+            promptTokens: usageMetadata.promptTokenCount || 0,
+            completionTokens: usageMetadata.candidatesTokenCount || 0,
+            totalTokens: usageMetadata.totalTokenCount || 0
+        } : {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0
+        };
+
         return {
             content: text,
-            functionCall: undefined, // 추후 function calling 지원 시 구현
-            usage: {
-                promptTokens: 0, // Google AI API에서 사용량 정보 추출 필요
-                completionTokens: 0,
-                totalTokens: 0
-            },
+            functionCall: undefined, // Function calling support to be implemented
+            usage,
             metadata: {
                 model: response.response?.model,
-                finishReason: response.response?.candidates?.[0]?.finishReason
+                finishReason: response.response?.candidates?.[0]?.finishReason,
+                safetyRatings: response.response?.candidates?.[0]?.safetyRatings
             }
         };
     }
 
     /**
-     * Parse streaming response chunk into standard format.
+     * Parse Google AI streaming response chunk into universal format
+     * 
+     * Converts individual chunks from the streaming response into the standard
+     * StreamingResponseChunk format used across all providers.
+     * 
+     * @param chunk - Raw chunk from Google AI streaming API
+     * @returns Parsed streaming response chunk
+     * 
+     * @internal
      */
     parseStreamingChunk(chunk: any): StreamingResponseChunk {
         const text = chunk.text() || '';
 
+        // Determine if this is the final chunk
+        const candidate = chunk.candidates?.[0];
+        const isComplete = candidate?.finishReason !== undefined && candidate.finishReason !== null;
+
         return {
             content: text,
-            functionCall: undefined,
-            isComplete: false // 스트림 완료 감지 로직 필요
+            functionCall: undefined, // Function calling support to be implemented
+            isComplete
         };
     }
 
     /**
-     * 리소스 해제 (필요시)
+     * Release resources and close connections
+     * 
+     * Performs cleanup operations when the provider is no longer needed.
+     * Google AI client doesn't require explicit cleanup, so this is a no-op.
+     * 
+     * @returns Promise that resolves when cleanup is complete
+     * 
+     * @example
+     * ```typescript
+     * await provider.close(); // Clean shutdown
+     * ```
      */
     async close(): Promise<void> {
-        // Google AI 클라이언트는 특별한 종료 메서드가 없으므로 빈 함수로 구현
+        // Google AI client doesn't have explicit close method
+        // This is implemented as no-op for interface compliance
     }
 } 
