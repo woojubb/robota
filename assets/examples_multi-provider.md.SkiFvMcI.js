@@ -1,1 +1,0 @@
-import{_ as e,c as t,o as r}from"./chunks/framework.BDwTZuFy.js";const l=JSON.parse('{"title":"","description":"","frontmatter":{},"headers":[],"relativePath":"examples/multi-provider.md","filePath":"examples/multi-provider.md"}'),a={name:"examples/multi-provider.md"};function o(s,i,p,m,c,n){return r(),t("div")}const _=e(a,[["render",o]]);export{l as __pageData,_ as default};
