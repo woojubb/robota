@@ -16,36 +16,12 @@ import type { ZodToolOptions } from './interfaces';
  * 
  * @class ZodTool
  * @extends BaseTool
- * @description
- * Tool that uses Zod schema for parameter validation.
+ * @description Tool that uses Zod schema for parameter validation.
  * 
  * @template TParams - Tool parameter type
  * @template TResult - Tool result type
  * 
- * @example
- * ```typescript
- * import { z } from 'zod';
- * import { ZodTool } from '@robota-sdk/tools';
- * 
- * const weatherTool = new ZodTool({
- *   name: 'getWeather',
- *   description: 'Get weather information for a specific location.',
- *   category: 'data',
- *   version: '1.0.0',
- *   parameters: z.object({
- *     location: z.string().describe('Location to get weather for (city name)'),
- *     unit: z.enum(['celsius', 'fahrenheit']).optional().describe('Temperature unit')
- *   }),
- *   execute: async (params) => {
- *     // Weather API call logic
- *     const data = { temperature: 25, condition: 'sunny' };
- *     return {
- *       status: 'success',
- *       data
- *     };
- *   }
- * });
- * ```
+ * @see {@link ../../../../apps/examples/02-functions | Function Tool Examples}
  */
 export class ZodTool<TParams = any, TResult = any> extends BaseTool<TParams, TResult> {
     /**

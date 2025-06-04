@@ -18,20 +18,7 @@ import { OpenAIConversationAdapter } from './adapter';
  * Provides integration with OpenAI's GPT models and other services.
  * Implements the universal AIProvider interface for consistent usage across providers.
  * 
- * @example
- * ```typescript
- * import OpenAI from 'openai';
- * 
- * const client = new OpenAI({
- *   apiKey: 'your-openai-api-key'
- * });
- * 
- * const provider = new OpenAIProvider({
- *   client,
- *   temperature: 0.7,
- *   maxTokens: 2048
- * });
- * ```
+ * @see {@link ../../../apps/examples/03-integrations | Provider Integration Examples}
  * 
  * @public
  */
@@ -73,15 +60,6 @@ export class OpenAIProvider implements AIProvider {
    * @param options - Configuration options for the OpenAI provider
    * 
    * @throws {Error} When client is not provided in options
-   * 
-   * @example
-   * ```typescript
-   * const provider = new OpenAIProvider({
-   *   client: new OpenAI({ apiKey: 'your-key' }),
-   *   temperature: 0.8,
-   *   maxTokens: 4096
-   * });
-   * ```
    */
   constructor(options: OpenAIProviderOptions) {
     this.options = {
@@ -107,17 +85,6 @@ export class OpenAIProvider implements AIProvider {
    * 
    * @param functions - Array of universal function definitions
    * @returns Array of OpenAI-formatted tools
-   * 
-   * @example
-   * ```typescript
-   * const functions = [{
-   *   name: 'get_weather',
-   *   description: 'Get current weather',
-   *   parameters: { type: 'object', properties: { location: { type: 'string' } } }
-   * }];
-   * 
-   * const tools = provider.formatFunctions(functions);
-   * ```
    */
   formatFunctions(functions: FunctionDefinition[]): OpenAI.Chat.ChatCompletionTool[] {
     return functions.map(fn => ({
@@ -128,6 +95,85 @@ export class OpenAIProvider implements AIProvider {
         parameters: fn.parameters || { type: 'object', properties: {} }
       }
     }));
+  }
+
+  /**
+   * Send a chat request to OpenAI and receive a complete response
+   * 
+   * Processes the provided context and sends it to OpenAI's Chat Completions API.
+   * Handles message format conversion, error handling, and response parsing.
+   * 
+   * @param model - Model name to use (e.g., 'gpt-4', 'gpt-3.5-turbo')
+   * @param context - Context object containing messages and system prompt
+   * @param options - Optional generation parameters and tools
+   * @returns Promise resolving to the model's response
+   * 
+   * @throws {Error} When context is invalid
+   * @throws {Error} When messages array is invalid
+   * @throws {Error} When message format conversion fails
+   * @throws {Error} When OpenAI API call fails
+   */
+  async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
+    // Validate context parameter
+    if (!context || typeof context !== 'object') {
+      logger.error('[OpenAIProvider] Invalid context:', context);
+      throw new Error('Valid Context object is required');
+    }
+
+    const { messages, systemPrompt } = context;
+
+    // Validate messages array
+    if (!Array.isArray(messages)) {
+      logger.error('[OpenAIProvider] Invalid message array:', messages);
+      throw new Error('Valid message array is required');
+    }
+
+    // Convert messages to OpenAI format and filter out tool messages
+    const openaiMessages = OpenAIConversationAdapter.toOpenAIFormat(context.messages);
+
+    // Debug: Log the messages being sent
+    console.log('Debug - Messages being sent to OpenAI:');
+    console.log(JSON.stringify(openaiMessages, null, 2));
+    console.log('Original messages count:', context.messages.length);
+    console.log('Filtered messages count:', openaiMessages.length);
+
+    const completionOptions: OpenAI.Chat.ChatCompletionCreateParams = {
+      model,
+      messages: openaiMessages,
+      max_tokens: options?.maxTokens || this.options.maxTokens,
+      temperature: options?.temperature || this.options.temperature,
+    };
+
+    // Add tool provider functions
+    if (options?.tools && Array.isArray(options.tools)) {
+      completionOptions.tools = this.formatFunctions(options.tools);
+    }
+
+    // Set response format if specified
+    if (this.options.responseFormat) {
+      if (this.options.responseFormat === 'text') {
+        completionOptions.response_format = { type: 'text' };
+      } else if (this.options.responseFormat === 'json_object') {
+        completionOptions.response_format = { type: 'json_object' };
+      } else if (this.options.responseFormat === 'json_schema') {
+        if (!this.options.jsonSchema) {
+          throw new Error('jsonSchema is required when responseFormat is "json_schema"');
+        }
+        completionOptions.response_format = {
+          type: 'json_schema',
+          json_schema: this.options.jsonSchema
+        };
+      }
+    }
+
+    try {
+      logger.info('[OpenAIProvider] API request options:', JSON.stringify(completionOptions, null, 2));
+      const response = await this.client.chat.completions.create(completionOptions);
+      return this.parseResponse(response);
+    } catch (error) {
+      logger.error('[OpenAIProvider] API call error:', error);
+      throw error;
+    }
   }
 
   /**
@@ -222,100 +268,6 @@ export class OpenAIProvider implements AIProvider {
   }
 
   /**
-   * Send a chat request to OpenAI and receive a complete response
-   * 
-   * Processes the provided context and sends it to OpenAI's Chat Completions API.
-   * Handles message format conversion, error handling, and response parsing.
-   * 
-   * @param model - Model name to use (e.g., 'gpt-4', 'gpt-3.5-turbo')
-   * @param context - Context object containing messages and system prompt
-   * @param options - Optional generation parameters and tools
-   * @returns Promise resolving to the model's response
-   * 
-   * @throws {Error} When context is invalid
-   * @throws {Error} When messages array is invalid
-   * @throws {Error} When message format conversion fails
-   * @throws {Error} When OpenAI API call fails
-   * 
-   * @example
-   * ```typescript
-   * const response = await provider.chat('gpt-4', {
-   *   messages: [
-   *     { role: 'user', content: 'Hello, how are you?' }
-   *   ],
-   *   systemPrompt: 'You are a helpful assistant.'
-   * }, {
-   *   temperature: 0.7,
-   *   tools: availableFunctions
-   * });
-   * 
-   * console.log(response.content);
-   * ```
-   */
-  async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
-    // Validate context parameter
-    if (!context || typeof context !== 'object') {
-      logger.error('[OpenAIProvider] Invalid context:', context);
-      throw new Error('Valid Context object is required');
-    }
-
-    const { messages, systemPrompt } = context;
-
-    // Validate messages array
-    if (!Array.isArray(messages)) {
-      logger.error('[OpenAIProvider] Invalid message array:', messages);
-      throw new Error('Valid message array is required');
-    }
-
-    // Convert messages to OpenAI format and filter out tool messages
-    const openaiMessages = OpenAIConversationAdapter.toOpenAIFormat(context.messages);
-
-    // Debug: Log the messages being sent
-    console.log('Debug - Messages being sent to OpenAI:');
-    console.log(JSON.stringify(openaiMessages, null, 2));
-    console.log('Original messages count:', context.messages.length);
-    console.log('Filtered messages count:', openaiMessages.length);
-
-    const completionOptions: OpenAI.Chat.ChatCompletionCreateParams = {
-      model,
-      messages: openaiMessages,
-      max_tokens: options?.maxTokens || this.options.maxTokens,
-      temperature: options?.temperature || this.options.temperature,
-    };
-
-    // Add tool provider functions
-    if (options?.tools && Array.isArray(options.tools)) {
-      completionOptions.tools = this.formatFunctions(options.tools);
-    }
-
-    // Set response format if specified
-    if (this.options.responseFormat) {
-      if (this.options.responseFormat === 'text') {
-        completionOptions.response_format = { type: 'text' };
-      } else if (this.options.responseFormat === 'json_object') {
-        completionOptions.response_format = { type: 'json_object' };
-      } else if (this.options.responseFormat === 'json_schema') {
-        if (!this.options.jsonSchema) {
-          throw new Error('jsonSchema is required when responseFormat is "json_schema"');
-        }
-        completionOptions.response_format = {
-          type: 'json_schema',
-          json_schema: this.options.jsonSchema
-        };
-      }
-    }
-
-    try {
-      logger.info('[OpenAIProvider] API request options:', JSON.stringify(completionOptions, null, 2));
-      const response = await this.client.chat.completions.create(completionOptions);
-      return this.parseResponse(response);
-    } catch (error) {
-      logger.error('[OpenAIProvider] API call error:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Send a streaming chat request to OpenAI and receive response chunks
    * 
    * Similar to chat() but returns an async iterator that yields response chunks
@@ -332,22 +284,7 @@ export class OpenAIProvider implements AIProvider {
    * @throws {Error} When message format conversion fails
    * @throws {Error} When OpenAI streaming API call fails
    * 
-   * @example
-   * ```typescript
-   * const stream = provider.chatStream('gpt-4', {
-   *   messages: [{ role: 'user', content: 'Tell me a story' }]
-   * });
-   * 
-   * for await (const chunk of stream) {
-   *   if (chunk.content) {
-   *     process.stdout.write(chunk.content);
-   *   }
-   *   if (chunk.isComplete) {
-   *     console.log('\nStream completed');
-   *     break;
-   *   }
-   * }
-   * ```
+   * @see {@link ../../../apps/examples/01-basic | Basic Usage Examples}
    */
   async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
     // Validate context parameter
@@ -427,11 +364,6 @@ export class OpenAIProvider implements AIProvider {
    * OpenAI client doesn't require explicit cleanup, so this is a no-op.
    * 
    * @returns Promise that resolves when cleanup is complete
-   * 
-   * @example
-   * ```typescript
-   * await provider.close(); // Clean shutdown
-   * ```
    */
   async close(): Promise<void> {
     // OpenAI client doesn't have explicit close method

@@ -16,20 +16,7 @@ import { GoogleConversationAdapter } from './adapter';
  * Provides integration with Google's Generative AI services including Gemini models.
  * Implements the universal AIProvider interface for consistent usage across providers.
  * 
- * @example
- * ```typescript
- * import { GoogleGenerativeAI } from '@google/generative-ai';
- * 
- * const client = new GoogleGenerativeAI({
- *   apiKey: 'your-google-api-key'
- * });
- * 
- * const provider = new GoogleProvider({
- *   client,
- *   model: 'gemini-1.5-pro',
- *   temperature: 0.7
- * });
- * ```
+ * @see {@link ../../../apps/examples/03-integrations | Provider Integration Examples}
  * 
  * @public
  */
@@ -58,16 +45,6 @@ export class GoogleProvider implements AIProvider {
      * @param options - Configuration options for the Google provider
      * 
      * @throws {Error} When client is not provided in options
-     * 
-     * @example
-     * ```typescript
-     * const provider = new GoogleProvider({
-     *   client: new GoogleGenerativeAI({ apiKey: 'your-key' }),
-     *   model: 'gemini-1.5-pro',
-     *   temperature: 0.8,
-     *   maxTokens: 2048
-     * });
-     * ```
      */
     constructor(options: GoogleProviderOptions) {
         this.options = {
@@ -95,18 +72,6 @@ export class GoogleProvider implements AIProvider {
      * @throws {Error} When context is invalid
      * @throws {Error} When messages array is invalid
      * @throws {Error} When Google AI API call fails
-     * 
-     * @example
-     * ```typescript
-     * const response = await provider.chat('gemini-1.5-pro', {
-     *   messages: [
-     *     { role: 'user', content: 'Hello, how are you?' }
-     *   ],
-     *   systemPrompt: 'You are a helpful assistant.'
-     * });
-     * 
-     * console.log(response.content);
-     * ```
      */
     async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
         // Validate context parameter
@@ -173,19 +138,6 @@ export class GoogleProvider implements AIProvider {
      * @throws {Error} When context is invalid
      * @throws {Error} When messages array is invalid
      * @throws {Error} When Google AI API streaming call fails
-     * 
-     * @example
-     * ```typescript
-     * const stream = provider.chatStream('gemini-1.5-pro', {
-     *   messages: [{ role: 'user', content: 'Tell me a story' }]
-     * });
-     * 
-     * for await (const chunk of stream) {
-     *   if (chunk.content) {
-     *     process.stdout.write(chunk.content);
-     *   }
-     * }
-     * ```
      */
     async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
         // Validate context parameter
@@ -326,11 +278,6 @@ export class GoogleProvider implements AIProvider {
      * Google AI client doesn't require explicit cleanup, so this is a no-op.
      * 
      * @returns Promise that resolves when cleanup is complete
-     * 
-     * @example
-     * ```typescript
-     * await provider.close(); // Clean shutdown
-     * ```
      */
     async close(): Promise<void> {
         // Google AI client doesn't have explicit close method

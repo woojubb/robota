@@ -205,8 +205,7 @@ function isNullableType(zodType: z.ZodTypeAny): boolean {
  * Create a function
  * 
  * @function createFunction
- * @description
- * Creates a function that AI can invoke.
+ * @description Creates a function that AI can invoke.
  * You can define function name, description, parameter schema, and execution logic.
  * 
  * @template TParams function parameter type
@@ -218,24 +217,7 @@ function isNullableType(zodType: z.ZodTypeAny): boolean {
  * @param {(params: TParams) => Promise<TResult> | TResult} options.execute - Execution logic
  * @returns {Function<TParams, TResult>} Created function object
  * 
- * @example
- * ```typescript
- * import { z } from 'zod';
- * import { createFunction } from '@robota-sdk/tools';
- * 
- * const getWeather = createFunction({
- *   name: 'getWeather',
- *   description: 'Get weather information for a specific location.',
- *   parameters: z.object({
- *     location: z.string().describe('Location to check weather (city name)'),
- *     unit: z.enum(['celsius', 'fahrenheit']).optional().describe('Temperature unit')
- *   }),
- *   execute: async (params) => {
- *     // Weather API call logic
- *     return { temperature: 25, condition: 'sunny' };
- *   }
- * });
- * ```
+ * @see {@link ../../apps/examples/02-functions | Function Tool Examples}
  */
 export function createFunction<TParams = unknown, TResult = unknown>(
     options: FunctionOptions<TParams, TResult>
@@ -289,24 +271,14 @@ export function createFunction<TParams = unknown, TResult = unknown>(
  * Convert callback function to Function object
  * 
  * @function functionFromCallback
- * @description
- * Converts a regular JavaScript function to a Function object that AI can invoke.
+ * @description Converts a regular JavaScript function to a Function object that AI can invoke.
  * 
  * @param {string} name - Function name
  * @param {Function} fn - Callback function to convert
  * @param {string} [description] - Function description
  * @returns {Function} Created function object
  * 
- * @example
- * ```typescript
- * import { functionFromCallback } from '@robota-sdk/tools';
- * 
- * const calculateSum = functionFromCallback(
- *   'calculateSum',
- *   (a: number, b: number) => a + b,
- *   'Calculate the sum of two numbers.'
- * );
- * ```
+ * @see {@link ../../apps/examples/02-functions | Function Tool Examples}
  */
 export function functionFromCallback(
     name: string,

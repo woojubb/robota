@@ -37,27 +37,15 @@ import {
 export interface RobotaOptions {
     /** 
      * Tool providers that supply tools like MCP, OpenAPI, ZodFunction, etc.
-     * Created with functions like createMcpToolProvider, createOpenAPIToolProvider, createZodFunctionToolProvider, etc.
      * 
-     * @example
-     * ```typescript
-     * const mcpProvider = createMcpToolProvider({...});
-     * const openApiProvider = createOpenAPIToolProvider({...});
-     * toolProviders: [mcpProvider, openApiProvider]
-     * ```
+     * @see {@link ../../../apps/examples/02-functions | Function Examples}
      */
     toolProviders?: ToolProvider[];
 
     /** 
      * AI providers - Register multiple AI providers by name
      * 
-     * @example
-     * ```typescript
-     * aiProviders: {
-     *   openai: new OpenAIProvider({...}),
-     *   anthropic: new AnthropicProvider({...})
-     * }
-     * ```
+     * @see {@link ../../../apps/examples/03-integrations | Provider Integration Examples}
      */
     aiProviders?: Record<string, AIProvider>;
 
@@ -69,8 +57,6 @@ export interface RobotaOptions {
 
     /** 
      * Current model name to use with the selected provider
-     * 
-     * @example 'gpt-4', 'claude-3-sonnet', 'gemini-pro'
      */
     currentModel?: string;
 
@@ -92,8 +78,6 @@ export interface RobotaOptions {
     /** 
      * System prompt to set context for AI responses
      * Will be converted to a system message
-     * 
-     * @example 'You are a helpful AI assistant specialized in coding.'
      */
     systemPrompt?: string;
 
@@ -166,31 +150,8 @@ export interface RobotaOptions {
  * - Request limiting and analytics
  * - Streaming responses
  * 
- * @example Basic Usage
- * ```typescript
- * const robota = new Robota({
- *   aiProviders: { openai: openaiProvider },
- *   currentProvider: 'openai',
- *   currentModel: 'gpt-4',
- *   systemPrompt: 'You are a helpful AI assistant.'
- * });
- * 
- * const response = await robota.run('Hello, how are you?');
- * console.log(response);
- * ```
- * 
- * @example With Tools
- * ```typescript
- * const robota = new Robota({
- *   aiProviders: { openai: openaiProvider },
- *   currentProvider: 'openai',
- *   currentModel: 'gpt-4',
- *   toolProviders: [mcpToolProvider, zodFunctionProvider],
- *   onToolCall: (toolName, params, result) => {
- *     console.log(`Tool ${toolName} called with:`, params);
- *   }
- * });
- * ```
+ * @see {@link ../../../apps/examples/01-basic | Basic Usage Examples}
+ * @see {@link ../../../apps/examples/05-advanced | Advanced Configuration Examples}
  * 
  * @public
  */
@@ -329,12 +290,7 @@ export class Robota {
      * @param name - Unique name for the provider
      * @param aiProvider - AI provider implementation
      * 
-     * @example
-     * ```typescript
-     * robota.addAIProvider('claude', new AnthropicProvider({
-     *   apiKey: 'your-anthropic-key'
-     * }));
-     * ```
+     * @see {@link ../../../apps/examples/01-basic/03-multi-ai-providers.ts | Multi-Provider Example}
      */
     addAIProvider(name: string, aiProvider: AIProvider): void {
         aiProviderOps.addAIProvider(name, aiProvider, this.aiProviderManager, this.configManager);
@@ -347,12 +303,6 @@ export class Robota {
      * @param model - Model name to use with the provider
      * 
      * @throws {Error} When provider is not registered
-     * 
-     * @example
-     * ```typescript
-     * robota.setCurrentAI('openai', 'gpt-4-turbo');
-     * robota.setCurrentAI('anthropic', 'claude-3-sonnet-20240229');
-     * ```
      */
     setCurrentAI(providerName: string, model: string): void {
         aiProviderOps.setCurrentAI(providerName, model, this.aiProviderManager, this.configManager);
@@ -362,12 +312,6 @@ export class Robota {
      * Get the currently configured AI provider and model
      * 
      * @returns Object containing current provider and model names
-     * 
-     * @example
-     * ```typescript
-     * const { provider, model } = robota.getCurrentAI();
-     * console.log(`Using ${provider} with model ${model}`);
-     * ```
      */
     getCurrentAI(): { provider?: string; model?: string } {
         return aiProviderOps.getCurrentAI(this.aiProviderManager);
@@ -382,10 +326,7 @@ export class Robota {
      * 
      * @param prompt - System prompt text
      * 
-     * @example
-     * ```typescript
-     * robota.setSystemPrompt('You are an expert TypeScript developer who writes clean, well-documented code.');
-     * ```
+     * @see {@link ../../../apps/examples/05-advanced/01-system-message-management.ts | System Message Examples}
      */
     setSystemPrompt(prompt: string): void {
         systemMessageOps.setSystemPrompt(prompt, this.systemMessageManager, this.configManager);
@@ -396,13 +337,7 @@ export class Robota {
      * 
      * @param messages - Array of system messages
      * 
-     * @example
-     * ```typescript
-     * robota.setSystemMessages([
-     *   { role: 'system', content: 'You are a helpful assistant.' },
-     *   { role: 'system', content: 'Always provide code examples when explaining concepts.' }
-     * ]);
-     * ```
+     * @see {@link ../../../apps/examples/05-advanced/01-system-message-management.ts | System Message Examples}
      */
     setSystemMessages(messages: Message[]): void {
         systemMessageOps.setSystemMessages(messages, this.systemMessageManager);
@@ -412,11 +347,6 @@ export class Robota {
      * Add a single system message to existing system messages
      * 
      * @param content - Content of the system message to add
-     * 
-     * @example
-     * ```typescript
-     * robota.addSystemMessage('Always explain your reasoning step by step.');
-     * ```
      */
     addSystemMessage(content: string): void {
         systemMessageOps.addSystemMessage(content, this.systemMessageManager);
@@ -430,13 +360,6 @@ export class Robota {
      * Set the function call mode for tool usage
      * 
      * @param mode - Function call mode ('auto', 'none', 'required', or specific function)
-     * 
-     * @example
-     * ```typescript
-     * robota.setFunctionCallMode('auto'); // Let AI decide when to use tools
-     * robota.setFunctionCallMode('none'); // Disable tool usage
-     * robota.setFunctionCallMode('required'); // Force tool usage
-     * ```
      */
     setFunctionCallMode(mode: FunctionCallMode): void {
         functionCallOps.setFunctionCallMode(mode, this.functionCallManager);
@@ -446,16 +369,6 @@ export class Robota {
      * Configure function call settings comprehensively
      * 
      * @param config - Function call configuration object
-     * 
-     * @example
-     * ```typescript
-     * robota.configureFunctionCall({
-     *   mode: 'auto',
-     *   maxCalls: 5,
-     *   timeout: 30000,
-     *   allowedFunctions: ['search_web', 'calculate']
-     * });
-     * ```
      */
     configureFunctionCall(config: {
         /** Function call mode */
@@ -479,11 +392,7 @@ export class Robota {
      * 
      * @param limit - Maximum number of tokens (0 for unlimited)
      * 
-     * @example
-     * ```typescript
-     * robota.setMaxTokenLimit(50000); // Set limit to 50k tokens
-     * robota.setMaxTokenLimit(0);     // Remove token limit
-     * ```
+     * @see {@link ../../../apps/examples/05-advanced/02-analytics-and-limits.ts | Analytics Examples}
      */
     setMaxTokenLimit(limit: number): void {
         analyticsOps.setMaxTokenLimit(limit, this.requestLimitManager);
@@ -494,11 +403,7 @@ export class Robota {
      * 
      * @param limit - Maximum number of requests (0 for unlimited)
      * 
-     * @example
-     * ```typescript
-     * robota.setMaxRequestLimit(100); // Set limit to 100 requests
-     * robota.setMaxRequestLimit(0);   // Remove request limit
-     * ```
+     * @see {@link ../../../apps/examples/05-advanced/02-analytics-and-limits.ts | Analytics Examples}
      */
     setMaxRequestLimit(limit: number): void {
         analyticsOps.setMaxRequestLimit(limit, this.requestLimitManager);
@@ -527,12 +432,7 @@ export class Robota {
      * 
      * @returns Object containing request and token limits with current usage
      * 
-     * @example
-     * ```typescript
-     * const info = robota.getLimitInfo();
-     * console.log(`Tokens: ${info.tokens.used}/${info.tokens.max}`);
-     * console.log(`Requests: ${info.requests.used}/${info.requests.max}`);
-     * ```
+     * @see {@link ../../../apps/examples/05-advanced/02-analytics-and-limits.ts | Analytics Examples}
      */
     getLimitInfo() {
         return analyticsOps.getLimitInfo(this.requestLimitManager);
@@ -565,12 +465,7 @@ export class Robota {
      * 
      * @returns Analytics object with usage metrics and trends
      * 
-     * @example
-     * ```typescript
-     * const analytics = robota.getAnalytics();
-     * console.log('Average response time:', analytics.averageResponseTime);
-     * console.log('Total conversations:', analytics.totalConversations);
-     * ```
+     * @see {@link ../../../apps/examples/05-advanced/02-analytics-and-limits.ts | Analytics Examples}
      */
     getAnalytics() {
         return analyticsOps.getAnalytics(this.analyticsManager);
@@ -581,29 +476,19 @@ export class Robota {
      * 
      * Clears conversation history, resets token/request counters,
      * and removes all analytics data. Useful for starting fresh.
-     * 
-     * @example
-     * ```typescript
-     * robota.resetAnalytics(); // Start fresh tracking
-     * ```
      */
     resetAnalytics(): void {
         analyticsOps.resetAnalytics(this.analyticsManager, this.requestLimitManager);
     }
 
     /**
-     * Get token usage statistics for a specific time period
+     * Get token usage analytics for a specific time period
      * 
      * @param startDate - Start date for the period
-     * @param endDate - End date for the period (optional, defaults to now)
+     * @param endDate - End date for the period (defaults to now)
      * @returns Token usage data for the specified period
      * 
-     * @example
-     * ```typescript
-     * const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-     * const usage = robota.getTokenUsageByPeriod(lastWeek);
-     * console.log('Tokens used last week:', usage.totalTokens);
-     * ```
+     * @see {@link ../../../apps/examples/05-advanced/02-analytics-and-limits.ts | Analytics Examples}
      */
     getTokenUsageByPeriod(startDate: Date, endDate?: Date) {
         return analyticsOps.getTokenUsageByPeriod(startDate, endDate, this.analyticsManager);
@@ -614,31 +499,18 @@ export class Robota {
     // ============================================================
 
     /**
-     * Execute a text prompt and return the AI response
+     * Execute AI conversation with prompt
      * 
-     * This is the primary method for interacting with the AI.
-     * Handles conversation history, tool calling, and analytics automatically.
+     * Core method for running AI conversations. Handles context building,
+     * tool calling, and response processing automatically.
      * 
-     * @param prompt - The text prompt to send to the AI
-     * @param options - Optional execution configuration
-     * @returns Promise resolving to the AI's response text
+     * @param prompt - User input text
+     * @param options - Optional run configuration
+     * @returns Promise resolving to AI response text
      * 
-     * @throws {Error} When AI provider is not configured
-     * @throws {Error} When request/token limits are exceeded
+     * @throws {Error} When limits exceeded or execution fails
      * 
-     * @example
-     * ```typescript
-     * const response = await robota.run('Explain TypeScript generics');
-     * console.log(response);
-     * ```
-     * 
-     * @example With options
-     * ```typescript
-     * const response = await robota.run('Generate code', {
-     *   functionCallMode: 'required',
-     *   temperature: 0.1
-     * });
-     * ```
+     * @see {@link ../../../apps/examples/01-basic | Basic Usage Examples}
      */
     async run(prompt: string, options: RunOptions = {}): Promise<string> {
         // Apply default function call mode if not specified
@@ -657,27 +529,15 @@ export class Robota {
     }
 
     /**
-     * Generate streaming response for a text prompt
+     * Execute AI conversation with streaming response
      * 
-     * Similar to run() but returns an async iterator for streaming responses.
-     * Useful for real-time display of AI responses.
+     * Like run() but returns streaming chunks for real-time display.
      * 
-     * @param prompt - The text prompt to send to the AI
-     * @param options - Optional execution configuration
-     * @returns Promise resolving to an async iterator of response chunks
+     * @param prompt - User input text  
+     * @param options - Optional run configuration
+     * @returns Promise resolving to async iterable of response chunks
      * 
-     * @throws {Error} When AI provider is not configured
-     * @throws {Error} When streaming is not supported by the provider
-     * 
-     * @example
-     * ```typescript
-     * const stream = await robota.runStream('Tell me a story');
-     * for await (const chunk of stream) {
-     *   if (chunk.content) {
-     *     process.stdout.write(chunk.content);
-     *   }
-     * }
-     * ```
+     * @throws {Error} When limits exceeded or execution fails
      */
     async runStream(prompt: string, options: RunOptions = {}): Promise<AsyncIterable<StreamingResponseChunk>> {
         return conversationOps.executeStream(
@@ -700,14 +560,6 @@ export class Robota {
      * Useful for advanced conversation management scenarios.
      * 
      * @param response - Model response object to add to history
-     * 
-     * @example
-     * ```typescript
-     * robota.addResponseToConversationHistory({
-     *   content: 'Manual response',
-     *   usage: { totalTokens: 50 }
-     * });
-     * ```
      */
     addResponseToConversationHistory(response: ModelResponse): void {
         conversationOps.addResponseToConversationHistory(response, this.conversationHistory);
@@ -718,11 +570,6 @@ export class Robota {
      * 
      * Removes all messages from the conversation history.
      * Useful for starting fresh conversations or managing memory usage.
-     * 
-     * @example
-     * ```typescript
-     * robota.clearConversationHistory(); // Start fresh conversation
-     * ```
      */
     clearConversationHistory(): void {
         conversationOps.clearConversationHistory(this.conversationHistory);
@@ -743,15 +590,6 @@ export class Robota {
      * @returns Promise resolving to the tool's result
      * 
      * @throws {Error} When tool is not found or call fails
-     * 
-     * @example
-     * ```typescript
-     * const result = await robota.callTool('web_search', {
-     *   query: 'TypeScript best practices',
-     *   limit: 5
-     * });
-     * console.log(result);
-     * ```
      */
     async callTool(toolName: string, parameters: Record<string, any>): Promise<any> {
         return toolOps.callTool(toolName, parameters, this.toolProviderManager);
@@ -764,14 +602,6 @@ export class Robota {
      * Useful for debugging or building tool selection UIs.
      * 
      * @returns Array of tool metadata objects
-     * 
-     * @example
-     * ```typescript
-     * const tools = robota.getAvailableTools();
-     * tools.forEach(tool => {
-     *   console.log(`Tool: ${tool.name} - ${tool.description}`);
-     * });
-     * ```
      */
     getAvailableTools(): any[] {
         return toolOps.getAvailableTools(this.toolProviderManager);
@@ -788,11 +618,6 @@ export class Robota {
      * Ensures proper cleanup of AI provider connections and resources.
      * 
      * @returns Promise that resolves when cleanup is complete
-     * 
-     * @example
-     * ```typescript
-     * await robota.close(); // Clean shutdown
-     * ```
      */
     async close(): Promise<void> {
         // Close any open connections or resources

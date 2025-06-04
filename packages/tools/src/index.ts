@@ -114,20 +114,7 @@ export interface CreateToolOptions<TInput = any, TOutput = any> {
  * @param options - Tool creation options
  * @returns Created tool
  * 
- * @example
- * ```ts
- * const weatherTool = createTool({
- *   name: 'getWeather',
- *   description: 'Get weather information for a specific location',
- *   parameters: [
- *     { name: 'location', type: 'string', description: 'Location (city name)', required: true }
- *   ],
- *   execute: async ({ location }) => {
- *     // Weather API call logic
- *     return { temperature: 25, humidity: 60, conditions: 'sunny' };
- *   }
- * });
- * ```
+ * @see {@link ../../apps/examples/02-functions | Function Tool Examples}
  */
 export function createTool<TInput = any, TOutput = any>(
     options: CreateToolOptions<TInput, TOutput>

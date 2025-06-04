@@ -24,28 +24,7 @@ export interface ZodFunctionToolProviderOptions {
  * @param options - 함수 도구 제공자 옵션
  * @returns 도구 제공자 인스턴스 (ToolProvider 인터페이스 구현)
  * 
- * @example
- * ```typescript
- * const calculatorTool = {
- *   name: 'add',
- *   description: '두 숫자를 더합니다',
- *   parameters: z.object({
- *     a: z.number().describe('첫 번째 숫자'),
- *     b: z.number().describe('두 번째 숫자')
- *   }),
- *   handler: async ({ a, b }) => ({ result: a + b })
- * };
- * 
- * const provider = createZodFunctionToolProvider({
- *   tools: { add: calculatorTool }
- * });
- * 
- * const robota = new Robota({
- *   aiClient: openaiProvider,
- *   provider: provider,
- *   systemPrompt: '당신은 도움이 되는 계산기입니다.'
- * });
- * ```
+ * @see {@link ../../apps/examples/02-functions | Function Tool Examples}
  */
 export function createZodFunctionToolProvider(options: ZodFunctionToolProviderOptions): ToolProvider {
     // 도구 정의를 JSON 스키마로 변환
