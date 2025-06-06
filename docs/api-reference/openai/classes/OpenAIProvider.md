@@ -8,9 +8,14 @@
 
 # Class: OpenAIProvider
 
-OpenAI provider implementation
+OpenAI provider implementation for Robota
 
-Implements the AIProvider interface to integrate with Robota.
+Provides integration with OpenAI's GPT models and other services.
+Implements the universal AIProvider interface for consistent usage across providers.
+
+**`See`**
+
+../../../apps/examples/03-integrations | Provider Integration Examples
 
 ## Implements
 
@@ -31,11 +36,10 @@ Implements the AIProvider interface to integrate with Robota.
 
 ### Methods
 
-- [formatMessages](OpenAIProvider#formatmessages)
 - [formatFunctions](OpenAIProvider#formatfunctions)
+- [chat](OpenAIProvider#chat)
 - [parseResponse](OpenAIProvider#parseresponse)
 - [parseStreamingChunk](OpenAIProvider#parsestreamingchunk)
-- [chat](OpenAIProvider#chat)
 - [chatStream](OpenAIProvider#chatstream)
 - [close](OpenAIProvider#close)
 
@@ -45,27 +49,33 @@ Implements the AIProvider interface to integrate with Robota.
 
 • **new OpenAIProvider**(`options`): [`OpenAIProvider`](OpenAIProvider)
 
+Create a new OpenAI provider instance
+
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `options` | [`OpenAIProviderOptions`](../interfaces/OpenAIProviderOptions) |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `options` | [`OpenAIProviderOptions`](../interfaces/OpenAIProviderOptions) | Configuration options for the OpenAI provider |
 
 #### Returns
 
 [`OpenAIProvider`](OpenAIProvider)
 
+**`Throws`**
+
+When client is not provided in options
+
 #### Defined in
 
-[openai/src/provider.ts:46](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/openai/src/provider.ts#L46)
+[openai/src/provider.ts:64](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/openai/src/provider.ts#L64)
 
 ## Properties
 
 ### name
 
-• **name**: `string` = `'openai'`
+• `Readonly` **name**: `string` = `'openai'`
 
-Provider name
+Provider identifier name
 
 #### Implementation of
 
@@ -73,135 +83,74 @@ AIProvider.name
 
 #### Defined in
 
-[openai/src/provider.ts:24](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/openai/src/provider.ts#L24)
+[openai/src/provider.ts:30](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/openai/src/provider.ts#L30)
 
 ___
 
 ### type
 
-• **type**: `string` = `'openai'`
+• `Readonly` **type**: `string` = `'openai'`
 
-Client type
+Client type identifier
 
 #### Defined in
 
-[openai/src/provider.ts:34](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/openai/src/provider.ts#L34)
+[openai/src/provider.ts:42](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/openai/src/provider.ts#L42)
 
 ___
 
 ### instance
 
-• **instance**: `OpenAI`
+• `Readonly` **instance**: `OpenAI`
 
-Client instance
+OpenAI client instance (alias for backwards compatibility)
+
+**`Deprecated`**
+
+Use the private client property instead
 
 #### Defined in
 
-[openai/src/provider.ts:39](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/openai/src/provider.ts#L39)
+[openai/src/provider.ts:49](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/openai/src/provider.ts#L49)
 
 ___
 
 ### options
 
-• **options**: [`OpenAIProviderOptions`](../interfaces/OpenAIProviderOptions)
+• `Readonly` **options**: [`OpenAIProviderOptions`](../interfaces/OpenAIProviderOptions)
 
-Provider options
+Provider configuration options
 
 #### Defined in
 
-[openai/src/provider.ts:44](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/openai/src/provider.ts#L44)
+[openai/src/provider.ts:55](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/openai/src/provider.ts#L55)
 
 ## Methods
-
-### formatMessages
-
-▸ **formatMessages**(`messages`): `ChatCompletionMessageParam`[]
-
-Convert messages to OpenAI format
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `messages` | `Message`[] |
-
-#### Returns
-
-`ChatCompletionMessageParam`[]
-
-**`Deprecated`**
-
-Use OpenAIConversationAdapter.toOpenAIFormat instead
-
-#### Defined in
-
-[openai/src/provider.ts:66](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/openai/src/provider.ts#L66)
-
-___
 
 ### formatFunctions
 
 ▸ **formatFunctions**(`functions`): `ChatCompletionTool`[]
 
-Convert function definitions to OpenAI format
+Convert function definitions to OpenAI tool format
+
+Transforms universal function definitions into OpenAI's specific tool format
+required by the Chat Completions API.
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `functions` | `FunctionDefinition`[] |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `functions` | `FunctionDefinition`[] | Array of universal function definitions |
 
 #### Returns
 
 `ChatCompletionTool`[]
 
-#### Defined in
-
-[openai/src/provider.ts:123](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/openai/src/provider.ts#L123)
-
-___
-
-### parseResponse
-
-▸ **parseResponse**(`response`): `ModelResponse`
-
-Convert OpenAI API response to standard format
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `response` | `ChatCompletion` |
-
-#### Returns
-
-`ModelResponse`
+Array of OpenAI-formatted tools
 
 #### Defined in
 
-[openai/src/provider.ts:137](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/openai/src/provider.ts#L137)
-
-___
-
-### parseStreamingChunk
-
-▸ **parseStreamingChunk**(`chunk`): `StreamingResponseChunk`
-
-Convert streaming response chunk to standard format
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `chunk` | `ChatCompletionChunk` |
-
-#### Returns
-
-`StreamingResponseChunk`
-
-#### Defined in
-
-[openai/src/provider.ts:167](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/openai/src/provider.ts#L167)
+[openai/src/provider.ts:89](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/openai/src/provider.ts#L89)
 
 ___
 
@@ -209,19 +158,40 @@ ___
 
 ▸ **chat**(`model`, `context`, `options?`): `Promise`\<`ModelResponse`\>
 
-Model chat request
+Send a chat request to OpenAI and receive a complete response
+
+Processes the provided context and sends it to OpenAI's Chat Completions API.
+Handles message format conversion, error handling, and response parsing.
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `model` | `string` |
-| `context` | `Context` |
-| `options?` | `any` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `model` | `string` | Model name to use (e.g., 'gpt-4', 'gpt-3.5-turbo') |
+| `context` | `Context` | Context object containing messages and system prompt |
+| `options?` | `any` | Optional generation parameters and tools |
 
 #### Returns
 
 `Promise`\<`ModelResponse`\>
+
+Promise resolving to the model's response
+
+**`Throws`**
+
+When context is invalid
+
+**`Throws`**
+
+When messages array is invalid
+
+**`Throws`**
+
+When message format conversion fails
+
+**`Throws`**
+
+When OpenAI API call fails
 
 #### Implementation of
 
@@ -229,7 +199,61 @@ AIProvider.chat
 
 #### Defined in
 
-[openai/src/provider.ts:189](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/openai/src/provider.ts#L189)
+[openai/src/provider.ts:116](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/openai/src/provider.ts#L116)
+
+___
+
+### parseResponse
+
+▸ **parseResponse**(`response`): `ModelResponse`
+
+Convert OpenAI API response to universal ModelResponse format
+
+Transforms the OpenAI-specific response format into the standard format
+used across all providers in Robota.
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `response` | `ChatCompletion` | Raw response from OpenAI Chat Completions API |
+
+#### Returns
+
+`ModelResponse`
+
+Parsed model response in universal format
+
+#### Defined in
+
+[openai/src/provider.ts:190](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/openai/src/provider.ts#L190)
+
+___
+
+### parseStreamingChunk
+
+▸ **parseStreamingChunk**(`chunk`): `StreamingResponseChunk`
+
+Convert OpenAI streaming response chunk to universal format
+
+Transforms individual chunks from OpenAI's streaming response into the
+standard StreamingResponseChunk format used across all providers.
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `chunk` | `ChatCompletionChunk` | Raw chunk from OpenAI streaming API |
+
+#### Returns
+
+`StreamingResponseChunk`
+
+Parsed streaming response chunk
+
+#### Defined in
+
+[openai/src/provider.ts:240](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/openai/src/provider.ts#L240)
 
 ___
 
@@ -237,19 +261,45 @@ ___
 
 ▸ **chatStream**(`model`, `context`, `options?`): `AsyncGenerator`\<`StreamingResponseChunk`, `void`, `unknown`\>
 
-Model chat streaming request
+Send a streaming chat request to OpenAI and receive response chunks
+
+Similar to chat() but returns an async iterator that yields response chunks
+as they arrive from OpenAI's streaming API. Useful for real-time display
+of responses or handling large responses incrementally.
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `model` | `string` |
-| `context` | `Context` |
-| `options?` | `any` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `model` | `string` | Model name to use |
+| `context` | `Context` | Context object containing messages and system prompt |
+| `options?` | `any` | Optional generation parameters and tools |
 
 #### Returns
 
 `AsyncGenerator`\<`StreamingResponseChunk`, `void`, `unknown`\>
+
+Async generator yielding response chunks
+
+**`Throws`**
+
+When context is invalid
+
+**`Throws`**
+
+When messages array is invalid
+
+**`Throws`**
+
+When message format conversion fails
+
+**`Throws`**
+
+When OpenAI streaming API call fails
+
+**`See`**
+
+../../../apps/examples/01-basic | Basic Usage Examples
 
 #### Implementation of
 
@@ -257,7 +307,7 @@ AIProvider.chatStream
 
 #### Defined in
 
-[openai/src/provider.ts:255](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/openai/src/provider.ts#L255)
+[openai/src/provider.ts:289](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/openai/src/provider.ts#L289)
 
 ___
 
@@ -265,11 +315,16 @@ ___
 
 ▸ **close**(): `Promise`\<`void`\>
 
-Release resources (if needed)
+Release resources and close connections
+
+Performs cleanup operations when the provider is no longer needed.
+OpenAI client doesn't require explicit cleanup, so this is a no-op.
 
 #### Returns
 
 `Promise`\<`void`\>
+
+Promise that resolves when cleanup is complete
 
 #### Implementation of
 
@@ -277,4 +332,4 @@ AIProvider.close
 
 #### Defined in
 
-[openai/src/provider.ts:329](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/openai/src/provider.ts#L329)
+[openai/src/provider.ts:368](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/openai/src/provider.ts#L368)

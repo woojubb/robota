@@ -10,6 +10,9 @@
 
 Function call registry
 
+Manages function definitions and their execution handlers.
+Provides a centralized way to register, lookup, and execute functions.
+
 ## Table of contents
 
 ### Constructors
@@ -19,8 +22,13 @@ Function call registry
 ### Methods
 
 - [register](FunctionRegistry#register)
+- [unregister](FunctionRegistry#unregister)
+- [has](FunctionRegistry#has)
 - [getAllDefinitions](FunctionRegistry#getalldefinitions)
 - [getDefinition](FunctionRegistry#getdefinition)
+- [getFunctionNames](FunctionRegistry#getfunctionnames)
+- [getCount](FunctionRegistry#getcount)
+- [clear](FunctionRegistry#clear)
 - [execute](FunctionRegistry#execute)
 
 ## Constructors
@@ -39,14 +47,14 @@ Function call registry
 
 ▸ **register**(`definition`, `handler`): `void`
 
-Register a function
+Register a function with its definition and handler
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `definition` | [`FunctionDefinition`](../interfaces/FunctionDefinition) |
-| `handler` | [`FunctionHandler`](../modules#functionhandler) |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `definition` | [`FunctionDefinition`](../interfaces/FunctionDefinition) | Function definition with schema |
+| `handler` | [`FunctionHandler`](../modules#functionhandler) | Function execution handler |
 
 #### Returns
 
@@ -54,7 +62,55 @@ Register a function
 
 #### Defined in
 
-[packages/tools/src/function.ts:393](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/function.ts#L393)
+[packages/tools/src/registry/function-registry.ts:39](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/registry/function-registry.ts#L39)
+
+___
+
+### unregister
+
+▸ **unregister**(`name`): `boolean`
+
+Unregister a function by name
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `name` | `string` | Function name to unregister |
+
+#### Returns
+
+`boolean`
+
+True if function was found and removed
+
+#### Defined in
+
+[packages/tools/src/registry/function-registry.ts:50](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/registry/function-registry.ts#L50)
+
+___
+
+### has
+
+▸ **has**(`name`): `boolean`
+
+Check if a function is registered
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `name` | `string` | Function name to check |
+
+#### Returns
+
+`boolean`
+
+True if function is registered
+
+#### Defined in
+
+[packages/tools/src/registry/function-registry.ts:62](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/registry/function-registry.ts#L62)
 
 ___
 
@@ -68,9 +124,11 @@ Get all registered function definitions
 
 [`FunctionDefinition`](../interfaces/FunctionDefinition)[]
 
+Array of all function definitions
+
 #### Defined in
 
-[packages/tools/src/function.ts:401](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/function.ts#L401)
+[packages/tools/src/registry/function-registry.ts:71](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/registry/function-registry.ts#L71)
 
 ___
 
@@ -82,17 +140,71 @@ Get function definition by name
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `name` | `string` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `name` | `string` | Function name |
 
 #### Returns
 
 `undefined` \| [`FunctionDefinition`](../interfaces/FunctionDefinition)
 
+Function definition if found
+
 #### Defined in
 
-[packages/tools/src/function.ts:408](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/function.ts#L408)
+[packages/tools/src/registry/function-registry.ts:81](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/registry/function-registry.ts#L81)
+
+___
+
+### getFunctionNames
+
+▸ **getFunctionNames**(): `string`[]
+
+Get all registered function names
+
+#### Returns
+
+`string`[]
+
+Array of function names
+
+#### Defined in
+
+[packages/tools/src/registry/function-registry.ts:90](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/registry/function-registry.ts#L90)
+
+___
+
+### getCount
+
+▸ **getCount**(): `number`
+
+Get total number of registered functions
+
+#### Returns
+
+`number`
+
+Number of registered functions
+
+#### Defined in
+
+[packages/tools/src/registry/function-registry.ts:99](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/registry/function-registry.ts#L99)
+
+___
+
+### clear
+
+▸ **clear**(): `void`
+
+Clear all registered functions
+
+#### Returns
+
+`void`
+
+#### Defined in
+
+[packages/tools/src/registry/function-registry.ts:106](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/registry/function-registry.ts#L106)
 
 ___
 
@@ -104,15 +216,17 @@ Execute function call
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `functionCall` | [`FunctionCall`](../interfaces/FunctionCall) |
-| `context?` | `any` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `functionCall` | [`FunctionCall`](../interfaces/FunctionCall) | Function call with name and arguments |
+| `context?` | `any` | Optional execution context |
 
 #### Returns
 
 `Promise`\<[`FunctionCallResult`](../interfaces/FunctionCallResult)\>
 
+Promise resolving to function call result
+
 #### Defined in
 
-[packages/tools/src/function.ts:415](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/function.ts#L415)
+[packages/tools/src/registry/function-registry.ts:118](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/registry/function-registry.ts#L118)

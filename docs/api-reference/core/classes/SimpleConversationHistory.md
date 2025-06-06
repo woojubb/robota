@@ -10,9 +10,18 @@
 
 Default conversation history implementation
 
-## Implements
+Provides a simple in-memory storage for conversation messages with optional
+message count limiting. Supports all message types with type safety.
 
-- [`ConversationHistory`](../interfaces/ConversationHistory)
+**`See`**
+
+../../apps/examples/04-sessions | Session and Conversation Examples
+
+## Hierarchy
+
+- `BaseConversationHistory`
+
+  ↳ **`SimpleConversationHistory`**
 
 ## Table of contents
 
@@ -22,14 +31,14 @@ Default conversation history implementation
 
 ### Methods
 
-- [addMessage](SimpleConversationHistory#addmessage)
 - [addUserMessage](SimpleConversationHistory#addusermessage)
 - [addAssistantMessage](SimpleConversationHistory#addassistantmessage)
 - [addSystemMessage](SimpleConversationHistory#addsystemmessage)
 - [addToolMessage](SimpleConversationHistory#addtoolmessage)
-- [getMessages](SimpleConversationHistory#getmessages)
 - [getMessagesByRole](SimpleConversationHistory#getmessagesbyrole)
 - [getRecentMessages](SimpleConversationHistory#getrecentmessages)
+- [addMessage](SimpleConversationHistory#addmessage)
+- [getMessages](SimpleConversationHistory#getmessages)
 - [getMessageCount](SimpleConversationHistory#getmessagecount)
 - [clear](SimpleConversationHistory#clear)
 
@@ -39,54 +48,32 @@ Default conversation history implementation
 
 • **new SimpleConversationHistory**(`options?`): [`SimpleConversationHistory`](SimpleConversationHistory)
 
+Create a new SimpleConversationHistory instance
+
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `options?` | `Object` |
-| `options.maxMessages?` | `number` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `options?` | `Object` | Configuration options |
+| `options.maxMessages?` | `number` | Maximum number of messages to keep (0 = unlimited) |
 
 #### Returns
 
 [`SimpleConversationHistory`](SimpleConversationHistory)
 
+#### Overrides
+
+BaseConversationHistory.constructor
+
 #### Defined in
 
-[conversation-history.ts:98](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L98)
+[conversation-history.ts:437](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L437)
 
 ## Methods
-
-### addMessage
-
-▸ **addMessage**(`message`): `void`
-
-Add message to conversation history
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `message` | [`UniversalMessage`](../interfaces/UniversalMessage) |
-
-#### Returns
-
-`void`
-
-#### Implementation of
-
-[ConversationHistory](../interfaces/ConversationHistory).[addMessage](../interfaces/ConversationHistory#addmessage)
-
-#### Defined in
-
-[conversation-history.ts:102](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L102)
-
-___
 
 ### addUserMessage
 
 ▸ **addUserMessage**(`content`, `metadata?`): `void`
-
-Add user message (convenience method)
 
 #### Parameters
 
@@ -99,21 +86,19 @@ Add user message (convenience method)
 
 `void`
 
-#### Implementation of
+#### Inherited from
 
-[ConversationHistory](../interfaces/ConversationHistory).[addUserMessage](../interfaces/ConversationHistory#addusermessage)
+BaseConversationHistory.addUserMessage
 
 #### Defined in
 
-[conversation-history.ts:107](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L107)
+[conversation-history.ts:372](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L372)
 
 ___
 
 ### addAssistantMessage
 
 ▸ **addAssistantMessage**(`content`, `functionCall?`, `metadata?`): `void`
-
-Add assistant message (convenience method)
 
 #### Parameters
 
@@ -127,21 +112,19 @@ Add assistant message (convenience method)
 
 `void`
 
-#### Implementation of
+#### Inherited from
 
-[ConversationHistory](../interfaces/ConversationHistory).[addAssistantMessage](../interfaces/ConversationHistory#addassistantmessage)
+BaseConversationHistory.addAssistantMessage
 
 #### Defined in
 
-[conversation-history.ts:116](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L116)
+[conversation-history.ts:377](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L377)
 
 ___
 
 ### addSystemMessage
 
 ▸ **addSystemMessage**(`content`, `metadata?`): `void`
-
-Add system message (convenience method)
 
 #### Parameters
 
@@ -154,21 +137,19 @@ Add system message (convenience method)
 
 `void`
 
-#### Implementation of
+#### Inherited from
 
-[ConversationHistory](../interfaces/ConversationHistory).[addSystemMessage](../interfaces/ConversationHistory#addsystemmessage)
+BaseConversationHistory.addSystemMessage
 
 #### Defined in
 
-[conversation-history.ts:126](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L126)
+[conversation-history.ts:382](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L382)
 
 ___
 
 ### addToolMessage
 
 ▸ **addToolMessage**(`toolResult`, `metadata?`): `void`
-
-Add tool execution result message (convenience method)
 
 #### Parameters
 
@@ -181,41 +162,19 @@ Add tool execution result message (convenience method)
 
 `void`
 
-#### Implementation of
+#### Inherited from
 
-[ConversationHistory](../interfaces/ConversationHistory).[addToolMessage](../interfaces/ConversationHistory#addtoolmessage)
-
-#### Defined in
-
-[conversation-history.ts:135](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L135)
-
-___
-
-### getMessages
-
-▸ **getMessages**(): [`UniversalMessage`](../interfaces/UniversalMessage)[]
-
-Get all messages
-
-#### Returns
-
-[`UniversalMessage`](../interfaces/UniversalMessage)[]
-
-#### Implementation of
-
-[ConversationHistory](../interfaces/ConversationHistory).[getMessages](../interfaces/ConversationHistory#getmessages)
+BaseConversationHistory.addToolMessage
 
 #### Defined in
 
-[conversation-history.ts:150](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L150)
+[conversation-history.ts:387](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L387)
 
 ___
 
 ### getMessagesByRole
 
-▸ **getMessagesByRole**(`role`): [`UniversalMessage`](../interfaces/UniversalMessage)[]
-
-Get messages by specific role
+▸ **getMessagesByRole**(`role`): [`UniversalMessage`](../modules#universalmessage)[]
 
 #### Parameters
 
@@ -225,23 +184,21 @@ Get messages by specific role
 
 #### Returns
 
-[`UniversalMessage`](../interfaces/UniversalMessage)[]
+[`UniversalMessage`](../modules#universalmessage)[]
 
-#### Implementation of
+#### Inherited from
 
-[ConversationHistory](../interfaces/ConversationHistory).[getMessagesByRole](../interfaces/ConversationHistory#getmessagesbyrole)
+BaseConversationHistory.getMessagesByRole
 
 #### Defined in
 
-[conversation-history.ts:154](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L154)
+[conversation-history.ts:396](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L396)
 
 ___
 
 ### getRecentMessages
 
-▸ **getRecentMessages**(`count`): [`UniversalMessage`](../interfaces/UniversalMessage)[]
-
-Get recent n messages
+▸ **getRecentMessages**(`count`): [`UniversalMessage`](../modules#universalmessage)[]
 
 #### Parameters
 
@@ -251,15 +208,66 @@ Get recent n messages
 
 #### Returns
 
-[`UniversalMessage`](../interfaces/UniversalMessage)[]
+[`UniversalMessage`](../modules#universalmessage)[]
 
-#### Implementation of
+#### Inherited from
 
-[ConversationHistory](../interfaces/ConversationHistory).[getRecentMessages](../interfaces/ConversationHistory#getrecentmessages)
+BaseConversationHistory.getRecentMessages
 
 #### Defined in
 
-[conversation-history.ts:158](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L158)
+[conversation-history.ts:400](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L400)
+
+___
+
+### addMessage
+
+▸ **addMessage**(`message`): `void`
+
+Add a message to conversation history
+
+Appends the message to the history and applies message count limits if configured.
+System messages are always preserved when applying limits.
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `message` | [`UniversalMessage`](../modules#universalmessage) | Universal message to add |
+
+#### Returns
+
+`void`
+
+#### Overrides
+
+BaseConversationHistory.addMessage
+
+#### Defined in
+
+[conversation-history.ts:449](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L449)
+
+___
+
+### getMessages
+
+▸ **getMessages**(): [`UniversalMessage`](../modules#universalmessage)[]
+
+Get all messages in chronological order
+
+#### Returns
+
+[`UniversalMessage`](../modules#universalmessage)[]
+
+Defensive copy of all messages
+
+#### Overrides
+
+BaseConversationHistory.getMessages
+
+#### Defined in
+
+[conversation-history.ts:459](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L459)
 
 ___
 
@@ -267,19 +275,21 @@ ___
 
 ▸ **getMessageCount**(): `number`
 
-Return message count
+Get total message count
 
 #### Returns
 
 `number`
 
-#### Implementation of
+Number of messages currently stored
 
-[ConversationHistory](../interfaces/ConversationHistory).[getMessageCount](../interfaces/ConversationHistory#getmessagecount)
+#### Overrides
+
+BaseConversationHistory.getMessageCount
 
 #### Defined in
 
-[conversation-history.ts:162](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L162)
+[conversation-history.ts:468](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L468)
 
 ___
 
@@ -287,16 +297,18 @@ ___
 
 ▸ **clear**(): `void`
 
-Clear conversation history
+Clear all conversation history
+
+Removes all messages from the history.
 
 #### Returns
 
 `void`
 
-#### Implementation of
+#### Overrides
 
-[ConversationHistory](../interfaces/ConversationHistory).[clear](../interfaces/ConversationHistory#clear)
+BaseConversationHistory.clear
 
 #### Defined in
 
-[conversation-history.ts:166](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L166)
+[conversation-history.ts:477](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L477)

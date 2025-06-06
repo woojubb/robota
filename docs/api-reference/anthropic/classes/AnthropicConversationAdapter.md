@@ -10,7 +10,7 @@
 
 Anthropic ConversationHistory adapter
 
-Converts UniversalMessage to Anthropic prompt format
+Converts UniversalMessage to Anthropic prompt format and Messages API format
 
 ## Table of contents
 
@@ -20,6 +20,7 @@ Converts UniversalMessage to Anthropic prompt format
 
 ### Methods
 
+- [toAnthropicMessages](AnthropicConversationAdapter#toanthropicmessages)
 - [toAnthropicPrompt](AnthropicConversationAdapter#toanthropicprompt)
 - [extractSystemPrompt](AnthropicConversationAdapter#extractsystemprompt)
 - [convertMessage](AnthropicConversationAdapter#convertmessage)
@@ -36,11 +37,35 @@ Converts UniversalMessage to Anthropic prompt format
 
 ## Methods
 
+### toAnthropicMessages
+
+▸ **toAnthropicMessages**(`messages`): `AnthropicAPIMessage`[]
+
+Convert UniversalMessage array to Anthropic Messages API format
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `messages` | `UniversalMessage`[] | Array of universal messages |
+
+#### Returns
+
+`AnthropicAPIMessage`[]
+
+Array of messages in Anthropic Messages API format
+
+#### Defined in
+
+[anthropic/src/adapter.ts:31](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/anthropic/src/adapter.ts#L31)
+
+___
+
 ### toAnthropicPrompt
 
 ▸ **toAnthropicPrompt**(`messages`, `systemPrompt?`): `string`
 
-Convert UniversalMessage array to Anthropic prompt format
+Convert UniversalMessage array to Anthropic prompt format (legacy)
 
 #### Parameters
 
@@ -55,7 +80,7 @@ Convert UniversalMessage array to Anthropic prompt format
 
 #### Defined in
 
-[anthropic/src/adapter.ts:12](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/anthropic/src/adapter.ts#L12)
+[anthropic/src/adapter.ts:76](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/anthropic/src/adapter.ts#L76)
 
 ___
 
@@ -78,13 +103,13 @@ Extract system messages and combine them as system prompt
 
 #### Defined in
 
-[anthropic/src/adapter.ts:55](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/anthropic/src/adapter.ts#L55)
+[anthropic/src/adapter.ts:127](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/anthropic/src/adapter.ts#L127)
 
 ___
 
 ### convertMessage
 
-▸ **convertMessage**(`msg`): `Object`
+▸ **convertMessage**(`msg`): `AnthropicMessage`
 
 Helper for message conversion testing (converts each message individually)
 
@@ -96,13 +121,8 @@ Helper for message conversion testing (converts each message individually)
 
 #### Returns
 
-`Object`
-
-| Name | Type |
-| :------ | :------ |
-| `role` | `string` |
-| `content` | `string` |
+`AnthropicMessage`
 
 #### Defined in
 
-[anthropic/src/adapter.ts:68](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/anthropic/src/adapter.ts#L68)
+[anthropic/src/adapter.ts:140](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/anthropic/src/adapter.ts#L140)

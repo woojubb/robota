@@ -16,40 +16,9 @@ OpenAPI schema-based tool class
 
 Tool that uses OpenAPI specification schema format for parameter definition.
 
-**`Example`**
+**`See`**
 
-```typescript
-import { OpenApiTool } from '@robota-sdk/tools';
-
-const apiTool = new OpenApiTool({
-  name: 'userInfo',
-  description: 'Get user information by ID',
-  category: 'api',
-  parameters: {
-    type: 'object',
-    properties: {
-      userId: {
-        type: 'string',
-        description: 'Unique user identifier'
-      },
-      includeProfile: {
-        type: 'boolean',
-        description: 'Whether to include detailed profile information',
-        default: false
-      }
-    },
-    required: ['userId']
-  },
-  execute: async (params) => {
-    // API call logic
-    const userInfo = { id: params.userId, name: 'John Doe' };
-    return {
-      status: 'success',
-      data: userInfo
-    };
-  }
-});
-```
+../../../../apps/examples/03-integrations/03-api-integration.ts | API Integration Example
 
 ## Type parameters
 
@@ -120,7 +89,7 @@ Constructor
 
 #### Defined in
 
-[packages/tools/src/tool/openapi-tool.ts:69](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/openapi-tool.ts#L69)
+[packages/tools/src/tool/openapi-tool.ts:36](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/openapi-tool.ts#L36)
 
 ## Properties
 
@@ -136,7 +105,7 @@ Tool name
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:29](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/base-tool.ts#L29)
+[packages/tools/src/tool/base-tool.ts:29](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/base-tool.ts#L29)
 
 ___
 
@@ -152,7 +121,7 @@ Tool description
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:34](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/base-tool.ts#L34)
+[packages/tools/src/tool/base-tool.ts:34](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/base-tool.ts#L34)
 
 ___
 
@@ -168,7 +137,7 @@ Tool category
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:39](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/base-tool.ts#L39)
+[packages/tools/src/tool/base-tool.ts:39](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/base-tool.ts#L39)
 
 ___
 
@@ -184,7 +153,7 @@ Tool version
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:44](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/base-tool.ts#L44)
+[packages/tools/src/tool/base-tool.ts:44](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/base-tool.ts#L44)
 
 ## Accessors
 
@@ -212,7 +181,7 @@ BaseTool.schema
 
 #### Defined in
 
-[packages/tools/src/tool/openapi-tool.ts:79](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/openapi-tool.ts#L79)
+[packages/tools/src/tool/openapi-tool.ts:46](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/openapi-tool.ts#L46)
 
 ## Methods
 
@@ -240,7 +209,7 @@ Tool execution result
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:108](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/base-tool.ts#L108)
+[packages/tools/src/tool/base-tool.ts:108](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/base-tool.ts#L108)
 
 ___
 
@@ -262,7 +231,7 @@ Function schema
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:145](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/base-tool.ts#L145)
+[packages/tools/src/tool/base-tool.ts:145](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/base-tool.ts#L145)
 
 ___
 
@@ -284,7 +253,7 @@ Function definition
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:158](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/base-tool.ts#L158)
+[packages/tools/src/tool/base-tool.ts:158](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/base-tool.ts#L158)
 
 ___
 
@@ -306,7 +275,7 @@ String representation of the tool
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:171](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/base-tool.ts#L171)
+[packages/tools/src/tool/base-tool.ts:171](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/base-tool.ts#L171)
 
 ___
 
@@ -337,4 +306,4 @@ OpenApiTool instance
 
 #### Defined in
 
-[packages/tools/src/tool/openapi-tool.ts:145](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/openapi-tool.ts#L145)
+[packages/tools/src/tool/openapi-tool.ts:112](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/openapi-tool.ts#L112)

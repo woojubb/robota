@@ -41,6 +41,7 @@ Converts UniversalMessage to OpenAI Chat Completions API format
 ▸ **toOpenAIFormat**(`messages`): `ChatCompletionMessageParam`[]
 
 Convert UniversalMessage array to OpenAI message format
+Filters out tool messages as they are for internal history management only
 
 #### Parameters
 
@@ -54,7 +55,7 @@ Convert UniversalMessage array to OpenAI message format
 
 #### Defined in
 
-[openai/src/adapter.ts:13](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/openai/src/adapter.ts#L13)
+[openai/src/adapter.ts:14](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/openai/src/adapter.ts#L14)
 
 ___
 
@@ -63,6 +64,7 @@ ___
 ▸ **convertMessage**(`msg`): `ChatCompletionMessageParam`
 
 Convert a single UniversalMessage to OpenAI format
+Note: Tool messages should be filtered out before calling this method
 
 #### Parameters
 
@@ -76,7 +78,7 @@ Convert a single UniversalMessage to OpenAI format
 
 #### Defined in
 
-[openai/src/adapter.ts:20](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/openai/src/adapter.ts#L20)
+[openai/src/adapter.ts:24](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/openai/src/adapter.ts#L24)
 
 ___
 
@@ -99,4 +101,4 @@ Add system prompt to message array if needed
 
 #### Defined in
 
-[openai/src/adapter.ts:73](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/openai/src/adapter.ts#L73)
+[openai/src/adapter.ts:103](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/openai/src/adapter.ts#L103)

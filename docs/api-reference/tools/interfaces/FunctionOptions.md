@@ -34,7 +34,7 @@ Function options interface
 
 #### Defined in
 
-[packages/tools/src/function.ts:24](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/function.ts#L24)
+[packages/tools/src/factories/function-factory.ts:25](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/factories/function-factory.ts#L25)
 
 ___
 
@@ -44,7 +44,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/function.ts:25](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/function.ts#L25)
+[packages/tools/src/factories/function-factory.ts:26](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/factories/function-factory.ts#L26)
 
 ___
 
@@ -54,7 +54,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/function.ts:26](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/function.ts#L26)
+[packages/tools/src/factories/function-factory.ts:27](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/factories/function-factory.ts#L27)
 
 ___
 
@@ -78,4 +78,4 @@ ___
 
 #### Defined in
 
-[packages/tools/src/function.ts:27](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/function.ts#L27)
+[packages/tools/src/factories/function-factory.ts:28](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/factories/function-factory.ts#L28)

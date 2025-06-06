@@ -18,7 +18,8 @@ Google AI Provider options
 - [model](GoogleProviderOptions#model)
 - [temperature](GoogleProviderOptions#temperature)
 - [maxTokens](GoogleProviderOptions#maxtokens)
-- [responseFormat](GoogleProviderOptions#responseformat)
+- [responseMimeType](GoogleProviderOptions#responsemimetype)
+- [responseSchema](GoogleProviderOptions#responseschema)
 
 ## Properties
 
@@ -30,7 +31,7 @@ Google AI client instance
 
 #### Defined in
 
-[types.ts:8](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/types.ts#L8)
+[types.ts:8](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/types.ts#L8)
 
 ___
 
@@ -42,7 +43,7 @@ Default model to use
 
 #### Defined in
 
-[types.ts:11](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/types.ts#L11)
+[types.ts:11](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/types.ts#L11)
 
 ___
 
@@ -54,7 +55,7 @@ Temperature setting (0.0 ~ 1.0)
 
 #### Defined in
 
-[types.ts:14](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/types.ts#L14)
+[types.ts:14](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/types.ts#L14)
 
 ___
 
@@ -66,16 +67,30 @@ Maximum number of tokens
 
 #### Defined in
 
-[types.ts:17](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/types.ts#L17)
+[types.ts:17](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/types.ts#L17)
 
 ___
 
-### responseFormat
+### responseMimeType
 
-• `Optional` **responseFormat**: `string`
+• `Optional` **responseMimeType**: ``"text/plain"`` \| ``"application/json"``
 
-Response format
+Response MIME type
+- 'text/plain': Plain text response (default)
+- 'application/json': JSON response format
 
 #### Defined in
 
-[types.ts:20](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/types.ts#L20)
+[types.ts:24](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/types.ts#L24)
+
+___
+
+### responseSchema
+
+• `Optional` **responseSchema**: `Record`\<`string`, `unknown`\>
+
+Response schema for JSON output (only used when responseMimeType is 'application/json')
+
+#### Defined in
+
+[types.ts:29](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/types.ts#L29)
