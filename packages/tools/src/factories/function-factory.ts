@@ -181,7 +181,7 @@ function formatZodError(error: z.ZodError): string {
  * @param fn - Function to analyze
  * @returns Parameter information
  */
-function extractParameterInfo(fn: Function): { argNames: string[] } {
+function extractParameterInfo(fn: (...args: any[]) => any): { argNames: string[] } {
     const fnStr = fn.toString();
     const argsMatch = fnStr.match(/\(([^)]*)\)/);
     const argNames = argsMatch

@@ -1,7 +1,7 @@
 import type {
     RunOptions
 } from './types';
-import type { AIProvider, Message, ModelResponse, StreamingResponseChunk } from './interfaces/ai-provider';
+import type { AIProvider, Message, StreamingResponseChunk } from './interfaces/ai-provider';
 import type { Logger } from './interfaces/logger';
 import type { ConversationHistory } from './conversation-history';
 import type { ToolProvider } from '@robota-sdk/tools';
@@ -17,7 +17,7 @@ import { RequestLimitManager } from './managers/request-limit-manager';
 import { TokenAnalyzer } from './analyzers/token-analyzer';
 import { ConversationService } from './services/conversation-service';
 import { ExecutionService } from './services/execution-service';
-import { RobotaConfigManager, type RobotaConfigInput } from './managers/robota-config-manager';
+import { RobotaConfigManager } from './managers/robota-config-manager';
 
 /**
  * Configuration options for initializing Robota instance
