@@ -235,8 +235,8 @@ export function createSystemMessage(
 /**
  * Create a tool message
  * 
- * @param content - Tool execution result content
- * @param options - Optional message properties (either toolResult for legacy or toolCallId for OpenAI)
+ * @param content - Message content
+ * @param options - Optional message properties
  * @returns Type-safe tool message
  */
 export function createToolMessage(
@@ -251,7 +251,7 @@ export function createToolMessage(
     return {
         role: 'tool',
         content,
-        name: options?.name || options?.toolResult?.name,
+        name: options?.name,
         toolCallId: options?.toolCallId,
         toolResult: options?.toolResult,
         timestamp: new Date(),
@@ -260,12 +260,12 @@ export function createToolMessage(
 }
 
 /**
- * Conversation history interface
+ * Interface for managing conversation history
  * 
- * Interface for managing conversation history, designed in a provider-independent way.
- * Provides type-safe methods for adding different message types and querying the history.
- * 
- * @see {@link ../../apps/examples/04-sessions | Session and Conversation Examples}
+ * This interface provides methods for adding, retrieving, and managing
+ * messages in a conversation thread. Implementations may provide
+ * different storage mechanisms, message limits, or special handling
+ * for specific message types.
  * 
  * @public
  */
@@ -347,6 +347,74 @@ export interface ConversationHistory {
 }
 
 /**
+ * Abstract base class for conversation history implementations
+ * 
+ * Provides common functionality and message factory methods
+ * that can be shared across different conversation history implementations.
+ * 
+ * @internal
+ */
+export abstract class BaseConversationHistory implements ConversationHistory {
+    /** Maximum number of messages to store (0 = unlimited) */
+    protected readonly maxMessages: number;
+
+    constructor(options?: { maxMessages?: number }) {
+        this.maxMessages = options?.maxMessages || 0;
+    }
+
+    // Abstract methods that must be implemented by subclasses
+    abstract addMessage(message: UniversalMessage): void;
+    abstract getMessages(): UniversalMessage[];
+    abstract clear(): void;
+    abstract getMessageCount(): number;
+
+    // Common convenience methods with shared implementation
+    addUserMessage(content: string, metadata?: Record<string, any>): void {
+        const message = createUserMessage(content, { metadata });
+        this.addMessage(message);
+    }
+
+    addAssistantMessage(content: string, functionCall?: FunctionCall, metadata?: Record<string, any>): void {
+        const message = createAssistantMessage(content, { functionCall, metadata });
+        this.addMessage(message);
+    }
+
+    addSystemMessage(content: string, metadata?: Record<string, any>): void {
+        const message = createSystemMessage(content, { metadata });
+        this.addMessage(message);
+    }
+
+    addToolMessage(toolResult: FunctionCallResult, metadata?: Record<string, any>): void {
+        const message = createToolMessage(toolResult.result || '', {
+            toolResult,
+            name: toolResult.name,
+            metadata
+        });
+        this.addMessage(message);
+    }
+
+    getMessagesByRole(role: UniversalMessageRole): UniversalMessage[] {
+        return this.getMessages().filter(message => message.role === role);
+    }
+
+    getRecentMessages(count: number): UniversalMessage[] {
+        const messages = this.getMessages();
+        return messages.slice(-count);
+    }
+
+    /**
+     * Apply message limit by removing oldest messages
+     * @internal
+     */
+    protected applyMessageLimit(messages: UniversalMessage[]): UniversalMessage[] {
+        if (this.maxMessages > 0 && messages.length > this.maxMessages) {
+            return messages.slice(-this.maxMessages);
+        }
+        return messages;
+    }
+}
+
+/**
  * Default conversation history implementation
  * 
  * Provides a simple in-memory storage for conversation messages with optional
@@ -356,12 +424,9 @@ export interface ConversationHistory {
  * 
  * @public
  */
-export class SimpleConversationHistory implements ConversationHistory {
+export class SimpleConversationHistory extends BaseConversationHistory {
     /** @internal Array storing all messages */
     private messages: UniversalMessage[] = [];
-
-    /** @internal Maximum message count (0 = unlimited) */
-    private readonly maxMessages: number;
 
     /**
      * Create a new SimpleConversationHistory instance
@@ -370,7 +435,7 @@ export class SimpleConversationHistory implements ConversationHistory {
      * @param options.maxMessages - Maximum number of messages to keep (0 = unlimited)
      */
     constructor(options?: { maxMessages?: number }) {
-        this.maxMessages = options?.maxMessages || 0;
+        super(options);
     }
 
     /**
@@ -387,77 +452,12 @@ export class SimpleConversationHistory implements ConversationHistory {
     }
 
     /**
-     * Add user message using type-safe factory
-     * 
-     * @param content - User message content
-     * @param metadata - Optional metadata
-     */
-    addUserMessage(content: string, metadata?: Record<string, any>): void {
-        this.addMessage(createUserMessage(content, { metadata }));
-    }
-
-    /**
-     * Add assistant message using type-safe factory
-     * 
-     * @param content - Assistant response content
-     * @param functionCall - Optional function call made by assistant
-     * @param metadata - Optional metadata
-     */
-    addAssistantMessage(content: string, functionCall?: FunctionCall, metadata?: Record<string, any>): void {
-        this.addMessage(createAssistantMessage(content, { functionCall, metadata }));
-    }
-
-    /**
-     * Add system message using type-safe factory
-     * 
-     * @param content - System instruction content
-     * @param metadata - Optional metadata
-     */
-    addSystemMessage(content: string, metadata?: Record<string, any>): void {
-        this.addMessage(createSystemMessage(content, { metadata }));
-    }
-
-    /**
-     * Add tool execution result message using type-safe factory
-     * 
-     * @param toolResult - Tool execution result
-     * @param metadata - Optional metadata
-     */
-    addToolMessage(toolResult: FunctionCallResult, metadata?: Record<string, any>): void {
-        this.addMessage(createToolMessage(toolResult.error ? `Tool execution error: ${toolResult.error}` : `Tool result: ${JSON.stringify(toolResult.result)}`, {
-            toolResult,
-            name: toolResult.name,
-            metadata
-        }));
-    }
-
-    /**
      * Get all messages in chronological order
      * 
      * @returns Defensive copy of all messages
      */
     getMessages(): UniversalMessage[] {
         return [...this.messages];
-    }
-
-    /**
-     * Get messages filtered by specific role with type safety
-     * 
-     * @param role - Message role to filter by
-     * @returns Array of messages with the specified role
-     */
-    getMessagesByRole(role: UniversalMessageRole): UniversalMessage[] {
-        return this.messages.filter(msg => msg.role === role);
-    }
-
-    /**
-     * Get the most recent n messages
-     * 
-     * @param count - Number of recent messages to return
-     * @returns Array of recent messages in chronological order
-     */
-    getRecentMessages(count: number): UniversalMessage[] {
-        return this.messages.slice(-count);
     }
 
     /**
@@ -487,18 +487,7 @@ export class SimpleConversationHistory implements ConversationHistory {
      * @internal
      */
     private _applyMessageLimit(): void {
-        if (this.maxMessages > 0 && this.messages.length > this.maxMessages) {
-            // Always keep system messages
-            const systemMessages = this.messages.filter(isSystemMessage);
-            const nonSystemMessages = this.messages.filter(msg => !isSystemMessage(msg));
-
-            // Apply limit only to non-system messages
-            const remainingCount = this.maxMessages - systemMessages.length;
-            const trimmedNonSystemMessages = nonSystemMessages.slice(-remainingCount);
-
-            // Combine system messages with limited general messages
-            this.messages = [...systemMessages, ...trimmedNonSystemMessages];
-        }
+        this.messages = this.applyMessageLimit(this.messages);
     }
 }
 
@@ -512,7 +501,7 @@ export class SimpleConversationHistory implements ConversationHistory {
  * 
  * @public
  */
-export class PersistentSystemConversationHistory implements ConversationHistory {
+export class PersistentSystemConversationHistory extends BaseConversationHistory {
     /** @internal Underlying conversation history */
     private readonly history: SimpleConversationHistory;
 
@@ -526,6 +515,7 @@ export class PersistentSystemConversationHistory implements ConversationHistory 
      * @param options - Configuration options passed to underlying SimpleConversationHistory
      */
     constructor(systemPrompt: string, options?: { maxMessages?: number }) {
+        super(options);
         this.history = new SimpleConversationHistory(options);
         this.systemPrompt = systemPrompt;
 
@@ -543,47 +533,6 @@ export class PersistentSystemConversationHistory implements ConversationHistory 
     }
 
     /**
-     * Add user message (delegates to underlying history)
-     * 
-     * @param content - User message content
-     * @param metadata - Optional metadata
-     */
-    addUserMessage(content: string, metadata?: Record<string, any>): void {
-        this.history.addUserMessage(content, metadata);
-    }
-
-    /**
-     * Add assistant message (delegates to underlying history)
-     * 
-     * @param content - Assistant response content
-     * @param functionCall - Optional function call made by assistant
-     * @param metadata - Optional metadata
-     */
-    addAssistantMessage(content: string, functionCall?: FunctionCall, metadata?: Record<string, any>): void {
-        this.history.addAssistantMessage(content, functionCall, metadata);
-    }
-
-    /**
-     * Add system message (delegates to underlying history)
-     * 
-     * @param content - System instruction content
-     * @param metadata - Optional metadata
-     */
-    addSystemMessage(content: string, metadata?: Record<string, any>): void {
-        this.history.addSystemMessage(content, metadata);
-    }
-
-    /**
-     * Add tool execution result message (delegates to underlying history)
-     * 
-     * @param toolResult - Tool execution result
-     * @param metadata - Optional metadata
-     */
-    addToolMessage(toolResult: FunctionCallResult, metadata?: Record<string, any>): void {
-        this.history.addToolMessage(toolResult, metadata);
-    }
-
-    /**
      * Get all messages (delegates to underlying history)
      * 
      * @returns Array of all messages including system messages
@@ -593,27 +542,7 @@ export class PersistentSystemConversationHistory implements ConversationHistory 
     }
 
     /**
-     * Get messages by role (delegates to underlying history)
-     * 
-     * @param role - Message role to filter by
-     * @returns Array of messages with the specified role
-     */
-    getMessagesByRole(role: UniversalMessageRole): UniversalMessage[] {
-        return this.history.getMessagesByRole(role);
-    }
-
-    /**
-     * Get recent messages (delegates to underlying history)
-     * 
-     * @param count - Number of recent messages to return
-     * @returns Array of recent messages
-     */
-    getRecentMessages(count: number): UniversalMessage[] {
-        return this.history.getRecentMessages(count);
-    }
-
-    /**
-     * Get message count (delegates to underlying history)
+     * Get total message count (delegates to underlying history)
      * 
      * @returns Total number of messages including system messages
      */

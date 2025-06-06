@@ -8,8 +8,9 @@
  */
 
 import { z } from "zod";
-import { Robota } from "@robota-sdk/core";
+import { Robota, OpenAIProvider } from "@robota-sdk/core";
 import { createZodFunctionToolProvider } from "@robota-sdk/tools";
+import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -68,15 +69,34 @@ async function main() {
     try {
         console.log("Zod Function Tool Provider example started...");
 
+        // Validate API key
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            throw new Error('OPENAI_API_KEY environment variable is required');
+        }
+
+        // Create OpenAI client
+        const openaiClient = new OpenAI({
+            apiKey
+        });
+
+        // Create OpenAI Provider
+        const openaiProvider = new OpenAIProvider(openaiClient);
+
         // Create Zod function tool provider
-        const provider = createZodFunctionToolProvider({
+        const toolProvider = createZodFunctionToolProvider({
             tools
         });
 
-        // Create Robota instance (using only provider without aiClient)
+        // Create Robota instance with both AI and tool providers
         const robota = new Robota({
-            provider,
-            systemPrompt: "You are an AI assistant that processes user requests using tools."
+            aiProviders: {
+                'openai': openaiProvider
+            },
+            currentProvider: 'openai',
+            currentModel: 'gpt-3.5-turbo',
+            toolProviders: [toolProvider],
+            systemPrompt: "You are an AI assistant that processes user requests using available tools. When users ask for calculations or weather information, use the appropriate tools."
         });
 
         // Test query examples
