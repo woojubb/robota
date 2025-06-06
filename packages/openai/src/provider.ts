@@ -1,11 +1,9 @@
 import OpenAI from 'openai';
 import {
   Context,
-  Message,
   ModelResponse,
   StreamingResponseChunk,
-  AIProvider,
-  UniversalMessage
+  AIProvider
 } from '@robota-sdk/core';
 import type { FunctionDefinition } from '@robota-sdk/tools';
 import { OpenAIProviderOptions } from './types';
@@ -120,7 +118,7 @@ export class OpenAIProvider implements AIProvider {
       throw new Error('Valid Context object is required');
     }
 
-    const { messages, systemPrompt } = context;
+    const { messages } = context;
 
     // Validate messages array
     if (!Array.isArray(messages)) {
@@ -132,10 +130,10 @@ export class OpenAIProvider implements AIProvider {
     const openaiMessages = OpenAIConversationAdapter.toOpenAIFormat(context.messages);
 
     // Debug: Log the messages being sent
-    console.log('Debug - Messages being sent to OpenAI:');
-    console.log(JSON.stringify(openaiMessages, null, 2));
-    console.log('Original messages count:', context.messages.length);
-    console.log('Filtered messages count:', openaiMessages.length);
+    logger.info('Debug - Messages being sent to OpenAI:');
+    logger.info(JSON.stringify(openaiMessages, null, 2));
+    logger.info('Original messages count:', context.messages.length);
+    logger.info('Filtered messages count:', openaiMessages.length);
 
     const completionOptions: OpenAI.Chat.ChatCompletionCreateParams = {
       model,
@@ -293,7 +291,7 @@ export class OpenAIProvider implements AIProvider {
       throw new Error('Valid Context object is required');
     }
 
-    const { messages, systemPrompt } = context;
+    const { messages } = context;
 
     // Validate messages array
     if (!Array.isArray(messages)) {
@@ -305,10 +303,10 @@ export class OpenAIProvider implements AIProvider {
     const openaiMessages = OpenAIConversationAdapter.toOpenAIFormat(context.messages);
 
     // Debug: Log the messages being sent
-    console.log('Debug - Messages being sent to OpenAI:');
-    console.log(JSON.stringify(openaiMessages, null, 2));
-    console.log('Original messages count:', context.messages.length);
-    console.log('Filtered messages count:', openaiMessages.length);
+    logger.info('Debug - Messages being sent to OpenAI:');
+    logger.info(JSON.stringify(openaiMessages, null, 2));
+    logger.info('Original messages count:', context.messages.length);
+    logger.info('Filtered messages count:', openaiMessages.length);
 
     const completionOptions: OpenAI.Chat.ChatCompletionCreateParams = {
       model,

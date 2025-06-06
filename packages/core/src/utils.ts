@@ -83,10 +83,12 @@ export function estimateTokenCount(text: string): number {
   const englishWords = text.match(/[a-zA-Z]+/g)?.length || 0;
 
   // Extract non-ASCII characters (including Korean, Chinese, Japanese, etc.)
-  const nonAsciiChars = text.match(/[^\x00-\x7F]/g)?.length || 0;
+  // eslint-disable-next-line no-control-regex
+  const nonAsciiChars = text.match(/[^\x01-\x7F]/g)?.length || 0;
 
   // Numbers and special characters
-  const others = text.length - (text.match(/[a-zA-Z\x00-\x7F]/g)?.join('').length || 0);
+  // eslint-disable-next-line no-control-regex
+  const others = text.length - (text.match(/[a-zA-Z\x01-\x7F]/g)?.join('').length || 0);
 
   return Math.ceil(englishWords * 1.3 + nonAsciiChars + others * 0.5);
 }

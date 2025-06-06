@@ -36,10 +36,10 @@ export class OpenAIProvider implements AIProvider {
                 }));
 
             // Debug: Log the messages being sent to OpenAI
-            console.log('Debug [Core OpenAI Provider] - Messages being sent to OpenAI:');
-            console.log(JSON.stringify(formattedMessages, null, 2));
-            console.log('Original messages count:', messagesWithSystem.length);
-            console.log('Filtered messages count:', formattedMessages.length);
+            logger.info('Debug [Core OpenAI Provider] - Messages being sent to OpenAI:');
+            logger.info(JSON.stringify(formattedMessages, null, 2));
+            logger.info('Original messages count:', messagesWithSystem.length);
+            logger.info('Filtered messages count:', formattedMessages.length);
 
             // Configure OpenAI API request options
             const completionOptions: any = {
@@ -110,10 +110,10 @@ export class OpenAIProvider implements AIProvider {
                 }));
 
             // Debug: Log the messages being sent to OpenAI
-            console.log('Debug [Core OpenAI Provider Streaming] - Messages being sent to OpenAI:');
-            console.log(JSON.stringify(formattedMessages, null, 2));
-            console.log('Original messages count:', messagesWithSystem.length);
-            console.log('Filtered messages count:', formattedMessages.length);
+            logger.info('Debug [Core OpenAI Provider Streaming] - Messages being sent to OpenAI:');
+            logger.info(JSON.stringify(formattedMessages, null, 2));
+            logger.info('Original messages count:', messagesWithSystem.length);
+            logger.info('Filtered messages count:', formattedMessages.length);
 
             // Configure OpenAI API request options
             const completionOptions: any = {

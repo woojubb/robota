@@ -140,7 +140,7 @@ function createZodArray(property: any, fieldName: string): z.ZodArray<any> {
 /**
  * Create Zod object schema
  */
-function createZodObject(property: any): z.ZodRecord<any> {
+function createZodObject(_property: any): z.ZodRecord<any> {
     // For now, use z.record for generic objects
     // Could be enhanced to create proper object schemas
     return z.record(z.any());
