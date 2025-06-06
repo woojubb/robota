@@ -11,8 +11,15 @@ export { SessionManagerImpl } from './session-manager/session-manager-impl';
 export { SessionImpl } from './session/session-impl';
 export { ChatInstanceImpl } from './chat/chat-instance';
 
+// State Machine
+export * from './state/session-state-machine';
+
+// Error handling
+export * from './constants/error-messages';
+
 // 유틸리티
 export { generateId } from './utils/id';
+export * from './utils/session-utils';
 
 // Conversation History (기존 호환성을 위해 남겨둠)
 export { EnhancedConversationHistoryImpl } from './conversation-history/index';

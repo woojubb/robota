@@ -12,12 +12,22 @@ export {
     createFunction,
     functionFromCallback,
     createFunctionSchema,
+    createValidatedFunction,
     FunctionRegistry,
     type FunctionHandler,
     type ToolFunction,
     type FunctionOptions,
     type FunctionResult
 } from './function';
+
+// Export schema conversion utilities
+export {
+    zodToJsonSchema,
+    convertZodTypeToJsonSchema,
+    getZodDescription,
+    isOptionalType,
+    isNullableType
+} from './schema/zod-to-json';
 
 /**
  * Tool execution result type
@@ -229,7 +239,6 @@ export class ToolRegistry {
 
 // Zod related features export
 export {
-    zodToJsonSchema,
     zodFunctionToSchema,
     type ZodFunctionTool
 } from './zod-schema';

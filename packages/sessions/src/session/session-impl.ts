@@ -9,49 +9,70 @@ import type { ChatInstance, ChatConfig } from '../types/chat';
 import { ChatInstanceImpl } from '../chat/chat-instance';
 import { v4 as uuidv4 } from 'uuid';
 
+// Import state machine and utilities
+import {
+    attemptTransition,
+    isActiveState,
+    allowsModifications,
+    isFinalState
+} from '../state/session-state-machine';
+import {
+    SessionErrorKey,
+    SessionOperationError,
+    StateTransitionError
+} from '../constants/error-messages';
+import {
+    mergeWithDefaults,
+    createInitialMetadata,
+    updateTimestamps,
+    calculateSessionStats,
+    findNextActiveChat,
+    wouldExceedChatLimit,
+    validateSessionConfig,
+    isSessionModifiable
+} from '../utils/session-utils';
+
+/**
+ * Improved Session Implementation
+ * 
+ * Uses state machine pattern and pure functions for better maintainability
+ */
 export class SessionImpl implements Session {
     public readonly metadata: SessionMetadata;
     public readonly config: SessionConfig;
 
-    private chats: Map<string, ChatInstance> = new Map();
-    private activeChatId?: string;
-    private _startTime: Date;
+    private readonly _chats: Map<string, ChatInstance> = new Map();
+    private _activeChatId?: string;
+    private readonly _startTime: Date;
 
     constructor(
         userId: string,
         config: SessionConfig = {}
     ) {
+        // Validate configuration
+        const validation = validateSessionConfig(config);
+        if (!validation.valid) {
+            throw new SessionOperationError(SessionErrorKey.INVALID_CONFIG, {
+                reason: validation.errors.map(e => e.message).join(', ')
+            });
+        }
+
         this._startTime = new Date();
+        const mergedConfig = mergeWithDefaults(config);
 
-        this.config = {
-            sessionName: config.sessionName || `Session ${new Date().getTime()}`,
-            description: config.description,
-            autoSave: false, // 기본값 false로 변경
-            saveInterval: config.saveInterval || 300000,
-            maxChats: config.maxChats || 20, // 50에서 20으로 줄임
-            retentionPeriod: config.retentionPeriod || 30
-        };
-
-        this.metadata = {
-            sessionId: uuidv4(),
-            userId,
-            sessionName: this.config.sessionName!,
-            description: this.config.description,
-            createdAt: this._startTime,
-            updatedAt: this._startTime,
-            lastAccessedAt: this._startTime,
-            state: SessionState.ACTIVE,
-            chatCount: 0,
-            activeChatId: undefined
-        };
+        this.config = mergedConfig;
+        this.metadata = createInitialMetadata(uuidv4(), userId, mergedConfig);
     }
 
-    // Chat Management - 간소화
+    // Chat Management - using pure functions
     async createNewChat(config?: ChatConfig): Promise<ChatInstance> {
+        this._ensureOperationAllowed('createNewChat');
         this._updateLastAccessed();
 
-        if (this.metadata.chatCount >= (this.config.maxChats || 20)) {
-            throw new Error(`최대 채팅 수 (${this.config.maxChats})에 도달했습니다`);
+        if (wouldExceedChatLimit(this.metadata.chatCount, this.config.maxChats!)) {
+            throw new SessionOperationError(SessionErrorKey.MAX_CHATS_REACHED, {
+                maxChats: this.config.maxChats
+            });
         }
 
         const chat = new ChatInstanceImpl(
@@ -60,95 +81,81 @@ export class SessionImpl implements Session {
             config?.robotaConfig
         );
 
-        this.chats.set(chat.metadata.chatId, chat);
+        this._chats.set(chat.metadata.chatId, chat);
         this.metadata.chatCount++;
 
-        // 첫 번째 채팅이면 자동으로 활성화
+        // Auto-activate first chat
         if (this.metadata.chatCount === 1) {
-            await this.switchToChat(chat.metadata.chatId);
+            await this._setActiveChat(chat.metadata.chatId);
         }
 
         return chat;
     }
 
     getChat(chatId: string): ChatInstance | undefined {
-        return this.chats.get(chatId);
+        return this._chats.get(chatId);
     }
 
     getAllChats(): ChatInstance[] {
-        return Array.from(this.chats.values());
+        return Array.from(this._chats.values());
     }
 
     async switchToChat(chatId: string): Promise<void> {
+        this._ensureOperationAllowed('switchToChat');
         this._updateLastAccessed();
 
-        const chat = this.chats.get(chatId);
+        const chat = this._chats.get(chatId);
         if (!chat) {
-            throw new Error(`채팅 ID ${chatId}를 찾을 수 없습니다`);
+            throw new SessionOperationError(SessionErrorKey.CHAT_NOT_FOUND, { chatId });
         }
 
-        // 기존 활성 채팅 비활성화
-        if (this.activeChatId) {
-            const currentChat = this.chats.get(this.activeChatId);
-            if (currentChat) {
-                currentChat.deactivate();
-            }
-        }
-
-        // 새 채팅 활성화
-        chat.activate();
-        this.activeChatId = chatId;
-        this.metadata.activeChatId = chatId;
+        await this._setActiveChat(chatId);
     }
 
     async removeChat(chatId: string): Promise<void> {
+        this._ensureOperationAllowed('removeChat');
         this._updateLastAccessed();
 
-        const chat = this.chats.get(chatId);
+        const chat = this._chats.get(chatId);
         if (!chat) {
-            throw new Error(`채팅 ID ${chatId}를 찾을 수 없습니다`);
+            throw new SessionOperationError(SessionErrorKey.CHAT_NOT_FOUND, { chatId });
         }
 
-        // 활성 채팅이면 다른 채팅으로 전환하거나 비활성화
-        if (this.activeChatId === chatId) {
-            const remainingChats = Array.from(this.chats.keys()).filter(id => id !== chatId);
-            if (remainingChats.length > 0) {
-                await this.switchToChat(remainingChats[0]);
-            } else {
-                this.activeChatId = undefined;
-                this.metadata.activeChatId = undefined;
-            }
-        }
+        // Determine next active chat using pure function
+        const nextActiveChatId = findNextActiveChat(this._chats, chatId, this._activeChatId);
 
-        this.chats.delete(chatId);
+        // Remove the chat
+        this._chats.delete(chatId);
         this.metadata.chatCount--;
+
+        // Update active chat
+        if (nextActiveChatId) {
+            await this._setActiveChat(nextActiveChatId);
+        } else {
+            this._activeChatId = undefined;
+            this.metadata.activeChatId = undefined;
+        }
     }
 
     getActiveChat(): ChatInstance | undefined {
-        if (!this.activeChatId) {
+        if (!this._activeChatId) {
             return undefined;
         }
-        return this.chats.get(this.activeChatId);
+        return this._chats.get(this._activeChatId);
     }
 
-    // Session State Management - 간소화
+    // Session State Management - using state machine
     async pause(): Promise<void> {
-        this._updateLastAccessed();
-        this.metadata.state = SessionState.PAUSED;
-
-        // 모든 채팅 비활성화
-        for (const chat of this.chats.values()) {
-            chat.deactivate();
-        }
+        await this._transitionState(SessionState.PAUSED, 'pause');
+        this._deactivateAllChats();
     }
 
     async resume(): Promise<void> {
-        this._updateLastAccessed();
-        this.metadata.state = SessionState.ACTIVE;
+        await this._transitionState(SessionState.ACTIVE, 'resume');
 
-        // 활성 채팅이 있으면 다시 활성화
-        if (this.activeChatId) {
-            const activeChat = this.chats.get(this.activeChatId);
+        // Reactivate current chat if available
+        if (this._activeChatId) {
+            const activeChat = this._chats.get(this._activeChatId);
             if (activeChat) {
                 activeChat.activate();
             }
@@ -156,43 +163,47 @@ export class SessionImpl implements Session {
     }
 
     async archive(): Promise<void> {
-        this._updateLastAccessed();
-        this.metadata.state = SessionState.ARCHIVED;
-
-        // 모든 채팅 비활성화
-        for (const chat of this.chats.values()) {
-            chat.deactivate();
-        }
+        await this._transitionState(SessionState.ARCHIVED, 'archive');
+        this._deactivateAllChats();
     }
 
     async terminate(): Promise<void> {
-        this.metadata.state = SessionState.TERMINATED;
+        await this._transitionState(SessionState.TERMINATED, 'terminate');
 
-        // 모든 채팅 정리
-        for (const chat of this.chats.values()) {
-            chat.deactivate();
-        }
-        this.chats.clear();
-        this.activeChatId = undefined;
+        // Clean up all resources
+        this._deactivateAllChats();
+        this._chats.clear();
+        this._activeChatId = undefined;
         this.metadata.activeChatId = undefined;
         this.metadata.chatCount = 0;
     }
 
-    // Lifecycle - 단순화
+    // Lifecycle
     async save(): Promise<void> {
         this.metadata.updatedAt = new Date();
+        // TODO: Implement persistence layer
     }
 
     async load(): Promise<void> {
-        // 스토리지 구현 시 추가
+        // TODO: Implement persistence layer
     }
 
-    // Utils
+    // Utils - using pure functions
     getState(): SessionState {
         return this.metadata.state;
     }
 
     updateConfig(config: Partial<SessionConfig>): void {
+        this._ensureOperationAllowed('updateConfig');
+
+        // Validate new configuration
+        const validation = validateSessionConfig(config);
+        if (!validation.valid) {
+            throw new SessionOperationError(SessionErrorKey.INVALID_CONFIG, {
+                reason: validation.errors.map(e => e.message).join(', ')
+            });
+        }
+
         Object.assign(this.config, config);
 
         if (config.sessionName) {
@@ -206,24 +217,64 @@ export class SessionImpl implements Session {
     }
 
     getStats(): SessionStats {
-        let totalMessages = 0;
-        for (const chat of this.chats.values()) {
-            totalMessages += chat.metadata.messageCount;
-        }
-
-        return {
-            chatCount: this.metadata.chatCount,
-            totalMessages,
-            memoryUsage: 0, // 나중에 구현
-            diskUsage: 0, // 나중에 구현
-            createdAt: this.metadata.createdAt,
-            lastActivity: this.metadata.lastAccessedAt,
-            uptime: Date.now() - this._startTime.getTime()
-        };
+        return calculateSessionStats(
+            this.metadata,
+            this.getAllChats(),
+            this._startTime
+        );
     }
 
+    // Private helper methods
     private _updateLastAccessed(): void {
-        this.metadata.lastAccessedAt = new Date();
-        this.metadata.updatedAt = new Date();
+        Object.assign(this.metadata, updateTimestamps(this.metadata));
+    }
+
+    private async _transitionState(targetState: SessionState, action: string): Promise<void> {
+        const result = attemptTransition(this.metadata.state, targetState, action);
+
+        if (!result.success) {
+            throw new StateTransitionError(this.metadata.state, targetState, action);
+        }
+
+        this.metadata.state = targetState;
+        this._updateLastAccessed();
+    }
+
+    private async _setActiveChat(chatId: string): Promise<void> {
+        // Deactivate current active chat
+        if (this._activeChatId) {
+            const currentChat = this._chats.get(this._activeChatId);
+            if (currentChat) {
+                currentChat.deactivate();
+            }
+        }
+
+        // Activate new chat
+        const newChat = this._chats.get(chatId);
+        if (newChat && isActiveState(this.metadata.state)) {
+            newChat.activate();
+        }
+
+        this._activeChatId = chatId;
+        this.metadata.activeChatId = chatId;
+    }
+
+    private _deactivateAllChats(): void {
+        for (const chat of this._chats.values()) {
+            chat.deactivate();
+        }
+    }
+
+    private _ensureOperationAllowed(operation: string): void {
+        if (isFinalState(this.metadata.state)) {
+            throw new SessionOperationError(SessionErrorKey.SESSION_TERMINATED);
+        }
+
+        if (!isSessionModifiable(this.metadata.state)) {
+            throw new SessionOperationError(SessionErrorKey.OPERATION_NOT_ALLOWED, {
+                operation,
+                currentState: this.metadata.state
+            });
+        }
     }
 } 

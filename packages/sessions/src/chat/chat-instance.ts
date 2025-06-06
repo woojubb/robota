@@ -57,7 +57,7 @@ export class ChatInstanceImpl implements ChatInstance {
         try {
             const response = await this.robota.run(messageText);
 
-            this.metadata.messageCount = this.robota.getRequestCount();
+            this.metadata.messageCount = this.robota.limits.getCurrentRequestCount();
 
             return response;
         } catch (error) {
@@ -79,7 +79,7 @@ export class ChatInstanceImpl implements ChatInstance {
 
     // History Management
     clearHistory(): void {
-        this.robota.clearConversationHistory();
+        this.robota.conversation.clear();
         this.metadata.messageCount = 0;
         this._updateLastAccessed();
     }
@@ -132,7 +132,7 @@ export class ChatInstanceImpl implements ChatInstance {
             memoryUsage: 0,
             createdAt: this.metadata.createdAt,
             lastActivity: this.metadata.lastAccessedAt,
-            totalTokens: this.robota.getTotalTokensUsed(),
+            totalTokens: this.robota.limits.getCurrentTokensUsed(),
             averageResponseTime: undefined
         };
     }
@@ -158,8 +158,8 @@ export class ChatInstanceImpl implements ChatInstance {
     // history 프로퍼티를 위한 getter (호환성)
     get history() {
         return {
-            getMessageCount: () => this.robota.getRequestCount(),
-            clear: () => this.robota.clearConversationHistory(),
+            getMessageCount: () => this.robota.limits.getCurrentRequestCount(),
+            clear: () => this.robota.conversation.clear(),
         } as any;
     }
 } 

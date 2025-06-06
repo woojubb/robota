@@ -12,6 +12,11 @@ export type {
     StreamingResponseChunk
 } from './interfaces/ai-provider';
 export type { Logger } from './interfaces/logger';
+export type {
+    RobotaCore,
+    RobotaConfigurable,
+    RobotaComplete
+} from './interfaces/robota-core';
 
 // Types
 export type {
