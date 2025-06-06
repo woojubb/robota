@@ -8,21 +8,32 @@
 
 # Class: Robota
 
-Main class for Robota (refactored version)
-Provides an interface for initializing and running agents
+Main Robota class for AI agent interaction with Facade pattern
 
-**`Example`**
+Provides a high-level interface for AI conversations with support for:
+- Multiple AI providers (OpenAI, Anthropic, Google, etc.)
+- Tool/function calling
+- Conversation history management
+- Request limiting and analytics
+- Streaming responses
 
-```ts
-const robota = new Robota({
-  aiProviders: { openai: openaiProvider },
-  currentProvider: 'openai',
-  currentModel: 'gpt-4',
-  systemPrompt: 'You are a helpful AI assistant.'
-});
+Uses Facade pattern to expose functional managers while keeping core interface simple.
+Access detailed functionality through the exposed managers:
+- ai: AI provider management
+- system: System message management  
+- functions: Function/tool call management
+- analytics: Usage analytics and metrics
+- tools: Tool provider management
+- conversation: Conversation history management
 
-const response = await robota.execute('Hello!');
-```
+**`See`**
+
+ - ../../../apps/examples/01-basic | Basic Usage Examples
+ - ../../../apps/examples/05-advanced | Advanced Configuration Examples
+
+## Implements
+
+- [`RobotaComplete`](../interfaces/RobotaComplete)
 
 ## Table of contents
 
@@ -30,50 +41,36 @@ const response = await robota.execute('Hello!');
 
 - [constructor](Robota#constructor)
 
+### Properties
+
+- [ai](Robota#ai)
+- [system](Robota#system)
+- [functions](Robota#functions)
+- [analytics](Robota#analytics)
+- [tools](Robota#tools)
+- [limits](Robota#limits)
+- [conversation](Robota#conversation)
+
 ### Methods
 
-- [addAIProvider](Robota#addaiprovider)
-- [setCurrentAI](Robota#setcurrentai)
-- [getCurrentAI](Robota#getcurrentai)
-- [setSystemPrompt](Robota#setsystemprompt)
-- [setSystemMessages](Robota#setsystemmessages)
-- [addSystemMessage](Robota#addsystemmessage)
-- [setFunctionCallMode](Robota#setfunctioncallmode)
-- [configureFunctionCall](Robota#configurefunctioncall)
-- [setMaxTokenLimit](Robota#setmaxtokenlimit)
-- [setMaxRequestLimit](Robota#setmaxrequestlimit)
-- [getMaxTokenLimit](Robota#getmaxtokenlimit)
-- [getMaxRequestLimit](Robota#getmaxrequestlimit)
-- [getLimitInfo](Robota#getlimitinfo)
-- [getRequestCount](Robota#getrequestcount)
-- [getTotalTokensUsed](Robota#gettotaltokensused)
-- [getAnalytics](Robota#getanalytics)
-- [resetAnalytics](Robota#resetanalytics)
-- [getTokenUsageByPeriod](Robota#gettokenusagebyperiod)
 - [run](Robota#run)
-- [execute](Robota#execute)
-- [chat](Robota#chat)
 - [runStream](Robota#runstream)
-- [executeStream](Robota#executestream)
-- [addResponseToConversationHistory](Robota#addresponsetoconversationhistory)
-- [clearConversationHistory](Robota#clearconversationhistory)
 - [callTool](Robota#calltool)
 - [getAvailableTools](Robota#getavailabletools)
+- [clearConversationHistory](Robota#clearconversationhistory)
 - [close](Robota#close)
 
 ## Constructors
 
 ### constructor
 
-• **new Robota**(`options`): [`Robota`](Robota)
-
-Create a Robota instance
+• **new Robota**(`options?`): [`Robota`](Robota)
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `options` | [`RobotaOptions`](../interfaces/RobotaOptions) | Robota initialization options |
+| Name | Type |
+| :------ | :------ |
+| `options` | [`RobotaOptions`](../interfaces/RobotaOptions) |
 
 #### Returns
 
@@ -81,464 +78,170 @@ Create a Robota instance
 
 #### Defined in
 
-[robota.ts:116](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L116)
+[robota.ts:240](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L240)
+
+## Properties
+
+### ai
+
+• `Readonly` **ai**: [`AIProviderManager`](AIProviderManager)
+
+AI provider management - register providers, set current provider/model, configure parameters
+
+**`See`**
+
+[AIProviderManager](AIProviderManager)
+
+#### Defined in
+
+[robota.ts:196](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L196)
+
+___
+
+### system
+
+• `Readonly` **system**: [`SystemMessageManager`](SystemMessageManager)
+
+System message management - set prompts, manage system instructions
+
+**`See`**
+
+[SystemMessageManager](SystemMessageManager)
+
+#### Defined in
+
+[robota.ts:203](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L203)
+
+___
+
+### functions
+
+• `Readonly` **functions**: [`FunctionCallManager`](FunctionCallManager)
+
+Function/tool call management - configure modes, timeouts, allowed functions
+
+**`See`**
+
+[FunctionCallManager](FunctionCallManager)
+
+#### Defined in
+
+[robota.ts:210](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L210)
+
+___
+
+### analytics
+
+• `Readonly` **analytics**: [`AnalyticsManager`](AnalyticsManager)
+
+Analytics and metrics - track usage, performance, costs
+
+**`See`**
+
+[AnalyticsManager](AnalyticsManager)
+
+#### Defined in
+
+[robota.ts:217](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L217)
+
+___
+
+### tools
+
+• `Readonly` **tools**: [`ToolProviderManager`](ToolProviderManager)
+
+Tool provider management - register and manage tool providers
+
+**`See`**
+
+[ToolProviderManager](ToolProviderManager)
+
+#### Defined in
+
+[robota.ts:224](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L224)
+
+___
+
+### limits
+
+• `Readonly` **limits**: `RequestLimitManager`
+
+Request and token limits - control usage and costs
+
+**`See`**
+
+RequestLimitManager
+
+#### Defined in
+
+[robota.ts:231](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L231)
+
+___
+
+### conversation
+
+• `Readonly` **conversation**: [`ConversationHistory`](../interfaces/ConversationHistory)
+
+Conversation history - direct access to conversation management
+
+**`See`**
+
+[ConversationHistory](../interfaces/ConversationHistory)
+
+#### Defined in
+
+[robota.ts:238](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L238)
 
 ## Methods
-
-### addAIProvider
-
-▸ **addAIProvider**(`name`, `aiProvider`): `void`
-
-Add an AI provider
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `name` | `string` |
-| `aiProvider` | [`AIProvider`](../interfaces/AIProvider) |
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[robota.ts:176](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L176)
-
-___
-
-### setCurrentAI
-
-▸ **setCurrentAI**(`providerName`, `model`): `void`
-
-Set the current AI provider and model
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `providerName` | `string` |
-| `model` | `string` |
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[robota.ts:183](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L183)
-
-___
-
-### getCurrentAI
-
-▸ **getCurrentAI**(): `Object`
-
-Get the currently configured AI provider and model
-
-#### Returns
-
-`Object`
-
-| Name | Type |
-| :------ | :------ |
-| `provider?` | `string` |
-| `model?` | `string` |
-
-#### Defined in
-
-[robota.ts:190](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L190)
-
-___
-
-### setSystemPrompt
-
-▸ **setSystemPrompt**(`prompt`): `void`
-
-Set a single system prompt
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `prompt` | `string` |
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[robota.ts:201](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L201)
-
-___
-
-### setSystemMessages
-
-▸ **setSystemMessages**(`messages`): `void`
-
-Set multiple system messages
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `messages` | [`Message`](../interfaces/Message)[] |
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[robota.ts:208](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L208)
-
-___
-
-### addSystemMessage
-
-▸ **addSystemMessage**(`content`): `void`
-
-Add a system message
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `content` | `string` |
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[robota.ts:215](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L215)
-
-___
-
-### setFunctionCallMode
-
-▸ **setFunctionCallMode**(`mode`): `void`
-
-Set function call mode
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `mode` | [`FunctionCallMode`](../modules#functioncallmode) |
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[robota.ts:226](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L226)
-
-___
-
-### configureFunctionCall
-
-▸ **configureFunctionCall**(`config`): `void`
-
-Configure function call settings
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `config` | `Object` |
-| `config.mode?` | [`FunctionCallMode`](../modules#functioncallmode) |
-| `config.maxCalls?` | `number` |
-| `config.timeout?` | `number` |
-| `config.allowedFunctions?` | `string`[] |
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[robota.ts:233](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L233)
-
-___
-
-### setMaxTokenLimit
-
-▸ **setMaxTokenLimit**(`limit`): `void`
-
-Set maximum token limit (0 = unlimited)
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `limit` | `number` |
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[robota.ts:254](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L254)
-
-___
-
-### setMaxRequestLimit
-
-▸ **setMaxRequestLimit**(`limit`): `void`
-
-Set maximum request limit (0 = unlimited)
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `limit` | `number` |
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[robota.ts:261](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L261)
-
-___
-
-### getMaxTokenLimit
-
-▸ **getMaxTokenLimit**(): `number`
-
-Get current maximum token limit
-
-#### Returns
-
-`number`
-
-#### Defined in
-
-[robota.ts:268](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L268)
-
-___
-
-### getMaxRequestLimit
-
-▸ **getMaxRequestLimit**(): `number`
-
-Get current maximum request limit
-
-#### Returns
-
-`number`
-
-#### Defined in
-
-[robota.ts:275](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L275)
-
-___
-
-### getLimitInfo
-
-▸ **getLimitInfo**(): `Object`
-
-Get comprehensive limit information
-
-#### Returns
-
-`Object`
-
-| Name | Type |
-| :------ | :------ |
-| `maxTokens` | `number` |
-| `maxRequests` | `number` |
-| `currentTokensUsed` | `number` |
-| `currentRequestCount` | `number` |
-| `remainingTokens?` | `number` |
-| `remainingRequests?` | `number` |
-| `isTokensUnlimited` | `boolean` |
-| `isRequestsUnlimited` | `boolean` |
-
-#### Defined in
-
-[robota.ts:282](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L282)
-
-___
-
-### getRequestCount
-
-▸ **getRequestCount**(): `number`
-
-Get total number of requests made
-
-#### Returns
-
-`number`
-
-#### Defined in
-
-[robota.ts:293](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L293)
-
-___
-
-### getTotalTokensUsed
-
-▸ **getTotalTokensUsed**(): `number`
-
-Get total number of tokens used
-
-#### Returns
-
-`number`
-
-#### Defined in
-
-[robota.ts:300](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L300)
-
-___
-
-### getAnalytics
-
-▸ **getAnalytics**(): `Object`
-
-Get detailed analytics data
-
-#### Returns
-
-`Object`
-
-| Name | Type |
-| :------ | :------ |
-| `requestCount` | `number` |
-| `totalTokensUsed` | `number` |
-| `averageTokensPerRequest` | `number` |
-| `tokenUsageHistory` | \{ `timestamp`: `Date` ; `tokens`: `number` ; `provider`: `string` ; `model`: `string`  }[] |
-
-#### Defined in
-
-[robota.ts:307](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L307)
-
-___
-
-### resetAnalytics
-
-▸ **resetAnalytics**(): `void`
-
-Reset all analytics data
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[robota.ts:314](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L314)
-
-___
-
-### getTokenUsageByPeriod
-
-▸ **getTokenUsageByPeriod**(`startDate`, `endDate?`): `Object`
-
-Get token usage for a specific time period
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `startDate` | `Date` |
-| `endDate?` | `Date` |
-
-#### Returns
-
-`Object`
-
-| Name | Type |
-| :------ | :------ |
-| `totalTokens` | `number` |
-| `requestCount` | `number` |
-| `usageHistory` | \{ `timestamp`: `Date` ; `tokens`: `number` ; `provider`: `string` ; `model`: `string`  }[] |
-
-#### Defined in
-
-[robota.ts:322](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L322)
-
-___
 
 ### run
 
 ▸ **run**(`prompt`, `options?`): `Promise`\<`string`\>
 
-Execute a text prompt
+Execute a prompt and get a text response
+
+Main method for running AI conversations. Handles the full pipeline:
+- Context preparation with conversation history
+- AI provider execution with tool support
+- Response processing and history updates
+- Analytics and limit tracking
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `prompt` | `string` |
-| `options` | [`RunOptions`](../interfaces/RunOptions) |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `prompt` | `string` | The user prompt to process |
+| `options` | [`RunOptions`](../interfaces/RunOptions) | Optional configuration for this specific request |
 
 #### Returns
 
 `Promise`\<`string`\>
 
-**`Deprecated`**
+Promise resolving to the AI's text response
 
-Use execute() instead. This method will be removed in a future version.
+**`Throws`**
 
-#### Defined in
+When no AI provider is configured
 
-[robota.ts:334](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L334)
+**`Throws`**
 
-___
+When rate limits are exceeded
 
-### execute
+**`Throws`**
 
-▸ **execute**(`prompt`, `options?`): `Promise`\<`string`\>
+When AI provider fails
 
-Execute a text prompt
+**`See`**
 
-#### Parameters
+../../../apps/examples/01-basic/01-simple-conversation.ts | Basic Usage
 
-| Name | Type |
-| :------ | :------ |
-| `prompt` | `string` |
-| `options` | [`RunOptions`](../interfaces/RunOptions) |
+#### Implementation of
 
-#### Returns
-
-`Promise`\<`string`\>
+[RobotaComplete](../interfaces/RobotaComplete).[run](../interfaces/RobotaComplete#run)
 
 #### Defined in
 
-[robota.ts:344](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L344)
-
-___
-
-### chat
-
-▸ **chat**(`message`, `options?`): `Promise`\<`string`\>
-
-Process chat message and generate response
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `message` | `string` |
-| `options` | [`RunOptions`](../interfaces/RunOptions) |
-
-#### Returns
-
-`Promise`\<`string`\>
-
-#### Defined in
-
-[robota.ts:405](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L405)
+[robota.ts:370](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L370)
 
 ___
 
@@ -546,87 +249,47 @@ ___
 
 ▸ **runStream**(`prompt`, `options?`): `Promise`\<`AsyncIterable`\<[`StreamingResponseChunk`](../interfaces/StreamingResponseChunk), `any`, `any`\>\>
 
-Generate streaming response
+Execute a prompt and get a streaming response
+
+Similar to run() but returns an async iterator for streaming responses.
+Useful for real-time display of AI responses.
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `prompt` | `string` |
-| `options` | [`RunOptions`](../interfaces/RunOptions) |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `prompt` | `string` | The user prompt to process |
+| `options` | [`RunOptions`](../interfaces/RunOptions) | Optional configuration for this specific request |
 
 #### Returns
 
 `Promise`\<`AsyncIterable`\<[`StreamingResponseChunk`](../interfaces/StreamingResponseChunk), `any`, `any`\>\>
 
-**`Deprecated`**
+Promise resolving to an async iterator of response chunks
 
-Use executeStream() instead. This method will be removed in a future version.
+**`Throws`**
 
-#### Defined in
+When no AI provider is configured
 
-[robota.ts:466](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L466)
+**`Throws`**
 
-___
+When rate limits are exceeded
 
-### executeStream
+**`Throws`**
 
-▸ **executeStream**(`prompt`, `options?`): `Promise`\<`AsyncIterable`\<[`StreamingResponseChunk`](../interfaces/StreamingResponseChunk), `any`, `any`\>\>
+When AI provider fails
 
-Generate streaming response
+**`See`**
 
-#### Parameters
+../../../apps/examples/01-basic/01-simple-conversation.ts | Streaming Example
 
-| Name | Type |
-| :------ | :------ |
-| `prompt` | `string` |
-| `options` | [`RunOptions`](../interfaces/RunOptions) |
+#### Implementation of
 
-#### Returns
-
-`Promise`\<`AsyncIterable`\<[`StreamingResponseChunk`](../interfaces/StreamingResponseChunk), `any`, `any`\>\>
+[RobotaComplete](../interfaces/RobotaComplete).[runStream](../interfaces/RobotaComplete#runstream)
 
 #### Defined in
 
-[robota.ts:476](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L476)
-
-___
-
-### addResponseToConversationHistory
-
-▸ **addResponseToConversationHistory**(`response`): `void`
-
-Add response message to conversation history
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `response` | [`ModelResponse`](../interfaces/ModelResponse) |
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[robota.ts:494](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L494)
-
-___
-
-### clearConversationHistory
-
-▸ **clearConversationHistory**(): `void`
-
-Clear conversation history
-
-#### Returns
-
-`void`
-
-#### Defined in
-
-[robota.ts:501](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L501)
+[robota.ts:394](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L394)
 
 ___
 
@@ -634,22 +297,39 @@ ___
 
 ▸ **callTool**(`toolName`, `parameters`): `Promise`\<`any`\>
 
-Call a tool (public API)
+Call a specific tool directly by name
+
+Bypasses AI provider and calls a tool directly with provided parameters.
+Useful for testing tools or direct tool execution.
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `toolName` | `string` |
-| `parameters` | `Record`\<`string`, `any`\> |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `toolName` | `string` | Name of the tool to call |
+| `parameters` | `Record`\<`string`, `any`\> | Parameters to pass to the tool |
 
 #### Returns
 
 `Promise`\<`any`\>
 
+Promise resolving to the tool's result
+
+**`Throws`**
+
+When tool is not found
+
+**`Throws`**
+
+When tool execution fails
+
+#### Implementation of
+
+[RobotaComplete](../interfaces/RobotaComplete).[callTool](../interfaces/RobotaComplete#calltool)
+
 #### Defined in
 
-[robota.ts:568](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L568)
+[robota.ts:415](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L415)
 
 ___
 
@@ -663,9 +343,35 @@ Get list of available tools
 
 `any`[]
 
+Array of available tool definitions
+
+#### Implementation of
+
+[RobotaComplete](../interfaces/RobotaComplete).[getAvailableTools](../interfaces/RobotaComplete#getavailabletools)
+
 #### Defined in
 
-[robota.ts:575](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L575)
+[robota.ts:424](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L424)
+
+___
+
+### clearConversationHistory
+
+▸ **clearConversationHistory**(): `void`
+
+Clear all conversation history
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+[RobotaComplete](../interfaces/RobotaComplete).[clearConversationHistory](../interfaces/RobotaComplete#clearconversationhistory)
+
+#### Defined in
+
+[robota.ts:431](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L431)
 
 ___
 
@@ -673,12 +379,19 @@ ___
 
 ▸ **close**(): `Promise`\<`void`\>
 
-Release resources
+Clean up resources and close connections
+
+Should be called when done using the Robota instance to properly
+clean up any resources, close connections, etc.
 
 #### Returns
 
 `Promise`\<`void`\>
 
+#### Implementation of
+
+[RobotaComplete](../interfaces/RobotaComplete).[close](../interfaces/RobotaComplete#close)
+
 #### Defined in
 
-[robota.ts:582](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/robota.ts#L582)
+[robota.ts:441](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L441)

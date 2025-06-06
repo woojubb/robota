@@ -25,7 +25,11 @@
 
 ### Interfaces
 
-- [UniversalMessage](interfaces/UniversalMessage)
+- [BaseMessage](interfaces/BaseMessage)
+- [UserMessage](interfaces/UserMessage)
+- [AssistantMessage](interfaces/AssistantMessage)
+- [SystemMessage](interfaces/SystemMessage)
+- [ToolMessage](interfaces/ToolMessage)
 - [ConversationHistory](interfaces/ConversationHistory)
 - [Message](interfaces/Message)
 - [ModelResponse](interfaces/ModelResponse)
@@ -33,6 +37,9 @@
 - [Context](interfaces/Context)
 - [AIProvider](interfaces/AIProvider)
 - [Logger](interfaces/Logger)
+- [RobotaCore](interfaces/RobotaCore)
+- [RobotaConfigurable](interfaces/RobotaConfigurable)
+- [RobotaComplete](interfaces/RobotaComplete)
 - [FunctionCallConfig](interfaces/FunctionCallConfig)
 - [RobotaOptions](interfaces/RobotaOptions)
 - [ProviderOptions](interfaces/ProviderOptions)
@@ -42,6 +49,7 @@
 ### Type Aliases
 
 - [UniversalMessageRole](#universalmessagerole)
+- [UniversalMessage](#universalmessage)
 - [MessageRole](#messagerole)
 - [FunctionCallMode](#functioncallmode)
 
@@ -51,6 +59,10 @@
 
 ### Functions
 
+- [isUserMessage](#isusermessage)
+- [isAssistantMessage](#isassistantmessage)
+- [isSystemMessage](#issystemmessage)
+- [isToolMessage](#istoolmessage)
 - [removeUndefined](#removeundefined)
 - [convertUniversalToBaseMessage](#convertuniversaltobasemessage)
 - [convertUniversalToBaseMessages](#convertuniversaltobasemessages)
@@ -65,7 +77,26 @@ Universal message role type - Provider-independent neutral role
 
 #### Defined in
 
-[conversation-history.ts:6](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/conversation-history.ts#L6)
+[conversation-history.ts:8](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L8)
+
+___
+
+### UniversalMessage
+
+Ƭ **UniversalMessage**: [`UserMessage`](interfaces/UserMessage) \| [`AssistantMessage`](interfaces/AssistantMessage) \| [`SystemMessage`](interfaces/SystemMessage) \| [`ToolMessage`](interfaces/ToolMessage)
+
+Universal message type covering all possible message variations
+
+This union type ensures type safety by requiring specific properties
+based on the message role, preventing invalid combinations.
+
+**`See`**
+
+../../apps/examples/04-sessions | Session and Conversation Examples
+
+#### Defined in
+
+[conversation-history.ts:113](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L113)
 
 ___
 
@@ -77,7 +108,7 @@ Message role type
 
 #### Defined in
 
-[interfaces/ai-provider.ts:7](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/interfaces/ai-provider.ts#L7)
+[interfaces/ai-provider.ts:7](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/interfaces/ai-provider.ts#L7)
 
 ___
 
@@ -89,7 +120,7 @@ Function call mode
 
 #### Defined in
 
-[managers/function-call-manager.ts:4](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/managers/function-call-manager.ts#L4)
+[managers/function-call-manager.ts:4](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/managers/function-call-manager.ts#L4)
 
 ## Variables
 
@@ -109,9 +140,105 @@ Logger utility (console.log replacement)
 
 #### Defined in
 
-[utils.ts:131](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/utils.ts#L131)
+[utils.ts:132](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/utils.ts#L132)
 
 ## Functions
+
+### isUserMessage
+
+▸ **isUserMessage**(`message`): message is UserMessage
+
+Check if a message is a user message
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `message` | [`UniversalMessage`](#universalmessage) | Message to check |
+
+#### Returns
+
+message is UserMessage
+
+True if the message is a user message
+
+#### Defined in
+
+[conversation-history.ts:125](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L125)
+
+___
+
+### isAssistantMessage
+
+▸ **isAssistantMessage**(`message`): message is AssistantMessage
+
+Check if a message is an assistant message
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `message` | [`UniversalMessage`](#universalmessage) | Message to check |
+
+#### Returns
+
+message is AssistantMessage
+
+True if the message is an assistant message
+
+#### Defined in
+
+[conversation-history.ts:135](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L135)
+
+___
+
+### isSystemMessage
+
+▸ **isSystemMessage**(`message`): message is SystemMessage
+
+Check if a message is a system message
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `message` | [`UniversalMessage`](#universalmessage) | Message to check |
+
+#### Returns
+
+message is SystemMessage
+
+True if the message is a system message
+
+#### Defined in
+
+[conversation-history.ts:145](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L145)
+
+___
+
+### isToolMessage
+
+▸ **isToolMessage**(`message`): message is ToolMessage
+
+Check if a message is a tool message
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `message` | [`UniversalMessage`](#universalmessage) | Message to check |
+
+#### Returns
+
+message is ToolMessage
+
+True if the message is a tool message
+
+#### Defined in
+
+[conversation-history.ts:155](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L155)
+
+___
 
 ### removeUndefined
 
@@ -139,7 +266,7 @@ Object with undefined values removed
 
 #### Defined in
 
-[utils.ts:31](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/utils.ts#L31)
+[utils.ts:32](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/utils.ts#L32)
 
 ___
 
@@ -154,7 +281,7 @@ Can be used in AI Provider adapters.
 
 | Name | Type |
 | :------ | :------ |
-| `universalMessage` | [`UniversalMessage`](interfaces/UniversalMessage) |
+| `universalMessage` | [`UniversalMessage`](#universalmessage) |
 
 #### Returns
 
@@ -162,7 +289,7 @@ Can be used in AI Provider adapters.
 
 #### Defined in
 
-[utils.ts:153](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/utils.ts#L153)
+[utils.ts:154](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/utils.ts#L154)
 
 ___
 
@@ -176,7 +303,7 @@ Helper function to convert UniversalMessage array to basic Message array
 
 | Name | Type |
 | :------ | :------ |
-| `universalMessages` | [`UniversalMessage`](interfaces/UniversalMessage)[] |
+| `universalMessages` | [`UniversalMessage`](#universalmessage)[] |
 
 #### Returns
 
@@ -184,4 +311,4 @@ Helper function to convert UniversalMessage array to basic Message array
 
 #### Defined in
 
-[utils.ts:177](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/core/src/utils.ts#L177)
+[utils.ts:179](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/utils.ts#L179)

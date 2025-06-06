@@ -56,7 +56,7 @@ Register a tool
 
 #### Defined in
 
-[packages/tools/src/index.ts:176](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/index.ts#L176)
+[packages/tools/src/index.ts:173](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/index.ts#L173)
 
 ___
 
@@ -78,7 +78,7 @@ Register multiple tools
 
 #### Defined in
 
-[packages/tools/src/index.ts:186](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/index.ts#L186)
+[packages/tools/src/index.ts:183](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/index.ts#L183)
 
 ___
 
@@ -102,7 +102,7 @@ Tool or undefined
 
 #### Defined in
 
-[packages/tools/src/index.ts:199](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/index.ts#L199)
+[packages/tools/src/index.ts:196](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/index.ts#L196)
 
 ___
 
@@ -120,7 +120,7 @@ Array of all registered tools
 
 #### Defined in
 
-[packages/tools/src/index.ts:208](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/index.ts#L208)
+[packages/tools/src/index.ts:205](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/index.ts#L205)
 
 ___
 
@@ -152,4 +152,4 @@ Tool execution result
 
 #### Defined in
 
-[packages/tools/src/index.ts:219](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/index.ts#L219)
+[packages/tools/src/index.ts:216](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/index.ts#L216)

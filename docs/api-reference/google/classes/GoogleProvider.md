@@ -8,7 +8,14 @@
 
 # Class: GoogleProvider
 
-Google AI provider implementation
+Google AI provider implementation for Robota
+
+Provides integration with Google's Generative AI services including Gemini models.
+Implements the universal AIProvider interface for consistent usage across providers.
+
+**`See`**
+
+../../../apps/examples/03-integrations | Provider Integration Examples
 
 ## Implements
 
@@ -40,27 +47,33 @@ Google AI provider implementation
 
 • **new GoogleProvider**(`options`): [`GoogleProvider`](GoogleProvider)
 
+Create a new Google AI provider instance
+
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `options` | [`GoogleProviderOptions`](../interfaces/GoogleProviderOptions) |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `options` | [`GoogleProviderOptions`](../interfaces/GoogleProviderOptions) | Configuration options for the Google provider |
 
 #### Returns
 
 [`GoogleProvider`](GoogleProvider)
 
+**`Throws`**
+
+When client is not provided in options
+
 #### Defined in
 
-[provider.ts:32](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/provider.ts#L32)
+[provider.ts:49](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/provider.ts#L49)
 
 ## Properties
 
 ### name
 
-• **name**: `string` = `'google'`
+• `Readonly` **name**: `string` = `'google'`
 
-Provider name
+Provider identifier name
 
 #### Implementation of
 
@@ -68,19 +81,19 @@ AIProvider.name
 
 #### Defined in
 
-[provider.ts:20](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/provider.ts#L20)
+[provider.ts:28](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/provider.ts#L28)
 
 ___
 
 ### options
 
-• **options**: [`GoogleProviderOptions`](../interfaces/GoogleProviderOptions)
+• `Readonly` **options**: [`GoogleProviderOptions`](../interfaces/GoogleProviderOptions)
 
-Provider options
+Provider configuration options
 
 #### Defined in
 
-[provider.ts:30](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/provider.ts#L30)
+[provider.ts:40](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/provider.ts#L40)
 
 ## Methods
 
@@ -88,19 +101,33 @@ Provider options
 
 ▸ **chat**(`model`, `context`, `options?`): `Promise`\<`ModelResponse`\>
 
-Send request to model with given context and receive response.
+Send a chat request to Google AI and receive a complete response
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `model` | `string` |
-| `context` | `Context` |
-| `options?` | `any` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `model` | `string` | Model name to use (e.g., 'gemini-1.5-pro', 'gemini-1.5-flash') |
+| `context` | `Context` | Context object containing messages and system prompt |
+| `options?` | `any` | Optional generation parameters |
 
 #### Returns
 
 `Promise`\<`ModelResponse`\>
+
+Promise resolving to the model's response
+
+**`Throws`**
+
+When context is invalid
+
+**`Throws`**
+
+When messages array is invalid
+
+**`Throws`**
+
+When Google AI API call fails
 
 #### Implementation of
 
@@ -108,7 +135,7 @@ AIProvider.chat
 
 #### Defined in
 
-[provider.ts:50](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/provider.ts#L50)
+[provider.ts:76](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/provider.ts#L76)
 
 ___
 
@@ -116,19 +143,36 @@ ___
 
 ▸ **chatStream**(`model`, `context`, `options?`): `AsyncGenerator`\<`StreamingResponseChunk`, `void`, `unknown`\>
 
-Send streaming request to model with given context and receive response chunks.
+Send a streaming chat request to Google AI and receive response chunks
+
+Generates an async iterator that yields response chunks as they arrive.
+Useful for real-time display of responses or handling large responses incrementally.
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `model` | `string` |
-| `context` | `Context` |
-| `options?` | `any` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `model` | `string` | Model name to use |
+| `context` | `Context` | Context object containing messages and system prompt |
+| `options?` | `any` | Optional generation parameters |
 
 #### Returns
 
 `AsyncGenerator`\<`StreamingResponseChunk`, `void`, `unknown`\>
+
+Async generator yielding response chunks
+
+**`Throws`**
+
+When context is invalid
+
+**`Throws`**
+
+When messages array is invalid
+
+**`Throws`**
+
+When Google AI API streaming call fails
 
 #### Implementation of
 
@@ -136,7 +180,7 @@ AIProvider.chatStream
 
 #### Defined in
 
-[provider.ts:95](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/provider.ts#L95)
+[provider.ts:142](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/provider.ts#L142)
 
 ___
 
@@ -144,21 +188,28 @@ ___
 
 ▸ **formatFunctions**(`_functions`): `unknown`
 
-Format function definitions into a format the model can understand.
+Format function definitions for Google AI
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `_functions` | `FunctionDefinition`[] |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `_functions` | `FunctionDefinition`[] | Array of function definitions to format |
 
 #### Returns
 
 `unknown`
 
+Formatted functions (currently returns empty array as Google AI function calling is pending implementation)
+
+**`Remarks`**
+
+Google AI function calling support is planned for future implementation.
+Currently returns empty array as placeholder.
+
 #### Defined in
 
-[provider.ts:142](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/provider.ts#L142)
+[provider.ts:205](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/provider.ts#L205)
 
 ___
 
@@ -166,21 +217,26 @@ ___
 
 ▸ **parseResponse**(`response`): `ModelResponse`
 
-Parse model response into standard format.
+Parse Google AI response into universal ModelResponse format
+
+Extracts content, usage information, and metadata from the Google AI response
+and converts it to the standard format used across all providers.
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `response` | `any` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `response` | `any` | Raw response from Google AI API |
 
 #### Returns
 
 `ModelResponse`
 
+Parsed model response in universal format
+
 #### Defined in
 
-[provider.ts:150](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/provider.ts#L150)
+[provider.ts:222](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/provider.ts#L222)
 
 ___
 
@@ -188,21 +244,26 @@ ___
 
 ▸ **parseStreamingChunk**(`chunk`): `StreamingResponseChunk`
 
-Parse streaming response chunk into standard format.
+Parse Google AI streaming response chunk into universal format
+
+Converts individual chunks from the streaming response into the standard
+StreamingResponseChunk format used across all providers.
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `chunk` | `any` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `chunk` | `any` | Raw chunk from Google AI streaming API |
 
 #### Returns
 
 `StreamingResponseChunk`
 
+Parsed streaming response chunk
+
 #### Defined in
 
-[provider.ts:171](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/provider.ts#L171)
+[provider.ts:260](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/provider.ts#L260)
 
 ___
 
@@ -210,11 +271,16 @@ ___
 
 ▸ **close**(): `Promise`\<`void`\>
 
-리소스 해제 (필요시)
+Release resources and close connections
+
+Performs cleanup operations when the provider is no longer needed.
+Google AI client doesn't require explicit cleanup, so this is a no-op.
 
 #### Returns
 
 `Promise`\<`void`\>
+
+Promise that resolves when cleanup is complete
 
 #### Implementation of
 
@@ -222,4 +288,4 @@ AIProvider.close
 
 #### Defined in
 
-[provider.ts:184](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/provider.ts#L184)
+[provider.ts:282](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/provider.ts#L282)

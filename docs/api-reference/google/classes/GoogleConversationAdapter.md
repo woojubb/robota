@@ -39,7 +39,7 @@ Converts UniversalMessage to Google Generative AI format
 
 ### toGoogleFormat
 
-▸ **toGoogleFormat**(`messages`): `any`[]
+▸ **toGoogleFormat**(`messages`): `Content`[]
 
 Convert UniversalMessage array to Google AI message format
 
@@ -51,17 +51,17 @@ Convert UniversalMessage array to Google AI message format
 
 #### Returns
 
-`any`[]
+`Content`[]
 
 #### Defined in
 
-[adapter.ts:12](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/adapter.ts#L12)
+[adapter.ts:13](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/adapter.ts#L13)
 
 ___
 
 ### convertMessage
 
-▸ **convertMessage**(`msg`): `any`
+▸ **convertMessage**(`msg`): `Content`
 
 Convert a single UniversalMessage to Google AI format
 
@@ -73,11 +73,11 @@ Convert a single UniversalMessage to Google AI format
 
 #### Returns
 
-`any`
+`Content`
 
 #### Defined in
 
-[adapter.ts:21](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/adapter.ts#L21)
+[adapter.ts:22](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/adapter.ts#L22)
 
 ___
 
@@ -100,7 +100,7 @@ Extract system messages and combine them as system instruction
 
 #### Defined in
 
-[adapter.ts:83](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/adapter.ts#L83)
+[adapter.ts:92](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/adapter.ts#L92)
 
 ___
 
@@ -123,9 +123,9 @@ Complete message conversion pipeline
 
 | Name | Type |
 | :------ | :------ |
-| `contents` | `any`[] |
+| `contents` | `Content`[] |
 | `systemInstruction?` | `string` |
 
 #### Defined in
 
-[adapter.ts:96](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/google/src/adapter.ts#L96)
+[adapter.ts:105](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/google/src/adapter.ts#L105)

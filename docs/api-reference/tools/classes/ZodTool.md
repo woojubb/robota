@@ -16,31 +16,9 @@ Zod schema-based tool class
 
 Tool that uses Zod schema for parameter validation.
 
-**`Example`**
+**`See`**
 
-```typescript
-import { z } from 'zod';
-import { ZodTool } from '@robota-sdk/tools';
-
-const weatherTool = new ZodTool({
-  name: 'getWeather',
-  description: 'Get weather information for a specific location.',
-  category: 'data',
-  version: '1.0.0',
-  parameters: z.object({
-    location: z.string().describe('Location to get weather for (city name)'),
-    unit: z.enum(['celsius', 'fahrenheit']).optional().describe('Temperature unit')
-  }),
-  execute: async (params) => {
-    // Weather API call logic
-    const data = { temperature: 25, condition: 'sunny' };
-    return {
-      status: 'success',
-      data
-    };
-  }
-});
-```
+../../../../apps/examples/02-functions | Function Tool Examples
 
 ## Type parameters
 
@@ -111,7 +89,7 @@ Constructor
 
 #### Defined in
 
-[packages/tools/src/tool/zod-tool.ts:61](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/zod-tool.ts#L61)
+[packages/tools/src/tool/zod-tool.ts:37](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/zod-tool.ts#L37)
 
 ## Properties
 
@@ -127,7 +105,7 @@ Tool name
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:29](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/base-tool.ts#L29)
+[packages/tools/src/tool/base-tool.ts:29](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/base-tool.ts#L29)
 
 ___
 
@@ -143,7 +121,7 @@ Tool description
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:34](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/base-tool.ts#L34)
+[packages/tools/src/tool/base-tool.ts:34](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/base-tool.ts#L34)
 
 ___
 
@@ -159,7 +137,7 @@ Tool category
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:39](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/base-tool.ts#L39)
+[packages/tools/src/tool/base-tool.ts:39](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/base-tool.ts#L39)
 
 ___
 
@@ -175,7 +153,7 @@ Tool version
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:44](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/base-tool.ts#L44)
+[packages/tools/src/tool/base-tool.ts:44](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/base-tool.ts#L44)
 
 ## Accessors
 
@@ -197,7 +175,7 @@ BaseTool.schema
 
 #### Defined in
 
-[packages/tools/src/tool/zod-tool.ts:71](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/zod-tool.ts#L71)
+[packages/tools/src/tool/zod-tool.ts:47](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/zod-tool.ts#L47)
 
 ## Methods
 
@@ -225,7 +203,7 @@ Tool execution result
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:108](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/base-tool.ts#L108)
+[packages/tools/src/tool/base-tool.ts:108](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/base-tool.ts#L108)
 
 ___
 
@@ -247,7 +225,7 @@ Function schema
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:145](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/base-tool.ts#L145)
+[packages/tools/src/tool/base-tool.ts:145](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/base-tool.ts#L145)
 
 ___
 
@@ -269,7 +247,7 @@ Function definition
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:158](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/base-tool.ts#L158)
+[packages/tools/src/tool/base-tool.ts:158](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/base-tool.ts#L158)
 
 ___
 
@@ -291,7 +269,7 @@ String representation of the tool
 
 #### Defined in
 
-[packages/tools/src/tool/base-tool.ts:171](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/base-tool.ts#L171)
+[packages/tools/src/tool/base-tool.ts:171](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/base-tool.ts#L171)
 
 ___
 
@@ -322,4 +300,4 @@ ZodTool instance
 
 #### Defined in
 
-[packages/tools/src/tool/zod-tool.ts:185](https://github.com/woojubb/robota/blob/a8442f1faf09c1f8c76f836001e62362defd1424/packages/tools/src/tool/zod-tool.ts#L185)
+[packages/tools/src/tool/zod-tool.ts:161](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool/zod-tool.ts#L161)
