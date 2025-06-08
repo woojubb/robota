@@ -13,13 +13,13 @@ describe('SimpleConversationHistory', () => {
         history = new SimpleConversationHistory();
     });
 
-    describe('기본 기능', () => {
-        it('초기 상태에서는 메시지가 없어야 함', () => {
+    describe('Basic functionality', () => {
+        it('should have no messages in initial state', () => {
             expect(history.getMessages()).toEqual([]);
             expect(history.getMessageCount()).toBe(0);
         });
 
-        it('메시지를 추가할 수 있어야 함', () => {
+        it('should be able to add messages', () => {
             const message: UniversalMessage = {
                 role: 'user',
                 content: 'Hello',
@@ -33,7 +33,7 @@ describe('SimpleConversationHistory', () => {
             expect(history.getMessageCount()).toBe(1);
         });
 
-        it('여러 메시지를 순서대로 저장해야 함', () => {
+        it('should store multiple messages in order', () => {
             const message1: UniversalMessage = {
                 role: 'user',
                 content: 'First message',
@@ -54,7 +54,7 @@ describe('SimpleConversationHistory', () => {
             expect(messages[1]).toEqual(message2);
         });
 
-        it('clear 메서드로 모든 메시지를 삭제할 수 있어야 함', () => {
+        it('should be able to clear all messages with clear method', () => {
             history.addUserMessage('Test message');
             expect(history.getMessageCount()).toBe(1);
 
@@ -64,8 +64,8 @@ describe('SimpleConversationHistory', () => {
         });
     });
 
-    describe('편의 메서드', () => {
-        it('addUserMessage로 사용자 메시지를 추가할 수 있어야 함', () => {
+    describe('Convenience methods', () => {
+        it('should be able to add user message with addUserMessage', () => {
             history.addUserMessage('Hello');
 
             const messages = history.getMessages();
@@ -75,7 +75,7 @@ describe('SimpleConversationHistory', () => {
             expect(messages[0].timestamp).toBeInstanceOf(Date);
         });
 
-        it('addAssistantMessage로 어시스턴트 메시지를 추가할 수 있어야 함', () => {
+        it('should be able to add assistant message with addAssistantMessage', () => {
             const functionCall: FunctionCall = {
                 name: 'test_function',
                 arguments: { param: 'value' }
@@ -90,7 +90,7 @@ describe('SimpleConversationHistory', () => {
             expect(messages[0].functionCall).toEqual(functionCall);
         });
 
-        it('addSystemMessage로 시스템 메시지를 추가할 수 있어야 함', () => {
+        it('should be able to add system message with addSystemMessage', () => {
             history.addSystemMessage('System prompt');
 
             const messages = history.getMessages();
@@ -99,7 +99,7 @@ describe('SimpleConversationHistory', () => {
             expect(messages[0].content).toBe('System prompt');
         });
 
-        it('addToolMessage로 도구 실행 결과를 추가할 수 있어야 함', () => {
+        it('should be able to add tool execution result with addToolMessage', () => {
             const toolResult: FunctionCallResult = {
                 name: 'test_tool',
                 result: 'Tool executed successfully'
@@ -115,7 +115,7 @@ describe('SimpleConversationHistory', () => {
             expect(messages[0].content).toContain('Tool result');
         });
 
-        it('addToolMessage에서 에러가 있을 때 적절한 content를 생성해야 함', () => {
+        it('should generate appropriate content when there is error in addToolMessage', () => {
             const toolResult: FunctionCallResult = {
                 name: 'failed_tool',
                 error: 'Tool execution failed'
@@ -129,7 +129,7 @@ describe('SimpleConversationHistory', () => {
         });
     });
 
-    describe('메시지 조회', () => {
+    describe('Message retrieval', () => {
         beforeEach(() => {
             history.addSystemMessage('System');
             history.addUserMessage('User');
@@ -137,7 +137,7 @@ describe('SimpleConversationHistory', () => {
             history.addToolMessage({ name: 'tool', result: 'result' });
         });
 
-        it('getMessagesByRole로 특정 역할의 메시지만 가져올 수 있어야 함', () => {
+        it('should be able to get messages by specific role with getMessagesByRole', () => {
             const userMessages = history.getMessagesByRole('user');
             expect(userMessages).toHaveLength(1);
             expect(userMessages[0].content).toBe('User');
@@ -147,21 +147,21 @@ describe('SimpleConversationHistory', () => {
             expect(systemMessages[0].content).toBe('System');
         });
 
-        it('getRecentMessages로 최근 메시지를 가져올 수 있어야 함', () => {
+        it('should be able to get recent messages with getRecentMessages', () => {
             const recentMessages = history.getRecentMessages(2);
             expect(recentMessages).toHaveLength(2);
             expect(recentMessages[0].content).toBe('Assistant');
             expect(recentMessages[1].role).toBe('tool');
         });
 
-        it('getRecentMessages에서 요청한 개수보다 메시지가 적으면 모든 메시지를 반환해야 함', () => {
+        it('should return all messages when requested count is less than available messages in getRecentMessages', () => {
             const recentMessages = history.getRecentMessages(10);
             expect(recentMessages).toHaveLength(4);
         });
     });
 
-    describe('메시지 제한', () => {
-        it('maxMessages 설정으로 메시지 개수를 제한할 수 있어야 함', () => {
+    describe('Message limit', () => {
+        it('should be able to limit message count with maxMessages setting', () => {
             const limitedHistory = new SimpleConversationHistory({ maxMessages: 3 });
 
             limitedHistory.addUserMessage('Message 1');
@@ -175,7 +175,7 @@ describe('SimpleConversationHistory', () => {
             expect(messages[2].content).toBe('Message 4');
         });
 
-        it('시스템 메시지는 제한에서 제외되어야 함', () => {
+        it('should exclude system messages from limit', () => {
             const limitedHistory = new SimpleConversationHistory({ maxMessages: 3 });
 
             limitedHistory.addSystemMessage('System');
@@ -189,7 +189,7 @@ describe('SimpleConversationHistory', () => {
             expect(systemMessages).toHaveLength(1);
             expect(systemMessages[0].content).toBe('System');
 
-            // 가장 최근 사용자 메시지 2개만 유지되어야 함
+            // Only the most recent 2 user messages should be maintained
             const userMessages = limitedHistory.getMessagesByRole('user');
             expect(userMessages).toHaveLength(2);
             expect(userMessages[0].content).toBe('User 3');
@@ -206,14 +206,14 @@ describe('PersistentSystemConversationHistory', () => {
         history = new PersistentSystemConversationHistory(systemPrompt);
     });
 
-    it('초기화 시 시스템 메시지가 추가되어야 함', () => {
+    it('should add system message during initialization', () => {
         const messages = history.getMessages();
         expect(messages).toHaveLength(1);
         expect(messages[0].role).toBe('system');
         expect(messages[0].content).toBe(systemPrompt);
     });
 
-    it('clear 후에도 시스템 메시지가 유지되어야 함', () => {
+    it('should maintain system messages even after clear', () => {
         history.addUserMessage('Test message');
         expect(history.getMessageCount()).toBe(2);
 
@@ -224,7 +224,7 @@ describe('PersistentSystemConversationHistory', () => {
         expect(messages[0].content).toBe(systemPrompt);
     });
 
-    it('updateSystemPrompt로 시스템 프롬프트를 업데이트할 수 있어야 함', () => {
+    it('should be able to update system prompt with updateSystemPrompt', () => {
         history.addUserMessage('User message');
         history.addAssistantMessage('Assistant message');
 
@@ -236,12 +236,12 @@ describe('PersistentSystemConversationHistory', () => {
         expect(systemMessages).toHaveLength(1);
         expect(systemMessages[0].content).toBe(newSystemPrompt);
 
-        // 다른 메시지들은 유지되어야 함
+        // Other messages should be maintained
         expect(messages.filter(m => m.role === 'user')).toHaveLength(1);
         expect(messages.filter(m => m.role === 'assistant')).toHaveLength(1);
     });
 
-    it('getSystemPrompt로 현재 시스템 프롬프트를 가져올 수 있어야 함', () => {
+    it('should be able to get current system prompt with getSystemPrompt', () => {
         expect(history.getSystemPrompt()).toBe(systemPrompt);
 
         const newPrompt = 'New prompt';

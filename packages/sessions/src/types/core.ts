@@ -1,11 +1,13 @@
-// 간결한 핵심 타입 정의
+// Concise core type definitions
+export * from '@robota-sdk/core';
+
 export enum SessionState {
     ACTIVE = 'active',
     PAUSED = 'paused',
     TERMINATED = 'terminated'
 }
 
-// 세션 관련 타입
+// Session related types
 export interface SessionConfig {
     name?: string;
     maxChats?: number;
@@ -22,7 +24,7 @@ export interface SessionInfo {
     lastUsedAt: Date;
 }
 
-// 채팅 관련 타입
+// Chat related types
 export interface ChatConfig {
     name?: string;
     robotaConfig?: any;
@@ -38,7 +40,7 @@ export interface ChatInfo {
     lastUsedAt: Date;
 }
 
-// 매니저 설정
+// Manager configuration
 export interface SessionManagerConfig {
     maxSessions?: number;
     autoCleanupDays?: number;

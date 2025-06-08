@@ -14,28 +14,28 @@ export class SessionManagerImpl implements SessionManager {
 
     constructor(config: SessionManagerConfig = {}) {
         this.config = {
-            maxActiveSessions: config.maxActiveSessions || 10, // 50에서 10으로 줄임
+            maxActiveSessions: config.maxActiveSessions || 10, // Reduced from 50 to 10
             autoCleanup: config.autoCleanup ?? true,
-            cleanupInterval: config.cleanupInterval || 3600000, // 1시간으로 변경
-            memoryThreshold: config.memoryThreshold || 100, // 100MB로 줄임
+            cleanupInterval: config.cleanupInterval || 3600000, // Changed to 1 hour
+            memoryThreshold: config.memoryThreshold || 100, // Reduced to 100MB
             storage: config.storage
         };
     }
 
     async createSession(userId: string, config?: SessionConfig): Promise<Session> {
-        // 사용자별 세션 수 제한 확인
+        // Check user session count limit
         const userSessionIds = this.userSessions.get(userId) || new Set();
         if (userSessionIds.size >= this.config.maxActiveSessions!) {
-            throw new Error(`사용자 ${userId}의 최대 세션 수 (${this.config.maxActiveSessions})에 도달했습니다`);
+            throw new Error(`Maximum session count (${this.config.maxActiveSessions}) reached for user ${userId}`);
         }
 
-        // 새 세션 생성
+        // Create new session
         const session = new SessionImpl(userId, config);
 
-        // 저장
+        // Save
         this.sessions.set(session.metadata.sessionId, session);
 
-        // 사용자별 세션 목록에 추가
+        // Add to user session list
         if (!this.userSessions.has(userId)) {
             this.userSessions.set(userId, new Set());
         }
@@ -68,13 +68,13 @@ export class SessionManagerImpl implements SessionManager {
             return;
         }
 
-        // 세션 종료
+        // End session
         await session.terminate();
 
-        // 저장소에서 제거
+        // Remove from storage
         this.sessions.delete(sessionId);
 
-        // 사용자 세션 목록에서 제거
+        // Remove from user session list
         const userSessionIds = this.userSessions.get(session.metadata.userId);
         if (userSessionIds) {
             userSessionIds.delete(sessionId);
@@ -115,13 +115,13 @@ export class SessionManagerImpl implements SessionManager {
         return count;
     }
 
-    // 간소화된 정리 로직
+    // Simplified cleanup logic
     async cleanup(): Promise<void> {
         if (!this.config.autoCleanup) {
             return;
         }
 
-        // 7일 이상 비활성 세션 제거 (30일에서 줄임)
+        // Remove sessions inactive for more than 7 days (reduced from 30 days)
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
         const sessionsToRemove: string[] = [];
 
@@ -137,7 +137,7 @@ export class SessionManagerImpl implements SessionManager {
     }
 
     async shutdown(): Promise<void> {
-        // 모든 세션 정리
+        // Clean up all sessions
         for (const session of this.sessions.values()) {
             await session.terminate();
         }
@@ -146,7 +146,7 @@ export class SessionManagerImpl implements SessionManager {
         this.userSessions.clear();
     }
 
-    // 간소화된 통계
+    // Simplified statistics
     getStats(): SessionManagerStats {
         let activeSessions = 0;
         let pausedSessions = 0;
@@ -171,7 +171,7 @@ export class SessionManagerImpl implements SessionManager {
             activeSessions,
             pausedSessions,
             archivedSessions,
-            memoryUsage: 0 // 나중에 구현
+            memoryUsage: 0 // To be implemented later
         };
     }
 } 

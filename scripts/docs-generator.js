@@ -123,7 +123,7 @@ async function generateDocsForCategory(category) {
         const command = `npx typedoc --options ${path.join(ROOT_DIR, 'typedoc.json')} --out ${categoryDir} --entryPoints ${entryPoint} --tsconfig ${tsconfigPath} --name "${name}"`;
 
         console.log(`🔄 Converting ${name} TypeScript to Markdown...`);
-        execSync(command, { stdio: 'pipe' }); // 로그 숨김
+        execSync(command, { stdio: 'pipe' }); // Hide logs
 
         // Fix file structure (modules.md -> README.md)
         fixFileStructure(categoryDir, name);
@@ -151,18 +151,18 @@ function fixFileStructure(categoryDir, categoryName) {
     const readmePath = path.join(categoryDir, 'README.md');
     const parentReadmePath = path.join(OUTPUT_DIR, 'README.md');
 
-    // 첫 번째 패키지(Core)인 경우 프로젝트 README.md를 상위 폴더로 이동
+    // For first package (Core), move project README.md to parent folder
     if (categoryName === 'Core' && fs.existsSync(readmePath)) {
-        // 프로젝트 전체 README.md를 api-reference 루트로 이동
+        // Move project-wide README.md to api-reference root
         fs.copyFileSync(readmePath, parentReadmePath);
         console.log(`📄 Moved project README.md to api-reference root`);
     }
 
-    // modules.md를 README.md로 변환
+    // Convert modules.md to README.md
     if (fs.existsSync(modulesPath)) {
-        // modules.md가 있으면 README.md로 이름 변경
+        // If modules.md exists, rename to README.md
         if (fs.existsSync(readmePath)) {
-            // 기존 README.md가 있으면 삭제 (프로젝트 전체 README.md이므로 불필요)
+            // Delete existing README.md if it exists (unnecessary since it's project-wide README.md)
             fs.unlinkSync(readmePath);
             console.log(`🗑️  Removed project README.md from ${categoryName}`);
         }
@@ -428,20 +428,20 @@ function cleanApiReferenceDir() {
     if (fs.existsSync(OUTPUT_DIR)) {
         console.log('🧹 Cleaning existing API reference directory...');
 
-        // README.md 파일 백업
+        // Backup README.md file
         const readmePath = path.join(OUTPUT_DIR, 'README.md');
         let readmeContent = null;
         if (fs.existsSync(readmePath)) {
             readmeContent = fs.readFileSync(readmePath, 'utf-8');
         }
 
-        // 전체 폴더 삭제
+        // Delete entire folder
         fs.rmSync(OUTPUT_DIR, { recursive: true, force: true });
 
-        // 폴더 재생성
+        // Recreate folder
         fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-        // README.md 파일 복원
+        // Restore README.md file
         if (readmeContent) {
             fs.writeFileSync(readmePath, readmeContent);
             console.log('📄 Preserved existing README.md');

@@ -2,18 +2,18 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
     test: {
-        // 새로운 패턴: 소스 파일 옆에 .test.ts 또는 .spec.ts 파일 배치
+        // New pattern: Place .test.ts or .spec.ts files next to source files
         include: [
             'packages/**/src/**/*.{test,spec}.{ts,tsx}',
-            // 기존 테스트 디렉토리도 계속 지원
+            // Continue to support existing test directories
             'packages/**/tests/**/*.{test,spec}.{ts,tsx}'
         ],
         environment: 'node',
-        // 병렬 실행
+        // Parallel execution
         threads: true,
-        // 타임아웃 설정
+        // Timeout settings
         testTimeout: 10000,
-        // 커버리지 설정
+        // Coverage settings
         coverage: {
             provider: 'v8',
             reporter: ['text', 'json', 'html'],

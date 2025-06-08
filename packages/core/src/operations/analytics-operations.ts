@@ -2,12 +2,12 @@ import type { AnalyticsManager } from '../managers/analytics-manager';
 import type { RequestLimitManager } from '../managers/request-limit-manager';
 
 /**
- * 분석 및 제한 관련 순수 함수들
- * Robota 클래스의 분석 및 제한 관련 로직을 순수 함수로 분리
+ * Analytics and limit related pure functions
+ * Separated analytics and limit related logic from Robota class into pure functions
  */
 
 /**
- * 최대 토큰 제한을 설정하는 순수 함수
+ * Pure function to set maximum token limit
  */
 export function setMaxTokenLimit(
     limit: number,
@@ -17,7 +17,7 @@ export function setMaxTokenLimit(
 }
 
 /**
- * 최대 요청 제한을 설정하는 순수 함수
+ * Pure function to set maximum request limit
  */
 export function setMaxRequestLimit(
     limit: number,
@@ -27,7 +27,7 @@ export function setMaxRequestLimit(
 }
 
 /**
- * 최대 토큰 제한을 가져오는 순수 함수
+ * Pure function to get maximum token limit
  */
 export function getMaxTokenLimit(
     requestLimitManager: RequestLimitManager
@@ -36,7 +36,7 @@ export function getMaxTokenLimit(
 }
 
 /**
- * 최대 요청 제한을 가져오는 순수 함수
+ * Pure function to get maximum request limit
  */
 export function getMaxRequestLimit(
     requestLimitManager: RequestLimitManager
@@ -45,7 +45,7 @@ export function getMaxRequestLimit(
 }
 
 /**
- * 제한 정보를 가져오는 순수 함수
+ * Pure function to get limit information
  */
 export function getLimitInfo(
     requestLimitManager: RequestLimitManager
@@ -61,7 +61,7 @@ export function getLimitInfo(
 }
 
 /**
- * 요청 횟수를 가져오는 순수 함수
+ * Pure function to get request count
  */
 export function getRequestCount(
     requestLimitManager: RequestLimitManager
@@ -70,7 +70,7 @@ export function getRequestCount(
 }
 
 /**
- * 총 사용된 토큰 수를 가져오는 순수 함수
+ * Pure function to get total tokens used
  */
 export function getTotalTokensUsed(
     requestLimitManager: RequestLimitManager
@@ -79,7 +79,7 @@ export function getTotalTokensUsed(
 }
 
 /**
- * 분석 데이터를 가져오는 순수 함수
+ * Pure function to get analytics data
  */
 export function getAnalytics(
     analyticsManager: AnalyticsManager
@@ -88,7 +88,7 @@ export function getAnalytics(
 }
 
 /**
- * 분석 데이터를 리셋하는 순수 함수
+ * Pure function to reset analytics data
  */
 export function resetAnalytics(
     analyticsManager: AnalyticsManager,
@@ -99,7 +99,7 @@ export function resetAnalytics(
 }
 
 /**
- * 기간별 토큰 사용량을 가져오는 순수 함수
+ * Pure function to get token usage by period
  */
 export function getTokenUsageByPeriod(
     startDate: Date,

@@ -24,7 +24,7 @@ export type MessageContent = string | {
 export interface ChatConfig {
     chatName?: string;
     description?: string;
-    robotaConfig?: any; // Robota 초기 설정
+    robotaConfig?: any; // Initial Robota configuration
     autoSave?: boolean;
     maxHistorySize?: number;
 }

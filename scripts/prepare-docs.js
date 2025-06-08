@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * 문서 배포 준비 스크립트
- * GitHub Actions와 로컬에서 동일하게 사용
- * 실제 배포는 GitHub Actions에서 별도로 수행
+ * Documentation deployment preparation script
+ * Used identically in GitHub Actions and locally
+ * Actual deployment is performed separately in GitHub Actions
  */
 
 import fs from 'fs';
@@ -34,30 +34,30 @@ function executeCommand(command, options = {}) {
 async function main() {
     log('🚀 Starting documentation build preparation...');
 
-    // 1. 의존성 설치
+    // 1. Install dependencies
     log('📦 Installing dependencies...');
     executeCommand('pnpm install');
 
-    // 2. TypeDoc 변환 (TypeScript → Markdown)
+    // 2. TypeDoc conversion (TypeScript → Markdown)
     log('📚 Converting TypeScript to API documentation...');
     executeCommand('pnpm typedoc:convert');
 
-    // 3. 문서 빌드
+    // 3. Build documentation
     log('🔨 Building documentation...');
     executeCommand('pnpm run build', { cwd: DOCS_DIR });
 
-    // 4. .nojekyll 파일 추가 (GitHub Pages용)
+    // 4. Add .nojekyll file (for GitHub Pages)
     log('📄 Adding .nojekyll file...');
     const nojekyllPath = path.join(DOCS_DIR, '.vitepress/dist/.nojekyll');
     fs.writeFileSync(nojekyllPath, '');
 
-    // 5. 빌드 결과 확인
+    // 5. Check build results
     log('✅ Build preparation completed successfully!');
     const distDir = path.join(DOCS_DIR, '.vitepress/dist');
     const files = fs.readdirSync(distDir);
     log(`📁 Generated files: ${files.join(', ')}`);
 
-    // 6. API 문서 파일 확인
+    // 6. Check API documentation files
     const apiCoreFile = path.join(distDir, 'api-reference/core/index.html');
     if (fs.existsSync(apiCoreFile)) {
         const stats = fs.statSync(apiCoreFile);
@@ -70,7 +70,7 @@ async function main() {
     log('📤 Ready for deployment to GitHub Pages');
 }
 
-// 스크립트 실행
+// Execute script
 main().catch(error => {
     console.error('❌ Documentation preparation failed:', error);
     process.exit(1);

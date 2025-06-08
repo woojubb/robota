@@ -3,12 +3,12 @@ import type { AIProviderManager } from '../managers/ai-provider-manager';
 import type { RobotaConfigManager } from '../managers/robota-config-manager';
 
 /**
- * AI Provider 관련 순수 함수들
- * Robota 클래스의 AI Provider 관련 로직을 순수 함수로 분리
+ * AI Provider related pure functions
+ * Separated AI Provider related logic from Robota class into pure functions
  */
 
 /**
- * AI Provider를 추가하는 순수 함수
+ * Pure function to add AI Provider
  */
 export function addAIProvider(
     name: string,
@@ -21,7 +21,7 @@ export function addAIProvider(
 }
 
 /**
- * 현재 AI Provider와 모델을 설정하는 순수 함수
+ * Pure function to set current AI Provider and model
  */
 export function setCurrentAI(
     providerName: string,
@@ -37,7 +37,7 @@ export function setCurrentAI(
 }
 
 /**
- * 현재 AI Provider와 모델 정보를 가져오는 순수 함수
+ * Pure function to get current AI Provider and model information
  */
 export function getCurrentAI(
     aiProviderManager: AIProviderManager
@@ -46,7 +46,7 @@ export function getCurrentAI(
 }
 
 /**
- * AI Provider 설정을 적용하는 순수 함수
+ * Pure function to apply AI Provider configuration
  */
 export function applyAIProviderConfiguration(
     config: {

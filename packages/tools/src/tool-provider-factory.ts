@@ -3,7 +3,7 @@
  * 
  * @module tool-provider-factory
  * @description
- * 다양한 종류의 tool provider들을 생성하고 관리하는 팩토리 클래스와 유틸리티 함수들을 제공합니다.
+ * Provides factory class and utility functions for creating and managing various types of tool providers.
  */
 
 import { z } from 'zod';
@@ -14,12 +14,12 @@ import { MCPToolProvider, type MCPToolProviderOptions, type MCPClient } from './
 import type { ZodFunctionTool } from './zod-schema';
 
 /**
- * Tool Provider 타입 정의
+ * Tool Provider type definition
  */
 export type ToolProviderType = 'zod-function' | 'openapi' | 'mcp';
 
 /**
- * Tool Provider 설정 옵션들
+ * Tool Provider configuration options
  */
 export interface ToolProviderConfigs {
     'zod-function': ZodFunctionToolProviderOptions;
@@ -28,9 +28,9 @@ export interface ToolProviderConfigs {
 }
 
 /**
- * Tool Provider Factory 클래스
+ * Tool Provider Factory class
  * 
- * 다양한 타입의 tool provider들을 생성하고 관리합니다.
+ * Creates and manages various types of tool providers.
  */
 export class ToolProviderFactory {
     private providers: Map<string, ToolProvider> = new Map();
@@ -41,7 +41,7 @@ export class ToolProviderFactory {
     }
 
     /**
-     * Zod Function Tool Provider 생성
+     * Create Zod Function Tool Provider
      */
     createZodFunctionProvider(
         name: string,
@@ -57,7 +57,7 @@ export class ToolProviderFactory {
     }
 
     /**
-     * OpenAPI Tool Provider 생성
+     * Create OpenAPI Tool Provider
      */
     createOpenAPIProvider(
         name: string,
@@ -75,7 +75,7 @@ export class ToolProviderFactory {
     }
 
     /**
-     * MCP Tool Provider 생성
+     * Create MCP Tool Provider
      */
     createMCPProvider(name: string, mcpClient: MCPClient): ToolProvider {
         const provider = new MCPToolProvider({
@@ -88,7 +88,7 @@ export class ToolProviderFactory {
     }
 
     /**
-     * 범용 Tool Provider 생성 메서드
+     * Generic Tool Provider creation method
      */
     createProvider<T extends ToolProviderType>(
         type: T,
@@ -108,7 +108,7 @@ export class ToolProviderFactory {
                 provider = new MCPToolProvider(config as MCPToolProviderOptions);
                 break;
             default:
-                throw new Error(`지원하지 않는 tool provider 타입: ${type}`);
+                throw new Error(`Unsupported tool provider type: ${type}`);
         }
 
         this.providers.set(name, provider);
@@ -116,28 +116,28 @@ export class ToolProviderFactory {
     }
 
     /**
-     * 등록된 Provider 가져오기
+     * Get registered Provider
      */
     getProvider(name: string): ToolProvider | undefined {
         return this.providers.get(name);
     }
 
     /**
-     * 모든 등록된 Provider 목록 가져오기
+     * Get all registered Provider list
      */
     getAllProviders(): Record<string, ToolProvider> {
         return Object.fromEntries(this.providers.entries());
     }
 
     /**
-     * Provider 제거
+     * Remove Provider
      */
     removeProvider(name: string): boolean {
         return this.providers.delete(name);
     }
 
     /**
-     * 모든 Provider의 사용 가능한 도구 목록 통합 조회
+     * Get integrated list of available tools from all Providers
      */
     getAllAvailableTools(): Record<string, string[]> {
         const result: Record<string, string[]> = {};
@@ -150,7 +150,7 @@ export class ToolProviderFactory {
     }
 
     /**
-     * 특정 도구를 제공하는 Provider 찾기
+     * Find Provider that provides specific tool
      */
     findProviderForTool(toolName: string): { providerName: string; provider: ToolProvider } | undefined {
         for (const [name, provider] of this.providers.entries()) {
@@ -162,13 +162,13 @@ export class ToolProviderFactory {
     }
 
     /**
-     * 도구 호출 (자동으로 적절한 Provider 찾기)
+     * Tool call (automatically find appropriate Provider)
      */
     async callTool(toolName: string, parameters: Record<string, any>): Promise<any> {
         const providerInfo = this.findProviderForTool(toolName);
 
         if (!providerInfo) {
-            throw new Error(`도구 '${toolName}'을 제공하는 provider를 찾을 수 없습니다.`);
+            throw new Error(`Cannot find provider that provides tool '${toolName}'.`);
         }
 
         return await providerInfo.provider.callTool(toolName, parameters);
@@ -176,12 +176,12 @@ export class ToolProviderFactory {
 }
 
 /**
- * 전역 Tool Provider Factory 인스턴스 (싱글톤)
+ * Global Tool Provider Factory instance (singleton)
  */
 let globalFactory: ToolProviderFactory | undefined;
 
 /**
- * 전역 Tool Provider Factory 인스턴스 가져오기
+ * Get global Tool Provider Factory instance
  */
 export function getGlobalToolProviderFactory(): ToolProviderFactory {
     if (!globalFactory) {
@@ -191,11 +191,11 @@ export function getGlobalToolProviderFactory(): ToolProviderFactory {
 }
 
 /**
- * 팩토리를 통한 편의 함수들
+ * Convenience functions through factory
  */
 
 /**
- * Zod Function Tool Provider 생성 편의 함수 (팩토리 버전)
+ * Zod Function Tool Provider creation convenience function (factory version)
  */
 export function createZodFunctionProvider(
     tools: Record<string, ZodFunctionTool<z.ZodObject<z.ZodRawShape>>>,
@@ -208,7 +208,7 @@ export function createZodFunctionProvider(
 }
 
 /**
- * OpenAPI Tool Provider 생성 편의 함수 (팩토리 버전)
+ * OpenAPI Tool Provider creation convenience function (factory version)
  */
 export function createOpenAPIProvider(
     openApiSpec: any,
@@ -222,7 +222,7 @@ export function createOpenAPIProvider(
 }
 
 /**
- * MCP Tool Provider 생성 편의 함수 (팩토리 버전)
+ * MCP Tool Provider creation convenience function (factory version)
  */
 export function createMCPProvider(
     mcpClient: MCPClient,

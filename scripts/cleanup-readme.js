@@ -1,27 +1,27 @@
 #!/usr/bin/env node
 
 /**
- * 패키지 디렉토리에서 임시 README 파일을 정리하는 스크립트
+ * Script to clean up temporary README files in package directories
  */
 
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// ES 모듈에서는 __dirname이 없으므로 현재 파일 경로에서 직접 계산
+// In ES modules, __dirname doesn't exist, so calculate directly from current file path
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 작업 디렉토리를 프로젝트 루트로 설정
+// Set working directory to project root
 process.chdir(path.join(__dirname, '..'));
 
-// 패키지 경로
+// Package path
 const packagesPath = path.resolve(__dirname, '../packages');
 
-// 패키지 목록
+// Package list
 const packages = ['core', 'openai', 'anthropic', 'google', 'tools'];
 
-// 콘솔 출력 색상
+// Console output colors
 const colors = {
     reset: '\x1b[0m',
     green: '\x1b[32m',
@@ -34,7 +34,7 @@ const colors = {
 
 console.log(`\n${colors.magenta}🧹 Cleaning up temporary README files${colors.reset}`);
 
-// README 파일 정리
+// Clean up README files
 packages.forEach(pkg => {
     const readmePath = path.join(packagesPath, pkg, 'README.md');
 
@@ -48,5 +48,5 @@ packages.forEach(pkg => {
     }
 });
 
-// 완료 메시지 출력
+// Output completion message
 console.log(`${colors.green}🎉 README files cleanup completed!${colors.reset}`); 

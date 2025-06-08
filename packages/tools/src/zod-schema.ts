@@ -1,19 +1,23 @@
 /**
- * Zod 스키마 유틸리티 모듈
+ * Function tool schema and type definitions module
+ * 
+ * Provides utility functions for converting Zod schemas to JSON schemas.
+ * Supports type definitions and conversion functionality for Robota's function tool definitions.
  * 
  * @module zod-schema
  * @description
- * Zod 스키마를 JSON 스키마로 변환하는 유틸리티 함수들을 제공합니다.
- * Robota의 함수 도구 정의를 위한 타입 정의 및 변환 기능을 지원합니다.
+ * Provides utility functions for converting Zod schemas to JSON schemas.
+ * Supports type definitions and conversion functionality for Robota's function tool definitions.
  */
 
 import { z } from 'zod';
+import type { FunctionSchema } from './index.js';
 
 /**
- * Zod 객체 스키마를 JSON 스키마로 변환합니다.
+ * Converts Zod object schema to JSON schema.
  * 
- * @param schema - 변환할 Zod 객체 스키마
- * @returns JSON 스키마 객체
+ * @param schema - Zod object schema to convert
+ * @returns JSON schema object
  * 
  * @see {@link ../../apps/examples/02-functions | Function Tool Examples}
  */
@@ -22,22 +26,22 @@ export function zodToJsonSchema(schema: z.ZodObject<z.ZodRawShape>): {
     properties: Record<string, unknown>;
     required?: string[];
 } {
-    // z.object에서 속성 추출
+    // Extract properties from z.object
     const shape = schema._def.shape();
 
-    // JSON 스키마 속성 구성
+    // Configure JSON schema properties
     const properties: Record<string, unknown> = {};
     const required: string[] = [];
 
-    // 각 속성에 대해 처리
+    // Process each property
     Object.entries(shape).forEach(([key, zodType]) => {
-        // zodType은 z.ZodType 인스턴스
+        // zodType is a z.ZodType instance
         const typeObj = zodType as z.ZodTypeAny;
 
-        // 기본 속성 정보
+        // Basic property information
         let property: Record<string, unknown> = {};
 
-        // 타입 처리
+        // Type processing
         if (typeObj instanceof z.ZodNumber) {
             property.type = "number";
         } else if (typeObj instanceof z.ZodString) {
@@ -49,22 +53,22 @@ export function zodToJsonSchema(schema: z.ZodObject<z.ZodRawShape>): {
             property.enum = typeObj._def.values;
         } else if (typeObj instanceof z.ZodArray) {
             property.type = "array";
-            // 배열 아이템 타입 처리
+            // Process array item type
             if (typeObj._def.type instanceof z.ZodObject) {
                 property.items = zodToJsonSchema(typeObj._def.type as z.ZodObject<z.ZodRawShape>);
             }
         } else if (typeObj instanceof z.ZodObject) {
-            // 중첩 객체 처리
+            // Process nested object
             property = zodToJsonSchema(typeObj);
         }
 
-        // 설명 추가 (있는 경우)
+        // Add description if available
         const description = typeObj._def.description;
         if (description) {
             property.description = description;
         }
 
-        // optional 여부 확인
+        // Check if optional
         const isOptional = typeObj instanceof z.ZodOptional;
         if (!isOptional) {
             required.push(key);
@@ -73,7 +77,7 @@ export function zodToJsonSchema(schema: z.ZodObject<z.ZodRawShape>): {
         properties[key] = property;
     });
 
-    // 최종 JSON 스키마 객체
+    // Final JSON schema object
     return {
         type: "object",
         properties,
@@ -82,24 +86,24 @@ export function zodToJsonSchema(schema: z.ZodObject<z.ZodRawShape>): {
 }
 
 /**
- * Zod 스키마 기반 함수 도구 정의 인터페이스
+ * Zod schema-based function tool definition interface
  */
-export interface ZodFunctionTool<T extends z.ZodObject<z.ZodRawShape>> {
-    /** 도구 이름 */
+export interface ZodFunctionTool<T extends z.ZodTypeAny = z.ZodTypeAny> {
+    /** Tool name */
     name: string;
-    /** 도구 설명 */
+    /** Tool description */
     description: string;
-    /** 도구 매개변수 스키마 */
+    /** Tool parameter schema */
     parameters: T;
-    /** 도구 핸들러 함수 */
+    /** Tool handler function */
     handler: (params: z.infer<T>) => Promise<unknown>;
 }
 
 /**
- * Zod 함수 도구를 Robota 호환 함수 스키마로 변환합니다.
+ * Converts a Zod function tool to a Robota-compatible function schema.
  * 
- * @param tool - Zod 기반 함수 도구 정의
- * @returns Robota 호환 함수 스키마
+ * @param tool - Zod-based function tool definition
+ * @returns Robota-compatible function schema
  */
 export function zodFunctionToSchema<T extends z.ZodObject<z.ZodRawShape>>(tool: ZodFunctionTool<T>) {
     return {

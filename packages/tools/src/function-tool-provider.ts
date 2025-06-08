@@ -1,9 +1,9 @@
 /**
- * 함수 도구 제공자 모듈
+ * Function tool provider module
  * 
  * @module function-tool-provider
  * @description
- * Zod 스키마를 기반으로 함수 도구를 제공하는 도구 제공자 구현을 제공합니다.
+ * Provides tool provider implementation based on Zod schemas.
  */
 
 import { z } from 'zod';
@@ -13,21 +13,21 @@ import type { FunctionSchema } from './types';
 import { globalFunctionSchemaCache, type FunctionSchemaCacheManager } from './performance/cache-manager';
 
 /**
- * Zod 스키마 기반 함수 도구 제공자 옵션
+ * Zod schema-based function tool provider options
  */
 export interface ZodFunctionToolProviderOptions {
-    /** 도구 정의 객체 */
+    /** Tool definition object */
     tools: Record<string, ZodFunctionTool<z.ZodObject<z.ZodRawShape>>>;
-    /** 로거 함수 (선택사항) */
+    /** Logger function (optional) */
     logger?: (message: string, context?: Record<string, any>) => void;
-    /** 캐시 사용 여부 (기본값: true) */
+    /** Whether to use cache (default: true) */
     enableCache?: boolean;
-    /** 커스텀 캐시 매니저 (선택사항) */
+    /** Custom cache manager (optional) */
     cacheManager?: FunctionSchemaCacheManager;
 }
 
 /**
- * Zod 스키마 기반 함수 도구 제공자 클래스
+ * Zod schema-based function tool provider class
  */
 export class ZodFunctionToolProvider extends BaseToolProvider {
     private readonly tools: Record<string, ZodFunctionTool<z.ZodObject<z.ZodRawShape>>>;
@@ -42,25 +42,25 @@ export class ZodFunctionToolProvider extends BaseToolProvider {
         this.enableCache = options.enableCache !== false;
         this.cacheManager = options.cacheManager || globalFunctionSchemaCache;
 
-        // 캐시 키 생성
+        // Generate cache key
         this.cacheKey = this.enableCache ?
             this.cacheManager.generateKey(this.tools) : '';
     }
 
     /**
-     * 함수 스키마 목록 (지연 로딩 + 캐싱)
+     * Function schema list (lazy loading + caching)
      */
     get functions(): FunctionSchema[] {
         if (this._functions) {
             return this._functions;
         }
 
-        // 캐시에서 확인
+        // Check cache
         if (this.enableCache) {
             const cached = this.cacheManager.get(this.cacheKey);
             if (cached) {
                 this._functions = cached;
-                this.logDebug('함수 스키마를 캐시에서 로드했습니다.', {
+                this.logDebug('Loaded function schemas from cache.', {
                     toolCount: cached.length,
                     cacheKey: this.cacheKey
                 });
@@ -68,13 +68,13 @@ export class ZodFunctionToolProvider extends BaseToolProvider {
             }
         }
 
-        // 캐시에 없으면 변환 수행
+        // Perform conversion if not in cache
         this._functions = this.convertToolsToFunctions();
 
-        // 캐시에 저장
+        // Save to cache
         if (this.enableCache) {
             this.cacheManager.set(this.cacheKey, this._functions);
-            this.logDebug('함수 스키마를 캐시에 저장했습니다.', {
+            this.logDebug('Saved function schemas to cache.', {
                 toolCount: this._functions.length,
                 cacheKey: this.cacheKey
             });
@@ -84,7 +84,7 @@ export class ZodFunctionToolProvider extends BaseToolProvider {
     }
 
     /**
-     * 도구 정의를 JSON 스키마로 변환
+     * Convert tool definitions to JSON schema
      */
     private convertToolsToFunctions(): FunctionSchema[] {
         const startTime = this.enableCache ? performance.now() : 0;
@@ -97,12 +97,12 @@ export class ZodFunctionToolProvider extends BaseToolProvider {
             }> = {};
             const required: string[] = [];
 
-            // Zod 스키마에서 속성 추출
+            // Extract properties from Zod schema
             const shape = tool.parameters.shape || {};
             for (const propName in shape) {
                 const prop = shape[propName];
 
-                // 속성 타입 및 설명 추출
+                // Extract property type and description
                 let type = 'string';
                 if (prop._def.typeName === 'ZodNumber') type = 'number';
                 if (prop._def.typeName === 'ZodBoolean') type = 'boolean';
@@ -111,15 +111,15 @@ export class ZodFunctionToolProvider extends BaseToolProvider {
 
                 properties[propName] = {
                     type,
-                    description: prop._def.description || `${propName} 매개변수`
+                    description: prop._def.description || `${propName} parameter`
                 };
 
-                // enum 값이 있는 경우 추가
+                // Add enum values if present
                 if (prop._def.typeName === 'ZodEnum') {
                     properties[propName].enum = prop._def.values;
                 }
 
-                // 필수 속성인 경우 required 배열에 추가
+                // Add to required array if not optional
                 if (!prop._def.isOptional) {
                     required.push(propName);
                 }
@@ -138,7 +138,7 @@ export class ZodFunctionToolProvider extends BaseToolProvider {
 
         if (this.enableCache) {
             const endTime = performance.now();
-            this.logDebug('함수 스키마 변환 완료', {
+            this.logDebug('Function schema conversion completed', {
                 toolCount: functions.length,
                 processingTime: `${(endTime - startTime).toFixed(2)}ms`
             });
@@ -148,31 +148,31 @@ export class ZodFunctionToolProvider extends BaseToolProvider {
     }
 
     /**
-     * 도구 호출 구현
+     * Tool call implementation
      */
     async callTool(toolName: string, parameters: Record<string, unknown>): Promise<unknown> {
         return this.executeToolSafely(toolName, parameters, async () => {
             const tool = this.tools[toolName];
 
-            // 추가 검증: tools 객체에서 직접 확인
+            // Additional validation: check directly from tools object
             if (!tool) {
-                throw new Error(`도구 정의를 찾을 수 없습니다.`);
+                throw new Error(`Tool definition not found.`);
             }
 
-            // 도구 핸들러 호출
+            // Call tool handler
             return await tool.handler(parameters);
         });
     }
 
     /**
-     * 특정 도구가 존재하는지 확인 (오버라이드)
+     * Check if specific tool exists (override)
      */
     hasTool(toolName: string): boolean {
         return toolName in this.tools;
     }
 
     /**
-     * 캐시 통계 조회
+     * Get cache statistics
      */
     getCacheStats() {
         if (!this.enableCache) {
@@ -182,18 +182,18 @@ export class ZodFunctionToolProvider extends BaseToolProvider {
     }
 
     /**
-     * 캐시 지우기
+     * Clear cache
      */
     clearCache(): void {
         if (this.enableCache) {
             this.cacheManager.delete(this.cacheKey);
             this._functions = null;
-            this.logDebug('함수 스키마 캐시를 삭제했습니다.', { cacheKey: this.cacheKey });
+            this.logDebug('Deleted function schema cache.', { cacheKey: this.cacheKey });
         }
     }
 
     /**
-     * 디버그 로그 출력
+     * Output debug log
      */
     private logDebug(message: string, context?: Record<string, any>): void {
         this.logError(`[ZodFunctionToolProvider] ${message}`, context);
@@ -201,10 +201,10 @@ export class ZodFunctionToolProvider extends BaseToolProvider {
 }
 
 /**
- * Zod 스키마 기반 함수 도구 제공자를 생성합니다.
+ * Creates a Zod schema-based function tool provider.
  * 
- * @param options - 함수 도구 제공자 옵션
- * @returns 도구 제공자 인스턴스 (ToolProvider 인터페이스 구현)
+ * @param options - Function tool provider options
+ * @returns Tool provider instance (implements ToolProvider interface)
  * 
  * @see {@link ../../apps/examples/02-functions | Function Tool Examples}
  */

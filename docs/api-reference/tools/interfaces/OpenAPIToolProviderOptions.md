@@ -8,7 +8,7 @@
 
 # Interface: OpenAPIToolProviderOptions
 
-OpenAPI 도구 제공자 옵션
+OpenAPI tool provider options
 
 ## Table of contents
 
@@ -36,30 +36,29 @@ ___
 
 • `Optional` **baseUrl**: `string`
 
-기본 URL 설정
-
 #### Defined in
 
-[packages/tools/src/openapi-tool-provider.ts:11](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/openapi-tool-provider.ts#L11)
+[packages/tools/src/openapi-tool-provider.ts:9](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/openapi-tool-provider.ts#L9)
 
 ___
 
 ### logger
 
-• `Optional` **logger**: (`message`: `string`, `context?`: `Record`\<`string`, `any`\>) => `void`
+• `Optional` **logger**: (`level`: `string`, `message`: `string`, `meta?`: `any`) => `void`
 
-로거 함수 (선택사항)
+Logger function (optional)
 
 #### Type declaration
 
-▸ (`message`, `context?`): `void`
+▸ (`level`, `message`, `meta?`): `void`
 
 ##### Parameters
 
 | Name | Type |
 | :------ | :------ |
+| `level` | `string` |
 | `message` | `string` |
-| `context?` | `Record`\<`string`, `any`\> |
+| `meta?` | `any` |
 
 ##### Returns
 
@@ -67,4 +66,4 @@ ___
 
 #### Defined in
 
-[packages/tools/src/openapi-tool-provider.ts:13](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/openapi-tool-provider.ts#L13)
+[packages/tools/src/openapi-tool-provider.ts:12](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/openapi-tool-provider.ts#L12)

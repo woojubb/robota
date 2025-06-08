@@ -6,7 +6,7 @@ describe('OpenAIConversationAdapter', () => {
     it('should convert user message correctly', () => {
         const userMessage: UniversalMessage = {
             role: 'user',
-            content: '안녕하세요',
+            content: 'Hello',
             timestamp: new Date(),
             name: 'testuser'
         };
@@ -15,7 +15,7 @@ describe('OpenAIConversationAdapter', () => {
 
         expect(result).toEqual({
             role: 'user',
-            content: '안녕하세요',
+            content: 'Hello',
             name: 'testuser'
         });
     });
@@ -23,7 +23,7 @@ describe('OpenAIConversationAdapter', () => {
     it('should convert assistant message correctly', () => {
         const assistantMessage: UniversalMessage = {
             role: 'assistant',
-            content: '안녕하세요! 무엇을 도와드릴까요?',
+            content: 'Hello! How can I help you?',
             timestamp: new Date()
         };
 
@@ -31,14 +31,14 @@ describe('OpenAIConversationAdapter', () => {
 
         expect(result).toEqual({
             role: 'assistant',
-            content: '안녕하세요! 무엇을 도와드릴까요?'
+            content: 'Hello! How can I help you?'
         });
     });
 
     it('should convert assistant message with function call correctly', () => {
         const assistantMessageWithFunction: UniversalMessage = {
             role: 'assistant',
-            content: '날씨를 확인해보겠습니다.',
+            content: 'I will check the weather for you.',
             functionCall: {
                 name: 'get_weather',
                 arguments: { location: 'Seoul' }
@@ -50,7 +50,7 @@ describe('OpenAIConversationAdapter', () => {
 
         expect(result).toEqual({
             role: 'assistant',
-            content: '날씨를 확인해보겠습니다.',
+            content: 'I will check the weather for you.',
             function_call: {
                 name: 'get_weather',
                 arguments: JSON.stringify({ location: 'Seoul' })
@@ -103,12 +103,12 @@ describe('OpenAIConversationAdapter', () => {
             },
             {
                 role: 'user',
-                content: '안녕하세요',
+                content: 'Hello',
                 timestamp: new Date()
             },
             {
                 role: 'assistant',
-                content: '안녕하세요! 무엇을 도와드릴까요?',
+                content: 'Hello! How can I help you?',
                 timestamp: new Date()
             }
         ];
@@ -122,18 +122,18 @@ describe('OpenAIConversationAdapter', () => {
         });
         expect(result[1]).toEqual({
             role: 'user',
-            content: '안녕하세요',
+            content: 'Hello',
             name: undefined
         });
         expect(result[2]).toEqual({
             role: 'assistant',
-            content: '안녕하세요! 무엇을 도와드릴까요?'
+            content: 'Hello! How can I help you?'
         });
     });
 
     it('should add system prompt if needed', () => {
         const messages = [
-            { role: 'user' as const, content: '안녕하세요' }
+            { role: 'user' as const, content: 'Hello' }
         ];
 
         const result = OpenAIConversationAdapter.addSystemPromptIfNeeded(
@@ -148,14 +148,14 @@ describe('OpenAIConversationAdapter', () => {
         });
         expect(result[1]).toEqual({
             role: 'user',
-            content: '안녕하세요'
+            content: 'Hello'
         });
     });
 
     it('should not add system prompt if already exists', () => {
         const messages = [
             { role: 'system' as const, content: 'Existing system message' },
-            { role: 'user' as const, content: '안녕하세요' }
+            { role: 'user' as const, content: 'Hello' }
         ];
 
         const result = OpenAIConversationAdapter.addSystemPromptIfNeeded(

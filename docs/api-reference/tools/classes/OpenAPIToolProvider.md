@@ -8,19 +8,17 @@
 
 # Class: OpenAPIToolProvider
 
-OpenAPI 기반 도구 제공자 클래스
+OpenAPI-based tool provider class
 
-## Hierarchy
+## Implements
 
-- [`BaseToolProvider`](BaseToolProvider)
-
-  ↳ **`OpenAPIToolProvider`**
+- [`ToolProvider`](../interfaces/ToolProvider.md)
 
 ## Table of contents
 
 ### Constructors
 
-- [constructor](OpenAPIToolProvider#constructor)
+- [constructor](OpenAPIToolProvider.md#constructor)
 
 ### Properties
 
@@ -28,33 +26,26 @@ OpenAPI 기반 도구 제공자 클래스
 
 ### Methods
 
-- [callTool](OpenAPIToolProvider#calltool)
-- [getAvailableTools](OpenAPIToolProvider#getavailabletools)
-- [hasTool](OpenAPIToolProvider#hastool)
+- [callTool](OpenAPIToolProvider.md#calltool)
+- [getAvailableTools](OpenAPIToolProvider.md#getavailabletools)
+- [hasTool](OpenAPIToolProvider.md#hastool)
 
 ## Constructors
 
 ### constructor
 
-• **new OpenAPIToolProvider**(`options`): [`OpenAPIToolProvider`](OpenAPIToolProvider)
+• **new OpenAPIToolProvider**(`openApiSpec`, `options?`)
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `options` | [`OpenAPIToolProviderOptions`](../interfaces/OpenAPIToolProviderOptions) |
-
-#### Returns
-
-[`OpenAPIToolProvider`](OpenAPIToolProvider)
-
-#### Overrides
-
-[BaseToolProvider](BaseToolProvider).[constructor](BaseToolProvider#constructor)
+| `openApiSpec` | `any` |
+| `options?` | [`OpenAPIToolProviderOptions`](../interfaces/OpenAPIToolProviderOptions.md) |
 
 #### Defined in
 
-[packages/tools/src/openapi-tool-provider.ts:24](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/openapi-tool-provider.ts#L24)
+[packages/tools/src/openapi-tool-provider.ts:23](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/openapi-tool-provider.ts#L23)
 
 ## Properties
 
@@ -76,48 +67,48 @@ Abstract property to be implemented by concrete providers
 
 ### callTool
 
-▸ **callTool**(`toolName`, `parameters`): `Promise`\<`any`\>
+▸ **callTool**(`toolName`, `parameters`): `Promise`\<`unknown`\>
 
-도구 호출 구현
+Tool call implementation
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
 | `toolName` | `string` |
-| `parameters` | `Record`\<`string`, `any`\> |
+| `parameters` | `unknown` |
 
 #### Returns
 
-`Promise`\<`any`\>
+`Promise`\<`unknown`\>
 
-#### Overrides
+#### Implementation of
 
-[BaseToolProvider](BaseToolProvider).[callTool](BaseToolProvider#calltool)
+[ToolProvider](../interfaces/ToolProvider.md).[callTool](../interfaces/ToolProvider.md#calltool)
 
 #### Defined in
 
-[packages/tools/src/openapi-tool-provider.ts:118](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/openapi-tool-provider.ts#L118)
+[packages/tools/src/openapi-tool-provider.ts:115](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/openapi-tool-provider.ts#L115)
 
 ___
 
 ### getAvailableTools
 
-▸ **getAvailableTools**(): `string`[]
+▸ **getAvailableTools**(): `Promise`\<`string`[]\>
 
-사용 가능한 도구 목록 반환 (오버라이드)
+Return available tool list (override)
 
 #### Returns
 
-`string`[]
+`Promise`\<`string`[]\>
 
-#### Overrides
+#### Implementation of
 
-[BaseToolProvider](BaseToolProvider).[getAvailableTools](BaseToolProvider#getavailabletools)
+[ToolProvider](../interfaces/ToolProvider.md).[getAvailableTools](../interfaces/ToolProvider.md#getavailabletools)
 
 #### Defined in
 
-[packages/tools/src/openapi-tool-provider.ts:146](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/openapi-tool-provider.ts#L146)
+[packages/tools/src/openapi-tool-provider.ts:143](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/openapi-tool-provider.ts#L143)
 
 ___
 
@@ -125,7 +116,7 @@ ___
 
 ▸ **hasTool**(`toolName`): `boolean`
 
-특정 도구가 존재하는지 확인 (오버라이드)
+Check if specific tool exists (override)
 
 #### Parameters
 
@@ -137,10 +128,10 @@ ___
 
 `boolean`
 
-#### Overrides
+#### Implementation of
 
-[BaseToolProvider](BaseToolProvider).[hasTool](BaseToolProvider#hastool)
+[ToolProvider](../interfaces/ToolProvider.md).[hasTool](../interfaces/ToolProvider.md#hastool)
 
 #### Defined in
 
-[packages/tools/src/openapi-tool-provider.ts:157](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/openapi-tool-provider.ts#L157)
+[packages/tools/src/openapi-tool-provider.ts:154](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/openapi-tool-provider.ts#L154)

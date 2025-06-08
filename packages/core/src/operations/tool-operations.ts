@@ -1,12 +1,12 @@
 import type { ToolProviderManager } from '../managers/tool-provider-manager';
 
 /**
- * 도구 관련 순수 함수들
- * Robota 클래스의 도구 관련 로직을 순수 함수로 분리
+ * Tool related pure functions
+ * Separated tool related logic from Robota class into pure functions
  */
 
 /**
- * 특정 도구를 직접 호출하는 순수 함수
+ * Pure function to directly call specific tool
  */
 export async function callTool(
     toolName: string,
@@ -17,7 +17,7 @@ export async function callTool(
 }
 
 /**
- * 사용 가능한 모든 도구 목록을 가져오는 순수 함수
+ * Pure function to get all available tools list
  */
 export function getAvailableTools(
     toolProviderManager: ToolProviderManager

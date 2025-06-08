@@ -1,6 +1,5 @@
 /**
- * Operations module exports
- * 순수 함수로 분리된 Robota 클래스의 로직들
+ * Logic from Robota class separated into pure functions
  */
 
 // AI Provider Operations
