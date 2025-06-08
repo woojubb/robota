@@ -1,5 +1,11 @@
 # robota-docs
 
+## 1.0.14
+
+### Patch Changes
+
+- Fix facade pattern tests and conversation history message limits
+
 ## 1.0.13
 
 ### Patch Changes

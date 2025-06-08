@@ -129,7 +129,7 @@ Function result type
 
 #### Defined in
 
-[packages/tools/src/factories/function-factory.ts:17](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/factories/function-factory.ts#L17)
+[packages/tools/src/factories/function-factory.ts:17](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/factories/function-factory.ts#L17)
 
 ___
 
@@ -155,7 +155,7 @@ Performance event listener type
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:84](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/performance-monitor.ts#L84)
+[packages/tools/src/performance/performance-monitor.ts:84](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/performance/performance-monitor.ts#L84)
 
 ___
 
@@ -167,7 +167,7 @@ Resource type definition
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:15](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/resource-manager.ts#L15)
+[packages/tools/src/performance/resource-manager.ts:15](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/performance/resource-manager.ts#L15)
 
 ___
 
@@ -194,7 +194,7 @@ Function call handler type
 
 #### Defined in
 
-[packages/tools/src/registry/function-registry.ts:15](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/registry/function-registry.ts#L15)
+[packages/tools/src/registry/function-registry.ts:15](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/registry/function-registry.ts#L15)
 
 ___
 
@@ -202,11 +202,11 @@ ___
 
 Ƭ **ToolProviderType**: ``"zod-function"`` \| ``"openapi"`` \| ``"mcp"``
 
-Tool Provider 타입 정의
+Tool Provider type definition
 
 #### Defined in
 
-[packages/tools/src/tool-provider-factory.ts:19](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/tool-provider-factory.ts#L19)
+[packages/tools/src/tool-provider-factory.ts:19](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/tool-provider-factory.ts#L19)
 
 ## Variables
 
@@ -218,7 +218,7 @@ Global cache manager instances
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:314](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/cache-manager.ts#L314)
+[packages/tools/src/performance/cache-manager.ts:314](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/performance/cache-manager.ts#L314)
 
 ___
 
@@ -228,7 +228,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:315](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/cache-manager.ts#L315)
+[packages/tools/src/performance/cache-manager.ts:315](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/performance/cache-manager.ts#L315)
 
 ___
 
@@ -240,7 +240,7 @@ Global cache cleanup scheduler
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:357](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/cache-manager.ts#L357)
+[packages/tools/src/performance/cache-manager.ts:357](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/performance/cache-manager.ts#L357)
 
 ___
 
@@ -252,7 +252,7 @@ Global tool lazy loader instance
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:382](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/lazy-loader.ts#L382)
+[packages/tools/src/performance/lazy-loader.ts:382](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/performance/lazy-loader.ts#L382)
 
 ___
 
@@ -264,7 +264,7 @@ Global performance monitor instance
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:445](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/performance-monitor.ts#L445)
+[packages/tools/src/performance/performance-monitor.ts:445](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/performance/performance-monitor.ts#L445)
 
 ___
 
@@ -276,7 +276,7 @@ Global resource manager instance
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:410](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/resource-manager.ts#L410)
+[packages/tools/src/performance/resource-manager.ts:410](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/performance/resource-manager.ts#L410)
 
 ## Functions
 
@@ -307,7 +307,7 @@ Created function object with validation
 
 #### Defined in
 
-[packages/tools/src/factories/function-factory.ts:49](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/factories/function-factory.ts#L49)
+[packages/tools/src/factories/function-factory.ts:49](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/factories/function-factory.ts#L49)
 
 ___
 
@@ -333,7 +333,7 @@ Created function object
 
 #### Defined in
 
-[packages/tools/src/factories/function-factory.ts:102](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/factories/function-factory.ts#L102)
+[packages/tools/src/factories/function-factory.ts:102](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/factories/function-factory.ts#L102)
 
 ___
 
@@ -364,7 +364,7 @@ Function with comprehensive error handling
 
 #### Defined in
 
-[packages/tools/src/factories/function-factory.ts:133](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/factories/function-factory.ts#L133)
+[packages/tools/src/factories/function-factory.ts:133](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/factories/function-factory.ts#L133)
 
 ___
 
@@ -392,7 +392,7 @@ Tool provider instance (implements ToolProvider interface)
 
 #### Defined in
 
-[packages/tools/src/function-tool-provider.ts:211](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/function-tool-provider.ts#L211)
+[packages/tools/src/function-tool-provider.ts:211](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/function-tool-provider.ts#L211)
 
 ___
 
@@ -427,7 +427,7 @@ Created tool
 
 #### Defined in
 
-[packages/tools/src/index.ts:129](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/index.ts#L129)
+[packages/tools/src/index.ts:129](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/index.ts#L129)
 
 ___
 
@@ -441,7 +441,7 @@ MCP (Model Context Protocol) based tool provider creation function
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `mcpClient` | [`MCPClient`](interfaces/MCPClient) | MCP 클라이언트 인스턴스 |
+| `mcpClient` | [`MCPClient`](interfaces/MCPClient) | MCP client instance |
 
 #### Returns
 
@@ -451,7 +451,7 @@ MCP-based tool provider object
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:108](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/mcp-tool-provider.ts#L108)
+[packages/tools/src/mcp-tool-provider.ts:108](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/mcp-tool-provider.ts#L108)
 
 ___
 
@@ -465,8 +465,8 @@ Creates a tool provider based on OpenAPI specifications.
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `openApiSpec` | `any` | OpenAPI 스펙 객체 또는 URL |
-| `options?` | `Object` | 기본 URL 설정 |
+| `openApiSpec` | `any` | OpenAPI spec object or URL |
+| `options?` | `Object` | Base URL configuration |
 | `options.baseUrl?` | `string` | - |
 
 #### Returns
@@ -477,7 +477,7 @@ OpenAPI-based tool provider
 
 #### Defined in
 
-[packages/tools/src/openapi-tool-provider.ts:173](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/openapi-tool-provider.ts#L173)
+[packages/tools/src/openapi-tool-provider.ts:173](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/openapi-tool-provider.ts#L173)
 
 ___
 
@@ -501,7 +501,7 @@ Zod schema for validation
 
 #### Defined in
 
-[packages/tools/src/schema/json-to-zod.ts:19](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/schema/json-to-zod.ts#L19)
+[packages/tools/src/schema/json-to-zod.ts:19](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/schema/json-to-zod.ts#L19)
 
 ___
 
@@ -525,7 +525,7 @@ JSON schema representation
 
 #### Defined in
 
-[packages/tools/src/schema/zod-to-json.ts:18](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/schema/zod-to-json.ts#L18)
+[packages/tools/src/schema/zod-to-json.ts:18](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/schema/zod-to-json.ts#L18)
 
 ___
 
@@ -550,7 +550,7 @@ JSON schema type representation
 
 #### Defined in
 
-[packages/tools/src/schema/zod-to-json.ts:52](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/schema/zod-to-json.ts#L52)
+[packages/tools/src/schema/zod-to-json.ts:52](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/schema/zod-to-json.ts#L52)
 
 ___
 
@@ -574,7 +574,7 @@ Description string if available
 
 #### Defined in
 
-[packages/tools/src/schema/zod-to-json.ts:224](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/schema/zod-to-json.ts#L224)
+[packages/tools/src/schema/zod-to-json.ts:224](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/schema/zod-to-json.ts#L224)
 
 ___
 
@@ -598,7 +598,7 @@ True if the type is optional
 
 #### Defined in
 
-[packages/tools/src/schema/zod-to-json.ts:243](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/schema/zod-to-json.ts#L243)
+[packages/tools/src/schema/zod-to-json.ts:243](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/schema/zod-to-json.ts#L243)
 
 ___
 
@@ -622,7 +622,7 @@ True if the type is nullable
 
 #### Defined in
 
-[packages/tools/src/schema/zod-to-json.ts:254](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/schema/zod-to-json.ts#L254)
+[packages/tools/src/schema/zod-to-json.ts:254](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/schema/zod-to-json.ts#L254)
 
 ___
 
@@ -630,7 +630,7 @@ ___
 
 ▸ **getGlobalToolProviderFactory**(): [`ToolProviderFactory`](classes/ToolProviderFactory)
 
-전역 Tool Provider Factory 인스턴스 가져오기
+Get global Tool Provider Factory instance
 
 #### Returns
 
@@ -638,7 +638,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/tool-provider-factory.ts:186](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/tool-provider-factory.ts#L186)
+[packages/tools/src/tool-provider-factory.ts:186](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/tool-provider-factory.ts#L186)
 
 ___
 
@@ -662,7 +662,7 @@ Zod Function Tool Provider creation convenience function (factory version)
 
 #### Defined in
 
-[packages/tools/src/tool-provider-factory.ts:200](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/tool-provider-factory.ts#L200)
+[packages/tools/src/tool-provider-factory.ts:200](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/tool-provider-factory.ts#L200)
 
 ___
 
@@ -687,7 +687,7 @@ OpenAPI Tool Provider creation convenience function (factory version)
 
 #### Defined in
 
-[packages/tools/src/tool-provider-factory.ts:213](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/tool-provider-factory.ts#L213)
+[packages/tools/src/tool-provider-factory.ts:213](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/tool-provider-factory.ts#L213)
 
 ___
 
@@ -711,7 +711,7 @@ MCP Tool Provider creation convenience function (factory version)
 
 #### Defined in
 
-[packages/tools/src/tool-provider-factory.ts:227](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/tool-provider-factory.ts#L227)
+[packages/tools/src/tool-provider-factory.ts:227](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/tool-provider-factory.ts#L227)
 
 ___
 
@@ -735,11 +735,19 @@ Converts a Zod function tool to a Robota-compatible function schema.
 
 #### Returns
 
-[`FunctionSchema`](interfaces/FunctionSchema)
+`Object`
 
 Robota-compatible function schema
 
 | Name | Type |
 | :------ | :------ |
 | `name` | `string` |
-| `description`
+| `description` | `string` |
+| `parameters` | \{ `type`: `string` ; `properties`: `Record`\<`string`, `unknown`\> ; `required?`: `string`[]  } |
+| `parameters.type` | `string` |
+| `parameters.properties` | `Record`\<`string`, `unknown`\> |
+| `parameters.required?` | `string`[] |
+
+#### Defined in
+
+[packages/tools/src/zod-schema.ts:108](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/zod-schema.ts#L108)

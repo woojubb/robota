@@ -24,11 +24,11 @@ OpenAPI tool provider options
 
 • **openApiSpec**: `any`
 
-OpenAPI 스펙 객체 또는 URL
+OpenAPI spec object or URL
 
 #### Defined in
 
-[packages/tools/src/openapi-tool-provider.ts:9](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/openapi-tool-provider.ts#L9)
+[packages/tools/src/openapi-tool-provider.ts:9](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/openapi-tool-provider.ts#L9)
 
 ___
 
@@ -36,29 +36,30 @@ ___
 
 • `Optional` **baseUrl**: `string`
 
+Base URL configuration
+
 #### Defined in
 
-[packages/tools/src/openapi-tool-provider.ts:9](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/openapi-tool-provider.ts#L9)
+[packages/tools/src/openapi-tool-provider.ts:11](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/openapi-tool-provider.ts#L11)
 
 ___
 
 ### logger
 
-• `Optional` **logger**: (`level`: `string`, `message`: `string`, `meta?`: `any`) => `void`
+• `Optional` **logger**: (`message`: `string`, `context?`: `Record`\<`string`, `any`\>) => `void`
 
 Logger function (optional)
 
 #### Type declaration
 
-▸ (`level`, `message`, `meta?`): `void`
+▸ (`message`, `context?`): `void`
 
 ##### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `level` | `string` |
 | `message` | `string` |
-| `meta?` | `any` |
+| `context?` | `Record`\<`string`, `any`\> |
 
 ##### Returns
 
@@ -66,4 +67,4 @@ Logger function (optional)
 
 #### Defined in
 
-[packages/tools/src/openapi-tool-provider.ts:12](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/openapi-tool-provider.ts#L12)
+[packages/tools/src/openapi-tool-provider.ts:13](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/openapi-tool-provider.ts#L13)

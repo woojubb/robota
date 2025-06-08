@@ -1,6 +1,6 @@
 {
     "name": "robota-docs",
-    "version": "1.0.13",
+    "version": "1.0.14",
     "description": "Robota documentation site",
     "private": true,
     "type": "module",

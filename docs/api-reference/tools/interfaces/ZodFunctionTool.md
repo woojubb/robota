@@ -8,13 +8,13 @@
 
 # Interface: ZodFunctionTool\<T\>
 
-Zod 스키마 기반 함수 도구 정의 인터페이스
+Zod schema-based function tool definition interface
 
 ## Type parameters
 
 | Name | Type |
 | :------ | :------ |
-| `T` | extends `z.ZodObject`\<`z.ZodRawShape`\> |
+| `T` | extends `z.ZodTypeAny` = `z.ZodTypeAny` |
 
 ## Table of contents
 
@@ -31,11 +31,11 @@ Zod 스키마 기반 함수 도구 정의 인터페이스
 
 • **name**: `string`
 
-도구 이름
+Tool name
 
 #### Defined in
 
-[packages/tools/src/zod-schema.ts:89](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/zod-schema.ts#L89)
+[packages/tools/src/zod-schema.ts:93](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/zod-schema.ts#L93)
 
 ___
 
@@ -43,11 +43,11 @@ ___
 
 • **description**: `string`
 
-도구 설명
+Tool description
 
 #### Defined in
 
-[packages/tools/src/zod-schema.ts:91](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/zod-schema.ts#L91)
+[packages/tools/src/zod-schema.ts:95](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/zod-schema.ts#L95)
 
 ___
 
@@ -55,11 +55,11 @@ ___
 
 • **parameters**: `T`
 
-도구 매개변수 스키마
+Tool parameter schema
 
 #### Defined in
 
-[packages/tools/src/zod-schema.ts:93](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/zod-schema.ts#L93)
+[packages/tools/src/zod-schema.ts:97](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/zod-schema.ts#L97)
 
 ___
 
@@ -67,7 +67,7 @@ ___
 
 • **handler**: (`params`: `TypeOf`\<`T`\>) => `Promise`\<`unknown`\>
 
-도구 핸들러 함수
+Tool handler function
 
 #### Type declaration
 
@@ -85,4 +85,4 @@ ___
 
 #### Defined in
 
-[packages/tools/src/zod-schema.ts:95](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/zod-schema.ts#L95)
+[packages/tools/src/zod-schema.ts:99](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/zod-schema.ts#L99)

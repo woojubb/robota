@@ -1,5 +1,11 @@
 # robota-services
 
+## 0.1.4
+
+### Patch Changes
+
+- Fix facade pattern tests and conversation history message limits
+
 ## 0.1.3
 
 ### Patch Changes

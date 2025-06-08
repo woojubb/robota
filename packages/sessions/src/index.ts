@@ -1,5 +1,5 @@
 // Core types
-export * from './session-types';
+export * from './types/core';
 
 // Additional interfaces (only those not in core)
 export * from './interfaces/conversation-history';
