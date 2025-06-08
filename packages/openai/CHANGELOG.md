@@ -1,5 +1,14 @@
 # @robota-sdk/openai
 
+## 1.0.2
+
+### Patch Changes
+
+- Fix lint errors and add TSDoc documentation to sessions package
+- Updated dependencies
+  - @robota-sdk/tools@1.0.2
+  - @robota-sdk/core@1.0.2
+
 ## 1.0.1
 
 ### Patch Changes

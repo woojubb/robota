@@ -1,5 +1,4 @@
 import {
-    ConversationHistory,
     UniversalMessage,
     UniversalMessageRole
 } from '@robota-sdk/core';

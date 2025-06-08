@@ -5,7 +5,7 @@ import type {
 } from '../types/session-manager';
 import type { Session, SessionConfig } from '../types/session';
 import { SessionImpl } from '../session/session-impl';
-import { v4 as uuidv4 } from 'uuid';
+// Note: uuidv4 removed as it's not used in current implementation
 
 export class SessionManagerImpl implements SessionManager {
     private sessions: Map<string, Session> = new Map();

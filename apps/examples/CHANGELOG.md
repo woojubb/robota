@@ -1,5 +1,18 @@
 # robota-examples
 
+## 0.1.23
+
+### Patch Changes
+
+- Fix lint errors and add TSDoc documentation to sessions package
+- Updated dependencies
+  - @robota-sdk/anthropic@1.0.2
+  - @robota-sdk/sessions@1.0.2
+  - @robota-sdk/openai@1.0.2
+  - @robota-sdk/tools@1.0.2
+  - @robota-sdk/core@1.0.2
+  - @robota-sdk/google@1.0.2
+
 ## 0.1.22
 
 ### Patch Changes

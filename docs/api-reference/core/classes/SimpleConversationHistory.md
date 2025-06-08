@@ -67,7 +67,7 @@ BaseConversationHistory.constructor
 
 #### Defined in
 
-[conversation-history.ts:455](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L455)
+[conversation-history.ts:455](https://github.com/woojubb/robota/blob/16fe5ea8d551b6fd37698b011433e41053ce5a38/packages/core/src/conversation-history.ts#L455)
 
 ## Methods
 
@@ -92,7 +92,7 @@ BaseConversationHistory.addUserMessage
 
 #### Defined in
 
-[conversation-history.ts:372](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L372)
+[conversation-history.ts:372](https://github.com/woojubb/robota/blob/16fe5ea8d551b6fd37698b011433e41053ce5a38/packages/core/src/conversation-history.ts#L372)
 
 ___
 
@@ -118,7 +118,7 @@ BaseConversationHistory.addAssistantMessage
 
 #### Defined in
 
-[conversation-history.ts:377](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L377)
+[conversation-history.ts:377](https://github.com/woojubb/robota/blob/16fe5ea8d551b6fd37698b011433e41053ce5a38/packages/core/src/conversation-history.ts#L377)
 
 ___
 
@@ -143,7 +143,7 @@ BaseConversationHistory.addSystemMessage
 
 #### Defined in
 
-[conversation-history.ts:382](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L382)
+[conversation-history.ts:382](https://github.com/woojubb/robota/blob/16fe5ea8d551b6fd37698b011433e41053ce5a38/packages/core/src/conversation-history.ts#L382)
 
 ___
 
@@ -168,7 +168,7 @@ BaseConversationHistory.addToolMessage
 
 #### Defined in
 
-[conversation-history.ts:387](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L387)
+[conversation-history.ts:387](https://github.com/woojubb/robota/blob/16fe5ea8d551b6fd37698b011433e41053ce5a38/packages/core/src/conversation-history.ts#L387)
 
 ___
 
@@ -192,7 +192,7 @@ BaseConversationHistory.getMessagesByRole
 
 #### Defined in
 
-[conversation-history.ts:403](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L403)
+[conversation-history.ts:403](https://github.com/woojubb/robota/blob/16fe5ea8d551b6fd37698b011433e41053ce5a38/packages/core/src/conversation-history.ts#L403)
 
 ___
 
@@ -216,7 +216,7 @@ BaseConversationHistory.getRecentMessages
 
 #### Defined in
 
-[conversation-history.ts:407](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L407)
+[conversation-history.ts:407](https://github.com/woojubb/robota/blob/16fe5ea8d551b6fd37698b011433e41053ce5a38/packages/core/src/conversation-history.ts#L407)
 
 ___
 
@@ -245,7 +245,7 @@ BaseConversationHistory.addMessage
 
 #### Defined in
 
-[conversation-history.ts:467](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L467)
+[conversation-history.ts:467](https://github.com/woojubb/robota/blob/16fe5ea8d551b6fd37698b011433e41053ce5a38/packages/core/src/conversation-history.ts#L467)
 
 ___
 
@@ -267,7 +267,7 @@ BaseConversationHistory.getMessages
 
 #### Defined in
 
-[conversation-history.ts:477](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L477)
+[conversation-history.ts:477](https://github.com/woojubb/robota/blob/16fe5ea8d551b6fd37698b011433e41053ce5a38/packages/core/src/conversation-history.ts#L477)
 
 ___
 
@@ -289,7 +289,7 @@ BaseConversationHistory.getMessageCount
 
 #### Defined in
 
-[conversation-history.ts:486](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L486)
+[conversation-history.ts:486](https://github.com/woojubb/robota/blob/16fe5ea8d551b6fd37698b011433e41053ce5a38/packages/core/src/conversation-history.ts#L486)
 
 ___
 
@@ -311,4 +311,4 @@ BaseConversationHistory.clear
 
 #### Defined in
 
-[conversation-history.ts:495](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L495)
+[conversation-history.ts:495](https://github.com/woojubb/robota/blob/16fe5ea8d551b6fd37698b011433e41053ce5a38/packages/core/src/conversation-history.ts#L495)

@@ -62,6 +62,7 @@ const API_CATEGORIES = [
     { name: 'anthropic', pattern: 'packages/anthropic/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'anthropic/src/index.ts') },
     { name: 'google', pattern: 'packages/google/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'google/src/index.ts') },
     { name: 'tools', pattern: 'packages/tools/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'tools/src/index.ts') },
+    { name: 'sessions', pattern: 'packages/sessions/src/**/*.ts', entryPoint: path.join(PACKAGES_DIR, 'sessions/src/index.ts') },
 ];
 
 // Generate API documentation main file

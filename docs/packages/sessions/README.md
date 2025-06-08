@@ -1,354 +1,270 @@
 # @robota-sdk/sessions
 
-[![npm version](https://badge.fury.io/js/%40robota-sdk%2Fsessions.svg)](https://www.npmjs.com/package/@robota-sdk/sessions)
+Session management package for the Robota SDK, providing high-level session lifecycle management, conversation history, and state persistence for AI agent interactions.
 
-Multi-agent session and chat management for Robota SDK - Independent workspaces with conversation persistence.
+## Overview
 
-## Documentation
+The sessions package enables you to:
+- Manage conversation sessions with unique identifiers
+- Persist conversation history across interactions
+- Handle system messages and context management
+- Implement custom storage providers for session data
+- Track session metadata and analytics
 
-For full documentation, visit [https://robota.io](https://robota.io)
+## Key Features
+
+### 🔄 Session Lifecycle Management
+- Create, pause, resume, and terminate sessions
+- Automatic session cleanup and resource management
+- User-based session organization and filtering
+
+### 💬 Conversation History
+- Store and retrieve conversation messages
+- Support for all message types (user, assistant, system, tool)
+- Configurable message limits and retention policies
+
+### 🗄️ Flexible Storage
+- In-memory storage for development and testing
+- Plugin architecture for custom storage providers
+- Async-first design for database integration
+
+### 🎯 System Message Management
+- Configure AI behavior with system prompts
+- Layer multiple system instructions
+- Dynamic system message updates during sessions
 
 ## Installation
 
 ```bash
-npm install @robota-sdk/sessions @robota-sdk/core
+npm install @robota-sdk/sessions
 ```
-
-## Overview
-
-The `@robota-sdk/sessions` package provides comprehensive session and chat management capabilities for the Robota SDK ecosystem. It enables you to create, manage, and switch between multiple AI conversation sessions with independent configurations and chat histories, supporting advanced multi-agent workflows.
-
-## Key Features & Advantages
-
-### 👥 **Multi-Agent Management**
-- **Session Management**: Create and manage multiple AI conversation sessions
-- **Independent Workspaces**: Each agent can have its own configuration and chat history
-- **Dynamic Agent Switching**: Seamlessly switch between different agent contexts
-- **Conversation Persistence**: Automatic conversation history tracking and storage
-- **Agent Orchestration**: Coordinate multiple agents for complex workflows
-
-### 🔄 **Advanced Session Features**
-- **Multi-Session Management**: Create and manage multiple AI conversation sessions
-- **💬 Chat History Management**: Automatic conversation history tracking and persistence
-- **⚙️ Independent Configurations**: Each session can have its own AI provider settings
-- **🔀 Session Switching**: Seamlessly switch between different conversation contexts
-- **📝 Memory Optimization**: Efficient chat history management with configurable limits
-- **🛠️ Runtime Configuration**: Dynamic session configuration updates
-- **🔧 TypeScript Support**: Full TypeScript support with comprehensive type definitions
 
 ## Quick Start
 
+### Basic Session Usage
+
 ```typescript
-import { SessionManager } from '@robota-sdk/sessions';
-import { OpenAIProvider } from '@robota-sdk/openai';
-import { AnthropicProvider } from '@robota-sdk/anthropic';
+import { SessionManagerImpl, BasicSessionStore } from '@robota-sdk/sessions';
 
-// Create a session manager for multiple agents
-const sessionManager = new SessionManager();
-
-// Create a customer support agent
-const supportAgent = sessionManager.createSession({
-  name: 'Customer Support Agent',
-  provider: new OpenAIProvider({
-    apiKey: process.env.OPENAI_API_KEY!,
-    model: 'gpt-4'
-  }),
-  systemPrompt: 'You are a helpful customer support agent.'
+// Create a session manager with in-memory storage
+const sessionManager = new SessionManagerImpl({
+  maxActiveSessions: 10,
+  autoCleanup: true
 });
 
-// Create a code review agent
-const codeAgent = sessionManager.createSession({
-  name: 'Code Review Agent',
-  provider: new AnthropicProvider({
-    apiKey: process.env.ANTHROPIC_API_KEY!,
-    model: 'claude-3-5-sonnet-20241022'
-  }),
-  systemPrompt: 'You are an expert code reviewer focused on best practices.'
+// Create a new session for a user
+const session = await sessionManager.createSession('user-123', {
+  name: 'Customer Support Chat'
 });
 
-// Switch between agents dynamically
-sessionManager.setActiveSession(supportAgent.id);
-const supportResponse = await supportAgent.sendMessage('I need help with my order');
+// Use the session for conversations
+const chatInstance = session.createChat({
+  name: 'Main Conversation'
+});
 
-sessionManager.setActiveSession(codeAgent.id);
-const codeResponse = await codeAgent.sendMessage('Please review this TypeScript code');
-
-// Each agent maintains its own conversation history
-console.log('Support history:', supportAgent.getChatHistory());
-console.log('Code review history:', codeAgent.getChatHistory());
+await chatInstance.addMessage('user', 'Hello, I need help with my order');
 ```
 
-## Multi-Agent Workflows
-
-Coordinate multiple specialized agents for complex tasks:
+### Conversation History Management
 
 ```typescript
-import { SessionManager } from '@robota-sdk/sessions';
-import { OpenAIProvider } from '@robota-sdk/openai';
-import { AnthropicProvider } from '@robota-sdk/anthropic';
-import { GoogleProvider } from '@robota-sdk/google';
+import { SimpleConversationHistory } from '@robota-sdk/sessions';
 
-const sessionManager = new SessionManager({
-  maxHistoryLength: 100,
-  autoSave: true,
-  storage: 'memory'
+// Create conversation history with message limit
+const history = new SimpleConversationHistory(50); // Keep last 50 messages
+
+// Add messages
+history.addMessage({
+  role: 'user',
+  content: 'What is the weather like today?',
+  timestamp: new Date()
 });
 
-// Create specialized agents for different tasks
-const agents = {
-  // Research agent with large context
-  researcher: sessionManager.createSession({
-    name: 'Research Agent',
-    provider: new AnthropicProvider({
-      model: 'claude-3-5-sonnet-20241022'
-    }),
-    systemPrompt: 'You are a research specialist. Analyze information thoroughly and provide detailed insights.'
-  }),
+history.addMessage({
+  role: 'assistant',
+  content: 'I can help you check the weather. What location are you interested in?',
+  timestamp: new Date()
+});
 
-  // Writing agent with creativity
-  writer: sessionManager.createSession({
-    name: 'Content Writer',
-    provider: new OpenAIProvider({
-      model: 'gpt-4',
-      temperature: 0.8
-    }),
-    systemPrompt: 'You are a creative content writer. Create engaging and well-structured content.'
-  }),
-
-  // Data analyst with multimodal capabilities
-  analyst: sessionManager.createSession({
-    name: 'Data Analyst',
-    provider: new GoogleProvider({
-      model: 'gemini-1.5-pro'
-    }),
-    systemPrompt: 'You are a data analyst. Interpret data and create insights with visualizations.'
-  })
-};
-
-// Workflow coordination
-async function runMultiAgentWorkflow(topic: string) {
-  // Step 1: Research
-  sessionManager.setActiveSession(agents.researcher.id);
-  const research = await agents.researcher.sendMessage(`Research the topic: ${topic}`);
-  
-  // Step 2: Content creation
-  sessionManager.setActiveSession(agents.writer.id);
-  const content = await agents.writer.sendMessage(`Write an article based on this research: ${research.content}`);
-  
-  // Step 3: Data analysis
-  sessionManager.setActiveSession(agents.analyst.id);
-  const analysis = await agents.analyst.sendMessage(`Analyze trends related to: ${topic}`);
-  
-  return { research, content, analysis };
-}
-
-const result = await runMultiAgentWorkflow('AI trends in 2024');
+// Retrieve conversation
+const messages = history.getMessages();
+const lastUserMessage = history.getLastUserMessage();
 ```
 
-## Core Concepts
-
-### SessionManager
-
-The `SessionManager` is the central hub for managing multiple AI conversation sessions:
+### System Message Management
 
 ```typescript
-import { SessionManager } from '@robota-sdk/sessions';
+import { SystemMessageManagerImpl } from '@robota-sdk/sessions';
 
-const manager = new SessionManager({
-  maxHistoryLength: 100, // Maximum messages per session
-  autoSave: true,        // Automatically save chat history
-  storage: 'memory'      // Storage type: 'memory' | 'localStorage' | custom
-});
+const systemManager = new SystemMessageManagerImpl();
+
+// Set primary system prompt
+systemManager.setSystemPrompt(
+  'You are a helpful customer service assistant. Be polite and professional.'
+);
+
+// Add additional context
+systemManager.addSystemMessage(
+  'Today is a busy day, so prioritize urgent customer issues.'
+);
+
+// Get all system messages for AI context
+const systemMessages = systemManager.getSystemMessages();
 ```
 
-### Chat Sessions
-
-Each `ChatSession` represents an independent conversation context:
+### Custom Storage Provider
 
 ```typescript
-// Create a session
-const session = manager.createSession({
-  name: 'My Chat Session',
-  provider: myAIProvider,
-  systemPrompt: 'You are a helpful assistant.',
-  maxHistoryLength: 50
-});
+import { SessionStore, SessionInfo } from '@robota-sdk/sessions';
 
-// Send messages
-const response = await session.sendMessage('What is TypeScript?');
-
-// Get chat history
-const history = session.getChatHistory();
-
-// Update configuration
-session.updateConfig({
-  systemPrompt: 'You are a coding expert.',
-  maxHistoryLength: 100
-});
-```
-
-### Session Configuration
-
-Sessions support runtime configuration updates:
-
-```typescript
-interface SessionConfig {
-  name?: string;
-  provider?: AIProvider;
-  systemPrompt?: string;
-  maxHistoryLength?: number;
-  metadata?: Record<string, any>;
-}
-
-// Update session configuration
-session.updateConfig({
-  name: 'Updated Session Name',
-  systemPrompt: 'New system prompt',
-  maxHistoryLength: 150
-});
-```
-
-## Advanced Usage
-
-### Custom Storage
-
-Implement custom storage for chat history persistence:
-
-```typescript
-import { ChatStorage } from '@robota-sdk/sessions';
-
-class DatabaseStorage implements ChatStorage {
-  async saveHistory(sessionId: string, history: ChatMessage[]): Promise<void> {
-    // Save to database
+class DatabaseSessionStore implements SessionStore {
+  async save(session: SessionInfo): Promise<void> {
+    // Save to your database
+    await database.sessions.create(session);
   }
 
-  async loadHistory(sessionId: string): Promise<ChatMessage[]> {
-    // Load from database
-    return [];
+  async load(sessionId: string): Promise<SessionInfo | null> {
+    // Load from your database
+    return await database.sessions.findById(sessionId);
   }
 
-  async deleteHistory(sessionId: string): Promise<void> {
-    // Delete from database
+  async delete(sessionId: string): Promise<boolean> {
+    // Delete from your database
+    const result = await database.sessions.delete(sessionId);
+    return result.deletedCount > 0;
+  }
+
+  async list(userId?: string): Promise<SessionInfo[]> {
+    // List sessions from your database
+    const filter = userId ? { userId } : {};
+    return await database.sessions.find(filter);
+  }
+
+  async exists(sessionId: string): Promise<boolean> {
+    // Check existence in your database
+    const count = await database.sessions.count({ id: sessionId });
+    return count > 0;
+  }
+
+  async clear(): Promise<void> {
+    // Clear all sessions from your database
+    await database.sessions.deleteMany({});
   }
 }
 
-const manager = new SessionManager({
-  storage: new DatabaseStorage()
+// Use custom storage
+const customStore = new DatabaseSessionStore();
+const sessionManager = new SessionManagerImpl({
+  storage: customStore
 });
 ```
 
-### Session Events
+## Architecture
 
-Listen to session events for custom logic:
+The sessions package follows a facade pattern to provide high-level APIs while maintaining flexibility:
 
-```typescript
-// Listen to session events
-session.on('messageAdded', (message) => {
-  console.log('New message:', message);
-});
-
-session.on('configUpdated', (newConfig) => {
-  console.log('Configuration updated:', newConfig);
-});
-
-manager.on('sessionCreated', (session) => {
-  console.log('New session created:', session.id);
-});
-
-manager.on('sessionDeleted', (sessionId) => {
-  console.log('Session deleted:', sessionId);
-});
-```
-
-### Multi-Provider Sessions
-
-Use different AI providers for different sessions:
-
-```typescript
-import { OpenAIProvider } from '@robota-sdk/openai';
-import { AnthropicProvider } from '@robota-sdk/anthropic';
-import { GoogleProvider } from '@robota-sdk/google';
-
-const manager = new SessionManager();
-
-// OpenAI session for general chat
-const openaiSession = manager.createSession({
-  name: 'General Chat',
-  provider: new OpenAIProvider({ model: 'gpt-4' })
-});
-
-// Anthropic session for writing
-const anthropicSession = manager.createSession({
-  name: 'Writing Assistant',
-  provider: new AnthropicProvider({ model: 'claude-3-sonnet' })
-});
-
-// Google session for analysis
-const googleSession = manager.createSession({
-  name: 'Data Analysis',
-  provider: new GoogleProvider({ model: 'gemini-pro' })
-});
-```
+- **Session Management**: Core session lifecycle and state management
+- **Storage Layer**: Pluggable storage providers for persistence
+- **Conversation History**: Message storage and retrieval with type safety
+- **System Context**: AI instruction and behavior management
+- **Utilities**: Logging, metrics, and helper functions
 
 ## API Reference
 
-### SessionManager
+### Core Classes
 
-#### Methods
+- [`SessionManagerImpl`](../../api-reference/sessions/classes/SessionManagerImpl.md) - Main session management
+- [`SimpleConversationHistory`](../../api-reference/sessions/classes/SimpleConversationHistory.md) - Basic conversation storage
+- [`BasicSessionStore`](../../api-reference/sessions/classes/BasicSessionStore.md) - In-memory session storage
+- [`SystemMessageManagerImpl`](../../api-reference/sessions/classes/SystemMessageManagerImpl.md) - System message management
 
-- `createSession(config: SessionConfig): ChatSession` - Create a new session
-- `getSession(id: string): ChatSession | undefined` - Get session by ID
-- `listSessions(): ChatSession[]` - Get all sessions
-- `deleteSession(id: string): boolean` - Delete a session
-- `setActiveSession(id: string): void` - Set active session
-- `getActiveSession(): ChatSession | undefined` - Get current active session
+### Interfaces
 
-### ChatSession
+- [`SessionStore`](../../api-reference/sessions/interfaces/SessionStore.md) - Storage provider contract
+- [`ConversationHistoryInterface`](../../api-reference/sessions/interfaces/ConversationHistoryInterface.md) - Conversation history contract
+- [`SystemMessageManager`](../../api-reference/sessions/interfaces/SystemMessageManager.md) - System message management contract
 
-#### Methods
+### Types
 
-- `sendMessage(content: string): Promise<ChatResponse>` - Send a message
-- `getChatHistory(): ChatMessage[]` - Get chat history
-- `clearHistory(): void` - Clear chat history
-- `updateConfig(config: Partial<SessionConfig>): void` - Update configuration
-- `getConfig(): SessionConfig` - Get current configuration
+- [`SessionInfo`](../../api-reference/sessions/interfaces/SessionInfo.md) - Session metadata and state
+- [`SessionConfig`](../../api-reference/sessions/interfaces/SessionConfig.md) - Session configuration options
+- [`SessionState`](../../api-reference/sessions/enums/SessionState.md) - Session lifecycle states
+
+## Best Practices
+
+### Session Organization
+
+```typescript
+// Group sessions by user and purpose
+const supportSession = await sessionManager.createSession('user-123', {
+  name: 'Customer Support',
+  metadata: {
+    department: 'billing',
+    priority: 'high',
+    tags: ['urgent', 'billing-issue']
+  }
+});
+```
+
+### Memory Management
+
+```typescript
+// Configure appropriate limits
+const history = new SimpleConversationHistory(100); // Limit to 100 messages
+const sessionManager = new SessionManagerImpl({
+  maxActiveSessions: 50,
+  autoCleanup: true,
+  cleanupInterval: 3600000 // 1 hour
+});
+```
+
+### Error Handling
+
+```typescript
+try {
+  const session = await sessionManager.createSession('user-123');
+  // Use session...
+} catch (error) {
+  if (error.message.includes('Maximum session count')) {
+    // Handle session limit exceeded
+    await sessionManager.cleanup(); // Clean up old sessions
+    const session = await sessionManager.createSession('user-123');
+  } else {
+    throw error;
+  }
+}
+```
+
+## Integration with Robota Core
+
+The sessions package integrates seamlessly with the core Robota SDK:
+
+```typescript
+import { Robota } from '@robota-sdk/core';
+import { SessionManagerImpl } from '@robota-sdk/sessions';
+
+const robota = new Robota({
+  // ... AI provider configuration
+});
+
+const sessionManager = new SessionManagerImpl();
+const session = await sessionManager.createSession('user-123');
+
+// Use session's conversation history with Robota
+const messages = session.getConversationHistory().getMessages();
+const response = await robota.run('Continue our conversation', {
+  conversationHistory: messages
+});
+```
 
 ## Examples
 
-Check out the [examples](./examples) directory for more detailed usage examples:
-
-- [Basic Session Management](./examples/basic-session.ts)
-- [Multi-Provider Setup](./examples/multi-provider.ts)
-- [Custom Storage Implementation](./examples/custom-storage.ts)
-- [Session Events](./examples/session-events.ts)
-
-## TypeScript Support
-
-This package is written in TypeScript and includes comprehensive type definitions:
-
-```typescript
-import type {
-  SessionManager,
-  ChatSession,
-  SessionConfig,
-  ChatMessage,
-  ChatResponse,
-  ChatStorage
-} from '@robota-sdk/sessions';
-```
+See the [session examples](../../../apps/examples/04-sessions/) for comprehensive usage patterns and integration scenarios.
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](https://github.com/woojubb/robota/blob/main/CONTRIBUTING.md) for details.
+This package follows the same contribution guidelines as the main Robota SDK. See the [development guide](../../development/) for more information.
 
 ## License
 
-MIT © [Robota SDK Team](https://github.com/woojubb/robota)
-
-## Related Packages
-
-- [`@robota-sdk/core`](https://www.npmjs.com/package/@robota-sdk/core) - Core functionality
-- [`@robota-sdk/openai`](https://www.npmjs.com/package/@robota-sdk/openai) - OpenAI integration
-- [`@robota-sdk/anthropic`](https://www.npmjs.com/package/@robota-sdk/anthropic) - Anthropic integration
-- [`@robota-sdk/google`](https://www.npmjs.com/package/@robota-sdk/google) - Google AI integration
-- [`@robota-sdk/tools`](https://www.npmjs.com/package/@robota-sdk/tools) - Tools and utilities 
+MIT - See the main Robota SDK license for details. 

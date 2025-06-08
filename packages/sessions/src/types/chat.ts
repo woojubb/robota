@@ -1,7 +1,6 @@
 import type {
     Robota,
-    ConversationHistory,
-    UniversalMessage
+    ConversationHistory
 } from '@robota-sdk/core';
 
 export interface ConfigurationChange {

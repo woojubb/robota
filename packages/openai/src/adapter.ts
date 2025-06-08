@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { UniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage } from '@robota-sdk/core';
+import type { UniversalMessage, UserMessage, AssistantMessage, SystemMessage } from '@robota-sdk/core';
 
 /**
  * OpenAI ConversationHistory adapter

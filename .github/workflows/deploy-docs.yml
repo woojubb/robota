@@ -13,15 +13,15 @@ on:
       - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 
-# 수동으로 워크플로우를 실행할 수 있게 함
+# Allow manual workflow execution
 
-# 저장소에 쓰기 권한 허용
+# Allow write permissions to repository
 permissions:
   contents: write
   pages: write
   id-token: write
 
-# 동시에 하나의 배포만 허용
+# Allow only one deployment at a time
 concurrency:
   group: "pages"
   cancel-in-progress: false

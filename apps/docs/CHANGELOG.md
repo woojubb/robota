@@ -1,5 +1,11 @@
 # robota-docs
 
+## 1.0.15
+
+### Patch Changes
+
+- Fix lint errors and add TSDoc documentation to sessions package
+
 ## 1.0.14
 
 ### Patch Changes

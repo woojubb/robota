@@ -84,7 +84,7 @@ export class ChatInstanceImpl implements ChatInstance {
         this._updateLastAccessed();
     }
 
-    // 간소화된 메서드들
+    // Simplified methods
     async updateRobotaConfig(config: any): Promise<void> {
         this._updateLastAccessed();
         this.config.robotaConfig = { ...this.config.robotaConfig, ...config };
@@ -94,34 +94,34 @@ export class ChatInstanceImpl implements ChatInstance {
         return this.config.robotaConfig;
     }
 
-    // 사용하지 않는 복잡한 기능들 제거
+    // Complex features not yet implemented
     async regenerateResponse(): Promise<string> {
-        throw new Error('아직 구현되지 않음');
+        throw new Error('Not yet implemented');
     }
 
-    async editMessage(messageId: string, newContent: MessageContent): Promise<void> {
-        throw new Error('아직 구현되지 않음');
+    async editMessage(_messageId: string, _newContent: MessageContent): Promise<void> {
+        throw new Error('Not yet implemented');
     }
 
-    async deleteMessage(messageId: string): Promise<void> {
-        throw new Error('아직 구현되지 않음');
+    async deleteMessage(_messageId: string): Promise<void> {
+        throw new Error('Not yet implemented');
     }
 
     async exportHistory(): Promise<string> {
-        throw new Error('아직 구현되지 않음');
+        throw new Error('Not yet implemented');
     }
 
-    async importHistory(data: string): Promise<void> {
-        throw new Error('아직 구현되지 않음');
+    async importHistory(_data: string): Promise<void> {
+        throw new Error('Not yet implemented');
     }
 
-    // Lifecycle - 일단 비워둠
+    // Lifecycle - placeholder implementation
     async save(): Promise<void> {
         this.metadata.updatedAt = new Date();
     }
 
     async load(): Promise<void> {
-        // 스토리지 구현 시 추가
+        // To be implemented when storage is added
     }
 
     // Utils
@@ -155,7 +155,7 @@ export class ChatInstanceImpl implements ChatInstance {
         this.metadata.updatedAt = new Date();
     }
 
-    // history 프로퍼티를 위한 getter (호환성)
+    // Getter for history property (compatibility)
     get history() {
         return {
             getMessageCount: () => this.robota.limits.getCurrentRequestCount(),

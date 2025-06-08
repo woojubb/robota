@@ -1,5 +1,11 @@
 # robota-services
 
+## 0.1.5
+
+### Patch Changes
+
+- Fix lint errors and add TSDoc documentation to sessions package
+
 ## 0.1.4
 
 ### Patch Changes

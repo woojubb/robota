@@ -39,7 +39,7 @@ Message creation timestamp
 
 #### Defined in
 
-[conversation-history.ts:17](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L17)
+[conversation-history.ts:17](https://github.com/woojubb/robota/blob/16fe5ea8d551b6fd37698b011433e41053ce5a38/packages/core/src/conversation-history.ts#L17)
 
 ___
 
@@ -51,4 +51,4 @@ Additional metadata
 
 #### Defined in
 
-[conversation-history.ts:20](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L20)
+[conversation-history.ts:20](https://github.com/woojubb/robota/blob/16fe5ea8d551b6fd37698b011433e41053ce5a38/packages/core/src/conversation-history.ts#L20)
