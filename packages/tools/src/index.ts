@@ -248,21 +248,79 @@ export {
     type ZodFunctionToolProviderOptions
 } from './function-tool-provider';
 
-// ToolProvider interface export
+// ToolProvider interface and base classes export
 export {
-    ToolProvider
+    ToolProvider,
+    BaseToolProvider,
+    ToolProviderError,
+    ToolNotFoundError,
+    ToolExecutionError
 } from './tool-provider';
 
 // MCP related features export
 export {
     createMcpToolProvider,
-    type MCPClient
+    type MCPClient,
+    MCPToolProvider,
+    type MCPToolProviderOptions
 } from './mcp-tool-provider';
 
 // OpenAPI related features export
 export {
-    createOpenAPIToolProvider
+    createOpenAPIToolProvider,
+    OpenAPIToolProvider,
+    type OpenAPIToolProviderOptions
 } from './openapi-tool-provider';
 
+// Tool Provider Factory export
+export {
+    ToolProviderFactory,
+    getGlobalToolProviderFactory,
+    createZodFunctionProvider,
+    createOpenAPIProvider,
+    createMCPProvider,
+    type ToolProviderType,
+    type ToolProviderConfigs
+} from './tool-provider-factory';
+
 // Modern tool system export
-export * from './tool'; 
+export * from './tool';
+
+// Performance optimization exports
+export {
+    CacheManager,
+    FunctionSchemaCacheManager,
+    globalFunctionSchemaCache,
+    globalToolCache,
+    CacheCleanupScheduler,
+    globalCacheCleanupScheduler,
+    type CacheItem,
+    type CacheStats
+} from './performance/cache-manager';
+
+export {
+    LazyLoader,
+    ToolLazyLoader,
+    globalToolLazyLoader,
+    type LazyLoadable,
+    type LazyLoadStats
+} from './performance/lazy-loader';
+
+export {
+    ResourceManager,
+    ToolProviderResourceManager,
+    globalResourceManager,
+    type ResourceInfo,
+    type MemoryInfo,
+    type ResourceStats,
+    type ResourceType
+} from './performance/resource-manager';
+
+export {
+    PerformanceMonitor,
+    globalPerformanceMonitor,
+    type PerformanceMetrics,
+    type MemoryUsageMetrics,
+    type ToolCallRecord,
+    type PerformanceEventListener
+} from './performance/performance-monitor'; 
