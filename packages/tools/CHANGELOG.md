@@ -1,5 +1,23 @@
 # @robota-sdk/tools
 
+## 1.0.0
+
+### Minor Changes
+
+- feat: implement comprehensive performance optimization system
+
+  - Add caching system with LRU + TTL algorithms
+  - Implement lazy loading system for on-demand resource loading
+  - Add resource manager for memory leak prevention
+  - Implement real-time performance monitoring
+  - Translate all Korean text to English for internationalization
+  - Integrate performance monitoring into BaseToolProvider
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/core@1.0.0
+
 ## 0.3.7
 
 ### Patch Changes

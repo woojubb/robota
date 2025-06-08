@@ -13,6 +13,10 @@ Tool Provider interface
 Unified interface for various tool providers (MCP, OpenAPI, ZodFunction, etc.)
 Tool providers enable AI models to call tools.
 
+## Implemented by
+
+- [`BaseToolProvider`](../classes/BaseToolProvider)
+
 ## Table of contents
 
 ### Properties
@@ -22,6 +26,8 @@ Tool providers enable AI models to call tools.
 ### Methods
 
 - [callTool](ToolProvider#calltool)
+- [getAvailableTools](ToolProvider#getavailabletools)
+- [hasTool](ToolProvider#hastool)
 
 ## Properties
 
@@ -34,7 +40,7 @@ Used when passing tool list to AI models.
 
 #### Defined in
 
-[packages/tools/src/tool-provider.ts:23](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool-provider.ts#L23)
+[packages/tools/src/tool-provider.ts:24](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/tool-provider.ts#L24)
 
 ## Methods
 
@@ -59,4 +65,46 @@ Tool call result
 
 #### Defined in
 
-[packages/tools/src/tool-provider.ts:17](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/tool-provider.ts#L17)
+[packages/tools/src/tool-provider.ts:18](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/tool-provider.ts#L18)
+
+___
+
+### getAvailableTools
+
+▸ **getAvailableTools**(): `string`[]
+
+Get available tool names
+
+#### Returns
+
+`string`[]
+
+Array of available tool names
+
+#### Defined in
+
+[packages/tools/src/tool-provider.ts:31](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/tool-provider.ts#L31)
+
+___
+
+### hasTool
+
+▸ **hasTool**(`toolName`): `boolean`
+
+Check if a tool exists
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `toolName` | `string` | Name of the tool to check |
+
+#### Returns
+
+`boolean`
+
+True if tool exists, false otherwise
+
+#### Defined in
+
+[packages/tools/src/tool-provider.ts:39](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/tool-provider.ts#L39)

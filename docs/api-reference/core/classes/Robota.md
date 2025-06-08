@@ -78,7 +78,7 @@ Access detailed functionality through the exposed managers:
 
 #### Defined in
 
-[robota.ts:240](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L240)
+[robota.ts:240](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/robota.ts#L240)
 
 ## Properties
 
@@ -94,7 +94,7 @@ AI provider management - register providers, set current provider/model, configu
 
 #### Defined in
 
-[robota.ts:196](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L196)
+[robota.ts:196](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/robota.ts#L196)
 
 ___
 
@@ -110,7 +110,7 @@ System message management - set prompts, manage system instructions
 
 #### Defined in
 
-[robota.ts:203](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L203)
+[robota.ts:203](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/robota.ts#L203)
 
 ___
 
@@ -126,7 +126,7 @@ Function/tool call management - configure modes, timeouts, allowed functions
 
 #### Defined in
 
-[robota.ts:210](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L210)
+[robota.ts:210](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/robota.ts#L210)
 
 ___
 
@@ -142,7 +142,7 @@ Analytics and metrics - track usage, performance, costs
 
 #### Defined in
 
-[robota.ts:217](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L217)
+[robota.ts:217](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/robota.ts#L217)
 
 ___
 
@@ -158,7 +158,7 @@ Tool provider management - register and manage tool providers
 
 #### Defined in
 
-[robota.ts:224](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L224)
+[robota.ts:224](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/robota.ts#L224)
 
 ___
 
@@ -174,7 +174,7 @@ RequestLimitManager
 
 #### Defined in
 
-[robota.ts:231](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L231)
+[robota.ts:231](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/robota.ts#L231)
 
 ___
 
@@ -190,7 +190,7 @@ Conversation history - direct access to conversation management
 
 #### Defined in
 
-[robota.ts:238](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L238)
+[robota.ts:238](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/robota.ts#L238)
 
 ## Methods
 
@@ -241,7 +241,7 @@ When AI provider fails
 
 #### Defined in
 
-[robota.ts:370](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L370)
+[robota.ts:370](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/robota.ts#L370)
 
 ___
 
@@ -289,7 +289,7 @@ When AI provider fails
 
 #### Defined in
 
-[robota.ts:394](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L394)
+[robota.ts:394](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/robota.ts#L394)
 
 ___
 
@@ -329,7 +329,7 @@ When tool execution fails
 
 #### Defined in
 
-[robota.ts:415](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L415)
+[robota.ts:415](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/robota.ts#L415)
 
 ___
 
@@ -351,7 +351,7 @@ Array of available tool definitions
 
 #### Defined in
 
-[robota.ts:424](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L424)
+[robota.ts:424](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/robota.ts#L424)
 
 ___
 
@@ -371,7 +371,7 @@ Clear all conversation history
 
 #### Defined in
 
-[robota.ts:431](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L431)
+[robota.ts:431](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/robota.ts#L431)
 
 ___
 
@@ -394,4 +394,4 @@ clean up any resources, close connections, etc.
 
 #### Defined in
 
-[robota.ts:441](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/robota.ts#L441)
+[robota.ts:441](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/robota.ts#L441)

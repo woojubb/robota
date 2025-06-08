@@ -41,7 +41,7 @@ Message creation timestamp
 
 #### Defined in
 
-[conversation-history.ts:17](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L17)
+[conversation-history.ts:17](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/conversation-history.ts#L17)
 
 ___
 
@@ -57,7 +57,7 @@ Additional metadata
 
 #### Defined in
 
-[conversation-history.ts:20](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L20)
+[conversation-history.ts:20](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/conversation-history.ts#L20)
 
 ___
 
@@ -69,7 +69,7 @@ Message role - always 'assistant'
 
 #### Defined in
 
-[conversation-history.ts:46](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L46)
+[conversation-history.ts:46](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/conversation-history.ts#L46)
 
 ___
 
@@ -81,7 +81,7 @@ Assistant response content (can be null when making tool calls)
 
 #### Defined in
 
-[conversation-history.ts:49](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L49)
+[conversation-history.ts:49](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/conversation-history.ts#L49)
 
 ___
 
@@ -93,7 +93,7 @@ Function call made by the assistant (if any) - legacy format
 
 #### Defined in
 
-[conversation-history.ts:52](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L52)
+[conversation-history.ts:52](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/conversation-history.ts#L52)
 
 ___
 
@@ -105,4 +105,4 @@ Tool calls made by the assistant (OpenAI tool calling format)
 
 #### Defined in
 
-[conversation-history.ts:55](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/conversation-history.ts#L55)
+[conversation-history.ts:55](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/conversation-history.ts#L55)
