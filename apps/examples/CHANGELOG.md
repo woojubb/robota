@@ -1,5 +1,17 @@
 # robota-examples
 
+## 0.1.21
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/tools@1.0.0
+  - @robota-sdk/core@1.0.0
+  - @robota-sdk/openai@1.0.0
+  - @robota-sdk/anthropic@1.0.0
+  - @robota-sdk/google@1.0.0
+  - @robota-sdk/sessions@1.0.0
+
 ## 0.1.20
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @robota-sdk/sessions
 
+## 1.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/tools@1.0.0
+  - @robota-sdk/core@1.0.0
+
 ## 0.3.7
 
 ### Patch Changes

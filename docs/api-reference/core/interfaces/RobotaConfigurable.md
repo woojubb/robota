@@ -48,7 +48,7 @@ Promise resolving to the tool's result
 
 #### Defined in
 
-[interfaces/robota-core.ts:51](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/interfaces/robota-core.ts#L51)
+[interfaces/robota-core.ts:51](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/interfaces/robota-core.ts#L51)
 
 ___
 
@@ -66,7 +66,7 @@ Array of tool metadata objects
 
 #### Defined in
 
-[interfaces/robota-core.ts:58](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/interfaces/robota-core.ts#L58)
+[interfaces/robota-core.ts:58](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/interfaces/robota-core.ts#L58)
 
 ___
 
@@ -82,4 +82,4 @@ Clear all conversation history
 
 #### Defined in
 
-[interfaces/robota-core.ts:63](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/core/src/interfaces/robota-core.ts#L63)
+[interfaces/robota-core.ts:63](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/core/src/interfaces/robota-core.ts#L63)

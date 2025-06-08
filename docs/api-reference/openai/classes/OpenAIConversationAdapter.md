@@ -55,7 +55,7 @@ Filters out tool messages as they are for internal history management only
 
 #### Defined in
 
-[openai/src/adapter.ts:14](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/openai/src/adapter.ts#L14)
+[openai/src/adapter.ts:14](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/openai/src/adapter.ts#L14)
 
 ___
 
@@ -78,7 +78,7 @@ Note: Tool messages should be filtered out before calling this method
 
 #### Defined in
 
-[openai/src/adapter.ts:24](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/openai/src/adapter.ts#L24)
+[openai/src/adapter.ts:24](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/openai/src/adapter.ts#L24)
 
 ___
 
@@ -101,4 +101,4 @@ Add system prompt to message array if needed
 
 #### Defined in
 
-[openai/src/adapter.ts:103](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/openai/src/adapter.ts#L103)
+[openai/src/adapter.ts:103](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/openai/src/adapter.ts#L103)

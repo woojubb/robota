@@ -15,6 +15,9 @@ Zod 스키마 기반 함수 도구 제공자 옵션
 ### Properties
 
 - [tools](ZodFunctionToolProviderOptions#tools)
+- [logger](ZodFunctionToolProviderOptions#logger)
+- [enableCache](ZodFunctionToolProviderOptions#enablecache)
+- [cacheManager](ZodFunctionToolProviderOptions#cachemanager)
 
 ## Properties
 
@@ -26,4 +29,55 @@ Zod 스키마 기반 함수 도구 제공자 옵션
 
 #### Defined in
 
-[packages/tools/src/function-tool-provider.ts:18](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/function-tool-provider.ts#L18)
+[packages/tools/src/function-tool-provider.ts:20](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/function-tool-provider.ts#L20)
+
+___
+
+### logger
+
+• `Optional` **logger**: (`message`: `string`, `context?`: `Record`\<`string`, `any`\>) => `void`
+
+로거 함수 (선택사항)
+
+#### Type declaration
+
+▸ (`message`, `context?`): `void`
+
+##### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `message` | `string` |
+| `context?` | `Record`\<`string`, `any`\> |
+
+##### Returns
+
+`void`
+
+#### Defined in
+
+[packages/tools/src/function-tool-provider.ts:22](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/function-tool-provider.ts#L22)
+
+___
+
+### enableCache
+
+• `Optional` **enableCache**: `boolean`
+
+캐시 사용 여부 (기본값: true)
+
+#### Defined in
+
+[packages/tools/src/function-tool-provider.ts:24](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/function-tool-provider.ts#L24)
+
+___
+
+### cacheManager
+
+• `Optional` **cacheManager**: [`FunctionSchemaCacheManager`](../classes/FunctionSchemaCacheManager)
+
+커스텀 캐시 매니저 (선택사항)
+
+#### Defined in
+
+[packages/tools/src/function-tool-provider.ts:26](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/function-tool-provider.ts#L26)

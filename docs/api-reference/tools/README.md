@@ -13,7 +13,22 @@
 ### Classes
 
 - [ToolRegistry](classes/ToolRegistry)
+- [MCPToolProvider](classes/MCPToolProvider)
+- [OpenAPIToolProvider](classes/OpenAPIToolProvider)
+- [CacheManager](classes/CacheManager)
+- [FunctionSchemaCacheManager](classes/FunctionSchemaCacheManager)
+- [CacheCleanupScheduler](classes/CacheCleanupScheduler)
+- [LazyLoader](classes/LazyLoader)
+- [ToolLazyLoader](classes/ToolLazyLoader)
+- [PerformanceMonitor](classes/PerformanceMonitor)
+- [ResourceManager](classes/ResourceManager)
+- [ToolProviderResourceManager](classes/ToolProviderResourceManager)
 - [FunctionRegistry](classes/FunctionRegistry)
+- [ToolProviderFactory](classes/ToolProviderFactory)
+- [ToolProviderError](classes/ToolProviderError)
+- [ToolNotFoundError](classes/ToolNotFoundError)
+- [ToolExecutionError](classes/ToolExecutionError)
+- [BaseToolProvider](classes/BaseToolProvider)
 - [BaseTool](classes/BaseTool)
 - [McpTool](classes/McpTool)
 - [OpenApiTool](classes/OpenApiTool)
@@ -29,6 +44,19 @@
 - [Tool](interfaces/Tool)
 - [CreateToolOptions](interfaces/CreateToolOptions)
 - [MCPClient](interfaces/MCPClient)
+- [MCPToolProviderOptions](interfaces/MCPToolProviderOptions)
+- [OpenAPIToolProviderOptions](interfaces/OpenAPIToolProviderOptions)
+- [CacheItem](interfaces/CacheItem)
+- [CacheStats](interfaces/CacheStats)
+- [LazyLoadable](interfaces/LazyLoadable)
+- [LazyLoadStats](interfaces/LazyLoadStats)
+- [PerformanceMetrics](interfaces/PerformanceMetrics)
+- [MemoryUsageMetrics](interfaces/MemoryUsageMetrics)
+- [ToolCallRecord](interfaces/ToolCallRecord)
+- [ResourceInfo](interfaces/ResourceInfo)
+- [MemoryInfo](interfaces/MemoryInfo)
+- [ResourceStats](interfaces/ResourceStats)
+- [ToolProviderConfigs](interfaces/ToolProviderConfigs)
 - [ToolProvider](interfaces/ToolProvider)
 - [ToolInterface](interfaces/ToolInterface)
 - [BaseToolOptions](interfaces/BaseToolOptions)
@@ -44,7 +72,19 @@
 ### Type Aliases
 
 - [FunctionResult](#functionresult)
+- [PerformanceEventListener](#performanceeventlistener)
+- [ResourceType](#resourcetype)
 - [FunctionHandler](#functionhandler)
+- [ToolProviderType](#toolprovidertype)
+
+### Variables
+
+- [globalFunctionSchemaCache](#globalfunctionschemacache)
+- [globalToolCache](#globaltoolcache)
+- [globalCacheCleanupScheduler](#globalcachecleanupscheduler)
+- [globalToolLazyLoader](#globaltoollazyloader)
+- [globalPerformanceMonitor](#globalperformancemonitor)
+- [globalResourceManager](#globalresourcemanager)
 
 ### Functions
 
@@ -61,6 +101,10 @@
 - [getZodDescription](#getzoddescription)
 - [isOptionalType](#isoptionaltype)
 - [isNullableType](#isnullabletype)
+- [getGlobalToolProviderFactory](#getglobaltoolproviderfactory)
+- [createZodFunctionProvider](#createzodfunctionprovider)
+- [createOpenAPIProvider](#createopenapiprovider)
+- [createMCPProvider](#createmcpprovider)
 - [zodFunctionToSchema](#zodfunctiontoschema)
 
 ## Type Aliases
@@ -85,7 +129,45 @@ Function result type
 
 #### Defined in
 
-[packages/tools/src/factories/function-factory.ts:17](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/factories/function-factory.ts#L17)
+[packages/tools/src/factories/function-factory.ts:17](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/factories/function-factory.ts#L17)
+
+___
+
+### PerformanceEventListener
+
+Ƭ **PerformanceEventListener**: (`metrics`: [`PerformanceMetrics`](interfaces/PerformanceMetrics)) => `void`
+
+Performance event listener type
+
+#### Type declaration
+
+▸ (`metrics`): `void`
+
+##### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `metrics` | [`PerformanceMetrics`](interfaces/PerformanceMetrics) |
+
+##### Returns
+
+`void`
+
+#### Defined in
+
+[packages/tools/src/performance/performance-monitor.ts:84](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/performance-monitor.ts#L84)
+
+___
+
+### ResourceType
+
+Ƭ **ResourceType**: ``"cache"`` \| ``"loader"`` \| ``"provider"`` \| ``"connection"`` \| ``"timer"`` \| ``"other"``
+
+Resource type definition
+
+#### Defined in
+
+[packages/tools/src/performance/resource-manager.ts:15](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/resource-manager.ts#L15)
 
 ___
 
@@ -112,7 +194,89 @@ Function call handler type
 
 #### Defined in
 
-[packages/tools/src/registry/function-registry.ts:15](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/registry/function-registry.ts#L15)
+[packages/tools/src/registry/function-registry.ts:15](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/registry/function-registry.ts#L15)
+
+___
+
+### ToolProviderType
+
+Ƭ **ToolProviderType**: ``"zod-function"`` \| ``"openapi"`` \| ``"mcp"``
+
+Tool Provider 타입 정의
+
+#### Defined in
+
+[packages/tools/src/tool-provider-factory.ts:19](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/tool-provider-factory.ts#L19)
+
+## Variables
+
+### globalFunctionSchemaCache
+
+• `Const` **globalFunctionSchemaCache**: [`FunctionSchemaCacheManager`](classes/FunctionSchemaCacheManager)
+
+Global cache manager instances
+
+#### Defined in
+
+[packages/tools/src/performance/cache-manager.ts:314](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/cache-manager.ts#L314)
+
+___
+
+### globalToolCache
+
+• `Const` **globalToolCache**: [`CacheManager`](classes/CacheManager)\<`any`\>
+
+#### Defined in
+
+[packages/tools/src/performance/cache-manager.ts:315](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/cache-manager.ts#L315)
+
+___
+
+### globalCacheCleanupScheduler
+
+• `Const` **globalCacheCleanupScheduler**: [`CacheCleanupScheduler`](classes/CacheCleanupScheduler)
+
+Global cache cleanup scheduler
+
+#### Defined in
+
+[packages/tools/src/performance/cache-manager.ts:357](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/cache-manager.ts#L357)
+
+___
+
+### globalToolLazyLoader
+
+• `Const` **globalToolLazyLoader**: [`ToolLazyLoader`](classes/ToolLazyLoader)
+
+Global tool lazy loader instance
+
+#### Defined in
+
+[packages/tools/src/performance/lazy-loader.ts:382](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/lazy-loader.ts#L382)
+
+___
+
+### globalPerformanceMonitor
+
+• `Const` **globalPerformanceMonitor**: [`PerformanceMonitor`](classes/PerformanceMonitor)
+
+Global performance monitor instance
+
+#### Defined in
+
+[packages/tools/src/performance/performance-monitor.ts:445](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/performance-monitor.ts#L445)
+
+___
+
+### globalResourceManager
+
+• `Const` **globalResourceManager**: [`ToolProviderResourceManager`](classes/ToolProviderResourceManager)
+
+Global resource manager instance
+
+#### Defined in
+
+[packages/tools/src/performance/resource-manager.ts:410](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/resource-manager.ts#L410)
 
 ## Functions
 
@@ -143,7 +307,7 @@ Created function object with validation
 
 #### Defined in
 
-[packages/tools/src/factories/function-factory.ts:49](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/factories/function-factory.ts#L49)
+[packages/tools/src/factories/function-factory.ts:49](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/factories/function-factory.ts#L49)
 
 ___
 
@@ -169,7 +333,7 @@ Created function object
 
 #### Defined in
 
-[packages/tools/src/factories/function-factory.ts:102](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/factories/function-factory.ts#L102)
+[packages/tools/src/factories/function-factory.ts:102](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/factories/function-factory.ts#L102)
 
 ___
 
@@ -200,7 +364,7 @@ Function with comprehensive error handling
 
 #### Defined in
 
-[packages/tools/src/factories/function-factory.ts:133](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/factories/function-factory.ts#L133)
+[packages/tools/src/factories/function-factory.ts:133](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/factories/function-factory.ts#L133)
 
 ___
 
@@ -228,7 +392,7 @@ Zod 스키마 기반 함수 도구 제공자를 생성합니다.
 
 #### Defined in
 
-[packages/tools/src/function-tool-provider.ts:29](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/function-tool-provider.ts#L29)
+[packages/tools/src/function-tool-provider.ts:211](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/function-tool-provider.ts#L211)
 
 ___
 
@@ -263,7 +427,7 @@ Created tool
 
 #### Defined in
 
-[packages/tools/src/index.ts:129](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/index.ts#L129)
+[packages/tools/src/index.ts:129](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/index.ts#L129)
 
 ___
 
@@ -271,23 +435,23 @@ ___
 
 ▸ **createMcpToolProvider**(`mcpClient`): [`ToolProvider`](interfaces/ToolProvider)
 
-MCP(Model Context Protocol) based tool provider creation function
+MCP(Model Context Protocol) 기반 도구 제공자 생성 함수
 
 #### Parameters
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `mcpClient` | [`MCPClient`](interfaces/MCPClient) | MCP client instance |
+| `mcpClient` | [`MCPClient`](interfaces/MCPClient) | MCP 클라이언트 인스턴스 |
 
 #### Returns
 
 [`ToolProvider`](interfaces/ToolProvider)
 
-MCP-based tool provider object
+MCP 기반 도구 제공자 객체
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:22](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/mcp-tool-provider.ts#L22)
+[packages/tools/src/mcp-tool-provider.ts:108](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/mcp-tool-provider.ts#L108)
 
 ___
 
@@ -295,25 +459,25 @@ ___
 
 ▸ **createOpenAPIToolProvider**(`openApiSpec`, `options?`): [`ToolProvider`](interfaces/ToolProvider)
 
-Create tool provider based on OpenAPI specification
+OpenAPI 스펙을 기반으로 도구 제공자를 생성합니다.
 
 #### Parameters
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `openApiSpec` | `any` | OpenAPI specification object or URL |
-| `options?` | `Object` | Base URL configuration |
+| `openApiSpec` | `any` | OpenAPI 스펙 객체 또는 URL |
+| `options?` | `Object` | 기본 URL 설정 |
 | `options.baseUrl?` | `string` | - |
 
 #### Returns
 
 [`ToolProvider`](interfaces/ToolProvider)
 
-OpenAPI-based tool provider
+OpenAPI 기반 도구 제공자
 
 #### Defined in
 
-[packages/tools/src/openapi-tool-provider.ts:11](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/openapi-tool-provider.ts#L11)
+[packages/tools/src/openapi-tool-provider.ts:173](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/openapi-tool-provider.ts#L173)
 
 ___
 
@@ -337,7 +501,7 @@ Zod schema for validation
 
 #### Defined in
 
-[packages/tools/src/schema/json-to-zod.ts:19](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/schema/json-to-zod.ts#L19)
+[packages/tools/src/schema/json-to-zod.ts:19](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/schema/json-to-zod.ts#L19)
 
 ___
 
@@ -361,7 +525,7 @@ JSON schema representation
 
 #### Defined in
 
-[packages/tools/src/schema/zod-to-json.ts:18](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/schema/zod-to-json.ts#L18)
+[packages/tools/src/schema/zod-to-json.ts:18](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/schema/zod-to-json.ts#L18)
 
 ___
 
@@ -386,7 +550,7 @@ JSON schema type representation
 
 #### Defined in
 
-[packages/tools/src/schema/zod-to-json.ts:52](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/schema/zod-to-json.ts#L52)
+[packages/tools/src/schema/zod-to-json.ts:52](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/schema/zod-to-json.ts#L52)
 
 ___
 
@@ -410,7 +574,7 @@ Description string if available
 
 #### Defined in
 
-[packages/tools/src/schema/zod-to-json.ts:224](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/schema/zod-to-json.ts#L224)
+[packages/tools/src/schema/zod-to-json.ts:224](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/schema/zod-to-json.ts#L224)
 
 ___
 
@@ -434,7 +598,7 @@ True if the type is optional
 
 #### Defined in
 
-[packages/tools/src/schema/zod-to-json.ts:243](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/schema/zod-to-json.ts#L243)
+[packages/tools/src/schema/zod-to-json.ts:243](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/schema/zod-to-json.ts#L243)
 
 ___
 
@@ -458,7 +622,96 @@ True if the type is nullable
 
 #### Defined in
 
-[packages/tools/src/schema/zod-to-json.ts:254](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/schema/zod-to-json.ts#L254)
+[packages/tools/src/schema/zod-to-json.ts:254](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/schema/zod-to-json.ts#L254)
+
+___
+
+### getGlobalToolProviderFactory
+
+▸ **getGlobalToolProviderFactory**(): [`ToolProviderFactory`](classes/ToolProviderFactory)
+
+전역 Tool Provider Factory 인스턴스 가져오기
+
+#### Returns
+
+[`ToolProviderFactory`](classes/ToolProviderFactory)
+
+#### Defined in
+
+[packages/tools/src/tool-provider-factory.ts:186](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/tool-provider-factory.ts#L186)
+
+___
+
+### createZodFunctionProvider
+
+▸ **createZodFunctionProvider**(`tools`, `options?`): [`ToolProvider`](interfaces/ToolProvider)
+
+Zod Function Tool Provider 생성 편의 함수 (팩토리 버전)
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `tools` | `Record`\<`string`, [`ZodFunctionTool`](interfaces/ZodFunctionTool)\<`ZodObject`\<`ZodRawShape`, `UnknownKeysParam`, `ZodTypeAny`, {}, {}\>\>\> |
+| `options?` | `Object` |
+| `options.logger?` | (`message`: `string`, `context?`: `Record`\<`string`, `any`\>) => `void` |
+
+#### Returns
+
+[`ToolProvider`](interfaces/ToolProvider)
+
+#### Defined in
+
+[packages/tools/src/tool-provider-factory.ts:200](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/tool-provider-factory.ts#L200)
+
+___
+
+### createOpenAPIProvider
+
+▸ **createOpenAPIProvider**(`openApiSpec`, `options?`): [`ToolProvider`](interfaces/ToolProvider)
+
+OpenAPI Tool Provider 생성 편의 함수 (팩토리 버전)
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `openApiSpec` | `any` |
+| `options?` | `Object` |
+| `options.baseUrl?` | `string` |
+| `options.logger?` | (`message`: `string`, `context?`: `Record`\<`string`, `any`\>) => `void` |
+
+#### Returns
+
+[`ToolProvider`](interfaces/ToolProvider)
+
+#### Defined in
+
+[packages/tools/src/tool-provider-factory.ts:213](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/tool-provider-factory.ts#L213)
+
+___
+
+### createMCPProvider
+
+▸ **createMCPProvider**(`mcpClient`, `options?`): [`ToolProvider`](interfaces/ToolProvider)
+
+MCP Tool Provider 생성 편의 함수 (팩토리 버전)
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `mcpClient` | [`MCPClient`](interfaces/MCPClient) |
+| `options?` | `Object` |
+| `options.logger?` | (`message`: `string`, `context?`: `Record`\<`string`, `any`\>) => `void` |
+
+#### Returns
+
+[`ToolProvider`](interfaces/ToolProvider)
+
+#### Defined in
+
+[packages/tools/src/tool-provider-factory.ts:227](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/tool-provider-factory.ts#L227)
 
 ___
 
@@ -497,4 +750,4 @@ Robota 호환 함수 스키마
 
 #### Defined in
 
-[packages/tools/src/zod-schema.ts:104](https://github.com/woojubb/robota/blob/f2044536073df65f9112d45570cc110d351b585d/packages/tools/src/zod-schema.ts#L104)
+[packages/tools/src/zod-schema.ts:104](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/zod-schema.ts#L104)
