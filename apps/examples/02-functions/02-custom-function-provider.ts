@@ -2,17 +2,16 @@
  * 02-custom-function-provider.ts
  * 
  * This example demonstrates how to implement a custom function provider:
- * - Directly implement Tool Provider interface
+ * - Extend BaseToolProvider for common functionality
  * - Convert functions to JSON Schema
  * - Use with OpenAI
  */
 
 import { Robota } from "@robota-sdk/core";
 import { OpenAIProvider } from "@robota-sdk/openai";
-import type { ToolProvider, FunctionSchema } from "@robota-sdk/tools";
+import { BaseToolProvider, type FunctionSchema } from "@robota-sdk/tools";
 import OpenAI from "openai";
 import dotenv from 'dotenv';
-import { randomUUID } from 'crypto';
 
 // Load environment variables
 dotenv.config();
@@ -27,17 +26,17 @@ type JSONSchema = {
 
 /**
  * Custom function tool provider class
- * Directly implements the ToolProvider interface
+ * Extends BaseToolProvider for enhanced functionality
  */
-class CustomFunctionToolProvider implements ToolProvider {
-    private functions: Record<string, {
+class CustomFunctionToolProvider extends BaseToolProvider {
+    private functionHandlers: Record<string, {
         name: string;
         description: string;
         schema: JSONSchema;
         handler: (params: any) => Promise<any>;
     }>;
 
-    private functionSchemas: FunctionSchema[];
+    public readonly functions: FunctionSchema[];
 
     constructor(functions: Record<string, {
         name: string;
@@ -45,51 +44,41 @@ class CustomFunctionToolProvider implements ToolProvider {
         schema: JSONSchema;
         handler: (params: any) => Promise<any>;
     }>) {
-        this.functions = functions;
+        super(); // BaseToolProvider 초기화
+        this.functionHandlers = functions;
+
         // Convert to FunctionSchema array
-        this.functionSchemas = Object.values(functions).map(fn => ({
+        this.functions = Object.values(functions).map(fn => ({
             name: fn.name,
             description: fn.description,
-            parameters: fn.schema
-        }));
-    }
-
-    // Return tool list
-    getTools() {
-        // Convert to OpenAI function call format
-        return Object.values(this.functions).map(fn => ({
-            type: 'function' as const,
-            function: {
-                name: fn.name,
-                description: fn.description,
-                parameters: fn.schema
+            parameters: {
+                type: "object" as const,
+                properties: fn.schema.properties || {},
+                required: fn.schema.required
             }
         }));
     }
 
-    // Function call
-    async callFunction(name: string, params: any) {
-        const fn = this.functions[name];
-        if (!fn) {
-            throw new Error(`Function does not exist: ${name}`);
-        }
-        console.log(`Function '${name}' called:`, params);
-        return await fn.handler(params);
+    /**
+     * Tool call implementation using BaseToolProvider's error handling
+     */
+    async callTool(name: string, params: any): Promise<any> {
+        return this.executeToolSafely(name, params, async () => {
+            const fn = this.functionHandlers[name];
+            if (!fn) {
+                throw new Error(`함수 정의를 찾을 수 없습니다.`);
+            }
+
+            console.log(`Function '${name}' called:`, params);
+            return await fn.handler(params);
+        });
     }
 
-    // Get tool names
-    getToolNames() {
-        return Object.keys(this.functions);
-    }
-
-    // Call tool
-    async callTool(name: string, params: any) {
-        return this.callFunction(name, params);
-    }
-
-    // Generate tool ID
-    createToolCallId() {
-        return randomUUID();
+    /**
+     * Check if tool exists (override)
+     */
+    hasTool(toolName: string): boolean {
+        return toolName in this.functionHandlers;
     }
 }
 
@@ -191,19 +180,23 @@ async function main() {
             }
         };
 
-        // Create custom function provider
+        // Create custom function provider using the new BaseToolProvider
         const customProvider = new CustomFunctionToolProvider(customFunctions);
 
         // Create OpenAI provider
-        const aiClient = new OpenAIProvider({
+        const openaiProvider = new OpenAIProvider({
             model: 'gpt-3.5-turbo',
             client: openaiClient
         });
 
-        // Create Robota instance
+        // Create Robota instance with new API
         const robota = new Robota({
-            aiClient,
-            provider: customProvider,
+            aiProviders: {
+                'openai': openaiProvider
+            },
+            currentProvider: 'openai',
+            currentModel: 'gpt-3.5-turbo',
+            toolProviders: [customProvider],
             systemPrompt: 'You are an AI assistant that provides financial information. Please use stock price and currency conversion tools to provide accurate information for user requests.'
         });
 
@@ -222,6 +215,7 @@ async function main() {
             console.log(`Robot: ${response}`);
         }
 
+        console.log("\nCustom Function Provider example completed!");
     } catch (error) {
         console.error("Error occurred:", error);
     }

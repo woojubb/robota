@@ -265,6 +265,145 @@ const schema = advancedAnalysisTool.toJsonSchema();
 - **OpenApiTool**: For OpenAPI specification-based tools
 - **BaseTool**: Abstract base class for custom tool implementations
 
+## Performance Optimization
+
+`@robota-sdk/tools` includes comprehensive performance optimization features to ensure efficient tool execution and memory management:
+
+### 🚀 **Caching System**
+
+Automatic caching of function schemas and tool definitions to prevent redundant transformations:
+
+```typescript
+import { 
+  createZodFunctionToolProvider, 
+  globalFunctionSchemaCache,
+  CacheManager 
+} from '@robota-sdk/tools';
+
+// Automatic caching enabled by default
+const toolProvider = createZodFunctionToolProvider({
+  tools: { /* your tools */ },
+  enableCache: true // Default: true
+});
+
+// Custom cache configuration
+const customCache = new CacheManager({
+  maxSize: 1000,
+  defaultTTL: 30 * 60 * 1000 // 30 minutes
+});
+
+const optimizedProvider = createZodFunctionToolProvider({
+  tools: { /* your tools */ },
+  cacheManager: customCache
+});
+
+// Cache statistics
+const stats = toolProvider.getCacheStats();
+console.log(`Cache hit rate: ${(stats.hitRate * 100).toFixed(2)}%`);
+```
+
+### ⚡ **Lazy Loading**
+
+Tools and resources are loaded only when needed, reducing initial memory footprint:
+
+```typescript
+import { LazyLoader, globalToolLazyLoader } from '@robota-sdk/tools';
+
+// Register tools for lazy loading
+globalToolLazyLoader.registerTool('heavyTool', heavyToolDefinition, 1); // priority: 1 (high)
+globalToolLazyLoader.registerTool('lightTool', lightToolDefinition, 10); // priority: 10 (low)
+
+// Load on demand
+const tool = await globalToolLazyLoader.load('heavyTool');
+
+// Preload high-priority tools
+await globalToolLazyLoader.preload(5); // Load top 5 priority tools
+```
+
+### 🧹 **Memory Management**
+
+Automatic resource cleanup and memory leak prevention:
+
+```typescript
+import { globalResourceManager } from '@robota-sdk/tools';
+
+// Resources are automatically managed
+// Manual cleanup if needed
+await globalResourceManager.cleanupOld(); // Clean old resources
+await globalResourceManager.cleanupAll(); // Clean all resources
+
+// Resource statistics
+const stats = globalResourceManager.getStats();
+console.log(`Memory usage: ${(stats.estimatedMemoryUsage / 1024 / 1024).toFixed(2)}MB`);
+```
+
+### 📊 **Performance Monitoring**
+
+Real-time performance tracking and metrics:
+
+```typescript
+import { globalPerformanceMonitor } from '@robota-sdk/tools';
+
+// Performance monitoring is automatic
+// Access metrics
+const metrics = globalPerformanceMonitor.getMetrics();
+console.log(`Average call time: ${metrics.averageCallTime.toFixed(2)}ms`);
+console.log(`Success rate: ${(metrics.successRate * 100).toFixed(2)}%`);
+console.log(`Throughput: ${metrics.throughput.toFixed(2)} TPS`);
+
+// Tool-specific metrics
+const toolMetrics = globalPerformanceMonitor.getToolMetrics('myTool');
+
+// Generate performance report
+const report = globalPerformanceMonitor.generateReport();
+console.log(report);
+
+// Event listeners for real-time monitoring
+globalPerformanceMonitor.addEventListener((metrics) => {
+  if (metrics.averageCallTime > 1000) {
+    console.warn('Tool performance degraded');
+  }
+});
+```
+
+### 🎛️ **Configuration Options**
+
+Fine-tune performance settings:
+
+```typescript
+import { 
+  CacheManager, 
+  LazyLoader, 
+  ResourceManager,
+  PerformanceMonitor 
+} from '@robota-sdk/tools';
+
+// Cache configuration
+const cache = new CacheManager({
+  maxSize: 500,           // Maximum cache entries
+  defaultTTL: 3600000     // 1 hour TTL
+});
+
+// Lazy loader configuration
+const loader = new LazyLoader({
+  maxConcurrentLoads: 3,  // Limit concurrent loading
+  cache: cache            // Use custom cache
+});
+
+// Resource manager configuration
+const resourceManager = new ResourceManager({
+  maxAge: 1800000,        // 30 minutes max age
+  maxMemoryUsage: 100 * 1024 * 1024, // 100MB limit
+  cleanupIntervalMs: 300000 // 5 minutes cleanup interval
+});
+
+// Performance monitor configuration
+const perfMonitor = new PerformanceMonitor({
+  maxRecords: 5000,       // Keep 5000 call records
+  monitoringIntervalMs: 10000 // Report every 10 seconds
+});
+```
+
 ## Key Features
 
 - **Type Safety**: Full TypeScript support with generic types
@@ -274,6 +413,8 @@ const schema = advancedAnalysisTool.toJsonSchema();
 - **Multiple Protocols**: Support for MCP, OpenAPI, and custom schemas
 - **Error Handling**: Standardized error handling across all tools
 - **Tool Registry**: Centralized tool management and execution
+- **Performance Optimization**: Caching, lazy loading, and resource management
+- **Real-time Monitoring**: Performance metrics and automatic optimization
 
 ## Package Architecture
 
