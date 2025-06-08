@@ -1,95 +1,103 @@
-# 기여 가이드라인
+# Contributing Guidelines
 
-Robota 프로젝트에 기여해 주셔서 감사합니다! 이 문서는 프로젝트에 기여하는 방법에 대한 지침을 제공합니다.
+Thank you for contributing to the Robota project! This document provides guidelines on how to contribute to the project.
 
-## 개발 환경 설정
+## Development Environment Setup
 
-1. 저장소 클론:
+1. Clone the repository:
 
 ```bash
 git clone https://github.com/woojubb/robota.git
 cd robota
 ```
 
-2. 의존성 설치:
+2. Install dependencies:
 
 ```bash
 pnpm install
 ```
 
-3. 개발 서버 실행:
+3. Run development server:
 
 ```bash
 pnpm dev
 ```
 
-## 프로젝트 구조
+## Project Structure
 
-Robota는 모노레포 구조로 설계되었으며, 다음과 같은 패키지로 구성되어 있습니다:
+Robota is designed as a monorepo structure, consisting of the following packages:
 
-- `packages/core`: 핵심 모듈과 공통 인터페이스
-- `packages/openai`: OpenAI 통합
-- `packages/anthropic`: Anthropic 통합
-- `packages/mcp`: MCP(Model Context Protocol) 통합
-- `packages/tools`: 도구 및 유틸리티
-- `apps/docs`: 문서 웹사이트
-- `apps/examples`: 예제 코드
+- `packages/core`: Core modules and common interfaces
+- `packages/openai`: OpenAI integration
+- `packages/anthropic`: Anthropic integration
+- `packages/tools`: Tools and utilities
+- `apps/docs`: Documentation website
+- `apps/examples`: Example code
 
-## 새 기능 개발
+## Developing New Features
 
-1. 새 브랜치 생성:
+1. Create a new branch:
 
 ```bash
 git checkout -b feature/your-feature-name
 ```
 
-2. 코드 작성 및 테스트:
+2. Write code and run tests:
 
 ```bash
 pnpm test
 ```
 
-3. 커밋 및 푸시:
+3. Commit and push:
 
 ```bash
 git add .
-git commit -m "feat: 설명"
+git commit -m "feat: your description"
 git push origin feature/your-feature-name
 ```
 
-4. Pull Request 제출
+4. Submit a Pull Request
 
-## 커밋 메시지 컨벤션
+## Commit Message Convention
 
-커밋 메시지는 다음 형식을 따릅니다:
+Commit messages should follow this format:
 
-- `feat`: 새 기능 추가
-- `fix`: 버그 수정
-- `docs`: 문서 변경
-- `style`: 코드 포맷팅, 세미콜론 누락 등 (코드 변경 없음)
-- `refactor`: 코드 리팩토링
-- `test`: 테스트 관련 코드
-- `chore`: 빌드 프로세스 또는 보조 도구 변경
+- `feat`: Add new feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `style`: Code formatting, missing semicolons, etc. (no code changes)
+- `refactor`: Code refactoring
+- `test`: Test-related code
+- `chore`: Build process or auxiliary tool changes
 
-예: `feat: OpenAI 제공업체에 gpt-4o 모델 지원 추가`
+### Guidelines:
+- Keep commit messages under 80 characters
+- Use English for all commit messages
+- Write in present tense (e.g., "add feature" not "added feature")
+- Be concise but descriptive
 
-## Pull Request 가이드라인
+Examples:
+- ✅ `feat: add gpt-4o model support to OpenAI provider`
+- ✅ `fix: resolve memory leak in cache manager`
+- ❌ `feat: add gpt-4o model support to OpenAI provider with comprehensive error handling and validation` (too long)
 
-1. 명확한 제목과 설명
-2. 관련 이슈 연결
-3. 변경 사항에 대한 테스트 포함
-4. 문서 업데이트 (필요시)
+## Pull Request Guidelines
 
-## 코드 스타일
+1. Clear title and description
+2. Link related issues
+3. Include tests for changes
+4. Update documentation (if necessary)
 
-- 프로젝트는 ESLint와 Prettier를 사용합니다.
-- 커밋 전 코드 스타일 확인:
+## Code Style
+
+- The project uses ESLint and Prettier.
+- Check code style before committing:
 
 ```bash
 pnpm lint
 pnpm format
 ```
 
-## 라이선스
+## License
 
-모든 기여는 프로젝트의 MIT 라이선스 하에 제공됩니다. 
+All contributions are provided under the project's MIT license. 
