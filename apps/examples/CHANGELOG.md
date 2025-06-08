@@ -1,5 +1,18 @@
 # robota-examples
 
+## 0.1.22
+
+### Patch Changes
+
+- Fix facade pattern tests and conversation history message limits
+- Updated dependencies
+  - @robota-sdk/sessions@1.0.1
+  - @robota-sdk/openai@1.0.1
+  - @robota-sdk/tools@1.0.1
+  - @robota-sdk/core@1.0.1
+  - @robota-sdk/anthropic@1.0.1
+  - @robota-sdk/google@1.0.1
+
 ## 0.1.21
 
 ### Patch Changes

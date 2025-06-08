@@ -1,5 +1,14 @@
 # @robota-sdk/openai
 
+## 1.0.1
+
+### Patch Changes
+
+- Fix facade pattern tests and conversation history message limits
+- Updated dependencies
+  - @robota-sdk/tools@1.0.1
+  - @robota-sdk/core@1.0.1
+
 ## 1.0.0
 
 ### Patch Changes

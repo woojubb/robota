@@ -385,7 +385,14 @@ export abstract class BaseConversationHistory implements ConversationHistory {
     }
 
     addToolMessage(toolResult: FunctionCallResult, metadata?: Record<string, any>): void {
-        const message = createToolMessage(toolResult.result || '', {
+        let content: string;
+        if (toolResult.error) {
+            content = `Tool execution error: ${toolResult.error}`;
+        } else {
+            content = `Tool result: ${toolResult.result || 'No result'}`;
+        }
+
+        const message = createToolMessage(content, {
             toolResult,
             name: toolResult.name,
             metadata
@@ -403,12 +410,23 @@ export abstract class BaseConversationHistory implements ConversationHistory {
     }
 
     /**
-     * Apply message limit by removing oldest messages
-     * @internal
-     */
+ * Apply message limit by removing oldest messages while preserving system messages
+ * @internal
+ */
     protected applyMessageLimit(messages: UniversalMessage[]): UniversalMessage[] {
         if (this.maxMessages > 0 && messages.length > this.maxMessages) {
-            return messages.slice(-this.maxMessages);
+            // Separate system messages from other messages
+            const systemMessages = messages.filter(isSystemMessage);
+            const nonSystemMessages = messages.filter(msg => !isSystemMessage(msg));
+
+            // Calculate how many non-system messages we can keep
+            // Total limit minus system messages count
+            const availableSlots = Math.max(0, this.maxMessages - systemMessages.length);
+            const limitedNonSystemMessages = nonSystemMessages.slice(-availableSlots);
+
+            // Combine system messages with limited non-system messages
+            // System messages come first to maintain context
+            return [...systemMessages, ...limitedNonSystemMessages];
         }
         return messages;
     }

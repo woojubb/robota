@@ -31,7 +31,7 @@ Total cache items count
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:32](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/cache-manager.ts#L32)
+[packages/tools/src/performance/cache-manager.ts:32](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/performance/cache-manager.ts#L32)
 
 ___
 
@@ -43,7 +43,7 @@ Cache hits count
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:34](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/cache-manager.ts#L34)
+[packages/tools/src/performance/cache-manager.ts:34](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/performance/cache-manager.ts#L34)
 
 ___
 
@@ -55,7 +55,7 @@ Cache misses count
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:36](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/cache-manager.ts#L36)
+[packages/tools/src/performance/cache-manager.ts:36](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/performance/cache-manager.ts#L36)
 
 ___
 
@@ -67,7 +67,7 @@ Hit rate (0-1)
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:38](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/cache-manager.ts#L38)
+[packages/tools/src/performance/cache-manager.ts:38](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/performance/cache-manager.ts#L38)
 
 ___
 
@@ -79,7 +79,7 @@ Expired items count
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:40](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/cache-manager.ts#L40)
+[packages/tools/src/performance/cache-manager.ts:40](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/performance/cache-manager.ts#L40)
 
 ___
 
@@ -91,4 +91,4 @@ Estimated memory usage
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:42](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/performance/cache-manager.ts#L42)
+[packages/tools/src/performance/cache-manager.ts:42](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/performance/cache-manager.ts#L42)

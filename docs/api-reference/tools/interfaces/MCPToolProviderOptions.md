@@ -14,28 +14,39 @@ MCP tool provider options
 
 ### Properties
 
-- [logger](MCPToolProviderOptions.md#logger)
-- [mcpClient](MCPToolProviderOptions.md#mcpclient)
+- [mcpClient](MCPToolProviderOptions#mcpclient)
+- [logger](MCPToolProviderOptions#logger)
 
 ## Properties
 
+### mcpClient
+
+• **mcpClient**: [`MCPClient`](MCPClient)
+
+MCP client instance
+
+#### Defined in
+
+[packages/tools/src/mcp-tool-provider.ts:24](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/mcp-tool-provider.ts#L24)
+
+___
+
 ### logger
 
-• `Optional` **logger**: (`level`: `string`, `message`: `string`, `meta?`: `any`) => `void`
+• `Optional` **logger**: (`message`: `string`, `context?`: `Record`\<`string`, `any`\>) => `void`
 
 Logger function (optional)
 
 #### Type declaration
 
-▸ (`level`, `message`, `meta?`): `void`
+▸ (`message`, `context?`): `void`
 
 ##### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `level` | `string` |
 | `message` | `string` |
-| `meta?` | `any` |
+| `context?` | `Record`\<`string`, `any`\> |
 
 ##### Returns
 
@@ -43,16 +54,4 @@ Logger function (optional)
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:25](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/mcp-tool-provider.ts#L25)
-
-___
-
-### mcpClient
-
-• **mcpClient**: [`MCPClient`](MCPClient.md)
-
-MCP 클라이언트 인스턴스
-
-#### Defined in
-
-[packages/tools/src/mcp-tool-provider.ts:23](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/mcp-tool-provider.ts#L23)
+[packages/tools/src/mcp-tool-provider.ts:26](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/mcp-tool-provider.ts#L26)

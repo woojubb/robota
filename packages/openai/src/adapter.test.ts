@@ -73,24 +73,42 @@ describe('OpenAIConversationAdapter', () => {
         });
     });
 
-    it('should convert tool message correctly', () => {
-        const toolMessage: UniversalMessage = {
-            role: 'tool',
-            content: 'Weather: Sunny, 25°C',
-            name: 'get_weather',
-            toolResult: {
-                name: 'get_weather',
-                result: { weather: 'sunny', temperature: 25 }
+    it('should filter out tool messages in toOpenAIFormat', () => {
+        const messages: UniversalMessage[] = [
+            {
+                role: 'user',
+                content: 'What is the weather?',
+                timestamp: new Date()
             },
-            timestamp: new Date()
-        };
+            {
+                role: 'tool',
+                content: 'Weather: Sunny, 25°C',
+                name: 'get_weather',
+                toolResult: {
+                    name: 'get_weather',
+                    result: { weather: 'sunny', temperature: 25 }
+                },
+                timestamp: new Date()
+            },
+            {
+                role: 'assistant',
+                content: 'The weather is sunny and 25°C.',
+                timestamp: new Date()
+            }
+        ];
 
-        const result = OpenAIConversationAdapter.convertMessage(toolMessage);
+        const result = OpenAIConversationAdapter.toOpenAIFormat(messages);
 
-        expect(result).toEqual({
-            role: 'function',
-            name: 'get_weather',
-            content: 'Weather: Sunny, 25°C'
+        // Tool message should be filtered out
+        expect(result).toHaveLength(2);
+        expect(result[0]).toEqual({
+            role: 'user',
+            content: 'What is the weather?',
+            name: undefined
+        });
+        expect(result[1]).toEqual({
+            role: 'assistant',
+            content: 'The weather is sunny and 25°C.'
         });
     });
 

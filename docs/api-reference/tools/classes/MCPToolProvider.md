@@ -8,7 +8,7 @@
 
 # Class: MCPToolProvider
 
-MCP(Model Context Protocol) 기반 도구 제공자 클래스
+MCP (Model Context Protocol) based tool provider class
 
 ## Hierarchy
 
@@ -54,7 +54,7 @@ MCP(Model Context Protocol) 기반 도구 제공자 클래스
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:36](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/mcp-tool-provider.ts#L36)
+[packages/tools/src/mcp-tool-provider.ts:36](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/mcp-tool-provider.ts#L36)
 
 ## Properties
 
@@ -70,7 +70,7 @@ Abstract property to be implemented by concrete providers
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:34](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/mcp-tool-provider.ts#L34)
+[packages/tools/src/mcp-tool-provider.ts:34](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/mcp-tool-provider.ts#L34)
 
 ## Methods
 
@@ -78,7 +78,7 @@ Abstract property to be implemented by concrete providers
 
 ▸ **callTool**(`toolName`, `parameters`): `Promise`\<`any`\>
 
-도구 호출 구현
+Tool call implementation
 
 #### Parameters
 
@@ -97,7 +97,7 @@ Abstract property to be implemented by concrete providers
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:69](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/mcp-tool-provider.ts#L69)
+[packages/tools/src/mcp-tool-provider.ts:69](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/mcp-tool-provider.ts#L69)
 
 ___
 
@@ -105,8 +105,8 @@ ___
 
 ▸ **getAvailableTools**(): `string`[]
 
-사용 가능한 도구 목록 반환 (오버라이드)
-MCP의 경우 함수 목록이 없을 수도 있으므로 동적으로 처리
+Return available tool list (override)
+For MCP, function list may not exist, so handle dynamically
 
 #### Returns
 
@@ -118,7 +118,7 @@ MCP의 경우 함수 목록이 없을 수도 있으므로 동적으로 처리
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:80](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/mcp-tool-provider.ts#L80)
+[packages/tools/src/mcp-tool-provider.ts:80](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/mcp-tool-provider.ts#L80)
 
 ___
 
@@ -126,8 +126,8 @@ ___
 
 ▸ **hasTool**(`toolName`): `boolean`
 
-특정 도구가 존재하는지 확인 (오버라이드)
-MCP의 경우 함수 목록이 없어도 도구가 존재할 수 있으므로 항상 true 반환
+Check if specific tool exists (override)
+For MCP, tool may exist even without function list, so always return true
 
 #### Parameters
 
@@ -145,4 +145,4 @@ MCP의 경우 함수 목록이 없어도 도구가 존재할 수 있으므로 �
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:93](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/mcp-tool-provider.ts#L93)
+[packages/tools/src/mcp-tool-provider.ts:93](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/tools/src/mcp-tool-provider.ts#L93)
