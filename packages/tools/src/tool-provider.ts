@@ -1,6 +1,5 @@
 import type { FunctionSchema } from './types';
 import { globalPerformanceMonitor } from './performance/performance-monitor';
-import { globalResourceManager } from './performance/resource-manager';
 
 /**
  * Tool Provider interface

@@ -3,7 +3,7 @@
  * 
  * @module performance-monitor
  * @description
- * 도구 성능을 실시간으로 모니터링하고 지표를 수집하는 시스템을 제공합니다.
+ * Provides a system for real-time monitoring of tool performance and collecting metrics.
  */
 
 import { CacheStats } from './cache-manager';
@@ -11,80 +11,80 @@ import { LazyLoadStats } from './lazy-loader';
 import { ResourceStats } from './resource-manager';
 
 /**
- * 성능 지표 인터페이스
+ * Performance metrics interface
  */
 export interface PerformanceMetrics {
-    /** 도구 호출 횟수 */
+    /** Tool call count */
     toolCallCount: number;
-    /** 평균 도구 호출 시간 (밀리초) */
+    /** Average tool call time (milliseconds) */
     averageCallTime: number;
-    /** 최대 도구 호출 시간 (밀리초) */
+    /** Maximum tool call time (milliseconds) */
     maxCallTime: number;
-    /** 최소 도구 호출 시간 (밀리초) */
+    /** Minimum tool call time (milliseconds) */
     minCallTime: number;
-    /** 성공한 호출 수 */
+    /** Successful calls count */
     successfulCalls: number;
-    /** 실패한 호출 수 */
+    /** Failed calls count */
     failedCalls: number;
-    /** 성공률 (0-1) */
+    /** Success rate (0-1) */
     successRate: number;
-    /** 초당 처리량 (TPS - Transactions Per Second) */
+    /** Throughput (TPS - Transactions Per Second) */
     throughput: number;
-    /** 메모리 사용량 통계 */
+    /** Memory usage statistics */
     memoryUsage: MemoryUsageMetrics;
-    /** 캐시 성능 통계 */
+    /** Cache performance statistics */
     cacheMetrics: CacheStats | null;
-    /** 지연 로딩 통계 */
+    /** Lazy loading statistics */
     lazyLoadMetrics: LazyLoadStats | null;
-    /** 리소스 관리 통계 */
+    /** Resource management statistics */
     resourceMetrics: ResourceStats | null;
 }
 
 /**
- * 메모리 사용량 지표
+ * Memory usage metrics
  */
 export interface MemoryUsageMetrics {
-    /** 현재 힙 사용량 (바이트) */
+    /** Current heap usage (bytes) */
     currentHeapUsed: number;
-    /** 최대 힙 사용량 (바이트) */
+    /** Maximum heap usage (bytes) */
     maxHeapUsed: number;
-    /** 평균 힙 사용량 (바이트) */
+    /** Average heap usage (bytes) */
     averageHeapUsed: number;
-    /** 외부 메모리 사용량 (바이트) */
+    /** External memory usage (bytes) */
     external: number;
     /** RSS (Resident Set Size) */
     rss: number;
 }
 
 /**
- * 도구 호출 기록
+ * Tool call record
  */
 export interface ToolCallRecord {
-    /** 도구 이름 */
+    /** Tool name */
     toolName: string;
-    /** 호출 시작 시간 */
+    /** Call start time */
     startTime: number;
-    /** 호출 종료 시간 */
+    /** Call end time */
     endTime: number;
-    /** 실행 시간 (밀리초) */
+    /** Execution duration (milliseconds) */
     duration: number;
-    /** 성공 여부 */
+    /** Success status */
     success: boolean;
-    /** 에러 메시지 (실패 시) */
+    /** Error message (on failure) */
     error?: string;
-    /** 매개변수 크기 (바이트) */
+    /** Parameter size (bytes) */
     parameterSize: number;
-    /** 응답 크기 (바이트) */
+    /** Response size (bytes) */
     responseSize: number;
 }
 
 /**
- * 성능 이벤트 리스너 타입
+ * Performance event listener type
  */
 export type PerformanceEventListener = (metrics: PerformanceMetrics) => void;
 
 /**
- * 성능 모니터 클래스
+ * Performance monitor class
  */
 export class PerformanceMonitor {
     private callRecords: ToolCallRecord[] = [];
@@ -94,14 +94,14 @@ export class PerformanceMonitor {
     private eventListeners: PerformanceEventListener[] = [];
     private isMonitoring = false;
 
-    // 외부 통계 소스
+    // External statistics sources
     private cacheStatsProvider?: () => CacheStats;
     private lazyLoadStatsProvider?: () => LazyLoadStats;
     private resourceStatsProvider?: () => ResourceStats;
 
     constructor(options: {
-        maxRecords?: number; // 기본값: 10000
-        monitoringIntervalMs?: number; // 기본값: 5초
+        maxRecords?: number; // default: 10000
+        monitoringIntervalMs?: number; // default: 5 seconds
     } = {}) {
         this.maxRecords = options.maxRecords || 10000;
 
@@ -111,7 +111,7 @@ export class PerformanceMonitor {
     }
 
     /**
-     * 모니터링 시작
+     * Start monitoring
      */
     startMonitoring(intervalMs: number = 5000): void {
         if (this.isMonitoring) {
@@ -125,7 +125,7 @@ export class PerformanceMonitor {
     }
 
     /**
-     * 모니터링 중지
+     * Stop monitoring
      */
     stopMonitoring(): void {
         if (!this.isMonitoring) {
@@ -140,29 +140,29 @@ export class PerformanceMonitor {
     }
 
     /**
-     * 도구 호출 기록
+     * Record tool call
      */
     recordToolCall(record: ToolCallRecord): void {
         this.callRecords.push(record);
 
-        // 레코드 수 제한
+        // Limit record count
         if (this.callRecords.length > this.maxRecords) {
-            const removeCount = Math.floor(this.maxRecords * 0.1); // 10% 제거
+            const removeCount = Math.floor(this.maxRecords * 0.1); // remove 10%
             this.callRecords.splice(0, removeCount);
         }
 
-        // 메모리 스냅샷 수집
+        // Collect memory snapshot
         this.collectMemorySnapshot();
     }
 
     /**
-     * 도구 호출 시작 시간 기록을 위한 헬퍼
+     * Helper for recording tool call start time
      */
     startToolCall(toolName: string, parameters: any): string {
         const callId = `${toolName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const parameterSize = this.estimateObjectSize(parameters);
 
-        // 임시 저장용 (실제 구현에서는 WeakMap 등 사용 고려)
+        // Temporary storage (consider using WeakMap in actual implementation)
         (this as any)._pendingCalls = (this as any)._pendingCalls || new Map();
         (this as any)._pendingCalls.set(callId, {
             toolName,
@@ -174,7 +174,7 @@ export class PerformanceMonitor {
     }
 
     /**
-     * 도구 호출 완료 기록을 위한 헬퍼
+     * Helper for recording tool call completion
      */
     endToolCall(callId: string, success: boolean, response?: any, error?: string): void {
         const pendingCalls = (this as any)._pendingCalls;
@@ -201,7 +201,7 @@ export class PerformanceMonitor {
     }
 
     /**
-     * 외부 통계 제공자 등록
+     * Register external statistics providers
      */
     setCacheStatsProvider(provider: () => CacheStats): void {
         this.cacheStatsProvider = provider;
@@ -216,14 +216,14 @@ export class PerformanceMonitor {
     }
 
     /**
-     * 이벤트 리스너 등록
+     * Register event listener
      */
     addEventListener(listener: PerformanceEventListener): void {
         this.eventListeners.push(listener);
     }
 
     /**
-     * 이벤트 리스너 제거
+     * Remove event listener
      */
     removeEventListener(listener: PerformanceEventListener): void {
         const index = this.eventListeners.indexOf(listener);
@@ -233,21 +233,21 @@ export class PerformanceMonitor {
     }
 
     /**
-     * 현재 성능 지표 조회
+     * Get current performance metrics
      */
     getMetrics(): PerformanceMetrics {
         const now = performance.now();
         const recentRecords = this.callRecords.filter(
-            record => now - record.endTime < 60000 // 최근 1분
+            record => now - record.endTime < 60000 // last 1 minute
         );
 
-        // 기본 통계 계산
+        // Calculate basic statistics
         const totalCalls = this.callRecords.length;
         const successfulCalls = this.callRecords.filter(r => r.success).length;
         const failedCalls = totalCalls - successfulCalls;
         const successRate = totalCalls > 0 ? successfulCalls / totalCalls : 0;
 
-        // 시간 통계
+        // Time statistics
         const durations = this.callRecords.map(r => r.duration);
         const averageCallTime = durations.length > 0
             ? durations.reduce((sum, d) => sum + d, 0) / durations.length
@@ -255,10 +255,10 @@ export class PerformanceMonitor {
         const maxCallTime = durations.length > 0 ? Math.max(...durations) : 0;
         const minCallTime = durations.length > 0 ? Math.min(...durations) : 0;
 
-        // 처리량 계산 (최근 1분간)
+        // Calculate throughput (last 1 minute)
         const throughput = recentRecords.length / 60; // TPS
 
-        // 메모리 통계
+        // Memory statistics
         const memoryUsage = this.calculateMemoryMetrics();
 
         return {
@@ -278,7 +278,7 @@ export class PerformanceMonitor {
     }
 
     /**
-     * 특정 도구의 성능 지표 조회
+     * Get performance metrics for specific tool
      */
     getToolMetrics(toolName: string): Partial<PerformanceMetrics> {
         const toolRecords = this.callRecords.filter(r => r.toolName === toolName);
@@ -315,7 +315,7 @@ export class PerformanceMonitor {
     }
 
     /**
-     * 성능 지표 리셋
+     * Reset performance metrics
      */
     reset(): void {
         this.callRecords = [];
@@ -323,55 +323,55 @@ export class PerformanceMonitor {
     }
 
     /**
-     * 성능 보고서 생성
+     * Generate performance report
      */
     generateReport(): string {
         const metrics = this.getMetrics();
 
         return `
 === Tool Performance Report ===
-총 호출 수: ${metrics.toolCallCount}
-성공률: ${(metrics.successRate * 100).toFixed(2)}%
-평균 응답 시간: ${metrics.averageCallTime.toFixed(2)}ms
-최대 응답 시간: ${metrics.maxCallTime.toFixed(2)}ms
-최소 응답 시간: ${metrics.minCallTime.toFixed(2)}ms
-처리량: ${metrics.throughput.toFixed(2)} TPS
+Total Calls: ${metrics.toolCallCount}
+Success Rate: ${(metrics.successRate * 100).toFixed(2)}%
+Average Response Time: ${metrics.averageCallTime.toFixed(2)}ms
+Max Response Time: ${metrics.maxCallTime.toFixed(2)}ms
+Min Response Time: ${metrics.minCallTime.toFixed(2)}ms
+Throughput: ${metrics.throughput.toFixed(2)} TPS
 
-메모리 사용량:
-- 현재 힙: ${(metrics.memoryUsage.currentHeapUsed / 1024 / 1024).toFixed(2)}MB
-- 최대 힙: ${(metrics.memoryUsage.maxHeapUsed / 1024 / 1024).toFixed(2)}MB
-- 평균 힙: ${(metrics.memoryUsage.averageHeapUsed / 1024 / 1024).toFixed(2)}MB
+Memory Usage:
+- Current Heap: ${(metrics.memoryUsage.currentHeapUsed / 1024 / 1024).toFixed(2)}MB
+- Max Heap: ${(metrics.memoryUsage.maxHeapUsed / 1024 / 1024).toFixed(2)}MB
+- Average Heap: ${(metrics.memoryUsage.averageHeapUsed / 1024 / 1024).toFixed(2)}MB
 
 ${metrics.cacheMetrics ? `
-캐시 성능:
-- 히트율: ${(metrics.cacheMetrics.hitRate * 100).toFixed(2)}%
-- 캐시 항목 수: ${metrics.cacheMetrics.totalItems}
-- 메모리 사용량: ${(metrics.cacheMetrics.estimatedMemoryUsage / 1024).toFixed(2)}KB
+Cache Performance:
+- Hit Rate: ${(metrics.cacheMetrics.hitRate * 100).toFixed(2)}%
+- Cache Items: ${metrics.cacheMetrics.totalItems}
+- Memory Usage: ${(metrics.cacheMetrics.estimatedMemoryUsage / 1024).toFixed(2)}KB
 ` : ''}
 
 ${metrics.resourceMetrics ? `
-리소스 관리:
-- 총 리소스 수: ${metrics.resourceMetrics.totalResources}
-- 메모리 사용량: ${(metrics.resourceMetrics.estimatedMemoryUsage / 1024 / 1024).toFixed(2)}MB
+Resource Management:
+- Total Resources: ${metrics.resourceMetrics.totalResources}
+- Memory Usage: ${(metrics.resourceMetrics.estimatedMemoryUsage / 1024 / 1024).toFixed(2)}MB
 ` : ''}
 `.trim();
     }
 
     /**
-     * 메모리 스냅샷 수집
+     * Collect memory snapshot
      */
     private collectMemorySnapshot(): void {
         const memUsage = process.memoryUsage();
         this.memorySnapshots.push(memUsage.heapUsed);
 
-        // 스냅샷 수 제한
+        // Limit snapshot count
         if (this.memorySnapshots.length > 1000) {
-            this.memorySnapshots.splice(0, 100); // 오래된 것 100개 제거
+            this.memorySnapshots.splice(0, 100); // remove 100 oldest
         }
     }
 
     /**
-     * 메모리 지표 계산
+     * Calculate memory metrics
      */
     private calculateMemoryMetrics(): MemoryUsageMetrics {
         const memUsage = process.memoryUsage();
@@ -388,13 +388,13 @@ ${metrics.resourceMetrics ? `
     }
 
     /**
-     * 지표 수집 및 이벤트 발생
+     * Collect metrics and trigger events
      */
     private collectMetrics(): void {
         try {
             const metrics = this.getMetrics();
 
-            // 이벤트 리스너들에게 알림
+            // Notify event listeners
             for (const listener of this.eventListeners) {
                 try {
                     listener(metrics);
@@ -408,7 +408,7 @@ ${metrics.resourceMetrics ? `
     }
 
     /**
-     * 객체 크기 추정
+     * Estimate object size
      */
     private estimateObjectSize(obj: any): number {
         if (obj === null || obj === undefined) {
@@ -440,7 +440,7 @@ ${metrics.resourceMetrics ? `
 }
 
 /**
- * 전역 성능 모니터 인스턴스
+ * Global performance monitor instance
  */
 export const globalPerformanceMonitor = new PerformanceMonitor({
     maxRecords: 10000,

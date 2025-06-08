@@ -3,49 +3,49 @@
  * 
  * @module cache-manager
  * @description
- * 도구 로딩 및 함수 스키마 변환 결과를 캐싱하여 성능을 최적화합니다.
+ * Caches tool loading and function schema conversion results to optimize performance.
  */
 
 import type { FunctionSchema } from '../types';
 
 /**
- * 캐시 항목 인터페이스
+ * Cache item interface
  */
 export interface CacheItem<T> {
-    /** 캐시된 데이터 */
+    /** Cached data */
     data: T;
-    /** 캐시 생성 시간 */
+    /** Cache creation timestamp */
     timestamp: number;
-    /** 만료 시간 (밀리초) */
+    /** Time to live (milliseconds) */
     ttl?: number;
-    /** 액세스 횟수 */
+    /** Access count */
     accessCount: number;
-    /** 마지막 액세스 시간 */
+    /** Last accessed timestamp */
     lastAccessed: number;
 }
 
 /**
- * 캐시 통계 정보
+ * Cache statistics information
  */
 export interface CacheStats {
-    /** 총 캐시 항목 수 */
+    /** Total cache items count */
     totalItems: number;
-    /** 캐시 히트 수 */
+    /** Cache hits count */
     hits: number;
-    /** 캐시 미스 수 */
+    /** Cache misses count */
     misses: number;
-    /** 히트율 (0-1) */
+    /** Hit rate (0-1) */
     hitRate: number;
-    /** 만료된 항목 수 */
+    /** Expired items count */
     expired: number;
-    /** 메모리 사용량 (추정치) */
+    /** Estimated memory usage */
     estimatedMemoryUsage: number;
 }
 
 /**
- * 캐시 매니저 클래스
+ * Cache manager class
  * 
- * LRU (Least Recently Used) 알고리즘과 TTL (Time To Live)을 지원합니다.
+ * Supports LRU (Least Recently Used) algorithm and TTL (Time To Live).
  */
 export class CacheManager<T = any> {
     private cache: Map<string, CacheItem<T>> = new Map();
@@ -57,14 +57,14 @@ export class CacheManager<T = any> {
 
     constructor(options: {
         maxSize?: number;
-        defaultTTL?: number; // 밀리초 단위
+        defaultTTL?: number; // in milliseconds
     } = {}) {
         this.maxSize = options.maxSize || 1000;
         this.defaultTTL = options.defaultTTL;
     }
 
     /**
-     * 캐시에서 값 조회
+     * Get value from cache
      */
     get(key: string): T | undefined {
         const item = this.cache.get(key);
@@ -74,7 +74,7 @@ export class CacheManager<T = any> {
             return undefined;
         }
 
-        // TTL 확인
+        // Check TTL
         if (this.isExpired(item)) {
             this.cache.delete(key);
             this.expired++;
@@ -82,7 +82,7 @@ export class CacheManager<T = any> {
             return undefined;
         }
 
-        // 액세스 정보 업데이트
+        // Update access information
         item.accessCount++;
         item.lastAccessed = Date.now();
         this.hits++;
@@ -91,10 +91,10 @@ export class CacheManager<T = any> {
     }
 
     /**
-     * 캐시에 값 저장
+     * Set value in cache
      */
     set(key: string, value: T, ttl?: number): void {
-        // 캐시 크기 제한 확인
+        // Check cache size limit
         if (this.cache.size >= this.maxSize && !this.cache.has(key)) {
             this.evictLRU();
         }
@@ -112,14 +112,14 @@ export class CacheManager<T = any> {
     }
 
     /**
-     * 캐시에서 항목 삭제
+     * Delete item from cache
      */
     delete(key: string): boolean {
         return this.cache.delete(key);
     }
 
     /**
-     * 특정 키가 캐시에 있는지 확인
+     * Check if specific key exists in cache
      */
     has(key: string): boolean {
         const item = this.cache.get(key);
@@ -135,7 +135,7 @@ export class CacheManager<T = any> {
     }
 
     /**
-     * 캐시 전체 삭제
+     * Clear entire cache
      */
     clear(): void {
         this.cache.clear();
@@ -145,7 +145,7 @@ export class CacheManager<T = any> {
     }
 
     /**
-     * 만료된 항목들 정리
+     * Clean up expired items
      */
     cleanup(): number {
         let cleanedCount = 0;
@@ -163,16 +163,16 @@ export class CacheManager<T = any> {
     }
 
     /**
-     * 캐시 통계 반환
+     * Get cache statistics
      */
     getStats(): CacheStats {
         const totalRequests = this.hits + this.misses;
         const hitRate = totalRequests > 0 ? this.hits / totalRequests : 0;
 
-        // 메모리 사용량 추정 (키 + 데이터의 대략적인 크기)
+        // Estimate memory usage (approximate size of keys + data)
         let estimatedMemoryUsage = 0;
         for (const [key, item] of this.cache.entries()) {
-            estimatedMemoryUsage += key.length * 2; // UTF-16 문자
+            estimatedMemoryUsage += key.length * 2; // UTF-16 characters
             estimatedMemoryUsage += this.estimateObjectSize(item);
         }
 
@@ -187,28 +187,28 @@ export class CacheManager<T = any> {
     }
 
     /**
-     * 모든 키 목록 반환
+     * Get all cache keys
      */
     keys(): string[] {
         return Array.from(this.cache.keys());
     }
 
     /**
-     * 모든 값 목록 반환
+     * Get all cache values
      */
     values(): T[] {
         return Array.from(this.cache.values()).map(item => item.data);
     }
 
     /**
-     * 캐시 크기 반환
+     * Get cache size
      */
     size(): number {
         return this.cache.size;
     }
 
     /**
-     * 항목이 만료되었는지 확인
+     * Check if item has expired
      */
     private isExpired(item: CacheItem<T>, now?: number): boolean {
         if (!item.ttl) return false;
@@ -218,7 +218,7 @@ export class CacheManager<T = any> {
     }
 
     /**
-     * LRU 알고리즘으로 가장 적게 사용된 항목 제거
+     * Evict least recently used item using LRU algorithm
      */
     private evictLRU(): void {
         let lruKey: string | undefined;
@@ -237,13 +237,13 @@ export class CacheManager<T = any> {
     }
 
     /**
-     * 객체 크기 추정 (대략적)
+     * Estimate object size (approximate)
      */
     private estimateObjectSize(obj: any): number {
         let size = 0;
 
         if (obj === null || obj === undefined) {
-            return 8; // 포인터 크기
+            return 8; // pointer size
         }
 
         switch (typeof obj) {
@@ -258,33 +258,33 @@ export class CacheManager<T = any> {
                     return obj.reduce((acc, item) => acc + this.estimateObjectSize(item), 0);
                 } else {
                     for (const key in obj) {
-                        size += key.length * 2; // 키 크기
-                        size += this.estimateObjectSize(obj[key]); // 값 크기
+                        size += key.length * 2; // key size
+                        size += this.estimateObjectSize(obj[key]); // value size
                     }
                     return size;
                 }
             default:
-                return 16; // 기타 타입들
+                return 16; // other types
         }
     }
 }
 
 /**
- * 함수 스키마 전용 캐시 매니저
+ * Function schema specific cache manager
  */
 export class FunctionSchemaCacheManager extends CacheManager<FunctionSchema[]> {
     constructor() {
         super({
-            maxSize: 500, // 함수 스키마는 크기가 클 수 있으므로 적은 수
-            defaultTTL: 30 * 60 * 1000 // 30분
+            maxSize: 500, // smaller number as function schemas can be large
+            defaultTTL: 30 * 60 * 1000 // 30 minutes
         });
     }
 
     /**
-     * 도구 정의에서 캐시 키 생성
+     * Generate cache key from tool definitions
      */
     generateKey(toolDefinitions: Record<string, any>): string {
-        // 도구 정의들의 해시를 생성하여 캐시 키로 사용
+        // Generate hash from tool definitions to use as cache key
         const keys = Object.keys(toolDefinitions).sort();
         const signature = keys.map(key => {
             const tool = toolDefinitions[key];
@@ -295,42 +295,43 @@ export class FunctionSchemaCacheManager extends CacheManager<FunctionSchema[]> {
     }
 
     /**
-     * 간단한 해시 함수
+     * Simple hash function
      */
     private simpleHash(str: string): string {
         let hash = 0;
         for (let i = 0; i < str.length; i++) {
             const char = str.charCodeAt(i);
             hash = ((hash << 5) - hash) + char;
-            hash = hash & hash; // 32비트 정수로 변환
+            hash = hash & hash; // convert to 32-bit integer
         }
         return Math.abs(hash).toString(36);
     }
 }
 
 /**
- * 전역 캐시 매니저 인스턴스들
+ * Global cache manager instances
  */
 export const globalFunctionSchemaCache = new FunctionSchemaCacheManager();
 export const globalToolCache = new CacheManager<any>({
     maxSize: 1000,
-    defaultTTL: 60 * 60 * 1000 // 1시간
+    defaultTTL: 60 * 60 * 1000 // 1 hour
 });
 
 /**
- * 캐시 정리 작업을 주기적으로 실행하는 유틸리티
+ * Utility for periodically executing cache cleanup tasks
  */
 export class CacheCleanupScheduler {
     private intervals: NodeJS.Timeout[] = [];
 
     /**
-     * 주기적 캐시 정리 시작
+     * Start periodic cache cleanup
      */
     start(cacheManagers: CacheManager[], intervalMs: number = 5 * 60 * 1000): void {
         for (const cache of cacheManagers) {
             const interval = setInterval(() => {
                 const cleaned = cache.cleanup();
                 if (cleaned > 0) {
+                    // eslint-disable-next-line no-console
                     console.log(`Cache cleanup: removed ${cleaned} expired items`);
                 }
             }, intervalMs);
@@ -340,7 +341,7 @@ export class CacheCleanupScheduler {
     }
 
     /**
-     * 주기적 캐시 정리 중지
+     * Stop periodic cache cleanup
      */
     stop(): void {
         for (const interval of this.intervals) {
@@ -351,6 +352,6 @@ export class CacheCleanupScheduler {
 }
 
 /**
- * 전역 캐시 정리 스케줄러
+ * Global cache cleanup scheduler
  */
 export const globalCacheCleanupScheduler = new CacheCleanupScheduler(); 

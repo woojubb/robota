@@ -3,49 +3,49 @@
  * 
  * @module lazy-loader
  * @description
- * 도구와 관련 리소스들을 필요할 때만 로딩하여 메모리 사용량과 초기 로딩 시간을 최적화합니다.
+ * Loads tools and related resources only when needed to optimize memory usage and initial loading time.
  */
 
 import { CacheManager } from './cache-manager';
 
 /**
- * 지연 로딩 가능한 리소스의 인터페이스
+ * Interface for lazy loadable resources
  */
 export interface LazyLoadable<T> {
-    /** 리소스 식별자 */
+    /** Resource identifier */
     id: string;
-    /** 리소스를 로드하는 함수 */
+    /** Function to load the resource */
     loader: () => Promise<T> | T;
-    /** 리소스가 로드되었는지 여부 */
+    /** Whether the resource is loaded */
     isLoaded: boolean;
-    /** 로드된 리소스 */
+    /** Loaded resource */
     resource?: T;
-    /** 마지막 액세스 시간 */
+    /** Last access time */
     lastAccessed?: number;
-    /** 로딩 우선순위 (낮을수록 높은 우선순위) */
+    /** Loading priority (lower number = higher priority) */
     priority?: number;
 }
 
 /**
- * 지연 로딩 통계
+ * Lazy loading statistics
  */
 export interface LazyLoadStats {
-    /** 총 등록된 리소스 수 */
+    /** Total registered resources count */
     totalResources: number;
-    /** 로드된 리소스 수 */
+    /** Loaded resources count */
     loadedResources: number;
-    /** 로드 성공 수 */
+    /** Load successes count */
     loadSuccesses: number;
-    /** 로드 실패 수 */
+    /** Load failures count */
     loadFailures: number;
-    /** 평균 로딩 시간 (밀리초) */
+    /** Average loading time (milliseconds) */
     averageLoadTime: number;
-    /** 총 메모리 사용량 추정치 */
+    /** Total estimated memory usage */
     estimatedMemoryUsage: number;
 }
 
 /**
- * 지연 로딩 매니저 클래스
+ * Lazy loading manager class
  */
 export class LazyLoader<T = any> {
     private resources: Map<string, LazyLoadable<T>> = new Map();
@@ -67,7 +67,7 @@ export class LazyLoader<T = any> {
     }
 
     /**
-     * 지연 로딩 가능한 리소스 등록
+     * Register a lazy loadable resource
      */
     register(resource: Omit<LazyLoadable<T>, 'isLoaded'>): void {
         this.resources.set(resource.id, {
@@ -78,7 +78,7 @@ export class LazyLoader<T = any> {
     }
 
     /**
-     * 여러 리소스를 한 번에 등록
+     * Register multiple resources at once
      */
     registerMany(resources: Array<Omit<LazyLoadable<T>, 'isLoaded'>>): void {
         for (const resource of resources) {
@@ -87,21 +87,21 @@ export class LazyLoader<T = any> {
     }
 
     /**
-     * 리소스 로드 (비동기)
+     * Load resource (async)
      */
     async load(id: string): Promise<T> {
         const resource = this.resources.get(id);
         if (!resource) {
-            throw new Error(`리소스 '${id}'을(를) 찾을 수 없습니다.`);
+            throw new Error(`Resource '${id}' not found.`);
         }
 
-        // 이미 로드된 경우
+        // If already loaded
         if (resource.isLoaded && resource.resource) {
             resource.lastAccessed = Date.now();
             return resource.resource;
         }
 
-        // 캐시에서 확인
+        // Check cache
         if (this.cache) {
             const cached = this.cache.get(id);
             if (cached) {
@@ -112,25 +112,25 @@ export class LazyLoader<T = any> {
             }
         }
 
-        // 현재 로딩 중인지 확인
+        // Check if currently loading
         const existingPromise = this.loadPromises.get(id);
         if (existingPromise) {
             return existingPromise;
         }
 
-        // 동시 로딩 제한 확인
+        // Check concurrent loading limit
         if (this.currentLoads >= this.maxConcurrentLoads) {
             return new Promise<T>((resolve, reject) => {
                 this.loadQueue.push({ id, resolve, reject });
             });
         }
 
-        // 실제 로딩 수행
+        // Perform actual loading
         return this.performLoad(id, resource);
     }
 
     /**
-     * 여러 리소스를 병렬로 로드
+     * Load multiple resources in parallel
      */
     async loadMany(ids: string[]): Promise<T[]> {
         const promises = ids.map(id => this.load(id));
@@ -138,7 +138,7 @@ export class LazyLoader<T = any> {
     }
 
     /**
-     * 우선순위에 따라 리소스들을 미리 로드
+     * Preload resources by priority
      */
     async preload(maxCount?: number): Promise<void> {
         const unloaded = Array.from(this.resources.values())
@@ -151,7 +151,7 @@ export class LazyLoader<T = any> {
     }
 
     /**
-     * 리소스 언로드 (메모리 정리)
+     * Unload resource (memory cleanup)
      */
     unload(id: string): boolean {
         const resource = this.resources.get(id);
@@ -163,7 +163,7 @@ export class LazyLoader<T = any> {
         resource.isLoaded = false;
         resource.lastAccessed = undefined;
 
-        // 캐시에서도 제거
+        // Remove from cache as well
         if (this.cache) {
             this.cache.delete(id);
         }
@@ -172,7 +172,7 @@ export class LazyLoader<T = any> {
     }
 
     /**
-     * 오래된 리소스들을 언로드 (LRU 기반)
+     * Unload oldest resources (LRU based)
      */
     unloadOldest(count: number): number {
         const loaded = Array.from(this.resources.values())
@@ -191,7 +191,7 @@ export class LazyLoader<T = any> {
     }
 
     /**
-     * 모든 리소스 언로드
+     * Unload all resources
      */
     unloadAll(): void {
         for (const [id] of this.resources) {
@@ -203,7 +203,7 @@ export class LazyLoader<T = any> {
     }
 
     /**
-     * 리소스가 로드되어 있는지 확인
+     * Check if resource is loaded
      */
     isLoaded(id: string): boolean {
         const resource = this.resources.get(id);
@@ -211,14 +211,14 @@ export class LazyLoader<T = any> {
     }
 
     /**
-     * 등록된 모든 리소스 ID 목록
+     * Get all registered resource IDs
      */
     getResourceIds(): string[] {
         return Array.from(this.resources.keys());
     }
 
     /**
-     * 로드된 리소스 ID 목록
+     * Get loaded resource IDs
      */
     getLoadedResourceIds(): string[] {
         return Array.from(this.resources.values())
@@ -227,7 +227,7 @@ export class LazyLoader<T = any> {
     }
 
     /**
-     * 지연 로딩 통계
+     * Get lazy loading statistics
      */
     getStats(): LazyLoadStats {
         const totalResources = this.resources.size;
@@ -238,7 +238,7 @@ export class LazyLoader<T = any> {
             ? this.loadTimes.reduce((sum, time) => sum + time, 0) / this.loadTimes.length
             : 0;
 
-        // 메모리 사용량 추정
+        // Estimate memory usage
         let estimatedMemoryUsage = 0;
         for (const resource of this.resources.values()) {
             if (resource.isLoaded && resource.resource) {
@@ -257,7 +257,7 @@ export class LazyLoader<T = any> {
     }
 
     /**
-     * 실제 로딩 수행
+     * Perform actual loading
      */
     private async performLoad(id: string, resource: LazyLoadable<T>): Promise<T> {
         const startTime = performance.now();
@@ -267,12 +267,12 @@ export class LazyLoader<T = any> {
             try {
                 const loaded = await Promise.resolve(resource.loader());
 
-                // 리소스 업데이트
+                // Update resource
                 resource.resource = loaded;
                 resource.isLoaded = true;
                 resource.lastAccessed = Date.now();
 
-                // 캐시에 저장
+                // Save to cache
                 if (this.cache) {
                     this.cache.set(id, loaded);
                 }
@@ -298,7 +298,7 @@ export class LazyLoader<T = any> {
     }
 
     /**
-     * 대기 중인 로딩 요청 처리
+     * Process pending loading requests
      */
     private processQueue(): void {
         while (this.loadQueue.length > 0 && this.currentLoads < this.maxConcurrentLoads) {
@@ -310,13 +310,13 @@ export class LazyLoader<T = any> {
                     .then(resolve)
                     .catch(reject);
             } else {
-                reject(new Error(`리소스 '${id}'을(를) 찾을 수 없습니다.`));
+                reject(new Error(`Resource '${id}' not found.`));
             }
         }
     }
 
     /**
-     * 리소스 크기 추정
+     * Estimate resource size
      */
     private estimateResourceSize(resource: any): number {
         if (resource === null || resource === undefined) {
@@ -348,27 +348,27 @@ export class LazyLoader<T = any> {
 }
 
 /**
- * 도구 전용 지연 로더
+ * Tool-specific lazy loader
  */
 export class ToolLazyLoader extends LazyLoader<any> {
     constructor() {
         super({
             cache: new CacheManager({
                 maxSize: 100,
-                defaultTTL: 60 * 60 * 1000 // 1시간
+                defaultTTL: 60 * 60 * 1000 // 1 hour
             }),
             maxConcurrentLoads: 3
         });
     }
 
     /**
-     * 도구 정의에서 지연 로딩 리소스 생성
+     * Create lazy loading resource from tool definition
      */
     registerTool(toolId: string, toolDefinition: any, priority: number = 999): void {
         this.register({
             id: toolId,
             loader: () => {
-                // 도구 정의를 실제 도구 인스턴스로 변환하는 로직
+                // Logic to convert tool definition to actual tool instance
                 return Promise.resolve(toolDefinition);
             },
             priority
@@ -377,6 +377,6 @@ export class ToolLazyLoader extends LazyLoader<any> {
 }
 
 /**
- * 전역 도구 지연 로더 인스턴스
+ * Global tool lazy loader instance
  */
 export const globalToolLazyLoader = new ToolLazyLoader(); 
