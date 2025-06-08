@@ -5,7 +5,7 @@ export interface SessionManagerConfig {
     autoCleanup?: boolean;
     cleanupInterval?: number; // milliseconds
     memoryThreshold?: number; // MB
-    storage?: any; // 추후 구현
+    storage?: any; // To be implemented later
 }
 
 export interface SessionManager {

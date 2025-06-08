@@ -30,14 +30,14 @@ const provider = new OpenAIProvider({
 
 // Agent creation
 const agent = new Robota({
-  name: '도우미 에이전트',
-  description: '사용자의 질문에 답변하는 도우미 에이전트',
+  name: 'Helper Agent',
+  description: 'Helper agent that answers user questions',
   provider: provider,
-  systemPrompt: '당신은 유용한 AI 도우미입니다. 사용자의 질문에 정확하고 간결하게 답변하세요.'
+  systemPrompt: 'You are a helpful AI assistant. Please answer user questions accurately and concisely.'
 });
 
 // Agent execution
-const result = await agent.run('타입스크립트와 자바스크립트의 주요 차이점은 무엇인가요?');
+const result = await agent.run('What are the main differences between TypeScript and JavaScript?');
 console.log(result);
 ```
 
@@ -60,17 +60,17 @@ const openaiClient = new OpenAI({
 // Weather search tool creation
 const weatherTool = new Tool({
   name: 'getWeather',
-  description: '특정 위치의 현재 날씨 정보를 가져옵니다',
+  description: 'Get current weather information for a specific location',
   parameters: z.object({
-    location: z.string().describe('날씨를 확인할 도시 이름'),
-    unit: z.enum(['celsius', 'fahrenheit']).optional().describe('온도 단위')
+    location: z.string().describe('City name to check weather for'),
+    unit: z.enum(['celsius', 'fahrenheit']).optional().describe('Temperature unit')
   }),
   execute: async ({ location, unit = 'celsius' }) => {
-    console.log(`${location}의 날씨를 ${unit} 단위로 조회 중...`);
+    console.log(`Checking weather for ${location} in ${unit} units...`);
     // Actual implementation would call the weather API here
     return { 
       temperature: 22, 
-      condition: '맑음', 
+      condition: 'Clear', 
       humidity: 65,
       unit
     };
@@ -80,14 +80,14 @@ const weatherTool = new Tool({
 // Time lookup tool creation
 const timeTool = new Tool({
   name: 'getCurrentTime',
-  description: '특정 타임존의 현재 시간을 가져옵니다',
+  description: 'Get current time for a specific timezone',
   parameters: z.object({
-    timezone: z.string().default('Asia/Seoul').describe('타임존 (예: "Asia/Seoul", "America/New_York")')
+    timezone: z.string().default('Asia/Seoul').describe('Timezone (e.g., "Asia/Seoul", "America/New_York")')
   }),
   execute: async ({ timezone }) => {
-    console.log(`${timezone}의 현재 시간을 조회 중...`);
+    console.log(`Checking current time for ${timezone}...`);
     return {
-      time: new Date().toLocaleString('ko-KR', { timeZone: timezone }),
+      time: new Date().toLocaleString('en-US', { timeZone: timezone }),
       timezone
     };
   }
@@ -95,20 +95,20 @@ const timeTool = new Tool({
 
 // Agent creation
 const agent = new Robota({
-  name: '정보 도우미',
-  description: '날씨와 시간 정보를 제공하는 도우미 에이전트',
+  name: 'Information Helper',
+  description: 'Helper agent that provides weather and time information',
   provider: new OpenAIProvider({
     model: 'gpt-4-turbo',
     client: openaiClient
   }),
   tools: [weatherTool, timeTool],
-  systemPrompt: `당신은 정보를 제공하는 도우미 에이전트입니다. 
-도구를 사용하여 날씨와 시간 정보를 정확하게 제공하세요.
-사용자가 정보를 요청할 때는 항상 최신 데이터를 조회해야 합니다.`
+  systemPrompt: `You are an information helper agent. 
+Use tools to provide accurate weather and time information.
+When users request information, always fetch the latest data.`
 });
 
 // Agent execution
-const result = await agent.run('서울의 현재 날씨와 뉴욕의 현재 시간을 알려줘.');
+const result = await agent.run('Tell me the current weather in Seoul and the current time in New York.');
 console.log(result);
 ```
 
@@ -129,23 +129,23 @@ const memory = new ConversationMemory({
 
 // Agent creation
 const agent = new Robota({
-  name: '대화형 에이전트',
-  description: '대화를 기억하고 참조할 수 있는 에이전트',
+  name: 'Conversational Agent',
+  description: 'Agent that can remember and reference conversations',
   provider: new OpenAIProvider({
     model: 'gpt-4-turbo',
     client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   }),
   memory,
-  systemPrompt: `당신은 친절한 대화형 에이전트입니다.
-이전 대화를 기억하고 참조하여 자연스러운 대화를 이어나가세요.
-사용자의 선호도와 관심사를 기억하고 맞춤형 응답을 제공하세요.`
+  systemPrompt: `You are a friendly conversational agent.
+Remember and reference previous conversations to maintain natural dialogue flow.
+Remember user preferences and interests to provide personalized responses.`
 });
 
 // Conversation progression
-await agent.run('안녕하세요! 제 이름은 김철수입니다.');
-await agent.run('저는 프로그래밍과 음악을 좋아해요.');
-const result = await agent.run('제 이름이 뭐였지?');
-console.log(result); // "김철수님이 맞습니다. 프로그래밍과 음악에 관심이 있으시다고 하셨어요."
+await agent.run('Hello! My name is John Smith.');
+await agent.run('I enjoy programming and music.');
+const result = await agent.run('What was my name again?');
+console.log(result); // "Your name is John Smith. You mentioned that you're interested in programming and music."
 ```
 
 ## Planning Agents
@@ -162,41 +162,41 @@ import OpenAI from 'openai';
 // Tool definition (example for search, summarization, translation tools)
 const searchTool = new Tool({
   name: 'searchWeb',
-  description: '웹에서 정보를 검색합니다',
+  description: 'Search for information on the web',
   parameters: z.object({
-    query: z.string().describe('검색어')
+    query: z.string().describe('Search query')
   }),
   execute: async ({ query }) => {
-    console.log(`검색 중: ${query}`);
+    console.log(`Searching: ${query}`);
     // Search logic implementation
-    return { results: [`${query}에 대한 검색 결과 1`, `${query}에 대한 검색 결과 2`] };
+    return { results: [`Search result 1 for ${query}`, `Search result 2 for ${query}`] };
   }
 });
 
 const summarizeTool = new Tool({
   name: 'summarizeText',
-  description: '긴 텍스트를 요약합니다',
+  description: 'Summarize long text',
   parameters: z.object({
-    text: z.string().describe('요약할 텍스트')
+    text: z.string().describe('Text to summarize')
   }),
   execute: async ({ text }) => {
-    console.log(`텍스트 요약 중...`);
+    console.log(`Summarizing text...`);
     // Summarization logic implementation
-    return { summary: `${text.substring(0, 50)}... (요약됨)` };
+    return { summary: `${text.substring(0, 50)}... (summarized)` };
   }
 });
 
 const translateTool = new Tool({
   name: 'translateText',
-  description: '텍스트를 다른 언어로 번역합니다',
+  description: 'Translate text to another language',
   parameters: z.object({
-    text: z.string().describe('번역할 텍스트'),
-    targetLanguage: z.string().describe('목표 언어 (예: "ko", "en", "ja")')
+    text: z.string().describe('Text to translate'),
+    targetLanguage: z.string().describe('Target language (e.g., "ko", "en", "ja")')
   }),
   execute: async ({ text, targetLanguage }) => {
-    console.log(`번역 중: ${targetLanguage}`);
+    console.log(`Translating to: ${targetLanguage}`);
     // Translation logic implementation
-    return { translatedText: `${text} (${targetLanguage}로 번역됨)` };
+    return { translatedText: `${text} (translated to ${targetLanguage})` };
   }
 });
 
@@ -218,7 +218,7 @@ Clearly explain all steps and decision-making processes.`
 });
 
 // Planning agent execution
-const result = await planningAgent.run('Research the history of artificial intelligence, summarize it, and translate it to Korean');
+const result = await planningAgent.run('Research the history of artificial intelligence, summarize it, and translate it to English');
 console.log(result);
 ```
 

@@ -57,7 +57,7 @@ export class ToolProviderError extends Error {
 export class ToolNotFoundError extends ToolProviderError {
     constructor(toolName: string, availableTools?: string[]) {
         super(
-            `도구 '${toolName}'을(를) 찾을 수 없습니다.${availableTools ? ` 사용 가능한 도구: ${availableTools.join(', ')}` : ''}`,
+            `Tool '${toolName}' not found.${availableTools ? ` Available tools: ${availableTools.join(', ')}` : ''}`,
             'TOOL_NOT_FOUND',
             { toolName, availableTools }
         );
@@ -68,7 +68,7 @@ export class ToolExecutionError extends ToolProviderError {
     constructor(toolName: string, originalError: unknown) {
         const errorMessage = originalError instanceof Error ? originalError.message : String(originalError);
         super(
-            `도구 '${toolName}' 호출 실패: ${errorMessage}`,
+            `Tool '${toolName}' call failed: ${errorMessage}`,
             'TOOL_EXECUTION_ERROR',
             { toolName, originalError: errorMessage }
         );
@@ -139,27 +139,27 @@ export abstract class BaseToolProvider implements ToolProvider {
         parameters: Record<string, any>,
         executor: () => Promise<T>
     ): Promise<T> {
-        // 성능 모니터링 시작
+        // Start performance monitoring
         const callId = globalPerformanceMonitor.startToolCall(toolName, parameters);
 
         try {
             this.validateToolExists(toolName);
-            this.logError(`도구 '${toolName}' 실행 시작`, { toolName, parameters });
+            this.logError(`Tool '${toolName}' execution started`, { toolName, parameters });
 
             const result = await executor();
 
-            this.logError(`도구 '${toolName}' 실행 성공`, { toolName, result });
+            this.logError(`Tool '${toolName}' execution succeeded`, { toolName, result });
 
-            // 성공 기록
+            // Record success
             globalPerformanceMonitor.endToolCall(callId, true, result);
 
             return result;
         } catch (error) {
-            this.logError(`도구 '${toolName}' 호출 중 오류`, { toolName, parameters, error });
+            this.logError(`Error occurred while calling tool '${toolName}'`, { toolName, parameters, error });
 
             const errorMessage = error instanceof Error ? error.message : String(error);
 
-            // 실패 기록
+            // Record failure
             globalPerformanceMonitor.endToolCall(callId, false, undefined, errorMessage);
 
             if (error instanceof ToolProviderError) {

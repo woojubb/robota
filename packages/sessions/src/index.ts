@@ -1,13 +1,38 @@
-// 핵심 타입들
+// Core types
+export * from './session-types';
+
+// Additional interfaces (only those not in core)
+export * from './interfaces/conversation-history';
+export * from './interfaces/ai-provider';
+export * from './interfaces/ai-context';
+
+// Simplified implementations
+export { SimpleConversationHistory } from './conversation-history/simple-conversation-history';
+export { SimpleLoggerImpl } from './utils/simple-logger';
+export { SimpleMetricsCollector } from './utils/simple-metrics';
+export { SimplePromptTemplate } from './utils/simple-prompt-template';
+export { SessionManagerImpl } from './session-manager/session-manager-impl';
+export { BasicSessionStore } from './session-manager/basic-session-store';
+export { SystemMessageManagerImpl } from './system-message/system-message-manager-impl';
+export { MultiProviderAdapterManager } from './provider-adapter/multi-provider-adapter-manager';
+export { ConversationServiceImpl } from './conversation/conversation-service-impl';
+
+// Utilities
+export { LoggerFactory } from './utils/logger-factory';
+export { MetricsCollectorFactory } from './utils/metrics-collector-factory';
+
+// Conversation History (kept for backward compatibility)
+export { ConversationHistory } from './conversation-history/conversation-history';
+
+// Core types
 export * from './types/core';
 
-// 추가 인터페이스들 (core에 없는 것들만)
+// Additional interfaces (only those not in core)
 export type { Session, SessionMetadata, SessionStats } from './types/session';
 export type { SessionManager, SessionManagerStats } from './types/session-manager';
 export type { ChatInstance, ChatMetadata, ChatStats, MessageContent } from './types/chat';
 
-// 간소화된 구현들
-export { SessionManagerImpl } from './session-manager/session-manager-impl';
+// Simplified implementations
 export { SessionImpl } from './session/session-impl';
 export { ChatInstanceImpl } from './chat/chat-instance';
 
@@ -17,11 +42,11 @@ export * from './state/session-state-machine';
 // Error handling
 export * from './constants/error-messages';
 
-// 유틸리티
+// Utilities
 export { generateId } from './utils/id';
 export * from './utils/session-utils';
 
-// Conversation History (기존 호환성을 위해 남겨둠)
+// Conversation History (kept for backward compatibility)
 export { EnhancedConversationHistoryImpl } from './conversation-history/index';
 
 // Storage interfaces will be added later

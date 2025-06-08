@@ -3,12 +3,12 @@ import type { SystemMessageManager } from '../managers/system-message-manager';
 import type { RobotaConfigManager } from '../managers/robota-config-manager';
 
 /**
- * 시스템 메시지 관련 순수 함수들
- * Robota 클래스의 시스템 메시지 관련 로직을 순수 함수로 분리
+ * System message related pure functions
+ * Separated system message related logic from Robota class into pure functions
  */
 
 /**
- * 시스템 프롬프트를 설정하는 순수 함수
+ * Pure function to set system prompt
  */
 export function setSystemPrompt(
     prompt: string,
@@ -20,7 +20,7 @@ export function setSystemPrompt(
 }
 
 /**
- * 시스템 메시지들을 설정하는 순수 함수
+ * Pure function to set system messages
  */
 export function setSystemMessages(
     messages: Message[],
@@ -30,7 +30,7 @@ export function setSystemMessages(
 }
 
 /**
- * 시스템 메시지를 추가하는 순수 함수
+ * Pure function to add system message
  */
 export function addSystemMessage(
     content: string,
@@ -40,7 +40,7 @@ export function addSystemMessage(
 }
 
 /**
- * 시스템 메시지 설정을 적용하는 순수 함수
+ * Pure function to apply system message configuration
  */
 export function applySystemMessageConfiguration(
     config: {

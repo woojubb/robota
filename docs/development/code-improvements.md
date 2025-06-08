@@ -456,8 +456,8 @@ All JSDoc comments in the library codebase have been changed from Korean to Engl
 ```typescript
 // Before (Korean)
 /**
- * 메인 Robota 클래스
- * 에이전트 초기화 및 실행을 위한 인터페이스 제공
+ * Main Robota class
+ * Provides interface for agent initialization and execution
  */
 
 // After (English)
@@ -466,45 +466,3 @@ All JSDoc comments in the library codebase have been changed from Korean to Engl
  * Provides an interface for initializing and running agents
  */
 ```
-
-#### Standardized JSDoc Format
-
-All comments have been improved to follow standard JSDoc format:
-
-```typescript
-/**
- * Function description
- * 
- * @param paramName - Parameter description
- * @returns Return value description
- * 
- * @example
- * ```ts
- * const result = functionCall(param);
- * ```
- */
-```
-
-### Future Comment Writing Principles
-
-All new code going forward should follow these principles:
-
-1. **Write in English**: All JSDoc comments and inline comments must be written in English
-2. **Standard Format**: Follow JSDoc standard rules
-3. **Complete Documentation**: Include parameters, return values, examples
-4. **Clear Descriptions**: Clearly describe the purpose and usage of functions or classes
-
-## Conclusion
-
-Through these code improvements, the Robota library provides the following benefits:
-
-1. **Better Developer Experience**: Intuitive APIs and clear documentation
-2. **Enhanced Type Safety**: Catch errors at compile time
-3. **Higher Code Quality**: Consistent style and design principles
-4. **Extensibility**: Easy to add new features and integrations
-5. **Maintainability**: Clear module boundaries and separation of responsibilities
-6. **Testability**: Each manager and service can be tested independently
-7. **Build Optimization**: Test files are excluded from production builds for bundle size optimization
-8. **International Standards**: English comments make it easy for international developers to understand
-
-Future development plans include additional optimizations, support for more providers, and implementation of advanced features. 

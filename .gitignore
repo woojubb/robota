@@ -48,20 +48,20 @@ lerna-debug.log*
 # Finder (MacOS) folder config
 .DS_Store
 
-# 환경 변수
+# Environment variables
 .env
 .env.local
 .env.development
 .env.test
 .env.production
 
-# 빌드 산출물
+# Build outputs
 dist/
-# VitePress 캐시 및 빌드 디렉토리만 제외
+# Exclude only VitePress cache and build directories
 apps/docs/.vitepress/cache/
 apps/docs/.vitepress/dist/
 
-# 에디터 설정
+# Editor settings
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
@@ -70,7 +70,7 @@ apps/docs/.vitepress/dist/
 # macOS
 .DS_Store
 
-# 로그 파일
+# Log files
 *.log
 
 # Build files
@@ -80,11 +80,11 @@ apps/docs/.vitepress/dist/
 .netlify
 .next
 
-# VitePress 임시 디렉토리
+# VitePress temporary directory
 **/.temp
 
-# apps 디렉토리 내 마크다운 파일
+# Markdown files in apps directory
 apps/**/README.md
 
-# 패키지 README 파일 (docs 디렉토리에서 관리)
+# Package README files (managed in docs directory)
 packages/*/README.md

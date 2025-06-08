@@ -5,12 +5,12 @@ import type { SystemMessageManager } from '../managers/system-message-manager';
 import type { RunOptions } from '../types';
 
 /**
- * 대화 관련 순수 함수들
- * Robota 클래스의 대화 관련 로직을 순수 함수로 분리
+ * Conversation related pure functions
+ * Separated conversation related logic from Robota class into pure functions
  */
 
 /**
- * 프롬프트를 실행하는 순수 함수
+ * Pure function to execute prompt
  */
 export async function executePrompt(
     prompt: string,
@@ -27,7 +27,7 @@ export async function executePrompt(
 }
 
 /**
- * 스트리밍 응답을 실행하는 순수 함수
+ * Pure function to execute streaming response
  */
 export async function executeStream(
     prompt: string,
@@ -44,7 +44,7 @@ export async function executeStream(
 }
 
 /**
- * 응답을 대화 히스토리에 추가하는 순수 함수
+ * Pure function to add response to conversation history
  */
 export function addResponseToConversationHistory(
     response: ModelResponse,
@@ -54,7 +54,7 @@ export function addResponseToConversationHistory(
 }
 
 /**
- * 대화 히스토리를 지우는 순수 함수
+ * Pure function to clear conversation history
  */
 export function clearConversationHistory(
     conversationHistory: ConversationHistory

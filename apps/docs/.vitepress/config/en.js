@@ -1,6 +1,6 @@
 export const enConfig = {
     themeConfig: {
-        // 네비게이션 메뉴
+        // Navigation menu
         nav: [
             { text: 'Home', link: '/' },
             { text: 'Guide', link: '/guide/' },
@@ -9,7 +9,7 @@ export const enConfig = {
             { text: 'Providers', link: '/providers/' }
         ],
 
-        // 푸터 설정
+        // Footer configuration
         footer: {
             message: 'Released under the MIT License.',
             copyright: 'Copyright © 2023-present'

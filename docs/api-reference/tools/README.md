@@ -372,19 +372,19 @@ ___
 
 ▸ **createZodFunctionToolProvider**(`options`): [`ToolProvider`](interfaces/ToolProvider)
 
-Zod 스키마 기반 함수 도구 제공자를 생성합니다.
+Creates a Zod schema-based function tool provider.
 
 #### Parameters
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `options` | [`ZodFunctionToolProviderOptions`](interfaces/ZodFunctionToolProviderOptions) | 함수 도구 제공자 옵션 |
+| `options` | [`ZodFunctionToolProviderOptions`](interfaces/ZodFunctionToolProviderOptions) | Function tool provider options |
 
 #### Returns
 
 [`ToolProvider`](interfaces/ToolProvider)
 
-도구 제공자 인스턴스 (ToolProvider 인터페이스 구현)
+Tool provider instance (implements ToolProvider interface)
 
 **`See`**
 
@@ -435,7 +435,7 @@ ___
 
 ▸ **createMcpToolProvider**(`mcpClient`): [`ToolProvider`](interfaces/ToolProvider)
 
-MCP(Model Context Protocol) 기반 도구 제공자 생성 함수
+MCP (Model Context Protocol) based tool provider creation function
 
 #### Parameters
 
@@ -447,7 +447,7 @@ MCP(Model Context Protocol) 기반 도구 제공자 생성 함수
 
 [`ToolProvider`](interfaces/ToolProvider)
 
-MCP 기반 도구 제공자 객체
+MCP-based tool provider object
 
 #### Defined in
 
@@ -459,7 +459,7 @@ ___
 
 ▸ **createOpenAPIToolProvider**(`openApiSpec`, `options?`): [`ToolProvider`](interfaces/ToolProvider)
 
-OpenAPI 스펙을 기반으로 도구 제공자를 생성합니다.
+Creates a tool provider based on OpenAPI specifications.
 
 #### Parameters
 
@@ -473,7 +473,7 @@ OpenAPI 스펙을 기반으로 도구 제공자를 생성합니다.
 
 [`ToolProvider`](interfaces/ToolProvider)
 
-OpenAPI 기반 도구 제공자
+OpenAPI-based tool provider
 
 #### Defined in
 
@@ -646,7 +646,7 @@ ___
 
 ▸ **createZodFunctionProvider**(`tools`, `options?`): [`ToolProvider`](interfaces/ToolProvider)
 
-Zod Function Tool Provider 생성 편의 함수 (팩토리 버전)
+Zod Function Tool Provider creation convenience function (factory version)
 
 #### Parameters
 
@@ -670,7 +670,7 @@ ___
 
 ▸ **createOpenAPIProvider**(`openApiSpec`, `options?`): [`ToolProvider`](interfaces/ToolProvider)
 
-OpenAPI Tool Provider 생성 편의 함수 (팩토리 버전)
+OpenAPI Tool Provider creation convenience function (factory version)
 
 #### Parameters
 
@@ -695,7 +695,7 @@ ___
 
 ▸ **createMCPProvider**(`mcpClient`, `options?`): [`ToolProvider`](interfaces/ToolProvider)
 
-MCP Tool Provider 생성 편의 함수 (팩토리 버전)
+MCP Tool Provider creation convenience function (factory version)
 
 #### Parameters
 
@@ -719,7 +719,7 @@ ___
 
 ▸ **zodFunctionToSchema**\<`T`\>(`tool`): `Object`
 
-Zod 함수 도구를 Robota 호환 함수 스키마로 변환합니다.
+Converts a Zod function tool to a Robota-compatible function schema.
 
 #### Type parameters
 
@@ -731,23 +731,15 @@ Zod 함수 도구를 Robota 호환 함수 스키마로 변환합니다.
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `tool` | [`ZodFunctionTool`](interfaces/ZodFunctionTool)\<`T`\> | Zod 기반 함수 도구 정의 |
+| `tool` | [`ZodFunctionTool`](interfaces/ZodFunctionTool)\<`T`\> | Zod-based function tool definition |
 
 #### Returns
 
-`Object`
+[`FunctionSchema`](interfaces/FunctionSchema)
 
-Robota 호환 함수 스키마
+Robota-compatible function schema
 
 | Name | Type |
 | :------ | :------ |
 | `name` | `string` |
-| `description` | `string` |
-| `parameters` | \{ `type`: `string` ; `properties`: `Record`\<`string`, `unknown`\> ; `required?`: `string`[]  } |
-| `parameters.type` | `string` |
-| `parameters.properties` | `Record`\<`string`, `unknown`\> |
-| `parameters.required?` | `string`[] |
-
-#### Defined in
-
-[packages/tools/src/zod-schema.ts:104](https://github.com/woojubb/robota/blob/20907a104a80ba36ef4504cf3243ea2b32ee43cd/packages/tools/src/zod-schema.ts#L104)
+| `description`

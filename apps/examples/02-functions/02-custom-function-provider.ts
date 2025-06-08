@@ -44,7 +44,7 @@ class CustomFunctionToolProvider extends BaseToolProvider {
         schema: JSONSchema;
         handler: (params: any) => Promise<any>;
     }>) {
-        super(); // BaseToolProvider 초기화
+        super(); // Initialize BaseToolProvider
         this.functionHandlers = functions;
 
         // Convert to FunctionSchema array
@@ -66,7 +66,7 @@ class CustomFunctionToolProvider extends BaseToolProvider {
         return this.executeToolSafely(name, params, async () => {
             const fn = this.functionHandlers[name];
             if (!fn) {
-                throw new Error(`함수 정의를 찾을 수 없습니다.`);
+                throw new Error(`Function definition not found.`);
             }
 
             console.log(`Function '${name}' called:`, params);

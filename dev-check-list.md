@@ -1,162 +1,162 @@
-# 코드 개선 체크리스트 - 남은 작업
+# Code Improvement Checklist - Remaining Tasks
 
-## 📋 전체 개요
-`packages/` 폴더 내 각 패키지의 코드 품질 개선을 위한 남은 작업들입니다.
-
----
-
-## 🚀 우선순위별 개선 계획
-
-### 🟢 낮은 우선순위
-1. **i18n 시스템** - 다국어 지원
-   - 에러 메시지 다국어 지원
-   - 도구 설명 및 매개변수 설명 다국어 처리
-   - 지역화된 로그 메시지
-2. **문서화** - JSDoc 개선
-   - API 문서 자동 생성 시스템 구축
-   - 사용 예제 및 튜토리얼 확충
+## 📋 Overview
+Remaining tasks for code quality improvement of each package in the `packages/` folder.
 
 ---
 
-## 🔄 다음 단계
-1. **i18n 시스템** - 다국어 지원 구현
-2. **문서화** - JSDoc 개선 및 API 문서 자동 생성
+## 🚀 Improvement Plan by Priority
+
+### 🟢 Low Priority
+1. **i18n System** - Multilingual support
+   - Multilingual support for error messages
+   - Tool description and parameter description multilingual processing
+   - Localized log messages
+2. **Documentation** - JSDoc improvements
+   - Automatic API documentation generation system
+   - Usage examples and tutorial expansion
 
 ---
 
-## 📝 참고사항
-
-- 모든 개선사항은 기존 API 호환성을 유지하면서 진행
-- 테스트 코드를 함께 개선하여 리팩토링 안정성 확보
-- 점진적 개선을 통해 시스템 안정성 유지
+## 🔄 Next Steps
+1. **i18n System** - Multilingual support implementation
+2. **Documentation** - JSDoc improvements and automatic API documentation generation
 
 ---
 
-## ✅ 완료된 작업
+## 📝 Notes
 
-### 🏗️ packages/core - 핵심 패키지 (완료)
+- All improvements should proceed while maintaining existing API compatibility
+- Secure refactoring stability by improving test code together
+- Maintain system stability through gradual improvements
 
-#### 🎯 robota.ts (메인 클래스)
-- **Facade 패턴 적용**
-  - 핵심 메서드(run, runStream, close)만 Robota 클래스에 유지
-  - 기능별 매니저를 readonly 프로퍼티로 노출 (ai, system, functions, analytics, tools, limits, conversation)
-  - 복잡한 설정 메서드들을 각 매니저로 위임
-  - 기존 메서드들을 deprecated로 표시하여 점진적 마이그레이션 지원
-  - 파일을 최대한 나누기 위한 구조 개선
+---
 
-- **인터페이스 분리 원칙 적용**
-  - RobotaCore 인터페이스: 핵심 실행 기능만 포함 (run, runStream, close)
-  - RobotaConfigurable 인터페이스: 설정 관련 기능만 포함 (callTool, getAvailableTools, clearConversationHistory)
-  - RobotaComplete 인터페이스: 전체 기능을 포함하는 통합 인터페이스
-  - 클라이언트가 필요한 기능만 의존하도록 인터페이스 분리
+## ✅ Completed Tasks
 
-- **클래스 단순화**
-  - `SimpleConversationHistory`와 `PersistentSystemConversationHistory`의 코드 중복 해결
-  - 공통 로직을 `BaseConversationHistory` 추상 클래스로 추출
-  - 편의 메서드들을 기본 클래스에서 구현하여 중복 제거
-  - 각 구현체는 핵심 기능만 구현하도록 단순화
+### 🏗️ packages/core - Core Package (Completed)
 
-### 📚 전체 프로젝트 공통 개선사항 (완료)
+#### 🎯 robota.ts (Main Class)
+- **Facade Pattern Application**
+  - Keep only core methods (run, runStream, close) in Robota class
+  - Expose functional managers as readonly properties (ai, system, functions, analytics, tools, limits, conversation)
+  - Delegate complex setup methods to each manager
+  - Mark existing methods as deprecated for gradual migration support
+  - Improved structure to divide files as much as possible
 
-#### 📖 TSDoc 주석 최적화 (모든 클래스)
-- **상세한 예제들을 별도 examples/ 폴더로 분리**
-  - packages/core 내 모든 클래스
-  - packages/tools 내 모든 클래스  
-  - packages/sessions 내 모든 클래스
-  - packages/openai, packages/anthropic, packages/google 내 모든 클래스
-- **@see 태그 활용으로 중복 설명 제거**
-  - 관련 클래스/메서드 간 상호 참조 링크 추가
-  - 공통 개념에 대한 중복 설명 제거
-- **핵심 정보(@param, @returns, @throws)만 유지하여 파일 크기 30-40% 감소**
-  - 장황한 설명을 간결하게 정리
-  - 필수 정보만 유지하고 부가 설명은 examples/로 이동
+- **Interface Segregation Principle Application**
+  - RobotaCore interface: includes only core execution functions (run, runStream, close)
+  - RobotaConfigurable interface: includes only configuration-related functions (callTool, getAvailableTools, clearConversationHistory)
+  - RobotaComplete interface: integrated interface including all functions
+  - Interface separation so clients depend only on necessary functions
 
-#### 공통 구조 통일
-- AI Provider의 packages/openai packages/anthropic packages/google 구조 통일
+- **Class Simplification**
+  - Resolved code duplication between `SimpleConversationHistory` and `PersistentSystemConversationHistory`
+  - Extracted common logic to `BaseConversationHistory` abstract class
+  - Implemented convenience methods in base class to eliminate duplication
+  - Simplified each implementation to implement only core functions
 
-### 🛠️ packages/tools - 도구 관리 (완료)
+### 📚 Project-wide Common Improvements (Completed)
 
-#### ⚙️ function.ts 리팩토링
-- **거대한 파일 분해**
-  - 413줄의 파일을 기능별로 분리
-  - Zod 스키마 변환 로직을 `schema/zod-to-json.ts` 모듈로 분리
-  - JSON 스키마 변환 로직을 `schema/json-to-zod.ts` 모듈로 분리
-  - Function Registry를 `registry/function-registry.ts` 클래스로 분리
-  - Function 생성 유틸리티를 `factories/function-factory.ts` 모듈로 분리
+#### 📖 TSDoc Comment Optimization (All Classes)
+- **Separated detailed examples to separate examples/ folder**
+  - All classes in packages/core
+  - All classes in packages/tools
+  - All classes in packages/sessions
+  - All classes in packages/openai, packages/anthropic, packages/google
+- **Eliminated duplicate descriptions using @see tags**
+  - Added cross-reference links between related classes/methods
+  - Removed duplicate descriptions of common concepts
+- **Reduced file size by 30-40% keeping only core information (@param, @returns, @throws)**
+  - Organized verbose descriptions concisely
+  - Kept only essential information and moved additional explanations to examples/
 
-- **순수 함수 최적화**
-  - `zodToJsonSchema()` 함수의 복잡성을 작은 함수들로 분해
-  - 타입 변환 로직들을 각 타입별 순수 함수로 분해 (convertZodString, convertZodNumber 등)
-  - 재귀 호출 최적화 및 가독성 향상
-  - `createValidatedFunction` 추가로 향상된 검증 기능 제공
+#### Common Structure Unification
+- Unified structure of AI Provider packages/openai packages/anthropic packages/google
 
-- **에러 처리 강화**
-  - Zod 에러를 포맷팅하는 전용 함수 추가
-  - 인자 파싱 에러 처리 개선
-  - 타입 안전성 개선 및 명확한 에러 메시지 제공
+### 🛠️ packages/tools - Tool Management (Completed)
 
-#### 🔧 Tool Provider 공통 인터페이스 추상화
-- **BaseToolProvider 추상 클래스**: 공통 에러 처리, 로깅, 도구 존재 검증 로직을 통합한 베이스 클래스 구현
-- **구조화된 에러 시스템**: ToolProviderError, ToolNotFoundError, ToolExecutionError 등 명확한 에러 타입 정의
-- **팩토리 패턴**: ToolProviderFactory를 통한 다양한 tool provider 생성 및 관리 시스템
-- **기존 Provider 리팩토링**: ZodFunctionToolProvider, OpenAPIToolProvider, MCPToolProvider를 새로운 구조로 업그레이드
-- **통합 API**: 다양한 tool provider들을 하나의 일관된 인터페이스로 관리할 수 있는 시스템 구축
+#### ⚙️ function.ts Refactoring
+- **Large File Decomposition**
+  - Separated 413-line file by function
+  - Separated Zod schema conversion logic to `schema/zod-to-json.ts` module
+  - Separated JSON schema conversion logic to `schema/json-to-zod.ts` module
+  - Separated Function Registry to `registry/function-registry.ts` class
+  - Separated Function creation utilities to `factories/function-factory.ts` module
 
-#### 🚀 성능 최적화 시스템 구현 (2024.12.15 완료)
-- **캐싱 시스템** (`cache-manager.ts`)
-  - LRU + TTL 알고리즘을 지원하는 `CacheManager` 클래스 구현
-  - 함수 스키마 전용 `FunctionSchemaCacheManager` 구현
-  - 캐시 통계 추적 (히트율, 메모리 사용량) 기능
-  - 자동 캐시 정리 스케줄링 시스템
-  - ZodFunctionToolProvider에 함수 스키마 지연 로딩 + 캐싱 통합
+- **Pure Function Optimization**
+  - Decomposed complexity of `zodToJsonSchema()` function into small functions
+  - Decomposed type conversion logic into pure functions by type (convertZodString, convertZodNumber, etc.)
+  - Optimized recursive calls and improved readability
+  - Provided enhanced validation functionality by adding `createValidatedFunction`
 
-- **지연 로딩 시스템** (`lazy-loader.ts`)
-  - 온디맨드 리소스 로딩을 위한 `LazyLoader` 클래스 구현
-  - 우선순위 기반 프리로딩 시스템
-  - 동시 로딩 제한으로 메모리 과부하 방지
-  - 도구 관리 전용 `ToolLazyLoader` 구현
-  - 로딩 통계 및 성능 추적 기능
+- **Enhanced Error Handling**
+  - Added dedicated function to format Zod errors
+  - Improved argument parsing error handling
+  - Improved type safety and provided clear error messages
 
-- **리소스 관리** (`resource-manager.ts`)
-  - 메모리 누수 방지를 위한 `ResourceManager` 구현
-  - 나이 및 메모리 사용량 기반 자동 리소스 정리
-  - 주기적 메모리 모니터링 및 임계값 관리
-  - 프로세스 종료 시 graceful shutdown 처리
-  - Tool Provider 최적화된 `ToolProviderResourceManager` 구현
+#### 🔧 Tool Provider Common Interface Abstraction
+- **BaseToolProvider Abstract Class**: Implemented base class integrating common error handling, logging, and tool existence verification logic
+- **Structured Error System**: Defined clear error types such as ToolProviderError, ToolNotFoundError, ToolExecutionError
+- **Factory Pattern**: Various tool provider creation and management system through ToolProviderFactory
+- **Existing Provider Refactoring**: Upgraded ZodFunctionToolProvider, OpenAPIToolProvider, MCPToolProvider to new structure
+- **Integrated API**: System that can manage various tool providers with one consistent interface
 
-- **성능 모니터링** (`performance-monitor.ts`)
-  - 실시간 성능 추적을 위한 `PerformanceMonitor` 구현
-  - 도구 호출 타이밍, 성공률, 처리량(TPS) 메트릭 수집
-  - 메모리 사용량 모니터링 및 힙 추적
-  - 성능 리포트 생성 시스템
-  - 이벤트 기반 모니터링 및 커스터마이징 가능한 알림 임계값
+#### 🚀 Performance Optimization System Implementation (Completed 2024.12.15)
+- **Caching System** (`cache-manager.ts`)
+  - Implemented `CacheManager` class supporting LRU + TTL algorithms
+  - Implemented `FunctionSchemaCacheManager` dedicated to function schemas
+  - Cache statistics tracking (hit rate, memory usage) functionality
+  - Automatic cache cleanup scheduling system
+  - Integrated function schema lazy loading + caching in ZodFunctionToolProvider
 
-- **통합 및 아키텍처 업데이트**
-  - `BaseToolProvider`에 성능 모니터링 자동 통합
-  - 모든 도구 호출에 대한 타이밍 및 성공/실패 메트릭 추적
-  - 기존 tool provider들의 새로운 베이스 클래스 사용 업데이트
-  - `index.ts`에서 모든 새로운 성능 최적화 API 내보내기
-  - 한글 주석 및 메시지를 모두 영어로 국제화
+- **Lazy Loading System** (`lazy-loader.ts`)
+  - Implemented `LazyLoader` class for on-demand resource loading
+  - Priority-based preloading system
+  - Prevented memory overload with concurrent loading limits
+  - Implemented `ToolLazyLoader` dedicated to tool management
+  - Loading statistics and performance tracking functionality
 
-### 💬 packages/sessions - 세션 관리 (완료)
+- **Resource Management** (`resource-manager.ts`)
+  - Implemented `ResourceManager` to prevent memory leaks
+  - Automatic resource cleanup based on age and memory usage
+  - Periodic memory monitoring and threshold management
+  - Graceful shutdown handling during process termination
+  - Implemented `ToolProviderResourceManager` optimized for Tool Provider
 
-#### 🎮 session-impl.ts 개선
-- **상태 관리 로직 개선**
-  - 세션 상태 변경을 상태 머신 패턴으로 구현 (`state/session-state-machine.ts`)
-  - 상태 전환 로직을 순수 함수로 분리
-  - 유효한 상태 전환만 허용하는 안전한 상태 관리
+- **Performance Monitoring** (`performance-monitor.ts`)
+  - Implemented `PerformanceMonitor` for real-time performance tracking
+  - Tool call timing, success rate, throughput (TPS) metrics collection
+  - Memory usage monitoring and heap tracking
+  - Performance report generation system
+  - Event-based monitoring and customizable alert thresholds
 
-- **에러 메시지 개선**
-  - 하드코딩된 한국어 메시지들을 상수로 분리 (`constants/error-messages.ts`)
-  - 일관된 에러 처리 패턴 적용 (SessionOperationError, StateTransitionError)
-  - 구조화된 에러 코드와 컨텍스트 정보 제공
+- **Integration and Architecture Updates**
+  - Automatic integration of performance monitoring into `BaseToolProvider`
+  - Timing and success/failure metrics tracking for all tool calls
+  - Updated existing tool providers to use new base class
+  - Export all new performance optimization APIs in `index.ts`
+  - Internationalized all Korean comments and messages to English
 
-- **순수 함수 활용**
-  - 세션 관련 로직을 순수 함수로 분리 (`utils/session-utils.ts`)
-  - 메타데이터 업데이트, 통계 계산 등을 순수 함수로 구현
-  - 설정 검증 및 병합 로직을 재사용 가능한 함수로 분리
+### 💬 packages/sessions - Session Management (Completed)
 
-- **캡슐화 강화**
-  - private 메서드들로 내부 구현 숨김 (_setActiveChat, _deactivateAllChats 등)
-  - readonly 프로퍼티로 외부 변경 방지
-  - 명확한 연산 권한 검사 (_ensureOperationAllowed)
+#### 🎮 session-impl.ts Improvements
+- **State Management Logic Improvements**
+  - Implemented session state changes with state machine pattern (`state/session-state-machine.ts`)
+  - Separated state transition logic into pure functions
+  - Safe state management allowing only valid state transitions
+
+- **Error Message Improvements**
+  - Separated hardcoded Korean messages into constants (`constants/error-messages.ts`)
+  - Applied consistent error handling patterns (SessionOperationError, StateTransitionError)
+  - Provided structured error codes and context information
+
+- **Pure Function Utilization**
+  - Separated session-related logic into pure functions (`utils/session-utils.ts`)
+  - Implemented metadata updates, statistics calculations, etc. as pure functions
+  - Separated configuration validation and merge logic into reusable functions
+
+- **Enhanced Encapsulation**
+  - Hid internal implementation with private methods (_setActiveChat, _deactivateAllChats, etc.)
+  - Prevented external changes with readonly properties
+  - Clear operation permission checking (_ensureOperationAllowed)

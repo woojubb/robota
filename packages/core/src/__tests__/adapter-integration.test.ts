@@ -50,9 +50,9 @@ describe('Adapter Pattern Integration Tests', () => {
             const history = new SimpleConversationHistory();
 
             // Add some messages
-            history.addUserMessage('안녕하세요');
-            history.addAssistantMessage('안녕하세요! 무엇을 도와드릴까요?');
-            history.addUserMessage('날씨가 어때요?');
+            history.addUserMessage('Please check the weather');
+            history.addAssistantMessage('I will check the weather for you.');
+            history.addUserMessage('Test message');
 
             // Test with OpenAI provider
             const openaiContext = conversationService.prepareContext(history);
@@ -65,7 +65,7 @@ describe('Adapter Pattern Integration Tests', () => {
             expect(openaiResponse.content).toBe('Response from openai using gpt-4');
             expect(openaiProvider.lastContext?.messages).toHaveLength(3);
             expect(openaiProvider.lastContext?.messages[0].role).toBe('user');
-            expect(openaiProvider.lastContext?.messages[0].content).toBe('안녕하세요');
+            expect(openaiProvider.lastContext?.messages[0].content).toBe('Please check the weather');
 
             // Test with Anthropic provider (same history)
             const anthropicContext = conversationService.prepareContext(history);
@@ -78,6 +78,7 @@ describe('Adapter Pattern Integration Tests', () => {
             expect(anthropicResponse.content).toBe('Response from anthropic using claude-3-sonnet');
             expect(anthropicProvider.lastContext?.messages).toHaveLength(3);
             expect(anthropicProvider.lastContext?.messages[1].role).toBe('assistant');
+            expect(anthropicProvider.lastContext?.messages[1].content).toBe('I will check the weather for you.');
 
             // Test with Google provider (same history)
             const googleContext = conversationService.prepareContext(history);
@@ -90,7 +91,7 @@ describe('Adapter Pattern Integration Tests', () => {
             expect(googleResponse.content).toBe('Response from google using gemini-1.5-pro');
             expect(googleProvider.lastContext?.messages).toHaveLength(3);
             expect(googleProvider.lastContext?.messages[2].role).toBe('user');
-            expect(googleProvider.lastContext?.messages[2].content).toBe('날씨가 어때요?');
+            expect(googleProvider.lastContext?.messages[2].content).toBe('Test message');
         });
 
         it('should work with PersistentSystemConversationHistory across different providers', async () => {
@@ -98,7 +99,7 @@ describe('Adapter Pattern Integration Tests', () => {
             const history = new PersistentSystemConversationHistory(systemPrompt);
 
             // Add user message
-            history.addUserMessage('오늘 서울 날씨 알려주세요');
+            history.addUserMessage('Please check the weather');
 
             // Test with all providers
             const providers = [
@@ -122,7 +123,7 @@ describe('Adapter Pattern Integration Tests', () => {
                 expect(provider.lastContext?.messages[0].role).toBe('system');
                 expect(provider.lastContext?.messages[0].content).toBe(systemPrompt);
                 expect(provider.lastContext?.messages[1].role).toBe('user');
-                expect(provider.lastContext?.messages[1].content).toBe('오늘 서울 날씨 알려주세요');
+                expect(provider.lastContext?.messages[1].content).toBe('Please check the weather');
             }
         });
 
@@ -130,11 +131,11 @@ describe('Adapter Pattern Integration Tests', () => {
             const history = new SimpleConversationHistory();
 
             // Add user message
-            history.addUserMessage('날씨를 확인해주세요');
+            history.addUserMessage('Please check the weather');
 
             // Add assistant message with function call
             history.addAssistantMessage(
-                '날씨를 확인해보겠습니다.',
+                'I will check the weather for you.',
                 {
                     name: 'get_weather',
                     arguments: { location: 'Seoul', unit: 'celsius' }
@@ -160,11 +161,11 @@ describe('Adapter Pattern Integration Tests', () => {
 
                 // User message
                 expect(messages?.[0].role).toBe('user');
-                expect(messages?.[0].content).toBe('날씨를 확인해주세요');
+                expect(messages?.[0].content).toBe('Please check the weather');
 
                 // Assistant message with function call
                 expect(messages?.[1].role).toBe('assistant');
-                expect(messages?.[1].content).toBe('날씨를 확인해보겠습니다.');
+                expect(messages?.[1].content).toBe('I will check the weather for you.');
                 expect(messages?.[1].functionCall).toEqual({
                     name: 'get_weather',
                     arguments: { location: 'Seoul', unit: 'celsius' }
@@ -182,8 +183,8 @@ describe('Adapter Pattern Integration Tests', () => {
         it('should maintain message timestamps across providers', async () => {
             const history = new SimpleConversationHistory();
 
-            history.addUserMessage('테스트 메시지');
-            history.addAssistantMessage('응답 메시지');
+            history.addUserMessage('Test message');
+            history.addAssistantMessage('Response message');
 
             const context = conversationService.prepareContext(history);
             await conversationService.generateResponse(openaiProvider, 'test-model', context);
@@ -202,21 +203,21 @@ describe('Adapter Pattern Integration Tests', () => {
             const history = new SimpleConversationHistory();
 
             // Build conversation with multiple providers
-            history.addUserMessage('첫 번째 질문');
+            history.addUserMessage('Please check the weather');
 
             // Use OpenAI
             let context = conversationService.prepareContext(history);
             await conversationService.generateResponse(openaiProvider, 'gpt-4', context);
-            history.addAssistantMessage('OpenAI 응답');
+            history.addAssistantMessage('OpenAI response');
 
-            history.addUserMessage('두 번째 질문');
+            history.addUserMessage('Test message');
 
             // Switch to Anthropic
             context = conversationService.prepareContext(history);
             await conversationService.generateResponse(anthropicProvider, 'claude-3-sonnet', context);
-            history.addAssistantMessage('Anthropic 응답');
+            history.addAssistantMessage('Anthropic response');
 
-            history.addUserMessage('세 번째 질문');
+            history.addUserMessage('Test message');
 
             // Switch to Google
             context = conversationService.prepareContext(history);
@@ -225,11 +226,11 @@ describe('Adapter Pattern Integration Tests', () => {
             // Verify Google provider received complete conversation history
             const messages = googleProvider.lastContext?.messages;
             expect(messages).toHaveLength(5);
-            expect(messages?.[0].content).toBe('첫 번째 질문');
-            expect(messages?.[1].content).toBe('OpenAI 응답');
-            expect(messages?.[2].content).toBe('두 번째 질문');
-            expect(messages?.[3].content).toBe('Anthropic 응답');
-            expect(messages?.[4].content).toBe('세 번째 질문');
+            expect(messages?.[0].content).toBe('Please check the weather');
+            expect(messages?.[1].content).toBe('OpenAI response');
+            expect(messages?.[2].content).toBe('Test message');
+            expect(messages?.[3].content).toBe('Anthropic response');
+            expect(messages?.[4].content).toBe('Test message');
         });
     });
 }); 

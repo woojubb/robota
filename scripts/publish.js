@@ -14,7 +14,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 
-// ES 모듈에서는 __dirname이 없으므로 현재 파일 경로에서 직접 계산
+// In ES modules, __dirname doesn't exist, so calculate directly from current file path
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 

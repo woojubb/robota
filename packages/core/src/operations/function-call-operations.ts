@@ -3,12 +3,12 @@ import type { ToolProviderManager } from '../managers/tool-provider-manager';
 import type { RunOptions } from '../types';
 
 /**
- * 함수 호출 관련 순수 함수들
- * Robota 클래스의 함수 호출 관련 로직을 순수 함수로 분리
+ * Function call related pure functions
+ * Separated function call related logic from Robota class into pure functions
  */
 
 /**
- * 함수 호출 모드를 설정하는 순수 함수
+ * Pure function to set function call mode
  */
 export function setFunctionCallMode(
     mode: FunctionCallMode,
@@ -18,7 +18,7 @@ export function setFunctionCallMode(
 }
 
 /**
- * 함수 호출 설정을 종합적으로 구성하는 순수 함수
+ * Pure function to comprehensively configure function call settings
  */
 export function configureFunctionCall(
     config: {
@@ -39,7 +39,7 @@ export function configureFunctionCall(
 }
 
 /**
- * 기본 함수 호출 모드를 적용하는 순수 함수
+ * Pure function to apply default function call mode
  */
 export function applyDefaultFunctionCallMode(
     options: RunOptions,
