@@ -209,7 +209,6 @@ export class AnthropicProvider implements AIProvider {
 
         return {
             content,
-            functionCall: undefined, // Function calling support to be implemented
             usage: response.usage ? {
                 promptTokens: response.usage.input_tokens || 0,
                 completionTokens: response.usage.output_tokens || 0,
@@ -243,7 +242,6 @@ export class AnthropicProvider implements AIProvider {
         if (chunk.type === 'content_block_delta') {
             return {
                 content: chunk.delta?.text || '',
-                functionCall: undefined,
                 isComplete: false
             };
         }
@@ -251,7 +249,6 @@ export class AnthropicProvider implements AIProvider {
         if (chunk.type === 'message_stop') {
             return {
                 content: '',
-                functionCall: undefined,
                 isComplete: true
             };
         }
@@ -259,7 +256,6 @@ export class AnthropicProvider implements AIProvider {
         // Default case for other chunk types
         return {
             content: '',
-            functionCall: undefined,
             isComplete: false
         };
     }

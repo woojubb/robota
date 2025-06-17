@@ -3,19 +3,19 @@
     // TypeScript 기본 설정
     "target": "ES2022",
     "module": "ESNext",
-    "lib": ["ESNext", "DOM"],
+    "lib": [
+      "ESNext",
+      "DOM"
+    ],
     "moduleResolution": "Node",
-    
     // 엄격한 타입 검사
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
-    
     // 모듈 관련 설정
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "verbatimModuleSyntax": true,
-    
     // 기타 설정
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -26,5 +26,25 @@
     "**/node_modules",
     "**/dist",
     "**/build"
+  ],
+  "references": [
+    {
+      "path": "./packages/tools"
+    },
+    {
+      "path": "./packages/core"
+    },
+    {
+      "path": "./packages/openai"
+    },
+    {
+      "path": "./packages/anthropic"
+    },
+    {
+      "path": "./packages/google"
+    },
+    {
+      "path": "./packages/sessions"
+    }
   ]
 }

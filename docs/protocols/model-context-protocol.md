@@ -17,14 +17,18 @@ In MCP, messages have the following structure:
 
 ```typescript
 interface Message {
-  role: 'user' | 'assistant' | 'system' | 'function';
+  role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
-  name?: string;  // function name in case of function call
-  functionCall?: {
-    name: string;
-    arguments: Record<string, any>;
-  };
-  functionResult?: any;
+  toolCalls?: Array<{
+    id: string;
+    type: 'function';
+    function: {
+      name: string;
+      arguments: string;
+    };
+  }>;
+  toolCallId?: string;  // for tool result messages
+  name?: string;        // tool name for tool result messages
 }
 ```
 
@@ -43,19 +47,24 @@ const systemMessage: Message = {
   content: 'You are a helpful AI assistant.'
 };
 
-// Assistant message with function call
+// Assistant message with tool calls
 const assistantMessage: Message = {
   role: 'assistant',
   content: 'I will check the weather in Seoul.',
-  functionCall: {
-    name: 'getWeather',
-    arguments: { location: 'Seoul' }
-  }
+  toolCalls: [{
+    id: 'call_abc123',
+    type: 'function',
+    function: {
+      name: 'getWeather',
+      arguments: '{"location": "Seoul"}'
+    }
+  }]
 };
 
-// Function result message
-const functionMessage: Message = {
-  role: 'function',
+// Tool result message
+const toolMessage: Message = {
+  role: 'tool',
+  toolCallId: 'call_abc123',
   name: 'getWeather',
   content: JSON.stringify({ temperature: 25, condition: 'Clear' })
 };
@@ -166,10 +175,14 @@ Model responses are standardized with the following structure:
 ```typescript
 interface ModelResponse {
   content?: string;               // Text response
-  functionCall?: {                // Function call (if any)
-    name: string;
-    arguments: Record<string, any>;
-  };
+  toolCalls?: Array<{             // Tool calls (if any)
+    id: string;
+    type: 'function';
+    function: {
+      name: string;
+      arguments: string;
+    };
+  }>;
   usage?: {                       // Token usage information
     promptTokens: number;
     completionTokens: number;
@@ -188,12 +201,7 @@ Robota automatically handles the conversion between each AI provider's unique AP
 function openaiToMCP(openaiResponse) {
   return {
     content: openaiResponse.choices[0].message.content,
-    functionCall: openaiResponse.choices[0].message.function_call
-      ? {
-          name: openaiResponse.choices[0].message.function_call.name,
-          arguments: JSON.parse(openaiResponse.choices[0].message.function_call.arguments)
-        }
-      : undefined,
+    toolCalls: openaiResponse.choices[0].message.tool_calls,
     usage: {
       promptTokens: openaiResponse.usage.prompt_tokens,
       completionTokens: openaiResponse.usage.completion_tokens,

@@ -93,9 +93,9 @@ src/
 
 ```typescript
 // ✅ Manager-based test example
-it('should initialize with function call configuration', () => {
-    expect(customRobota['functionCallManager'].getDefaultMode()).toBe('auto');
-    expect(customRobota['functionCallManager'].getMaxCalls()).toBe(5);
+it('should initialize with tool providers', () => {
+    expect(customRobota['toolProviderManager'].getProviders()).toHaveLength(1);
+    expect(customRobota['toolProviderManager'].getAvailableTools()).toContain('getWeather');
 });
 
 // ✅ Mock Provider matching new structure

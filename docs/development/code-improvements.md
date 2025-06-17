@@ -36,7 +36,6 @@ export class Robota {
     private aiProviderManager: AIProviderManager;
     private toolProviderManager: ToolProviderManager;
     private systemMessageManager: SystemMessageManager;
-    private functionCallManager: FunctionCallManager;
     private conversationService: ConversationService;
     
     // Basic configuration
@@ -85,15 +84,16 @@ export class SystemMessageManager {
 }
 ```
 
-#### FunctionCallManager
-Manages function call configuration and modes:
+#### ToolProviderManager (Enhanced)
+Manages tool providers, tool calls, and tool execution:
 
 ```typescript
-export class FunctionCallManager {
-    setFunctionCallMode(mode: FunctionCallMode): void;
-    configure(config: FunctionCallConfig): void;
-    getDefaultMode(): FunctionCallMode;
-    isFunctionAllowed(functionName: string): boolean;
+export class ToolProviderManager {
+    addProviders(providers: ToolProvider[]): void;
+    removeProvider(providerId: string): void;
+    callTool(toolName: string, parameters: Record<string, any>): Promise<any>;
+    getAvailableTools(): FunctionSchema[];
+    getProviders(): ToolProvider[];
 }
 ```
 
@@ -161,13 +161,11 @@ The build system has been improved so that test files are excluded from producti
 Type definitions have been moved to appropriate locations, resolving circular dependency issues:
 
 ```typescript
-// Located in managers/function-call-manager.ts
-export type FunctionCallMode = 'auto' | 'force' | 'disabled';
-export interface FunctionCallConfig {
-    defaultMode?: FunctionCallMode;
+// Located in managers/tool-provider-manager.ts
+export interface ToolProviderConfig {
     maxCalls?: number;
     timeout?: number;
-    allowedFunctions?: string[];
+    allowedTools?: string[];
 }
 ```
 
@@ -215,9 +213,9 @@ registerFunction(schema: FunctionSchema, fn: Function): void {
 JSDoc comments are included for all major classes, methods, and properties:
 
 ```typescript
-export class FunctionCallManager {
-    setFunctionCallMode(mode: FunctionCallMode): void {
-        this.config.defaultMode = mode;
+export class ToolProviderManager {
+    addProvider(provider: ToolProvider): void {
+        this.providers.push(provider);
     }
 }
 ```
@@ -242,11 +240,11 @@ class Robota {
   setSystemMessages() { /* ... */ }
   addSystemMessage() { /* ... */ }
   
-  // ============================================================
-  // Function Call Management (delegation)
-  // ============================================================
-  setFunctionCallMode() { /* ... */ }
-  configureFunctionCall() { /* ... */ }
+      // ============================================================
+    // Tool Provider Management (delegation)
+    // ============================================================
+    addToolProvider() { /* ... */ }
+    removeToolProvider() { /* ... */ }
   
   // ============================================================
   // Execution Methods
@@ -327,12 +325,11 @@ describe('Robota', () => {
             aiProviders: { mock: mockProvider },
             currentProvider: 'mock',
             currentModel: 'mock-model',
-            functionCallConfig
+            toolProviderConfig
         });
 
-        expect(customRobota['functionCallManager'].getDefaultMode()).toBe('auto');
-        expect(customRobota['functionCallManager'].getMaxCalls()).toBe(5);
-        expect(customRobota['functionCallManager'].getAllowedFunctions()).toEqual(['getWeather']);
+        expect(customRobota['toolProviderManager'].getProviders()).toHaveLength(1);
+        expect(customRobota['toolProviderManager'].getAvailableTools().map(t => t.name)).toContain('getWeather');
     });
 });
 ```
@@ -343,7 +340,7 @@ describe('Robota', () => {
 
 All APIs follow consistent naming conventions:
 
-- Classes: PascalCase (e.g., `AIProviderManager`, `FunctionCallManager`)
+- Classes: PascalCase (e.g., `AIProviderManager`, `ToolProviderManager`)
 - Methods: camelCase (e.g., `registerFunction`, `setSystemPrompt`)
 - Constants: UPPER_SNAKE_CASE (e.g., `DEFAULT_TIMEOUT`, `MAX_TOKENS`)
 - Types/Interfaces: PascalCase (e.g., `ToolResult`, `FunctionSchema`)
@@ -357,9 +354,8 @@ export class Robota {
     constructor(options: RobotaOptions) {
         // Initialize managers
         this.aiProviderManager = new AIProviderManager();
-        this.toolProviderManager = new ToolProviderManager(this.logger, options.functionCallConfig?.allowedFunctions);
+        this.toolProviderManager = new ToolProviderManager(this.logger, options.toolProviderConfig?.allowedTools);
         this.systemMessageManager = new SystemMessageManager();
-        this.functionCallManager = new FunctionCallManager(options.functionCallConfig);
         this.conversationService = new ConversationService(options.temperature, options.maxTokens, this.logger, this.debug);
     }
 

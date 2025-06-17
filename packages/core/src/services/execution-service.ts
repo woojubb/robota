@@ -53,10 +53,30 @@ export class ExecutionService {
         );
 
         // Execute the request with limits and analytics
-        const response = await this.executeWithLimitsAndAnalytics(conversationContext, context.options);
+        const response = await this.executeWithLimitsAndAnalytics(conversationContext, context.options, context.conversationHistory);
 
-        // Add assistant response to conversation history
-        context.conversationHistory.addAssistantMessage(response.content || '', response.functionCall);
+        // For non-tool calling scenarios, we need to add the assistant response to history
+        // Tool calling scenarios: ConversationService handles tool messages, but ExecutionService handles final response
+        const hasToolCalls = response.toolCalls && response.toolCalls.length > 0;
+
+        // Always store the final assistant response (whether from tool calling or regular conversation)
+        if (response.content) {
+            if (this.debug) {
+                this.logger.info(`📝 [ExecutionService] Adding assistant response to history: ${response.content.substring(0, 100)}...`);
+            }
+            context.conversationHistory.addAssistantMessage(response.content);
+        }
+
+        // Debug logging
+        if (this.debug) {
+            const hasToolCalls = response.toolCalls && response.toolCalls.length > 0;
+            if (hasToolCalls) {
+                this.logger.info(`🔍 [ExecutionService] Tool calling completed. Final response: ${response.content?.substring(0, 100) || 'No content'}...`);
+            } else {
+                this.logger.info(`🔍 [ExecutionService] Regular conversation completed. Response: ${response.content?.substring(0, 100) || 'No content'}...`);
+            }
+            this.logger.info(`📊 [ExecutionService] Total messages in history: ${context.conversationHistory.getMessageCount()}`);
+        }
 
         return response.content || '';
     }
@@ -86,7 +106,8 @@ export class ExecutionService {
      */
     private async executeWithLimitsAndAnalytics(
         conversationContext: any,
-        options: RunOptions
+        options: RunOptions,
+        conversationHistory: ConversationHistory
     ): Promise<ModelResponse> {
         // Check request limit first
         this.requestLimitManager.checkRequestLimit();
@@ -97,7 +118,7 @@ export class ExecutionService {
 
         await this.checkTokenLimits(conversationContext.messages, currentModel);
 
-        const response = await this.generateResponse(conversationContext, options);
+        const response = await this.generateResponse(conversationContext, options, conversationHistory);
 
         // Record analytics and limit data with actual token usage
         this.recordUsageAnalytics(response, currentAI.provider || 'unknown', currentModel);
@@ -150,7 +171,7 @@ export class ExecutionService {
     /**
      * Generate response (internal use)
      */
-    private async generateResponse(context: any, options: RunOptions = {}): Promise<ModelResponse> {
+    private async generateResponse(context: any, options: RunOptions = {}, conversationHistory: ConversationHistory): Promise<ModelResponse> {
         if (!this.aiProviderManager.isConfigured()) {
             throw new Error('Current AI provider and model are not configured. Use setCurrentAI() method to configure.');
         }
@@ -173,7 +194,8 @@ export class ExecutionService {
                 }
 
                 return result;
-            }
+            },
+            conversationHistory
         );
     }
 

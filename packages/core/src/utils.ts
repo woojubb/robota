@@ -164,12 +164,13 @@ export function convertUniversalToBaseMessage(universalMessage: UniversalMessage
     baseMessage.name = universalMessage.name;
   }
 
-  if (isAssistantMessage(universalMessage) && universalMessage.functionCall) {
-    baseMessage.functionCall = universalMessage.functionCall;
+  if (isAssistantMessage(universalMessage) && (universalMessage as any).toolCalls) {
+    baseMessage.toolCalls = (universalMessage as any).toolCalls;
   }
 
-  if (isToolMessage(universalMessage) && universalMessage.toolResult) {
-    baseMessage.functionResult = universalMessage.toolResult;
+  if (isToolMessage(universalMessage) && (universalMessage as any).toolCallId) {
+    baseMessage.toolCallId = (universalMessage as any).toolCallId;
+    baseMessage.name = universalMessage.name;
   }
 
   return baseMessage;

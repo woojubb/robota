@@ -65,6 +65,22 @@ export class EnhancedConversationHistoryImpl implements EnhancedConversationHist
         });
     }
 
+    addToolMessageWithId(content: string, toolCallId: string, toolName: string, metadata?: Record<string, any>): void {
+        this.addMessage({
+            role: 'tool',
+            content,
+            name: toolName,
+            toolCallId,
+            toolResult: {
+                name: toolName,
+                result: content,
+                error: undefined
+            },
+            timestamp: new Date(),
+            metadata
+        });
+    }
+
     getMessages(): UniversalMessage[] {
         return [...this.messages];
     }

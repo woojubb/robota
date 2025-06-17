@@ -8,18 +8,46 @@ import type { UniversalMessage, UserMessage, AssistantMessage, SystemMessage, To
  */
 export class OpenAIConversationAdapter {
     /**
+     * Filter messages for OpenAI compatibility
+     * 
+     * OpenAI has specific requirements:
+     * - Tool messages must have valid toolCallId
+     * - Messages must be in proper sequence
+     * - Tool messages without toolCallId should be excluded
+     */
+    static filterMessagesForOpenAI(messages: UniversalMessage[]): UniversalMessage[] {
+        return messages.filter(msg => {
+            // Always include user, assistant, and system messages
+            if (msg.role === 'user' || msg.role === 'assistant' || msg.role === 'system') {
+                return true;
+            }
+
+            // For tool messages, only include if they have a valid toolCallId
+            if (msg.role === 'tool') {
+                const toolMsg = msg as ToolMessage;
+                // Must have toolCallId and it must not be empty or 'unknown'
+                return !!(toolMsg.toolCallId &&
+                    toolMsg.toolCallId.trim() !== '' &&
+                    toolMsg.toolCallId !== 'unknown');
+            }
+
+            return false;
+        });
+    }
+
+    /**
      * Convert UniversalMessage array to OpenAI message format
-     * Filters out tool messages as they are for internal history management only
+     * Now properly handles tool messages for OpenAI's tool calling feature
      */
     static toOpenAIFormat(messages: UniversalMessage[]): OpenAI.Chat.ChatCompletionMessageParam[] {
-        return messages
-            .filter(msg => msg.role !== 'tool') // Filter out tool messages - they're for internal history only
-            .map(msg => this.convertMessage(msg));
+        // First filter messages for OpenAI compatibility
+        const filteredMessages = this.filterMessagesForOpenAI(messages);
+        return filteredMessages.map(msg => this.convertMessage(msg));
     }
 
     /**
      * Convert a single UniversalMessage to OpenAI format
-     * Note: Tool messages should be filtered out before calling this method
+     * Handles all message types including tool messages
      */
     static convertMessage(msg: UniversalMessage): OpenAI.Chat.ChatCompletionMessageParam {
         const messageRole = msg.role;
@@ -39,11 +67,11 @@ export class OpenAIConversationAdapter {
         if (messageRole === 'assistant') {
             const assistantMsg = msg as AssistantMessage;
 
-            // Handle new tool_calls format
+            // Handle tool_calls format
             if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {
                 const result: OpenAI.Chat.ChatCompletionAssistantMessageParam = {
                     role: 'assistant',
-                    content: assistantMsg.content || '',
+                    content: assistantMsg.content || null,
                     tool_calls: assistantMsg.toolCalls.map(toolCall => ({
                         id: toolCall.id,
                         type: 'function',
@@ -52,21 +80,6 @@ export class OpenAIConversationAdapter {
                             arguments: toolCall.function.arguments
                         }
                     }))
-                };
-                return result;
-            }
-
-            // Handle legacy function_call format
-            if (assistantMsg.functionCall) {
-                const result: OpenAI.Chat.ChatCompletionAssistantMessageParam = {
-                    role: 'assistant',
-                    content: assistantMsg.content || '',
-                    function_call: {
-                        name: assistantMsg.functionCall.name,
-                        arguments: typeof assistantMsg.functionCall.arguments === 'string'
-                            ? assistantMsg.functionCall.arguments
-                            : JSON.stringify(assistantMsg.functionCall.arguments || {})
-                    }
                 };
                 return result;
             }
@@ -86,10 +99,15 @@ export class OpenAIConversationAdapter {
             };
         }
 
-        // Tool messages are filtered out in toOpenAIFormat, so this should never happen
-        // But we need to handle it for TypeScript completeness
+        // Handle tool messages for OpenAI tool calling
         if (messageRole === 'tool') {
-            throw new Error('Tool messages should be filtered out before calling convertMessage');
+            const toolMsg = msg as ToolMessage;
+            const result: OpenAI.Chat.ChatCompletionToolMessageParam = {
+                role: 'tool',
+                content: toolMsg.content,
+                tool_call_id: toolMsg.toolCallId || 'unknown'
+            };
+            return result;
         }
 
         // This should never happen but TypeScript requires exhaustive checking
