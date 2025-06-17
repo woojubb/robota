@@ -35,26 +35,34 @@ describe('OpenAIConversationAdapter', () => {
         });
     });
 
-    it('should convert assistant message with function call correctly', () => {
-        const assistantMessageWithFunction: UniversalMessage = {
+    it('should convert assistant message with tool calls correctly', () => {
+        const assistantMessageWithToolCalls: UniversalMessage = {
             role: 'assistant',
             content: 'I will check the weather for you.',
-            functionCall: {
-                name: 'get_weather',
-                arguments: { location: 'Seoul' }
-            },
+            toolCalls: [{
+                id: 'tool_call_123',
+                type: 'function',
+                function: {
+                    name: 'get_weather',
+                    arguments: JSON.stringify({ location: 'Seoul' })
+                }
+            }],
             timestamp: new Date()
         };
 
-        const result = OpenAIConversationAdapter.convertMessage(assistantMessageWithFunction);
+        const result = OpenAIConversationAdapter.convertMessage(assistantMessageWithToolCalls);
 
         expect(result).toEqual({
             role: 'assistant',
             content: 'I will check the weather for you.',
-            function_call: {
-                name: 'get_weather',
-                arguments: JSON.stringify({ location: 'Seoul' })
-            }
+            tool_calls: [{
+                id: 'tool_call_123',
+                type: 'function',
+                function: {
+                    name: 'get_weather',
+                    arguments: JSON.stringify({ location: 'Seoul' })
+                }
+            }]
         });
     });
 
@@ -73,7 +81,7 @@ describe('OpenAIConversationAdapter', () => {
         });
     });
 
-    it('should filter out tool messages in toOpenAIFormat', () => {
+    it('should filter out tool messages without toolCallId in toOpenAIFormat', () => {
         const messages: UniversalMessage[] = [
             {
                 role: 'user',
@@ -84,10 +92,55 @@ describe('OpenAIConversationAdapter', () => {
                 role: 'tool',
                 content: 'Weather: Sunny, 25°C',
                 name: 'get_weather',
-                toolResult: {
-                    name: 'get_weather',
-                    result: { weather: 'sunny', temperature: 25 }
-                },
+                timestamp: new Date()
+                // Missing toolCallId, so this should be filtered out
+            },
+            {
+                role: 'assistant',
+                content: 'The weather is sunny and 25°C.',
+                timestamp: new Date()
+            }
+        ];
+
+        const result = OpenAIConversationAdapter.toOpenAIFormat(messages);
+
+        // Tool message should be filtered out because it lacks toolCallId
+        expect(result).toHaveLength(2);
+        expect(result[0]).toEqual({
+            role: 'user',
+            content: 'What is the weather?',
+            name: undefined
+        });
+        expect(result[1]).toEqual({
+            role: 'assistant',
+            content: 'The weather is sunny and 25°C.'
+        });
+    });
+
+    it('should include tool messages with valid toolCallId in toOpenAIFormat', () => {
+        const messages: UniversalMessage[] = [
+            {
+                role: 'user',
+                content: 'What is the weather?',
+                timestamp: new Date()
+            },
+            {
+                role: 'assistant',
+                content: 'I will check the weather for you.',
+                toolCalls: [{
+                    id: 'tool_call_123',
+                    type: 'function',
+                    function: {
+                        name: 'get_weather',
+                        arguments: JSON.stringify({ location: 'Seoul' })
+                    }
+                }],
+                timestamp: new Date()
+            },
+            {
+                role: 'tool',
+                content: 'Weather: Sunny, 25°C',
+                toolCallId: 'tool_call_123',
                 timestamp: new Date()
             },
             {
@@ -99,16 +152,11 @@ describe('OpenAIConversationAdapter', () => {
 
         const result = OpenAIConversationAdapter.toOpenAIFormat(messages);
 
-        // Tool message should be filtered out
-        expect(result).toHaveLength(2);
-        expect(result[0]).toEqual({
-            role: 'user',
-            content: 'What is the weather?',
-            name: undefined
-        });
-        expect(result[1]).toEqual({
-            role: 'assistant',
-            content: 'The weather is sunny and 25°C.'
+        expect(result).toHaveLength(4);
+        expect(result[2]).toEqual({
+            role: 'tool',
+            content: 'Weather: Sunny, 25°C',
+            tool_call_id: 'tool_call_123'
         });
     });
 
