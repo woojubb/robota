@@ -8,16 +8,19 @@
 
 # Interface: ModelResponse
 
-Model response interface
+Response from AI model
+
+Contains the generated content, usage statistics, and metadata from AI provider.
+Also includes tool calling information when applicable.
 
 ## Table of contents
 
 ### Properties
 
 - [content](ModelResponse#content)
-- [functionCall](ModelResponse#functioncall)
 - [usage](ModelResponse#usage)
 - [metadata](ModelResponse#metadata)
+- [toolCalls](ModelResponse#toolcalls)
 
 ## Properties
 
@@ -25,19 +28,11 @@ Model response interface
 
 • `Optional` **content**: `string`
 
-#### Defined in
-
-[interfaces/ai-provider.ts:24](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/interfaces/ai-provider.ts#L24)
-
-___
-
-### functionCall
-
-• `Optional` **functionCall**: `FunctionCall`
+Generated text content (may be null for tool-only responses)
 
 #### Defined in
 
-[interfaces/ai-provider.ts:25](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/interfaces/ai-provider.ts#L25)
+[interfaces/ai-provider.ts:39](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/interfaces/ai-provider.ts#L39)
 
 ___
 
@@ -45,24 +40,54 @@ ___
 
 • `Optional` **usage**: `Object`
 
+Token usage statistics from the AI provider
+
 #### Type declaration
 
-| Name | Type |
-| :------ | :------ |
-| `promptTokens` | `number` |
-| `completionTokens` | `number` |
-| `totalTokens` | `number` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `promptTokens` | `number` | Number of tokens in the input prompt |
+| `completionTokens` | `number` | Number of tokens in the generated completion |
+| `totalTokens` | `number` | Total tokens used (prompt + completion) |
 
 #### Defined in
 
-[interfaces/ai-provider.ts:26](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/interfaces/ai-provider.ts#L26)
+[interfaces/ai-provider.ts:42](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/interfaces/ai-provider.ts#L42)
 
 ___
 
 ### metadata
 
-• `Optional` **metadata**: `Record`\<`string`, `any`\>
+• `Optional` **metadata**: `Object`
+
+Provider-specific metadata
+
+#### Index signature
+
+▪ [key: `string`]: `any`
+
+Additional provider-specific data
+
+#### Type declaration
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `model?` | `string` | Model name used for generation |
+| `finishReason?` | `string` | Reason why generation finished |
+| `systemFingerprint?` | `string` | Provider-specific system fingerprint |
 
 #### Defined in
 
-[interfaces/ai-provider.ts:31](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/interfaces/ai-provider.ts#L31)
+[interfaces/ai-provider.ts:52](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/interfaces/ai-provider.ts#L52)
+
+___
+
+### toolCalls
+
+• `Optional` **toolCalls**: \{ `id`: `string` ; `type`: ``"function"`` ; `function`: \{ `name`: `string` ; `arguments`: `string`  }  }[]
+
+Tool calls made by the assistant (OpenAI tool calling format)
+
+#### Defined in
+
+[interfaces/ai-provider.ts:64](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/interfaces/ai-provider.ts#L64)

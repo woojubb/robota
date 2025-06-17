@@ -8,18 +8,20 @@
 
 # Class: OpenAIProvider
 
-OpenAI provider implementation for Robota
+OpenAI AI provider implementation for Robota
 
 Provides integration with OpenAI's GPT models and other services.
-Implements the universal AIProvider interface for consistent usage across providers.
+Extends BaseAIProvider for common functionality and tool calling support.
 
 **`See`**
 
 ../../../apps/examples/03-integrations | Provider Integration Examples
 
-## Implements
+## Hierarchy
 
-- `AIProvider`
+- `BaseAIProvider`
+
+  ↳ **`OpenAIProvider`**
 
 ## Table of contents
 
@@ -65,9 +67,13 @@ Create a new OpenAI provider instance
 
 When client is not provided in options
 
+#### Overrides
+
+BaseAIProvider.constructor
+
 #### Defined in
 
-[openai/src/provider.ts:62](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/openai/src/provider.ts#L62)
+[openai/src/provider.ts:63](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/openai/src/provider.ts#L63)
 
 ## Properties
 
@@ -77,13 +83,13 @@ When client is not provided in options
 
 Provider identifier name
 
-#### Implementation of
+#### Overrides
 
-AIProvider.name
+BaseAIProvider.name
 
 #### Defined in
 
-[openai/src/provider.ts:28](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/openai/src/provider.ts#L28)
+[openai/src/provider.ts:29](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/openai/src/provider.ts#L29)
 
 ___
 
@@ -95,7 +101,7 @@ Client type identifier
 
 #### Defined in
 
-[openai/src/provider.ts:40](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/openai/src/provider.ts#L40)
+[openai/src/provider.ts:41](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/openai/src/provider.ts#L41)
 
 ___
 
@@ -111,7 +117,7 @@ Use the private client property instead
 
 #### Defined in
 
-[openai/src/provider.ts:47](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/openai/src/provider.ts#L47)
+[openai/src/provider.ts:48](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/openai/src/provider.ts#L48)
 
 ___
 
@@ -121,9 +127,13 @@ ___
 
 Provider configuration options
 
+#### Overrides
+
+BaseAIProvider.options
+
 #### Defined in
 
-[openai/src/provider.ts:53](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/openai/src/provider.ts#L53)
+[openai/src/provider.ts:54](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/openai/src/provider.ts#L54)
 
 ## Methods
 
@@ -140,7 +150,7 @@ required by the Chat Completions API.
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `functions` | `FunctionDefinition`[] | Array of universal function definitions |
+| `functions` | `FunctionSchema`[] | Array of universal function definitions |
 
 #### Returns
 
@@ -150,7 +160,7 @@ Array of OpenAI-formatted tools
 
 #### Defined in
 
-[openai/src/provider.ts:87](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/openai/src/provider.ts#L87)
+[openai/src/provider.ts:90](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/openai/src/provider.ts#L90)
 
 ___
 
@@ -193,13 +203,13 @@ When message format conversion fails
 
 When OpenAI API call fails
 
-#### Implementation of
+#### Overrides
 
-AIProvider.chat
+BaseAIProvider.chat
 
 #### Defined in
 
-[openai/src/provider.ts:114](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/openai/src/provider.ts#L114)
+[openai/src/provider.ts:148](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/openai/src/provider.ts#L148)
 
 ___
 
@@ -226,7 +236,7 @@ Parsed model response in universal format
 
 #### Defined in
 
-[openai/src/provider.ts:188](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/openai/src/provider.ts#L188)
+[openai/src/provider.ts:205](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/openai/src/provider.ts#L205)
 
 ___
 
@@ -253,7 +263,7 @@ Parsed streaming response chunk
 
 #### Defined in
 
-[openai/src/provider.ts:238](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/openai/src/provider.ts#L238)
+[openai/src/provider.ts:248](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/openai/src/provider.ts#L248)
 
 ___
 
@@ -301,13 +311,13 @@ When OpenAI streaming API call fails
 
 ../../../apps/examples/01-basic | Basic Usage Examples
 
-#### Implementation of
+#### Overrides
 
-AIProvider.chatStream
+BaseAIProvider.chatStream
 
 #### Defined in
 
-[openai/src/provider.ts:287](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/openai/src/provider.ts#L287)
+[openai/src/provider.ts:289](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/openai/src/provider.ts#L289)
 
 ___
 
@@ -326,10 +336,10 @@ OpenAI client doesn't require explicit cleanup, so this is a no-op.
 
 Promise that resolves when cleanup is complete
 
-#### Implementation of
+#### Overrides
 
-AIProvider.close
+BaseAIProvider.close
 
 #### Defined in
 
-[openai/src/provider.ts:366](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/openai/src/provider.ts#L366)
+[openai/src/provider.ts:359](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/openai/src/provider.ts#L359)

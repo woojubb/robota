@@ -8,7 +8,7 @@
 
 # Interface: AssistantMessage
 
-Assistant message interface - for AI assistant responses
+Assistant message interface - for AI responses
 
 ## Hierarchy
 
@@ -24,7 +24,6 @@ Assistant message interface - for AI assistant responses
 - [metadata](AssistantMessage#metadata)
 - [role](AssistantMessage#role)
 - [content](AssistantMessage#content)
-- [functionCall](AssistantMessage#functioncall)
 - [toolCalls](AssistantMessage#toolcalls)
 
 ## Properties
@@ -41,7 +40,7 @@ Message creation timestamp
 
 #### Defined in
 
-[conversation-history.ts:17](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L17)
+[conversation-history.ts:17](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L17)
 
 ___
 
@@ -57,7 +56,7 @@ Additional metadata
 
 #### Defined in
 
-[conversation-history.ts:20](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L20)
+[conversation-history.ts:20](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L20)
 
 ___
 
@@ -69,7 +68,7 @@ Message role - always 'assistant'
 
 #### Defined in
 
-[conversation-history.ts:46](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L46)
+[conversation-history.ts:46](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L46)
 
 ___
 
@@ -81,19 +80,7 @@ Assistant response content (can be null when making tool calls)
 
 #### Defined in
 
-[conversation-history.ts:49](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L49)
-
-___
-
-### functionCall
-
-• `Optional` **functionCall**: `FunctionCall`
-
-Function call made by the assistant (if any) - legacy format
-
-#### Defined in
-
-[conversation-history.ts:52](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L52)
+[conversation-history.ts:49](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L49)
 
 ___
 
@@ -105,4 +92,4 @@ Tool calls made by the assistant (OpenAI tool calling format)
 
 #### Defined in
 
-[conversation-history.ts:55](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L55)
+[conversation-history.ts:52](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L52)

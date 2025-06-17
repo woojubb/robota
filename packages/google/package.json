@@ -1,6 +1,6 @@
 {
     "name": "@robota-sdk/google",
-    "version": "1.0.1",
+    "version": "1.0.3",
     "description": "Google AI integration for Robota SDK - Gemini Pro, Gemini Flash, function calling, and tool integration with Google's Generative AI",
     "type": "module",
     "main": "dist/index.js",

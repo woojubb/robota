@@ -20,6 +20,7 @@ Converts UniversalMessage to OpenAI Chat Completions API format
 
 ### Methods
 
+- [filterMessagesForOpenAI](OpenAIConversationAdapter#filtermessagesforopenai)
 - [toOpenAIFormat](OpenAIConversationAdapter#toopenaiformat)
 - [convertMessage](OpenAIConversationAdapter#convertmessage)
 - [addSystemPromptIfNeeded](OpenAIConversationAdapter#addsystempromptifneeded)
@@ -36,12 +37,39 @@ Converts UniversalMessage to OpenAI Chat Completions API format
 
 ## Methods
 
+### filterMessagesForOpenAI
+
+▸ **filterMessagesForOpenAI**(`messages`): `UniversalMessage`[]
+
+Filter messages for OpenAI compatibility
+
+OpenAI has specific requirements:
+- Tool messages must have valid toolCallId
+- Messages must be in proper sequence
+- Tool messages without toolCallId should be excluded
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `messages` | `UniversalMessage`[] |
+
+#### Returns
+
+`UniversalMessage`[]
+
+#### Defined in
+
+[openai/src/adapter.ts:18](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/openai/src/adapter.ts#L18)
+
+___
+
 ### toOpenAIFormat
 
 ▸ **toOpenAIFormat**(`messages`): `ChatCompletionMessageParam`[]
 
 Convert UniversalMessage array to OpenAI message format
-Filters out tool messages as they are for internal history management only
+Now properly handles tool messages for OpenAI's tool calling feature
 
 #### Parameters
 
@@ -55,7 +83,7 @@ Filters out tool messages as they are for internal history management only
 
 #### Defined in
 
-[openai/src/adapter.ts:14](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/openai/src/adapter.ts#L14)
+[openai/src/adapter.ts:42](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/openai/src/adapter.ts#L42)
 
 ___
 
@@ -64,7 +92,7 @@ ___
 ▸ **convertMessage**(`msg`): `ChatCompletionMessageParam`
 
 Convert a single UniversalMessage to OpenAI format
-Note: Tool messages should be filtered out before calling this method
+Handles all message types including tool messages
 
 #### Parameters
 
@@ -78,7 +106,7 @@ Note: Tool messages should be filtered out before calling this method
 
 #### Defined in
 
-[openai/src/adapter.ts:24](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/openai/src/adapter.ts#L24)
+[openai/src/adapter.ts:52](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/openai/src/adapter.ts#L52)
 
 ___
 
@@ -101,4 +129,4 @@ Add system prompt to message array if needed
 
 #### Defined in
 
-[openai/src/adapter.ts:103](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/openai/src/adapter.ts#L103)
+[openai/src/adapter.ts:121](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/openai/src/adapter.ts#L121)
