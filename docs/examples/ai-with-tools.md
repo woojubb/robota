@@ -1,420 +1,488 @@
 # AI with Tools
 
-This example demonstrates how to integrate AI with function tools, enabling the AI to perform specific actions and computations through tool calls.
+This guide demonstrates how to use Robota with tool calling capabilities, allowing AI agents to automatically call functions to retrieve information or perform actions.
 
 ## Overview
 
-The AI with tools example shows how to:
-- Create function tools with Zod schema validation
-- Set up tool providers with `createZodFunctionToolProvider`
-- Enable AI to automatically call tools when needed
-- Implement custom logging and debug modes
-- Handle complex multi-step tool operations
+The tool calling example shows how to:
+- Define tools using Zod schemas
+- Create AI agents that automatically call appropriate tools
+- Handle tool execution results
+- Process complex multi-tool interactions
 
-## Source Code
+## Code Example
 
-**Location**: `apps/examples/01-basic/02-ai-with-tools.ts`
+```typescript
+/**
+ * 02-tool-calling.ts
+ * 
+ * This example demonstrates tool calling functionality:
+ * - Define tools using Zod schemas
+ * - AI agent automatically calls appropriate tools
+ * - Handle tool execution results
+ */
+
+import { z } from 'zod';
+import { Robota } from '@robota-sdk/core';
+import { OpenAIProvider } from '@robota-sdk/openai';
+import { createZodFunctionToolProvider } from '@robota-sdk/tools';
+import OpenAI from 'openai';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+
+// Define tool functions using Zod schemas
+const tools = {
+    // Calculator tool
+    calculate: {
+        name: 'calculate',
+        description: 'Performs basic mathematical calculations (add, subtract, multiply, divide)',
+        parameters: z.object({
+            operation: z.enum(['add', 'subtract', 'multiply', 'divide']).describe('Mathematical operation to perform'),
+            a: z.number().describe('First number'),
+            b: z.number().describe('Second number')
+        }),
+        handler: async (params) => {
+            const { operation, a, b } = params;
+            console.log(`🧮 Calculating: ${a} ${operation} ${b}`);
+
+            let result: number;
+            switch (operation) {
+                case 'add':
+                    result = a + b;
+                    break;
+                case 'subtract':
+                    result = a - b;
+                    break;
+                case 'multiply':
+                    result = a * b;
+                    break;
+                case 'divide':
+                    if (b === 0) throw new Error('Division by zero is not allowed');
+                    result = a / b;
+                    break;
+                default:
+                    throw new Error(`Unknown operation: ${operation}`);
+            }
+
+            return { result, operation: `${a} ${operation} ${b} = ${result}` };
+        }
+    },
+
+    // Weather tool (mock data)
+    getWeather: {
+        name: 'getWeather',
+        description: 'Gets current weather information for a city',
+        parameters: z.object({
+            city: z.string().describe('City name to get weather for'),
+            unit: z.enum(['celsius', 'fahrenheit']).optional().default('celsius').describe('Temperature unit')
+        }),
+        handler: async (params) => {
+            const { city, unit } = params;
+            console.log(`🌤️ Getting weather for: ${city} (${unit})`);
+
+            // Mock weather data
+            const weatherData: Record<string, any> = {
+                'seoul': { temp: 22, condition: 'Clear', humidity: 65 },
+                'busan': { temp: 24, condition: 'Partly Cloudy', humidity: 70 },
+                'jeju': { temp: 26, condition: 'Cloudy', humidity: 75 },
+                'tokyo': { temp: 20, condition: 'Rainy', humidity: 80 },
+                'new york': { temp: 18, condition: 'Sunny', humidity: 55 }
+            };
+
+            const cityKey = city.toLowerCase();
+            const data = weatherData[cityKey] || { temp: 15, condition: 'Unknown', humidity: 60 };
+
+            const temperature = unit === 'fahrenheit'
+                ? Math.round(data.temp * 9 / 5 + 32)
+                : data.temp;
+
+            return {
+                city,
+                temperature,
+                unit: unit === 'celsius' ? '°C' : '°F',
+                condition: data.condition,
+                humidity: `${data.humidity}%`
+            };
+        }
+    },
+
+    // Time tool
+    getCurrentTime: {
+        name: 'getCurrentTime',
+        description: 'Gets the current date and time',
+        parameters: z.object({
+            timezone: z.string().optional().default('UTC').describe('Timezone (e.g., UTC, Asia/Seoul)')
+        }),
+        handler: async (params) => {
+            const { timezone } = params;
+            console.log(`🕐 Getting current time for timezone: ${timezone}`);
+
+            const now = new Date();
+            const timeString = timezone === 'UTC'
+                ? now.toISOString()
+                : now.toLocaleString('en-US', { timeZone: timezone });
+
+            return {
+                timezone,
+                currentTime: timeString,
+                timestamp: now.getTime()
+            };
+        }
+    }
+};
+
+async function main() {
+    try {
+        console.log('🛠️ Tool Calling Example Started...\n');
+
+        // Validate API key
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            throw new Error('OPENAI_API_KEY environment variable is required');
+        }
+
+        // Create OpenAI client and provider
+        const openaiClient = new OpenAI({ apiKey });
+        const openaiProvider = new OpenAIProvider({
+            client: openaiClient,
+            model: 'gpt-3.5-turbo'
+        });
+
+        // Create tool provider
+        const toolProvider = createZodFunctionToolProvider({ tools });
+
+        // Create Robota instance with tools
+        const robota = new Robota({
+            aiProviders: {
+                'openai': openaiProvider
+            },
+            currentProvider: 'openai',
+            currentModel: 'gpt-3.5-turbo',
+            toolProviders: [toolProvider],
+            systemPrompt: 'You are a helpful assistant that can perform calculations, check weather, and tell time. Use the available tools when needed.'
+        });
+
+        // Test queries that should trigger tool calls
+        const queries = [
+            'Hello! What can you help me with?',
+            'What is 15 multiplied by 8?',
+            'What\'s the weather like in Seoul?',
+            'Can you tell me the current time in UTC?',
+            'Calculate 100 divided by 4, and then tell me the weather in Tokyo in Fahrenheit'
+        ];
+
+        // Process each query
+        for (let i = 0; i < queries.length; i++) {
+            const query = queries[i];
+            console.log(`\n${i + 1}. User: ${query}`);
+
+            const response = await robota.run(query);
+            console.log(`   Assistant: ${response}`);
+
+            if (i < queries.length - 1) {
+                console.log('   ' + '─'.repeat(50));
+            }
+        }
+
+        console.log('\n✅ Tool Calling Example Completed!');
+
+        // Clean up resources and exit
+        await robota.close();
+        process.exit(0);
+    } catch (error) {
+        console.error('❌ Error occurred:', error);
+        process.exit(1);
+    }
+}
+
+// Execute
+main();
+```
+
+## Setup Requirements
+
+Before running this example, ensure you have:
+
+1. **Environment Variables**: Create a `.env` file with your API key:
+   ```
+   OPENAI_API_KEY=your_openai_api_key_here
+   ```
+
+2. **Dependencies**: Install required packages:
+   ```bash
+   npm install @robota-sdk/core @robota-sdk/openai @robota-sdk/tools openai zod dotenv
+   ```
 
 ## Key Concepts
 
 ### 1. Tool Definition with Zod
-```typescript
-import { z } from 'zod';
 
-const calculatorTool = {
-    name: 'calculate',
-    description: 'Performs mathematical calculations',
-    parameters: z.object({
-        operation: z.enum(['add', 'subtract', 'multiply', 'divide']).describe('Operation to perform'),
-        a: z.number().describe('First number'),
-        b: z.number().describe('Second number')
-    }),
-    handler: async (params) => {
-        const { operation, a, b } = params;
-        switch (operation) {
-            case 'add': return { result: a + b };
-            case 'subtract': return { result: a - b };
-            case 'multiply': return { result: a * b };
-            case 'divide': return b !== 0 ? { result: a / b } : { error: 'Cannot divide by zero' };
+Tools are defined using Zod schemas for type safety and automatic validation:
+
+```typescript
+const tools = {
+    calculate: {
+        name: 'calculate',
+        description: 'Performs basic mathematical calculations',
+        parameters: z.object({
+            operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
+            a: z.number().describe('First number'),
+            b: z.number().describe('Second number')
+        }),
+        handler: async (params) => {
+            // Tool implementation
+            return { result: /* calculation result */ };
         }
     }
 };
 ```
 
 ### 2. Tool Provider Creation
-```typescript
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
 
-const toolProvider = createZodFunctionToolProvider({
-    tools: {
-        calculate: calculatorTool
-    }
-});
+```typescript
+const toolProvider = createZodFunctionToolProvider({ tools });
 ```
 
-### 3. Custom Logger Setup
-```typescript
-import chalk from 'chalk';
-import type { Logger } from '@robota-sdk/core';
+The `createZodFunctionToolProvider` function creates a tool provider from your Zod-defined tools.
 
-const customLogger: Logger = {
-    info: (message: string, ...args: any[]) => console.log(chalk.blue('ℹ️'), message, ...args),
-    debug: (message: string, ...args: any[]) => console.log(chalk.gray('🐛'), message, ...args),
-    warn: (message: string, ...args: any[]) => console.warn(chalk.yellow('⚠️'), message, ...args),
-    error: (message: string, ...args: any[]) => console.error(chalk.red('❌'), message, ...args)
-};
-```
+### 3. Robota Configuration with Tools
 
-### 4. Robota with Tools Integration
 ```typescript
 const robota = new Robota({
-    aiProviders: {
-        'openai': openaiProvider
-    },
+    aiProviders: { openai: openaiProvider },
     currentProvider: 'openai',
     currentModel: 'gpt-3.5-turbo',
-    toolProviders: [toolProvider],
-    systemPrompt: 'You are a helpful AI assistant. When mathematical calculations are needed, you must use the calculate tool. Do not calculate directly.',
-    debug: true,
-    logger: customLogger
+    toolProviders: [toolProvider],  // Add tool providers here
+    systemPrompt: 'You are a helpful assistant with calculation, weather, and time tools.'
 });
+```
+
+### 4. Automatic Tool Calling
+
+When the AI determines a tool is needed, it automatically:
+1. Calls the appropriate tool with the correct parameters
+2. Receives the tool result
+3. Incorporates the result into its response
+
+```typescript
+// This query will automatically trigger the calculate tool
+const response = await robota.run('What is 15 multiplied by 8?');
+```
+
+### 5. Modern Tool Calling Format
+
+The system uses the modern `toolCalls` format (not legacy `functionCall`):
+
+```typescript
+// Assistant message with tool calls
+{
+    role: 'assistant',
+    content: 'I will calculate that for you.',
+    toolCalls: [{
+        id: 'call_123',
+        type: 'function',
+        function: {
+            name: 'calculate',
+            arguments: JSON.stringify({ operation: 'multiply', a: 15, b: 8 })
+        }
+    }]
+}
+
+// Tool result message
+{
+    role: 'tool',
+    content: JSON.stringify({ result: 120, operation: '15 multiply 8 = 120' }),
+    toolCallId: 'call_123'
+}
 ```
 
 ## Running the Example
 
-1. **Ensure setup is complete** (see [Setup Guide](./setup.md))
+```bash
+# Navigate to the examples directory
+cd apps/examples
 
-2. **Navigate to examples directory**:
-   ```bash
-   cd apps/examples
-   ```
-
-3. **Run the example**:
-   ```bash
-   # Using bun (recommended)
-   bun run 01-basic/02-ai-with-tools.ts
-   
-   # Using pnpm + tsx
-   pnpm tsx 01-basic/02-ai-with-tools.ts
-   ```
+# Run the tool calling example
+npx tsx 02-tool-calling.ts
+```
 
 ## Expected Output
 
 ```
-Tool Provider: [Object containing tool provider details]
-Tool Provider functions: [Array of function definitions]
-Functions count: 1
+🛠️ Tool Calling Example Started...
 
-===== Available Tools =====
-Registered tools: ['calculate']
-Tool schemas: [
-  {
-    "name": "calculate",
-    "description": "Performs mathematical calculations",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "operation": {
-          "type": "string",
-          "enum": ["add", "subtract", "multiply", "divide"]
-        },
-        "a": { "type": "number" },
-        "b": { "type": "number" }
-      }
-    }
-  }
-]
+1. User: Hello! What can you help me with?
+   Assistant: Hello! I'm a helpful assistant with several capabilities. I can help you with:
 
-===== General Conversation Example =====
-Response: Hello! I'm doing well, thank you for asking. However, I don't have access to current weather information...
+   🧮 **Calculations** - I can perform basic math operations (add, subtract, multiply, divide)
+   🌤️ **Weather Information** - I can check current weather conditions for different cities
+   🕐 **Time Information** - I can tell you the current time in different timezones
 
-===== Tool Usage Example =====
-🐛 Tool call requested: calculate
-🐛 Tool parameters: {"operation":"multiply","a":5,"b":7}
-[Tool Handler] Performing calculation: 5 multiply 7
-[Tool Handler] Calculation result: { result: 35 }
-ℹ️ Tool call completed: calculate
-Response: I used the calculation tool to multiply 5 and 7, and the result is 35.
+   Feel free to ask me anything like "What's 25 times 4?", "What's the weather in Seoul?", or "What time is it in UTC?"
 
-===== Complex Calculation Example =====
-🐛 Tool call requested: calculate
-🐛 Tool parameters: {"operation":"divide","a":100,"b":25}
-[Tool Handler] Performing calculation: 100 divide 25
-[Tool Handler] Calculation result: { result: 4 }
-🐛 Tool call requested: calculate
-🐛 Tool parameters: {"operation":"add","a":4,"b":3}
-[Tool Handler] Performing calculation: 4 add 3
-[Tool Handler] Calculation result: { result: 7 }
-ℹ️ Tool call completed: calculate
-Response: I'll help you with that calculation step by step:
-1. First, I divided 100 by 25, which equals 4
-2. Then, I added 3 to that result
-The final answer is 7.
+   ──────────────────────────────────────────────────
+
+2. User: What is 15 multiplied by 8?
+🧮 Calculating: 15 multiply 8
+   Assistant: 15 multiplied by 8 equals 120.
+
+   ──────────────────────────────────────────────────
+
+3. User: What's the weather like in Seoul?
+🌤️ Getting weather for: seoul (celsius)
+   Assistant: The current weather in Seoul is clear with a temperature of 22°C and humidity of 65%.
+
+   ──────────────────────────────────────────────────
+
+4. User: Can you tell me the current time in UTC?
+🕐 Getting current time for timezone: UTC
+   Assistant: The current time in UTC is 2024-01-15T14:30:25.123Z.
+
+   ──────────────────────────────────────────────────
+
+5. User: Calculate 100 divided by 4, and then tell me the weather in Tokyo in Fahrenheit
+🧮 Calculating: 100 divide 4
+🌤️ Getting weather for: tokyo (fahrenheit)
+   Assistant: I've completed both requests for you:
+
+   **Calculation**: 100 divided by 4 equals 25.
+
+   **Weather in Tokyo**: The current weather in Tokyo is rainy with a temperature of 68°F and humidity of 80%.
+
+✅ Tool Calling Example Completed!
 ```
 
-## Tool Development Patterns
+## Advanced Tool Patterns
 
-### 1. Simple Calculator Tool
+### Error Handling in Tools
+
 ```typescript
-const basicMathTool = {
-    name: 'math',
-    description: 'Performs basic mathematical operations',
-    parameters: z.object({
-        expression: z.string().describe('Mathematical expression to evaluate')
-    }),
-    handler: async ({ expression }) => {
-        try {
-            // Safe evaluation (implement proper parser in production)
-            const result = eval(expression);
-            return { result, expression };
-        } catch (error) {
-            return { error: 'Invalid mathematical expression' };
-        }
-    }
-};
-```
-
-### 2. Data Lookup Tool
-```typescript
-const weatherTool = {
-    name: 'getWeather',
-    description: 'Gets current weather information',
-    parameters: z.object({
-        city: z.string().describe('City name'),
-        units: z.enum(['metric', 'imperial']).optional().default('metric')
-    }),
-    handler: async ({ city, units }) => {
-        // In real implementation, call weather API
-        const mockData = {
-            temperature: units === 'metric' ? 22 : 72,
-            condition: 'sunny',
-            humidity: 65
-        };
-        return { city, ...mockData, units };
-    }
-};
-```
-
-### 3. Complex Processing Tool
-```typescript
-const dataProcessingTool = {
-    name: 'processData',
-    description: 'Processes and analyzes data arrays',
-    parameters: z.object({
-        data: z.array(z.number()).describe('Array of numbers to process'),
-        operation: z.enum(['sum', 'average', 'max', 'min']).describe('Operation to perform')
-    }),
-    handler: async ({ data, operation }) => {
-        switch (operation) {
-            case 'sum': return { result: data.reduce((a, b) => a + b, 0) };
-            case 'average': return { result: data.reduce((a, b) => a + b, 0) / data.length };
-            case 'max': return { result: Math.max(...data) };
-            case 'min': return { result: Math.min(...data) };
-        }
-    }
-};
-```
-
-## Advanced Features
-
-### 1. Tool Validation and Error Handling
-```typescript
-const robustTool = {
-    name: 'robustCalculation',
-    description: 'Calculation with comprehensive error handling',
-    parameters: z.object({
-        operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
-        a: z.number().min(-1000000).max(1000000),
-        b: z.number().min(-1000000).max(1000000)
-    }),
-    handler: async (params) => {
-        try {
-            // Input validation
-            if (!isFinite(params.a) || !isFinite(params.b)) {
-                return { error: 'Numbers must be finite' };
+const tools = {
+    riskyOperation: {
+        name: 'riskyOperation',
+        description: 'An operation that might fail',
+        parameters: z.object({
+            input: z.string()
+        }),
+        handler: async (params) => {
+            try {
+                // Risky operation
+                return { success: true, result: "Operation completed" };
+            } catch (error) {
+                // Return error information that the AI can use
+                return { 
+                    success: false, 
+                    error: error.message,
+                    suggestion: "Try with different parameters"
+                };
             }
-            
-            // Operation logic with error handling
-            const { operation, a, b } = params;
-            let result;
-            
-            switch (operation) {
-                case 'divide':
-                    if (b === 0) return { error: 'Division by zero' };
-                    result = a / b;
-                    break;
-                case 'add':
-                    result = a + b;
-                    break;
-                default:
-                    return { error: 'Unsupported operation' };
-            }
-            
-            // Result validation
-            if (!isFinite(result)) {
-                return { error: 'Result is not a finite number' };
-            }
-            
-            return { result, operation, inputs: { a, b } };
-        } catch (error) {
-            return { error: `Calculation failed: ${error.message}` };
         }
     }
 };
 ```
 
-### 2. Debugging and Monitoring
+### Async Tool Operations
+
 ```typescript
-const monitoredTool = {
-    name: 'monitoredOperation',
-    description: 'Tool with comprehensive monitoring',
-    parameters: z.object({
-        input: z.string()
-    }),
-    handler: async (params, context) => {
-        const startTime = Date.now();
-        
-        try {
-            console.log(`[${new Date().toISOString()}] Tool called with:`, params);
-            
-            // Simulate processing
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-            const result = { processed: params.input.toUpperCase() };
-            const duration = Date.now() - startTime;
-            
-            console.log(`[${new Date().toISOString()}] Tool completed in ${duration}ms:`, result);
-            
-            return result;
-        } catch (error) {
-            const duration = Date.now() - startTime;
-            console.error(`[${new Date().toISOString()}] Tool failed after ${duration}ms:`, error);
-            return { error: error.message };
+const tools = {
+    fetchData: {
+        name: 'fetchData',
+        description: 'Fetches data from an external API',
+        parameters: z.object({
+            url: z.string().url()
+        }),
+        handler: async (params) => {
+            // Async operation
+            const response = await fetch(params.url);
+            const data = await response.json();
+            return { data, status: response.status };
         }
     }
 };
 ```
 
-## Configuration Options
+### Complex Tool Interactions
 
-### Debug Mode Options
+Tools can be chained automatically by the AI:
+
 ```typescript
-const robota = new Robota({
-    // ... other config
-    debug: true,                    // Enable debug logging
-    logger: customLogger,           // Custom logger implementation
-    toolCallTimeout: 30000,         // Tool call timeout in ms
-    maxToolCalls: 10               // Maximum tool calls per conversation
-});
+// The AI might call multiple tools in sequence:
+// 1. getCurrentTime to get current time
+// 2. calculate to determine time difference
+// 3. getWeather to check conditions
+const response = await robota.run(
+    'What time is it in Seoul, and how many hours ahead is that from UTC? Also check the weather there.'
+);
 ```
 
-### Tool Provider Options
-```typescript
-const toolProvider = createZodFunctionToolProvider({
-    tools: toolsMap,
-    timeout: 30000,                 // Default tool timeout
-    retries: 3,                     // Retry attempts for failed tools
-    validateInputs: true,           // Enable input validation
-    validateOutputs: false          // Enable output validation
-});
-```
+## Provider Compatibility
+
+All AI providers now support tool calling through the unified `BaseAIProvider` architecture:
+
+- **OpenAI**: Uses `tool_calls` format
+- **Anthropic**: Uses `tool_use` format (automatically converted)
+- **Google AI**: Uses `functionDeclarations` format (automatically converted)
+
+The tool calling interface remains consistent regardless of the underlying provider.
 
 ## Best Practices
 
-### 1. Tool Design
-- **Keep tools focused**: Each tool should have a single, clear purpose
-- **Use descriptive names**: Tool and parameter names should be self-explanatory
-- **Provide good descriptions**: Help the AI understand when and how to use tools
-- **Validate inputs**: Use Zod schemas for type safety and validation
+### 1. Clear Tool Descriptions
 
-### 2. Error Handling
 ```typescript
-const handler = async (params) => {
+const tools = {
+    searchWeb: {
+        name: 'searchWeb',
+        description: 'Searches the web for current information about a specific topic. Use this when you need up-to-date information that you might not have in your training data.',
+        parameters: z.object({
+            query: z.string().describe('Search query - be specific and include relevant keywords')
+        }),
+        handler: async (params) => {
+            // Implementation
+        }
+    }
+};
+```
+
+### 2. Parameter Validation
+
+Zod automatically validates parameters, but you can add custom validation:
+
+```typescript
+handler: async (params) => {
+    const { email } = params;
+    
+    // Additional validation
+    if (!email.includes('@')) {
+        throw new Error('Invalid email format');
+    }
+    
+    // Process...
+}
+```
+
+### 3. Error Recovery
+
+```typescript
+handler: async (params) => {
     try {
-        // Tool logic
-        return { result: processedData };
+        return await actualOperation(params);
     } catch (error) {
-        // Return error in a structured format
-        return { 
+        // Return helpful error information
+        return {
+            success: false,
             error: error.message,
-            code: error.code || 'UNKNOWN_ERROR',
-            recoverable: true 
+            retryable: error.code === 'TIMEOUT',
+            suggestion: 'Try again in a few moments'
         };
     }
-};
-```
-
-### 3. Performance Optimization
-```typescript
-// Use timeouts for long-running operations
-const handler = async (params) => {
-    return Promise.race([
-        actualOperation(params),
-        new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Operation timeout')), 10000)
-        )
-    ]);
-};
-```
-
-## Common Patterns
-
-### Tool Chaining
-AI can automatically chain tool calls for complex operations:
-```
-User: "Calculate 15 * 3, then add 20 to the result"
-AI: 
-1. Calls calculate(multiply, 15, 3) → 45
-2. Calls calculate(add, 45, 20) → 65
-Response: "The result is 65"
-```
-
-### Conditional Tool Usage
-```typescript
-const conditionalTool = {
-    name: 'smartCalculation',
-    parameters: z.object({
-        numbers: z.array(z.number()),
-        operation: z.string()
-    }),
-    handler: async ({ numbers, operation }) => {
-        if (numbers.length === 0) {
-            return { error: 'No numbers provided' };
-        }
-        
-        switch (operation.toLowerCase()) {
-            case 'sum':
-                return { result: numbers.reduce((a, b) => a + b, 0) };
-            case 'product':
-                return { result: numbers.reduce((a, b) => a * b, 1) };
-            default:
-                return { error: 'Unsupported operation', supportedOps: ['sum', 'product'] };
-        }
-    }
-};
+}
 ```
 
 ## Next Steps
 
-After mastering AI with tools, explore:
-
-1. [**Zod Function Tools**](./zod-function-tools.md) - Advanced function tool patterns
-2. [**Custom Function Providers**](./custom-function-providers.md) - Building custom providers
-3. [**Multi-Provider Setup**](./multi-provider.md) - Using tools with multiple AI providers
-
-## Troubleshooting
-
-### Tool Not Found
-- Verify tool is properly registered in the tool provider
-- Check tool name matches exactly (case-sensitive)
-- Ensure `getAvailableTools()` returns your tool
-
-### Tool Call Failures
-- Enable debug mode to see tool call details
-- Check parameter validation with Zod schemas
-- Verify tool handler returns proper format
-
-### Performance Issues
-- Implement tool timeouts
-- Monitor tool execution time
-- Consider async operations for I/O bound tools 
+- Try [Multi-Provider](./multi-provider.md) setup with tools across different AI services
+- Explore [Advanced Features](./session-management.md) like analytics and limits with tool calling
+- Learn about [MCP Integration](./mcp-integration.md) for external tool providers 

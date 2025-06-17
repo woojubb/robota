@@ -58,7 +58,7 @@ Provider identifier name
 
 #### Defined in
 
-[providers/base-ai-provider.ts:21](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/providers/base-ai-provider.ts#L21)
+[providers/base-ai-provider.ts:21](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/providers/base-ai-provider.ts#L21)
 
 ___
 
@@ -70,7 +70,7 @@ Provider configuration options
 
 #### Defined in
 
-[providers/base-ai-provider.ts:26](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/providers/base-ai-provider.ts#L26)
+[providers/base-ai-provider.ts:26](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/providers/base-ai-provider.ts#L26)
 
 ## Methods
 
@@ -98,7 +98,7 @@ Send a chat request and receive a complete response
 
 #### Defined in
 
-[providers/base-ai-provider.ts:31](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/providers/base-ai-provider.ts#L31)
+[providers/base-ai-provider.ts:31](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/providers/base-ai-provider.ts#L31)
 
 ___
 
@@ -126,7 +126,7 @@ Send a streaming chat request and receive response chunks
 
 #### Defined in
 
-[providers/base-ai-provider.ts:36](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/providers/base-ai-provider.ts#L36)
+[providers/base-ai-provider.ts:36](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/providers/base-ai-provider.ts#L36)
 
 ___
 
@@ -146,4 +146,4 @@ Close the provider and clean up resources
 
 #### Defined in
 
-[providers/base-ai-provider.ts:41](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/providers/base-ai-provider.ts#L41)
+[providers/base-ai-provider.ts:41](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/providers/base-ai-provider.ts#L41)

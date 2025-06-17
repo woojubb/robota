@@ -74,6 +74,9 @@ const robota = new Robota({
 // Run a simple conversation
 const response = await robota.run('Tell me about the benefits of AI assistants');
 console.log(response);
+
+// Clean up resources
+await robota.close();
 ```
 
 ## Streaming Responses

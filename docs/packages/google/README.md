@@ -72,6 +72,9 @@ const robota = new Robota({
 
 const response = await robota.run('Hello, how are you?');
 console.log(response);
+
+// Clean up resources
+await robota.close();
 ```
 
 ## Streaming Responses

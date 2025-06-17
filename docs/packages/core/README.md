@@ -126,6 +126,9 @@ for await (const chunk of stream) {
 // Analytics and monitoring
 console.log('Analytics:', robota.getAnalytics());
 console.log('Limit Info:', robota.getLimitInfo());
+
+// Clean up resources
+await robota.close();
 ```
 
 ## Manager APIs

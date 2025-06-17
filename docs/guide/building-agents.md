@@ -13,8 +13,8 @@ Agents are one of the core features of the Robota library, enabling AI models to
 The most basic agent can be created as follows:
 
 ```typescript
-import { Robota, RobotaTeam } from '@robota-sdk/core';
-import { OpenAIProvider } from '@robota-sdk/provider-openai';
+import { Robota } from '@robota-sdk/core';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 
 // OpenAI client creation
@@ -24,15 +24,17 @@ const openaiClient = new OpenAI({
 
 // Default provider setup
 const provider = new OpenAIProvider({
-  model: 'gpt-4-turbo',
-  client: openaiClient
+  client: openaiClient,
+  model: 'gpt-4'
 });
 
 // Agent creation
 const agent = new Robota({
-  name: 'Helper Agent',
-  description: 'Helper agent that answers user questions',
-  provider: provider,
+  aiProviders: {
+    openai: provider
+  },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
   systemPrompt: 'You are a helpful AI assistant. Please answer user questions accurately and concisely.'
 });
 
@@ -46,9 +48,9 @@ console.log(result);
 Agents can be enhanced with tools to interact with external systems:
 
 ```typescript
-import { Robota, RobotaTeam } from '@robota-sdk/core';
-import { Tool } from '@robota-sdk/tools';
-import { OpenAIProvider } from '@robota-sdk/provider-openai';
+import { Robota } from '@robota-sdk/core';
+import { createZodFunctionToolProvider } from '@robota-sdk/tools';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import { z } from 'zod';
 import OpenAI from 'openai';
 
@@ -57,51 +59,55 @@ const openaiClient = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// Weather search tool creation
-const weatherTool = new Tool({
-  name: 'getWeather',
-  description: 'Get current weather information for a specific location',
-  parameters: z.object({
-    location: z.string().describe('City name to check weather for'),
-    unit: z.enum(['celsius', 'fahrenheit']).optional().describe('Temperature unit')
-  }),
-  execute: async ({ location, unit = 'celsius' }) => {
-    console.log(`Checking weather for ${location} in ${unit} units...`);
-    // Actual implementation would call the weather API here
-    return { 
-      temperature: 22, 
-      condition: 'Clear', 
-      humidity: 65,
-      unit
-    };
-  }
-});
-
-// Time lookup tool creation
-const timeTool = new Tool({
-  name: 'getCurrentTime',
-  description: 'Get current time for a specific timezone',
-  parameters: z.object({
-    timezone: z.string().default('Asia/Seoul').describe('Timezone (e.g., "Asia/Seoul", "America/New_York")')
-  }),
-  execute: async ({ timezone }) => {
-    console.log(`Checking current time for ${timezone}...`);
-    return {
-      time: new Date().toLocaleString('en-US', { timeZone: timezone }),
-      timezone
-    };
+// Create tool provider with weather and time tools
+const toolProvider = createZodFunctionToolProvider({
+  tools: {
+    getWeather: {
+      name: 'getWeather',
+      description: 'Get current weather information for a specific location',
+      parameters: z.object({
+        location: z.string().describe('City name to check weather for'),
+        unit: z.enum(['celsius', 'fahrenheit']).optional().describe('Temperature unit')
+      }),
+      handler: async ({ location, unit = 'celsius' }) => {
+        console.log(`Checking weather for ${location} in ${unit} units...`);
+        // Actual implementation would call the weather API here
+        return { 
+          temperature: 22, 
+          condition: 'Clear', 
+          humidity: 65,
+          unit
+        };
+      }
+    },
+    getCurrentTime: {
+      name: 'getCurrentTime',
+      description: 'Get current time for a specific timezone',
+      parameters: z.object({
+        timezone: z.string().default('Asia/Seoul').describe('Timezone (e.g., "Asia/Seoul", "America/New_York")')
+      }),
+      handler: async ({ timezone }) => {
+        console.log(`Checking current time for ${timezone}...`);
+        return {
+          time: new Date().toLocaleString('en-US', { timeZone: timezone }),
+          timezone
+        };
+      }
+    }
   }
 });
 
 // Agent creation
 const agent = new Robota({
-  name: 'Information Helper',
-  description: 'Helper agent that provides weather and time information',
-  provider: new OpenAIProvider({
-    model: 'gpt-4-turbo',
-    client: openaiClient
-  }),
-  tools: [weatherTool, timeTool],
+  aiProviders: {
+    openai: new OpenAIProvider({
+      client: openaiClient,
+      model: 'gpt-4'
+    })
+  },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
+  toolProviders: [toolProvider],
   systemPrompt: `You are an information helper agent. 
 Use tools to provide accurate weather and time information.
 When users request information, always fetch the latest data.`
@@ -117,25 +123,26 @@ console.log(result);
 Agents can store conversation history and reference previous conversations:
 
 ```typescript
-import { Robota, RobotaTeam } from '@robota-sdk/core';
-import { ConversationMemory } from '@robota-sdk/memory';
-import { OpenAIProvider } from '@robota-sdk/provider-openai';
+import { Robota, SimpleConversationHistory } from '@robota-sdk/core';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 
-// Memory creation
-const memory = new ConversationMemory({
+// Conversation history with memory limit
+const conversationHistory = new SimpleConversationHistory({
   maxMessages: 10 // Maximum number of messages to store
 });
 
 // Agent creation
 const agent = new Robota({
-  name: 'Conversational Agent',
-  description: 'Agent that can remember and reference conversations',
-  provider: new OpenAIProvider({
-    model: 'gpt-4-turbo',
-    client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  }),
-  memory,
+  aiProviders: {
+    openai: new OpenAIProvider({
+      client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+      model: 'gpt-4'
+    })
+  },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
+  conversationHistory,
   systemPrompt: `You are a friendly conversational agent.
 Remember and reference previous conversations to maintain natural dialogue flow.
 Remember user preferences and interests to provide personalized responses.`
@@ -153,62 +160,66 @@ console.log(result); // "Your name is John Smith. You mentioned that you're inte
 Agents that plan and execute complex tasks step-by-step:
 
 ```typescript
-import { Robota, PlanningRobota } from '@robota-sdk/core';
-import { Tool } from '@robota-sdk/tools';
-import { OpenAIProvider } from '@robota-sdk/provider-openai';
+import { Robota } from '@robota-sdk/core';
+import { createZodFunctionToolProvider } from '@robota-sdk/tools';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import { z } from 'zod';
 import OpenAI from 'openai';
 
-// Tool definition (example for search, summarization, translation tools)
-const searchTool = new Tool({
-  name: 'searchWeb',
-  description: 'Search for information on the web',
-  parameters: z.object({
-    query: z.string().describe('Search query')
-  }),
-  execute: async ({ query }) => {
-    console.log(`Searching: ${query}`);
-    // Search logic implementation
-    return { results: [`Search result 1 for ${query}`, `Search result 2 for ${query}`] };
-  }
-});
-
-const summarizeTool = new Tool({
-  name: 'summarizeText',
-  description: 'Summarize long text',
-  parameters: z.object({
-    text: z.string().describe('Text to summarize')
-  }),
-  execute: async ({ text }) => {
-    console.log(`Summarizing text...`);
-    // Summarization logic implementation
-    return { summary: `${text.substring(0, 50)}... (summarized)` };
-  }
-});
-
-const translateTool = new Tool({
-  name: 'translateText',
-  description: 'Translate text to another language',
-  parameters: z.object({
-    text: z.string().describe('Text to translate'),
-    targetLanguage: z.string().describe('Target language (e.g., "ko", "en", "ja")')
-  }),
-  execute: async ({ text, targetLanguage }) => {
-    console.log(`Translating to: ${targetLanguage}`);
-    // Translation logic implementation
-    return { translatedText: `${text} (translated to ${targetLanguage})` };
+// Create tool provider with planning tools
+const planningToolProvider = createZodFunctionToolProvider({
+  tools: {
+    searchWeb: {
+      name: 'searchWeb',
+      description: 'Search for information on the web',
+      parameters: z.object({
+        query: z.string().describe('Search query')
+      }),
+      handler: async ({ query }) => {
+        console.log(`Searching: ${query}`);
+        // Search logic implementation
+        return { results: [`Search result 1 for ${query}`, `Search result 2 for ${query}`] };
+      }
+    },
+    summarizeText: {
+      name: 'summarizeText',
+      description: 'Summarize long text',
+      parameters: z.object({
+        text: z.string().describe('Text to summarize')
+      }),
+      handler: async ({ text }) => {
+        console.log(`Summarizing text...`);
+        // Summarization logic implementation
+        return { summary: `${text.substring(0, 50)}... (summarized)` };
+      }
+    },
+    translateText: {
+      name: 'translateText',
+      description: 'Translate text to another language',
+      parameters: z.object({
+        text: z.string().describe('Text to translate'),
+        targetLanguage: z.string().describe('Target language (e.g., "ko", "en", "ja")')
+      }),
+      handler: async ({ text, targetLanguage }) => {
+        console.log(`Translating to: ${targetLanguage}`);
+        // Translation logic implementation
+        return { translatedText: `${text} (translated to ${targetLanguage})` };
+      }
+    }
   }
 });
 
 // Planning agent creation
-const planningAgent = new PlanningRobota({
-  name: 'Research Agent',
-  description: 'An agent that searches, summarizes, and translates information',
-  provider: new OpenAIProvider({
-    model: 'gpt-4-turbo',
-    client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  }),
-  tools: [searchTool, summarizeTool, translateTool],
+const planningAgent = new Robota({
+  aiProviders: {
+    openai: new OpenAIProvider({
+      client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+      model: 'gpt-4'
+    })
+  },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
+  toolProviders: [planningToolProvider],
   systemPrompt: `You are an information research agent.
 Please handle user research requests following these steps:
 1. Search for information using appropriate search terms.
@@ -227,8 +238,8 @@ console.log(result);
 Multiple agents collaborate to perform complex tasks:
 
 ```typescript
-import { Robota, RobotaTeam } from '@robota-sdk/core';
-import { OpenAIProvider } from '@robota-sdk/provider-openai';
+import { Robota } from '@robota-sdk/core';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 
 // OpenAI client
@@ -236,65 +247,58 @@ const openaiClient = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
+// Create shared provider
+const openaiProvider = new OpenAIProvider({
+  client: openaiClient,
+  model: 'gpt-4'
+});
+
 // Researcher agent
 const researcherAgent = new Robota({
-  name: 'Researcher',
-  description: 'An agent that searches and collects information',
-  provider: new OpenAIProvider({
-    model: 'gpt-4-turbo',
-    client: openaiClient
-  }),
+  aiProviders: { openai: openaiProvider },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
   systemPrompt: 'You are an information gathering specialist. Collect facts and data about the topic.'
 });
 
 // Writer agent
 const writerAgent = new Robota({
-  name: 'Writer',
-  description: 'An agent that writes content based on collected information',
-  provider: new OpenAIProvider({
-    model: 'gpt-4-turbo',
-    client: openaiClient
-  }),
+  aiProviders: { openai: openaiProvider },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
   systemPrompt: 'You are a writing expert. Create clear and engaging text based on provided information.'
 });
 
 // Editor agent
 const editorAgent = new Robota({
-  name: 'Editor',
-  description: 'An agent that proofreads and improves written content',
-  provider: new OpenAIProvider({
-    model: 'gpt-4-turbo', 
-    client: openaiClient
-  }),
+  aiProviders: { openai: openaiProvider },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
   systemPrompt: 'You are an editing expert. Review and improve text for grammar, clarity, and consistency.'
 });
 
-// Agent team configuration
-const contentTeam = new RobotaTeam({
-  name: 'Content Creation Team',
-  agents: [researcherAgent, writerAgent, editorAgent],
-  workflow: async (team, task) => {
-    // 1. Researcher collects information
-    const researchResult = await team.agents.researcher.run(
-      `Collect information about the following topic: ${task}`
-    );
-    
-    // 2. Writer writes a draft
-    const draftResult = await team.agents.writer.run(
-      `Write content based on the following information: ${researchResult}`
-    );
-    
-    // 3. Editor finalizes
-    const editedResult = await team.agents.editor.run(
-      `Proofread and improve the following content: ${draftResult}`
-    );
-    
-    return editedResult;
-  }
-});
+// Multi-agent workflow function
+async function runContentCreationWorkflow(topic: string) {
+  // 1. Researcher collects information
+  const researchResult = await researcherAgent.run(
+    `Collect information about the following topic: ${topic}`
+  );
+  
+  // 2. Writer writes a draft
+  const draftResult = await writerAgent.run(
+    `Write content based on the following information: ${researchResult}`
+  );
+  
+  // 3. Editor finalizes
+  const editedResult = await editorAgent.run(
+    `Proofread and improve the following content: ${draftResult}`
+  );
+  
+  return editedResult;
+}
 
 // Team execution
-const result = await contentTeam.run('The future of artificial intelligence and its social impact');
+const result = await runContentCreationWorkflow('The future of artificial intelligence and its social impact');
 console.log(result);
 ```
 
@@ -305,42 +309,46 @@ console.log(result);
 ReAct pattern-based agents alternate between reasoning and action:
 
 ```typescript
-import { Robota, ReActRobota } from '@robota-sdk/core';
-import { Tool } from '@robota-sdk/tools';
-import { OpenAIProvider } from '@robota-sdk/provider-openai';
+import { Robota } from '@robota-sdk/core';
+import { createZodFunctionToolProvider } from '@robota-sdk/tools';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import { z } from 'zod';
 import OpenAI from 'openai';
 
-// Calculator tool
-const calculatorTool = new Tool({
-  name: 'calculator',
-  description: 'Performs mathematical calculations',
-  parameters: z.object({
-    expression: z.string().describe('Mathematical expression to calculate')
-  }),
-  execute: async ({ expression }) => {
-    return { result: eval(expression) };
+// Create calculator tool provider
+const calculatorToolProvider = createZodFunctionToolProvider({
+  tools: {
+    calculator: {
+      name: 'calculator',
+      description: 'Performs mathematical calculations',
+      parameters: z.object({
+        expression: z.string().describe('Mathematical expression to calculate')
+      }),
+      handler: async ({ expression }) => {
+        return { result: eval(expression) };
+      }
+    }
   }
 });
 
-// ReAct agent creation
-const reactAgent = new ReActRobota({
-  name: 'Math Helper',
-  description: 'An agent that solves and explains mathematical problems',
-  provider: new OpenAIProvider({
-    model: 'gpt-4-turbo',
-    client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  }),
-  tools: [calculatorTool],
+// ReAct-style agent creation
+const reactAgent = new Robota({
+  aiProviders: {
+    openai: new OpenAIProvider({
+      client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+      model: 'gpt-4'
+    })
+  },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
+  toolProviders: [calculatorToolProvider],
   systemPrompt: `You are an agent that solves mathematical problems.
 Follow these steps to solve problems:
 1. Analyze the problem. (Reasoning)
 2. Use necessary calculation tools. (Action)
 3. Interpret the results. (Reasoning)
 4. Provide the final answer.
-Clearly explain your thoughts and decisions at each step.`,
-  maxIterations: 5,
-  chainOfThought: true
+Clearly explain your thoughts and decisions at each step.`
 });
 
 // ReAct agent execution

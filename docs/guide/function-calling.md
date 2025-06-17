@@ -22,7 +22,8 @@ Robota's function calling system consists of:
 Here's how to set up basic function calling with Zod-based tools:
 
 ```typescript
-import { Robota, OpenAIProvider } from '@robota-sdk/core';
+import { Robota } from '@robota-sdk/core';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import { createZodFunctionToolProvider } from '@robota-sdk/tools';
 import OpenAI from 'openai';
 import { z } from 'zod';
@@ -37,7 +38,10 @@ async function main() {
     });
 
     // Create OpenAI Provider
-    const openaiProvider = new OpenAIProvider(openaiClient);
+    const openaiProvider = new OpenAIProvider({
+        client: openaiClient,
+        model: 'gpt-4'
+    });
 
     // Define calculator tool
     const calculatorTool = {
@@ -78,7 +82,7 @@ async function main() {
             'openai': openaiProvider
         },
         currentProvider: 'openai',
-        currentModel: 'gpt-3.5-turbo',
+        currentModel: 'gpt-4',
         toolProviders: [toolProvider],
         systemPrompt: 'You are a helpful AI assistant. Use the calculate tool for mathematical operations.',
         debug: true  // Enable tool call logging
@@ -87,6 +91,9 @@ async function main() {
     // AI will automatically use the calculator tool
     const response = await robota.run('Please calculate 15 multiplied by 7 using the calculator tool.');
     console.log('Response:', response);
+    
+    // Clean up resources
+    await robota.close();
 }
 
 main().catch(console.error);
@@ -221,7 +228,7 @@ const multiToolProvider = createZodFunctionToolProvider({ tools });
 const robota = new Robota({
     aiProviders: { 'openai': openaiProvider },
     currentProvider: 'openai',
-    currentModel: 'gpt-3.5-turbo',
+    currentModel: 'gpt-4',
     toolProviders: [multiToolProvider],
     systemPrompt: 'You are a helpful assistant with access to calculator, weather, and time tools.'
 });
@@ -334,7 +341,7 @@ Enable debugging to see tool execution details:
 const robota = new Robota({
     aiProviders: { 'openai': openaiProvider },
     currentProvider: 'openai',
-    currentModel: 'gpt-3.5-turbo',
+    currentModel: 'gpt-4',
     toolProviders: [toolProvider],
     debug: true,  // Enable debugging
     logger: {
