@@ -44,7 +44,7 @@ Handles conversation processing with AI.
 
 #### Defined in
 
-[services/conversation-service.ts:19](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/services/conversation-service.ts#L19)
+[services/conversation-service.ts:19](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/services/conversation-service.ts#L19)
 
 ## Methods
 
@@ -69,13 +69,13 @@ Prepare context
 
 #### Defined in
 
-[services/conversation-service.ts:39](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/services/conversation-service.ts#L39)
+[services/conversation-service.ts:39](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/services/conversation-service.ts#L39)
 
 ___
 
 ### generateResponse
 
-▸ **generateResponse**(`aiProvider`, `model`, `context`, `options?`, `availableTools?`, `onToolCall?`): `Promise`\<[`ModelResponse`](../interfaces/ModelResponse)\>
+▸ **generateResponse**(`aiProvider`, `model`, `context`, `options?`, `availableTools?`, `onToolCall?`, `conversationHistory?`): `Promise`\<[`ModelResponse`](../interfaces/ModelResponse)\>
 
 Generate response
 
@@ -89,6 +89,7 @@ Generate response
 | `options` | [`RunOptions`](../interfaces/RunOptions) | `{}` | Run options |
 | `availableTools` | `any`[] | `[]` | Available tools |
 | `onToolCall?` | (`toolName`: `string`, `params`: `any`) => `Promise`\<`any`\> | `undefined` | Tool call function |
+| `conversationHistory?` | [`ConversationHistory`](../interfaces/ConversationHistory) | `undefined` | Conversation history to store messages sequentially |
 
 #### Returns
 
@@ -96,7 +97,7 @@ Generate response
 
 #### Defined in
 
-[services/conversation-service.ts:75](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/services/conversation-service.ts#L75)
+[services/conversation-service.ts:76](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/services/conversation-service.ts#L76)
 
 ___
 
@@ -122,4 +123,4 @@ Generate streaming response
 
 #### Defined in
 
-[services/conversation-service.ts:240](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/services/conversation-service.ts#L240)
+[services/conversation-service.ts:312](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/services/conversation-service.ts#L312)

@@ -27,7 +27,7 @@ Conversation context interface
 
 #### Defined in
 
-[interfaces/ai-provider.ts:47](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/interfaces/ai-provider.ts#L47)
+[interfaces/ai-provider.ts:92](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/interfaces/ai-provider.ts#L92)
 
 ___
 
@@ -37,7 +37,7 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:48](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/interfaces/ai-provider.ts#L48)
+[interfaces/ai-provider.ts:93](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/interfaces/ai-provider.ts#L93)
 
 ___
 
@@ -47,7 +47,7 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:49](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/interfaces/ai-provider.ts#L49)
+[interfaces/ai-provider.ts:94](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/interfaces/ai-provider.ts#L94)
 
 ___
 
@@ -57,4 +57,4 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:50](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/interfaces/ai-provider.ts#L50)
+[interfaces/ai-provider.ts:95](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/interfaces/ai-provider.ts#L95)

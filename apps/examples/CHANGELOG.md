@@ -1,12 +1,19 @@
-# robota-services
+# robota-examples
 
-## 0.1.6
+## 0.1.24
 
 ### Patch Changes
 
 - Complete examples restructure and enhanced provider architecture
+- Updated dependencies
+  - @robota-sdk/anthropic@1.0.3
+  - @robota-sdk/sessions@1.0.3
+  - @robota-sdk/google@1.0.3
+  - @robota-sdk/openai@1.0.3
+  - @robota-sdk/tools@1.0.3
+  - @robota-sdk/core@1.0.3
 
-## 0.1.5
+## 0.1.23
 
 ### Patch Changes
 
@@ -20,26 +27,10 @@
   - Removed duplicate and redundant example files
   - Added .env.example file for easier setup
 
-## 0.1.4
-
-### Patch Changes
-
-- Fix facade pattern tests and conversation history message limits
-
-## 0.1.3
-
-### Patch Changes
-
-- Update publishing docs with proper deployment guidelines
-
-## 0.1.2
-
-### Patch Changes
-
-- Fix workspace dependencies & update README docs for all packages
-
-## 0.1.1
-
-### Patch Changes
-
-- f77f18e: Add sessions package for multi-session & chat management in workspaces
+- Updated dependencies
+  - @robota-sdk/anthropic@1.0.2
+  - @robota-sdk/sessions@1.0.2
+  - @robota-sdk/google@1.0.2
+  - @robota-sdk/openai@1.0.2
+  - @robota-sdk/core@1.0.2
+  - @robota-sdk/tools@1.0.2

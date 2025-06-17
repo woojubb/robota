@@ -34,7 +34,7 @@ The system prompt is automatically maintained and can be updated dynamically.
 - [addUserMessage](PersistentSystemConversationHistory#addusermessage)
 - [addAssistantMessage](PersistentSystemConversationHistory#addassistantmessage)
 - [addSystemMessage](PersistentSystemConversationHistory#addsystemmessage)
-- [addToolMessage](PersistentSystemConversationHistory#addtoolmessage)
+- [addToolMessageWithId](PersistentSystemConversationHistory#addtoolmessagewithid)
 - [getMessagesByRole](PersistentSystemConversationHistory#getmessagesbyrole)
 - [getRecentMessages](PersistentSystemConversationHistory#getrecentmessages)
 - [addMessage](PersistentSystemConversationHistory#addmessage)
@@ -70,7 +70,7 @@ BaseConversationHistory.constructor
 
 #### Defined in
 
-[conversation-history.ts:535](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L535)
+[conversation-history.ts:542](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L542)
 
 ## Methods
 
@@ -95,20 +95,20 @@ BaseConversationHistory.addUserMessage
 
 #### Defined in
 
-[conversation-history.ts:372](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L372)
+[conversation-history.ts:375](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L375)
 
 ___
 
 ### addAssistantMessage
 
-▸ **addAssistantMessage**(`content`, `functionCall?`, `metadata?`): `void`
+▸ **addAssistantMessage**(`content`, `toolCalls?`, `metadata?`): `void`
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
 | `content` | `string` |
-| `functionCall?` | `FunctionCall` |
+| `toolCalls?` | \{ `id`: `string` ; `type`: ``"function"`` ; `function`: \{ `name`: `string` ; `arguments`: `string`  }  }[] |
 | `metadata?` | `Record`\<`string`, `any`\> |
 
 #### Returns
@@ -121,7 +121,7 @@ BaseConversationHistory.addAssistantMessage
 
 #### Defined in
 
-[conversation-history.ts:377](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L377)
+[conversation-history.ts:380](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L380)
 
 ___
 
@@ -146,19 +146,21 @@ BaseConversationHistory.addSystemMessage
 
 #### Defined in
 
-[conversation-history.ts:382](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L382)
+[conversation-history.ts:396](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L396)
 
 ___
 
-### addToolMessage
+### addToolMessageWithId
 
-▸ **addToolMessage**(`toolResult`, `metadata?`): `void`
+▸ **addToolMessageWithId**(`content`, `toolCallId`, `toolName`, `metadata?`): `void`
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `toolResult` | `FunctionCallResult` |
+| `content` | `string` |
+| `toolCallId` | `string` |
+| `toolName` | `string` |
 | `metadata?` | `Record`\<`string`, `any`\> |
 
 #### Returns
@@ -167,11 +169,11 @@ ___
 
 #### Inherited from
 
-BaseConversationHistory.addToolMessage
+BaseConversationHistory.addToolMessageWithId
 
 #### Defined in
 
-[conversation-history.ts:387](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L387)
+[conversation-history.ts:401](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L401)
 
 ___
 
@@ -195,7 +197,7 @@ BaseConversationHistory.getMessagesByRole
 
 #### Defined in
 
-[conversation-history.ts:403](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L403)
+[conversation-history.ts:410](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L410)
 
 ___
 
@@ -219,7 +221,7 @@ BaseConversationHistory.getRecentMessages
 
 #### Defined in
 
-[conversation-history.ts:407](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L407)
+[conversation-history.ts:414](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L414)
 
 ___
 
@@ -245,7 +247,7 @@ BaseConversationHistory.addMessage
 
 #### Defined in
 
-[conversation-history.ts:549](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L549)
+[conversation-history.ts:556](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L556)
 
 ___
 
@@ -267,7 +269,7 @@ BaseConversationHistory.getMessages
 
 #### Defined in
 
-[conversation-history.ts:558](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L558)
+[conversation-history.ts:565](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L565)
 
 ___
 
@@ -289,7 +291,7 @@ BaseConversationHistory.getMessageCount
 
 #### Defined in
 
-[conversation-history.ts:567](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L567)
+[conversation-history.ts:574](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L574)
 
 ___
 
@@ -311,7 +313,7 @@ BaseConversationHistory.clear
 
 #### Defined in
 
-[conversation-history.ts:576](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L576)
+[conversation-history.ts:583](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L583)
 
 ___
 
@@ -336,7 +338,7 @@ the new system prompt as a system message.
 
 #### Defined in
 
-[conversation-history.ts:589](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L589)
+[conversation-history.ts:596](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L596)
 
 ___
 
@@ -354,4 +356,4 @@ Current system prompt string
 
 #### Defined in
 
-[conversation-history.ts:609](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L609)
+[conversation-history.ts:616](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L616)

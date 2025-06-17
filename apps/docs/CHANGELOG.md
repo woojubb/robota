@@ -1,5 +1,25 @@
 # robota-docs
 
+## 1.0.16
+
+### Patch Changes
+
+- Complete examples restructure and enhanced provider architecture
+
+## 1.0.15
+
+### Patch Changes
+
+- Refactor examples and improve resource management
+
+  - Simplified examples from 18+ files to 4 core examples (basic conversation, tool calling, multi-providers, advanced features)
+  - Added proper resource cleanup with `robota.close()` method to prevent hanging processes
+  - Implemented `ToolProviderManager.close()` for proper tool provider cleanup
+  - Added BaseAIProvider abstract class with common functionality for all AI providers
+  - Updated package.json scripts and README documentation for better user experience
+  - Removed duplicate and redundant example files
+  - Added .env.example file for easier setup
+
 ## 1.0.14
 
 ### Patch Changes

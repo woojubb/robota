@@ -24,9 +24,8 @@ Tool message interface - for tool execution results
 - [metadata](ToolMessage#metadata)
 - [role](ToolMessage#role)
 - [content](ToolMessage#content)
-- [name](ToolMessage#name)
 - [toolCallId](ToolMessage#toolcallid)
-- [toolResult](ToolMessage#toolresult)
+- [name](ToolMessage#name)
 
 ## Properties
 
@@ -42,7 +41,7 @@ Message creation timestamp
 
 #### Defined in
 
-[conversation-history.ts:17](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L17)
+[conversation-history.ts:17](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L17)
 
 ___
 
@@ -58,7 +57,7 @@ Additional metadata
 
 #### Defined in
 
-[conversation-history.ts:20](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L20)
+[conversation-history.ts:20](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L20)
 
 ___
 
@@ -70,7 +69,7 @@ Message role - always 'tool'
 
 #### Defined in
 
-[conversation-history.ts:88](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L88)
+[conversation-history.ts:85](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L85)
 
 ___
 
@@ -82,19 +81,7 @@ Tool execution result summary
 
 #### Defined in
 
-[conversation-history.ts:91](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L91)
-
-___
-
-### name
-
-• `Optional` **name**: `string`
-
-Name of the tool that was executed (legacy format)
-
-#### Defined in
-
-[conversation-history.ts:94](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L94)
+[conversation-history.ts:88](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L88)
 
 ___
 
@@ -106,16 +93,16 @@ Tool call ID for OpenAI tool calling format
 
 #### Defined in
 
-[conversation-history.ts:97](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L97)
+[conversation-history.ts:91](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L91)
 
 ___
 
-### toolResult
+### name
 
-• `Optional` **toolResult**: `FunctionCallResult`
+• `Optional` **name**: `string`
 
-Complete tool execution result (legacy format)
+Name of the tool that was executed
 
 #### Defined in
 
-[conversation-history.ts:100](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/conversation-history.ts#L100)
+[conversation-history.ts:94](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/conversation-history.ts#L94)

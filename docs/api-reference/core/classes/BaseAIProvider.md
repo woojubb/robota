@@ -4,12 +4,14 @@
  To make changes, edit the source TypeScript files or update the generator script
 -->
 
-[core](../../) / [Exports](../modules) / OpenAIProvider
+[core](../../) / [Exports](../modules) / BaseAIProvider
 
-# Class: OpenAIProvider
+# Class: BaseAIProvider
 
-OpenAI Provider wrapper
-Wraps OpenAI client with unified AIProvider interface.
+Base abstract class for AI providers
+
+Provides common functionality and standardized interfaces for all AI providers.
+Handles tool calling support, message filtering, and response parsing.
 
 ## Implements
 
@@ -19,45 +21,36 @@ Wraps OpenAI client with unified AIProvider interface.
 
 ### Constructors
 
-- [constructor](OpenAIProvider#constructor)
+- [constructor](BaseAIProvider#constructor)
 
 ### Properties
 
-- [name](OpenAIProvider#name)
+- [name](BaseAIProvider#name)
+- [options](BaseAIProvider#options)
 
 ### Methods
 
-- [chat](OpenAIProvider#chat)
-- [chatStream](OpenAIProvider#chatstream)
-- [close](OpenAIProvider#close)
+- [chat](BaseAIProvider#chat)
+- [chatStream](BaseAIProvider#chatstream)
+- [close](BaseAIProvider#close)
 
 ## Constructors
 
 ### constructor
 
-• **new OpenAIProvider**(`client`): [`OpenAIProvider`](OpenAIProvider)
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `client` | `any` |
+• **new BaseAIProvider**(): [`BaseAIProvider`](BaseAIProvider)
 
 #### Returns
 
-[`OpenAIProvider`](OpenAIProvider)
-
-#### Defined in
-
-[providers/openai-provider.ts:13](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/providers/openai-provider.ts#L13)
+[`BaseAIProvider`](BaseAIProvider)
 
 ## Properties
 
 ### name
 
-• `Readonly` **name**: ``"openai"``
+• `Readonly` `Abstract` **name**: `string`
 
-Provider name
+Provider identifier name
 
 #### Implementation of
 
@@ -65,7 +58,19 @@ Provider name
 
 #### Defined in
 
-[providers/openai-provider.ts:9](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/providers/openai-provider.ts#L9)
+[providers/base-ai-provider.ts:21](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/providers/base-ai-provider.ts#L21)
+
+___
+
+### options
+
+• `Readonly` `Abstract` **options**: `any`
+
+Provider configuration options
+
+#### Defined in
+
+[providers/base-ai-provider.ts:26](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/providers/base-ai-provider.ts#L26)
 
 ## Methods
 
@@ -73,7 +78,7 @@ Provider name
 
 ▸ **chat**(`model`, `context`, `options?`): `Promise`\<[`ModelResponse`](../interfaces/ModelResponse)\>
 
-Chat request
+Send a chat request and receive a complete response
 
 #### Parameters
 
@@ -93,7 +98,7 @@ Chat request
 
 #### Defined in
 
-[providers/openai-provider.ts:20](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/providers/openai-provider.ts#L20)
+[providers/base-ai-provider.ts:31](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/providers/base-ai-provider.ts#L31)
 
 ___
 
@@ -101,7 +106,7 @@ ___
 
 ▸ **chatStream**(`model`, `context`, `options?`): `AsyncGenerator`\<[`StreamingResponseChunk`](../interfaces/StreamingResponseChunk), `void`, `unknown`\>
 
-Streaming chat request
+Send a streaming chat request and receive response chunks
 
 #### Parameters
 
@@ -121,7 +126,7 @@ Streaming chat request
 
 #### Defined in
 
-[providers/openai-provider.ts:94](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/providers/openai-provider.ts#L94)
+[providers/base-ai-provider.ts:36](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/providers/base-ai-provider.ts#L36)
 
 ___
 
@@ -129,7 +134,7 @@ ___
 
 ▸ **close**(): `Promise`\<`void`\>
 
-Release resources
+Close the provider and clean up resources
 
 #### Returns
 
@@ -141,4 +146,4 @@ Release resources
 
 #### Defined in
 
-[providers/openai-provider.ts:161](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/providers/openai-provider.ts#L161)
+[providers/base-ai-provider.ts:41](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/providers/base-ai-provider.ts#L41)

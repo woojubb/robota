@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/anthropic",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Anthropic Claude integration for Robota SDK - Claude 3, Claude 2, function calling, and tool integration with Anthropic's API",
   "type": "module",
   "main": "dist/index.js",

@@ -11,15 +11,17 @@
 Google AI provider implementation for Robota
 
 Provides integration with Google's Generative AI services including Gemini models.
-Implements the universal AIProvider interface for consistent usage across providers.
+Extends BaseAIProvider for common functionality and tool calling support.
 
 **`See`**
 
 ../../../apps/examples/03-integrations | Provider Integration Examples
 
-## Implements
+## Hierarchy
 
-- `AIProvider`
+- `BaseAIProvider`
+
+  ↳ **`GoogleProvider`**
 
 ## Table of contents
 
@@ -36,7 +38,6 @@ Implements the universal AIProvider interface for consistent usage across provid
 
 - [chat](GoogleProvider#chat)
 - [chatStream](GoogleProvider#chatstream)
-- [formatFunctions](GoogleProvider#formatfunctions)
 - [parseResponse](GoogleProvider#parseresponse)
 - [parseStreamingChunk](GoogleProvider#parsestreamingchunk)
 - [close](GoogleProvider#close)
@@ -63,9 +64,13 @@ Create a new Google AI provider instance
 
 When client is not provided in options
 
+#### Overrides
+
+BaseAIProvider.constructor
+
 #### Defined in
 
-[provider.ts:49](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/google/src/provider.ts#L49)
+[google/src/provider.ts:49](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/google/src/provider.ts#L49)
 
 ## Properties
 
@@ -75,13 +80,13 @@ When client is not provided in options
 
 Provider identifier name
 
-#### Implementation of
+#### Overrides
 
-AIProvider.name
+BaseAIProvider.name
 
 #### Defined in
 
-[provider.ts:28](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/google/src/provider.ts#L28)
+[google/src/provider.ts:28](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/google/src/provider.ts#L28)
 
 ___
 
@@ -91,9 +96,13 @@ ___
 
 Provider configuration options
 
+#### Overrides
+
+BaseAIProvider.options
+
 #### Defined in
 
-[provider.ts:40](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/google/src/provider.ts#L40)
+[google/src/provider.ts:40](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/google/src/provider.ts#L40)
 
 ## Methods
 
@@ -109,7 +118,7 @@ Send a chat request to Google AI and receive a complete response
 | :------ | :------ | :------ |
 | `model` | `string` | Model name to use (e.g., 'gemini-1.5-pro', 'gemini-1.5-flash') |
 | `context` | `Context` | Context object containing messages and system prompt |
-| `options?` | `any` | Optional generation parameters |
+| `options?` | `any` | Optional generation parameters and tools |
 
 #### Returns
 
@@ -129,13 +138,13 @@ When messages array is invalid
 
 When Google AI API call fails
 
-#### Implementation of
+#### Overrides
 
-AIProvider.chat
+BaseAIProvider.chat
 
 #### Defined in
 
-[provider.ts:76](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/google/src/provider.ts#L76)
+[google/src/provider.ts:78](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/google/src/provider.ts#L78)
 
 ___
 
@@ -154,7 +163,7 @@ Useful for real-time display of responses or handling large responses incrementa
 | :------ | :------ | :------ |
 | `model` | `string` | Model name to use |
 | `context` | `Context` | Context object containing messages and system prompt |
-| `options?` | `any` | Optional generation parameters |
+| `options?` | `any` | Optional generation parameters and tools |
 
 #### Returns
 
@@ -174,42 +183,13 @@ When messages array is invalid
 
 When Google AI API streaming call fails
 
-#### Implementation of
+#### Overrides
 
-AIProvider.chatStream
-
-#### Defined in
-
-[provider.ts:142](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/google/src/provider.ts#L142)
-
-___
-
-### formatFunctions
-
-▸ **formatFunctions**(`_functions`): `unknown`
-
-Format function definitions for Google AI
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `_functions` | `FunctionDefinition`[] | Array of function definitions to format |
-
-#### Returns
-
-`unknown`
-
-Formatted functions (currently returns empty array as Google AI function calling is pending implementation)
-
-**`Remarks`**
-
-Google AI function calling support is planned for future implementation.
-Currently returns empty array as placeholder.
+BaseAIProvider.chatStream
 
 #### Defined in
 
-[provider.ts:205](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/google/src/provider.ts#L205)
+[google/src/provider.ts:145](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/google/src/provider.ts#L145)
 
 ___
 
@@ -221,6 +201,7 @@ Parse Google AI response into universal ModelResponse format
 
 Extracts content, usage information, and metadata from the Google AI response
 and converts it to the standard format used across all providers.
+Supports function calling with Gemini models.
 
 #### Parameters
 
@@ -236,7 +217,7 @@ Parsed model response in universal format
 
 #### Defined in
 
-[provider.ts:222](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/google/src/provider.ts#L222)
+[google/src/provider.ts:236](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/google/src/provider.ts#L236)
 
 ___
 
@@ -263,7 +244,7 @@ Parsed streaming response chunk
 
 #### Defined in
 
-[provider.ts:260](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/google/src/provider.ts#L260)
+[google/src/provider.ts:301](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/google/src/provider.ts#L301)
 
 ___
 
@@ -282,10 +263,10 @@ Google AI client doesn't require explicit cleanup, so this is a no-op.
 
 Promise that resolves when cleanup is complete
 
-#### Implementation of
+#### Overrides
 
-AIProvider.close
+BaseAIProvider.close
 
 #### Defined in
 
-[provider.ts:282](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/google/src/provider.ts#L282)
+[google/src/provider.ts:322](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/google/src/provider.ts#L322)

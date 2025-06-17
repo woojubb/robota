@@ -19,6 +19,8 @@ Basic message interface
 - [name](Message#name)
 - [functionCall](Message#functioncall)
 - [functionResult](Message#functionresult)
+- [toolCalls](Message#toolcalls)
+- [toolCallId](Message#toolcallid)
 
 ## Properties
 
@@ -28,7 +30,7 @@ Basic message interface
 
 #### Defined in
 
-[interfaces/ai-provider.ts:13](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/interfaces/ai-provider.ts#L13)
+[interfaces/ai-provider.ts:13](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/interfaces/ai-provider.ts#L13)
 
 ___
 
@@ -38,7 +40,7 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:14](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/interfaces/ai-provider.ts#L14)
+[interfaces/ai-provider.ts:14](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/interfaces/ai-provider.ts#L14)
 
 ___
 
@@ -48,7 +50,7 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:15](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/interfaces/ai-provider.ts#L15)
+[interfaces/ai-provider.ts:15](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/interfaces/ai-provider.ts#L15)
 
 ___
 
@@ -58,7 +60,7 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:16](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/interfaces/ai-provider.ts#L16)
+[interfaces/ai-provider.ts:16](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/interfaces/ai-provider.ts#L16)
 
 ___
 
@@ -68,4 +70,24 @@ ___
 
 #### Defined in
 
-[interfaces/ai-provider.ts:17](https://github.com/woojubb/robota/blob/b8c05a1e0e0191a7c7da275868f2aa9a78af55c1/packages/core/src/interfaces/ai-provider.ts#L17)
+[interfaces/ai-provider.ts:17](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/interfaces/ai-provider.ts#L17)
+
+___
+
+### toolCalls
+
+• `Optional` **toolCalls**: \{ `id`: `string` ; `type`: ``"function"`` ; `function`: \{ `name`: `string` ; `arguments`: `string`  }  }[]
+
+#### Defined in
+
+[interfaces/ai-provider.ts:18](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/interfaces/ai-provider.ts#L18)
+
+___
+
+### toolCallId
+
+• `Optional` **toolCallId**: `string`
+
+#### Defined in
+
+[interfaces/ai-provider.ts:26](https://github.com/woojubb/robota/blob/5bd96a2904022733c7e702c034c771ccfd668a44/packages/core/src/interfaces/ai-provider.ts#L26)

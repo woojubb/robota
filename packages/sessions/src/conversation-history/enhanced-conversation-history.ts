@@ -3,7 +3,6 @@ import {
     UniversalMessage,
     UniversalMessageRole
 } from '@robota-sdk/core';
-import type { FunctionCall, FunctionCallResult } from '@robota-sdk/tools';
 import type { EnhancedConversationHistory, ConfigurationChange } from '../types/chat';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -31,11 +30,11 @@ export class EnhancedConversationHistoryImpl implements EnhancedConversationHist
         });
     }
 
-    addAssistantMessage(content: string, functionCall?: FunctionCall, metadata?: Record<string, any>): void {
+    addAssistantMessage(content: string, toolCalls?: { id: string; type: "function"; function: { name: string; arguments: string; }; }[], metadata?: Record<string, any>): void {
         this.addMessage({
             role: 'assistant',
             content,
-            functionCall,
+            toolCalls,
             timestamp: new Date(),
             metadata
         });
@@ -50,16 +49,12 @@ export class EnhancedConversationHistoryImpl implements EnhancedConversationHist
         });
     }
 
-    addToolMessage(toolResult: FunctionCallResult, metadata?: Record<string, any>): void {
-        const content = toolResult.error
-            ? `Tool execution error: ${toolResult.error}`
-            : `Tool result: ${JSON.stringify(toolResult.result)}`;
-
+    addToolMessage(toolCallId: string, content: string, toolName: string, metadata?: Record<string, any>): void {
         this.addMessage({
             role: 'tool',
             content,
-            name: toolResult.name,
-            toolResult,
+            name: toolName,
+            toolCallId,
             timestamp: new Date(),
             metadata
         });
@@ -71,11 +66,6 @@ export class EnhancedConversationHistoryImpl implements EnhancedConversationHist
             content,
             name: toolName,
             toolCallId,
-            toolResult: {
-                name: toolName,
-                result: content,
-                error: undefined
-            },
             timestamp: new Date(),
             metadata
         });
