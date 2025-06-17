@@ -1,36 +1,129 @@
 # Basic Conversation
 
-This example demonstrates the fundamental usage of the Robota SDK for simple AI conversations.
+This guide demonstrates the most fundamental usage of Robota for basic AI conversations.
 
 ## Overview
 
 The basic conversation example shows how to:
-- Set up an OpenAI client and provider
-- Create a Robota instance
-- Send messages and receive responses
-- Use streaming responses for real-time output
+- Set up Robota with an AI provider
+- Send simple messages and receive responses
+- Handle streaming responses
+- Proper resource cleanup
 
-## Source Code
+## Code Example
 
-**Location**: `apps/examples/01-basic/01-simple-conversation.ts`
+```typescript
+/**
+ * 01-basic-conversation.ts
+ * 
+ * This example demonstrates the most basic usage of Robota:
+ * - Simple conversation using OpenAI
+ * - Message sending and streaming responses
+ * - Proper error handling
+ */
+
+import { Robota } from '@robota-sdk/core';
+import { OpenAIProvider } from '@robota-sdk/openai';
+import OpenAI from 'openai';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+
+async function main() {
+    try {
+        console.log('🤖 Basic Conversation Example Started...\n');
+
+        // Validate API key
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            throw new Error('OPENAI_API_KEY environment variable is required');
+        }
+
+        // Create OpenAI client
+        const openaiClient = new OpenAI({ apiKey });
+
+        // Create OpenAI Provider
+        const openaiProvider = new OpenAIProvider({
+            client: openaiClient,
+            model: 'gpt-3.5-turbo'
+        });
+
+        // Create Robota instance
+        const robota = new Robota({
+            aiProviders: {
+                'openai': openaiProvider
+            },
+            currentProvider: 'openai',
+            currentModel: 'gpt-3.5-turbo',
+            systemPrompt: 'You are a helpful AI assistant. Provide concise and useful responses.'
+        });
+
+        // === Simple Conversation ===
+        console.log('📝 Simple Conversation:');
+        const query = 'Hello! Please tell me about TypeScript in 2-3 sentences.';
+        console.log(`User: ${query}`);
+
+        const response = await robota.run(query);
+        console.log(`Assistant: ${response}\n`);
+
+        // === Streaming Response ===
+        console.log('🌊 Streaming Response:');
+        const streamQuery = 'What are the main benefits of using TypeScript?';
+        console.log(`User: ${streamQuery}`);
+        console.log('Assistant: ');
+
+        const stream = await robota.runStream(streamQuery);
+        for await (const chunk of stream) {
+            process.stdout.write(chunk.content || '');
+        }
+        console.log('\n');
+
+        console.log('✅ Basic Conversation Example Completed!');
+
+        // Clean up resources
+        await robota.close();
+    } catch (error) {
+        console.error('❌ Error occurred:', error);
+        process.exit(1);
+    }
+}
+
+// Execute
+main();
+```
+
+## Setup Requirements
+
+Before running this example, ensure you have:
+
+1. **Environment Variables**: Create a `.env` file with your API key:
+   ```
+   OPENAI_API_KEY=your_openai_api_key_here
+   ```
+
+2. **Dependencies**: Install required packages:
+   ```bash
+   npm install @robota-sdk/core @robota-sdk/openai openai dotenv
+   ```
 
 ## Key Concepts
 
-### 1. Provider Setup
+### 1. Provider Configuration
+
+The example uses the OpenAI provider, which extends the new `BaseAIProvider` class:
+
 ```typescript
-import { Robota, OpenAIProvider } from '@robota-sdk/core';
-import OpenAI from 'openai';
-
-// Create OpenAI client
-const openaiClient = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
+const openaiProvider = new OpenAIProvider({
+    client: openaiClient,
+    model: 'gpt-3.5-turbo'
 });
-
-// Create provider
-const openaiProvider = new OpenAIProvider(openaiClient);
 ```
 
+All providers now inherit common functionality from `BaseAIProvider`, ensuring consistent behavior across different AI services.
+
 ### 2. Robota Instance Creation
+
 ```typescript
 const robota = new Robota({
     aiProviders: {
@@ -38,184 +131,65 @@ const robota = new Robota({
     },
     currentProvider: 'openai',
     currentModel: 'gpt-3.5-turbo',
-    systemPrompt: 'You are a helpful AI assistant. Provide concise and useful responses.'
+    systemPrompt: 'You are a helpful AI assistant.'
 });
 ```
 
-### 3. Simple Conversation
+### 3. Simple Message Exchange
+
 ```typescript
-// Send a message and get a complete response
-const response = await robota.run('Hello! Please tell me about TypeScript.');
-console.log('Response:', response);
+const response = await robota.run(query);
 ```
 
-### 4. Streaming Response
-```typescript
-// Get a streaming response for real-time output
-const stream = await robota.runStream('Please briefly explain the advantages of TypeScript.');
+The `run()` method sends a message and returns the complete response.
 
+### 4. Streaming Responses
+
+```typescript
+const stream = await robota.runStream(streamQuery);
 for await (const chunk of stream) {
     process.stdout.write(chunk.content || '');
 }
 ```
 
+The `runStream()` method provides real-time streaming of the AI response.
+
+### 5. Resource Cleanup
+
+```typescript
+await robota.close();
+```
+
+Always call `close()` to properly clean up resources and prevent memory leaks.
+
 ## Running the Example
 
-1. **Ensure setup is complete** (see [Setup Guide](./setup.md))
+```bash
+# Navigate to the examples directory
+cd apps/examples
 
-2. **Navigate to examples directory**:
-   ```bash
-   cd apps/examples
-   ```
-
-3. **Run the example**:
-   ```bash
-   # Using bun (recommended)
-   bun run 01-basic/01-simple-conversation.ts
-   
-   # Using pnpm + tsx
-   pnpm tsx 01-basic/01-simple-conversation.ts
-   ```
+# Run the basic conversation example
+npx tsx 01-basic-conversation.ts
+```
 
 ## Expected Output
 
 ```
-===== Simple Conversation Example =====
-Response: TypeScript is a strongly typed programming language that builds on JavaScript by adding static type definitions. It helps catch errors during development, provides better IDE support with autocompletion and refactoring tools, and makes code more maintainable and self-documenting...
+🤖 Basic Conversation Example Started...
 
-===== Streaming Response Example =====
-Response: 
-TypeScript offers several key advantages:
+📝 Simple Conversation:
+User: Hello! Please tell me about TypeScript in 2-3 sentences.
+Assistant: TypeScript is a strongly typed programming language developed by Microsoft that builds on JavaScript by adding static type definitions. It helps catch errors during development time rather than runtime, making code more reliable and maintainable. TypeScript compiles to plain JavaScript and can run anywhere JavaScript runs.
 
-1. **Type Safety**: Catches errors at compile time rather than runtime
-2. **Better IDE Support**: Enhanced autocompletion, navigation, and refactoring
-3. **Improved Maintainability**: Self-documenting code with clear interfaces
-4. **Modern JavaScript Features**: Access to latest ECMAScript features
-5. **Gradual Adoption**: Can be incrementally adopted in existing JavaScript projects
-```
+🌊 Streaming Response:
+User: What are the main benefits of using TypeScript?
+Assistant: TypeScript offers several key benefits: static typing helps catch errors early in development, improved IDE support with better autocomplete and refactoring capabilities, enhanced code documentation through type annotations, better team collaboration with clear interfaces, easier refactoring of large codebases, and seamless integration with existing JavaScript projects.
 
-## Configuration Options
-
-### Robota Constructor Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `aiProviders` | `Record<string, AIProvider>` | Map of provider names to provider instances |
-| `currentProvider` | `string` | Name of the active provider |
-| `currentModel` | `string` | Model to use with the current provider |
-| `systemPrompt` | `string` | System prompt for AI behavior |
-
-### OpenAI Provider Options
-
-```typescript
-const openaiProvider = new OpenAIProvider(openaiClient, {
-    temperature: 0.7,        // Creativity level (0-1)
-    maxTokens: 1000,         // Maximum response length
-    topP: 1.0,               // Nucleus sampling parameter
-    frequencyPenalty: 0.0,   // Repetition penalty
-    presencePenalty: 0.0     // Topic diversity penalty
-});
-```
-
-### Available Models
-
-Common OpenAI models you can use:
-- `gpt-3.5-turbo` - Fast and cost-effective
-- `gpt-4` - More capable, higher cost
-- `gpt-4-turbo` - Latest GPT-4 with improved performance
-- `gpt-4o` - Optimized version
-- `gpt-4o-mini` - Smaller, faster variant
-
-## Error Handling
-
-### Basic Error Handling
-```typescript
-try {
-    const response = await robota.run(userInput);
-    console.log(response);
-} catch (error) {
-    console.error('AI request failed:', error);
-}
-```
-
-### Common Errors
-
-1. **Missing API Key**
-   ```
-   Error: OPENAI_API_KEY environment variable is required
-   ```
-   **Solution**: Set your OpenAI API key in `.env`
-
-2. **Network Issues**
-   ```
-   Error: Request failed with status 429
-   ```
-   **Solution**: Rate limiting - wait and retry
-
-3. **Model Access**
-   ```
-   Error: Model not found
-   ```
-   **Solution**: Verify model name and API tier access
-
-## Best Practices
-
-### 1. Environment Variables
-Always use environment variables for API keys:
-```typescript
-const apiKey = process.env.OPENAI_API_KEY;
-if (!apiKey) {
-    throw new Error('OPENAI_API_KEY environment variable is required');
-}
-```
-
-### 2. Error Handling
-Implement comprehensive error handling:
-```typescript
-async function safeAICall(prompt: string) {
-    try {
-        return await robota.run(prompt);
-    } catch (error) {
-        if (error.status === 429) {
-            // Rate limit - implement backoff
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            return safeAICall(prompt);
-        }
-        throw error;
-    }
-}
-```
-
-### 3. Resource Management
-```typescript
-// For long-running applications, consider cleanup
-process.on('SIGINT', async () => {
-    // Clean up resources if needed
-    process.exit(0);
-});
+✅ Basic Conversation Example Completed!
 ```
 
 ## Next Steps
 
-Once you've mastered basic conversations, explore:
-
-1. [**AI with Tools**](./ai-with-tools.md) - Add function calling capabilities
-2. [**Multi-Provider Setup**](./multi-provider.md) - Use multiple AI providers
-3. [**Provider Switching**](./provider-switching.md) - Dynamic provider switching
-
-## Troubleshooting
-
-### Performance Issues
-- Use streaming for long responses
-- Consider using faster models like `gpt-3.5-turbo`
-- Implement proper error handling and retries
-
-### Cost Optimization
-- Monitor token usage
-- Use appropriate models for the task complexity
-- Implement response length limits
-
-### Development Tips
-- Use debug mode during development
-- Log requests and responses for debugging
-- Test with different models to find the best fit 
+- Try [Tool Calling](./ai-with-tools.md) to add function calling capabilities
+- Explore [Multi-Provider](./multi-provider.md) setup for using different AI services
+- Learn about [Advanced Features](./session-management.md) like analytics and limits 

@@ -69,6 +69,9 @@ const robota = new Robota({
 // Run a simple conversation
 const response = await robota.run('What can you tell me about artificial intelligence?');
 console.log(response);
+
+// Clean up resources
+await robota.close();
 ```
 
 ## Streaming Responses

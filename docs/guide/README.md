@@ -19,18 +19,18 @@ Robota SDK is a TypeScript library that makes it easy to create sophisticated AI
 
 ## Guide Sections
 
-- **[Getting Started](./getting-started.md)** - Installation, setup, and first agent
+- **[Getting Started](../getting-started/README.md)** - Installation, setup, and first agent
 - **[Core Concepts](./core-concepts.md)** - Understanding the architecture
 - **[Function Calling](./function-calling.md)** - Adding tools and functions
 - **[Building Agents](./building-agents.md)** - Advanced patterns and best practices
 
 ## Next Steps
 
-Start with [Getting Started](./getting-started.md) to create your first AI agent, or explore [Examples](../examples/) for real-world usage patterns.
+Start with [Getting Started](../getting-started/README.md) to create your first AI agent, or explore [Examples](../examples/) for real-world usage patterns.
 
 ## Documentation Sections
 
-- **[Getting Started](./getting-started.md)** - Quick setup and basic usage
+- **[Getting Started](../getting-started/README.md)** - Quick setup and basic usage
 - **[Core Concepts](./core-concepts.md)** - Understanding the Manager pattern architecture
 - **[Function Calling](./function-calling.md)** - Tool integration and function calling
 - **[Building Agents](./building-agents.md)** - Advanced agent development patterns
@@ -38,6 +38,6 @@ Start with [Getting Started](./getting-started.md) to create your first AI agent
 ## Quick Navigation
 
 Use the navigation on the left to explore the complete documentation or jump straight to:
-- [Getting Started](./getting-started.md) - Begin with basic setup
-- [Architecture Overview](../development-guidelines.md#architecture-patterns) - Understand the Manager pattern
-- [Examples](../examples/examples.md) - See real-world usage patterns 
+- [Getting Started](../getting-started/README.md) - Begin with basic setup
+- [Architecture Overview](../development/development-guidelines.md#architecture-patterns) - Understand the Manager pattern
+- [Examples](../examples/README.md) - See real-world usage patterns 

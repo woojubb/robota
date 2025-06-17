@@ -16,10 +16,14 @@ The entry point for the entire library. It provides an interface to initialize a
 
 ```typescript
 const robota = new Robota({
-  provider: new OpenAIProvider({
-    model: 'gpt-4',
-    client: openaiClient
-  }),
+  aiProviders: {
+    openai: new OpenAIProvider({
+      client: openaiClient,
+      model: 'gpt-4'
+    })
+  },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
   systemPrompt: 'You are a helpful AI assistant.',
   // Additional settings
 });
@@ -29,13 +33,17 @@ You can also set multiple system messages:
 
 ```typescript
 import { Robota } from '@robota-sdk/core';
-import { OpenAIProvider } from '@robota-sdk/provider-openai';
+import { OpenAIProvider } from '@robota-sdk/openai';
 
 const robota = new Robota({
-  provider: new OpenAIProvider({
-    model: 'gpt-4',
-    client: openaiClient
-  }),
+  aiProviders: {
+    openai: new OpenAIProvider({
+      client: openaiClient,
+      model: 'gpt-4'
+    })
+  },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
   systemMessages: [
     { role: 'system', content: 'You are an expert on weather.' },
     { role: 'system', content: 'Always strive to provide accurate information.' }
@@ -49,12 +57,18 @@ This is an abstraction layer that allows you to use various AI services. Each pr
 
 ```typescript
 import OpenAI from 'openai';
-import { OpenAIProvider } from '@robota-sdk/provider-openai';
-import { AnthropicProvider } from '@robota-sdk/provider-anthropic';
+import Anthropic from '@anthropic-ai/sdk';
+import { OpenAIProvider } from '@robota-sdk/openai';
+import { AnthropicProvider } from '@robota-sdk/anthropic';
 
 // Create OpenAI client
 const openaiClient = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
+});
+
+// Create Anthropic client
+const anthropicClient = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY
 });
 
 // OpenAI provider
@@ -66,7 +80,7 @@ const openaiProvider = new OpenAIProvider({
 // Anthropic provider
 const anthropicProvider = new AnthropicProvider({
   client: anthropicClient,
-  model: 'claude-3-opus'
+  model: 'claude-3-5-sonnet-20241022'
 });
 ```
 
@@ -97,8 +111,13 @@ const tools = {
 // Create tool provider
 const toolProvider = createZodFunctionToolProvider({ tools });
 
-// Register tool provider
-robota.addToolProvider(toolProvider);
+// Create Robota with tool provider
+const robota = new Robota({
+  aiProviders: { /* AI providers */ },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
+  toolProviders: [toolProvider]
+});
 ```
 
 ### 4. Tools
@@ -106,21 +125,29 @@ robota.addToolProvider(toolProvider);
 Tools are an extended concept of function calling. They provide more complex and structured functionality. Each tool includes metadata, parameter validation, and execution logic.
 
 ```typescript
-import { Tool } from '@robota-sdk/tools';
+import { createZodFunctionToolProvider } from '@robota-sdk/tools';
 import { z } from 'zod';
 
-const calculator = new Tool({
-  name: 'calculator',
-  description: 'Performs mathematical calculations',
-  parameters: z.object({
-    expression: z.string().describe('Expression to calculate')
-  }),
-  execute: async ({ expression }) => {
-    return { result: eval(expression) };
+const calculatorToolProvider = createZodFunctionToolProvider({
+  tools: {
+    calculator: {
+      name: 'calculator',
+      description: 'Performs mathematical calculations',
+      parameters: z.object({
+        expression: z.string().describe('Expression to calculate')
+      }),
+      handler: async ({ expression }) => {
+        return { result: eval(expression) };
+      }
+    }
   }
 });
 
-robota.registerTools([calculator]);
+// Add to Robota instance
+const robota = new Robota({
+  // ... other options
+  toolProviders: [calculatorToolProvider]
+});
 ```
 
 ### 5. Agents
@@ -129,13 +156,19 @@ Agents are AI systems that use tools and reason to achieve a goal. Robota can im
 
 ```typescript
 import { Robota } from '@robota-sdk/core';
-import { OpenAIProvider } from '@robota-sdk/provider-openai';
+import { OpenAIProvider } from '@robota-sdk/openai';
+import { createZodFunctionToolProvider } from '@robota-sdk/tools';
+
+const researchToolProvider = createZodFunctionToolProvider({
+  tools: { webSearch, summarize } // Tool definitions
+});
 
 const researchAgent = new Robota({
-  name: 'Research Agent',
-  description: 'Agent that searches the web and summarizes information',
-  tools: [webSearch, summarize],
-  provider: openaiProvider
+  aiProviders: { openai: openaiProvider },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
+  toolProviders: [researchToolProvider],
+  systemPrompt: 'You are a research agent that searches the web and summarizes information.'
 });
 ```
 
@@ -144,14 +177,15 @@ const researchAgent = new Robota({
 This is a system for storing and managing conversation history, allowing the agent to remember and reference previous interactions.
 
 ```typescript
-import { Robota } from '@robota-sdk/core';
-import { ConversationMemory } from '@robota-sdk/memory';
-import { OpenAIProvider } from '@robota-sdk/provider-openai';
+import { Robota, SimpleConversationHistory } from '@robota-sdk/core';
+import { OpenAIProvider } from '@robota-sdk/openai';
 
-const memory = new ConversationMemory();
+const conversationHistory = new SimpleConversationHistory();
 const robota = new Robota({
-  provider: openaiProvider,
-  memory
+  aiProviders: { openai: openaiProvider },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
+  conversationHistory
 });
 ```
 
@@ -164,10 +198,18 @@ This is a standardized method for communicating with specific models. It ensures
 This feature provides the ability to automatically generate tools and functions from Swagger/OpenAPI specs.
 
 ```typescript
-import { OpenAPIToolkit } from '@robota-sdk/openapi';
+import { createOpenAPIToolProvider } from '@robota-sdk/tools';
 
-const apiTools = await OpenAPIToolkit.fromURL('https://api.example.com/openapi.json');
-robota.registerTools(apiTools);
+const apiToolProvider = createOpenAPIToolProvider({
+  specUrl: 'https://api.example.com/openapi.json',
+  baseURL: 'https://api.example.com'
+});
+
+// Add to Robota instance
+const robota = new Robota({
+  // ... other options
+  toolProviders: [apiToolProvider]
+});
 ```
 
 ## Library Architecture
