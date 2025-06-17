@@ -322,12 +322,20 @@ export class Robota implements RobotaComplete {
             this.tools.addProvider(options.provider);
         }
 
-        // Configure system messages
+        // Configure system messages and add to conversation history
         if (options.systemPrompt) {
             this.system.setSystemPrompt(options.systemPrompt);
+            // Add system prompt to conversation history immediately
+            this.conversationHistory.addSystemMessage(options.systemPrompt);
         }
         if (options.systemMessages) {
             this.system.setSystemMessages(options.systemMessages);
+            // Add system messages to conversation history immediately
+            for (const msg of options.systemMessages) {
+                if (msg.role === 'system') {
+                    this.conversationHistory.addSystemMessage(msg.content);
+                }
+            }
         }
 
         // Configure function calling

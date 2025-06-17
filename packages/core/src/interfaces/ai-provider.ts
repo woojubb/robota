@@ -15,20 +15,65 @@ export interface Message {
     name?: string;
     functionCall?: FunctionCall;
     functionResult?: any;
+    toolCalls?: Array<{
+        id: string;
+        type: 'function';
+        function: {
+            name: string;
+            arguments: string;
+        };
+    }>;
+    toolCallId?: string;
 }
 
 /**
- * Model response interface
+ * Response from AI model
+ * 
+ * Contains the generated content, usage statistics, and metadata from AI provider.
+ * Also includes tool calling information when applicable.
+ * 
+ * @public
  */
 export interface ModelResponse {
+    /** Generated text content (may be null for tool-only responses) */
     content?: string;
-    functionCall?: FunctionCall;
+
+    /** Token usage statistics from the AI provider */
     usage?: {
+        /** Number of tokens in the input prompt */
         promptTokens: number;
+        /** Number of tokens in the generated completion */
         completionTokens: number;
+        /** Total tokens used (prompt + completion) */
         totalTokens: number;
     };
-    metadata?: Record<string, any>;
+
+    /** Provider-specific metadata */
+    metadata?: {
+        /** Model name used for generation */
+        model?: string;
+        /** Reason why generation finished */
+        finishReason?: string;
+        /** Provider-specific system fingerprint */
+        systemFingerprint?: string;
+        /** Additional provider-specific data */
+        [key: string]: any;
+    };
+
+    /** Tool calls made by the assistant (OpenAI tool calling format) */
+    toolCalls?: Array<{
+        /** Unique identifier for this tool call */
+        id: string;
+        /** Type of tool call (currently only 'function' is supported) */
+        type: 'function';
+        /** Function call details */
+        function: {
+            /** Name of the function to call */
+            name: string;
+            /** Function arguments as JSON string */
+            arguments: string;
+        };
+    }>;
 }
 
 /**

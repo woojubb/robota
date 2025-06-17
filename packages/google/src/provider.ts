@@ -236,7 +236,6 @@ export class GoogleProvider implements AIProvider {
 
         return {
             content: text,
-            functionCall: undefined, // Function calling support to be implemented
             usage,
             metadata: {
                 model: response.response?.model,
@@ -266,7 +265,6 @@ export class GoogleProvider implements AIProvider {
 
         return {
             content: text,
-            functionCall: undefined, // Function calling support to be implemented
             isComplete
         };
     }

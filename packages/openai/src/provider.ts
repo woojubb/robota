@@ -5,7 +5,7 @@ import {
   StreamingResponseChunk,
   AIProvider
 } from '@robota-sdk/core';
-import type { FunctionDefinition } from '@robota-sdk/tools';
+import type { FunctionSchema } from '@robota-sdk/tools';
 import { OpenAIProviderOptions } from './types';
 import { logger } from '@robota-sdk/core';
 import { OpenAIConversationAdapter } from './adapter';
@@ -84,13 +84,13 @@ export class OpenAIProvider implements AIProvider {
    * @param functions - Array of universal function definitions
    * @returns Array of OpenAI-formatted tools
    */
-  formatFunctions(functions: FunctionDefinition[]): OpenAI.Chat.ChatCompletionTool[] {
+  formatFunctions(functions: FunctionSchema[]): OpenAI.Chat.ChatCompletionTool[] {
     return functions.map(fn => ({
       type: 'function',
       function: {
         name: fn.name,
         description: fn.description || '',
-        parameters: fn.parameters || { type: 'object', properties: {} }
+        parameters: fn.parameters
       }
     }));
   }
@@ -129,12 +129,6 @@ export class OpenAIProvider implements AIProvider {
     // Convert messages to OpenAI format and filter out tool messages
     const openaiMessages = OpenAIConversationAdapter.toOpenAIFormat(context.messages);
 
-    // Debug: Log the messages being sent
-    logger.info('Debug - Messages being sent to OpenAI:');
-    logger.info(JSON.stringify(openaiMessages, null, 2));
-    logger.info('Original messages count:', context.messages.length);
-    logger.info('Filtered messages count:', openaiMessages.length);
-
     const completionOptions: OpenAI.Chat.ChatCompletionCreateParams = {
       model,
       messages: openaiMessages,
@@ -145,6 +139,8 @@ export class OpenAIProvider implements AIProvider {
     // Add tool provider functions
     if (options?.tools && Array.isArray(options.tools)) {
       completionOptions.tools = this.formatFunctions(options.tools);
+      // Force new tool_calls format by setting tool_choice
+      completionOptions.tool_choice = 'auto';
     }
 
     // Set response format if specified
@@ -165,7 +161,6 @@ export class OpenAIProvider implements AIProvider {
     }
 
     try {
-      logger.info('[OpenAIProvider] API request options:', JSON.stringify(completionOptions, null, 2));
       const response = await this.client.chat.completions.create(completionOptions);
       return this.parseResponse(response);
     } catch (error) {
@@ -202,23 +197,16 @@ export class OpenAIProvider implements AIProvider {
       }
     };
 
-    // Handle function calls (legacy format)
-    if (message.function_call) {
-      result.functionCall = {
-        name: message.function_call.name,
-        arguments: message.function_call.arguments
-      };
-    }
-
-    // Handle tool calls (current format)
+    // Handle tool calls
     if (message.tool_calls && message.tool_calls.length > 0) {
-      const toolCall = message.tool_calls[0];
-      if (toolCall.type === 'function') {
-        result.functionCall = {
+      result.toolCalls = message.tool_calls.map(toolCall => ({
+        id: toolCall.id,
+        type: 'function' as const,
+        function: {
           name: toolCall.function.name,
           arguments: toolCall.function.arguments
-        };
-      }
+        }
+      }));
     }
 
     return result;
@@ -243,15 +231,7 @@ export class OpenAIProvider implements AIProvider {
       isComplete: chunk.choices[0].finish_reason !== null
     };
 
-    // Handle function call chunks (legacy format)
-    if (delta.function_call) {
-      result.functionCall = {
-        name: delta.function_call.name,
-        arguments: delta.function_call.arguments
-      };
-    }
-
-    // Handle tool call chunks (current format)
+    // Handle tool call chunks
     if (delta.tool_calls && delta.tool_calls.length > 0) {
       const toolCall = delta.tool_calls[0];
       if (toolCall.type === 'function') {
@@ -302,12 +282,6 @@ export class OpenAIProvider implements AIProvider {
     // Convert messages to OpenAI format and filter out tool messages
     const openaiMessages = OpenAIConversationAdapter.toOpenAIFormat(context.messages);
 
-    // Debug: Log the messages being sent
-    logger.info('Debug - Messages being sent to OpenAI:');
-    logger.info(JSON.stringify(openaiMessages, null, 2));
-    logger.info('Original messages count:', context.messages.length);
-    logger.info('Filtered messages count:', openaiMessages.length);
-
     const completionOptions: OpenAI.Chat.ChatCompletionCreateParams = {
       model,
       messages: openaiMessages,
@@ -319,6 +293,8 @@ export class OpenAIProvider implements AIProvider {
     // Add tool provider functions
     if (options?.tools && Array.isArray(options.tools)) {
       completionOptions.tools = this.formatFunctions(options.tools);
+      // Force new tool_calls format by setting tool_choice
+      completionOptions.tool_choice = 'auto';
     }
 
     // Set response format if specified
@@ -339,11 +315,6 @@ export class OpenAIProvider implements AIProvider {
     }
 
     try {
-      logger.info('[OpenAIProvider] Streaming API request options:', JSON.stringify({
-        ...completionOptions,
-        stream: true
-      }, null, 2));
-
       const stream = await this.client.chat.completions.create(completionOptions);
 
       for await (const chunk of stream) {

@@ -48,9 +48,12 @@ export class AnthropicConversationAdapter {
                 const assistantMsg = message as AssistantMessage;
                 let content = assistantMsg.content || '';
 
-                // Include function call in content if present
-                if (assistantMsg.functionCall) {
-                    content += `\n\nFunction Call: ${assistantMsg.functionCall.name}(${JSON.stringify(assistantMsg.functionCall.arguments)})`;
+                // Include tool calls in content if present
+                if ((assistantMsg as any).toolCalls) {
+                    const toolCalls = (assistantMsg as any).toolCalls;
+                    for (const tc of toolCalls) {
+                        content += `\n\nTool Call: ${tc.function.name}(${tc.function.arguments})`;
+                    }
                 }
 
                 anthropicMessages.push({
@@ -97,9 +100,12 @@ export class AnthropicConversationAdapter {
                 const assistantMsg = message as AssistantMessage;
                 let content = assistantMsg.content || '';
 
-                // Include function call in content if present
-                if (assistantMsg.functionCall) {
-                    content += `\n\nFunction Call: ${assistantMsg.functionCall.name}(${JSON.stringify(assistantMsg.functionCall.arguments)})`;
+                // Include tool calls in content if present
+                if ((assistantMsg as any).toolCalls) {
+                    const toolCalls = (assistantMsg as any).toolCalls;
+                    for (const tc of toolCalls) {
+                        content += `\n\nTool Call: ${tc.function.name}(${tc.function.arguments})`;
+                    }
                 }
 
                 prompt += `\n\nAssistant: ${content}`;
@@ -151,8 +157,11 @@ export class AnthropicConversationAdapter {
         if (messageRole === 'assistant') {
             const assistantMsg = msg as AssistantMessage;
             let content = assistantMsg.content || '';
-            if (assistantMsg.functionCall) {
-                content += `\n\nFunction Call: ${assistantMsg.functionCall.name}(${JSON.stringify(assistantMsg.functionCall.arguments)})`;
+            if ((assistantMsg as any).toolCalls) {
+                const toolCalls = (assistantMsg as any).toolCalls;
+                for (const tc of toolCalls) {
+                    content += `\n\nTool Call: ${tc.function.name}(${tc.function.arguments})`;
+                }
             }
             return {
                 role: 'assistant',

@@ -34,16 +34,19 @@ export class GoogleConversationAdapter {
         // Handle assistant messages
         if (messageRole === 'assistant') {
             const assistantMsg = msg as AssistantMessage;
-            if (assistantMsg.functionCall) {
+            if ((assistantMsg as any).toolCalls) {
                 const parts: Part[] = [{ text: assistantMsg.content || '' }];
 
-                // Add function call part if it exists
-                parts.push({
-                    functionCall: {
-                        name: assistantMsg.functionCall.name,
-                        args: assistantMsg.functionCall.arguments
-                    }
-                } as Part);
+                // Add tool calls if they exist
+                const toolCalls = (assistantMsg as any).toolCalls;
+                for (const tc of toolCalls) {
+                    parts.push({
+                        functionCall: {
+                            name: tc.function.name,
+                            args: JSON.parse(tc.function.arguments)
+                        }
+                    } as Part);
+                }
 
                 return {
                     role: 'model',
@@ -64,10 +67,10 @@ export class GoogleConversationAdapter {
                 parts: [
                     {
                         functionResponse: {
-                            name: toolMsg.name,
-                            response: toolMsg.toolResult?.result || toolMsg.content
+                            name: toolMsg.name || 'unknown',
+                            response: toolMsg.content
                         }
-                    } as Part
+                    } as any
                 ]
             };
         }

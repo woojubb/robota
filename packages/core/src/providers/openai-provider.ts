@@ -15,30 +15,69 @@ export class OpenAIProvider implements AIProvider {
     }
 
     /**
+     * Filter and format conversation history for API
+     * Takes complete conversation history and converts to API format
+     */
+    private filterHistory(messages: any[]): any[] {
+        return messages
+            .filter((m: any) => {
+                // Include all non-tool messages (system, user, assistant)
+                if (m.role !== 'tool') return true;
+                // For tool messages, only include those with toolCallId (valid tool results)
+                return m.toolCallId != null;
+            })
+            .map((m: any) => {
+                if (m.role === 'tool') {
+                    return {
+                        role: m.role,
+                        content: m.content || '',
+                        tool_call_id: m.toolCallId
+                    };
+                }
+
+                const baseMessage: any = {
+                    role: m.role,
+                    content: m.content || '', // Ensure content is never null
+                };
+
+                if (m.name) baseMessage.name = m.name;
+                if (m.toolCalls) baseMessage.tool_calls = m.toolCalls;
+
+                return baseMessage;
+            });
+    }
+
+    /**
+     * Configure tools for API request
+     */
+    private configureTools(completionOptions: any, tools?: any[]): void {
+        if (tools && Array.isArray(tools)) {
+            completionOptions.tools = tools.map((fn: any) => ({
+                type: 'function',
+                function: {
+                    name: fn.name,
+                    description: fn.description || '',
+                    parameters: fn.parameters || { type: 'object', properties: {} }
+                }
+            }));
+            completionOptions.tool_choice = 'auto'; // Enable tool calling
+        }
+    }
+
+    /**
      * Chat request
      */
     async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
         try {
-            const { messages, systemPrompt } = context;
+            const { messages } = context;
 
-            // Add system prompt (if not present)
-            const messagesWithSystem = systemPrompt && !messages.some((m: any) => m.role === 'system')
-                ? [{ role: 'system' as const, content: systemPrompt }, ...messages]
-                : messages;
-
-            // Convert messages to OpenAI format and filter out tool messages
-            const formattedMessages = messagesWithSystem
-                .filter((m: any) => m.role !== 'tool') // Filter out tool messages - they're for internal history only
-                .map((m: any) => ({
-                    role: m.role,
-                    content: m.content,
-                    name: m.name
-                }));
+            // Filter conversation history for API
+            const formattedMessages = this.filterHistory(messages);
 
             // Debug: Log the messages being sent to OpenAI
             logger.info('Debug [Core OpenAI Provider] - Messages being sent to OpenAI:');
             logger.info(JSON.stringify(formattedMessages, null, 2));
-            logger.info('Original messages count:', messagesWithSystem.length);
+            logger.info('Original messages count:', messages.length);
             logger.info('Filtered messages count:', formattedMessages.length);
 
             // Configure OpenAI API request options
@@ -49,29 +88,15 @@ export class OpenAIProvider implements AIProvider {
                 max_tokens: options?.maxTokens
             };
 
-            // Add function definitions if tools are present
-            if (options?.tools && Array.isArray(options.tools)) {
-                completionOptions.tools = options.tools.map((fn: any) => ({
-                    type: 'function',
-                    function: {
-                        name: fn.name,
-                        description: fn.description || '',
-                        parameters: fn.parameters || { type: 'object', properties: {} }
-                    }
-                }));
-            }
+            // Configure tools if present
+            this.configureTools(completionOptions, options?.tools);
 
             // Call OpenAI API
             const response = await this.client.chat.completions.create(completionOptions);
 
             return {
                 content: response.choices[0]?.message?.content || "",
-                functionCall: response.choices[0]?.message?.tool_calls?.[0] ? {
-                    name: response.choices[0].message.tool_calls[0].function.name,
-                    arguments: typeof response.choices[0].message.tool_calls[0].function.arguments === 'string'
-                        ? JSON.parse(response.choices[0].message.tool_calls[0].function.arguments)
-                        : response.choices[0].message.tool_calls[0].function.arguments
-                } : undefined,
+                toolCalls: response.choices[0]?.message?.tool_calls || undefined,
                 usage: response.usage ? {
                     promptTokens: response.usage.prompt_tokens,
                     completionTokens: response.usage.completion_tokens,
@@ -93,26 +118,15 @@ export class OpenAIProvider implements AIProvider {
      */
     async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
         try {
-            const { messages, systemPrompt } = context;
+            const { messages } = context;
 
-            // Add system prompt (if not present)
-            const messagesWithSystem = systemPrompt && !messages.some((m: any) => m.role === 'system')
-                ? [{ role: 'system' as const, content: systemPrompt }, ...messages]
-                : messages;
-
-            // Convert messages to OpenAI format and filter out tool messages
-            const formattedMessages = messagesWithSystem
-                .filter((m: any) => m.role !== 'tool') // Filter out tool messages - they're for internal history only
-                .map((m: any) => ({
-                    role: m.role,
-                    content: m.content,
-                    name: m.name
-                }));
+            // Filter conversation history for API
+            const formattedMessages = this.filterHistory(messages);
 
             // Debug: Log the messages being sent to OpenAI
             logger.info('Debug [Core OpenAI Provider Streaming] - Messages being sent to OpenAI:');
             logger.info(JSON.stringify(formattedMessages, null, 2));
-            logger.info('Original messages count:', messagesWithSystem.length);
+            logger.info('Original messages count:', messages.length);
             logger.info('Filtered messages count:', formattedMessages.length);
 
             // Configure OpenAI API request options
@@ -124,17 +138,8 @@ export class OpenAIProvider implements AIProvider {
                 stream: true
             };
 
-            // Add function definitions if tools are present
-            if (options?.tools && Array.isArray(options.tools)) {
-                completionOptions.tools = options.tools.map((fn: any) => ({
-                    type: 'function',
-                    function: {
-                        name: fn.name,
-                        description: fn.description || '',
-                        parameters: fn.parameters || { type: 'object', properties: {} }
-                    }
-                }));
-            }
+            // Configure tools if present
+            this.configureTools(completionOptions, options?.tools);
 
             const stream = await this.client.chat.completions.create(completionOptions);
 
@@ -142,11 +147,7 @@ export class OpenAIProvider implements AIProvider {
                 const delta = chunk.choices[0].delta;
                 yield {
                     content: delta.content || undefined,
-                    isComplete: chunk.choices[0].finish_reason !== null,
-                    functionCall: delta.tool_calls?.[0] ? {
-                        name: delta.tool_calls[0].function?.name,
-                        arguments: delta.tool_calls[0].function?.arguments
-                    } : undefined
+                    isComplete: chunk.choices[0].finish_reason !== null
                 } as StreamingResponseChunk;
             }
         } catch (error) {

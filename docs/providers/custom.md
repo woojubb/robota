@@ -181,23 +181,20 @@ To support function calling, implement appropriate conversion logic:
 async generateCompletion(context, options) {
   // ... code for preparing messages, etc.
   
-  // Add function schemas
+  // Add tool schemas
   if (context.functions && context.functions.length > 0) {
-    apiRequest.functions = this.transformFunctionSchemas(context.functions);
-    apiRequest.function_call = options?.functionCallMode || this.options.functionCallMode;
+    apiRequest.tools = this.transformFunctionSchemas(context.functions);
+    apiRequest.tool_choice = 'auto';
   }
   
   // API call and response
   // ...
   
-  // Handle function call
-  if (apiResponse.function_call) {
+  // Handle tool calls
+  if (apiResponse.tool_calls) {
     return {
       content: apiResponse.content,
-      functionCall: {
-        name: apiResponse.function_call.name,
-        arguments: JSON.parse(apiResponse.function_call.arguments)
-      },
+      toolCalls: apiResponse.tool_calls,
       // ... other response fields
     };
   }

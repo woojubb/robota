@@ -70,26 +70,35 @@ const anthropicProvider = new AnthropicProvider({
 });
 ```
 
-### 3. Function Calling
+### 3. Tool Calling
 
-This allows AI models to call specific functions. This enables you to perform tasks such as external API calls, database lookups, file system access, etc.
+This allows AI models to call specific tools. This enables you to perform tasks such as external API calls, database lookups, file system access, etc.
 
 ```typescript
 import { Robota } from '@robota-sdk/core';
+import { createZodFunctionToolProvider } from '@robota-sdk/tools';
+import { z } from 'zod';
 
-// Function definition
-const functions = {
-  searchDatabase: async (query: string) => {
-    // Database search logic
-    return { results: ['Result1', 'Result2'] };
+// Tool definition
+const tools = {
+  searchDatabase: {
+    name: 'searchDatabase',
+    description: 'Search the database for information',
+    parameters: z.object({
+      query: z.string().describe('Search query')
+    }),
+    handler: async ({ query }) => {
+      // Database search logic
+      return { results: ['Result1', 'Result2'] };
+    }
   }
 };
 
-// Function registration
-robota.registerFunctions(functions);
+// Create tool provider
+const toolProvider = createZodFunctionToolProvider({ tools });
 
-// Function call mode setting
-robota.setFunctionCallMode('auto'); // Choose from 'auto', 'disabled', 'force'
+// Register tool provider
+robota.addToolProvider(toolProvider);
 ```
 
 ### 4. Tools

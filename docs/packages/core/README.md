@@ -54,7 +54,7 @@ The core package is built around specialized managers that handle specific domai
 - **AIProviderManager**: Manages multiple AI providers and model switching
 - **ToolProviderManager**: Handles tool registration and execution
 - **SystemMessageManager**: Manages system prompts and messages
-- **FunctionCallManager**: Controls function calling behavior and configuration
+- **ToolProviderManager**: Handles tool registration and execution
 - **AnalyticsManager**: Tracks usage, token consumption, and request history
 - **RequestLimitManager**: Enforces token and request limits
 
@@ -160,18 +160,18 @@ robota.setSystemMessages([
 robota.addSystemMessage('Focus on best practices and clean code.');
 ```
 
-### Function Call Configuration
+### Tool Provider Management
 ```typescript
-// Configure function calling
-robota.configureFunctionCall({
-  mode: 'auto',              // 'auto', 'required', 'disabled'
-  maxCalls: 5,               // Maximum function calls per conversation
-  timeout: 30000,            // Function call timeout (ms)
-  allowedFunctions: ['getWeather', 'calculate']  // Restrict available functions
-});
+// Add tool providers
+robota.addToolProvider(weatherToolProvider);
+robota.addToolProvider(calculatorToolProvider);
 
-// Set function call mode
-robota.setFunctionCallMode('required');
+// Remove tool provider
+robota.removeToolProvider('weather-tools');
+
+// Get available tools
+const availableTools = robota.getAvailableTools();
+console.log('Available tools:', availableTools.map(t => t.name));
 ```
 
 ### Analytics and Monitoring

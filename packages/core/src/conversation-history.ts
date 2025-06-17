@@ -37,7 +37,7 @@ export interface UserMessage extends BaseMessage {
 }
 
 /**
- * Assistant message interface - for AI assistant responses
+ * Assistant message interface - for AI responses
  * 
  * @public
  */
@@ -47,9 +47,6 @@ export interface AssistantMessage extends BaseMessage {
 
     /** Assistant response content (can be null when making tool calls) */
     content: string | null;
-
-    /** Function call made by the assistant (if any) - legacy format */
-    functionCall?: FunctionCall;
 
     /** Tool calls made by the assistant (OpenAI tool calling format) */
     toolCalls?: Array<{
@@ -90,14 +87,11 @@ export interface ToolMessage extends BaseMessage {
     /** Tool execution result summary */
     content: string;
 
-    /** Name of the tool that was executed (legacy format) */
-    name?: string;
-
     /** Tool call ID for OpenAI tool calling format */
     toolCallId?: string;
 
-    /** Complete tool execution result (legacy format) */
-    toolResult?: FunctionCallResult;
+    /** Name of the tool that was executed */
+    name?: string;
 }
 
 /**
@@ -190,7 +184,6 @@ export function createUserMessage(
 export function createAssistantMessage(
     content: string | null,
     options?: {
-        functionCall?: FunctionCall;
         toolCalls?: Array<{
             id: string;
             type: 'function';
@@ -205,7 +198,6 @@ export function createAssistantMessage(
     return {
         role: 'assistant',
         content,
-        functionCall: options?.functionCall,
         toolCalls: options?.toolCalls,
         timestamp: new Date(),
         metadata: options?.metadata
@@ -242,7 +234,6 @@ export function createSystemMessage(
 export function createToolMessage(
     content: string,
     options?: {
-        toolResult?: FunctionCallResult;
         toolCallId?: string;
         name?: string;
         metadata?: Record<string, any>;
@@ -251,9 +242,8 @@ export function createToolMessage(
     return {
         role: 'tool',
         content,
-        name: options?.name,
         toolCallId: options?.toolCallId,
-        toolResult: options?.toolResult,
+        name: options?.name,
         timestamp: new Date(),
         metadata: options?.metadata
     };
@@ -289,10 +279,21 @@ export interface ConversationHistory {
      * Add assistant message (convenience method)
      * 
      * @param content - Assistant response content
-     * @param functionCall - Optional function call made by assistant
+     * @param toolCalls - Optional tool calls made by assistant
      * @param metadata - Optional metadata
      */
-    addAssistantMessage(content: string, functionCall?: FunctionCall, metadata?: Record<string, any>): void;
+    addAssistantMessage(
+        content: string,
+        toolCalls?: Array<{
+            id: string;
+            type: 'function';
+            function: {
+                name: string;
+                arguments: string;
+            };
+        }>,
+        metadata?: Record<string, any>
+    ): void;
 
     /**
      * Add system message (convenience method)
@@ -303,12 +304,14 @@ export interface ConversationHistory {
     addSystemMessage(content: string, metadata?: Record<string, any>): void;
 
     /**
-     * Add tool execution result message (convenience method)
+     * Add tool execution result message with tool call ID (for tool calling format)
      * 
-     * @param toolResult - Tool execution result
+     * @param content - Tool result content
+     * @param toolCallId - Tool call ID from the assistant's tool call
+     * @param toolName - Name of the tool that was executed
      * @param metadata - Optional metadata
      */
-    addToolMessage(toolResult: FunctionCallResult, metadata?: Record<string, any>): void;
+    addToolMessageWithId(content: string, toolCallId: string, toolName: string, metadata?: Record<string, any>): void;
 
     /**
      * Get all messages in chronological order
@@ -374,8 +377,19 @@ export abstract class BaseConversationHistory implements ConversationHistory {
         this.addMessage(message);
     }
 
-    addAssistantMessage(content: string, functionCall?: FunctionCall, metadata?: Record<string, any>): void {
-        const message = createAssistantMessage(content, { functionCall, metadata });
+    addAssistantMessage(
+        content: string,
+        toolCalls?: Array<{
+            id: string;
+            type: 'function';
+            function: {
+                name: string;
+                arguments: string;
+            };
+        }>,
+        metadata?: Record<string, any>
+    ): void {
+        const message = createAssistantMessage(content, { toolCalls, metadata });
         this.addMessage(message);
     }
 
@@ -384,17 +398,10 @@ export abstract class BaseConversationHistory implements ConversationHistory {
         this.addMessage(message);
     }
 
-    addToolMessage(toolResult: FunctionCallResult, metadata?: Record<string, any>): void {
-        let content: string;
-        if (toolResult.error) {
-            content = `Tool execution error: ${toolResult.error}`;
-        } else {
-            content = `Tool result: ${toolResult.result || 'No result'}`;
-        }
-
+    addToolMessageWithId(content: string, toolCallId: string, toolName: string, metadata?: Record<string, any>): void {
         const message = createToolMessage(content, {
-            toolResult,
-            name: toolResult.name,
+            toolCallId,
+            name: toolName,
             metadata
         });
         this.addMessage(message);

@@ -3,7 +3,7 @@ import type {
 } from '../types';
 import type { AIProvider, Context, Message, ModelResponse, StreamingResponseChunk } from '../interfaces/ai-provider';
 import type { Logger } from '../interfaces/logger';
-import type { ConversationHistory, UniversalMessage } from '../conversation-history';
+import type { ConversationHistory, UniversalMessage, ToolMessage } from '../conversation-history';
 import { logger } from '../utils';
 
 /**
@@ -71,6 +71,7 @@ export class ConversationService {
      * @param options - Run options
      * @param availableTools - Available tools
      * @param onToolCall - Tool call function
+     * @param conversationHistory - Conversation history to store messages sequentially
      */
     async generateResponse(
         aiProvider: AIProvider,
@@ -78,7 +79,8 @@ export class ConversationService {
         context: Context,
         options: RunOptions = {},
         availableTools: any[] = [],
-        onToolCall?: (toolName: string, params: any) => Promise<any>
+        onToolCall?: (toolName: string, params: any) => Promise<any>,
+        conversationHistory?: ConversationHistory
     ): Promise<ModelResponse> {
         try {
             // Generate response through AI provider
@@ -92,16 +94,17 @@ export class ConversationService {
                 forcedArguments: options.forcedArguments
             });
 
-            // Automatically execute if there is a function call
-            if (response.functionCall && options.functionCallMode !== 'disabled' && onToolCall) {
-                return await this.handleFunctionCall(
+            // Automatically execute if there are tool calls
+            if (onToolCall && response.toolCalls && response.toolCalls.length > 0) {
+                return await this.handleToolCalls(
                     response,
                     context,
                     aiProvider,
                     model,
                     options,
                     availableTools,
-                    onToolCall
+                    onToolCall,
+                    conversationHistory
                 );
             }
 
@@ -113,7 +116,7 @@ export class ConversationService {
     }
 
     /**
-     * Handle function call
+     * Handle function call (simplified - only tool_calls format)
      */
     private async handleFunctionCall(
         response: ModelResponse,
@@ -122,116 +125,185 @@ export class ConversationService {
         model: string,
         options: RunOptions,
         availableTools: any[],
-        onToolCall: (toolName: string, params: any) => Promise<any>
+        onToolCall: (toolName: string, params: any) => Promise<any>,
+        conversationHistory?: ConversationHistory
     ): Promise<ModelResponse> {
-        const { name, arguments: args } = response.functionCall!;
-
-        // Parse arguments once at the beginning
-        const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args;
-
-        try {
-            // Tool call logging
-            if (this.debug) {
-                this.logger.info(`🔧 [Tool Call] ${name}`, parsedArgs);
-            }
-
-            // Call tool
-            const toolResult = await onToolCall(name, parsedArgs);
-
-            // Tool result logging
-            if (this.debug) {
-                this.logger.info(`✅ [Tool Result] ${name}`, toolResult);
-            }
-
-            // Create assistant message with legacy function_call format (for compatibility)
-            const assistantMessage: UniversalMessage = {
-                role: 'assistant',
-                content: response.content || '',
-                timestamp: new Date(),
-                functionCall: {
-                    name: name,
-                    arguments: parsedArgs
-                }
-            };
-
-            // Create tool response message (for internal history only - filtered out for OpenAI)
-            const toolResponseMessage: UniversalMessage = {
-                role: 'tool',
-                content: JSON.stringify(toolResult),
-                timestamp: new Date(),
-                name: name,
-                toolResult: {
-                    name: name,
-                    result: toolResult
-                }
-            };
-
-            // Create new context with tool result included in the conversation
-            const newContext: Context = {
-                ...context,
-                messages: [
-                    ...context.messages,
-                    assistantMessage,
-                    toolResponseMessage
-                ]
-            };
-
-            // Generate final response including function result
-            // Tool messages will be filtered out by OpenAI adapter
-            const finalResponse = await aiProvider.chat(model, newContext, {
-                ...options,
-                temperature: options.temperature ?? this.temperature,
-                maxTokens: options.maxTokens ?? this.maxTokens,
-                tools: availableTools
-            });
-
-            return finalResponse;
-        } catch (toolError) {
-            logger.error('Error during tool call:', toolError);
-
-            // Create assistant message with function call
-            const assistantMessage: UniversalMessage = {
-                role: 'assistant',
-                content: response.content || '',
-                timestamp: new Date(),
-                functionCall: {
-                    name: name,
-                    arguments: parsedArgs
-                }
-            };
-
-            // Add tool call error as tool response (for internal history only)
-            const errorMessage: UniversalMessage = {
-                role: 'tool',
-                content: JSON.stringify({ error: toolError instanceof Error ? toolError.message : String(toolError) }),
-                timestamp: new Date(),
-                name: name,
-                toolResult: {
-                    name: name,
-                    result: { error: toolError instanceof Error ? toolError.message : String(toolError) }
-                }
-            };
-
-            const errorContext: Context = {
-                ...context,
-                messages: [
-                    ...context.messages,
-                    assistantMessage,
-                    errorMessage
-                ]
-            };
-
-            // Generate response including error
-            // Tool messages will be filtered out by OpenAI adapter
-            const errorResponse = await aiProvider.chat(model, errorContext, {
-                ...options,
-                temperature: options.temperature ?? this.temperature,
-                maxTokens: options.maxTokens ?? this.maxTokens,
-                tools: availableTools
-            });
-
-            return errorResponse;
+        // Only handle new tool_calls format
+        if (response.toolCalls && response.toolCalls.length > 0) {
+            return await this.handleToolCalls(
+                response,
+                context,
+                aiProvider,
+                model,
+                options,
+                availableTools,
+                onToolCall,
+                conversationHistory
+            );
         }
+
+        return response;
+    }
+
+    /**
+     * Handle new tool_calls format (OpenAI tool calling)
+     */
+    private async handleToolCalls(
+        response: ModelResponse,
+        context: Context,
+        aiProvider: AIProvider,
+        model: string,
+        options: RunOptions,
+        availableTools: any[],
+        onToolCall: (toolName: string, params: any) => Promise<any>,
+        conversationHistory?: ConversationHistory
+    ): Promise<ModelResponse> {
+        const toolCalls = response.toolCalls!;
+
+        // Create assistant message with tool calls - MUST include toolCalls property
+        const assistantMessage: UniversalMessage = {
+            role: 'assistant',
+            content: response.content || null,
+            timestamp: new Date(),
+            toolCalls: toolCalls.map(tc => ({
+                id: tc.id,
+                type: tc.type,
+                function: tc.function
+            }))
+        };
+
+        // Debug: Log the assistant message being created
+        if (this.debug) {
+            this.logger.info('🔍 [Debug] Assistant message created:', {
+                role: assistantMessage.role,
+                content: assistantMessage.content,
+                hasToolCalls: !!(assistantMessage as any).toolCalls,
+                toolCallsCount: (assistantMessage as any).toolCalls?.length || 0,
+                toolCallIds: (assistantMessage as any).toolCalls?.map((tc: any) => tc.id) || []
+            });
+        }
+
+        // STEP 1: Store assistant message with tool calls in conversation history immediately
+        if (conversationHistory) {
+            if (this.debug) {
+                this.logger.info('📝 [ConversationService] Storing assistant message with tool calls');
+            }
+            conversationHistory.addAssistantMessage(
+                assistantMessage.content || '',
+                assistantMessage.toolCalls
+            );
+        }
+
+        // Execute all tool calls and collect results
+        const toolResultMessages: UniversalMessage[] = [];
+
+        for (const toolCall of toolCalls) {
+            const { name, arguments: args } = toolCall.function;
+            const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args;
+
+            try {
+                // Tool call logging
+                if (this.debug) {
+                    this.logger.info(`🔧 [Tool Call] ${name} (ID: ${toolCall.id})`, parsedArgs);
+                }
+
+                // Call tool
+                const toolResult = await onToolCall(name, parsedArgs);
+
+                // Tool result logging
+                if (this.debug) {
+                    this.logger.info(`✅ [Tool Result] ${name} (ID: ${toolCall.id})`, toolResult);
+                }
+
+                // Create tool response message with proper tool_call_id
+                const toolResponseMessage: UniversalMessage = {
+                    role: 'tool',
+                    content: typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult),
+                    timestamp: new Date(),
+                    toolCallId: toolCall.id, // This is crucial for OpenAI
+                    name: name
+                };
+
+                toolResultMessages.push(toolResponseMessage);
+
+                // STEP 2: Store tool result message in conversation history immediately
+                if (conversationHistory) {
+                    if (this.debug) {
+                        this.logger.info(`📝 [ConversationService] Storing tool result message (ID: ${toolCall.id})`);
+                    }
+                    conversationHistory.addToolMessageWithId(
+                        toolResponseMessage.content,
+                        toolCall.id,
+                        name
+                    );
+                }
+            } catch (toolError) {
+                logger.error('Error during tool call:', toolError);
+
+                // Add tool call error as tool response
+                const errorMessage: UniversalMessage = {
+                    role: 'tool',
+                    content: JSON.stringify({ error: toolError instanceof Error ? toolError.message : String(toolError) }),
+                    timestamp: new Date(),
+                    toolCallId: toolCall.id,
+                    name: name
+                };
+
+                toolResultMessages.push(errorMessage);
+
+                // Store error message in conversation history immediately
+                if (conversationHistory) {
+                    if (this.debug) {
+                        this.logger.info(`📝 [ConversationService] Storing tool error message (ID: ${toolCall.id})`);
+                    }
+                    conversationHistory.addToolMessageWithId(
+                        errorMessage.content,
+                        toolCall.id,
+                        name
+                    );
+                }
+            }
+        }
+
+        // Create new context with ALL messages included (for the final AI call)
+        const newContext: Context = {
+            ...context,
+            messages: [
+                ...context.messages,
+                assistantMessage,  // Assistant message with tool_calls
+                ...toolResultMessages  // Tool result messages with toolCallId
+            ]
+        };
+
+        // Debug: Log the messages that will be sent
+        if (this.debug) {
+            this.logger.info('🔍 [Debug] Messages in new context:', newContext.messages.length);
+            newContext.messages.slice(-10).forEach((msg, idx) => {
+                const displayIdx = newContext.messages.length - 10 + idx + 1;
+                if (msg.role === 'tool') {
+                    this.logger.info(`  ${displayIdx}. ${msg.role}: [tool_call_id: ${(msg as any).toolCallId}]`);
+                } else if (msg.role === 'assistant' && (msg as any).toolCalls) {
+                    this.logger.info(`  ${displayIdx}. ${msg.role}: [has ${(msg as any).toolCalls.length} tool calls]`);
+                } else {
+                    this.logger.info(`  ${displayIdx}. ${msg.role}: ${msg.content?.substring(0, 50) || ''}...`);
+                }
+            });
+        }
+
+        // Generate final response including tool results
+        const finalResponse = await aiProvider.chat(model, newContext, {
+            ...options,
+            temperature: options.temperature ?? this.temperature,
+            maxTokens: options.maxTokens ?? this.maxTokens,
+            tools: availableTools,
+            functionCallMode: 'disabled' // Prevent recursive tool calls
+        });
+
+        // STEP 3: Final assistant response will be stored by ExecutionService
+        // We don't store it here to avoid duplication
+
+        // Return final response (no need for intermediateMessages anymore)
+        return finalResponse;
     }
 
     /**
