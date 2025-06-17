@@ -50,7 +50,7 @@ export function addResponseToConversationHistory(
     response: ModelResponse,
     conversationHistory: ConversationHistory
 ): void {
-    conversationHistory.addAssistantMessage(response.content || '', response.functionCall);
+    conversationHistory.addAssistantMessage(response.content || '', response.toolCalls);
 }
 
 /**
