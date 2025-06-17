@@ -2,7 +2,7 @@
 export { Robota } from './robota';
 export type { RobotaOptions } from './robota';
 
-// Interfaces
+// Interfaces and Base Classes
 export type {
     AIProvider,
     Context,
@@ -11,6 +11,7 @@ export type {
     ModelResponse,
     StreamingResponseChunk
 } from './interfaces/ai-provider';
+export { BaseAIProvider } from './providers/base-ai-provider';
 export type { Logger } from './interfaces/logger';
 export type {
     RobotaCore,
@@ -65,4 +66,4 @@ export {
 export type { MessageAdapter } from './utils';
 
 // Legacy features (for backward compatibility)
-export * from './providers/openai-provider'; 
+// OpenAI Provider is now in @robota-sdk/openai package 

@@ -2,26 +2,26 @@ import Anthropic from '@anthropic-ai/sdk';
 import {
     Context,
     Message,
-    AIProvider,
+    BaseAIProvider,
     ModelResponse,
     StreamingResponseChunk,
     UniversalMessage
 } from '@robota-sdk/core';
-import type { FunctionDefinition, FunctionCall } from '@robota-sdk/tools';
+import type { FunctionSchema } from '@robota-sdk/tools';
 import { AnthropicProviderOptions } from './types';
 import { AnthropicConversationAdapter } from './adapter';
 
 /**
- * Anthropic provider implementation for Robota
+ * Anthropic AI provider implementation for Robota
  * 
  * Provides integration with Anthropic's Claude models.
- * Implements the universal AIProvider interface for consistent usage across providers.
+ * Extends BaseAIProvider for common functionality and tool calling support.
  * 
  * @see {@link ../../../apps/examples/03-integrations | Provider Integration Examples}
  * 
  * @public
  */
-export class AnthropicProvider implements AIProvider {
+export class AnthropicProvider extends BaseAIProvider {
     /**
      * Provider identifier name
      * @readonly
@@ -48,6 +48,8 @@ export class AnthropicProvider implements AIProvider {
      * @throws {Error} When client is not provided in options
      */
     constructor(options: AnthropicProviderOptions) {
+        super();
+
         this.options = {
             temperature: 0.7,
             maxTokens: undefined,
@@ -70,7 +72,7 @@ export class AnthropicProvider implements AIProvider {
      * 
      * @param model - Model name to use (e.g., 'claude-3-sonnet-20240229', 'claude-3-opus-20240229')
      * @param context - Context object containing messages and system prompt
-     * @param options - Optional generation parameters
+     * @param options - Optional generation parameters and tools
      * @returns Promise resolving to the model's response
      * 
      * @throws {Error} When context is invalid
@@ -78,17 +80,10 @@ export class AnthropicProvider implements AIProvider {
      * @throws {Error} When Anthropic API call fails
      */
     async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
-        // Validate context parameter
-        if (!context || typeof context !== 'object') {
-            throw new Error('Valid Context object is required');
-        }
+        // Use base class validation
+        this.validateContext(context);
 
         const { messages, systemPrompt } = context;
-
-        // Validate messages array
-        if (!Array.isArray(messages)) {
-            throw new Error('Valid message array is required');
-        }
 
         try {
             // Convert UniversalMessage[] to Anthropic Messages format
@@ -108,12 +103,17 @@ export class AnthropicProvider implements AIProvider {
                 requestParams.system = systemPrompt;
             }
 
+            // Configure tools if provided
+            const toolConfig = this.configureTools(options?.tools);
+            if (toolConfig) {
+                requestParams.tools = toolConfig.tools;
+            }
+
             const response = await this.client.messages.create(requestParams);
 
             return this.parseResponse(response);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            throw new Error(`Anthropic API call error: ${errorMessage}`);
+            this.handleApiError(error, 'chat');
         }
     }
 
@@ -126,7 +126,7 @@ export class AnthropicProvider implements AIProvider {
      * 
      * @param model - Model name to use
      * @param context - Context object containing messages and system prompt
-     * @param options - Optional generation parameters
+     * @param options - Optional generation parameters and tools
      * @returns Async generator yielding response chunks
      * 
      * @throws {Error} When context is invalid
@@ -134,17 +134,10 @@ export class AnthropicProvider implements AIProvider {
      * @throws {Error} When Anthropic streaming API call fails
      */
     async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
-        // Validate context parameter
-        if (!context || typeof context !== 'object') {
-            throw new Error('Valid Context object is required');
-        }
+        // Use base class validation
+        this.validateContext(context);
 
         const { messages, systemPrompt } = context;
-
-        // Validate messages array
-        if (!Array.isArray(messages)) {
-            throw new Error('Valid message array is required');
-        }
 
         try {
             // Convert UniversalMessage[] to Anthropic Messages format
@@ -165,31 +158,43 @@ export class AnthropicProvider implements AIProvider {
                 requestParams.system = systemPrompt;
             }
 
+            // Configure tools if provided
+            const toolConfig = this.configureTools(options?.tools);
+            if (toolConfig) {
+                requestParams.tools = toolConfig.tools;
+            }
+
             const stream = await this.client.messages.create(requestParams) as any;
 
             for await (const chunk of stream) {
                 yield this.parseStreamingChunk(chunk);
             }
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            throw new Error(`Anthropic streaming API call error: ${errorMessage}`);
+            this.handleApiError(error, 'chatStream');
         }
     }
 
     /**
-     * Format function definitions for Anthropic
+     * Configure tools for Anthropic API request
      * 
-     * @param _functions - Array of function definitions to format
-     * @returns Formatted functions (currently returns empty array as Anthropic function calling has limited support)
+     * Anthropic supports tool calling with Claude 3 models.
+     * Transforms function schemas into Anthropic tool format.
      * 
-     * @remarks
-     * Anthropic API may not yet fully support function calling features in the same way as OpenAI.
-     * This method returns empty array as placeholder for future implementation.
+     * @param tools - Array of function schemas
+     * @returns Anthropic tool configuration object or undefined
      */
-    formatFunctions(_functions: FunctionDefinition[]): unknown {
-        // TODO: Implement Anthropic function calling support when available
-        // Anthropic API may not yet support function calling features
-        return [];
+    protected configureTools(tools?: FunctionSchema[]): { tools: any[] } | undefined {
+        if (!tools || !Array.isArray(tools)) {
+            return undefined;
+        }
+
+        return {
+            tools: tools.map(fn => ({
+                name: fn.name,
+                description: fn.description || '',
+                input_schema: fn.parameters
+            }))
+        };
     }
 
     /**
@@ -197,6 +202,7 @@ export class AnthropicProvider implements AIProvider {
      * 
      * Extracts content, usage information, and metadata from the Anthropic response
      * and converts it to the standard format used across all providers.
+     * Supports tool calling with Claude 3 models.
      * 
      * @param response - Raw response from Anthropic Messages API
      * @returns Parsed model response in universal format
@@ -204,11 +210,30 @@ export class AnthropicProvider implements AIProvider {
      * @internal
      */
     parseResponse(response: any): ModelResponse {
-        // Extract content from Messages API response
-        const content = response.content?.[0]?.text || '';
+        let content = '';
+        const toolCalls: any[] = [];
 
-        return {
-            content,
+        // Process content blocks (text and tool use)
+        if (response.content && Array.isArray(response.content)) {
+            for (const block of response.content) {
+                if (block.type === 'text') {
+                    content += block.text;
+                } else if (block.type === 'tool_use') {
+                    // Convert Anthropic tool use to OpenAI format for consistency
+                    toolCalls.push({
+                        id: block.id,
+                        type: 'function' as const,
+                        function: {
+                            name: block.name,
+                            arguments: JSON.stringify(block.input || {})
+                        }
+                    });
+                }
+            }
+        }
+
+        const result: ModelResponse = {
+            content: content || undefined,
             usage: response.usage ? {
                 promptTokens: response.usage.input_tokens || 0,
                 completionTokens: response.usage.output_tokens || 0,
@@ -224,6 +249,13 @@ export class AnthropicProvider implements AIProvider {
                 messageId: response.id
             }
         };
+
+        // Add tool calls if present
+        if (toolCalls.length > 0) {
+            result.toolCalls = toolCalls;
+        }
+
+        return result;
     }
 
     /**

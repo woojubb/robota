@@ -1,12 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { BaseAIProvider } from '@robota-sdk/core';
 import type {
     Context,
-    AIProvider,
     ModelResponse,
     StreamingResponseChunk,
     UniversalMessage
 } from '@robota-sdk/core';
-import type { FunctionDefinition } from '@robota-sdk/tools';
+import type { FunctionSchema } from '@robota-sdk/tools';
 import type { GoogleProviderOptions } from './types';
 import { GoogleConversationAdapter } from './adapter';
 
@@ -14,13 +14,13 @@ import { GoogleConversationAdapter } from './adapter';
  * Google AI provider implementation for Robota
  * 
  * Provides integration with Google's Generative AI services including Gemini models.
- * Implements the universal AIProvider interface for consistent usage across providers.
+ * Extends BaseAIProvider for common functionality and tool calling support.
  * 
  * @see {@link ../../../apps/examples/03-integrations | Provider Integration Examples}
  * 
  * @public
  */
-export class GoogleProvider implements AIProvider {
+export class GoogleProvider extends BaseAIProvider {
     /**
      * Provider identifier name
      * @readonly
@@ -47,6 +47,8 @@ export class GoogleProvider implements AIProvider {
      * @throws {Error} When client is not provided in options
      */
     constructor(options: GoogleProviderOptions) {
+        super();
+
         this.options = {
             temperature: 0.7,
             maxTokens: undefined,
@@ -66,7 +68,7 @@ export class GoogleProvider implements AIProvider {
      * 
      * @param model - Model name to use (e.g., 'gemini-1.5-pro', 'gemini-1.5-flash')
      * @param context - Context object containing messages and system prompt
-     * @param options - Optional generation parameters
+     * @param options - Optional generation parameters and tools
      * @returns Promise resolving to the model's response
      * 
      * @throws {Error} When context is invalid
@@ -74,17 +76,10 @@ export class GoogleProvider implements AIProvider {
      * @throws {Error} When Google AI API call fails
      */
     async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
-        // Validate context parameter
-        if (!context || typeof context !== 'object') {
-            throw new Error('Valid Context object is required');
-        }
+        // Use base class validation
+        this.validateContext(context);
 
         const { messages, systemPrompt } = context;
-
-        // Validate messages array
-        if (!Array.isArray(messages)) {
-            throw new Error('Valid message array is required');
-        }
 
         try {
             // Convert UniversalMessage[] to Google AI format
@@ -93,11 +88,20 @@ export class GoogleProvider implements AIProvider {
                 systemPrompt
             );
 
-            // Get Google AI model instance
-            const generativeModel = this.client.getGenerativeModel({
+            // Configure tools if provided
+            const toolConfig = this.configureTools(options?.tools);
+            const modelConfig: any = {
                 model: model || this.options.model || 'gemini-1.5-flash',
                 systemInstruction: systemInstruction
-            });
+            };
+
+            // Add tools to model configuration if available
+            if (toolConfig) {
+                modelConfig.tools = toolConfig.tools;
+            }
+
+            // Get Google AI model instance
+            const generativeModel = this.client.getGenerativeModel(modelConfig);
 
             // Configure generation parameters
             const generationConfig = {
@@ -119,8 +123,7 @@ export class GoogleProvider implements AIProvider {
 
             return this.parseResponse(result);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            throw new Error(`Google AI API call error: ${errorMessage}`);
+            this.handleApiError(error, 'chat');
         }
     }
 
@@ -132,7 +135,7 @@ export class GoogleProvider implements AIProvider {
      * 
      * @param model - Model name to use
      * @param context - Context object containing messages and system prompt
-     * @param options - Optional generation parameters
+     * @param options - Optional generation parameters and tools
      * @returns Async generator yielding response chunks
      * 
      * @throws {Error} When context is invalid
@@ -140,17 +143,10 @@ export class GoogleProvider implements AIProvider {
      * @throws {Error} When Google AI API streaming call fails
      */
     async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
-        // Validate context parameter
-        if (!context || typeof context !== 'object') {
-            throw new Error('Valid Context object is required');
-        }
+        // Use base class validation
+        this.validateContext(context);
 
         const { messages, systemPrompt } = context;
-
-        // Validate messages array
-        if (!Array.isArray(messages)) {
-            throw new Error('Valid message array is required');
-        }
 
         try {
             // Convert UniversalMessage[] to Google AI format
@@ -159,11 +155,20 @@ export class GoogleProvider implements AIProvider {
                 systemPrompt
             );
 
-            // Get Google AI model instance
-            const generativeModel = this.client.getGenerativeModel({
+            // Configure tools if provided
+            const toolConfig = this.configureTools(options?.tools);
+            const modelConfig: any = {
                 model: model || this.options.model || 'gemini-1.5-flash',
                 systemInstruction: systemInstruction
-            });
+            };
+
+            // Add tools to model configuration if available
+            if (toolConfig) {
+                modelConfig.tools = toolConfig.tools;
+            }
+
+            // Get Google AI model instance
+            const generativeModel = this.client.getGenerativeModel(modelConfig);
 
             // Configure generation parameters
             const generationConfig = {
@@ -187,25 +192,33 @@ export class GoogleProvider implements AIProvider {
                 yield this.parseStreamingChunk(chunk);
             }
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            throw new Error(`Google AI streaming API call error: ${errorMessage}`);
+            this.handleApiError(error, 'chatStream');
         }
     }
 
     /**
-     * Format function definitions for Google AI
+     * Configure tools for Google AI API request
      * 
-     * @param _functions - Array of function definitions to format
-     * @returns Formatted functions (currently returns empty array as Google AI function calling is pending implementation)
+     * Google AI supports function calling with Gemini models.
+     * Transforms function schemas into Google AI tool format.
      * 
-     * @remarks
-     * Google AI function calling support is planned for future implementation.
-     * Currently returns empty array as placeholder.
+     * @param tools - Array of function schemas
+     * @returns Google AI tool configuration object or undefined
      */
-    formatFunctions(_functions: FunctionDefinition[]): unknown {
-        // TODO: Implement Google AI function calling support
-        // Google AI function calling feature implementation pending
-        return [];
+    protected configureTools(tools?: FunctionSchema[]): { tools: any[] } | undefined {
+        if (!tools || !Array.isArray(tools)) {
+            return undefined;
+        }
+
+        return {
+            tools: [{
+                functionDeclarations: tools.map(fn => ({
+                    name: fn.name,
+                    description: fn.description || '',
+                    parameters: fn.parameters
+                }))
+            }]
+        };
     }
 
     /**
@@ -213,6 +226,7 @@ export class GoogleProvider implements AIProvider {
      * 
      * Extracts content, usage information, and metadata from the Google AI response
      * and converts it to the standard format used across all providers.
+     * Supports function calling with Gemini models.
      * 
      * @param response - Raw response from Google AI API
      * @returns Parsed model response in universal format
@@ -220,7 +234,28 @@ export class GoogleProvider implements AIProvider {
      * @internal
      */
     parseResponse(response: any): ModelResponse {
-        const text = response.response?.text() || '';
+        let content = '';
+        const toolCalls: any[] = [];
+
+        // Extract content and function calls from response
+        const candidate = response.response?.candidates?.[0];
+        if (candidate?.content?.parts) {
+            for (const part of candidate.content.parts) {
+                if (part.text) {
+                    content += part.text;
+                } else if (part.functionCall) {
+                    // Convert Google AI function call to OpenAI format for consistency
+                    toolCalls.push({
+                        id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        type: 'function' as const,
+                        function: {
+                            name: part.functionCall.name,
+                            arguments: JSON.stringify(part.functionCall.args || {})
+                        }
+                    });
+                }
+            }
+        }
 
         // Extract usage information from response if available
         const usageMetadata = response.response?.usageMetadata;
@@ -234,15 +269,22 @@ export class GoogleProvider implements AIProvider {
             totalTokens: 0
         };
 
-        return {
-            content: text,
+        const result: ModelResponse = {
+            content: content || undefined,
             usage,
             metadata: {
                 model: response.response?.model,
-                finishReason: response.response?.candidates?.[0]?.finishReason,
-                safetyRatings: response.response?.candidates?.[0]?.safetyRatings
+                finishReason: candidate?.finishReason,
+                safetyRatings: candidate?.safetyRatings
             }
         };
+
+        // Add tool calls if present
+        if (toolCalls.length > 0) {
+            result.toolCalls = toolCalls;
+        }
+
+        return result;
     }
 
     /**

@@ -3,24 +3,25 @@ import {
   Context,
   ModelResponse,
   StreamingResponseChunk,
-  AIProvider
+  Message,
+  BaseAIProvider,
+  logger
 } from '@robota-sdk/core';
 import type { FunctionSchema } from '@robota-sdk/tools';
 import { OpenAIProviderOptions } from './types';
-import { logger } from '@robota-sdk/core';
 import { OpenAIConversationAdapter } from './adapter';
 
 /**
- * OpenAI provider implementation for Robota
+ * OpenAI AI provider implementation for Robota
  * 
  * Provides integration with OpenAI's GPT models and other services.
- * Implements the universal AIProvider interface for consistent usage across providers.
+ * Extends BaseAIProvider for common functionality and tool calling support.
  * 
  * @see {@link ../../../apps/examples/03-integrations | Provider Integration Examples}
  * 
  * @public
  */
-export class OpenAIProvider implements AIProvider {
+export class OpenAIProvider extends BaseAIProvider {
   /**
    * Provider identifier name
    * @readonly
@@ -60,6 +61,8 @@ export class OpenAIProvider implements AIProvider {
    * @throws {Error} When client is not provided in options
    */
   constructor(options: OpenAIProviderOptions) {
+    super();
+
     this.options = {
       temperature: 0.7,
       maxTokens: undefined,
@@ -96,6 +99,37 @@ export class OpenAIProvider implements AIProvider {
   }
 
   /**
+   * Filter conversation history for OpenAI API compatibility
+   * 
+   * Converts messages to OpenAI format and filters out invalid tool messages.
+   * 
+   * @param messages - Array of messages to filter
+   * @returns OpenAI-formatted messages array
+   */
+  private filterHistory(messages: any[]): OpenAI.Chat.ChatCompletionMessageParam[] {
+    return OpenAIConversationAdapter.toOpenAIFormat(messages);
+  }
+
+  /**
+   * Configure tools for OpenAI API request
+   * 
+   * Transforms function schemas into OpenAI tool format and sets tool_choice.
+   * 
+   * @param tools - Array of function schemas
+   * @returns OpenAI tool configuration object
+   */
+  protected configureTools(tools?: FunctionSchema[]): { tools: OpenAI.Chat.ChatCompletionTool[], tool_choice: 'auto' } | undefined {
+    if (!tools || !Array.isArray(tools)) {
+      return undefined;
+    }
+
+    return {
+      tools: this.formatFunctions(tools),
+      tool_choice: 'auto' // Force new tool_calls format
+    };
+  }
+
+  /**
    * Send a chat request to OpenAI and receive a complete response
    * 
    * Processes the provided context and sends it to OpenAI's Chat Completions API.
@@ -112,22 +146,11 @@ export class OpenAIProvider implements AIProvider {
    * @throws {Error} When OpenAI API call fails
    */
   async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
-    // Validate context parameter
-    if (!context || typeof context !== 'object') {
-      logger.error('[OpenAIProvider] Invalid context:', context);
-      throw new Error('Valid Context object is required');
-    }
+    // Use base class validation
+    this.validateContext(context);
 
-    const { messages } = context;
-
-    // Validate messages array
-    if (!Array.isArray(messages)) {
-      logger.error('[OpenAIProvider] Invalid message array:', messages);
-      throw new Error('Valid message array is required');
-    }
-
-    // Convert messages to OpenAI format and filter out tool messages
-    const openaiMessages = OpenAIConversationAdapter.toOpenAIFormat(context.messages);
+    // Filter messages for OpenAI API
+    const openaiMessages = this.filterHistory(context.messages);
 
     const completionOptions: OpenAI.Chat.ChatCompletionCreateParams = {
       model,
@@ -136,11 +159,11 @@ export class OpenAIProvider implements AIProvider {
       temperature: options?.temperature || this.options.temperature,
     };
 
-    // Add tool provider functions
-    if (options?.tools && Array.isArray(options.tools)) {
-      completionOptions.tools = this.formatFunctions(options.tools);
-      // Force new tool_calls format by setting tool_choice
-      completionOptions.tool_choice = 'auto';
+    // Configure tools if provided
+    const toolConfig = this.configureTools(options?.tools);
+    if (toolConfig) {
+      completionOptions.tools = toolConfig.tools;
+      completionOptions.tool_choice = toolConfig.tool_choice;
     }
 
     // Set response format if specified
@@ -164,8 +187,7 @@ export class OpenAIProvider implements AIProvider {
       const response = await this.client.chat.completions.create(completionOptions);
       return this.parseResponse(response);
     } catch (error) {
-      logger.error('[OpenAIProvider] API call error:', error);
-      throw error;
+      this.handleApiError(error, 'chat');
     }
   }
 
