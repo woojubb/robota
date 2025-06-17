@@ -113,4 +113,20 @@ export class ToolProviderManager {
             toolProvider.functions?.some(fn => fn.name === toolName)
         );
     }
+
+    /**
+     * Clean up resources for all tool providers
+     */
+    async close(): Promise<void> {
+        for (const toolProvider of this.toolProviders) {
+            const provider = toolProvider as any;
+            if (provider.close && typeof provider.close === 'function') {
+                try {
+                    await provider.close();
+                } catch (error) {
+                    this.logger.error('Error closing tool provider:', error);
+                }
+            }
+        }
+    }
 } 

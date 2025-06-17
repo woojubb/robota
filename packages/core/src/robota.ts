@@ -450,6 +450,9 @@ export class Robota implements RobotaComplete {
         // Close AI providers if they support it
         await this.ai.close();
 
+        // Close tool providers if they support it
+        await this.tools.close();
+
         // Future: Close other resources as needed
     }
 } 
