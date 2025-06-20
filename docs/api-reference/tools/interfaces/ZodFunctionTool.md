@@ -35,7 +35,7 @@ Tool name
 
 #### Defined in
 
-[packages/tools/src/zod-schema.ts:109](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/zod-schema.ts#L109)
+[packages/tools/src/zod-schema.ts:108](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/tools/src/zod-schema.ts#L108)
 
 ___
 
@@ -47,7 +47,7 @@ Tool description
 
 #### Defined in
 
-[packages/tools/src/zod-schema.ts:111](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/zod-schema.ts#L111)
+[packages/tools/src/zod-schema.ts:110](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/tools/src/zod-schema.ts#L110)
 
 ___
 
@@ -59,7 +59,7 @@ Tool parameter schema
 
 #### Defined in
 
-[packages/tools/src/zod-schema.ts:113](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/zod-schema.ts#L113)
+[packages/tools/src/zod-schema.ts:112](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/tools/src/zod-schema.ts#L112)
 
 ___
 
@@ -85,4 +85,4 @@ Tool handler function
 
 #### Defined in
 
-[packages/tools/src/zod-schema.ts:115](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/zod-schema.ts#L115)
+[packages/tools/src/zod-schema.ts:114](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/tools/src/zod-schema.ts#L114)

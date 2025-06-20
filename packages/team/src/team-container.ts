@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { v4 as uuidv4 } from 'uuid';
 import { Robota, AgentTemplateManager, AgentFactory } from '@robota-sdk/core';
 import type { RobotaOptions } from '@robota-sdk/core';

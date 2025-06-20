@@ -1,5 +1,19 @@
 # robota-examples
 
+## 0.1.26
+
+### Patch Changes
+
+- Simplify team API, update docs, fix lint issues, add task coordinator template
+- Updated dependencies
+  - @robota-sdk/anthropic@1.0.5
+  - @robota-sdk/sessions@1.0.5
+  - @robota-sdk/openai@1.0.5
+  - @robota-sdk/tools@1.0.5
+  - @robota-sdk/core@1.0.5
+  - @robota-sdk/team@1.0.5
+  - @robota-sdk/google@1.0.5
+
 ## 0.1.25
 
 ### Patch Changes

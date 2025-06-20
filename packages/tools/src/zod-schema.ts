@@ -11,7 +11,6 @@
  */
 
 import { z } from 'zod';
-import type { FunctionSchema } from './index.js';
 
 /**
  * Converts Zod object schema to JSON schema.

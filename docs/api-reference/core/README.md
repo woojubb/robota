@@ -89,7 +89,7 @@ Universal message role type - Provider-independent neutral role
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:8](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L8)
+[packages/core/src/conversation-history.ts:8](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/conversation-history.ts#L8)
 
 ___
 
@@ -108,7 +108,7 @@ based on the message role, preventing invalid combinations.
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:107](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L107)
+[packages/core/src/conversation-history.ts:107](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/conversation-history.ts#L107)
 
 ___
 
@@ -120,7 +120,7 @@ Message role type
 
 #### Defined in
 
-[packages/core/src/interfaces/ai-provider.ts:7](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/interfaces/ai-provider.ts#L7)
+[packages/core/src/interfaces/ai-provider.ts:7](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/interfaces/ai-provider.ts#L7)
 
 ___
 
@@ -132,7 +132,7 @@ Function call mode
 
 #### Defined in
 
-[packages/core/src/managers/function-call-manager.ts:4](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/managers/function-call-manager.ts#L4)
+[packages/core/src/managers/function-call-manager.ts:4](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/managers/function-call-manager.ts#L4)
 
 ___
 
@@ -144,7 +144,7 @@ Type inference from the Zod schema
 
 #### Defined in
 
-packages/core/src/schemas/agent-template-schema.ts:59
+[packages/core/src/schemas/agent-template-schema.ts:65](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/schemas/agent-template-schema.ts#L65)
 
 ___
 
@@ -154,31 +154,31 @@ ___
 
 #### Defined in
 
-packages/core/src/schemas/agent-template-schema.ts:60
+[packages/core/src/schemas/agent-template-schema.ts:66](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/schemas/agent-template-schema.ts#L66)
 
 ## Variables
 
 ### AgentTemplateMetadataSchema
 
-• `Const` **AgentTemplateMetadataSchema**: `ZodObject`\<\{ `type`: `ZodEnum`\<[``"builtin"``, ``"custom"``]\> ; `author`: `ZodOptional`\<`ZodString`\> ; `createdAt`: `ZodOptional`\<`ZodDate`\> ; `updatedAt`: `ZodOptional`\<`ZodDate`\> ; `description`: `ZodOptional`\<`ZodString`\> ; `category`: `ZodOptional`\<`ZodString`\>  }, ``"strict"``, `ZodTypeAny`, \{ `type`: ``"builtin"`` \| ``"custom"`` ; `author?`: `string` ; `createdAt?`: `Date` ; `updatedAt?`: `Date` ; `description?`: `string` ; `category?`: `string`  }, \{ `type`: ``"builtin"`` \| ``"custom"`` ; `author?`: `string` ; `createdAt?`: `Date` ; `updatedAt?`: `Date` ; `description?`: `string` ; `category?`: `string`  }\>
+• `Const` **AgentTemplateMetadataSchema**: `ZodObject`\<\{ `type`: `ZodEnum`\<[``"builtin"``, ``"custom"``]\> ; `author`: `ZodOptional`\<`ZodString`\> ; `createdAt`: `ZodOptional`\<`ZodUnion`\<[`ZodDate`, `ZodEffects`\<`ZodString`, `Date`, `string`\>]\>\> ; `updatedAt`: `ZodOptional`\<`ZodUnion`\<[`ZodDate`, `ZodEffects`\<`ZodString`, `Date`, `string`\>]\>\> ; `description`: `ZodOptional`\<`ZodString`\> ; `category`: `ZodOptional`\<`ZodString`\>  }, ``"strict"``, `ZodTypeAny`, \{ `type`: ``"builtin"`` \| ``"custom"`` ; `author?`: `string` ; `createdAt?`: `Date` ; `updatedAt?`: `Date` ; `description?`: `string` ; `category?`: `string`  }, \{ `type`: ``"builtin"`` \| ``"custom"`` ; `author?`: `string` ; `createdAt?`: `string` \| `Date` ; `updatedAt?`: `string` \| `Date` ; `description?`: `string` ; `category?`: `string`  }\>
 
 Zod schema for validating agent template metadata
 
 #### Defined in
 
-packages/core/src/schemas/agent-template-schema.ts:6
+[packages/core/src/schemas/agent-template-schema.ts:6](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/schemas/agent-template-schema.ts#L6)
 
 ___
 
 ### AgentTemplateSchema
 
-• `Const` **AgentTemplateSchema**: `ZodObject`\<\{ `name`: `ZodString` ; `description`: `ZodString` ; `llm_provider`: `ZodString` ; `model`: `ZodString` ; `temperature`: `ZodNumber` ; `system_prompt`: `ZodString` ; `tags`: `ZodArray`\<`ZodString`, ``"many"``\> ; `version`: `ZodOptional`\<`ZodString`\> ; `maxTokens`: `ZodOptional`\<`ZodNumber`\> ; `metadata`: `ZodOptional`\<`ZodObject`\<\{ `type`: `ZodEnum`\<[``"builtin"``, ``"custom"``]\> ; `author`: `ZodOptional`\<`ZodString`\> ; `createdAt`: `ZodOptional`\<`ZodDate`\> ; `updatedAt`: `ZodOptional`\<`ZodDate`\> ; `description`: `ZodOptional`\<`ZodString`\> ; `category`: `ZodOptional`\<`ZodString`\>  }, ``"strict"``, `ZodTypeAny`, \{ `type`: ``"builtin"`` \| ``"custom"`` ; `author?`: `string` ; `createdAt?`: `Date` ; `updatedAt?`: `Date` ; `description?`: `string` ; `category?`: `string`  }, \{ `type`: ``"builtin"`` \| ``"custom"`` ; `author?`: `string` ; `createdAt?`: `Date` ; `updatedAt?`: `Date` ; `description?`: `string` ; `category?`: `string`  }\>\>  }, ``"strict"``, `ZodTypeAny`, \{ `name`: `string` ; `description`: `string` ; `llm_provider`: `string` ; `model`: `string` ; `temperature`: `number` ; `system_prompt`: `string` ; `tags`: `string`[] ; `version?`: `string` ; `maxTokens?`: `number` ; `metadata?`: \{ `type`: ``"builtin"`` \| ``"custom"`` ; `author?`: `string` ; `createdAt?`: `Date` ; `updatedAt?`: `Date` ; `description?`: `string` ; `category?`: `string`  }  }, \{ `name`: `string` ; `description`: `string` ; `llm_provider`: `string` ; `model`: `string` ; `temperature`: `number` ; `system_prompt`: `string` ; `tags`: `string`[] ; `version?`: `string` ; `maxTokens?`: `number` ; `metadata?`: \{ `type`: ``"builtin"`` \| ``"custom"`` ; `author?`: `string` ; `createdAt?`: `Date` ; `updatedAt?`: `Date` ; `description?`: `string` ; `category?`: `string`  }  }\>
+• `Const` **AgentTemplateSchema**: `ZodObject`\<\{ `name`: `ZodString` ; `description`: `ZodString` ; `llm_provider`: `ZodString` ; `model`: `ZodString` ; `temperature`: `ZodNumber` ; `system_prompt`: `ZodString` ; `tags`: `ZodArray`\<`ZodString`, ``"many"``\> ; `version`: `ZodOptional`\<`ZodString`\> ; `maxTokens`: `ZodOptional`\<`ZodNumber`\> ; `metadata`: `ZodOptional`\<`ZodObject`\<\{ `type`: `ZodEnum`\<[``"builtin"``, ``"custom"``]\> ; `author`: `ZodOptional`\<`ZodString`\> ; `createdAt`: `ZodOptional`\<`ZodUnion`\<[`ZodDate`, `ZodEffects`\<`ZodString`, `Date`, `string`\>]\>\> ; `updatedAt`: `ZodOptional`\<`ZodUnion`\<[`ZodDate`, `ZodEffects`\<`ZodString`, `Date`, `string`\>]\>\> ; `description`: `ZodOptional`\<`ZodString`\> ; `category`: `ZodOptional`\<`ZodString`\>  }, ``"strict"``, `ZodTypeAny`, \{ `type`: ``"builtin"`` \| ``"custom"`` ; `author?`: `string` ; `createdAt?`: `Date` ; `updatedAt?`: `Date` ; `description?`: `string` ; `category?`: `string`  }, \{ `type`: ``"builtin"`` \| ``"custom"`` ; `author?`: `string` ; `createdAt?`: `string` \| `Date` ; `updatedAt?`: `string` \| `Date` ; `description?`: `string` ; `category?`: `string`  }\>\>  }, ``"strict"``, `ZodTypeAny`, \{ `name`: `string` ; `description`: `string` ; `llm_provider`: `string` ; `model`: `string` ; `temperature`: `number` ; `system_prompt`: `string` ; `tags`: `string`[] ; `version?`: `string` ; `maxTokens?`: `number` ; `metadata?`: \{ `type`: ``"builtin"`` \| ``"custom"`` ; `author?`: `string` ; `createdAt?`: `Date` ; `updatedAt?`: `Date` ; `description?`: `string` ; `category?`: `string`  }  }, \{ `name`: `string` ; `description`: `string` ; `llm_provider`: `string` ; `model`: `string` ; `temperature`: `number` ; `system_prompt`: `string` ; `tags`: `string`[] ; `version?`: `string` ; `maxTokens?`: `number` ; `metadata?`: \{ `type`: ``"builtin"`` \| ``"custom"`` ; `author?`: `string` ; `createdAt?`: `string` \| `Date` ; `updatedAt?`: `string` \| `Date` ; `description?`: `string` ; `category?`: `string`  }  }\>
 
 Zod schema for validating agent templates
 
 #### Defined in
 
-packages/core/src/schemas/agent-template-schema.ts:18
+[packages/core/src/schemas/agent-template-schema.ts:24](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/schemas/agent-template-schema.ts#L24)
 
 ___
 
@@ -198,7 +198,7 @@ Logger utility (console.log replacement)
 
 #### Defined in
 
-[packages/core/src/utils.ts:134](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/utils.ts#L134)
+[packages/core/src/utils.ts:134](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/utils.ts#L134)
 
 ## Functions
 
@@ -222,7 +222,7 @@ True if the message is a user message
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:119](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L119)
+[packages/core/src/conversation-history.ts:119](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/conversation-history.ts#L119)
 
 ___
 
@@ -246,7 +246,7 @@ True if the message is an assistant message
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:129](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L129)
+[packages/core/src/conversation-history.ts:129](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/conversation-history.ts#L129)
 
 ___
 
@@ -270,7 +270,7 @@ True if the message is a system message
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:139](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L139)
+[packages/core/src/conversation-history.ts:139](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/conversation-history.ts#L139)
 
 ___
 
@@ -294,7 +294,7 @@ True if the message is a tool message
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:149](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L149)
+[packages/core/src/conversation-history.ts:149](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/conversation-history.ts#L149)
 
 ___
 
@@ -316,7 +316,7 @@ Validate an agent template
 
 #### Defined in
 
-packages/core/src/schemas/agent-template-schema.ts:65
+[packages/core/src/schemas/agent-template-schema.ts:71](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/schemas/agent-template-schema.ts#L71)
 
 ___
 
@@ -344,7 +344,7 @@ Safely validate an agent template with error handling
 
 #### Defined in
 
-packages/core/src/schemas/agent-template-schema.ts:72
+[packages/core/src/schemas/agent-template-schema.ts:78](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/schemas/agent-template-schema.ts#L78)
 
 ___
 
@@ -366,7 +366,7 @@ Get validation error messages as strings
 
 #### Defined in
 
-packages/core/src/schemas/agent-template-schema.ts:89
+[packages/core/src/schemas/agent-template-schema.ts:95](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/schemas/agent-template-schema.ts#L95)
 
 ___
 
@@ -396,7 +396,7 @@ Object with undefined values removed
 
 #### Defined in
 
-[packages/core/src/utils.ts:32](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/utils.ts#L32)
+[packages/core/src/utils.ts:32](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/utils.ts#L32)
 
 ___
 
@@ -419,7 +419,7 @@ Can be used in AI Provider adapters.
 
 #### Defined in
 
-[packages/core/src/utils.ts:156](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/utils.ts#L156)
+[packages/core/src/utils.ts:156](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/utils.ts#L156)
 
 ___
 
@@ -441,4 +441,4 @@ Helper function to convert UniversalMessage array to basic Message array
 
 #### Defined in
 
-[packages/core/src/utils.ts:182](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/utils.ts#L182)
+[packages/core/src/utils.ts:182](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/utils.ts#L182)

@@ -54,10 +54,10 @@ export class PayloadLogger {
                 'utf8'
             );
 
-            console.log(`[PayloadLogger] Saved API payload to: ${filepath}`);
+            // Payload saved successfully
         } catch (error) {
             // Don't throw errors - just log them and continue
-            console.warn(`[PayloadLogger] Warning: Failed to save payload log file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            // Failed to save payload log file - silently continue
         }
     }
 
@@ -68,11 +68,10 @@ export class PayloadLogger {
         if (!fs.existsSync(this.logDir)) {
             try {
                 fs.mkdirSync(this.logDir, { recursive: true });
-                console.log(`[PayloadLogger] Created log directory: ${this.logDir}`);
+                // Log directory created successfully
             } catch (error) {
                 // Don't throw errors - just log them and disable logging
-                console.warn(`[PayloadLogger] Warning: Failed to create log directory (${this.logDir}): ${error instanceof Error ? error.message : 'Unknown error'}`);
-                console.warn(`[PayloadLogger] Payload logging will be disabled for this session.`);
+                // Failed to create log directory - payload logging will be disabled
                 // Note: We don't disable this.enabled here as it's readonly, but errors will be caught in logPayload
             }
         }

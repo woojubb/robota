@@ -26,10 +26,11 @@ Robota is a powerful AI agent framework written in JavaScript/TypeScript. This p
 - External system integration through tools
 
 ### 👥 **Multi-Agent Team Collaboration**
-- **Intelligent Team Coordination**: AI agents that can delegate specialized tasks to expert team members
-- **Dynamic Task Delegation**: Automatically break down complex requests into specialized components
-- **Collaborative Workflows**: Team agents work together to solve multi-faceted problems
-- **Contextual Task Assignment**: Smart assignment of tasks based on expertise requirements
+- **Intelligent Team Coordination**: Task coordinator automatically analyzes requests and delegates to specialized expert agents
+- **Automatic Template Selection**: AI automatically selects appropriate expert templates based on natural language requests
+- **Dynamic Task Delegation**: Complex requests broken down and distributed to specialized agents automatically
+- **6 Built-in Expert Templates**: Task coordinator, summarizer, ethical reviewer, creative ideator, fast executor, domain researcher
+- **Simplified Configuration**: Just provide AI providers - templates handle all configuration automatically
 - **Seamless Result Integration**: Automatic synthesis of multiple agent outputs into cohesive responses
 
 ### 🏢 **Session Management**
@@ -104,15 +105,26 @@ console.log(response);
 ```typescript
 import { createTeam } from '@robota-sdk/team';
 import { OpenAIProvider } from '@robota-sdk/openai';
+import { AnthropicProvider } from '@robota-sdk/anthropic';
+
+const openaiProvider = new OpenAIProvider({
+    client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+});
+
+const anthropicProvider = new AnthropicProvider({
+    client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+});
 
 // Create a team with intelligent delegation capabilities
 const team = createTeam({
-    provider: new OpenAIProvider({
-        apiKey: process.env.OPENAI_API_KEY,
-        model: 'gpt-4'
-    }),
+    aiProviders: {
+        openai: openaiProvider,
+        anthropic: anthropicProvider
+    },
+    maxMembers: 5,
     maxTokenLimit: 50000,
-    logger: console
+    logger: console,
+    debug: true
 });
 
 // The team automatically delegates complex tasks to specialized agents
@@ -121,10 +133,10 @@ const response = await team.execute(`
     Include: 1) Market analysis, 2) Menu design, 3) Financial projections
 `);
 
-// Team intelligently breaks down the request:
-// - Creates a market research specialist for analysis
-// - Creates a culinary expert for menu design  
-// - Creates a financial analyst for projections
+// Task coordinator intelligently analyzes the request and automatically:
+// - Selects domain_researcher template for market analysis
+// - Selects creative_ideator template for menu design  
+// - Selects fast_executor template for financial projections
 // - Synthesizes all results into a comprehensive business plan
 
 console.log(response);

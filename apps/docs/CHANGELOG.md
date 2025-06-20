@@ -1,5 +1,11 @@
 # robota-docs
 
+## 1.0.17
+
+### Patch Changes
+
+- Simplify team API, update docs, fix lint issues, add task coordinator template
+
 ## 1.0.16
 
 ### Patch Changes

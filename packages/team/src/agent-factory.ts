@@ -30,10 +30,7 @@ export class AgentFactory {
      */
     async createRobotaForTask(config: TaskAgentConfig & { agentTemplate?: string }): Promise<TaskAgent> {
         if (this.debug) {
-            console.log(`[TeamAgentFactory] Creating agent for task: ${config.taskDescription}`);
-            if (config.agentTemplate) {
-                console.log(`[TeamAgentFactory] Using template: ${config.agentTemplate}`);
-            }
+            // Debug: Creating agent for task
         }
 
         // Create agent creation config for core factory

@@ -69,7 +69,6 @@ export class ExecutionService {
 
         // Debug logging
         if (this.debug) {
-            const hasToolCalls = response.toolCalls && response.toolCalls.length > 0;
             if (hasToolCalls) {
                 this.logger.info(`🔍 [ExecutionService] Tool calling completed. Final response: ${response.content?.substring(0, 100) || 'No content'}...`);
             } else {

@@ -46,7 +46,7 @@ Anthropic API key (optional: not required when using client)
 
 #### Defined in
 
-[anthropic/src/types.ts:14](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/types.ts#L14)
+[anthropic/src/types.ts:14](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L14)
 
 ___
 
@@ -58,7 +58,7 @@ API request timeout (milliseconds)
 
 #### Defined in
 
-[anthropic/src/types.ts:19](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/types.ts#L19)
+[anthropic/src/types.ts:19](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L19)
 
 ___
 
@@ -70,7 +70,7 @@ API base URL
 
 #### Defined in
 
-[anthropic/src/types.ts:24](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/types.ts#L24)
+[anthropic/src/types.ts:24](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L24)
 
 ___
 
@@ -82,7 +82,7 @@ Anthropic client instance (required)
 
 #### Defined in
 
-[anthropic/src/types.ts:29](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/types.ts#L29)
+[anthropic/src/types.ts:29](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L29)
 
 ___
 
@@ -94,7 +94,7 @@ Enable payload logging to files for debugging
 
 #### Defined in
 
-[anthropic/src/types.ts:34](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/types.ts#L34)
+[anthropic/src/types.ts:34](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L34)
 
 ___
 
@@ -106,7 +106,7 @@ Directory to save payload log files
 
 #### Defined in
 
-[anthropic/src/types.ts:39](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/types.ts#L39)
+[anthropic/src/types.ts:39](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L39)
 
 ___
 
@@ -118,7 +118,7 @@ Include timestamp in log file names
 
 #### Defined in
 
-[anthropic/src/types.ts:44](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/types.ts#L44)
+[anthropic/src/types.ts:44](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L44)
 
 ___
 
