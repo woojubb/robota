@@ -4,10 +4,11 @@
  * @robota-sdk/team을 사용한 멀티 에이전트 팀워크 데모
  * Team 에이전트가 delegateWork 도구를 사용해서 
  * 복잡한 작업을 위해 임시 에이전트들을 조정하는 방법을 보여줍니다.
+ * 워크플로우 히스토리 시각화 기능도 제공합니다.
  */
 
 import chalk from 'chalk';
-import { createTeam } from '@robota-sdk/team';
+import { createTeam, generateWorkflowFlowchart, generateAgentRelationshipDiagram } from '@robota-sdk/team';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
@@ -38,6 +39,7 @@ async function runKoreanTeamExample() {
 📋 이 데모는 다음을 보여줍니다:
 • 간단한 작업은 팀 에이전트가 직접 처리
 • 복잡한 작업은 전문 팀 멤버들에게 위임
+• 워크플로우 히스토리 및 에이전트 관계 시각화
         `));
 
         // API 키 검증
@@ -49,12 +51,12 @@ async function runKoreanTeamExample() {
         // 예제 1: 간단한 작업 (직접 처리)
         logSection('예제 1: 간단한 작업 (직접 처리)');
 
-        // 예제 1용 OpenAI 클라이언트와 제공자 생성
+        // 예제 1용 OpenAI 클라이언트와 프로바이더 생성
         const openaiClient1 = new OpenAI({ apiKey });
         const openaiProvider1 = new OpenAIProvider({
             client: openaiClient1,
             model: 'gpt-4o-mini',
-            enablePayloadLogging: true,  // 페이로드 로깅 활성화
+            enablePayloadLogging: true,
             payloadLogDir: './logs/team-collaboration-ko/example1',
             includeTimestampInLogFiles: true
         });
@@ -69,8 +71,8 @@ async function runKoreanTeamExample() {
                 currentModel: 'gpt-4o-mini',
                 temperature: 0.7,
                 maxTokens: 16000,
-                maxTokenLimit: 50000,  // 전체 대화 토큰 제한 증가
-                systemPrompt: 'You are a team coordinator that manages collaborative work.',
+                maxTokenLimit: 50000,
+                systemPrompt: '당신은 협업 작업을 관리하는 팀 코디네이터입니다.',
                 logger: console
             },
             maxMembers: 5,
@@ -85,17 +87,32 @@ async function runKoreanTeamExample() {
         const simpleResult = await team1.execute(simpleTask);
         logResult('팀 응답', simpleResult);
 
+        // 예제 1 워크플로우 히스토리 표시
+        logSection('예제 1: 워크플로우 분석');
+
+        const workflowHistory1 = team1.getWorkflowHistory();
+        if (workflowHistory1) {
+            console.log(chalk.magenta('🔗 에이전트 관계 다이어그램:'));
+            console.log(generateAgentRelationshipDiagram(workflowHistory1));
+            console.log('');
+
+            console.log(chalk.magenta('📊 워크플로우 플로우차트:'));
+            console.log(generateWorkflowFlowchart(workflowHistory1));
+        } else {
+            console.log(chalk.gray('워크플로우 히스토리가 없습니다.'));
+        }
+
         console.log('✅ 예제 1 완료!\n');
 
         // 예제 2: 복잡한 작업 (팀 협업)
         logSection('예제 2: 복잡한 작업 (팀 협업)');
 
-        // 예제 2용 OpenAI 클라이언트와 제공자 생성 (완전히 새로운 인스턴스)
+        // 예제 2용 OpenAI 클라이언트와 프로바이더 생성 (완전히 새로운 인스턴스)
         const openaiClient2 = new OpenAI({ apiKey });
         const openaiProvider2 = new OpenAIProvider({
             client: openaiClient2,
             model: 'gpt-4o-mini',
-            enablePayloadLogging: true,  // 페이로드 로깅 활성화
+            enablePayloadLogging: true,
             payloadLogDir: './logs/team-collaboration-ko/example2',
             includeTimestampInLogFiles: true
         });
@@ -110,8 +127,8 @@ async function runKoreanTeamExample() {
                 currentModel: 'gpt-4o-mini',
                 temperature: 0.7,
                 maxTokens: 16000,
-                maxTokenLimit: 50000,  // 전체 대화 토큰 제한 증가
-                systemPrompt: 'You are a team coordinator that manages collaborative work.',
+                maxTokenLimit: 50000,
+                systemPrompt: '당신은 협업 작업을 관리하는 팀 코디네이터입니다.',
                 logger: console
             },
             maxMembers: 5,
@@ -126,7 +143,22 @@ async function runKoreanTeamExample() {
         const complexResult = await team2.execute(complexTask);
         logResult('팀 응답', complexResult);
 
-        // 최종 통계 표시 (두 팀의 통계 합산)
+        // 예제 2 워크플로우 히스토리 표시
+        logSection('예제 2: 워크플로우 분석');
+
+        const workflowHistory2 = team2.getWorkflowHistory();
+        if (workflowHistory2) {
+            console.log(chalk.magenta('🔗 에이전트 관계 다이어그램:'));
+            console.log(generateAgentRelationshipDiagram(workflowHistory2));
+            console.log('');
+
+            console.log(chalk.magenta('📊 워크플로우 플로우차트:'));
+            console.log(generateWorkflowFlowchart(workflowHistory2));
+        } else {
+            console.log(chalk.gray('워크플로우 히스토리가 없습니다.'));
+        }
+
+        // 최종 통계 표시 (두 팀 모두 합쳐서)
         logSection('팀 성능 요약');
 
         const stats1 = team1.getStats();
@@ -151,6 +183,7 @@ async function runKoreanTeamExample() {
 
         console.log(chalk.green('\n✅ 팀 협업 데모가 성공적으로 완료되었습니다!'));
         console.log(chalk.cyan('팀 에이전트가 언제 직접 처리하고 언제 위임할지를 지능적으로 판단합니다.'));
+        console.log(chalk.cyan('워크플로우 히스토리를 통해 에이전트 간 협업 과정을 시각화할 수 있습니다.'));
 
     } catch (error) {
         console.error(chalk.red('\n❌ 데모 실패:'), error);

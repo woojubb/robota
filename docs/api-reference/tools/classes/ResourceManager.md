@@ -58,7 +58,7 @@ Resource manager class
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:80](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/tools/src/performance/resource-manager.ts#L80)
+[packages/tools/src/performance/resource-manager.ts:80](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/resource-manager.ts#L80)
 
 ## Methods
 
@@ -80,7 +80,7 @@ Register resource
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:110](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/tools/src/performance/resource-manager.ts#L110)
+[packages/tools/src/performance/resource-manager.ts:110](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/resource-manager.ts#L110)
 
 ___
 
@@ -102,7 +102,7 @@ Update resource usage record
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:128](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/tools/src/performance/resource-manager.ts#L128)
+[packages/tools/src/performance/resource-manager.ts:128](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/resource-manager.ts#L128)
 
 ___
 
@@ -124,7 +124,7 @@ Cleanup resource
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:138](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/tools/src/performance/resource-manager.ts#L138)
+[packages/tools/src/performance/resource-manager.ts:138](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/resource-manager.ts#L138)
 
 ___
 
@@ -140,7 +140,7 @@ Cleanup all resources
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:157](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/tools/src/performance/resource-manager.ts#L157)
+[packages/tools/src/performance/resource-manager.ts:157](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/resource-manager.ts#L157)
 
 ___
 
@@ -162,7 +162,7 @@ Cleanup old resources
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:173](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/tools/src/performance/resource-manager.ts#L173)
+[packages/tools/src/performance/resource-manager.ts:173](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/resource-manager.ts#L173)
 
 ___
 
@@ -178,7 +178,7 @@ Cleanup high memory usage resources
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:193](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/tools/src/performance/resource-manager.ts#L193)
+[packages/tools/src/performance/resource-manager.ts:193](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/resource-manager.ts#L193)
 
 ___
 
@@ -200,7 +200,7 @@ Check if resource exists
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:218](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/tools/src/performance/resource-manager.ts#L218)
+[packages/tools/src/performance/resource-manager.ts:218](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/resource-manager.ts#L218)
 
 ___
 
@@ -216,7 +216,7 @@ Get all registered resource IDs
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:225](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/tools/src/performance/resource-manager.ts#L225)
+[packages/tools/src/performance/resource-manager.ts:225](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/resource-manager.ts#L225)
 
 ___
 
@@ -238,7 +238,7 @@ Get resource IDs by type
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:232](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/tools/src/performance/resource-manager.ts#L232)
+[packages/tools/src/performance/resource-manager.ts:232](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/resource-manager.ts#L232)
 
 ___
 
@@ -254,7 +254,7 @@ Get resource statistics
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:241](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/tools/src/performance/resource-manager.ts#L241)
+[packages/tools/src/performance/resource-manager.ts:241](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/resource-manager.ts#L241)
 
 ___
 
@@ -270,4 +270,4 @@ Cleanup on system shutdown
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:284](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/tools/src/performance/resource-manager.ts#L284)
+[packages/tools/src/performance/resource-manager.ts:284](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/resource-manager.ts#L284)

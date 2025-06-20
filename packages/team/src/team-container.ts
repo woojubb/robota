@@ -9,9 +9,49 @@ import type {
     AgentConfig,
     DelegateWorkParams,
     DelegateWorkResult,
-    TeamStats
+    TeamStats,
+    TeamExecutionStructure,
+    AgentNode
 } from './types';
 import { ZodFunctionTool } from '@robota-sdk/tools';
+import type { UniversalMessage } from '@robota-sdk/core';
+
+/**
+ * Raw conversation data for a single agent
+ */
+export interface AgentConversationData {
+    agentId: string;
+    taskDescription?: string;
+    parentAgentId?: string;
+    messages: UniversalMessage[];
+    createdAt: Date;
+    childAgentIds: string[];
+}
+
+/**
+ * Complete workflow history with all agent conversations
+ */
+export interface WorkflowHistory {
+    executionId: string;
+    userRequest: string;
+    finalResult: string;
+    startTime: Date;
+    endTime?: Date;
+    success?: boolean;
+    error?: string;
+    agentConversations: AgentConversationData[];
+    agentTree: AgentTreeNode[];
+}
+
+/**
+ * Tree structure for representing agent hierarchy
+ */
+export interface AgentTreeNode {
+    agentId: string;
+    taskDescription?: string;
+    messageCount: number;
+    children: AgentTreeNode[];
+}
 
 /**
  * TeamContainer - Multi-Agent Team Collaboration System
@@ -87,6 +127,8 @@ export class TeamContainer {
     private stats: TeamStats;
     private logger?: any;
     private toolCallCount: number = 0;
+    private executionStructure: TeamExecutionStructure | null = null;
+    private lastCompletedExecution: TeamExecutionStructure | null = null;
 
     /**
      * Create a TeamContainer instance
@@ -148,6 +190,25 @@ export class TeamContainer {
      */
     async execute(userPrompt: string): Promise<string> {
         const startTime = Date.now();
+        const executionId = uuidv4();
+
+        // Initialize execution structure
+        this.executionStructure = {
+            executionId,
+            userRequest: userPrompt,
+            finalResult: '',
+            startTime: new Date(startTime),
+            agents: new Map(),
+            rootAgentId: 'team-coordinator'
+        };
+
+        // Add the team coordinator as root agent
+        this.executionStructure.agents.set('team-coordinator', {
+            agentId: 'team-coordinator',
+            agent: this.teamAgent,
+            createdAt: new Date(startTime),
+            childAgentIds: []
+        });
 
         try {
             if (this.options.debug) {
@@ -162,6 +223,14 @@ export class TeamContainer {
             this.stats.totalExecutionTime += executionTime;
             this.stats.tasksCompleted++;
 
+            // Complete execution structure
+            this.executionStructure.finalResult = result;
+            this.executionStructure.endTime = new Date();
+            this.executionStructure.success = true;
+
+            // Store completed execution before clearing
+            this.lastCompletedExecution = { ...this.executionStructure };
+
             if (this.options.debug) {
                 console.log(`[TeamContainer] Task completed in ${executionTime}ms`);
             }
@@ -171,11 +240,23 @@ export class TeamContainer {
             this.stats.tasksFailed++;
             const errorMessage = error instanceof Error ? error.message : String(error);
 
+            // Mark execution as failed
+            if (this.executionStructure) {
+                this.executionStructure.endTime = new Date();
+                this.executionStructure.success = false;
+                this.executionStructure.error = errorMessage;
+
+                // Store failed execution before clearing
+                this.lastCompletedExecution = { ...this.executionStructure };
+            }
+
             if (this.options.debug) {
                 console.error(`[TeamContainer] Task failed: ${errorMessage}`);
             }
 
             throw new Error(`Team execution failed: ${errorMessage}`);
+        } finally {
+            this.executionStructure = null;
         }
     }
 
@@ -233,6 +314,26 @@ export class TeamContainer {
             });
 
             this.stats.totalAgentsCreated++;
+
+            // Add agent to execution structure if tracking
+            if (this.executionStructure) {
+                const agentNode: AgentNode = {
+                    agentId: temporaryAgent.id,
+                    agent: temporaryAgent,
+                    parentAgentId: 'team-coordinator', // For now, all delegated agents are children of coordinator
+                    taskDescription: params.jobDescription,
+                    createdAt: new Date(),
+                    childAgentIds: []
+                };
+
+                this.executionStructure.agents.set(temporaryAgent.id, agentNode);
+
+                // Add to parent's children list
+                const parentAgent = this.executionStructure.agents.get('team-coordinator');
+                if (parentAgent) {
+                    parentAgent.childAgentIds.push(temporaryAgent.id);
+                }
+            }
 
             // Execute the task with the temporary agent
             const taskPrompt = this.buildTaskPrompt(params);
@@ -349,6 +450,62 @@ export class TeamContainer {
     }
 
     /**
+     * Get the current execution structure with agent relationships
+     * 
+     * @returns Current execution structure or null if no execution is running
+     */
+    getExecutionStructure(): TeamExecutionStructure | null {
+        return this.executionStructure;
+    }
+
+    /**
+     * Get the last completed execution structure
+     * 
+     * @returns Last completed execution structure or null if no execution has been completed
+     */
+    getLastCompletedExecution(): TeamExecutionStructure | null {
+        return this.lastCompletedExecution;
+    }
+
+    /**
+     * Check if there is an active execution
+     * 
+     * @returns True if an execution is currently running
+     */
+    hasActiveExecution(): boolean {
+        return this.executionStructure !== null;
+    }
+
+    /**
+     * Get workflow history from last completed execution
+     * 
+     * @returns Complete workflow history or null if no execution completed
+     * 
+     * @example
+     * ```ts
+     * await team.execute('Create marketing strategy');
+     * const history = team.getWorkflowHistory();
+     * if (history) {
+     *   console.log(`Execution took ${history.endTime - history.startTime}ms`);
+     *   console.log(`Used ${history.agentConversations.length} agents`);
+     * }
+     * ```
+     */
+    getWorkflowHistory(): WorkflowHistory | null {
+        const execution = this.getLastCompletedExecution();
+        if (!execution) {
+            return null;
+        }
+
+        try {
+            return this.extractWorkflowHistory(execution);
+        } catch (error) {
+            this.logger?.error('Error extracting workflow history:', error);
+            return null;
+        }
+    }
+
+    /**
      * Generate system prompt for the Team agent
      */
     private generateTeamSystemPrompt(): string {
@@ -375,33 +532,66 @@ CRITICAL DELEGATION RULES:
 
 5. NO RELATIVE REFERENCES: Do not use ordinal numbers, positional words, or references to other parts.
 
+6. NO REDUNDANT DELEGATION: Avoid delegating tasks that overlap or duplicate work. Each delegation should cover distinct, non-overlapping aspects.
+
+7. TEAM LEADER SYNTHESIS ROLE: Your role as team coordinator is to delegate data gathering/analysis to specialists, then synthesize their findings into the final answer. Do NOT delegate the final comparison, synthesis, or conclusion tasks.
+
+TASK DISTRIBUTION STRATEGY:
+
+For Comparison/Analysis Tasks (e.g., "Compare A vs B", "Differences between X and Y"):
+- Delegate: Individual component analysis (e.g., "Analyze React's features", "Analyze Vue.js features")
+- Retain: Final comparison, synthesis, and conclusion drawing
+- AVOID: Delegating direct comparison tasks that duplicate your synthesis work
+
+For Multi-Component Tasks:
+- Delegate: Each distinct component that requires specialized knowledge
+- Retain: Integration, prioritization, and final structuring
+- AVOID: Overlapping or redundant task assignments
+
+For Information Gathering:
+- Delegate: Research on specific topics, data collection, specialized analysis
+- Retain: Information synthesis, final formatting, and comprehensive response building
+
 WORKFLOW ANALYSIS:
 When you receive a user request, analyze it to determine the best approach:
 
 1. If this is a simple, single-component task you can handle directly, do so
 2. If this request requires multiple specialized tasks or components:
    - IDENTIFY ALL distinct components mentioned in the request
-   - Break down the request into separate, distinct components  
-   - Use delegateWork for EACH component separately (do not stop after the first one)
+   - Break down the request into separate, NON-OVERLAPPING components  
+   - Use delegateWork for EACH component separately (avoiding redundancy)
    - Wait for ALL results before providing your final response
-   - Synthesize all results into a comprehensive answer
+   - Synthesize all results into a comprehensive answer that YOU create
 
 DELEGATION GUIDELINES:
 - If the user's request has multiple distinct parts that need different expertise, delegate each part separately
 - Look for indicators of multi-component work: different domains, varied methodologies, numbered lists, explicit divisions
-- For comparison tasks (like "A vs B differences"), handle as a single task
-- For complex multi-part requests requiring different expertise, break them down
+- For comparison tasks: delegate individual component analysis, retain comparison synthesis
+- For complex multi-part requests requiring different expertise, break them down intelligently
 - Ensure your final response addresses ALL parts of the user's request
 - Be intelligent about when to delegate vs handle directly
 - When using delegateWork, follow the parameter requirements defined in the tool schema
 - DO NOT stop after the first delegation if there are more components to handle
+- AVOID delegating the same type of work multiple times with different angles
 
 DECISION FRAMEWORK:
 - Can I write a complete, standalone instruction that makes sense to someone who knows nothing about this conversation?
-- If YES: Delegate with full scope
+- If YES: Delegate with full scope (but avoid overlap with other delegations)
 - If NO: Handle directly
+- Is this a synthesis/comparison/conclusion task that requires my oversight?
+- If YES: Handle directly after gathering component data
+- If NO: Consider delegation for data gathering
 
-You have access to the delegateWork tool. Use it wisely to provide complete responses that address the full scope of user requests.`;
+EXAMPLE - GOOD DELEGATION for "Compare React vs Vue.js differences":
+✅ Delegate: "Analyze React's core features, architecture, and development approach"
+✅ Delegate: "Analyze Vue.js's core features, architecture, and development approach"  
+✅ Retain: Compare findings and identify key differences
+
+EXAMPLE - BAD DELEGATION:
+❌ "Analyze React features" + "Analyze Vue features" + "Compare React vs Vue differences"
+(The third delegation duplicates your synthesis work)
+
+You have access to the delegateWork tool. Use it wisely to provide complete responses that address the full scope of user requests while avoiding redundant work distribution.`;
     }
 
     /**
@@ -500,5 +690,95 @@ You have access to the delegateWork tool. Use it wisely to provide complete resp
     private initializeTeamAgent(): void {
         // This method is no longer needed as tool is added in constructor
     }
+
+    /**
+     * Extract complete workflow history from team execution structure
+     */
+    private extractWorkflowHistory(executionStructure: TeamExecutionStructure): WorkflowHistory {
+        const agentConversations: AgentConversationData[] = [];
+        const agentTree: AgentTreeNode[] = [];
+
+        // Extract conversation data from each agent
+        for (const [agentId, agentNode] of executionStructure.agents) {
+            let messages = [];
+
+            // Handle different agent types (team coordinator vs task agents)
+            if (agentNode.agentId === 'team-coordinator') {
+                // Team coordinator is a direct Robota instance
+                messages = (agentNode.agent as any).conversation.getMessages();
+            } else {
+                // Task agents need to use getRobotaInstance() method
+                const taskAgent = agentNode.agent as any;
+                if (taskAgent.getRobotaInstance) {
+                    messages = taskAgent.getRobotaInstance().conversation.getMessages();
+                }
+            }
+
+            const conversationData: AgentConversationData = {
+                agentId: agentNode.agentId,
+                taskDescription: agentNode.taskDescription,
+                parentAgentId: agentNode.parentAgentId,
+                messages: messages,
+                createdAt: agentNode.createdAt,
+                childAgentIds: agentNode.childAgentIds
+            };
+
+            agentConversations.push(conversationData);
+        }
+
+        // Build agent tree starting from root
+        const rootAgent = executionStructure.agents.get(executionStructure.rootAgentId);
+        if (rootAgent) {
+            agentTree.push(this.buildAgentTree(rootAgent, executionStructure.agents));
+        }
+
+        return {
+            executionId: executionStructure.executionId,
+            userRequest: executionStructure.userRequest,
+            finalResult: executionStructure.finalResult,
+            startTime: executionStructure.startTime,
+            endTime: executionStructure.endTime,
+            success: executionStructure.success,
+            error: executionStructure.error,
+            agentConversations,
+            agentTree
+        };
+    }
+
+    /**
+     * Build agent tree recursively
+     */
+    private buildAgentTree(agentNode: AgentNode, allAgents: Map<string, AgentNode>): AgentTreeNode {
+        const children: AgentTreeNode[] = [];
+
+        for (const childId of agentNode.childAgentIds) {
+            const childAgent = allAgents.get(childId);
+            if (childAgent) {
+                children.push(this.buildAgentTree(childAgent, allAgents));
+            }
+        }
+
+        // Get message count based on agent type
+        let messageCount = 0;
+        if (agentNode.agentId === 'team-coordinator') {
+            // Team coordinator is a direct Robota instance
+            messageCount = (agentNode.agent as any).conversation.getMessageCount();
+        } else {
+            // Task agents need to use getRobotaInstance() method
+            const taskAgent = agentNode.agent as any;
+            if (taskAgent.getRobotaInstance) {
+                messageCount = taskAgent.getRobotaInstance().conversation.getMessageCount();
+            }
+        }
+
+        return {
+            agentId: agentNode.agentId,
+            taskDescription: agentNode.taskDescription,
+            messageCount: messageCount,
+            children
+        };
+    }
+
+
 }
 

@@ -94,6 +94,8 @@ export interface TaskAgent {
     run(prompt: string): Promise<string>;
     /** Close/cleanup the agent */
     close(): void;
+    /** Get the underlying Robota instance for accessing conversation history */
+    getRobotaInstance(): Robota;
 }
 
 /**
@@ -126,5 +128,12 @@ class RobotaTaskAgent implements TaskAgent {
     close(): void {
         // Cleanup resources if needed
         // Robota instances don't typically need explicit cleanup, but this provides the interface
+    }
+
+    /**
+     * Get the underlying Robota instance for accessing conversation history
+     */
+    getRobotaInstance(): Robota {
+        return this.robota;
     }
 } 

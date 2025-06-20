@@ -185,6 +185,48 @@ export interface TaskAgentConfig {
 }
 
 /**
+ * Represents a single agent in the team execution
+ */
+export interface AgentNode {
+    /** Unique identifier for this agent */
+    agentId: string;
+    /** Reference to the actual Robota agent instance */
+    agent: any; // Will be Robota instance
+    /** ID of the parent agent that created this agent (null for team coordinator) */
+    parentAgentId?: string;
+    /** Task description that this agent was created for */
+    taskDescription?: string;
+    /** Timestamp when this agent was created */
+    createdAt: Date;
+    /** List of child agents created by this agent */
+    childAgentIds: string[];
+}
+
+/**
+ * Team execution structure that tracks agent relationships
+ */
+export interface TeamExecutionStructure {
+    /** Unique identifier for this execution */
+    executionId: string;
+    /** Initial user request */
+    userRequest: string;
+    /** Final result */
+    finalResult: string;
+    /** Timestamp when execution started */
+    startTime: Date;
+    /** Timestamp when execution completed */
+    endTime?: Date;
+    /** Map of all agents involved in this execution */
+    agents: Map<string, AgentNode>;
+    /** ID of the root team coordinator agent */
+    rootAgentId: string;
+    /** Whether the execution was successful */
+    success?: boolean;
+    /** Error message if execution failed */
+    error?: string;
+}
+
+/**
  * Comprehensive team execution statistics and performance metrics
  * 
  * @description
