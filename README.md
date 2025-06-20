@@ -25,12 +25,18 @@ Robota is a powerful AI agent framework written in JavaScript/TypeScript. This p
 - Memory system that remembers and references conversation history
 - External system integration through tools
 
-### 👥 **Multi-Agent Management**
-- **Session Management**: Create and manage multiple AI conversation sessions
-- **Independent Workspaces**: Each agent can have its own configuration and chat history
-- **Dynamic Agent Switching**: Seamlessly switch between different agent contexts
+### 👥 **Multi-Agent Team Collaboration**
+- **Intelligent Team Coordination**: AI agents that can delegate specialized tasks to expert team members
+- **Dynamic Task Delegation**: Automatically break down complex requests into specialized components
+- **Collaborative Workflows**: Team agents work together to solve multi-faceted problems
+- **Contextual Task Assignment**: Smart assignment of tasks based on expertise requirements
+- **Seamless Result Integration**: Automatic synthesis of multiple agent outputs into cohesive responses
+
+### 🏢 **Session Management**
+- **Multiple AI Sessions**: Create and manage multiple independent AI conversation sessions
+- **Independent Workspaces**: Each session maintains its own configuration and chat history
+- **Dynamic Session Switching**: Seamlessly switch between different session contexts
 - **Conversation Persistence**: Automatic conversation history tracking and storage
-- **Agent Orchestration**: Coordinate multiple agents for complex workflows
 
 ### 🏗️ **Modular Architecture**
 - Clean separation of concerns with high extensibility
@@ -61,7 +67,8 @@ robota/
 │   ├── openai/         # OpenAI integration
 │   ├── anthropic/      # Anthropic integration
 │   ├── google/         # Google AI integration
-│   ├── sessions/       # Multi-session and agent management
+│   ├── sessions/       # Multi-session management
+│   ├── team/           # Multi-agent team collaboration
 │   ├── mcp/            # Model Context Protocol implementation
 │   ├── tools/          # Tool system (Zod-based function calling)
 │   └── ...
@@ -92,46 +99,68 @@ const response = await robota.run('Hello! How can I help you today?');
 console.log(response);
 ```
 
-### Multi-Agent Session Management
+### Multi-Agent Team Collaboration
 
 ```typescript
-import { SessionManager } from '@robota-sdk/sessions';
+import { createTeam } from '@robota-sdk/team';
 import { OpenAIProvider } from '@robota-sdk/openai';
-import { AnthropicProvider } from '@robota-sdk/anthropic';
 
-// Create a session manager for multiple agents
-const sessionManager = new SessionManager();
-
-// Create a customer support agent
-const supportAgent = sessionManager.createSession({
-    name: 'Customer Support Agent',
+// Create a team with intelligent delegation capabilities
+const team = createTeam({
     provider: new OpenAIProvider({
         apiKey: process.env.OPENAI_API_KEY,
         model: 'gpt-4'
     }),
-    systemPrompt: 'You are a helpful customer support agent.'
+    maxTokenLimit: 50000,
+    logger: console
 });
 
-// Create a code review agent
-const codeAgent = sessionManager.createSession({
-    name: 'Code Review Agent',
-    provider: new AnthropicProvider({
-        apiKey: process.env.ANTHROPIC_API_KEY,
-        model: 'claude-3-5-sonnet-20241022'
+// The team automatically delegates complex tasks to specialized agents
+const response = await team.execute(`
+    Create a comprehensive business plan for a coffee shop startup. 
+    Include: 1) Market analysis, 2) Menu design, 3) Financial projections
+`);
+
+// Team intelligently breaks down the request:
+// - Creates a market research specialist for analysis
+// - Creates a culinary expert for menu design  
+// - Creates a financial analyst for projections
+// - Synthesizes all results into a comprehensive business plan
+
+console.log(response);
+```
+
+### Session Management
+
+```typescript
+import { SessionManager } from '@robota-sdk/sessions';
+import { OpenAIProvider } from '@robota-sdk/openai';
+
+// Create multiple independent AI sessions
+const sessionManager = new SessionManager();
+
+// Create specialized sessions for different purposes
+const chatSession = sessionManager.createSession({
+    name: 'General Chat',
+    provider: new OpenAIProvider({
+        apiKey: process.env.OPENAI_API_KEY,
+        model: 'gpt-4'
     }),
-    systemPrompt: 'You are an expert code reviewer focused on best practices.'
+    systemPrompt: 'You are a helpful AI assistant.'
 });
 
-// Switch between agents dynamically
-sessionManager.setActiveSession(supportAgent.id);
-const supportResponse = await supportAgent.sendMessage('I need help with my order');
+const codeSession = sessionManager.createSession({
+    name: 'Code Helper',
+    provider: new OpenAIProvider({
+        apiKey: process.env.OPENAI_API_KEY,
+        model: 'gpt-4'
+    }),
+    systemPrompt: 'You are an expert programmer.'
+});
 
-sessionManager.setActiveSession(codeAgent.id);
-const codeResponse = await codeAgent.sendMessage('Please review this TypeScript code');
-
-// Each agent maintains its own conversation history
-console.log('Support history:', supportAgent.getChatHistory());
-console.log('Code review history:', codeAgent.getChatHistory());
+// Each session maintains independent conversation history
+await chatSession.sendMessage('What is the weather like today?');
+await codeSession.sendMessage('How do I implement a binary search?');
 ```
 
 ### AI Agent with Tools

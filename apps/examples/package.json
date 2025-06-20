@@ -1,14 +1,17 @@
 {
     "name": "robota-examples",
-    "version": "0.1.24",
+    "version": "0.1.25",
     "private": true,
     "type": "module",
     "scripts": {
         "start:basic": "tsx 01-basic-conversation.ts",
         "start:tools": "tsx 02-tool-calling.ts",
-        "start:multi-providers": "tsx 03-multi-providers.ts",
+        "start:multi": "tsx 03-multi-providers.ts",
         "start:advanced": "tsx 04-advanced-features.ts",
-        "start:all": "echo '🚀 Running all examples sequentially...' && pnpm start:basic && echo '' && pnpm start:tools && echo '' && pnpm start:multi-providers && echo '' && pnpm start:advanced",
+        "start:team": "tsx 05-team-collaboration.ts",
+        "start:team-ko": "tsx 05-team-collaboration-ko.ts",
+        "start:payload": "tsx 06-payload-logging.ts",
+        "start:all": "echo '🚀 Running all examples sequentially...' && pnpm start:basic && echo '' && pnpm start:tools && echo '' && pnpm start:multi && echo '' && pnpm start:advanced && echo '' && pnpm start:team",
         "lint": "eslint . --ext .ts,.tsx",
         "lint:fix": "eslint . --ext .ts,.tsx --fix"
     },
@@ -21,6 +24,7 @@
         "@robota-sdk/google": "workspace:*",
         "@robota-sdk/openai": "workspace:*",
         "@robota-sdk/sessions": "workspace:*",
+        "@robota-sdk/team": "workspace:*",
         "@robota-sdk/tools": "workspace:*",
         "axios": "^1.9.0",
         "chalk": "^5.4.1",

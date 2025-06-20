@@ -32,6 +32,9 @@ OpenAI provider options
 - [responseFormat](OpenAIProviderOptions#responseformat)
 - [jsonSchema](OpenAIProviderOptions#jsonschema)
 - [client](OpenAIProviderOptions#client)
+- [enablePayloadLogging](OpenAIProviderOptions#enablepayloadlogging)
+- [payloadLogDir](OpenAIProviderOptions#payloadlogdir)
+- [includeTimestampInLogFiles](OpenAIProviderOptions#includetimestampinlogfiles)
 
 ## Properties
 
@@ -75,7 +78,7 @@ ProviderOptions.model
 
 #### Defined in
 
-[openai/src/types.ts:11](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/openai/src/types.ts#L11)
+[openai/src/types.ts:11](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/openai/src/types.ts#L11)
 
 ___
 
@@ -91,7 +94,7 @@ ProviderOptions.temperature
 
 #### Defined in
 
-[openai/src/types.ts:16](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/openai/src/types.ts#L16)
+[openai/src/types.ts:16](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/openai/src/types.ts#L16)
 
 ___
 
@@ -107,7 +110,7 @@ ProviderOptions.maxTokens
 
 #### Defined in
 
-[openai/src/types.ts:21](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/openai/src/types.ts#L21)
+[openai/src/types.ts:21](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/openai/src/types.ts#L21)
 
 ___
 
@@ -119,7 +122,7 @@ OpenAI API key (optional: not required when using client)
 
 #### Defined in
 
-[openai/src/types.ts:26](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/openai/src/types.ts#L26)
+[openai/src/types.ts:26](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/openai/src/types.ts#L26)
 
 ___
 
@@ -131,7 +134,7 @@ OpenAI organization ID (optional)
 
 #### Defined in
 
-[openai/src/types.ts:31](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/openai/src/types.ts#L31)
+[openai/src/types.ts:31](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/openai/src/types.ts#L31)
 
 ___
 
@@ -143,7 +146,7 @@ API request timeout (milliseconds)
 
 #### Defined in
 
-[openai/src/types.ts:36](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/openai/src/types.ts#L36)
+[openai/src/types.ts:36](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/openai/src/types.ts#L36)
 
 ___
 
@@ -155,7 +158,7 @@ API base URL (default: 'https://api.openai.com/v1')
 
 #### Defined in
 
-[openai/src/types.ts:41](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/openai/src/types.ts#L41)
+[openai/src/types.ts:41](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/openai/src/types.ts#L41)
 
 ___
 
@@ -170,7 +173,7 @@ Response format (default: 'text')
 
 #### Defined in
 
-[openai/src/types.ts:49](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/openai/src/types.ts#L49)
+[openai/src/types.ts:49](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/openai/src/types.ts#L49)
 
 ___
 
@@ -191,7 +194,7 @@ JSON schema for structured outputs (required when responseFormat is 'json_schema
 
 #### Defined in
 
-[openai/src/types.ts:54](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/openai/src/types.ts#L54)
+[openai/src/types.ts:54](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/openai/src/types.ts#L54)
 
 ___
 
@@ -203,4 +206,59 @@ OpenAI client instance (required)
 
 #### Defined in
 
-[openai/src/types.ts:64](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/openai/src/types.ts#L64)
+[openai/src/types.ts:64](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/openai/src/types.ts#L64)
+
+___
+
+### enablePayloadLogging
+
+• `Optional` **enablePayloadLogging**: `boolean`
+
+Enable API payload logging to files
+When enabled, saves API request payloads to log files
+
+**`Default Value`**
+
+```ts
+false
+```
+
+#### Defined in
+
+[openai/src/types.ts:72](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/openai/src/types.ts#L72)
+
+___
+
+### payloadLogDir
+
+• `Optional` **payloadLogDir**: `string`
+
+Directory path for storing API payload log files
+
+**`Default Value`**
+
+```ts
+'./logs/api-payloads'
+```
+
+#### Defined in
+
+[openai/src/types.ts:79](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/openai/src/types.ts#L79)
+
+___
+
+### includeTimestampInLogFiles
+
+• `Optional` **includeTimestampInLogFiles**: `boolean`
+
+Include timestamp in payload log filenames
+
+**`Default Value`**
+
+```ts
+true
+```
+
+#### Defined in
+
+[openai/src/types.ts:86](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/openai/src/types.ts#L86)

@@ -92,6 +92,7 @@
     "packages/google",
     "packages/tools",
     "packages/sessions",
+    "packages/team",
     "apps/examples",
     "apps/docs",
     "apps/services"

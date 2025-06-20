@@ -120,6 +120,36 @@ const robota = new Robota({
 });
 ```
 
+### 5. [Multi-Agent Team Collaboration](./team-collaboration.md)
+**File**: `05-team-collaboration-ko.ts`
+
+Master intelligent multi-agent teamwork:
+- Team coordinator that delegates specialized tasks
+- Dynamic expert agent creation for complex workflows
+- Collaborative problem-solving for multi-faceted requests
+- Automatic result synthesis and resource cleanup
+- Performance monitoring and statistics tracking
+
+```typescript
+// Create intelligent team
+const team = createTeam({
+  provider: new OpenAIProvider({
+    apiKey: process.env.OPENAI_API_KEY,
+    model: 'gpt-4'
+  }),
+  maxTokenLimit: 50000,
+  logger: console
+});
+
+// Team automatically delegates complex requests
+const response = await team.execute(`
+  Create a comprehensive business plan including:
+  1) Market analysis with competitor research
+  2) Financial projections for first year
+  3) Marketing strategy and brand positioning
+`);
+```
+
 ## Environment Setup
 
 Create a `.env` file in the examples directory:
@@ -180,20 +210,26 @@ npx tsx 04-advanced-features.ts
 ```bash
 # Run all examples in sequence
 npm run examples
+
+# Team collaboration example
+npx tsx 05-team-collaboration-ko.ts
 ```
 
 ## Example Features
 
-| Feature | Basic | Tools | Multi-Provider | Advanced |
-|---------|-------|-------|----------------|----------|
-| Simple Chat | ✅ | ✅ | ✅ | ✅ |
-| Streaming | ✅ | ✅ | ✅ | ✅ |
-| Tool Calling | ❌ | ✅ | ✅ | ✅ |
-| Multiple Providers | ❌ | ❌ | ✅ | ✅ |
-| Analytics | ❌ | ❌ | ❌ | ✅ |
-| Rate Limiting | ❌ | ❌ | ❌ | ✅ |
-| Error Handling | ✅ | ✅ | ✅ | ✅ |
-| Resource Cleanup | ✅ | ✅ | ✅ | ✅ |
+| Feature | Basic | Tools | Multi-Provider | Advanced | Team |
+|---------|-------|-------|----------------|----------|------|
+| Simple Chat | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Streaming | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Tool Calling | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Multiple Providers | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Analytics | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Rate Limiting | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Multi-Agent Coordination | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Task Delegation | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Expert Agent Creation | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Error Handling | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Resource Cleanup | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ## Legacy Examples Removed
 

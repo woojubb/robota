@@ -11,6 +11,7 @@ import type { ZodFunctionTool } from './zod-schema';
 import { BaseToolProvider, type ToolProvider } from './tool-provider';
 import type { FunctionSchema } from './types';
 import { globalFunctionSchemaCache, type FunctionSchemaCacheManager } from './performance/cache-manager';
+import { zodToJsonSchema } from './schema/zod-to-json';
 
 /**
  * Zod schema-based function tool provider options
@@ -90,49 +91,13 @@ export class ZodFunctionToolProvider extends BaseToolProvider {
         const startTime = this.enableCache ? performance.now() : 0;
 
         const functions = Object.values(this.tools).map(tool => {
-            const properties: Record<string, {
-                type: string;
-                description?: string;
-                enum?: unknown[];
-            }> = {};
-            const required: string[] = [];
-
-            // Extract properties from Zod schema
-            const shape = tool.parameters.shape || {};
-            for (const propName in shape) {
-                const prop = shape[propName];
-
-                // Extract property type and description
-                let type = 'string';
-                if (prop._def.typeName === 'ZodNumber') type = 'number';
-                if (prop._def.typeName === 'ZodBoolean') type = 'boolean';
-                if (prop._def.typeName === 'ZodArray') type = 'array';
-                if (prop._def.typeName === 'ZodObject') type = 'object';
-
-                properties[propName] = {
-                    type,
-                    description: prop._def.description || `${propName} parameter`
-                };
-
-                // Add enum values if present
-                if (prop._def.typeName === 'ZodEnum') {
-                    properties[propName].enum = prop._def.values;
-                }
-
-                // Add to required array if not optional
-                if (!prop._def.isOptional) {
-                    required.push(propName);
-                }
-            }
+            // Use the comprehensive zodToJsonSchema function instead of simplified conversion
+            const parameters = zodToJsonSchema(tool.parameters);
 
             return {
                 name: tool.name,
                 description: tool.description,
-                parameters: {
-                    type: "object" as const,
-                    properties,
-                    required: required.length > 0 ? required : undefined
-                }
+                parameters
             };
         });
 

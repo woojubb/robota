@@ -13,6 +13,7 @@
 ### Classes
 
 - [OpenAIConversationAdapter](classes/OpenAIConversationAdapter)
+- [PayloadLogger](classes/PayloadLogger)
 - [OpenAIProvider](classes/OpenAIProvider)
 
 ### Interfaces

@@ -29,6 +29,9 @@ Configuration options for initializing Robota instance
 - [onToolCall](RobotaOptions#ontoolcall)
 - [logger](RobotaOptions#logger)
 - [debug](RobotaOptions#debug)
+- [enablePayloadLogging](RobotaOptions#enablepayloadlogging)
+- [payloadLogDir](RobotaOptions#payloadlogdir)
+- [includeTimestampInLogFiles](RobotaOptions#includetimestampinlogfiles)
 - [maxTokenLimit](RobotaOptions#maxtokenlimit)
 - [maxRequestLimit](RobotaOptions#maxrequestlimit)
 - [provider](RobotaOptions#provider)
@@ -47,7 +50,7 @@ Tool providers that supply tools like MCP, OpenAPI, ZodFunction, etc.
 
 #### Defined in
 
-[robota.ts:34](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/robota.ts#L34)
+[robota.ts:34](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L34)
 
 ___
 
@@ -63,7 +66,7 @@ AI providers - Register multiple AI providers by name
 
 #### Defined in
 
-[robota.ts:41](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/robota.ts#L41)
+[robota.ts:41](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L41)
 
 ___
 
@@ -76,7 +79,7 @@ Must match a key in aiProviders
 
 #### Defined in
 
-[robota.ts:47](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/robota.ts#L47)
+[robota.ts:47](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L47)
 
 ___
 
@@ -88,7 +91,7 @@ Current model name to use with the selected provider
 
 #### Defined in
 
-[robota.ts:52](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/robota.ts#L52)
+[robota.ts:52](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L52)
 
 ___
 
@@ -107,7 +110,7 @@ undefined (uses provider default)
 
 #### Defined in
 
-[robota.ts:60](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/robota.ts#L60)
+[robota.ts:60](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L60)
 
 ___
 
@@ -125,7 +128,7 @@ undefined (uses provider default)
 
 #### Defined in
 
-[robota.ts:67](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/robota.ts#L67)
+[robota.ts:67](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L67)
 
 ___
 
@@ -138,7 +141,7 @@ Will be converted to a system message
 
 #### Defined in
 
-[robota.ts:73](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/robota.ts#L73)
+[robota.ts:73](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L73)
 
 ___
 
@@ -151,7 +154,7 @@ Use this instead of systemPrompt for multiple system messages
 
 #### Defined in
 
-[robota.ts:79](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/robota.ts#L79)
+[robota.ts:79](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L79)
 
 ___
 
@@ -169,7 +172,7 @@ SimpleConversationHistory instance
 
 #### Defined in
 
-[robota.ts:86](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/robota.ts#L86)
+[robota.ts:86](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L86)
 
 ___
 
@@ -181,7 +184,7 @@ Configuration for function/tool calling behavior
 
 #### Defined in
 
-[robota.ts:91](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/robota.ts#L91)
+[robota.ts:91](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L91)
 
 ___
 
@@ -210,7 +213,7 @@ Useful for monitoring, logging, or custom handling
 
 #### Defined in
 
-[robota.ts:101](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/robota.ts#L101)
+[robota.ts:101](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L101)
 
 ___
 
@@ -228,7 +231,7 @@ console
 
 #### Defined in
 
-[robota.ts:108](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/robota.ts#L108)
+[robota.ts:108](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L108)
 
 ___
 
@@ -246,7 +249,62 @@ false
 
 #### Defined in
 
-[robota.ts:115](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/robota.ts#L115)
+[robota.ts:115](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L115)
+
+___
+
+### enablePayloadLogging
+
+• `Optional` **enablePayloadLogging**: `boolean`
+
+Enable API payload logging to files
+When enabled, saves API request payloads to log files
+
+**`Default Value`**
+
+```ts
+false
+```
+
+#### Defined in
+
+[robota.ts:123](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L123)
+
+___
+
+### payloadLogDir
+
+• `Optional` **payloadLogDir**: `string`
+
+Directory path for storing API payload log files
+
+**`Default Value`**
+
+```ts
+'./logs/api-payloads'
+```
+
+#### Defined in
+
+[robota.ts:130](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L130)
+
+___
+
+### includeTimestampInLogFiles
+
+• `Optional` **includeTimestampInLogFiles**: `boolean`
+
+Include timestamp in payload log filenames
+
+**`Default Value`**
+
+```ts
+true
+```
+
+#### Defined in
+
+[robota.ts:137](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L137)
 
 ___
 
@@ -265,7 +323,7 @@ Used for budget control and preventing excessive usage
 
 #### Defined in
 
-[robota.ts:123](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/robota.ts#L123)
+[robota.ts:145](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L145)
 
 ___
 
@@ -284,7 +342,7 @@ Used for rate limiting and controlling API usage
 
 #### Defined in
 
-[robota.ts:131](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/robota.ts#L131)
+[robota.ts:153](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L153)
 
 ___
 
@@ -300,4 +358,4 @@ Use toolProviders array instead
 
 #### Defined in
 
-[robota.ts:137](https://github.com/woojubb/robota/blob/fe291514c07592ccd62a8a44eed60d02012b431e/packages/core/src/robota.ts#L137)
+[robota.ts:159](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/robota.ts#L159)

@@ -10,6 +10,7 @@ import { z } from 'zod';
 import type { FunctionSchema } from '../types';
 import { BaseTool } from './base-tool';
 import type { ZodToolOptions } from './interfaces';
+import { zodToJsonSchema } from '../schema/zod-to-json';
 
 /**
  * Zod schema-based tool class
@@ -54,36 +55,8 @@ export class ZodTool<TParams = any, TResult = any> extends BaseTool<TParams, TRe
      * @returns JSON schema format parameter definition
      */
     protected toJsonSchema(): FunctionSchema['parameters'] {
-        const jsonSchema: FunctionSchema['parameters'] = {
-            type: 'object',
-            properties: {}
-        };
-
-        const shape = this.parameters.shape;
-
-        // Convert Zod schema to JSON schema format
-        for (const [key, zodType] of Object.entries(shape)) {
-            jsonSchema.properties[key] = {
-                type: this.getSchemaType(zodType as z.ZodTypeAny),
-                description: this.getZodDescription(zodType as z.ZodTypeAny) || undefined
-            };
-
-            // Add enum values if present
-            if ((zodType as any)._def.values) {
-                jsonSchema.properties[key].enum = (zodType as any)._def.values;
-            }
-        }
-
-        // Add required fields
-        jsonSchema.required = Object.entries(shape)
-            .filter(([_key, zodType]) => !this.isOptionalType(zodType as z.ZodTypeAny))
-            .map(([key]) => key);
-
-        if (jsonSchema.required?.length === 0) {
-            delete jsonSchema.required;
-        }
-
-        return jsonSchema;
+        // Use the comprehensive zodToJsonSchema function instead of simplified conversion
+        return zodToJsonSchema(this.parameters);
     }
 
     /**
@@ -96,61 +69,7 @@ export class ZodTool<TParams = any, TResult = any> extends BaseTool<TParams, TRe
         return this.parameters.parse(params) as TParams;
     }
 
-    /**
-     * Extract description from Zod type
-     * 
-     * @param zodType - Zod type
-     * @returns Description string
-     */
-    private getZodDescription(zodType: z.ZodTypeAny): string | undefined {
-        // Extract description from Zod type metadata
-        const description = (zodType as any)._def.description;
-        if (description) return description;
 
-        // Recursively extract description for inner types
-        if (zodType instanceof z.ZodOptional || zodType instanceof z.ZodNullable) {
-            return this.getZodDescription((zodType as any)._def.innerType);
-        }
-
-        return undefined;
-    }
-
-    /**
-     * Convert Zod schema type to JSON schema type
-     * 
-     * @param schema - Zod schema
-     * @returns JSON schema type string
-     */
-    private getSchemaType(schema: z.ZodTypeAny): string {
-        if (schema instanceof z.ZodString) {
-            return 'string';
-        } else if (schema instanceof z.ZodNumber) {
-            return 'number';
-        } else if (schema instanceof z.ZodBoolean) {
-            return 'boolean';
-        } else if (schema instanceof z.ZodArray) {
-            return 'array';
-        } else if (schema instanceof z.ZodObject) {
-            return 'object';
-        } else if (schema instanceof z.ZodEnum) {
-            return 'string';
-        } else if (schema instanceof z.ZodOptional) {
-            return this.getSchemaType((schema as any)._def.innerType);
-        } else {
-            return 'string';
-        }
-    }
-
-    /**
-     * Check if Zod type is optional
-     * 
-     * @param zodType - Zod type
-     * @returns Whether the type is optional
-     */
-    private isOptionalType(zodType: z.ZodTypeAny): boolean {
-        return zodType instanceof z.ZodOptional ||
-            (zodType instanceof z.ZodDefault);
-    }
 
     /**
      * Zod tool creation helper method
