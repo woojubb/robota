@@ -36,6 +36,10 @@ export type { ChatInstance, ChatMetadata, ChatStats, MessageContent } from './ty
 export { SessionImpl } from './session/session-impl';
 export { ChatInstanceImpl } from './chat/chat-instance';
 
+// Re-export agent factory and template functionality from core
+export { AgentFactory, AgentTemplateManager } from '@robota-sdk/core';
+export type { AgentTemplate, AgentConfig, AgentCreationConfig } from '@robota-sdk/core';
+
 // State Machine
 export * from './state/session-state-machine';
 

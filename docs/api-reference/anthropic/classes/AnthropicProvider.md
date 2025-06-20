@@ -8,7 +8,20 @@
 
 # Class: AnthropicProvider
 
-Anthropic provider class
+Anthropic AI provider implementation for Robota
+
+Provides integration with Anthropic's Claude models.
+Extends BaseAIProvider for common functionality and tool calling support.
+
+**`See`**
+
+../../../apps/examples/03-integrations | Provider Integration Examples
+
+## Hierarchy
+
+- `BaseAIProvider`
+
+  ↳ **`AnthropicProvider`**
 
 ## Table of contents
 
@@ -16,22 +29,248 @@ Anthropic provider class
 
 - [constructor](AnthropicProvider#constructor)
 
+### Properties
+
+- [name](AnthropicProvider#name)
+- [options](AnthropicProvider#options)
+
+### Methods
+
+- [chat](AnthropicProvider#chat)
+- [chatStream](AnthropicProvider#chatstream)
+- [parseResponse](AnthropicProvider#parseresponse)
+- [parseStreamingChunk](AnthropicProvider#parsestreamingchunk)
+- [close](AnthropicProvider#close)
+
 ## Constructors
 
 ### constructor
 
-• **new AnthropicProvider**(`_options`): [`AnthropicProvider`](AnthropicProvider)
+• **new AnthropicProvider**(`options`): [`AnthropicProvider`](AnthropicProvider)
+
+Create a new Anthropic provider instance
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `_options` | [`AnthropicProviderOptions`](../interfaces/AnthropicProviderOptions) |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `options` | [`AnthropicProviderOptions`](../interfaces/AnthropicProviderOptions) | Configuration options for the Anthropic provider |
 
 #### Returns
 
 [`AnthropicProvider`](AnthropicProvider)
 
+**`Throws`**
+
+When client is not provided in options
+
+#### Overrides
+
+BaseAIProvider.constructor
+
 #### Defined in
 
-[anthropic/src/index.ts:14](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/anthropic/src/index.ts#L14)
+[anthropic/src/provider.ts:57](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/provider.ts#L57)
+
+## Properties
+
+### name
+
+• `Readonly` **name**: `string` = `'anthropic'`
+
+Provider identifier name
+
+#### Overrides
+
+BaseAIProvider.name
+
+#### Defined in
+
+[anthropic/src/provider.ts:30](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/provider.ts#L30)
+
+___
+
+### options
+
+• `Readonly` **options**: [`AnthropicProviderOptions`](../interfaces/AnthropicProviderOptions)
+
+Provider configuration options
+
+#### Overrides
+
+BaseAIProvider.options
+
+#### Defined in
+
+[anthropic/src/provider.ts:42](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/provider.ts#L42)
+
+## Methods
+
+### chat
+
+▸ **chat**(`model`, `context`, `options?`): `Promise`\<`ModelResponse`\>
+
+Send a chat request to Anthropic and receive a complete response
+
+Processes the provided context and sends it to Anthropic's Messages API.
+Handles message format conversion, error handling, and response parsing.
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `model` | `string` | Model name to use (e.g., 'claude-3-sonnet-20240229', 'claude-3-opus-20240229') |
+| `context` | `Context` | Context object containing messages and system prompt |
+| `options?` | `any` | Optional generation parameters and tools |
+
+#### Returns
+
+`Promise`\<`ModelResponse`\>
+
+Promise resolving to the model's response
+
+**`Throws`**
+
+When context is invalid
+
+**`Throws`**
+
+When messages array is invalid
+
+**`Throws`**
+
+When Anthropic API call fails
+
+#### Overrides
+
+BaseAIProvider.chat
+
+#### Defined in
+
+[anthropic/src/provider.ts:96](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/provider.ts#L96)
+
+___
+
+### chatStream
+
+▸ **chatStream**(`model`, `context`, `options?`): `AsyncGenerator`\<`StreamingResponseChunk`, `void`, `unknown`\>
+
+Send a streaming chat request to Anthropic and receive response chunks
+
+Similar to chat() but returns an async iterator that yields response chunks
+as they arrive from Anthropic's streaming API. Useful for real-time display
+of responses or handling large responses incrementally.
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `model` | `string` | Model name to use |
+| `context` | `Context` | Context object containing messages and system prompt |
+| `options?` | `any` | Optional generation parameters and tools |
+
+#### Returns
+
+`AsyncGenerator`\<`StreamingResponseChunk`, `void`, `unknown`\>
+
+Async generator yielding response chunks
+
+**`Throws`**
+
+When context is invalid
+
+**`Throws`**
+
+When messages array is invalid
+
+**`Throws`**
+
+When Anthropic streaming API call fails
+
+#### Overrides
+
+BaseAIProvider.chatStream
+
+#### Defined in
+
+[anthropic/src/provider.ts:155](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/provider.ts#L155)
+
+___
+
+### parseResponse
+
+▸ **parseResponse**(`response`): `ModelResponse`
+
+Parse Anthropic response into universal ModelResponse format
+
+Extracts content, usage information, and metadata from the Anthropic response
+and converts it to the standard format used across all providers.
+Supports tool calling with Claude 3 models.
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `response` | `any` | Raw response from Anthropic Messages API |
+
+#### Returns
+
+`ModelResponse`
+
+Parsed model response in universal format
+
+#### Defined in
+
+[anthropic/src/provider.ts:236](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/provider.ts#L236)
+
+___
+
+### parseStreamingChunk
+
+▸ **parseStreamingChunk**(`chunk`): `StreamingResponseChunk`
+
+Parse Anthropic streaming response chunk into universal format
+
+Converts individual chunks from the streaming response into the standard
+StreamingResponseChunk format used across all providers.
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `chunk` | `any` | Raw chunk from Anthropic streaming API |
+
+#### Returns
+
+`StreamingResponseChunk`
+
+Parsed streaming response chunk
+
+#### Defined in
+
+[anthropic/src/provider.ts:296](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/provider.ts#L296)
+
+___
+
+### close
+
+▸ **close**(): `Promise`\<`void`\>
+
+Release resources and close connections
+
+Performs cleanup operations when the provider is no longer needed.
+Anthropic client doesn't require explicit cleanup, so this is a no-op.
+
+#### Returns
+
+`Promise`\<`void`\>
+
+Promise that resolves when cleanup is complete
+
+#### Overrides
+
+BaseAIProvider.close
+
+#### Defined in
+
+[anthropic/src/provider.ts:327](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/provider.ts#L327)

@@ -21,23 +21,23 @@ npm install @robota-sdk/team
 ## Key Features
 
 ### 🤝 **Dynamic Agent Coordination**
-- Team agent analyzes user requests and delegates to specialized members
+- Team coordinator analyzes user requests and delegates to specialized members
 - Temporary agents created on-demand for specific tasks
 - Automatic cleanup and resource management
 
-### ⚡ **Unified delegateWork Tool**
-- Single tool interface for all task delegation
-- No special agent types - all agents use the same Robota instances
-- Recursive delegation support for complex task breakdown
+### ⚡ **Intelligent Template Selection**
+- AI automatically selects appropriate expert templates for tasks
+- Built-in templates: summarizer, ethical_reviewer, creative_ideator, fast_executor, domain_researcher, task_coordinator
+- Users don't need to know template names - natural language requests work
 
-### 🎯 **Task-Specific Agent Creation**
-- AgentFactory generates agents with appropriate system prompts
-- Tool selection based on task requirements
-- Role-based specialization through prompt engineering
+### 🎯 **Template-Based Configuration**
+- Simple API requires only AI providers and basic settings
+- Templates handle their own AI provider, model, and temperature preferences
+- No need to manually configure models or providers for each task
 
 ### 📊 **Team Analytics & Monitoring**
 - Real-time statistics on agent creation and task completion
-- Execution time tracking and token usage monitoring
+- Template usage tracking and performance metrics
 - Debug mode for detailed team coordination logs
 
 ## Architecture
@@ -64,23 +64,19 @@ Temporary Agents (Task Execution)
 
 ```typescript
 import { createTeam } from '@robota-sdk/team';
+import { OpenAIProvider, AnthropicProvider } from '@robota-sdk/openai';
 
-// Create a team with simple configuration
+// Create a team with template-based configuration
 const team = createTeam({
-  teamAgent: {
-    provider: 'openai',
-    model: 'gpt-4',
-    systemPrompt: 'You are a team coordinator...' // Optional custom prompt
-  },
-  memberDefaults: {
-    provider: 'openai',
-    model: 'gpt-4'
+  aiProviders: {
+    openai: openaiProvider,
+    anthropic: anthropicProvider
   },
   maxMembers: 5,
   debug: true
 });
 
-// Execute complex tasks through team coordination
+// Templates automatically handle AI provider selection and optimization
 const result = await team.execute(
   'Create a comprehensive marketing strategy for our new SaaS product'
 );
@@ -124,25 +120,30 @@ delegateWork({
 
 ## Advanced Configuration
 
-### Custom Agent Factory
+### Custom Template Manager
 ```typescript
-import { TeamContainer, AgentFactory } from '@robota-sdk/team';
+import { createTeam, AgentTemplateManager } from '@robota-sdk/team';
 
-const agentFactory = new AgentFactory({
-  provider: 'anthropic',
-  model: 'claude-3-5-sonnet-20241022',
-  temperature: 0.7
-}, true); // debug mode
+// Create custom template manager
+const templateManager = new AgentTemplateManager();
+templateManager.addTemplate({
+  name: "custom_specialist",
+  description: "Expert in custom domain analysis",
+  llm_provider: "anthropic",
+  model: "claude-3-5-sonnet-20241022",
+  temperature: 0.3,
+  system_prompt: "You are a specialist in...",
+  tags: ["custom", "analysis"],
+  version: "1.0.0"
+});
 
-const team = new TeamContainer({
-  teamAgent: {
-    provider: 'openai',
-    model: 'gpt-4'
+const team = createTeam({
+  aiProviders: {
+    openai: openaiProvider,
+    anthropic: anthropicProvider
   },
-  memberDefaults: {
-    provider: 'anthropic', 
-    model: 'claude-3-5-sonnet-20241022'
-  },
+  templateManager: templateManager,
+  leaderTemplate: "custom_specialist",
   maxMembers: 10,
   debug: true
 });

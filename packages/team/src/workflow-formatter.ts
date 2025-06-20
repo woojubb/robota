@@ -60,7 +60,14 @@ export function generateWorkflowFlowchart(workflowHistory: WorkflowHistory): str
 
         // Show coordinator performance
         if (coordinator) {
-            lines.push(`      👑 Coordinator: ${coordinator.messages.length} messages`);
+            let coordinatorInfo = `👑 Coordinator: ${coordinator.messages.length} messages`;
+
+            // Add provider/model info for coordinator
+            if (coordinator.aiProvider && coordinator.aiModel) {
+                coordinatorInfo += ` [${coordinator.aiProvider}/${coordinator.aiModel}]`;
+            }
+
+            lines.push(`      ${coordinatorInfo}`);
         }
 
         lines.push('');
@@ -69,7 +76,22 @@ export function generateWorkflowFlowchart(workflowHistory: WorkflowHistory): str
             const isLast = index === taskAgents.length - 1;
             const connector = isLast ? '└─' : '├─';
 
-            lines.push(`      ${connector} 🎯 ${agent.agentId} (${agent.messages.length} msgs)`);
+
+
+            // Build agent info with provider, model, and template
+            let agentInfo = `🎯 ${agent.agentId} (${agent.messages.length} msgs)`;
+
+            // Add provider/model info
+            if (agent.aiProvider && agent.aiModel) {
+                agentInfo += ` [${agent.aiProvider}/${agent.aiModel}]`;
+            }
+
+            // Add template info if available
+            if (agent.agentTemplate) {
+                agentInfo += ` {${agent.agentTemplate}}`;
+            }
+
+            lines.push(`      ${connector} ${agentInfo}`);
             lines.push(`      ${isLast ? '  ' : '│  '}   └─ "${truncateText(agent.taskDescription || 'No description', 60)}"`);
 
             if (!isLast) {

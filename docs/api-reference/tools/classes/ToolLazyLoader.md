@@ -54,7 +54,7 @@ Tool-specific lazy loader
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:354](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/lazy-loader.ts#L354)
+[packages/tools/src/performance/lazy-loader.ts:354](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/lazy-loader.ts#L354)
 
 ## Methods
 
@@ -80,7 +80,7 @@ Register a lazy loadable resource
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:72](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/lazy-loader.ts#L72)
+[packages/tools/src/performance/lazy-loader.ts:72](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/lazy-loader.ts#L72)
 
 ___
 
@@ -106,7 +106,7 @@ Register multiple resources at once
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:83](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/lazy-loader.ts#L83)
+[packages/tools/src/performance/lazy-loader.ts:83](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/lazy-loader.ts#L83)
 
 ___
 
@@ -132,7 +132,7 @@ Load resource (async)
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:92](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/lazy-loader.ts#L92)
+[packages/tools/src/performance/lazy-loader.ts:92](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/lazy-loader.ts#L92)
 
 ___
 
@@ -158,7 +158,7 @@ Load multiple resources in parallel
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:135](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/lazy-loader.ts#L135)
+[packages/tools/src/performance/lazy-loader.ts:135](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/lazy-loader.ts#L135)
 
 ___
 
@@ -184,7 +184,7 @@ Preload resources by priority
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:143](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/lazy-loader.ts#L143)
+[packages/tools/src/performance/lazy-loader.ts:143](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/lazy-loader.ts#L143)
 
 ___
 
@@ -210,7 +210,7 @@ Unload resource (memory cleanup)
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:156](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/lazy-loader.ts#L156)
+[packages/tools/src/performance/lazy-loader.ts:156](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/lazy-loader.ts#L156)
 
 ___
 
@@ -236,7 +236,7 @@ Unload oldest resources (LRU based)
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:177](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/lazy-loader.ts#L177)
+[packages/tools/src/performance/lazy-loader.ts:177](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/lazy-loader.ts#L177)
 
 ___
 
@@ -256,7 +256,7 @@ Unload all resources
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:196](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/lazy-loader.ts#L196)
+[packages/tools/src/performance/lazy-loader.ts:196](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/lazy-loader.ts#L196)
 
 ___
 
@@ -282,7 +282,7 @@ Check if resource is loaded
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:208](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/lazy-loader.ts#L208)
+[packages/tools/src/performance/lazy-loader.ts:208](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/lazy-loader.ts#L208)
 
 ___
 
@@ -302,7 +302,7 @@ Get all registered resource IDs
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:216](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/lazy-loader.ts#L216)
+[packages/tools/src/performance/lazy-loader.ts:216](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/lazy-loader.ts#L216)
 
 ___
 
@@ -322,7 +322,7 @@ Get loaded resource IDs
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:223](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/lazy-loader.ts#L223)
+[packages/tools/src/performance/lazy-loader.ts:223](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/lazy-loader.ts#L223)
 
 ___
 
@@ -342,7 +342,7 @@ Get lazy loading statistics
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:232](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/lazy-loader.ts#L232)
+[packages/tools/src/performance/lazy-loader.ts:232](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/lazy-loader.ts#L232)
 
 ___
 
@@ -366,4 +366,4 @@ Create lazy loading resource from tool definition
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:367](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/lazy-loader.ts#L367)
+[packages/tools/src/performance/lazy-loader.ts:367](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/lazy-loader.ts#L367)

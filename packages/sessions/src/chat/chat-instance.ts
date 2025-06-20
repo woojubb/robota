@@ -1,4 +1,5 @@
-import { Robota } from '@robota-sdk/core';
+import { Robota, AgentFactory } from '@robota-sdk/core';
+import type { RobotaOptions, AgentCreationConfig } from '@robota-sdk/core';
 import type {
     ChatInstance,
     ChatConfig,
@@ -15,6 +16,7 @@ export class ChatInstanceImpl implements ChatInstance {
 
     private _isActive: boolean = false;
     private _startTime: Date;
+    private _agentFactory?: AgentFactory;
 
     constructor(
         sessionId: string,
@@ -28,7 +30,9 @@ export class ChatInstanceImpl implements ChatInstance {
             description: config.description,
             robotaConfig: config.robotaConfig || robotaConfig,
             autoSave: config.autoSave ?? false,
-            maxHistorySize: config.maxHistorySize || 1000
+            maxHistorySize: config.maxHistorySize || 1000,
+            agentTemplate: config.agentTemplate,
+            taskDescription: config.taskDescription
         };
 
         this.metadata = {
@@ -43,9 +47,8 @@ export class ChatInstanceImpl implements ChatInstance {
             isActive: false
         };
 
-        this.robota = new Robota({
-            ...this.config.robotaConfig
-        });
+        // Create Robota instance using AgentFactory if template or task description is provided
+        this.robota = this._createRobotaInstance();
     }
 
     // Chat Operations
@@ -153,6 +156,81 @@ export class ChatInstanceImpl implements ChatInstance {
     private _updateLastAccessed(): void {
         this.metadata.lastAccessedAt = new Date();
         this.metadata.updatedAt = new Date();
+    }
+
+    /**
+     * Create Robota instance using AgentFactory if template support is needed
+     */
+    private _createRobotaInstance(): Robota {
+        const baseConfig = this.config.robotaConfig as RobotaOptions;
+
+        // If template or task description is provided, use AgentFactory
+        if (this.config.agentTemplate || this.config.taskDescription) {
+            this._agentFactory = new AgentFactory(baseConfig);
+
+            const agentConfig: AgentCreationConfig = {
+                templateName: this.config.agentTemplate,
+                taskDescription: this.config.taskDescription || `Chat instance: ${this.config.chatName}`,
+                requiredTools: [], // Could be extended to support tool configuration
+                agentConfig: {} // Could be extended for agent-specific overrides
+            };
+
+            // Since AgentFactory.createAgent returns a Promise, we need to handle this differently
+            // For now, create a regular Robota instance and provide a method to upgrade to template-based
+            return new Robota(baseConfig);
+        }
+
+        // Default: create regular Robota instance
+        return new Robota(baseConfig);
+    }
+
+    /**
+     * Upgrade chat to use a specific agent template
+     */
+    async upgradeToTemplate(templateName: string, taskDescription?: string): Promise<void> {
+        if (!this._agentFactory) {
+            this._agentFactory = new AgentFactory(this.config.robotaConfig as RobotaOptions);
+        }
+
+        const agentConfig: AgentCreationConfig = {
+            templateName,
+            taskDescription: taskDescription || this.config.taskDescription || `Chat instance: ${this.config.chatName}`,
+            requiredTools: [],
+            agentConfig: {}
+        };
+
+        try {
+            const newRobota = await this._agentFactory.createAgent(agentConfig);
+
+            // Transfer conversation history to new instance
+            const messages = this.robota.conversation.getMessages();
+            messages.forEach(message => {
+                newRobota.conversation.addMessage(message);
+            });
+
+            // Replace the robota instance
+            Object.assign(this, { robota: newRobota });
+
+            // Update config
+            this.config.agentTemplate = templateName;
+            if (taskDescription) {
+                this.config.taskDescription = taskDescription;
+            }
+
+            this._updateLastAccessed();
+        } catch (error) {
+            throw new Error(`Failed to upgrade to template: ${error}`);
+        }
+    }
+
+    /**
+     * Get the template manager for advanced template operations
+     */
+    getTemplateManager() {
+        if (!this._agentFactory) {
+            this._agentFactory = new AgentFactory(this.config.robotaConfig as RobotaOptions);
+        }
+        return this._agentFactory.getTemplateManager();
     }
 
     // history 프로퍼티를 위한 getter (호환성)

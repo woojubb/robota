@@ -37,7 +37,7 @@ Tool call count
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:18](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/performance-monitor.ts#L18)
+[packages/tools/src/performance/performance-monitor.ts:18](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/performance-monitor.ts#L18)
 
 ___
 
@@ -49,7 +49,7 @@ Average tool call time (milliseconds)
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:20](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/performance-monitor.ts#L20)
+[packages/tools/src/performance/performance-monitor.ts:20](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/performance-monitor.ts#L20)
 
 ___
 
@@ -61,7 +61,7 @@ Maximum tool call time (milliseconds)
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:22](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/performance-monitor.ts#L22)
+[packages/tools/src/performance/performance-monitor.ts:22](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/performance-monitor.ts#L22)
 
 ___
 
@@ -73,7 +73,7 @@ Minimum tool call time (milliseconds)
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:24](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/performance-monitor.ts#L24)
+[packages/tools/src/performance/performance-monitor.ts:24](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/performance-monitor.ts#L24)
 
 ___
 
@@ -85,7 +85,7 @@ Successful calls count
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:26](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/performance-monitor.ts#L26)
+[packages/tools/src/performance/performance-monitor.ts:26](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/performance-monitor.ts#L26)
 
 ___
 
@@ -97,7 +97,7 @@ Failed calls count
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:28](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/performance-monitor.ts#L28)
+[packages/tools/src/performance/performance-monitor.ts:28](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/performance-monitor.ts#L28)
 
 ___
 
@@ -109,7 +109,7 @@ Success rate (0-1)
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:30](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/performance-monitor.ts#L30)
+[packages/tools/src/performance/performance-monitor.ts:30](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/performance-monitor.ts#L30)
 
 ___
 
@@ -121,7 +121,7 @@ Throughput (TPS - Transactions Per Second)
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:32](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/performance-monitor.ts#L32)
+[packages/tools/src/performance/performance-monitor.ts:32](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/performance-monitor.ts#L32)
 
 ___
 
@@ -133,7 +133,7 @@ Memory usage statistics
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:34](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/performance-monitor.ts#L34)
+[packages/tools/src/performance/performance-monitor.ts:34](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/performance-monitor.ts#L34)
 
 ___
 
@@ -145,7 +145,7 @@ Cache performance statistics
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:36](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/performance-monitor.ts#L36)
+[packages/tools/src/performance/performance-monitor.ts:36](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/performance-monitor.ts#L36)
 
 ___
 
@@ -157,7 +157,7 @@ Lazy loading statistics
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:38](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/performance-monitor.ts#L38)
+[packages/tools/src/performance/performance-monitor.ts:38](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/performance-monitor.ts#L38)
 
 ___
 
@@ -169,4 +169,4 @@ Resource management statistics
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:40](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/performance/performance-monitor.ts#L40)
+[packages/tools/src/performance/performance-monitor.ts:40](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/performance/performance-monitor.ts#L40)

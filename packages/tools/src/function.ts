@@ -32,7 +32,6 @@ export {
 export {
     zodToJsonSchema,
     convertZodTypeToJsonSchema,
-    getZodDescription,
     isOptionalType,
     isNullableType
 } from './schema/zod-to-json';

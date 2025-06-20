@@ -13,6 +13,7 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   treeshake: true,
+  publicDir: 'src/templates', // Copy templates directory to dist
   external: [
     // External dependencies that should not be bundled
     /^@robota-sdk\/.*/,  // All @robota-sdk packages

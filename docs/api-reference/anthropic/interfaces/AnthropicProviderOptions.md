@@ -10,6 +10,9 @@
 
 Anthropic provider options
 
+Note: Anthropic API doesn't support response format configuration.
+JSON output can be requested through prompt instructions.
+
 ## Hierarchy
 
 - `ProviderOptions`
@@ -21,6 +24,12 @@ Anthropic provider options
 ### Properties
 
 - [apiKey](AnthropicProviderOptions#apikey)
+- [timeout](AnthropicProviderOptions#timeout)
+- [baseURL](AnthropicProviderOptions#baseurl)
+- [client](AnthropicProviderOptions#client)
+- [enablePayloadLogging](AnthropicProviderOptions#enablepayloadlogging)
+- [payloadLogDir](AnthropicProviderOptions#payloadlogdir)
+- [includeTimestampInLogFiles](AnthropicProviderOptions#includetimestampinlogfiles)
 - [model](AnthropicProviderOptions#model)
 - [temperature](AnthropicProviderOptions#temperature)
 - [maxTokens](AnthropicProviderOptions#maxtokens)
@@ -31,11 +40,85 @@ Anthropic provider options
 
 ### apiKey
 
-• **apiKey**: `string`
+• `Optional` **apiKey**: `string`
+
+Anthropic API key (optional: not required when using client)
 
 #### Defined in
 
-[anthropic/src/index.ts:7](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/anthropic/src/index.ts#L7)
+[anthropic/src/types.ts:14](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/types.ts#L14)
+
+___
+
+### timeout
+
+• `Optional` **timeout**: `number`
+
+API request timeout (milliseconds)
+
+#### Defined in
+
+[anthropic/src/types.ts:19](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/types.ts#L19)
+
+___
+
+### baseURL
+
+• `Optional` **baseURL**: `string`
+
+API base URL
+
+#### Defined in
+
+[anthropic/src/types.ts:24](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/types.ts#L24)
+
+___
+
+### client
+
+• **client**: `Anthropic`
+
+Anthropic client instance (required)
+
+#### Defined in
+
+[anthropic/src/types.ts:29](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/types.ts#L29)
+
+___
+
+### enablePayloadLogging
+
+• `Optional` **enablePayloadLogging**: `boolean`
+
+Enable payload logging to files for debugging
+
+#### Defined in
+
+[anthropic/src/types.ts:34](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/types.ts#L34)
+
+___
+
+### payloadLogDir
+
+• `Optional` **payloadLogDir**: `string`
+
+Directory to save payload log files
+
+#### Defined in
+
+[anthropic/src/types.ts:39](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/types.ts#L39)
+
+___
+
+### includeTimestampInLogFiles
+
+• `Optional` **includeTimestampInLogFiles**: `boolean`
+
+Include timestamp in log file names
+
+#### Defined in
+
+[anthropic/src/types.ts:44](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/anthropic/src/types.ts#L44)
 
 ___
 
@@ -49,7 +132,7 @@ ProviderOptions.model
 
 #### Defined in
 
-core/dist/index.d.ts:7
+core/dist/index.d.ts:8
 
 ___
 
@@ -63,7 +146,7 @@ ProviderOptions.temperature
 
 #### Defined in
 
-core/dist/index.d.ts:8
+core/dist/index.d.ts:9
 
 ___
 
@@ -77,7 +160,7 @@ ProviderOptions.maxTokens
 
 #### Defined in
 
-core/dist/index.d.ts:9
+core/dist/index.d.ts:10
 
 ___
 
@@ -91,7 +174,7 @@ ProviderOptions.stopSequences
 
 #### Defined in
 
-core/dist/index.d.ts:10
+core/dist/index.d.ts:11
 
 ___
 
@@ -105,4 +188,4 @@ ProviderOptions.streamMode
 
 #### Defined in
 
-core/dist/index.d.ts:11
+core/dist/index.d.ts:12

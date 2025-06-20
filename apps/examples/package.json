@@ -10,6 +10,7 @@
         "start:advanced": "tsx 04-advanced-features.ts",
         "start:team": "tsx 05-team-collaboration.ts",
         "start:team-ko": "tsx 05-team-collaboration-ko.ts",
+        "start:team-templates": "tsx 07-team-templates.ts",
         "start:payload": "tsx 06-payload-logging.ts",
         "start:all": "echo '🚀 Running all examples sequentially...' && pnpm start:basic && echo '' && pnpm start:tools && echo '' && pnpm start:multi && echo '' && pnpm start:advanced && echo '' && pnpm start:team",
         "lint": "eslint . --ext .ts,.tsx",

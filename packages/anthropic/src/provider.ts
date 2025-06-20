@@ -10,6 +10,7 @@ import {
 import type { FunctionSchema } from '@robota-sdk/tools';
 import { AnthropicProviderOptions } from './types';
 import { AnthropicConversationAdapter } from './adapter';
+import { PayloadLogger } from './payload-logger';
 
 /**
  * Anthropic AI provider implementation for Robota
@@ -41,6 +42,12 @@ export class AnthropicProvider extends BaseAIProvider {
     public readonly options: AnthropicProviderOptions;
 
     /**
+     * Payload logger instance for debugging
+     * @internal
+     */
+    private readonly payloadLogger: PayloadLogger;
+
+    /**
      * Create a new Anthropic provider instance
      * 
      * @param options - Configuration options for the Anthropic provider
@@ -62,6 +69,13 @@ export class AnthropicProvider extends BaseAIProvider {
         }
 
         this.client = options.client;
+
+        // Initialize payload logger
+        this.payloadLogger = new PayloadLogger(
+            options.enablePayloadLogging || false,
+            options.payloadLogDir || './logs/api-payloads',
+            options.includeTimestampInLogFiles ?? true
+        );
     }
 
     /**
@@ -107,6 +121,11 @@ export class AnthropicProvider extends BaseAIProvider {
             const toolConfig = this.configureTools(options?.tools);
             if (toolConfig) {
                 requestParams.tools = toolConfig.tools;
+            }
+
+            // Log payload for debugging
+            if (this.payloadLogger.isEnabled()) {
+                await this.payloadLogger.logPayload(requestParams, 'chat');
             }
 
             const response = await this.client.messages.create(requestParams);
@@ -162,6 +181,11 @@ export class AnthropicProvider extends BaseAIProvider {
             const toolConfig = this.configureTools(options?.tools);
             if (toolConfig) {
                 requestParams.tools = toolConfig.tools;
+            }
+
+            // Log payload for debugging
+            if (this.payloadLogger.isEnabled()) {
+                await this.payloadLogger.logPayload(requestParams, 'stream');
             }
 
             const stream = await this.client.messages.create(requestParams) as any;

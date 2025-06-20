@@ -36,7 +36,17 @@ export function zodToJsonSchema(schema: z.ZodObject<z.ZodRawShape>): {
     // Process each property
     Object.entries(shape).forEach(([key, zodType]) => {
         // zodType is a z.ZodType instance
-        const typeObj = zodType as z.ZodTypeAny;
+        let typeObj = zodType as z.ZodTypeAny;
+        let isOptional = false;
+        let description: string | undefined;
+
+        // Handle optional types and preserve description
+        if (typeObj instanceof z.ZodOptional) {
+            isOptional = true;
+            // Get description from optional wrapper first
+            description = typeObj._def.description;
+            typeObj = typeObj._def.innerType;
+        }
 
         // Basic property information
         let property: Record<string, unknown> = {};
@@ -54,22 +64,28 @@ export function zodToJsonSchema(schema: z.ZodObject<z.ZodRawShape>): {
         } else if (typeObj instanceof z.ZodArray) {
             property.type = "array";
             // Process array item type
-            if (typeObj._def.type instanceof z.ZodObject) {
+            if (typeObj._def.type instanceof z.ZodString) {
+                property.items = { type: "string" };
+            } else if (typeObj._def.type instanceof z.ZodObject) {
                 property.items = zodToJsonSchema(typeObj._def.type as z.ZodObject<z.ZodRawShape>);
             }
         } else if (typeObj instanceof z.ZodObject) {
             // Process nested object
             property = zodToJsonSchema(typeObj);
+        } else {
+            // Fallback for unsupported types
+            property.type = "string";
         }
 
-        // Add description if available
-        const description = typeObj._def.description;
+        // Add description - try optional wrapper first, then inner type
+        if (!description) {
+            description = typeObj._def.description;
+        }
         if (description) {
             property.description = description;
         }
 
-        // Check if optional
-        const isOptional = typeObj instanceof z.ZodOptional;
+        // Add to required if not optional
         if (!isOptional) {
             required.push(key);
         }
