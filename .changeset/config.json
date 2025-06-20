@@ -9,7 +9,8 @@
       "@robota-sdk/anthropic",
       "@robota-sdk/google",
       "@robota-sdk/tools",
-      "@robota-sdk/sessions"
+      "@robota-sdk/sessions",
+      "@robota-sdk/team"
     ]
   ],
   "linked": [],

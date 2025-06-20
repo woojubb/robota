@@ -109,6 +109,9 @@ importers:
       '@robota-sdk/sessions':
         specifier: workspace:*
         version: link:../../packages/sessions
+      '@robota-sdk/team':
+        specifier: workspace:*
+        version: link:../../packages/team
       '@robota-sdk/tools':
         specifier: workspace:*
         version: link:../../packages/tools
@@ -312,6 +315,37 @@ importers:
         version: 1.6.1(@types/node@20.17.46)
 
   packages/sessions:
+    dependencies:
+      uuid:
+        specifier: ^9.0.1
+        version: 9.0.1
+    devDependencies:
+      '@robota-sdk/core':
+        specifier: workspace:*
+        version: link:../core
+      '@robota-sdk/tools':
+        specifier: workspace:*
+        version: link:../tools
+      '@types/uuid':
+        specifier: ^9.0.7
+        version: 9.0.8
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.4.0(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.17.46)
+
+  packages/team:
     dependencies:
       uuid:
         specifier: ^9.0.1

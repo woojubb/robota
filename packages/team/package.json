@@ -1,0 +1,89 @@
+{
+    "name": "@robota-sdk/team",
+    "version": "1.0.4",
+    "description": "Multi-agent teamwork functionality for Robota SDK - dynamic agent coordination and task delegation",
+    "type": "module",
+    "main": "dist/index.js",
+    "module": "dist/index.mjs",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        }
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/woojubb/robota.git",
+        "directory": "packages/team"
+    },
+    "homepage": "https://robota.io/",
+    "bugs": {
+        "url": "https://github.com/woojubb/robota/issues"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "CHANGELOG.md"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "build:check": "pnpm run typecheck && pnpm run build",
+        "dev": "tsup --watch",
+        "clean": "rimraf dist && rimraf tsconfig.tsbuildinfo",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run --passWithNoTests",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage",
+        "lint": "eslint src --ext .ts,.tsx",
+        "lint:fix": "eslint src --ext .ts,.tsx --fix",
+        "prepublishOnly": "pnpm run clean && pnpm run build && pnpm run test"
+    },
+    "keywords": [
+        "ai",
+        "agent",
+        "llm",
+        "multi-agent",
+        "teamwork",
+        "task-delegation",
+        "agent-coordination",
+        "collaborative-ai",
+        "dynamic-agents",
+        "work-distribution",
+        "agent-factory",
+        "typescript",
+        "robota",
+        "sdk",
+        "openai",
+        "anthropic",
+        "google-ai",
+        "ai-integration"
+    ],
+    "author": "Robota SDK Team",
+    "license": "MIT",
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "dependencies": {
+        "uuid": "^9.0.1"
+    },
+    "peerDependencies": {
+        "@robota-sdk/core": "workspace:*",
+        "@robota-sdk/tools": "workspace:*"
+    },
+    "devDependencies": {
+        "@robota-sdk/core": "workspace:*",
+        "@robota-sdk/tools": "workspace:*",
+        "@types/uuid": "^9.0.7",
+        "rimraf": "^5.0.5",
+        "tsup": "^8.0.1",
+        "typescript": "^5.3.3",
+        "vitest": "^1.6.1",
+        "eslint": "^8.56.0"
+    },
+    "publishConfig": {
+        "access": "public",
+        "registry": "https://registry.npmjs.org/"
+    }
+}

@@ -1,0 +1,248 @@
+import type { RobotaOptions } from '@robota-sdk/core';
+
+/**
+ * Configuration options for creating a TeamContainer
+ * 
+ * @description
+ * Defines the configuration for initializing a team collaboration system.
+ * All team members will inherit the base Robota configuration, with the ability
+ * to override specific settings for specialized tasks.
+ * 
+ * @example
+ * ```typescript
+ * const teamOptions: TeamContainerOptions = {
+ *   baseRobotaOptions: {
+ *     aiProviders: { openai: openaiProvider },
+ *     currentProvider: 'openai',
+ *     currentModel: 'gpt-4',
+ *     maxTokenLimit: 50000,
+ *     temperature: 0.7
+ *   },
+ *   maxMembers: 5,
+ *   debug: true
+ * };
+ * ```
+ */
+export interface TeamContainerOptions {
+    /** 
+     * Base configuration for all agents including AI providers, models, and limits.
+     * This configuration is inherited by all team members and temporary agents.
+     */
+    baseRobotaOptions: RobotaOptions;
+
+    /** 
+     * Maximum number of team members that can be created concurrently.
+     * Helps control resource usage and API costs. Default: unlimited.
+     */
+    maxMembers?: number;
+
+    /** 
+     * Enable debug mode for detailed logging of team operations including
+     * task delegation, agent creation, and performance metrics.
+     */
+    debug?: boolean;
+}
+
+/**
+ * Configuration for creating an agent
+ */
+export interface AgentConfig {
+    /** AI provider to use (e.g., 'openai', 'anthropic', 'google') */
+    provider: string;
+    /** Model name to use */
+    model: string;
+    /** System prompt for the agent */
+    systemPrompt?: string;
+    /** Maximum tokens for responses */
+    maxTokens?: number;
+    /** Temperature for response generation */
+    temperature?: number;
+}
+
+/**
+ * Parameters for delegating work to a specialized team member
+ * 
+ * @description
+ * Defines the parameters needed when the team coordinator delegates a specialized
+ * task to a temporary expert agent. The system uses these parameters to create
+ * an appropriately configured agent and execute the task.
+ * 
+ * @example
+ * ```typescript
+ * const workParams: DelegateWorkParams = {
+ *   jobDescription: 'Analyze market trends for electric vehicles in California',
+ *   context: 'Focus on pricing strategies and customer adoption rates for Q1 2024',
+ *   requiredTools: ['market-data-api', 'trend-analysis'],
+ *   priority: 'high'
+ * };
+ * 
+ * const result = await team.delegateWork(workParams);
+ * ```
+ */
+export interface DelegateWorkParams {
+    /** 
+     * Clear, specific description of the job to be completed.
+     * Should provide enough detail for the specialist agent to understand
+     * the scope and deliverables expected.
+     */
+    jobDescription: string;
+
+    /** 
+     * Additional context, constraints, or requirements for the job.
+     * Helps the specialist agent understand the broader context and
+     * any specific limitations or guidelines to follow.
+     */
+    context?: string;
+
+    /** 
+     * List of tools the specialist agent might need for this task.
+     * If specified, the system will attempt to configure the agent
+     * with access to these tools.
+     */
+    requiredTools?: string[];
+
+    /** 
+     * Priority level for the task, affecting resource allocation and urgency.
+     * Higher priority tasks may receive more resources or faster processing.
+     */
+    priority?: 'low' | 'medium' | 'high' | 'urgent';
+}
+
+/**
+ * Result from a delegated work task with execution metadata
+ * 
+ * @description
+ * Contains the output from a specialized agent along with comprehensive
+ * metadata about the task execution including performance metrics,
+ * resource usage, and any errors encountered.
+ * 
+ * @example
+ * ```typescript
+ * const result: DelegateWorkResult = await team.delegateWork({
+ *   jobDescription: 'Create financial projections',
+ *   context: 'For a startup coffee shop',
+ *   priority: 'high'
+ * });
+ * 
+ * console.log('Task result:', result.result);
+ * console.log('Executed by agent:', result.agentId);
+ * console.log('Execution time:', result.metadata.executionTime + 'ms');
+ * console.log('Tokens used:', result.metadata.tokensUsed);
+ * 
+ * if (result.metadata.errors?.length > 0) {
+ *   console.log('Errors encountered:', result.metadata.errors);
+ * }
+ * ```
+ */
+export interface DelegateWorkResult {
+    /** 
+     * The completed task result content from the specialist agent.
+     * This contains the actual deliverable requested in the job description.
+     */
+    result: string;
+
+    /** 
+     * Unique identifier of the temporary agent that performed the task.
+     * Useful for debugging and tracking which specialist handled the work.
+     */
+    agentId: string;
+
+    /** 
+     * Comprehensive metadata about the task execution including
+     * performance metrics, resource usage, and error information.
+     */
+    metadata: {
+        /** 
+         * Time taken to complete the task in milliseconds.
+         * Includes agent creation, task execution, and cleanup time.
+         */
+        executionTime: number;
+
+        /** 
+         * Estimated number of tokens consumed during task execution.
+         * Useful for cost tracking and resource optimization.
+         */
+        tokensUsed?: number;
+
+        /** 
+         * List of any errors encountered during task execution.
+         * Empty array indicates successful completion without errors.
+         */
+        errors?: string[];
+    };
+}
+
+/**
+ * Configuration for creating a task-specific agent
+ */
+export interface TaskAgentConfig {
+    /** Description of the task the agent will perform */
+    taskDescription: string;
+    /** Required tools for the task */
+    requiredTools: string[];
+    /** Agent configuration overrides */
+    agentConfig?: Partial<AgentConfig>;
+}
+
+/**
+ * Comprehensive team execution statistics and performance metrics
+ * 
+ * @description
+ * Provides detailed insights into team performance including resource utilization,
+ * task completion rates, and efficiency metrics. Useful for monitoring costs,
+ * optimizing workflows, and understanding team behavior patterns.
+ * 
+ * @example
+ * ```typescript
+ * // After running several team tasks
+ * const stats = team.getStats();
+ * 
+ * console.log(`Team Performance Report:`);
+ * console.log(`├─ Agents created: ${stats.totalAgentsCreated}`);
+ * console.log(`├─ Tasks completed: ${stats.tasksCompleted}`);
+ * console.log(`├─ Tasks failed: ${stats.tasksFailed}`);
+ * console.log(`├─ Total execution time: ${stats.totalExecutionTime}ms`);
+ * console.log(`└─ Total tokens used: ${stats.totalTokensUsed}`);
+ * 
+ * // Calculate derived metrics
+ * const successRate = stats.tasksCompleted / (stats.tasksCompleted + stats.tasksFailed);
+ * const avgExecutionTime = stats.totalExecutionTime / stats.tasksCompleted;
+ * const avgTokensPerTask = stats.totalTokensUsed / stats.tasksCompleted;
+ * 
+ * console.log(`\nDerived Metrics:`);
+ * console.log(`├─ Success rate: ${(successRate * 100).toFixed(1)}%`);
+ * console.log(`├─ Average execution time: ${avgExecutionTime.toFixed(0)}ms`);
+ * console.log(`└─ Average tokens per task: ${avgTokensPerTask.toFixed(0)}`);
+ * ```
+ */
+export interface TeamStats {
+    /** 
+     * Total number of specialized agents created across all tasks.
+     * Each delegated task typically creates one temporary agent.
+     */
+    totalAgentsCreated: number;
+
+    /** 
+     * Cumulative execution time in milliseconds for all completed tasks.
+     * Includes agent creation, task execution, and cleanup overhead.
+     */
+    totalExecutionTime: number;
+
+    /** 
+     * Total tokens consumed across all agents and tasks.
+     * Useful for cost tracking and resource optimization.
+     */
+    totalTokensUsed: number;
+
+    /** 
+     * Number of tasks that completed successfully without errors.
+     * Used to calculate success rates and reliability metrics.
+     */
+    tasksCompleted: number;
+
+    /** 
+     * Number of tasks that failed due to errors or resource constraints.
+     * Helps identify issues with task complexity or system limits.
+     */
+    tasksFailed: number;
+} 

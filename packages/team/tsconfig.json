@@ -1,0 +1,31 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "outDir": "dist",
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "composite": true,
+        "skipLibCheck": true,
+        "moduleResolution": "node",
+        "allowImportingTsExtensions": false,
+        "noEmit": false
+    },
+    "include": [
+        "src/**/*.ts",
+        "src/**/*.tsx"
+    ],
+    "exclude": [
+        "dist",
+        "**/*.test.ts",
+        "**/*.spec.ts"
+    ],
+    "references": [
+        {
+            "path": "../core"
+        },
+        {
+            "path": "../tools"
+        }
+    ]
+}

@@ -62,4 +62,26 @@ export interface OpenAIProviderOptions extends ProviderOptions {
    * OpenAI client instance (required)
    */
   client: OpenAI;
+
+  /**
+   * Enable API payload logging to files
+   * When enabled, saves API request payloads to log files
+   * 
+   * @defaultValue false
+   */
+  enablePayloadLogging?: boolean;
+
+  /**
+   * Directory path for storing API payload log files
+   * 
+   * @defaultValue './logs/api-payloads'
+   */
+  payloadLogDir?: string;
+
+  /**
+   * Include timestamp in payload log filenames
+   * 
+   * @defaultValue true
+   */
+  includeTimestampInLogFiles?: boolean;
 } 

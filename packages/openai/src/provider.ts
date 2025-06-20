@@ -10,6 +10,7 @@ import {
 import type { FunctionSchema } from '@robota-sdk/tools';
 import { OpenAIProviderOptions } from './types';
 import { OpenAIConversationAdapter } from './adapter';
+import { PayloadLogger } from './payload-logger';
 
 /**
  * OpenAI AI provider implementation for Robota
@@ -54,6 +55,12 @@ export class OpenAIProvider extends BaseAIProvider {
   public readonly options: OpenAIProviderOptions;
 
   /**
+   * Payload logger for API request logging
+   * @internal
+   */
+  private readonly payloadLogger: PayloadLogger;
+
+  /**
    * Create a new OpenAI provider instance
    * 
    * @param options - Configuration options for the OpenAI provider
@@ -76,6 +83,13 @@ export class OpenAIProvider extends BaseAIProvider {
 
     this.client = options.client;
     this.instance = options.client; // Maintain backwards compatibility
+
+    // Initialize payload logger
+    this.payloadLogger = new PayloadLogger(
+      this.options.enablePayloadLogging || false,
+      this.options.payloadLogDir || './logs/api-payloads',
+      this.options.includeTimestampInLogFiles !== false
+    );
   }
 
   /**
@@ -184,6 +198,9 @@ export class OpenAIProvider extends BaseAIProvider {
     }
 
     try {
+      // Log payload if enabled
+      await this.payloadLogger.logPayload(completionOptions, 'chat');
+
       const response = await this.client.chat.completions.create(completionOptions);
       return this.parseResponse(response);
     } catch (error) {
@@ -337,6 +354,9 @@ export class OpenAIProvider extends BaseAIProvider {
     }
 
     try {
+      // Log payload if enabled
+      await this.payloadLogger.logPayload(completionOptions, 'stream');
+
       const stream = await this.client.chat.completions.create(completionOptions);
 
       for await (const chunk of stream) {
