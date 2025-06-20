@@ -41,7 +41,7 @@ Utility class for logging Anthropic API payloads to files
 
 #### Defined in
 
-anthropic/src/payload-logger.ts:12
+[anthropic/src/payload-logger.ts:12](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/payload-logger.ts#L12)
 
 ## Methods
 
@@ -64,7 +64,7 @@ Log API payload to file
 
 #### Defined in
 
-anthropic/src/payload-logger.ts:31
+[anthropic/src/payload-logger.ts:31](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/payload-logger.ts#L31)
 
 ___
 
@@ -80,4 +80,4 @@ Check if logging is enabled
 
 #### Defined in
 
-anthropic/src/payload-logger.ts:98
+[anthropic/src/payload-logger.ts:97](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/payload-logger.ts#L97)

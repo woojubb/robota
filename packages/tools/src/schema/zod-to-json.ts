@@ -79,6 +79,7 @@ function unwrapZodType(zodType: z.ZodTypeAny): {
     };
 
     // Unwrap all wrapper types and collect metadata
+    // eslint-disable-next-line no-constant-condition
     while (true) {
         // Check for description first (before unwrapping)
         if (currentType._def.description && !metadata.description) {

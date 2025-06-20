@@ -68,7 +68,7 @@ export class AgentFactory {
         }
 
         if (this.debug) {
-            console.log(`[AgentFactory] Creating agent from template: ${templateName}`);
+            // Debug logging for agent creation from template
         }
 
         // Generate system prompt using template
@@ -107,7 +107,7 @@ export class AgentFactory {
         }
 
         if (this.debug) {
-            console.log(`[AgentFactory] Creating dynamic agent for task: ${config.taskDescription}`);
+            // Debug logging for dynamic agent creation
         }
 
         // Generate dynamic system prompt
@@ -165,7 +165,7 @@ export class AgentFactory {
      */
     private async createRobotaFromConfig(
         agentConfig: AgentConfig,
-        requiredTools?: string[]
+        _requiredTools?: string[]
     ): Promise<Robota> {
         // Validate that the required provider is available
         if (!this.baseRobotaOptions.aiProviders ||

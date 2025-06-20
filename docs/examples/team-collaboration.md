@@ -1,54 +1,65 @@
 # Multi-Agent Team Collaboration
 
-The Robota team collaboration system enables intelligent multi-agent workflows where a primary coordinator can delegate specialized tasks to expert agents. This approach allows solving complex, multi-faceted problems through coordinated teamwork.
+The Robota team collaboration system enables intelligent multi-agent workflows where a dedicated task coordinator automatically analyzes requests and delegates specialized tasks to expert agents. This template-based approach allows solving complex, multi-faceted problems through coordinated teamwork with automatic expert selection.
 
 ## Overview
 
-Team collaboration works by having a **Team Coordinator** that:
-1. Analyzes incoming requests for complexity and scope
-2. Decides whether to handle tasks directly or delegate to specialists
-3. Creates temporary expert agents for specific tasks
+Team collaboration works through an intelligent **Task Coordinator** template that:
+1. Analyzes incoming requests for complexity and required expertise
+2. Automatically selects appropriate expert templates based on natural language requests
+3. Creates temporary expert agents using predefined specialized templates
 4. Coordinates multiple agents for complex workflows
 5. Synthesizes results into comprehensive responses
 
+The system includes 6 built-in expert templates:
+- **Task Coordinator**: Team coordination and work distribution
+- **Domain Researcher**: Research, analysis, and market studies
+- **Creative Ideator**: Innovation, brainstorming, and creative solutions
+- **Summarizer**: Document summarization and key point extraction
+- **Ethical Reviewer**: Ethics review and compliance evaluation
+- **Fast Executor**: Quick and accurate task execution
+
 ## Quick Start
 
-### Basic Team Setup
+### Basic Team Setup (Simplified API)
 
 ```typescript
 import { createTeam } from '@robota-sdk/team';
 import { OpenAIProvider } from '@robota-sdk/openai';
+import { AnthropicProvider } from '@robota-sdk/anthropic';
 import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 
-// Create OpenAI client and provider
-const openaiClient = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY 
-});
-
+// Create providers
 const openaiProvider = new OpenAIProvider({
-  client: openaiClient,
+  client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
   model: 'gpt-4o-mini',
   enablePayloadLogging: true,
   payloadLogDir: './logs/team-collaboration',
   includeTimestampInLogFiles: true
 });
 
+const anthropicProvider = new AnthropicProvider({
+  client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }),
+  model: 'claude-3-5-sonnet-20241022',
+  enablePayloadLogging: true,
+  payloadLogDir: './logs/team-collaboration',
+  includeTimestampInLogFiles: true
+});
+
+// Create team using simplified template-based API
 const team = createTeam({
-  baseRobotaOptions: {
-    aiProviders: { openai: openaiProvider },
-    currentProvider: 'openai',
-    currentModel: 'gpt-4o-mini',
-    temperature: 0.7,
-    maxTokens: 16000,
-    maxTokenLimit: 50000,
-    systemPrompt: 'You are a team coordinator that manages collaborative work.',
-    logger: console
+  aiProviders: {
+    openai: openaiProvider,
+    anthropic: anthropicProvider
   },
   maxMembers: 5,
+  maxTokenLimit: 50000,
+  logger: console,
   debug: false
 });
 
-// Simple request - handled directly by coordinator
+// Simple request - handled directly by task coordinator
 const response = await team.execute(
   'What are the main differences between React and Vue.js? Please provide 3 key points briefly.'
 );
@@ -59,12 +70,12 @@ const businessPlan = await team.execute(
 );
 ```
 
-### Structured Two-Example Approach
+### Two-Example Approach for Testing
 
-For comprehensive testing, you can create separate teams for different types of tasks:
+For comprehensive testing of simple vs complex task handling:
 
 ```typescript
-// Example 1: Simple Task (Direct Handling)
+// Example 1: Simple Task (Direct Handling by Task Coordinator)
 const openaiClient1 = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const openaiProvider1 = new OpenAIProvider({
   client: openaiClient1,
@@ -74,18 +85,20 @@ const openaiProvider1 = new OpenAIProvider({
   includeTimestampInLogFiles: true
 });
 
+const anthropicClient1 = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const anthropicProvider1 = new AnthropicProvider({
+  client: anthropicClient1,
+  model: 'claude-3-5-sonnet-20241022',
+  enablePayloadLogging: true,
+  payloadLogDir: './logs/team-collaboration/example1',
+  includeTimestampInLogFiles: true
+});
+
 const team1 = createTeam({
-  baseRobotaOptions: {
-    aiProviders: { openai: openaiProvider1 },
-    currentProvider: 'openai',
-    currentModel: 'gpt-4o-mini',
-    temperature: 0.7,
-    maxTokens: 16000,
-    maxTokenLimit: 50000,
-    systemPrompt: 'You are a team coordinator that manages collaborative work.',
-    logger: console
-  },
+  aiProviders: { openai: openaiProvider1, anthropic: anthropicProvider1 },
   maxMembers: 5,
+  maxTokenLimit: 50000,
+  logger: console,
   debug: false
 });
 
@@ -93,7 +106,7 @@ const simpleResult = await team1.execute(
   'What are the main differences between React and Vue.js? Please provide 3 key points briefly.'
 );
 
-// Example 2: Complex Task (Team Coordination)
+// Example 2: Complex Task (Team Coordination with Template Selection)
 const openaiClient2 = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const openaiProvider2 = new OpenAIProvider({
   client: openaiClient2,
@@ -103,18 +116,20 @@ const openaiProvider2 = new OpenAIProvider({
   includeTimestampInLogFiles: true
 });
 
+const anthropicClient2 = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const anthropicProvider2 = new AnthropicProvider({
+  client: anthropicClient2,
+  model: 'claude-3-5-sonnet-20241022',
+  enablePayloadLogging: true,
+  payloadLogDir: './logs/team-collaboration/example2',
+  includeTimestampInLogFiles: true
+});
+
 const team2 = createTeam({
-  baseRobotaOptions: {
-    aiProviders: { openai: openaiProvider2 },
-    currentProvider: 'openai',
-    currentModel: 'gpt-4o-mini',
-    temperature: 0.7,
-    maxTokens: 16000,
-    maxTokenLimit: 50000,
-    systemPrompt: 'You are a team coordinator that manages collaborative work.',
-    logger: console
-  },
+  aiProviders: { openai: openaiProvider2, anthropic: anthropicProvider2 },
   maxMembers: 5,
+  maxTokenLimit: 50000,
+  logger: console,
   debug: false
 });
 
@@ -122,7 +137,7 @@ const complexResult = await team2.execute(
   'Create a cafe business plan. It must include both: 1) Market analysis, 2) Menu composition. Please write each section separately.'
 );
 
-// Combine statistics from both teams
+// Performance analytics
 const stats1 = team1.getStats();
 const stats2 = team2.getStats();
 
@@ -144,360 +159,216 @@ Overall Summary:
 `);
 ```
 
-### Advanced Configuration
+### Advanced Configuration with Custom Templates
 
 ```typescript
-import { TeamContainer } from '@robota-sdk/team';
-import { OpenAIProvider, AnthropicProvider } from '@robota-sdk/core';
+import { AgentTemplateManager } from '@robota-sdk/core';
 
-const team = new TeamContainer({
-  baseRobotaOptions: {
-    aiProviders: {
-      openai: new OpenAIProvider({
-        apiKey: process.env.OPENAI_API_KEY,
-        model: 'gpt-4'
-      }),
-      anthropic: new AnthropicProvider({
-        apiKey: process.env.ANTHROPIC_API_KEY,
-        model: 'claude-3-5-sonnet-20241022'
-      })
-    },
-    currentProvider: 'openai',
-    currentModel: 'gpt-4',
-    maxTokenLimit: 100000,
-    temperature: 0.7
+// Create custom template manager
+const templateManager = new AgentTemplateManager();
+templateManager.addTemplate({
+  name: "data_scientist",
+  description: "Expert in data analysis, machine learning, and statistical modeling. Use for: analyzing datasets, building ML models, statistical analysis, data visualization, predictive analytics, A/B testing, data preprocessing, feature engineering.",
+  llm_provider: "anthropic",
+  model: "claude-3-5-sonnet-20241022",
+  temperature: 0.3,
+  system_prompt: "You are a senior data scientist...",
+  tags: ["data", "analytics", "ml"],
+  version: "1.0.0",
+  createdAt: new Date()
+});
+
+const team = createTeam({
+  aiProviders: {
+    openai: openaiProvider,
+    anthropic: anthropicProvider
   },
+  templateManager: templateManager,  // Custom template manager
+  leaderTemplate: "task_coordinator", // Specify leader template
   maxMembers: 10,
   debug: true
 });
 ```
 
-## How Team Delegation Works
+## How Template-Based Delegation Works
 
-### 1. Request Analysis
-The team coordinator analyzes each request to determine:
+### 1. Request Analysis by Task Coordinator
+The task coordinator template automatically analyzes each request to determine:
 - **Complexity**: Single-component vs multi-component tasks
-- **Expertise Required**: Does this need specialized knowledge?
-- **Scope**: Can this be handled directly or needs breakdown?
+- **Expertise Required**: Which specialist templates would be most effective
+- **Scope**: Can this be handled directly or needs specialized delegation?
 
-### 2. Intelligent Decision Making
+### 2. Intelligent Template Selection
 The coordinator follows these principles:
 - **Simple tasks**: Handle directly for efficiency
-- **Complex tasks**: Delegate to specialized agents
-- **Multi-part requests**: Break down and delegate each component
-- **Context preservation**: Ensure each delegated task is self-contained
+- **Research tasks**: Automatically select `domain_researcher` template
+- **Creative tasks**: Automatically select `creative_ideator` template
+- **Multi-part requests**: Break down and delegate each component to appropriate templates
+- **Context preservation**: Ensure each delegated task is self-contained with proper context
 
-### 3. Dynamic Agent Creation
+### 3. Dynamic Agent Creation from Templates
 For delegated tasks, the system:
-- Creates temporary expert agents
-- Configures them with appropriate tools and context
-- Executes the specialized task
+- Selects the most appropriate expert template
+- Creates temporary expert agents using template configurations
+- Uses template-specific AI providers, models, and temperature settings
+- Executes the specialized task with optimized parameters
 - Automatically cleans up resources
 
-## Examples by Use Case
+## Template System Examples
+
+### Multi-Template Healthcare Product Development
+
+```typescript
+// This example demonstrates automatic template selection
+const collaborationTask = `
+새로운 헬스케어 기술 제품을 개발하고 싶습니다. 다음 두 가지 작업을 각각 전문가에게 분배해주세요:
+
+1. 시장 분석 및 경쟁사 조사
+   - 헬스케어 기술 시장 현황 분석
+   - 주요 경쟁업체 및 트렌드 조사
+   - 시장 기회 및 진입 전략 제안
+
+2. 혁신적인 제품 아이디어 발굴
+   - 차별화된 헬스케어 기술 솔루션 아이디어
+   - 사용자 경험 중심의 혁신 요소
+   - 실현 가능한 3가지 제품 컨셉 제안
+
+주제: AI 기반 개인 맞춤형 건강관리 솔루션
+`;
+
+const result = await team.execute(collaborationTask);
+
+// The task coordinator will automatically:
+// 1. Select domain_researcher template for market analysis (Anthropic Claude, temp: 0.4)
+// 2. Select creative_ideator template for product ideation (OpenAI GPT-4, temp: 0.8)
+// 3. Synthesize both results into a comprehensive response
+```
+
+## Workflow Analysis and Monitoring
+
+### Workflow Visualization
+
+```typescript
+import { generateWorkflowFlowchart, generateAgentRelationshipDiagram } from '@robota-sdk/team';
+
+// Get workflow history
+const workflowHistory = team.getWorkflowHistory();
+
+if (workflowHistory) {
+    // Generate agent relationship diagram
+    console.log('🔗 Agent relationship diagram:');
+    console.log(generateAgentRelationshipDiagram(workflowHistory));
+
+    // Generate workflow flowchart
+    console.log('📊 Workflow flowchart:');
+    console.log(generateWorkflowFlowchart(workflowHistory));
+}
+```
+
+### Performance Analytics
+
+```typescript
+const stats = team.getStats();
+
+console.log(`
+📈 Team Performance:
+• Tasks completed: ${stats.tasksCompleted}
+• Total agents created: ${stats.totalAgentsCreated}
+• Execution time: ${stats.totalExecutionTime}ms
+• Average agents per task: ${(stats.totalAgentsCreated / stats.tasksCompleted).toFixed(1)}
+`);
+```
+
+## Built-in Expert Templates
+
+### Template Specifications
+
+- **task_coordinator**: Team coordination and work distribution (OpenAI gpt-4o-mini, temp: 0.4)
+- **domain_researcher**: Research, analysis, and market studies (Anthropic claude-3-5-sonnet-20241022, temp: 0.4)
+- **creative_ideator**: Innovation, brainstorming, and creative solutions (OpenAI gpt-4o-mini, temp: 0.8)
+- **summarizer**: Document summarization and key point extraction (OpenAI gpt-4o-mini, temp: 0.3)
+- **ethical_reviewer**: Ethics review and compliance evaluation (Anthropic claude-3-5-sonnet-20241022, temp: 0.2)
+- **fast_executor**: Quick and accurate task execution (OpenAI gpt-4o-mini, temp: 0.1)
+
+### Template Manager Access
+
+```typescript
+// Access template manager
+const templateManager = team.getTemplateManager();
+
+// View available templates
+const templates = templateManager.listTemplates();
+console.log('Available templates:', templates.map(t => t.name));
+
+// Add custom template
+templateManager.addTemplate({
+  name: "financial_analyst",
+  description: "Expert in financial analysis, budgeting, and investment strategies...",
+  llm_provider: "anthropic",
+  model: "claude-3-5-sonnet-20241022",
+  temperature: 0.3,
+  system_prompt: "You are a senior financial analyst...",
+  tags: ["finance", "analysis", "strategy"],
+  version: "1.0.0",
+  createdAt: new Date()
+});
+```
+
+## Key Advantages of Template-Based Teams
+
+### 1. **Automatic Expert Selection**
+- No need to manually specify templates
+- AI analyzes requests and selects optimal specialists
+- Natural language requests automatically mapped to appropriate expertise
+
+### 2. **Simplified Configuration**
+- Only need to provide AI providers
+- Templates handle all AI model, temperature, and system prompt configuration
+- Reduces complexity while maintaining full customization capability
+
+### 3. **Optimized Performance**
+- Each template uses optimal AI provider and settings for its specialty
+- Research tasks use Claude for deep analysis
+- Creative tasks use GPT-4 with high temperature for innovation
+- Coordination uses GPT-4o-mini with balanced settings for efficiency
+
+### 4. **Consistent Quality**
+- Predefined expert templates ensure consistent specialist behavior
+- Specialized system prompts for each domain
+- Optimized parameters for each type of task
+
+### 5. **Resource Efficiency**
+- Simple tasks handled directly by task coordinator
+- Complex tasks delegated only when beneficial
+- Automatic resource cleanup after task completion
+
+## Common Patterns
 
 ### Business Planning
-
 ```typescript
 const businessPlan = await team.execute(`
-  Create a comprehensive startup business plan for a sustainable fashion brand:
-  1) Market analysis including target demographics and competition
-  2) Product line design with sustainable materials focus
-  3) Marketing strategy emphasizing eco-friendly values
-  4) Financial projections with funding requirements
-  5) Operations plan including supply chain considerations
+Create a comprehensive business plan for a new sustainable energy startup.
+Include market analysis, competitive landscape, and financial projections.
 `);
-
-// Team creates specialists for:
-// - Market research analyst
-// - Product designer
-// - Marketing strategist  
-// - Financial analyst
-// - Operations manager
+// Automatically delegates to domain_researcher and potentially fast_executor
 ```
 
-### Software Development
-
+### Creative Projects
 ```typescript
-const architecturePlan = await team.execute(`
-  Design a complete microservices architecture for a social media platform:
-  1) System architecture with service boundaries
-  2) Database design for user data and content
-  3) API specifications for mobile and web clients
-  4) Security considerations and authentication
-  5) Deployment and scaling strategy
+const creativeProject = await team.execute(`
+Develop innovative marketing campaign ideas for a eco-friendly product line.
+Need creative concepts, slogans, and engagement strategies.
 `);
-
-// Team creates specialists for:
-// - System architect
-// - Database designer
-// - API developer
-// - Security expert
-// - DevOps engineer
+// Automatically delegates to creative_ideator template
 ```
 
-### Content Creation
-
+### Research Tasks
 ```typescript
-const marketingCampaign = await team.execute(`
-  Develop a complete marketing campaign for a new SaaS product:
-  1) Brand messaging and value proposition
-  2) Content strategy across multiple channels
-  3) Social media campaign with post schedules
-  4) Email marketing automation sequences
-  5) Performance metrics and KPIs
+const researchReport = await team.execute(`
+Research the current state of quantum computing technology.
+Analyze market trends, key players, and future opportunities.
 `);
-
-// Team creates specialists for:
-// - Brand strategist
-// - Content creator
-// - Social media manager
-// - Email marketing expert
-// - Analytics specialist
+// Automatically delegates to domain_researcher template
 ```
 
-## Performance Monitoring
-
-### Team Statistics
-
-```typescript
-// Execute several tasks with different teams
-const team1Result = await team1.execute('Analyze market trends');
-const team2Result = await team2.execute('Create financial projections');
-
-// Check individual team performance
-const stats1 = team1.getStats();
-const stats2 = team2.getStats();
-
-console.log(`Team 1 Performance Report:`);
-console.log(`- Total agents created: ${stats1.totalAgentsCreated}`);
-console.log(`- Tasks completed: ${stats1.tasksCompleted}`);
-console.log(`- Tasks failed: ${stats1.tasksFailed}`);
-console.log(`- Total execution time: ${stats1.totalExecutionTime}ms`);
-
-console.log(`Team 2 Performance Report:`);
-console.log(`- Total agents created: ${stats2.totalAgentsCreated}`);
-console.log(`- Tasks completed: ${stats2.tasksCompleted}`);
-console.log(`- Tasks failed: ${stats2.tasksFailed}`);
-console.log(`- Total execution time: ${stats2.totalExecutionTime}ms`);
-
-// Combined statistics
-const totalTasks = stats1.tasksCompleted + stats2.tasksCompleted;
-const totalFailed = stats1.tasksFailed + stats2.tasksFailed;
-const successRate = totalTasks / (totalTasks + totalFailed);
-
-console.log(`Combined Performance:`);
-console.log(`- Total tasks completed: ${totalTasks}`);
-console.log(`- Total agents created: ${stats1.totalAgentsCreated + stats2.totalAgentsCreated}`);
-console.log(`- Combined execution time: ${stats1.totalExecutionTime + stats2.totalExecutionTime}ms`);
-console.log(`- Success rate: ${(successRate * 100).toFixed(1)}%`);
-
-// Reset statistics for new benchmark (if needed)
-// team1.resetStats();
-// team2.resetStats();
-```
-
-### Resource Management
-
-```typescript
-const team = createTeam({
-  provider: openaiProvider,
-  maxMembers: 5, // Limit concurrent agents
-  debug: true    // Enable detailed logging
-});
-
-// Monitor resource usage
-console.log('Starting complex workflow...');
-const result = await team.execute(complexTask);
-
-const stats = team.getStats();
-if (stats.totalAgentsCreated >= 5) {
-  console.log('Maximum team capacity reached');
-}
-```
-
-## Best Practices
-
-### 1. Task Design
-- **Be specific**: Clear, detailed task descriptions get better results
-- **Provide context**: Include relevant background and constraints
-- **Set priorities**: Use priority levels to guide resource allocation
-
-```typescript
-// Good - specific and contextual
-const result = await team.execute(`
-  Analyze the competitive landscape for electric vehicle charging stations 
-  in California, focusing on pricing strategies, location coverage, and 
-  customer satisfaction metrics. The analysis should inform our market 
-  entry strategy for Q2 2024.
-`);
-
-// Avoid - too vague
-const result = await team.execute('Research electric cars');
-```
-
-### 2. Resource Planning
-- **Set appropriate limits**: Use `maxMembers` to control resource usage
-- **Monitor performance**: Regular statistics checks help optimize workflows
-- **Plan for complexity**: Complex tasks require higher token limits
-
-```typescript
-// For simple workflows
-const lightTeam = createTeam({
-  provider: openaiProvider,
-  maxTokenLimit: 20000,
-  maxMembers: 3
-});
-
-// For complex analysis workflows  
-const powerTeam = createTeam({
-  provider: openaiProvider,
-  maxTokenLimit: 100000,
-  maxMembers: 10
-});
-```
-
-### 3. Error Handling
-- **Graceful degradation**: Handle failures appropriately
-- **Retry logic**: Some failures may be transient
-- **Logging**: Use debug mode for troubleshooting
-
-```typescript
-try {
-  const result = await team.execute(complexTask);
-  console.log('Task completed successfully:', result);
-} catch (error) {
-  console.error('Team execution failed:', error.message);
-  
-  // Check team stats for insights
-  const stats = team.getStats();
-  console.log(`Failed after creating ${stats.totalAgentsCreated} agents`);
-  
-  // Optionally retry with simpler approach
-  const simpleResult = await team.execute(simplifiedTask);
-}
-```
-
-## Integration with Other Features
-
-### With Tool Providers
-
-```typescript
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
-
-const calculatorTool = createZodFunctionToolProvider({
-  tools: {
-    calculate: {
-      name: 'calculate',
-      description: 'Perform mathematical calculations',
-      parameters: z.object({
-        expression: z.string(),
-        precision: z.number().default(2)
-      }),
-      handler: async ({ expression, precision }) => {
-        // Implementation
-      }
-    }
-  }
-});
-
-const team = createTeam({
-  baseRobotaOptions: {
-    aiProviders: { openai: openaiProvider },
-    currentProvider: 'openai',
-    currentModel: 'gpt-4',
-    toolProviders: [calculatorTool] // Available to all team agents
-  }
-});
-```
-
-### With Session Management
-
-```typescript
-import { SessionManager } from '@robota-sdk/sessions';
-
-const sessionManager = new SessionManager();
-
-// Create dedicated team session
-const teamSession = sessionManager.createSession({
-  name: 'Business Analysis Team',
-  provider: openaiProvider,
-  systemPrompt: 'You coordinate business analysis tasks'
-});
-
-// Use team within session context
-const team = createTeam({
-  provider: teamSession.getProvider(),
-  maxTokenLimit: 50000
-});
-```
-
-## Limitations and Considerations
-
-### Current Limitations
-- **Sequential Processing**: Complex tasks are broken down sequentially
-- **Context Boundaries**: Each agent works independently without shared context
-- **Resource Overhead**: Each agent creation has computational overhead
-
-### Performance Considerations
-- **Token Usage**: Complex delegations can consume significant tokens
-- **Execution Time**: Multi-agent workflows take longer than direct processing
-- **Cost Management**: Monitor usage with statistics tracking
-
-### When to Use Teams
-**Good for:**
-- Complex, multi-faceted problems
-- Tasks requiring diverse expertise
-- Large-scale analysis or planning
-- Creative projects with multiple components
-
-**Not ideal for:**
-- Simple, single-step tasks
-- Real-time or latency-sensitive operations
-- Tasks requiring shared state or context
-- Resource-constrained environments
-
-## Troubleshooting
-
-### Common Issues
-
-1. **High Token Usage**
-   ```typescript
-   // Monitor and adjust token limits
-   const stats = team.getStats();
-   if (stats.totalTokensUsed > expectedLimit) {
-     console.warn('High token usage detected');
-     team.resetStats(); // Reset for fresh measurement
-   }
-   ```
-
-2. **Agent Creation Failures**
-   ```typescript
-   // Check for resource limits
-   const stats = team.getStats();
-   if (stats.tasksFailed > 0) {
-     console.log('Some tasks failed - check logs');
-     // Consider reducing complexity or increasing limits
-   }
-   ```
-
-3. **Slow Performance**
-   ```typescript
-   // Enable debug mode for detailed timing
-   const team = createTeam({
-     provider: openaiProvider,
-     debug: true // Shows delegation decisions and timing
-   });
-   ```
-
-### Debug Output
-With `debug: true`, you'll see:
-```
-🚀 Team agent starting work...
-🎯 Tool call #1 received: delegateWork
-📋 Job: Analyze market trends for electric vehicles
-📊 Total tool calls made: 3
-✅ Task completed successfully
-```
-
-This helps understand how the team is breaking down and processing your requests. 
+The template-based team system provides intelligent, automatic expert collaboration while maintaining simplicity in configuration and usage. Users simply express their needs in natural language, and the system handles all the complexity of selecting appropriate specialists and coordinating their efforts. 

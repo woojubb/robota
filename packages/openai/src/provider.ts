@@ -3,7 +3,6 @@ import {
   Context,
   ModelResponse,
   StreamingResponseChunk,
-  Message,
   BaseAIProvider,
   logger
 } from '@robota-sdk/core';

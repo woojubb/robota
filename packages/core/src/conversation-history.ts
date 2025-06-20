@@ -1,4 +1,4 @@
-import type { FunctionCall, FunctionCallResult } from '@robota-sdk/tools';
+// Types for conversation history management
 
 /**
  * Universal message role type - Provider-independent neutral role

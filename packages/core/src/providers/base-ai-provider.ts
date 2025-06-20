@@ -2,8 +2,7 @@ import {
     Context,
     ModelResponse,
     StreamingResponseChunk,
-    AIProvider,
-    Message
+    AIProvider
 } from '../interfaces/ai-provider';
 import type { FunctionSchema } from '@robota-sdk/tools';
 import { logger } from '../index';
@@ -49,7 +48,7 @@ export abstract class BaseAIProvider implements AIProvider {
  * @param tools - Array of function schemas
  * @returns Provider-specific tool configuration or undefined
  */
-    protected configureTools(tools?: FunctionSchema[]): any {
+    protected configureTools(_tools?: FunctionSchema[]): any {
         return undefined;
     }
 

@@ -1,5 +1,11 @@
 # robota-services
 
+## 0.1.7
+
+### Patch Changes
+
+- Simplify team API, update docs, fix lint issues, add task coordinator template
+
 ## 0.1.6
 
 ### Patch Changes

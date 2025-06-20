@@ -58,7 +58,7 @@ Used to reference the template in agent creation and team configuration.
 
 #### Defined in
 
-[packages/core/src/types.ts:51](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/types.ts#L51)
+[packages/core/src/types.ts:51](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/types.ts#L51)
 
 ___
 
@@ -71,7 +71,7 @@ Helps users understand when to use this template and what it specializes in.
 
 #### Defined in
 
-[packages/core/src/types.ts:57](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/types.ts#L57)
+[packages/core/src/types.ts:57](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/types.ts#L57)
 
 ___
 
@@ -84,7 +84,7 @@ Examples: 'openai', 'anthropic', 'google', 'azure-openai'
 
 #### Defined in
 
-[packages/core/src/types.ts:63](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/types.ts#L63)
+[packages/core/src/types.ts:63](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/types.ts#L63)
 
 ___
 
@@ -97,7 +97,7 @@ Examples: 'gpt-4', 'gpt-4o-mini', 'claude-3-5-sonnet-20241022', 'gemini-pro'
 
 #### Defined in
 
-[packages/core/src/types.ts:69](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/types.ts#L69)
+[packages/core/src/types.ts:69](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/types.ts#L69)
 
 ___
 
@@ -113,7 +113,7 @@ Range: 0.0 (deterministic) to 1.0 (creative)
 
 #### Defined in
 
-[packages/core/src/types.ts:78](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/types.ts#L78)
+[packages/core/src/types.ts:78](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/types.ts#L78)
 
 ___
 
@@ -127,7 +127,7 @@ specific domain and expected tasks.
 
 #### Defined in
 
-[packages/core/src/types.ts:85](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/types.ts#L85)
+[packages/core/src/types.ts:85](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/types.ts#L85)
 
 ___
 
@@ -141,7 +141,7 @@ Helps with template discovery and automated selection.
 
 #### Defined in
 
-[packages/core/src/types.ts:92](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/types.ts#L92)
+[packages/core/src/types.ts:92](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/types.ts#L92)
 
 ___
 
@@ -154,7 +154,7 @@ If not specified, uses the system's default maxTokens setting.
 
 #### Defined in
 
-[packages/core/src/types.ts:98](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/types.ts#L98)
+[packages/core/src/types.ts:98](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/types.ts#L98)
 
 ___
 
@@ -167,7 +167,7 @@ Helps the system automatically provision appropriate tools.
 
 #### Defined in
 
-[packages/core/src/types.ts:104](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/types.ts#L104)
+[packages/core/src/types.ts:104](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/types.ts#L104)
 
 ___
 
@@ -180,7 +180,7 @@ Follows semantic versioning (e.g., '1.0.0', '1.2.1')
 
 #### Defined in
 
-[packages/core/src/types.ts:110](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/types.ts#L110)
+[packages/core/src/types.ts:110](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/types.ts#L110)
 
 ___
 
@@ -202,4 +202,4 @@ Useful for template management and attribution.
 
 #### Defined in
 
-[packages/core/src/types.ts:116](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/types.ts#L116)
+[packages/core/src/types.ts:116](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/types.ts#L116)

@@ -3,7 +3,7 @@ import type {
 } from '../types';
 import type { AIProvider, Context, Message, ModelResponse, StreamingResponseChunk } from '../interfaces/ai-provider';
 import type { Logger } from '../interfaces/logger';
-import type { ConversationHistory, UniversalMessage, ToolMessage } from '../conversation-history';
+import type { ConversationHistory, UniversalMessage } from '../conversation-history';
 import { logger } from '../utils';
 
 /**

@@ -1,5 +1,14 @@
 # @robota-sdk/anthropic
 
+## 1.0.5
+
+### Patch Changes
+
+- Simplify team API, update docs, fix lint issues, add task coordinator template
+- Updated dependencies
+  - @robota-sdk/tools@1.0.5
+  - @robota-sdk/core@1.0.5
+
 ## 1.0.4
 
 ### Patch Changes
