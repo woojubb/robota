@@ -1,885 +1,1116 @@
-# TeamWork - Multi-Agent 협업 시스템 설계
+# @robota-sdk/team - Multi-Agent Team Collaboration
+
+[![npm version](https://badge.fury.io/js/%40robota-sdk%2Fteam.svg)](https://www.npmjs.com/package/@robota-sdk/team)
+
+복잡한 작업을 위한 멀티 에이전트 팀워크 기능 - 동적 에이전트 조정 및 작업 위임
 
 ## 개요
 
-TeamWork는 Robota SDK의 새로운 핵심 기능으로, 사용자의 복잡한 작업을 여러 전문 에이전트들이 협업하여 해결하는 시스템입니다. Team 내에서 TeamLeader가 작업을 분석하고 필요한 TeamMember들을 생성/관리하여 업무를 분산하고 결과를 취합합니다.
+`@robota-sdk/team`은 Robota SDK의 핵심 기능으로, 사용자의 복잡한 작업을 여러 전문 에이전트들이 협업하여 해결하는 시스템입니다. 팀 코디네이터가 작업을 분석하고 필요한 전문 에이전트들을 동적으로 생성하여 업무를 분산하고 결과를 취합합니다.
 
-## 핵심 아키텍처
+## 목차
 
-### 1. Team 클래스 구조
+- [설치](#설치)
+- [주요 기능](#주요-기능)
+- [아키텍처](#아키텍처)
+- [기본 사용법](#기본-사용법)
+- [에이전트 템플릿 시스템](#에이전트-템플릿-시스템)
+- [고급 설정](#고급-설정)
+- [워크플로우 분석](#워크플로우-분석)
+- [실제 사용 예시](#실제-사용-예시)
+- [API 레퍼런스](#api-레퍼런스)
+- [성능 최적화](#성능-최적화)
+- [개발 체크리스트](#개발-체크리스트)
+
+## 설치
+
+```bash
+npm install @robota-sdk/team
+```
+
+## 주요 기능
+
+### 🤝 **동적 에이전트 조정**
+- 팀 코디네이터가 사용자 요청을 분석하고 전문 에이전트들에게 위임
+- 작업별로 필요한 에이전트만 동적 생성
+- 자동 리소스 정리 및 메모리 관리
+
+### ⚡ **통합된 delegateWork 도구**
+- 모든 작업 위임을 위한 단일 도구 인터페이스
+- 특별한 에이전트 타입 없음 - 모든 에이전트가 동일한 Robota 인스턴스 사용
+- 복잡한 작업 분해를 위한 재귀적 위임 지원
+
+### 🎯 **작업별 맞춤 에이전트 생성**
+- AgentFactory가 적절한 시스템 프롬프트로 에이전트 생성
+- 작업 요구사항에 따른 도구 선택
+- 프롬프트 엔지니어링을 통한 역할 기반 전문화
+
+### 📊 **팀 분석 및 모니터링**
+- 에이전트 생성 및 작업 완료에 대한 실시간 통계
+- 실행 시간 추적 및 토큰 사용량 모니터링
+- 상세한 팀 조정 로그를 위한 디버그 모드
+
+### 📈 **워크플로우 히스토리 및 시각화**
+- 완전한 실행 과정 기록 보존
+- 에이전트 간 관계 및 작업 흐름 시각화
+- 성능 분석 및 디버깅 지원
+
+## 아키텍처
+
+### 2계층 구조
+
+```
+Team Coordinator (팀 코디네이터)
+├── 사용자 요청 접수
+├── delegateWork로 임시 팀 리더 생성
+└── 조정된 결과 반환
+
+Temporary Agents (임시 에이전트들)
+├── 팀 리더가 작업 분석 및 분해
+├── delegateWork로 전문 에이전트들 생성
+└── 작업 완료 후 모든 에이전트 자동 정리
+```
+
+### 핵심 컴포넌트
+
+- **TeamContainer**: 메인 조정 클래스
+- **AgentFactory**: 적절한 프롬프트로 작업별 에이전트 생성
+- **delegateWork Tool**: 범용 작업 위임 인터페이스
+- **Workflow History**: 실행 과정 추적 및 분석
+
+## 기본 사용법
+
+### 간단한 팀 생성
 
 ```typescript
-import { Team } from '@robota-sdk/team';
+import { createTeam } from '@robota-sdk/team';
+import { OpenAIProvider } from '@robota-sdk/openai';
+import OpenAI from 'openai';
 
-const team = new Team({
-  teamLeader: {
-    provider: 'openai',
-    model: 'gpt-4'
-  },
-  memberDefaults: {
-    provider: 'openai',
-    model: 'gpt-4',
-    maxTokens: 4000
+// OpenAI 클라이언트 및 프로바이더 설정
+const openaiClient = new OpenAI({ 
+  apiKey: process.env.OPENAI_API_KEY 
+});
+
+const openaiProvider = new OpenAIProvider({
+  client: openaiClient,
+  model: 'gpt-4o-mini'
+});
+
+// 팀 생성
+const team = createTeam({
+  baseRobotaOptions: {
+    aiProviders: { openai: openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4o-mini',
+    temperature: 0.7,
+    maxTokens: 16000,
+    systemPrompt: 'You are a team coordinator that manages collaborative work.',
+    logger: console
   },
   maxMembers: 5,
-  sharedToolProviders: [webSearchProvider, fileSystemProvider], // 모든 에이전트가 공유할 도구들
+  debug: false
+});
+
+// 복잡한 작업을 팀 협업으로 처리
+const result = await team.execute(
+  'Create a comprehensive marketing strategy for our new SaaS product'
+);
+
+console.log(result);
+```
+
+### 작업 유형별 처리 방식
+
+#### 1. 간단한 작업 (직접 처리)
+```typescript
+// 간단한 질문 - 팀 코디네이터가 직접 처리
+const simpleResult = await team.execute(
+  'What are the main differences between React and Vue.js? Please provide 3 key points briefly.'
+);
+```
+
+#### 2. 복잡한 작업 (팀 협업)
+```typescript
+// 복잡한 작업 - 자동으로 전문가들에게 위임
+const complexResult = await team.execute(
+  'Create a cafe business plan. It must include both: 1) Market analysis, 2) Menu composition. Please write each section separately.'
+);
+```
+
+## 작동 방식
+
+### 1. 사용자 요청 처리
+```typescript
+// 사용자가 요청 생성
+const result = await team.execute('Analyze the smartphone market and create a report');
+
+// 팀 코디네이터가 결정: 직접 처리 vs 위임
+// 복잡한 작업의 경우 delegateWork 도구 사용
+```
+
+### 2. 동적 작업 위임
+```typescript
+// 팀 코디네이터가 분석 작업 위임
+delegateWork({
+  jobDescription: '프롬프트를 분석해서 업무를 분배하고 member들에게 업무를 분배하세요',
+  context: 'User wants smartphone market analysis and report',
+  requiredTools: ['analysis', 'delegation']
+});
+
+// 임시 팀 리더 생성, 분석 후 세부 작업들 위임:
+// 1. 시장 조사 전문가
+// 2. 데이터 분석가
+// 3. 보고서 작성자
+```
+
+### 3. 자동 조정
+```typescript
+// 각 에이전트가 작업 완료 후 결과 반환
+// 팀 리더가 모든 결과 종합
+// 사용자에게 최종 응답 반환
+// 모든 임시 에이전트 자동 정리
+```
+
+## 고급 설정
+
+### 커스텀 팀 설정
+
+```typescript
+import { TeamContainer } from '@robota-sdk/team';
+import { OpenAIProvider, AnthropicProvider } from '@robota-sdk/core';
+
+const team = new TeamContainer({
+  baseRobotaOptions: {
+    aiProviders: {
+      openai: new OpenAIProvider({
+        apiKey: process.env.OPENAI_API_KEY,
+        model: 'gpt-4'
+      }),
+      anthropic: new AnthropicProvider({
+        apiKey: process.env.ANTHROPIC_API_KEY,
+        model: 'claude-3-5-sonnet-20241022'
+      })
+    },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4',
+    maxTokenLimit: 100000,
+    temperature: 0.7
+  },
+  maxMembers: 10,
   debug: true
 });
-
-// 사용자 프롬프트 처리 - TeamLeader가 자동으로 팀 구성
-const result = await team.execute('복잡한 시장 조사를 하고 보고서를 작성해줘');
 ```
 
-### 2. 단순한 delegateWork 기반 동적 협업 구조
-
-```
-Team (팀 에이전트 - 사용자 인터페이스)
-├── 사용자 프롬프트 직접 접수
-├── delegateWork로 "프롬프트 분석 및 업무 분배" 요청
-├── 임시 TeamLeader로부터 실행 결과 수신
-└── 사용자에게 최종 응답
-
-임시 TeamLeader (작업 분석 및 관리 - 일반 에이전트)
-├── 팀장 프롬프트를 받아 작업 분석 전문가로 행동
-├── 사용자 프롬프트 분석 및 작업 분해
-├── 각 세부 작업마다 delegateWork로 Member 생성 및 위임
-├── 모든 결과 취합 및 Team에게 보고
-└── 작업 완료 후 자동 정리
-
-TeamMembers (실제 작업 수행 - 일반 에이전트들)
-├── Member-001: 세부 작업 프롬프트를 받아 전문 작업 수행
-├── Member-002: 세부 작업 프롬프트를 받아 전문 작업 수행
-├── Member-003: 세부 작업 프롬프트를 받아 전문 작업 수행
-└── ... (각각 작업 완료 후 자동 정리)
-```
-
-**핵심 개념:**
-- **Team**: 에이전트이자 사용자 인터페이스, delegateWork로 분석 작업 위임
-- **임시 TeamLeader**: 팀장 프롬프트를 받은 일반 에이전트, 위임받은 분석 작업 수행
-- **TeamMembers**: 각각 특정 프롬프트를 받은 일반 에이전트들
-
-**실행 플로우:**
-```
-사용자 → Team (에이전트) → delegateWork("프롬프트 분석 및 업무 분배") → 임시 TeamLeader
-                                   ↓
-                            임시 TeamLeader → delegateWork("세부 작업1 프롬프트") → Member1
-                                   ↓
-                            임시 TeamLeader → delegateWork("세부 작업2 프롬프트") → Member2
-                                   ↓
-                            임시 TeamLeader → delegateWork("세부 작업3 프롬프트") → Member3
-                                   ↓
-                            임시 TeamLeader → 결과 종합 → Team → 사용자
-```
-
-## 핵심 컴포넌트
-
-### 1. Team (팀 에이전트 - Robota 인스턴스)
-
-**본질:**
-- AgentFactory에서 생성되는 **일반적인 Robota 인스턴스**
-- 사용자와 직접 소통하는 팀의 대표 에이전트
-- **team 역할의 시스템 프롬프트**와 **delegateWork 도구**를 가진 Robota
-
-**역할:**
-- 사용자 프롬프트 직접 접수 및 이해
-- delegateWork로 "프롬프트 분석 및 업무 분배" 작업 위임
-- 임시 TeamLeader로부터 완성된 결과를 받아서 사용자에게 응답
-- 팀의 대외 창구 역할
-
-**핵심 동작:**
-```typescript
-// Team 에이전트의 실행 예시
-const result = await teamAgent.run(`
-  User Request: "${userPrompt}"
-  
-  Use delegateWork tool to delegate the following task:
-  "프롬프트를 분석해서 업무를 분배하고 member들에게 업무를 분배하세요"
-  
-  You are a team coordinator who delegates work to temporary team leaders.
-`);
-```
-
-### 2. 임시 TeamLeader (작업 분석 에이전트 - 일반 Robota 인스턴스)
-
-**본질:**
-- AgentFactory에서 생성되는 **일반적인 Robota 인스턴스**
-- **팀장 역할의 시스템 프롬프트**를 받아 작업 분석 전문가로 행동
-- **delegateWork 도구**를 가진 일반 에이전트 (특별한 도구 없음)
-
-**역할:**
-- Team으로부터 "프롬프트 분석 및 업무 분배" 작업 수행
-- 사용자 프롬프트를 구체적인 세부 작업들로 분해
-- 각 세부 작업마다 구체적인 프롬프트 작성
-- delegateWork로 각 작업을 개별 에이전트에게 위임
-- 모든 결과 취합하여 완성된 응답 생성
-- 작업 완료 후 자동 정리
-
-**핵심 동작:**
-```typescript
-// 임시 TeamLeader의 실행 예시
-const result = await temporaryTeamLeader.run(`
-  Your Task: "프롬프트를 분석해서 업무를 분배하고 member들에게 업무를 분배하세요"
-  
-  User's Original Request: "${userPrompt}"
-  
-  1. Analyze the user request thoroughly
-  2. Break it down into specific sub-tasks
-  3. For each sub-task, use delegateWork tool with clear job description
-  4. Collect all results and synthesize into a comprehensive response
-  
-  You are a temporary team leader with task analysis expertise.
-`);
-```
-
-### 3. TeamMembers (실제 작업 수행자 - 일반 Robota 인스턴스들)
-
-**본질:**
-- AgentFactory에서 생성되는 **일반적인 Robota 인스턴스**
-- 임시 TeamLeader가 작성한 구체적인 프롬프트를 받아 작업 수행
-- **작업 맞춤형 시스템 프롬프트**와 **필요한 도구들**을 가진 일반 에이전트
-
-**역할:**
-- 임시 TeamLeader로부터 위임받은 구체적인 작업 프롬프트 수행
-- 받은 프롬프트에 명시된 작업을 전문적으로 처리
-- 작업 완료 후 결과 반환 및 자동 정리
-
-**핵심 동작:**
-```typescript
-// TeamMember의 실행 예시
-const result = await teamMember.run(`
-  Job Assignment: "${jobDescription}"
-  
-  Context: ${context}
-  
-  Complete this specific task using your available tools and capabilities.
-  Provide a clear, detailed, and professional result.
-  
-  You are a specialized agent created for this specific task.
-`);
-```
-
-### 4. TeamContainer (실제 구현 클래스)
-
-**본질:**
-- Team 에이전트와 모든 임시 에이전트들을 관리하는 **단순한 컨테이너 클래스**
-- delegateWork 도구 구현 및 동적 에이전트 생성 관리
-- AgentFactory를 통한 일반 에이전트 생성
-
-**역할:**
-- Team Robota 인스턴스 보유 및 관리 (사용자 인터페이스)
-- delegateWork 도구 구현 (모든 에이전트가 공유)
-- 임시 에이전트들의 동적 생성 및 정리
-- 프롬프트 기반 에이전트 생성 및 실행
-
-**핵심 메서드:**
-```typescript
-class TeamContainer {
-  private teamAgent: Robota; // Team 에이전트 (사용자 인터페이스)
-  private agentFactory: AgentFactory;
-
-  async execute(userPrompt: string): Promise<string> {
-    // Team 에이전트가 사용자 프롬프트를 받아서 분석 작업 위임
-    const result = await this.teamAgent.run(`
-      User Request: "${userPrompt}"
-      
-      Use delegateWork tool to delegate the following task:
-      "프롬프트를 분석해서 업무를 분배하고 member들에게 업무를 분배하세요"
-      
-      You are a team coordinator who delegates work to temporary team leaders.
-    `);
-    
-    return result;
-  }
-
-  // 모든 에이전트가 공유하는 delegateWork 도구
-  async delegateWork(params: {
-    jobDescription: string,
-    context?: string,
-    requiredTools?: string[]
-  }): Promise<string> {
-    // 1. 작업에 맞는 임시 에이전트 생성
-    const temporaryAgent = await this.agentFactory.createRobotaForTask({
-      taskDescription: params.jobDescription,
-      requiredTools: params.requiredTools || []
-    });
-    
-    // 2. 생성된 에이전트에게 작업 할당 및 실행
-    const result = await temporaryAgent.run(`
-      Task Assignment: ${params.jobDescription}
-      ${params.context ? `Context: ${params.context}` : ''}
-      
-      Complete this task using your available tools and capabilities.
-      If this task requires further work breakdown, use delegateWork tool to delegate sub-tasks.
-      Provide a clear, detailed, and professional result.
-    `);
-    
-    // 3. 작업 완료 후 해당 에이전트 즉시 정리
-    temporaryAgent.close();
-    
-    return result;
-  }
-}
-```
-
-### 3. AgentFactory (에이전트 팩토리)
-
-**역할:**
-- TeamLeader와 TeamMember Robota 인스턴스 생성
-- 역할 기반 시스템 프롬프트 자동 생성
-- 능력별 도구 매칭 및 구성
-- 모든 Robota 인스턴스 공급
-
-**핵심 기능:**
-```typescript
-class AgentFactory {
-  async createRobotaForJob(jobSpec: {
-    jobDescription: string;
-    requiredSkills: string[];
-    context?: string;
-  }): Promise<Robota> {
-    
-    // 작업 설명을 기반으로 적절한 역할 자동 결정
-    const role = this.determineRoleFromJob(jobSpec.jobDescription);
-    
-    // 역할별 시스템 프롬프트 생성
-    const systemPrompt = this.generateJobPrompt(role, jobSpec);
-    
-    // 필요한 도구들 선택
-    const tools = this.selectToolsForSkills(jobSpec.requiredSkills);
-    
-    // 일반적인 Robota 인스턴스 생성
-    const robota = new Robota({
-      provider: this.defaultProvider, // OpenAI, Anthropic, Google 등
-      systemMessage: systemPrompt,
-      tools: tools
-    });
-    
-    return robota;
-  }
-
-  private determineRoleFromJob(jobDescription: string): string {
-    // 작업 설명을 분석해서 적절한 역할 자동 결정
-    const lowerJob = jobDescription.toLowerCase();
-    
-    if (lowerJob.includes('research') || lowerJob.includes('search') || lowerJob.includes('find')) {
-      return 'Research Specialist';
-    } else if (lowerJob.includes('analy') || lowerJob.includes('data') || lowerJob.includes('statistic')) {
-      return 'Data Analyst';
-    } else if (lowerJob.includes('write') || lowerJob.includes('report') || lowerJob.includes('document')) {
-      return 'Content Writer';
-    } else if (lowerJob.includes('code') || lowerJob.includes('develop') || lowerJob.includes('program')) {
-      return 'Software Developer';
-    } else if (lowerJob.includes('design') || lowerJob.includes('ui') || lowerJob.includes('visual')) {
-      return 'Designer';
-    } else {
-      return 'General Specialist';
-    }
-  }
-
-  private generateJobPrompt(role: string, jobSpec: {jobDescription: string, requiredSkills: string[], context?: string}): string {
-    return `
-You are a ${role} working as part of a collaborative team.
-
-Your specific job: ${jobSpec.jobDescription}
-${jobSpec.context ? `Additional context: ${jobSpec.context}` : ''}
-Your available skills: ${jobSpec.requiredSkills.join(', ')}
-
-Guidelines:
-1. Focus on completing the specific job assigned to you
-2. Use your specialized skills and tools effectively
-3. Provide clear, detailed, and actionable results
-4. Be thorough and professional in your work
-5. If the job requirements are unclear, make reasonable assumptions and proceed
-
-Complete your job to the best of your ability and return a comprehensive result.
-    `;
-  }
-
-  private selectToolsForSkills(skills: string[]): ToolProvider[] {
-    const toolMap = {
-      'web_search': webSearchToolProvider,
-      'data_analysis': dataAnalysisToolProvider,
-      'document_creation': documentToolProvider,
-      'api_integration': apiToolProvider,
-      'image_processing': imageToolProvider,
-      'financial_analysis': financialToolProvider
-    };
-    
-    return skills
-      .map(skill => toolMap[skill])
-      .filter(Boolean);
-  }
-    
-  }
-}
-```
-
-## 역할 상수 정의
-
-TeamWork에서 사용할 수 있는 미리 정의된 역할들입니다. AgentFactory가 job 설명을 분석할 때 이 역할들 중에서 가장 적합한 것을 선택합니다.
-
-### 연구 및 분석 역할
+### 커스텀 에이전트 팩토리
 
 ```typescript
-export const RESEARCH_ROLES = {
-  MARKET_RESEARCHER: 'Market Researcher',
-  DATA_RESEARCHER: 'Data Researcher', 
-  ACADEMIC_RESEARCHER: 'Academic Researcher',
-  COMPETITIVE_ANALYST: 'Competitive Analyst',
-  TREND_ANALYST: 'Trend Analyst',
-  USER_RESEARCHER: 'User Researcher',
-  INDUSTRY_ANALYST: 'Industry Analyst'
-} as const;
+import { AgentFactory } from '@robota-sdk/team';
 
-export const ANALYSIS_ROLES = {
-  DATA_ANALYST: 'Data Analyst',
-  BUSINESS_ANALYST: 'Business Analyst',
-  FINANCIAL_ANALYST: 'Financial Analyst',
-  STATISTICAL_ANALYST: 'Statistical Analyst',
-  PERFORMANCE_ANALYST: 'Performance Analyst',
-  RISK_ANALYST: 'Risk Analyst',
-  SYSTEMS_ANALYST: 'Systems Analyst'
-} as const;
-```
+const agentFactory = new AgentFactory({
+  provider: 'anthropic',
+  model: 'claude-3-5-sonnet-20241022',
+  temperature: 0.7
+}, true); // debug mode
 
-### 개발 및 기술 역할
-
-```typescript
-export const DEVELOPMENT_ROLES = {
-  FRONTEND_DEVELOPER: 'Frontend Developer',
-  BACKEND_DEVELOPER: 'Backend Developer',
-  FULLSTACK_DEVELOPER: 'Fullstack Developer',
-  MOBILE_DEVELOPER: 'Mobile Developer',
-  DEVOPS_ENGINEER: 'DevOps Engineer',
-  SOFTWARE_ARCHITECT: 'Software Architect',
-  DATABASE_ENGINEER: 'Database Engineer',
-  API_DEVELOPER: 'API Developer'
-} as const;
-
-export const QA_ROLES = {
-  QA_TESTER: 'QA Tester',
-  AUTOMATION_TESTER: 'Automation Tester',
-  PERFORMANCE_TESTER: 'Performance Tester',
-  SECURITY_TESTER: 'Security Tester',
-  CODE_REVIEWER: 'Code Reviewer'
-} as const;
-```
-
-### 콘텐츠 및 창작 역할
-
-```typescript
-export const CONTENT_ROLES = {
-  CONTENT_WRITER: 'Content Writer',
-  TECHNICAL_WRITER: 'Technical Writer',
-  COPYWRITER: 'Copywriter',
-  EDITOR: 'Editor',
-  PROOFREADER: 'Proofreader',
-  TRANSLATOR: 'Translator',
-  SEO_SPECIALIST: 'SEO Specialist'
-} as const;
-
-export const CREATIVE_ROLES = {
-  CREATIVE_DIRECTOR: 'Creative Director',
-  GRAPHIC_DESIGNER: 'Graphic Designer',
-  UI_DESIGNER: 'UI Designer',
-  UX_DESIGNER: 'UX Designer',
-  VISUAL_DESIGNER: 'Visual Designer',
-  BRAND_DESIGNER: 'Brand Designer'
-} as const;
-```
-
-### 비즈니스 및 전략 역할
-
-```typescript
-export const BUSINESS_ROLES = {
-  BUSINESS_STRATEGIST: 'Business Strategist',
-  PRODUCT_MANAGER: 'Product Manager',
-  PROJECT_MANAGER: 'Project Manager',
-  MARKETING_SPECIALIST: 'Marketing Specialist',
-  SALES_SPECIALIST: 'Sales Specialist',
-  CONSULTANT: 'Business Consultant',
-  OPERATIONS_SPECIALIST: 'Operations Specialist'
-} as const;
-
-export const FINANCE_ROLES = {
-  FINANCIAL_PLANNER: 'Financial Planner',
-  INVESTMENT_ADVISOR: 'Investment Advisor',
-  BUDGET_ANALYST: 'Budget Analyst',
-  ACCOUNTING_SPECIALIST: 'Accounting Specialist',
-  TAX_SPECIALIST: 'Tax Specialist'
-} as const;
-```
-
-### 커뮤니케이션 및 지원 역할
-
-```typescript
-export const COMMUNICATION_ROLES = {
-  CUSTOMER_SERVICE: 'Customer Service Representative',
-  SUPPORT_SPECIALIST: 'Support Specialist',
-  COMMUNITY_MANAGER: 'Community Manager',
-  PUBLIC_RELATIONS: 'Public Relations Specialist',
-  TRAINING_SPECIALIST: 'Training Specialist'
-} as const;
-
-export const COORDINATION_ROLES = {
-  PROJECT_COORDINATOR: 'Project Coordinator',
-  TEAM_LEAD: 'Team Lead',
-  SCRUM_MASTER: 'Scrum Master',
-  FACILITATOR: 'Meeting Facilitator',
-  ORGANIZER: 'Event Organizer'
-} as const;
-```
-
-### 전문 기술 역할
-
-```typescript
-export const TECHNICAL_ROLES = {
-  DATA_SCIENTIST: 'Data Scientist',
-  ML_ENGINEER: 'Machine Learning Engineer',
-  AI_SPECIALIST: 'AI Specialist',
-  CYBERSECURITY_EXPERT: 'Cybersecurity Expert',
-  NETWORK_ENGINEER: 'Network Engineer',
-  CLOUD_ARCHITECT: 'Cloud Architect',
-  BLOCKCHAIN_DEVELOPER: 'Blockchain Developer'
-} as const;
-
-export const DOMAIN_EXPERTS = {
-  LEGAL_ADVISOR: 'Legal Advisor',
-  HEALTHCARE_SPECIALIST: 'Healthcare Specialist',
-  EDUCATION_SPECIALIST: 'Education Specialist',
-  REAL_ESTATE_EXPERT: 'Real Estate Expert',
-  LOGISTICS_SPECIALIST: 'Logistics Specialist',
-  SUPPLY_CHAIN_EXPERT: 'Supply Chain Expert'
-} as const;
-```
-
-### 범용 역할
-
-```typescript
-export const GENERAL_ROLES = {
-  GENERAL_SPECIALIST: 'General Specialist',
-  PROBLEM_SOLVER: 'Problem Solver',
-  RESEARCHER: 'Researcher',
-  ANALYST: 'Analyst',
-  COORDINATOR: 'Coordinator',
-  ADVISOR: 'Advisor',
-  ASSISTANT: 'Assistant'
-} as const;
-```
-
-### 역할 매핑 유틸리티
-
-```typescript
-// 모든 역할을 하나의 객체로 통합
-export const ALL_ROLES = {
-  ...RESEARCH_ROLES,
-  ...ANALYSIS_ROLES,
-  ...DEVELOPMENT_ROLES,
-  ...QA_ROLES,
-  ...CONTENT_ROLES,
-  ...CREATIVE_ROLES,
-  ...BUSINESS_ROLES,
-  ...FINANCE_ROLES,
-  ...COMMUNICATION_ROLES,
-  ...COORDINATION_ROLES,
-  ...TECHNICAL_ROLES,
-  ...DOMAIN_EXPERTS,
-  ...GENERAL_ROLES
-} as const;
-
-// Job 키워드와 역할 매핑
-export const JOB_KEYWORD_TO_ROLE = {
-  // Research keywords
-  'research': RESEARCH_ROLES.MARKET_RESEARCHER,
-  'search': RESEARCH_ROLES.DATA_RESEARCHER,
-  'find': RESEARCH_ROLES.RESEARCHER,
-  'investigate': RESEARCH_ROLES.ACADEMIC_RESEARCHER,
-  'study': RESEARCH_ROLES.ACADEMIC_RESEARCHER,
-  
-  // Analysis keywords
-  'analyze': ANALYSIS_ROLES.DATA_ANALYST,
-  'analysis': ANALYSIS_ROLES.DATA_ANALYST,
-  'data': ANALYSIS_ROLES.DATA_ANALYST,
-  'statistics': ANALYSIS_ROLES.STATISTICAL_ANALYST,
-  'financial': FINANCE_ROLES.FINANCIAL_PLANNER,
-  'business': BUSINESS_ROLES.BUSINESS_ANALYST,
-  
-  // Development keywords
-  'code': DEVELOPMENT_ROLES.FULLSTACK_DEVELOPER,
-  'develop': DEVELOPMENT_ROLES.FULLSTACK_DEVELOPER,
-  'program': DEVELOPMENT_ROLES.FULLSTACK_DEVELOPER,
-  'frontend': DEVELOPMENT_ROLES.FRONTEND_DEVELOPER,
-  'backend': DEVELOPMENT_ROLES.BACKEND_DEVELOPER,
-  'mobile': DEVELOPMENT_ROLES.MOBILE_DEVELOPER,
-  'api': DEVELOPMENT_ROLES.API_DEVELOPER,
-  'database': DEVELOPMENT_ROLES.DATABASE_ENGINEER,
-  
-  // Testing keywords
-  'test': QA_ROLES.QA_TESTER,
-  'testing': QA_ROLES.QA_TESTER,
-  'qa': QA_ROLES.QA_TESTER,
-  'quality': QA_ROLES.QA_TESTER,
-  'review': QA_ROLES.CODE_REVIEWER,
-  
-  // Content keywords
-  'write': CONTENT_ROLES.CONTENT_WRITER,
-  'writing': CONTENT_ROLES.CONTENT_WRITER,
-  'content': CONTENT_ROLES.CONTENT_WRITER,
-  'document': CONTENT_ROLES.TECHNICAL_WRITER,
-  'report': CONTENT_ROLES.TECHNICAL_WRITER,
-  'article': CONTENT_ROLES.CONTENT_WRITER,
-  'blog': CONTENT_ROLES.CONTENT_WRITER,
-  'copy': CONTENT_ROLES.COPYWRITER,
-  'edit': CONTENT_ROLES.EDITOR,
-  'translate': CONTENT_ROLES.TRANSLATOR,
-  
-  // Design keywords
-  'design': CREATIVE_ROLES.GRAPHIC_DESIGNER,
-  'ui': CREATIVE_ROLES.UI_DESIGNER,
-  'ux': CREATIVE_ROLES.UX_DESIGNER,
-  'visual': CREATIVE_ROLES.VISUAL_DESIGNER,
-  'graphics': CREATIVE_ROLES.GRAPHIC_DESIGNER,
-  'interface': CREATIVE_ROLES.UI_DESIGNER,
-  
-  // Business keywords
-  'strategy': BUSINESS_ROLES.BUSINESS_STRATEGIST,
-  'plan': BUSINESS_ROLES.BUSINESS_STRATEGIST,
-  'manage': BUSINESS_ROLES.PROJECT_MANAGER,
-  'product': BUSINESS_ROLES.PRODUCT_MANAGER,
-  'project': BUSINESS_ROLES.PROJECT_MANAGER,
-  'marketing': BUSINESS_ROLES.MARKETING_SPECIALIST,
-  'sales': BUSINESS_ROLES.SALES_SPECIALIST,
-  'consult': BUSINESS_ROLES.CONSULTANT,
-  
-  // Technical keywords
-  'ai': TECHNICAL_ROLES.AI_SPECIALIST,
-  'machine learning': TECHNICAL_ROLES.ML_ENGINEER,
-  'ml': TECHNICAL_ROLES.ML_ENGINEER,
-  'data science': TECHNICAL_ROLES.DATA_SCIENTIST,
-  'security': TECHNICAL_ROLES.CYBERSECURITY_EXPERT,
-  'cloud': TECHNICAL_ROLES.CLOUD_ARCHITECT,
-  'network': TECHNICAL_ROLES.NETWORK_ENGINEER,
-  'blockchain': TECHNICAL_ROLES.BLOCKCHAIN_DEVELOPER,
-  
-  // Support keywords
-  'support': COMMUNICATION_ROLES.SUPPORT_SPECIALIST,
-  'help': COMMUNICATION_ROLES.CUSTOMER_SERVICE,
-  'customer': COMMUNICATION_ROLES.CUSTOMER_SERVICE,
-  'service': COMMUNICATION_ROLES.CUSTOMER_SERVICE,
-  'coordinate': COORDINATION_ROLES.PROJECT_COORDINATOR,
-  'organize': COORDINATION_ROLES.ORGANIZER,
-  'facilitate': COORDINATION_ROLES.FACILITATOR,
-  
-  // Default
-  'default': GENERAL_ROLES.GENERAL_SPECIALIST
-} as const;
-
-// 역할별 타입 정의
-export type ResearchRole = typeof RESEARCH_ROLES[keyof typeof RESEARCH_ROLES];
-export type AnalysisRole = typeof ANALYSIS_ROLES[keyof typeof ANALYSIS_ROLES];
-export type DevelopmentRole = typeof DEVELOPMENT_ROLES[keyof typeof DEVELOPMENT_ROLES];
-export type QARole = typeof QA_ROLES[keyof typeof QA_ROLES];
-export type ContentRole = typeof CONTENT_ROLES[keyof typeof CONTENT_ROLES];
-export type CreativeRole = typeof CREATIVE_ROLES[keyof typeof CREATIVE_ROLES];
-export type BusinessRole = typeof BUSINESS_ROLES[keyof typeof BUSINESS_ROLES];
-export type FinanceRole = typeof FINANCE_ROLES[keyof typeof FINANCE_ROLES];
-export type CommunicationRole = typeof COMMUNICATION_ROLES[keyof typeof COMMUNICATION_ROLES];
-export type CoordinationRole = typeof COORDINATION_ROLES[keyof typeof COORDINATION_ROLES];
-export type TechnicalRole = typeof TECHNICAL_ROLES[keyof typeof TECHNICAL_ROLES];
-export type DomainExpertRole = typeof DOMAIN_EXPERTS[keyof typeof DOMAIN_EXPERTS];
-export type GeneralRole = typeof GENERAL_ROLES[keyof typeof GENERAL_ROLES];
-
-export type TeamRole = 
-  | ResearchRole 
-  | AnalysisRole 
-  | DevelopmentRole 
-  | QARole 
-  | ContentRole 
-  | CreativeRole 
-  | BusinessRole 
-  | FinanceRole 
-  | CommunicationRole 
-  | CoordinationRole 
-  | TechnicalRole 
-  | DomainExpertRole 
-  | GeneralRole;
-```
-
-### 개선된 역할 결정 로직
-
-```typescript
-private determineRoleFromJob(jobDescription: string): string {
-  const lowerJob = jobDescription.toLowerCase();
-  
-  // 키워드 매핑 기반 역할 결정
-  for (const [keyword, role] of Object.entries(JOB_KEYWORD_TO_ROLE)) {
-    if (lowerJob.includes(keyword)) {
-      return role;
-    }
-  }
-  
-  // 복합 키워드 체크 (더 구체적인 매칭)
-  if (lowerJob.includes('frontend') && lowerJob.includes('react')) {
-    return DEVELOPMENT_ROLES.FRONTEND_DEVELOPER;
-  }
-  if (lowerJob.includes('backend') && lowerJob.includes('api')) {
-    return DEVELOPMENT_ROLES.API_DEVELOPER;
-  }
-  if (lowerJob.includes('data') && lowerJob.includes('science')) {
-    return TECHNICAL_ROLES.DATA_SCIENTIST;
-  }
-  if (lowerJob.includes('user') && lowerJob.includes('research')) {
-    return RESEARCH_ROLES.USER_RESEARCHER;
-  }
-  if (lowerJob.includes('market') && lowerJob.includes('analysis')) {
-    return ANALYSIS_ROLES.BUSINESS_ANALYST;
-  }
-  
-  // 기본 역할 반환
-  return GENERAL_ROLES.GENERAL_SPECIALIST;
-}
-```
-
-## 패키지 구조: @robota-sdk/team
-
-```
-packages/team/
-├── src/
-│   ├── team.ts                    # 메인 Team 클래스 (단순한 컨테이너)
-│   ├── factory/
-│   │   ├── agent-factory.ts       # Robota 인스턴스 생성 팩토리
-│   │   ├── role-generator.ts      # 역할 기반 프롬프트 생성
-│   │   └── capability-matcher.ts  # 능력-도구 매칭
-│   ├── tools/
-│   │   ├── team-leader-tools.ts   # TeamLeader에게 주입되는 도구들
-│   │   └── tool-selector.ts       # 역할별 도구 선택기
-│   ├── prompts/
-│   │   ├── role-templates.ts      # 역할별 프롬프트 템플릿
-│   │   └── prompt-generator.ts    # 동적 프롬프트 생성기
-│   └── types/
-│       ├── team-types.ts          # 팀 관련 타입 정의
-│       ├── role-types.ts          # 역할 관련 타입 정의
-│       └── factory-types.ts       # 팩토리 타입 정의
-├── package.json
-├── tsconfig.json
-└── README.md
-```
-
-## 실행 플로우 (단순화된 동기식)
-
-### 1. Team 생성 및 초기화
-```
-사용자가 Team 인스턴스 생성
-    ↓
-AgentFactory에서 Boss(Robota) 생성 (delegateWork 도구 포함)
-    ↓
-AgentFactory에서 TeamLeader(Robota) 생성 (delegateWork 도구 포함)
-    ↓
-Team이 Boss와 TeamLeader를 내부에 보관
-```
-
-### 2. 3계층 작업 실행 플로우
-```
-team.execute(userPrompt) 호출
-    ↓
-Boss(Robota)가 사용자 프롬프트 접수
-    ↓
-Boss가 delegateWork로 전체 작업을 TeamLeader에게 위임
-    ↓
-TeamLeader가 작업 분석 및 세부 작업으로 분해
-    ↓
-TeamLeader가 각 세부 작업마다 delegateWork로 TeamMember에게 위임
-    ↓
-각 TeamMember가 전문 작업 수행 후 결과 반환
-    ↓
-TeamLeader가 모든 결과 통합하여 Boss에게 보고
-    ↓
-Boss가 최종 결과를 사용자에게 응답
-```
-
-### 3. 자동 정리 및 종료
-```
-각 TeamMember는 작업 완료 즉시 개별 정리
-    ↓
-TeamLeader는 모든 위임 작업 완료 후 대기
-    ↓
-Boss는 최종 응답 완료 후 대기
-    ↓
-Team 인스턴스는 다음 작업 준비 완료
-```
-
-## 핵심 기능
-
-### 1. 3계층 책임 분산 구조
-- **Boss**: 사용자 인터페이스, 복잡한 분석 없이 TeamLeader에게 위임
-- **TeamLeader**: 작업 분석 전문가, 업무 분해 및 팀원 관리
-- **TeamMembers**: 실제 작업 수행자, 각자의 전문 영역에서 고품질 결과 생성
-- 각 계층이 명확한 책임을 가지고 `delegateWork`로 연결
-- 미리 정의된 역할의 한계를 동적 분석으로 극복
-
-### 2. 동일한 도구로 계층간 연결
-- Boss, TeamLeader, TeamMembers 모두 `delegateWork` 도구 사용
-- 각 계층에서 위임의 목적과 대상만 다름:
-  - Boss → TeamLeader: 전체 작업 분석 및 실행 위임
-  - TeamLeader → TeamMembers: 세부 작업 수행 위임
-- 동일한 인터페이스로 일관성 있는 위임 체계
-
-### 3. TeamLeader의 작업 분석 전문화
-- TeamLeader는 작업 분석 및 업무 분배에 특화된 전문가
-- Boss로부터 받은 사용자 요청을 심층 분석
-- 적절한 세부 작업으로 분해하고 각각에 맞는 전문가 유형 결정
-- 모든 결과를 통합하여 Boss에게 완성된 응답 제공
-
-### 4. 즉시 정리 및 리소스 효율성
-- 각 `delegateWork` 호출 완료 즉시 해당 에이전트 정리
-- 팀 상태를 별도로 관리할 필요 없음 (일회성 작업)
-- 최소한의 메모리 사용량으로 효율적인 리소스 관리
-
-## 기술적 고려사항
-
-### 1. 성능 최적화
-- 에이전트 인스턴스 풀링
-- 비동기 처리 최적화
-- 메모리 사용량 관리
-
-### 2. 오류 처리
-- 개별 에이전트 실패시 복구 메커니즘
-- 전체 팀 작업 실패시 롤백 처리
-- 타임아웃 및 재시도 정책
-
-### 3. 확장성
-- 에이전트 타입 확장 가능한 아키텍처
-- 커스텀 협업 패턴 정의 지원
-- 외부 시스템 연동 인터페이스
-
-### 4. 디버깅 및 로깅
-- Team 실행 과정 추적 및 로깅
-- 개별 Robota 인스턴스 성능 분석
-- 단순화된 오류 추적 및 디버깅
-
-## 예시 사용 사례
-
-### 1. 시장 조사 및 보고서 작성
-```typescript
-const marketResearchTeam = new Team({
-  teamLeader: {
-    provider: 'openai',
-    model: 'gpt-4'
+const team = new TeamContainer({
+  baseRobotaOptions: {
+    aiProviders: { anthropic: anthropicProvider },
+    currentProvider: 'anthropic',
+    currentModel: 'claude-3-5-sonnet-20241022'
   },
-  memberDefaults: {
-    provider: 'openai',
-    model: 'gpt-4'
+  maxMembers: 10,
+  debug: true
+});
+```
+
+## 워크플로우 분석
+
+### 기본 워크플로우 데이터 조회
+
+```typescript
+// 기본 데이터 조회 (TeamContainer에서 제공)
+const workflowHistory = team.getWorkflowHistory();
+
+if (workflowHistory) {
+  console.log(`Execution ID: ${workflowHistory.executionId}`);
+  console.log(`Total agents: ${workflowHistory.agentConversations.length}`);
+  console.log(`Duration: ${workflowHistory.endTime - workflowHistory.startTime}ms`);
+}
+```
+
+### 워크플로우 시각화
+
+```typescript
+import { 
+  generateWorkflowFlowchart, 
+  generateAgentRelationshipDiagram 
+} from '@robota-sdk/team';
+
+const workflowHistory = team.getWorkflowHistory();
+
+if (workflowHistory) {
+  // 에이전트 관계 다이어그램
+  console.log('🔗 Agent Relationship Diagram:');
+  console.log(generateAgentRelationshipDiagram(workflowHistory));
+  
+  // 상세 워크플로우 플로우차트  
+  console.log('📊 Workflow Flowchart:');
+  console.log(generateWorkflowFlowchart(workflowHistory));
+}
+```
+
+### 워크플로우 데이터 내보내기
+
+```typescript
+import { 
+  workflowHistoryToJSON, 
+  workflowHistoryToCSV,
+  extractPerformanceMetrics 
+} from '@robota-sdk/team';
+
+const workflowHistory = team.getWorkflowHistory();
+
+if (workflowHistory) {
+  // JSON 형태로 내보내기
+  const jsonData = workflowHistoryToJSON(workflowHistory);
+  console.log('JSON Export:', jsonData);
+  
+  // CSV 형태로 내보내기
+  const csvData = workflowHistoryToCSV(workflowHistory);
+  console.log('CSV Export:', csvData);
+  
+  // 성능 메트릭 추출
+  const metrics = extractPerformanceMetrics(workflowHistory);
+  console.log('Performance Metrics:', metrics);
+}
+```
+
+### 워크플로우 데이터 구조
+
+```typescript
+interface WorkflowHistory {
+  executionId: string;
+  userRequest: string;
+  finalResult: string;
+  startTime: Date;
+  endTime?: Date;
+  success?: boolean;
+  error?: string;
+  agentConversations: AgentConversationData[];
+  agentTree: AgentTreeNode[];
+}
+
+interface AgentConversationData {
+  agentId: string;
+  taskDescription?: string;
+  parentAgentId?: string;
+  messages: UniversalMessage[];
+  createdAt: Date;
+  childAgentIds: string[];
+}
+
+interface AgentTreeNode {
+  agentId: string;
+  taskDescription?: string;
+  messageCount: number;
+  children: AgentTreeNode[];
+}
+```
+
+## 실제 사용 예시
+
+### 1. 비즈니스 계획서 작성
+
+```typescript
+import { createTeam, generateWorkflowFlowchart } from '@robota-sdk/team';
+
+const team = createTeam({
+  baseRobotaOptions: {
+    aiProviders: { openai: openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4o-mini',
+    systemPrompt: 'You are a team coordinator that manages collaborative work.',
+    logger: console
   },
-  sharedToolProviders: [webSearchProvider, dataAnalysisProvider, documentProvider],
-  maxMembers: 3
+  maxMembers: 5
 });
 
-// TeamLeader(Robota)가 자동으로 "market researcher", "data analyst", "technical writer" 역할 생성
-const result = await marketResearchTeam.execute(
-  '스마트폰 시장의 2024년 트렌드를 조사하고 상세한 분석 보고서를 작성해줘'
-);
+// 복잡한 비즈니스 분석 요청
+const result = await team.execute(`
+  Create a comprehensive cafe business plan. 
+  It must include both: 
+  1) Market analysis with target demographics and competition
+  2) Menu composition with diverse offerings
+  Please write each section separately.
+`);
+
+console.log('📋 Result:', result);
+
+// 워크플로우 분석
+const workflowHistory = team.getWorkflowHistory();
+if (workflowHistory) {
+  console.log('\n📊 Workflow Analysis:');
+  console.log(generateWorkflowFlowchart(workflowHistory));
+}
 ```
 
 ### 2. 소프트웨어 개발 프로젝트
+
 ```typescript
-const devTeam = new Team({
-  teamLeader: {
-    provider: 'openai',
-    model: 'gpt-4'
+const devTeam = createTeam({
+  baseRobotaOptions: {
+    aiProviders: { openai: openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4o-mini',
+    systemPrompt: 'You are a software development team coordinator.',
+    logger: console
   },
-  memberDefaults: {
-    provider: 'anthropic',
-    model: 'claude-3-5-sonnet-20241022' // 코딩에 특화된 모델
-  },
-  sharedToolProviders: [fileSystemProvider, codeExecutionProvider, gitProvider],
   maxMembers: 4
 });
 
-// TeamLeader(Robota)가 자동으로 "system architect", "frontend developer", "backend developer", "qa tester" 역할 생성
-const result = await devTeam.execute(
-  'Todo 앱을 만들어줘. React 프론트엔드와 Node.js 백엔드가 필요해. 테스트 코드도 포함해줘.'
-);
+const result = await devTeam.execute(`
+  Create a React todo application with the following requirements:
+  1) Component-based architecture
+  2) State management
+  3) Local storage persistence
+  4) Responsive design
+  Provide complete implementation.
+`);
+
+// 자동으로 다음과 같은 전문가들 생성:
+// - 시스템 아키텍트 (전체 설계)
+// - 프론트엔드 개발자 (React 컴포넌트)
+// - 상태 관리 전문가 (상태 로직)
+// - UI/UX 전문가 (반응형 디자인)
 ```
 
-### 3. 실제 실행 시나리오 (시장 조사 예시)
+### 3. 시장 조사 및 분석
 
 ```typescript
-// 사용자가 복잡한 요청 입력
-const userPrompt = '스마트폰 시장의 2024년 트렌드를 조사하고 상세한 분석 보고서를 작성해줘';
+const researchTeam = createTeam({
+  baseRobotaOptions: {
+    aiProviders: { openai: openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4o-mini',
+    systemPrompt: 'You are a research team coordinator.',
+    logger: console
+  },
+  maxMembers: 3
+});
 
-// 3계층 실행 시나리오 (스마트폰 시장 조사 예시):
-
-// 1단계: Boss가 전체 작업을 TeamLeader에게 위임
-await boss.run(`
-  User Request: "${userPrompt}"
-  
-  Use delegateWork tool to delegate this entire task to the TeamLeader for analysis and execution.
+const result = await researchTeam.execute(`
+  Research the smartphone market trends for 2024 and create a detailed analysis report.
+  Include competitor analysis, market size, and growth projections.
 `);
 
-// 2단계: 임시 TeamLeader가 작업 분석 및 세부 작업들로 분해하여 각각 위임
-await temporaryTeamLeader.run(`
-  Your Task: "프롬프트를 분석해서 업무를 분배하고 member들에게 업무를 분배하세요"
-  
-  User's Original Request: ${userPrompt}
-  
-  1. Analyze this request thoroughly
-  2. Break it down into specific sub-tasks
-  3. For each sub-task, use delegateWork tool with clear job description
-  4. Collect all results and synthesize into a comprehensive response
-  
-  You are a temporary team leader with task analysis expertise.
-`);
-
-// 임시 TeamLeader가 자동으로 다음과 같은 작업들을 각 전문가에게 위임:
-/*
-delegateWork({
-  jobDescription: "스마트폰 시장의 현재 트렌드를 조사하고 관련 데이터를 수집하세요. 2024년 트렌드, 주요 업체, 시장 규모, 성장 전망에 중점을 두세요.",
-  context: "시장 조사 전문가 역할로 웹 검색과 데이터 수집을 통해 포괄적인 정보를 수집",
-  requiredTools: ["web_search", "data_collection"]
-})
-
-delegateWork({
-  jobDescription: "수집된 시장 데이터를 분석하고 주요 트렌드와 패턴을 식별하세요. 의미 있는 인사이트와 트렌드를 추출하세요.",
-  context: "데이터 분석 전문가 역할로 통계 분석과 시각화를 통해 인사이트 도출",
-  requiredTools: ["data_analysis", "visualization"]
-})
-
-delegateWork({
-  jobDescription: "조사와 분석 결과를 종합하여 포괄적인 시장 분석 보고서를 작성하세요. 전문적인 보고서 형식으로 구성하세요.",
-  context: "기술 문서 작성 전문가 역할로 구조화된 보고서 작성",
-  requiredTools: ["writing", "document_formatting"]
-})
-*/
-
-// 3단계: 각 TeamMember가 전문 작업 수행 → 임시 TeamLeader가 통합 → Team이 최종 응답
+// 자동으로 다음과 같은 전문가들 생성:
+// - 시장 조사원 (웹 검색, 데이터 수집)
+// - 데이터 분석가 (통계 분석, 시각화)
+// - 기술 작성자 (보고서 작성, 포맷팅)
 ```
 
-## 주요 개선점 요약
+### 4. 한국어 팀 협업 예시
 
-### 아키텍처 개선점:
-- **단일 계층 구조** → **3계층 책임 분산 구조**
-- **미리 정의된 역할 한계** → **TeamLeader의 동적 작업 분석**  
-- **복잡한 작업 분석 부담** → **Boss는 위임만, TeamLeader가 분석 전담**
-- **역할 상수의 제약** → **실시간 작업 맞춤형 전문가 생성**
-- **모든 책임이 한 곳 집중** → **계층별 명확한 역할 분담**
+```typescript
+import { createTeam, generateWorkflowFlowchart } from '@robota-sdk/team';
 
-### 3계층 구조:
-- **Boss**: 사용자 인터페이스 역할, **일반적인 Robota 인스턴스** (`delegateWork` 도구 포함)
-- **TeamLeader**: 작업 분석 전문가, **일반적인 Robota 인스턴스** (`delegateWork` 도구 포함)
-- **TeamMembers**: 실제 작업 수행자, **일회성 Robota 인스턴스** (각 작업 완료 후 정리)
-- **Team**: 단순한 **컨테이너 클래스**, 3계층 위임 체계 관리
-- **AgentFactory**: 작업 맞춤형 전문가 Robota 인스턴스 생성
+const team = createTeam({
+  baseRobotaOptions: {
+    aiProviders: { openai: openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4o-mini',
+    systemPrompt: '당신은 협업 작업을 관리하는 팀 코디네이터입니다.',
+    logger: console
+  },
+  maxMembers: 5,
+  debug: false
+});
 
-## 다음 단계
+// 간단한 작업
+const simpleResult = await team.execute(
+  'React와 Vue.js의 주요 차이점 3가지를 간단히 알려주세요.'
+);
 
-1. **@robota-sdk/team 패키지 생성**: 기본 패키지 구조 및 설정
-2. **Team 클래스 구현**: 단순한 컨테이너 클래스 개발
-3. **AgentFactory 구현**: Robota 인스턴스 생성 및 역할별 프롬프트 자동 생성
-4. **TeamLeader 도구 구현**: delegateWork 도구 개발
-5. **Job 기반 역할 결정**: 작업 설명 분석을 통한 자동 역할 결정 시스템
-6. **스킬-도구 매칭**: Job에 필요한 스킬 기반 도구 선택 시스템
-7. **통합 테스트**: 실제 사용 사례로 검증
-8. **성능 최적화**: 동적 생성 오버헤드 및 메모리 사용량 최적화
-9. **문서화**: API 레퍼런스 및 사용 가이드 작성
+// 복잡한 작업
+const complexResult = await team.execute(
+  '카페 창업 계획서를 작성해주세요. 반드시 다음 두 부분을 모두 포함해야 합니다: 1) 시장 분석, 2) 메뉴 구성. 각각을 별도로 작성해주세요.'
+);
 
-이 구조를 통해 Robota SDK는 사용자가 복잡한 설정 없이도 간단한 요청으로 멀티 에이전트 협업을 자동으로 구성하고 실행할 수 있는 시스템으로 진화할 수 있습니다. 모든 구성 요소가 기존 Robota 구조를 최대한 활용하여 단순하고 직관적인 API를 제공합니다. 
+// 워크플로우 분석
+const workflowHistory = team.getWorkflowHistory();
+if (workflowHistory) {
+  console.log('\n📊 워크플로우 분석:');
+  console.log(generateWorkflowFlowchart(workflowHistory));
+}
+```
+
+### 5. 실행 결과 시각화 예시
+
+```
+📊 Team Workflow Summary
+══════════════════════════════════════════════════
+
+🚀 Execution Overview
+   📋 Request: Create a cafe business plan. It must include both: 1) Market analysis, 2) Menu composition...
+   ⏱️  Duration: 42.2s | Status: ✅ Success
+
+🔗 Task Distribution & Agent Performance
+
+└─ 👤 User Request
+   └─ 📝 Create a cafe business plan. It must include both: 1) Market analysis, 2) Menu composition...
+
+   └─ 🤖 Team Coordination & Delegation
+      👑 Coordinator: 6 messages
+
+      ├─ 🎯 agent-1750429775184-lu1m1y8i6 (3 msgs)
+      │     └─ "Conduct market analysis for cafe business including target demographics..."
+      │
+      └─ 🎯 agent-1750429788121-qxbt2nibo (3 msgs)
+           └─ "Create comprehensive menu composition for cafe with diverse offerings..."
+
+📈 Summary
+   🤖 Agents: 3 total (👑 1 coordinator, 🎯 2 task agents)
+   💬 Messages: 12 total
+
+🎯 Result Preview
+   ## 1) Market Analysis
+   ### Target Demographics
+   - Young Professionals (Ages 25-35): Quality coffee and comfortable workspace...
+   ... (34 more lines)
+```
+
+## 팀 성능 통계
+
+### 기본 통계 조회
+
+```typescript
+// 팀 성능 메트릭 조회
+const stats = team.getStats();
+console.log(`Agents created: ${stats.totalAgentsCreated}`);
+console.log(`Tasks completed: ${stats.tasksCompleted}`);
+console.log(`Average execution time: ${stats.totalExecutionTime / stats.tasksCompleted}ms`);
+
+// 통계 초기화
+team.resetStats();
+```
+
+### 다중 팀 통계 비교
+
+```typescript
+// 두 개의 독립적인 팀으로 다른 작업 처리
+const team1Stats = team1.getStats();
+const team2Stats = team2.getStats();
+
+console.log(`
+Example 1 Results:
+• Tasks completed: ${team1Stats.tasksCompleted}
+• Total agents created: ${team1Stats.totalAgentsCreated}
+• Execution time: ${team1Stats.totalExecutionTime}ms
+
+Example 2 Results:
+• Tasks completed: ${team2Stats.tasksCompleted}
+• Total agents created: ${team2Stats.totalAgentsCreated}
+• Execution time: ${team2Stats.totalExecutionTime}ms
+
+Overall Summary:
+• Total tasks completed: ${team1Stats.tasksCompleted + team2Stats.tasksCompleted}
+• Total agents created: ${team1Stats.totalAgentsCreated + team2Stats.totalAgentsCreated}
+• Total execution time: ${team1Stats.totalExecutionTime + team2Stats.totalExecutionTime}ms
+`);
+```
+
+## API 레퍼런스
+
+### createTeam(options)
+
+팀 인스턴스를 생성합니다.
+
+**Parameters:**
+- `options: TeamContainerOptions` - 팀 설정 옵션
+
+**Returns:**
+- `TeamContainer` - 팀 인스턴스
+
+```typescript
+interface TeamContainerOptions {
+  baseRobotaOptions: RobotaOptions;
+  maxMembers?: number;               // 기본값: 5
+  debug?: boolean;                   // 기본값: false
+}
+```
+
+### team.execute(userPrompt)
+
+사용자 요청을 팀에서 협업으로 처리합니다.
+
+**Parameters:**
+- `userPrompt: string` - 사용자 요청
+
+**Returns:**
+- `Promise<string>` - 최종 결과
+
+### team.getWorkflowHistory()
+
+마지막 실행의 워크플로우 히스토리를 조회합니다.
+
+**Returns:**
+- `WorkflowHistory | null` - 워크플로우 데이터
+
+### team.getStats()
+
+팀 성능 통계를 조회합니다.
+
+**Returns:**
+- `TeamStats` - 통계 정보
+
+```typescript
+interface TeamStats {
+  totalAgentsCreated: number;
+  tasksCompleted: number;
+  totalExecutionTime: number;
+  averageAgentsPerTask: number;
+}
+```
+
+### team.resetStats()
+
+팀 성능 통계를 초기화합니다.
+
+### delegateWork(params)
+
+작업을 전문 에이전트에게 위임합니다. (내부적으로 사용)
+
+**Parameters:**
+- `params: DelegateWorkParams` - 위임 매개변수
+
+```typescript
+interface DelegateWorkParams {
+  jobDescription: string;     // 작업 설명
+  context?: string;          // 추가 컨텍스트
+  requiredTools?: string[];  // 필요한 도구들
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+}
+```
+
+## 워크플로우 유틸리티 함수
+
+### generateWorkflowFlowchart(workflowHistory)
+
+워크플로우의 상세한 플로우차트를 생성합니다.
+
+**Parameters:**
+- `workflowHistory: WorkflowHistory` - 워크플로우 데이터
+
+**Returns:**
+- `string` - 텍스트 기반 플로우차트
+
+### generateAgentRelationshipDiagram(workflowHistory)
+
+에이전트 간 관계를 보여주는 다이어그램을 생성합니다.
+
+**Parameters:**
+- `workflowHistory: WorkflowHistory` - 워크플로우 데이터
+
+**Returns:**
+- `string` - 텍스트 기반 관계 다이어그램
+
+### workflowHistoryToJSON(workflowHistory)
+
+워크플로우 데이터를 JSON 형태로 변환합니다.
+
+**Parameters:**
+- `workflowHistory: WorkflowHistory` - 워크플로우 데이터
+
+**Returns:**
+- `string` - JSON 문자열
+
+### workflowHistoryToCSV(workflowHistory)
+
+워크플로우 데이터를 CSV 형태로 변환합니다.
+
+**Parameters:**
+- `workflowHistory: WorkflowHistory` - 워크플로우 데이터
+
+**Returns:**
+- `string` - CSV 문자열
+
+### extractPerformanceMetrics(workflowHistory)
+
+워크플로우의 성능 메트릭을 추출합니다.
+
+**Parameters:**
+- `workflowHistory: WorkflowHistory` - 워크플로우 데이터
+
+**Returns:**
+- `PerformanceMetrics` - 성능 분석 데이터
+
+### getAgentConversation(workflowHistory, agentId)
+
+특정 에이전트의 대화 내역을 조회합니다.
+
+**Parameters:**
+- `workflowHistory: WorkflowHistory` - 워크플로우 데이터
+- `agentId: string` - 에이전트 ID
+
+**Returns:**
+- `AgentConversationData | null` - 에이전트 대화 데이터
+
+### getAllMessagesChronologically(workflowHistory)
+
+모든 메시지를 시간순으로 정렬하여 조회합니다.
+
+**Parameters:**
+- `workflowHistory: WorkflowHistory` - 워크플로우 데이터
+
+**Returns:**
+- `ChronologicalMessage[]` - 시간순 메시지 배열
+
+## 성능 최적화
+
+### 1. 리소스 관리
+- **동적 에이전트 생성**: 필요한 에이전트만 생성하여 메모리 효율성 확보
+- **자동 정리**: 작업 완료 후 즉시 에이전트 정리
+- **토큰 제한 관리**: maxTokenLimit 설정으로 과도한 토큰 사용 방지
+
+```typescript
+const team = createTeam({
+  baseRobotaOptions: {
+    aiProviders: { openai: openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4o-mini',
+    maxTokenLimit: 50000,  // 전체 대화 토큰 제한
+    maxTokens: 16000       // 단일 응답 토큰 제한
+  },
+  maxMembers: 3,           // 동시 에이전트 수 제한
+  debug: false
+});
+```
+
+### 2. 오류 처리
+- **개별 에이전트 실패 복구**: 단일 에이전트 실패가 전체 팀에 영향 미치지 않음
+- **타임아웃 처리**: 무한 대기 방지
+- **graceful degradation**: 일부 작업 실패시에도 가능한 결과 제공
+
+### 3. 디버깅 지원
+- **상세 로그**: debug 모드에서 모든 에이전트 상호작용 추적
+- **워크플로우 시각화**: 복잡한 협업 과정 이해
+- **성능 메트릭**: 병목 지점 식별
+
+```typescript
+const team = createTeam({
+  baseRobotaOptions: {
+    aiProviders: { openai: openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4o-mini',
+    logger: console  // 상세 로그 출력
+  },
+  maxMembers: 5,
+  debug: true        // 디버그 모드 활성화
+});
+```
+
+## 시스템 프롬프트 최적화
+
+### 팀 코디네이터 프롬프트 원칙
+
+팀 코디네이터는 다음 원칙을 따라 작업을 분배합니다:
+
+- **중복 없는 분배**: 각 세부 작업이 겹치지 않도록 분배
+- **팀장의 종합 역할**: 개별 분석은 위임하되, 최종 비교 및 종합은 직접 수행
+- **완전한 작업 범위**: 사용자 요청의 모든 부분을 빠짐없이 처리
+- **독립적인 지시사항**: 각 에이전트가 컨텍스트 없이도 이해할 수 있는 명확한 작업 설명
+
+### 전문 에이전트 프롬프트 구성
+
+각 전문 에이전트는 다음과 같이 구성됩니다:
+
+- **역할 기반 시스템 프롬프트**: 작업에 특화된 전문가 역할
+- **명확한 작업 지시**: 팀 코디네이터로부터 받은 구체적인 작업 설명
+- **필요한 도구 접근**: 작업 수행에 필요한 도구들만 선별적으로 제공
+
+## 주요 장점
+
+### ✅ **단순성**
+- 모든 조정을 위한 단일 `delegateWork` 도구
+- 복잡한 에이전트 계층이나 특별한 설정 불필요
+- 다른 프롬프트를 가진 표준 Robota 인스턴스
+
+### ✅ **유연성**
+- 실제 작업 필요에 따른 동적 에이전트 생성
+- 작업별 맞춤형 도구 및 능력 할당
+- 다양한 AI 프로바이더 및 모델 지원
+
+### ✅ **효율성**
+- 필요한 에이전트만 생성하여 리소스 최적화
+- 작업 완료 후 자동 정리로 메모리 효율성
+- 지능적인 작업 분배로 중복 작업 방지
+
+### ✅ **확장성**
+- 새로운 도구 및 프로바이더 쉽게 추가
+- 커스텀 에이전트 타입 지원
+- 다양한 협업 패턴 구현 가능
+
+### ✅ **투명성**
+- 완전한 워크플로우 히스토리 제공
+- 에이전트 간 관계 시각화
+- 성능 분석 및 최적화 지원
+
+## 사용 사례별 예시
+
+### 콘텐츠 제작 팀
+
+```typescript
+const contentTeam = createTeam({
+  baseRobotaOptions: {
+    aiProviders: { openai: openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4o-mini',
+    systemPrompt: 'You are a content creation team coordinator.',
+    logger: console
+  },
+  maxMembers: 4
+});
+
+const result = await contentTeam.execute(`
+  Create a comprehensive blog post about "The Future of AI in Healthcare".
+  Include research, writing, SEO optimization, and social media snippets.
+`);
+
+// 자동 생성 에이전트:
+// - 리서처 (최신 AI 헬스케어 트렌드 조사)
+// - 작가 (매력적인 블로그 포스트 작성)
+// - SEO 전문가 (검색 엔진 최적화)
+// - 소셜 미디어 전문가 (SNS 컨텐츠 생성)
+```
+
+### 데이터 분석 팀
+
+```typescript
+const analyticsTeam = createTeam({
+  baseRobotaOptions: {
+    aiProviders: { openai: openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4o-mini',
+    systemPrompt: 'You are a data analytics team coordinator.',
+    logger: console
+  },
+  maxMembers: 3
+});
+
+const result = await analyticsTeam.execute(`
+  Analyze our Q3 sales data and provide insights on customer behavior,
+  seasonal trends, and recommendations for Q4 strategy.
+`);
+
+// 자동 생성 에이전트:
+// - 데이터 분석가 (통계 분석 및 패턴 식별)
+// - 트렌드 전문가 (계절성 및 시장 트렌드 분석)
+// - 전략 컨설턴트 (권장사항 및 액션 플랜 수립)
+```
+
+## 문제 해결
+
+### 일반적인 문제들
+
+#### 1. "No workflow history available" 오류
+```typescript
+// 원인: 팀이 아직 작업을 완료하지 않음
+// 해결: execute() 완료 후 getWorkflowHistory() 호출
+const result = await team.execute(prompt);
+const history = team.getWorkflowHistory(); // 이제 사용 가능
+```
+
+#### 2. 과도한 토큰 사용
+```typescript
+// 해결: 토큰 제한 설정
+const team = createTeam({
+  baseRobotaOptions: {
+    maxTokenLimit: 30000,  // 전체 대화 제한
+    maxTokens: 8000        // 단일 응답 제한
+  }
+});
+```
+
+#### 3. 에이전트 수 제한 초과
+```typescript
+// 해결: maxMembers 조정
+const team = createTeam({
+  maxMembers: 3,  // 동시 에이전트 수 제한
+  debug: true     // 디버그 모드로 모니터링
+});
+```
+
+## 업데이트 및 마이그레이션
+
+### v1.0.0에서 v2.0.0으로
+
+```typescript
+// v1.0.0 (구버전)
+const team = new Team({
+  teamLeader: { provider: 'openai', model: 'gpt-4' },
+  memberDefaults: { provider: 'openai', model: 'gpt-4' }
+});
+
+// v2.0.0 (현재)
+const team = createTeam({
+  baseRobotaOptions: {
+    aiProviders: { openai: openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4'
+  }
+});
+```
+
+## 라이센스
+
+MIT
+
+## 기여하기
+
+기여를 환영합니다! 자세한 내용은 [CONTRIBUTING.md](../../CONTRIBUTING.md)를 참조하세요.
+
+## 지원
+
+- 📖 [전체 문서](https://robota.io)
+- 🐛 [이슈 리포트](https://github.com/robota-ai/robota/issues)
+- 💬 [Discord 커뮤니티](https://discord.gg/robota)
+- 📧 [이메일 지원](mailto:support@robota.io)
+
+---
+
+`@robota-sdk/team`을 사용하여 복잡한 작업을 효율적인 멀티 에이전트 협업으로 해결하세요! 🚀
+
+## 에이전트 템플릿 시스템
+
+### 📋 **사전 정의된 에이전트 템플릿**
+
+에이전트 템플릿 시스템을 통해 자주 사용되는 전문가 역할들을 미리 정의하고 `delegateWork`에서 쉽게 활용할 수 있습니다. 각 템플릿은 특정 역할에 최적화된 LLM 프로바이더, 모델, 시스템 프롬프트를 포함합니다.
+
+### 템플릿 구조
+
+```typescript
+interface AgentTemplate {
+  name: string;           // 템플릿 식별자 (예: "summarizer")
+  description: string;    // 템플릿 역할 설명
+  llm_provider: string;   // LLM 프로바이더 (openai, anthropic, google 등)
+  model: string;          // 모델명 (gpt-4, claude-3-5-sonnet 등)
+  temperature: number;    // 창의성 설정 (0.0-1.0)
+  system_prompt: string;  // 역할별 전문화된 시스템 프롬프트
+  tags: string[];        // 분류용 태그들
+}
+```
+
+### 기본 제공 템플릿
+
+#### 1. **Summarizer** (요약 전문가)
+```json
+{
+  "name": "summarizer",
+  "description": "전문적인 요약 및 핵심 포인트 추출을 담당하는 전문가",
+  "llm_provider": "openai",
+  "model": "gpt-4o-mini",
+  "temperature": 0.3,
+  "system_prompt": "You are an expert summarization specialist...",
+  "tags": ["analysis", "summarization", "extraction"]
+}
+```
+
+#### 2. **Ethical Reviewer** (윤리적 검토자)
+```json
+{
+  "name": "ethical_reviewer",
+  "description": "콘텐츠의 윤리적, 법적 측면을 검토하는 전문가",
+  "llm_provider": "anthropic",
+  "model": "claude-3-5-sonnet-20241022",
+  "temperature": 0.2,
+  "system_prompt": "You are an ethical review specialist...",
+  "tags": ["ethics", "review", "compliance"]
+}
+```
+
+#### 3. **Creative Ideator** (아이디어 생성기)
+```json
+{
+  "name": "creative_ideator",
+  "description": "창의적 아이디어 발굴 및 브레인스토밍 전문가",
+  "llm_provider": "openai",
+  "model": "gpt-4",
+  "temperature": 0.8,
+  "system_prompt": "You are a creative ideation expert...",
+  "tags": ["creativity", "brainstorming", "innovation"]
+}
+```
+
+#### 4. **Fast Executor** (빠른 실행자)
+```json
+{
+  "name": "fast_executor",
+  "description": "간단한 작업을 빠르고 정확하게 처리하는 전문가",
+  "llm_provider": "openai",
+  "model": "gpt-4o-mini",
+  "temperature": 0.1,
+  "system_prompt": "You are a fast and accurate task executor...",
+  "tags": ["execution", "speed", "accuracy"]
+}
+```
+
+#### 5. **Domain Researcher** (분야별 리서처)
+```json
+{
+  "name": "domain_researcher",
+  "description": "특정 도메인에 대한 심층 연구 및 분석을 수행하는 전문가",
+  "llm_provider": "anthropic",
+  "model": "claude-3-5-sonnet-20241022",
+  "temperature": 0.4,
+  "system_prompt": "You are a domain research specialist...",
+  "tags": ["research", "analysis", "domain-expertise"]
+}
+```
+
+### 템플릿 사용법
+
+#### 기본 사용 (기존 방식 유지)
+```typescript
+// 기존 방식: 동적 에이전트 생성
+const result = await team.execute(`
+  시장 분석 보고서를 작성해주세요.
+`);
+// delegateWork가 자동으로 적절한 에이전트 생성
+```
+
+#### 템플릿 지정 사용
+```typescript
+// 새로운 방식: 특정 템플릿 지정
+const result = await team.execute(`
+  다음 문서를 요약해주세요. [템플릿: summarizer]
+  
+  [긴 문서 내용...]
+`);
+
+// 또는 delegateWork 호출시 직접 지정
+delegateWork({
+  jobDescription: "이 기술 문서의 핵심 내용을 요약해주세요",
+  context: "개발팀 회의용 요약본 필요",
+  agentTemplate: "summarizer"
+});
+```
+
+#### 다중 템플릿 활용
+```typescript
+const result = await team.execute(`
+  새로운 마케팅 캠페인을 기획해주세요.
+  1. 창의적 아이디어 발굴 [템플릿: creative_ideator]
+  2. 윤리적 검토 [템플릿: ethical_reviewer]
+  3. 실행 계획 수립 [템플릿: fast_executor]
+`);
+```
+
+### 커스텀 템플릿 추가
+
+```typescript
+// 팀 생성시 커스텀 템플릿 추가
+const team = createTeam({
+  baseRobotaOptions: {
+    aiProviders: { openai: openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4o-mini'
+  },
+  agentTemplates: [
+    {
+      name: "financial_analyst",
+      description: "재무 분석 및 투자 전략 전문가",
+      llm_provider: "openai",
+      model: "gpt-4",
+      temperature: 0.2,
+      system_prompt: `You are a senior financial analyst with expertise in...`,
+      tags: ["finance", "analysis", "investment"]
+    },
+    {
+      name: "content_writer",
+      description: "블로그 및 마케팅 콘텐츠 작성 전문가",
+      llm_provider: "anthropic", 
+      model: "claude-3-5-sonnet-20241022",
+      temperature: 0.7,
+      system_prompt: `You are an expert content writer specializing in...`,
+      tags: ["writing", "content", "marketing"]
+    }
+  ]
+});
+```
+
+### 템플릿 관리 API
+
+```typescript
+// 템플릿 목록 조회
+const templates = team.getAvailableTemplates();
+console.log('Available templates:', templates.map(t => t.name));
+
+// 특정 템플릿 조회
+const summarizerTemplate = team.getTemplate('summarizer');
+console.log('Summarizer:', summarizerTemplate.description);
+
+// 템플릿 추가
+team.addTemplate({
+  name: "data_scientist",
+  description: "데이터 분석 및 머신러닝 전문가",
+  llm_provider: "openai",
+  model: "gpt-4",
+  temperature: 0.3,
+  system_prompt: "You are a data science expert...",
+  tags: ["data", "ml", "statistics"]
+});
+
+// 템플릿 삭제
+team.removeTemplate('data_scientist');
+```
+
+## 개발 체크리스트
+
+다음은 에이전트 템플릿 시스템 구현을 위한 개발 체크리스트입니다:
+
+### ✅ Phase 1: 기본 구조 설계
+- [ ] **1.1** `AgentTemplate` 인터페이스 정의 (`packages/team/src/types.ts`)
+- [ ] **1.2** `AgentTemplateManager` 클래스 생성 (`packages/team/src/agent-template-manager.ts`)
+- [ ] **1.3** 기본 5개 템플릿 JSON 정의 (`packages/team/src/templates/`)
+- [ ] **1.4** 템플릿 검증 스키마 추가 (Zod)
+
+### ✅ Phase 2: 템플릿 관리 기능
+- [ ] **2.1** 템플릿 로드/저장 기능 구현
+- [ ] **2.2** 템플릿 검색 및 필터링 기능
+- [ ] **2.3** 커스텀 템플릿 추가/삭제 API
+- [ ] **2.4** 템플릿 직렬화/역직렬화 지원
+
+### ✅ Phase 3: AgentFactory 확장
+- [ ] **3.1** `AgentFactory`에 템플릿 지원 추가
+- [ ] **3.2** 템플릿 기반 에이전트 생성 메서드
+- [ ] **3.3** 다중 프로바이더 지원 구현
+- [ ] **3.4** 템플릿 시스템 프롬프트 생성 로직
+
+### ✅ Phase 4: delegateWork 확장
+- [ ] **4.1** `DelegateWorkParams`에 `agentTemplate` 필드 추가
+- [ ] **4.2** 팀 시스템 프롬프트에 템플릿 설명 추가
+- [ ] **4.3** 템플릿 선택 로직 구현
+- [ ] **4.4** 백워드 호환성 보장 (기존 방식 유지)
+
+### ✅ Phase 5: TeamContainer 통합
+- [ ] **5.1** `TeamContainer`에 템플릿 매니저 통합
+- [ ] **5.2** 템플릿 관리 API 추가 (`getAvailableTemplates`, `addTemplate` 등)
+- [ ] **5.3** 템플릿 기반 delegateWork 처리
+- [ ] **5.4** 템플릿 사용 통계 추가
+
+### ✅ Phase 6: 문서 및 테스트
+- [ ] **6.1** API 문서 업데이트
+- [ ] **6.2** 사용 예시 추가
+- [ ] **6.3** 단위 테스트 작성
+- [ ] **6.4** 통합 테스트 작성
+
+### ✅ Phase 7: 고급 기능
+- [ ] **7.1** 템플릿 성능 메트릭 수집
+- [ ] **7.2** 템플릿 추천 시스템
+- [ ] **7.3** 동적 템플릿 조정 기능
+- [ ] **7.4** 템플릿 버전 관리
+
+---
+
+`@robota-sdk/team`을 사용하여 복잡한 작업을 효율적인 멀티 에이전트 협업으로 해결하세요! 🚀 
