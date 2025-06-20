@@ -27,6 +27,8 @@ export interface ChatConfig {
     robotaConfig?: any; // Initial Robota configuration
     autoSave?: boolean;
     maxHistorySize?: number;
+    agentTemplate?: string; // Agent template name to use for creating specialized agents
+    taskDescription?: string; // Task description for dynamic agent creation
 }
 
 export interface ChatMetadata {
@@ -75,6 +77,10 @@ export interface ChatInstance {
     // Configuration
     updateRobotaConfig(config: any): Promise<void>;
     getRobotaConfig(): any;
+
+    // Agent Template Support
+    upgradeToTemplate?(templateName: string, taskDescription?: string): Promise<void>;
+    getTemplateManager?(): any;
 
     // State Management  
     activate(): void;

@@ -1,9 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Robota } from '@robota-sdk/core';
+import { Robota, AgentTemplateManager, AgentFactory } from '@robota-sdk/core';
 import type { RobotaOptions } from '@robota-sdk/core';
 import { createZodFunctionToolProvider } from '@robota-sdk/tools';
 import { z } from 'zod';
-import { AgentFactory, type TaskAgent } from './agent-factory';
 import type {
     TeamContainerOptions,
     AgentConfig,
@@ -26,6 +25,9 @@ export interface AgentConversationData {
     messages: UniversalMessage[];
     createdAt: Date;
     childAgentIds: string[];
+    aiProvider?: string;
+    aiModel?: string;
+    agentTemplate?: string;
 }
 
 /**
@@ -123,6 +125,7 @@ export interface AgentTreeNode {
 export class TeamContainer {
     private teamAgent: Robota;
     private agentFactory: AgentFactory;
+    private templateManager: AgentTemplateManager;
     private options: TeamContainerOptions;
     private stats: TeamStats;
     private logger?: any;
@@ -155,22 +158,36 @@ export class TeamContainer {
             totalExecutionTime: 0,
             totalTokensUsed: 0,
             tasksCompleted: 0,
-            tasksFailed: 0
+            tasksFailed: 0,
+            templateUsage: {},
+            templateVsDynamicAgents: {
+                template: 0,
+                dynamic: 0
+            }
         };
 
-        // Create AgentFactory for creating temporary agents
-        this.agentFactory = new AgentFactory(options.baseRobotaOptions, options.debug);
+        // Initialize template manager (use provided one or create default)
+        this.templateManager = options.templateManager || new AgentTemplateManager();
+
+        // Validate leader template exists if specified
+        const leaderTemplate = options.leaderTemplate || 'task_coordinator';
+        const availableTemplates = this.templateManager.getAvailableTemplates();
+        const leaderExists = availableTemplates.some(t => t.name === leaderTemplate);
+
+        if (!leaderExists) {
+            throw new Error(`Leader template "${leaderTemplate}" not found. Available templates: ${availableTemplates.map(t => t.name).join(', ')}`);
+        }
+
+        // Create AgentFactory for creating temporary agents with template manager
+        this.agentFactory = new AgentFactory(options.baseRobotaOptions, this.templateManager, options.debug);
 
         this.logger = options.baseRobotaOptions.logger;
 
         // Create delegate work tool
         const delegateWorkTool = this.createDelegateWorkTool();
 
-        this.teamAgent = new Robota({
-            ...options.baseRobotaOptions,
-            systemPrompt: this.generateTeamSystemPrompt(),
-            toolProviders: [delegateWorkTool]
-        });
+        // Create team coordinator with enhanced system prompt based on template
+        this.teamAgent = this.createTeamCoordinator(leaderTemplate, delegateWorkTool);
 
         this.setupToolCallTracking();
     }
@@ -203,11 +220,14 @@ export class TeamContainer {
         };
 
         // Add the team coordinator as root agent
+        const coordinatorAI = this.teamAgent.ai.getCurrentAI();
         this.executionStructure.agents.set('team-coordinator', {
             agentId: 'team-coordinator',
             agent: this.teamAgent,
             createdAt: new Date(startTime),
-            childAgentIds: []
+            childAgentIds: [],
+            aiProvider: coordinatorAI.provider,
+            aiModel: coordinatorAI.model
         });
 
         try {
@@ -295,7 +315,8 @@ export class TeamContainer {
      */
     async delegateWork(params: DelegateWorkParams): Promise<DelegateWorkResult> {
         const startTime = Date.now();
-        let temporaryAgent: TaskAgent | null = null;
+        let temporaryAgent: Robota | null = null;
+        let agentId = 'unknown';
 
         try {
             if (this.options.debug) {
@@ -307,31 +328,60 @@ export class TeamContainer {
                 throw new Error(`Maximum number of team members (${this.options.maxMembers}) reached`);
             }
 
+            // Update agent creation attempt counter
+            this.stats.totalAgentsCreated++;
+
+            // Update template usage statistics (even if agent creation fails)
+            if (params.agentTemplate) {
+                this.stats.templateVsDynamicAgents.template++;
+                this.stats.templateUsage[params.agentTemplate] =
+                    (this.stats.templateUsage[params.agentTemplate] || 0) + 1;
+
+                if (this.options.debug) {
+                    console.log(`[TeamContainer] Using template: ${params.agentTemplate}`);
+                }
+            } else {
+                this.stats.templateVsDynamicAgents.dynamic++;
+
+                if (this.options.debug) {
+                    console.log(`[TeamContainer] Creating dynamic agent`);
+                }
+            }
+
             // Create a temporary agent for this specific task
             temporaryAgent = await this.agentFactory.createRobotaForTask({
                 taskDescription: params.jobDescription,
-                requiredTools: params.requiredTools || []
+                requiredTools: params.requiredTools || [],
+                agentTemplate: params.agentTemplate
             });
 
-            this.stats.totalAgentsCreated++;
+            // Generate unique ID for this agent
+            agentId = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
             // Add agent to execution structure if tracking
             if (this.executionStructure) {
+                // Get current AI provider and model info from the agent
+                const currentAI = temporaryAgent.ai.getCurrentAI();
+
                 const agentNode: AgentNode = {
-                    agentId: temporaryAgent.id,
+                    agentId: agentId,
                     agent: temporaryAgent,
                     parentAgentId: 'team-coordinator', // For now, all delegated agents are children of coordinator
                     taskDescription: params.jobDescription,
                     createdAt: new Date(),
-                    childAgentIds: []
+                    childAgentIds: [],
+                    // Store AI metadata for later display
+                    aiProvider: currentAI.provider,
+                    aiModel: currentAI.model,
+                    agentTemplate: params.agentTemplate
                 };
 
-                this.executionStructure.agents.set(temporaryAgent.id, agentNode);
+                this.executionStructure.agents.set(agentId, agentNode);
 
                 // Add to parent's children list
                 const parentAgent = this.executionStructure.agents.get('team-coordinator');
                 if (parentAgent) {
-                    parentAgent.childAgentIds.push(temporaryAgent.id);
+                    parentAgent.childAgentIds.push(agentId);
                 }
             }
 
@@ -344,7 +394,7 @@ export class TeamContainer {
             // Build result with metadata
             const delegateResult: DelegateWorkResult = {
                 result,
-                agentId: temporaryAgent.id,
+                agentId: agentId,
                 metadata: {
                     executionTime,
                     tokensUsed: this.estimateTokenUsage(taskPrompt, result),
@@ -355,9 +405,10 @@ export class TeamContainer {
             // Update stats
             this.stats.totalExecutionTime += executionTime;
             this.stats.totalTokensUsed += delegateResult.metadata.tokensUsed || 0;
+            this.stats.tasksCompleted++; // 성공한 작업 카운트
 
             if (this.options.debug) {
-                console.log(`[TeamContainer] Work delegated successfully to agent ${temporaryAgent.id}`);
+                console.log(`[TeamContainer] Work delegated successfully to agent ${agentId}`);
             }
 
             return delegateResult;
@@ -369,10 +420,14 @@ export class TeamContainer {
                 console.error(`[TeamContainer] Work delegation failed: ${errorMessage}`);
             }
 
+            // Update failure stats
+            this.stats.tasksFailed++; // 실패한 작업 카운트
+            this.stats.totalExecutionTime += executionTime;
+
             // Return error result
             return {
                 result: `Task failed: ${errorMessage}`,
-                agentId: temporaryAgent?.id || 'unknown',
+                agentId: agentId,
                 metadata: {
                     executionTime,
                     errors: [errorMessage]
@@ -445,7 +500,12 @@ export class TeamContainer {
             totalExecutionTime: 0,
             totalTokensUsed: 0,
             tasksCompleted: 0,
-            tasksFailed: 0
+            tasksFailed: 0,
+            templateUsage: {},
+            templateVsDynamicAgents: {
+                template: 0,
+                dynamic: 0
+            }
         };
     }
 
@@ -474,6 +534,33 @@ export class TeamContainer {
      */
     hasActiveExecution(): boolean {
         return this.executionStructure !== null;
+    }
+
+    /**
+     * Get the template manager for advanced template operations
+     * 
+     * @returns The AgentTemplateManager instance used by this team
+     * 
+     * @example
+     * ```typescript
+     * const templateManager = team.getTemplateManager();
+     * const templates = templateManager.getAvailableTemplates();
+     * console.log('Available templates:', templates.map(t => t.name));
+     * 
+     * // Add custom template
+     * templateManager.addTemplate({
+     *   name: 'my_specialist',
+     *   description: 'My custom specialist agent',
+     *   llm_provider: 'openai',
+     *   model: 'gpt-4',
+     *   temperature: 0.5,
+     *   system_prompt: 'You are a specialized expert...',
+     *   tags: ['custom', 'specialist']
+     * });
+     * ```
+     */
+    getTemplateManager() {
+        return this.templateManager;
     }
 
     /**
@@ -506,92 +593,74 @@ export class TeamContainer {
     }
 
     /**
-     * Generate system prompt for the Team agent
+     * Create team coordinator agent using specified template
+     */
+    private createTeamCoordinator(templateName: string, delegateWorkTool: any): Robota {
+        try {
+            // Get template to use its system prompt
+            const template = this.templateManager.getTemplate(templateName);
+            if (!template) {
+                throw new Error(`Template not found: ${templateName}`);
+            }
+
+            // Use template's system prompt and provider settings
+            const robotaOptions: RobotaOptions = {
+                ...this.options.baseRobotaOptions,
+                systemPrompt: template.system_prompt,
+                temperature: template.temperature,
+                toolProviders: [delegateWorkTool]
+            };
+
+            // Override provider and model if different from base
+            if (template.llm_provider !== this.options.baseRobotaOptions.currentProvider) {
+                robotaOptions.currentProvider = template.llm_provider as any;
+            }
+            if (template.model !== this.options.baseRobotaOptions.currentModel) {
+                robotaOptions.currentModel = template.model;
+            }
+            if (template.maxTokens) {
+                robotaOptions.maxTokens = template.maxTokens;
+            }
+
+            if (this.options.debug) {
+                console.log(`[TeamContainer] Created team coordinator using template: ${templateName} (${template.llm_provider}/${template.model})`);
+            }
+
+            return new Robota(robotaOptions);
+        } catch (error) {
+            if (this.options.debug) {
+                console.warn(`[TeamContainer] Failed to create coordinator with template ${templateName}, falling back to default:`, error);
+            }
+
+            // Fallback to default Robota instance
+            return new Robota({
+                ...this.options.baseRobotaOptions,
+                systemPrompt: this.generateTeamSystemPrompt(),
+                toolProviders: [delegateWorkTool]
+            });
+        }
+    }
+
+    /**
+     * Generate system prompt for the Team agent (fallback)
      */
     private generateTeamSystemPrompt(): string {
-        return `You are an intelligent Team Coordinator that manages collaborative work through delegation.
+        return `You are a Team Coordinator that manages collaborative work through delegation.
 
 CORE PRINCIPLES:
 - Respond in the same language as the user's input
-- PREFER COLLABORATION: When in doubt, lean towards delegating work to specialized team members
-- This is a TEAM environment - utilize team members for better results
-- Analyze each request thoroughly to determine the optimal approach
-- Make intelligent decisions about when to delegate vs handle directly
-- Think step-by-step about what the user really needs
-- NEVER leave any part of a multi-component request unaddressed
+- For complex tasks, delegate to specialized team members
+- For simple tasks, handle directly
+- Each delegated task must be self-contained and understandable without context
+- Synthesize results from multiple specialists into your final response
 
-CRITICAL DELEGATION RULES:
+DELEGATION RULES:
+1. Create complete, standalone instructions for each specialist
+2. Avoid overlapping tasks between different specialists  
+3. Use appropriate agent templates when specified
+4. Handle final synthesis and comparison yourself
 
-1. SUB AGENTS ARE ISOLATED: They know NOTHING about your conversation. They cannot see the original request or other tasks.
-
-2. NO SEQUENTIAL SPLITTING: NEVER break "list N things" into N separate tasks. This creates meaningless instructions like "explain the first one" which sub agents cannot understand.
-
-3. SELF-CONTAINED INSTRUCTIONS ONLY: Every delegated task must be completely understandable without any external context. If you cannot write a fully independent instruction, handle the task directly.
-
-4. COMPLETE SCOPE PRESERVATION: When delegating, maintain the FULL original scope. Do not reduce "3 differences" to "1 difference".
-
-5. NO RELATIVE REFERENCES: Do not use ordinal numbers, positional words, or references to other parts.
-
-6. NO REDUNDANT DELEGATION: Avoid delegating tasks that overlap or duplicate work. Each delegation should cover distinct, non-overlapping aspects.
-
-7. TEAM LEADER SYNTHESIS ROLE: Your role as team coordinator is to delegate data gathering/analysis to specialists, then synthesize their findings into the final answer. Do NOT delegate the final comparison, synthesis, or conclusion tasks.
-
-TASK DISTRIBUTION STRATEGY:
-
-For Comparison/Analysis Tasks (e.g., "Compare A vs B", "Differences between X and Y"):
-- Delegate: Individual component analysis (e.g., "Analyze React's features", "Analyze Vue.js features")
-- Retain: Final comparison, synthesis, and conclusion drawing
-- AVOID: Delegating direct comparison tasks that duplicate your synthesis work
-
-For Multi-Component Tasks:
-- Delegate: Each distinct component that requires specialized knowledge
-- Retain: Integration, prioritization, and final structuring
-- AVOID: Overlapping or redundant task assignments
-
-For Information Gathering:
-- Delegate: Research on specific topics, data collection, specialized analysis
-- Retain: Information synthesis, final formatting, and comprehensive response building
-
-WORKFLOW ANALYSIS:
-When you receive a user request, analyze it to determine the best approach:
-
-1. If this is a simple, single-component task you can handle directly, do so
-2. If this request requires multiple specialized tasks or components:
-   - IDENTIFY ALL distinct components mentioned in the request
-   - Break down the request into separate, NON-OVERLAPPING components  
-   - Use delegateWork for EACH component separately (avoiding redundancy)
-   - Wait for ALL results before providing your final response
-   - Synthesize all results into a comprehensive answer that YOU create
-
-DELEGATION GUIDELINES:
-- If the user's request has multiple distinct parts that need different expertise, delegate each part separately
-- Look for indicators of multi-component work: different domains, varied methodologies, numbered lists, explicit divisions
-- For comparison tasks: delegate individual component analysis, retain comparison synthesis
-- For complex multi-part requests requiring different expertise, break them down intelligently
-- Ensure your final response addresses ALL parts of the user's request
-- Be intelligent about when to delegate vs handle directly
-- When using delegateWork, follow the parameter requirements defined in the tool schema
-- DO NOT stop after the first delegation if there are more components to handle
-- AVOID delegating the same type of work multiple times with different angles
-
-DECISION FRAMEWORK:
-- Can I write a complete, standalone instruction that makes sense to someone who knows nothing about this conversation?
-- If YES: Delegate with full scope (but avoid overlap with other delegations)
-- If NO: Handle directly
-- Is this a synthesis/comparison/conclusion task that requires my oversight?
-- If YES: Handle directly after gathering component data
-- If NO: Consider delegation for data gathering
-
-EXAMPLE - GOOD DELEGATION for "Compare React vs Vue.js differences":
-✅ Delegate: "Analyze React's core features, architecture, and development approach"
-✅ Delegate: "Analyze Vue.js's core features, architecture, and development approach"  
-✅ Retain: Compare findings and identify key differences
-
-EXAMPLE - BAD DELEGATION:
-❌ "Analyze React features" + "Analyze Vue features" + "Compare React vs Vue differences"
-(The third delegation duplicates your synthesis work)
-
-You have access to the delegateWork tool. Use it wisely to provide complete responses that address the full scope of user requests while avoiding redundant work distribution.`;
+Use delegateWork tool for specialized tasks. Synthesize results to provide complete responses.`;
     }
 
     /**
@@ -627,14 +696,49 @@ You have access to the delegateWork tool. Use it wisely to provide complete resp
     }
 
     /**
-     * Create the delegateWork tool
+     * Create the delegateWork tool with dynamic template schema
      */
     private createDelegateWorkTool() {
+        // Get available templates dynamically
+        const availableTemplates = this.agentFactory.getTemplateManager().getAvailableTemplates();
+
+        // Build template enum and descriptions
+        const templateNames = availableTemplates.map(t => t.name);
+        const templateDescriptions = availableTemplates.map(t =>
+            `"${t.name}" - ${t.description} (${t.llm_provider}/${t.model}, temp: ${t.temperature})`
+        ).join('\n');
+
+        // Create template schema with individual descriptions
+        let agentTemplateSchema;
+        if (templateNames.length > 0) {
+            // Use enum with detailed template descriptions for better AI selection
+            const templateInfo = availableTemplates.map(template =>
+                `"${template.name}": ${template.description}`
+            ).join('\n');
+
+            agentTemplateSchema = z.enum(templateNames as [string, ...string[]])
+                .optional()
+                .describe(`Agent template to use for specialized expertise. Available templates:\n\n${templateInfo}\n\nIf not specified, a dynamic agent will be created based on the job description.`);
+
+            // Debug: log the schema to see what's generated
+            if (this.options.debug) {
+                console.log('[DEBUG] Template schema generated:', {
+                    templateNames,
+                    templateInfo,
+                    schemaDescription: agentTemplateSchema._def.description
+                });
+            }
+        } else {
+            agentTemplateSchema = z.string().optional().describe('Name of agent template to use. No templates currently available - dynamic agent will be created.');
+        }
+
+        // Create dynamic schema based on available templates
         const delegateWorkSchema = z.object({
             jobDescription: z.string().describe('Clear description of the specific job to delegate'),
             context: z.string().describe('Additional context or constraints for the job'),
             requiredTools: z.array(z.string()).optional().describe('List of tools the member might need'),
-            priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium').describe('Priority level for the task')
+            priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium').describe('Priority level for the task'),
+            agentTemplate: agentTemplateSchema
         });
 
         const tools = {
@@ -652,7 +756,8 @@ You have access to the delegateWork tool. Use it wisely to provide complete resp
                         jobDescription: params.jobDescription,
                         context: params.context,
                         requiredTools: params.requiredTools || [],
-                        priority: params.priority || 'medium'
+                        priority: params.priority || 'medium',
+                        agentTemplate: params.agentTemplate
                     };
 
                     return await this.delegateWork(delegateParams);
@@ -720,7 +825,10 @@ You have access to the delegateWork tool. Use it wisely to provide complete resp
                 parentAgentId: agentNode.parentAgentId,
                 messages: messages,
                 createdAt: agentNode.createdAt,
-                childAgentIds: agentNode.childAgentIds
+                childAgentIds: agentNode.childAgentIds,
+                aiProvider: agentNode.aiProvider,
+                aiModel: agentNode.aiModel,
+                agentTemplate: agentNode.agentTemplate
             };
 
             agentConversations.push(conversationData);

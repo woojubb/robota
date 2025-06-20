@@ -22,7 +22,10 @@ export type {
 // Types
 export type {
     RunOptions,
-    ProviderOptions
+    ProviderOptions,
+    AgentTemplate,
+    AgentConfig,
+    AgentCreationConfig
 } from './types';
 
 // Conversation History
@@ -52,6 +55,23 @@ export { SystemMessageManager } from './managers/system-message-manager';
 export { FunctionCallManager } from './managers/function-call-manager';
 export { AnalyticsManager } from './managers/analytics-manager';
 export type { FunctionCallConfig, FunctionCallMode } from './managers/function-call-manager';
+
+// Agent Templates and Factory
+export { AgentTemplateManager } from './managers/agent-template-manager';
+export { AgentFactory } from './managers/agent-factory';
+
+// Agent Template Validation
+export {
+    AgentTemplateSchema,
+    AgentTemplateMetadataSchema,
+    validateAgentTemplate,
+    safeValidateAgentTemplate,
+    getValidationErrors
+} from './schemas/agent-template-schema';
+export type {
+    ValidatedAgentTemplate,
+    ValidatedAgentTemplateMetadata
+} from './schemas/agent-template-schema';
 
 // Services
 export { ConversationService } from './services/conversation-service';

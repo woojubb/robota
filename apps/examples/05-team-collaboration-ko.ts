@@ -12,6 +12,8 @@ import { createTeam, generateWorkflowFlowchart, generateAgentRelationshipDiagram
 import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
+import Anthropic from '@anthropic-ai/sdk';
+import { AnthropicProvider } from '@robota-sdk/anthropic/dist';
 
 // 환경 변수 로드
 dotenv.config();
@@ -40,7 +42,17 @@ async function runKoreanTeamExample() {
 • 간단한 작업은 팀 에이전트가 직접 처리
 • 복잡한 작업은 전문 팀 멤버들에게 위임
 • 워크플로우 히스토리 및 에이전트 관계 시각화
+
+🚀 간소화된 API:
+이 예제는 새로운 간소화된 createTeam API를 사용하여 task_coordinator
+템플릿이 자동으로 최적화된 설정으로 팀 조정을 담당합니다.
         `));
+
+
+        const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+        if (!anthropicApiKey) {
+            throw new Error('ANTHROPIC_API_KEY 환경 변수가 필요합니다');
+        }
 
         // API 키 검증
         const apiKey = process.env.OPENAI_API_KEY;
@@ -61,21 +73,23 @@ async function runKoreanTeamExample() {
             includeTimestampInLogFiles: true
         });
 
-        // 예제 1용 팀 생성
+        const anthropicClient1 = new Anthropic({ apiKey: anthropicApiKey });
+        const anthropicProvider1 = new AnthropicProvider({
+            client: anthropicClient1,
+            model: 'claude-3-5-sonnet-20241022',
+            enablePayloadLogging: true,
+            payloadLogDir: './logs/team-collaboration-ko/example1',
+            includeTimestampInLogFiles: true
+        });
+
+        // 예제 1용 팀 생성 (간소화된 API 사용)
         console.log(chalk.green('✅ 예제 1용 팀을 생성하고 있습니다...'));
 
         const team1 = createTeam({
-            baseRobotaOptions: {
-                aiProviders: { openai: openaiProvider1 },
-                currentProvider: 'openai',
-                currentModel: 'gpt-4o-mini',
-                temperature: 0.7,
-                maxTokens: 16000,
-                maxTokenLimit: 50000,
-                systemPrompt: '당신은 협업 작업을 관리하는 팀 코디네이터입니다.',
-                logger: console
-            },
+            aiProviders: { openai: openaiProvider1, anthropic: anthropicProvider1 },
             maxMembers: 5,
+            maxTokenLimit: 50000,
+            logger: console,
             debug: false
         });
 
@@ -117,21 +131,24 @@ async function runKoreanTeamExample() {
             includeTimestampInLogFiles: true
         });
 
-        // 예제 2용 팀 생성 (완전히 새로운 팀)
+        const anthropicClient2 = new Anthropic({ apiKey: anthropicApiKey });
+        const anthropicProvider2 = new AnthropicProvider({
+            client: anthropicClient2,
+            model: 'claude-3-5-sonnet-20241022',
+            enablePayloadLogging: true,
+            payloadLogDir: './logs/team-collaboration-ko/example2',
+            includeTimestampInLogFiles: true
+        });
+
+
+        // 예제 2용 팀 생성 (간소화된 API 사용, 완전히 새로운 팀)
         console.log(chalk.green('✅ 예제 2용 새로운 팀을 생성하고 있습니다...'));
 
         const team2 = createTeam({
-            baseRobotaOptions: {
-                aiProviders: { openai: openaiProvider2 },
-                currentProvider: 'openai',
-                currentModel: 'gpt-4o-mini',
-                temperature: 0.7,
-                maxTokens: 16000,
-                maxTokenLimit: 50000,
-                systemPrompt: '당신은 협업 작업을 관리하는 팀 코디네이터입니다.',
-                logger: console
-            },
+            aiProviders: { openai: openaiProvider2, anthropic: anthropicProvider2 },
             maxMembers: 5,
+            maxTokenLimit: 50000,
+            logger: console,
             debug: false
         });
 

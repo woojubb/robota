@@ -40,7 +40,7 @@ Message creation timestamp
 
 #### Defined in
 
-[conversation-history.ts:17](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L17)
+[packages/core/src/conversation-history.ts:17](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L17)
 
 ___
 
@@ -56,7 +56,7 @@ Additional metadata
 
 #### Defined in
 
-[conversation-history.ts:20](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L20)
+[packages/core/src/conversation-history.ts:20](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L20)
 
 ___
 
@@ -68,7 +68,7 @@ Message role - always 'user'
 
 #### Defined in
 
-[conversation-history.ts:30](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L30)
+[packages/core/src/conversation-history.ts:30](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L30)
 
 ___
 
@@ -80,7 +80,7 @@ User message content
 
 #### Defined in
 
-[conversation-history.ts:33](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L33)
+[packages/core/src/conversation-history.ts:33](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L33)
 
 ___
 
@@ -92,4 +92,4 @@ Optional user identifier
 
 #### Defined in
 
-[conversation-history.ts:36](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L36)
+[packages/core/src/conversation-history.ts:36](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L36)

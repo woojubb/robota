@@ -35,7 +35,7 @@ Whether tool execution was successful
 
 #### Defined in
 
-[packages/tools/src/index.ts:39](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/index.ts#L39)
+[packages/tools/src/index.ts:38](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/index.ts#L38)
 
 ___
 
@@ -47,7 +47,7 @@ Tool execution result data
 
 #### Defined in
 
-[packages/tools/src/index.ts:44](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/index.ts#L44)
+[packages/tools/src/index.ts:43](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/index.ts#L43)
 
 ___
 
@@ -59,7 +59,7 @@ Error that occurred during tool execution
 
 #### Defined in
 
-[packages/tools/src/index.ts:49](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/index.ts#L49)
+[packages/tools/src/index.ts:48](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/index.ts#L48)
 
 ___
 
@@ -71,4 +71,4 @@ Additional metadata
 
 #### Defined in
 
-[packages/tools/src/index.ts:54](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/index.ts#L54)
+[packages/tools/src/index.ts:53](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/index.ts#L53)

@@ -32,7 +32,7 @@ Generated text content (may be null for tool-only responses)
 
 #### Defined in
 
-[interfaces/ai-provider.ts:39](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/interfaces/ai-provider.ts#L39)
+[packages/core/src/interfaces/ai-provider.ts:39](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/interfaces/ai-provider.ts#L39)
 
 ___
 
@@ -52,7 +52,7 @@ Token usage statistics from the AI provider
 
 #### Defined in
 
-[interfaces/ai-provider.ts:42](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/interfaces/ai-provider.ts#L42)
+[packages/core/src/interfaces/ai-provider.ts:42](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/interfaces/ai-provider.ts#L42)
 
 ___
 
@@ -78,7 +78,7 @@ Additional provider-specific data
 
 #### Defined in
 
-[interfaces/ai-provider.ts:52](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/interfaces/ai-provider.ts#L52)
+[packages/core/src/interfaces/ai-provider.ts:52](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/interfaces/ai-provider.ts#L52)
 
 ___
 
@@ -90,4 +90,4 @@ Tool calls made by the assistant (OpenAI tool calling format)
 
 #### Defined in
 
-[interfaces/ai-provider.ts:64](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/interfaces/ai-provider.ts#L64)
+[packages/core/src/interfaces/ai-provider.ts:64](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/interfaces/ai-provider.ts#L64)

@@ -12,6 +12,8 @@ import { createTeam, generateWorkflowFlowchart, generateAgentRelationshipDiagram
 import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
+import Anthropic from '@anthropic-ai/sdk';
+import { AnthropicProvider } from '@robota-sdk/anthropic/dist';
 
 // Load environment variables
 dotenv.config();
@@ -38,15 +40,33 @@ User Command → Team Agent → (delegateWork if needed) → Team Members → Fi
 
 📋 This demo shows:
 • Simple tasks handled directly by the team agent
-• Complex tasks delegated to specialized team members
+• Complex tasks delegated to specialized team members  
 • Workflow history and agent relationship visualization
+
+🚀 Simplified API:
+This example uses the new simplified createTeam API where the task_coordinator
+template automatically handles team coordination with optimized settings.
         `));
+
+        const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+        if (!anthropicApiKey) {
+            throw new Error('ANTHROPIC_API_KEY environment variable is required');
+        }
 
         // Validate API key
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
             throw new Error('OPENAI_API_KEY environment variable is required');
         }
+
+        const anthropicClient1 = new Anthropic({ apiKey: anthropicApiKey });
+        const anthropicProvider1 = new AnthropicProvider({
+            client: anthropicClient1,
+            model: 'claude-3-5-sonnet-20241022',
+            enablePayloadLogging: true,
+            payloadLogDir: './logs/team-collaboration/example1',
+            includeTimestampInLogFiles: true
+        });
 
         // Example 1: Simple task (handled directly)
         logSection('Example 1: Simple Task (Direct Handling)');
@@ -61,21 +81,14 @@ User Command → Team Agent → (delegateWork if needed) → Team Members → Fi
             includeTimestampInLogFiles: true
         });
 
-        // Create team for example 1
+        // Create team for example 1 using simplified API
         console.log(chalk.green('✅ Creating team for example 1...'));
 
         const team1 = createTeam({
-            baseRobotaOptions: {
-                aiProviders: { openai: openaiProvider1 },
-                currentProvider: 'openai',
-                currentModel: 'gpt-4o-mini',
-                temperature: 0.7,
-                maxTokens: 16000,
-                maxTokenLimit: 50000,  // Increase total conversation token limit
-                systemPrompt: 'You are a team coordinator that manages collaborative work.',
-                logger: console
-            },
+            aiProviders: { openai: openaiProvider1, anthropic: anthropicProvider1 },
             maxMembers: 5,
+            maxTokenLimit: 50000,
+            logger: console,
             debug: false
         });
 
@@ -117,21 +130,23 @@ User Command → Team Agent → (delegateWork if needed) → Team Members → Fi
             includeTimestampInLogFiles: true
         });
 
-        // Create team for example 2 (completely new team)
+        const anthropicClient2 = new Anthropic({ apiKey: anthropicApiKey });
+        const anthropicProvider2 = new AnthropicProvider({
+            client: anthropicClient2,
+            model: 'claude-3-5-sonnet-20241022',
+            enablePayloadLogging: true,
+            payloadLogDir: './logs/team-collaboration/example2',
+            includeTimestampInLogFiles: true
+        });
+
+        // Create team for example 2 using simplified API (completely new team)
         console.log(chalk.green('✅ Creating new team for example 2...'));
 
         const team2 = createTeam({
-            baseRobotaOptions: {
-                aiProviders: { openai: openaiProvider2 },
-                currentProvider: 'openai',
-                currentModel: 'gpt-4o-mini',
-                temperature: 0.7,
-                maxTokens: 16000,
-                maxTokenLimit: 50000,  // Increase total conversation token limit
-                systemPrompt: 'You are a team coordinator that manages collaborative work.',
-                logger: console
-            },
+            aiProviders: { openai: openaiProvider2, anthropic: anthropicProvider2 },
             maxMembers: 5,
+            maxTokenLimit: 50000,
+            logger: console,
             debug: false
         });
 

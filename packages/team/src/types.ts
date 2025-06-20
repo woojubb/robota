@@ -1,46 +1,78 @@
-import type { RobotaOptions } from '@robota-sdk/core';
+import type { RobotaOptions, AgentTemplateManager, AIProvider } from '@robota-sdk/core';
 
 /**
- * Configuration options for creating a TeamContainer
+ * Team creation options for template-based teams
  * 
  * @description
- * Defines the configuration for initializing a team collaboration system.
- * All team members will inherit the base Robota configuration, with the ability
- * to override specific settings for specialized tasks.
+ * Configuration interface for creating teams when using agent templates.
+ * Since templates define their own AI providers, models, and settings,
+ * you only need to provide the basic AI providers and optional configuration.
  * 
  * @example
  * ```typescript
- * const teamOptions: TeamContainerOptions = {
- *   baseRobotaOptions: {
- *     aiProviders: { openai: openaiProvider },
- *     currentProvider: 'openai',
- *     currentModel: 'gpt-4',
- *     maxTokenLimit: 50000,
- *     temperature: 0.7
+ * const team = createTeam({
+ *   aiProviders: {
+ *     openai: openaiProvider,
+ *     anthropic: anthropicProvider
  *   },
- *   maxMembers: 5,
  *   debug: true
- * };
+ * });
  * ```
  */
-export interface TeamContainerOptions {
+export interface TeamOptions {
     /** 
-     * Base configuration for all agents including AI providers, models, and limits.
-     * This configuration is inherited by all team members and temporary agents.
+     * AI providers available for templates to use.
+     * Each template specifies which provider it prefers.
      */
-    baseRobotaOptions: RobotaOptions;
+    aiProviders: Record<string, AIProvider>;
 
     /** 
      * Maximum number of team members that can be created concurrently.
-     * Helps control resource usage and API costs. Default: unlimited.
+     * Default: 5
      */
     maxMembers?: number;
 
     /** 
-     * Enable debug mode for detailed logging of team operations including
-     * task delegation, agent creation, and performance metrics.
+     * Enable debug mode for detailed logging of team operations.
+     * Default: false
      */
     debug?: boolean;
+
+    /** 
+     * Maximum token limit for the entire conversation history.
+     * Default: 50000
+     */
+    maxTokenLimit?: number;
+
+    /** 
+     * Logger for team operations. If not provided, no logging will be done.
+     */
+    logger?: any;
+
+    /** 
+     * Agent template manager for managing built-in and custom agent templates.
+     * If not provided, a default template manager with built-in templates will be created.
+     */
+    templateManager?: AgentTemplateManager;
+
+    /** 
+     * Name of the agent template to use for the team coordinator/leader role.
+     * This template should be specialized for task analysis, work distribution, and coordination.
+     * Default: "task_coordinator"
+     */
+    leaderTemplate?: string;
+}
+
+/**
+ * Internal configuration options for TeamContainer (used internally)
+ * @internal
+ */
+export interface TeamContainerOptions {
+    baseRobotaOptions: RobotaOptions;
+    maxMembers?: number;
+    debug?: boolean;
+    templateManager?: AgentTemplateManager;
+    leaderTemplate?: string;
 }
 
 /**
@@ -106,6 +138,15 @@ export interface DelegateWorkParams {
      * Higher priority tasks may receive more resources or faster processing.
      */
     priority?: 'low' | 'medium' | 'high' | 'urgent';
+
+    /** 
+     * Name of the agent template to use for this task.
+     * Templates provide predefined configurations optimized for specific types of work.
+     * Available templates: 'summarizer', 'ethical_reviewer', 'creative_ideator', 
+     * 'fast_executor', 'domain_researcher', and any custom templates.
+     * If not specified, a dynamic agent will be created based on the job description.
+     */
+    agentTemplate?: string;
 }
 
 /**
@@ -200,6 +241,12 @@ export interface AgentNode {
     createdAt: Date;
     /** List of child agents created by this agent */
     childAgentIds: string[];
+    /** AI provider used by this agent */
+    aiProvider?: string;
+    /** AI model used by this agent */
+    aiModel?: string;
+    /** Agent template used (if any) */
+    agentTemplate?: string;
 }
 
 /**
@@ -287,4 +334,19 @@ export interface TeamStats {
      * Helps identify issues with task complexity or system limits.
      */
     tasksFailed: number;
+
+    /** 
+     * Breakdown of agent template usage.
+     * Maps template names to usage counts for tracking template effectiveness.
+     */
+    templateUsage: Record<string, number>;
+
+    /** 
+     * Number of agents created using templates vs dynamic generation.
+     * Useful for understanding template adoption and effectiveness.
+     */
+    templateVsDynamicAgents: {
+        template: number;
+        dynamic: number;
+    };
 } 

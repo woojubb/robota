@@ -1,18 +1,24 @@
 import { TeamContainer } from './team-container';
-import type { TeamContainerOptions } from './types';
+import type { TeamContainerOptions, TeamOptions } from './types';
 
 /**
- * Create a Multi-Agent Team with Intelligent Collaboration Capabilities
+ * Create a Multi-Agent Team with Template-Based Configuration
  * 
  * @description
- * Creates a TeamContainer instance that provides intelligent multi-agent collaboration.
+ * Creates a TeamContainer instance using a simplified configuration interface.
+ * Since agent templates define their own AI providers, models, and settings,
+ * you only need to provide the AI providers and basic configuration.
  * The team automatically delegates complex tasks to specialized temporary agents,
  * enabling sophisticated problem-solving through coordinated teamwork.
  * 
- * @param options - Configuration options for the team
- * @param options.baseRobotaOptions - Base configuration for all agents in the team
+ * @param options - Simplified configuration options for the team
+ * @param options.aiProviders - AI providers available for templates to use
  * @param options.maxMembers - Maximum number of concurrent team members (optional)
  * @param options.debug - Enable debug logging (optional)
+ * @param options.maxTokenLimit - Maximum token limit for conversations (optional)
+ * @param options.logger - Logger for team operations (optional)
+ * @param options.templateManager - Custom template manager (optional)
+ * @param options.leaderTemplate - Template for team coordinator (optional)
  * 
  * @returns A new TeamContainer instance ready for multi-agent collaboration
  * 
@@ -20,17 +26,17 @@ import type { TeamContainerOptions } from './types';
  * ```typescript
  * import { createTeam } from '@robota-sdk/team';
  * import { OpenAIProvider } from '@robota-sdk/openai';
+ * import { AnthropicProvider } from '@robota-sdk/anthropic';
  * 
  * const team = createTeam({
- *   provider: new OpenAIProvider({
- *     apiKey: process.env.OPENAI_API_KEY,
- *     model: 'gpt-4'
- *   }),
- *   maxTokenLimit: 50000,
- *   logger: console
+ *   aiProviders: {
+ *     openai: openaiProvider,
+ *     anthropic: anthropicProvider
+ *   },
+ *   debug: true
  * });
  * 
- * // Team automatically delegates complex multi-part requests
+ * // Templates automatically use their preferred providers and settings
  * const response = await team.execute(`
  *   Create a comprehensive business plan with:
  *   1) Market analysis
@@ -42,19 +48,16 @@ import type { TeamContainerOptions } from './types';
  * @example Advanced Team Configuration
  * ```typescript
  * const team = createTeam({
- *   baseRobotaOptions: {
- *     aiProviders: { 
- *       openai: openaiProvider,
- *       anthropic: anthropicProvider 
- *     },
- *     currentProvider: 'openai',
- *     currentModel: 'gpt-4',
- *     temperature: 0.7,
- *     maxTokens: 16000,
- *     maxTokenLimit: 100000
+ *   aiProviders: {
+ *     openai: openaiProvider,
+ *     anthropic: anthropicProvider,
+ *     google: googleProvider
  *   },
  *   maxMembers: 10,
- *   debug: true
+ *   maxTokenLimit: 100000,
+ *   debug: true,
+ *   logger: console,
+ *   leaderTemplate: 'custom_coordinator'
  * });
  * 
  * // Team intelligently breaks down complex requests
@@ -68,8 +71,51 @@ import type { TeamContainerOptions } from './types';
  * ```
  * 
  * @see {@link TeamContainer} - The underlying team container class
- * @see {@link TeamContainerOptions} - Available configuration options
+ * @see {@link TeamOptions} - Available configuration options
  */
-export function createTeam(options: TeamContainerOptions): TeamContainer {
-    return new TeamContainer(options);
+export function createTeam(options: TeamOptions): TeamContainer;
+
+// Implementation
+export function createTeam(options: TeamOptions): TeamContainer {
+    // Get first available provider as default
+    const providers = Object.keys(options.aiProviders);
+    if (providers.length === 0) {
+        throw new Error('At least one AI provider must be provided in aiProviders');
+    }
+
+    const defaultProvider = providers[0];
+    const defaultModel = getDefaultModelForProvider(defaultProvider);
+
+    // Convert to full TeamContainerOptions
+    const fullOptions: TeamContainerOptions = {
+        baseRobotaOptions: {
+            aiProviders: options.aiProviders,
+            currentProvider: defaultProvider,
+            currentModel: defaultModel,
+            maxTokenLimit: options.maxTokenLimit || 50000,
+            logger: options.logger
+        },
+        maxMembers: options.maxMembers || 5,
+        debug: options.debug || false,
+        templateManager: options.templateManager,
+        leaderTemplate: options.leaderTemplate
+    };
+
+    return new TeamContainer(fullOptions);
+}
+
+/**
+ * Get default model for a provider
+ */
+function getDefaultModelForProvider(provider: string): string {
+    switch (provider.toLowerCase()) {
+        case 'openai':
+            return 'gpt-4o-mini';
+        case 'anthropic':
+            return 'claude-3-5-sonnet-20241022';
+        case 'google':
+            return 'gemini-pro';
+        default:
+            return 'unknown';
+    }
 } 

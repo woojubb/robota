@@ -40,7 +40,7 @@ Used when passing tool list to AI models.
 
 #### Defined in
 
-[packages/tools/src/tool-provider.ts:24](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/tool-provider.ts#L24)
+[packages/tools/src/tool-provider.ts:24](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/tool-provider.ts#L24)
 
 ## Methods
 
@@ -65,7 +65,7 @@ Tool call result
 
 #### Defined in
 
-[packages/tools/src/tool-provider.ts:18](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/tool-provider.ts#L18)
+[packages/tools/src/tool-provider.ts:18](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/tool-provider.ts#L18)
 
 ___
 
@@ -83,7 +83,7 @@ Array of available tool names
 
 #### Defined in
 
-[packages/tools/src/tool-provider.ts:31](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/tool-provider.ts#L31)
+[packages/tools/src/tool-provider.ts:31](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/tool-provider.ts#L31)
 
 ___
 
@@ -107,4 +107,4 @@ True if tool exists, false otherwise
 
 #### Defined in
 
-[packages/tools/src/tool-provider.ts:39](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/tools/src/tool-provider.ts#L39)
+[packages/tools/src/tool-provider.ts:39](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/tools/src/tool-provider.ts#L39)

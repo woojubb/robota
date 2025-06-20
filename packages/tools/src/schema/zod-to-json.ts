@@ -50,22 +50,75 @@ export function zodToJsonSchema(schema: z.ZodObject<any>): any {
  * @returns JSON schema type representation
  */
 export function convertZodTypeToJsonSchema(zodType: z.ZodTypeAny, fieldName: string): any {
-    // Basic JSON schema object
-    const jsonSchema: any = {};
+    // Handle wrapper types first (Optional, Nullable, Default)
+    const { innerType, wrapperMetadata } = unwrapZodType(zodType);
 
-    // Extract description
-    const description = getZodDescription(zodType);
-    if (description) {
-        jsonSchema.description = description;
+    // Convert the core type
+    const jsonSchema = convertCoreZodType(innerType, fieldName);
+
+    // Apply wrapper metadata (description, default, nullable)
+    return applyWrapperMetadata(jsonSchema, wrapperMetadata);
+}
+
+/**
+ * Unwrap zod wrapper types and collect metadata
+ */
+function unwrapZodType(zodType: z.ZodTypeAny): {
+    innerType: z.ZodTypeAny;
+    wrapperMetadata: {
+        description?: string;
+        defaultValue?: any;
+        nullable?: boolean;
+        optional?: boolean;
+    };
+} {
+    let currentType = zodType;
+    const metadata: any = {
+        optional: false,
+        nullable: false
+    };
+
+    // Unwrap all wrapper types and collect metadata
+    while (true) {
+        // Check for description first (before unwrapping)
+        if (currentType._def.description && !metadata.description) {
+            metadata.description = currentType._def.description;
+        }
+
+        if (currentType instanceof z.ZodOptional) {
+            metadata.optional = true;
+            currentType = currentType._def.innerType;
+        } else if (currentType instanceof z.ZodNullable) {
+            metadata.nullable = true;
+            currentType = currentType._def.innerType;
+        } else if (currentType instanceof z.ZodDefault) {
+            metadata.optional = true;
+            metadata.defaultValue = currentType._def.defaultValue();
+            currentType = currentType._def.innerType;
+        } else {
+            break;
+        }
     }
 
-    // Convert by type
+    return {
+        innerType: currentType,
+        wrapperMetadata: metadata
+    };
+}
+
+/**
+ * Convert core zod types (without wrappers)
+ */
+function convertCoreZodType(zodType: z.ZodTypeAny, fieldName: string): any {
+    const jsonSchema: any = {};
+
     if (zodType instanceof z.ZodString) {
         return convertZodString(zodType, jsonSchema);
     } else if (zodType instanceof z.ZodNumber) {
         return convertZodNumber(zodType, jsonSchema);
     } else if (zodType instanceof z.ZodBoolean) {
         jsonSchema.type = 'boolean';
+        return jsonSchema;
     } else if (zodType instanceof z.ZodArray) {
         return convertZodArray(zodType, jsonSchema, fieldName);
     } else if (zodType instanceof z.ZodEnum) {
@@ -74,16 +127,35 @@ export function convertZodTypeToJsonSchema(zodType: z.ZodTypeAny, fieldName: str
         return convertZodObject(zodType, jsonSchema);
     } else if (zodType instanceof z.ZodUnion) {
         return convertZodUnion(zodType, jsonSchema, fieldName);
-    } else if (zodType instanceof z.ZodOptional) {
-        return convertZodTypeToJsonSchema(zodType._def.innerType, fieldName);
-    } else if (zodType instanceof z.ZodNullable) {
-        return convertZodNullable(zodType, jsonSchema, fieldName);
-    } else if (zodType instanceof z.ZodDefault) {
-        return convertZodDefault(zodType, jsonSchema, fieldName);
     } else {
-        // Other types are handled as strings
+        // Fallback for unsupported types
         jsonSchema.type = 'string';
         console.warn(`Unsupported zod type for field ${fieldName}, using string as fallback`);
+        return jsonSchema;
+    }
+}
+
+/**
+ * Apply wrapper metadata to JSON schema
+ */
+function applyWrapperMetadata(jsonSchema: any, metadata: any): any {
+    // Apply description (highest priority from outermost wrapper)
+    if (metadata.description) {
+        jsonSchema.description = metadata.description;
+    }
+
+    // Apply default value
+    if (metadata.defaultValue !== undefined) {
+        jsonSchema.default = metadata.defaultValue;
+    }
+
+    // Apply nullable (modify type to allow null)
+    if (metadata.nullable) {
+        if (Array.isArray(jsonSchema.type)) {
+            jsonSchema.type = [...jsonSchema.type, 'null'];
+        } else {
+            jsonSchema.type = [jsonSchema.type, 'null'];
+        }
     }
 
     return jsonSchema;
@@ -195,44 +267,9 @@ function convertZodUnion(zodType: z.ZodUnion<any>, jsonSchema: any, fieldName: s
     return jsonSchema;
 }
 
-/**
- * Convert ZodNullable to JSON schema
- */
-function convertZodNullable(zodType: z.ZodNullable<any>, jsonSchema: any, fieldName: string): any {
-    const innerSchema = convertZodTypeToJsonSchema(zodType._def.innerType, fieldName);
-    jsonSchema.type = [innerSchema.type, 'null'];
-    Object.assign(jsonSchema, innerSchema);
-    return jsonSchema;
-}
 
-/**
- * Convert ZodDefault to JSON schema
- */
-function convertZodDefault(zodType: z.ZodDefault<any>, jsonSchema: any, fieldName: string): any {
-    const innerSchema = convertZodTypeToJsonSchema(zodType._def.innerType, fieldName);
-    Object.assign(jsonSchema, innerSchema);
-    jsonSchema.default = zodType._def.defaultValue();
-    return jsonSchema;
-}
 
-/**
- * Extract description from zod type
- * 
- * @param zodType - Zod type to extract description from
- * @returns Description string if available
- */
-export function getZodDescription(zodType: z.ZodTypeAny): string | undefined {
-    // Extract description from zod type metadata
-    const description = zodType._def.description;
-    if (description) return description;
 
-    // Recursively extract description if there's an inner type
-    if (zodType instanceof z.ZodOptional || zodType instanceof z.ZodNullable) {
-        return getZodDescription(zodType._def.innerType);
-    }
-
-    return undefined;
-}
 
 /**
  * Check if zod type is optional

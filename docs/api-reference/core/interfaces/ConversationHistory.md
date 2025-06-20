@@ -50,7 +50,7 @@ Add a message to conversation history
 
 #### Defined in
 
-[conversation-history.ts:268](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L268)
+[packages/core/src/conversation-history.ts:268](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L268)
 
 ___
 
@@ -73,7 +73,7 @@ Add user message (convenience method)
 
 #### Defined in
 
-[conversation-history.ts:276](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L276)
+[packages/core/src/conversation-history.ts:276](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L276)
 
 ___
 
@@ -97,7 +97,7 @@ Add assistant message (convenience method)
 
 #### Defined in
 
-[conversation-history.ts:285](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L285)
+[packages/core/src/conversation-history.ts:285](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L285)
 
 ___
 
@@ -120,7 +120,7 @@ Add system message (convenience method)
 
 #### Defined in
 
-[conversation-history.ts:304](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L304)
+[packages/core/src/conversation-history.ts:304](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L304)
 
 ___
 
@@ -145,7 +145,7 @@ Add tool execution result message with tool call ID (for tool calling format)
 
 #### Defined in
 
-[conversation-history.ts:314](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L314)
+[packages/core/src/conversation-history.ts:314](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L314)
 
 ___
 
@@ -163,7 +163,7 @@ Array of all messages
 
 #### Defined in
 
-[conversation-history.ts:321](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L321)
+[packages/core/src/conversation-history.ts:321](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L321)
 
 ___
 
@@ -187,7 +187,7 @@ Array of messages with the specified role
 
 #### Defined in
 
-[conversation-history.ts:329](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L329)
+[packages/core/src/conversation-history.ts:329](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L329)
 
 ___
 
@@ -211,7 +211,7 @@ Array of recent messages
 
 #### Defined in
 
-[conversation-history.ts:337](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L337)
+[packages/core/src/conversation-history.ts:337](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L337)
 
 ___
 
@@ -227,7 +227,7 @@ Clear all conversation history
 
 #### Defined in
 
-[conversation-history.ts:342](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L342)
+[packages/core/src/conversation-history.ts:342](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L342)
 
 ___
 
@@ -245,4 +245,4 @@ Number of messages in history
 
 #### Defined in
 
-[conversation-history.ts:349](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L349)
+[packages/core/src/conversation-history.ts:349](https://github.com/woojubb/robota/blob/311ad65650a7614cc67978c0c1650e33abba7a82/packages/core/src/conversation-history.ts#L349)
