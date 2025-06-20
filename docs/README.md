@@ -7,18 +7,22 @@ lang: en-US
 
 # Robota SDK
 
-A powerful TypeScript library for building AI agents with multi-provider support, function calling, and tool integration.
+A powerful TypeScript library for building AI agents with multi-provider support, function calling, tool integration, and multi-agent team collaboration.
 
 ## Features
 
 - **Multi-Provider Support**: OpenAI, Anthropic, Google AI with seamless switching
+- **Multi-Agent Teams**: Create collaborative AI teams with specialized roles
+- **Built-in Agent Templates**: 6 pre-configured templates for common use cases
 - **Type-Safe Function Calling**: Zod schemas and tool integration
 - **Streaming Support**: Real-time responses from all providers
 - **Conversation Management**: Built-in history and context management
+- **Team Workflow Analysis**: Generate flowcharts and relationship diagrams
 - **Modular Architecture**: Clean separation of concerns
 
 ## Quick Start
 
+### Single Agent
 ```typescript
 import { Robota, OpenAIProvider } from '@robota-sdk/core';
 import OpenAI from 'openai';
@@ -37,6 +41,24 @@ const response = await robota.run('Hello! How can I help you today?');
 console.log(response);
 ```
 
+### Multi-Agent Team
+```typescript
+import { createTeam } from '@robota-sdk/team';
+import { OpenAIProvider, AnthropicProvider } from '@robota-sdk/core';
+
+const team = await createTeam({
+    aiProviders: {
+        openai: openaiProvider,
+        anthropic: anthropicProvider
+    }
+});
+
+const result = await team.execute(
+    "Develop a marketing strategy for a new AI-powered fitness app"
+);
+console.log(result);
+```
+
 ## Installation
 
 ```bash
@@ -50,7 +72,24 @@ npm install @robota-sdk/google @google/generative-ai
 
 # Tools for function calling
 npm install @robota-sdk/tools zod
+
+# Team collaboration
+npm install @robota-sdk/team
+
+# Session management
+npm install @robota-sdk/sessions
 ```
+
+## Built-in Agent Templates
+
+Robota comes with 6 pre-configured agent templates:
+
+- **Task Coordinator** - Analyzes and delegates complex tasks
+- **Domain Researcher** - Deep research and analysis specialist
+- **Creative Ideator** - Brainstorming and creative solutions
+- **Ethical Reviewer** - Evaluates ethical implications
+- **Fast Executor** - Quick task execution and implementation
+- **Summarizer** - Content summarization and synthesis
 
 ## Documentation
 
@@ -59,6 +98,7 @@ npm install @robota-sdk/tools zod
 - **[Guide](guide/)** - Core concepts and advanced features
 - **[AI Providers](providers/)** - OpenAI, Anthropic, Google AI configuration
 - **[Examples](examples/)** - Comprehensive examples and tutorials
+- **[Team Collaboration](team.md)** - Multi-agent team setup and workflows
 - **[Protocols](protocols/)** - Model Context Protocol and integrations
 
 ### For Developers
@@ -73,6 +113,14 @@ npm install @robota-sdk/tools zod
 | **OpenAI** | GPT-4, GPT-3.5 | Function calling, streaming, vision |
 | **Anthropic** | Claude 3.5 Sonnet, Claude 3 | Large context, advanced reasoning |
 | **Google** | Gemini 1.5 Pro, Gemini Flash | Multimodal, long context |
+
+## Team Collaboration Features
+
+- **Automatic Agent Selection** - Natural language task assignment
+- **Template-based Configuration** - Pre-optimized settings for each role
+- **Workflow Visualization** - Generate Mermaid diagrams of team processes
+- **Performance Analytics** - Track team efficiency and token usage
+- **Cross-Provider Teams** - Mix different AI providers in one team
 
 ## License
 
