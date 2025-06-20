@@ -18,27 +18,129 @@ Team collaboration works by having a **Team Coordinator** that:
 ```typescript
 import { createTeam } from '@robota-sdk/team';
 import { OpenAIProvider } from '@robota-sdk/openai';
+import OpenAI from 'openai';
+
+// Create OpenAI client and provider
+const openaiClient = new OpenAI({ 
+  apiKey: process.env.OPENAI_API_KEY 
+});
+
+const openaiProvider = new OpenAIProvider({
+  client: openaiClient,
+  model: 'gpt-4o-mini',
+  enablePayloadLogging: true,
+  payloadLogDir: './logs/team-collaboration',
+  includeTimestampInLogFiles: true
+});
 
 const team = createTeam({
-  provider: new OpenAIProvider({
-    apiKey: process.env.OPENAI_API_KEY,
-    model: 'gpt-4'
-  }),
-  maxTokenLimit: 50000,
-  logger: console
+  baseRobotaOptions: {
+    aiProviders: { openai: openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4o-mini',
+    temperature: 0.7,
+    maxTokens: 16000,
+    maxTokenLimit: 50000,
+    systemPrompt: 'You are a team coordinator that manages collaborative work.',
+    logger: console
+  },
+  maxMembers: 5,
+  debug: false
 });
 
 // Simple request - handled directly by coordinator
 const response = await team.execute(
-  'What are the main differences between React and Vue.js?'
+  'What are the main differences between React and Vue.js? Please provide 3 key points briefly.'
 );
 
 // Complex request - automatically delegates to specialists
-const businessPlan = await team.execute(`
-  Create a comprehensive coffee shop business plan including:
-  1) Market analysis with competitor research
-  2) Menu design with pricing strategy
-  3) Financial projections for first year
+const businessPlan = await team.execute(
+  'Create a cafe business plan. It must include both: 1) Market analysis, 2) Menu composition. Please write each section separately.'
+);
+```
+
+### Structured Two-Example Approach
+
+For comprehensive testing, you can create separate teams for different types of tasks:
+
+```typescript
+// Example 1: Simple Task (Direct Handling)
+const openaiClient1 = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openaiProvider1 = new OpenAIProvider({
+  client: openaiClient1,
+  model: 'gpt-4o-mini',
+  enablePayloadLogging: true,
+  payloadLogDir: './logs/team-collaboration/example1',
+  includeTimestampInLogFiles: true
+});
+
+const team1 = createTeam({
+  baseRobotaOptions: {
+    aiProviders: { openai: openaiProvider1 },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4o-mini',
+    temperature: 0.7,
+    maxTokens: 16000,
+    maxTokenLimit: 50000,
+    systemPrompt: 'You are a team coordinator that manages collaborative work.',
+    logger: console
+  },
+  maxMembers: 5,
+  debug: false
+});
+
+const simpleResult = await team1.execute(
+  'What are the main differences between React and Vue.js? Please provide 3 key points briefly.'
+);
+
+// Example 2: Complex Task (Team Coordination)
+const openaiClient2 = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openaiProvider2 = new OpenAIProvider({
+  client: openaiClient2,
+  model: 'gpt-4o-mini',
+  enablePayloadLogging: true,
+  payloadLogDir: './logs/team-collaboration/example2',
+  includeTimestampInLogFiles: true
+});
+
+const team2 = createTeam({
+  baseRobotaOptions: {
+    aiProviders: { openai: openaiProvider2 },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4o-mini',
+    temperature: 0.7,
+    maxTokens: 16000,
+    maxTokenLimit: 50000,
+    systemPrompt: 'You are a team coordinator that manages collaborative work.',
+    logger: console
+  },
+  maxMembers: 5,
+  debug: false
+});
+
+const complexResult = await team2.execute(
+  'Create a cafe business plan. It must include both: 1) Market analysis, 2) Menu composition. Please write each section separately.'
+);
+
+// Combine statistics from both teams
+const stats1 = team1.getStats();
+const stats2 = team2.getStats();
+
+console.log(`
+Example 1 Results:
+• Tasks completed: ${stats1.tasksCompleted}
+• Total agents created: ${stats1.totalAgentsCreated}
+• Execution time: ${stats1.totalExecutionTime}ms
+
+Example 2 Results:
+• Tasks completed: ${stats2.tasksCompleted}
+• Total agents created: ${stats2.totalAgentsCreated}
+• Execution time: ${stats2.totalExecutionTime}ms
+
+Overall Summary:
+• Total tasks completed: ${stats1.tasksCompleted + stats2.tasksCompleted}
+• Total agents created: ${stats1.totalAgentsCreated + stats2.totalAgentsCreated}
+• Total execution time: ${stats1.totalExecutionTime + stats2.totalExecutionTime}ms
 `);
 ```
 
@@ -159,27 +261,40 @@ const marketingCampaign = await team.execute(`
 ### Team Statistics
 
 ```typescript
-// Execute several tasks
-await team.execute('Analyze market trends');
-await team.execute('Create financial projections');
-await team.execute('Design user interface');
+// Execute several tasks with different teams
+const team1Result = await team1.execute('Analyze market trends');
+const team2Result = await team2.execute('Create financial projections');
 
-// Check team performance
-const stats = team.getStats();
+// Check individual team performance
+const stats1 = team1.getStats();
+const stats2 = team2.getStats();
 
-console.log(`Team Performance Report:`);
-console.log(`- Total agents created: ${stats.totalAgentsCreated}`);
-console.log(`- Tasks completed: ${stats.tasksCompleted}`);
-console.log(`- Tasks failed: ${stats.tasksFailed}`);
-console.log(`- Total execution time: ${stats.totalExecutionTime}ms`);
-console.log(`- Total tokens used: ${stats.totalTokensUsed}`);
+console.log(`Team 1 Performance Report:`);
+console.log(`- Total agents created: ${stats1.totalAgentsCreated}`);
+console.log(`- Tasks completed: ${stats1.tasksCompleted}`);
+console.log(`- Tasks failed: ${stats1.tasksFailed}`);
+console.log(`- Total execution time: ${stats1.totalExecutionTime}ms`);
 
-// Calculate success rate
-const successRate = stats.tasksCompleted / (stats.tasksCompleted + stats.tasksFailed);
+console.log(`Team 2 Performance Report:`);
+console.log(`- Total agents created: ${stats2.totalAgentsCreated}`);
+console.log(`- Tasks completed: ${stats2.tasksCompleted}`);
+console.log(`- Tasks failed: ${stats2.tasksFailed}`);
+console.log(`- Total execution time: ${stats2.totalExecutionTime}ms`);
+
+// Combined statistics
+const totalTasks = stats1.tasksCompleted + stats2.tasksCompleted;
+const totalFailed = stats1.tasksFailed + stats2.tasksFailed;
+const successRate = totalTasks / (totalTasks + totalFailed);
+
+console.log(`Combined Performance:`);
+console.log(`- Total tasks completed: ${totalTasks}`);
+console.log(`- Total agents created: ${stats1.totalAgentsCreated + stats2.totalAgentsCreated}`);
+console.log(`- Combined execution time: ${stats1.totalExecutionTime + stats2.totalExecutionTime}ms`);
 console.log(`- Success rate: ${(successRate * 100).toFixed(1)}%`);
 
-// Reset statistics for new benchmark
-team.resetStats();
+// Reset statistics for new benchmark (if needed)
+// team1.resetStats();
+// team2.resetStats();
 ```
 
 ### Resource Management

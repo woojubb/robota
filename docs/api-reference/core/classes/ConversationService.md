@@ -44,7 +44,7 @@ Handles conversation processing with AI.
 
 #### Defined in
 
-[services/conversation-service.ts:19](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/services/conversation-service.ts#L19)
+[services/conversation-service.ts:19](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/services/conversation-service.ts#L19)
 
 ## Methods
 
@@ -69,7 +69,7 @@ Prepare context
 
 #### Defined in
 
-[services/conversation-service.ts:39](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/services/conversation-service.ts#L39)
+[services/conversation-service.ts:39](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/services/conversation-service.ts#L39)
 
 ___
 
@@ -97,7 +97,7 @@ Generate response
 
 #### Defined in
 
-[services/conversation-service.ts:76](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/services/conversation-service.ts#L76)
+[services/conversation-service.ts:76](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/services/conversation-service.ts#L76)
 
 ___
 
@@ -123,4 +123,4 @@ Generate streaming response
 
 #### Defined in
 
-[services/conversation-service.ts:312](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/services/conversation-service.ts#L312)
+[services/conversation-service.ts:312](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/services/conversation-service.ts#L312)

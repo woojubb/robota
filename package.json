@@ -14,7 +14,7 @@
   },
   "scripts": {
     "build": "pnpm run -r build && pnpm run docs:build",
-    "build:deps": "pnpm --filter @robota-sdk/tools build && pnpm --filter @robota-sdk/core build && pnpm --filter @robota-sdk/openai build && pnpm --filter @robota-sdk/anthropic build && pnpm --filter @robota-sdk/google build",
+    "build:deps": "pnpm --filter @robota-sdk/tools build && pnpm --filter @robota-sdk/core build && pnpm --filter @robota-sdk/openai build && pnpm --filter @robota-sdk/anthropic build && pnpm --filter @robota-sdk/google build && pnpm --filter @robota-sdk/sessions build && pnpm --filter @robota-sdk/team build",
     "test": "pnpm run -r test",
     "typecheck": "pnpm --filter @robota-sdk/tools typecheck && pnpm --filter @robota-sdk/core typecheck && pnpm --filter @robota-sdk/openai typecheck",
     "lint": "pnpm run -r lint",

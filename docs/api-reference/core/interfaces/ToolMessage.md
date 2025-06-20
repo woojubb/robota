@@ -41,7 +41,7 @@ Message creation timestamp
 
 #### Defined in
 
-[conversation-history.ts:17](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/conversation-history.ts#L17)
+[conversation-history.ts:17](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L17)
 
 ___
 
@@ -57,7 +57,7 @@ Additional metadata
 
 #### Defined in
 
-[conversation-history.ts:20](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/conversation-history.ts#L20)
+[conversation-history.ts:20](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L20)
 
 ___
 
@@ -69,7 +69,7 @@ Message role - always 'tool'
 
 #### Defined in
 
-[conversation-history.ts:85](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/conversation-history.ts#L85)
+[conversation-history.ts:85](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L85)
 
 ___
 
@@ -81,7 +81,7 @@ Tool execution result summary
 
 #### Defined in
 
-[conversation-history.ts:88](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/conversation-history.ts#L88)
+[conversation-history.ts:88](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L88)
 
 ___
 
@@ -93,7 +93,7 @@ Tool call ID for OpenAI tool calling format
 
 #### Defined in
 
-[conversation-history.ts:91](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/conversation-history.ts#L91)
+[conversation-history.ts:91](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L91)
 
 ___
 
@@ -105,4 +105,4 @@ Name of the tool that was executed
 
 #### Defined in
 
-[conversation-history.ts:94](https://github.com/woojubb/robota/blob/7a734e73a51e339148a398f7b885cf8701441118/packages/core/src/conversation-history.ts#L94)
+[conversation-history.ts:94](https://github.com/woojubb/robota/blob/7cc8c5dc7bc6a25399fd926ad971519431fc587f/packages/core/src/conversation-history.ts#L94)
