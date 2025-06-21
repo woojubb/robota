@@ -64,18 +64,16 @@ packages/agents/src/
 │   │   └── agent-template-schema.ts
 │   └── templates/
 │       └── builtin-templates.json
-├── plugins/            # 확장 기능들 (횡단 관심사, 전략 주입)
-│   ├── core-data-plugins/     # 핵심 데이터 관리 (필수이지만 전략 주입 가능)
-│   │   ├── conversation-history-plugin.ts  # 대화 저장 전략 주입
-│   │   ├── system-message-plugin.ts        # 시스템 메시지 관리 전략 주입
-│   │   └── agent-template-plugin.ts        # 템플릿 저장 전략 주입
-│   └── enhancement-plugins/   # 성능/분석 향상 (선택적 확장)
-│       ├── analytics-plugin.ts
-│       ├── limits-plugin.ts
-│       ├── caching-plugin.ts
-│       ├── logging-plugin.ts
-│       ├── performance-plugin.ts
-│       └── error-handling-plugin.ts
+├── plugins/            # 플러그인 시스템 (에이전트 생명주기 후킹)
+│   ├── conversation-history-plugin.ts      # 대화 내역을 DB/파일/메모리에 저장
+│   ├── agent-template-plugin.ts            # 에이전트 설정 템플릿을 저장/로드
+│   ├── usage-plugin.ts                     # 사용량 통계 수집 (호출 횟수, 토큰 사용량 등)
+│   ├── logging-plugin.ts                   # 에이전트 동작 로그 기록 (디버깅/감사용)
+│   ├── performance-plugin.ts               # 성능 메트릭 수집 (응답시간, 메모리 사용량)
+│   ├── error-handling-plugin.ts            # 에러 발생 시 로깅/복구/재시도 처리
+│   ├── limits-plugin.ts                    # 토큰/요청 한도 제한 (Rate Limiting)
+│   ├── event-emitter-plugin.ts             # Tool 이벤트 감지/전파 (실행 전후, 성공/실패)
+│   └── webhook-plugin.ts                   # 웹훅 알림 전송 (외부 시스템 알림)
 ├── utils/              # 핵심 유틸리티 함수들 (고정 기능)
 │   └── message-converter.ts
 └── index.ts            # 메인 export
@@ -161,18 +159,17 @@ packages/agents/src/
   - [ ] 플러그인 생명주기 호출 로직
   - [ ] 에러 전파 및 복구 로직
 
-### Phase 6: 플러그인 시스템 (6단계) - 횡단 관심사 & 전략 주입
-- [ ] Core Data Plugins 구현 (핵심 데이터 관리 - 필수이지만 전략 주입 가능)
-  - [ ] `ConversationHistoryPlugin` - 대화 저장 전략 (메모리/파일/DB)
-  - [ ] `SystemMessagePlugin` - 시스템 메시지 관리 전략 (고정/템플릿/동적)
-  - [ ] `AgentTemplatePlugin` - 에이전트 템플릿 저장 전략 (파일/DB/원격)
-- [ ] Enhancement Plugins 구현 (성능/분석 향상 - 선택적 확장)
-  - [ ] `AnalyticsPlugin` - 사용량 분석 전략 (로컬/원격 수집)
-  - [ ] `LimitsPlugin` - 토큰/요청 제한 전략 (고정/동적 한도)
-  - [ ] `CachingPlugin` - 캐싱 전략 (Memory/Redis/File)
-  - [ ] `LoggingPlugin` - 로깅 전략 (Console/File/Remote)
-  - [ ] `PerformancePlugin` - 성능 측정 전략 (메트릭 수집)
-  - [ ] `ErrorHandlingPlugin` - 에러 처리 전략 (재시도/서킷브레이커)
+### Phase 6: 플러그인 시스템 (6단계) - 에이전트 생명주기 후킹
+- [ ] 플러그인 구현 (plugins/)
+  - [ ] `ConversationHistoryPlugin` - 대화 내역 저장 (메모리/파일/DB)
+  - [ ] `AgentTemplatePlugin` - 에이전트 설정 템플릿 저장/로드 (파일/DB/원격)
+  - [ ] `UsagePlugin` - 사용량 통계 수집 (호출 횟수, 토큰 사용량, 비용 등)
+  - [ ] `LoggingPlugin` - 동작 로그 기록 (Console/File/Remote, 디버깅/감사용)
+  - [ ] `PerformancePlugin` - 성능 메트릭 수집 (응답시간, 메모리, CPU 사용량)
+  - [ ] `ErrorHandlingPlugin` - 에러 발생 시 로깅/복구/재시도 처리
+  - [ ] `LimitsPlugin` - 토큰/요청 한도 제한 (Rate Limiting, 비용 제어)
+  - [ ] `EventEmitterPlugin` - Tool 이벤트 감지/전파 (실행 전후, 성공/실패)
+  - [ ] `WebhookPlugin` - 웹훅 알림 전송 (외부 시스템 알림)
 
 ### Phase 7: 에이전트 구현체 (7단계) - 최종 조립
 - [ ] Robota 구현 (agents/)
@@ -248,20 +245,17 @@ const robota = new Robota({
   tools: [weatherTool, calculatorTool]
 });
 
-// 플러그인 시스템 사용법 - 횡단 관심사 및 전략 주입
+// 플러그인 시스템 사용법 - 에이전트 생명주기 후킹
 import { 
-  // 핵심 데이터 관리 플러그인 (필수이지만 전략 주입 가능)
-  ConversationHistoryPlugin, 
-  SystemMessagePlugin,
-  AgentTemplatePlugin,
-  
-  // 성능/분석 향상 플러그인 (선택적 확장)
-  AnalyticsPlugin, 
-  LimitsPlugin, 
-  CachingPlugin,
-  LoggingPlugin,
-  PerformancePlugin,
-  ErrorHandlingPlugin
+  ConversationHistoryPlugin,  // 대화 내역 저장
+  AgentTemplatePlugin,        // 에이전트 설정 템플릿 저장
+  UsagePlugin,                // 사용량 통계 수집
+  LoggingPlugin,              // 동작 로그 기록
+  PerformancePlugin,          // 성능 메트릭 수집
+  ErrorHandlingPlugin,        // 에러 처리
+  LimitsPlugin,               // 토큰/요청 한도 제한
+  EventEmitterPlugin,         // Tool 이벤트 감지/전파
+  WebhookPlugin               // 웹훅 알림 전송
 } from '@robota-sdk/agents';
 
 // 기본 + 필요한 플러그인만 주입
@@ -271,10 +265,7 @@ const basicRobota = new Robota({
   currentModel: 'gpt-4',
   tools: [weatherTool, calculatorTool],
   plugins: [
-    // 필수 데이터 관리 (전략 선택)
     new ConversationHistoryPlugin({ storage: 'memory', maxHistory: 100 }),
-    
-    // 선택적 향상 기능
     new LoggingPlugin({ strategy: 'console', level: 'info' })
   ]
 });
@@ -286,18 +277,21 @@ const advancedRobota = new Robota({
   currentModel: 'gpt-4', 
   tools: [weatherTool, calculatorTool],
   plugins: [
-    // 핵심 데이터 관리 전략 주입 (필수 기능이지만 구현 방식 선택 가능)
     new ConversationHistoryPlugin({ storage: 'database', connectionString: 'postgresql://...' }),
-    new SystemMessagePlugin({ strategy: 'template', templatePath: './prompts' }),
     new AgentTemplatePlugin({ storage: 'file', templateDir: './templates' }),
-    
-    // 성능/분석 향상 전략 주입 (선택적 확장 기능)
     new LoggingPlugin({ strategy: 'file', level: 'debug', filePath: './logs' }),
-    new CachingPlugin({ strategy: 'redis', host: 'localhost', ttl: 600 }),
-    new LimitsPlugin({ strategy: 'sliding-window', maxTokens: 50000 }),
     new PerformancePlugin({ strategy: 'prometheus', endpoint: '/metrics' }),
+    new UsagePlugin({ strategy: 'remote', endpoint: 'https://analytics.example.com' }),
     new ErrorHandlingPlugin({ strategy: 'circuit-breaker', retryAttempts: 3 }),
-    new AnalyticsPlugin({ strategy: 'remote', endpoint: 'https://analytics.example.com' })
+    new LimitsPlugin({ strategy: 'sliding-window', maxTokens: 50000 }),
+    new EventEmitterPlugin({ 
+      events: ['tool.beforeExecute', 'tool.afterExecute', 'tool.success', 'tool.error']
+    }),
+    new WebhookPlugin({
+      endpoints: ['https://webhook.example.com/agent-events'],
+      events: ['conversation.completed', 'error.occurred'],
+      headers: { 'Authorization': 'Bearer token123' }
+    })
   ]
 });
 
