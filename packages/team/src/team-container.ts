@@ -7,8 +7,8 @@ import { z } from 'zod';
 import type {
     TeamContainerOptions,
     AgentConfig,
-    DelegateWorkParams,
-    DelegateWorkResult,
+    AssignTaskParams,
+    AssignTaskResult,
     TeamStats,
     TeamExecutionStructure,
     AgentNode
@@ -120,7 +120,7 @@ export interface AgentTreeNode {
  * ```
  * 
  * @see {@link createTeam} - Convenience function for creating teams
- * @see {@link DelegateWorkParams} - Parameters for task delegation
+      * @see {@link AssignTaskParams} - Parameters for task assignment
  * @see {@link TeamStats} - Team performance statistics
  */
 export class TeamContainer {
@@ -184,11 +184,11 @@ export class TeamContainer {
 
         this.logger = options.baseRobotaOptions.logger;
 
-        // Create delegate work tool
-        const delegateWorkTool = this.createDelegateWorkTool();
+        // Create assign task tool
+        const assignTaskTool = this.createAssignTaskTool();
 
         // Create team coordinator with enhanced system prompt based on template
-        this.teamAgent = this.createTeamCoordinator(leaderTemplate, delegateWorkTool);
+        this.teamAgent = this.createTeamCoordinator(leaderTemplate, assignTaskTool);
 
         this.setupToolCallTracking();
     }
@@ -282,15 +282,15 @@ export class TeamContainer {
     }
 
     /**
-     * Delegate specialized work to a temporary expert agent
+     * Assign specialized tasks to a temporary expert agent
      * 
      * @description
      * This method creates a temporary specialized agent to handle a specific task.
      * The agent is configured with appropriate tools and context for the task,
      * executes the work, and is automatically cleaned up after completion.
      * 
-     * @param params - Work delegation parameters
-     * @param params.jobDescription - Clear description of the specific job to delegate
+     * @param params - Task assignment parameters
+     * @param params.jobDescription - Clear description of the specific job to assign
      * @param params.context - Additional context or constraints for the job
      * @param params.requiredTools - List of tools the member might need
      * @param params.priority - Priority level for the task ('low' | 'medium' | 'high' | 'urgent')
@@ -302,7 +302,7 @@ export class TeamContainer {
      * 
      * @example
      * ```typescript
-     * const result = await team.delegateWork({
+     * const result = await team.assignTask({
      *   jobDescription: 'Analyze market trends for electric vehicles',
      *   context: 'Focus on the North American market for the next 5 years',
      *   requiredTools: ['market-data-api', 'trend-analysis'],
@@ -314,7 +314,7 @@ export class TeamContainer {
      * console.log(result.agentId); // ID of the temporary agent used
      * ```
      */
-    async delegateWork(params: DelegateWorkParams): Promise<DelegateWorkResult> {
+    async assignTask(params: AssignTaskParams): Promise<AssignTaskResult> {
         const startTime = Date.now();
         let temporaryAgent: Robota | null = null;
         let agentId = 'unknown';
@@ -393,7 +393,7 @@ export class TeamContainer {
             const executionTime = Date.now() - startTime;
 
             // Build result with metadata
-            const delegateResult: DelegateWorkResult = {
+            const taskResult: AssignTaskResult = {
                 result,
                 agentId: agentId,
                 metadata: {
@@ -405,14 +405,14 @@ export class TeamContainer {
 
             // Update stats
             this.stats.totalExecutionTime += executionTime;
-            this.stats.totalTokensUsed += delegateResult.metadata.tokensUsed || 0;
+            this.stats.totalTokensUsed += taskResult.metadata.tokensUsed || 0;
             this.stats.tasksCompleted++; // 성공한 작업 카운트
 
             if (this.options.debug) {
-                console.log(`[TeamContainer] Work delegated successfully to agent ${agentId}`);
+                console.log(`[TeamContainer] Task assigned successfully to agent ${agentId}`);
             }
 
-            return delegateResult;
+            return taskResult;
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             const executionTime = Date.now() - startTime;
@@ -596,7 +596,7 @@ export class TeamContainer {
     /**
      * Create team coordinator agent using specified template
      */
-    private createTeamCoordinator(templateName: string, delegateWorkTool: any): Robota {
+    private createTeamCoordinator(templateName: string, assignTaskTool: any): Robota {
         try {
             // Get template to use its system prompt
             const template = this.templateManager.getTemplate(templateName);
@@ -609,7 +609,7 @@ export class TeamContainer {
                 ...this.options.baseRobotaOptions,
                 systemPrompt: template.system_prompt,
                 temperature: template.temperature,
-                toolProviders: [delegateWorkTool]
+                toolProviders: [assignTaskTool]
             };
 
             // Override provider and model if different from base
@@ -637,7 +637,7 @@ export class TeamContainer {
             return new Robota({
                 ...this.options.baseRobotaOptions,
                 systemPrompt: this.generateTeamSystemPrompt(),
-                toolProviders: [delegateWorkTool]
+                toolProviders: [assignTaskTool]
             });
         }
     }
@@ -661,7 +661,7 @@ DELEGATION RULES:
 3. Use appropriate agent templates when specified
 4. Handle final synthesis and comparison yourself
 
-Use delegateWork tool for specialized tasks. Synthesize results to provide complete responses.`;
+Use assignTask tool for specialized tasks. Synthesize results to provide complete responses.`;
     }
 
     /**
@@ -674,7 +674,7 @@ Use delegateWork tool for specialized tasks. Synthesize results to provide compl
     /**
      * Build the prompt for task agents
      */
-    private buildTaskPrompt(params: DelegateWorkParams): string {
+    private buildTaskPrompt(params: AssignTaskParams): string {
         let prompt = params.jobDescription;
 
         if (params.context) {
@@ -697,9 +697,9 @@ Use delegateWork tool for specialized tasks. Synthesize results to provide compl
     }
 
     /**
-     * Create the delegateWork tool with dynamic template schema
+     * Create the assignTask tool with dynamic template schema
      */
-    private createDelegateWorkTool() {
+    private createAssignTaskTool() {
         // Get available templates dynamically
         const availableTemplates = this.agentFactory.getTemplateManager().getAvailableTemplates();
 
@@ -734,8 +734,8 @@ Use delegateWork tool for specialized tasks. Synthesize results to provide compl
         }
 
         // Create dynamic schema based on available templates
-        const delegateWorkSchema = z.object({
-            jobDescription: z.string().describe('Clear description of the specific job to delegate'),
+        const assignTaskSchema = z.object({
+            jobDescription: z.string().describe('Clear description of the specific job to assign'),
             context: z.string().describe('Additional context or constraints for the job'),
             requiredTools: z.array(z.string()).optional().describe('List of tools the member might need'),
             priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium').describe('Priority level for the task'),
@@ -743,17 +743,17 @@ Use delegateWork tool for specialized tasks. Synthesize results to provide compl
         });
 
         const tools = {
-            delegateWork: {
-                name: 'delegateWork',
-                description: 'Delegate work to a specialized team member. Use this when the task requires specific expertise, complex analysis, or when breaking down work into specialized components would be beneficial.',
-                parameters: delegateWorkSchema,
+            assignTask: {
+                name: 'assignTask',
+                description: 'Assign tasks to a specialized team member. Use this when the task requires specific expertise, complex analysis, or when breaking down work into specialized components would be beneficial.',
+                parameters: assignTaskSchema,
                 handler: async (params: { [x: string]: any }) => {
                     this.toolCallCount++;
-                    this.logger?.info(`🎯 Tool call #${this.toolCallCount} received: delegateWork`);
+                    this.logger?.info(`🎯 Tool call #${this.toolCallCount} received: assignTask`);
                     this.logger?.info(`📋 Job: ${params.jobDescription}`);
 
-                    // Type-safe conversion to DelegateWorkParams
-                    const delegateParams: DelegateWorkParams = {
+                    // Type-safe conversion to AssignTaskParams
+                    const taskParams: AssignTaskParams = {
                         jobDescription: params.jobDescription,
                         context: params.context,
                         requiredTools: params.requiredTools || [],
@@ -761,7 +761,7 @@ Use delegateWork tool for specialized tasks. Synthesize results to provide compl
                         agentTemplate: params.agentTemplate
                     };
 
-                    return await this.delegateWork(delegateParams);
+                    return await this.assignTask(taskParams);
                 }
             }
         };
@@ -791,7 +791,7 @@ Use delegateWork tool for specialized tasks. Synthesize results to provide compl
     }
 
     /**
-     * Initialize the team agent with the delegateWork tool
+     * Initialize the team agent with the assignTask tool
      */
     private initializeTeamAgent(): void {
         // This method is no longer needed as tool is added in constructor

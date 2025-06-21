@@ -70,7 +70,7 @@ BaseAIProvider.constructor
 
 #### Defined in
 
-[anthropic/src/provider.ts:56](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/provider.ts#L56)
+[anthropic/src/provider.ts:56](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/provider.ts#L56)
 
 ## Properties
 
@@ -86,7 +86,7 @@ BaseAIProvider.name
 
 #### Defined in
 
-[anthropic/src/provider.ts:29](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/provider.ts#L29)
+[anthropic/src/provider.ts:29](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/provider.ts#L29)
 
 ___
 
@@ -102,7 +102,7 @@ BaseAIProvider.options
 
 #### Defined in
 
-[anthropic/src/provider.ts:41](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/provider.ts#L41)
+[anthropic/src/provider.ts:41](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/provider.ts#L41)
 
 ## Methods
 
@@ -147,7 +147,7 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[anthropic/src/provider.ts:95](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/provider.ts#L95)
+[anthropic/src/provider.ts:99](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/provider.ts#L99)
 
 ___
 
@@ -193,7 +193,7 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[anthropic/src/provider.ts:154](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/provider.ts#L154)
+[anthropic/src/provider.ts:158](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/provider.ts#L158)
 
 ___
 
@@ -221,7 +221,7 @@ Parsed model response in universal format
 
 #### Defined in
 
-[anthropic/src/provider.ts:235](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/provider.ts#L235)
+[anthropic/src/provider.ts:239](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/provider.ts#L239)
 
 ___
 
@@ -248,7 +248,7 @@ Parsed streaming response chunk
 
 #### Defined in
 
-[anthropic/src/provider.ts:295](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/provider.ts#L295)
+[anthropic/src/provider.ts:299](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/provider.ts#L299)
 
 ___
 
@@ -273,4 +273,4 @@ BaseAIProvider.close
 
 #### Defined in
 
-[anthropic/src/provider.ts:326](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/provider.ts#L326)
+[anthropic/src/provider.ts:330](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/provider.ts#L330)

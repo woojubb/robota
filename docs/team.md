@@ -44,7 +44,7 @@ npm install @robota-sdk/team
 - **TeamContainer**: 메인 조정 클래스
 - **AgentFactory**: 적절한 프롬프트로 작업별 에이전트 생성
 - **AgentTemplateManager**: 전문가 템플릿 관리 및 자동 선택
-- **delegateWork Tool**: 범용 작업 위임 인터페이스
+- **assignTask Tool**: 범용 작업 할당 인터페이스
 
 ## 기본 사용법
 

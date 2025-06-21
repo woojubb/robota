@@ -20,8 +20,8 @@ export {
 export type {
     TeamContainerOptions,
     AgentConfig,
-    DelegateWorkParams,
-    DelegateWorkResult,
+    AssignTaskParams,
+    AssignTaskResult,
     TaskAgentConfig,
     TeamStats,
     TeamExecutionStructure,
