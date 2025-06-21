@@ -354,12 +354,9 @@ importers:
         specifier: ^9.0.1
         version: 9.0.1
     devDependencies:
-      '@robota-sdk/core':
+      '@robota-sdk/agents':
         specifier: workspace:*
-        version: link:../core
-      '@robota-sdk/tools':
-        specifier: workspace:*
-        version: link:../tools
+        version: link:../agents
       '@types/uuid':
         specifier: ^9.0.7
         version: 9.0.8
