@@ -45,15 +45,15 @@ packages/agents/src/
 │   └── tool.ts
 ├── agents/             # 에이전트 시스템 전체 (Agent의 모든 구성 요소)
 │   ├── robota.ts
-│   ├── managers/
-│   │   ├── ai-provider-manager.ts
-│   │   ├── tool-manager.ts
-│   │   └── agent-factory.ts
-│   ├── services/
-│   │   ├── conversation-service.ts
-│   │   ├── execution-service.ts
-│   │   └── tool-execution-service.ts
-│   ├── tools/
+│   ├── managers/       # 상태/리소스 관리자들 (등록, 선택, 구성)
+│   │   ├── ai-provider-manager.ts    # AI Provider 등록/선택 관리
+│   │   ├── tool-manager.ts           # Tool 등록/관리
+│   │   └── agent-factory.ts          # Agent 생성/구성 관리
+│   ├── services/       # 비즈니스 로직 처리자들 (무상태 워크플로우)
+│   │   ├── conversation-service.ts   # 대화 처리 로직
+│   │   ├── execution-service.ts      # 실행 파이프라인 로직
+│   │   └── tool-execution-service.ts # Tool 실행 로직
+│   ├── tools/          # 도구 시스템
 │   │   ├── registry/
 │   │   │   └── tool-registry.ts
 │   │   └── implementations/
@@ -64,16 +64,18 @@ packages/agents/src/
 │   │   └── agent-template-schema.ts
 │   └── templates/
 │       └── builtin-templates.json
-├── plugins/            # 플러그인 시스템 (확장/주입 가능한 기능들)
-│   ├── analytics-plugin.ts
-│   ├── limits-plugin.ts
-│   ├── caching-plugin.ts
-│   ├── logging-plugin.ts
-│   ├── performance-plugin.ts
-│   ├── error-handling-plugin.ts
-│   ├── conversation-plugin.ts
-│   ├── system-message-plugin.ts
-│   └── agent-template-plugin.ts
+├── plugins/            # 확장 기능들 (횡단 관심사, 전략 주입)
+│   ├── core-data-plugins/     # 핵심 데이터 관리 (필수이지만 전략 주입 가능)
+│   │   ├── conversation-history-plugin.ts  # 대화 저장 전략 주입
+│   │   ├── system-message-plugin.ts        # 시스템 메시지 관리 전략 주입
+│   │   └── agent-template-plugin.ts        # 템플릿 저장 전략 주입
+│   └── enhancement-plugins/   # 성능/분석 향상 (선택적 확장)
+│       ├── analytics-plugin.ts
+│       ├── limits-plugin.ts
+│       ├── caching-plugin.ts
+│       ├── logging-plugin.ts
+│       ├── performance-plugin.ts
+│       └── error-handling-plugin.ts
 ├── utils/              # 핵심 유틸리티 함수들 (고정 기능)
 │   └── message-converter.ts
 └── index.ts            # 메인 export
@@ -123,49 +125,54 @@ packages/agents/src/
 
 ### Phase 3: 도구 시스템 구현 (3단계) - 하위 레벨부터
 - [ ] Tool Registry 구현 (agents/tools/registry/)
-  - [ ] `ToolRegistry` 클래스 (고정)
-  - [ ] 도구 스키마 정의 (고정)
+  - [ ] `ToolRegistry` 클래스 (도구 스키마 저장소)
+  - [ ] 도구 스키마 정의 및 검증
 - [ ] Tool Implementations (agents/tools/implementations/)
-  - [ ] Zod 스키마 기반 함수 도구 (고정)
-  - [ ] OpenAPI 스키마 도구 (고정)
-  - [ ] MCP 프로토콜 도구 (고정)
-- [ ] Tool Manager 구현 (agents/managers/)
-  - [ ] `ToolManager` 클래스
-  - [ ] 도구 등록/관리 기능 (Tool Registry 사용)
+  - [ ] Zod 스키마 기반 함수 도구
+  - [ ] OpenAPI 스키마 도구
+  - [ ] MCP 프로토콜 도구
 
-### Phase 4: 에이전트 매니저들 구현 (4단계) - 관리 레이어
+### Phase 4: 매니저들 구현 (4단계) - 상태/리소스 관리 레이어
 - [ ] AI Provider Manager 구현 (agents/managers/)
   - [ ] `AIProviderManager` 클래스  
-  - [ ] Provider 등록/관리 기능 (고정)
-  - [ ] 현재 Provider 선택 기능 (고정)
+  - [ ] Provider 등록/해제/조회 기능
+  - [ ] 현재 Provider 선택/변경 관리
+  - [ ] Provider 상태 관리
+- [ ] Tool Manager 구현 (agents/managers/)
+  - [ ] `ToolManager` 클래스
+  - [ ] 도구 등록/해제/조회 기능 (Tool Registry 사용)
+  - [ ] 도구 상태 관리
 - [ ] Agent Factory 구현 (agents/managers/)
   - [ ] `AgentFactory` 클래스
-  - [ ] 에이전트 생성 및 설정 관리
+  - [ ] 에이전트 생성/구성 관리
+  - [ ] 설정 검증 및 기본값 적용
 
-### Phase 5: 에이전트 서비스 구현 (5단계) - 비즈니스 로직 레이어
+### Phase 5: 서비스 구현 (5단계) - 무상태 비즈니스 로직 레이어
 - [ ] Conversation Service (agents/services/)
-  - [ ] 대화 컨텍스트 준비
-  - [ ] AI 응답 생성
-  - [ ] 스트리밍 처리
+  - [ ] 대화 컨텍스트 준비 로직
+  - [ ] AI Provider 호출 및 응답 처리
+  - [ ] 스트리밍 응답 처리 워크플로우
 - [ ] Tool Execution Service (agents/services/)
-  - [ ] 도구 실행 오케스트레이션 (Tool Manager 사용)
-  - [ ] 병렬/순차 실행 제어
-  - [ ] 도구 결과 처리
+  - [ ] 도구 실행 오케스트레이션 (Tool Manager의 도구들 사용)
+  - [ ] 병렬/순차 실행 제어 로직
+  - [ ] 도구 결과 수집 및 포맷팅
 - [ ] Execution Service (agents/services/)
-  - [ ] 기본 실행 파이프라인 관리
-  - [ ] 플러그인 생명주기 실행 준비
+  - [ ] 전체 실행 파이프라인 워크플로우
+  - [ ] 플러그인 생명주기 호출 로직
+  - [ ] 에러 전파 및 복구 로직
 
-### Phase 6: 플러그인 시스템 (6단계) - 확장 기능들
-- [ ] Core Plugins 구현 (확장/주입 가능한 기능들)
-  - [ ] `AnalyticsPlugin` - 사용량 분석 전략 주입 가능
-  - [ ] `LimitsPlugin` - 토큰/요청 제한 전략 주입 가능
-  - [ ] `CachingPlugin` - 캐싱 전략 주입 가능 (Memory/Redis/File)
-  - [ ] `LoggingPlugin` - 로깅 전략 주입 가능 (Console/File/Remote)
-  - [ ] `PerformancePlugin` - 성능 측정/리소스 관리 전략 주입 가능
-  - [ ] `ErrorHandlingPlugin` - 에러 처리 전략 주입 가능
-  - [ ] `ConversationPlugin` - 대화 히스토리 저장 전략 주입 가능 (Memory/File/DB)
-  - [ ] `SystemMessagePlugin` - 시스템 메시지 관리 전략 주입 가능 (Static/Dynamic/Template)
-  - [ ] `AgentTemplatePlugin` - 에이전트 템플릿 관리 전략 주입 가능
+### Phase 6: 플러그인 시스템 (6단계) - 횡단 관심사 & 전략 주입
+- [ ] Core Data Plugins 구현 (핵심 데이터 관리 - 필수이지만 전략 주입 가능)
+  - [ ] `ConversationHistoryPlugin` - 대화 저장 전략 (메모리/파일/DB)
+  - [ ] `SystemMessagePlugin` - 시스템 메시지 관리 전략 (고정/템플릿/동적)
+  - [ ] `AgentTemplatePlugin` - 에이전트 템플릿 저장 전략 (파일/DB/원격)
+- [ ] Enhancement Plugins 구현 (성능/분석 향상 - 선택적 확장)
+  - [ ] `AnalyticsPlugin` - 사용량 분석 전략 (로컬/원격 수집)
+  - [ ] `LimitsPlugin` - 토큰/요청 제한 전략 (고정/동적 한도)
+  - [ ] `CachingPlugin` - 캐싱 전략 (Memory/Redis/File)
+  - [ ] `LoggingPlugin` - 로깅 전략 (Console/File/Remote)
+  - [ ] `PerformancePlugin` - 성능 측정 전략 (메트릭 수집)
+  - [ ] `ErrorHandlingPlugin` - 에러 처리 전략 (재시도/서킷브레이커)
 
 ### Phase 7: 에이전트 구현체 (7단계) - 최종 조립
 - [ ] Robota 구현 (agents/)
@@ -241,16 +248,20 @@ const robota = new Robota({
   tools: [weatherTool, calculatorTool]
 });
 
-// 플러그인 시스템 사용법 - 개발자가 전략을 주입할 수 있는 기능들
+// 플러그인 시스템 사용법 - 횡단 관심사 및 전략 주입
 import { 
+  // 핵심 데이터 관리 플러그인 (필수이지만 전략 주입 가능)
+  ConversationHistoryPlugin, 
+  SystemMessagePlugin,
+  AgentTemplatePlugin,
+  
+  // 성능/분석 향상 플러그인 (선택적 확장)
   AnalyticsPlugin, 
   LimitsPlugin, 
   CachingPlugin,
   LoggingPlugin,
   PerformancePlugin,
-  ErrorHandlingPlugin,
-  ConversationPlugin,
-  SystemMessagePlugin
+  ErrorHandlingPlugin
 } from '@robota-sdk/agents';
 
 // 기본 + 필요한 플러그인만 주입
@@ -260,8 +271,11 @@ const basicRobota = new Robota({
   currentModel: 'gpt-4',
   tools: [weatherTool, calculatorTool],
   plugins: [
-    new LoggingPlugin({ strategy: 'console', level: 'info' }),
-    new ConversationPlugin({ storage: 'memory', maxHistory: 100 })
+    // 필수 데이터 관리 (전략 선택)
+    new ConversationHistoryPlugin({ storage: 'memory', maxHistory: 100 }),
+    
+    // 선택적 향상 기능
+    new LoggingPlugin({ strategy: 'console', level: 'info' })
   ]
 });
 
@@ -272,26 +286,18 @@ const advancedRobota = new Robota({
   currentModel: 'gpt-4', 
   tools: [weatherTool, calculatorTool],
   plugins: [
-    // 로깅 전략 주입
-    new LoggingPlugin({ strategy: 'file', level: 'debug', filePath: './logs' }),
-    
-    // 대화 히스토리 저장 전략 주입
-    new ConversationPlugin({ storage: 'database', connectionString: 'postgresql://...' }),
-    
-    // 시스템 메시지 관리 전략 주입
+    // 핵심 데이터 관리 전략 주입 (필수 기능이지만 구현 방식 선택 가능)
+    new ConversationHistoryPlugin({ storage: 'database', connectionString: 'postgresql://...' }),
     new SystemMessagePlugin({ strategy: 'template', templatePath: './prompts' }),
+    new AgentTemplatePlugin({ storage: 'file', templateDir: './templates' }),
     
-    // 캐싱 전략 주입
+    // 성능/분석 향상 전략 주입 (선택적 확장 기능)
+    new LoggingPlugin({ strategy: 'file', level: 'debug', filePath: './logs' }),
     new CachingPlugin({ strategy: 'redis', host: 'localhost', ttl: 600 }),
-    
-    // 제한 전략 주입
     new LimitsPlugin({ strategy: 'sliding-window', maxTokens: 50000 }),
-    
-    // 성능 모니터링 전략 주입
     new PerformancePlugin({ strategy: 'prometheus', endpoint: '/metrics' }),
-    
-    // 에러 처리 전략 주입
-    new ErrorHandlingPlugin({ strategy: 'circuit-breaker', retryAttempts: 3 })
+    new ErrorHandlingPlugin({ strategy: 'circuit-breaker', retryAttempts: 3 }),
+    new AnalyticsPlugin({ strategy: 'remote', endpoint: 'https://analytics.example.com' })
   ]
 });
 
