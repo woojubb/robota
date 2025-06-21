@@ -37,7 +37,7 @@ Manager for agent templates - handles template storage, retrieval, and managemen
 
 #### Defined in
 
-[packages/core/src/managers/agent-template-manager.ts:105](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/managers/agent-template-manager.ts#L105)
+[packages/core/src/managers/agent-template-manager.ts:120](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/managers/agent-template-manager.ts#L120)
 
 ## Methods
 
@@ -59,7 +59,7 @@ Add a new template or update an existing one
 
 #### Defined in
 
-[packages/core/src/managers/agent-template-manager.ts:112](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/managers/agent-template-manager.ts#L112)
+[packages/core/src/managers/agent-template-manager.ts:127](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/managers/agent-template-manager.ts#L127)
 
 ___
 
@@ -81,7 +81,7 @@ Get a template by name
 
 #### Defined in
 
-[packages/core/src/managers/agent-template-manager.ts:135](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/managers/agent-template-manager.ts#L135)
+[packages/core/src/managers/agent-template-manager.ts:150](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/managers/agent-template-manager.ts#L150)
 
 ___
 
@@ -97,7 +97,7 @@ Get all available templates
 
 #### Defined in
 
-[packages/core/src/managers/agent-template-manager.ts:142](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/managers/agent-template-manager.ts#L142)
+[packages/core/src/managers/agent-template-manager.ts:157](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/managers/agent-template-manager.ts#L157)
 
 ___
 
@@ -119,7 +119,7 @@ Get templates filtered by tags
 
 #### Defined in
 
-[packages/core/src/managers/agent-template-manager.ts:150](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/managers/agent-template-manager.ts#L150)
+[packages/core/src/managers/agent-template-manager.ts:165](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/managers/agent-template-manager.ts#L165)
 
 ___
 
@@ -141,7 +141,7 @@ Remove a custom template
 
 #### Defined in
 
-[packages/core/src/managers/agent-template-manager.ts:159](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/managers/agent-template-manager.ts#L159)
+[packages/core/src/managers/agent-template-manager.ts:174](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/managers/agent-template-manager.ts#L174)
 
 ___
 
@@ -163,4 +163,4 @@ Check if a template exists
 
 #### Defined in
 
-[packages/core/src/managers/agent-template-manager.ts:169](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/managers/agent-template-manager.ts#L169)
+[packages/core/src/managers/agent-template-manager.ts:184](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/managers/agent-template-manager.ts#L184)

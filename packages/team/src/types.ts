@@ -92,26 +92,26 @@ export interface AgentConfig {
 }
 
 /**
- * Parameters for delegating work to a specialized team member
+ * Parameters for assigning tasks to a specialized team member
  * 
  * @description
- * Defines the parameters needed when the team coordinator delegates a specialized
+ * Defines the parameters needed when the team coordinator assigns a specialized
  * task to a temporary expert agent. The system uses these parameters to create
  * an appropriately configured agent and execute the task.
  * 
  * @example
  * ```typescript
- * const workParams: DelegateWorkParams = {
+ * const taskParams: AssignTaskParams = {
  *   jobDescription: 'Analyze market trends for electric vehicles in California',
  *   context: 'Focus on pricing strategies and customer adoption rates for Q1 2024',
  *   requiredTools: ['market-data-api', 'trend-analysis'],
  *   priority: 'high'
  * };
  * 
- * const result = await team.delegateWork(workParams);
+ * const result = await team.assignTask(taskParams);
  * ```
  */
-export interface DelegateWorkParams {
+export interface AssignTaskParams {
     /** 
      * Clear, specific description of the job to be completed.
      * Should provide enough detail for the specialist agent to understand
@@ -150,7 +150,7 @@ export interface DelegateWorkParams {
 }
 
 /**
- * Result from a delegated work task with execution metadata
+ * Result from an assigned task with execution metadata
  * 
  * @description
  * Contains the output from a specialized agent along with comprehensive
@@ -159,7 +159,7 @@ export interface DelegateWorkParams {
  * 
  * @example
  * ```typescript
- * const result: DelegateWorkResult = await team.delegateWork({
+ * const result: AssignTaskResult = await team.assignTask({
  *   jobDescription: 'Create financial projections',
  *   context: 'For a startup coffee shop',
  *   priority: 'high'
@@ -175,7 +175,7 @@ export interface DelegateWorkParams {
  * }
  * ```
  */
-export interface DelegateWorkResult {
+export interface AssignTaskResult {
     /** 
      * The completed task result content from the specialist agent.
      * This contains the actual deliverable requested in the job description.

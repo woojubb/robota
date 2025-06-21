@@ -15,7 +15,7 @@ JSON output can be requested through prompt instructions.
 
 ## Hierarchy
 
-- `ProviderOptions`
+- `Omit`\<`ProviderOptions`, ``"model"``\>
 
   ↳ **`AnthropicProviderOptions`**
 
@@ -23,6 +23,7 @@ JSON output can be requested through prompt instructions.
 
 ### Properties
 
+- [model](AnthropicProviderOptions#model)
 - [apiKey](AnthropicProviderOptions#apikey)
 - [timeout](AnthropicProviderOptions#timeout)
 - [baseURL](AnthropicProviderOptions#baseurl)
@@ -30,7 +31,6 @@ JSON output can be requested through prompt instructions.
 - [enablePayloadLogging](AnthropicProviderOptions#enablepayloadlogging)
 - [payloadLogDir](AnthropicProviderOptions#payloadlogdir)
 - [includeTimestampInLogFiles](AnthropicProviderOptions#includetimestampinlogfiles)
-- [model](AnthropicProviderOptions#model)
 - [temperature](AnthropicProviderOptions#temperature)
 - [maxTokens](AnthropicProviderOptions#maxtokens)
 - [stopSequences](AnthropicProviderOptions#stopsequences)
@@ -41,6 +41,18 @@ JSON output can be requested through prompt instructions.
 
 ## Properties
 
+### model
+
+• `Optional` **model**: `string`
+
+Default model to use
+
+#### Defined in
+
+[anthropic/src/types.ts:14](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/types.ts#L14)
+
+___
+
 ### apiKey
 
 • `Optional` **apiKey**: `string`
@@ -49,7 +61,7 @@ Anthropic API key (optional: not required when using client)
 
 #### Defined in
 
-[anthropic/src/types.ts:14](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/types.ts#L14)
+[anthropic/src/types.ts:19](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/types.ts#L19)
 
 ___
 
@@ -61,7 +73,7 @@ API request timeout (milliseconds)
 
 #### Defined in
 
-[anthropic/src/types.ts:19](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/types.ts#L19)
+[anthropic/src/types.ts:24](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/types.ts#L24)
 
 ___
 
@@ -73,7 +85,7 @@ API base URL
 
 #### Defined in
 
-[anthropic/src/types.ts:24](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/types.ts#L24)
+[anthropic/src/types.ts:29](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/types.ts#L29)
 
 ___
 
@@ -85,7 +97,7 @@ Anthropic client instance (required)
 
 #### Defined in
 
-[anthropic/src/types.ts:29](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/types.ts#L29)
+[anthropic/src/types.ts:34](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/types.ts#L34)
 
 ___
 
@@ -97,7 +109,7 @@ Enable payload logging to files for debugging
 
 #### Defined in
 
-[anthropic/src/types.ts:34](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/types.ts#L34)
+[anthropic/src/types.ts:39](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/types.ts#L39)
 
 ___
 
@@ -109,7 +121,7 @@ Directory to save payload log files
 
 #### Defined in
 
-[anthropic/src/types.ts:39](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/types.ts#L39)
+[anthropic/src/types.ts:44](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/types.ts#L44)
 
 ___
 
@@ -121,21 +133,7 @@ Include timestamp in log file names
 
 #### Defined in
 
-[anthropic/src/types.ts:44](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/types.ts#L44)
-
-___
-
-### model
-
-• **model**: `string`
-
-#### Inherited from
-
-ProviderOptions.model
-
-#### Defined in
-
-core/dist/index.d.ts:8
+[anthropic/src/types.ts:49](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/types.ts#L49)
 
 ___
 
@@ -145,7 +143,7 @@ ___
 
 #### Inherited from
 
-ProviderOptions.temperature
+Omit.temperature
 
 #### Defined in
 
@@ -159,7 +157,7 @@ ___
 
 #### Inherited from
 
-ProviderOptions.maxTokens
+Omit.maxTokens
 
 #### Defined in
 
@@ -173,7 +171,7 @@ ___
 
 #### Inherited from
 
-ProviderOptions.stopSequences
+Omit.stopSequences
 
 #### Defined in
 
@@ -187,7 +185,7 @@ ___
 
 #### Inherited from
 
-ProviderOptions.streamMode
+Omit.streamMode
 
 #### Defined in
 
@@ -211,7 +209,7 @@ true
 
 #### Inherited from
 
-ProviderOptions.enableParallelToolCalls
+Omit.enableParallelToolCalls
 
 #### Defined in
 
@@ -234,7 +232,7 @@ Helps prevent overwhelming APIs with too many simultaneous requests.
 
 #### Inherited from
 
-ProviderOptions.maxConcurrentToolCalls
+Omit.maxConcurrentToolCalls
 
 #### Defined in
 
@@ -257,7 +255,7 @@ Applied when executing tool calls in parallel to space out API requests.
 
 #### Inherited from
 
-ProviderOptions.toolCallDelayMs
+Omit.toolCallDelayMs
 
 #### Defined in
 

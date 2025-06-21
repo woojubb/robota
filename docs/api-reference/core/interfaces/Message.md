@@ -30,7 +30,7 @@ Basic message interface
 
 #### Defined in
 
-[packages/core/src/interfaces/ai-provider.ts:13](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/interfaces/ai-provider.ts#L13)
+[packages/core/src/interfaces/ai-provider.ts:13](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/interfaces/ai-provider.ts#L13)
 
 ___
 
@@ -40,7 +40,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/interfaces/ai-provider.ts:14](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/interfaces/ai-provider.ts#L14)
+[packages/core/src/interfaces/ai-provider.ts:14](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/interfaces/ai-provider.ts#L14)
 
 ___
 
@@ -50,7 +50,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/interfaces/ai-provider.ts:15](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/interfaces/ai-provider.ts#L15)
+[packages/core/src/interfaces/ai-provider.ts:15](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/interfaces/ai-provider.ts#L15)
 
 ___
 
@@ -60,7 +60,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/interfaces/ai-provider.ts:16](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/interfaces/ai-provider.ts#L16)
+[packages/core/src/interfaces/ai-provider.ts:16](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/interfaces/ai-provider.ts#L16)
 
 ___
 
@@ -70,7 +70,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/interfaces/ai-provider.ts:17](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/interfaces/ai-provider.ts#L17)
+[packages/core/src/interfaces/ai-provider.ts:17](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/interfaces/ai-provider.ts#L17)
 
 ___
 
@@ -80,7 +80,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/interfaces/ai-provider.ts:18](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/interfaces/ai-provider.ts#L18)
+[packages/core/src/interfaces/ai-provider.ts:18](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/interfaces/ai-provider.ts#L18)
 
 ___
 
@@ -90,4 +90,4 @@ ___
 
 #### Defined in
 
-[packages/core/src/interfaces/ai-provider.ts:26](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/interfaces/ai-provider.ts#L26)
+[packages/core/src/interfaces/ai-provider.ts:26](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/interfaces/ai-provider.ts#L26)

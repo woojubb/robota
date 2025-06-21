@@ -52,7 +52,7 @@ Start periodic cache cleanup
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:329](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/tools/src/performance/cache-manager.ts#L329)
+[packages/tools/src/performance/cache-manager.ts:329](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/performance/cache-manager.ts#L329)
 
 ___
 
@@ -68,4 +68,4 @@ Stop periodic cache cleanup
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:346](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/tools/src/performance/cache-manager.ts#L346)
+[packages/tools/src/performance/cache-manager.ts:346](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/performance/cache-manager.ts#L346)

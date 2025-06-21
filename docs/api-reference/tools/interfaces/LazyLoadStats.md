@@ -31,7 +31,7 @@ Total registered resources count
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:34](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/tools/src/performance/lazy-loader.ts#L34)
+[packages/tools/src/performance/lazy-loader.ts:34](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/performance/lazy-loader.ts#L34)
 
 ___
 
@@ -43,7 +43,7 @@ Loaded resources count
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:36](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/tools/src/performance/lazy-loader.ts#L36)
+[packages/tools/src/performance/lazy-loader.ts:36](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/performance/lazy-loader.ts#L36)
 
 ___
 
@@ -55,7 +55,7 @@ Load successes count
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:38](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/tools/src/performance/lazy-loader.ts#L38)
+[packages/tools/src/performance/lazy-loader.ts:38](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/performance/lazy-loader.ts#L38)
 
 ___
 
@@ -67,7 +67,7 @@ Load failures count
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:40](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/tools/src/performance/lazy-loader.ts#L40)
+[packages/tools/src/performance/lazy-loader.ts:40](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/performance/lazy-loader.ts#L40)
 
 ___
 
@@ -79,7 +79,7 @@ Average loading time (milliseconds)
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:42](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/tools/src/performance/lazy-loader.ts#L42)
+[packages/tools/src/performance/lazy-loader.ts:42](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/performance/lazy-loader.ts#L42)
 
 ___
 
@@ -91,4 +91,4 @@ Total estimated memory usage
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:44](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/tools/src/performance/lazy-loader.ts#L44)
+[packages/tools/src/performance/lazy-loader.ts:44](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/performance/lazy-loader.ts#L44)

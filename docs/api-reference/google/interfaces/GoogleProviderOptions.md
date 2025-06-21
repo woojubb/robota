@@ -10,10 +10,21 @@
 
 Google AI Provider options
 
+## Hierarchy
+
+- `Omit`\<`ProviderOptions`, ``"model"``\>
+
+  ↳ **`GoogleProviderOptions`**
+
 ## Table of contents
 
 ### Properties
 
+- [stopSequences](GoogleProviderOptions#stopsequences)
+- [streamMode](GoogleProviderOptions#streammode)
+- [enableParallelToolCalls](GoogleProviderOptions#enableparalleltoolcalls)
+- [maxConcurrentToolCalls](GoogleProviderOptions#maxconcurrenttoolcalls)
+- [toolCallDelayMs](GoogleProviderOptions#toolcalldelayms)
 - [client](GoogleProviderOptions#client)
 - [model](GoogleProviderOptions#model)
 - [temperature](GoogleProviderOptions#temperature)
@@ -23,6 +34,104 @@ Google AI Provider options
 
 ## Properties
 
+### stopSequences
+
+• `Optional` **stopSequences**: `string`[]
+
+#### Inherited from
+
+Omit.stopSequences
+
+#### Defined in
+
+core/dist/index.d.ts:11
+
+___
+
+### streamMode
+
+• `Optional` **streamMode**: `boolean`
+
+#### Inherited from
+
+Omit.streamMode
+
+#### Defined in
+
+core/dist/index.d.ts:12
+
+___
+
+### enableParallelToolCalls
+
+• `Optional` **enableParallelToolCalls**: `boolean`
+
+Enable parallel execution of tool calls within a single AI response.
+When true, multiple tool calls in the same response are executed concurrently.
+When false, tool calls are executed sequentially (original behavior).
+
+**`Default Value`**
+
+```ts
+true
+```
+
+#### Inherited from
+
+Omit.enableParallelToolCalls
+
+#### Defined in
+
+core/dist/index.d.ts:20
+
+___
+
+### maxConcurrentToolCalls
+
+• `Optional` **maxConcurrentToolCalls**: `number`
+
+Maximum number of tool calls to execute concurrently.
+Helps prevent overwhelming APIs with too many simultaneous requests.
+
+**`Default Value`**
+
+```ts
+3
+```
+
+#### Inherited from
+
+Omit.maxConcurrentToolCalls
+
+#### Defined in
+
+core/dist/index.d.ts:27
+
+___
+
+### toolCallDelayMs
+
+• `Optional` **toolCallDelayMs**: `number`
+
+Delay in milliseconds between starting each tool call to avoid rate limits.
+Applied when executing tool calls in parallel to space out API requests.
+
+**`Default Value`**
+
+```ts
+100
+```
+
+#### Inherited from
+
+Omit.toolCallDelayMs
+
+#### Defined in
+
+core/dist/index.d.ts:34
+
+___
+
 ### client
 
 • **client**: `GoogleGenerativeAI`
@@ -31,7 +140,7 @@ Google AI client instance
 
 #### Defined in
 
-[google/src/types.ts:8](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/google/src/types.ts#L8)
+[google/src/types.ts:9](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/google/src/types.ts#L9)
 
 ___
 
@@ -43,7 +152,7 @@ Default model to use
 
 #### Defined in
 
-[google/src/types.ts:11](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/google/src/types.ts#L11)
+[google/src/types.ts:12](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/google/src/types.ts#L12)
 
 ___
 
@@ -53,9 +162,13 @@ ___
 
 Temperature setting (0.0 ~ 1.0)
 
+#### Overrides
+
+Omit.temperature
+
 #### Defined in
 
-[google/src/types.ts:14](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/google/src/types.ts#L14)
+[google/src/types.ts:15](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/google/src/types.ts#L15)
 
 ___
 
@@ -65,9 +178,13 @@ ___
 
 Maximum number of tokens
 
+#### Overrides
+
+Omit.maxTokens
+
 #### Defined in
 
-[google/src/types.ts:17](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/google/src/types.ts#L17)
+[google/src/types.ts:18](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/google/src/types.ts#L18)
 
 ___
 
@@ -81,7 +198,7 @@ Response MIME type
 
 #### Defined in
 
-[google/src/types.ts:24](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/google/src/types.ts#L24)
+[google/src/types.ts:25](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/google/src/types.ts#L25)
 
 ___
 
@@ -93,4 +210,4 @@ Response schema for JSON output (only used when responseMimeType is 'application
 
 #### Defined in
 
-[google/src/types.ts:29](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/google/src/types.ts#L29)
+[google/src/types.ts:30](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/google/src/types.ts#L30)
