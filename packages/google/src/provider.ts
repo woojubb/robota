@@ -1,12 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { BaseAIProvider } from '@robota-sdk/core';
+import { BaseAIProvider } from '@robota-sdk/agents';
 import type {
     Context,
     ModelResponse,
     StreamingResponseChunk,
-    UniversalMessage
-} from '@robota-sdk/core';
-import type { FunctionSchema } from '@robota-sdk/tools';
+    UniversalMessage,
+    ToolSchema
+} from '@robota-sdk/agents';
 import type { GoogleProviderOptions } from './types';
 import { GoogleConversationAdapter } from './adapter';
 
@@ -26,6 +26,17 @@ export class GoogleProvider extends BaseAIProvider {
      * @readonly
      */
     public readonly name: string = 'google';
+
+    /**
+     * Available models
+     * @readonly
+     */
+    public readonly models: string[] = [
+        'gemini-1.5-pro',
+        'gemini-1.5-flash',
+        'gemini-pro',
+        'gemini-pro-vision'
+    ];
 
     /**
      * Google AI client instance
@@ -83,13 +94,13 @@ export class GoogleProvider extends BaseAIProvider {
         // Use base class validation
         this.validateContext(context);
 
-        const { messages, systemPrompt } = context;
+        const { messages, systemMessage } = context;
 
         try {
             // Convert UniversalMessage[] to Google AI format
             const { contents, systemInstruction } = GoogleConversationAdapter.processMessages(
                 messages as UniversalMessage[],
-                systemPrompt
+                systemMessage
             );
 
             // Configure tools if provided
@@ -150,13 +161,13 @@ export class GoogleProvider extends BaseAIProvider {
         // Use base class validation
         this.validateContext(context);
 
-        const { messages, systemPrompt } = context;
+        const { messages, systemMessage } = context;
 
         try {
             // Convert UniversalMessage[] to Google AI format
             const { contents, systemInstruction } = GoogleConversationAdapter.processMessages(
                 messages as UniversalMessage[],
-                systemPrompt
+                systemMessage
             );
 
             // Configure tools if provided
@@ -209,7 +220,7 @@ export class GoogleProvider extends BaseAIProvider {
      * @param tools - Array of function schemas
      * @returns Google AI tool configuration object or undefined
      */
-    protected configureTools(tools?: FunctionSchema[]): { tools: any[] } | undefined {
+    protected configureTools(tools?: ToolSchema[]): { tools: any[] } | undefined {
         if (!tools || !Array.isArray(tools)) {
             return undefined;
         }

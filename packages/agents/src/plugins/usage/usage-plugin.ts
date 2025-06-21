@@ -1,0 +1,267 @@
+import { BasePlugin } from '../../abstracts/base-plugin.js';
+import { Logger } from '../../utils/logger.js';
+import { PluginError, ConfigurationError } from '../../utils/errors.js';
+import {
+    UsageTrackingStrategy,
+    UsageStats,
+    AggregatedUsageStats,
+    UsagePluginOptions,
+    UsageStorage
+} from './types.js';
+import {
+    MemoryUsageStorage,
+    FileUsageStorage,
+    RemoteUsageStorage,
+    SilentUsageStorage
+} from './storages/index.js';
+
+/**
+ * Plugin for tracking usage statistics
+ * Collects and stores usage data including tokens, costs, performance metrics
+ */
+export class UsagePlugin extends BasePlugin {
+    name = 'UsagePlugin';
+    version = '1.0.0';
+
+    private storage: UsageStorage;
+    private options: Required<Omit<UsagePluginOptions, 'costRates'>> & { costRates?: Record<string, { input: number; output: number }> };
+    private logger: Logger;
+    private aggregationTimer?: NodeJS.Timeout;
+
+    constructor(options: UsagePluginOptions) {
+        super();
+        this.logger = new Logger('UsagePlugin');
+
+        // Validate options
+        this.validateOptions(options);
+
+        // Set defaults
+        this.options = {
+            strategy: options.strategy,
+            filePath: options.filePath ?? './usage-stats.json',
+            remoteEndpoint: options.remoteEndpoint ?? '',
+            remoteHeaders: options.remoteHeaders ?? {},
+            maxEntries: options.maxEntries ?? 10000,
+            trackCosts: options.trackCosts ?? true,
+            costRates: options.costRates,
+            batchSize: options.batchSize ?? 50,
+            flushInterval: options.flushInterval ?? 60000, // 1 minute
+            aggregateStats: options.aggregateStats ?? true,
+            aggregationInterval: options.aggregationInterval ?? 300000, // 5 minutes
+        };
+
+        // Initialize storage
+        this.storage = this.createStorage();
+
+        // Setup aggregation if enabled
+        if (this.options.aggregateStats) {
+            this.setupAggregation();
+        }
+
+        this.logger.info('UsagePlugin initialized', {
+            strategy: this.options.strategy,
+            trackCosts: this.options.trackCosts,
+            maxEntries: this.options.maxEntries
+        });
+    }
+
+    /**
+     * Record usage statistics
+     */
+    async recordUsage(usage: Omit<UsageStats, 'timestamp' | 'cost'>): Promise<void> {
+        try {
+            const entry: UsageStats = {
+                ...usage,
+                timestamp: new Date(),
+                cost: this.options.trackCosts ? this.calculateCost(usage.model, usage.tokensUsed) : undefined
+            };
+
+            await this.storage.save(entry);
+
+            this.logger.debug('Usage recorded', {
+                provider: entry.provider,
+                model: entry.model,
+                tokens: entry.tokensUsed.total,
+                cost: entry.cost?.total,
+                success: entry.success
+            });
+        } catch (error) {
+            throw new PluginError('Failed to record usage', this.name, {
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    /**
+     * Get usage statistics
+     */
+    async getUsageStats(conversationId?: string, timeRange?: { start: Date; end: Date }): Promise<UsageStats[]> {
+        try {
+            return await this.storage.getStats(conversationId, timeRange);
+        } catch (error) {
+            throw new PluginError('Failed to get usage stats', this.name, {
+                conversationId,
+                timeRange,
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    /**
+     * Get aggregated usage statistics
+     */
+    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<AggregatedUsageStats> {
+        try {
+            return await this.storage.getAggregatedStats(timeRange);
+        } catch (error) {
+            throw new PluginError('Failed to get aggregated usage stats', this.name, {
+                timeRange,
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    /**
+     * Clear all usage statistics
+     */
+    async clearStats(): Promise<void> {
+        try {
+            await this.storage.clear();
+            this.logger.info('Usage statistics cleared');
+        } catch (error) {
+            throw new PluginError('Failed to clear usage stats', this.name, {
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    /**
+     * Flush pending statistics
+     */
+    async flush(): Promise<void> {
+        try {
+            await this.storage.flush();
+        } catch (error) {
+            throw new PluginError('Failed to flush usage stats', this.name, {
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    /**
+     * Cleanup resources
+     */
+    async destroy(): Promise<void> {
+        try {
+            if (this.aggregationTimer) {
+                clearInterval(this.aggregationTimer);
+            }
+
+            await this.storage.close();
+            this.logger.info('UsagePlugin destroyed');
+        } catch (error) {
+            this.logger.error('Error during plugin cleanup', { error });
+        }
+    }
+
+    /**
+     * Calculate cost based on token usage and model rates
+     */
+    private calculateCost(model: string, tokens: { input: number; output: number; total: number }): { input: number; output: number; total: number } | undefined {
+        if (!this.options.costRates || !this.options.costRates[model]) {
+            return undefined;
+        }
+
+        const rates = this.options.costRates[model];
+        const inputCost = tokens.input * rates.input;
+        const outputCost = tokens.output * rates.output;
+
+        return {
+            input: inputCost,
+            output: outputCost,
+            total: inputCost + outputCost
+        };
+    }
+
+    /**
+     * Validate plugin options
+     */
+    private validateOptions(options: UsagePluginOptions): void {
+        if (!options.strategy) {
+            throw new ConfigurationError('Usage tracking strategy is required');
+        }
+
+        if (!['memory', 'file', 'remote', 'silent'].includes(options.strategy)) {
+            throw new ConfigurationError('Invalid usage tracking strategy', {
+                validStrategies: ['memory', 'file', 'remote', 'silent'],
+                provided: options.strategy
+            });
+        }
+
+        if (options.strategy === 'file' && !options.filePath) {
+            throw new ConfigurationError('File path is required for file usage tracking strategy');
+        }
+
+        if (options.strategy === 'remote' && !options.remoteEndpoint) {
+            throw new ConfigurationError('Remote endpoint is required for remote usage tracking strategy');
+        }
+
+        if (options.maxEntries !== undefined && options.maxEntries <= 0) {
+            throw new ConfigurationError('Max entries must be positive');
+        }
+
+        if (options.batchSize !== undefined && options.batchSize <= 0) {
+            throw new ConfigurationError('Batch size must be positive');
+        }
+
+        if (options.flushInterval !== undefined && options.flushInterval <= 0) {
+            throw new ConfigurationError('Flush interval must be positive');
+        }
+
+        if (options.aggregationInterval !== undefined && options.aggregationInterval <= 0) {
+            throw new ConfigurationError('Aggregation interval must be positive');
+        }
+    }
+
+    /**
+     * Create storage instance based on strategy
+     */
+    private createStorage(): UsageStorage {
+        switch (this.options.strategy) {
+            case 'memory':
+                return new MemoryUsageStorage(this.options.maxEntries);
+            case 'file':
+                return new FileUsageStorage(this.options.filePath);
+            case 'remote':
+                return new RemoteUsageStorage(
+                    this.options.remoteEndpoint,
+                    this.options.remoteHeaders,
+                    this.options.batchSize,
+                    this.options.flushInterval
+                );
+            case 'silent':
+                return new SilentUsageStorage();
+            default:
+                throw new ConfigurationError('Unknown usage tracking strategy', { strategy: this.options.strategy });
+        }
+    }
+
+    /**
+     * Setup periodic aggregation
+     */
+    private setupAggregation(): void {
+        this.aggregationTimer = setInterval(async () => {
+            try {
+                const stats = await this.getAggregatedStats();
+                this.logger.debug('Periodic usage aggregation', {
+                    totalRequests: stats.totalRequests,
+                    totalTokens: stats.totalTokens,
+                    totalCost: stats.totalCost,
+                    successRate: stats.successRate
+                });
+            } catch (error) {
+                this.logger.error('Error during periodic aggregation', { error });
+            }
+        }, this.options.aggregationInterval);
+    }
+} 

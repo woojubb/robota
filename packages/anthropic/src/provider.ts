@@ -4,9 +4,9 @@ import {
     BaseAIProvider,
     ModelResponse,
     StreamingResponseChunk,
-    UniversalMessage
-} from '@robota-sdk/core';
-import type { FunctionSchema } from '@robota-sdk/tools';
+    UniversalMessage,
+    ToolSchema
+} from '@robota-sdk/agents';
 import { AnthropicProviderOptions } from './types';
 import { AnthropicConversationAdapter } from './adapter';
 import { PayloadLogger } from './payload-logger';
@@ -27,6 +27,19 @@ export class AnthropicProvider extends BaseAIProvider {
      * @readonly
      */
     public readonly name: string = 'anthropic';
+
+    /**
+     * Available models
+     * @readonly
+     */
+    public readonly models: string[] = [
+        'claude-3-opus-20240229',
+        'claude-3-sonnet-20240229',
+        'claude-3-haiku-20240307',
+        'claude-2.1',
+        'claude-2.0',
+        'claude-instant-1.2'
+    ];
 
     /**
      * Anthropic client instance
@@ -100,7 +113,7 @@ export class AnthropicProvider extends BaseAIProvider {
         // Use base class validation
         this.validateContext(context);
 
-        const { messages, systemPrompt } = context;
+        const { messages, systemMessage } = context;
 
         try {
             // Convert UniversalMessage[] to Anthropic Messages format
@@ -115,9 +128,9 @@ export class AnthropicProvider extends BaseAIProvider {
                 temperature: options?.temperature ?? this.options.temperature
             };
 
-            // Add system prompt if provided
-            if (systemPrompt) {
-                requestParams.system = systemPrompt;
+            // Add system message if provided
+            if (systemMessage) {
+                requestParams.system = systemMessage;
             }
 
             // Configure tools if provided
@@ -159,7 +172,7 @@ export class AnthropicProvider extends BaseAIProvider {
         // Use base class validation
         this.validateContext(context);
 
-        const { messages, systemPrompt } = context;
+        const { messages, systemMessage } = context;
 
         try {
             // Convert UniversalMessage[] to Anthropic Messages format
@@ -175,9 +188,9 @@ export class AnthropicProvider extends BaseAIProvider {
                 stream: true
             };
 
-            // Add system prompt if provided
-            if (systemPrompt) {
-                requestParams.system = systemPrompt;
+            // Add system message if provided
+            if (systemMessage) {
+                requestParams.system = systemMessage;
             }
 
             // Configure tools if provided
@@ -210,7 +223,7 @@ export class AnthropicProvider extends BaseAIProvider {
      * @param tools - Array of function schemas
      * @returns Anthropic tool configuration object or undefined
      */
-    protected configureTools(tools?: FunctionSchema[]): { tools: any[] } | undefined {
+    protected configureTools(tools?: ToolSchema[]): { tools: any[] } | undefined {
         if (!tools || !Array.isArray(tools)) {
             return undefined;
         }

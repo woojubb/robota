@@ -1,4 +1,4 @@
-import type { UniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage } from '@robota-sdk/core';
+import type { UniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage } from '@robota-sdk/agents';
 import type { Content, Part } from '@google/generative-ai';
 
 /**
@@ -67,7 +67,7 @@ export class GoogleConversationAdapter {
                 parts: [
                     {
                         functionResponse: {
-                            name: toolMsg.name || 'unknown',
+                            name: 'tool_response',
                             response: toolMsg.content
                         }
                     } as any

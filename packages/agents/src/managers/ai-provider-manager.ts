@@ -1,0 +1,261 @@
+import type { AIProviderManagerInterface } from '../interfaces/manager';
+import type { AIProvider } from '../interfaces/provider';
+import { BaseManager } from '../abstracts/base-manager';
+import { ConfigurationError, ValidationError } from '../utils/errors';
+import { Validator } from '../utils/validation';
+import { logger } from '../utils/logger';
+
+/**
+ * AI Provider Manager implementation
+ * Manages registration, selection, and state of AI providers
+ */
+export class AIProviderManager extends BaseManager implements AIProviderManagerInterface {
+    private providers = new Map<string, AIProvider>();
+    private currentProvider?: string;
+    private currentModel?: string;
+
+    /**
+     * Initialize the manager
+     */
+    protected async doInitialize(): Promise<void> {
+        logger.debug('AIProviderManager initialized');
+    }
+
+    /**
+     * Cleanup manager resources
+     */
+    protected async doDispose(): Promise<void> {
+        // Close all providers
+        for (const [name, provider] of this.providers) {
+            try {
+                if (provider.close) {
+                    await provider.close();
+                }
+                logger.debug(`Closed AI provider: ${name}`);
+            } catch (error) {
+                logger.warn(`Failed to close AI provider ${name}`, {
+                    error: error instanceof Error ? error.message : String(error)
+                });
+            }
+        }
+
+        this.providers.clear();
+        this.currentProvider = undefined;
+        this.currentModel = undefined;
+
+        logger.debug('AIProviderManager disposed');
+    }
+
+    /**
+     * Register an AI provider
+     */
+    addProvider(name: string, provider: AIProvider): void {
+        this.ensureInitialized();
+
+        // Validate provider name
+        const nameValidation = Validator.validateProviderName(name);
+        if (!nameValidation.isValid) {
+            throw new ValidationError(`Invalid provider name: ${nameValidation.errors.join(', ')}`);
+        }
+
+        // Validate provider
+        if (!provider || typeof provider !== 'object') {
+            throw new ValidationError('Provider must be a valid object');
+        }
+
+        if (!provider.name || !provider.models || !Array.isArray(provider.models)) {
+            throw new ValidationError('Provider must have name and models array');
+        }
+
+        if (typeof provider.chat !== 'function') {
+            throw new ValidationError('Provider must have a chat method');
+        }
+
+        // Check for duplicate registration
+        if (this.providers.has(name)) {
+            logger.warn(`Provider "${name}" is already registered, overriding`, {
+                providerName: name,
+                existingProvider: this.providers.get(name)?.name
+            });
+        }
+
+        this.providers.set(name, provider);
+        logger.info(`AI provider "${name}" registered successfully`, {
+            providerName: name,
+            models: provider.models,
+            supportsStreaming: typeof provider.chatStream === 'function'
+        });
+    }
+
+    /**
+     * Remove an AI provider
+     */
+    removeProvider(name: string): void {
+        this.ensureInitialized();
+
+        if (!this.providers.has(name)) {
+            logger.warn(`Attempted to remove non-existent provider "${name}"`);
+            return;
+        }
+
+        // Close provider if it has close method
+        const provider = this.providers.get(name);
+        if (provider?.close) {
+            provider.close().catch(error => {
+                logger.warn(`Failed to close provider ${name}`, {
+                    error: error instanceof Error ? error.message : String(error)
+                });
+            });
+        }
+
+        this.providers.delete(name);
+
+        // Clear current selection if this was the current provider
+        if (this.currentProvider === name) {
+            this.currentProvider = undefined;
+            this.currentModel = undefined;
+            logger.info(`Cleared current provider selection after removing "${name}"`);
+        }
+
+        logger.info(`AI provider "${name}" removed successfully`);
+    }
+
+    /**
+     * Get registered provider by name
+     */
+    getProvider(name: string): AIProvider | undefined {
+        this.ensureInitialized();
+        return this.providers.get(name);
+    }
+
+    /**
+     * Get all registered providers
+     */
+    getProviders(): Record<string, AIProvider> {
+        this.ensureInitialized();
+        return Object.fromEntries(this.providers);
+    }
+
+    /**
+     * Set current provider and model
+     */
+    setCurrentProvider(name: string, model: string): void {
+        this.ensureInitialized();
+
+        // Validate provider exists
+        const provider = this.providers.get(name);
+        if (!provider) {
+            throw new ConfigurationError(`Provider "${name}" is not registered`);
+        }
+
+        // Validate model is supported
+        if (!provider.supportsModel(model)) {
+            throw new ConfigurationError(
+                `Model "${model}" is not supported by provider "${name}". Available models: ${provider.models.join(', ')}`
+            );
+        }
+
+        this.currentProvider = name;
+        this.currentModel = model;
+
+        logger.info(`Current AI provider set to "${name}" with model "${model}"`);
+    }
+
+    /**
+     * Get current provider and model
+     */
+    getCurrentProvider(): { provider: string; model: string } | undefined {
+        this.ensureInitialized();
+
+        if (!this.currentProvider || !this.currentModel) {
+            return undefined;
+        }
+
+        return {
+            provider: this.currentProvider,
+            model: this.currentModel
+        };
+    }
+
+    /**
+     * Check if provider is configured
+     */
+    isConfigured(): boolean {
+        this.ensureInitialized();
+        return !!(this.currentProvider && this.currentModel && this.providers.has(this.currentProvider));
+    }
+
+    /**
+     * Get available models for a provider
+     */
+    getAvailableModels(providerName: string): string[] {
+        this.ensureInitialized();
+
+        const provider = this.providers.get(providerName);
+        if (!provider) {
+            throw new ConfigurationError(`Provider "${providerName}" is not registered`);
+        }
+
+        return [...provider.models];
+    }
+
+    /**
+     * Get current provider instance
+     */
+    getCurrentProviderInstance(): AIProvider | undefined {
+        if (!this.isConfigured() || !this.currentProvider) {
+            return undefined;
+        }
+
+        return this.providers.get(this.currentProvider);
+    }
+
+    /**
+     * Get provider names
+     */
+    getProviderNames(): string[] {
+        this.ensureInitialized();
+        return Array.from(this.providers.keys());
+    }
+
+    /**
+     * Get providers by pattern
+     */
+    getProvidersByPattern(pattern: string | RegExp): Record<string, AIProvider> {
+        this.ensureInitialized();
+
+        const regex = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
+        const result: Record<string, AIProvider> = {};
+
+        for (const [name, provider] of this.providers) {
+            if (regex.test(name)) {
+                result[name] = provider;
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Check if provider supports streaming
+     */
+    supportsStreaming(providerName?: string): boolean {
+        this.ensureInitialized();
+
+        const name = providerName || this.currentProvider;
+        if (!name) {
+            return false;
+        }
+
+        const provider = this.providers.get(name);
+        return !!(provider && typeof provider.chatStream === 'function');
+    }
+
+    /**
+     * Get provider count
+     */
+    getProviderCount(): number {
+        this.ensureInitialized();
+        return this.providers.size;
+    }
+} 
