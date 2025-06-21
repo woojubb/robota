@@ -191,8 +191,8 @@ packages/agents/src/
   - [x] @robota-sdk/anthropic: agents 표준으로 완전 마이그레이션 ✅ 빌드 성공
   - [x] @robota-sdk/google: agents 표준으로 완전 마이그레이션 ✅ 빌드 성공
 - [ ] 의존 패키지들 마이그레이션 (core/tools → agents)
-  - [ ] @robota-sdk/sessions: agents 표준으로 완전 재작성 (대기)
-  - [ ] @robota-sdk/team: agents 표준으로 완전 재작성 (진행 중: imports 변경 시작)
+  - [ ] @robota-sdk/team: agents 표준으로 완전 재작성 (우선 진행 - AgentFactory, AgentTemplate 패턴 확립)
+  - [ ] @robota-sdk/sessions: agents 표준으로 완전 재작성 (team의 AgentFactory/Template 패턴 참조하여 개발)
 - [ ] Example 앱들 마이그레이션
   - [ ] apps/examples: core/tools 제거하고 agents만 사용하도록 완전 재작성 (대기)
 - [ ] Core/Tools 패키지 완전 제거
@@ -200,7 +200,14 @@ packages/agents/src/
   - [ ] packages/tools 폴더 삭제 (대기)
   - [ ] workspace에서 core/tools 의존성 완전 제거 (대기)
 
-**현재 상태**: 모든 Provider 패키지들(OpenAI, Anthropic, Google) 마이그레이션 성공! 이제 Sessions, Team 패키지 마이그레이션과 Examples 앱 업데이트 필요
+**현재 상태**: 모든 Provider 패키지들(OpenAI, Anthropic, Google) 마이그레이션 성공! 
+
+**다음 단계**: Team 패키지를 우선 마이그레이션하여 AgentFactory/AgentTemplate 패턴을 확립한 후, 이를 참조하여 Sessions 패키지를 재작성하는 순서로 진행
+
+**마이그레이션 전략**:
+- Team 패키지는 최신 코드로 AgentFactory와 AgentTemplate을 잘 활용하고 있음
+- Team의 구조와 패턴을 agents 표준으로 마이그레이션하여 모범 사례 확립
+- Sessions 패키지는 Team의 AgentFactory/Template 활용 방식을 참조하여 agents 표준으로 재작성
 
 ### Phase 9: 테스트 및 문서화 (9단계)
 - [ ] 단위 테스트 작성
