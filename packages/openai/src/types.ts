@@ -1,10 +1,10 @@
-import { ProviderOptions } from '@robota-sdk/core';
+import type { ProviderOptions } from '@robota-sdk/core';
 import OpenAI from 'openai';
 
 /**
  * OpenAI provider options
  */
-export interface OpenAIProviderOptions extends ProviderOptions {
+export interface OpenAIProviderOptions extends Omit<ProviderOptions, 'model'> {
   /**
    * Model name to use (default: gpt-3.5-turbo)
    */

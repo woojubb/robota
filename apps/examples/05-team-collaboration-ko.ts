@@ -152,7 +152,7 @@ async function runKoreanTeamExample() {
             debug: false
         });
 
-        const complexTask = '카페 창업 계획서를 작성해주세요. 반드시 다음 두 부분을 모두 포함해야 합니다: 1) 시장 분석, 2) 메뉴 구성. 각각을 별도로 작성해주세요.';
+        const complexTask = '카페 창업 계획서를 작성해주세요. 반드시 다음 두 부분을 모두 포함해야 합니다: 시장 분석, 메뉴 구성. 각각을 별도로 작성해주세요.';
 
         console.log(chalk.yellow(`사용자: ${complexTask}`));
         console.log(chalk.blue('🤖 팀이 전문가들과 협업중입니다...'));

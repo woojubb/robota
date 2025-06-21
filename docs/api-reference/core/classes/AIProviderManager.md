@@ -58,7 +58,7 @@ Add an AI provider
 
 #### Defined in
 
-[packages/core/src/managers/ai-provider-manager.ts:18](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/managers/ai-provider-manager.ts#L18)
+[packages/core/src/managers/ai-provider-manager.ts:18](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/managers/ai-provider-manager.ts#L18)
 
 ___
 
@@ -81,7 +81,7 @@ Set current AI provider and model
 
 #### Defined in
 
-[packages/core/src/managers/ai-provider-manager.ts:28](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/managers/ai-provider-manager.ts#L28)
+[packages/core/src/managers/ai-provider-manager.ts:28](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/managers/ai-provider-manager.ts#L28)
 
 ___
 
@@ -102,7 +102,7 @@ Get currently configured AI provider and model
 
 #### Defined in
 
-[packages/core/src/managers/ai-provider-manager.ts:40](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/managers/ai-provider-manager.ts#L40)
+[packages/core/src/managers/ai-provider-manager.ts:40](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/managers/ai-provider-manager.ts#L40)
 
 ___
 
@@ -118,7 +118,7 @@ Get current AI provider instance
 
 #### Defined in
 
-[packages/core/src/managers/ai-provider-manager.ts:50](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/managers/ai-provider-manager.ts#L50)
+[packages/core/src/managers/ai-provider-manager.ts:50](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/managers/ai-provider-manager.ts#L50)
 
 ___
 
@@ -134,7 +134,7 @@ Get current model name
 
 #### Defined in
 
-[packages/core/src/managers/ai-provider-manager.ts:60](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/managers/ai-provider-manager.ts#L60)
+[packages/core/src/managers/ai-provider-manager.ts:60](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/managers/ai-provider-manager.ts#L60)
 
 ___
 
@@ -150,7 +150,7 @@ Check if AI provider is configured
 
 #### Defined in
 
-[packages/core/src/managers/ai-provider-manager.ts:67](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/managers/ai-provider-manager.ts#L67)
+[packages/core/src/managers/ai-provider-manager.ts:67](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/managers/ai-provider-manager.ts#L67)
 
 ___
 
@@ -166,4 +166,4 @@ Release resources of all AI providers
 
 #### Defined in
 
-[packages/core/src/managers/ai-provider-manager.ts:74](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/managers/ai-provider-manager.ts#L74)
+[packages/core/src/managers/ai-provider-manager.ts:74](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/managers/ai-provider-manager.ts#L74)

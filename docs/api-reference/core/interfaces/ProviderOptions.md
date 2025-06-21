@@ -19,6 +19,9 @@ Provider options interface
 - [maxTokens](ProviderOptions#maxtokens)
 - [stopSequences](ProviderOptions#stopsequences)
 - [streamMode](ProviderOptions#streammode)
+- [enableParallelToolCalls](ProviderOptions#enableparalleltoolcalls)
+- [maxConcurrentToolCalls](ProviderOptions#maxconcurrenttoolcalls)
+- [toolCallDelayMs](ProviderOptions#toolcalldelayms)
 
 ## Properties
 
@@ -28,7 +31,7 @@ Provider options interface
 
 #### Defined in
 
-[packages/core/src/types.ts:5](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/types.ts#L5)
+[packages/core/src/types.ts:5](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/types.ts#L5)
 
 ___
 
@@ -38,7 +41,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:6](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/types.ts#L6)
+[packages/core/src/types.ts:6](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/types.ts#L6)
 
 ___
 
@@ -48,7 +51,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:7](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/types.ts#L7)
+[packages/core/src/types.ts:7](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/types.ts#L7)
 
 ___
 
@@ -58,7 +61,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:8](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/types.ts#L8)
+[packages/core/src/types.ts:8](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/types.ts#L8)
 
 ___
 
@@ -68,4 +71,62 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:9](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/core/src/types.ts#L9)
+[packages/core/src/types.ts:9](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/types.ts#L9)
+
+___
+
+### enableParallelToolCalls
+
+• `Optional` **enableParallelToolCalls**: `boolean`
+
+Enable parallel execution of tool calls within a single AI response.
+When true, multiple tool calls in the same response are executed concurrently.
+When false, tool calls are executed sequentially (original behavior).
+
+**`Default Value`**
+
+```ts
+true
+```
+
+#### Defined in
+
+[packages/core/src/types.ts:19](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/types.ts#L19)
+
+___
+
+### maxConcurrentToolCalls
+
+• `Optional` **maxConcurrentToolCalls**: `number`
+
+Maximum number of tool calls to execute concurrently.
+Helps prevent overwhelming APIs with too many simultaneous requests.
+
+**`Default Value`**
+
+```ts
+3
+```
+
+#### Defined in
+
+[packages/core/src/types.ts:27](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/types.ts#L27)
+
+___
+
+### toolCallDelayMs
+
+• `Optional` **toolCallDelayMs**: `number`
+
+Delay in milliseconds between starting each tool call to avoid rate limits.
+Applied when executing tool calls in parallel to space out API requests.
+
+**`Default Value`**
+
+```ts
+100
+```
+
+#### Defined in
+
+[packages/core/src/types.ts:35](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/core/src/types.ts#L35)
