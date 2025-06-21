@@ -1,4 +1,4 @@
-import type { AgentConfig as BaseAgentConfig, AIProvider } from '@robota-sdk/agents';
+import type { RobotaOptions, AgentTemplateManager, AIProvider } from '@robota-sdk/core';
 
 /**
  * Team creation options for template-based teams
@@ -50,10 +50,10 @@ export interface TeamOptions {
     logger?: any;
 
     /** 
-     * Agent factory for managing built-in and custom agent templates.
-     * If not provided, a default agent factory with built-in templates will be created.
+     * Agent template manager for managing built-in and custom agent templates.
+     * If not provided, a default template manager with built-in templates will be created.
      */
-    agentFactory?: any;
+    templateManager?: AgentTemplateManager;
 
     /** 
      * Name of the agent template to use for the team coordinator/leader role.
@@ -68,10 +68,10 @@ export interface TeamOptions {
  * @internal
  */
 export interface TeamContainerOptions {
-    baseAgentConfig: BaseAgentConfig;
+    baseRobotaOptions: RobotaOptions;
     maxMembers?: number;
     debug?: boolean;
-    agentFactory?: any;
+    templateManager?: AgentTemplateManager;
     leaderTemplate?: string;
 }
 

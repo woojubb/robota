@@ -31,13 +31,6 @@ JSON output can be requested through prompt instructions.
 - [enablePayloadLogging](AnthropicProviderOptions#enablepayloadlogging)
 - [payloadLogDir](AnthropicProviderOptions#payloadlogdir)
 - [includeTimestampInLogFiles](AnthropicProviderOptions#includetimestampinlogfiles)
-- [temperature](AnthropicProviderOptions#temperature)
-- [maxTokens](AnthropicProviderOptions#maxtokens)
-- [stopSequences](AnthropicProviderOptions#stopsequences)
-- [streamMode](AnthropicProviderOptions#streammode)
-- [enableParallelToolCalls](AnthropicProviderOptions#enableparalleltoolcalls)
-- [maxConcurrentToolCalls](AnthropicProviderOptions#maxconcurrenttoolcalls)
-- [toolCallDelayMs](AnthropicProviderOptions#toolcalldelayms)
 
 ## Properties
 
@@ -49,7 +42,7 @@ Default model to use
 
 #### Defined in
 
-[anthropic/src/types.ts:14](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/types.ts#L14)
+[anthropic/src/types.ts:14](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/types.ts#L14)
 
 ___
 
@@ -61,7 +54,7 @@ Anthropic API key (optional: not required when using client)
 
 #### Defined in
 
-[anthropic/src/types.ts:19](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/types.ts#L19)
+[anthropic/src/types.ts:19](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/types.ts#L19)
 
 ___
 
@@ -73,7 +66,7 @@ API request timeout (milliseconds)
 
 #### Defined in
 
-[anthropic/src/types.ts:24](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/types.ts#L24)
+[anthropic/src/types.ts:24](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/types.ts#L24)
 
 ___
 
@@ -85,7 +78,7 @@ API base URL
 
 #### Defined in
 
-[anthropic/src/types.ts:29](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/types.ts#L29)
+[anthropic/src/types.ts:29](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/types.ts#L29)
 
 ___
 
@@ -97,7 +90,7 @@ Anthropic client instance (required)
 
 #### Defined in
 
-[anthropic/src/types.ts:34](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/types.ts#L34)
+[anthropic/src/types.ts:34](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/types.ts#L34)
 
 ___
 
@@ -109,7 +102,7 @@ Enable payload logging to files for debugging
 
 #### Defined in
 
-[anthropic/src/types.ts:39](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/types.ts#L39)
+[anthropic/src/types.ts:39](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/types.ts#L39)
 
 ___
 
@@ -121,7 +114,7 @@ Directory to save payload log files
 
 #### Defined in
 
-[anthropic/src/types.ts:44](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/types.ts#L44)
+[anthropic/src/types.ts:44](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/types.ts#L44)
 
 ___
 
@@ -133,130 +126,4 @@ Include timestamp in log file names
 
 #### Defined in
 
-[anthropic/src/types.ts:49](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/types.ts#L49)
-
-___
-
-### temperature
-
-• `Optional` **temperature**: `number`
-
-#### Inherited from
-
-Omit.temperature
-
-#### Defined in
-
-core/dist/index.d.ts:9
-
-___
-
-### maxTokens
-
-• `Optional` **maxTokens**: `number`
-
-#### Inherited from
-
-Omit.maxTokens
-
-#### Defined in
-
-core/dist/index.d.ts:10
-
-___
-
-### stopSequences
-
-• `Optional` **stopSequences**: `string`[]
-
-#### Inherited from
-
-Omit.stopSequences
-
-#### Defined in
-
-core/dist/index.d.ts:11
-
-___
-
-### streamMode
-
-• `Optional` **streamMode**: `boolean`
-
-#### Inherited from
-
-Omit.streamMode
-
-#### Defined in
-
-core/dist/index.d.ts:12
-
-___
-
-### enableParallelToolCalls
-
-• `Optional` **enableParallelToolCalls**: `boolean`
-
-Enable parallel execution of tool calls within a single AI response.
-When true, multiple tool calls in the same response are executed concurrently.
-When false, tool calls are executed sequentially (original behavior).
-
-**`Default Value`**
-
-```ts
-true
-```
-
-#### Inherited from
-
-Omit.enableParallelToolCalls
-
-#### Defined in
-
-core/dist/index.d.ts:20
-
-___
-
-### maxConcurrentToolCalls
-
-• `Optional` **maxConcurrentToolCalls**: `number`
-
-Maximum number of tool calls to execute concurrently.
-Helps prevent overwhelming APIs with too many simultaneous requests.
-
-**`Default Value`**
-
-```ts
-3
-```
-
-#### Inherited from
-
-Omit.maxConcurrentToolCalls
-
-#### Defined in
-
-core/dist/index.d.ts:27
-
-___
-
-### toolCallDelayMs
-
-• `Optional` **toolCallDelayMs**: `number`
-
-Delay in milliseconds between starting each tool call to avoid rate limits.
-Applied when executing tool calls in parallel to space out API requests.
-
-**`Default Value`**
-
-```ts
-100
-```
-
-#### Inherited from
-
-Omit.toolCallDelayMs
-
-#### Defined in
-
-core/dist/index.d.ts:34
+[anthropic/src/types.ts:49](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/types.ts#L49)

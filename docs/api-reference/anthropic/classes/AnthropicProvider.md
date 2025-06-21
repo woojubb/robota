@@ -32,10 +32,17 @@ Extends BaseAIProvider for common functionality and tool calling support.
 ### Properties
 
 - [name](AnthropicProvider#name)
+- [models](AnthropicProvider#models)
 - [options](AnthropicProvider#options)
 
 ### Methods
 
+- [initialize](AnthropicProvider#initialize)
+- [dispose](AnthropicProvider#dispose)
+- [isInitialized](AnthropicProvider#isinitialized)
+- [generateResponse](AnthropicProvider#generateresponse)
+- [generateStreamingResponse](AnthropicProvider#generatestreamingresponse)
+- [supportsModel](AnthropicProvider#supportsmodel)
 - [chat](AnthropicProvider#chat)
 - [chatStream](AnthropicProvider#chatstream)
 - [parseResponse](AnthropicProvider#parseresponse)
@@ -70,7 +77,7 @@ BaseAIProvider.constructor
 
 #### Defined in
 
-[anthropic/src/provider.ts:56](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/provider.ts#L56)
+[anthropic/src/provider.ts:69](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/provider.ts#L69)
 
 ## Properties
 
@@ -86,7 +93,23 @@ BaseAIProvider.name
 
 #### Defined in
 
-[anthropic/src/provider.ts:29](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/provider.ts#L29)
+[anthropic/src/provider.ts:29](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/provider.ts#L29)
+
+___
+
+### models
+
+• `Readonly` **models**: `string`[]
+
+Available models
+
+#### Overrides
+
+BaseAIProvider.models
+
+#### Defined in
+
+[anthropic/src/provider.ts:35](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/provider.ts#L35)
 
 ___
 
@@ -96,15 +119,141 @@ ___
 
 Provider configuration options
 
-#### Overrides
+#### Defined in
 
-BaseAIProvider.options
+[anthropic/src/provider.ts:54](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/provider.ts#L54)
+
+## Methods
+
+### initialize
+
+▸ **initialize**(): `Promise`\<`void`\>
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Inherited from
+
+BaseAIProvider.initialize
 
 #### Defined in
 
-[anthropic/src/provider.ts:41](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/provider.ts#L41)
+agents/dist/index.d.ts:535
 
-## Methods
+___
+
+### dispose
+
+▸ **dispose**(): `Promise`\<`void`\>
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Inherited from
+
+BaseAIProvider.dispose
+
+#### Defined in
+
+agents/dist/index.d.ts:536
+
+___
+
+### isInitialized
+
+▸ **isInitialized**(): `boolean`
+
+#### Returns
+
+`boolean`
+
+#### Inherited from
+
+BaseAIProvider.isInitialized
+
+#### Defined in
+
+agents/dist/index.d.ts:537
+
+___
+
+### generateResponse
+
+▸ **generateResponse**(`request`): `Promise`\<`any`\>
+
+Generate response using raw request payload (default implementation uses chat)
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `request` | `any` |
+
+#### Returns
+
+`Promise`\<`any`\>
+
+#### Inherited from
+
+BaseAIProvider.generateResponse
+
+#### Defined in
+
+agents/dist/index.d.ts:550
+
+___
+
+### generateStreamingResponse
+
+▸ **generateStreamingResponse**(`request`): `AsyncGenerator`\<`any`, `void`, `unknown`\>
+
+Generate streaming response using raw request payload (default implementation uses chatStream)
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `request` | `any` |
+
+#### Returns
+
+`AsyncGenerator`\<`any`, `void`, `unknown`\>
+
+#### Inherited from
+
+BaseAIProvider.generateStreamingResponse
+
+#### Defined in
+
+agents/dist/index.d.ts:554
+
+___
+
+### supportsModel
+
+▸ **supportsModel**(`model`): `boolean`
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `model` | `string` |
+
+#### Returns
+
+`boolean`
+
+#### Inherited from
+
+BaseAIProvider.supportsModel
+
+#### Defined in
+
+agents/dist/index.d.ts:555
+
+___
 
 ### chat
 
@@ -147,7 +296,7 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[anthropic/src/provider.ts:99](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/provider.ts#L99)
+[anthropic/src/provider.ts:112](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/provider.ts#L112)
 
 ___
 
@@ -193,7 +342,7 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[anthropic/src/provider.ts:158](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/provider.ts#L158)
+[anthropic/src/provider.ts:171](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/provider.ts#L171)
 
 ___
 
@@ -221,7 +370,7 @@ Parsed model response in universal format
 
 #### Defined in
 
-[anthropic/src/provider.ts:239](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/provider.ts#L239)
+[anthropic/src/provider.ts:252](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/provider.ts#L252)
 
 ___
 
@@ -248,7 +397,7 @@ Parsed streaming response chunk
 
 #### Defined in
 
-[anthropic/src/provider.ts:299](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/provider.ts#L299)
+[anthropic/src/provider.ts:312](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/provider.ts#L312)
 
 ___
 
@@ -273,4 +422,4 @@ BaseAIProvider.close
 
 #### Defined in
 
-[anthropic/src/provider.ts:330](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/provider.ts#L330)
+[anthropic/src/provider.ts:343](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/provider.ts#L343)

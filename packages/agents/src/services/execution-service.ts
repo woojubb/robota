@@ -112,7 +112,7 @@ export class ExecutionService {
 
         try {
             // Get AI provider
-            const provider = this.aiProviderManager.getCurrentProviderInstance();
+            const provider = this.aiProviderManager.getCurrentProvider();
             if (!provider) {
                 throw new Error('No AI provider available');
             }
@@ -253,7 +253,7 @@ export class ExecutionService {
         const startTime = new Date();
 
         try {
-            const provider = this.aiProviderManager.getCurrentProviderInstance();
+            const provider = this.aiProviderManager.getCurrentProvider();
             if (!provider) {
                 throw new Error('No AI provider available');
             }
@@ -300,10 +300,7 @@ export class ExecutionService {
                     ...allMessages,
                     this.conversationService.createAssistantMessage({
                         content: fullContent,
-                        usage,
-                        toolCalls: [],
-                        metadata: {},
-                        finishReason: 'stop'
+                        usage
                     })
                 ],
                 executionId,

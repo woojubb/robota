@@ -39,7 +39,7 @@ Converts UniversalMessage to OpenAI Chat Completions API format
 
 ### filterMessagesForOpenAI
 
-▸ **filterMessagesForOpenAI**(`messages`): `UniversalMessage`[]
+▸ **filterMessagesForOpenAI**(`messages`): `Message`[]
 
 Filter messages for OpenAI compatibility
 
@@ -52,15 +52,15 @@ OpenAI has specific requirements:
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | `UniversalMessage`[] |
+| `messages` | `Message`[] |
 
 #### Returns
 
-`UniversalMessage`[]
+`Message`[]
 
 #### Defined in
 
-[openai/src/adapter.ts:18](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/openai/src/adapter.ts#L18)
+[openai/src/adapter.ts:18](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/openai/src/adapter.ts#L18)
 
 ___
 
@@ -75,7 +75,7 @@ Now properly handles tool messages for OpenAI's tool calling feature
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | `UniversalMessage`[] |
+| `messages` | `Message`[] |
 
 #### Returns
 
@@ -83,7 +83,7 @@ Now properly handles tool messages for OpenAI's tool calling feature
 
 #### Defined in
 
-[openai/src/adapter.ts:42](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/openai/src/adapter.ts#L42)
+[openai/src/adapter.ts:42](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/openai/src/adapter.ts#L42)
 
 ___
 
@@ -98,7 +98,7 @@ Handles all message types including tool messages
 
 | Name | Type |
 | :------ | :------ |
-| `msg` | `UniversalMessage` |
+| `msg` | `Message` |
 
 #### Returns
 
@@ -106,7 +106,7 @@ Handles all message types including tool messages
 
 #### Defined in
 
-[openai/src/adapter.ts:52](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/openai/src/adapter.ts#L52)
+[openai/src/adapter.ts:52](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/openai/src/adapter.ts#L52)
 
 ___
 
@@ -129,4 +129,4 @@ Add system prompt to message array if needed
 
 #### Defined in
 
-[openai/src/adapter.ts:121](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/openai/src/adapter.ts#L121)
+[openai/src/adapter.ts:117](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/openai/src/adapter.ts#L117)

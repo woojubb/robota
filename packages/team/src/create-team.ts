@@ -88,16 +88,16 @@ export function createTeam(options: TeamOptions): TeamContainer {
 
     // Convert to full TeamContainerOptions
     const fullOptions: TeamContainerOptions = {
-        baseAgentConfig: {
-            provider: defaultProvider,
-            model: defaultModel,
-            systemMessage: '',
-            temperature: 0.7,
-            maxTokens: options.maxTokenLimit || 50000
+        baseRobotaOptions: {
+            aiProviders: options.aiProviders,
+            currentProvider: defaultProvider,
+            currentModel: defaultModel,
+            maxTokenLimit: options.maxTokenLimit || 50000,
+            logger: options.logger
         },
         maxMembers: options.maxMembers || 5,
         debug: options.debug || false,
-        agentFactory: options.agentFactory,
+        templateManager: options.templateManager,
         leaderTemplate: options.leaderTemplate
     };
 
