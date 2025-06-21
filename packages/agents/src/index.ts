@@ -3,6 +3,19 @@ export * from './interfaces';
 export * from './abstracts';
 export * from './utils';
 
+// Managers
+export { AIProviderManager } from './managers/ai-provider-manager.js';
+export { AgentFactory } from './managers/agent-factory.js';
+export { ToolManager } from './managers/tool-manager.js';
+
+// Services
+export { ConversationService } from './services/conversation-service.js';
+export { ExecutionService } from './services/execution-service.js';
+export { ToolExecutionService } from './services/tool-execution-service.js';
+
+// Tools (avoid name conflicts)
+export { ToolRegistry } from './tools/registry/tool-registry.js';
+
 // Provider integration exports (for openai, anthropic, google packages)
 export type {
     Context,
