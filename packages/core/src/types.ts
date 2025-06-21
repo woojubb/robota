@@ -7,6 +7,32 @@ export interface ProviderOptions {
     maxTokens?: number;
     stopSequences?: string[];
     streamMode?: boolean;
+
+    // Parallel tool call options (all optional with defaults)
+    /** 
+     * Enable parallel execution of tool calls within a single AI response.
+     * When true, multiple tool calls in the same response are executed concurrently.
+     * When false, tool calls are executed sequentially (original behavior).
+     * 
+     * @defaultValue true
+     */
+    enableParallelToolCalls?: boolean;
+
+    /** 
+     * Maximum number of tool calls to execute concurrently.
+     * Helps prevent overwhelming APIs with too many simultaneous requests.
+     * 
+     * @defaultValue 3
+     */
+    maxConcurrentToolCalls?: number;
+
+    /** 
+     * Delay in milliseconds between starting each tool call to avoid rate limits.
+     * Applied when executing tool calls in parallel to space out API requests.
+     * 
+     * @defaultValue 100
+     */
+    toolCallDelayMs?: number;
 }
 
 /**

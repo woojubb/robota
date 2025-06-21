@@ -1,4 +1,4 @@
-import { ProviderOptions } from '@robota-sdk/core';
+import type { ProviderOptions } from '@robota-sdk/core';
 import Anthropic from '@anthropic-ai/sdk';
 
 /**
@@ -7,7 +7,12 @@ import Anthropic from '@anthropic-ai/sdk';
  * Note: Anthropic API doesn't support response format configuration.
  * JSON output can be requested through prompt instructions.
  */
-export interface AnthropicProviderOptions extends ProviderOptions {
+export interface AnthropicProviderOptions extends Omit<ProviderOptions, 'model'> {
+    /**
+     * Default model to use
+     */
+    model?: string;
+
     /**
      * Anthropic API key (optional: not required when using client)
      */

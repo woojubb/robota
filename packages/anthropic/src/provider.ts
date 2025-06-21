@@ -59,6 +59,10 @@ export class AnthropicProvider extends BaseAIProvider {
         this.options = {
             temperature: 0.7,
             maxTokens: undefined,
+            // Set default values for parallel tool call options
+            enableParallelToolCalls: true,
+            maxConcurrentToolCalls: 3,
+            toolCallDelayMs: 100,
             ...options
         };
 

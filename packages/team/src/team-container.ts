@@ -718,8 +718,8 @@ Use delegateWork tool for specialized tasks. Synthesize results to provide compl
             ).join('\n');
 
             agentTemplateSchema = z.enum(templateNames as [string, ...string[]])
-                .optional()
-                .describe(`Agent template to use for specialized expertise. Available templates:\n\n${templateInfo}\n\nIf not specified, a dynamic agent will be created based on the job description.`);
+                .default('general')
+                .describe(`Agent template to use for specialized expertise. Available templates:\n\n${templateInfo}\n\nDefaults to 'general' (general-purpose agent) if not specified.`);
 
             // Debug: log the schema to see what's generated
             if (this.options.debug) {
@@ -730,7 +730,7 @@ Use delegateWork tool for specialized tasks. Synthesize results to provide compl
                 });
             }
         } else {
-            agentTemplateSchema = z.string().optional().describe('Name of agent template to use. No templates currently available - dynamic agent will be created.');
+            agentTemplateSchema = z.string().default('general').describe('Name of agent template to use. Defaults to "general" for general-purpose tasks.');
         }
 
         // Create dynamic schema based on available templates

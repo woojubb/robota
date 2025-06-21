@@ -35,6 +35,9 @@ JSON output can be requested through prompt instructions.
 - [maxTokens](AnthropicProviderOptions#maxtokens)
 - [stopSequences](AnthropicProviderOptions#stopsequences)
 - [streamMode](AnthropicProviderOptions#streammode)
+- [enableParallelToolCalls](AnthropicProviderOptions#enableparalleltoolcalls)
+- [maxConcurrentToolCalls](AnthropicProviderOptions#maxconcurrenttoolcalls)
+- [toolCallDelayMs](AnthropicProviderOptions#toolcalldelayms)
 
 ## Properties
 
@@ -46,7 +49,7 @@ Anthropic API key (optional: not required when using client)
 
 #### Defined in
 
-[anthropic/src/types.ts:14](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L14)
+[anthropic/src/types.ts:14](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/types.ts#L14)
 
 ___
 
@@ -58,7 +61,7 @@ API request timeout (milliseconds)
 
 #### Defined in
 
-[anthropic/src/types.ts:19](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L19)
+[anthropic/src/types.ts:19](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/types.ts#L19)
 
 ___
 
@@ -70,7 +73,7 @@ API base URL
 
 #### Defined in
 
-[anthropic/src/types.ts:24](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L24)
+[anthropic/src/types.ts:24](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/types.ts#L24)
 
 ___
 
@@ -82,7 +85,7 @@ Anthropic client instance (required)
 
 #### Defined in
 
-[anthropic/src/types.ts:29](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L29)
+[anthropic/src/types.ts:29](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/types.ts#L29)
 
 ___
 
@@ -94,7 +97,7 @@ Enable payload logging to files for debugging
 
 #### Defined in
 
-[anthropic/src/types.ts:34](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L34)
+[anthropic/src/types.ts:34](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/types.ts#L34)
 
 ___
 
@@ -106,7 +109,7 @@ Directory to save payload log files
 
 #### Defined in
 
-[anthropic/src/types.ts:39](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L39)
+[anthropic/src/types.ts:39](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/types.ts#L39)
 
 ___
 
@@ -118,7 +121,7 @@ Include timestamp in log file names
 
 #### Defined in
 
-[anthropic/src/types.ts:44](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L44)
+[anthropic/src/types.ts:44](https://github.com/woojubb/robota/blob/a3ab9410e815223c52230ddc246f82f91b3bd0b7/packages/anthropic/src/types.ts#L44)
 
 ___
 
@@ -189,3 +192,73 @@ ProviderOptions.streamMode
 #### Defined in
 
 core/dist/index.d.ts:12
+
+___
+
+### enableParallelToolCalls
+
+• `Optional` **enableParallelToolCalls**: `boolean`
+
+Enable parallel execution of tool calls within a single AI response.
+When true, multiple tool calls in the same response are executed concurrently.
+When false, tool calls are executed sequentially (original behavior).
+
+**`Default Value`**
+
+```ts
+true
+```
+
+#### Inherited from
+
+ProviderOptions.enableParallelToolCalls
+
+#### Defined in
+
+core/dist/index.d.ts:20
+
+___
+
+### maxConcurrentToolCalls
+
+• `Optional` **maxConcurrentToolCalls**: `number`
+
+Maximum number of tool calls to execute concurrently.
+Helps prevent overwhelming APIs with too many simultaneous requests.
+
+**`Default Value`**
+
+```ts
+3
+```
+
+#### Inherited from
+
+ProviderOptions.maxConcurrentToolCalls
+
+#### Defined in
+
+core/dist/index.d.ts:27
+
+___
+
+### toolCallDelayMs
+
+• `Optional` **toolCallDelayMs**: `number`
+
+Delay in milliseconds between starting each tool call to avoid rate limits.
+Applied when executing tool calls in parallel to space out API requests.
+
+**`Default Value`**
+
+```ts
+100
+```
+
+#### Inherited from
+
+ProviderOptions.toolCallDelayMs
+
+#### Defined in
+
+core/dist/index.d.ts:34

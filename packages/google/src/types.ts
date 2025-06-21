@@ -1,9 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import type { ProviderOptions } from '@robota-sdk/core';
 
 /**
  * Google AI Provider options
  */
-export interface GoogleProviderOptions {
+export interface GoogleProviderOptions extends Omit<ProviderOptions, 'model'> {
     /** Google AI client instance */
     client: GoogleGenerativeAI;
 

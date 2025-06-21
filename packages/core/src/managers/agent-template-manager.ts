@@ -4,6 +4,21 @@ import { safeValidateAgentTemplate, getValidationErrors } from '../schemas/agent
 // Builtin templates configuration
 const BUILTIN_TEMPLATES: AgentTemplate[] = [
     {
+        name: "general",
+        description: "General-purpose agent capable of handling diverse tasks. Use when no specific template is needed or when task requirements are unclear. This is the fallback option for general work.",
+        llm_provider: "openai",
+        model: "gpt-4o-mini",
+        temperature: 0.5,
+        system_prompt: "You are a helpful and capable AI assistant with broad knowledge and skills. You can adapt to various tasks and requirements while maintaining high quality and accuracy. Your strengths include:\n\n• General problem-solving and analysis\n• Clear communication and explanation\n• Flexible task adaptation\n• Balanced approach to different types of work\n• Reliable execution of varied requests\n\nWhen handling tasks:\n1. Analyze the request to understand requirements\n2. Apply appropriate methods and knowledge\n3. Provide clear, useful, and accurate responses\n4. Ask for clarification when needed\n5. Adapt your approach to the specific context\n6. Ensure completeness and quality in your work\n\nProvide helpful, accurate, and well-structured responses that meet the user's needs effectively.",
+        tags: ["general", "default", "versatile"],
+        version: "1.0.0",
+        metadata: {
+            type: "builtin",
+            author: "Robota SDK",
+            createdAt: new Date("2024-01-01T00:00:00.000Z")
+        }
+    },
+    {
         name: "summarizer",
         description: "Expert in document summarization and key point extraction. Use for: summarizing documents, extracting key insights, creating executive summaries, condensing reports, highlighting main points, creating meeting notes, distilling complex information.",
         llm_provider: "openai",
