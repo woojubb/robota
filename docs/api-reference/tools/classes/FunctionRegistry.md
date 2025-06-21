@@ -62,7 +62,7 @@ Register a function with its definition and handler
 
 #### Defined in
 
-[packages/tools/src/registry/function-registry.ts:39](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/registry/function-registry.ts#L39)
+[packages/tools/src/registry/function-registry.ts:39](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/tools/src/registry/function-registry.ts#L39)
 
 ___
 
@@ -86,7 +86,7 @@ True if function was found and removed
 
 #### Defined in
 
-[packages/tools/src/registry/function-registry.ts:50](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/registry/function-registry.ts#L50)
+[packages/tools/src/registry/function-registry.ts:50](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/tools/src/registry/function-registry.ts#L50)
 
 ___
 
@@ -110,7 +110,7 @@ True if function is registered
 
 #### Defined in
 
-[packages/tools/src/registry/function-registry.ts:62](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/registry/function-registry.ts#L62)
+[packages/tools/src/registry/function-registry.ts:62](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/tools/src/registry/function-registry.ts#L62)
 
 ___
 
@@ -128,7 +128,7 @@ Array of all function definitions
 
 #### Defined in
 
-[packages/tools/src/registry/function-registry.ts:71](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/registry/function-registry.ts#L71)
+[packages/tools/src/registry/function-registry.ts:71](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/tools/src/registry/function-registry.ts#L71)
 
 ___
 
@@ -152,7 +152,7 @@ Function definition if found
 
 #### Defined in
 
-[packages/tools/src/registry/function-registry.ts:81](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/registry/function-registry.ts#L81)
+[packages/tools/src/registry/function-registry.ts:81](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/tools/src/registry/function-registry.ts#L81)
 
 ___
 
@@ -170,7 +170,7 @@ Array of function names
 
 #### Defined in
 
-[packages/tools/src/registry/function-registry.ts:90](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/registry/function-registry.ts#L90)
+[packages/tools/src/registry/function-registry.ts:90](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/tools/src/registry/function-registry.ts#L90)
 
 ___
 
@@ -188,7 +188,7 @@ Number of registered functions
 
 #### Defined in
 
-[packages/tools/src/registry/function-registry.ts:99](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/registry/function-registry.ts#L99)
+[packages/tools/src/registry/function-registry.ts:99](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/tools/src/registry/function-registry.ts#L99)
 
 ___
 
@@ -204,7 +204,7 @@ Clear all registered functions
 
 #### Defined in
 
-[packages/tools/src/registry/function-registry.ts:106](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/registry/function-registry.ts#L106)
+[packages/tools/src/registry/function-registry.ts:106](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/tools/src/registry/function-registry.ts#L106)
 
 ___
 
@@ -229,4 +229,4 @@ Promise resolving to function call result
 
 #### Defined in
 
-[packages/tools/src/registry/function-registry.ts:118](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/registry/function-registry.ts#L118)
+[packages/tools/src/registry/function-registry.ts:118](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/tools/src/registry/function-registry.ts#L118)

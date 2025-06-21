@@ -36,7 +36,7 @@ Cached data
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:16](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/performance/cache-manager.ts#L16)
+[packages/tools/src/performance/cache-manager.ts:16](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/tools/src/performance/cache-manager.ts#L16)
 
 ___
 
@@ -48,7 +48,7 @@ Cache creation timestamp
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:18](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/performance/cache-manager.ts#L18)
+[packages/tools/src/performance/cache-manager.ts:18](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/tools/src/performance/cache-manager.ts#L18)
 
 ___
 
@@ -60,7 +60,7 @@ Time to live (milliseconds)
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:20](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/performance/cache-manager.ts#L20)
+[packages/tools/src/performance/cache-manager.ts:20](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/tools/src/performance/cache-manager.ts#L20)
 
 ___
 
@@ -72,7 +72,7 @@ Access count
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:22](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/performance/cache-manager.ts#L22)
+[packages/tools/src/performance/cache-manager.ts:22](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/tools/src/performance/cache-manager.ts#L22)
 
 ___
 
@@ -84,4 +84,4 @@ Last accessed timestamp
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:24](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/tools/src/performance/cache-manager.ts#L24)
+[packages/tools/src/performance/cache-manager.ts:24](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/tools/src/performance/cache-manager.ts#L24)

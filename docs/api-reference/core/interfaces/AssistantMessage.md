@@ -40,7 +40,7 @@ Message creation timestamp
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:17](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/conversation-history.ts#L17)
+[packages/core/src/conversation-history.ts:17](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/conversation-history.ts#L17)
 
 ___
 
@@ -56,7 +56,7 @@ Additional metadata
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:20](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/conversation-history.ts#L20)
+[packages/core/src/conversation-history.ts:20](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/conversation-history.ts#L20)
 
 ___
 
@@ -68,7 +68,7 @@ Message role - always 'assistant'
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:46](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/conversation-history.ts#L46)
+[packages/core/src/conversation-history.ts:46](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/conversation-history.ts#L46)
 
 ___
 
@@ -80,7 +80,7 @@ Assistant response content (can be null when making tool calls)
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:49](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/conversation-history.ts#L49)
+[packages/core/src/conversation-history.ts:49](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/conversation-history.ts#L49)
 
 ___
 
@@ -92,4 +92,4 @@ Tool calls made by the assistant (OpenAI tool calling format)
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:52](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/conversation-history.ts#L52)
+[packages/core/src/conversation-history.ts:52](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/conversation-history.ts#L52)

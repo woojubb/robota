@@ -67,7 +67,7 @@ BaseConversationHistory.constructor
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:462](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/conversation-history.ts#L462)
+[packages/core/src/conversation-history.ts:462](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/conversation-history.ts#L462)
 
 ## Methods
 
@@ -92,7 +92,7 @@ BaseConversationHistory.addUserMessage
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:375](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/conversation-history.ts#L375)
+[packages/core/src/conversation-history.ts:375](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/conversation-history.ts#L375)
 
 ___
 
@@ -118,7 +118,7 @@ BaseConversationHistory.addAssistantMessage
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:380](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/conversation-history.ts#L380)
+[packages/core/src/conversation-history.ts:380](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/conversation-history.ts#L380)
 
 ___
 
@@ -143,7 +143,7 @@ BaseConversationHistory.addSystemMessage
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:396](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/conversation-history.ts#L396)
+[packages/core/src/conversation-history.ts:396](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/conversation-history.ts#L396)
 
 ___
 
@@ -170,7 +170,7 @@ BaseConversationHistory.addToolMessageWithId
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:401](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/conversation-history.ts#L401)
+[packages/core/src/conversation-history.ts:401](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/conversation-history.ts#L401)
 
 ___
 
@@ -194,7 +194,7 @@ BaseConversationHistory.getMessagesByRole
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:410](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/conversation-history.ts#L410)
+[packages/core/src/conversation-history.ts:410](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/conversation-history.ts#L410)
 
 ___
 
@@ -218,7 +218,7 @@ BaseConversationHistory.getRecentMessages
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:414](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/conversation-history.ts#L414)
+[packages/core/src/conversation-history.ts:414](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/conversation-history.ts#L414)
 
 ___
 
@@ -247,7 +247,7 @@ BaseConversationHistory.addMessage
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:474](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/conversation-history.ts#L474)
+[packages/core/src/conversation-history.ts:474](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/conversation-history.ts#L474)
 
 ___
 
@@ -269,7 +269,7 @@ BaseConversationHistory.getMessages
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:484](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/conversation-history.ts#L484)
+[packages/core/src/conversation-history.ts:484](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/conversation-history.ts#L484)
 
 ___
 
@@ -291,7 +291,7 @@ BaseConversationHistory.getMessageCount
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:493](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/conversation-history.ts#L493)
+[packages/core/src/conversation-history.ts:493](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/conversation-history.ts#L493)
 
 ___
 
@@ -313,4 +313,4 @@ BaseConversationHistory.clear
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:502](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/core/src/conversation-history.ts#L502)
+[packages/core/src/conversation-history.ts:502](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/conversation-history.ts#L502)

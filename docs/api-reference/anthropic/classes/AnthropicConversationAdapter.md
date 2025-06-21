@@ -47,7 +47,7 @@ Convert UniversalMessage array to Anthropic Messages API format
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `messages` | `UniversalMessage`[] | Array of universal messages |
+| `messages` | `Message`[] | Array of universal messages |
 
 #### Returns
 
@@ -57,7 +57,7 @@ Array of messages in Anthropic Messages API format
 
 #### Defined in
 
-[anthropic/src/adapter.ts:31](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/adapter.ts#L31)
+[anthropic/src/adapter.ts:31](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/adapter.ts#L31)
 
 ___
 
@@ -71,7 +71,7 @@ Convert UniversalMessage array to Anthropic prompt format (legacy)
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | `UniversalMessage`[] |
+| `messages` | `Message`[] |
 | `systemPrompt?` | `string` |
 
 #### Returns
@@ -80,7 +80,7 @@ Convert UniversalMessage array to Anthropic prompt format (legacy)
 
 #### Defined in
 
-[anthropic/src/adapter.ts:79](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/adapter.ts#L79)
+[anthropic/src/adapter.ts:79](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/adapter.ts#L79)
 
 ___
 
@@ -94,7 +94,7 @@ Extract system messages and combine them as system prompt
 
 | Name | Type |
 | :------ | :------ |
-| `messages` | `UniversalMessage`[] |
+| `messages` | `Message`[] |
 | `fallbackSystemPrompt?` | `string` |
 
 #### Returns
@@ -103,7 +103,7 @@ Extract system messages and combine them as system prompt
 
 #### Defined in
 
-[anthropic/src/adapter.ts:133](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/adapter.ts#L133)
+[anthropic/src/adapter.ts:133](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/adapter.ts#L133)
 
 ___
 
@@ -117,7 +117,7 @@ Helper for message conversion testing (converts each message individually)
 
 | Name | Type |
 | :------ | :------ |
-| `msg` | `UniversalMessage` |
+| `msg` | `Message` |
 
 #### Returns
 
@@ -125,4 +125,4 @@ Helper for message conversion testing (converts each message individually)
 
 #### Defined in
 
-[anthropic/src/adapter.ts:146](https://github.com/woojubb/robota/blob/71f062d020afc1eae0c94155ab9c882c78b871e7/packages/anthropic/src/adapter.ts#L146)
+[anthropic/src/adapter.ts:146](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/anthropic/src/adapter.ts#L146)

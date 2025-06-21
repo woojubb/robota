@@ -190,58 +190,26 @@ packages/agents/src/
   - [x] @robota-sdk/openai: BaseAIProvider, Context, ModelResponse, StreamingResponseChunk, ToolSchema 사용 ✅ 빌드 성공
   - [x] @robota-sdk/anthropic: agents 표준으로 완전 마이그레이션 ✅ 빌드 성공
   - [x] @robota-sdk/google: agents 표준으로 완전 마이그레이션 ✅ 빌드 성공
-- [x] 의존 패키지들 마이그레이션 (core/tools → agents)
-  - [x] @robota-sdk/team: agents 표준으로 완전 재작성 ✅ 빌드 성공 (16.4KB ESM/16.8KB CJS)
-  - [x] @robota-sdk/sessions: team 스타일로 완전 재작성 ✅ 빌드 성공 (17.8KB ESM/18.0KB CJS)
+- [ ] 의존 패키지들 마이그레이션 (core/tools → agents)
+  - [ ] @robota-sdk/team: agents 표준으로 완전 마이그레이션 (우선순위 1)
+    - Team 패키지의 최신 AgentFactory, AgentTemplate 활용 방식을 기준으로 함
+    - assignTask 함수 등 기존 동작 방식 누락 없이 구조 유지하며 agents 표준 적용
+  - [ ] @robota-sdk/sessions: team 방식 기반으로 agents 표준 재작성 (우선순위 2)
+    - Team에서 사용하는 AgentFactory, AgentTemplate 패턴을 sessions에 적용
+    - 최신 코드 베이스인 team의 구조를 참고하여 sessions 개발
 - [ ] Example 앱들 마이그레이션
   - [ ] apps/examples: core/tools 제거하고 agents만 사용하도록 완전 재작성 (대기)
-- [ ] Core/Tools 패키지 deprecated 처리
-  - [ ] docs/packages/core/README.md 파일에 deprecated를 알리고 agents 패키지 사용 유도
-  - [ ] docs/packages/tools/README.md 파일에 deprecated를 알리고 agents 패키지 사용 유도
+- [ ] Core/Tools 패키지 완전 제거
+  - [ ] packages/core 폴더 삭제 (대기)
+  - [ ] packages/tools 폴더 삭제 (대기)
+  - [ ] workspace에서 core/tools 의존성 완전 제거 (대기)
 
-**현재 상태**: 모든 핵심 패키지 마이그레이션 완료! (Providers, Team, Sessions)
+**현재 상태**: 모든 Provider 패키지들(OpenAI, Anthropic, Google) 마이그레이션 성공! 이제 Team → Sessions 순서로 마이그레이션 진행
 
-**Sessions 패키지 완전 재구조화 결과**:
-
-#### ✅ 성공적인 리팩토링 완료
-1. **구조 간소화**: 13개 디렉토리 → 6개 파일로 대폭 단순화
-2. **중복 기능 제거**: agents 패키지의 기능을 최대한 재사용
-3. **Team 스타일 채택**: 명확하고 직관적인 API 구조
-4. **빌드 크기 최적화**: 17.8KB ESM으로 경량화
-
-#### 📁 새로운 구조 (최종)
-```
-packages/sessions/src/
-├── types.ts              # 모든 타입 정의 통합
-├── chat-instance.ts       # Robota 래퍼 클래스
-├── session.ts            # ChatInstance 관리 클래스
-├── session-manager.ts     # Session 관리 클래스
-├── create-session.ts      # 편의 함수들
-└── index.ts              # 메인 export
-```
-
-#### 🎯 새로운 API (Team 스타일)
-```typescript
-// 기본 사용법 (Team과 동일한 패턴)
-import { SessionManager } from '@robota-sdk/sessions';
-
-const sessionManager = new SessionManager({ debug: true });
-const session = await sessionManager.createSession('user123');
-const chat = await session.createChat({
-  robotaConfig: { provider: 'openai', model: 'gpt-4' }
-});
-const response = await chat.run('Hello!');
-
-// 편의 함수 (Team의 createTeam과 동일한 패턴)
-import { createSessionManager } from '@robota-sdk/sessions';
-
-const sessionManager = createSessionManager({
-  aiProviders: { openai: openaiProvider },
-  debug: true
-});
-```
-
-**다음 단계**: Examples 마이그레이션 후 core/tools 패키지 완전 제거
+**개발 원칙**:
+- ⚠️ **Mock/Dummy/가짜 데이터 사용 금지**: 모든 코드는 실제 동작하는 구현체로만 작성
+- 🔄 **기존 동작 방식 유지**: 구조적 변경 최소화, agents 표준 적용에만 집중
+- 📋 **Team 기준 패턴**: Team 패키지의 AgentFactory, AgentTemplate 활용 방식을 Sessions에도 적용
 
 ### Phase 9: 테스트 및 문서화 (9단계)
 - [ ] 단위 테스트 작성

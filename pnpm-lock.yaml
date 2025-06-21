@@ -94,12 +94,12 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.11.2
         version: 1.11.2
+      '@robota-sdk/agents':
+        specifier: workspace:*
+        version: link:../../packages/agents
       '@robota-sdk/anthropic':
         specifier: workspace:*
         version: link:../../packages/anthropic
-      '@robota-sdk/core':
-        specifier: workspace:*
-        version: link:../../packages/core
       '@robota-sdk/google':
         specifier: workspace:*
         version: link:../../packages/google
@@ -112,9 +112,6 @@ importers:
       '@robota-sdk/team':
         specifier: workspace:*
         version: link:../../packages/team
-      '@robota-sdk/tools':
-        specifier: workspace:*
-        version: link:../../packages/tools
       axios:
         specifier: ^1.9.0
         version: 1.9.0
