@@ -1,4 +1,4 @@
-import type { UniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage } from '@robota-sdk/core';
+import type { UniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage } from '@robota-sdk/agents';
 
 /**
  * Anthropic message format for Messages API
@@ -65,7 +65,7 @@ export class AnthropicConversationAdapter {
                 // Convert tool results to user message
                 anthropicMessages.push({
                     role: 'user',
-                    content: `[Tool Result from ${toolMsg.name}]: ${toolMsg.content}`
+                    content: `[Tool Result]: ${toolMsg.content}`
                 });
             }
         }
@@ -112,7 +112,7 @@ export class AnthropicConversationAdapter {
             } else if (messageRole === 'tool') {
                 const toolMsg = message as ToolMessage;
                 // Convert tool results to Human message
-                prompt += `\n\nHuman: [Tool Result from ${toolMsg.name}]: ${toolMsg.content}`;
+                prompt += `\n\nHuman: [Tool Result]: ${toolMsg.content}`;
             }
         }
 
@@ -173,7 +173,7 @@ export class AnthropicConversationAdapter {
             const toolMsg = msg as ToolMessage;
             return {
                 role: 'human',
-                content: `[Tool Result from ${toolMsg.name}]: ${toolMsg.content}`
+                content: `[Tool Result]: ${toolMsg.content}`
             };
         }
 

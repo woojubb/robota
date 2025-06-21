@@ -98,94 +98,109 @@ packages/agents/src/
 
 ## ✅ 개발 체크리스트
 
-### Phase 1: 기본 구조 및 추상화 (1단계)
-- [ ] 프로젝트 기본 구조 생성 (package.json, tsconfig.json 등)
-- [ ] 기본 인터페이스 정의 (interfaces/ 폴더)
-  - [ ] `AgentInterface` 정의
-  - [ ] `AIProvider` 인터페이스 정의
-  - [ ] `ToolProvider` 인터페이스 정의
-  - [ ] `Manager` 인터페이스들 정의
-- [ ] 추상 클래스들 구현 (abstracts/ 폴더)
-  - [ ] `BaseAgent` 추상 클래스
-  - [ ] `BaseManager` 추상 클래스
-  - [ ] `BaseProvider` 추상 클래스
-  - [ ] `BaseAIProvider` 추상 클래스
-  - [ ] `BaseTool` 추상 클래스
-  - [ ] `BasePlugin` 추상 클래스
+### Phase 1: 기본 구조 및 추상화 (1단계) ✅ 완료
+- [x] 프로젝트 기본 구조 생성 (package.json, tsconfig.json 등)
+- [x] 기본 인터페이스 정의 (interfaces/ 폴더)
+  - [x] `AgentInterface` 정의
+  - [x] `AIProvider` 인터페이스 정의
+  - [x] `ToolProvider` 인터페이스 정의
+  - [x] `Manager` 인터페이스들 정의
+- [x] 추상 클래스들 구현 (abstracts/ 폴더)
+  - [x] `BaseAgent` 추상 클래스
+  - [x] `BaseManager` 추상 클래스
+  - [x] `BaseProvider` 추상 클래스
+  - [x] `BaseAIProvider` 추상 클래스
+  - [x] `BaseTool` 추상 클래스
+  - [x] `BasePlugin` 추상 클래스
 
-### Phase 2: 유틸리티 및 기반 구조 (2단계) - 필수 지원 기능
-- [ ] 메시지 변환기 구현 (utils/)
-  - [ ] Universal Message 포맷 (고정)
-  - [ ] Provider별 메시지 어댑터 (고정)
-- [ ] Schemas & Templates (agents/)
-  - [ ] Agent Template 스키마 정의
-  - [ ] 내장 에이전트 템플릿들
+### Phase 2: 유틸리티 및 기반 구조 (2단계) ✅ 완료 - 필수 지원 기능
+- [x] 메시지 변환기 구현 (utils/)
+  - [x] Universal Message 포맷 (고정)
+  - [x] Provider별 메시지 어댑터 (고정)
+- [x] 유틸리티 추가 구현 (utils/)
+  - [x] Logger 시스템
+  - [x] Validation 유틸리티
+  - [x] Error 클래스들
+- [x] Schemas & Templates (agents/)
+  - [x] Agent Template 스키마 정의
+  - [x] 내장 에이전트 템플릿들
 
-### Phase 3: 도구 시스템 구현 (3단계) - 하위 레벨부터
-- [ ] Tool Registry 구현 (agents/tools/registry/)
-  - [ ] `ToolRegistry` 클래스 (도구 스키마 저장소)
-  - [ ] 도구 스키마 정의 및 검증
-- [ ] Tool Implementations (agents/tools/implementations/)
-  - [ ] Zod 스키마 기반 함수 도구
-  - [ ] OpenAPI 스키마 도구
-  - [ ] MCP 프로토콜 도구
+### Phase 3: 도구 시스템 구현 (3단계) ✅ 완료 - 하위 레벨부터
+- [x] Tool Registry 구현 (tools/registry/)
+  - [x] `ToolRegistry` 클래스 (도구 스키마 저장소)
+  - [x] 도구 스키마 정의 및 검증
+- [x] Tool Implementations (tools/implementations/)
+  - [x] Zod 스키마 기반 함수 도구
+  - [x] OpenAPI 스키마 도구 (기본 구조)
+  - [x] MCP 프로토콜 도구 (기본 구조)
 
-### Phase 4: 매니저들 구현 (4단계) - 상태/리소스 관리 레이어
-- [ ] AI Provider Manager 구현 (agents/managers/)
-  - [ ] `AIProviderManager` 클래스  
-  - [ ] Provider 등록/해제/조회 기능
-  - [ ] 현재 Provider 선택/변경 관리
-  - [ ] Provider 상태 관리
-- [ ] Tool Manager 구현 (agents/managers/)
-  - [ ] `ToolManager` 클래스
-  - [ ] 도구 등록/해제/조회 기능 (Tool Registry 사용)
-  - [ ] 도구 상태 관리
-- [ ] Agent Factory 구현 (agents/managers/)
-  - [ ] `AgentFactory` 클래스
-  - [ ] 에이전트 생성/구성 관리
-  - [ ] 설정 검증 및 기본값 적용
+### Phase 4: 매니저들 구현 (4단계) ✅ 완료 - 상태/리소스 관리 레이어
+- [x] AI Provider Manager 구현 (agents/managers/)
+  - [x] `AIProviderManager` 클래스  
+  - [x] Provider 등록/해제/조회 기능
+  - [x] 현재 Provider 선택/변경 관리
+  - [x] Provider 상태 관리
+- [x] Tool Manager 구현 (agents/managers/)
+  - [x] `ToolManager` 클래스
+  - [x] 도구 등록/해제/조회 기능 (Tool Registry 사용)
+  - [x] 도구 상태 관리
+- [x] Agent Factory 구현 (agents/managers/)
+  - [x] `AgentFactory` 클래스
+  - [x] 에이전트 생성/구성 관리
+  - [x] 설정 검증 및 기본값 적용
 
-### Phase 5: 서비스 구현 (5단계) - 무상태 비즈니스 로직 레이어
-- [ ] Conversation Service (agents/services/)
-  - [ ] 대화 컨텍스트 준비 로직
-  - [ ] AI Provider 호출 및 응답 처리
-  - [ ] 스트리밍 응답 처리 워크플로우
-- [ ] Tool Execution Service (agents/services/)
-  - [ ] 도구 실행 오케스트레이션 (Tool Manager의 도구들 사용)
-  - [ ] 병렬/순차 실행 제어 로직
-  - [ ] 도구 결과 수집 및 포맷팅
-- [ ] Execution Service (agents/services/)
-  - [ ] 전체 실행 파이프라인 워크플로우
-  - [ ] 플러그인 생명주기 호출 로직
-  - [ ] 에러 전파 및 복구 로직
+### Phase 5: 서비스 구현 (5단계) ✅ 완료 - 무상태 비즈니스 로직 레이어
+- [x] Conversation Service (agents/services/)
+  - [x] 대화 컨텍스트 준비 로직
+  - [x] AI Provider 호출 및 응답 처리
+  - [x] 스트리밍 응답 처리 워크플로우
+- [x] Tool Execution Service (agents/services/)
+  - [x] 도구 실행 오케스트레이션 (Tool Manager의 도구들 사용)
+  - [x] 병렬/순차 실행 제어 로직
+  - [x] 도구 결과 수집 및 포맷팅
+- [x] Execution Service (agents/services/)
+  - [x] 전체 실행 파이프라인 워크플로우
+  - [x] 플러그인 생명주기 호출 로직
+  - [x] 에러 전파 및 복구 로직
 
-### Phase 6: 플러그인 시스템 (6단계) - 에이전트 생명주기 후킹
-- [ ] 플러그인 구현 (plugins/)
-  - [ ] `ConversationHistoryPlugin` - 대화 내역 저장 (메모리/파일/DB)
+### Phase 6: 플러그인 시스템 (6단계) ✅ 완료 - 에이전트 생명주기 후킹
+- [x] 플러그인 구현 (plugins/)
+  - [x] `ConversationHistoryPlugin` - 대화 내역 저장 (메모리/파일/DB)
   - [ ] `AgentTemplatePlugin` - 에이전트 설정 템플릿 저장/로드 (파일/DB/원격)
-  - [ ] `UsagePlugin` - 사용량 통계 수집 (호출 횟수, 토큰 사용량, 비용 등)
-  - [ ] `LoggingPlugin` - 동작 로그 기록 (Console/File/Remote, 디버깅/감사용)
-  - [ ] `PerformancePlugin` - 성능 메트릭 수집 (응답시간, 메모리, CPU 사용량)
-  - [ ] `ErrorHandlingPlugin` - 에러 발생 시 로깅/복구/재시도 처리
-  - [ ] `LimitsPlugin` - 토큰/요청 한도 제한 (Rate Limiting, 비용 제어)
-  - [ ] `EventEmitterPlugin` - Tool 이벤트 감지/전파 (실행 전후, 성공/실패)
-  - [ ] `WebhookPlugin` - 웹훅 알림 전송 (외부 시스템 알림)
+  - [x] `UsagePlugin` - 사용량 통계 수집 (호출 횟수, 토큰 사용량, 비용 등)
+  - [x] `LoggingPlugin` - 동작 로그 기록 (Console/File/Remote, 디버깅/감사용)
+  - [x] `PerformancePlugin` - 성능 메트릭 수집 (응답시간, 메모리, CPU 사용량)
+  - [x] `ErrorHandlingPlugin` - 에러 발생 시 로깅/복구/재시도 처리
+  - [x] `LimitsPlugin` - 토큰/요청 한도 제한 (Rate Limiting, 비용 제어)
+  - [x] `EventEmitterPlugin` - Tool 이벤트 감지/전파 (실행 전후, 성공/실패)
+  - [x] `WebhookPlugin` - 웹훅 알림 전송 (외부 시스템 알림)
 
-### Phase 7: 에이전트 구현체 (7단계) - 최종 조립
-- [ ] Robota 구현 (agents/)
-  - [ ] `Robota` 클래스 (BaseAgent 상속)
-  - [ ] 모든 매니저와 서비스 통합
-  - [ ] 기본 실행 파이프라인
-  - [ ] 스트리밍 지원
-  - [ ] 도구 호출 로직
-  - [ ] 병렬 도구 실행
-  - [ ] 플러그인 시스템 통합
+### Phase 7: 에이전트 구현체 (7단계) ✅ 완료 - 최종 조립
+- [x] Robota 구현 (agents/)
+  - [x] `Robota` 클래스 (BaseAgent 상속)
+  - [x] 모든 매니저와 서비스 통합
+  - [x] 기본 실행 파이프라인
+  - [x] 스트리밍 지원
+  - [x] 도구 호출 로직
+  - [x] 병렬 도구 실행
+  - [x] 플러그인 시스템 통합
 
-### Phase 8: 호환성 테스트 (8단계)
-- [ ] 기존 패키지 호환성 테스트
-  - [ ] sessions 패키지 호환성
-  - [ ] team 패키지 호환성
-  - [ ] provider 패키지들 호환성
+### Phase 8: 전체 마이그레이션 (8단계) - 기존 호환성 제거
+- [x] Provider 패키지들 완전 마이그레이션 (core/tools → agents)
+  - [x] @robota-sdk/openai: BaseAIProvider, Context, ModelResponse, StreamingResponseChunk, ToolSchema 사용 ✅ 빌드 성공
+  - [x] @robota-sdk/anthropic: agents 표준으로 완전 마이그레이션 ✅ 빌드 성공
+  - [x] @robota-sdk/google: agents 표준으로 완전 마이그레이션 ✅ 빌드 성공
+- [ ] 의존 패키지들 마이그레이션 (core/tools → agents)
+  - [ ] @robota-sdk/sessions: agents 표준으로 완전 재작성 (대기)
+  - [ ] @robota-sdk/team: agents 표준으로 완전 재작성 (진행 중: imports 변경 시작)
+- [ ] Example 앱들 마이그레이션
+  - [ ] apps/examples: core/tools 제거하고 agents만 사용하도록 완전 재작성 (대기)
+- [ ] Core/Tools 패키지 완전 제거
+  - [ ] packages/core 폴더 삭제 (대기)
+  - [ ] packages/tools 폴더 삭제 (대기)
+  - [ ] workspace에서 core/tools 의존성 완전 제거 (대기)
+
+**현재 상태**: 모든 Provider 패키지들(OpenAI, Anthropic, Google) 마이그레이션 성공! 이제 Sessions, Team 패키지 마이그레이션과 Examples 앱 업데이트 필요
 
 ### Phase 9: 테스트 및 문서화 (9단계)
 - [ ] 단위 테스트 작성
@@ -199,13 +214,14 @@ packages/agents/src/
   - [ ] 고급 설정
 
 ### Phase 10: 빌드 및 배포 준비 (10단계)
-- [ ] 빌드 설정 완료
-  - [ ] tsup 설정
-  - [ ] 타입 선언 파일 생성
-- [ ] 패키지 메타데이터
-  - [ ] package.json 완성
-  - [ ] README 작성
-  - [ ] CHANGELOG 준비
+- [ ] 통합 검증 및 최종 빌드
+  - [ ] 모든 패키지 빌드 성공 확인
+  - [ ] 타입 검사 통과 확인  
+  - [ ] 예제 앱 정상 동작 확인
+- [ ] 문서 업데이트
+  - [ ] README 통합 가이드 작성
+  - [ ] 마이그레이션 가이드 작성
+  - [ ] CHANGELOG 작성
 
 ## 🔗 의존성 관리
 

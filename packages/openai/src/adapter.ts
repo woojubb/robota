@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { UniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage } from '@robota-sdk/core';
+import type { UniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage } from '@robota-sdk/agents';
 
 /**
  * OpenAI ConversationHistory adapter
@@ -54,14 +54,10 @@ export class OpenAIConversationAdapter {
 
         if (messageRole === 'user') {
             const userMsg = msg as UserMessage;
-            const result: OpenAI.Chat.ChatCompletionUserMessageParam = {
+            return {
                 role: 'user',
                 content: userMsg.content
             };
-            if (userMsg.name) {
-                result.name = userMsg.name;
-            }
-            return result;
         }
 
         if (messageRole === 'assistant') {

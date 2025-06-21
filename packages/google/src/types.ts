@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { ProviderOptions } from '@robota-sdk/core';
+import type { ProviderOptions } from '@robota-sdk/agents';
 
 /**
  * Google AI Provider options

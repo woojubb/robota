@@ -1,5 +1,5 @@
-import { Robota, AgentFactory as CoreAgentFactory } from '@robota-sdk/core';
-import type { RobotaOptions, AgentCreationConfig } from '@robota-sdk/core';
+import { Robota, AgentFactory as CoreAgentFactory } from '@robota-sdk/agents';
+import type { AgentConfig as BaseAgentConfig } from '@robota-sdk/agents';
 import type { TaskAgentConfig, AgentConfig } from './types';
 
 /**

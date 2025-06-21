@@ -60,12 +60,10 @@
     "@anthropic-ai/sdk": "^0.24.0"
   },
   "peerDependencies": {
-    "@robota-sdk/core": "workspace:*",
-    "@robota-sdk/tools": "workspace:*"
+    "@robota-sdk/agents": "workspace:*"
   },
   "devDependencies": {
-    "@robota-sdk/core": "workspace:*",
-    "@robota-sdk/tools": "workspace:*",
+    "@robota-sdk/agents": "workspace:*",
     "@typescript-eslint/eslint-plugin": "^6.18.0",
     "@typescript-eslint/parser": "^6.18.0",
     "eslint": "^8.56.0",

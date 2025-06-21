@@ -4,9 +4,9 @@ import {
   ModelResponse,
   StreamingResponseChunk,
   BaseAIProvider,
+  ToolSchema,
   logger
-} from '@robota-sdk/core';
-import type { FunctionSchema } from '@robota-sdk/tools';
+} from '@robota-sdk/agents';
 import { OpenAIProviderOptions } from './types';
 import { OpenAIConversationAdapter } from './adapter';
 import { PayloadLogger } from './payload-logger';
@@ -27,6 +27,19 @@ export class OpenAIProvider extends BaseAIProvider {
    * @readonly
    */
   public readonly name: string = 'openai';
+
+  /**
+   * Available models
+   * @readonly
+   */
+  public readonly models: string[] = [
+    'gpt-4',
+    'gpt-4-turbo',
+    'gpt-4o',
+    'gpt-4o-mini',
+    'gpt-3.5-turbo',
+    'gpt-3.5-turbo-16k'
+  ];
 
   /**
    * OpenAI client instance
@@ -96,21 +109,21 @@ export class OpenAIProvider extends BaseAIProvider {
   }
 
   /**
-   * Convert function definitions to OpenAI tool format
+   * Convert tool definitions to OpenAI tool format
    * 
-   * Transforms universal function definitions into OpenAI's specific tool format
+   * Transforms universal tool definitions into OpenAI's specific tool format
    * required by the Chat Completions API.
    * 
-   * @param functions - Array of universal function definitions
+   * @param tools - Array of universal tool definitions
    * @returns Array of OpenAI-formatted tools
    */
-  formatFunctions(functions: FunctionSchema[]): OpenAI.Chat.ChatCompletionTool[] {
-    return functions.map(fn => ({
+  formatFunctions(tools: ToolSchema[]): OpenAI.Chat.ChatCompletionTool[] {
+    return tools.map(tool => ({
       type: 'function',
       function: {
-        name: fn.name,
-        description: fn.description || '',
-        parameters: fn.parameters
+        name: tool.name,
+        description: tool.description || '',
+        parameters: tool.parameters
       }
     }));
   }
@@ -130,12 +143,12 @@ export class OpenAIProvider extends BaseAIProvider {
   /**
    * Configure tools for OpenAI API request
    * 
-   * Transforms function schemas into OpenAI tool format and sets tool_choice.
+   * Transforms tool schemas into OpenAI tool format and sets tool_choice.
    * 
-   * @param tools - Array of function schemas
+   * @param tools - Array of tool schemas
    * @returns OpenAI tool configuration object
    */
-  protected configureTools(tools?: FunctionSchema[]): { tools: OpenAI.Chat.ChatCompletionTool[], tool_choice: 'auto' } | undefined {
+  protected configureTools(tools?: ToolSchema[]): { tools: OpenAI.Chat.ChatCompletionTool[], tool_choice: 'auto' } | undefined {
     if (!tools || !Array.isArray(tools)) {
       return undefined;
     }
@@ -277,9 +290,12 @@ export class OpenAIProvider extends BaseAIProvider {
     if (delta.tool_calls && delta.tool_calls.length > 0) {
       const toolCall = delta.tool_calls[0];
       if (toolCall.type === 'function') {
-        result.functionCall = {
-          name: toolCall.function?.name,
-          arguments: toolCall.function?.arguments
+        result.toolCall = {
+          type: 'function',
+          function: {
+            name: toolCall.function?.name || '',
+            arguments: toolCall.function?.arguments || ''
+          }
         };
       }
     }
@@ -366,7 +382,9 @@ export class OpenAIProvider extends BaseAIProvider {
         yield this.parseStreamingChunk(chunk);
       }
     } catch (error) {
-      logger.error('[OpenAIProvider] Streaming API call error:', error);
+      logger.error('[OpenAIProvider] Streaming API call error:', {
+        error: error instanceof Error ? error.message : String(error)
+      });
       throw error;
     }
   }

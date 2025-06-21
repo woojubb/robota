@@ -1,4 +1,4 @@
-import type { ProviderOptions } from '@robota-sdk/core';
+import type { ProviderOptions } from '@robota-sdk/agents';
 import Anthropic from '@anthropic-ai/sdk';
 
 /**
