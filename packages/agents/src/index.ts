@@ -47,6 +47,7 @@ export { Robota, RobotaConfig } from './agents/robota.js';
 // Manager exports
 export { AgentFactory, AgentFactoryOptions, AgentCreationStats, AgentLifecycleEvents } from './managers/agent-factory.js';
 export { TemplateApplicationResult } from './managers/agent-templates.js';
+export { ConversationHistory, ConversationSession } from './managers/conversation-history-manager.js';
 
 // Tool exports
 export { ToolRegistry } from './tools/registry/tool-registry.js';

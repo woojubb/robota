@@ -1,5 +1,5 @@
-// Concise core type definitions
-export * from '@robota-sdk/core';
+// Re-export necessary types from agents
+export type { AgentInterface, AgentConfig, Message, RunOptions } from '@robota-sdk/agents';
 
 export enum SessionState {
     ACTIVE = 'active',

@@ -1,4 +1,4 @@
-import type { Context } from '@robota-sdk/core';
+import type { Context } from '@robota-sdk/agents';
 
 export interface ContextManager {
     getContext(): Context;

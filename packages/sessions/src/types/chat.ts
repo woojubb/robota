@@ -1,8 +1,8 @@
 import type {
     Robota,
     ConversationHistory,
-    UniversalMessage
-} from '@robota-sdk/core';
+    Message as UniversalMessage
+} from '@robota-sdk/agents';
 
 export interface ConfigurationChange {
     id: string;
