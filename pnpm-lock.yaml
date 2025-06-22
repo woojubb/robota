@@ -313,6 +313,9 @@ importers:
       uuid:
         specifier: ^9.0.1
         version: 9.0.1
+      zod:
+        specifier: ^3.24.4
+        version: 3.24.4
     devDependencies:
       '@robota-sdk/agents':
         specifier: workspace:*

@@ -27,7 +27,7 @@ MCP client instance
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:24](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/tools/src/mcp-tool-provider.ts#L24)
+[packages/tools/src/mcp-tool-provider.ts:24](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/tools/src/mcp-tool-provider.ts#L24)
 
 ___
 
@@ -54,4 +54,4 @@ Logger function (optional)
 
 #### Defined in
 
-[packages/tools/src/mcp-tool-provider.ts:26](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/tools/src/mcp-tool-provider.ts#L26)
+[packages/tools/src/mcp-tool-provider.ts:26](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/tools/src/mcp-tool-provider.ts#L26)

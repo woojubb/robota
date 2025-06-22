@@ -29,16 +29,7 @@ export class Validator {
             errors.push('provider is required');
         }
 
-        // Legacy support
-        if (!config.model && config.currentModel) {
-            config.model = config.currentModel;
-        }
-
-        if (!config.provider && config.currentProvider) {
-            config.provider = config.currentProvider;
-        }
-
-        // Legacy aiProviders validation
+        // Provider validation
         if (config.aiProviders && config.currentProvider) {
             if (!config.aiProviders[config.currentProvider]) {
                 errors.push(`currentProvider "${config.currentProvider}" is not found in aiProviders`);

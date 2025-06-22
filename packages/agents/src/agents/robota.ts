@@ -5,7 +5,6 @@ import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { AgentFactory } from '../managers/agent-factory';
 import { ConversationHistory } from '../managers/conversation-history-manager';
-import { Plugins } from '../managers/plugins';
 import { ExecutionService } from '../services/execution-service';
 import { AIProvider } from '../interfaces/provider';
 import { BaseTool } from '../abstracts/base-tool';
@@ -37,22 +36,21 @@ export interface RobotaConfig extends AgentConfig {
 
 /**
  * Robota class - Main AI agent implementation
- * Integrates all managers, services, and plugin systems
- * Uses centralized conversation history management
+ * Each instance is completely independent with its own managers and services
+ * NO GLOBAL SINGLETONS - Each Robota instance manages its own resources
  */
 export class Robota extends BaseAgent implements AgentInterface {
     public readonly name: string;
     public readonly version: string = '1.0.0';
 
-    // Core managers
+    // Instance-specific managers (NO SINGLETONS)
     private aiProviders: AIProviders;
     private tools: Tools;
     private agentFactory: AgentFactory;
     private conversationHistory: ConversationHistory;
-    private plugins: Plugins;
 
     // Core services
-    private executionService: ExecutionService;
+    private executionService!: ExecutionService;
 
     // State management
     private config: RobotaConfig;
@@ -82,28 +80,15 @@ export class Robota extends BaseAgent implements AgentInterface {
         // Validate configuration
         this.validateConfig(config);
 
-        // Initialize managers (but don't initialize them yet)
-        this.aiProviders = AIProviders.getInstance();
-        this.tools = Tools.getInstance();
-        this.agentFactory = AgentFactory.getInstance();
-        this.conversationHistory = ConversationHistory.getInstance();
-        this.plugins = Plugins.getInstance();
+        // Create INSTANCE-SPECIFIC managers (NO SINGLETONS)
+        this.aiProviders = this.createAIProvidersInstance();
+        this.tools = this.createToolsInstance();
+        this.agentFactory = this.createAgentFactoryInstance();
+        this.conversationHistory = this.createConversationHistoryInstance();
 
-        // Initialize services
-        this.executionService = new ExecutionService(
-            this.aiProviders,
-            this.tools
-        );
+        // ExecutionService will be initialized after async setup is complete
 
-        // Register plugins
-        if (config.plugins) {
-            for (const plugin of config.plugins) {
-                // Register with dedicated Plugins manager instead of ExecutionService
-                this.plugins.register(plugin, { autoInitialize: false });
-            }
-        }
-
-        this.logger.debug('Robota created (not yet initialized)', {
+        this.logger.debug('Robota created with independent managers (not yet initialized)', {
             name: this.name,
             conversationId: this.conversationId,
             providersCount: Object.keys(config.aiProviders || {}).length,
@@ -115,7 +100,35 @@ export class Robota extends BaseAgent implements AgentInterface {
     }
 
     /**
-     * Ensure the agent is fully initialized (Lazy Initialization)
+     * Create instance-specific AIProviders manager
+     */
+    private createAIProvidersInstance(): AIProviders {
+        return new AIProviders();
+    }
+
+    /**
+     * Create instance-specific Tools manager
+     */
+    private createToolsInstance(): Tools {
+        return new Tools();
+    }
+
+    /**
+     * Create instance-specific AgentFactory manager
+     */
+    private createAgentFactoryInstance(): AgentFactory {
+        return new AgentFactory();
+    }
+
+    /**
+     * Create instance-specific ConversationHistory manager
+     */
+    private createConversationHistoryInstance(): ConversationHistory {
+        return new ConversationHistory();
+    }
+
+    /**
+     * Ensure full initialization has occurred
      */
     private async ensureFullyInitialized(): Promise<void> {
         if (this.isFullyInitialized) {
@@ -133,15 +146,14 @@ export class Robota extends BaseAgent implements AgentInterface {
      * Perform actual async initialization
      */
     private async performAsyncInitialization(): Promise<void> {
-        this.logger.debug('Starting Robota initialization');
+        this.logger.debug('Starting Robota initialization with independent managers');
 
         try {
-            // Initialize all managers properly
+            // Initialize all instance-specific managers
             await Promise.all([
                 this.aiProviders.initialize(),
                 this.tools.initialize(),
-                this.agentFactory.initialize(),
-                this.plugins.initialize()
+                this.agentFactory.initialize()
             ]);
 
             // Register AI providers after manager initialization
@@ -164,8 +176,22 @@ export class Robota extends BaseAgent implements AgentInterface {
                 }
             }
 
+            // NOW initialize ExecutionService after all managers are set up
+            this.executionService = new ExecutionService(
+                this.aiProviders,
+                this.tools,
+                this.conversationHistory
+            );
+
+            // Register plugins with ExecutionService after it's created
+            if (this.config.plugins) {
+                for (const plugin of this.config.plugins) {
+                    this.executionService.registerPlugin(plugin);
+                }
+            }
+
             this.isFullyInitialized = true;
-            this.logger.debug('Robota initialization completed successfully');
+            this.logger.debug('Robota initialization completed successfully with independent managers');
 
         } catch (error) {
             this.logger.error('Robota initialization failed', {
@@ -176,62 +202,60 @@ export class Robota extends BaseAgent implements AgentInterface {
     }
 
     /**
-     * Initialize the agent (required by BaseAgent)
+     * Initialize the agent if not already done
      */
     protected async initialize(): Promise<void> {
         await this.ensureFullyInitialized();
     }
 
-    /**
-     * Run agent with user input
-     */
     async run(input: string, options: RunOptions = {}): Promise<string> {
-        // Ensure full initialization before execution
         await this.ensureFullyInitialized();
 
         try {
-            this.logger.debug('Starting agent run', {
+            this.logger.debug('Starting Robota execution', {
                 inputLength: input.length,
                 conversationId: this.conversationId,
-                hasOptions: Object.keys(options).length > 0
+                options
             });
 
-            // Get current conversation history
-            const conversationSession = this.conversationHistory.getConversationSession(this.conversationId);
-            const currentMessages = conversationSession.getMessages();
+            // Get current conversation history from centralized manager
+            const messages = this.getHistory();
 
-            // Use ExecutionService for actual execution
-            const executionResult = await this.executionService.execute(
+            // Prepare execution config with current provider/model settings
+            const executionConfig: AgentConfig = {
+                ...this.config,
+                model: this.config.currentModel || this.config.model,
+                provider: this.config.currentProvider || this.config.provider
+            };
+
+            // Execute using execution service
+            const result = await this.executionService.execute(
                 input,
-                currentMessages.map(msg => ({
-                    role: msg.role,
-                    content: msg.content,
-                    timestamp: msg.timestamp,
-                    metadata: msg.metadata,
-                    ...(msg.role === 'assistant' && 'toolCalls' in msg ? { toolCalls: msg.toolCalls } : {}),
-                    ...(msg.role === 'tool' && 'toolCallId' in msg ? { toolCallId: msg.toolCallId } : {})
-                })) as Message[],
-                this.config,
+                messages,
+                executionConfig,
                 {
                     conversationId: this.conversationId,
-                    metadata: {
-                        temperature: options.temperature,
-                        maxTokens: options.maxTokens,
-                        stream: options.stream
-                    }
+                    sessionId: options.sessionId,
+                    userId: options.userId,
+                    metadata: options.metadata
                 }
             );
 
-            this.logger.debug('Agent run completed', {
-                responseLength: executionResult.response.length,
-                toolsExecuted: executionResult.toolsExecuted.length,
-                duration: executionResult.duration
+            this.logger.debug('Robota execution completed', {
+                success: result.success,
+                duration: result.duration,
+                tokensUsed: result.tokensUsed,
+                toolsExecuted: result.toolsExecuted
             });
 
-            return executionResult.response;
+            if (!result.success && result.error) {
+                throw result.error;
+            }
+
+            return result.response;
 
         } catch (error) {
-            this.logger.error('Agent run failed', {
+            this.logger.error('Robota execution failed', {
                 error: error instanceof Error ? error.message : String(error),
                 conversationId: this.conversationId
             });
@@ -239,46 +263,45 @@ export class Robota extends BaseAgent implements AgentInterface {
         }
     }
 
-    /**
-     * Run agent in streaming mode
-     */
     async* runStream(input: string, options: RunOptions = {}): AsyncGenerator<string, void, unknown> {
-        // Ensure full initialization before execution
         await this.ensureFullyInitialized();
 
         try {
-            // Get current conversation history
-            const conversationSession = this.conversationHistory.getConversationSession(this.conversationId);
-            const currentMessages = conversationSession.getMessages();
+            this.logger.debug('Starting Robota streaming execution', {
+                inputLength: input.length,
+                conversationId: this.conversationId,
+                options
+            });
 
-            // Use ExecutionService for streaming execution
-            const streamGenerator = this.executionService.executeStream(
+            // Get current conversation history from centralized manager
+            const messages = this.getHistory();
+
+            // Prepare execution config with current provider/model settings
+            const executionConfig: AgentConfig = {
+                ...this.config,
+                model: this.config.currentModel || this.config.model,
+                provider: this.config.currentProvider || this.config.provider
+            };
+
+            // Execute using execution service streaming
+            const stream = this.executionService.executeStream(
                 input,
-                currentMessages.map(msg => ({
-                    role: msg.role,
-                    content: msg.content,
-                    timestamp: msg.timestamp,
-                    metadata: msg.metadata,
-                    ...(msg.role === 'assistant' && 'toolCalls' in msg ? { toolCalls: msg.toolCalls } : {}),
-                    ...(msg.role === 'tool' && 'toolCallId' in msg ? { toolCallId: msg.toolCallId } : {})
-                })) as Message[],
-                this.config,
+                messages,
+                executionConfig,
                 {
                     conversationId: this.conversationId,
-                    metadata: {
-                        temperature: options.temperature,
-                        maxTokens: options.maxTokens,
-                        stream: options.stream
-                    }
+                    sessionId: options.sessionId,
+                    userId: options.userId,
+                    metadata: options.metadata
                 }
             );
 
-            for await (const chunk of streamGenerator) {
+            for await (const chunk of stream) {
                 yield chunk.chunk;
             }
 
         } catch (error) {
-            this.logger.error('Streaming run failed', {
+            this.logger.error('Robota streaming execution failed', {
                 error: error instanceof Error ? error.message : String(error),
                 conversationId: this.conversationId
             });
@@ -287,7 +310,7 @@ export class Robota extends BaseAgent implements AgentInterface {
     }
 
     /**
-     * Get conversation history (backwards compatible with Message[])
+     * Get conversation history
      */
     getHistory(): Message[] {
         const conversationSession = this.conversationHistory.getConversationSession(this.conversationId);
@@ -476,7 +499,7 @@ export class Robota extends BaseAgent implements AgentInterface {
         // Clear plugins first
         this.executionService.clearPlugins();
 
-        // Dispose managers
+        // Dispose instance-specific managers
         await this.aiProviders.dispose();
         await this.tools.dispose();
 

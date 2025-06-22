@@ -7,6 +7,8 @@ import {
   ToolSchema,
   logger
 } from '@robota-sdk/agents';
+import type { UniversalMessage } from '@robota-sdk/agents/src/managers/conversation-history-manager';
+import type { ProviderExecutionResult } from '@robota-sdk/agents/src/abstracts/base-ai-provider';
 import { OpenAIProviderOptions } from './types';
 import { OpenAIConversationAdapter } from './adapter';
 import { PayloadLogger } from './payload-logger';
@@ -129,14 +131,12 @@ export class OpenAIProvider extends BaseAIProvider {
   }
 
   /**
-   * Filter conversation history for OpenAI API compatibility
+   * Convert UniversalMessage[] to OpenAI-specific message format
    * 
-   * Converts UniversalMessage to OpenAI format.
-   * 
-   * @param messages - Array of UniversalMessage to filter
+   * @param messages - Array of UniversalMessage to convert
    * @returns OpenAI-formatted messages array
    */
-  private filterHistory(messages: any[]): OpenAI.Chat.ChatCompletionMessageParam[] {
+  protected convertMessages(messages: UniversalMessage[]): OpenAI.Chat.ChatCompletionMessageParam[] {
     return OpenAIConversationAdapter.toOpenAIFormat(messages);
   }
 
@@ -186,8 +186,7 @@ export class OpenAIProvider extends BaseAIProvider {
       // Create options object
       const options = {
         temperature,
-        maxTokens,
-        tools
+        maxTokens
       };
 
       // Use existing chat method
@@ -230,8 +229,8 @@ export class OpenAIProvider extends BaseAIProvider {
     // Use base class validation
     this.validateContext(context);
 
-    // Filter messages for OpenAI API
-    const openaiMessages = this.filterHistory(context.messages);
+    // Convert messages for OpenAI API
+    const openaiMessages = this.convertMessages(context.messages);
 
     const completionOptions: OpenAI.Chat.ChatCompletionCreateParams = {
       model,
@@ -241,11 +240,13 @@ export class OpenAIProvider extends BaseAIProvider {
     };
 
     // Configure tools if provided
-    const toolConfig = this.configureTools(options?.tools);
+    const toolConfig = this.configureTools(context.tools);
     if (toolConfig) {
       completionOptions.tools = toolConfig.tools;
       completionOptions.tool_choice = toolConfig.tool_choice;
     }
+
+
 
     // Set response format if specified
     if (this.options.responseFormat) {
@@ -400,11 +401,13 @@ export class OpenAIProvider extends BaseAIProvider {
     };
 
     // Add tool provider functions
-    if (options?.tools && Array.isArray(options.tools)) {
-      completionOptions.tools = this.formatFunctions(options.tools);
+    if (context.tools && Array.isArray(context.tools)) {
+      completionOptions.tools = this.formatFunctions(context.tools);
       // Force new tool_calls format by setting tool_choice
       completionOptions.tool_choice = 'auto';
     }
+
+
 
     // Set response format if specified
     if (this.options.responseFormat) {
@@ -451,5 +454,23 @@ export class OpenAIProvider extends BaseAIProvider {
   async close(): Promise<void> {
     // OpenAI client doesn't have explicit close method
     // This is implemented as no-op for interface compliance
+  }
+
+  /**
+   * Process OpenAI provider response into standardized format
+   * 
+   * Overrides the base implementation to use OpenAI-specific parsing logic.
+   * 
+   * @param response - Raw response from OpenAI chat method
+   * @returns Standardized ProviderExecutionResult
+   */
+  protected processResponse(response: ModelResponse): ProviderExecutionResult {
+    return {
+      content: response.content || '',
+      toolCalls: response.toolCalls,
+      usage: response.usage,
+      finishReason: response.metadata?.finishReason,
+      metadata: response.metadata
+    };
   }
 } 

@@ -40,6 +40,8 @@ Extends BaseAIProvider for common functionality and tool calling support.
 - [initialize](GoogleProvider#initialize)
 - [dispose](GoogleProvider#dispose)
 - [isInitialized](GoogleProvider#isinitialized)
+- [execute](GoogleProvider#execute)
+- [executeStream](GoogleProvider#executestream)
 - [generateResponse](GoogleProvider#generateresponse)
 - [generateStreamingResponse](GoogleProvider#generatestreamingresponse)
 - [supportsModel](GoogleProvider#supportsmodel)
@@ -77,7 +79,7 @@ BaseAIProvider.constructor
 
 #### Defined in
 
-[google/src/provider.ts:60](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/google/src/provider.ts#L60)
+[google/src/provider.ts:64](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/google/src/provider.ts#L64)
 
 ## Properties
 
@@ -93,7 +95,7 @@ BaseAIProvider.name
 
 #### Defined in
 
-[google/src/provider.ts:28](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/google/src/provider.ts#L28)
+[google/src/provider.ts:32](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/google/src/provider.ts#L32)
 
 ___
 
@@ -109,7 +111,7 @@ BaseAIProvider.models
 
 #### Defined in
 
-[google/src/provider.ts:34](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/google/src/provider.ts#L34)
+[google/src/provider.ts:38](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/google/src/provider.ts#L38)
 
 ___
 
@@ -121,7 +123,7 @@ Provider configuration options
 
 #### Defined in
 
-[google/src/provider.ts:51](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/google/src/provider.ts#L51)
+[google/src/provider.ts:55](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/google/src/provider.ts#L55)
 
 ## Methods
 
@@ -139,7 +141,7 @@ BaseAIProvider.initialize
 
 #### Defined in
 
-agents/dist/index.d.ts:688
+agents/dist/index.d.ts:848
 
 ___
 
@@ -157,7 +159,7 @@ BaseAIProvider.dispose
 
 #### Defined in
 
-agents/dist/index.d.ts:689
+agents/dist/index.d.ts:849
 
 ___
 
@@ -175,7 +177,73 @@ BaseAIProvider.isInitialized
 
 #### Defined in
 
-agents/dist/index.d.ts:690
+agents/dist/index.d.ts:850
+
+___
+
+### execute
+
+▸ **execute**(`messages`, `config`): `Promise`\<`ProviderExecutionResult`\>
+
+High-level execute method that handles the entire conversation process
+
+This method encapsulates all provider-specific logic including:
+- Message format conversion
+- Tool configuration
+- Request preparation
+- Response processing
+
+ExecutionService delegates the entire AI interaction to this method.
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `messages` | `UniversalMessage`[] | Array of UniversalMessage from conversation history |
+| `config` | `ProviderExecutionConfig` | Execution configuration |
+
+#### Returns
+
+`Promise`\<`ProviderExecutionResult`\>
+
+Provider execution result
+
+#### Inherited from
+
+BaseAIProvider.execute
+
+#### Defined in
+
+agents/dist/index.d.ts:900
+
+___
+
+### executeStream
+
+▸ **executeStream**(`messages`, `config`): `AsyncGenerator`\<`ProviderExecutionResult`, `void`, `unknown`\>
+
+High-level streaming execute method
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `messages` | `UniversalMessage`[] | Array of UniversalMessage from conversation history |
+| `config` | `ProviderExecutionConfig` | Execution configuration |
+
+#### Returns
+
+`AsyncGenerator`\<`ProviderExecutionResult`, `void`, `unknown`\>
+
+Async generator of streaming results
+
+#### Inherited from
+
+BaseAIProvider.executeStream
+
+#### Defined in
+
+agents/dist/index.d.ts:908
 
 ___
 
@@ -201,7 +269,7 @@ BaseAIProvider.generateResponse
 
 #### Defined in
 
-agents/dist/index.d.ts:703
+agents/dist/index.d.ts:912
 
 ___
 
@@ -227,7 +295,7 @@ BaseAIProvider.generateStreamingResponse
 
 #### Defined in
 
-agents/dist/index.d.ts:707
+agents/dist/index.d.ts:916
 
 ___
 
@@ -251,7 +319,7 @@ BaseAIProvider.supportsModel
 
 #### Defined in
 
-agents/dist/index.d.ts:708
+agents/dist/index.d.ts:917
 
 ___
 
@@ -293,7 +361,7 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[google/src/provider.ts:93](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/google/src/provider.ts#L93)
+[google/src/provider.ts:97](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/google/src/provider.ts#L97)
 
 ___
 
@@ -338,7 +406,7 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[google/src/provider.ts:160](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/google/src/provider.ts#L160)
+[google/src/provider.ts:164](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/google/src/provider.ts#L164)
 
 ___
 
@@ -366,7 +434,7 @@ Parsed model response in universal format
 
 #### Defined in
 
-[google/src/provider.ts:251](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/google/src/provider.ts#L251)
+[google/src/provider.ts:278](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/google/src/provider.ts#L278)
 
 ___
 
@@ -393,7 +461,7 @@ Parsed streaming response chunk
 
 #### Defined in
 
-[google/src/provider.ts:316](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/google/src/provider.ts#L316)
+[google/src/provider.ts:343](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/google/src/provider.ts#L343)
 
 ___
 
@@ -418,4 +486,4 @@ BaseAIProvider.close
 
 #### Defined in
 
-[google/src/provider.ts:337](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/google/src/provider.ts#L337)
+[google/src/provider.ts:364](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/google/src/provider.ts#L364)

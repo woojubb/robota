@@ -60,7 +60,7 @@ Promise resolving to AI response text
 
 #### Defined in
 
-[packages/core/src/interfaces/robota-core.ts:18](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/interfaces/robota-core.ts#L18)
+[packages/core/src/interfaces/robota-core.ts:18](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/interfaces/robota-core.ts#L18)
 
 ___
 
@@ -89,7 +89,7 @@ Promise resolving to async iterable of response chunks
 
 #### Defined in
 
-[packages/core/src/interfaces/robota-core.ts:27](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/interfaces/robota-core.ts#L27)
+[packages/core/src/interfaces/robota-core.ts:27](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/interfaces/robota-core.ts#L27)
 
 ___
 
@@ -111,7 +111,7 @@ Promise that resolves when cleanup is complete
 
 #### Defined in
 
-[packages/core/src/interfaces/robota-core.ts:34](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/interfaces/robota-core.ts#L34)
+[packages/core/src/interfaces/robota-core.ts:34](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/interfaces/robota-core.ts#L34)
 
 ___
 
@@ -140,7 +140,7 @@ Promise resolving to the tool's result
 
 #### Defined in
 
-[packages/core/src/interfaces/robota-core.ts:51](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/interfaces/robota-core.ts#L51)
+[packages/core/src/interfaces/robota-core.ts:51](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/interfaces/robota-core.ts#L51)
 
 ___
 
@@ -162,7 +162,7 @@ Array of tool metadata objects
 
 #### Defined in
 
-[packages/core/src/interfaces/robota-core.ts:58](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/interfaces/robota-core.ts#L58)
+[packages/core/src/interfaces/robota-core.ts:58](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/interfaces/robota-core.ts#L58)
 
 ___
 
@@ -182,4 +182,4 @@ Clear all conversation history
 
 #### Defined in
 
-[packages/core/src/interfaces/robota-core.ts:63](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/interfaces/robota-core.ts#L63)
+[packages/core/src/interfaces/robota-core.ts:63](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/interfaces/robota-core.ts#L63)

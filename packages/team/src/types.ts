@@ -148,6 +148,14 @@ export interface AssignTaskParams {
      * If not specified, a dynamic agent will be created based on the job description.
      */
     agentTemplate?: string;
+
+    /** 
+     * Whether the assigned agent should be able to delegate parts of the task to other specialists if needed.
+     * Set to true for complex tasks that might benefit from further specialization.
+     * Set to false when you want the agent to handle the task directly without further delegation.
+     * Default: true
+     */
+    allowFurtherDelegation?: boolean;
 }
 
 /**
@@ -241,80 +249,3 @@ export interface TaskAgentConfig {
     agentConfig?: Partial<AgentConfig>;
 }
 
-/**
- * Comprehensive team execution statistics and performance metrics
- * 
- * @description
- * Provides detailed insights into team performance including resource utilization,
- * task completion rates, and efficiency metrics. Useful for monitoring costs,
- * optimizing workflows, and understanding team behavior patterns.
- * 
- * @example
- * ```typescript
- * // After running several team tasks
- * const stats = team.getStats();
- * 
- * console.log(`Team Performance Report:`);
- * console.log(`├─ Agents created: ${stats.totalAgentsCreated}`);
- * console.log(`├─ Tasks completed: ${stats.tasksCompleted}`);
- * console.log(`├─ Tasks failed: ${stats.tasksFailed}`);
- * console.log(`├─ Total execution time: ${stats.totalExecutionTime}ms`);
- * console.log(`└─ Total tokens used: ${stats.totalTokensUsed}`);
- * 
- * // Calculate derived metrics
- * const successRate = stats.tasksCompleted / (stats.tasksCompleted + stats.tasksFailed);
- * const avgExecutionTime = stats.totalExecutionTime / stats.tasksCompleted;
- * const avgTokensPerTask = stats.totalTokensUsed / stats.tasksCompleted;
- * 
- * console.log(`\nDerived Metrics:`);
- * console.log(`├─ Success rate: ${(successRate * 100).toFixed(1)}%`);
- * console.log(`├─ Average execution time: ${avgExecutionTime.toFixed(0)}ms`);
- * console.log(`└─ Average tokens per task: ${avgTokensPerTask.toFixed(0)}`);
- * ```
- */
-export interface TeamStats {
-    /** 
-     * Total number of specialized agents created across all tasks.
-     * Each delegated task typically creates one temporary agent.
-     */
-    totalAgentsCreated: number;
-
-    /** 
-     * Cumulative execution time in milliseconds for all completed tasks.
-     * Includes agent creation, task execution, and cleanup overhead.
-     */
-    totalExecutionTime: number;
-
-    /** 
-     * Total tokens consumed across all agents and tasks.
-     * Useful for cost tracking and resource optimization.
-     */
-    totalTokensUsed: number;
-
-    /** 
-     * Number of tasks that completed successfully without errors.
-     * Used to calculate success rates and reliability metrics.
-     */
-    tasksCompleted: number;
-
-    /** 
-     * Number of tasks that failed due to errors or resource constraints.
-     * Helps identify issues with task complexity or system limits.
-     */
-    tasksFailed: number;
-
-    /** 
-     * Breakdown of agent template usage.
-     * Maps template names to usage counts for tracking template effectiveness.
-     */
-    templateUsage: Record<string, number>;
-
-    /** 
-     * Number of agents created using templates vs dynamic generation.
-     * Useful for understanding template adoption and effectiveness.
-     */
-    templateVsDynamicAgents: {
-        template: number;
-        dynamic: number;
-    };
-} 

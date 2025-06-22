@@ -70,7 +70,7 @@ export interface AgentConfig {
     temperature?: number;
     maxTokens?: number;
     metadata?: Record<string, any>;
-    // Legacy properties for compatibility
+    // Provider configuration
     aiProviders?: Record<string, any>;
     currentProvider?: string;
     currentModel?: string;
@@ -100,6 +100,9 @@ export interface RunOptions {
     maxTokens?: number;
     stream?: boolean;
     toolChoice?: 'auto' | 'none' | string;
+    sessionId?: string;
+    userId?: string;
+    metadata?: Record<string, any>;
 }
 
 /**

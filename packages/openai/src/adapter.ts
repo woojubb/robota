@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
-import type { UniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage } from '@robota-sdk/agents';
+import type { UniversalMessage } from '@robota-sdk/agents/src/managers/conversation-history-manager';
+import type { UserMessage, AssistantMessage, SystemMessage, ToolMessage } from '@robota-sdk/agents/src/interfaces/agent';
 
 /**
  * OpenAI ConversationHistory adapter

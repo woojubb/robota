@@ -1,6 +1,34 @@
 import type { AIProvider, Context, ModelResponse, StreamingResponseChunk, ToolSchema } from '../interfaces/provider';
+import type { UniversalMessage } from '../managers/conversation-history-manager';
 import { BaseProvider } from './base-provider';
 import { logger } from '../utils/logger';
+
+/**
+ * Configuration for provider execution
+ */
+export interface ProviderExecutionConfig {
+    model: string;
+    systemMessage?: string;
+    temperature?: number;
+    maxTokens?: number;
+    tools?: ToolSchema[];
+    metadata?: Record<string, any>;
+}
+
+/**
+ * Result from provider execution
+ */
+export interface ProviderExecutionResult {
+    content: string;
+    toolCalls?: any[];
+    usage?: {
+        promptTokens?: number;
+        completionTokens?: number;
+        totalTokens?: number;
+    };
+    finishReason?: string;
+    metadata?: Record<string, any>;
+}
 
 /**
  * Base abstract class for AI providers
@@ -11,6 +39,85 @@ export abstract class BaseAIProvider extends BaseProvider implements AIProvider 
     abstract chat(model: string, context: Context, options?: any): Promise<ModelResponse>;
 
     chatStream?(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown>;
+
+    /**
+     * High-level execute method that handles the entire conversation process
+     * 
+     * This method encapsulates all provider-specific logic including:
+     * - Message format conversion
+     * - Tool configuration
+     * - Request preparation
+     * - Response processing
+     * 
+     * ExecutionService delegates the entire AI interaction to this method.
+     * 
+     * @param messages - Array of UniversalMessage from conversation history
+     * @param config - Execution configuration
+     * @returns Provider execution result
+     */
+    async execute(messages: UniversalMessage[], config: ProviderExecutionConfig): Promise<ProviderExecutionResult> {
+        try {
+            // Convert messages to provider-specific format
+            const convertedMessages = this.convertMessages(messages);
+
+
+
+            // Prepare context with all configuration
+            const context: Context = {
+                messages: convertedMessages,
+                systemMessage: config.systemMessage,
+                temperature: config.temperature,
+                maxTokens: config.maxTokens,
+                tools: config.tools,  // Pass original ToolSchema[] to context
+                metadata: config.metadata
+            };
+
+            // Generate response using provider's chat method
+            const response = await this.chat(config.model, context);
+
+            // Process and return standardized result
+            return this.processResponse(response);
+
+        } catch (error) {
+            this.handleApiError(error, 'execute');
+        }
+    }
+
+    /**
+     * High-level streaming execute method
+     * 
+     * @param messages - Array of UniversalMessage from conversation history
+     * @param config - Execution configuration
+     * @returns Async generator of streaming results
+     */
+    async* executeStream(messages: UniversalMessage[], config: ProviderExecutionConfig): AsyncGenerator<ProviderExecutionResult, void, unknown> {
+        if (!this.chatStream) {
+            throw new Error(`Streaming not supported by ${this.name} provider`);
+        }
+
+        try {
+            // Convert messages to provider-specific format
+            const convertedMessages = this.convertMessages(messages);
+
+            // Prepare context with all configuration
+            const context: Context = {
+                messages: convertedMessages,
+                systemMessage: config.systemMessage,
+                temperature: config.temperature,
+                maxTokens: config.maxTokens,
+                tools: config.tools,  // Pass original ToolSchema[] to context
+                metadata: config.metadata
+            };
+
+            // Generate streaming response
+            for await (const chunk of this.chatStream(config.model, context)) {
+                yield this.processStreamingChunk(chunk);
+            }
+
+        } catch (error) {
+            this.handleApiError(error, 'executeStream');
+        }
+    }
 
     /**
      * Generate response using raw request payload (default implementation uses chat)
@@ -79,6 +186,17 @@ export abstract class BaseAIProvider extends BaseProvider implements AIProvider 
     }
 
     /**
+     * Convert UniversalMessage[] to provider-specific message format
+     * 
+     * Each provider MUST implement this method to convert UniversalMessage[]
+     * to their own API's message format.
+     * 
+     * @param messages - Array of UniversalMessage to convert
+     * @returns Provider-specific message format
+     */
+    protected abstract convertMessages(messages: UniversalMessage[]): any[];
+
+    /**
      * Configure tools for the API request
      * 
      * Each provider can override this to implement provider-specific tool configuration.
@@ -89,5 +207,41 @@ export abstract class BaseAIProvider extends BaseProvider implements AIProvider 
      */
     protected configureTools(_tools?: ToolSchema[]): any {
         return undefined;
+    }
+
+    /**
+     * Process provider response into standardized format
+     * 
+     * Each provider can override this to implement provider-specific response processing.
+     * 
+     * @param response - Raw response from provider's chat method
+     * @returns Standardized ProviderExecutionResult
+     */
+    protected processResponse(response: ModelResponse): ProviderExecutionResult {
+        return {
+            content: response.content || '',
+            toolCalls: (response as any).toolCalls,
+            usage: (response as any).usage,
+            finishReason: (response as any).finishReason,
+            metadata: (response as any).metadata
+        };
+    }
+
+    /**
+     * Process streaming chunk into standardized format
+     * 
+     * Each provider can override this to implement provider-specific chunk processing.
+     * 
+     * @param chunk - Raw streaming chunk from provider
+     * @returns Standardized ProviderExecutionResult for the chunk
+     */
+    protected processStreamingChunk(chunk: StreamingResponseChunk): ProviderExecutionResult {
+        return {
+            content: chunk.content || '',
+            toolCalls: (chunk as any).toolCalls,
+            usage: (chunk as any).usage,
+            finishReason: (chunk as any).finishReason,
+            metadata: (chunk as any).metadata
+        };
     }
 } 

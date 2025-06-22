@@ -6,10 +6,10 @@ export { createTeam } from './create-team';
 
 // Types and interfaces
 export type {
+    TeamOptions,
     TeamContainerOptions,
     AgentConfig,
     AssignTaskParams,
     AssignTaskResult,
-    TaskAgentConfig,
-    TeamStats
+    TaskAgentConfig
 } from './types'; 

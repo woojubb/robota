@@ -170,6 +170,14 @@ export class ConversationSession {
     }
 
     /**
+     * Add tool execution result message with tool call ID (for tool calling format)
+     * High-level API matching core package
+     */
+    addToolMessageWithId(content: string, toolCallId: string, toolName: string, metadata?: Record<string, any>): void {
+        this.addMessage(createToolMessage(content, toolCallId, toolName, metadata));
+    }
+
+    /**
      * Get all messages in chronological order
      */
     getMessages(): UniversalMessage[] {
@@ -241,16 +249,15 @@ export interface ConversationHistoryOptions {
 }
 
 /**
- * Singleton Conversation History for the entire agents package
+ * Instance-based Conversation History for isolated conversation management
  */
 export class ConversationHistory {
-    private static instance: ConversationHistory | null = null;
     private conversations = new Map<string, ConversationSession>();
     private logger: Logger;
     private readonly maxMessagesPerConversation: number;
     private readonly maxConversations: number;
 
-    private constructor(options: ConversationHistoryOptions = {}) {
+    constructor(options: ConversationHistoryOptions = {}) {
         this.maxMessagesPerConversation = options.maxMessagesPerConversation ?? 100;
         this.maxConversations = options.maxConversations ?? 1000;
         this.logger = new Logger('ConversationHistory');
@@ -259,16 +266,6 @@ export class ConversationHistory {
             maxMessagesPerConversation: this.maxMessagesPerConversation,
             maxConversations: this.maxConversations,
         });
-    }
-
-    /**
-     * Get singleton instance
-     */
-    public static getInstance(options?: ConversationHistoryOptions): ConversationHistory {
-        if (!ConversationHistory.instance) {
-            ConversationHistory.instance = new ConversationHistory(options);
-        }
-        return ConversationHistory.instance;
     }
 
     /**
@@ -354,10 +351,5 @@ export class ConversationHistory {
         });
     }
 
-    /**
-     * Reset singleton (for testing)
-     */
-    public static reset(): void {
-        ConversationHistory.instance = null;
-    }
+
 } 

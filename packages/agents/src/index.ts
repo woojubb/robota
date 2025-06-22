@@ -20,6 +20,7 @@ export type {
     ToolMessage
 } from './interfaces/agent.js';
 export { BaseAIProvider } from './abstracts/base-ai-provider.js';
+export type { ProviderExecutionConfig, ProviderExecutionResult } from './abstracts/base-ai-provider.js';
 export { logger } from './utils/logger.js';
 
 // Plugin exports

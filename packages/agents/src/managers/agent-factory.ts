@@ -54,10 +54,9 @@ export interface AgentLifecycleEvents {
 
 /**
  * Agent Factory for creating and managing agents
- * Singleton pattern for centralized management
+ * Instance-based for isolated agent factory management
  */
 export class AgentFactory {
-    private static instance: AgentFactory | null = null;
     private agentTemplates: AgentTemplates;
     private initialized = false;
     private logger: Logger;
@@ -67,8 +66,8 @@ export class AgentFactory {
     private lifecycleEvents: AgentLifecycleEvents;
     private creationTimes: number[];
 
-    private constructor(options: AgentFactoryOptions = {}, lifecycleEvents: AgentLifecycleEvents = {}) {
-        this.agentTemplates = AgentTemplates.getInstance();
+    constructor(options: AgentFactoryOptions = {}, lifecycleEvents: AgentLifecycleEvents = {}) {
+        this.agentTemplates = new AgentTemplates();
         this.logger = new Logger('AgentFactory');
         this.options = {
             defaultModel: options.defaultModel || 'gpt-4',
@@ -92,23 +91,6 @@ export class AgentFactory {
             options: this.options,
             hasLifecycleEvents: this.lifecycleEvents !== null
         });
-    }
-
-    /**
-     * Get singleton instance
-     */
-    public static getInstance(options?: AgentFactoryOptions, lifecycleEvents?: AgentLifecycleEvents): AgentFactory {
-        if (!AgentFactory.instance) {
-            AgentFactory.instance = new AgentFactory(options, lifecycleEvents);
-        }
-        return AgentFactory.instance;
-    }
-
-    /**
-     * Reset singleton (for testing)
-     */
-    public static reset(): void {
-        AgentFactory.instance = null;
     }
 
     /**

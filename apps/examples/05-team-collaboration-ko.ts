@@ -129,18 +129,44 @@ Handle simple queries yourself without delegation.`,
         // 예제 1 성능 분석
         logSection('예제 1: 성능 분석');
 
-        const stats1 = team1.getStats();
+        const stats1 = team1.getAnalytics();
+        const analysis1 = team1.getTeamExecutionAnalysis();
+        const delegationHistory1 = team1.getDelegationHistory();
+
         console.log(chalk.blue(`
 📈 예제 1 결과:
-• 완료된 작업: ${stats1.tasksCompleted}
-• 생성된 총 에이전트 수: ${stats1.totalAgentsCreated}
-• 실행 시간: ${stats1.totalExecutionTime}ms
+• 완료된 작업: ${stats1?.totalExecutions || 0}
+• 성공률: ${((stats1?.successRate || 0) * 100).toFixed(1)}%
+• 평균 실행 시간: ${(stats1?.averageDuration || 0).toFixed(0)}ms
+
+🔄 작업 분배 분석:
+• 직접 처리된 작업: ${analysis1.directlyHandledTasks}개
+• 위임된 작업: ${analysis1.delegatedTasks}개
+• 위임 비율: ${(analysis1.delegationRate * 100).toFixed(1)}%
         `));
+
+        // 위임 내역 상세 표시
+        if (delegationHistory1.length > 0) {
+            console.log(chalk.cyan('\n📋 작업 위임 내역:'));
+            delegationHistory1.forEach((record, index) => {
+                console.log(chalk.gray(`
+${index + 1}. ${record.agentTemplate || 'dynamic'} 에이전트 (${record.agentId})
+   작업: "${record.originalTask.substring(0, 80)}${record.originalTask.length > 80 ? '...' : ''}"
+   우선순위: ${record.priority}
+   실행시간: ${record.duration}ms
+   성공: ${record.success ? '✅' : '❌'}
+   토큰 사용량: ${record.tokensUsed || 0}
+                `));
+            });
+        } else {
+            console.log(chalk.yellow('\n📝 이 작업은 팀 에이전트가 직접 처리했습니다 (위임 없음)'));
+        }
 
         console.log('✅ 예제 1 완료!\n');
 
         // 예제 2: 복잡한 작업 (팀 협업)
         logSection('예제 2: 복잡한 작업 (팀 협업)');
+        console.log('✅ 예제 2용 새로운 팀을 생성하고 있습니다...');
 
         // 예제 2용 OpenAI 클라이언트와 프로바이더 생성 (완전히 새로운 인스턴스)
         const openaiClient2 = new OpenAI({ apiKey });
@@ -162,8 +188,6 @@ Handle simple queries yourself without delegation.`,
         });
 
         // 예제 2용 팀 생성 (간소화된 API 사용, 완전히 새로운 팀)
-        console.log(chalk.green('✅ 예제 2용 새로운 팀을 생성하고 있습니다...'));
-
         const team2 = createTeam({
             aiProviders: {
                 openai: openaiProvider2,
@@ -200,7 +224,7 @@ Handle simple queries yourself without delegation.`,
             }
         } as any);
 
-        const complexTask = '카페 창업 계획서를 작성해주세요. 반드시 다음 두 부분을 모두 포함해야 합니다: 시장 분석, 메뉴 구성. 각각을 별도로 작성해주세요.';
+        const complexTask = `카페 창업 계획서를 작성해주세요. 반드시 다음 두 부분을 모두 포함해야 합니다: 시장 분석, 메뉴 구성. 각각을 별도로 작성해주세요.`;
 
         console.log(chalk.yellow(`사용자: ${complexTask}`));
         console.log(chalk.blue('🤖 팀이 전문가들과 협업중입니다...'));
@@ -211,22 +235,107 @@ Handle simple queries yourself without delegation.`,
         // 예제 2 성능 분석
         logSection('예제 2: 성능 분석');
 
-        const stats2 = team2.getStats();
+        const stats2 = team2.getAnalytics();
+        const analysis2 = team2.getTeamExecutionAnalysis();
+        const delegationHistory2 = team2.getDelegationHistory();
+
         console.log(chalk.blue(`
 📈 예제 2 결과:
-• 완료된 작업: ${stats2.tasksCompleted}
-• 생성된 총 에이전트 수: ${stats2.totalAgentsCreated}
-• 실행 시간: ${stats2.totalExecutionTime}ms
+• 완료된 작업: ${stats2?.totalExecutions || 0}
+• 성공률: ${((stats2?.successRate || 0) * 100).toFixed(1)}%
+• 평균 실행 시간: ${(stats2?.averageDuration || 0).toFixed(0)}ms
+
+🔄 작업 분배 분석:
+• 직접 처리된 작업: ${analysis2.directlyHandledTasks}개
+• 위임된 작업: ${analysis2.delegatedTasks}개
+• 위임 비율: ${(analysis2.delegationRate * 100).toFixed(1)}%
         `));
 
-        // 최종 통계 표시 (두 팀 통합)
-        logSection('팀 성능 요약');
+        // 위임 내역 상세 표시
+        if (delegationHistory2.length > 0) {
+            console.log(chalk.cyan('\n📋 작업 위임 내역:'));
+            delegationHistory2.forEach((record, index) => {
+                console.log(chalk.gray(`
+${index + 1}. ${record.agentTemplate || 'dynamic'} 에이전트 (${record.agentId})
+   작업: "${record.originalTask.substring(0, 80)}${record.originalTask.length > 80 ? '...' : ''}"
+   우선순위: ${record.priority}
+   실행시간: ${record.duration}ms
+   성공: ${record.success ? '✅' : '❌'}
+   토큰 사용량: ${record.tokensUsed || 0}
+                `));
+            });
 
-        console.log(chalk.blue(`
-📊 전체 요약:
-• 총 완료된 작업: ${stats1.tasksCompleted + stats2.tasksCompleted}
-• 총 생성된 에이전트: ${stats1.totalAgentsCreated + stats2.totalAgentsCreated}
-• 총 실행 시간: ${stats1.totalExecutionTime + stats2.totalExecutionTime}ms
+            // 템플릿별 성능 분석
+            if (analysis2.delegationBreakdown.length > 0) {
+                console.log(chalk.cyan('\n📊 에이전트 템플릿별 성능:'));
+                analysis2.delegationBreakdown.forEach(breakdown => {
+                    console.log(chalk.gray(`
+• ${breakdown.template}: ${breakdown.count}회 사용
+  - 평균 실행 시간: ${breakdown.averageDuration.toFixed(0)}ms
+  - 성공률: ${(breakdown.successRate * 100).toFixed(1)}%
+                    `));
+                });
+            }
+        } else {
+            console.log(chalk.yellow('\n📝 이 작업은 팀 에이전트가 직접 처리했습니다 (위임 없음)'));
+        }
+
+        // 최종 통계 표시 (두 팀 통합)
+        logSection('전체 팀 성능 요약');
+
+        const totalExecutions = (stats1?.totalExecutions || 0) + (stats2?.totalExecutions || 0);
+        const totalDelegations = delegationHistory1.length + delegationHistory2.length;
+        const totalDirectTasks = analysis1.directlyHandledTasks + analysis2.directlyHandledTasks;
+        const avgSuccessRate = ((stats1?.successRate || 0) + (stats2?.successRate || 0)) / 2;
+
+        // 템플릿 사용 통계 통합
+        const allTemplateUsage = new Map<string, { count: number; totalDuration: number; successes: number }>();
+
+        [...delegationHistory1, ...delegationHistory2].forEach(record => {
+            const template = record.agentTemplate || 'dynamic';
+            const stats = allTemplateUsage.get(template) || { count: 0, totalDuration: 0, successes: 0 };
+
+            stats.count++;
+            stats.totalDuration += record.duration || 0;
+            if (record.success) stats.successes++;
+
+            allTemplateUsage.set(template, stats);
+        });
+
+        console.log(chalk.green(`
+🎯 전체 성능 요약:
+• 총 실행된 작업: ${totalExecutions}개
+• 평균 성공률: ${(avgSuccessRate * 100).toFixed(1)}%
+• 직접 처리: ${totalDirectTasks}개 (${totalExecutions > 0 ? ((totalDirectTasks / totalExecutions) * 100).toFixed(1) : 0}%)
+• 위임 처리: ${totalDelegations}개 (${totalExecutions > 0 ? ((totalDelegations / totalExecutions) * 100).toFixed(1) : 0}%)
+
+🤖 에이전트 활용 분석:
+        `));
+
+        if (allTemplateUsage.size > 0) {
+            Array.from(allTemplateUsage.entries()).forEach(([template, stats]) => {
+                const avgDuration = stats.count > 0 ? stats.totalDuration / stats.count : 0;
+                const successRate = stats.count > 0 ? stats.successes / stats.count : 0;
+
+                console.log(chalk.cyan(`
+• ${template} 에이전트:
+  - 사용 횟수: ${stats.count}회
+  - 평균 실행시간: ${avgDuration.toFixed(0)}ms
+  - 성공률: ${(successRate * 100).toFixed(1)}%
+                `));
+            });
+        } else {
+            console.log(chalk.yellow('모든 작업이 팀 에이전트에 의해 직접 처리되었습니다.'));
+        }
+
+        console.log(chalk.bold.green(`
+💡 인사이트:
+${totalDelegations > 0 ?
+                `• 복잡한 작업의 경우 전문 에이전트에게 위임하여 효율성을 높였습니다.
+• 위임된 작업들의 평균 성공률이 높아 적절한 역할 분담이 이루어졌습니다.` :
+                `• 이번 작업들은 복잡도가 낮아 팀 에이전트가 직접 처리했습니다.
+• 필요에 따라 전문 에이전트 위임을 통해 더 복잡한 작업도 처리 가능합니다.`}
+• 두 팀 인스턴스가 완전히 독립적으로 작동하여 싱글톤 문제가 해결되었습니다.
         `));
 
         console.log(chalk.green('\n✅ 팀 협업 데모가 성공적으로 완료되었습니다!'));
