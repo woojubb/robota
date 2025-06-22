@@ -262,10 +262,15 @@ function zodToJsonSchema(schema: any): ToolSchema['parameters'] {
         let isOptional = false;
         let description: string | undefined;
 
-        // Handle optional types and preserve description
+        // Handle optional types, default types, and preserve description
         if (typeObj._def && typeObj._def.typeName === 'ZodOptional') {
             isOptional = true;
             // Get description from optional wrapper first
+            description = typeObj._def.description;
+            typeObj = typeObj._def.innerType;
+        } else if (typeObj._def && typeObj._def.typeName === 'ZodDefault') {
+            isOptional = true;
+            // Get description from default wrapper first
             description = typeObj._def.description;
             typeObj = typeObj._def.innerType;
         }

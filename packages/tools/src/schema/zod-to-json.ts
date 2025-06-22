@@ -24,7 +24,9 @@ export function zodToJsonSchema(schema: z.ZodObject<any>): any {
 
     // Convert zod schema's shape object to JSON schema properties
     const shape = schema._def.shape();
+    console.log('zodToJsonSchema - shape:', shape);
     const entries = Object.entries(shape);
+    console.log('zodToJsonSchema - entries:', entries.map(([key, value]) => [key, (value as any).constructor.name]));
 
     for (const [key, value] of entries) {
         const fieldSchema = convertZodTypeToJsonSchema(value as z.ZodTypeAny, key);
@@ -118,7 +120,9 @@ function convertCoreZodType(zodType: z.ZodTypeAny, fieldName: string): any {
     } else if (zodType instanceof z.ZodNumber) {
         return convertZodNumber(zodType, jsonSchema);
     } else if (zodType instanceof z.ZodBoolean) {
+        console.log('Converting ZodBoolean:', { fieldName, zodType: zodType.constructor.name });
         jsonSchema.type = 'boolean';
+        console.log('ZodBoolean converted to:', jsonSchema);
         return jsonSchema;
     } else if (zodType instanceof z.ZodArray) {
         return convertZodArray(zodType, jsonSchema, fieldName);
@@ -130,6 +134,7 @@ function convertCoreZodType(zodType: z.ZodTypeAny, fieldName: string): any {
         return convertZodUnion(zodType, jsonSchema, fieldName);
     } else {
         // Fallback for unsupported types
+        console.log('Fallback triggered for field:', fieldName, 'zodType:', zodType.constructor.name, 'zodType._def:', zodType._def);
         jsonSchema.type = 'string';
         console.warn(`Unsupported zod type for field ${fieldName}, using string as fallback`);
         return jsonSchema;
