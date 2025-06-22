@@ -218,10 +218,12 @@ packages/agents/src/
 **우선순위**: 🚨 Critical → ⚠️ Important → 📝 Style 순서로 진행
 
 #### 🚨 Critical Issues (즉시 수정 필요)
-- [ ] **순환 의존성 제거**: index.ts에서 Provider re-export 제거
-  - [ ] `OpenAIProvider` export 제거 → 각 Provider 패키지에서 직접 import 유도
-  - [ ] Provider 인터페이스만 export, 구현체는 각 패키지에서 제공
-  - [ ] build system에서 circular dependency 검사 추가
+- [x] **순환 의존성 제거**: index.ts에서 Provider re-export 제거 ✅ **완료**
+  - [x] `OpenAIProvider` export 제거 → 각 Provider 패키지에서 직접 import 유도
+  - [x] Provider 인터페이스만 export, 구현체는 각 패키지에서 제공
+  - [x] TemplateApplicationResult export 경로 수정으로 빌드 오류 해결
+  - [x] AgentFactory singleton 패턴 사용으로 team 패키지 오류 해결
+  - [x] 전체 프로젝트 빌드 성공 확인 ✅
 - [ ] **Service 무상태화**: ConversationService의 상태 제거
   - [ ] `options` 인스턴스 변수를 메서드 파라미터로 변경
   - [ ] Service 메서드를 순수 함수로 변경 (input → output, no side effect)

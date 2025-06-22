@@ -59,7 +59,7 @@ Provides common functionality for all tool providers.
 
 #### Defined in
 
-[packages/tools/src/tool-provider.ts:86](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/tools/src/tool-provider.ts#L86)
+[packages/tools/src/tool-provider.ts:86](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/tools/src/tool-provider.ts#L86)
 
 ## Properties
 
@@ -75,7 +75,7 @@ Abstract property to be implemented by concrete providers
 
 #### Defined in
 
-[packages/tools/src/tool-provider.ts:98](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/tools/src/tool-provider.ts#L98)
+[packages/tools/src/tool-provider.ts:98](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/tools/src/tool-provider.ts#L98)
 
 ## Methods
 
@@ -102,7 +102,7 @@ Abstract method to be implemented by concrete providers
 
 #### Defined in
 
-[packages/tools/src/tool-provider.ts:93](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/tools/src/tool-provider.ts#L93)
+[packages/tools/src/tool-provider.ts:93](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/tools/src/tool-provider.ts#L93)
 
 ___
 
@@ -122,7 +122,7 @@ Get available tool names from functions list
 
 #### Defined in
 
-[packages/tools/src/tool-provider.ts:103](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/tools/src/tool-provider.ts#L103)
+[packages/tools/src/tool-provider.ts:103](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/tools/src/tool-provider.ts#L103)
 
 ___
 
@@ -148,4 +148,4 @@ Check if a tool exists
 
 #### Defined in
 
-[packages/tools/src/tool-provider.ts:110](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/tools/src/tool-provider.ts#L110)
+[packages/tools/src/tool-provider.ts:110](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/tools/src/tool-provider.ts#L110)

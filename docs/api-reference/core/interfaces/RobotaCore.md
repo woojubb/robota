@@ -48,7 +48,7 @@ Promise resolving to AI response text
 
 #### Defined in
 
-[packages/core/src/interfaces/robota-core.ts:18](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/core/src/interfaces/robota-core.ts#L18)
+[packages/core/src/interfaces/robota-core.ts:18](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/interfaces/robota-core.ts#L18)
 
 ___
 
@@ -73,7 +73,7 @@ Promise resolving to async iterable of response chunks
 
 #### Defined in
 
-[packages/core/src/interfaces/robota-core.ts:27](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/core/src/interfaces/robota-core.ts#L27)
+[packages/core/src/interfaces/robota-core.ts:27](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/interfaces/robota-core.ts#L27)
 
 ___
 
@@ -91,4 +91,4 @@ Promise that resolves when cleanup is complete
 
 #### Defined in
 
-[packages/core/src/interfaces/robota-core.ts:34](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/core/src/interfaces/robota-core.ts#L34)
+[packages/core/src/interfaces/robota-core.ts:34](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/interfaces/robota-core.ts#L34)

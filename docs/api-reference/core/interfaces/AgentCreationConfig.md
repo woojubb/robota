@@ -29,7 +29,7 @@ Template name to use (optional)
 
 #### Defined in
 
-[packages/core/src/types.ts:175](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/core/src/types.ts#L175)
+[packages/core/src/types.ts:175](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/types.ts#L175)
 
 ___
 
@@ -41,7 +41,7 @@ Task description for dynamic agent creation
 
 #### Defined in
 
-[packages/core/src/types.ts:177](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/core/src/types.ts#L177)
+[packages/core/src/types.ts:177](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/types.ts#L177)
 
 ___
 
@@ -53,7 +53,7 @@ Required tools for the task
 
 #### Defined in
 
-[packages/core/src/types.ts:179](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/core/src/types.ts#L179)
+[packages/core/src/types.ts:179](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/types.ts#L179)
 
 ___
 
@@ -65,4 +65,4 @@ Agent configuration overrides
 
 #### Defined in
 
-[packages/core/src/types.ts:181](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/core/src/types.ts#L181)
+[packages/core/src/types.ts:181](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/types.ts#L181)

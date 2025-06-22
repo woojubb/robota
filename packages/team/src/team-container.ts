@@ -103,7 +103,7 @@ export class TeamContainer {
         this.logger = options.logger;
 
         // Create AgentFactory for creating temporary agents with proper configuration
-        this.agentFactory = new CoreAgentFactory({
+        this.agentFactory = CoreAgentFactory.getInstance({
             defaultProvider: this.options.baseRobotaOptions.currentProvider || 'openai',
             defaultModel: this.options.baseRobotaOptions.currentModel || 'gpt-4o-mini',
             maxConcurrentAgents: this.options.maxMembers || 5,
