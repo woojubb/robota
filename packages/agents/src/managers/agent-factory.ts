@@ -4,6 +4,7 @@ import { BaseManager } from '../abstracts/base-manager';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { validateAgentConfig } from '../utils/validation';
 import { Logger } from '../utils/logger';
+import { AgentTemplates, TemplateApplicationResult } from './agent-templates';
 
 /**
  * Configuration options for AgentFactory
@@ -52,37 +53,22 @@ export interface AgentLifecycleEvents {
 }
 
 /**
- * Template application result
+ * Agent Factory for creating and managing agents
+ * Singleton pattern for centralized management
  */
-export interface TemplateApplicationResult {
-    /** Applied configuration */
-    config: AgentConfig;
-    /** Template that was applied */
-    template: AgentTemplate;
-    /** Any warnings during application */
-    warnings: string[];
-    /** Whether config was modified during application */
-    modified: boolean;
-}
-
-/**
- * Factory for creating and managing agent instances
- * Handles agent creation, configuration management, template application, and lifecycle
- */
-export class AgentFactory extends BaseManager {
+export class AgentFactory {
+    private static instance: AgentFactory | null = null;
+    private agentTemplates: AgentTemplates;
+    private initialized = false;
     private logger: Logger;
     private options: Required<AgentFactoryOptions>;
-    private templates: Map<string, AgentTemplate>;
     private activeAgents: Map<string, AgentInterface>;
     private creationStats: AgentCreationStats;
     private lifecycleEvents: AgentLifecycleEvents;
     private creationTimes: number[];
 
-    constructor(
-        options: AgentFactoryOptions = {},
-        lifecycleEvents: AgentLifecycleEvents = {}
-    ) {
-        super();
+    private constructor(options: AgentFactoryOptions = {}, lifecycleEvents: AgentLifecycleEvents = {}) {
+        this.agentTemplates = AgentTemplates.getInstance();
         this.logger = new Logger('AgentFactory');
         this.options = {
             defaultModel: options.defaultModel || 'gpt-4',
@@ -91,7 +77,6 @@ export class AgentFactory extends BaseManager {
             defaultSystemMessage: options.defaultSystemMessage || 'You are a helpful AI assistant.',
             strictValidation: options.strictValidation ?? true,
         };
-        this.templates = new Map();
         this.activeAgents = new Map();
         this.creationStats = {
             totalCreated: 0,
@@ -103,10 +88,40 @@ export class AgentFactory extends BaseManager {
         this.lifecycleEvents = lifecycleEvents;
         this.creationTimes = [];
 
-        this.logger.info('AgentFactory initialized', {
+        this.logger.debug('AgentFactory initialized', {
             options: this.options,
-            hasLifecycleEvents: Object.keys(lifecycleEvents).length > 0,
+            hasLifecycleEvents: this.lifecycleEvents !== null
         });
+    }
+
+    /**
+     * Get singleton instance
+     */
+    public static getInstance(options?: AgentFactoryOptions, lifecycleEvents?: AgentLifecycleEvents): AgentFactory {
+        if (!AgentFactory.instance) {
+            AgentFactory.instance = new AgentFactory(options, lifecycleEvents);
+        }
+        return AgentFactory.instance;
+    }
+
+    /**
+     * Reset singleton (for testing)
+     */
+    public static reset(): void {
+        AgentFactory.instance = null;
+    }
+
+    /**
+     * Initialize the factory
+     */
+    async initialize(): Promise<void> {
+        if (this.initialized) {
+            return;
+        }
+
+        this.logger.debug('Initializing AgentFactory');
+        this.initialized = true;
+        this.logger.debug('AgentFactory initialization completed');
     }
 
     /**
@@ -190,7 +205,7 @@ export class AgentFactory extends BaseManager {
         templateId: string,
         overrides: Partial<AgentConfig> = {}
     ): Promise<AgentInterface> {
-        const template = this.templates.get(templateId);
+        const template = this.agentTemplates.getTemplate(templateId);
         if (!template) {
             throw new ConfigurationError(`Template not found: ${templateId}`);
         }
@@ -221,53 +236,31 @@ export class AgentFactory extends BaseManager {
     }
 
     /**
-     * Register an agent template
+     * Register a template
      */
     registerTemplate(template: AgentTemplate): void {
-        // Validate template
-        if (!template.id || !template.name) {
-            throw new ValidationError('Template must have id and name');
-        }
-
-        if (!template.config) {
-            throw new ValidationError('Template must have config');
-        }
-
-        // Validate template configuration
-        if (this.options.strictValidation) {
-            const validation = validateAgentConfig(template.config);
-            if (!validation.isValid) {
-                throw new ValidationError(`Invalid template configuration: ${validation.errors.join(', ')}`);
-            }
-        }
-
-        this.templates.set(template.id, template);
-        this.logger.info('Template registered', { templateId: template.id, name: template.name });
+        this.agentTemplates.registerTemplate(template);
     }
 
     /**
-     * Remove an agent template
+     * Unregister a template
      */
     unregisterTemplate(templateId: string): boolean {
-        const removed = this.templates.delete(templateId);
-        if (removed) {
-            this.logger.info('Template unregistered', { templateId });
-        }
-        return removed;
+        return this.agentTemplates.unregisterTemplate(templateId);
     }
 
     /**
-     * Get all registered templates
+     * Get all templates
      */
     getTemplates(): AgentTemplate[] {
-        return Array.from(this.templates.values());
+        return this.agentTemplates.getTemplates();
     }
 
     /**
      * Get template by ID
      */
     getTemplate(templateId: string): AgentTemplate | undefined {
-        return this.templates.get(templateId);
+        return this.agentTemplates.getTemplate(templateId);
     }
 
     /**
@@ -279,56 +272,14 @@ export class AgentFactory extends BaseManager {
         provider?: string;
         model?: string;
     }): AgentTemplate[] {
-        return this.getTemplates().filter(template => {
-            if (criteria.category && template.category !== criteria.category) {
-                return false;
-            }
-            if (criteria.tags && !criteria.tags.every(tag => template.tags?.includes(tag))) {
-                return false;
-            }
-            if (criteria.provider && template.config.provider !== criteria.provider) {
-                return false;
-            }
-            if (criteria.model && template.config.model !== criteria.model) {
-                return false;
-            }
-            return true;
-        });
+        return this.agentTemplates.findTemplates(criteria);
     }
 
     /**
      * Apply template to configuration
      */
     applyTemplate(template: AgentTemplate, overrides: Partial<AgentConfig> = {}): TemplateApplicationResult {
-        const warnings: string[] = [];
-        let modified = false;
-
-        // Start with template configuration
-        const config: AgentConfig = { ...template.config };
-
-        // Apply overrides
-        for (const [key, value] of Object.entries(overrides)) {
-            if (value !== undefined) {
-                (config as any)[key] = value;
-                modified = true;
-            }
-        }
-
-        // Check for conflicts
-        if (overrides.provider && overrides.provider !== template.config.provider) {
-            warnings.push(`Provider override (${overrides.provider}) differs from template default (${template.config.provider})`);
-        }
-
-        if (overrides.model && overrides.model !== template.config.model) {
-            warnings.push(`Model override (${overrides.model}) differs from template default (${template.config.model})`);
-        }
-
-        return {
-            config,
-            template,
-            warnings,
-            modified,
-        };
+        return this.agentTemplates.applyTemplate(template, overrides);
     }
 
     /**
@@ -434,39 +385,5 @@ export class AgentFactory extends BaseManager {
 
         this.creationStats.averageCreationTime =
             this.creationTimes.reduce((sum, time) => sum + time, 0) / this.creationTimes.length;
-    }
-
-    /**
- * Initialize the factory (BaseManager implementation)
- */
-    protected async doInitialize(): Promise<void> {
-        this.logger.info('Initializing AgentFactory');
-        // Load default templates if needed
-        // This could be extended to load from files or remote sources
-    }
-
-    /**
-     * Cleanup factory resources (BaseManager implementation)
-     */
-    protected async doDispose(): Promise<void> {
-        this.logger.info('Cleaning up AgentFactory');
-
-        // Destroy all active agents
-        const agentIds = Array.from(this.activeAgents.keys());
-        await Promise.all(agentIds.map(id => this.destroyAgent(id)));
-
-        // Clear templates
-        this.templates.clear();
-
-        // Reset statistics
-        this.creationStats = {
-            totalCreated: 0,
-            activeCount: 0,
-            fromTemplates: 0,
-            customConfigured: 0,
-            averageCreationTime: 0,
-        };
-
-        this.creationTimes = [];
     }
 } 

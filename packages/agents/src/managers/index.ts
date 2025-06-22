@@ -1,4 +1,24 @@
 // Manager exports
-export * from './ai-provider-manager';
-export * from './tool-manager';
-export * from './agent-factory'; 
+export { AgentFactory } from './agent-factory';
+export { Tools } from './tool-manager';
+export { AIProviders } from './ai-provider-manager';
+export { AgentTemplates, TemplateApplicationResult } from './agent-templates';
+export {
+    ConversationHistory,
+    ConversationSession,
+    type UniversalMessage,
+    type UserMessage,
+    type AssistantMessage,
+    type SystemMessage,
+    type ToolMessage,
+    type MessageRole,
+    type APIMessage,
+    type ConversationHistoryOptions,
+    createUserMessage,
+    createAssistantMessage,
+    createSystemMessage,
+    createToolMessage,
+    isAssistantMessage,
+    isToolMessage,
+    isSystemMessage
+} from './conversation-history-manager'; 

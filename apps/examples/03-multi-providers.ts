@@ -7,8 +7,9 @@
  * - Provider switching capabilities
  */
 
-import { Robota, OpenAIProvider } from '@robota-sdk/agents';
 import OpenAI from 'openai';
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import dotenv from 'dotenv';
 
 // Load environment variables

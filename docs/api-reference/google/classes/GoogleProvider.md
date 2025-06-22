@@ -77,7 +77,7 @@ BaseAIProvider.constructor
 
 #### Defined in
 
-[google/src/provider.ts:60](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/google/src/provider.ts#L60)
+[google/src/provider.ts:60](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/google/src/provider.ts#L60)
 
 ## Properties
 
@@ -93,7 +93,7 @@ BaseAIProvider.name
 
 #### Defined in
 
-[google/src/provider.ts:28](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/google/src/provider.ts#L28)
+[google/src/provider.ts:28](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/google/src/provider.ts#L28)
 
 ___
 
@@ -109,7 +109,7 @@ BaseAIProvider.models
 
 #### Defined in
 
-[google/src/provider.ts:34](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/google/src/provider.ts#L34)
+[google/src/provider.ts:34](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/google/src/provider.ts#L34)
 
 ___
 
@@ -121,7 +121,7 @@ Provider configuration options
 
 #### Defined in
 
-[google/src/provider.ts:51](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/google/src/provider.ts#L51)
+[google/src/provider.ts:51](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/google/src/provider.ts#L51)
 
 ## Methods
 
@@ -139,7 +139,7 @@ BaseAIProvider.initialize
 
 #### Defined in
 
-agents/dist/index.d.ts:537
+agents/dist/index.d.ts:535
 
 ___
 
@@ -157,7 +157,7 @@ BaseAIProvider.dispose
 
 #### Defined in
 
-agents/dist/index.d.ts:538
+agents/dist/index.d.ts:536
 
 ___
 
@@ -175,7 +175,7 @@ BaseAIProvider.isInitialized
 
 #### Defined in
 
-agents/dist/index.d.ts:539
+agents/dist/index.d.ts:537
 
 ___
 
@@ -201,7 +201,7 @@ BaseAIProvider.generateResponse
 
 #### Defined in
 
-agents/dist/index.d.ts:552
+agents/dist/index.d.ts:550
 
 ___
 
@@ -227,7 +227,7 @@ BaseAIProvider.generateStreamingResponse
 
 #### Defined in
 
-agents/dist/index.d.ts:556
+agents/dist/index.d.ts:554
 
 ___
 
@@ -251,7 +251,7 @@ BaseAIProvider.supportsModel
 
 #### Defined in
 
-agents/dist/index.d.ts:557
+agents/dist/index.d.ts:555
 
 ___
 
@@ -293,7 +293,7 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[google/src/provider.ts:93](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/google/src/provider.ts#L93)
+[google/src/provider.ts:93](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/google/src/provider.ts#L93)
 
 ___
 
@@ -338,7 +338,7 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[google/src/provider.ts:160](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/google/src/provider.ts#L160)
+[google/src/provider.ts:160](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/google/src/provider.ts#L160)
 
 ___
 
@@ -366,7 +366,7 @@ Parsed model response in universal format
 
 #### Defined in
 
-[google/src/provider.ts:251](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/google/src/provider.ts#L251)
+[google/src/provider.ts:251](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/google/src/provider.ts#L251)
 
 ___
 
@@ -393,7 +393,7 @@ Parsed streaming response chunk
 
 #### Defined in
 
-[google/src/provider.ts:316](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/google/src/provider.ts#L316)
+[google/src/provider.ts:316](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/google/src/provider.ts#L316)
 
 ___
 
@@ -418,4 +418,4 @@ BaseAIProvider.close
 
 #### Defined in
 
-[google/src/provider.ts:337](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/google/src/provider.ts#L337)
+[google/src/provider.ts:337](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/google/src/provider.ts#L337)

@@ -6,19 +6,42 @@ import { Validator } from '../utils/validation';
 import { logger } from '../utils/logger';
 
 /**
- * AI Provider Manager implementation
+ * AI Providers implementation
  * Manages registration, selection, and state of AI providers
+ * Singleton pattern for centralized management
  */
-export class AIProviderManager extends BaseManager implements AIProviderManagerInterface {
+export class AIProviders extends BaseManager implements AIProviderManagerInterface {
+    private static instance: AIProviders | null = null;
     private providers = new Map<string, AIProvider>();
     private currentProvider?: string;
     private currentModel?: string;
+
+    private constructor() {
+        super();
+    }
+
+    /**
+     * Get singleton instance
+     */
+    public static getInstance(): AIProviders {
+        if (!AIProviders.instance) {
+            AIProviders.instance = new AIProviders();
+        }
+        return AIProviders.instance;
+    }
+
+    /**
+     * Reset singleton (for testing)
+     */
+    public static reset(): void {
+        AIProviders.instance = null;
+    }
 
     /**
      * Initialize the manager
      */
     protected async doInitialize(): Promise<void> {
-        logger.debug('AIProviderManager initialized');
+        logger.debug('AIProviders initialized');
     }
 
     /**
@@ -43,7 +66,7 @@ export class AIProviderManager extends BaseManager implements AIProviderManagerI
         this.currentProvider = undefined;
         this.currentModel = undefined;
 
-        logger.debug('AIProviderManager disposed');
+        logger.debug('AIProviders disposed');
     }
 
     /**
@@ -80,11 +103,17 @@ export class AIProviderManager extends BaseManager implements AIProviderManagerI
         }
 
         this.providers.set(name, provider);
-        logger.info(`AI provider "${name}" registered successfully`, {
+        logger.debug(`AI provider "${name}" registered successfully`, {
             providerName: name,
             models: provider.models,
             supportsStreaming: typeof provider.chatStream === 'function'
         });
+
+        if (this.getCurrentProvider()?.provider === name) {
+            logger.debug(`Cleared current provider selection after removing "${name}"`);
+        }
+
+        logger.debug(`AI provider "${name}" removed successfully`);
     }
 
     /**
@@ -114,10 +143,10 @@ export class AIProviderManager extends BaseManager implements AIProviderManagerI
         if (this.currentProvider === name) {
             this.currentProvider = undefined;
             this.currentModel = undefined;
-            logger.info(`Cleared current provider selection after removing "${name}"`);
+            logger.debug(`Cleared current provider selection after removing "${name}"`);
         }
 
-        logger.info(`AI provider "${name}" removed successfully`);
+        logger.debug(`AI provider "${name}" removed successfully`);
     }
 
     /**
@@ -158,7 +187,7 @@ export class AIProviderManager extends BaseManager implements AIProviderManagerI
         this.currentProvider = name;
         this.currentModel = model;
 
-        logger.info(`Current AI provider set to "${name}" with model "${model}"`);
+        logger.debug(`Current AI provider set to "${name}" with model "${model}"`);
     }
 
     /**

@@ -8,8 +8,9 @@
  * - Multiple queries with history
  */
 
-import { Robota, OpenAIProvider, ExecutionAnalyticsPlugin, LoggingPlugin } from '@robota-sdk/agents';
 import OpenAI from 'openai';
+import { Robota, ExecutionAnalyticsPlugin, LoggingPlugin } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import dotenv from 'dotenv';
 
 // Load environment variables

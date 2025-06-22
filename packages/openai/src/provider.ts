@@ -131,9 +131,9 @@ export class OpenAIProvider extends BaseAIProvider {
   /**
    * Filter conversation history for OpenAI API compatibility
    * 
-   * Converts messages to OpenAI format and filters out invalid tool messages.
+   * Converts UniversalMessage to OpenAI format.
    * 
-   * @param messages - Array of messages to filter
+   * @param messages - Array of UniversalMessage to filter
    * @returns OpenAI-formatted messages array
    */
   private filterHistory(messages: any[]): OpenAI.Chat.ChatCompletionMessageParam[] {

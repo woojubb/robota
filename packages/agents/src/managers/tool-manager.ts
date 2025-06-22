@@ -8,23 +8,42 @@ import { ToolExecutionError } from '../utils/errors';
 import { logger } from '../utils/logger';
 
 /**
- * Tool Manager implementation
+ * Tools implementation
  * Manages tool registration and execution using Tool Registry
+ * Singleton pattern for centralized management
  */
-export class ToolManager extends BaseManager implements ToolManagerInterface {
+export class Tools extends BaseManager implements ToolManagerInterface {
+    private static instance: Tools | null = null;
     private registry: ToolRegistry;
     private allowedTools?: string[];
 
-    constructor() {
+    private constructor() {
         super();
         this.registry = new ToolRegistry();
+    }
+
+    /**
+     * Get singleton instance
+     */
+    public static getInstance(): Tools {
+        if (!Tools.instance) {
+            Tools.instance = new Tools();
+        }
+        return Tools.instance;
+    }
+
+    /**
+     * Reset singleton (for testing)
+     */
+    public static reset(): void {
+        Tools.instance = null;
     }
 
     /**
      * Initialize the manager
      */
     protected async doInitialize(): Promise<void> {
-        logger.debug('ToolManager initialized');
+        logger.debug('Tools initialized');
     }
 
     /**
@@ -33,7 +52,7 @@ export class ToolManager extends BaseManager implements ToolManagerInterface {
     protected async doDispose(): Promise<void> {
         this.registry.clear();
         this.allowedTools = undefined;
-        logger.debug('ToolManager disposed');
+        logger.debug('Tools disposed');
     }
 
     /**
@@ -45,7 +64,7 @@ export class ToolManager extends BaseManager implements ToolManagerInterface {
         const tool = new FunctionTool(schema, executor);
         this.registry.register(tool);
 
-        logger.info(`Tool "${schema.name}" registered successfully`);
+        logger.debug(`Tool "${schema.name}" registered successfully`);
     }
 
     /**
