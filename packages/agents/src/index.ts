@@ -45,7 +45,8 @@ export { Robota, RobotaConfig } from './agents/robota.js';
 // - GoogleProvider from '@robota-sdk/google'
 
 // Manager exports
-export { AgentFactory, AgentFactoryOptions, AgentCreationStats, AgentLifecycleEvents, TemplateApplicationResult } from './managers/agent-factory.js';
+export { AgentFactory, AgentFactoryOptions, AgentCreationStats, AgentLifecycleEvents } from './managers/agent-factory.js';
+export { TemplateApplicationResult } from './managers/agent-templates.js';
 
 // Tool exports
 export { ToolRegistry } from './tools/registry/tool-registry.js';

@@ -38,7 +38,7 @@ Logger interface
 
 #### Defined in
 
-[packages/core/src/interfaces/logger.ts:5](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/core/src/interfaces/logger.ts#L5)
+[packages/core/src/interfaces/logger.ts:5](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/interfaces/logger.ts#L5)
 
 ___
 
@@ -59,7 +59,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/interfaces/logger.ts:6](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/core/src/interfaces/logger.ts#L6)
+[packages/core/src/interfaces/logger.ts:6](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/interfaces/logger.ts#L6)
 
 ___
 
@@ -80,7 +80,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/interfaces/logger.ts:7](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/core/src/interfaces/logger.ts#L7)
+[packages/core/src/interfaces/logger.ts:7](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/interfaces/logger.ts#L7)
 
 ___
 
@@ -101,4 +101,4 @@ ___
 
 #### Defined in
 
-[packages/core/src/interfaces/logger.ts:8](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/core/src/interfaces/logger.ts#L8)
+[packages/core/src/interfaces/logger.ts:8](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/interfaces/logger.ts#L8)
