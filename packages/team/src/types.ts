@@ -151,9 +151,9 @@ export interface AssignTaskParams {
 
     /** 
      * Whether the assigned agent should be able to delegate parts of the task to other specialists if needed.
-     * Set to true for complex tasks that might benefit from further specialization.
+     * Set to true ONLY for extremely complex tasks requiring multiple different areas of expertise.
      * Set to false when you want the agent to handle the task directly without further delegation.
-     * Default: true
+     * Default: false
      */
     allowFurtherDelegation?: boolean;
 }

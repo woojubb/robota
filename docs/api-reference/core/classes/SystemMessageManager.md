@@ -57,7 +57,7 @@ Set a single system prompt
 
 #### Defined in
 
-[packages/core/src/managers/system-message-manager.ts:16](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/managers/system-message-manager.ts#L16)
+[packages/core/src/managers/system-message-manager.ts:16](https://github.com/woojubb/robota/blob/0afecc12922d97d2c8ac7599fd937e359f3be1c5/packages/core/src/managers/system-message-manager.ts#L16)
 
 ___
 
@@ -79,7 +79,7 @@ Set multiple system messages
 
 #### Defined in
 
-[packages/core/src/managers/system-message-manager.ts:26](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/managers/system-message-manager.ts#L26)
+[packages/core/src/managers/system-message-manager.ts:26](https://github.com/woojubb/robota/blob/0afecc12922d97d2c8ac7599fd937e359f3be1c5/packages/core/src/managers/system-message-manager.ts#L26)
 
 ___
 
@@ -101,7 +101,7 @@ Add a new system message to existing system messages
 
 #### Defined in
 
-[packages/core/src/managers/system-message-manager.ts:36](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/managers/system-message-manager.ts#L36)
+[packages/core/src/managers/system-message-manager.ts:36](https://github.com/woojubb/robota/blob/0afecc12922d97d2c8ac7599fd937e359f3be1c5/packages/core/src/managers/system-message-manager.ts#L36)
 
 ___
 
@@ -117,7 +117,7 @@ Get the current system prompt
 
 #### Defined in
 
-[packages/core/src/managers/system-message-manager.ts:62](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/managers/system-message-manager.ts#L62)
+[packages/core/src/managers/system-message-manager.ts:62](https://github.com/woojubb/robota/blob/0afecc12922d97d2c8ac7599fd937e359f3be1c5/packages/core/src/managers/system-message-manager.ts#L62)
 
 ___
 
@@ -133,7 +133,7 @@ Get the current system messages
 
 #### Defined in
 
-[packages/core/src/managers/system-message-manager.ts:69](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/managers/system-message-manager.ts#L69)
+[packages/core/src/managers/system-message-manager.ts:69](https://github.com/woojubb/robota/blob/0afecc12922d97d2c8ac7599fd937e359f3be1c5/packages/core/src/managers/system-message-manager.ts#L69)
 
 ___
 
@@ -149,7 +149,7 @@ Check if system messages are configured
 
 #### Defined in
 
-[packages/core/src/managers/system-message-manager.ts:76](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/managers/system-message-manager.ts#L76)
+[packages/core/src/managers/system-message-manager.ts:76](https://github.com/woojubb/robota/blob/0afecc12922d97d2c8ac7599fd937e359f3be1c5/packages/core/src/managers/system-message-manager.ts#L76)
 
 ___
 
@@ -165,4 +165,4 @@ Clear system messages
 
 #### Defined in
 
-[packages/core/src/managers/system-message-manager.ts:83](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/managers/system-message-manager.ts#L83)
+[packages/core/src/managers/system-message-manager.ts:83](https://github.com/woojubb/robota/blob/0afecc12922d97d2c8ac7599fd937e359f3be1c5/packages/core/src/managers/system-message-manager.ts#L83)

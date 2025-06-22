@@ -149,6 +149,8 @@ export class TeamContainer {
     private logger?: any;
     private availableTemplates: AgentTemplate[];
     private delegationHistory: TaskDelegationRecord[] = [];
+    private activeAgentsCount: number = 0; // Track currently active agents
+    private totalAgentsCreated: number = 0; // Track total agents created
 
     constructor(options: TeamContainerOptions) {
         this.options = options;
@@ -194,7 +196,10 @@ export class TeamContainer {
                 ...(this.options.baseRobotaOptions.plugins || []),
                 teamAnalyticsPlugin
             ],
-            tools: [assignTaskTool]
+            tools: [
+                ...(this.options.baseRobotaOptions.tools || []),
+                assignTaskTool
+            ]
         };
 
         this.teamAgent = new Robota(teamConfig);
@@ -243,11 +248,40 @@ export class TeamContainer {
      */
     async assignTask(params: AssignTaskParams): Promise<AssignTaskResult> {
         let temporaryAgent: Robota | null = null;
+        let counterIncremented = false; // Track if we incremented the counter
         const agentId = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const startTime = Date.now();
 
+        // Log received parameters
+        console.log('assignTask params:', JSON.stringify(params, null, 2));
+
         try {
-            this.logger?.info(`🔄 Assigning task: ${params.jobDescription}`);
+
+
+
+            // Atomic check and increment for maxMembers (prevents race condition)
+            // Check against totalAgentsCreated to prevent too many agents overall
+            if (this.options.maxMembers && this.totalAgentsCreated >= this.options.maxMembers) {
+                const errorMessage = `Maximum number of team members (${this.options.maxMembers}) reached. Total created: ${this.totalAgentsCreated}, Currently active: ${this.activeAgentsCount}`;
+
+                this.logger?.warn(errorMessage);
+
+                return {
+                    result: `Task assignment failed: ${errorMessage}`,
+                    agentId: agentId,
+                    metadata: {
+                        executionTime: 0,
+                        errors: [errorMessage]
+                    }
+                };
+            }
+
+            // Atomically increment counter BEFORE agent creation to prevent race conditions
+            this.activeAgentsCount++;
+            this.totalAgentsCreated++;
+            counterIncremented = true; // Mark that we incremented the counter
+
+            this.logger?.info(`📊 Agent slot reserved - Active: ${this.activeAgentsCount}, Total: ${this.totalAgentsCreated}, Max: ${this.options.maxMembers || 'unlimited'}`);
 
             // Create dedicated analytics plugin instance for this temporary agent (instance-specific)
             const taskAnalyticsPlugin = new ExecutionAnalyticsPlugin({
@@ -259,8 +293,10 @@ export class TeamContainer {
 
             // Create a temporary agent for this specific task
             // Determine if this agent should have delegation capabilities
-            const shouldAllowDelegation = params.allowFurtherDelegation !== false; // Default to true
+            const shouldAllowDelegation = params.allowFurtherDelegation === true; // Default to false
             const delegationTools = shouldAllowDelegation ? [this.createAssignTaskTool()] : [];
+
+
 
             if (params.agentTemplate) {
                 // Create from template
@@ -310,6 +346,9 @@ export class TeamContainer {
                 });
             }
 
+            // Agent created successfully, execute the task
+            this.logger?.info(`📊 Agent created - Active: ${this.activeAgentsCount}, Total: ${this.totalAgentsCreated}`);
+
             // Execute the task with the temporary agent
             const taskPrompt = this.buildTaskPrompt(params);
             const result = await temporaryAgent.run(taskPrompt);
@@ -318,6 +357,8 @@ export class TeamContainer {
             const agentAnalyticsPlugin = temporaryAgent.getPlugin('ExecutionAnalyticsPlugin') as ExecutionAnalyticsPlugin | null;
             const executionStats = agentAnalyticsPlugin?.getAggregatedStats();
             const taskDuration = Date.now() - startTime;
+
+
 
             this.logger?.info(`✅ Task completed by agent ${agentId} (${taskDuration}ms)`);
 
@@ -359,6 +400,16 @@ export class TeamContainer {
             const errorMessage = error instanceof Error ? error.message : String(error);
             const taskDuration = Date.now() - startTime;
 
+
+
+            // Decrement counter if agent creation or execution failed (but only if we incremented it)
+            if (counterIncremented && this.activeAgentsCount > 0) {
+                this.activeAgentsCount--;
+                counterIncremented = false; // Prevent double decrement
+
+                this.logger?.info(`📊 Agent failed, slot released - Active: ${this.activeAgentsCount}`);
+            }
+
             this.logger?.error(`❌ Task failed for agent ${agentId} (${taskDuration}ms):`, error);
 
             const delegationRecord: TaskDelegationRecord = {
@@ -391,6 +442,16 @@ export class TeamContainer {
                 }
             };
         } finally {
+            // Decrement active agent counter when agent completes successfully
+            // (For failed cases, it's already decremented in catch block)
+            if (counterIncremented && temporaryAgent && this.activeAgentsCount > 0) {
+                this.activeAgentsCount--;
+
+                this.logger?.info(`📊 Agent completed successfully - Active agents now: ${this.activeAgentsCount}`);
+            }
+
+
+
             // Cleanup handled automatically by garbage collection
             temporaryAgent = null;
         }
@@ -546,6 +607,29 @@ export class TeamContainer {
     }
 
     /**
+     * Get current team statistics
+     */
+    getTeamStats() {
+        return {
+            activeAgentsCount: this.activeAgentsCount,
+            totalAgentsCreated: this.totalAgentsCreated,
+            maxMembers: this.options.maxMembers || 'unlimited',
+            delegationHistoryLength: this.delegationHistory.length,
+            successfulTasks: this.delegationHistory.filter(d => d.success).length,
+            failedTasks: this.delegationHistory.filter(d => !d.success).length
+        };
+    }
+
+    /**
+     * Reset team statistics
+     */
+    resetTeamStats(): void {
+        this.activeAgentsCount = 0;
+        this.totalAgentsCreated = 0;
+        this.delegationHistory = [];
+    }
+
+    /**
      * Get available templates
      */
     getTemplates(): AgentTemplate[] {
@@ -612,15 +696,15 @@ export class TeamContainer {
             agentTemplate: z.string().optional().describe(
                 `Name of the agent template to use for this task. Available templates: ${templateDescriptions}. If not specified, a dynamic agent will be created based on the job description.`
             ),
-            allowFurtherDelegation: z.boolean().default(true).describe(
-                'Whether the assigned agent can delegate parts of the task to other specialists if needed. Set true for complex tasks that might benefit from further specialization, false for direct execution.'
+            allowFurtherDelegation: z.boolean().default(false).describe(
+                'Whether the assigned agent can delegate parts of the task to other specialists if needed. Set true ONLY for very complex tasks requiring multiple specialized areas of expertise, false for focused execution.'
             )
         });
 
-        // Create the tool using createZodFunctionTool
-        return createZodFunctionTool(
+        // Log the converted schema for debugging
+        const toolInstance = createZodFunctionTool(
             'assignTask',
-            'Assign a specialized task to a temporary expert agent. Use this when the task requires specific expertise, complex analysis, or when breaking down work into specialized components would be beneficial. The expert agent will be created, complete the task, and be automatically cleaned up. Set allowFurtherDelegation=true for complex tasks that might need additional breakdown, or false for direct execution without further delegation. Choose appropriate agentTemplate based on the nature of the work.',
+            'Assign a specialized task to a temporary expert agent. Use this when the task requires specific expertise, complex analysis, or when breaking down work into specialized components would be beneficial. The expert agent will be created, complete the task, and be automatically cleaned up. Set allowFurtherDelegation=true ONLY for extremely complex tasks requiring multiple different areas of expertise, otherwise keep false for direct execution. Choose appropriate agentTemplate based on the nature of the work.',
             assignTaskSchema,
             async (parameters: Record<string, any>) => {
                 const assignTaskParams: AssignTaskParams = {
@@ -634,14 +718,16 @@ export class TeamContainer {
 
                 const result = await this.assignTask(assignTaskParams);
 
-                return {
-                    result: result.result,
-                    agentId: result.agentId,
-                    executionTime: result.metadata.executionTime,
-                    tokensUsed: result.metadata.tokensUsed
-                };
+                // Return formatted string result for LLM consumption
+                const formattedResult = `Task completed successfully by ${result.agentId}.\n\nResult:\n${result.result}\n\nExecution time: ${result.metadata.executionTime}ms`;
+
+                return formattedResult;
             }
         );
+
+        console.log('assignTask converted schema:', JSON.stringify(toolInstance.schema, null, 2));
+
+        return toolInstance;
     }
 
     /**

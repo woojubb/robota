@@ -78,7 +78,8 @@ export class OpenAIProvider extends BaseAIProvider {
                 model: completionOptions.model,
                 messages: completionOptions.messages?.length,
                 tools: completionOptions.tools ? `${completionOptions.tools.length} tools` : 'no tools',
-                request_tools: request.tools ? `${request.tools.length} request tools` : 'no request tools'
+                request_tools: request.tools ? `${request.tools.length} request tools` : 'no request tools',
+                tools_detail: completionOptions.tools
             }, null, 2));
 
             // Call OpenAI API

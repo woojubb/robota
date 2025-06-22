@@ -42,4 +42,4 @@
 
 #### Defined in
 
-[anthropic/src/index.ts:17](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/anthropic/src/index.ts#L17)
+[anthropic/src/index.ts:17](https://github.com/woojubb/robota/blob/0afecc12922d97d2c8ac7599fd937e359f3be1c5/packages/anthropic/src/index.ts#L17)

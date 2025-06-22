@@ -104,7 +104,7 @@ export class ToolExecutionService {
         this.toolManager = toolManager;
         this.logger = new Logger('ToolExecutionService');
         this.options = {
-            defaultTimeout: options.defaultTimeout || 30000,
+            defaultTimeout: options.defaultTimeout || 120000, // Increased to 2 minutes for complex team tasks
             defaultMaxConcurrency: options.defaultMaxConcurrency || 5,
             collectStats: options.collectStats ?? true,
             maxHistorySize: options.maxHistorySize || 100,
