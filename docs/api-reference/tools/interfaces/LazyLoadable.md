@@ -37,7 +37,7 @@ Resource identifier
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:16](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/tools/src/performance/lazy-loader.ts#L16)
+[packages/tools/src/performance/lazy-loader.ts:16](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/tools/src/performance/lazy-loader.ts#L16)
 
 ___
 
@@ -57,7 +57,7 @@ Function to load the resource
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:18](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/tools/src/performance/lazy-loader.ts#L18)
+[packages/tools/src/performance/lazy-loader.ts:18](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/tools/src/performance/lazy-loader.ts#L18)
 
 ___
 
@@ -69,7 +69,7 @@ Whether the resource is loaded
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:20](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/tools/src/performance/lazy-loader.ts#L20)
+[packages/tools/src/performance/lazy-loader.ts:20](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/tools/src/performance/lazy-loader.ts#L20)
 
 ___
 
@@ -81,7 +81,7 @@ Loaded resource
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:22](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/tools/src/performance/lazy-loader.ts#L22)
+[packages/tools/src/performance/lazy-loader.ts:22](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/tools/src/performance/lazy-loader.ts#L22)
 
 ___
 
@@ -93,7 +93,7 @@ Last access time
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:24](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/tools/src/performance/lazy-loader.ts#L24)
+[packages/tools/src/performance/lazy-loader.ts:24](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/tools/src/performance/lazy-loader.ts#L24)
 
 ___
 
@@ -105,4 +105,4 @@ Loading priority (lower number = higher priority)
 
 #### Defined in
 
-[packages/tools/src/performance/lazy-loader.ts:26](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/tools/src/performance/lazy-loader.ts#L26)
+[packages/tools/src/performance/lazy-loader.ts:26](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/tools/src/performance/lazy-loader.ts#L26)

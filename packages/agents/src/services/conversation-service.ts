@@ -1,84 +1,16 @@
 import { Message, UserMessage, AssistantMessage, SystemMessage, ToolMessage } from '../interfaces/agent';
 import { UniversalMessage } from '../managers/conversation-history-manager';
 import { AIProvider } from '../interfaces/provider';
+import {
+    ConversationContext,
+    ConversationResponse,
+    StreamingChunk,
+    ConversationServiceOptions,
+    ContextOptions,
+    ConversationServiceInterface
+} from '../interfaces/service';
 import { Logger } from '../utils/logger';
 import { NetworkError, ProviderError } from '../utils/errors';
-
-/**
- * Conversation context containing messages and metadata
- */
-export interface ConversationContext {
-    /** All messages in the conversation */
-    messages: Message[];
-    /** System message for the conversation */
-    systemMessage?: string;
-    /** Model to use for generation */
-    model: string;
-    /** Provider to use for generation */
-    provider: string;
-    /** Temperature for generation */
-    temperature?: number;
-    /** Maximum tokens to generate */
-    maxTokens?: number;
-    /** Available tools */
-    tools?: any[];
-    /** Additional metadata */
-    metadata?: Record<string, any>;
-}
-
-/**
- * Response from AI provider
- */
-export interface ConversationResponse {
-    /** Generated content */
-    content: string;
-    /** Tool calls if any */
-    toolCalls?: any[];
-    /** Usage statistics */
-    usage?: {
-        promptTokens: number;
-        completionTokens: number;
-        totalTokens: number;
-    };
-    /** Response metadata */
-    metadata?: Record<string, any>;
-    /** Finish reason */
-    finishReason?: string;
-}
-
-/**
- * Streaming response chunk
- */
-export interface StreamingChunk {
-    /** Content delta */
-    delta: string;
-    /** Whether this is the final chunk */
-    done: boolean;
-    /** Tool calls if any */
-    toolCalls?: any[];
-    /** Usage statistics (only in final chunk) */
-    usage?: {
-        promptTokens: number;
-        completionTokens: number;
-        totalTokens: number;
-    };
-}
-
-/**
- * Conversation service options
- */
-export interface ConversationServiceOptions {
-    /** Maximum conversation history length */
-    maxHistoryLength?: number;
-    /** Whether to automatically retry on failure */
-    enableRetry?: boolean;
-    /** Maximum number of retries */
-    maxRetries?: number;
-    /** Retry delay in milliseconds */
-    retryDelay?: number;
-    /** Request timeout in milliseconds */
-    timeout?: number;
-}
 
 /**
  * Default conversation service options
@@ -94,32 +26,80 @@ const DEFAULT_OPTIONS: Required<ConversationServiceOptions> = {
 /**
  * Service for handling conversation logic
  * Stateless service that manages conversation context, AI provider calls, and response processing
+ * All methods are pure functions without instance state
  */
-export class ConversationService {
-    private logger: Logger;
-
-    constructor() {
-        this.logger = new Logger('ConversationService');
-        this.logger.info('ConversationService initialized', {
-            options: DEFAULT_OPTIONS
-        });
-    }
+export class ConversationService implements ConversationServiceInterface {
 
     /**
      * Prepare conversation context from messages and configuration
+     * Pure function that transforms inputs to context object
      */
     prepareContext(
         messages: Message[],
         model: string,
         provider: string,
-        contextOptions: {
-            systemMessage?: string;
-            temperature?: number;
-            maxTokens?: number;
-            tools?: any[];
-            metadata?: Record<string, any>;
-        } = {},
+        contextOptions: ContextOptions = {},
         serviceOptions: ConversationServiceOptions = {}
+    ): ConversationContext {
+        const logger = new Logger('ConversationService');
+        return ConversationService.createContext(
+            messages,
+            model,
+            provider,
+            contextOptions,
+            serviceOptions,
+            logger
+        );
+    }
+
+    /**
+     * Generate a response using the AI provider
+     * Stateless operation that handles the full request-response cycle
+     */
+    async generateResponse(
+        provider: AIProvider,
+        context: ConversationContext,
+        serviceOptions: ConversationServiceOptions = {}
+    ): Promise<ConversationResponse> {
+        const logger = new Logger('ConversationService');
+        return ConversationService.performResponseGeneration(provider, context, serviceOptions, logger);
+    }
+
+    /**
+     * Generate streaming response using the AI provider
+     * Stateless streaming operation
+     */
+    async* generateStreamingResponse(
+        provider: AIProvider,
+        context: ConversationContext,
+        serviceOptions: ConversationServiceOptions = {}
+    ): AsyncGenerator<StreamingChunk, void, unknown> {
+        const logger = new Logger('ConversationService');
+        yield* ConversationService.performStreamingResponse(provider, context, serviceOptions, logger);
+    }
+
+    /**
+     * Validate conversation context
+     * Pure validation function
+     */
+    validateContext(context: ConversationContext): { isValid: boolean; errors: string[] } {
+        return ConversationService.performContextValidation(context);
+    }
+
+    // ==============================================
+    // Static helper methods (pure functions)
+    // ==============================================
+
+    /**
+     * Static helper method for context creation
+     */
+    private static createContext(
+        messages: Message[],
+        model: string,
+        provider: string,
+        contextOptions: ContextOptions,
+        serviceOptions: ConversationServiceOptions,
+        logger: Logger
     ): ConversationContext {
         const options = { ...DEFAULT_OPTIONS, ...serviceOptions };
 
@@ -133,7 +113,7 @@ export class ConversationService {
             const recentMessages = otherMessages.slice(-options.maxHistoryLength + systemMessages.length);
             processedMessages = [...systemMessages, ...recentMessages];
 
-            this.logger.debug('Trimmed conversation history', {
+            logger.debug('Trimmed conversation history', {
                 originalLength: messages.length,
                 trimmedLength: processedMessages.length,
                 maxLength: options.maxHistoryLength,
@@ -151,7 +131,7 @@ export class ConversationService {
             metadata: contextOptions.metadata,
         };
 
-        this.logger.debug('Conversation context prepared', {
+        logger.debug('Conversation context prepared', {
             messageCount: context.messages.length,
             model: context.model,
             provider: context.provider,
@@ -163,99 +143,110 @@ export class ConversationService {
     }
 
     /**
-     * Generate a response using the AI provider
+     * Static method for response generation
      */
-    async generateResponse(
+    private static async performResponseGeneration(
         provider: AIProvider,
         context: ConversationContext,
-        serviceOptions: ConversationServiceOptions = {}
+        serviceOptions: ConversationServiceOptions,
+        logger: Logger
     ): Promise<ConversationResponse> {
         const options = { ...DEFAULT_OPTIONS, ...serviceOptions };
         const startTime = Date.now();
 
         try {
-            this.logger.debug('Starting response generation', {
+            logger.debug('Starting response generation', {
                 provider: context.provider,
                 model: context.model,
                 messageCount: context.messages.length,
             });
 
             // Create request payload
-            const requestPayload = this.createProviderRequest(context);
+            const requestPayload = ConversationService.createProviderRequest(context);
 
             // Generate response with retry logic
-            const response = await this.executeWithRetry(
+            const response = await ConversationService.executeWithRetry(
                 () => provider.generateResponse(requestPayload),
                 `generateResponse for ${context.provider}:${context.model}`,
-                options
+                options,
+                logger
             );
 
             // Process and validate response
-            const processedResponse = this.processProviderResponse(response);
+            const processedResponse = ConversationService.processProviderResponse(response);
 
             const duration = Date.now() - startTime;
-            this.logger.info('Response generated successfully', {
+            logger.info('Response generated successfully', {
                 provider: context.provider,
                 model: context.model,
                 duration,
-                tokenUsage: processedResponse.usage,
-                finishReason: processedResponse.finishReason,
+                usage: processedResponse.usage,
             });
 
             return processedResponse;
+
         } catch (error) {
             const duration = Date.now() - startTime;
-            this.logger.error('Failed to generate response', {
+            logger.error('Response generation failed', {
                 provider: context.provider,
                 model: context.model,
                 duration,
                 error: error instanceof Error ? error.message : String(error),
             });
 
-            throw error;
+            if (error instanceof NetworkError || error instanceof ProviderError) {
+                throw error;
+            }
+
+            throw new ProviderError(
+                `Response generation failed: ${error instanceof Error ? error.message : String(error)}`,
+                context.provider,
+                error instanceof Error ? error : undefined
+            );
         }
     }
 
     /**
-     * Generate a streaming response using the AI provider
+     * Static method for streaming response generation
      */
-    async* generateStreamingResponse(
+    private static async* performStreamingResponse(
         provider: AIProvider,
         context: ConversationContext,
-        serviceOptions: ConversationServiceOptions = {}
+        serviceOptions: ConversationServiceOptions,
+        logger: Logger
     ): AsyncGenerator<StreamingChunk, void, unknown> {
         const options = { ...DEFAULT_OPTIONS, ...serviceOptions };
         const startTime = Date.now();
 
         try {
-            this.logger.debug('Starting streaming response generation', {
+            logger.debug('Starting streaming response generation', {
                 provider: context.provider,
                 model: context.model,
                 messageCount: context.messages.length,
             });
 
             // Create request payload for streaming
-            const requestPayload = this.createProviderRequest(context, true);
+            const requestPayload = ConversationService.createProviderRequest(context, true);
 
             // Check if provider supports streaming
             if (!provider.generateStreamingResponse) {
-                throw new ProviderError(
-                    `Provider does not support streaming`,
-                    context.provider
-                );
+                throw new ProviderError(`Provider does not support streaming`, context.provider);
             }
 
-            // Generate streaming response with timeout
-            const streamPromise = provider.generateStreamingResponse(requestPayload);
-            const stream = await Promise.race([
-                streamPromise,
-                this.createTimeoutPromise<AsyncGenerator<any, void, unknown>>(options.timeout)
-            ]) as AsyncGenerator<any, void, unknown>;
+            // Generate streaming response
+            const streamingResponse = provider.generateStreamingResponse(requestPayload);
 
-            let totalChunks = 0;
-            for await (const chunk of stream) {
-                totalChunks++;
-                const processedChunk = this.processStreamingChunk(chunk);
+            let chunkCount = 0;
+            for await (const chunk of streamingResponse) {
+                chunkCount++;
+                const processedChunk = ConversationService.processStreamingChunk(chunk);
+
+                logger.debug('Streaming chunk processed', {
+                    chunkNumber: chunkCount,
+                    deltaLength: processedChunk.delta.length,
+                    done: processedChunk.done,
+                });
+
                 yield processedChunk;
 
                 if (processedChunk.done) {
@@ -264,29 +255,266 @@ export class ConversationService {
             }
 
             const duration = Date.now() - startTime;
-            this.logger.info('Streaming response completed', {
+            logger.info('Streaming response completed', {
                 provider: context.provider,
                 model: context.model,
                 duration,
-                totalChunks,
+                totalChunks: chunkCount,
             });
+
         } catch (error) {
             const duration = Date.now() - startTime;
-            this.logger.error('Failed to generate streaming response', {
+            logger.error('Streaming response failed', {
                 provider: context.provider,
                 model: context.model,
                 duration,
                 error: error instanceof Error ? error.message : String(error),
             });
 
-            throw error;
+            if (error instanceof NetworkError || error instanceof ProviderError) {
+                throw error;
+            }
+
+            throw new ProviderError(
+                `Streaming response failed: ${error instanceof Error ? error.message : String(error)}`,
+                context.provider,
+                error instanceof Error ? error : undefined
+            );
         }
     }
 
     /**
-     * Create a timeout promise that rejects after specified milliseconds
+     * Static method for context validation
      */
-    private createTimeoutPromise<T>(timeoutMs: number): Promise<T> {
+    private static performContextValidation(context: ConversationContext): { isValid: boolean; errors: string[] } {
+        const errors: string[] = [];
+
+        if (!context.messages || !Array.isArray(context.messages)) {
+            errors.push('Messages must be an array');
+        } else if (context.messages.length === 0) {
+            errors.push('At least one message is required');
+        }
+
+        if (!context.model || typeof context.model !== 'string') {
+            errors.push('Model must be a non-empty string');
+        }
+
+        if (!context.provider || typeof context.provider !== 'string') {
+            errors.push('Provider must be a non-empty string');
+        }
+
+        if (context.temperature !== undefined && (typeof context.temperature !== 'number' || context.temperature < 0 || context.temperature > 2)) {
+            errors.push('Temperature must be a number between 0 and 2');
+        }
+
+        if (context.maxTokens !== undefined && (typeof context.maxTokens !== 'number' || context.maxTokens <= 0)) {
+            errors.push('MaxTokens must be a positive number');
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors
+        };
+    }
+
+    // ==============================================
+    // Message creation utilities (pure functions)
+    // ==============================================
+
+    /**
+     * Create a user message
+     */
+    createUserMessage(content: string, metadata?: Record<string, any>): UserMessage {
+        return ConversationService.createUserMessageStatic(content, metadata);
+    }
+
+    /**
+     * Create an assistant message from response
+     */
+    createAssistantMessage(response: ConversationResponse, metadata?: Record<string, any>): AssistantMessage {
+        return ConversationService.createAssistantMessageStatic(response, metadata);
+    }
+
+    /**
+     * Create a system message
+     */
+    createSystemMessage(content: string, metadata?: Record<string, any>): SystemMessage {
+        return ConversationService.createSystemMessageStatic(content, metadata);
+    }
+
+    /**
+     * Create a tool message
+     */
+    createToolMessage(toolCallId: string, result: any, metadata?: Record<string, any>): ToolMessage {
+        return ConversationService.createToolMessageStatic(toolCallId, result, metadata);
+    }
+
+    // Static versions of message creation methods
+    private static createUserMessageStatic(content: string, metadata?: Record<string, any>): UserMessage {
+        return {
+            role: 'user',
+            content,
+            metadata: {
+                timestamp: new Date().toISOString(),
+                ...metadata
+            }
+        };
+    }
+
+    private static createAssistantMessageStatic(response: ConversationResponse, metadata?: Record<string, any>): AssistantMessage {
+        const message: AssistantMessage = {
+            role: 'assistant',
+            content: response.content,
+            metadata: {
+                timestamp: new Date().toISOString(),
+                usage: response.usage,
+                finishReason: response.finishReason,
+                ...metadata
+            }
+        };
+
+        if (response.toolCalls && response.toolCalls.length > 0) {
+            message.toolCalls = response.toolCalls;
+        }
+
+        return message;
+    }
+
+    private static createSystemMessageStatic(content: string, metadata?: Record<string, any>): SystemMessage {
+        return {
+            role: 'system',
+            content,
+            metadata: {
+                timestamp: new Date().toISOString(),
+                ...metadata
+            }
+        };
+    }
+
+    private static createToolMessageStatic(toolCallId: string, result: any, metadata?: Record<string, any>): ToolMessage {
+        return {
+            role: 'tool',
+            content: typeof result === 'string' ? result : JSON.stringify(result),
+            toolCallId,
+            result,
+            metadata: {
+                timestamp: new Date().toISOString(),
+                ...metadata
+            }
+        };
+    }
+
+    // ==============================================
+    // Pure utility functions
+    // ==============================================
+
+    private static createProviderRequest(context: ConversationContext, streaming: boolean = false): any {
+        return {
+            messages: context.messages,
+            model: context.model,
+            temperature: context.temperature,
+            maxTokens: context.maxTokens,
+            tools: context.tools,
+            stream: streaming,
+            systemMessage: context.systemMessage,
+            metadata: context.metadata
+        };
+    }
+
+    private static processProviderResponse(response: any): ConversationResponse {
+        return {
+            content: response.content || '',
+            toolCalls: response.toolCalls || [],
+            usage: response.usage || undefined,
+            metadata: response.metadata || {},
+            finishReason: response.finishReason || 'stop'
+        };
+    }
+
+    private static processStreamingChunk(chunk: any): StreamingChunk {
+        return {
+            delta: chunk.delta || '',
+            done: chunk.done || false,
+            toolCalls: chunk.toolCalls || [],
+            usage: chunk.usage || undefined
+        };
+    }
+
+    private static async executeWithRetry<T>(
+        fn: () => Promise<T>,
+        operation: string,
+        options: Required<ConversationServiceOptions>,
+        logger: Logger
+    ): Promise<T> {
+        let lastError: Error | undefined;
+
+        for (let attempt = 1; attempt <= options.maxRetries; attempt++) {
+            try {
+                const result = await ConversationService.withTimeout(fn(), options.timeout);
+
+                if (attempt > 1) {
+                    logger.info(`${operation} succeeded on attempt ${attempt}`);
+                }
+
+                return result;
+            } catch (error) {
+                lastError = error as Error;
+
+                // Don't retry if this is the last attempt or if error shouldn't be retried
+                if (attempt === options.maxRetries || !ConversationService.shouldRetryError(lastError)) {
+                    break;
+                }
+
+                logger.warn(`${operation} failed on attempt ${attempt}, retrying...`, {
+                    attempt,
+                    maxRetries: options.maxRetries,
+                    error: lastError.message,
+                    retryDelay: options.retryDelay
+                });
+
+                await ConversationService.delay(options.retryDelay);
+            }
+        }
+
+        if (lastError) {
+            logger.error(`${operation} failed after ${options.maxRetries} attempts`, {
+                error: lastError.message
+            });
+            throw lastError;
+        }
+
+        // This should never happen, but just in case
+        throw new Error(`${operation} failed with no error details`);
+    }
+
+    private static shouldRetryError(error: Error): boolean {
+        // Retry on network errors and specific provider errors
+        if (error instanceof NetworkError) {
+            return true;
+        }
+
+        // Retry on timeout errors
+        if (error.message.includes('timeout') || error.message.includes('TIMEOUT')) {
+            return true;
+        }
+
+        // Retry on rate limit errors
+        if (error.message.includes('rate limit') || error.message.includes('429')) {
+            return true;
+        }
+
+        // Don't retry on other errors
+        return false;
+    }
+
+    private static withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+        return Promise.race([
+            promise,
+            ConversationService.createTimeoutPromise<T>(timeoutMs)
+        ]);
+    }
+
+    private static createTimeoutPromise<T>(timeoutMs: number): Promise<T> {
         return new Promise((_, reject) => {
             setTimeout(() => {
                 reject(new NetworkError(`Operation timed out after ${timeoutMs}ms`));
@@ -294,240 +522,7 @@ export class ConversationService {
         });
     }
 
-    /**
-     * Create a conversation message from user input
-     */
-    createUserMessage(content: string, metadata?: Record<string, any>): UserMessage {
-        return {
-            role: 'user',
-            content,
-            timestamp: new Date(),
-            metadata,
-        };
-    }
-
-    /**
-     * Create an assistant message from generated response
-     */
-    createAssistantMessage(
-        response: ConversationResponse,
-        metadata?: Record<string, any>
-    ): AssistantMessage {
-        return {
-            role: 'assistant',
-            content: response.content,
-            timestamp: new Date(),
-            toolCalls: response.toolCalls,
-            metadata: {
-                ...metadata,
-                usage: response.usage,
-                finishReason: response.finishReason,
-                ...response.metadata,
-            },
-        };
-    }
-
-    /**
-     * Create a system message
-     */
-    createSystemMessage(content: string, metadata?: Record<string, any>): SystemMessage {
-        return {
-            role: 'system',
-            content,
-            timestamp: new Date(),
-            metadata,
-        };
-    }
-
-    /**
-     * Create a tool message from tool execution result
-     */
-    createToolMessage(
-        toolCallId: string,
-        result: any,
-        metadata?: Record<string, any>
-    ): ToolMessage {
-        return {
-            role: 'tool',
-            content: typeof result === 'string' ? result : JSON.stringify(result),
-            timestamp: new Date(),
-            toolCallId,
-            result,
-            metadata,
-        };
-    }
-
-    /**
-     * Validate conversation context
-     */
-    validateContext(context: ConversationContext): { isValid: boolean; errors: string[] } {
-        const errors: string[] = [];
-
-        if (!context.messages || context.messages.length === 0) {
-            errors.push('Context must have at least one message');
-        }
-
-        if (!context.model) {
-            errors.push('Context must specify a model');
-        }
-
-        if (!context.provider) {
-            errors.push('Context must specify a provider');
-        }
-
-        if (context.temperature !== undefined) {
-            if (typeof context.temperature !== 'number' || context.temperature < 0 || context.temperature > 2) {
-                errors.push('Temperature must be a number between 0 and 2');
-            }
-        }
-
-        if (context.maxTokens !== undefined) {
-            if (typeof context.maxTokens !== 'number' || context.maxTokens <= 0) {
-                errors.push('Max tokens must be a positive number');
-            }
-        }
-
-        return { isValid: errors.length === 0, errors };
-    }
-
-    /**
-     * Create provider-specific request payload
-     */
-    private createProviderRequest(context: ConversationContext, streaming: boolean = false): any {
-        const baseRequest = {
-            model: context.model,
-            messages: context.messages,
-            temperature: context.temperature,
-            max_tokens: context.maxTokens,
-            tools: context.tools,
-            stream: streaming,
-        };
-
-        // Add system message if provided and not already in messages
-        if (context.systemMessage) {
-            const hasSystemMessage = context.messages.some(m => m.role === 'system');
-            if (!hasSystemMessage) {
-                baseRequest.messages = [
-                    this.createSystemMessage(context.systemMessage),
-                    ...context.messages,
-                ];
-            }
-        }
-
-        return baseRequest;
-    }
-
-    /**
-     * Process provider response into standard format
-     */
-    private processProviderResponse(response: any): ConversationResponse {
-        // This would need to be adapted based on specific provider response formats
-        return {
-            content: response.content || response.message?.content || '',
-            toolCalls: response.tool_calls || response.toolCalls,
-            usage: response.usage && {
-                promptTokens: response.usage.prompt_tokens || response.usage.promptTokens || 0,
-                completionTokens: response.usage.completion_tokens || response.usage.completionTokens || 0,
-                totalTokens: response.usage.total_tokens || response.usage.totalTokens || 0,
-            },
-            finishReason: response.finish_reason || response.finishReason,
-            metadata: response.metadata,
-        };
-    }
-
-    /**
-     * Process streaming chunk into standard format
-     */
-    private processStreamingChunk(chunk: any): StreamingChunk {
-        return {
-            delta: chunk.delta?.content || chunk.content || '',
-            done: chunk.done || chunk.finish_reason !== undefined,
-            toolCalls: chunk.delta?.tool_calls || chunk.toolCalls,
-            usage: chunk.usage && {
-                promptTokens: chunk.usage.prompt_tokens || chunk.usage.promptTokens || 0,
-                completionTokens: chunk.usage.completion_tokens || chunk.usage.completionTokens || 0,
-                totalTokens: chunk.usage.total_tokens || chunk.usage.totalTokens || 0,
-            },
-        };
-    }
-
-    /**
-     * Execute a function with retry logic
-     */
-    private async executeWithRetry<T>(
-        fn: () => Promise<T>,
-        operation: string,
-        options: Required<ConversationServiceOptions>
-    ): Promise<T> {
-        if (!options.enableRetry) {
-            return fn();
-        }
-
-        let lastError: Error | undefined;
-
-        for (let attempt = 1; attempt <= options.maxRetries; attempt++) {
-            try {
-                return await this.withTimeout(fn(), options.timeout);
-            } catch (error) {
-                lastError = error as Error;
-
-                this.logger.warn(`${operation} failed (attempt ${attempt}/${options.maxRetries})`, {
-                    error: error instanceof Error ? error.message : String(error),
-                    attempt,
-                });
-
-                // Don't retry on certain types of errors
-                if (error instanceof ProviderError && !this.shouldRetryError(error)) {
-                    throw error;
-                }
-
-                // Don't wait after the last attempt
-                if (attempt < options.maxRetries) {
-                    await this.delay(options.retryDelay * attempt);
-                }
-            }
-        }
-
-        throw lastError!;
-    }
-
-    /**
-     * Determine if an error should be retried
-     */
-    private shouldRetryError(error: Error): boolean {
-        // Retry on network errors and certain provider errors
-        if (error instanceof NetworkError) {
-            return true;
-        }
-
-        if (error instanceof ProviderError) {
-            // Retry on rate limits and temporary server errors
-            return error.message.includes('rate limit') ||
-                error.message.includes('timeout') ||
-                error.message.includes('502') ||
-                error.message.includes('503') ||
-                error.message.includes('504');
-        }
-
-        return false;
-    }
-
-    /**
-     * Add timeout to a promise
-     */
-    private withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-        return Promise.race([
-            promise,
-            new Promise<never>((_, reject) => {
-                setTimeout(() => reject(new NetworkError(`Operation timed out after ${timeoutMs}ms`)), timeoutMs);
-            }),
-        ]);
-    }
-
-    /**
-     * Delay execution for specified milliseconds
-     */
-    private delay(ms: number): Promise<void> {
+    private static delay(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 } 

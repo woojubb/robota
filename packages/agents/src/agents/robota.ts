@@ -5,6 +5,7 @@ import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { AgentFactory } from '../managers/agent-factory';
 import { ConversationHistory } from '../managers/conversation-history-manager';
+import { Plugins } from '../managers/plugins';
 import { ExecutionService } from '../services/execution-service';
 import { AIProvider } from '../interfaces/provider';
 import { BaseTool } from '../abstracts/base-tool';
@@ -48,6 +49,7 @@ export class Robota extends BaseAgent implements AgentInterface {
     private tools: Tools;
     private agentFactory: AgentFactory;
     private conversationHistory: ConversationHistory;
+    private plugins: Plugins;
 
     // Core services
     private executionService: ExecutionService;
@@ -85,6 +87,7 @@ export class Robota extends BaseAgent implements AgentInterface {
         this.tools = Tools.getInstance();
         this.agentFactory = AgentFactory.getInstance();
         this.conversationHistory = ConversationHistory.getInstance();
+        this.plugins = Plugins.getInstance();
 
         // Initialize services
         this.executionService = new ExecutionService(
@@ -95,7 +98,8 @@ export class Robota extends BaseAgent implements AgentInterface {
         // Register plugins
         if (config.plugins) {
             for (const plugin of config.plugins) {
-                this.executionService.registerPlugin(plugin);
+                // Register with dedicated Plugins manager instead of ExecutionService
+                this.plugins.register(plugin, { autoInitialize: false });
             }
         }
 
@@ -136,7 +140,8 @@ export class Robota extends BaseAgent implements AgentInterface {
             await Promise.all([
                 this.aiProviders.initialize(),
                 this.tools.initialize(),
-                this.agentFactory.initialize()
+                this.agentFactory.initialize(),
+                this.plugins.initialize()
             ]);
 
             // Register AI providers after manager initialization
