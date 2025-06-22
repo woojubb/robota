@@ -400,7 +400,7 @@ export class LimitsPlugin extends BasePlugin {
     /**
      * Get current limits status
      */
-    getStatus(key?: string): Record<string, any> {
+    getLimitsStatus(key?: string): Record<string, any> {
         if (key) {
             const bucket = this.buckets.get(key);
             const window = this.windows.get(key);

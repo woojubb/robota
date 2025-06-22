@@ -27,6 +27,7 @@ export * from './plugins/conversation-history';
 export * from './plugins/logging';
 export * from './plugins/usage';
 export * from './plugins/performance';
+export * from './plugins/execution';
 export { ErrorHandlingPlugin, ErrorHandlingStrategy, ErrorHandlingPluginOptions } from './plugins/error-handling/index.js';
 
 // Additional plugins
@@ -35,4 +36,14 @@ export { EventEmitterPlugin, EventType, EventData, EventListener, EventEmitterPl
 export { WebhookPlugin, WebhookEventType, WebhookPayload, WebhookEndpoint, WebhookPluginOptions } from './plugins/webhook-plugin.js';
 
 // Agent exports
-export { Robota, RobotaConfig } from './agents/robota.js'; 
+export { Robota, RobotaConfig } from './agents/robota.js';
+
+// Provider exports
+export { OpenAIProvider, OpenAIProviderOptions } from './providers/openai-provider.js';
+
+// Manager exports
+export { AgentFactory, AgentFactoryOptions, AgentCreationStats, AgentLifecycleEvents, TemplateApplicationResult } from './managers/agent-factory.js';
+
+// Tool exports
+export { ToolRegistry } from './tools/registry/tool-registry.js';
+export { FunctionTool, createFunctionTool, createZodFunctionTool } from './tools/implementations/function-tool.js'; 

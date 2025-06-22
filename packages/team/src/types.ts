@@ -1,4 +1,4 @@
-import type { RobotaOptions, AgentTemplateManager, AIProvider } from '@robota-sdk/core';
+import type { RobotaConfig, AgentTemplate, AIProvider } from '@robota-sdk/agents';
 
 /**
  * Team creation options for template-based teams
@@ -50,10 +50,10 @@ export interface TeamOptions {
     logger?: any;
 
     /** 
-     * Agent template manager for managing built-in and custom agent templates.
-     * If not provided, a default template manager with built-in templates will be created.
+     * Custom agent templates to register in addition to built-in templates.
+     * Built-in templates are automatically available.
      */
-    templateManager?: AgentTemplateManager;
+    customTemplates?: AgentTemplate[];
 
     /** 
      * Name of the agent template to use for the team coordinator/leader role.
@@ -68,11 +68,12 @@ export interface TeamOptions {
  * @internal
  */
 export interface TeamContainerOptions {
-    baseRobotaOptions: RobotaOptions;
+    baseRobotaOptions: RobotaConfig;
     maxMembers?: number;
     debug?: boolean;
-    templateManager?: AgentTemplateManager;
+    customTemplates?: AgentTemplate[];
     leaderTemplate?: string;
+    logger?: any;
 }
 
 /**
@@ -210,6 +211,21 @@ export interface AssignTaskResult {
          * Empty array indicates successful completion without errors.
          */
         errors?: string[];
+
+        /** 
+         * Number of executions tracked by the agent's analytics plugin.
+         */
+        agentExecutions?: number;
+
+        /** 
+         * Average duration of executions within the agent.
+         */
+        agentAverageDuration?: number;
+
+        /** 
+         * Success rate of executions within the agent (0-1).
+         */
+        agentSuccessRate?: number;
     };
 }
 
@@ -223,54 +239,6 @@ export interface TaskAgentConfig {
     requiredTools: string[];
     /** Agent configuration overrides */
     agentConfig?: Partial<AgentConfig>;
-}
-
-/**
- * Represents a single agent in the team execution
- */
-export interface AgentNode {
-    /** Unique identifier for this agent */
-    agentId: string;
-    /** Reference to the actual Robota agent instance */
-    agent: any; // Will be Robota instance
-    /** ID of the parent agent that created this agent (null for team coordinator) */
-    parentAgentId?: string;
-    /** Task description that this agent was created for */
-    taskDescription?: string;
-    /** Timestamp when this agent was created */
-    createdAt: Date;
-    /** List of child agents created by this agent */
-    childAgentIds: string[];
-    /** AI provider used by this agent */
-    aiProvider?: string;
-    /** AI model used by this agent */
-    aiModel?: string;
-    /** Agent template used (if any) */
-    agentTemplate?: string;
-}
-
-/**
- * Team execution structure that tracks agent relationships
- */
-export interface TeamExecutionStructure {
-    /** Unique identifier for this execution */
-    executionId: string;
-    /** Initial user request */
-    userRequest: string;
-    /** Final result */
-    finalResult: string;
-    /** Timestamp when execution started */
-    startTime: Date;
-    /** Timestamp when execution completed */
-    endTime?: Date;
-    /** Map of all agents involved in this execution */
-    agents: Map<string, AgentNode>;
-    /** ID of the root team coordinator agent */
-    rootAgentId: string;
-    /** Whether the execution was successful */
-    success?: boolean;
-    /** Error message if execution failed */
-    error?: string;
 }
 
 /**

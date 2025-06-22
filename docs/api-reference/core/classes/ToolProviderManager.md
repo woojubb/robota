@@ -48,7 +48,7 @@ Handles registration, invocation, and retrieval of Tool Providers.
 
 #### Defined in
 
-[packages/core/src/managers/tool-provider-manager.ts:13](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/managers/tool-provider-manager.ts#L13)
+[packages/core/src/managers/tool-provider-manager.ts:13](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/core/src/managers/tool-provider-manager.ts#L13)
 
 ## Methods
 
@@ -70,7 +70,7 @@ Add a Tool Provider
 
 #### Defined in
 
-[packages/core/src/managers/tool-provider-manager.ts:23](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/managers/tool-provider-manager.ts#L23)
+[packages/core/src/managers/tool-provider-manager.ts:23](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/core/src/managers/tool-provider-manager.ts#L23)
 
 ___
 
@@ -92,7 +92,7 @@ Add multiple Tool Providers
 
 #### Defined in
 
-[packages/core/src/managers/tool-provider-manager.ts:32](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/managers/tool-provider-manager.ts#L32)
+[packages/core/src/managers/tool-provider-manager.ts:32](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/core/src/managers/tool-provider-manager.ts#L32)
 
 ___
 
@@ -114,7 +114,7 @@ Set allowed function list
 
 #### Defined in
 
-[packages/core/src/managers/tool-provider-manager.ts:41](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/managers/tool-provider-manager.ts#L41)
+[packages/core/src/managers/tool-provider-manager.ts:41](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/core/src/managers/tool-provider-manager.ts#L41)
 
 ___
 
@@ -139,7 +139,7 @@ Tool call result
 
 #### Defined in
 
-[packages/core/src/managers/tool-provider-manager.ts:52](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/managers/tool-provider-manager.ts#L52)
+[packages/core/src/managers/tool-provider-manager.ts:52](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/core/src/managers/tool-provider-manager.ts#L52)
 
 ___
 
@@ -157,7 +157,7 @@ List of tool schemas
 
 #### Defined in
 
-[packages/core/src/managers/tool-provider-manager.ts:83](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/managers/tool-provider-manager.ts#L83)
+[packages/core/src/managers/tool-provider-manager.ts:83](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/core/src/managers/tool-provider-manager.ts#L83)
 
 ___
 
@@ -173,7 +173,7 @@ Get the number of registered Tool Providers
 
 #### Defined in
 
-[packages/core/src/managers/tool-provider-manager.ts:95](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/managers/tool-provider-manager.ts#L95)
+[packages/core/src/managers/tool-provider-manager.ts:95](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/core/src/managers/tool-provider-manager.ts#L95)
 
 ___
 
@@ -189,7 +189,7 @@ Check if Tool Providers are registered
 
 #### Defined in
 
-[packages/core/src/managers/tool-provider-manager.ts:102](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/managers/tool-provider-manager.ts#L102)
+[packages/core/src/managers/tool-provider-manager.ts:102](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/core/src/managers/tool-provider-manager.ts#L102)
 
 ___
 
@@ -211,7 +211,7 @@ Check if a specific tool is available
 
 #### Defined in
 
-[packages/core/src/managers/tool-provider-manager.ts:111](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/managers/tool-provider-manager.ts#L111)
+[packages/core/src/managers/tool-provider-manager.ts:111](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/core/src/managers/tool-provider-manager.ts#L111)
 
 ___
 
@@ -227,4 +227,4 @@ Clean up resources for all tool providers
 
 #### Defined in
 
-[packages/core/src/managers/tool-provider-manager.ts:120](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/managers/tool-provider-manager.ts#L120)
+[packages/core/src/managers/tool-provider-manager.ts:120](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/core/src/managers/tool-provider-manager.ts#L120)

@@ -3,12 +3,11 @@
  * 
  * This example demonstrates the most basic usage of Robota:
  * - Simple conversation using OpenAI
- * - Message sending and streaming responses
+ * - Message sending and responses
  * - Proper error handling
  */
 
-import { Robota } from '@robota-sdk/core';
-import { OpenAIProvider } from '@robota-sdk/openai';
+import { Robota, OpenAIProvider } from '@robota-sdk/agents';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
@@ -39,9 +38,11 @@ async function main() {
             aiProviders: {
                 'openai': openaiProvider
             },
+            provider: 'openai',
+            model: 'gpt-3.5-turbo',
             currentProvider: 'openai',
             currentModel: 'gpt-3.5-turbo',
-            systemPrompt: 'You are a helpful AI assistant. Provide concise and useful responses.'
+            systemMessage: 'You are a helpful AI assistant. Provide concise and useful responses.'
         });
 
         // === Simple Conversation ===
@@ -52,22 +53,18 @@ async function main() {
         const response = await robota.run(query);
         console.log(`Assistant: ${response}\n`);
 
-        // === Streaming Response ===
-        console.log('🌊 Streaming Response:');
-        const streamQuery = 'What are the main benefits of using TypeScript?';
-        console.log(`User: ${streamQuery}`);
-        console.log('Assistant: ');
+        // === Another Query ===
+        console.log('📝 Another Question:');
+        const query2 = 'What are the main benefits of using TypeScript?';
+        console.log(`User: ${query2}`);
 
-        const stream = await robota.runStream(streamQuery);
-        for await (const chunk of stream) {
-            process.stdout.write(chunk.content || '');
-        }
-        console.log('\n');
+        const response2 = await robota.run(query2);
+        console.log(`Assistant: ${response2}\n`);
 
         console.log('✅ Basic Conversation Example Completed!');
 
         // Clean up resources
-        await robota.close();
+        await robota.destroy();
     } catch (error) {
         console.error('❌ Error occurred:', error);
         process.exit(1);

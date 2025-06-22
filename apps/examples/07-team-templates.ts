@@ -6,7 +6,7 @@
  */
 
 import chalk from 'chalk';
-import { createTeam, generateWorkflowFlowchart } from '@robota-sdk/team';
+import { createTeam } from '@robota-sdk/team';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 import OpenAI from 'openai';
@@ -18,9 +18,9 @@ dotenv.config();
 
 // Utility functions for demo output
 function logSection(title: string) {
-    console.log('\n' + chalk.blue('='.repeat(70)));
-    console.log(chalk.blue.bold(`🎯 ${title}`));
-    console.log(chalk.blue('='.repeat(70)));
+    console.log('\n' + chalk.blue('='.repeat(60)));
+    console.log(chalk.blue.bold(`📋 ${title}`));
+    console.log(chalk.blue('='.repeat(60)));
 }
 
 function logResult(label: string, content: string) {
@@ -90,7 +90,7 @@ You only need to provide the AI providers and basic configuration.
                 anthropic: anthropicProvider
             },
             maxMembers: 5,
-            maxTokenLimit: 50000,
+            maxTokenLimit: 8000,
             logger: console,
             debug: true
         });
@@ -120,15 +120,6 @@ You only need to provide the AI providers and basic configuration.
         const collaborationResult = await team.execute(collaborationTask);
         logResult('Multi-Template Collaboration Result', collaborationResult);
 
-        // Show workflow analysis
-        logSection('Collaboration Workflow Analysis');
-
-        const workflowHistory = team.getWorkflowHistory();
-        if (workflowHistory) {
-            console.log(chalk.magenta('📊 Agent collaboration flowchart:'));
-            console.log(generateWorkflowFlowchart(workflowHistory));
-        }
-
         // Show template usage statistics
         const stats = team.getStats();
         const avgAgentsPerTask = stats.tasksCompleted > 0 ? stats.totalAgentsCreated / stats.tasksCompleted : 0;
@@ -142,9 +133,9 @@ You only need to provide the AI providers and basic configuration.
         `));
 
         console.log(chalk.green('\n✅ Multi-template collaboration demo completed successfully!'));
-        console.log(chalk.cyan('🔬 Domain Researcher provided analytical depth'));
-        console.log(chalk.cyan('💡 Creative Ideator brought innovative thinking'));
-        console.log(chalk.cyan('🤝 Team coordinator synthesized both perspectives into a comprehensive result'));
+        console.log(chalk.cyan('🔬 Template system enables automatic specialist selection'));
+        console.log(chalk.cyan('💡 AI intelligently chooses the best expert for each task component'));
+        console.log(chalk.cyan('🤝 Team coordinator synthesizes all perspectives into comprehensive results'));
 
     } catch (error) {
         console.error(chalk.red('\n❌ Demo failed:'), error);
@@ -159,5 +150,8 @@ async function main() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-    main();
+    main().catch((error) => {
+        console.error(chalk.red('❌ Error:'), error);
+        process.exit(1);
+    });
 } 

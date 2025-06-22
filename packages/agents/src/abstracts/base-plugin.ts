@@ -114,6 +114,41 @@ export abstract class BasePlugin implements PluginHooks {
         // Default implementation - can be overridden
     }
 
+    /**
+     * Get plugin data - common interface for all plugins
+     * This method should be implemented by plugins that collect data
+     */
+    getData?(): any;
+
+    /**
+     * Get plugin statistics - common interface for all plugins
+     * This method should be implemented by plugins that track statistics
+     */
+    getStats?(): any;
+
+    /**
+     * Clear plugin data - common interface for all plugins
+     * This method should be implemented by plugins that store data
+     */
+    clearData?(): void;
+
+    /**
+     * Get plugin status - common interface for all plugins
+     */
+    getStatus(): {
+        name: string;
+        version: string;
+        enabled: boolean;
+        initialized: boolean;
+    } {
+        return {
+            name: this.name,
+            version: this.version,
+            enabled: this.enabled,
+            initialized: true // Can be overridden by plugins to track initialization state
+        };
+    }
+
     // Optional lifecycle hooks - plugins can override these
     async beforeRun?(input: string, options?: RunOptions): Promise<void>;
     async afterRun?(input: string, response: string, options?: RunOptions): Promise<void>;

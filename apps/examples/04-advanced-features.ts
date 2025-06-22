@@ -2,74 +2,22 @@
  * 04-advanced-features.ts
  * 
  * This example demonstrates advanced Robota features:
- * - Analytics and usage tracking
- * - Request and token limits
- * - Conversation history management
- * - Streaming responses with tool calling
+ * - ExecutionAnalyticsPlugin for usage tracking
+ * - LoggingPlugin for detailed logging
  * - Custom system messages
+ * - Multiple queries with history
  */
 
-import { z } from 'zod';
-import { Robota } from '@robota-sdk/core';
-import { OpenAIProvider } from '@robota-sdk/openai';
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
+import { Robota, OpenAIProvider, ExecutionAnalyticsPlugin, LoggingPlugin } from '@robota-sdk/agents';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
 // Load environment variables
 dotenv.config();
 
-// Define a simple tool for demonstration
-const tools = {
-    analyzeText: {
-        name: 'analyzeText',
-        description: 'Analyzes text and returns word count and sentiment',
-        parameters: z.object({
-            text: z.string().describe('Text to analyze'),
-            includeDetails: z.boolean().optional().default(false).describe('Include detailed analysis')
-        }),
-        handler: async (params) => {
-            const { text, includeDetails } = params;
-            console.log(`🔍 Analyzing text: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`);
-
-            const wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
-            const charCount = text.length;
-
-            // Simple sentiment analysis (very basic)
-            const positiveWords = ['good', 'great', 'excellent', 'amazing', 'wonderful', 'fantastic', 'happy', 'love'];
-            const negativeWords = ['bad', 'terrible', 'awful', 'horrible', 'hate', 'sad', 'angry', 'disappointed'];
-
-            const words = text.toLowerCase().split(/\s+/);
-            const positiveCount = words.filter(word => positiveWords.includes(word)).length;
-            const negativeCount = words.filter(word => negativeWords.includes(word)).length;
-
-            let sentiment = 'neutral';
-            if (positiveCount > negativeCount) sentiment = 'positive';
-            else if (negativeCount > positiveCount) sentiment = 'negative';
-
-            const result: any = {
-                wordCount,
-                charCount,
-                sentiment,
-                sentimentScore: positiveCount - negativeCount
-            };
-
-            if (includeDetails) {
-                result.details = {
-                    positiveWords: words.filter(word => positiveWords.includes(word)),
-                    negativeWords: words.filter(word => negativeWords.includes(word)),
-                    averageWordLength: words.reduce((sum, word) => sum + word.length, 0) / words.length
-                };
-            }
-
-            return result;
-        }
-    }
-};
-
 async function main() {
     try {
-        console.log('⚡ Advanced Features Example Started...\n');
+        console.log('⚡ Advanced Features Example Started...\\n');
 
         // Validate API key
         const apiKey = process.env.OPENAI_API_KEY;
@@ -84,111 +32,131 @@ async function main() {
             model: 'gpt-3.5-turbo'
         });
 
-        // Create tool provider
-        const toolProvider = createZodFunctionToolProvider({ tools });
+        // Create advanced plugins
+        const analyticsPlugin = new ExecutionAnalyticsPlugin({
+            maxEntries: 50,
+            trackErrors: true,
+            performanceThreshold: 1500, // 1.5 seconds
+            enableWarnings: true
+        });
+
+        const loggingPlugin = new LoggingPlugin({
+            level: 'info',
+            strategy: 'console'
+        });
 
         // === Advanced Configuration ===
         const robota = new Robota({
             aiProviders: { openai: openaiProvider },
+            provider: 'openai',
+            model: 'gpt-3.5-turbo',
             currentProvider: 'openai',
             currentModel: 'gpt-3.5-turbo',
-            toolProviders: [toolProvider],
-            systemPrompt: 'You are an advanced AI assistant with text analysis capabilities. Use tools when users ask for text analysis.',
-
-            // Advanced options
-            temperature: 0.7,
-            maxTokens: 1000,
-            maxTokenLimit: 5000,  // Total token budget
-            maxRequestLimit: 10,  // Request limit
-            debug: true,          // Enable debug logging
-
-            // Tool call callback
-            onToolCall: (toolName, params, result) => {
-                console.log(`🔧 Tool "${toolName}" called with params:`, params);
-                console.log(`📊 Tool result:`, result);
-            }
+            systemMessage: 'You are an advanced AI assistant with detailed analytical capabilities. Provide comprehensive and well-structured responses.',
+            plugins: [analyticsPlugin, loggingPlugin] // Add plugins for advanced features
         });
 
-        // === Analytics Demo ===
-        console.log('📊 Analytics & Limits Demo');
+        // === Plugin Demo ===
+        console.log('📊 Advanced Plugin Demo');
         console.log('='.repeat(40));
 
         // Check initial analytics
-        console.log('\n📈 Initial Analytics:');
-        console.log('- Request count:', robota.analytics.getRequestCount());
-        console.log('- Available tools:', robota.getAvailableTools().length);
+        console.log('\\n📈 Initial Plugin Status:');
+        const initialStats = analyticsPlugin.getStats();
+        console.log('- Total executions:', initialStats.totalExecutions);
+        console.log('- Success rate:', initialStats.successRate.toFixed(1) + '%');
 
         // === Conversation History Demo ===
-        console.log('\n💬 Conversation History Demo');
+        console.log('\\n💬 Advanced Conversation Demo');
         console.log('='.repeat(40));
 
         const queries = [
-            'Hello! What can you help me with?',
-            'Can you analyze this text: "I love this amazing product! It works great and makes me very happy."',
-            'Now analyze: "This is terrible. I hate it and it makes me sad."'
+            'Hello! What are the latest developments in artificial intelligence?',
+            'How do neural networks learn from data? Please explain in detail.',
+            'What are the ethical considerations in AI development?',
+            'Compare machine learning and deep learning approaches.',
+            'What is the future of AGI (Artificial General Intelligence)?'
         ];
 
         for (let i = 0; i < queries.length; i++) {
             const query = queries[i];
-            console.log(`\n${i + 1}. User: ${query}`);
+            console.log(`\\n${i + 1}. User: ${query}`);
 
+            const startTime = Date.now();
             const response = await robota.run(query);
-            console.log(`   Assistant: ${response}`);
+            const duration = Date.now() - startTime;
+
+            console.log(`   Assistant: ${response.substring(0, 200)}${response.length > 200 ? '...' : ''}`);
+            console.log(`   ⏱️ Response time: ${duration}ms`);
 
             // Show updated analytics
-            console.log(`   📊 Requests: ${robota.analytics.getRequestCount()}`);
+            const currentStats = analyticsPlugin.getStats();
+            console.log(`   📊 Total executions: ${currentStats.totalExecutions}`);
         }
 
-        // === Conversation History Inspection ===
-        console.log('\n📜 Conversation History:');
+        // === Analytics Deep Dive ===
+        console.log('\\n📊 Detailed Analytics:');
         console.log('='.repeat(40));
 
-        const history = robota.conversation.getMessages();
-        history.forEach((msg, index) => {
-            console.log(`${index + 1}. [${msg.role}] ${msg.content?.substring(0, 100)}${msg.content && msg.content.length > 100 ? '...' : ''}`);
-        });
+        const finalStats = analyticsPlugin.getStats();
+        console.log('Final Analytics Report:');
+        console.log('- Total Executions:', finalStats.totalExecutions);
+        console.log('- Successful:', finalStats.successfulExecutions);
+        console.log('- Failed:', finalStats.failedExecutions);
+        console.log('- Success Rate:', finalStats.successRate.toFixed(1) + '%');
+        console.log('- Average Duration:', finalStats.averageDuration.toFixed(0) + 'ms');
+        console.log('- Total Duration:', finalStats.totalDuration + 'ms');
 
-        // === Streaming Demo ===
-        console.log('\n🌊 Streaming Response Demo');
-        console.log('='.repeat(40));
-
-        const streamQuery = 'Please analyze this text with details: "The weather is absolutely wonderful today! I feel fantastic and everything seems amazing. This is the best day ever!"';
-        console.log(`User: ${streamQuery}`);
-        console.log('Assistant: ');
-
-        const stream = await robota.runStream(streamQuery);
-        for await (const chunk of stream) {
-            process.stdout.write(chunk.content || '');
-        }
-        console.log('\n');
-
-        // === Final Analytics ===
-        console.log('\n📊 Final Analytics:');
-        console.log('='.repeat(40));
-        console.log('- Total requests:', robota.analytics.getRequestCount());
-        console.log('- Conversation length:', robota.conversation.getMessages().length, 'messages');
-
-        // === Limits Demo ===
-        console.log('\n⚠️ Testing Limits:');
-        console.log('='.repeat(40));
-
-        try {
-            // This should work if under limits
-            await robota.run('Quick test message');
-            console.log('✅ Request within limits');
-        } catch (error) {
-            console.log('❌ Request limit exceeded:', error);
+        // Operation breakdown - removed due to type constraints
+        console.log('\\nExecution Summary:');
+        console.log(`- Success Rate: ${finalStats.successRate.toFixed(1)}%`);
+        if (finalStats.failedExecutions > 0) {
+            console.log(`- ${finalStats.failedExecutions} failed executions detected`);
         }
 
-        // === Conversation Clearing ===
-        console.log('\n🧹 Clearing Conversation History...');
-        robota.clearConversationHistory();
-        console.log('Conversation length after clear:', robota.conversation.getMessages().length, 'messages');
+        // === Plugin Status Check ===
+        console.log('\\n🔍 Plugin Status:');
+        console.log('='.repeat(40));
 
-        console.log('\n✅ Advanced Features Example Completed!');
+        const analyticsStatus = analyticsPlugin.getStatus();
+        console.log('Analytics Plugin Status:');
+        console.log('- Name:', analyticsStatus.name);
+        console.log('- Version:', analyticsStatus.version);
+        console.log('- Enabled:', analyticsStatus.enabled);
+        console.log('- Total Recorded:', analyticsStatus.totalRecorded);
+
+        // === Memory Management Demo ===
+        console.log('\\n🧹 Memory Management:');
+        console.log('='.repeat(40));
+
+        console.log('Clearing analytics data...');
+        analyticsPlugin.clearData();
+
+        const clearedStats = analyticsPlugin.getStats();
+        console.log('After clearing - Total executions:', clearedStats.totalExecutions);
+
+        // === Final Test ===
+        console.log('\\n🎯 Final Performance Test:');
+        console.log('='.repeat(40));
+
+        const finalQuery = 'Summarize our conversation and the key topics we discussed.';
+        console.log(`User: ${finalQuery}`);
+
+        const finalResponse = await robota.run(finalQuery);
+        console.log(`Assistant: ${finalResponse}`);
+
+        const postClearStats = analyticsPlugin.getStats();
+        console.log(`Final execution count: ${postClearStats.totalExecutions}`);
+
+        console.log('\\n✅ Advanced Features Example Completed!');
+        console.log('\\n💡 Features Demonstrated:');
+        console.log('   - ExecutionAnalyticsPlugin for performance tracking');
+        console.log('   - LoggingPlugin for detailed execution logs');
+        console.log('   - Plugin lifecycle management');
+        console.log('   - Memory and performance monitoring');
 
         // Clean up resources
-        await robota.close();
+        await robota.destroy();
     } catch (error) {
         console.error('❌ Error occurred:', error);
         process.exit(1);
