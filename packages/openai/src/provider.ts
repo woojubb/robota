@@ -160,6 +160,57 @@ export class OpenAIProvider extends BaseAIProvider {
   }
 
   /**
+   * Generate response using raw request payload (for agents package compatibility)
+   * 
+   * This method is required by the agents package's ConversationService.
+   * It adapts the raw request payload to the OpenAI API format.
+   * 
+   * @param request - Raw request payload from ConversationService
+   * @returns Promise resolving to OpenAI API response
+   */
+  async generateResponse(request: any): Promise<any> {
+    try {
+      // Extract parameters from request payload
+      const model = request.model;
+      const messages = request.messages || [];
+      const temperature = request.temperature;
+      const maxTokens = request.max_tokens;
+      const tools = request.tools;
+
+      // Create context for chat method
+      const context: Context = {
+        messages,
+        tools
+      };
+
+      // Create options object
+      const options = {
+        temperature,
+        maxTokens,
+        tools
+      };
+
+      // Use existing chat method
+      const response = await this.chat(model, context, options);
+
+      // Return response in expected format for ConversationService
+      return {
+        content: response.content,
+        message: { content: response.content },
+        tool_calls: response.toolCalls,
+        toolCalls: response.toolCalls,
+        usage: response.usage,
+        finish_reason: response.metadata?.finishReason,
+        finishReason: response.metadata?.finishReason,
+        metadata: response.metadata
+      };
+
+    } catch (error) {
+      this.handleApiError(error, 'generateResponse');
+    }
+  }
+
+  /**
    * Send a chat request to OpenAI and receive a complete response
    * 
    * Processes the provided context and sends it to OpenAI's Chat Completions API.

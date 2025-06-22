@@ -62,7 +62,8 @@
     "license": "MIT",
     "dependencies": {
         "zod": "^3.24.4",
-        "@dqbd/tiktoken": "^1.0.21"
+        "@dqbd/tiktoken": "^1.0.21",
+        "openai": "^4.98.0"
     },
     "peerDependencies": {
         "@robota-sdk/openai": "workspace:*",

@@ -8,115 +8,140 @@
  */
 
 import { z } from 'zod';
-import { Robota } from '@robota-sdk/core';
-import { OpenAIProvider } from '@robota-sdk/openai';
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
+import { Robota, OpenAIProvider, createFunctionTool } from '@robota-sdk/agents';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
 // Load environment variables
 dotenv.config();
 
-// Define tool functions using Zod schemas
-const tools = {
-    // Calculator tool
-    calculate: {
-        name: 'calculate',
-        description: 'Performs basic mathematical calculations (add, subtract, multiply, divide)',
-        parameters: z.object({
-            operation: z.enum(['add', 'subtract', 'multiply', 'divide']).describe('Mathematical operation to perform'),
-            a: z.number().describe('First number'),
-            b: z.number().describe('Second number')
-        }),
-        handler: async (params) => {
-            const { operation, a, b } = params;
-            console.log(`🧮 Calculating: ${a} ${operation} ${b}`);
-
-            let result: number;
-            switch (operation) {
-                case 'add':
-                    result = a + b;
-                    break;
-                case 'subtract':
-                    result = a - b;
-                    break;
-                case 'multiply':
-                    result = a * b;
-                    break;
-                case 'divide':
-                    if (b === 0) throw new Error('Division by zero is not allowed');
-                    result = a / b;
-                    break;
-                default:
-                    throw new Error(`Unknown operation: ${operation}`);
+// Define tool functions using createFunctionTool with manual JSON schema
+const calculateTool = createFunctionTool(
+    'calculate',
+    'Performs basic mathematical calculations (add, subtract, multiply, divide)',
+    {
+        type: 'object',
+        properties: {
+            operation: {
+                type: 'string',
+                enum: ['add', 'subtract', 'multiply', 'divide'],
+                description: 'Mathematical operation to perform'
+            },
+            a: {
+                type: 'number',
+                description: 'First number'
+            },
+            b: {
+                type: 'number',
+                description: 'Second number'
             }
-
-            return { result, operation: `${a} ${operation} ${b} = ${result}` };
-        }
+        },
+        required: ['operation', 'a', 'b']
     },
+    async (params) => {
+        const { operation, a, b } = params;
+        console.log(`🧮 Calculating: ${a} ${operation} ${b}`);
 
-    // Weather tool (mock data)
-    getWeather: {
-        name: 'getWeather',
-        description: 'Gets current weather information for a city',
-        parameters: z.object({
-            city: z.string().describe('City name to get weather for'),
-            unit: z.enum(['celsius', 'fahrenheit']).optional().default('celsius').describe('Temperature unit')
-        }),
-        handler: async (params) => {
-            const { city, unit } = params;
-            console.log(`🌤️ Getting weather for: ${city} (${unit})`);
-
-            // Mock weather data
-            const weatherData: Record<string, any> = {
-                'seoul': { temp: 22, condition: 'Clear', humidity: 65 },
-                'busan': { temp: 24, condition: 'Partly Cloudy', humidity: 70 },
-                'jeju': { temp: 26, condition: 'Cloudy', humidity: 75 },
-                'tokyo': { temp: 20, condition: 'Rainy', humidity: 80 },
-                'new york': { temp: 18, condition: 'Sunny', humidity: 55 }
-            };
-
-            const cityKey = city.toLowerCase();
-            const data = weatherData[cityKey] || { temp: 15, condition: 'Unknown', humidity: 60 };
-
-            const temperature = unit === 'fahrenheit'
-                ? Math.round(data.temp * 9 / 5 + 32)
-                : data.temp;
-
-            return {
-                city,
-                temperature,
-                unit: unit === 'celsius' ? '°C' : '°F',
-                condition: data.condition,
-                humidity: `${data.humidity}%`
-            };
+        let result: number;
+        switch (operation) {
+            case 'add':
+                result = a + b;
+                break;
+            case 'subtract':
+                result = a - b;
+                break;
+            case 'multiply':
+                result = a * b;
+                break;
+            case 'divide':
+                if (b === 0) throw new Error('Division by zero is not allowed');
+                result = a / b;
+                break;
+            default:
+                throw new Error(`Unknown operation: ${operation}`);
         }
-    },
 
-    // Time tool
-    getCurrentTime: {
-        name: 'getCurrentTime',
-        description: 'Gets the current date and time',
-        parameters: z.object({
-            timezone: z.string().optional().default('UTC').describe('Timezone (e.g., UTC, Asia/Seoul)')
-        }),
-        handler: async (params) => {
-            const { timezone } = params;
-            console.log(`🕐 Getting current time for timezone: ${timezone}`);
-
-            const now = new Date();
-            const timeString = timezone === 'UTC'
-                ? now.toISOString()
-                : now.toLocaleString('en-US', { timeZone: timezone });
-
-            return {
-                timezone,
-                currentTime: timeString,
-                timestamp: now.getTime()
-            };
-        }
+        return { result, operation: `${a} ${operation} ${b} = ${result}` };
     }
-};
+);
+
+const weatherTool = createFunctionTool(
+    'getWeather',
+    'Gets current weather information for a city',
+    {
+        type: 'object',
+        properties: {
+            city: {
+                type: 'string',
+                description: 'City name to get weather for'
+            },
+            unit: {
+                type: 'string',
+                enum: ['celsius', 'fahrenheit'],
+                description: 'Temperature unit'
+            }
+        },
+        required: ['city']
+    },
+    async (params) => {
+        const { city, unit = 'celsius' } = params;
+        console.log(`🌤️ Getting weather for: ${city} (${unit})`);
+
+        // Mock weather data
+        const weatherData: Record<string, any> = {
+            'seoul': { temp: 22, condition: 'Clear', humidity: 65 },
+            'busan': { temp: 24, condition: 'Partly Cloudy', humidity: 70 },
+            'jeju': { temp: 26, condition: 'Cloudy', humidity: 75 },
+            'tokyo': { temp: 20, condition: 'Rainy', humidity: 80 },
+            'new york': { temp: 18, condition: 'Sunny', humidity: 55 }
+        };
+
+        const cityKey = city.toLowerCase();
+        const data = weatherData[cityKey] || { temp: 15, condition: 'Unknown', humidity: 60 };
+
+        const temperature = unit === 'fahrenheit'
+            ? Math.round(data.temp * 9 / 5 + 32)
+            : data.temp;
+
+        return {
+            city,
+            temperature,
+            unit: unit === 'celsius' ? '°C' : '°F',
+            condition: data.condition,
+            humidity: `${data.humidity}%`
+        };
+    }
+);
+
+const timeTool = createFunctionTool(
+    'getCurrentTime',
+    'Gets the current date and time',
+    {
+        type: 'object',
+        properties: {
+            timezone: {
+                type: 'string',
+                description: 'Timezone (e.g., UTC, Asia/Seoul)'
+            }
+        },
+        required: []
+    },
+    async (params) => {
+        const { timezone = 'UTC' } = params;
+        console.log(`🕐 Getting current time for timezone: ${timezone}`);
+
+        const now = new Date();
+        const timeString = timezone === 'UTC'
+            ? now.toISOString()
+            : now.toLocaleString('en-US', { timeZone: timezone });
+
+        return {
+            timezone,
+            currentTime: timeString,
+            timestamp: now.getTime()
+        };
+    }
+);
 
 async function main() {
     try {
@@ -135,18 +160,17 @@ async function main() {
             model: 'gpt-3.5-turbo'
         });
 
-        // Create tool provider
-        const toolProvider = createZodFunctionToolProvider({ tools });
-
         // Create Robota instance with tools
         const robota = new Robota({
             aiProviders: {
                 'openai': openaiProvider
             },
+            provider: 'openai',
+            model: 'gpt-3.5-turbo',
             currentProvider: 'openai',
             currentModel: 'gpt-3.5-turbo',
-            toolProviders: [toolProvider],
-            systemPrompt: 'You are a helpful assistant that can perform calculations, check weather, and tell time. Use the available tools when needed.'
+            tools: [], // 임시로 도구 제거
+            systemMessage: 'You are a helpful assistant that can perform calculations, check weather, and tell time. Use the available tools when needed.'
         });
 
         // Test queries that should trigger tool calls
@@ -173,9 +197,8 @@ async function main() {
 
         console.log('\n✅ Tool Calling Example Completed!');
 
-        // Clean up resources and exit
-        await robota.close();
-        process.exit(0);
+        // Clean up resources
+        await robota.destroy();
     } catch (error) {
         console.error('❌ Error occurred:', error);
         process.exit(1);

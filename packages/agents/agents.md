@@ -232,6 +232,22 @@ packages/agents/src/
   - [ ] 마이그레이션 가이드 작성
   - [ ] CHANGELOG 작성
 
+### Phase 11: 스트리밍 응답 지원 (11단계)
+- [ ] OpenAI Provider 스트리밍 기능 구현
+  - [ ] `generateStreamingResponse` 메서드 구현
+  - [ ] OpenAI 스트리밍 API 연동
+  - [ ] 스트리밍 응답 포맷 변환
+- [ ] Anthropic Provider 스트리밍 기능 구현
+  - [ ] Claude 스트리밍 API 연동
+  - [ ] 응답 포맷 표준화
+- [ ] Google Provider 스트리밍 기능 구현
+  - [ ] Gemini 스트리밍 API 연동
+  - [ ] 응답 포맷 표준화
+- [ ] 스트리밍 예제 및 테스트
+  - [ ] 기본 스트리밍 예제 작성
+  - [ ] 도구 호출과 스트리밍 조합 테스트
+  - [ ] 에러 처리 및 중단 기능
+
 ## 🔗 의존성 관리
 
 ### 외부 의존성 (최소화)

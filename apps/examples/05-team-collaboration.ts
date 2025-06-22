@@ -2,18 +2,17 @@
  * Team Collaboration Example
  * 
  * Demonstrates multi-agent teamwork with @robota-sdk/team
- * This example shows how a Team agent coordinates temporary agents
- * for complex tasks using the delegateWork tool and provides
- * workflow visualization for analysis.
+ * This example shows how a Team agent handles complex tasks
+ * and provides performance analytics.
  */
 
 import chalk from 'chalk';
-import { createTeam, generateWorkflowFlowchart, generateAgentRelationshipDiagram } from '@robota-sdk/team';
+import { createTeam } from '@robota-sdk/team';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 import Anthropic from '@anthropic-ai/sdk';
-import { AnthropicProvider } from '@robota-sdk/anthropic/dist';
+import { AnthropicProvider } from '@robota-sdk/anthropic';
 
 // Load environment variables
 dotenv.config();
@@ -41,7 +40,7 @@ User Command → Team Agent → (delegateWork if needed) → Team Members → Fi
 📋 This demo shows:
 • Simple tasks handled directly by the team agent
 • Complex tasks delegated to specialized team members  
-• Workflow history and agent relationship visualization
+• Performance analytics and statistics
 
 🚀 Simplified API:
 This example uses the new simplified createTeam API where the task_coordinator
@@ -87,7 +86,7 @@ template automatically handles team coordination with optimized settings.
         const team1 = createTeam({
             aiProviders: { openai: openaiProvider1, anthropic: anthropicProvider1 },
             maxMembers: 5,
-            maxTokenLimit: 50000,
+            maxTokenLimit: 8000,
             logger: console,
             debug: false
         });
@@ -100,20 +99,16 @@ template automatically handles team coordination with optimized settings.
         const simpleResult = await team1.execute(simpleTask);
         logResult('Team Response', simpleResult);
 
-        // Show workflow analysis for example 1
-        logSection('Example 1: Workflow Analysis');
+        // Show performance analysis for example 1
+        logSection('Example 1: Performance Analysis');
 
-        const workflowHistory1 = team1.getWorkflowHistory();
-        if (workflowHistory1) {
-            console.log(chalk.magenta('🔗 Agent relationship diagram:'));
-            console.log(generateAgentRelationshipDiagram(workflowHistory1));
-            console.log('');
-
-            console.log(chalk.magenta('📊 Workflow flowchart:'));
-            console.log(generateWorkflowFlowchart(workflowHistory1));
-        } else {
-            console.log(chalk.gray('No workflow history available for analysis.'));
-        }
+        const stats1 = team1.getStats();
+        console.log(chalk.blue(`
+📈 Example 1 Results:
+• Tasks completed: ${stats1.tasksCompleted}
+• Total agents created: ${stats1.totalAgentsCreated}
+• Execution time: ${stats1.totalExecutionTime}ms
+        `));
 
         console.log('✅ Example 1 completed!\n');
 
@@ -145,7 +140,7 @@ template automatically handles team coordination with optimized settings.
         const team2 = createTeam({
             aiProviders: { openai: openaiProvider2, anthropic: anthropicProvider2 },
             maxMembers: 5,
-            maxTokenLimit: 50000,
+            maxTokenLimit: 8000,
             logger: console,
             debug: false
         });
@@ -158,38 +153,21 @@ template automatically handles team coordination with optimized settings.
         const complexResult = await team2.execute(complexTask);
         logResult('Team Response', complexResult);
 
-        // Show workflow analysis for example 2
-        logSection('Example 2: Workflow Analysis');
+        // Show performance analysis for example 2
+        logSection('Example 2: Performance Analysis');
 
-        const workflowHistory2 = team2.getWorkflowHistory();
-        if (workflowHistory2) {
-            console.log(chalk.magenta('🔗 Agent relationship diagram:'));
-            console.log(generateAgentRelationshipDiagram(workflowHistory2));
-            console.log('');
-
-            console.log(chalk.magenta('📊 Workflow flowchart:'));
-            console.log(generateWorkflowFlowchart(workflowHistory2));
-        } else {
-            console.log(chalk.gray('No workflow history available for analysis.'));
-        }
-
-        // Show final stats (combining both teams)
-        logSection('Team Performance Summary');
-
-        const stats1 = team1.getStats();
         const stats2 = team2.getStats();
-
         console.log(chalk.blue(`
-📈 Example 1 Results:
-• Tasks completed: ${stats1.tasksCompleted}
-• Total agents created: ${stats1.totalAgentsCreated}
-• Execution time: ${stats1.totalExecutionTime}ms
-
 📈 Example 2 Results:
 • Tasks completed: ${stats2.tasksCompleted}
 • Total agents created: ${stats2.totalAgentsCreated}
 • Execution time: ${stats2.totalExecutionTime}ms
+        `));
 
+        // Show final stats (combining both teams)
+        logSection('Team Performance Summary');
+
+        console.log(chalk.blue(`
 📊 Overall Summary:
 • Total tasks completed: ${stats1.tasksCompleted + stats2.tasksCompleted}
 • Total agents created: ${stats1.totalAgentsCreated + stats2.totalAgentsCreated}
@@ -198,7 +176,7 @@ template automatically handles team coordination with optimized settings.
 
         console.log(chalk.green('\n✅ Team collaboration demo completed successfully!'));
         console.log(chalk.cyan('The team agent intelligently decides when to handle directly vs when to delegate.'));
-        console.log(chalk.cyan('Use workflow history to analyze how agents collaborate on complex tasks.'));
+        console.log(chalk.cyan('Performance analytics help analyze team coordination efficiency.'));
 
     } catch (error) {
         console.error(chalk.red('\n❌ Demo failed:'), error);

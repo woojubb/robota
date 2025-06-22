@@ -13,10 +13,9 @@
     "url": "https://github.com/woojubb/robota/issues"
   },
   "scripts": {
-    "build": "pnpm run -r build && pnpm run docs:build",
-    "build:deps": "pnpm --filter @robota-sdk/tools build && pnpm --filter @robota-sdk/core build && pnpm --filter @robota-sdk/openai build && pnpm --filter @robota-sdk/anthropic build && pnpm --filter @robota-sdk/google build && pnpm --filter @robota-sdk/sessions build && pnpm --filter @robota-sdk/team build",
+    "build": "pnpm run -r --filter='!@robota-sdk/core' --filter='!@robota-sdk/tools' --filter='!@robota-sdk/sessions' build && pnpm run docs:build",
     "test": "pnpm run -r test",
-    "typecheck": "pnpm --filter @robota-sdk/tools typecheck && pnpm --filter @robota-sdk/core typecheck && pnpm --filter @robota-sdk/openai typecheck",
+    "typecheck": "pnpm --filter @robota-sdk/agents typecheck && pnpm --filter @robota-sdk/openai typecheck && pnpm --filter @robota-sdk/anthropic typecheck && pnpm --filter @robota-sdk/google typecheck && pnpm --filter @robota-sdk/team typecheck",
     "lint": "pnpm run -r lint",
     "lint:fix": "pnpm run -r lint:fix",
     "dev": "pnpm run -r dev",
@@ -86,12 +85,10 @@
     "zod": "^3.24.4"
   },
   "workspaces": [
-    "packages/core",
+    "packages/agents",
     "packages/openai",
     "packages/anthropic",
     "packages/google",
-    "packages/tools",
-    "packages/sessions",
     "packages/team",
     "apps/examples",
     "apps/docs",

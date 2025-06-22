@@ -68,7 +68,7 @@ Create an AgentFactory instance
 
 #### Defined in
 
-[packages/core/src/managers/agent-factory.ts:44](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/managers/agent-factory.ts#L44)
+[packages/core/src/managers/agent-factory.ts:44](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/core/src/managers/agent-factory.ts#L44)
 
 ## Methods
 
@@ -93,7 +93,7 @@ Configured Robota instance
 
 #### Defined in
 
-[packages/core/src/managers/agent-factory.ts:61](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/managers/agent-factory.ts#L61)
+[packages/core/src/managers/agent-factory.ts:61](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/core/src/managers/agent-factory.ts#L61)
 
 ___
 
@@ -117,7 +117,7 @@ Configured Robota instance
 
 #### Defined in
 
-[packages/core/src/managers/agent-factory.ts:100](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/managers/agent-factory.ts#L100)
+[packages/core/src/managers/agent-factory.ts:100](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/core/src/managers/agent-factory.ts#L100)
 
 ___
 
@@ -144,7 +144,7 @@ Robota agent instance
 
 #### Defined in
 
-[packages/core/src/managers/agent-factory.ts:138](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/managers/agent-factory.ts#L138)
+[packages/core/src/managers/agent-factory.ts:138](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/core/src/managers/agent-factory.ts#L138)
 
 ___
 
@@ -160,4 +160,4 @@ Get the template manager instance
 
 #### Defined in
 
-[packages/core/src/managers/agent-factory.ts:159](https://github.com/woojubb/robota/blob/1ae72636f35020494944759b72aa4c496406f035/packages/core/src/managers/agent-factory.ts#L159)
+[packages/core/src/managers/agent-factory.ts:159](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/core/src/managers/agent-factory.ts#L159)

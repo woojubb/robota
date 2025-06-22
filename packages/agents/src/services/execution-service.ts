@@ -82,6 +82,21 @@ export class ExecutionService {
     }
 
     /**
+     * Get a plugin by name
+     */
+    getPlugin<T extends BasePlugin = BasePlugin>(pluginName: string): T | null {
+        const plugin = this.plugins.find(p => p.name === pluginName);
+        return plugin as T | null;
+    }
+
+    /**
+     * Get all registered plugins
+     */
+    getPlugins(): BasePlugin[] {
+        return [...this.plugins];
+    }
+
+    /**
      * Execute the full pipeline
      */
     async execute(
@@ -111,8 +126,11 @@ export class ExecutionService {
         });
 
         try {
-            // Get AI provider
-            const provider = this.aiProviderManager.getCurrentProvider();
+            // Call beforeRun hook on all plugins
+            await this.callPluginHook('beforeRun', input, context?.metadata);
+
+            // Get AI provider instance
+            const provider = this.aiProviderManager.getCurrentProviderInstance();
             if (!provider) {
                 throw new Error('No AI provider available');
             }
@@ -120,6 +138,9 @@ export class ExecutionService {
             // Add user message to conversation
             const userMessage = this.conversationService.createUserMessage(input);
             const allMessages = [...messages, userMessage];
+
+            // Get tool schemas from ToolManager
+            const toolSchemas = this.toolManager.getTools();
 
             // Prepare conversation context
             const conversationContext = this.conversationService.prepareContext(
@@ -130,16 +151,22 @@ export class ExecutionService {
                     systemMessage: config.systemMessage,
                     temperature: config.temperature,
                     maxTokens: config.maxTokens,
-                    tools: config.tools,
+                    tools: toolSchemas,
                     metadata: context?.metadata
                 }
             );
+
+            // Call beforeProviderCall hook
+            await this.callPluginHook('beforeProviderCall', conversationContext);
 
             // Generate initial response
             const response = await this.conversationService.generateResponse(
                 provider,
                 conversationContext
             );
+
+            // Call afterProviderCall hook
+            await this.callPluginHook('afterProviderCall', conversationContext, response);
 
             let finalResponse = response;
             let toolsExecuted: string[] = [];
@@ -154,7 +181,7 @@ export class ExecutionService {
                     toolCallCount: response.toolCalls.length
                 });
 
-                // Execute tools
+                // Execute tools using existing service
                 const toolRequests = this.toolExecutionService.createExecutionRequests(response.toolCalls);
                 const toolContext: ToolExecutionContext = {
                     requests: toolRequests,
@@ -186,14 +213,18 @@ export class ExecutionService {
                         systemMessage: config.systemMessage,
                         temperature: config.temperature,
                         maxTokens: config.maxTokens,
+                        tools: toolSchemas,
                         metadata: context?.metadata
                     }
                 );
 
+                // Call provider hooks for final response
+                await this.callPluginHook('beforeProviderCall', finalContext);
                 finalResponse = await this.conversationService.generateResponse(
                     provider,
                     finalContext
                 );
+                await this.callPluginHook('afterProviderCall', finalContext, finalResponse);
 
                 finalMessages.push(this.conversationService.createAssistantMessage(finalResponse));
             }
@@ -208,6 +239,9 @@ export class ExecutionService {
                 toolsExecuted,
                 success: true
             };
+
+            // Call afterRun hook on all plugins
+            await this.callPluginHook('afterRun', input, result.response, context?.metadata);
 
             this.logger.info('Execution pipeline completed successfully', {
                 executionId,
@@ -229,6 +263,9 @@ export class ExecutionService {
                 success: false,
                 error: error instanceof Error ? error : new Error(String(error))
             };
+
+            // Call onError hook on all plugins
+            await this.callPluginHook('onError', error, fullContext);
 
             this.logger.error('Execution pipeline failed', {
                 executionId,
@@ -253,7 +290,7 @@ export class ExecutionService {
         const startTime = new Date();
 
         try {
-            const provider = this.aiProviderManager.getCurrentProvider();
+            const provider = this.aiProviderManager.getCurrentProviderInstance();
             if (!provider) {
                 throw new Error('No AI provider available');
             }
@@ -261,6 +298,9 @@ export class ExecutionService {
             // Add user message
             const userMessage = this.conversationService.createUserMessage(input);
             const allMessages = [...messages, userMessage];
+
+            // Get tool schemas from ToolManager
+            const toolSchemas = this.toolManager.getTools();
 
             // Prepare context
             const conversationContext = this.conversationService.prepareContext(
@@ -271,7 +311,7 @@ export class ExecutionService {
                     systemMessage: config.systemMessage,
                     temperature: config.temperature,
                     maxTokens: config.maxTokens,
-                    tools: config.tools,
+                    tools: toolSchemas,
                     metadata: context?.metadata
                 }
             );
@@ -347,5 +387,26 @@ export class ExecutionService {
     clearPlugins(): void {
         this.plugins = [];
         this.logger.info('All plugins cleared');
+    }
+
+    /**
+     * Call a specific hook on all registered plugins
+     */
+    private async callPluginHook(hookName: string, ...args: any[]): Promise<void> {
+        for (const plugin of this.plugins) {
+            try {
+                const hook = (plugin as any)[hookName];
+                if (typeof hook === 'function') {
+                    await hook.apply(plugin, args);
+                }
+            } catch (error) {
+                this.logger.error('Plugin hook failed', {
+                    pluginName: plugin.name,
+                    hookName,
+                    error: error instanceof Error ? error.message : String(error)
+                });
+                // Continue with other plugins even if one fails
+            }
+        }
     }
 } 
