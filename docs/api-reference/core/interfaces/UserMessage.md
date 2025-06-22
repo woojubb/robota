@@ -40,7 +40,7 @@ Message creation timestamp
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:17](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/conversation-history.ts#L17)
+[packages/core/src/conversation-history.ts:17](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/conversation-history.ts#L17)
 
 ___
 
@@ -56,7 +56,7 @@ Additional metadata
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:20](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/conversation-history.ts#L20)
+[packages/core/src/conversation-history.ts:20](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/conversation-history.ts#L20)
 
 ___
 
@@ -68,7 +68,7 @@ Message role - always 'user'
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:30](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/conversation-history.ts#L30)
+[packages/core/src/conversation-history.ts:30](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/conversation-history.ts#L30)
 
 ___
 
@@ -80,7 +80,7 @@ User message content
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:33](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/conversation-history.ts#L33)
+[packages/core/src/conversation-history.ts:33](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/conversation-history.ts#L33)
 
 ___
 
@@ -92,4 +92,4 @@ Optional user identifier
 
 #### Defined in
 
-[packages/core/src/conversation-history.ts:36](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/conversation-history.ts#L36)
+[packages/core/src/conversation-history.ts:36](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/conversation-history.ts#L36)

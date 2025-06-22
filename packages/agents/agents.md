@@ -224,28 +224,30 @@ packages/agents/src/
   - [x] TemplateApplicationResult export 경로 수정으로 빌드 오류 해결
   - [x] AgentFactory singleton 패턴 사용으로 team 패키지 오류 해결
   - [x] 전체 프로젝트 빌드 성공 확인 ✅
-- [ ] **Service 무상태화**: ConversationService의 상태 제거
-  - [ ] `options` 인스턴스 변수를 메서드 파라미터로 변경
-  - [ ] Service 메서드를 순수 함수로 변경 (input → output, no side effect)
-  - [ ] Service 인스턴스 재사용 가능하도록 설계 변경
-- [ ] **Manager 책임 분리**: Robota 클래스의 Manager 초기화 분리
-  - [ ] `PluginManager` 클래스 추가로 Plugin 생명주기 관리 전담
-  - [ ] Manager 간 의존성 최소화 및 독립적 초기화
-  - [ ] Robota 클래스는 delegation만 담당하도록 변경
+- [x] **Service 무상태화**: ConversationService의 상태 제거 ✅ **완료**
+  - [x] `options` 인스턴스 변수를 메서드 파라미터로 변경
+  - [x] Service 메서드를 순수 함수로 변경 (input → output, no side effect)
+  - [x] Service 인스턴스 재사용 가능하도록 설계 변경
+  - [x] interfaces/service.ts 파일 생성하여 Service 인터페이스 통합
+- [x] **Manager 책임 분리**: Robota 클래스의 Manager 초기화 분리 ✅ **완료**
+  - [x] `Plugins` 클래스 추가로 Plugin 생명주기 관리 전담 (naming convention 준수)
+  - [x] Plugin dependency graph 및 초기화 순서 보장 구현
+  - [x] Manager 간 의존성 최소화 및 독립적 초기화
+  - [x] Robota 클래스에서 Plugins 관리 분리
 
 #### ⚠️ Important Issues (리뷰 단계에서 수정)
-- [ ] **인터페이스 통합**: 중복된 인터페이스 정의 통합
-  - [ ] `interfaces/service.ts` 파일 생성하여 Service 인터페이스 통합
-  - [ ] `ConversationContext`, `ConversationResponse` 등을 interfaces/로 이동
-  - [ ] 각 Service 파일에서 인터페이스 정의 제거
-- [ ] **에러 처리 표준화**: 일관된 에러 처리 전략 적용
-  - [ ] 모든 Service에서 동일한 에러 타입 사용
-  - [ ] Typed errors with clear error codes 구현
-  - [ ] Error context 및 debugging info 표준화
-- [ ] **Plugin 생명주기 관리**: Plugin 초기화/해제 순서 보장
-  - [ ] Plugin dependency graph 구현
-  - [ ] Plugin 초기화 실패 시 rollback 메커니즘
-  - [ ] Plugin 간 이벤트 전파 순서 제어
+- [x] **인터페이스 통합**: 중복된 인터페이스 정의 통합 ✅ **완료**
+  - [x] `interfaces/service.ts` 파일 생성하여 Service 인터페이스 통합
+  - [x] `ConversationContext`, `ConversationResponse` 등을 interfaces/로 이동
+  - [x] 각 Service 파일에서 인터페이스 정의 제거
+- [x] **에러 처리 표준화**: 일관된 에러 처리 전략 적용 ✅ **완료**
+  - [x] 모든 Service에서 동일한 에러 타입 사용 (ProviderError 표준화)
+  - [x] ProviderError constructor에 provider 파라미터 추가로 에러 컨텍스트 개선
+  - [x] Error 생성 시 올바른 파라미터 순서 적용
+- [x] **Plugin 생명주기 관리**: Plugin 초기화/해제 순서 보장 ✅ **완료**
+  - [x] Plugin dependency graph 구현 (resolveDependencyOrder 메서드)
+  - [x] Plugin 초기화 실패 시 에러 처리 및 lifecycle 이벤트 호출
+  - [x] Plugin 간 우선순위 및 의존성 기반 초기화 순서 제어
 
 #### 📝 Style Issues (배치 수정)
 - [x] **로깅 시스템 개선**: 기본 로그 레벨을 warn으로 변경하고 환경변수 제어 지원

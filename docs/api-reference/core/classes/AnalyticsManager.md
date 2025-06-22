@@ -58,7 +58,7 @@ Record a new request and token usage
 
 #### Defined in
 
-[packages/core/src/managers/analytics-manager.ts:16](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/managers/analytics-manager.ts#L16)
+[packages/core/src/managers/analytics-manager.ts:16](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/managers/analytics-manager.ts#L16)
 
 ___
 
@@ -74,7 +74,7 @@ Get total number of requests made
 
 #### Defined in
 
-[packages/core/src/managers/analytics-manager.ts:31](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/managers/analytics-manager.ts#L31)
+[packages/core/src/managers/analytics-manager.ts:31](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/managers/analytics-manager.ts#L31)
 
 ___
 
@@ -90,7 +90,7 @@ Get total number of tokens used
 
 #### Defined in
 
-[packages/core/src/managers/analytics-manager.ts:38](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/managers/analytics-manager.ts#L38)
+[packages/core/src/managers/analytics-manager.ts:38](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/managers/analytics-manager.ts#L38)
 
 ___
 
@@ -113,7 +113,7 @@ Get detailed analytics data
 
 #### Defined in
 
-[packages/core/src/managers/analytics-manager.ts:45](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/managers/analytics-manager.ts#L45)
+[packages/core/src/managers/analytics-manager.ts:45](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/managers/analytics-manager.ts#L45)
 
 ___
 
@@ -129,7 +129,7 @@ Reset all analytics data
 
 #### Defined in
 
-[packages/core/src/managers/analytics-manager.ts:64](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/managers/analytics-manager.ts#L64)
+[packages/core/src/managers/analytics-manager.ts:64](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/managers/analytics-manager.ts#L64)
 
 ___
 
@@ -158,4 +158,4 @@ Get token usage for a specific time period
 
 #### Defined in
 
-[packages/core/src/managers/analytics-manager.ts:75](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/managers/analytics-manager.ts#L75)
+[packages/core/src/managers/analytics-manager.ts:75](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/managers/analytics-manager.ts#L75)

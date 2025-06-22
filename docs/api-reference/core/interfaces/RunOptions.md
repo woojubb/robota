@@ -29,7 +29,7 @@ Run options interface
 
 #### Defined in
 
-[packages/core/src/types.ts:42](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/types.ts#L42)
+[packages/core/src/types.ts:42](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/types.ts#L42)
 
 ___
 
@@ -39,7 +39,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:43](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/types.ts#L43)
+[packages/core/src/types.ts:43](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/types.ts#L43)
 
 ___
 
@@ -49,7 +49,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:44](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/types.ts#L44)
+[packages/core/src/types.ts:44](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/types.ts#L44)
 
 ___
 
@@ -59,7 +59,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:45](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/types.ts#L45)
+[packages/core/src/types.ts:45](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/types.ts#L45)
 
 ___
 
@@ -69,7 +69,7 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:46](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/types.ts#L46)
+[packages/core/src/types.ts:46](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/types.ts#L46)
 
 ___
 
@@ -79,4 +79,4 @@ ___
 
 #### Defined in
 
-[packages/core/src/types.ts:47](https://github.com/woojubb/robota/blob/99dadbf06916eba8bc2a112b20eb18f9ab438c3e/packages/core/src/types.ts#L47)
+[packages/core/src/types.ts:47](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/types.ts#L47)

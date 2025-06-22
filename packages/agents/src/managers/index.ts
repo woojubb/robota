@@ -21,4 +21,8 @@ export {
     isAssistantMessage,
     isToolMessage,
     isSystemMessage
-} from './conversation-history-manager'; 
+} from './conversation-history-manager';
+export { Plugins } from './plugins';
+
+// Plugin Types
+export type { PluginsManagerInterface, PluginLifecycleEvents, PluginDependency, PluginRegistrationOptions, PluginStatus } from './plugins'; 
