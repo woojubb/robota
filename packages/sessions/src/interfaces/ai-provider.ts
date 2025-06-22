@@ -1,4 +1,4 @@
-export type { AIProvider, Context, ModelResponse, StreamingResponseChunk } from '@robota-sdk/core';
+export type { Context, ModelResponse, StreamingResponseChunk } from '@robota-sdk/agents';
 
 export interface ProviderConfig {
     name: string;

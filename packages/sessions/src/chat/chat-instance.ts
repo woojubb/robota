@@ -1,5 +1,5 @@
-import { Robota, AgentFactory } from '@robota-sdk/core';
-import type { RobotaOptions, AgentCreationConfig } from '@robota-sdk/core';
+import { Robota, AgentFactory } from '@robota-sdk/agents';
+import type { RobotaConfig, AgentCreationConfig } from '@robota-sdk/agents';
 import type {
     ChatInstance,
     ChatConfig,

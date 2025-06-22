@@ -1,4 +1,7 @@
-import type { UniversalMessage } from '@robota-sdk/core';
+import type { Message } from '@robota-sdk/agents';
+
+// Use Message type consistently
+type UniversalMessage = Message;
 
 export interface SystemMessageManager {
     setSystemPrompt(prompt: string): void;

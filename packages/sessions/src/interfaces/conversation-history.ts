@@ -1,13 +1,13 @@
-import type { UniversalMessage } from '@robota-sdk/core';
+import type { Message } from '@robota-sdk/agents';
 
 export interface ConversationHistoryInterface {
-    addMessage(message: UniversalMessage): void;
-    getMessages(): UniversalMessage[];
+    addMessage(message: Message): void;
+    getMessages(): Message[];
     getMessageCount(): number;
     clear(): void;
-    getLastMessage(): UniversalMessage | null;
-    getLastUserMessage(): UniversalMessage | null;
-    getLastAssistantMessage(): UniversalMessage | null;
+    getLastMessage(): Message | null;
+    getLastUserMessage(): Message | null;
+    getLastAssistantMessage(): Message | null;
 }
 
 export interface ConversationHistoryOptions {

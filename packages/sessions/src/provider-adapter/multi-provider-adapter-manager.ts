@@ -1,5 +1,4 @@
-// Facade for provider management - delegates to core package
-export { AIProviderManager } from '@robota-sdk/core';
+// Multi-provider adapter manager for sessions
 
 export interface IMultiProviderAdapterManager {
     addProvider(name: string, provider: any): void;
