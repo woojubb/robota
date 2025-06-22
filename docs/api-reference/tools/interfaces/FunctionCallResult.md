@@ -26,7 +26,7 @@ Function call result interface
 
 #### Defined in
 
-[packages/tools/src/types.ts:49](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/tools/src/types.ts#L49)
+[packages/tools/src/types.ts:49](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/tools/src/types.ts#L49)
 
 ___
 
@@ -36,7 +36,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/types.ts:50](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/tools/src/types.ts#L50)
+[packages/tools/src/types.ts:50](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/tools/src/types.ts#L50)
 
 ___
 
@@ -46,4 +46,4 @@ ___
 
 #### Defined in
 
-[packages/tools/src/types.ts:51](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/tools/src/types.ts#L51)
+[packages/tools/src/types.ts:51](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/tools/src/types.ts#L51)

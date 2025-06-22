@@ -4,6 +4,7 @@
  */
 
 import { Message } from './agent';
+import { UniversalMessage } from '../managers/conversation-history-manager';
 import { AIProvider } from './provider';
 
 /**
@@ -11,7 +12,7 @@ import { AIProvider } from './provider';
  */
 export interface ConversationContext {
     /** All messages in the conversation */
-    messages: Message[];
+    messages: UniversalMessage[];
     /** System message for the conversation */
     systemMessage?: string;
     /** Model to use for generation */
@@ -103,7 +104,7 @@ export interface ConversationServiceInterface {
      * Pure function that transforms inputs to context object
      */
     prepareContext(
-        messages: Message[],
+        messages: UniversalMessage[],
         model: string,
         provider: string,
         contextOptions?: ContextOptions,

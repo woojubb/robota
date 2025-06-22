@@ -52,9 +52,10 @@
 
 ### 📦 패키지 호환성 및 마이그레이션
 - **Provider 패키지 통합**: OpenAI, Anthropic, Google 모두 agents 표준 적용 완료
-- **Team 패키지**: agents 표준 완전 마이그레이션 완료
+- **Team 패키지**: agents 표준 완전 마이그레이션 완료, 무한위임 방지 시스템 구현
 - **Examples**: agents 표준 사용 및 정상 동작 확인
 - **Sessions 패키지**: 기본 구조 마이그레이션 완료 (ConversationHistory 통합)
+- **Tool 전달 시스템**: BaseAIProvider와 provider별 adapter 간 올바른 tool schema 전달 보장
 
 ### 🎛️ 개발 가이드라인 준수
 - **Service 무상태화**: 모든 Service 클래스를 순수 함수 기반으로 설계
@@ -124,7 +125,11 @@ packages/agents/src/
 ## 📋 남은 개발 작업
 
 ### Phase 1: 플러그인 시스템 완성
-- [ ] **AgentTemplatePlugin**: 에이전트 설정 템플릿 저장/로드 (파일/DB/원격)
+- [x] **Team Container 무한반복 해결**: allowFurtherDelegation 파라미터 추가로 위임 제어
+- [x] **Tool 전달 문제 해결**: BaseAIProvider에서 올바른 tool schema 전달 수정
+- [x] **Singleton 제거**: 완전한 인스턴스 격리를 위한 매니저 클래스들 수정
+- [x] **ExecutionService 초기화 시점 수정**: Tool 등록 후 서비스 생성으로 변경
+- [ ] **AgentTemplate**: 에이전트 설정 템플릿 로드
 
 ### Phase 2: 마이그레이션 완료
 - [ ] **@robota-sdk/sessions 완성**:

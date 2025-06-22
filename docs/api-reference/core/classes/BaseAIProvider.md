@@ -58,7 +58,7 @@ Provider identifier name
 
 #### Defined in
 
-[packages/core/src/providers/base-ai-provider.ts:20](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/providers/base-ai-provider.ts#L20)
+[packages/core/src/providers/base-ai-provider.ts:20](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/providers/base-ai-provider.ts#L20)
 
 ___
 
@@ -70,7 +70,7 @@ Provider configuration options
 
 #### Defined in
 
-[packages/core/src/providers/base-ai-provider.ts:25](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/providers/base-ai-provider.ts#L25)
+[packages/core/src/providers/base-ai-provider.ts:25](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/providers/base-ai-provider.ts#L25)
 
 ## Methods
 
@@ -98,7 +98,7 @@ Send a chat request and receive a complete response
 
 #### Defined in
 
-[packages/core/src/providers/base-ai-provider.ts:30](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/providers/base-ai-provider.ts#L30)
+[packages/core/src/providers/base-ai-provider.ts:30](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/providers/base-ai-provider.ts#L30)
 
 ___
 
@@ -126,7 +126,7 @@ Send a streaming chat request and receive response chunks
 
 #### Defined in
 
-[packages/core/src/providers/base-ai-provider.ts:35](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/providers/base-ai-provider.ts#L35)
+[packages/core/src/providers/base-ai-provider.ts:35](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/providers/base-ai-provider.ts#L35)
 
 ___
 
@@ -146,4 +146,4 @@ Close the provider and clean up resources
 
 #### Defined in
 
-[packages/core/src/providers/base-ai-provider.ts:40](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/core/src/providers/base-ai-provider.ts#L40)
+[packages/core/src/providers/base-ai-provider.ts:40](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/core/src/providers/base-ai-provider.ts#L40)

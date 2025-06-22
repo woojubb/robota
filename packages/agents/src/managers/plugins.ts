@@ -101,17 +101,16 @@ export interface PluginsManagerInterface {
 
 /**
  * Plugins class for managing plugin lifecycle and dependencies
- * Singleton pattern for centralized plugin management
+ * Instance-based for isolation
  */
 export class Plugins extends BaseManager implements PluginsManagerInterface {
-    private static instance: Plugins | null = null;
     private plugins = new Map<string, BasePlugin>();
     private pluginOptions = new Map<string, PluginRegistrationOptions>();
     private initializationOrder: string[] = [];
     private lifecycleEvents: PluginLifecycleEvents;
     private logger: Logger;
 
-    private constructor(lifecycleEvents: PluginLifecycleEvents = {}) {
+    constructor(lifecycleEvents: PluginLifecycleEvents = {}) {
         super();
         this.lifecycleEvents = lifecycleEvents;
         this.logger = new Logger('Plugins');
@@ -136,22 +135,7 @@ export class Plugins extends BaseManager implements PluginsManagerInterface {
         this.initializationOrder = [];
     }
 
-    /**
-     * Get singleton instance
-     */
-    public static getInstance(lifecycleEvents?: PluginLifecycleEvents): Plugins {
-        if (!Plugins.instance) {
-            Plugins.instance = new Plugins(lifecycleEvents);
-        }
-        return Plugins.instance;
-    }
 
-    /**
-     * Reset singleton (for testing)
-     */
-    public static reset(): void {
-        Plugins.instance = null;
-    }
 
     /**
      * Initialize the plugins manager
@@ -173,7 +157,14 @@ export class Plugins extends BaseManager implements PluginsManagerInterface {
         const pluginName = plugin.name;
 
         if (this.plugins.has(pluginName)) {
-            throw new ConfigurationError(`Plugin "${pluginName}" is already registered`);
+            this.logger.warn(`Plugin "${pluginName}" is already registered, overriding`, {
+                pluginName,
+                existingVersion: this.plugins.get(pluginName)?.version,
+                newVersion: plugin.version
+            });
+
+            // Unregister existing plugin first
+            await this.unregister(pluginName);
         }
 
         // Validate dependencies

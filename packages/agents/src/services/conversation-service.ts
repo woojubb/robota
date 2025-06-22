@@ -35,7 +35,7 @@ export class ConversationService implements ConversationServiceInterface {
      * Pure function that transforms inputs to context object
      */
     prepareContext(
-        messages: Message[],
+        messages: UniversalMessage[],
         model: string,
         provider: string,
         contextOptions: ContextOptions = {},
@@ -94,7 +94,7 @@ export class ConversationService implements ConversationServiceInterface {
      * Static helper method for context creation
      */
     private static createContext(
-        messages: Message[],
+        messages: UniversalMessage[],
         model: string,
         provider: string,
         contextOptions: ContextOptions,

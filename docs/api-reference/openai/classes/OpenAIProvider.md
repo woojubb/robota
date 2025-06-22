@@ -42,6 +42,8 @@ Extends BaseAIProvider for common functionality and tool calling support.
 - [initialize](OpenAIProvider#initialize)
 - [dispose](OpenAIProvider#dispose)
 - [isInitialized](OpenAIProvider#isinitialized)
+- [execute](OpenAIProvider#execute)
+- [executeStream](OpenAIProvider#executestream)
 - [generateStreamingResponse](OpenAIProvider#generatestreamingresponse)
 - [supportsModel](OpenAIProvider#supportsmodel)
 - [formatFunctions](OpenAIProvider#formatfunctions)
@@ -80,7 +82,7 @@ BaseAIProvider.constructor
 
 #### Defined in
 
-[openai/src/provider.ts:82](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/openai/src/provider.ts#L82)
+[openai/src/provider.ts:84](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/openai/src/provider.ts#L84)
 
 ## Properties
 
@@ -96,7 +98,7 @@ BaseAIProvider.name
 
 #### Defined in
 
-[openai/src/provider.ts:29](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/openai/src/provider.ts#L29)
+[openai/src/provider.ts:31](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/openai/src/provider.ts#L31)
 
 ___
 
@@ -112,7 +114,7 @@ BaseAIProvider.models
 
 #### Defined in
 
-[openai/src/provider.ts:35](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/openai/src/provider.ts#L35)
+[openai/src/provider.ts:37](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/openai/src/provider.ts#L37)
 
 ___
 
@@ -124,7 +126,7 @@ Client type identifier
 
 #### Defined in
 
-[openai/src/provider.ts:54](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/openai/src/provider.ts#L54)
+[openai/src/provider.ts:56](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/openai/src/provider.ts#L56)
 
 ___
 
@@ -140,7 +142,7 @@ Use the private client property instead
 
 #### Defined in
 
-[openai/src/provider.ts:61](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/openai/src/provider.ts#L61)
+[openai/src/provider.ts:63](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/openai/src/provider.ts#L63)
 
 ___
 
@@ -152,7 +154,7 @@ Provider configuration options
 
 #### Defined in
 
-[openai/src/provider.ts:67](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/openai/src/provider.ts#L67)
+[openai/src/provider.ts:69](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/openai/src/provider.ts#L69)
 
 ## Methods
 
@@ -170,7 +172,7 @@ BaseAIProvider.initialize
 
 #### Defined in
 
-agents/dist/index.d.ts:688
+agents/dist/index.d.ts:848
 
 ___
 
@@ -188,7 +190,7 @@ BaseAIProvider.dispose
 
 #### Defined in
 
-agents/dist/index.d.ts:689
+agents/dist/index.d.ts:849
 
 ___
 
@@ -206,7 +208,73 @@ BaseAIProvider.isInitialized
 
 #### Defined in
 
-agents/dist/index.d.ts:690
+agents/dist/index.d.ts:850
+
+___
+
+### execute
+
+▸ **execute**(`messages`, `config`): `Promise`\<`ProviderExecutionResult`\>
+
+High-level execute method that handles the entire conversation process
+
+This method encapsulates all provider-specific logic including:
+- Message format conversion
+- Tool configuration
+- Request preparation
+- Response processing
+
+ExecutionService delegates the entire AI interaction to this method.
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `messages` | `UniversalMessage`[] | Array of UniversalMessage from conversation history |
+| `config` | `ProviderExecutionConfig` | Execution configuration |
+
+#### Returns
+
+`Promise`\<`ProviderExecutionResult`\>
+
+Provider execution result
+
+#### Inherited from
+
+BaseAIProvider.execute
+
+#### Defined in
+
+agents/dist/index.d.ts:900
+
+___
+
+### executeStream
+
+▸ **executeStream**(`messages`, `config`): `AsyncGenerator`\<`ProviderExecutionResult`, `void`, `unknown`\>
+
+High-level streaming execute method
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `messages` | `UniversalMessage`[] | Array of UniversalMessage from conversation history |
+| `config` | `ProviderExecutionConfig` | Execution configuration |
+
+#### Returns
+
+`AsyncGenerator`\<`ProviderExecutionResult`, `void`, `unknown`\>
+
+Async generator of streaming results
+
+#### Inherited from
+
+BaseAIProvider.executeStream
+
+#### Defined in
+
+agents/dist/index.d.ts:908
 
 ___
 
@@ -232,7 +300,7 @@ BaseAIProvider.generateStreamingResponse
 
 #### Defined in
 
-agents/dist/index.d.ts:707
+agents/dist/index.d.ts:916
 
 ___
 
@@ -256,7 +324,7 @@ BaseAIProvider.supportsModel
 
 #### Defined in
 
-agents/dist/index.d.ts:708
+agents/dist/index.d.ts:917
 
 ___
 
@@ -283,7 +351,7 @@ Array of OpenAI-formatted tools
 
 #### Defined in
 
-[openai/src/provider.ts:120](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/openai/src/provider.ts#L120)
+[openai/src/provider.ts:122](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/openai/src/provider.ts#L122)
 
 ___
 
@@ -314,7 +382,7 @@ BaseAIProvider.generateResponse
 
 #### Defined in
 
-[openai/src/provider.ts:171](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/openai/src/provider.ts#L171)
+[openai/src/provider.ts:171](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/openai/src/provider.ts#L171)
 
 ___
 
@@ -363,7 +431,7 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[openai/src/provider.ts:229](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/openai/src/provider.ts#L229)
+[openai/src/provider.ts:228](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/openai/src/provider.ts#L228)
 
 ___
 
@@ -390,7 +458,7 @@ Parsed model response in universal format
 
 #### Defined in
 
-[openai/src/provider.ts:289](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/openai/src/provider.ts#L289)
+[openai/src/provider.ts:290](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/openai/src/provider.ts#L290)
 
 ___
 
@@ -417,7 +485,7 @@ Parsed streaming response chunk
 
 #### Defined in
 
-[openai/src/provider.ts:332](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/openai/src/provider.ts#L332)
+[openai/src/provider.ts:333](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/openai/src/provider.ts#L333)
 
 ___
 
@@ -471,7 +539,7 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[openai/src/provider.ts:376](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/openai/src/provider.ts#L376)
+[openai/src/provider.ts:377](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/openai/src/provider.ts#L377)
 
 ___
 
@@ -496,4 +564,4 @@ BaseAIProvider.close
 
 #### Defined in
 
-[openai/src/provider.ts:451](https://github.com/woojubb/robota/blob/46e3c20d20507afa42f465edc1521c6649dfe421/packages/openai/src/provider.ts#L451)
+[openai/src/provider.ts:454](https://github.com/woojubb/robota/blob/30652967d461653c455a3b4a7c021f51b3c17391/packages/openai/src/provider.ts#L454)

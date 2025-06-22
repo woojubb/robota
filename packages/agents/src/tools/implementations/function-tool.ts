@@ -216,37 +216,8 @@ export function createZodFunctionTool(
     zodSchema: any, // Zod schema
     fn: (...args: any[]) => Promise<any>
 ): FunctionTool {
-    // Convert Zod schema to JSON schema format
-    // This is a simplified conversion - in production, you might want to use a library
-    const parameters: ToolSchema['parameters'] = {
-        type: 'object',
-        properties: {},
-        required: []
-    };
-
-    // Basic Zod to JSON schema conversion
-    // Note: This is simplified - for production use, consider using @anatine/zod-to-openapi
-    if (zodSchema._def) {
-        const shape = zodSchema._def.shape;
-        if (shape) {
-            for (const [key, zodField] of Object.entries(shape())) {
-                const field = zodField as any;
-                const fieldType = field._def?.typeName?.toLowerCase().replace('zod', '') || 'string';
-
-                parameters.properties![key] = {
-                    type: fieldType === 'string' ? 'string' :
-                        fieldType === 'number' ? 'number' :
-                            fieldType === 'boolean' ? 'boolean' :
-                                fieldType === 'array' ? 'array' : 'object',
-                    description: field._def?.description || `${key} parameter`
-                };
-
-                if (!field._def?.optional) {
-                    parameters.required!.push(key);
-                }
-            }
-        }
-    }
+    // Use comprehensive Zod to JSON schema conversion
+    const parameters = zodToJsonSchema(zodSchema);
 
     const schema: ToolSchema = {
         name,
@@ -254,5 +225,105 @@ export function createZodFunctionTool(
         parameters
     };
 
-    return new FunctionTool(schema, fn);
+    // Wrap the function to ensure result is always a string (core pattern)
+    const wrappedFn = async (...args: any[]) => {
+        const result = await fn(...args);
+        // Ensure result is always a string for consistency with core package
+        return typeof result === 'string' ? result : JSON.stringify(result);
+    };
+
+    return new FunctionTool(schema, wrappedFn);
+}
+
+/**
+ * Comprehensive Zod to JSON schema conversion
+ * Adapted from @robota-sdk/tools zodToJsonSchema implementation
+ */
+function zodToJsonSchema(schema: any): ToolSchema['parameters'] {
+    if (!schema || !schema._def || !schema._def.shape) {
+        return {
+            type: 'object',
+            properties: {},
+            required: []
+        };
+    }
+
+    // Extract properties from z.object
+    const shape = schema._def.shape();
+
+    // Configure JSON schema properties
+    const properties: Record<string, any> = {};
+    const required: string[] = [];
+
+    // Process each property
+    Object.entries(shape).forEach(([key, zodType]) => {
+        // zodType is a z.ZodType instance
+        let typeObj = zodType as any;
+        let isOptional = false;
+        let description: string | undefined;
+
+        // Handle optional types and preserve description
+        if (typeObj._def && typeObj._def.typeName === 'ZodOptional') {
+            isOptional = true;
+            // Get description from optional wrapper first
+            description = typeObj._def.description;
+            typeObj = typeObj._def.innerType;
+        }
+
+        // Basic property information
+        let property: Record<string, any> = {};
+
+        // Type processing based on Zod type name
+        const typeName = typeObj._def?.typeName;
+
+        if (typeName === 'ZodNumber') {
+            property.type = "number";
+        } else if (typeName === 'ZodString') {
+            property.type = "string";
+        } else if (typeName === 'ZodBoolean') {
+            property.type = "boolean";
+        } else if (typeName === 'ZodEnum') {
+            property.type = "string";
+            property.enum = typeObj._def.values;
+        } else if (typeName === 'ZodArray') {
+            property.type = "array";
+            // Process array item type
+            const itemTypeName = typeObj._def.type?._def?.typeName;
+            if (itemTypeName === 'ZodString') {
+                property.items = { type: "string" };
+            } else if (itemTypeName === 'ZodObject') {
+                property.items = zodToJsonSchema(typeObj._def.type);
+            } else {
+                property.items = { type: "string" }; // fallback
+            }
+        } else if (typeName === 'ZodObject') {
+            // Process nested object
+            property = zodToJsonSchema(typeObj);
+        } else {
+            // Fallback for unsupported types
+            property.type = "string";
+        }
+
+        // Add description - try optional wrapper first, then inner type
+        if (!description) {
+            description = typeObj._def?.description;
+        }
+        if (description) {
+            property.description = description;
+        }
+
+        // Add to required if not optional
+        if (!isOptional) {
+            required.push(key);
+        }
+
+        properties[key] = property;
+    });
+
+    // Final JSON schema object
+    return {
+        type: "object",
+        properties,
+        required: required.length > 0 ? required : undefined
+    };
 } 

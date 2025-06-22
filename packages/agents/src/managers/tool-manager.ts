@@ -10,33 +10,15 @@ import { logger } from '../utils/logger';
 /**
  * Tools implementation
  * Manages tool registration and execution using Tool Registry
- * Singleton pattern for centralized management
+ * Instance-based for isolated tool management
  */
 export class Tools extends BaseManager implements ToolManagerInterface {
-    private static instance: Tools | null = null;
     private registry: ToolRegistry;
     private allowedTools?: string[];
 
-    private constructor() {
+    constructor() {
         super();
         this.registry = new ToolRegistry();
-    }
-
-    /**
-     * Get singleton instance
-     */
-    public static getInstance(): Tools {
-        if (!Tools.instance) {
-            Tools.instance = new Tools();
-        }
-        return Tools.instance;
-    }
-
-    /**
-     * Reset singleton (for testing)
-     */
-    public static reset(): void {
-        Tools.instance = null;
     }
 
     /**

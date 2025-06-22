@@ -4,9 +4,11 @@ import {
     BaseAIProvider,
     ModelResponse,
     StreamingResponseChunk,
-    UniversalMessage,
-    ToolSchema
+    ToolSchema,
+    logger
 } from '@robota-sdk/agents';
+import type { UniversalMessage } from '@robota-sdk/agents/src/managers/conversation-history-manager';
+import type { ProviderExecutionResult } from '@robota-sdk/agents/src/abstracts/base-ai-provider';
 import { AnthropicProviderOptions } from './types';
 import { AnthropicConversationAdapter } from './adapter';
 import { PayloadLogger } from './payload-logger';
@@ -117,9 +119,7 @@ export class AnthropicProvider extends BaseAIProvider {
 
         try {
             // Convert UniversalMessage[] to Anthropic Messages format
-            const anthropicMessages = AnthropicConversationAdapter.toAnthropicMessages(
-                messages as UniversalMessage[]
-            );
+            const anthropicMessages = this.convertMessages(messages);
 
             const requestParams: any = {
                 model: model || this.options.model || 'claude-3-sonnet-20240229',
@@ -134,10 +134,18 @@ export class AnthropicProvider extends BaseAIProvider {
             }
 
             // Configure tools if provided
-            const toolConfig = this.configureTools(options?.tools);
+            const toolConfig = this.configureTools(context.tools);
             if (toolConfig) {
                 requestParams.tools = toolConfig.tools;
             }
+
+            // Debug: Log payload to console
+            console.log('🔍 Anthropic Provider - API Payload:', JSON.stringify({
+                model: requestParams.model,
+                messages: requestParams.messages?.length,
+                tools: toolConfig?.tools ? `${toolConfig.tools.length} tools` : 'no tools',
+                context_tools: context.tools ? `${context.tools.length} context tools` : 'no context tools'
+            }, null, 2));
 
             // Log payload for debugging
             if (this.payloadLogger.isEnabled()) {
@@ -176,9 +184,7 @@ export class AnthropicProvider extends BaseAIProvider {
 
         try {
             // Convert UniversalMessage[] to Anthropic Messages format
-            const anthropicMessages = AnthropicConversationAdapter.toAnthropicMessages(
-                messages as UniversalMessage[]
-            );
+            const anthropicMessages = this.convertMessages(messages);
 
             const requestParams: any = {
                 model: model || this.options.model || 'claude-3-sonnet-20240229',
@@ -194,10 +200,18 @@ export class AnthropicProvider extends BaseAIProvider {
             }
 
             // Configure tools if provided
-            const toolConfig = this.configureTools(options?.tools);
+            const toolConfig = this.configureTools(context.tools);
             if (toolConfig) {
                 requestParams.tools = toolConfig.tools;
             }
+
+            // Debug: Log payload to console (streaming)
+            console.log('🔍 Anthropic Provider (Stream) - API Payload:', JSON.stringify({
+                model: requestParams.model,
+                messages: requestParams.messages?.length,
+                tools: toolConfig?.tools ? `${toolConfig.tools.length} tools` : 'no tools',
+                context_tools: context.tools ? `${context.tools.length} context tools` : 'no context tools'
+            }, null, 2));
 
             // Log payload for debugging
             if (this.payloadLogger.isEnabled()) {
@@ -212,6 +226,16 @@ export class AnthropicProvider extends BaseAIProvider {
         } catch (error) {
             this.handleApiError(error, 'chatStream');
         }
+    }
+
+    /**
+     * Convert UniversalMessage[] to Anthropic-specific message format
+     * 
+     * @param messages - Array of UniversalMessage to convert
+     * @returns Anthropic-formatted messages array
+     */
+    protected convertMessages(messages: UniversalMessage[]): any[] {
+        return AnthropicConversationAdapter.toAnthropicMessages(messages);
     }
 
     /**
@@ -343,5 +367,23 @@ export class AnthropicProvider extends BaseAIProvider {
     async close(): Promise<void> {
         // Anthropic client doesn't have explicit close method
         // This is implemented as no-op for interface compliance
+    }
+
+    /**
+     * Process Anthropic provider response into standardized format
+     * 
+     * Overrides the base implementation to use Anthropic-specific parsing logic.
+     * 
+     * @param response - Raw response from Anthropic chat method
+     * @returns Standardized ProviderExecutionResult
+     */
+    protected processResponse(response: ModelResponse): ProviderExecutionResult {
+        return {
+            content: response.content || '',
+            toolCalls: response.toolCalls,
+            usage: response.usage,
+            finishReason: response.metadata?.finishReason,
+            metadata: response.metadata
+        };
     }
 } 

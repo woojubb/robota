@@ -1,12 +1,16 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { BaseAIProvider } from '@robota-sdk/agents';
+import {
+    BaseAIProvider,
+    logger
+} from '@robota-sdk/agents';
 import type {
     Context,
     ModelResponse,
     StreamingResponseChunk,
-    UniversalMessage,
     ToolSchema
 } from '@robota-sdk/agents';
+import type { UniversalMessage } from '@robota-sdk/agents/src/managers/conversation-history-manager';
+import type { ProviderExecutionResult } from '@robota-sdk/agents/src/abstracts/base-ai-provider';
 import type { GoogleProviderOptions } from './types';
 import { GoogleConversationAdapter } from './adapter';
 
@@ -98,13 +102,13 @@ export class GoogleProvider extends BaseAIProvider {
 
         try {
             // Convert UniversalMessage[] to Google AI format
-            const { contents, systemInstruction } = GoogleConversationAdapter.processMessages(
+            const { contents, systemInstruction } = this.processGoogleMessages(
                 messages as UniversalMessage[],
                 systemMessage
             );
 
             // Configure tools if provided
-            const toolConfig = this.configureTools(options?.tools);
+            const toolConfig = this.configureTools(context.tools);
             const modelConfig: any = {
                 model: model || this.options.model || 'gemini-1.5-flash',
                 systemInstruction: systemInstruction
@@ -165,13 +169,13 @@ export class GoogleProvider extends BaseAIProvider {
 
         try {
             // Convert UniversalMessage[] to Google AI format
-            const { contents, systemInstruction } = GoogleConversationAdapter.processMessages(
+            const { contents, systemInstruction } = this.processGoogleMessages(
                 messages as UniversalMessage[],
                 systemMessage
             );
 
             // Configure tools if provided
-            const toolConfig = this.configureTools(options?.tools);
+            const toolConfig = this.configureTools(context.tools);
             const modelConfig: any = {
                 model: model || this.options.model || 'gemini-1.5-flash',
                 systemInstruction: systemInstruction
@@ -209,6 +213,29 @@ export class GoogleProvider extends BaseAIProvider {
         } catch (error) {
             this.handleApiError(error, 'chatStream');
         }
+    }
+
+    /**
+     * Convert UniversalMessage[] to Google AI-specific message format
+     * 
+     * @param messages - Array of UniversalMessage to convert
+     * @returns Google AI-formatted messages and system instruction
+     */
+    protected convertMessages(messages: UniversalMessage[]): any[] {
+        // For base class compatibility, just return the messages
+        // Actual processing is done in Google-specific methods
+        return messages as any[];
+    }
+
+    /**
+     * Process messages with Google AI-specific format
+     * 
+     * @param messages - Array of UniversalMessage to process
+     * @param systemMessage - Optional system message
+     * @returns Google AI-formatted messages and system instruction
+     */
+    private processGoogleMessages(messages: UniversalMessage[], systemMessage?: string): { contents: any[], systemInstruction?: string } {
+        return GoogleConversationAdapter.processMessages(messages, systemMessage);
     }
 
     /**
@@ -337,5 +364,23 @@ export class GoogleProvider extends BaseAIProvider {
     async close(): Promise<void> {
         // Google AI client doesn't have explicit close method
         // This is implemented as no-op for interface compliance
+    }
+
+    /**
+     * Process Google provider response into standardized format
+     * 
+     * Overrides the base implementation to use Google-specific parsing logic.
+     * 
+     * @param response - Raw response from Google chat method
+     * @returns Standardized ProviderExecutionResult
+     */
+    protected processResponse(response: ModelResponse): ProviderExecutionResult {
+        return {
+            content: response.content || '',
+            toolCalls: response.toolCalls,
+            usage: response.usage,
+            finishReason: response.metadata?.finishReason,
+            metadata: response.metadata
+        };
     }
 } 

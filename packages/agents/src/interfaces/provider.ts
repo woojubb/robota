@@ -1,11 +1,14 @@
 import type { Message, ToolCall } from './agent';
+import type { UniversalMessage } from '../managers/conversation-history-manager';
 
 /**
  * Context for AI provider requests
  */
 export interface Context {
-    messages: Message[];
+    messages: UniversalMessage[];
     systemMessage?: string;
+    temperature?: number;
+    maxTokens?: number;
     tools?: ToolSchema[];
     metadata?: Record<string, any>;
 }

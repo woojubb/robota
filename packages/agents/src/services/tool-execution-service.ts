@@ -1,5 +1,5 @@
-import { ToolInterface, ToolExecutionResult } from '../interfaces/tool';
-import { ToolManager } from '../managers/tool-manager';
+import { ToolInterface, ToolExecutionResult, ToolResult } from '../interfaces/tool';
+import { Tools } from '../managers/tool-manager';
 import { Logger } from '../utils/logger';
 import { ToolExecutionError, ValidationError } from '../utils/errors';
 
@@ -92,13 +92,13 @@ export interface ToolExecutionServiceOptions {
  */
 export class ToolExecutionService {
     private logger: Logger;
-    private toolManager: ToolManager;
+    private toolManager: Tools;
     private options: Required<ToolExecutionServiceOptions>;
     private executionHistory: ToolExecutionSummary[] = [];
     private executionStats: Map<string, { count: number; totalTime: number; errors: number }> = new Map();
 
     constructor(
-        toolManager: ToolManager,
+        toolManager: Tools,
         options: ToolExecutionServiceOptions = {}
     ) {
         this.toolManager = toolManager;
@@ -146,7 +146,7 @@ export class ToolExecutionService {
                 () => tool.execute(request.parameters),
                 this.options.defaultTimeout,
                 `Tool execution for ${request.toolName}`
-            );
+            ) as ToolResult;
 
             const duration = Date.now() - startTime;
 
@@ -165,7 +165,9 @@ export class ToolExecutionService {
             const executionResult: ToolExecutionResult = {
                 success: toolResult.success,
                 toolName: request.toolName,
-                result: toolResult.data,
+                result: typeof toolResult.data === 'string'
+                    ? toolResult.data
+                    : JSON.stringify(toolResult.data),
                 error: toolResult.error,
                 executionId,
                 duration,

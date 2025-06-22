@@ -73,6 +73,14 @@ export class OpenAIProvider extends BaseAIProvider {
                 completionOptions.tool_choice = 'auto';
             }
 
+            // Debug: Log payload to console (Agents Package)
+            console.log('🔍 OpenAI Provider (Agents) - API Payload:', JSON.stringify({
+                model: completionOptions.model,
+                messages: completionOptions.messages?.length,
+                tools: completionOptions.tools ? `${completionOptions.tools.length} tools` : 'no tools',
+                request_tools: request.tools ? `${request.tools.length} request tools` : 'no request tools'
+            }, null, 2));
+
             // Call OpenAI API
             const response = await this.client.chat.completions.create(completionOptions);
 

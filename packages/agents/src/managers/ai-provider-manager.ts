@@ -8,33 +8,15 @@ import { logger } from '../utils/logger';
 /**
  * AI Providers implementation
  * Manages registration, selection, and state of AI providers
- * Singleton pattern for centralized management
+ * Instance-based for isolated provider management
  */
 export class AIProviders extends BaseManager implements AIProviderManagerInterface {
-    private static instance: AIProviders | null = null;
     private providers = new Map<string, AIProvider>();
     private currentProvider?: string;
     private currentModel?: string;
 
-    private constructor() {
+    constructor() {
         super();
-    }
-
-    /**
-     * Get singleton instance
-     */
-    public static getInstance(): AIProviders {
-        if (!AIProviders.instance) {
-            AIProviders.instance = new AIProviders();
-        }
-        return AIProviders.instance;
-    }
-
-    /**
-     * Reset singleton (for testing)
-     */
-    public static reset(): void {
-        AIProviders.instance = null;
     }
 
     /**

@@ -18,33 +18,15 @@ export interface TemplateApplicationResult {
 /**
  * Agent Templates implementation
  * Manages agent templates for AgentFactory
- * Singleton pattern for centralized management
+ * Instance-based for isolated template management
  */
 export class AgentTemplates {
-    private static instance: AgentTemplates | null = null;
     private templates = new Map<string, AgentTemplate>();
     private logger: Logger;
 
-    private constructor() {
+    constructor() {
         this.logger = new Logger('AgentTemplates');
         this.logger.info('AgentTemplates initialized');
-    }
-
-    /**
-     * Get singleton instance
-     */
-    public static getInstance(): AgentTemplates {
-        if (!AgentTemplates.instance) {
-            AgentTemplates.instance = new AgentTemplates();
-        }
-        return AgentTemplates.instance;
-    }
-
-    /**
-     * Reset singleton (for testing)
-     */
-    public static reset(): void {
-        AgentTemplates.instance = null;
     }
 
     /**
