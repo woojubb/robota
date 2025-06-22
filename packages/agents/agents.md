@@ -10,6 +10,7 @@
 2. **모듈화된 설계**: 각 기능을 추상화부터 구체 구현까지 여러 파일로 분산
 3. **기존 패키지 호환성**: sessions, team, openai, anthropic, google 패키지와 완벽 호환
 4. **확장 가능한 아키텍처**: 미래 기능 추가를 위한 유연한 구조
+5. **🆕 개발 가이드라인 준수**: 모든 코드는 프로젝트 개발 가이드라인을 엄격히 준수
 
 ## 🏗️ 아키텍처 설계
 
@@ -42,15 +43,17 @@ packages/agents/src/
 │   ├── agent.ts
 │   ├── provider.ts
 │   ├── manager.ts
+│   ├── service.ts       # 🆕 Service 인터페이스 통합
 │   └── tool.ts
 ├── agents/             # 에이전트 시스템 전체 (Agent의 모든 구성 요소)
 │   ├── robota.ts
 │   ├── managers/       # 상태/리소스 관리자들 (등록, 선택, 구성)
 │   │   ├── ai-provider-manager.ts    # AI Provider 등록/선택 관리
 │   │   ├── tool-manager.ts           # Tool 등록/관리
-│   │   └── agent-factory.ts          # Agent 생성/구성 관리
-│   ├── services/       # 비즈니스 로직 처리자들 (무상태 워크플로우)
-│   │   ├── conversation-service.ts   # 대화 처리 로직
+│   │   ├── agent-factory.ts          # Agent 생성/구성 관리
+│   │   └── plugin-manager.ts         # 🆕 Plugin 생명주기 관리
+│   ├── services/       # 무상태 비즈니스 로직 처리자들
+│   │   ├── conversation-service.ts   # 대화 처리 로직 (무상태화)
 │   │   ├── execution-service.ts      # 실행 파이프라인 로직
 │   │   └── tool-execution-service.ts # Tool 실행 로직
 │   ├── tools/          # 도구 시스템
@@ -190,8 +193,8 @@ packages/agents/src/
   - [x] @robota-sdk/openai: BaseAIProvider, Context, ModelResponse, StreamingResponseChunk, ToolSchema 사용 ✅ 빌드 성공
   - [x] @robota-sdk/anthropic: agents 표준으로 완전 마이그레이션 ✅ 빌드 성공
   - [x] @robota-sdk/google: agents 표준으로 완전 마이그레이션 ✅ 빌드 성공
-- [ ] 의존 패키지들 마이그레이션 (core/tools → agents)
-  - [ ] @robota-sdk/team: agents 표준으로 완전 마이그레이션 (우선순위 1)
+- [x] 의존 패키지들 마이그레이션 (core/tools → agents)
+  - [x] @robota-sdk/team: agents 표준으로 완전 마이그레이션 ✅ 성공
     - Team 패키지의 최신 AgentFactory, AgentTemplate 활용 방식을 기준으로 함
     - assignTask 함수 등 기존 동작 방식 누락 없이 구조 유지하며 agents 표준 적용
   - [ ] @robota-sdk/sessions: team 방식 기반으로 agents 표준 재작성 (우선순위 2)
@@ -204,12 +207,61 @@ packages/agents/src/
   - [ ] packages/tools 폴더 삭제 (대기)
   - [ ] workspace에서 core/tools 의존성 완전 제거 (대기)
 
-**현재 상태**: 모든 Provider 패키지들(OpenAI, Anthropic, Google) 마이그레이션 성공! 이제 Team → Sessions 순서로 마이그레이션 진행
+**현재 상태**: 모든 Provider 패키지들(OpenAI, Anthropic, Google) + Team 패키지 마이그레이션 성공! 이제 Sessions 마이그레이션 진행
 
 **개발 원칙**:
 - ⚠️ **Mock/Dummy/가짜 데이터 사용 금지**: 모든 코드는 실제 동작하는 구현체로만 작성
 - 🔄 **기존 동작 방식 유지**: 구조적 변경 최소화, agents 표준 적용에만 집중
 - 📋 **Team 기준 패턴**: Team 패키지의 AgentFactory, AgentTemplate 활용 방식을 Sessions에도 적용
+
+### 🆕 Phase 12: 개발 가이드라인 준수 리팩토링 (12단계) - **진행 중**
+**우선순위**: 🚨 Critical → ⚠️ Important → 📝 Style 순서로 진행
+
+#### 🚨 Critical Issues (즉시 수정 필요)
+- [ ] **순환 의존성 제거**: index.ts에서 Provider re-export 제거
+  - [ ] `OpenAIProvider` export 제거 → 각 Provider 패키지에서 직접 import 유도
+  - [ ] Provider 인터페이스만 export, 구현체는 각 패키지에서 제공
+  - [ ] build system에서 circular dependency 검사 추가
+- [ ] **Service 무상태화**: ConversationService의 상태 제거
+  - [ ] `options` 인스턴스 변수를 메서드 파라미터로 변경
+  - [ ] Service 메서드를 순수 함수로 변경 (input → output, no side effect)
+  - [ ] Service 인스턴스 재사용 가능하도록 설계 변경
+- [ ] **Manager 책임 분리**: Robota 클래스의 Manager 초기화 분리
+  - [ ] `PluginManager` 클래스 추가로 Plugin 생명주기 관리 전담
+  - [ ] Manager 간 의존성 최소화 및 독립적 초기화
+  - [ ] Robota 클래스는 delegation만 담당하도록 변경
+
+#### ⚠️ Important Issues (리뷰 단계에서 수정)
+- [ ] **인터페이스 통합**: 중복된 인터페이스 정의 통합
+  - [ ] `interfaces/service.ts` 파일 생성하여 Service 인터페이스 통합
+  - [ ] `ConversationContext`, `ConversationResponse` 등을 interfaces/로 이동
+  - [ ] 각 Service 파일에서 인터페이스 정의 제거
+- [ ] **에러 처리 표준화**: 일관된 에러 처리 전략 적용
+  - [ ] 모든 Service에서 동일한 에러 타입 사용
+  - [ ] Typed errors with clear error codes 구현
+  - [ ] Error context 및 debugging info 표준화
+- [ ] **Plugin 생명주기 관리**: Plugin 초기화/해제 순서 보장
+  - [ ] Plugin dependency graph 구현
+  - [ ] Plugin 초기화 실패 시 rollback 메커니즘
+  - [ ] Plugin 간 이벤트 전파 순서 제어
+
+#### 📝 Style Issues (배치 수정)
+- [x] **로깅 시스템 개선**: 기본 로그 레벨을 warn으로 변경하고 환경변수 제어 지원
+  - [x] Logger 클래스에 silent 레벨 추가 및 환경변수 ROBOTA_LOG_LEVEL 지원
+  - [x] RobotaConfig에 logging 옵션 추가 (level, enabled)
+  - [x] 주요 info 로그들을 debug로 변경하여 기본 출력량 감소
+  - [x] 예제 파일들에 로깅 설정 추가 (ROBOTA_VERBOSE 환경변수 지원)
+- [ ] **JSDoc 완성**: 모든 public API에 완전한 JSDoc 추가
+
+#### 📋 개발 가이드라인 검증 체크리스트
+- [ ] **Package Independence**: 각 패키지가 독립적으로 사용 가능한지 검증
+- [ ] **Stateless Services**: 모든 Service 클래스가 무상태인지 확인
+- [ ] **Interface-first approach**: 인터페이스 우선 설계 원칙 적용
+- [ ] **Lifecycle Management**: Manager와 Plugin의 적절한 생명주기 관리
+- [ ] **Constructor Injection**: 의존성 주입이 constructor에서 이루어지는지 확인
+- [ ] **Documentation Standards**: 모든 영어 주석, 의미있는 예제 포함
+- [ ] **No console.log**: 직접적인 console.log 사용 금지 확인
+- [ ] **Type Safety Standards**: Strict TypeScript 설정 준수
 
 ### Phase 9: 테스트 및 문서화 (9단계)
 - [ ] 단위 테스트 작성
@@ -343,7 +395,18 @@ await advancedRobota.run('복잡한 작업을 수행해줘');
 
 이 계획서를 검토하신 후 승인해주시면:
 
-1. **Phase 1**부터 순차적으로 개발 시작
+1. **Phase 12 (개발 가이드라인 준수)**부터 우선 진행
+2. **각 Critical Issue 완료시 중간 검토** 진행
+3. **가이드라인 준수 검증**을 각 단계마다 수행
+4. **문제 발생시 즉시 계획 수정**
+
+---
+
+**✅ 현재 진행 중**: Phase 12 - Critical Issues 수정 진행
+
+이 계획서를 검토하신 후 승인해주시면:
+
+1. **Phase 12**부터 순차적으로 개발 시작
 2. **각 Phase 완료시 중간 검토** 진행
 3. **호환성 테스트**를 각 단계마다 수행
 4. **문제 발생시 즉시 계획 수정**

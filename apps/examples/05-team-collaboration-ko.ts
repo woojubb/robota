@@ -83,12 +83,40 @@ task_coordinator 템플릿이 최적화된 설정으로 팀 협업을 자동으�
         console.log(chalk.green('✅ 예제 1용 팀을 생성하고 있습니다...'));
 
         const team1 = createTeam({
-            aiProviders: { openai: openaiProvider1, anthropic: anthropicProvider1 },
-            maxMembers: 5,
-            maxTokenLimit: 8000,
-            logger: console,
-            debug: false
-        });
+            aiProviders: {
+                openai: openaiProvider1,
+                anthropic: anthropicProvider1
+            },
+            currentProvider: 'openai',
+            currentModel: 'gpt-4o-mini',
+            systemMessage: `You are a task coordinator. You can either handle simple requests directly or delegate complex tasks to specialized team members.
+            
+Available team members:
+- domain_researcher: Research and analysis expert
+- creative_ideator: Creative and content generation expert  
+- summarizer: Information summarization specialist
+- ethical_reviewer: Ethics and safety evaluation expert
+- fast_executor: Quick task execution specialist
+
+Use the assignTask tool to delegate work to team members when:
+1. The task is complex and would benefit from specialized expertise
+2. You need detailed research or analysis
+3. The task involves creative work or ideation
+4. You need content summarization
+5. Ethical evaluation is required
+
+Handle simple queries yourself without delegation.`,
+            analytics: {
+                enabled: true,
+                trackPerformance: true,
+                maxEntries: 100,
+                performanceThreshold: 10000
+            },
+            logging: {
+                level: (process.env.ROBOTA_LOG_LEVEL as any) || 'warn',
+                enabled: process.env.ROBOTA_VERBOSE === 'true'
+            }
+        } as any);
 
         const simpleTask = 'React와 Vue.js의 주요 차이점 3가지를 간단히 알려주세요.';
 
@@ -137,12 +165,40 @@ task_coordinator 템플릿이 최적화된 설정으로 팀 협업을 자동으�
         console.log(chalk.green('✅ 예제 2용 새로운 팀을 생성하고 있습니다...'));
 
         const team2 = createTeam({
-            aiProviders: { openai: openaiProvider2, anthropic: anthropicProvider2 },
-            maxMembers: 5,
-            maxTokenLimit: 8000,
-            logger: console,
-            debug: false
-        });
+            aiProviders: {
+                openai: openaiProvider2,
+                anthropic: anthropicProvider2
+            },
+            currentProvider: 'openai',
+            currentModel: 'gpt-4o-mini',
+            systemMessage: `You are a task coordinator. You can either handle simple requests directly or delegate complex tasks to specialized team members.
+            
+Available team members:
+- domain_researcher: Research and analysis expert
+- creative_ideator: Creative and content generation expert  
+- summarizer: Information summarization specialist
+- ethical_reviewer: Ethics and safety evaluation expert
+- fast_executor: Quick task execution specialist
+
+Use the assignTask tool to delegate work to team members when:
+1. The task is complex and would benefit from specialized expertise
+2. You need detailed research or analysis
+3. The task involves creative work or ideation
+4. You need content summarization
+5. Ethical evaluation is required
+
+Handle simple queries yourself without delegation.`,
+            analytics: {
+                enabled: true,
+                trackPerformance: true,
+                maxEntries: 100,
+                performanceThreshold: 10000
+            },
+            logging: {
+                level: (process.env.ROBOTA_LOG_LEVEL as any) || 'warn',
+                enabled: process.env.ROBOTA_VERBOSE === 'true'
+            }
+        } as any);
 
         const complexTask = '카페 창업 계획서를 작성해주세요. 반드시 다음 두 부분을 모두 포함해야 합니다: 시장 분석, 메뉴 구성. 각각을 별도로 작성해주세요.';
 

@@ -1,4 +1,5 @@
 import { Message, UserMessage, AssistantMessage, SystemMessage, ToolMessage } from '../interfaces/agent';
+import { UniversalMessage } from '../managers/conversation-history-manager';
 import { AIProvider } from '../interfaces/provider';
 import { Logger } from '../utils/logger';
 import { NetworkError, ProviderError } from '../utils/errors';
@@ -80,24 +81,28 @@ export interface ConversationServiceOptions {
 }
 
 /**
+ * Default conversation service options
+ */
+const DEFAULT_OPTIONS: Required<ConversationServiceOptions> = {
+    maxHistoryLength: 100,
+    enableRetry: true,
+    maxRetries: 3,
+    retryDelay: 1000,
+    timeout: 30000,
+};
+
+/**
  * Service for handling conversation logic
- * Manages conversation context, AI provider calls, and response processing
+ * Stateless service that manages conversation context, AI provider calls, and response processing
  */
 export class ConversationService {
     private logger: Logger;
-    private options: Required<ConversationServiceOptions>;
 
-    constructor(options: ConversationServiceOptions = {}) {
+    constructor() {
         this.logger = new Logger('ConversationService');
-        this.options = {
-            maxHistoryLength: options.maxHistoryLength || 100,
-            enableRetry: options.enableRetry ?? true,
-            maxRetries: options.maxRetries || 3,
-            retryDelay: options.retryDelay || 1000,
-            timeout: options.timeout || 30000,
-        };
-
-        this.logger.info('ConversationService initialized', { options: this.options });
+        this.logger.info('ConversationService initialized', {
+            options: DEFAULT_OPTIONS
+        });
     }
 
     /**
@@ -107,28 +112,31 @@ export class ConversationService {
         messages: Message[],
         model: string,
         provider: string,
-        options: {
+        contextOptions: {
             systemMessage?: string;
             temperature?: number;
             maxTokens?: number;
             tools?: any[];
             metadata?: Record<string, any>;
-        } = {}
+        } = {},
+        serviceOptions: ConversationServiceOptions = {}
     ): ConversationContext {
+        const options = { ...DEFAULT_OPTIONS, ...serviceOptions };
+
         // Limit history length if configured
         let processedMessages = messages;
-        if (this.options.maxHistoryLength > 0 && messages.length > this.options.maxHistoryLength) {
+        if (options.maxHistoryLength > 0 && messages.length > options.maxHistoryLength) {
             // Keep system message if it exists, then take the most recent messages
             const systemMessages = messages.filter(m => m.role === 'system');
             const otherMessages = messages.filter(m => m.role !== 'system');
 
-            const recentMessages = otherMessages.slice(-this.options.maxHistoryLength + systemMessages.length);
+            const recentMessages = otherMessages.slice(-options.maxHistoryLength + systemMessages.length);
             processedMessages = [...systemMessages, ...recentMessages];
 
             this.logger.debug('Trimmed conversation history', {
                 originalLength: messages.length,
                 trimmedLength: processedMessages.length,
-                maxLength: this.options.maxHistoryLength,
+                maxLength: options.maxHistoryLength,
             });
         }
 
@@ -136,11 +144,11 @@ export class ConversationService {
             messages: processedMessages,
             model,
             provider,
-            systemMessage: options.systemMessage,
-            temperature: options.temperature,
-            maxTokens: options.maxTokens,
-            tools: options.tools,
-            metadata: options.metadata,
+            systemMessage: contextOptions.systemMessage,
+            temperature: contextOptions.temperature,
+            maxTokens: contextOptions.maxTokens,
+            tools: contextOptions.tools,
+            metadata: contextOptions.metadata,
         };
 
         this.logger.debug('Conversation context prepared', {
@@ -159,8 +167,10 @@ export class ConversationService {
      */
     async generateResponse(
         provider: AIProvider,
-        context: ConversationContext
+        context: ConversationContext,
+        serviceOptions: ConversationServiceOptions = {}
     ): Promise<ConversationResponse> {
+        const options = { ...DEFAULT_OPTIONS, ...serviceOptions };
         const startTime = Date.now();
 
         try {
@@ -176,7 +186,8 @@ export class ConversationService {
             // Generate response with retry logic
             const response = await this.executeWithRetry(
                 () => provider.generateResponse(requestPayload),
-                `generateResponse for ${context.provider}:${context.model}`
+                `generateResponse for ${context.provider}:${context.model}`,
+                options
             );
 
             // Process and validate response
@@ -198,8 +209,9 @@ export class ConversationService {
                 provider: context.provider,
                 model: context.model,
                 duration,
-                error,
+                error: error instanceof Error ? error.message : String(error),
             });
+
             throw error;
         }
     }
@@ -209,8 +221,10 @@ export class ConversationService {
      */
     async* generateStreamingResponse(
         provider: AIProvider,
-        context: ConversationContext
+        context: ConversationContext,
+        serviceOptions: ConversationServiceOptions = {}
     ): AsyncGenerator<StreamingChunk, void, unknown> {
+        const options = { ...DEFAULT_OPTIONS, ...serviceOptions };
         const startTime = Date.now();
 
         try {
@@ -231,22 +245,17 @@ export class ConversationService {
                 );
             }
 
-            // Generate streaming response
-            const streamGenerator = provider.generateStreamingResponse(requestPayload);
-            let totalDelta = '';
-            let chunkCount = 0;
+            // Generate streaming response with timeout
+            const streamPromise = provider.generateStreamingResponse(requestPayload);
+            const stream = await Promise.race([
+                streamPromise,
+                this.createTimeoutPromise<AsyncGenerator<any, void, unknown>>(options.timeout)
+            ]) as AsyncGenerator<any, void, unknown>;
 
-            for await (const chunk of streamGenerator) {
-                chunkCount++;
+            let totalChunks = 0;
+            for await (const chunk of stream) {
+                totalChunks++;
                 const processedChunk = this.processStreamingChunk(chunk);
-                totalDelta += processedChunk.delta;
-
-                this.logger.debug('Streaming chunk processed', {
-                    chunkNumber: chunkCount,
-                    deltaLength: processedChunk.delta.length,
-                    done: processedChunk.done,
-                });
-
                 yield processedChunk;
 
                 if (processedChunk.done) {
@@ -259,8 +268,7 @@ export class ConversationService {
                 provider: context.provider,
                 model: context.model,
                 duration,
-                chunkCount,
-                totalLength: totalDelta.length,
+                totalChunks,
             });
         } catch (error) {
             const duration = Date.now() - startTime;
@@ -268,10 +276,22 @@ export class ConversationService {
                 provider: context.provider,
                 model: context.model,
                 duration,
-                error,
+                error: error instanceof Error ? error.message : String(error),
             });
+
             throw error;
         }
+    }
+
+    /**
+     * Create a timeout promise that rejects after specified milliseconds
+     */
+    private createTimeoutPromise<T>(timeoutMs: number): Promise<T> {
+        return new Promise((_, reject) => {
+            setTimeout(() => {
+                reject(new NetworkError(`Operation timed out after ${timeoutMs}ms`));
+            }, timeoutMs);
+        });
     }
 
     /**
@@ -432,25 +452,26 @@ export class ConversationService {
     }
 
     /**
- * Execute a function with retry logic
- */
+     * Execute a function with retry logic
+     */
     private async executeWithRetry<T>(
         fn: () => Promise<T>,
-        operation: string
+        operation: string,
+        options: Required<ConversationServiceOptions>
     ): Promise<T> {
-        if (!this.options.enableRetry) {
+        if (!options.enableRetry) {
             return fn();
         }
 
         let lastError: Error | undefined;
 
-        for (let attempt = 1; attempt <= this.options.maxRetries; attempt++) {
+        for (let attempt = 1; attempt <= options.maxRetries; attempt++) {
             try {
-                return await this.withTimeout(fn(), this.options.timeout);
+                return await this.withTimeout(fn(), options.timeout);
             } catch (error) {
                 lastError = error as Error;
 
-                this.logger.warn(`${operation} failed (attempt ${attempt}/${this.options.maxRetries})`, {
+                this.logger.warn(`${operation} failed (attempt ${attempt}/${options.maxRetries})`, {
                     error: error instanceof Error ? error.message : String(error),
                     attempt,
                 });
@@ -461,8 +482,8 @@ export class ConversationService {
                 }
 
                 // Don't wait after the last attempt
-                if (attempt < this.options.maxRetries) {
-                    await this.delay(this.options.retryDelay * attempt);
+                if (attempt < options.maxRetries) {
+                    await this.delay(options.retryDelay * attempt);
                 }
             }
         }

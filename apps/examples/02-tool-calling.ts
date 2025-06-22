@@ -8,7 +8,8 @@
  */
 
 import { z } from 'zod';
-import { Robota, OpenAIProvider, createFunctionTool } from '@robota-sdk/agents';
+import { Robota, createFunctionTool } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
@@ -169,9 +170,13 @@ async function main() {
             model: 'gpt-3.5-turbo',
             currentProvider: 'openai',
             currentModel: 'gpt-3.5-turbo',
-            tools: [], // 임시로 도구 제거
-            systemMessage: 'You are a helpful assistant that can perform calculations, check weather, and tell time. Use the available tools when needed.'
-        });
+            tools: [calculateTool, weatherTool, timeTool],
+            systemMessage: 'You are a helpful assistant that can perform calculations, check weather, and tell time. Use the available tools when needed.',
+            logging: {
+                level: (process.env.ROBOTA_LOG_LEVEL as any) || 'warn',
+                enabled: process.env.ROBOTA_VERBOSE === 'true'
+            }
+        } as any);
 
         // Test queries that should trigger tool calls
         const queries = [

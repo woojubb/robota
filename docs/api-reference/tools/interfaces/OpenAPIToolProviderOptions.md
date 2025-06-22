@@ -28,7 +28,7 @@ OpenAPI spec object or URL
 
 #### Defined in
 
-[packages/tools/src/openapi-tool-provider.ts:9](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/tools/src/openapi-tool-provider.ts#L9)
+[packages/tools/src/openapi-tool-provider.ts:9](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/tools/src/openapi-tool-provider.ts#L9)
 
 ___
 
@@ -40,7 +40,7 @@ Base URL configuration
 
 #### Defined in
 
-[packages/tools/src/openapi-tool-provider.ts:11](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/tools/src/openapi-tool-provider.ts#L11)
+[packages/tools/src/openapi-tool-provider.ts:11](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/tools/src/openapi-tool-provider.ts#L11)
 
 ___
 
@@ -67,4 +67,4 @@ Logger function (optional)
 
 #### Defined in
 
-[packages/tools/src/openapi-tool-provider.ts:13](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/tools/src/openapi-tool-provider.ts#L13)
+[packages/tools/src/openapi-tool-provider.ts:13](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/tools/src/openapi-tool-provider.ts#L13)

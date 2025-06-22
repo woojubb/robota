@@ -38,8 +38,11 @@ export { WebhookPlugin, WebhookEventType, WebhookPayload, WebhookEndpoint, Webho
 // Agent exports
 export { Robota, RobotaConfig } from './agents/robota.js';
 
-// Provider exports
-export { OpenAIProvider, OpenAIProviderOptions } from './providers/openai-provider.js';
+// NOTE: Provider implementations are no longer re-exported to prevent circular dependencies
+// Import directly from provider packages:
+// - OpenAIProvider from '@robota-sdk/openai'
+// - AnthropicProvider from '@robota-sdk/anthropic'
+// - GoogleProvider from '@robota-sdk/google'
 
 // Manager exports
 export { AgentFactory, AgentFactoryOptions, AgentCreationStats, AgentLifecycleEvents, TemplateApplicationResult } from './managers/agent-factory.js';

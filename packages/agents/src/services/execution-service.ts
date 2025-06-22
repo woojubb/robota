@@ -1,11 +1,13 @@
-import { Message, AgentConfig, ToolCall } from '../interfaces/agent.js';
-import { BasePlugin } from '../abstracts/base-plugin.js';
-import { ConversationService, ConversationContext } from './conversation-service.js';
-import { ToolExecutionService, ToolExecutionContext } from './tool-execution-service.js';
-import { AIProviderManager } from '../managers/ai-provider-manager.js';
-import { ToolManager } from '../managers/tool-manager.js';
-import { AIProvider } from '../interfaces/provider.js';
-import { Logger } from '../utils/logger.js';
+import { Message, AgentConfig, ToolCall } from '../interfaces/agent';
+import { BasePlugin } from '../abstracts/base-plugin';
+import { ConversationService, ConversationContext } from './conversation-service';
+import { ToolExecutionService, ToolExecutionContext } from './tool-execution-service';
+import { AIProviders } from '../managers/ai-provider-manager';
+import { Tools } from '../managers/tool-manager';
+import { ConversationHistory, ConversationSession, UniversalMessage } from '../managers/conversation-history-manager';
+import { AIProvider } from '../interfaces/provider';
+import { Logger } from '../utils/logger';
+import { ToolExecutionError } from '../utils/errors';
 
 /**
  * Execution context passed through the pipeline
@@ -38,25 +40,27 @@ export interface ExecutionResult {
 /**
  * Service that orchestrates the entire execution pipeline
  * Coordinates conversation service, tool execution service, and plugin lifecycle
+ * Uses centralized conversation history management
  */
 export class ExecutionService {
     private conversationService: ConversationService;
     private toolExecutionService: ToolExecutionService;
-    private aiProviderManager: AIProviderManager;
-    private toolManager: ToolManager;
+    private aiProviders: AIProviders;
+    private tools: Tools;
+    private conversationHistory: ConversationHistory;
     private plugins: BasePlugin[] = [];
     private logger: Logger;
 
     constructor(
-        conversationService: ConversationService,
-        toolExecutionService: ToolExecutionService,
-        aiProviderManager: AIProviderManager,
-        toolManager: ToolManager
+        aiProviders: AIProviders,
+        tools: Tools
     ) {
-        this.conversationService = conversationService;
-        this.toolExecutionService = toolExecutionService;
-        this.aiProviderManager = aiProviderManager;
-        this.toolManager = toolManager;
+        this.conversationService = new ConversationService();
+        this.toolExecutionService = new ToolExecutionService(tools);
+        this.aiProviders = aiProviders;
+        this.tools = tools;
+        this.conversationHistory = ConversationHistory.getInstance();
+        this.plugins = [];
         this.logger = new Logger('ExecutionService');
     }
 
@@ -97,7 +101,7 @@ export class ExecutionService {
     }
 
     /**
-     * Execute the full pipeline
+     * Execute the full pipeline with centralized history management
      */
     async execute(
         input: string,
@@ -107,106 +111,89 @@ export class ExecutionService {
     ): Promise<ExecutionResult> {
         const executionId = this.generateExecutionId();
         const startTime = new Date();
+        const conversationId = context?.conversationId || executionId;
 
         const fullContext: ExecutionContext = {
             messages,
             config,
             startTime,
             executionId,
-            conversationId: context?.conversationId,
+            conversationId,
             sessionId: context?.sessionId,
             userId: context?.userId,
             metadata: context?.metadata || {}
         };
 
-        this.logger.info('Starting execution pipeline', {
+        this.logger.debug('Starting execution pipeline', {
             executionId,
+            conversationId,
             messageCount: messages.length,
             hasContext: !!context
         });
 
         try {
+            // Get conversation session for this conversation
+            const conversationSession = this.conversationHistory.getConversationSession(conversationId);
+
+            // Initialize conversation history with existing messages if this is first time
+            // BUT don't add the current input if it's already the last message
+            if (conversationSession.getMessageCount() === 0 && messages.length > 0) {
+                // Add existing messages to history (convert from legacy format)
+                messages.forEach(msg => {
+                    if (msg.role === 'user') {
+                        conversationSession.addUserMessage(msg.content, msg.metadata);
+                    } else if (msg.role === 'assistant') {
+                        conversationSession.addAssistantMessage(msg.content, undefined, msg.metadata);
+                    } else if (msg.role === 'system') {
+                        conversationSession.addSystemMessage(msg.content, msg.metadata);
+                    }
+                });
+            }
+
+            // Check if the current input is already the last message to avoid duplication
+            const existingMessages = conversationSession.getMessages();
+            const lastMessage = existingMessages[existingMessages.length - 1];
+            const shouldAddInput = !lastMessage ||
+                lastMessage.role !== 'user' ||
+                lastMessage.content !== input;
+
+            if (shouldAddInput) {
+                conversationSession.addUserMessage(input);
+            }
+
             // Call beforeRun hook on all plugins
             await this.callPluginHook('beforeRun', input, context?.metadata);
 
             // Get AI provider instance
-            const provider = this.aiProviderManager.getCurrentProviderInstance();
+            const provider = this.aiProviders.getCurrentProviderInstance();
             if (!provider) {
                 throw new Error('No AI provider available');
             }
 
-            // Add user message to conversation
-            const userMessage = this.conversationService.createUserMessage(input);
-            const allMessages = [...messages, userMessage];
+            // Get tool schemas from Tools
+            const toolSchemas = this.tools.getTools();
 
-            // Get tool schemas from ToolManager
-            const toolSchemas = this.toolManager.getTools();
-
-            // Prepare conversation context
-            const conversationContext = this.conversationService.prepareContext(
-                allMessages,
-                config.model,
-                config.provider,
-                {
-                    systemMessage: config.systemMessage,
-                    temperature: config.temperature,
-                    maxTokens: config.maxTokens,
-                    tools: toolSchemas,
-                    metadata: context?.metadata
-                }
-            );
-
-            // Call beforeProviderCall hook
-            await this.callPluginHook('beforeProviderCall', conversationContext);
-
-            // Generate initial response
-            const response = await this.conversationService.generateResponse(
-                provider,
-                conversationContext
-            );
-
-            // Call afterProviderCall hook
-            await this.callPluginHook('afterProviderCall', conversationContext, response);
-
-            let finalResponse = response;
+            // Process with conversation loop
             let toolsExecuted: string[] = [];
-            let finalMessages = [
-                ...allMessages,
-                this.conversationService.createAssistantMessage(response)
-            ];
+            let maxRounds = 5; // Prevent infinite loops
+            let currentRound = 0;
 
-            // Handle tool calls if present
-            if (response.toolCalls && response.toolCalls.length > 0) {
-                this.logger.debug('Tool calls detected, executing tools', {
-                    toolCallCount: response.toolCalls.length
-                });
+            while (currentRound < maxRounds) {
+                currentRound++;
 
-                // Execute tools using existing service
-                const toolRequests = this.toolExecutionService.createExecutionRequests(response.toolCalls);
-                const toolContext: ToolExecutionContext = {
-                    requests: toolRequests,
-                    mode: 'parallel',
-                    maxConcurrency: 5,
-                    continueOnError: true
-                };
+                // Convert UniversalMessage to legacy Message for ConversationService compatibility
+                const legacyMessages = conversationSession.getMessages().map(msg => ({
+                    role: msg.role,
+                    content: msg.content,
+                    timestamp: msg.timestamp,
+                    metadata: msg.metadata,
+                    ...(msg.role === 'assistant' && 'toolCalls' in msg ? { toolCalls: msg.toolCalls } : {}),
+                    ...(msg.role === 'tool' && 'toolCallId' in msg ? { toolCallId: msg.toolCallId } : {})
+                })) as Message[];
 
-                const toolSummary = await this.toolExecutionService.executeTools(toolContext);
-                toolsExecuted = toolSummary.results.map(r => r.toolName || 'unknown');
-
-                // Add tool messages
-                const toolMessages = toolSummary.results.map(result =>
-                    this.conversationService.createToolMessage(
-                        result.executionId || 'unknown',
-                        result.result,
-                        result.metadata
-                    )
-                );
-
-                finalMessages.push(...toolMessages);
-
-                // Generate final response with tool results
-                const finalContext = this.conversationService.prepareContext(
-                    finalMessages,
+                // Prepare conversation context from centralized history
+                const conversationContext = this.conversationService.prepareContext(
+                    legacyMessages,
                     config.model,
                     config.provider,
                     {
@@ -218,24 +205,132 @@ export class ExecutionService {
                     }
                 );
 
-                // Call provider hooks for final response
-                await this.callPluginHook('beforeProviderCall', finalContext);
-                finalResponse = await this.conversationService.generateResponse(
-                    provider,
-                    finalContext
-                );
-                await this.callPluginHook('afterProviderCall', finalContext, finalResponse);
+                // Call beforeProviderCall hook
+                await this.callPluginHook('beforeProviderCall', conversationContext);
 
-                finalMessages.push(this.conversationService.createAssistantMessage(finalResponse));
+                // Generate AI response
+                const response = await this.conversationService.generateResponse(
+                    provider,
+                    conversationContext
+                );
+
+                // Call afterProviderCall hook
+                await this.callPluginHook('afterProviderCall', conversationContext, response);
+
+                // Add assistant response to history
+                conversationSession.addAssistantMessage(
+                    response.content,
+                    response.toolCalls,
+                    { round: currentRound, usage: response.usage }
+                );
+
+                // Check if we need to execute tools
+                if (!response.toolCalls || response.toolCalls.length === 0) {
+                    // No tools to execute, we're done
+                    break;
+                }
+
+                this.logger.debug('Tool calls detected, executing tools', {
+                    toolCallCount: response.toolCalls.length,
+                    round: currentRound
+                });
+
+                // Execute tools
+                const toolRequests = this.toolExecutionService.createExecutionRequests(response.toolCalls);
+                const toolContext: ToolExecutionContext = {
+                    requests: toolRequests,
+                    mode: 'parallel',
+                    maxConcurrency: 5,
+                    continueOnError: true
+                };
+
+                const toolSummary = await this.toolExecutionService.executeTools(toolContext);
+                toolsExecuted.push(...toolSummary.results.map(r => r.toolName || 'unknown'));
+
+                // Add tool results to history - ensuring EVERY tool_call_id gets a response
+                const resultMap = new Map();
+
+                // Map successful results by execution ID (which is the tool call ID)
+                toolSummary.results.forEach(result => {
+                    if (!result.executionId) {
+                        throw new Error(`Tool execution result missing executionId: ${JSON.stringify(result)}`);
+                    }
+                    resultMap.set(result.executionId, result);
+                });
+
+                // Map failed executions by execution ID (which is the tool call ID)
+                toolSummary.errors.forEach(error => {
+                    if (!error.executionId) {
+                        throw new Error(`Tool execution error missing executionId: ${JSON.stringify(error)}`);
+                    }
+                    resultMap.set(error.executionId, {
+                        success: false,
+                        result: null,
+                        error: error.error.message,
+                        toolName: error.toolName,
+                    });
+                });
+
+                // Add tool response for each tool call - MUST ensure every tool_call_id gets a response
+                if (!response.toolCalls || response.toolCalls.length === 0) {
+                    throw new Error('Tool calls array is empty but should contain tool calls');
+                }
+
+                response.toolCalls.forEach((toolCall: any) => {
+                    if (!toolCall.id) {
+                        throw new Error(`Tool call missing ID: ${JSON.stringify(toolCall)}`);
+                    }
+
+                    const result = resultMap.get(toolCall.id);
+                    if (!result) {
+                        throw new Error(`No execution result found for tool call ID: ${toolCall.id}`);
+                    }
+
+                    let content: string;
+                    let metadata: Record<string, any> = { round: currentRound };
+
+                    if (result.success) {
+                        content = result.result || 'Tool executed successfully';
+                        metadata.success = true;
+                    } else {
+                        content = `Error: ${result.error || 'Tool execution failed'}`;
+                        metadata.success = false;
+                        metadata.error = result.error;
+                    }
+                    metadata.toolName = result.toolName;
+
+                    conversationSession.addToolMessage(
+                        content,
+                        toolCall.id,
+                        toolCall.function?.name,
+                        metadata
+                    );
+                });
             }
+
+            // Check if we hit the round limit
+            if (currentRound >= maxRounds) {
+                this.logger.warn('Maximum execution rounds reached', {
+                    maxRounds,
+                    conversationId
+                });
+            }
+
+            // Get final messages from history
+            const finalMessages = conversationSession.getMessages();
+            const lastAssistantMessage = finalMessages
+                .filter(msg => msg.role === 'assistant')
+                .pop();
 
             const duration = Date.now() - startTime.getTime();
             const result: ExecutionResult = {
-                response: finalResponse.content,
-                messages: finalMessages,
+                response: lastAssistantMessage?.content || 'No response generated',
+                messages: this.convertUniversalToLegacyMessages(finalMessages),
                 executionId,
                 duration,
-                tokensUsed: finalResponse.usage?.totalTokens,
+                tokensUsed: finalMessages
+                    .filter(msg => msg.metadata?.usage?.totalTokens)
+                    .reduce((sum, msg) => sum + (msg.metadata?.usage?.totalTokens || 0), 0),
                 toolsExecuted,
                 success: true
             };
@@ -243,11 +338,13 @@ export class ExecutionService {
             // Call afterRun hook on all plugins
             await this.callPluginHook('afterRun', input, result.response, context?.metadata);
 
-            this.logger.info('Execution pipeline completed successfully', {
+            this.logger.debug('Execution pipeline completed successfully', {
                 executionId,
+                conversationId,
                 duration,
                 tokensUsed: result.tokensUsed,
-                toolsExecuted: result.toolsExecuted.length
+                toolsExecuted: result.toolsExecuted.length,
+                rounds: currentRound
             });
 
             return result;
@@ -269,12 +366,27 @@ export class ExecutionService {
 
             this.logger.error('Execution pipeline failed', {
                 executionId,
+                conversationId,
                 duration,
                 error: error instanceof Error ? error.message : String(error)
             });
 
             throw error;
         }
+    }
+
+    /**
+     * Convert UniversalMessage[] to legacy Message[] format for backwards compatibility
+     */
+    private convertUniversalToLegacyMessages(universalMessages: UniversalMessage[]): Message[] {
+        return universalMessages.map(msg => ({
+            role: msg.role,
+            content: msg.content,
+            timestamp: msg.timestamp,
+            metadata: msg.metadata,
+            ...(msg.role === 'assistant' && 'toolCalls' in msg ? { toolCalls: msg.toolCalls } : {}),
+            ...(msg.role === 'tool' && 'toolCallId' in msg ? { toolCallId: msg.toolCallId } : {})
+        })) as Message[];
     }
 
     /**
@@ -285,100 +397,46 @@ export class ExecutionService {
         messages: Message[],
         config: AgentConfig,
         context?: Partial<ExecutionContext>
-    ): AsyncGenerator<string, ExecutionResult, unknown> {
-        const executionId = this.generateExecutionId();
-        const startTime = new Date();
-
-        try {
-            const provider = this.aiProviderManager.getCurrentProviderInstance();
-            if (!provider) {
-                throw new Error('No AI provider available');
-            }
-
-            // Add user message
-            const userMessage = this.conversationService.createUserMessage(input);
-            const allMessages = [...messages, userMessage];
-
-            // Get tool schemas from ToolManager
-            const toolSchemas = this.toolManager.getTools();
-
-            // Prepare context
-            const conversationContext = this.conversationService.prepareContext(
-                allMessages,
-                config.model,
-                config.provider,
-                {
-                    systemMessage: config.systemMessage,
-                    temperature: config.temperature,
-                    maxTokens: config.maxTokens,
-                    tools: toolSchemas,
-                    metadata: context?.metadata
-                }
-            );
-
-            // Stream response
-            let fullContent = '';
-            let usage: any;
-
-            const streamGenerator = this.conversationService.generateStreamingResponse(
-                provider,
-                conversationContext
-            );
-
-            for await (const chunk of streamGenerator) {
-                fullContent += chunk.delta;
-                if (chunk.usage) {
-                    usage = chunk.usage;
-                }
-                yield chunk.delta;
-            }
-
-            const duration = Date.now() - startTime.getTime();
-            const result: ExecutionResult = {
-                response: fullContent,
-                messages: [
-                    ...allMessages,
-                    this.conversationService.createAssistantMessage({
-                        content: fullContent,
-                        usage
-                    })
-                ],
-                executionId,
-                duration,
-                tokensUsed: usage?.totalTokens,
-                toolsExecuted: [],
-                success: true
-            };
-
-            return result;
-
-        } catch (error) {
-            this.logger.error('Streaming execution failed', {
-                executionId,
-                error: error instanceof Error ? error.message : String(error)
-            });
-            throw error;
-        }
+    ): AsyncGenerator<{ chunk: string; isComplete: boolean }> {
+        // For now, fall back to regular execution
+        // TODO: Implement proper streaming with centralized history
+        const result = await this.execute(input, messages, config, context);
+        yield { chunk: result.response, isComplete: true };
     }
 
     /**
-     * Generate unique execution ID
+     * Generate a unique execution ID
      */
     private generateExecutionId(): string {
         return `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
 
     /**
-     * Get execution statistics
+     * Get execution statistics from plugins
      */
-    getStats(): {
-        pluginCount: number;
-        registeredPlugins: string[];
-    } {
-        return {
+    async getStats(): Promise<Record<string, any>> {
+        const stats: Record<string, any> = {
             pluginCount: this.plugins.length,
-            registeredPlugins: this.plugins.map(p => p.name)
+            pluginNames: this.plugins.map(p => p.name),
+            historyStats: this.conversationHistory.getStats()
         };
+
+        // Collect stats from plugins that have getStats method
+        for (const plugin of this.plugins) {
+            if (typeof (plugin as any).getStats === 'function') {
+                try {
+                    const pluginStats = await (plugin as any).getStats();
+                    stats[`plugin_${plugin.name}`] = pluginStats;
+                } catch (error) {
+                    this.logger.warn('Failed to get stats from plugin', {
+                        pluginName: plugin.name,
+                        error: error instanceof Error ? error.message : String(error)
+                    });
+                }
+            }
+        }
+
+        return stats;
     }
 
     /**
@@ -386,26 +444,24 @@ export class ExecutionService {
      */
     clearPlugins(): void {
         this.plugins = [];
-        this.logger.info('All plugins cleared');
+        this.logger.debug('All plugins cleared');
     }
 
     /**
-     * Call a specific hook on all registered plugins
+     * Call a hook method on all plugins that implement it
      */
     private async callPluginHook(hookName: string, ...args: any[]): Promise<void> {
         for (const plugin of this.plugins) {
-            try {
-                const hook = (plugin as any)[hookName];
-                if (typeof hook === 'function') {
-                    await hook.apply(plugin, args);
+            if (typeof (plugin as any)[hookName] === 'function') {
+                try {
+                    await (plugin as any)[hookName](...args);
+                } catch (error) {
+                    this.logger.warn('Plugin hook failed', {
+                        pluginName: plugin.name,
+                        hookName,
+                        error: error instanceof Error ? error.message : String(error)
+                    });
                 }
-            } catch (error) {
-                this.logger.error('Plugin hook failed', {
-                    pluginName: plugin.name,
-                    hookName,
-                    error: error instanceof Error ? error.message : String(error)
-                });
-                // Continue with other plugins even if one fails
             }
         }
     }

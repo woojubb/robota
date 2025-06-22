@@ -32,7 +32,7 @@ Resource identifier
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:22](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/tools/src/performance/resource-manager.ts#L22)
+[packages/tools/src/performance/resource-manager.ts:22](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/tools/src/performance/resource-manager.ts#L22)
 
 ___
 
@@ -44,7 +44,7 @@ Resource type
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:24](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/tools/src/performance/resource-manager.ts#L24)
+[packages/tools/src/performance/resource-manager.ts:24](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/tools/src/performance/resource-manager.ts#L24)
 
 ___
 
@@ -56,7 +56,7 @@ Creation time
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:26](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/tools/src/performance/resource-manager.ts#L26)
+[packages/tools/src/performance/resource-manager.ts:26](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/tools/src/performance/resource-manager.ts#L26)
 
 ___
 
@@ -68,7 +68,7 @@ Last used time
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:28](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/tools/src/performance/resource-manager.ts#L28)
+[packages/tools/src/performance/resource-manager.ts:28](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/tools/src/performance/resource-manager.ts#L28)
 
 ___
 
@@ -88,7 +88,7 @@ Cleanup function
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:30](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/tools/src/performance/resource-manager.ts#L30)
+[packages/tools/src/performance/resource-manager.ts:30](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/tools/src/performance/resource-manager.ts#L30)
 
 ___
 
@@ -100,7 +100,7 @@ Estimated memory usage
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:32](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/tools/src/performance/resource-manager.ts#L32)
+[packages/tools/src/performance/resource-manager.ts:32](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/tools/src/performance/resource-manager.ts#L32)
 
 ___
 
@@ -112,4 +112,4 @@ Description
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:34](https://github.com/woojubb/robota/blob/a84ba23331912a89a9570280d5fa1a0292ba5c7a/packages/tools/src/performance/resource-manager.ts#L34)
+[packages/tools/src/performance/resource-manager.ts:34](https://github.com/woojubb/robota/blob/cf184f3e050cee8add4bdfe80fb4ff70f9d0ed40/packages/tools/src/performance/resource-manager.ts#L34)

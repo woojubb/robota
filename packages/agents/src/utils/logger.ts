@@ -1,7 +1,7 @@
 /**
  * Log levels for the logger
  */
-export type UtilLogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type UtilLogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent';
 
 /**
  * Log entry structure
@@ -24,13 +24,47 @@ export interface Logger {
     error(message: string, context?: Record<string, any>): void;
     isDebugEnabled(): boolean;
     setLevel(level: UtilLogLevel): void;
+    getLevel(): UtilLogLevel;
+}
+
+/**
+ * Global logger configuration
+ */
+class LoggerConfig {
+    private static instance: LoggerConfig;
+    private globalLevel: UtilLogLevel;
+
+    private constructor() {
+        // Check environment variables and set default level
+        const envLevel = process.env.ROBOTA_LOG_LEVEL?.toLowerCase() as UtilLogLevel;
+        this.globalLevel = envLevel && this.isValidLevel(envLevel) ? envLevel : 'warn';
+    }
+
+    static getInstance(): LoggerConfig {
+        if (!LoggerConfig.instance) {
+            LoggerConfig.instance = new LoggerConfig();
+        }
+        return LoggerConfig.instance;
+    }
+
+    getGlobalLevel(): UtilLogLevel {
+        return this.globalLevel;
+    }
+
+    setGlobalLevel(level: UtilLogLevel): void {
+        this.globalLevel = level;
+    }
+
+    private isValidLevel(level: string): level is UtilLogLevel {
+        return ['debug', 'info', 'warn', 'error', 'silent'].includes(level);
+    }
 }
 
 /**
  * Console logger implementation
  */
 export class Logger implements Logger {
-    private level: UtilLogLevel = 'info';
+    private level: UtilLogLevel | null = null; // null means use global level
     private packageName: string;
 
     constructor(packageName: string) {
@@ -69,9 +103,16 @@ export class Logger implements Logger {
         this.level = level;
     }
 
+    getLevel(): UtilLogLevel {
+        return this.level || LoggerConfig.getInstance().getGlobalLevel();
+    }
+
     private shouldLog(level: UtilLogLevel): boolean {
-        const levels: UtilLogLevel[] = ['debug', 'info', 'warn', 'error'];
-        return levels.indexOf(level) >= levels.indexOf(this.level);
+        const currentLevel = this.getLevel();
+        if (currentLevel === 'silent') return false;
+
+        const levels: UtilLogLevel[] = ['debug', 'info', 'warn', 'error', 'silent'];
+        return levels.indexOf(level) >= levels.indexOf(currentLevel);
     }
 
     private log(level: UtilLogLevel, message: string, context?: Record<string, any>): void {
@@ -99,6 +140,20 @@ export class Logger implements Logger {
  */
 export function createLogger(packageName: string): Logger {
     return new Logger(packageName);
+}
+
+/**
+ * Set global log level for all loggers
+ */
+export function setGlobalLogLevel(level: UtilLogLevel): void {
+    LoggerConfig.getInstance().setGlobalLevel(level);
+}
+
+/**
+ * Get global log level
+ */
+export function getGlobalLogLevel(): UtilLogLevel {
+    return LoggerConfig.getInstance().getGlobalLevel();
 }
 
 /**

@@ -98,10 +98,15 @@ export class OpenAIConversationAdapter {
         // Handle tool messages for OpenAI tool calling
         if (messageRole === 'tool') {
             const toolMsg = msg as ToolMessage;
+
+            if (!toolMsg.toolCallId || toolMsg.toolCallId.trim() === '') {
+                throw new Error(`Tool message missing toolCallId: ${JSON.stringify(toolMsg)}`);
+            }
+
             const result: OpenAI.Chat.ChatCompletionToolMessageParam = {
                 role: 'tool',
                 content: toolMsg.content,
-                tool_call_id: toolMsg.toolCallId || 'unknown'
+                tool_call_id: toolMsg.toolCallId
             };
             return result;
         }
