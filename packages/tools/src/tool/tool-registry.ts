@@ -15,7 +15,7 @@ import type { ToolInterface } from './interfaces';
  * @class ToolRegistry
  * @description Manages a collection of tools with registration, retrieval, and organization capabilities.
  * 
- * @see {@link ../../../../apps/examples/02-functions | Function Tool Examples}
+ * @see {@link @examples/02-functions | Function Tool Examples}
  */
 export class ToolRegistry {
     /**

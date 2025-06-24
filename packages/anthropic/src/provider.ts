@@ -19,7 +19,7 @@ import { PayloadLogger } from './payload-logger';
  * Provides integration with Anthropic's Claude models.
  * Extends BaseAIProvider for common functionality and tool calling support.
  * 
- * @see {@link ../../../apps/examples/03-integrations | Provider Integration Examples}
+ * @see {@link @examples/03-integrations | Provider Integration Examples}
  * 
  * @public
  */

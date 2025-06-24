@@ -6,7 +6,7 @@
  * Modern tool system with inheritance-based architecture.
  * Provides base class functionality and schema-specific implementations.
  * 
- * @see {@link ../../../apps/examples/02-functions | Function Tool Examples}
+ * @see {@link @examples/02-functions | Function Tool Examples}
  */
 
 // Modern tool implementations

@@ -123,7 +123,7 @@ export interface CreateToolOptions<TInput = any, TOutput = any> {
  * @param options - Tool creation options
  * @returns Created tool
  * 
- * @see {@link ../../apps/examples/02-functions | Function Tool Examples}
+ * @see {@link @examples/02-functions | Function Tool Examples}
  */
 export function createTool<TInput = any, TOutput = any>(
     options: CreateToolOptions<TInput, TOutput>

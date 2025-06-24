@@ -21,7 +21,7 @@ import type { McpToolOptions } from './interfaces';
  * @template TParams - Tool parameter type
  * @template TResult - Tool result type
  * 
- * @see {@link ../../../../apps/examples/03-integrations/01-mcp-client.ts | MCP Integration Example}
+ * @see {@link @examples/03-integrations/01-mcp-client.ts | MCP Integration Example}
  */
 export class McpTool<TParams = any, TResult = any> extends BaseTool<TParams, TResult> {
     /**

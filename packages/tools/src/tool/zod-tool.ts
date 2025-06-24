@@ -22,7 +22,7 @@ import { zodToJsonSchema } from '../schema/zod-to-json';
  * @template TParams - Tool parameter type
  * @template TResult - Tool result type
  * 
- * @see {@link ../../../../apps/examples/02-functions | Function Tool Examples}
+ * @see {@link @examples/02-functions | Function Tool Examples}
  */
 export class ZodTool<TParams = any, TResult = any> extends BaseTool<TParams, TResult> {
     /**
