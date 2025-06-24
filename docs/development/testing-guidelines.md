@@ -1,52 +1,27 @@
 # Testing Guidelines
 
-This document provides comprehensive testing guidelines for the Robota project.
+This document provides testing guidelines and best practices for the Robota project.
 
-## Mock and Test Data Usage Rules
+## Testing Philosophy
 
-### Basic Principles
+### Real Implementation First
 
-- **Prioritize Real Implementation**: Prefer real implementation over Mock or dummy data throughout the codebase
-- **Use Mock Only in Test Code**: Mock objects and dummy data should only be used in automated test code
-- **Example Code Uses Real Implementation**: Example code should use real implementation in the same way actual users would
+- Use real implementations whenever possible throughout the codebase
+- Reserve mock objects and test data for automated test environments only
+- Example code should demonstrate actual usage patterns that users will experience
 
-### Mock Implementation Restrictions
+### Testing Approach
 
-- `/tests` directory: Place Mock implementations for testing - used only during test execution
-- Do not include Mock implementations or dummy data in `/src` and `/examples` directories
-- Example code uses simplified real implementation to provide an environment similar to actual situations
+- **Unit Tests**: Test individual components in isolation
+- **Integration Tests**: Test component interactions and workflows
+- **End-to-end Tests**: Test complete user scenarios
+- **Error Path Testing**: Verify error conditions and edge cases
 
-### When Mock Usage is Allowed
-
-- When running automated tests (unit tests, integration tests)
-- When conducting tests that depend on external APIs (preferably use real test API keys even in this case)
-- When running tests in CI/CD pipelines
-
-### Examples
-
-```typescript
-// ✅ Good example: Using real implementation
-// /examples/mcp/mcp-example.ts
-import { Client } from '@modelcontextprotocol/sdk';
-
-const client = new Client(transport);
-const result = await client.run(context);
-
-// ❌ Bad example: Using Mock in examples
-// /examples/mcp/mcp-example.ts
-import MockMCPClient from './__mocks__/mcp-client.mock';
-
-const mockClient = new MockMCPClient();
-const result = await mockClient.run(context);
-```
-
-## Test File Organization
+## Test Organization
 
 ### Directory Structure
 
-- **Use `__tests__` directories**: All test files should be placed in `__tests__` directories within their respective modules
-- **Mirror source structure**: Test file organization should mirror the source code structure
-- **Naming convention**: Test files should follow the pattern `*.test.ts` or `*.spec.ts`
+Tests are organized using `__tests__` directories within their respective modules:
 
 ```
 src/
@@ -66,45 +41,109 @@ src/
     └── token-analyzer.ts
 ```
 
-- **Import path adjustments**: When moving test files to `__tests__` directories, update import paths to use relative paths (`../` for parent directory)
-- **Test discovery**: Test runners (vitest) automatically discover test files in `__tests__` directories
+### File Naming
+
+- Test files should follow the pattern `*.test.ts` or `*.spec.ts`
+- Test file organization should mirror the source code structure
+- Update import paths when moving files to `__tests__` directories
+
+## Mock Usage Guidelines
+
+### When to Use Mocks
+
+Mocks are appropriate in these scenarios:
+- Automated test environments (unit tests, integration tests)
+- CI/CD pipeline testing
+- Testing external API dependencies (though prefer real test environments when possible)
+
+### When NOT to Use Mocks
+
+- Production code in `/src` directories
+- Example code in `/examples` directories  
+- Documentation examples that users will reference
+
+### Mock Implementation Examples
+
+```typescript
+// ✅ Good: Real implementation in examples
+// /examples/mcp/mcp-example.ts
+import { Client } from '@modelcontextprotocol/sdk';
+
+const client = new Client(transport);
+const result = await client.run(context);
+
+// ✅ Good: Mock for testing only
+// /src/__tests__/mcp-client.test.ts
+import MockMCPClient from '../__mocks__/mcp-client.mock';
+
+describe('MCP Client', () => {
+  it('should handle responses correctly', async () => {
+    const mockClient = new MockMCPClient();
+    const result = await mockClient.run(testContext);
+    expect(result).toBeDefined();
+  });
+});
+```
 
 ## Test Coverage Requirements
 
 ### Coverage Standards
 
 - Unit tests are required for all public APIs
-- Integration tests are recommended for important features
-- Include tests for edge cases and error handling
+- Integration tests for important user workflows
+- Include tests for edge cases and error scenarios
+- Maintain reasonable coverage without obsessing over 100%
 
-### Test Structure
+### Test Quality Over Quantity
 
-- Write tests for each file
-- Group related tests logically
-- Tests should be able to run independently
+- Write meaningful tests that catch real issues
+- Test behavior, not implementation details
+- Include both happy path and error scenarios
+- Use descriptive test names that explain the scenario
 
-## Testing Refactored Structure
+## Testing Refactored Architecture
 
 ### Manager-based Testing
 
-- **Manager-based Testing**: Write tests according to the refactored manager structure
-- **Mock Provider Implementation**: Write Mock Providers that match the new interfaces
-- **Internal Property Access**: Verify internal state through managers
+Test the new manager-based architecture appropriately:
 
 ```typescript
-// ✅ Manager-based test example
+// ✅ Test manager functionality
 it('should initialize with tool providers', () => {
-    expect(customRobota['toolProviderManager'].getProviders()).toHaveLength(1);
-    expect(customRobota['toolProviderManager'].getAvailableTools()).toContain('getWeather');
+    expect(robota['toolProviderManager'].getProviders()).toHaveLength(1);
+    expect(robota['toolProviderManager'].getAvailableTools()).toContain('getWeather');
 });
 
-// ✅ Mock Provider matching new structure
+// ✅ Mock providers for testing
 class MockProvider implements AIProvider {
     public name = 'mock';
     public availableModels = ['mock-model'];
     
     async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
-        // Mock implementation
+        return { content: 'Mock response' };
     }
 }
-``` 
+```
+
+## Testing Best Practices
+
+### Test Environment Setup
+
+- Use minimal logging to reduce test noise
+- Capture logs for assertions when testing logging behavior
+- Avoid file-based operations in tests when possible
+- Clean up resources after test completion
+
+### Test Data Management
+
+- Use factory functions for creating test data
+- Keep test data simple and focused on the scenario
+- Avoid complex test data that obscures the test intent
+- Use builders for complex object creation
+
+### Async Testing
+
+- Properly handle async operations with async/await
+- Test timeout scenarios for long-running operations
+- Use appropriate test timeouts for different operation types
+- Clean up async resources to prevent test interference
