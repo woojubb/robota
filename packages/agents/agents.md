@@ -131,14 +131,6 @@ packages/agents/src/
 - [x] **ExecutionService 초기화 시점 수정**: Tool 등록 후 서비스 생성으로 변경
 - [ ] **AgentTemplate**: 에이전트 설정 템플릿 로드
 
-### Phase 2: 마이그레이션 완료
-- [ ] **@robota-sdk/sessions 완성**:
-  - [ ] chat-instance.ts의 복잡한 core 의존성 해결 (보류 - 복잡성으로 인해 우선순위 낮음)
-- [ ] **Core/Tools 패키지 완전 제거**:
-  - [ ] packages/core 폴더 삭제 (대기)
-  - [ ] packages/tools 폴더 삭제 (대기)
-  - [ ] workspace에서 core/tools 의존성 완전 제거 (대기)
-
 ### Phase 3: 스트리밍 응답 지원 (11단계)
 - [ ] OpenAI Provider 스트리밍 기능 구현
   - [ ] `generateStreamingResponse` 메서드 구현
