@@ -4,8 +4,7 @@ import {
     BaseAIProvider,
     ModelResponse,
     StreamingResponseChunk,
-    ToolSchema,
-    logger
+    ToolSchema
 } from '@robota-sdk/agents';
 import type { UniversalMessage } from '@robota-sdk/agents/src/managers/conversation-history-manager';
 import type { ProviderExecutionResult } from '@robota-sdk/agents/src/abstracts/base-ai-provider';
@@ -161,6 +160,64 @@ export class AnthropicProvider extends BaseAIProvider {
     }
 
     /**
+     * Generate streaming response using raw request payload (for agents package compatibility)
+     * 
+     * This method is required by the agents package's ConversationService for streaming.
+     * It adapts the raw request payload to the Anthropic streaming API format.
+     * 
+     * @param request - Raw request payload from ConversationService
+     * @returns AsyncGenerator yielding streaming response chunks
+     */
+    override async *generateStreamingResponse(request: any): AsyncGenerator<any, void, unknown> {
+        try {
+            // Extract parameters from request payload
+            const model = request.model;
+            const messages = request.messages || [];
+            const temperature = request.temperature;
+            const maxTokens = request.max_tokens;
+            const tools = request.tools;
+            const systemMessage = request.system;
+
+            // Convert messages to Anthropic format
+            const anthropicMessages = this.convertMessages(messages);
+
+            const requestParams: any = {
+                model: model || 'claude-3-sonnet-20240229',
+                max_tokens: maxTokens || 1000,
+                messages: anthropicMessages,
+                temperature,
+                stream: true
+            };
+
+            // Add system message if provided
+            if (systemMessage) {
+                requestParams.system = systemMessage;
+            }
+
+            // Configure tools if provided
+            const toolConfig = this.configureTools(tools);
+            if (toolConfig) {
+                requestParams.tools = toolConfig.tools;
+            }
+
+            // Log payload for debugging
+            if (this.payloadLogger.isEnabled()) {
+                await this.payloadLogger.logPayload(requestParams, 'generateStreamingResponse');
+            }
+
+            // Create streaming message
+            const stream = await this.client.messages.create(requestParams);
+
+            // Process each chunk in the stream
+            for await (const chunk of stream) {
+                yield this.parseStreamingChunk(chunk);
+            }
+        } catch (error) {
+            this.handleApiError(error, 'generateStreamingResponse');
+        }
+    }
+
+    /**
      * Send a streaming chat request to Anthropic and receive response chunks
      * 
      * Similar to chat() but returns an async iterator that yields response chunks
@@ -176,7 +233,7 @@ export class AnthropicProvider extends BaseAIProvider {
      * @throws {Error} When messages array is invalid
      * @throws {Error} When Anthropic streaming API call fails
      */
-    async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
+    override async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
         // Use base class validation
         this.validateContext(context);
 
@@ -234,7 +291,7 @@ export class AnthropicProvider extends BaseAIProvider {
      * @param messages - Array of UniversalMessage to convert
      * @returns Anthropic-formatted messages array
      */
-    protected convertMessages(messages: UniversalMessage[]): any[] {
+    protected override convertMessages(messages: UniversalMessage[]): any[] {
         return AnthropicConversationAdapter.toAnthropicMessages(messages);
     }
 
@@ -247,7 +304,7 @@ export class AnthropicProvider extends BaseAIProvider {
      * @param tools - Array of function schemas
      * @returns Anthropic tool configuration object or undefined
      */
-    protected configureTools(tools?: ToolSchema[]): { tools: any[] } | undefined {
+    protected override configureTools(tools?: ToolSchema[]): { tools: any[] } | undefined {
         if (!tools || !Array.isArray(tools)) {
             return undefined;
         }
@@ -297,7 +354,7 @@ export class AnthropicProvider extends BaseAIProvider {
         }
 
         const result: ModelResponse = {
-            content: content || undefined,
+            content: content || '',
             usage: response.usage ? {
                 promptTokens: response.usage.input_tokens || 0,
                 completionTokens: response.usage.output_tokens || 0,
@@ -309,8 +366,8 @@ export class AnthropicProvider extends BaseAIProvider {
             },
             metadata: {
                 model: response.model,
-                finishReason: response.stop_reason,
-                messageId: response.id
+                ...(response.stop_reason && { finishReason: response.stop_reason }),
+                ...(response.id && { messageId: response.id })
             }
         };
 
@@ -364,7 +421,7 @@ export class AnthropicProvider extends BaseAIProvider {
      * 
      * @returns Promise that resolves when cleanup is complete
      */
-    async close(): Promise<void> {
+    override async close(): Promise<void> {
         // Anthropic client doesn't have explicit close method
         // This is implemented as no-op for interface compliance
     }
@@ -377,13 +434,13 @@ export class AnthropicProvider extends BaseAIProvider {
      * @param response - Raw response from Anthropic chat method
      * @returns Standardized ProviderExecutionResult
      */
-    protected processResponse(response: ModelResponse): ProviderExecutionResult {
+    protected override processResponse(response: ModelResponse): ProviderExecutionResult {
         return {
             content: response.content || '',
-            toolCalls: response.toolCalls,
-            usage: response.usage,
-            finishReason: response.metadata?.finishReason,
-            metadata: response.metadata
+            toolCalls: response.toolCalls || [],
+            usage: response.usage || {},
+            finishReason: response.metadata?.finishReason || '',
+            metadata: response.metadata || {}
         };
     }
 } 

@@ -12,6 +12,8 @@ import type { ProviderExecutionResult } from '@robota-sdk/agents/src/abstracts/b
 import { OpenAIProviderOptions } from './types';
 import { OpenAIConversationAdapter } from './adapter';
 import { PayloadLogger } from './payload-logger';
+// import { OpenAIStreamHandler } from './streaming/stream-handler';
+// import { OpenAIResponseParser } from './parsers/response-parser';
 
 /**
  * OpenAI AI provider implementation for Robota
@@ -74,6 +76,12 @@ export class OpenAIProvider extends BaseAIProvider {
    */
   private readonly payloadLogger: PayloadLogger;
 
+  // /**
+  //  * Stream handler for OpenAI streaming responses
+  //  * @internal
+  //  */
+  // private readonly streamHandler: OpenAIStreamHandler;
+
   /**
    * Create a new OpenAI provider instance
    * 
@@ -86,7 +94,6 @@ export class OpenAIProvider extends BaseAIProvider {
 
     this.options = {
       temperature: 0.7,
-      maxTokens: undefined,
       // Set default values for parallel tool call options
       enableParallelToolCalls: true,
       maxConcurrentToolCalls: 3,
@@ -108,6 +115,9 @@ export class OpenAIProvider extends BaseAIProvider {
       this.options.payloadLogDir || './logs/api-payloads',
       this.options.includeTimestampInLogFiles !== false
     );
+
+    // Initialize stream handler
+    // this.streamHandler = new OpenAIStreamHandler(this.client, this.payloadLogger);
   }
 
   /**
@@ -136,7 +146,7 @@ export class OpenAIProvider extends BaseAIProvider {
    * @param messages - Array of UniversalMessage to convert
    * @returns OpenAI-formatted messages array
    */
-  protected convertMessages(messages: UniversalMessage[]): OpenAI.Chat.ChatCompletionMessageParam[] {
+  protected override convertMessages(messages: UniversalMessage[]): OpenAI.Chat.ChatCompletionMessageParam[] {
     return OpenAIConversationAdapter.toOpenAIFormat(messages);
   }
 
@@ -148,7 +158,7 @@ export class OpenAIProvider extends BaseAIProvider {
    * @param tools - Array of tool schemas
    * @returns OpenAI tool configuration object
    */
-  protected configureTools(tools?: ToolSchema[]): { tools: OpenAI.Chat.ChatCompletionTool[], tool_choice: 'auto' } | undefined {
+  protected override configureTools(tools?: ToolSchema[]): { tools: OpenAI.Chat.ChatCompletionTool[], tool_choice: 'auto' } | undefined {
     if (!tools || !Array.isArray(tools)) {
       return undefined;
     }
@@ -168,7 +178,7 @@ export class OpenAIProvider extends BaseAIProvider {
    * @param request - Raw request payload from ConversationService
    * @returns Promise resolving to OpenAI API response
    */
-  async generateResponse(request: any): Promise<any> {
+  override async generateResponse(request: any): Promise<any> {
     try {
       // Extract parameters from request payload
       const model = request.model;
@@ -206,6 +216,52 @@ export class OpenAIProvider extends BaseAIProvider {
 
     } catch (error) {
       this.handleApiError(error, 'generateResponse');
+    }
+  }
+
+  /**
+   * Generate streaming response using raw request payload (for agents package compatibility)
+   * 
+   * This method is required by the agents package's ConversationService for streaming.
+   * It adapts the raw request payload to the OpenAI streaming API format.
+   * 
+   * @param request - Raw request payload from ConversationService
+   * @returns AsyncGenerator yielding streaming response chunks
+   */
+  override async *generateStreamingResponse(request: any): AsyncGenerator<any, void, unknown> {
+    try {
+      // Extract parameters from request payload
+      const model = request.model;
+      const messages = request.messages || [];
+      const temperature = request.temperature;
+      const maxTokens = request.max_tokens;
+      const tools = request.tools;
+
+      // Create context for chatStream method
+      const context: Context = {
+        messages,
+        tools
+      };
+
+      // Create options object
+      const options = {
+        temperature,
+        maxTokens
+      };
+
+      // Use existing chatStream method
+      for await (const chunk of this.chatStream(model, context, options)) {
+        // Return chunk in expected format for ConversationService
+        yield {
+          content: chunk.content,
+          delta: { content: chunk.content },
+          isComplete: chunk.isComplete,
+          toolCall: chunk.toolCall
+        };
+      }
+
+    } catch (error) {
+      this.handleApiError(error, 'generateStreamingResponse');
     }
   }
 
@@ -288,21 +344,28 @@ export class OpenAIProvider extends BaseAIProvider {
    * @internal
    */
   parseResponse(response: OpenAI.Chat.ChatCompletion): ModelResponse {
-    const message = response.choices[0].message;
+    const message = response.choices?.[0]?.message;
+    if (!message) {
+      throw new Error('No message found in OpenAI response');
+    }
 
     const result: ModelResponse = {
-      content: message.content || undefined,
-      usage: response.usage ? {
+      content: message.content || '',
+      metadata: {
+        model: response.model,
+        ...(response.choices[0]?.finish_reason && { finishReason: response.choices[0].finish_reason }),
+        ...(response.system_fingerprint && { systemFingerprint: response.system_fingerprint })
+      }
+    };
+
+    // Add usage if available
+    if (response.usage) {
+      result.usage = {
         promptTokens: response.usage.prompt_tokens,
         completionTokens: response.usage.completion_tokens,
         totalTokens: response.usage.total_tokens
-      } : undefined,
-      metadata: {
-        model: response.model,
-        finishReason: response.choices[0].finish_reason,
-        systemFingerprint: response.system_fingerprint
-      }
-    };
+      };
+    }
 
     // Handle tool calls
     if (message.tool_calls && message.tool_calls.length > 0) {
@@ -331,22 +394,26 @@ export class OpenAIProvider extends BaseAIProvider {
    * @internal
    */
   parseStreamingChunk(chunk: OpenAI.Chat.ChatCompletionChunk): StreamingResponseChunk {
-    const delta = chunk.choices[0].delta;
+    const choice = chunk.choices?.[0];
+    if (!choice) {
+      return { content: '', isComplete: false };
+    }
 
+    const delta = choice.delta;
     const result: StreamingResponseChunk = {
-      content: delta.content || undefined,
-      isComplete: chunk.choices[0].finish_reason !== null
+      content: delta.content || '',
+      isComplete: choice.finish_reason !== null
     };
 
     // Handle tool call chunks
     if (delta.tool_calls && delta.tool_calls.length > 0) {
       const toolCall = delta.tool_calls[0];
-      if (toolCall.type === 'function') {
+      if (toolCall && toolCall.type === 'function' && toolCall.function) {
         result.toolCall = {
           type: 'function',
           function: {
-            name: toolCall.function?.name || '',
-            arguments: toolCall.function?.arguments || ''
+            name: toolCall.function.name || '',
+            arguments: toolCall.function.arguments || ''
           }
         };
       }
@@ -374,7 +441,7 @@ export class OpenAIProvider extends BaseAIProvider {
    * 
    * @see {@link @examples/01-basic | Basic Usage Examples}
    */
-  async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
+  override async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
     // Validate context parameter
     if (!context || typeof context !== 'object') {
       logger.error('[OpenAIProvider] Invalid context:', context);
@@ -451,7 +518,7 @@ export class OpenAIProvider extends BaseAIProvider {
    * 
    * @returns Promise that resolves when cleanup is complete
    */
-  async close(): Promise<void> {
+  override async close(): Promise<void> {
     // OpenAI client doesn't have explicit close method
     // This is implemented as no-op for interface compliance
   }
@@ -464,13 +531,13 @@ export class OpenAIProvider extends BaseAIProvider {
    * @param response - Raw response from OpenAI chat method
    * @returns Standardized ProviderExecutionResult
    */
-  protected processResponse(response: ModelResponse): ProviderExecutionResult {
+  protected override processResponse(response: ModelResponse): ProviderExecutionResult {
     return {
       content: response.content || '',
-      toolCalls: response.toolCalls,
-      usage: response.usage,
-      finishReason: response.metadata?.finishReason,
-      metadata: response.metadata
+      toolCalls: response.toolCalls || [],
+      usage: response.usage || {},
+      finishReason: response.metadata?.finishReason || '',
+      metadata: response.metadata || {}
     };
   }
 } 

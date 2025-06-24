@@ -7,4 +7,7 @@
 // Import all exports from types.ts and provider.ts
 export * from './provider';
 export * from './types';
-export * from './adapter'; 
+export * from './adapter';
+
+// Export modular components (optional - for advanced users)
+export { GoogleStreamHandler } from './streaming/stream-handler'; 
