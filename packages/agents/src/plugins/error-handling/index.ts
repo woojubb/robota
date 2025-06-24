@@ -2,4 +2,4 @@ export {
     ErrorHandlingPlugin,
     ErrorHandlingStrategy,
     ErrorHandlingPluginOptions
-} from './error-handling-plugin.js'; 
+} from './error-handling-plugin'; 

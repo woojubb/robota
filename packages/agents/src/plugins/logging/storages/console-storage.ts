@@ -1,5 +1,5 @@
-import { LogEntry, LogStorage, LogFormatter } from '../types.js';
-import { ConsoleLogFormatter } from '../formatters.js';
+import { LogEntry, LogStorage, LogFormatter } from '../types';
+import { ConsoleLogFormatter } from '../formatters';
 
 /**
  * Console log storage

@@ -1,4 +1,4 @@
-import { PerformanceStorage, PerformanceMetrics, AggregatedPerformanceStats } from '../types.js';
+import { PerformanceStorage, PerformanceMetrics, AggregatedPerformanceStats } from '../types';
 
 export class MemoryPerformanceStorage implements PerformanceStorage {
     private entries: PerformanceMetrics[] = [];

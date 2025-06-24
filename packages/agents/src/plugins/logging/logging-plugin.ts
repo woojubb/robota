@@ -1,6 +1,6 @@
-import { BasePlugin } from '../../abstracts/base-plugin.js';
-import { Logger } from '../../utils/logger.js';
-import { PluginError, ConfigurationError } from '../../utils/errors.js';
+import { BasePlugin } from '../../abstracts/base-plugin';
+import { Logger } from '../../utils/logger';
+import { PluginError, ConfigurationError } from '../../utils/errors';
 import {
     LoggingStrategy,
     LogLevel,
@@ -8,13 +8,13 @@ import {
     LoggingPluginOptions,
     LogStorage,
     LogFormatter
-} from './types.js';
+} from './types';
 import {
     ConsoleLogStorage,
     FileLogStorage,
     RemoteLogStorage,
     SilentLogStorage
-} from './storages/index.js';
+} from './storages/index';
 
 /**
  * Plugin for logging agent operations

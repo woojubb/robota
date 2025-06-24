@@ -1,6 +1,6 @@
-import { BasePlugin } from '../abstracts/base-plugin.js';
-import { Logger } from '../utils/logger.js';
-import { PluginError } from '../utils/errors.js';
+import { BasePlugin } from '../abstracts/base-plugin';
+import { Logger } from '../utils/logger';
+import { PluginError } from '../utils/errors';
 
 /**
  * Webhook event types

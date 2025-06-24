@@ -1,4 +1,4 @@
-import { Message } from '../../interfaces/agent.js';
+import { Message } from '../../interfaces/agent';
 
 /**
  * Storage strategy for conversation history

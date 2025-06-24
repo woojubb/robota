@@ -5,7 +5,7 @@ export {
     type ConversationResponse,
     type StreamingChunk,
     type ConversationServiceOptions
-} from './conversation-service.js';
+} from './conversation-service';
 
 // Tool Execution Service
 export {
@@ -15,4 +15,4 @@ export {
     type ToolExecutionSummary,
     type ToolExecutionStats,
     type ToolExecutionServiceOptions
-} from './tool-execution-service.js'; 
+} from './tool-execution-service'; 

@@ -1,4 +1,4 @@
-import { UsageStorage, UsageStats, AggregatedUsageStats } from '../types.js';
+import { UsageStorage, UsageStats, AggregatedUsageStats } from '../types';
 
 /**
  * Silent storage implementation for usage statistics (no-op)

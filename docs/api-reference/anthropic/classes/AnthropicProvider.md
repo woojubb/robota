@@ -15,7 +15,7 @@ Extends BaseAIProvider for common functionality and tool calling support.
 
 **`See`**
 
-../../../apps/examples/03-integrations | Provider Integration Examples
+@examples/03-integrations | Provider Integration Examples
 
 ## Hierarchy
 
@@ -79,7 +79,7 @@ BaseAIProvider.constructor
 
 #### Defined in
 
-[anthropic/src/provider.ts:71](https://github.com/woojubb/robota/blob/0afecc12922d97d2c8ac7599fd937e359f3be1c5/packages/anthropic/src/provider.ts#L71)
+[anthropic/src/provider.ts:71](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/anthropic/src/provider.ts#L71)
 
 ## Properties
 
@@ -95,7 +95,7 @@ BaseAIProvider.name
 
 #### Defined in
 
-[anthropic/src/provider.ts:31](https://github.com/woojubb/robota/blob/0afecc12922d97d2c8ac7599fd937e359f3be1c5/packages/anthropic/src/provider.ts#L31)
+[anthropic/src/provider.ts:31](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/anthropic/src/provider.ts#L31)
 
 ___
 
@@ -111,7 +111,7 @@ BaseAIProvider.models
 
 #### Defined in
 
-[anthropic/src/provider.ts:37](https://github.com/woojubb/robota/blob/0afecc12922d97d2c8ac7599fd937e359f3be1c5/packages/anthropic/src/provider.ts#L37)
+[anthropic/src/provider.ts:37](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/anthropic/src/provider.ts#L37)
 
 ___
 
@@ -123,7 +123,7 @@ Provider configuration options
 
 #### Defined in
 
-[anthropic/src/provider.ts:56](https://github.com/woojubb/robota/blob/0afecc12922d97d2c8ac7599fd937e359f3be1c5/packages/anthropic/src/provider.ts#L56)
+[anthropic/src/provider.ts:56](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/anthropic/src/provider.ts#L56)
 
 ## Methods
 
@@ -364,7 +364,7 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[anthropic/src/provider.ts:114](https://github.com/woojubb/robota/blob/0afecc12922d97d2c8ac7599fd937e359f3be1c5/packages/anthropic/src/provider.ts#L114)
+[anthropic/src/provider.ts:114](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/anthropic/src/provider.ts#L114)
 
 ___
 
@@ -410,7 +410,7 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[anthropic/src/provider.ts:179](https://github.com/woojubb/robota/blob/0afecc12922d97d2c8ac7599fd937e359f3be1c5/packages/anthropic/src/provider.ts#L179)
+[anthropic/src/provider.ts:179](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/anthropic/src/provider.ts#L179)
 
 ___
 
@@ -438,7 +438,7 @@ Parsed model response in universal format
 
 #### Defined in
 
-[anthropic/src/provider.ts:276](https://github.com/woojubb/robota/blob/0afecc12922d97d2c8ac7599fd937e359f3be1c5/packages/anthropic/src/provider.ts#L276)
+[anthropic/src/provider.ts:276](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/anthropic/src/provider.ts#L276)
 
 ___
 
@@ -465,7 +465,7 @@ Parsed streaming response chunk
 
 #### Defined in
 
-[anthropic/src/provider.ts:336](https://github.com/woojubb/robota/blob/0afecc12922d97d2c8ac7599fd937e359f3be1c5/packages/anthropic/src/provider.ts#L336)
+[anthropic/src/provider.ts:336](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/anthropic/src/provider.ts#L336)
 
 ___
 
@@ -490,4 +490,4 @@ BaseAIProvider.close
 
 #### Defined in
 
-[anthropic/src/provider.ts:367](https://github.com/woojubb/robota/blob/0afecc12922d97d2c8ac7599fd937e359f3be1c5/packages/anthropic/src/provider.ts#L367)
+[anthropic/src/provider.ts:367](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/anthropic/src/provider.ts#L367)

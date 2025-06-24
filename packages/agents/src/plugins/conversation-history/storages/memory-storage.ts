@@ -1,4 +1,4 @@
-import { HistoryStorage, ConversationHistoryEntry } from '../types.js';
+import { HistoryStorage, ConversationHistoryEntry } from '../types';
 
 /**
  * Memory storage implementation

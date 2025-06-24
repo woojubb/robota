@@ -1,19 +1,19 @@
-import { BasePlugin } from '../../abstracts/base-plugin.js';
-import { Logger } from '../../utils/logger.js';
-import { PluginError, ConfigurationError } from '../../utils/errors.js';
+import { BasePlugin } from '../../abstracts/base-plugin';
+import { Logger } from '../../utils/logger';
+import { PluginError, ConfigurationError } from '../../utils/errors';
 import {
     UsageTrackingStrategy,
     UsageStats,
     AggregatedUsageStats,
     UsagePluginOptions,
     UsageStorage
-} from './types.js';
+} from './types';
 import {
     MemoryUsageStorage,
     FileUsageStorage,
     RemoteUsageStorage,
     SilentUsageStorage
-} from './storages/index.js';
+} from './storages/index';
 
 /**
  * Plugin for tracking usage statistics

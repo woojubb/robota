@@ -1,7 +1,7 @@
-export { ConversationHistoryPlugin } from './conversation-history-plugin.js';
+export { ConversationHistoryPlugin } from './conversation-history-plugin';
 export {
     type ConversationHistoryPluginOptions,
     type ConversationHistoryEntry,
     type HistoryStorageStrategy,
     type HistoryStorage
-} from './types.js'; 
+} from './types'; 

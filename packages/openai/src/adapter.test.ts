@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { OpenAIConversationAdapter } from './adapter';
-import { UniversalMessage } from '@robota-sdk/core';
+import { UniversalMessage } from '@robota-sdk/agents';
 
 describe('OpenAIConversationAdapter', () => {
     it('should convert user message correctly', () => {

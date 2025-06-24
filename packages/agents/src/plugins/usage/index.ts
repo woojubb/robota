@@ -1,14 +1,14 @@
-export { UsagePlugin } from './usage-plugin.js';
+export { UsagePlugin } from './usage-plugin';
 export {
     UsageTrackingStrategy,
     UsageStats,
     AggregatedUsageStats,
     UsagePluginOptions,
     UsageStorage
-} from './types.js';
+} from './types';
 export {
     MemoryUsageStorage,
     FileUsageStorage,
     RemoteUsageStorage,
     SilentUsageStorage
-} from './storages/index.js'; 
+} from './storages/index'; 

@@ -1,4 +1,4 @@
-import { LogEntry, LogFormatter } from './types.js';
+import { LogEntry, LogFormatter } from './types';
 
 /**
  * Default console formatter

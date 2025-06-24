@@ -1,4 +1,4 @@
-import { LogEntry, LogStorage } from '../types.js';
+import { LogEntry, LogStorage } from '../types';
 
 /**
  * Silent log storage (no-op)

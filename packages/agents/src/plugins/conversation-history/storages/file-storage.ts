@@ -1,6 +1,6 @@
-import { HistoryStorage, ConversationHistoryEntry } from '../types.js';
-import { Logger } from '../../../utils/logger.js';
-import { StorageError } from '../../../utils/errors.js';
+import { HistoryStorage, ConversationHistoryEntry } from '../types';
+import { Logger } from '../../../utils/logger';
+import { StorageError } from '../../../utils/errors';
 
 /**
  * File storage implementation

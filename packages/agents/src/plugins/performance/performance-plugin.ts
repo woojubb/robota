@@ -1,6 +1,6 @@
-import { BasePlugin } from '../../abstracts/base-plugin.js';
-import { Logger } from '../../utils/logger.js';
-import { PluginError, ConfigurationError } from '../../utils/errors.js';
+import { BasePlugin } from '../../abstracts/base-plugin';
+import { Logger } from '../../utils/logger';
+import { PluginError, ConfigurationError } from '../../utils/errors';
 import {
     PerformanceMonitoringStrategy,
     PerformanceMetrics,
@@ -8,9 +8,9 @@ import {
     PerformancePluginOptions,
     PerformanceStorage,
     SystemMetricsCollector
-} from './types.js';
-import { MemoryPerformanceStorage } from './storages/index.js';
-import { NodeSystemMetricsCollector } from './collectors/system-metrics-collector.js';
+} from './types';
+import { MemoryPerformanceStorage } from './storages/index';
+import { NodeSystemMetricsCollector } from './collectors/system-metrics-collector';
 
 /**
  * Plugin for monitoring performance metrics
