@@ -58,12 +58,12 @@ async function main() {
     log(`📁 Generated files: ${files.join(', ')}`);
 
     // 6. Check API documentation files
-    const apiCoreFile = path.join(distDir, 'api-reference/core/index.html');
-    if (fs.existsSync(apiCoreFile)) {
-        const stats = fs.statSync(apiCoreFile);
-        log(`✅ API Core documentation: ${Math.round(stats.size / 1024)}KB`);
+    const apiAgentsFile = path.join(distDir, 'api-reference/agents/index.html');
+    if (fs.existsSync(apiAgentsFile)) {
+        const stats = fs.statSync(apiAgentsFile);
+        log(`✅ API Agents documentation: ${Math.round(stats.size / 1024)}KB`);
     } else {
-        log('⚠️ API Core documentation not found');
+        log('⚠️ API Agents documentation not found');
     }
 
     log('🎉 Documentation build preparation completed!');

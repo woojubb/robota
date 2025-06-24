@@ -31,7 +31,7 @@ Total resources count
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:56](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/tools/src/performance/resource-manager.ts#L56)
+[packages/tools/src/performance/resource-manager.ts:56](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/tools/src/performance/resource-manager.ts#L56)
 
 ___
 
@@ -43,7 +43,7 @@ Resource count by type
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:58](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/tools/src/performance/resource-manager.ts#L58)
+[packages/tools/src/performance/resource-manager.ts:58](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/tools/src/performance/resource-manager.ts#L58)
 
 ___
 
@@ -55,7 +55,7 @@ Oldest resource age (milliseconds)
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:60](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/tools/src/performance/resource-manager.ts#L60)
+[packages/tools/src/performance/resource-manager.ts:60](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/tools/src/performance/resource-manager.ts#L60)
 
 ___
 
@@ -67,7 +67,7 @@ Average resource age (milliseconds)
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:62](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/tools/src/performance/resource-manager.ts#L62)
+[packages/tools/src/performance/resource-manager.ts:62](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/tools/src/performance/resource-manager.ts#L62)
 
 ___
 
@@ -79,7 +79,7 @@ Total estimated memory usage
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:64](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/tools/src/performance/resource-manager.ts#L64)
+[packages/tools/src/performance/resource-manager.ts:64](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/tools/src/performance/resource-manager.ts#L64)
 
 ___
 
@@ -91,4 +91,4 @@ System memory information
 
 #### Defined in
 
-[packages/tools/src/performance/resource-manager.ts:66](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/tools/src/performance/resource-manager.ts#L66)
+[packages/tools/src/performance/resource-manager.ts:66](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/tools/src/performance/resource-manager.ts#L66)

@@ -22,10 +22,7 @@
     ],
     "references": [
         {
-            "path": "../core"
-        },
-        {
-            "path": "../tools"
+            "path": "../agents"
         }
     ]
 }
