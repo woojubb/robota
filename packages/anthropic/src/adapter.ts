@@ -120,7 +120,7 @@ export class AnthropicConversationAdapter {
         // Add Assistant prompt if last message is from Human
         if (messages.length > 0) {
             const lastMessage = messages[messages.length - 1];
-            if (lastMessage.role === 'user') {
+            if (lastMessage?.role === 'user') {
                 prompt += '\n\nAssistant:';
             }
         }

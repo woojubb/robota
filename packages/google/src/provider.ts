@@ -147,6 +147,64 @@ export class GoogleProvider extends BaseAIProvider {
     }
 
     /**
+     * Generate streaming response using raw request payload (for agents package compatibility)
+     * 
+     * This method is required by the agents package's ConversationService for streaming.
+     * It adapts the raw request payload to the Google AI streaming API format.
+     * 
+     * @param request - Raw request payload from ConversationService
+     * @returns AsyncGenerator yielding streaming response chunks
+     */
+    override async *generateStreamingResponse(request: any): AsyncGenerator<any, void, unknown> {
+        try {
+            // Extract parameters from request payload
+            const model = request.model;
+            const messages = request.messages || [];
+            const temperature = request.temperature;
+            const maxTokens = request.max_tokens;
+            const tools = request.tools;
+            const systemMessage = request.system;
+
+            // Convert to Google format
+            const { contents, systemInstruction } = this.processGoogleMessages(messages, systemMessage);
+
+            // Configure tools if provided
+            const toolConfig = this.configureTools(tools);
+            const modelConfig: any = {
+                model: model || 'gemini-1.5-flash',
+                systemInstruction: systemInstruction
+            };
+
+            // Add tools to model configuration if available
+            if (toolConfig) {
+                modelConfig.tools = toolConfig.tools;
+            }
+
+            // Get Google AI model instance
+            const generativeModel = this.client.getGenerativeModel(modelConfig);
+
+            // Configure generation parameters
+            const generationConfig = {
+                temperature,
+                maxOutputTokens: maxTokens
+            };
+
+            // Generate streaming content
+            const result = await generativeModel.generateContentStream({
+                contents,
+                generationConfig
+            });
+
+            // Yield each chunk
+            for await (const chunk of result.stream) {
+                yield this.parseStreamingChunk(chunk);
+            }
+        } catch (error) {
+            this.handleApiError(error, 'generateStreamingResponse');
+        }
+    }
+
+    /**
      * Send a streaming chat request to Google AI and receive response chunks
      * 
      * Generates an async iterator that yields response chunks as they arrive.
