@@ -3,7 +3,6 @@ import { Message } from '../../interfaces/agent';
 import { Logger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import {
-    HistoryStorageStrategy,
     ConversationHistoryPluginOptions,
     ConversationHistoryEntry,
     HistoryStorage

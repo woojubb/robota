@@ -70,7 +70,7 @@ Run agent with user input
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:19](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-agent.ts#L19)
+[packages/agents/src/abstracts/base-agent.ts:19](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-agent.ts#L19)
 
 ___
 
@@ -97,7 +97,7 @@ Run agent with streaming response
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:24](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-agent.ts#L24)
+[packages/agents/src/abstracts/base-agent.ts:24](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-agent.ts#L24)
 
 ___
 
@@ -117,7 +117,7 @@ Get conversation history
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:29](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-agent.ts#L29)
+[packages/agents/src/abstracts/base-agent.ts:29](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-agent.ts#L29)
 
 ___
 
@@ -137,7 +137,7 @@ Clear conversation history
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:36](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-agent.ts#L36)
+[packages/agents/src/abstracts/base-agent.ts:36](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-agent.ts#L36)
 
 ___
 
@@ -153,4 +153,4 @@ Cleanup resources
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:72](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-agent.ts#L72)
+[packages/agents/src/abstracts/base-agent.ts:72](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-agent.ts#L72)

@@ -4,16 +4,16 @@ import { UsageStorage, UsageStats, AggregatedUsageStats } from '../types';
  * Silent storage implementation for usage statistics (no-op)
  */
 export class SilentUsageStorage implements UsageStorage {
-    async save(entry: UsageStats): Promise<void> {
+    async save(_entry: UsageStats): Promise<void> {
         // Silent mode - do nothing
     }
 
-    async getStats(conversationId?: string, timeRange?: { start: Date; end: Date }): Promise<UsageStats[]> {
+    async getStats(_conversationId?: string, _timeRange?: { start: Date; end: Date }): Promise<UsageStats[]> {
         // Silent mode - return empty array
         return [];
     }
 
-    async getAggregatedStats(timeRange?: { start: Date; end: Date }): Promise<AggregatedUsageStats> {
+    async getAggregatedStats(_timeRange?: { start: Date; end: Date }): Promise<AggregatedUsageStats> {
         // Silent mode - return empty aggregated stats
         return {
             totalRequests: 0,
@@ -25,8 +25,8 @@ export class SilentUsageStorage implements UsageStorage {
             modelStats: {},
             toolStats: {},
             timeRangeStats: {
-                startTime: timeRange?.start || new Date(),
-                endTime: timeRange?.end || new Date(),
+                startTime: _timeRange?.start || new Date(),
+                endTime: _timeRange?.end || new Date(),
                 period: 'silent'
             }
         };

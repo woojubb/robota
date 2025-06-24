@@ -122,9 +122,9 @@ export class AnthropicProvider extends BaseAIProvider {
 
             const requestParams: any = {
                 model: model || this.options.model || 'claude-3-sonnet-20240229',
-                max_tokens: options?.maxTokens ?? this.options.maxTokens ?? 1000,
+                max_tokens: options?.maxTokens ?? (this.options as any).maxTokens ?? 1000,
                 messages: anthropicMessages,
-                temperature: options?.temperature ?? this.options.temperature
+                temperature: options?.temperature ?? (this.options as any).temperature
             };
 
             // Add system message if provided
@@ -202,11 +202,11 @@ export class AnthropicProvider extends BaseAIProvider {
 
             // Log payload for debugging
             if (this.payloadLogger.isEnabled()) {
-                await this.payloadLogger.logPayload(requestParams, 'generateStreamingResponse');
+                await this.payloadLogger.logPayload(requestParams, 'stream');
             }
 
             // Create streaming message
-            const stream = await this.client.messages.create(requestParams);
+            const stream = await this.client.messages.create(requestParams) as any;
 
             // Process each chunk in the stream
             for await (const chunk of stream) {
@@ -245,9 +245,9 @@ export class AnthropicProvider extends BaseAIProvider {
 
             const requestParams: any = {
                 model: model || this.options.model || 'claude-3-sonnet-20240229',
-                max_tokens: options?.maxTokens ?? this.options.maxTokens ?? 1000,
+                max_tokens: options?.maxTokens ?? (this.options as any).maxTokens ?? 1000,
                 messages: anthropicMessages,
-                temperature: options?.temperature ?? this.options.temperature,
+                temperature: options?.temperature ?? (this.options as any).temperature,
                 stream: true
             };
 

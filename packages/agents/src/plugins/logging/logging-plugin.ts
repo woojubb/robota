@@ -2,7 +2,6 @@ import { BasePlugin } from '../../abstracts/base-plugin';
 import { Logger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import {
-    LoggingStrategy,
     LogLevel,
     LogEntry,
     LoggingPluginOptions,
@@ -45,7 +44,7 @@ export class LoggingPlugin extends BasePlugin {
             remoteHeaders: options.remoteHeaders ?? {},
             maxLogs: options.maxLogs ?? 10000,
             includeStackTrace: options.includeStackTrace ?? true,
-            formatter: options.formatter ?? undefined,
+            ...(options.formatter && { formatter: options.formatter }),
             batchSize: options.batchSize ?? 100,
             flushInterval: options.flushInterval ?? 30000,
         };
@@ -73,8 +72,8 @@ export class LoggingPlugin extends BasePlugin {
                 timestamp: new Date(),
                 level,
                 message,
-                context,
-                metadata
+                ...(context && { context }),
+                ...(metadata && { metadata })
             };
 
             await this.storage.write(entry);
@@ -138,7 +137,7 @@ export class LoggingPlugin extends BasePlugin {
         await this.info('Execution completed', { duration }, {
             executionId,
             operation: 'execution_complete',
-            duration,
+            ...(duration !== undefined && { duration }),
             ...metadata
         });
     }
@@ -150,12 +149,17 @@ export class LoggingPlugin extends BasePlugin {
         const message = success ? 'Tool executed successfully' : 'Tool execution failed';
         const level: LogLevel = success ? 'info' : 'error';
 
-        await this.log(level, message, { toolName, success }, {
+        const logMetadata: any = {
             executionId,
             operation: 'tool_execution',
-            duration,
             ...metadata
-        });
+        };
+
+        if (duration !== undefined) {
+            logMetadata.duration = duration;
+        }
+
+        await this.log(level, message, { toolName, success }, logMetadata);
     }
 
     /**

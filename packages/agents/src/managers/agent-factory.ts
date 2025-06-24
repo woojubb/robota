@@ -1,6 +1,4 @@
 import { AgentInterface, AgentConfig, AgentTemplate } from '../interfaces/agent';
-import { AIProvider } from '../interfaces/provider';
-import { BaseManager } from '../abstracts/base-manager';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { validateAgentConfig } from '../utils/validation';
 import { Logger } from '../utils/logger';
@@ -328,7 +326,7 @@ export class AgentFactory {
             provider: config.provider || this.options.defaultProvider,
             systemMessage: config.systemMessage || this.options.defaultSystemMessage,
             temperature: config.temperature ?? 0.7,
-            maxTokens: config.maxTokens,
+            ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
             tools: config.tools || [],
             metadata: config.metadata || {},
             ...config,

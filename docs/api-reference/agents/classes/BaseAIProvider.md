@@ -73,7 +73,7 @@ Available models
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:37](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-ai-provider.ts#L37)
+[packages/agents/src/abstracts/base-ai-provider.ts:37](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-ai-provider.ts#L37)
 
 ___
 
@@ -93,7 +93,7 @@ Provider name
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-provider.ts:5](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-provider.ts#L5)
+[packages/agents/src/abstracts/base-provider.ts:5](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-provider.ts#L5)
 
 ## Methods
 
@@ -121,7 +121,7 @@ Generate response from AI model
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:39](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-ai-provider.ts#L39)
+[packages/agents/src/abstracts/base-ai-provider.ts:39](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-ai-provider.ts#L39)
 
 ___
 
@@ -149,7 +149,7 @@ Generate streaming response from AI model
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:41](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-ai-provider.ts#L41)
+[packages/agents/src/abstracts/base-ai-provider.ts:41](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-ai-provider.ts#L41)
 
 ___
 
@@ -182,7 +182,7 @@ Provider execution result
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:58](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-ai-provider.ts#L58)
+[packages/agents/src/abstracts/base-ai-provider.ts:58](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-ai-provider.ts#L58)
 
 ___
 
@@ -207,7 +207,7 @@ Async generator of streaming results
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:93](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-ai-provider.ts#L93)
+[packages/agents/src/abstracts/base-ai-provider.ts:93](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-ai-provider.ts#L93)
 
 ___
 
@@ -233,7 +233,7 @@ Generate response using raw request payload (default implementation uses chat)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:125](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-ai-provider.ts#L125)
+[packages/agents/src/abstracts/base-ai-provider.ts:125](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-ai-provider.ts#L125)
 
 ___
 
@@ -259,7 +259,7 @@ Generate streaming response using raw request payload (default implementation us
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:132](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-ai-provider.ts#L132)
+[packages/agents/src/abstracts/base-ai-provider.ts:132](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-ai-provider.ts#L132)
 
 ___
 
@@ -285,7 +285,7 @@ Check if model is supported
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:140](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-ai-provider.ts#L140)
+[packages/agents/src/abstracts/base-ai-provider.ts:140](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-ai-provider.ts#L140)
 
 ___
 
@@ -305,7 +305,7 @@ Resource cleanup
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:144](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-ai-provider.ts#L144)
+[packages/agents/src/abstracts/base-ai-provider.ts:144](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-ai-provider.ts#L144)
 
 ___
 
@@ -323,7 +323,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-provider.ts:9](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-provider.ts#L9)
+[packages/agents/src/abstracts/base-provider.ts:9](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-provider.ts#L9)
 
 ___
 
@@ -341,7 +341,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-provider.ts:13](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-provider.ts#L13)
+[packages/agents/src/abstracts/base-provider.ts:13](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-provider.ts#L13)
 
 ___
 
@@ -359,4 +359,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-provider.ts:17](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-provider.ts#L17)
+[packages/agents/src/abstracts/base-provider.ts:17](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-provider.ts#L17)

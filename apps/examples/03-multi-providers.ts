@@ -5,6 +5,7 @@
  * - OpenAI with different models
  * - Comparing responses from different models
  * - Provider switching capabilities
+ * - Independent agent instances
  */
 
 import OpenAI from 'openai';
@@ -12,7 +13,7 @@ import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import dotenv from 'dotenv';
 
-// Load environment variables
+// Load environment variables from examples directory
 dotenv.config();
 
 async function testProvider(providerName: string, robota: Robota, query: string) {
@@ -31,7 +32,7 @@ async function testProvider(providerName: string, robota: Robota, query: string)
 
 async function main() {
     try {
-        console.log('🌐 Multi-Provider Example Started...\\n');
+        console.log('🌐 Multi-Provider Example Started...\n');
 
         // Validate API key
         const openaiKey = process.env.OPENAI_API_KEY;
@@ -49,9 +50,10 @@ async function main() {
         });
 
         const robota35 = new Robota({
-            aiProviders: { openai: openai35Provider },
-            provider: 'openai',
+            name: 'GPT35Agent',
             model: 'gpt-3.5-turbo',
+            provider: 'openai',
+            aiProviders: { openai: openai35Provider },
             currentProvider: 'openai',
             currentModel: 'gpt-3.5-turbo',
             systemMessage: 'You are a helpful assistant powered by OpenAI GPT-3.5. Be concise and mention that you are GPT-3.5.'
@@ -66,9 +68,10 @@ async function main() {
         });
 
         const robota4Mini = new Robota({
-            aiProviders: { openai: openai4MiniProvider },
-            provider: 'openai',
+            name: 'GPT4MiniAgent',
             model: 'gpt-4o-mini',
+            provider: 'openai',
+            aiProviders: { openai: openai4MiniProvider },
             currentProvider: 'openai',
             currentModel: 'gpt-4o-mini',
             systemMessage: 'You are a helpful assistant powered by OpenAI GPT-4o-mini. Be detailed and mention that you are GPT-4o-mini.'
@@ -77,20 +80,17 @@ async function main() {
         await testProvider('OpenAI GPT-4o-mini', robota4Mini, 'Hello! Please tell me about artificial intelligence in 2-3 sentences.');
 
         // === Test different model comparison ===
-        console.log(`\\n${'='.repeat(50)}`);
+        console.log(`\n${'='.repeat(50)}`);
         console.log('🔄 Testing Model Comparison');
         console.log(`${'='.repeat(50)}`);
 
-        const testQueries = [
-            'What are the main benefits of renewable energy?',
-            'Explain quantum computing in simple terms.',
-            'What is the future of artificial intelligence?'
-        ];
+        // Optimize queries for minimal token usage
+        const testQueries = ['What is AI?']; // Single short query
 
         for (const query of testQueries) {
-            console.log(`\\n📝 Query: ${query}`);
+            console.log(`\n📝 Query: ${query}`);
 
-            console.log('\\n🤖 GPT-3.5-turbo:');
+            console.log('\n🤖 GPT-3.5-turbo:');
             try {
                 const response35 = await robota35.run(query);
                 console.log(response35);
@@ -98,7 +98,7 @@ async function main() {
                 console.error('Error:', error);
             }
 
-            console.log('\\n🧠 GPT-4o-mini:');
+            console.log('\n🧠 GPT-4o-mini:');
             try {
                 const response4 = await robota4Mini.run(query);
                 console.log(response4);
@@ -106,11 +106,26 @@ async function main() {
                 console.error('Error:', error);
             }
 
-            console.log('\\n' + '-'.repeat(40));
+            console.log('\n' + '-'.repeat(40));
         }
 
-        console.log('\\n✅ Multi-Provider Example Completed!');
-        console.log('\\n💡 To test other providers (Anthropic, Google AI):');
+        // === Show Agent Statistics ===
+        console.log('\n📊 Agent Comparison:');
+
+        const stats35 = robota35.getStats();
+        console.log(`\nGPT-3.5 Agent (${stats35.name}):`);
+        console.log(`- History length: ${stats35.historyLength}`);
+        console.log(`- Current provider: ${stats35.currentProvider}`);
+        console.log(`- Uptime: ${Math.round(stats35.uptime)}ms`);
+
+        const stats4 = robota4Mini.getStats();
+        console.log(`\nGPT-4o-mini Agent (${stats4.name}):`);
+        console.log(`- History length: ${stats4.historyLength}`);
+        console.log(`- Current provider: ${stats4.currentProvider}`);
+        console.log(`- Uptime: ${Math.round(stats4.uptime)}ms`);
+
+        console.log('\n✅ Multi-Provider Example Completed!');
+        console.log('\n💡 To test other providers (Anthropic, Google AI):');
         console.log('   - Set ANTHROPIC_API_KEY environment variable');
         console.log('   - Set GOOGLE_AI_API_KEY environment variable');
         console.log('   - Import @robota-sdk/anthropic and @robota-sdk/google packages');
@@ -118,8 +133,15 @@ async function main() {
         // Clean up resources
         await robota35.destroy();
         await robota4Mini.destroy();
+
+        // Ensure process exits cleanly
+        console.log('🧹 Cleanup completed. Exiting...');
+        process.exit(0);
     } catch (error) {
         console.error('❌ Error occurred:', error);
+        if (error instanceof Error) {
+            console.error('Stack trace:', error.stack);
+        }
         process.exit(1);
     }
 }

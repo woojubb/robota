@@ -5,6 +5,7 @@
  * - Simple conversation using OpenAI
  * - Message sending and responses
  * - Proper error handling
+ * - Basic statistics and resource management
  */
 
 import OpenAI from 'openai';
@@ -12,7 +13,7 @@ import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import dotenv from 'dotenv';
 
-// Load environment variables
+// Load environment variables from examples directory
 dotenv.config();
 
 async function main() {
@@ -34,40 +35,50 @@ async function main() {
             model: 'gpt-3.5-turbo'
         });
 
-        // Create Robota instance
+        // Create Robota instance with basic configuration
         const robota = new Robota({
+            name: 'BasicAgent',
+            model: 'gpt-3.5-turbo',
+            provider: 'openai',
             aiProviders: {
                 'openai': openaiProvider
             },
-            provider: 'openai',
-            model: 'gpt-3.5-turbo',
             currentProvider: 'openai',
             currentModel: 'gpt-3.5-turbo',
             systemMessage: 'You are a helpful AI assistant. Provide concise and useful responses.'
         });
 
-        // === Simple Conversation ===
-        console.log('📝 Simple Conversation:');
-        const query = 'Hello! Please tell me about TypeScript in 2-3 sentences.';
+        // === Optimized Conversation for Token Efficiency ===
+        console.log('📝 Simple Question:');
+        const query = 'Hi, what is TypeScript?';
         console.log(`User: ${query}`);
 
         const response = await robota.run(query);
         console.log(`Assistant: ${response}\n`);
 
-        // === Another Query ===
-        console.log('📝 Another Question:');
-        const query2 = 'What are the main benefits of using TypeScript?';
-        console.log(`User: ${query2}`);
-
-        const response2 = await robota.run(query2);
-        console.log(`Assistant: ${response2}\n`);
+        // === Show Statistics ===
+        console.log('📊 Session Statistics:');
+        const stats = robota.getStats();
+        console.log(`- Agent name: ${stats.name}`);
+        console.log(`- Current provider: ${stats.currentProvider}`);
+        console.log(`- History length: ${stats.historyLength}`);
+        console.log(`- Available tools: ${stats.tools.length}`);
+        console.log(`- Plugins: ${stats.plugins.length}`);
+        console.log(`- Uptime: ${Math.round(stats.uptime)}ms\n`);
 
         console.log('✅ Basic Conversation Example Completed!');
 
         // Clean up resources
         await robota.destroy();
+
+        // Ensure process exits cleanly
+        console.log('🧹 Cleanup completed. Exiting...');
+        process.exit(0);
     } catch (error) {
         console.error('❌ Error occurred:', error);
+        if (error instanceof Error) {
+            console.error('Stack trace:', error.stack);
+        }
         process.exit(1);
     }
 }

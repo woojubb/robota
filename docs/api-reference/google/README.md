@@ -14,6 +14,7 @@
 
 - [GoogleConversationAdapter](classes/GoogleConversationAdapter)
 - [GoogleProvider](classes/GoogleProvider)
+- [GoogleStreamHandler](classes/GoogleStreamHandler)
 
 ### Interfaces
 

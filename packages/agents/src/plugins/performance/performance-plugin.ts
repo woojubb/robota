@@ -2,7 +2,6 @@ import { BasePlugin } from '../../abstracts/base-plugin';
 import { Logger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import {
-    PerformanceMonitoringStrategy,
     PerformanceMetrics,
     AggregatedPerformanceStats,
     PerformancePluginOptions,
@@ -67,12 +66,16 @@ export class PerformancePlugin extends BasePlugin {
      */
     async recordMetrics(metrics: Omit<PerformanceMetrics, 'timestamp' | 'memoryUsage' | 'cpuUsage' | 'networkStats'>): Promise<void> {
         try {
+            const memoryUsage = this.options.monitorMemory ? await this.metricsCollector.getMemoryUsage() : undefined;
+            const cpuUsage = this.options.monitorCPU ? await this.metricsCollector.getCPUUsage() : undefined;
+            const networkStats = this.options.monitorNetwork ? await this.metricsCollector.getNetworkStats() : undefined;
+
             const entry: PerformanceMetrics = {
                 ...metrics,
                 timestamp: new Date(),
-                memoryUsage: this.options.monitorMemory ? await this.metricsCollector.getMemoryUsage() : undefined,
-                cpuUsage: this.options.monitorCPU ? await this.metricsCollector.getCPUUsage() : undefined,
-                networkStats: this.options.monitorNetwork ? await this.metricsCollector.getNetworkStats() : undefined
+                ...(memoryUsage && { memoryUsage }),
+                ...(cpuUsage && { cpuUsage }),
+                ...(networkStats && { networkStats })
             };
 
             await this.storage.save(entry);

@@ -8,12 +8,16 @@
  * - Performance monitoring during streaming
  */
 
-import OpenAI from 'openai';
-import { Robota, type RobotaConfig, PerformancePlugin } from '@robota-sdk/agents';
+import {
+    Robota,
+    LoggingPlugin,
+    PerformancePlugin
+} from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
+import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
-// Load environment variables
+// Load environment variables from examples directory
 dotenv.config();
 
 async function main() {
@@ -36,7 +40,7 @@ async function main() {
         // ===== AGENT CONFIGURATION FOR STREAMING =====
         console.log('⚙️ Creating agent optimized for streaming...');
 
-        const config: RobotaConfig = {
+        const config = {
             name: 'StreamingAgent',
             model: 'gpt-3.5-turbo',
             provider: 'openai',
@@ -50,6 +54,10 @@ async function main() {
                     trackMemory: true,
                     trackTiming: true,
                     strategy: 'memory'
+                }),
+                new LoggingPlugin({
+                    level: 'silent',
+                    enabled: false
                 })
             ],
             logging: {
@@ -63,14 +71,15 @@ async function main() {
 
         // ===== BASIC STREAMING =====
         console.log('🌊 Basic Streaming Response:');
-        console.log('User: Tell me a detailed story about a space explorer discovering a new planet.\n');
+        const streamQuery = 'Tell me about space.';  // Short query always
+        console.log(`User: ${streamQuery}\n`);
         console.log('Assistant: ');
 
         const startTime = Date.now();
         let totalChunks = 0;
         let fullResponse = '';
 
-        for await (const chunk of robota.runStream('Tell me a detailed story about a space explorer discovering a new planet.')) {
+        for await (const chunk of robota.runStream(streamQuery)) {
             process.stdout.write(chunk);
             fullResponse += chunk;
             totalChunks++;
@@ -98,34 +107,8 @@ async function main() {
         }
         console.log();
 
-        // ===== CONVERSATIONAL STREAMING =====
-        console.log('🌊 Conversational Streaming (building on previous context):');
-        console.log('User: What challenges might this explorer face on this new planet?\n');
-        console.log('Assistant: ');
-
-        let response2 = '';
-        for await (const chunk of robota.runStream('What challenges might this explorer face on this new planet?')) {
-            process.stdout.write(chunk);
-            response2 += chunk;
-        }
-        console.log('\n\n');
-
-        // ===== STREAMING WITH TIMEOUT SIMULATION =====
-        console.log('🌊 Streaming with Custom Processing:');
-        console.log('User: Describe the alien life forms the explorer might encounter.\n');
-        console.log('Assistant: ');
-
-        const processedChunks: string[] = [];
-        for await (const chunk of robota.runStream('Describe the alien life forms the explorer might encounter.')) {
-            // Simulate processing each chunk
-            const processedChunk = chunk.replace(/\b(alien|creature|being)\b/gi, '👽$1👽');
-            process.stdout.write(processedChunk);
-            processedChunks.push(chunk);
-
-            // Add small delay to simulate processing
-            await new Promise(resolve => setTimeout(resolve, 10));
-        }
-        console.log('\n\n');
+        // ===== SKIP ADDITIONAL STREAMING FOR TOKEN EFFICIENCY =====
+        console.log('🌊 Skipping additional streaming demos for token efficiency\n');
 
         // ===== ERROR HANDLING IN STREAMING =====
         console.log('🚨 Testing Error Handling in Streaming:');
@@ -157,6 +140,10 @@ async function main() {
         console.log('🧹 Cleaning up resources...');
         await robota.destroy();
         console.log('✅ Cleanup complete!');
+
+        // Ensure process exits cleanly
+        console.log('🧹 Exiting...');
+        process.exit(0);
 
     } catch (error) {
         console.error('❌ Error occurred:', error);

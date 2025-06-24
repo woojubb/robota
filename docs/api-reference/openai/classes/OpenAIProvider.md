@@ -44,10 +44,10 @@ Extends BaseAIProvider for common functionality and tool calling support.
 - [isInitialized](OpenAIProvider#isinitialized)
 - [execute](OpenAIProvider#execute)
 - [executeStream](OpenAIProvider#executestream)
-- [generateStreamingResponse](OpenAIProvider#generatestreamingresponse)
 - [supportsModel](OpenAIProvider#supportsmodel)
 - [formatFunctions](OpenAIProvider#formatfunctions)
 - [generateResponse](OpenAIProvider#generateresponse)
+- [generateStreamingResponse](OpenAIProvider#generatestreamingresponse)
 - [chat](OpenAIProvider#chat)
 - [parseResponse](OpenAIProvider#parseresponse)
 - [parseStreamingChunk](OpenAIProvider#parsestreamingchunk)
@@ -82,7 +82,7 @@ BaseAIProvider.constructor
 
 #### Defined in
 
-[openai/src/provider.ts:84](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/openai/src/provider.ts#L84)
+[openai/src/provider.ts:91](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/provider.ts#L91)
 
 ## Properties
 
@@ -98,7 +98,7 @@ BaseAIProvider.name
 
 #### Defined in
 
-[openai/src/provider.ts:31](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/openai/src/provider.ts#L31)
+[openai/src/provider.ts:32](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/provider.ts#L32)
 
 ___
 
@@ -114,7 +114,7 @@ BaseAIProvider.models
 
 #### Defined in
 
-[openai/src/provider.ts:37](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/openai/src/provider.ts#L37)
+[openai/src/provider.ts:38](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/provider.ts#L38)
 
 ___
 
@@ -126,7 +126,7 @@ Client type identifier
 
 #### Defined in
 
-[openai/src/provider.ts:56](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/openai/src/provider.ts#L56)
+[openai/src/provider.ts:57](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/provider.ts#L57)
 
 ___
 
@@ -142,7 +142,7 @@ Use the private client property instead
 
 #### Defined in
 
-[openai/src/provider.ts:63](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/openai/src/provider.ts#L63)
+[openai/src/provider.ts:64](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/provider.ts#L64)
 
 ___
 
@@ -154,7 +154,7 @@ Provider configuration options
 
 #### Defined in
 
-[openai/src/provider.ts:69](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/openai/src/provider.ts#L69)
+[openai/src/provider.ts:70](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/provider.ts#L70)
 
 ## Methods
 
@@ -278,32 +278,6 @@ agents/dist/index.d.ts:908
 
 ___
 
-### generateStreamingResponse
-
-▸ **generateStreamingResponse**(`request`): `AsyncGenerator`\<`any`, `void`, `unknown`\>
-
-Generate streaming response using raw request payload (default implementation uses chatStream)
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `request` | `any` |
-
-#### Returns
-
-`AsyncGenerator`\<`any`, `void`, `unknown`\>
-
-#### Inherited from
-
-BaseAIProvider.generateStreamingResponse
-
-#### Defined in
-
-agents/dist/index.d.ts:916
-
-___
-
 ### supportsModel
 
 ▸ **supportsModel**(`model`): `boolean`
@@ -351,7 +325,7 @@ Array of OpenAI-formatted tools
 
 #### Defined in
 
-[openai/src/provider.ts:122](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/openai/src/provider.ts#L122)
+[openai/src/provider.ts:131](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/provider.ts#L131)
 
 ___
 
@@ -382,7 +356,38 @@ BaseAIProvider.generateResponse
 
 #### Defined in
 
-[openai/src/provider.ts:171](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/openai/src/provider.ts#L171)
+[openai/src/provider.ts:180](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/provider.ts#L180)
+
+___
+
+### generateStreamingResponse
+
+▸ **generateStreamingResponse**(`request`): `AsyncGenerator`\<`any`, `void`, `unknown`\>
+
+Generate streaming response using raw request payload (for agents package compatibility)
+
+This method is required by the agents package's ConversationService for streaming.
+It adapts the raw request payload to the OpenAI streaming API format.
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `request` | `any` | Raw request payload from ConversationService |
+
+#### Returns
+
+`AsyncGenerator`\<`any`, `void`, `unknown`\>
+
+AsyncGenerator yielding streaming response chunks
+
+#### Overrides
+
+BaseAIProvider.generateStreamingResponse
+
+#### Defined in
+
+[openai/src/provider.ts:230](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/provider.ts#L230)
 
 ___
 
@@ -431,7 +436,7 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[openai/src/provider.ts:228](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/openai/src/provider.ts#L228)
+[openai/src/provider.ts:283](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/provider.ts#L283)
 
 ___
 
@@ -458,7 +463,7 @@ Parsed model response in universal format
 
 #### Defined in
 
-[openai/src/provider.ts:290](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/openai/src/provider.ts#L290)
+[openai/src/provider.ts:343](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/provider.ts#L343)
 
 ___
 
@@ -485,7 +490,7 @@ Parsed streaming response chunk
 
 #### Defined in
 
-[openai/src/provider.ts:333](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/openai/src/provider.ts#L333)
+[openai/src/provider.ts:393](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/provider.ts#L393)
 
 ___
 
@@ -493,45 +498,36 @@ ___
 
 ▸ **chatStream**(`model`, `context`, `options?`): `AsyncGenerator`\<`StreamingResponseChunk`, `void`, `unknown`\>
 
-Send a streaming chat request to OpenAI and receive response chunks
+Send a streaming chat request to OpenAI and receive chunked responses
 
-Similar to chat() but returns an async iterator that yields response chunks
-as they arrive from OpenAI's streaming API. Useful for real-time display
-of responses or handling large responses incrementally.
+Initiates a streaming request to OpenAI's Chat Completions API and yields
+partial responses as they arrive. Handles tool calling in streaming mode.
 
 #### Parameters
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `model` | `string` | Model name to use |
-| `context` | `Context` | Context object containing messages and system prompt |
-| `options?` | `any` | Optional generation parameters and tools |
+| `model` | `string` | Model name to use for generation |
+| `context` | `Context` | Context containing messages and configuration |
+| `options?` | `any` | Optional generation parameters |
 
 #### Returns
 
 `AsyncGenerator`\<`StreamingResponseChunk`, `void`, `unknown`\>
 
-Async generator yielding response chunks
+AsyncGenerator yielding streaming response chunks
 
 **`Throws`**
 
-When context is invalid
+When context validation fails
 
 **`Throws`**
 
-When messages array is invalid
+When message conversion fails
 
 **`Throws`**
 
-When message format conversion fails
-
-**`Throws`**
-
-When OpenAI streaming API call fails
-
-**`See`**
-
-@examples/01-basic | Basic Usage Examples
+When streaming request fails
 
 #### Overrides
 
@@ -539,7 +535,7 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[openai/src/provider.ts:377](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/openai/src/provider.ts#L377)
+[openai/src/provider.ts:437](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/provider.ts#L437)
 
 ___
 
@@ -547,10 +543,10 @@ ___
 
 ▸ **close**(): `Promise`\<`void`\>
 
-Release resources and close connections
+Close and cleanup provider resources
 
-Performs cleanup operations when the provider is no longer needed.
-OpenAI client doesn't require explicit cleanup, so this is a no-op.
+Performs cleanup operations including closing the OpenAI client
+and any other resources that need proper disposal.
 
 #### Returns
 
@@ -564,4 +560,4 @@ BaseAIProvider.close
 
 #### Defined in
 
-[openai/src/provider.ts:454](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/openai/src/provider.ts#L454)
+[openai/src/provider.ts:482](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/provider.ts#L482)

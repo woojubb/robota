@@ -13,8 +13,10 @@
 ### Classes
 
 - [OpenAIConversationAdapter](classes/OpenAIConversationAdapter)
+- [OpenAIResponseParser](classes/OpenAIResponseParser)
 - [PayloadLogger](classes/PayloadLogger)
 - [OpenAIProvider](classes/OpenAIProvider)
+- [OpenAIStreamHandler](classes/OpenAIStreamHandler)
 
 ### Interfaces
 

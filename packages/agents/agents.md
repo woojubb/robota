@@ -253,12 +253,19 @@ packages/agents/src/
 ### Phase 6: 테스트 및 문서화
 - [ ] Manager 클래스별 테스트 (AIProviders, Tools, ExecutionService 등)
 - [ ] Plugin 시스템 통합 테스트
+- [ ] **도구 실행 결과 처리 문제 해결**
+  - [ ] 도구 실행 결과가 대화 히스토리에 제대로 추가되지 않는 문제 조사
+  - [ ] ConversationService에서 tool result 메시지 처리 로직 검증
+  - [ ] Provider별 tool call response 파싱 및 메시지 변환 확인
+  - [ ] 도구 실행 후 결과 메시지가 다음 턴에 제대로 전달되는지 테스트
 - [ ] 타입 정의 완성
   - [ ] TypeScript 타입 안전성 확보
-- [ ] **예제 코드 정리 및 검증**
+- [x] **예제 코드 정리 및 검증**
+  - [x] 환경변수 관리 표준화 (workspace root 기준)
+  - [x] 새로운 agents 예제 작성 (10-agents-basic-usage.ts, 11-agents-streaming.ts)
+  - [x] Cursor Rules 작성 (example-execution.mdc, environment-variables.mdc)
   - [ ] 기존 예제들을 새 agents 패키지 기능에 맞춰 업데이트
   - [ ] 모든 예제 파일이 실제로 실행되는지 검증
-  - [ ] 새로운 Plugin 시스템과 스트리밍 기능을 반영한 예제 추가
   - [ ] 예제별 의존성 및 설정 확인
 
 ### Phase 7: 빌드 및 배포 준비

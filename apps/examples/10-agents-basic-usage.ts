@@ -14,7 +14,7 @@ import { Robota, type RobotaConfig, LoggingPlugin, UsagePlugin } from '@robota-s
 import { OpenAIProvider } from '@robota-sdk/openai';
 import dotenv from 'dotenv';
 
-// Load environment variables
+// Load environment variables from examples directory
 dotenv.config();
 
 async function main() {
@@ -67,7 +67,7 @@ async function main() {
 
         // ===== BASIC CONVERSATION =====
         console.log('💬 Basic Conversation:');
-        const query1 = 'Hello! Please explain what an AI agent is in simple terms.';
+        const query1 = 'What is an AI agent?';
         console.log(`User: ${query1}`);
 
         const response1 = await robota.run(query1);
@@ -101,12 +101,7 @@ async function main() {
         console.log('✅ Configuration updated\n');
 
         // ===== ANOTHER CONVERSATION WITH NEW CONFIG =====
-        console.log('💬 Conversation with updated config:');
-        const query2 = 'Tell me a creative short story about a robot learning to paint.';
-        console.log(`User: ${query2}`);
-
-        const response2 = await robota.run(query2);
-        console.log(`Assistant: ${response2}\n`);
+        console.log('💬 Skipping second conversation for token efficiency\n');
 
         // ===== PLUGIN INTERACTION =====
         console.log('🔌 Plugin Information:');
@@ -139,6 +134,10 @@ async function main() {
         console.log('🧹 Cleaning up resources...');
         await robota.destroy();
         console.log('✅ Cleanup complete!');
+
+        // Ensure process exits cleanly
+        console.log('🧹 Exiting...');
+        process.exit(0);
 
     } catch (error) {
         console.error('❌ Error occurred:', error);

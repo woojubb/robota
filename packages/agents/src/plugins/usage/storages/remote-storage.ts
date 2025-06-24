@@ -6,8 +6,7 @@ import { StorageError } from '../../../utils/errors';
  * Remote storage implementation for usage statistics with batching
  */
 export class RemoteUsageStorage implements UsageStorage {
-    private endpoint: string;
-    private headers: Record<string, string>;
+    private apiUrl: string;
     private batchSize: number;
     private flushInterval: number;
     private batch: UsageStats[] = [];
@@ -15,13 +14,14 @@ export class RemoteUsageStorage implements UsageStorage {
     private logger: Logger;
 
     constructor(
-        endpoint: string,
-        headers: Record<string, string> = {},
+        apiUrl: string,
+        _apiKey: string,
+        _timeout: number,
+        _headers: Record<string, string> = {},
         batchSize: number = 50,
         flushInterval: number = 60000 // 1 minute
     ) {
-        this.endpoint = endpoint;
-        this.headers = headers;
+        this.apiUrl = apiUrl;
         this.batchSize = batchSize;
         this.flushInterval = flushInterval;
         this.logger = new Logger('RemoteUsageStorage');
@@ -41,7 +41,7 @@ export class RemoteUsageStorage implements UsageStorage {
         try {
             // Remote API call would be implemented here
             this.logger.warn('Remote usage storage not fully implemented yet', {
-                endpoint: this.endpoint,
+                endpoint: this.apiUrl,
                 operation: 'getStats',
                 conversationId,
                 timeRange
@@ -49,7 +49,7 @@ export class RemoteUsageStorage implements UsageStorage {
             return [];
         } catch (error) {
             throw new StorageError('Failed to get usage stats from remote endpoint', {
-                endpoint: this.endpoint,
+                endpoint: this.apiUrl,
                 conversationId,
                 error: error instanceof Error ? error.message : String(error)
             });
@@ -60,7 +60,7 @@ export class RemoteUsageStorage implements UsageStorage {
         try {
             // Remote API call would be implemented here
             this.logger.warn('Remote usage storage not fully implemented yet', {
-                endpoint: this.endpoint,
+                endpoint: this.apiUrl,
                 operation: 'getAggregatedStats',
                 timeRange
             });
@@ -83,7 +83,7 @@ export class RemoteUsageStorage implements UsageStorage {
             };
         } catch (error) {
             throw new StorageError('Failed to get aggregated usage stats from remote endpoint', {
-                endpoint: this.endpoint,
+                endpoint: this.apiUrl,
                 error: error instanceof Error ? error.message : String(error)
             });
         }
@@ -93,12 +93,12 @@ export class RemoteUsageStorage implements UsageStorage {
         try {
             // Remote API call would be implemented here
             this.logger.warn('Remote usage storage not fully implemented yet', {
-                endpoint: this.endpoint,
+                endpoint: this.apiUrl,
                 operation: 'clear'
             });
         } catch (error) {
             throw new StorageError('Failed to clear usage stats from remote endpoint', {
-                endpoint: this.endpoint,
+                endpoint: this.apiUrl,
                 error: error instanceof Error ? error.message : String(error)
             });
         }
@@ -114,7 +114,7 @@ export class RemoteUsageStorage implements UsageStorage {
             // Remote API call would be implemented here
             // This is a placeholder for actual HTTP requests
             this.logger.warn('Remote usage storage not fully implemented yet', {
-                endpoint: this.endpoint,
+                endpoint: this.apiUrl,
                 operation: 'flush',
                 batchSize: statsToSend.length,
                 sample: statsToSend.slice(0, 3).map(stat => ({
@@ -130,7 +130,7 @@ export class RemoteUsageStorage implements UsageStorage {
             // Re-add failed batch to the beginning of current batch
             this.batch = [...statsToSend, ...this.batch];
             throw new StorageError('Failed to send usage stats to remote endpoint', {
-                endpoint: this.endpoint,
+                endpoint: this.apiUrl,
                 batchSize: statsToSend.length,
                 error: error instanceof Error ? error.message : String(error)
             });

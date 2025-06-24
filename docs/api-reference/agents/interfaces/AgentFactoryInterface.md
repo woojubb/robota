@@ -39,7 +39,7 @@ Create agent instance
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:107](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/manager.ts#L107)
+[packages/agents/src/interfaces/manager.ts:107](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/manager.ts#L107)
 
 ___
 
@@ -61,7 +61,7 @@ Validate agent configuration
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:112](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/manager.ts#L112)
+[packages/agents/src/interfaces/manager.ts:112](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/manager.ts#L112)
 
 ___
 
@@ -77,7 +77,7 @@ Get default configuration
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:117](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/manager.ts#L117)
+[packages/agents/src/interfaces/manager.ts:117](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/manager.ts#L117)
 
 ___
 
@@ -100,4 +100,4 @@ Merge configurations
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:122](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/manager.ts#L122)
+[packages/agents/src/interfaces/manager.ts:122](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/manager.ts#L122)

@@ -43,9 +43,9 @@ Extends BaseAIProvider for common functionality and tool calling support.
 - [execute](AnthropicProvider#execute)
 - [executeStream](AnthropicProvider#executestream)
 - [generateResponse](AnthropicProvider#generateresponse)
-- [generateStreamingResponse](AnthropicProvider#generatestreamingresponse)
 - [supportsModel](AnthropicProvider#supportsmodel)
 - [chat](AnthropicProvider#chat)
+- [generateStreamingResponse](AnthropicProvider#generatestreamingresponse)
 - [chatStream](AnthropicProvider#chatstream)
 - [parseResponse](AnthropicProvider#parseresponse)
 - [parseStreamingChunk](AnthropicProvider#parsestreamingchunk)
@@ -79,7 +79,7 @@ BaseAIProvider.constructor
 
 #### Defined in
 
-[anthropic/src/provider.ts:71](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/anthropic/src/provider.ts#L71)
+[anthropic/src/provider.ts:70](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/anthropic/src/provider.ts#L70)
 
 ## Properties
 
@@ -95,7 +95,7 @@ BaseAIProvider.name
 
 #### Defined in
 
-[anthropic/src/provider.ts:31](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/anthropic/src/provider.ts#L31)
+[anthropic/src/provider.ts:30](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/anthropic/src/provider.ts#L30)
 
 ___
 
@@ -111,7 +111,7 @@ BaseAIProvider.models
 
 #### Defined in
 
-[anthropic/src/provider.ts:37](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/anthropic/src/provider.ts#L37)
+[anthropic/src/provider.ts:36](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/anthropic/src/provider.ts#L36)
 
 ___
 
@@ -123,7 +123,7 @@ Provider configuration options
 
 #### Defined in
 
-[anthropic/src/provider.ts:56](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/anthropic/src/provider.ts#L56)
+[anthropic/src/provider.ts:55](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/anthropic/src/provider.ts#L55)
 
 ## Methods
 
@@ -273,32 +273,6 @@ agents/dist/index.d.ts:912
 
 ___
 
-### generateStreamingResponse
-
-▸ **generateStreamingResponse**(`request`): `AsyncGenerator`\<`any`, `void`, `unknown`\>
-
-Generate streaming response using raw request payload (default implementation uses chatStream)
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `request` | `any` |
-
-#### Returns
-
-`AsyncGenerator`\<`any`, `void`, `unknown`\>
-
-#### Inherited from
-
-BaseAIProvider.generateStreamingResponse
-
-#### Defined in
-
-agents/dist/index.d.ts:916
-
-___
-
 ### supportsModel
 
 ▸ **supportsModel**(`model`): `boolean`
@@ -364,7 +338,38 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[anthropic/src/provider.ts:114](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/anthropic/src/provider.ts#L114)
+[anthropic/src/provider.ts:113](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/anthropic/src/provider.ts#L113)
+
+___
+
+### generateStreamingResponse
+
+▸ **generateStreamingResponse**(`request`): `AsyncGenerator`\<`any`, `void`, `unknown`\>
+
+Generate streaming response using raw request payload (for agents package compatibility)
+
+This method is required by the agents package's ConversationService for streaming.
+It adapts the raw request payload to the Anthropic streaming API format.
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `request` | `any` | Raw request payload from ConversationService |
+
+#### Returns
+
+`AsyncGenerator`\<`any`, `void`, `unknown`\>
+
+AsyncGenerator yielding streaming response chunks
+
+#### Overrides
+
+BaseAIProvider.generateStreamingResponse
+
+#### Defined in
+
+[anthropic/src/provider.ts:171](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/anthropic/src/provider.ts#L171)
 
 ___
 
@@ -410,7 +415,7 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[anthropic/src/provider.ts:179](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/anthropic/src/provider.ts#L179)
+[anthropic/src/provider.ts:236](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/anthropic/src/provider.ts#L236)
 
 ___
 
@@ -438,7 +443,7 @@ Parsed model response in universal format
 
 #### Defined in
 
-[anthropic/src/provider.ts:276](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/anthropic/src/provider.ts#L276)
+[anthropic/src/provider.ts:333](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/anthropic/src/provider.ts#L333)
 
 ___
 
@@ -465,7 +470,7 @@ Parsed streaming response chunk
 
 #### Defined in
 
-[anthropic/src/provider.ts:336](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/anthropic/src/provider.ts#L336)
+[anthropic/src/provider.ts:393](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/anthropic/src/provider.ts#L393)
 
 ___
 
@@ -490,4 +495,4 @@ BaseAIProvider.close
 
 #### Defined in
 
-[anthropic/src/provider.ts:367](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/anthropic/src/provider.ts#L367)
+[anthropic/src/provider.ts:424](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/anthropic/src/provider.ts#L424)

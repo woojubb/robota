@@ -47,7 +47,7 @@ Conversation Session for a single conversation/session
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:124](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/managers/conversation-history-manager.ts#L124)
+[packages/agents/src/managers/conversation-history-manager.ts:124](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/managers/conversation-history-manager.ts#L124)
 
 ## Methods
 
@@ -69,7 +69,7 @@ Add any message to history
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:131](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/managers/conversation-history-manager.ts#L131)
+[packages/agents/src/managers/conversation-history-manager.ts:131](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/managers/conversation-history-manager.ts#L131)
 
 ___
 
@@ -92,7 +92,7 @@ Add user message
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:139](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/managers/conversation-history-manager.ts#L139)
+[packages/agents/src/managers/conversation-history-manager.ts:139](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/managers/conversation-history-manager.ts#L139)
 
 ___
 
@@ -116,7 +116,7 @@ Add assistant message with optional tool calls
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:146](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/managers/conversation-history-manager.ts#L146)
+[packages/agents/src/managers/conversation-history-manager.ts:146](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/managers/conversation-history-manager.ts#L146)
 
 ___
 
@@ -139,7 +139,7 @@ Add system message
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:161](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/managers/conversation-history-manager.ts#L161)
+[packages/agents/src/managers/conversation-history-manager.ts:161](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/managers/conversation-history-manager.ts#L161)
 
 ___
 
@@ -164,7 +164,7 @@ Add tool result message
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:168](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/managers/conversation-history-manager.ts#L168)
+[packages/agents/src/managers/conversation-history-manager.ts:168](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/managers/conversation-history-manager.ts#L168)
 
 ___
 
@@ -190,7 +190,7 @@ High-level API matching core package
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:176](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/managers/conversation-history-manager.ts#L176)
+[packages/agents/src/managers/conversation-history-manager.ts:176](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/managers/conversation-history-manager.ts#L176)
 
 ___
 
@@ -206,7 +206,7 @@ Get all messages in chronological order
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:183](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/managers/conversation-history-manager.ts#L183)
+[packages/agents/src/managers/conversation-history-manager.ts:183](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/managers/conversation-history-manager.ts#L183)
 
 ___
 
@@ -222,7 +222,7 @@ Get messages formatted for API consumption
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:190](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/managers/conversation-history-manager.ts#L190)
+[packages/agents/src/managers/conversation-history-manager.ts:190](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/managers/conversation-history-manager.ts#L190)
 
 ___
 
@@ -238,7 +238,7 @@ Get message count
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:202](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/managers/conversation-history-manager.ts#L202)
+[packages/agents/src/managers/conversation-history-manager.ts:202](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/managers/conversation-history-manager.ts#L202)
 
 ___
 
@@ -254,4 +254,4 @@ Clear all messages
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:209](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/managers/conversation-history-manager.ts#L209)
+[packages/agents/src/managers/conversation-history-manager.ts:209](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/managers/conversation-history-manager.ts#L209)

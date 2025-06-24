@@ -49,8 +49,8 @@ export class MemoryUsageStorage implements UsageStorage {
             modelStats: {},
             toolStats: {},
             timeRangeStats: {
-                startTime: timeRange?.start || (stats.length > 0 ? stats[0].timestamp : new Date()),
-                endTime: timeRange?.end || (stats.length > 0 ? stats[stats.length - 1].timestamp : new Date()),
+                startTime: timeRange?.start || (stats.length > 0 ? stats[0]?.timestamp || new Date() : new Date()),
+                endTime: timeRange?.end || (stats.length > 0 ? stats[stats.length - 1]?.timestamp || new Date() : new Date()),
                 period: this.determinePeriod(timeRange)
             }
         };
@@ -66,10 +66,12 @@ export class MemoryUsageStorage implements UsageStorage {
                 };
             }
             const providerStat = aggregated.providerStats[entry.provider];
-            providerStat.requests += entry.requestCount;
-            providerStat.tokens += entry.tokensUsed.total;
-            providerStat.cost += entry.cost?.total || 0;
-            providerStat.duration += entry.duration;
+            if (providerStat) {
+                providerStat.requests += entry.requestCount;
+                providerStat.tokens += entry.tokensUsed.total;
+                providerStat.cost += entry.cost?.total || 0;
+                providerStat.duration += entry.duration;
+            }
         }
 
         // Aggregate by model
@@ -83,10 +85,12 @@ export class MemoryUsageStorage implements UsageStorage {
                 };
             }
             const modelStat = aggregated.modelStats[entry.model];
-            modelStat.requests += entry.requestCount;
-            modelStat.tokens += entry.tokensUsed.total;
-            modelStat.cost += entry.cost?.total || 0;
-            modelStat.duration += entry.duration;
+            if (modelStat) {
+                modelStat.requests += entry.requestCount;
+                modelStat.tokens += entry.tokensUsed.total;
+                modelStat.cost += entry.cost?.total || 0;
+                modelStat.duration += entry.duration;
+            }
         }
 
         // Aggregate by tools

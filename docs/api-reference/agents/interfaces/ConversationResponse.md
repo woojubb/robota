@@ -30,7 +30,7 @@ Generated content
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:37](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/service.ts#L37)
+[packages/agents/src/interfaces/service.ts:36](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/service.ts#L36)
 
 ___
 
@@ -42,7 +42,7 @@ Tool calls if any
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:39](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/service.ts#L39)
+[packages/agents/src/interfaces/service.ts:38](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/service.ts#L38)
 
 ___
 
@@ -62,7 +62,7 @@ Usage statistics
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:41](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/service.ts#L41)
+[packages/agents/src/interfaces/service.ts:40](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/service.ts#L40)
 
 ___
 
@@ -74,7 +74,7 @@ Response metadata
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:47](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/service.ts#L47)
+[packages/agents/src/interfaces/service.ts:46](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/service.ts#L46)
 
 ___
 
@@ -86,4 +86,4 @@ Finish reason
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:49](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/service.ts#L49)
+[packages/agents/src/interfaces/service.ts:48](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/service.ts#L48)

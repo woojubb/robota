@@ -1,6 +1,5 @@
 import { BasePlugin } from '../../abstracts/base-plugin';
 import { Logger } from '../../utils/logger';
-import { PluginError } from '../../utils/errors';
 import type { RunOptions } from '../../interfaces/agent';
 import type { Context, ModelResponse } from '../../interfaces/provider';
 
@@ -73,52 +72,49 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
     private activeExecutions: Map<string, { startTime: number; operation: string; input?: string }> = new Map();
     private executionHistory: ExecutionStats[] = [];
     private executionCounter = 0;
+    private initialized = false;
 
     constructor(options: ExecutionAnalyticsOptions = {}) {
         super();
-        this.logger = new Logger('ExecutionAnalyticsPlugin');
-
-        // Set defaults
         this.options = {
-            maxEntries: options.maxEntries ?? 1000,
+            maxEntries: options.maxEntries || 1000,
             trackErrors: options.trackErrors ?? true,
-            performanceThreshold: options.performanceThreshold ?? 1000, // 1 second
-            enableWarnings: options.enableWarnings ?? true,
+            performanceThreshold: options.performanceThreshold || 5000,
+            enableWarnings: options.enableWarnings ?? true
         };
-
-        this.logger.info('ExecutionAnalyticsPlugin initialized', {
-            maxEntries: this.options.maxEntries,
-            trackErrors: this.options.trackErrors,
-            performanceThreshold: this.options.performanceThreshold
-        });
+        this.logger = new Logger('ExecutionAnalyticsPlugin');
+        this.logger.info('ExecutionAnalyticsPlugin initialized', this.options);
+        this.initialized = true;
     }
 
     /**
      * Called before agent run - start tracking
      */
-    async beforeRun(input: string, options?: RunOptions): Promise<void> {
+    override async beforeRun(input: string, options?: RunOptions): Promise<void> {
         const executionId = this.generateExecutionId();
 
         this.activeExecutions.set(executionId, {
             startTime: Date.now(),
             operation: 'run',
-            input
+            input: input.substring(0, 100) // Store first 100 chars
         });
 
-        this.logger.debug('Started tracking execution', {
+        this.logger.debug('Started tracking run execution', {
             executionId,
             inputLength: input.length,
-            options: options ? Object.keys(options) : []
+            hasOptions: !!options
         });
     }
 
     /**
-     * Called after agent run - end tracking with success
+     * Called after agent run - end tracking
      */
-    async afterRun(input: string, response: string, options?: RunOptions): Promise<void> {
+    override async afterRun(input: string, response: string, options?: RunOptions): Promise<void> {
+        // Find the related execution
         const execution = this.findActiveExecution('run', input);
+
         if (!execution) {
-            this.logger.warn('No active execution found for afterRun', { inputLength: input.length });
+            this.logger.warn('No active execution found for afterRun', { input: input.substring(0, 100) });
             return;
         }
 
@@ -132,61 +128,63 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
             startTime: new Date(executionData.startTime),
             endTime: new Date(endTime),
             duration,
-            success: true,
+            success: true, // Run completed successfully
             metadata: {
                 inputLength: input.length,
                 responseLength: response.length,
                 hasOptions: !!options,
-                optionKeys: options ? Object.keys(options) : []
+                modelName: options?.metadata?.['model'] || 'unknown'
             }
         };
 
         this.recordStats(stats);
         this.activeExecutions.delete(executionId);
 
-        // Log warning if performance threshold exceeded
+        // Performance warning
         if (this.options.enableWarnings && duration > this.options.performanceThreshold) {
-            this.logger.warn('Performance threshold exceeded', {
+            this.logger.warn('Slow run execution detected', {
                 executionId,
                 duration,
-                threshold: this.options.performanceThreshold,
-                inputLength: input.length
+                threshold: this.options.performanceThreshold
             });
         }
 
-        this.logger.debug('Completed tracking execution', {
+        this.logger.debug('Completed tracking run execution', {
             executionId,
             duration,
-            success: true
+            inputLength: input.length,
+            responseLength: response.length
         });
     }
 
     /**
-     * Called before AI provider call - track provider interaction
+     * Called before provider call - start tracking
      */
-    async beforeProviderCall(context: Context): Promise<void> {
+    override async beforeProviderCall(context: Context): Promise<void> {
         const executionId = this.generateExecutionId('provider');
 
         this.activeExecutions.set(executionId, {
             startTime: Date.now(),
-            operation: 'provider-call'
+            operation: 'provider-call',
+            input: context.messages[0]?.content || 'N/A'
         });
 
         this.logger.debug('Started tracking provider call', {
             executionId,
-            messageCount: context.messages?.length || 0,
-            hasSystemMessage: !!context.systemMessage,
-            toolCount: context.tools?.length || 0
+            provider: context.metadata?.['model'] || 'unknown',
+            inputLength: context.messages[0]?.content?.length || 0
         });
     }
 
     /**
-     * Called after AI provider call - end tracking provider interaction
+     * Called after provider call - end tracking
      */
-    async afterProviderCall(context: Context, response: ModelResponse): Promise<void> {
-        const execution = this.findActiveExecution('provider-call');
+    override async afterProviderCall(context: Context, response: ModelResponse): Promise<void> {
+        // Find the related execution
+        const execution = this.findActiveExecution('provider-call', context.messages[0]?.content || '');
+
         if (!execution) {
-            this.logger.warn('No active provider call found for afterProviderCall');
+            this.logger.warn('No active execution found for afterProviderCall', { provider: context.metadata?.['model'] || 'unknown' });
             return;
         }
 
@@ -200,39 +198,46 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
             startTime: new Date(executionData.startTime),
             endTime: new Date(endTime),
             duration,
-            success: true,
+            success: true, // Provider call completed
             metadata: {
-                model: response.metadata?.model || 'unknown',
-                messageCount: context.messages?.length || 0,
+                provider: context.metadata?.['model'] || 'unknown',
+                inputLength: context.messages[0]?.content?.length || 0,
                 responseLength: response.content?.length || 0,
-                tokensUsed: response.usage?.totalTokens,
                 hasToolCalls: !!(response.toolCalls && response.toolCalls.length > 0),
-                toolCallCount: response.toolCalls?.length || 0,
-                hasSystemMessage: !!context.systemMessage,
-                availableToolCount: context.tools?.length || 0
+                toolCallCount: response.toolCalls?.length || 0
             }
         };
 
         this.recordStats(stats);
         this.activeExecutions.delete(executionId);
 
+        // Performance warning
+        if (this.options.enableWarnings && duration > this.options.performanceThreshold) {
+            this.logger.warn('Slow provider call detected', {
+                executionId,
+                duration,
+                threshold: this.options.performanceThreshold,
+                provider: context.metadata?.['model'] || 'unknown'
+            });
+        }
+
         this.logger.debug('Completed tracking provider call', {
             executionId,
             duration,
-            tokensUsed: response.usage?.totalTokens,
-            model: response.metadata?.model
+            provider: context.metadata?.['model'] || 'unknown'
         });
     }
 
     /**
-     * Called before tool execution
+     * Called before tool call - start tracking
      */
-    async beforeToolCall(toolName: string, parameters: Record<string, any>): Promise<void> {
+    override async beforeToolCall(toolName: string, parameters: Record<string, any>): Promise<void> {
         const executionId = this.generateExecutionId('tool');
 
         this.activeExecutions.set(executionId, {
             startTime: Date.now(),
-            operation: 'tool-call'
+            operation: 'tool-call',
+            input: toolName
         });
 
         this.logger.debug('Started tracking tool call', {
@@ -243,10 +248,12 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
     }
 
     /**
-     * Called after tool execution
+     * Called after tool call - end tracking
      */
-    async afterToolCall(toolName: string, parameters: Record<string, any>, result: any): Promise<void> {
-        const execution = this.findActiveExecution('tool-call');
+    override async afterToolCall(toolName: string, parameters: Record<string, any>, result: any): Promise<void> {
+        // Find the related execution
+        const execution = this.findActiveExecution('tool-call', toolName);
+
         if (!execution) {
             this.logger.warn('No active tool call found for afterToolCall', { toolName });
             return;
@@ -257,6 +264,12 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
         const duration = endTime - executionData.startTime;
         const success = !result?.error;
 
+        const errorInfo = result?.error && this.options.trackErrors ? {
+            message: result.error.message || String(result.error),
+            stack: result.error.stack,
+            type: result.error.constructor?.name || 'Error'
+        } : undefined;
+
         const stats: ExecutionStats = {
             executionId,
             operation: 'tool-call',
@@ -264,11 +277,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
             endTime: new Date(endTime),
             duration,
             success,
-            error: result?.error && this.options.trackErrors ? {
-                message: result.error.message || String(result.error),
-                stack: result.error.stack,
-                type: result.error.constructor?.name || 'Error'
-            } : undefined,
+            ...(errorInfo && { error: errorInfo }),
             metadata: {
                 toolName,
                 parameterCount: Object.keys(parameters).length,
@@ -291,7 +300,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
     /**
      * Called on error - end tracking with error
      */
-    async onError(error: Error, context?: any): Promise<void> {
+    override async onError(error: Error, context?: any): Promise<void> {
         // Find any active execution that might be related to this error
         const activeExecution = Array.from(this.activeExecutions.entries())[0];
 
@@ -300,6 +309,12 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
             const endTime = Date.now();
             const duration = endTime - executionData.startTime;
 
+            const errorInfo = this.options.trackErrors ? {
+                message: error.message,
+                ...(error.stack && { stack: error.stack }),
+                type: error.constructor.name
+            } : undefined;
+
             const stats: ExecutionStats = {
                 executionId,
                 operation: executionData.operation,
@@ -307,11 +322,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
                 endTime: new Date(endTime),
                 duration,
                 success: false,
-                error: this.options.trackErrors ? {
-                    message: error.message,
-                    stack: error.stack,
-                    type: error.constructor.name
-                } : undefined,
+                ...(errorInfo && { error: errorInfo }),
                 metadata: {
                     errorSource: 'onError-hook',
                     contextType: context ? typeof context : 'none',
@@ -428,8 +439,8 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
             operationStats,
             errorStats,
             timeRange: timeRange || {
-                start: stats[0].startTime,
-                end: stats[stats.length - 1].endTime
+                start: stats[0]?.startTime || new Date(),
+                end: stats[stats.length - 1]?.endTime || new Date()
             }
         };
     }
@@ -447,18 +458,17 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
     /**
      * Get currently active executions
      */
-    getActiveExecutions(): Array<{ executionId: string; operation: string; startTime: Date; duration: number }> {
+    getActiveExecutions(): Array<{ executionId: string; operation: string; duration: number }> {
         const now = Date.now();
-        return Array.from(this.activeExecutions.entries()).map(([executionId, execution]) => ({
+        return Array.from(this.activeExecutions.entries()).map(([executionId, data]) => ({
             executionId,
-            operation: execution.operation,
-            startTime: new Date(execution.startTime),
-            duration: now - execution.startTime
+            operation: data.operation,
+            duration: now - data.startTime
         }));
     }
 
     /**
-     * Get plugin statistics summary
+     * Get plugin performance statistics
      */
     getPluginStats(): {
         totalRecorded: number;
@@ -467,66 +477,73 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
         oldestRecord?: Date;
         newestRecord?: Date;
     } {
-        return {
+        const result: {
+            totalRecorded: number;
+            activeExecutions: number;
+            memoryUsage: number;
+            oldestRecord?: Date;
+            newestRecord?: Date;
+        } = {
             totalRecorded: this.executionHistory.length,
             activeExecutions: this.activeExecutions.size,
-            memoryUsage: this.executionHistory.length + this.activeExecutions.size,
-            oldestRecord: this.executionHistory.length > 0 ? this.executionHistory[0].startTime : undefined,
-            newestRecord: this.executionHistory.length > 0 ? this.executionHistory[this.executionHistory.length - 1].startTime : undefined
+            memoryUsage: this.getMemoryUsage()
         };
+
+        if (this.executionHistory.length > 0) {
+            const oldest = this.executionHistory[0];
+            const newest = this.executionHistory[this.executionHistory.length - 1];
+            if (oldest) {
+                result.oldestRecord = oldest.startTime;
+            }
+            if (newest) {
+                result.newestRecord = newest.endTime;
+            }
+        }
+
+        return result;
     }
 
     /**
-     * Plugin cleanup
+     * Clean up resources
      */
     async destroy(): Promise<void> {
         this.clearStats();
         this.logger.info('ExecutionAnalyticsPlugin destroyed');
     }
 
-    // BasePlugin common interface implementations
-
     /**
-     * Get plugin data - returns execution history
+     * Get raw data for export
      */
-    getData(): ExecutionStats[] {
+    override getData(): ExecutionStats[] {
         return [...this.executionHistory];
     }
 
     /**
-     * Get plugin statistics - returns aggregated stats (common interface)
+     * Get plugin stats
      */
-    getStats(): AggregatedExecutionStats {
+    override getStats(): AggregatedExecutionStats {
         return this.getAggregatedStats();
     }
 
     /**
-     * Clear plugin data - clears all execution data
+     * Clear data (alias for clearStats)
      */
-    clearData(): void {
+    override clearData(): void {
         this.clearStats();
     }
 
     /**
-     * Get plugin status with analytics-specific information
+     * Get plugin status
      */
-    getStatus(): {
-        name: string;
-        version: string;
-        enabled: boolean;
-        initialized: boolean;
-        totalRecorded: number;
-        activeExecutions: number;
-        memoryUsage: number;
-    } {
-        const baseStatus = super.getStatus();
-        const pluginStats = this.getPluginStats();
-
+    override getStatus(): any {
         return {
-            ...baseStatus,
-            totalRecorded: pluginStats.totalRecorded,
-            activeExecutions: pluginStats.activeExecutions,
-            memoryUsage: pluginStats.memoryUsage
+            name: this.name,
+            version: this.version,
+            enabled: this.enabled,
+            initialized: this.initialized,
+            totalRecorded: this.executionHistory.length,
+            activeExecutions: this.activeExecutions.size,
+            memoryUsage: this.getMemoryUsage()
         };
     }
 
@@ -563,5 +580,12 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
             }
         }
         return null;
+    }
+
+    /**
+     * Get memory usage estimate
+     */
+    private getMemoryUsage(): number {
+        return this.executionHistory.length + this.activeExecutions.size;
     }
 } 

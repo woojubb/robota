@@ -58,7 +58,7 @@ IMultiProviderAdapterManager.addProvider
 
 #### Defined in
 
-[provider-adapter/multi-provider-adapter-manager.ts:15](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L15)
+[provider-adapter/multi-provider-adapter-manager.ts:15](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L15)
 
 ___
 
@@ -82,7 +82,7 @@ IMultiProviderAdapterManager.getProvider
 
 #### Defined in
 
-[provider-adapter/multi-provider-adapter-manager.ts:19](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L19)
+[provider-adapter/multi-provider-adapter-manager.ts:19](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L19)
 
 ___
 
@@ -106,7 +106,7 @@ IMultiProviderAdapterManager.setDefaultProvider
 
 #### Defined in
 
-[provider-adapter/multi-provider-adapter-manager.ts:23](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L23)
+[provider-adapter/multi-provider-adapter-manager.ts:23](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L23)
 
 ___
 
@@ -124,4 +124,4 @@ IMultiProviderAdapterManager.getDefaultProvider
 
 #### Defined in
 
-[provider-adapter/multi-provider-adapter-manager.ts:29](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L29)
+[provider-adapter/multi-provider-adapter-manager.ts:29](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L29)

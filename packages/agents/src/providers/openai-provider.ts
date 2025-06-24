@@ -82,6 +82,12 @@ export class OpenAIProvider extends BaseAIProvider {
                 tools_detail: completionOptions.tools
             }, null, 2));
 
+            // 🔍 Debug: Log all messages being sent to OpenAI
+            console.log('🔍 OpenAI Provider - Full Messages Array:');
+            completionOptions.messages?.forEach((msg, index) => {
+                console.log(`  [${index}] ${msg.role}: ${JSON.stringify(msg)}`);
+            });
+
             // Call OpenAI API
             const response = await this.client.chat.completions.create(completionOptions);
 

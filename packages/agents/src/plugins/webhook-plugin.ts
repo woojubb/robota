@@ -190,7 +190,7 @@ export class WebhookPlugin extends BasePlugin {
     /**
      * On error
      */
-    async onError(context: any, error: any): Promise<void> {
+    override async onError(context: any, error: any): Promise<void> {
         await this.sendWebhook('error.occurred', {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -229,7 +229,7 @@ export class WebhookPlugin extends BasePlugin {
             event,
             timestamp: new Date().toISOString(),
             data: this.options.payloadTransformer(event, data),
-            metadata
+            ...(metadata && { metadata })
         };
 
         // Add context data if available
@@ -499,7 +499,7 @@ export class WebhookPlugin extends BasePlugin {
     /**
      * Get webhook statistics
      */
-    getStats(): {
+    override getStats(): {
         endpointCount: number;
         queueLength: number;
         batchQueueLength: number;

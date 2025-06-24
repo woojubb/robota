@@ -4,8 +4,7 @@ import {
   ModelResponse,
   StreamingResponseChunk,
   BaseAIProvider,
-  ToolSchema,
-  logger
+  ToolSchema
 } from '@robota-sdk/agents';
 import type { UniversalMessage } from '@robota-sdk/agents/src/managers/conversation-history-manager';
 import type { ProviderExecutionResult } from '@robota-sdk/agents/src/abstracts/base-ai-provider';
@@ -146,7 +145,7 @@ export class OpenAIProvider extends BaseAIProvider {
    * @param messages - Array of UniversalMessage to convert
    * @returns OpenAI-formatted messages array
    */
-  protected override convertMessages(messages: UniversalMessage[]): OpenAI.Chat.ChatCompletionMessageParam[] {
+  protected convertMessages(messages: UniversalMessage[]): OpenAI.Chat.ChatCompletionMessageParam[] {
     return OpenAIConversationAdapter.toOpenAIFormat(messages);
   }
 
@@ -215,7 +214,7 @@ export class OpenAIProvider extends BaseAIProvider {
       };
 
     } catch (error) {
-      this.handleApiError(error, 'generateResponse');
+      throw this.handleApiError(error, 'generateResponse');
     }
   }
 
@@ -261,7 +260,7 @@ export class OpenAIProvider extends BaseAIProvider {
       }
 
     } catch (error) {
-      this.handleApiError(error, 'generateStreamingResponse');
+      throw this.handleApiError(error, 'generateStreamingResponse');
     }
   }
 
@@ -281,7 +280,7 @@ export class OpenAIProvider extends BaseAIProvider {
    * @throws {Error} When message format conversion fails
    * @throws {Error} When OpenAI API call fails
    */
-  async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
+  override async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
     // Use base class validation
     this.validateContext(context);
 
@@ -301,8 +300,6 @@ export class OpenAIProvider extends BaseAIProvider {
       completionOptions.tools = toolConfig.tools;
       completionOptions.tool_choice = toolConfig.tool_choice;
     }
-
-
 
     // Set response format if specified
     if (this.options.responseFormat) {
@@ -328,7 +325,7 @@ export class OpenAIProvider extends BaseAIProvider {
       const response = await this.client.chat.completions.create(completionOptions);
       return this.parseResponse(response);
     } catch (error) {
-      this.handleApiError(error, 'chat');
+      throw this.handleApiError(error, 'chat');
     }
   }
 
@@ -423,74 +420,40 @@ export class OpenAIProvider extends BaseAIProvider {
   }
 
   /**
-   * Send a streaming chat request to OpenAI and receive response chunks
+   * Send a streaming chat request to OpenAI and receive chunked responses
    * 
-   * Similar to chat() but returns an async iterator that yields response chunks
-   * as they arrive from OpenAI's streaming API. Useful for real-time display
-   * of responses or handling large responses incrementally.
+   * Initiates a streaming request to OpenAI's Chat Completions API and yields
+   * partial responses as they arrive. Handles tool calling in streaming mode.
    * 
-   * @param model - Model name to use
-   * @param context - Context object containing messages and system prompt
-   * @param options - Optional generation parameters and tools
-   * @returns Async generator yielding response chunks
+   * @param model - Model name to use for generation
+   * @param context - Context containing messages and configuration
+   * @param options - Optional generation parameters
+   * @returns AsyncGenerator yielding streaming response chunks
    * 
-   * @throws {Error} When context is invalid
-   * @throws {Error} When messages array is invalid
-   * @throws {Error} When message format conversion fails
-   * @throws {Error} When OpenAI streaming API call fails
-   * 
-   * @see {@link @examples/01-basic | Basic Usage Examples}
+   * @throws {Error} When context validation fails
+   * @throws {Error} When message conversion fails
+   * @throws {Error} When streaming request fails
    */
   override async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
-    // Validate context parameter
-    if (!context || typeof context !== 'object') {
-      logger.error('[OpenAIProvider] Invalid context:', context);
-      throw new Error('Valid Context object is required');
-    }
+    this.validateContext(context);
 
-    const { messages } = context;
+    const openaiMessages = this.convertMessages(context.messages);
 
-    // Validate messages array
-    if (!Array.isArray(messages)) {
-      logger.error('[OpenAIProvider] Invalid message array:', messages);
-      throw new Error('Valid message array is required');
-    }
-
-    // Convert messages to OpenAI format and filter out tool messages
-    const openaiMessages = OpenAIConversationAdapter.toOpenAIFormat(context.messages);
-
-    const completionOptions: OpenAI.Chat.ChatCompletionCreateParams = {
+    const completionOptions: OpenAI.Chat.ChatCompletionCreateParamsStreaming = {
       model,
       messages: openaiMessages,
       max_tokens: options?.maxTokens || this.options.maxTokens,
       temperature: options?.temperature || this.options.temperature,
-      stream: true
+      stream: true,
+      stream_options: {
+        include_usage: true
+      }
     };
 
-    // Add tool provider functions
-    if (context.tools && Array.isArray(context.tools)) {
-      completionOptions.tools = this.formatFunctions(context.tools);
-      // Force new tool_calls format by setting tool_choice
+    const toolConfig = this.configureTools(context.tools);
+    if (toolConfig) {
+      completionOptions.tools = toolConfig.tools;
       completionOptions.tool_choice = 'auto';
-    }
-
-
-
-    // Set response format if specified
-    if (this.options.responseFormat) {
-      if (this.options.responseFormat === 'text') {
-        completionOptions.response_format = { type: 'text' };
-      } else if (this.options.responseFormat === 'json_object') {
-        completionOptions.response_format = { type: 'json_object' };
-      } else if (this.options.responseFormat === 'json_schema') {
-        if (!this.options.jsonSchema) {
-          throw new Error('jsonSchema is required when responseFormat is "json_schema"');
-        }
-        completionOptions.response_format = {
-          type: 'json_schema',
-          json_schema: this.options.jsonSchema
-        };
-      }
     }
 
     try {
@@ -500,44 +463,80 @@ export class OpenAIProvider extends BaseAIProvider {
       const stream = await this.client.chat.completions.create(completionOptions);
 
       for await (const chunk of stream) {
-        yield this.parseStreamingChunk(chunk);
+        const parsed = this.parseStreamingChunk(chunk);
+        yield parsed;
       }
     } catch (error) {
-      logger.error('[OpenAIProvider] Streaming API call error:', {
-        error: error instanceof Error ? error.message : String(error)
-      });
-      throw error;
+      throw this.handleApiError(error, 'chatStream');
     }
   }
 
   /**
-   * Release resources and close connections
+   * Close and cleanup provider resources
    * 
-   * Performs cleanup operations when the provider is no longer needed.
-   * OpenAI client doesn't require explicit cleanup, so this is a no-op.
+   * Performs cleanup operations including closing the OpenAI client
+   * and any other resources that need proper disposal.
    * 
    * @returns Promise that resolves when cleanup is complete
    */
   override async close(): Promise<void> {
-    // OpenAI client doesn't have explicit close method
-    // This is implemented as no-op for interface compliance
+    // OpenAI client doesn't require explicit closing
+    // But we can clear any internal state if needed
   }
 
   /**
-   * Process OpenAI provider response into standardized format
+   * Process response into standardized format
    * 
-   * Overrides the base implementation to use OpenAI-specific parsing logic.
-   * 
-   * @param response - Raw response from OpenAI chat method
-   * @returns Standardized ProviderExecutionResult
+   * @param response - ModelResponse to process
+   * @returns Standardized execution result
    */
   protected override processResponse(response: ModelResponse): ProviderExecutionResult {
-    return {
+    const result: ProviderExecutionResult = {
       content: response.content || '',
-      toolCalls: response.toolCalls || [],
-      usage: response.usage || {},
-      finishReason: response.metadata?.finishReason || '',
-      metadata: response.metadata || {}
+      toolCalls: response.toolCalls || []
     };
+
+    if (response.metadata?.finishReason) {
+      result.finishReason = response.metadata.finishReason;
+    }
+
+    if (response.metadata) {
+      result.metadata = response.metadata;
+    }
+
+    if (response.usage) {
+      result.usage = {
+        promptTokens: response.usage.promptTokens,
+        completionTokens: response.usage.completionTokens,
+        totalTokens: response.usage.totalTokens
+      };
+    }
+
+    return result;
+  }
+
+  /**
+   * Handle API errors with provider context
+   * 
+   * @param error - Error to handle
+   * @param operation - Operation name for context
+   * @returns Never (always throws)
+   */
+  protected override handleApiError(error: any, operation: string): never {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(`${operation}: ${String(error)}`);
+  }
+
+  /**
+   * Validate context parameter
+   * 
+   * @param context - Context to validate
+   * @returns Always true (throws on invalid)
+   */
+  protected override validateContext(context: Context): boolean {
+    super.validateContext(context);
+    return true;
   }
 } 

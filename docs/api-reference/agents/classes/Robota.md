@@ -8,9 +8,69 @@
 
 # Class: Robota
 
-Robota class - Main AI agent implementation
-Each instance is completely independent with its own managers and services
-NO GLOBAL SINGLETONS - Each Robota instance manages its own resources
+Main AI agent implementation for the Robota SDK.
+
+Robota is a comprehensive AI agent that integrates multiple AI providers, tools, and plugins
+into a unified conversational interface. Each instance is completely independent with its own
+managers and services - NO GLOBAL SINGLETONS are used.
+
+Key Features:
+- Multiple AI provider support (OpenAI, Anthropic, Google)
+- Function/tool calling with Zod schema validation
+- Plugin system for extensible functionality
+- Streaming response support
+- Conversation history management
+- Instance-specific resource management
+
+**`Implements`**
+
+AgentInterface
+
+**`Example`**
+
+```typescript
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
+
+const robota = new Robota({
+  name: 'MyAgent',
+  aiProviders: { openai: new OpenAIProvider({ apiKey: 'sk-...' }) },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4'
+});
+
+const response = await robota.run('Hello, how are you?');
+console.log(response);
+```
+
+**`Example`**
+
+```typescript
+import { Robota, LoggingPlugin, UsagePlugin } from '@robota-sdk/agents';
+import { weatherTool, calculatorTool } from './my-tools';
+
+const robota = new Robota({
+  name: 'AdvancedAgent',
+  aiProviders: { openai: openaiProvider },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
+  tools: [weatherTool, calculatorTool],
+  plugins: [
+    new LoggingPlugin({ level: 'info' }),
+    new UsagePlugin({ trackTokens: true })
+  ]
+});
+
+const response = await robota.run('What\'s the weather in Tokyo?');
+```
+
+**`Example`**
+
+```typescript
+for await (const chunk of robota.runStream('Tell me a story')) {
+  process.stdout.write(chunk);
+}
+```
 
 ## Hierarchy
 
@@ -60,15 +120,46 @@ NO GLOBAL SINGLETONS - Each Robota instance manages its own resources
 
 • **new Robota**(`config`): [`Robota`](Robota)
 
+Creates a new Robota agent instance.
+
+The constructor performs synchronous initialization and validation.
+Async initialization (AI provider setup, tool registration) is deferred
+until the first run() call for optimal performance.
+
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `config` | [`RobotaConfig`](../interfaces/RobotaConfig) |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `config` | [`RobotaConfig`](../interfaces/RobotaConfig) | Configuration options for the agent |
 
 #### Returns
 
 [`Robota`](Robota)
+
+**`Throws`**
+
+When required configuration is missing or invalid
+
+**`Throws`**
+
+When configuration values are invalid
+
+**`Example`**
+
+```typescript
+const robota = new Robota({
+  name: 'CustomerSupport',
+  aiProviders: {
+    openai: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
+    anthropic: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })
+  },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4',
+  tools: [emailTool, ticketTool],
+  plugins: [new LoggingPlugin(), new ErrorHandlingPlugin()],
+  logging: { level: 'info', enabled: true }
+});
+```
 
 #### Overrides
 
@@ -76,7 +167,7 @@ NO GLOBAL SINGLETONS - Each Robota instance manages its own resources
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:62](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L62)
+[packages/agents/src/agents/robota.ts:168](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L168)
 
 ## Properties
 
@@ -84,9 +175,11 @@ NO GLOBAL SINGLETONS - Each Robota instance manages its own resources
 
 • `Readonly` **name**: `string`
 
+The name of this agent instance
+
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:43](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L43)
+[packages/agents/src/agents/robota.ts:120](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L120)
 
 ___
 
@@ -94,9 +187,11 @@ ___
 
 • `Readonly` **version**: `string` = `'1.0.0'`
 
+The version of the Robota agent implementation
+
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:44](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L44)
+[packages/agents/src/agents/robota.ts:122](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L122)
 
 ## Methods
 
@@ -116,7 +211,7 @@ Cleanup resources
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:72](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-agent.ts#L72)
+[packages/agents/src/abstracts/base-agent.ts:72](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-agent.ts#L72)
 
 ___
 
@@ -124,18 +219,65 @@ ___
 
 ▸ **run**(`input`, `options?`): `Promise`\<`string`\>
 
-Run agent with user input
+Execute a conversation turn with the AI agent.
+
+This is the primary method for interacting with the agent. It processes user input,
+manages conversation history, executes any required tools, and returns the AI response.
+The method automatically initializes the agent on first use.
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `input` | `string` |
-| `options` | [`RunOptions`](../interfaces/RunOptions) |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `input` | `string` | The user's message or prompt to send to the AI |
+| `options` | [`RunOptions`](../interfaces/RunOptions) | Optional configuration for this specific execution |
 
 #### Returns
 
 `Promise`\<`string`\>
+
+Promise that resolves to the AI's response as a string
+
+**`Throws`**
+
+When the agent configuration is invalid
+
+**`Throws`**
+
+When the AI provider encounters an error
+
+**`Throws`**
+
+When a tool execution fails
+
+**`Example`**
+
+```typescript
+const response = await robota.run('Hello, how are you?');
+console.log(response); // "Hello! I'm doing well, thank you for asking..."
+```
+
+**`Example`**
+
+```typescript
+const response = await robota.run('Analyze this data', {
+  sessionId: 'user-123',
+  userId: 'john.doe',
+  metadata: { source: 'web-app', priority: 'high' }
+});
+```
+
+**`Example`**
+
+```typescript
+try {
+  const response = await robota.run('Complex request');
+} catch (error) {
+  if (error instanceof ToolExecutionError) {
+    console.error('Tool failed:', error.toolName, error.message);
+  }
+}
+```
 
 #### Implementation of
 
@@ -147,7 +289,7 @@ Run agent with user input
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:211](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L211)
+[packages/agents/src/agents/robota.ts:360](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L360)
 
 ___
 
@@ -155,18 +297,68 @@ ___
 
 ▸ **runStream**(`input`, `options?`): `AsyncGenerator`\<`string`, `void`, `unknown`\>
 
-Run agent with streaming response
+Execute a conversation turn with streaming response.
+
+Similar to run() but returns an async generator that yields response chunks
+as they arrive from the AI provider. This enables real-time streaming of
+the AI's response for better user experience.
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `input` | `string` |
-| `options` | [`RunOptions`](../interfaces/RunOptions) |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `input` | `string` | The user's message or prompt to send to the AI |
+| `options` | [`RunOptions`](../interfaces/RunOptions) | Optional configuration for this specific execution |
 
 #### Returns
 
 `AsyncGenerator`\<`string`, `void`, `unknown`\>
+
+AsyncGenerator that yields string chunks of the AI response
+
+**`Throws`**
+
+When the agent configuration is invalid
+
+**`Throws`**
+
+When the AI provider encounters an error
+
+**`Throws`**
+
+When a tool execution fails
+
+**`Example`**
+
+```typescript
+for await (const chunk of robota.runStream('Tell me a story')) {
+  process.stdout.write(chunk);
+}
+console.log('\n'); // New line after story
+```
+
+**`Example`**
+
+```typescript
+let fullResponse = '';
+for await (const chunk of robota.runStream('Explain quantum computing')) {
+  fullResponse += chunk;
+  updateUI(chunk); // Update UI in real-time
+}
+console.log('Complete response:', fullResponse);
+```
+
+**`Example`**
+
+```typescript
+try {
+  for await (const chunk of robota.runStream('Complex request')) {
+    handleChunk(chunk);
+  }
+} catch (error) {
+  console.error('Streaming failed:', error.message);
+}
+```
 
 #### Implementation of
 
@@ -178,7 +370,7 @@ Run agent with streaming response
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:266](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L266)
+[packages/agents/src/agents/robota.ts:459](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L459)
 
 ___
 
@@ -186,11 +378,29 @@ ___
 
 ▸ **getHistory**(): [`Message`](../modules#message)[]
 
-Get conversation history
+Get the conversation history for this agent instance.
+
+Returns an array of messages representing the complete conversation history
+for this agent's conversation session. The history includes user messages,
+assistant responses, and tool call results.
 
 #### Returns
 
 [`Message`](../modules#message)[]
+
+Array of Message objects representing the conversation history
+
+**`Example`**
+
+```typescript
+await robota.run('What is 2 + 2?');
+await robota.run('What about 3 + 3?');
+
+const history = robota.getHistory();
+console.log(history.length); // 4 (2 user messages, 2 assistant responses)
+console.log(history[0].role); // 'user'
+console.log(history[0].content); // 'What is 2 + 2?'
+```
 
 #### Implementation of
 
@@ -202,7 +412,7 @@ Get conversation history
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:315](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L315)
+[packages/agents/src/agents/robota.ts:525](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L525)
 
 ___
 
@@ -210,11 +420,24 @@ ___
 
 ▸ **clearHistory**(): `void`
 
-Clear conversation history
+Clear the conversation history for this agent instance.
+
+Removes all messages from the conversation history, starting fresh.
+This does not affect the agent's configuration or other state.
 
 #### Returns
 
 `void`
+
+**`Example`**
+
+```typescript
+await robota.run('First message');
+console.log(robota.getHistory().length); // 2 (user + assistant)
+
+robota.clearHistory();
+console.log(robota.getHistory().length); // 0
+```
 
 #### Implementation of
 
@@ -226,7 +449,7 @@ Clear conversation history
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:332](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L332)
+[packages/agents/src/agents/robota.ts:554](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L554)
 
 ___
 
@@ -234,21 +457,36 @@ ___
 
 ▸ **addPlugin**(`plugin`): `void`
 
-Add a plugin dynamically
+Add a plugin to the agent at runtime.
+
+Plugins provide extensible functionality through lifecycle hooks.
+This method allows dynamic addition of plugins after agent creation.
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `plugin` | [`BasePlugin`](BasePlugin) |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `plugin` | [`BasePlugin`](BasePlugin) | The plugin instance to add |
 
 #### Returns
 
 `void`
 
+**`Example`**
+
+```typescript
+import { UsagePlugin, PerformancePlugin } from '@robota-sdk/agents';
+
+const robota = new Robota(config);
+
+// Add plugins dynamically
+robota.addPlugin(new UsagePlugin({ trackTokens: true }));
+robota.addPlugin(new PerformancePlugin({ trackMemory: true }));
+```
+
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:341](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L341)
+[packages/agents/src/agents/robota.ts:579](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L579)
 
 ___
 
@@ -256,21 +494,34 @@ ___
 
 ▸ **removePlugin**(`pluginName`): `boolean`
 
-Remove a plugin
+Remove a plugin from the agent by name.
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `pluginName` | `string` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `pluginName` | `string` | The name of the plugin to remove |
 
 #### Returns
 
 `boolean`
 
+true if the plugin was found and removed, false otherwise
+
+**`Example`**
+
+```typescript
+const removed = robota.removePlugin('usage-plugin');
+if (removed) {
+  console.log('Plugin removed successfully');
+} else {
+  console.log('Plugin not found');
+}
+```
+
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:349](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L349)
+[packages/agents/src/agents/robota.ts:600](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L600)
 
 ___
 
@@ -278,27 +529,41 @@ ___
 
 ▸ **getPlugin**\<`T`\>(`pluginName`): ``null`` \| `T`
 
-Get a specific plugin by name
+Get a specific plugin by name with type safety.
 
 #### Type parameters
 
-| Name | Type |
-| :------ | :------ |
-| `T` | extends [`BasePlugin`](BasePlugin) = [`BasePlugin`](BasePlugin) |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `T` | extends [`BasePlugin`](BasePlugin) = [`BasePlugin`](BasePlugin) | The expected plugin type extending BasePlugin |
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `pluginName` | `string` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `pluginName` | `string` | The name of the plugin to retrieve |
 
 #### Returns
 
 ``null`` \| `T`
 
+The plugin instance if found, null otherwise
+
+**`Example`**
+
+```typescript
+import { UsagePlugin } from '@robota-sdk/agents';
+
+const usagePlugin = robota.getPlugin\<UsagePlugin\>('usage-plugin');
+if (usagePlugin) {
+  const stats = usagePlugin.getUsageStats();
+  console.log('Token usage:', stats.totalTokens);
+}
+```
+
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:360](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L360)
+[packages/agents/src/agents/robota.ts:626](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L626)
 
 ___
 
@@ -306,15 +571,27 @@ ___
 
 ▸ **getPlugins**(): [`BasePlugin`](BasePlugin)[]
 
-Get all registered plugins
+Get all registered plugins.
 
 #### Returns
 
 [`BasePlugin`](BasePlugin)[]
 
+Array of all currently registered plugin instances
+
+**`Example`**
+
+```typescript
+const plugins = robota.getPlugins();
+console.log(`Agent has ${plugins.length} plugins registered`);
+plugins.forEach(plugin => {
+  console.log(`- ${plugin.name} (${plugin.version})`);
+});
+```
+
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:367](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L367)
+[packages/agents/src/agents/robota.ts:644](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L644)
 
 ___
 
@@ -322,15 +599,25 @@ ___
 
 ▸ **getPluginNames**(): `string`[]
 
-Get all plugin names
+Get all plugin names currently registered.
 
 #### Returns
 
 `string`[]
 
+Array of plugin names
+
+**`Example`**
+
+```typescript
+const pluginNames = robota.getPluginNames();
+console.log('Active plugins:', pluginNames.join(', '));
+// Output: "Active plugins: logging-plugin, usage-plugin, performance-plugin"
+```
+
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:374](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L374)
+[packages/agents/src/agents/robota.ts:660](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L660)
 
 ___
 
@@ -338,22 +625,38 @@ ___
 
 ▸ **registerProvider**(`name`, `provider`): `void`
 
-Register a new AI provider
+Register a new AI provider at runtime.
+
+Allows dynamic addition of AI providers after agent creation.
+The provider can then be selected using switchProvider().
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `name` | `string` |
-| `provider` | [`AIProvider`](../interfaces/AIProvider) |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `name` | `string` | Unique name for the provider |
+| `provider` | [`AIProvider`](../interfaces/AIProvider) | The AI provider instance to register |
 
 #### Returns
 
 `void`
 
+**`Example`**
+
+```typescript
+import { AnthropicProvider } from '@robota-sdk/anthropic';
+
+const anthropicProvider = new AnthropicProvider({ 
+  apiKey: process.env.ANTHROPIC_API_KEY 
+});
+
+robota.registerProvider('anthropic', anthropicProvider);
+robota.switchProvider('anthropic', 'claude-3-opus-20240229');
+```
+
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:381](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L381)
+[packages/agents/src/agents/robota.ts:685](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L685)
 
 ___
 
@@ -361,22 +664,47 @@ ___
 
 ▸ **switchProvider**(`providerName`, `model`): `void`
 
-Switch to a different AI provider and model
+Switch to a different AI provider and model.
+
+Changes the current active provider and model for subsequent conversations.
+The provider must be previously registered via constructor or registerProvider().
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `providerName` | `string` |
-| `model` | `string` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `providerName` | `string` | Name of the provider to switch to |
+| `model` | `string` | Model identifier supported by the provider |
 
 #### Returns
 
 `void`
 
+**`Throws`**
+
+When the provider is not registered
+
+**`Throws`**
+
+When the model is not supported by the provider
+
+**`Example`**
+
+```typescript
+// Switch from OpenAI to Anthropic
+robota.switchProvider('anthropic', 'claude-3-opus-20240229');
+
+// Switch back to OpenAI with a different model
+robota.switchProvider('openai', 'gpt-4-turbo-preview');
+
+// Verify the switch
+const stats = robota.getStats();
+console.log('Current provider:', stats.currentProvider);
+```
+
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:389](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L389)
+[packages/agents/src/agents/robota.ts:715](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L715)
 
 ___
 
@@ -384,21 +712,56 @@ ___
 
 ▸ **registerTool**(`tool`): `void`
 
-Register a new tool
+Register a new tool for function calling.
+
+Adds a tool that the AI can call during conversations. The tool's schema
+defines its name, description, and parameters for the AI to understand.
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `tool` | [`BaseTool`](BaseTool) |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `tool` | [`BaseTool`](BaseTool) | The tool instance to register |
 
 #### Returns
 
 `void`
 
+**`Example`**
+
+```typescript
+import { BaseTool } from '@robota-sdk/agents';
+
+class WeatherTool extends BaseTool {
+  name = 'get_weather';
+  description = 'Get current weather for a location';
+  
+  get schema() {
+    return {
+      name: this.name,
+      description: this.description,
+      parameters: {
+        type: 'object',
+        properties: {
+          location: { type: 'string', description: 'City name' }
+        },
+        required: ['location']
+      }
+    };
+  }
+  
+  async execute(params: { location: string }) {
+    // Implementation here
+    return { temperature: 22, condition: 'sunny' };
+  }
+}
+
+robota.registerTool(new WeatherTool());
+```
+
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:399](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L399)
+[packages/agents/src/agents/robota.ts:761](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L761)
 
 ___
 
@@ -406,21 +769,32 @@ ___
 
 ▸ **unregisterTool**(`toolName`): `void`
 
-Unregister a tool
+Unregister a tool by name.
+
+Removes a previously registered tool, making it unavailable for future AI calls.
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `toolName` | `string` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `toolName` | `string` | Name of the tool to unregister |
 
 #### Returns
 
 `void`
 
+**`Example`**
+
+```typescript
+robota.unregisterTool('weather-tool');
+
+const stats = robota.getStats();
+console.log('Remaining tools:', stats.tools);
+```
+
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:407](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L407)
+[packages/agents/src/agents/robota.ts:781](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L781)
 
 ___
 
@@ -428,15 +802,28 @@ ___
 
 ▸ **getConfig**(): [`RobotaConfig`](../interfaces/RobotaConfig)
 
-Get current configuration
+Get the current agent configuration.
+
+Returns a copy of the current configuration object. Modifications to the
+returned object do not affect the agent - use updateConfig() to make changes.
 
 #### Returns
 
 [`RobotaConfig`](../interfaces/RobotaConfig)
 
+Copy of the current RobotaConfig
+
+**`Example`**
+
+```typescript
+const config = robota.getConfig();
+console.log('Current model:', config.currentModel);
+console.log('Available providers:', Object.keys(config.aiProviders || {}));
+```
+
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:415](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L415)
+[packages/agents/src/agents/robota.ts:801](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L801)
 
 ___
 
@@ -444,21 +831,40 @@ ___
 
 ▸ **updateConfig**(`updates`): `void`
 
-Update configuration
+Update the agent configuration at runtime.
+
+Allows partial updates to the agent configuration. Only specified fields
+are updated - other configuration remains unchanged.
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `updates` | `Partial`\<[`RobotaConfig`](../interfaces/RobotaConfig)\> |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `updates` | `Partial`\<[`RobotaConfig`](../interfaces/RobotaConfig)\> | Partial configuration object with fields to update |
 
 #### Returns
 
 `void`
 
+**`Example`**
+
+```typescript
+// Update AI parameters
+robota.updateConfig({
+  temperature: 0.8,
+  maxTokens: 2000,
+  topP: 0.9
+});
+
+// Update logging settings
+robota.updateConfig({
+  logging: { level: 'debug', enabled: true }
+});
+```
+
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:422](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L422)
+[packages/agents/src/agents/robota.ts:828](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L828)
 
 ___
 
@@ -466,11 +872,16 @@ ___
 
 ▸ **getStats**(): `Object`
 
-Get enhanced statistics including history manager stats
+Get comprehensive statistics about the agent.
+
+Returns detailed information about the agent's current state, including
+registered providers, tools, plugins, conversation metrics, and uptime.
 
 #### Returns
 
 `Object`
+
+Object containing detailed agent statistics
 
 | Name | Type |
 | :------ | :------ |
@@ -485,9 +896,23 @@ Get enhanced statistics including history manager stats
 | `historyStats` | `any` |
 | `uptime` | `number` |
 
+**`Example`**
+
+```typescript
+const stats = robota.getStats();
+
+console.log(`Agent: ${stats.name} v${stats.version}`);
+console.log(`Uptime: ${Math.round(stats.uptime / 1000)}s`);
+console.log(`Current provider: ${stats.currentProvider}`);
+console.log(`Available providers: ${stats.providers.join(', ')}`);
+console.log(`Registered tools: ${stats.tools.join(', ')}`);
+console.log(`Active plugins: ${stats.plugins.join(', ')}`);
+console.log(`Messages in history: ${stats.historyLength}`);
+```
+
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:430](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L430)
+[packages/agents/src/agents/robota.ts:854](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L854)
 
 ___
 
@@ -495,12 +920,37 @@ ___
 
 ▸ **destroy**(): `Promise`\<`void`\>
 
-Cleanup agent resources
+Cleanup agent resources and prepare for disposal.
+
+Properly shuts down the agent by cleaning up plugins, disposing managers,
+and releasing resources. The agent should not be used after calling destroy().
+Multiple calls to destroy() are safe and will not cause errors.
 
 #### Returns
 
 `Promise`\<`void`\>
 
+**`Example`**
+
+```typescript
+// Graceful shutdown
+await robota.destroy();
+console.log('Agent shutdown complete');
+
+// Agent is no longer usable
+// await robota.run('test'); // This would require re-initialization
+```
+
+**`Example`**
+
+```typescript
+process.on('SIGTERM', async () => {
+  console.log('Shutting down...');
+  await robota.destroy();
+  process.exit(0);
+});
+```
+
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:496](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/agents/robota.ts#L496)
+[packages/agents/src/agents/robota.ts:939](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L939)

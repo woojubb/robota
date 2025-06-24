@@ -33,14 +33,16 @@ Remote storage implementation for usage statistics with batching
 
 ### constructor
 
-• **new RemoteUsageStorage**(`endpoint`, `headers?`, `batchSize?`, `flushInterval?`): [`RemoteUsageStorage`](RemoteUsageStorage)
+• **new RemoteUsageStorage**(`apiUrl`, `_apiKey`, `_timeout`, `_headers?`, `batchSize?`, `flushInterval?`): [`RemoteUsageStorage`](RemoteUsageStorage)
 
 #### Parameters
 
 | Name | Type | Default value |
 | :------ | :------ | :------ |
-| `endpoint` | `string` | `undefined` |
-| `headers` | `Record`\<`string`, `string`\> | `{}` |
+| `apiUrl` | `string` | `undefined` |
+| `_apiKey` | `string` | `undefined` |
+| `_timeout` | `number` | `undefined` |
+| `_headers` | `Record`\<`string`, `string`\> | `{}` |
 | `batchSize` | `number` | `50` |
 | `flushInterval` | `number` | `60000` |
 
@@ -50,7 +52,7 @@ Remote storage implementation for usage statistics with batching
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/remote-storage.ts:17](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/usage/storages/remote-storage.ts#L17)
+[packages/agents/src/plugins/usage/storages/remote-storage.ts:16](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/usage/storages/remote-storage.ts#L16)
 
 ## Methods
 
@@ -74,7 +76,7 @@ Remote storage implementation for usage statistics with batching
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/remote-storage.ts:32](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/usage/storages/remote-storage.ts#L32)
+[packages/agents/src/plugins/usage/storages/remote-storage.ts:32](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/usage/storages/remote-storage.ts#L32)
 
 ___
 
@@ -101,7 +103,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/remote-storage.ts:40](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/usage/storages/remote-storage.ts#L40)
+[packages/agents/src/plugins/usage/storages/remote-storage.ts:40](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/usage/storages/remote-storage.ts#L40)
 
 ___
 
@@ -127,7 +129,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/remote-storage.ts:59](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/usage/storages/remote-storage.ts#L59)
+[packages/agents/src/plugins/usage/storages/remote-storage.ts:59](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/usage/storages/remote-storage.ts#L59)
 
 ___
 
@@ -145,7 +147,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/remote-storage.ts:92](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/usage/storages/remote-storage.ts#L92)
+[packages/agents/src/plugins/usage/storages/remote-storage.ts:92](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/usage/storages/remote-storage.ts#L92)
 
 ___
 
@@ -163,7 +165,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/remote-storage.ts:107](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/usage/storages/remote-storage.ts#L107)
+[packages/agents/src/plugins/usage/storages/remote-storage.ts:107](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/usage/storages/remote-storage.ts#L107)
 
 ___
 
@@ -181,4 +183,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/remote-storage.ts:140](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/usage/storages/remote-storage.ts#L140)
+[packages/agents/src/plugins/usage/storages/remote-storage.ts:140](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/usage/storages/remote-storage.ts#L140)

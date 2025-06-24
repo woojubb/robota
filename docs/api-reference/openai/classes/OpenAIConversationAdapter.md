@@ -60,7 +60,7 @@ OpenAI has specific requirements:
 
 #### Defined in
 
-[openai/src/adapter.ts:19](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/openai/src/adapter.ts#L19)
+[openai/src/adapter.ts:19](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/adapter.ts#L19)
 
 ___
 
@@ -83,7 +83,7 @@ Now properly handles tool messages for OpenAI's tool calling feature
 
 #### Defined in
 
-[openai/src/adapter.ts:43](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/openai/src/adapter.ts#L43)
+[openai/src/adapter.ts:43](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/adapter.ts#L43)
 
 ___
 
@@ -106,7 +106,7 @@ Handles all message types including tool messages
 
 #### Defined in
 
-[openai/src/adapter.ts:53](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/openai/src/adapter.ts#L53)
+[openai/src/adapter.ts:53](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/adapter.ts#L53)
 
 ___
 
@@ -129,4 +129,4 @@ Add system prompt to message array if needed
 
 #### Defined in
 
-[openai/src/adapter.ts:123](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/openai/src/adapter.ts#L123)
+[openai/src/adapter.ts:123](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/adapter.ts#L123)

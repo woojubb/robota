@@ -1,4 +1,4 @@
-import type { Message, ToolCall } from './agent';
+import type { ToolCall } from './agent';
 import type { UniversalMessage } from '../managers/conversation-history-manager';
 
 /**

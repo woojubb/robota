@@ -43,9 +43,9 @@ Extends BaseAIProvider for common functionality and tool calling support.
 - [execute](GoogleProvider#execute)
 - [executeStream](GoogleProvider#executestream)
 - [generateResponse](GoogleProvider#generateresponse)
-- [generateStreamingResponse](GoogleProvider#generatestreamingresponse)
 - [supportsModel](GoogleProvider#supportsmodel)
 - [chat](GoogleProvider#chat)
+- [generateStreamingResponse](GoogleProvider#generatestreamingresponse)
 - [chatStream](GoogleProvider#chatstream)
 - [parseResponse](GoogleProvider#parseresponse)
 - [parseStreamingChunk](GoogleProvider#parsestreamingchunk)
@@ -79,7 +79,7 @@ BaseAIProvider.constructor
 
 #### Defined in
 
-[google/src/provider.ts:64](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/google/src/provider.ts#L64)
+[google/src/provider.ts:64](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L64)
 
 ## Properties
 
@@ -95,7 +95,7 @@ BaseAIProvider.name
 
 #### Defined in
 
-[google/src/provider.ts:32](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/google/src/provider.ts#L32)
+[google/src/provider.ts:32](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L32)
 
 ___
 
@@ -111,7 +111,7 @@ BaseAIProvider.models
 
 #### Defined in
 
-[google/src/provider.ts:38](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/google/src/provider.ts#L38)
+[google/src/provider.ts:38](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L38)
 
 ___
 
@@ -123,7 +123,7 @@ Provider configuration options
 
 #### Defined in
 
-[google/src/provider.ts:55](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/google/src/provider.ts#L55)
+[google/src/provider.ts:55](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L55)
 
 ## Methods
 
@@ -273,32 +273,6 @@ agents/dist/index.d.ts:912
 
 ___
 
-### generateStreamingResponse
-
-▸ **generateStreamingResponse**(`request`): `AsyncGenerator`\<`any`, `void`, `unknown`\>
-
-Generate streaming response using raw request payload (default implementation uses chatStream)
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `request` | `any` |
-
-#### Returns
-
-`AsyncGenerator`\<`any`, `void`, `unknown`\>
-
-#### Inherited from
-
-BaseAIProvider.generateStreamingResponse
-
-#### Defined in
-
-agents/dist/index.d.ts:916
-
-___
-
 ### supportsModel
 
 ▸ **supportsModel**(`model`): `boolean`
@@ -361,7 +335,38 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[google/src/provider.ts:97](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/google/src/provider.ts#L97)
+[google/src/provider.ts:97](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L97)
+
+___
+
+### generateStreamingResponse
+
+▸ **generateStreamingResponse**(`request`): `AsyncGenerator`\<`any`, `void`, `unknown`\>
+
+Generate streaming response using raw request payload (for agents package compatibility)
+
+This method is required by the agents package's ConversationService for streaming.
+It adapts the raw request payload to the Google AI streaming API format.
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `request` | `any` | Raw request payload from ConversationService |
+
+#### Returns
+
+`AsyncGenerator`\<`any`, `void`, `unknown`\>
+
+AsyncGenerator yielding streaming response chunks
+
+#### Overrides
+
+BaseAIProvider.generateStreamingResponse
+
+#### Defined in
+
+[google/src/provider.ts:158](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L158)
 
 ___
 
@@ -406,7 +411,7 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[google/src/provider.ts:164](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/google/src/provider.ts#L164)
+[google/src/provider.ts:222](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L222)
 
 ___
 
@@ -434,7 +439,7 @@ Parsed model response in universal format
 
 #### Defined in
 
-[google/src/provider.ts:278](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/google/src/provider.ts#L278)
+[google/src/provider.ts:336](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L336)
 
 ___
 
@@ -461,7 +466,7 @@ Parsed streaming response chunk
 
 #### Defined in
 
-[google/src/provider.ts:343](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/google/src/provider.ts#L343)
+[google/src/provider.ts:401](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L401)
 
 ___
 
@@ -486,4 +491,4 @@ BaseAIProvider.close
 
 #### Defined in
 
-[google/src/provider.ts:364](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/google/src/provider.ts#L364)
+[google/src/provider.ts:422](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L422)

@@ -250,7 +250,7 @@ export class EventEmitterPlugin extends BasePlugin {
     /**
      * On error
      */
-    async onError(context: any, error: any): Promise<void> {
+    override async onError(context: any, error: any): Promise<void> {
         await this.emit('execution.error', {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -289,7 +289,7 @@ export class EventEmitterPlugin extends BasePlugin {
             id: handlerId,
             listener,
             once: options?.once ?? false,
-            filter: options?.filter
+            ...(options?.filter && { filter: options.filter })
         });
 
         this.logger.debug('Event listener registered', {
@@ -306,7 +306,10 @@ export class EventEmitterPlugin extends BasePlugin {
      * Register one-time event listener
      */
     once(eventType: EventType, listener: EventListener, filter?: (event: EventData) => boolean): string {
-        return this.on(eventType, listener, { once: true, filter });
+        return this.on(eventType, listener, {
+            once: true,
+            ...(filter && { filter })
+        });
     }
 
     /**
@@ -324,10 +327,12 @@ export class EventEmitterPlugin extends BasePlugin {
 
         if (index !== -1) {
             const removed = handlers.splice(index, 1)[0];
-            this.logger.debug('Event listener removed', {
-                eventType,
-                handlerId: removed.id
-            });
+            if (removed) {
+                this.logger.debug('Event listener removed', {
+                    eventType,
+                    handlerId: removed.id
+                });
+            }
             return true;
         }
 
@@ -468,7 +473,7 @@ export class EventEmitterPlugin extends BasePlugin {
     /**
      * Get listener statistics
      */
-    getStats(): {
+    override getStats(): {
         eventTypes: EventType[];
         listenerCounts: Record<EventType, number>;
         totalListeners: number;

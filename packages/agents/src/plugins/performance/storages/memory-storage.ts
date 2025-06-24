@@ -61,8 +61,8 @@ export class MemoryPerformanceStorage implements PerformanceStorage {
             errorRate: errorCount / metrics.length,
             operationStats: {},
             timeRangeStats: {
-                startTime: timeRange?.start || metrics[0].timestamp,
-                endTime: timeRange?.end || metrics[metrics.length - 1].timestamp,
+                startTime: timeRange?.start || metrics[0]?.timestamp || new Date(),
+                endTime: timeRange?.end || metrics[metrics.length - 1]?.timestamp || new Date(),
                 period: 'memory'
             }
         };
