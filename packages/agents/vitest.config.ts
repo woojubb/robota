@@ -8,7 +8,8 @@ export default defineConfig({
             'tests/**/*.{test,spec}.{ts,tsx}'
         ],
         environment: 'node',
-        testTimeout: 10000,
+        testTimeout: 5000,
+        hookTimeout: 5000,
         typecheck: {
             tsconfig: './tsconfig.test.json'
         }
