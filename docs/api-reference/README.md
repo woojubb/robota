@@ -1,23 +1,245 @@
-Core API / [Exports](modules.md)
+agents / [Exports](modules.md)
 
 # Robota - AI Agent Framework
 
-Robota is an AI agent framework written in JavaScript/TypeScript. This project is structured as a pnpm monorepo, with the option to run examples using bun.
+Robota is a powerful AI agent framework written in JavaScript/TypeScript. This project is structured as a pnpm monorepo, with the option to run examples using bun.
+
+## Key Features & Advantages
+
+### 🚀 **Multi-Provider Support**
+- **OpenAI**: GPT-4, GPT-3.5 - Function calling, streaming, vision support
+- **Anthropic**: Claude 3.5 Sonnet, Claude 3 - Large context, advanced reasoning
+- **Google AI**: Gemini 1.5 Pro, Gemini Flash - Multimodal, long context
+- Seamless switching between providers and dynamic configuration
+
+### 🛠️ **Type-Safe Function Calling**
+- Zod schema-based type-safe function definitions
+- Automatic parameter validation and type inference
+- Extensible tool system architecture
+
+### ⚡ **Real-Time Streaming Responses**
+- Real-time streaming support across all providers
+- Chunk-based response processing for fast user experience
+- Background processing and asynchronous responses
+
+### 🧠 **Intelligent Agent System**
+- Planning agents that plan and execute complex tasks
+- Memory system that remembers and references conversation history
+- External system integration through tools
+
+### 👥 **Multi-Agent Team Collaboration**
+- **Intelligent Team Coordination**: Task coordinator automatically analyzes requests and delegates to specialized expert agents
+- **Automatic Template Selection**: AI automatically selects appropriate expert templates based on natural language requests
+- **Dynamic Task Delegation**: Complex requests broken down and distributed to specialized agents automatically
+- **6 Built-in Expert Templates**: Task coordinator, summarizer, ethical reviewer, creative ideator, fast executor, domain researcher
+- **Simplified Configuration**: Just provide AI providers - templates handle all configuration automatically
+- **Seamless Result Integration**: Automatic synthesis of multiple agent outputs into cohesive responses
+
+### 🏢 **Session Management**
+- **Multiple AI Sessions**: Create and manage multiple independent AI conversation sessions
+- **Independent Workspaces**: Each session maintains its own configuration and chat history
+- **Dynamic Session Switching**: Seamlessly switch between different session contexts
+- **Conversation Persistence**: Automatic conversation history tracking and storage
+
+### 🏗️ **Modular Architecture**
+- Clean separation of concerns with high extensibility
+- Independent usage of each component
+- Plugin-style tool and provider system
+
+### 📡 **Model Context Protocol (MCP) Support**
+- Standardized model communication protocol
+- Compatibility guarantee with various AI model providers
+- Consistent development experience through unified interface
+
+### 📊 **Analytics & Monitoring**
+- Detailed usage statistics including request count and token usage
+- Real-time limit management (token and request limits)
+- Comprehensive logging system for debugging
+
+### 🔧 **OpenAPI Integration**
+- Automatic tool generation from Swagger/OpenAPI specifications
+- Quick AI agent integration with existing REST APIs
+- Type-safe API client generation
 
 ## Project Structure
 
 ```
 robota/
 ├── packages/           # Core packages
-│   ├── core/           # Core functionality
+│   ├── core/           # Core functionality (Robota class, provider management)
 │   ├── openai/         # OpenAI integration
 │   ├── anthropic/      # Anthropic integration
-│   ├── mcp/            # MCP implementation
-│   ├── tools/          # Tool system
+│   ├── google/         # Google AI integration
+│   ├── sessions/       # Multi-session management
+│   ├── team/           # Multi-agent team collaboration
+│   ├── mcp/            # Model Context Protocol implementation
+│   ├── tools/          # Tool system (Zod-based function calling)
 │   └── ...
 └── apps/               # Applications
     ├── docs/           # Documentation app
     └── examples/       # Example code
+```
+
+## Quick Start Examples
+
+### Basic Conversational AI
+
+```typescript
+import { Robota, OpenAIProvider } from '@robota-sdk/core';
+import OpenAI from 'openai';
+
+const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openaiProvider = new OpenAIProvider(openaiClient);
+
+const robota = new Robota({
+    aiProviders: { 'openai': openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4',
+    systemPrompt: 'You are a helpful AI assistant.'
+});
+
+const response = await robota.run('Hello! How can I help you today?');
+console.log(response);
+```
+
+### Multi-Agent Team Collaboration
+
+```typescript
+import { createTeam } from '@robota-sdk/team';
+import { OpenAIProvider } from '@robota-sdk/openai';
+import { AnthropicProvider } from '@robota-sdk/anthropic';
+
+const openaiProvider = new OpenAIProvider({
+    client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+});
+
+const anthropicProvider = new AnthropicProvider({
+    client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+});
+
+// Create a team with intelligent delegation capabilities
+const team = createTeam({
+    aiProviders: {
+        openai: openaiProvider,
+        anthropic: anthropicProvider
+    },
+    maxMembers: 5,
+    maxTokenLimit: 50000,
+    logger: console,
+    debug: true
+});
+
+// The team automatically delegates complex tasks to specialized agents
+const response = await team.execute(`
+    Create a comprehensive business plan for a coffee shop startup. 
+    Include: 1) Market analysis, 2) Menu design, 3) Financial projections
+`);
+
+// Task coordinator intelligently analyzes the request and automatically:
+// - Selects domain_researcher template for market analysis
+// - Selects creative_ideator template for menu design  
+// - Selects fast_executor template for financial projections
+// - Synthesizes all results into a comprehensive business plan
+
+console.log(response);
+```
+
+### Session Management
+
+```typescript
+import { SessionManager } from '@robota-sdk/sessions';
+import { OpenAIProvider } from '@robota-sdk/openai';
+
+// Create multiple independent AI sessions
+const sessionManager = new SessionManager();
+
+// Create specialized sessions for different purposes
+const chatSession = sessionManager.createSession({
+    name: 'General Chat',
+    provider: new OpenAIProvider({
+        apiKey: process.env.OPENAI_API_KEY,
+        model: 'gpt-4'
+    }),
+    systemPrompt: 'You are a helpful AI assistant.'
+});
+
+const codeSession = sessionManager.createSession({
+    name: 'Code Helper',
+    provider: new OpenAIProvider({
+        apiKey: process.env.OPENAI_API_KEY,
+        model: 'gpt-4'
+    }),
+    systemPrompt: 'You are an expert programmer.'
+});
+
+// Each session maintains independent conversation history
+await chatSession.sendMessage('What is the weather like today?');
+await codeSession.sendMessage('How do I implement a binary search?');
+```
+
+### AI Agent with Tools
+
+```typescript
+import { createZodFunctionToolProvider } from '@robota-sdk/tools';
+import { z } from 'zod';
+
+// Define calculator tool
+const calculatorTool = {
+    name: 'calculate',
+    description: 'Performs mathematical calculations',
+    parameters: z.object({
+        operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
+        a: z.number(),
+        b: z.number()
+    }),
+    handler: async (params) => {
+        const { operation, a, b } = params;
+        switch (operation) {
+            case 'add': return { result: a + b };
+            case 'subtract': return { result: a - b };
+            case 'multiply': return { result: a * b };
+            case 'divide': return { result: a / b };
+        }
+    }
+};
+
+const toolProvider = createZodFunctionToolProvider({
+    tools: { calculate: calculatorTool }
+});
+
+const robota = new Robota({
+    aiProviders: { 'openai': openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4',
+    toolProviders: [toolProvider],
+    systemPrompt: 'Use the calculator tool to solve mathematical problems.'
+});
+
+const response = await robota.run('Please calculate 15 multiplied by 7.');
+```
+
+### Multi-Provider Setup
+
+```typescript
+import { GoogleProvider } from '@robota-sdk/google';
+import { AnthropicProvider } from '@robota-sdk/anthropic';
+
+const robota = new Robota({
+    aiProviders: {
+        openai: openaiProvider,
+        google: googleProvider,
+        anthropic: anthropicProvider
+    },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4'
+});
+
+// Dynamic provider switching
+robota.setCurrentAI('google', 'gemini-1.5-pro');
+const googleResponse = await robota.run('Please respond using Google AI.');
+
+robota.setCurrentAI('anthropic', 'claude-3-5-sonnet-20241022');
+const anthropicResponse = await robota.run('Please respond using Claude.');
 ```
 
 ## Installation
@@ -112,33 +334,6 @@ WEATHER_API_KEY=your_weather_api_key_here
 
 # MCP API key (needed for MCP examples)
 MCP_API_KEY=your_mcp_api_key_here
-```
-
-## Key Features
-
-### Model Context Protocol (MCP) Support
-
-Robota now supports the Model Context Protocol. With MCP, you can communicate with various AI model providers in a standardized way:
-
-```typescript
-import { Robota, createMcpToolProvider } from 'robota';
-import { Client, StdioClientTransport } from '@modelcontextprotocol/sdk';
-
-// Create MCP client
-const transport = new StdioClientTransport(/* config */);
-const mcpClient = new Client(transport);
-
-// Initialize MCP provider
-const provider = createMcpToolProvider(mcpClient, {
-  model: 'model-name', // Model name to use
-  temperature: 0.7
-});
-
-// Connect provider to Robota instance
-const robota = new Robota({ provider });
-
-// Execute
-const result = await robota.run('Hello! I am chatting with an AI model connected through MCP.');
 ```
 
 ## License

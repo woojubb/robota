@@ -69,7 +69,7 @@ Supports LRU (Least Recently Used) algorithm and TTL (Time To Live).
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:58](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/tools/src/performance/cache-manager.ts#L58)
+[packages/tools/src/performance/cache-manager.ts:58](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/tools/src/performance/cache-manager.ts#L58)
 
 ## Methods
 
@@ -91,7 +91,7 @@ Get value from cache
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:69](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/tools/src/performance/cache-manager.ts#L69)
+[packages/tools/src/performance/cache-manager.ts:69](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/tools/src/performance/cache-manager.ts#L69)
 
 ___
 
@@ -115,7 +115,7 @@ Set value in cache
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:96](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/tools/src/performance/cache-manager.ts#L96)
+[packages/tools/src/performance/cache-manager.ts:96](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/tools/src/performance/cache-manager.ts#L96)
 
 ___
 
@@ -137,7 +137,7 @@ Delete item from cache
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:117](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/tools/src/performance/cache-manager.ts#L117)
+[packages/tools/src/performance/cache-manager.ts:117](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/tools/src/performance/cache-manager.ts#L117)
 
 ___
 
@@ -159,7 +159,7 @@ Check if specific key exists in cache
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:124](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/tools/src/performance/cache-manager.ts#L124)
+[packages/tools/src/performance/cache-manager.ts:124](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/tools/src/performance/cache-manager.ts#L124)
 
 ___
 
@@ -175,7 +175,7 @@ Clear entire cache
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:140](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/tools/src/performance/cache-manager.ts#L140)
+[packages/tools/src/performance/cache-manager.ts:140](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/tools/src/performance/cache-manager.ts#L140)
 
 ___
 
@@ -191,7 +191,7 @@ Clean up expired items
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:150](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/tools/src/performance/cache-manager.ts#L150)
+[packages/tools/src/performance/cache-manager.ts:150](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/tools/src/performance/cache-manager.ts#L150)
 
 ___
 
@@ -207,7 +207,7 @@ Get cache statistics
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:168](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/tools/src/performance/cache-manager.ts#L168)
+[packages/tools/src/performance/cache-manager.ts:168](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/tools/src/performance/cache-manager.ts#L168)
 
 ___
 
@@ -223,7 +223,7 @@ Get all cache keys
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:192](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/tools/src/performance/cache-manager.ts#L192)
+[packages/tools/src/performance/cache-manager.ts:192](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/tools/src/performance/cache-manager.ts#L192)
 
 ___
 
@@ -239,7 +239,7 @@ Get all cache values
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:199](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/tools/src/performance/cache-manager.ts#L199)
+[packages/tools/src/performance/cache-manager.ts:199](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/tools/src/performance/cache-manager.ts#L199)
 
 ___
 
@@ -255,4 +255,4 @@ Get cache size
 
 #### Defined in
 
-[packages/tools/src/performance/cache-manager.ts:206](https://github.com/woojubb/robota/blob/0282eb7aeff4db97bfbe6e7aa549630531948e10/packages/tools/src/performance/cache-manager.ts#L206)
+[packages/tools/src/performance/cache-manager.ts:206](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/tools/src/performance/cache-manager.ts#L206)
