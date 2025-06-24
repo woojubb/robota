@@ -1,3 +1,3 @@
-export { MemoryHistoryStorage } from './memory-storage.js';
-export { FileHistoryStorage } from './file-storage.js';
-export { DatabaseHistoryStorage } from './database-storage.js'; 
+export { MemoryHistoryStorage } from './memory-storage';
+export { FileHistoryStorage } from './file-storage';
+export { DatabaseHistoryStorage } from './database-storage'; 

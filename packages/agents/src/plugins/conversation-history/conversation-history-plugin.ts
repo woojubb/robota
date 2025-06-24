@@ -1,18 +1,18 @@
-import { BasePlugin } from '../../abstracts/base-plugin.js';
-import { Message } from '../../interfaces/agent.js';
-import { Logger } from '../../utils/logger.js';
-import { PluginError, ConfigurationError } from '../../utils/errors.js';
+import { BasePlugin } from '../../abstracts/base-plugin';
+import { Message } from '../../interfaces/agent';
+import { Logger } from '../../utils/logger';
+import { PluginError, ConfigurationError } from '../../utils/errors';
 import {
     HistoryStorageStrategy,
     ConversationHistoryPluginOptions,
     ConversationHistoryEntry,
     HistoryStorage
-} from './types.js';
+} from './types';
 import {
     MemoryHistoryStorage,
     FileHistoryStorage,
     DatabaseHistoryStorage
-} from './storages/index.js';
+} from './storages/index';
 
 /**
  * Plugin for managing conversation history

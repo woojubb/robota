@@ -1,5 +1,495 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
+# Robota SDK Coding Standards
+
+## Package Structure and Dependencies
+
+### Module Separation
+- Each feature should be implemented as clearly separated modules
+- Dependencies between modules should be minimized and explicitly managed
+- Core modules should not depend on specific implementations
+- **Package Independence**: Each @robota-sdk package should be independently usable without requiring other SDK packages
+
+### Specific Package Rules
+- **@robota-sdk/agents package**: Must not depend on @robota-sdk/core or @robota-sdk/tools
+- **Provider packages** (@robota-sdk/openai, anthropic, google): Should remain lightweight and focused, implement only provider-specific logic
+- Use `workspace:*` dependencies for internal package references in peerDependencies
+
+### Re-export Rules
+- **No Foreign Re-exports**: Packages must NOT re-export elements from external libraries that they do not own
+- **Own Code Only**: Only re-export types, functions, and classes that are defined within the package itself
+- **Dependency Isolation**: Each package should expose only its own functionality, not pass-through functionality from dependencies
+
+```typescript
+// ✅ Good: Re-exporting own code
+export { MyClass } from './my-class';
+export type { MyInterface } from './interfaces';
+
+// ✅ Good: Re-exporting from sibling packages with clear ownership
+export { BaseAgent } from '@robota-sdk/agents';
+
+// ❌ Bad: Re-exporting from external libraries
+export { OpenAI } from 'openai';
+export { z } from 'zod';
+export type { ChatCompletion } from 'openai';
+
+// ❌ Bad: Passing through functionality you don't own
+export { someUtilFunction } from 'external-library';
+```
+
+## Code Quality Standards
+
+### Console Output and Logging Rules
+- **Prohibit Direct console.log Usage**: Direct calls to `console.log` are not allowed in library code within `./packages/`
+- **Use Package-specific Logger**: Each package should implement its own logger utility or use a shared logging interface
+- **Exception Paths**: `console.log` usage is allowed in `./apps/examples/`, `./scripts/`, and development/debug code
+- **Structured Logging**: Use structured logging with appropriate log levels (debug, info, warn, error)
+
+```typescript
+// ✅ Good: Use logger
+import { createLogger } from './utils/logger';
+const logger = createLogger('agents');
+logger.info('Information message');
+
+// ❌ Bad: Direct console.log in packages
+console.log('Debug message');
+```
+
+### Language and Documentation Standards
+- **All code comments must be written in English**: JSDoc comments, inline comments, etc.
+- **All log messages and error messages must be written in English**: Logger messages, error messages, console output, etc.
+- Include JSDoc comments for all public APIs
+- Add inline comments for complex algorithms or business logic
+
+### JSDoc Comment Format
+```typescript
+/**
+ * Main agent class for AI conversation management
+ * Provides unified interface for multiple AI providers with tool support
+ * 
+ * @example Basic usage
+ * ```ts
+ * const agent = new Agent({
+ *   aiProviders: { openai: openaiProvider },
+ *   currentProvider: 'openai',
+ *   currentModel: 'gpt-4'
+ * });
+ * ```
+ * 
+ * @see {@link @examples/01-basic | Basic Usage Examples}
+ */
+export class Agent {
+    /**
+     * Create an agent instance
+     * 
+     * @param config - Agent configuration options
+     * @throws {AgentConfigError} When configuration is invalid
+     */
+    constructor(config: AgentConfig) {
+        // Implementation
+    }
+}
+```
+
+### TypeScript Import Standards
+- **No File Extensions in Imports**: Always import TypeScript modules without file extensions
+- **TypeScript Files Only**: This project uses only `.ts` files - never import `.js` files
+- **Relative Path Format**: Use clean relative paths without extensions
+
+```typescript
+// ✅ Good: No extensions, TypeScript modules
+import { Logger } from './utils/logger';
+import { BaseAgent } from '../abstracts/base-agent';
+import { ToolRegistry } from '../../tools/registry/tool-registry';
+
+// ❌ Bad: Using .js extensions or other file types
+import { Logger } from './utils/logger.js';
+import { BaseAgent } from '../abstracts/base-agent.mjs';
+import something from './file.json';
+```
+
+### TSDoc @see Tag Path Guidelines
+- **Use path aliases instead of relative paths**: Use `@examples/*`, `@docs/*`, `@/*` aliases instead of `../../../`
+- **Consistent path format**: Always use forward slashes and workspace-relative paths
+- **Examples of good @see references**:
+  ```typescript
+  // ✅ Good: Using alias
+  @see {@link @examples/01-basic | Basic Usage Examples}
+  @see {@link @examples/02-functions/function-tool.ts | Function Tool Example}
+  @see {@link @docs/guide/core-concepts.md | Core Concepts Guide}
+  
+  // ❌ Bad: Using relative paths
+  @see {@link ../../../apps/examples/01-basic | Basic Usage Examples}
+  @see {@link ../../../../apps/examples/02-functions | Function Examples}
+  ```
+
+## Architecture Patterns
+
+### Manager Pattern
+- Organize manager classes by functionality to adhere to the Single Responsibility Principle
+- Each manager handles the state and behavior of a specific domain
+- Examples: `AIProviderManager`, `ToolProviderManager`, `SystemMessageManager`
+- **Lifecycle Management**: Managers should implement proper initialization and cleanup
+
+### Service Layer
+- Business logic is separated into service classes
+- Complex business processes are handled by combining managers
+- Example: `ConversationService`
+- **Stateless Services**: Services should be stateless and reusable
+
+### Dependency Injection and Delegation
+- The main class is configured with managers through dependency injection
+- Public APIs are implemented by delegating to appropriate managers
+- **Constructor Injection**: Prefer constructor injection over setter injection
+
+### Plugin Architecture Pattern
+- **Pure Core Object**: The `Robota` class in `packages/agents` must remain pure and minimal
+- **Plugin-Based Extension**: All additional functionality must be implemented as plugins that are injected during creation
+- **Separation of Concerns**: Core functionality and optional features must be clearly separated
+- **Composable Design**: Features should be composable through plugin injection rather than inheritance
+
+```typescript
+// ✅ Good: Pure Robota core class
+class Robota {
+    constructor(config: RobotaConfig) {
+        // Only core agent functionality
+        this.aiProviders = config.aiProviders;
+        this.currentProvider = config.currentProvider;
+        this.plugins = config.plugins || [];
+        
+        // Initialize plugins
+        this.initializePlugins();
+    }
+    
+    // Core methods only - no feature-specific logic
+    async chat(message: string): Promise<string> {
+        // Basic conversation logic
+        // Plugin hooks for extension
+        return this.executeWithPlugins('chat', message);
+    }
+}
+
+// ✅ Good: Feature implementations as plugins
+class ConversationHistoryPlugin extends BasePlugin {
+    async beforeChat(context: ChatContext): Promise<ChatContext> {
+        // Add conversation history logic
+        return context;
+    }
+}
+
+class AnalyticsPlugin extends BasePlugin {
+    async afterChat(result: ChatResult): Promise<ChatResult> {
+        // Add analytics tracking
+        return result;
+    }
+}
+
+// ✅ Good: Composable agent creation with plugins
+const agent = new Robota({
+    aiProviders: { openai: provider },
+    currentProvider: 'openai',
+    plugins: [
+        new ConversationHistoryPlugin(),
+        new AnalyticsPlugin(),
+        new ErrorHandlingPlugin(),
+        new UsageTrackingPlugin()
+    ]
+});
+
+// ❌ Bad: Feature logic directly in core class
+class Robota {
+    constructor(config: RobotaConfig) {
+        // Bad: Analytics logic in core
+        this.analytics = new AnalyticsManager();
+        // Bad: History logic in core
+        this.conversationHistory = new ConversationHistory();
+        // Bad: Error handling logic in core
+        this.errorHandler = new ErrorHandler();
+    }
+    
+    async chat(message: string): Promise<string> {
+        // Bad: Feature-specific code in core method
+        this.analytics.trackMessage(message);
+        this.conversationHistory.add(message);
+        try {
+            // chat logic
+        } catch (error) {
+            this.errorHandler.handle(error);
+        }
+    }
+}
+```
+
+### Plugin System Requirements
+- **Plugin Interface**: All plugins must implement `BasePlugin` interface
+- **Lifecycle Hooks**: Plugins should use standardized lifecycle hooks (`beforeChat`, `afterChat`, etc.)
+- **Plugin Registration**: Core class should provide plugin registration and management system
+- **Plugin Communication**: Plugins should communicate through well-defined interfaces, not direct coupling
+- **Optional Dependencies**: Core functionality must work without any plugins installed
+- **Plugin Isolation**: Plugins should not directly depend on each other
+
+### AI Provider Architecture
+- **Common Abstraction**: All AI providers must extend `BaseAIProvider` from `@robota-sdk/agents`
+- **Uniform Interface**: OpenAI, Anthropic, Google, and other providers must implement identical interfaces
+- **Provider Interchangeability**: Providers should be fully interchangeable without changing consumer code
+- **Base Class Compliance**: All providers must properly inherit and utilize base class methods
+
+```typescript
+// ✅ Good: Provider extends BaseAIProvider and implements all required methods
+export class OpenAIProvider extends BaseAIProvider {
+    async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
+        this.validateContext(context); // Use inherited validation
+        // Provider-specific implementation
+        try {
+            // Implementation
+        } catch (error) {
+            this.handleApiError(error, 'chat'); // Use inherited error handling
+        }
+    }
+}
+
+// ✅ Good: All providers have identical public interface
+const openaiProvider = new OpenAIProvider(options);
+const anthropicProvider = new AnthropicProvider(options);
+const googleProvider = new GoogleProvider(options);
+
+// All providers work identically
+await openaiProvider.chat(model, context);
+await anthropicProvider.chat(model, context);
+await googleProvider.chat(model, context);
+
+// ❌ Bad: Provider-specific methods or interfaces
+class OpenAIProvider {
+    async chatWithOpenAI() {} // Provider-specific method name
+    openaiSpecificMethod() {} // Breaks interchangeability
+}
+```
+
+### Provider Implementation Requirements
+- **Required Methods**: Must implement all abstract methods from `BaseAIProvider`
+- **Base Method Usage**: Must use inherited `validateContext()`, `handleApiError()`, `convertMessages()`, `processResponse()`
+- **Consistent Error Handling**: Use base class error handling patterns
+- **Standard Context**: Accept and validate standard `Context` interface
+- **Universal Messages**: Support `UniversalMessage[]` format through base class conversion
+
+### AI Provider Abstraction Purpose
+The abstraction layer exists to handle fundamental differences between AI provider APIs:
+
+#### API Call Method Differences
+- **OpenAI**: Uses `chat.completions.create()` with specific parameter names
+- **Anthropic**: Uses `messages.create()` with different parameter structure
+- **Google**: Uses `generateContent()` with unique request format
+- **Message Format**: Each provider expects different message structure and roles
+
+#### Data Format Standardization
+```typescript
+// Each provider has different internal formats but same external interface
+class OpenAIProvider extends BaseAIProvider {
+    // Converts universal ToolSchema[] to OpenAI ChatCompletionTool[]
+    protected configureTools(tools: ToolSchema[]): OpenAI.Chat.ChatCompletionTool[] {
+        return tools.map(tool => ({
+            type: 'function',
+            function: {
+                name: tool.name,
+                description: tool.description,
+                parameters: tool.parameters // OpenAI-specific schema format
+            }
+        }));
+    }
+}
+
+class AnthropicProvider extends BaseAIProvider {
+    // Converts universal ToolSchema[] to Anthropic tool format
+    protected configureTools(tools: ToolSchema[]): AnthropicTool[] {
+        return tools.map(tool => ({
+            name: tool.name,
+            description: tool.description,
+            input_schema: tool.parameters // Anthropic-specific schema format
+        }));
+    }
+}
+```
+
+#### Tool Schema Format Variations
+- **OpenAI**: Uses `function.parameters` with JSON Schema
+- **Anthropic**: Uses `input_schema` with different schema structure
+- **Google**: Uses `functionDeclarations` with unique parameter format
+- **Universal Format**: `ToolSchema[]` provides consistent interface across providers
+
+#### Streaming Implementation Differences
+- **OpenAI**: Returns `ChatCompletionChunk` with `delta` objects
+- **Anthropic**: Returns different streaming chunk format
+- **Google**: Has its own streaming response structure
+- **Unified Interface**: All providers must yield `StreamingResponseChunk` format
+
+#### Tool Calling Protocol Variations
+```typescript
+// Different providers handle tool calls differently
+// OpenAI
+{
+    "tool_calls": [{
+        "id": "call_123",
+        "type": "function", 
+        "function": { "name": "get_weather", "arguments": "{\"city\":\"Seoul\"}" }
+    }]
+}
+
+// Anthropic  
+{
+    "content": [{
+        "type": "tool_use",
+        "id": "toolu_123",
+        "name": "get_weather",
+        "input": { "city": "Seoul" }
+    }]
+}
+
+// But all convert to universal format:
+{
+    "toolCalls": [{
+        "id": "call_123",
+        "type": "function",
+        "function": { "name": "get_weather", "arguments": "{\"city\":\"Seoul\"}" }
+    }]
+}
+```
+
+### Provider-Specific Implementation Rules
+- **Format Conversion**: Each provider must convert between universal formats and provider-specific APIs
+- **Tool Schema Mapping**: Implement provider-specific tool schema conversion in `configureTools()`
+- **Message Adaptation**: Convert `UniversalMessage[]` to provider's expected message format
+- **Response Normalization**: Transform provider responses to standard `ModelResponse` format
+- **Error Standardization**: Map provider-specific errors to consistent error types
+- **Feature Mapping**: Handle provider-specific features (streaming, tool calling) through common interface
+
+## Error Handling
+
+### Typed Error Classes
+```typescript
+export abstract class RobotaError extends Error {
+    abstract readonly code: string;
+    abstract readonly category: 'user' | 'system' | 'provider';
+    abstract readonly recoverable: boolean;
+    
+    constructor(
+        message: string,
+        public readonly context?: Record<string, any>
+    ) {
+        super(message);
+        this.name = this.constructor.name;
+    }
+}
+```
+
+### Error Handling Strategy
+- Use typed errors with clear error codes and messages
+- Implement graceful degradation for non-critical failures  
+- Provide meaningful error context for debugging
+- Log errors at appropriate levels with structured data
+
+## Naming Conventions
+
+### Consistent Naming Standards
+- Classes: PascalCase (e.g., `AIProviderManager`, `ToolProviderManager`)
+- Methods: camelCase (e.g., `registerFunction`, `setSystemPrompt`)
+- Constants: UPPER_SNAKE_CASE (e.g., `DEFAULT_TIMEOUT`, `MAX_TOKENS`)
+- Types/Interfaces: PascalCase (e.g., `ToolResult`, `FunctionSchema`)
+
+## Type Safety Standards
+
+### TypeScript Configuration
+- **Strict Mode**: Enable all strict TypeScript checks
+- **No Implicit Any**: Require explicit typing
+- **Exact Optional Properties**: Use strict property checking
+- **No Unused Locals**: Detect unused variables
+
+### Type Definition Standards
+```typescript
+// Good: Comprehensive interface
+interface AgentConfig {
+    readonly aiProviders: Record<string, AIProvider>;
+    readonly currentProvider: string;
+    readonly currentModel: string;
+    readonly systemMessage?: string;
+    readonly tools?: readonly ToolSchema[];
+    readonly plugins?: readonly BasePlugin[];
+    readonly options?: Readonly<{
+        temperature?: number;
+        maxTokens?: number;
+    }>;
+}
+
+// Good: Branded types for better safety
+type ModelName = string & { readonly __brand: 'ModelName' };
+type ProviderName = string & { readonly __brand: 'ProviderName' };
+
+// Good: Discriminated unions
+type ToolResult = 
+    | { success: true; data: unknown }
+    | { success: false; error: string };
+```
+
+## Performance Considerations
+
+### Async-first Design
+- Use async/await for all I/O operations
+- **Memory Management**: Implement proper cleanup for resources
+- **Batching**: Batch similar operations when possible
+- **Caching**: Cache expensive computations with appropriate invalidation
+- **Streaming**: Support streaming for large data operations
+
+### Security Considerations
+- **Input Validation**: Validate and sanitize all external input
+- **API Key Protection**: Never log or expose API keys in error messages
+- **Dependency Security**: Regularly audit and update dependencies
+- **Error Information**: Limit sensitive information in error messages
+
+## Testing Standards
+
+### Mock Usage Rules
+- **Prioritize Real Implementation**: Prefer real implementation over Mock or dummy data throughout the codebase
+- **Use Mock Only in Test Code**: Mock objects and dummy data should only be used in automated test code
+- **Example Code Uses Real Implementation**: Example code should use real implementation in the same way actual users would
+
+### Test File Organization
+- **Use `__tests__` directories**: All test files should be placed in `__tests__` directories within their respective modules
+- **Mirror source structure**: Test file organization should mirror the source code structure
+- **Naming convention**: Test files should follow the pattern `*.test.ts` or `*.spec.ts`
+
+## Build and Runtime Standards
+
+### TypeScript Execution
+- **Use bun**: Use bun instead of ts-node for TypeScript code execution
+- **Example**: Execute scripts in `bun run script.ts` format
+- Use the same runtime throughout the project for performance and consistency
+
+### Test File Separation
+- **Production Build**: Test files should be excluded from production builds
+- **TypeScript Configuration**: Include test files in `exclude` in `tsconfig.json`
+- **Test Configuration**: Use separate `tsconfig.test.json` to include test files only during test execution
+
+## Interface Design Principles
+
+### API Design Standards
+- Clear interface definitions with comprehensive TypeScript types
+- Design considering extensibility and backward compatibility
+- Consistent naming conventions across all packages
+- **Interface-first approach**: Define interfaces before implementations
+
+### Method Chaining Support
+```typescript
+// Good: Support method chaining
+toolRegistry
+  .register(tool1)
+  .register(tool2);
+```
+
+### Documentation Standards
+- Document all parameters with types and constraints
+- Include return type documentation
+- Specify when methods throw exceptions
+- Document side effects and state changes
+- **Version Compatibility**: Document breaking changes and migration paths

@@ -1,6 +1,6 @@
-import { UsageStorage, UsageStats, AggregatedUsageStats } from '../types.js';
-import { Logger } from '../../../utils/logger.js';
-import { StorageError } from '../../../utils/errors.js';
+import { UsageStorage, UsageStats, AggregatedUsageStats } from '../types';
+import { Logger } from '../../../utils/logger';
+import { StorageError } from '../../../utils/errors';
 
 /**
  * Remote storage implementation for usage statistics with batching

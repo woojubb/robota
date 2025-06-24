@@ -7,9 +7,9 @@
  */
 
 import 'dotenv/config';
-import { Robota } from '@robota-sdk/core';
+import { RobotaCore as Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
+import { createZodFunctionTool } from '@robota-sdk/agents';
 import OpenAI from 'openai';
 import { z } from 'zod';
 import { fileURLToPath } from 'url';
@@ -51,8 +51,8 @@ async function main() {
         // Create OpenAI client
         const openaiClient = new OpenAI({ apiKey });
 
-        // Create tool provider
-        const toolProvider = createZodFunctionToolProvider({ tools });
+        // Create tool provider  
+        const toolProvider = createZodFunctionTool(tools.getCurrentTime);
 
         // === Test 1: Basic payload logging ===
         console.log('🔍 Test 1: Basic Payload Logging');

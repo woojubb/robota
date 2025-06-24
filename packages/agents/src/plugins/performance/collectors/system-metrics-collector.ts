@@ -1,5 +1,5 @@
-import { SystemMetricsCollector, PerformanceMetrics } from '../types.js';
-import { Logger } from '../../../utils/logger.js';
+import { SystemMetricsCollector, PerformanceMetrics } from '../types';
+import { Logger } from '../../../utils/logger';
 
 /**
  * Node.js system metrics collector

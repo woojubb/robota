@@ -1,8 +1,8 @@
-import { BasePlugin } from '../../abstracts/base-plugin.js';
-import { Logger } from '../../utils/logger.js';
-import { PluginError } from '../../utils/errors.js';
-import type { RunOptions } from '../../interfaces/agent.js';
-import type { Context, ModelResponse } from '../../interfaces/provider.js';
+import { BasePlugin } from '../../abstracts/base-plugin';
+import { Logger } from '../../utils/logger';
+import { PluginError } from '../../utils/errors';
+import type { RunOptions } from '../../interfaces/agent';
+import type { Context, ModelResponse } from '../../interfaces/provider';
 
 /**
  * Execution statistics entry

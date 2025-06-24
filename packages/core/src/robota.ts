@@ -4,7 +4,13 @@ import type {
 import type { AIProvider, Message, StreamingResponseChunk } from './interfaces/ai-provider';
 import type { Logger } from './interfaces/logger';
 import type { ConversationHistory } from './conversation-history';
-import type { ToolProvider } from '@robota-sdk/tools';
+// Local ToolProvider interface to remove dependency on @robota-sdk/tools
+interface ToolProvider {
+    callTool(toolName: string, parameters: Record<string, any>): Promise<any>;
+    functions?: Array<{ name: string; description?: string; parameters?: any }>;
+    getAvailableTools?(): string[];
+    hasTool?(toolName: string): boolean;
+}
 import type { RobotaComplete } from './interfaces/robota-core';
 
 import { SimpleConversationHistory } from './conversation-history';

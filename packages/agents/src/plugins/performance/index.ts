@@ -1,4 +1,4 @@
-export { PerformancePlugin } from './performance-plugin.js';
+export { PerformancePlugin } from './performance-plugin';
 export {
     PerformanceMonitoringStrategy,
     PerformanceMetrics,
@@ -6,6 +6,6 @@ export {
     PerformancePluginOptions,
     PerformanceStorage,
     SystemMetricsCollector
-} from './types.js';
-export { MemoryPerformanceStorage } from './storages/index.js';
-export { NodeSystemMetricsCollector } from './collectors/system-metrics-collector.js'; 
+} from './types';
+export { MemoryPerformanceStorage } from './storages/index';
+export { NodeSystemMetricsCollector } from './collectors/system-metrics-collector'; 

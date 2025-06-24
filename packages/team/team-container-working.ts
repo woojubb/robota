@@ -1,8 +1,8 @@
 /* eslint-disable no-console */
 import { v4 as uuidv4 } from 'uuid';
-import { Robota, AgentTemplateManager, AgentFactory } from '@robota-sdk/core';
-import type { RobotaOptions } from '@robota-sdk/core';
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
+import { RobotaCore as Robota, AgentFactory, AgentTemplates } from '@robota-sdk/agents';
+import type { RobotaOptions } from '@robota-sdk/agents';
+import { createZodFunctionTool } from '@robota-sdk/agents';
 import { z } from 'zod';
 import type {
     TeamContainerOptions,
@@ -13,8 +13,8 @@ import type {
     TeamExecutionStructure,
     AgentNode
 } from './types';
-import { ZodFunctionTool } from '@robota-sdk/tools';
-import type { UniversalMessage } from '@robota-sdk/core';
+import { FunctionTool as ZodFunctionTool } from '@robota-sdk/agents';
+import type { UniversalMessage } from '@robota-sdk/agents';
 
 /**
  * Raw conversation data for a single agent
@@ -126,7 +126,7 @@ export interface AgentTreeNode {
 export class TeamContainer {
     private teamAgent: Robota;
     private agentFactory: AgentFactory;
-    private templateManager: AgentTemplateManager;
+    private templateManager: AgentTemplates;
     private options: TeamContainerOptions;
     private stats: TeamStats;
     private logger?: any;
@@ -168,7 +168,7 @@ export class TeamContainer {
         };
 
         // Initialize template manager (use provided one or create default)
-        this.templateManager = options.templateManager || new AgentTemplateManager();
+        this.templateManager = options.templateManager || new AgentTemplates();
 
         // Validate leader template exists if specified
         const leaderTemplate = options.leaderTemplate || 'task_coordinator';

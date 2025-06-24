@@ -1,6 +1,6 @@
-import { BasePlugin } from '../../abstracts/base-plugin.js';
-import { Logger } from '../../utils/logger.js';
-import { PluginError, ConfigurationError } from '../../utils/errors.js';
+import { BasePlugin } from '../../abstracts/base-plugin';
+import { Logger } from '../../utils/logger';
+import { PluginError, ConfigurationError } from '../../utils/errors';
 
 /**
  * Error handling strategy types

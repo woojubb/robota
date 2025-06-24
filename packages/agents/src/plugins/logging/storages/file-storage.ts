@@ -1,7 +1,7 @@
-import { LogEntry, LogStorage, LogFormatter } from '../types.js';
-import { JsonLogFormatter } from '../formatters.js';
-import { Logger } from '../../../utils/logger.js';
-import { PluginError } from '../../../utils/errors.js';
+import { LogEntry, LogStorage, LogFormatter } from '../types';
+import { JsonLogFormatter } from '../formatters';
+import { Logger } from '../../../utils/logger';
+import { PluginError } from '../../../utils/errors';
 
 /**
  * File log storage (placeholder implementation)
