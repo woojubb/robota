@@ -36,7 +36,7 @@ class LoggerConfig {
 
     private constructor() {
         // Check environment variables and set default level
-        const envLevel = process.env.ROBOTA_LOG_LEVEL?.toLowerCase() as UtilLogLevel;
+        const envLevel = process.env['ROBOTA_LOG_LEVEL']?.toLowerCase() as UtilLogLevel;
         this.globalLevel = envLevel && this.isValidLevel(envLevel) ? envLevel : 'warn';
     }
 
@@ -120,7 +120,7 @@ export class Logger implements Logger {
             timestamp: new Date().toISOString(),
             level,
             message,
-            context,
+            ...(context && { context }),
             packageName: this.packageName
         };
 

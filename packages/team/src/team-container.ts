@@ -1,10 +1,9 @@
 /* eslint-disable no-console */
 import { Robota, RobotaConfig, ExecutionAnalyticsPlugin } from '@robota-sdk/agents';
-// No need for AgentFactory - create Robota instances directly
 import { createZodFunctionTool } from '@robota-sdk/agents';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
-import type { ToolSchema, ToolResult, ToolExecutionContext } from '@robota-sdk/agents';
+
 import {
     TeamContainerOptions,
     AssignTaskParams,
@@ -191,7 +190,7 @@ export class TeamContainer {
             currentModel: leaderTemplate.config.model,
             currentProvider: leaderTemplate.config.provider,
             temperature: leaderTemplate.config.temperature,
-            maxTokens: leaderTemplate.config.maxTokens,
+            ...(leaderTemplate.config.maxTokens && { maxTokens: leaderTemplate.config.maxTokens }),
             plugins: [
                 ...(this.options.baseRobotaOptions.plugins || []),
                 teamAnalyticsPlugin
@@ -325,7 +324,7 @@ export class TeamContainer {
                     currentModel: template.config.model,
                     currentProvider: template.config.provider,
                     temperature: template.config.temperature,
-                    maxTokens: template.config.maxTokens,
+                    ...(template.config.maxTokens && { maxTokens: template.config.maxTokens }),
                     plugins: [taskAnalyticsPlugin], // Add analytics to temporary agent
                     tools: [...delegationTools, ...(this.options.baseRobotaOptions.tools || [])]
                 });
@@ -366,7 +365,7 @@ export class TeamContainer {
                 id: uuidv4(),
                 originalTask: params.jobDescription,
                 delegatedTask: taskPrompt,
-                agentTemplate: params.agentTemplate,
+                ...(params.agentTemplate && { agentTemplate: params.agentTemplate }),
                 agentId: agentId,
                 priority: params.priority || 'medium',
                 startTime: new Date(startTime),
@@ -416,7 +415,7 @@ export class TeamContainer {
                 id: uuidv4(),
                 originalTask: params.jobDescription,
                 delegatedTask: params.jobDescription,
-                agentTemplate: params.agentTemplate,
+                ...(params.agentTemplate && { agentTemplate: params.agentTemplate }),
                 agentId: agentId,
                 priority: params.priority || 'medium',
                 startTime: new Date(startTime),
@@ -708,12 +707,12 @@ export class TeamContainer {
             assignTaskSchema,
             async (parameters: Record<string, any>) => {
                 const assignTaskParams: AssignTaskParams = {
-                    jobDescription: parameters.jobDescription,
-                    context: parameters.context,
-                    requiredTools: parameters.requiredTools || [],
-                    priority: parameters.priority || 'medium',
-                    agentTemplate: parameters.agentTemplate,
-                    allowFurtherDelegation: parameters.allowFurtherDelegation
+                    jobDescription: parameters['jobDescription'],
+                    context: parameters['context'],
+                    requiredTools: parameters['requiredTools'] || [],
+                    priority: parameters['priority'] || 'medium',
+                    agentTemplate: parameters['agentTemplate'],
+                    allowFurtherDelegation: parameters['allowFurtherDelegation']
                 };
 
                 const result = await this.assignTask(assignTaskParams);

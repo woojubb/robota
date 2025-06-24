@@ -28,7 +28,7 @@ Conversation history entry
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:32](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/conversation-history/types.ts#L32)
+[packages/agents/src/plugins/conversation-history/types.ts:32](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/conversation-history/types.ts#L32)
 
 ___
 
@@ -38,7 +38,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:33](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/conversation-history/types.ts#L33)
+[packages/agents/src/plugins/conversation-history/types.ts:33](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/conversation-history/types.ts#L33)
 
 ___
 
@@ -48,7 +48,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:34](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/conversation-history/types.ts#L34)
+[packages/agents/src/plugins/conversation-history/types.ts:34](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/conversation-history/types.ts#L34)
 
 ___
 
@@ -58,7 +58,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:35](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/conversation-history/types.ts#L35)
+[packages/agents/src/plugins/conversation-history/types.ts:35](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/conversation-history/types.ts#L35)
 
 ___
 
@@ -68,4 +68,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:36](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/conversation-history/types.ts#L36)
+[packages/agents/src/plugins/conversation-history/types.ts:36](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/conversation-history/types.ts#L36)

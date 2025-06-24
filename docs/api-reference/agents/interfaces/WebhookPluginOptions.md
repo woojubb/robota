@@ -33,7 +33,7 @@ Webhook endpoints
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:47](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/webhook-plugin.ts#L47)
+[packages/agents/src/plugins/webhook-plugin.ts:47](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/webhook-plugin.ts#L47)
 
 ___
 
@@ -45,7 +45,7 @@ Events to send webhooks for
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:49](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/webhook-plugin.ts#L49)
+[packages/agents/src/plugins/webhook-plugin.ts:49](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/webhook-plugin.ts#L49)
 
 ___
 
@@ -57,7 +57,7 @@ Default timeout for webhook requests
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:51](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/webhook-plugin.ts#L51)
+[packages/agents/src/plugins/webhook-plugin.ts:51](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/webhook-plugin.ts#L51)
 
 ___
 
@@ -69,7 +69,7 @@ Default retry attempts
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:53](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/webhook-plugin.ts#L53)
+[packages/agents/src/plugins/webhook-plugin.ts:53](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/webhook-plugin.ts#L53)
 
 ___
 
@@ -81,7 +81,7 @@ Whether to use async sending
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:55](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/webhook-plugin.ts#L55)
+[packages/agents/src/plugins/webhook-plugin.ts:55](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/webhook-plugin.ts#L55)
 
 ___
 
@@ -93,7 +93,7 @@ Maximum concurrent webhook requests
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:57](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/webhook-plugin.ts#L57)
+[packages/agents/src/plugins/webhook-plugin.ts:57](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/webhook-plugin.ts#L57)
 
 ___
 
@@ -113,7 +113,7 @@ Whether to batch webhook requests
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:59](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/webhook-plugin.ts#L59)
+[packages/agents/src/plugins/webhook-plugin.ts:59](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/webhook-plugin.ts#L59)
 
 ___
 
@@ -140,4 +140,4 @@ Custom payload transformer
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:65](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/webhook-plugin.ts#L65)
+[packages/agents/src/plugins/webhook-plugin.ts:65](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/webhook-plugin.ts#L65)

@@ -2,7 +2,6 @@ import { BasePlugin } from '../../abstracts/base-plugin';
 import { Logger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import {
-    UsageTrackingStrategy,
     UsageStats,
     AggregatedUsageStats,
     UsagePluginOptions,
@@ -43,7 +42,7 @@ export class UsagePlugin extends BasePlugin {
             remoteHeaders: options.remoteHeaders ?? {},
             maxEntries: options.maxEntries ?? 10000,
             trackCosts: options.trackCosts ?? true,
-            costRates: options.costRates,
+            ...(options.costRates && { costRates: options.costRates }),
             batchSize: options.batchSize ?? 50,
             flushInterval: options.flushInterval ?? 60000, // 1 minute
             aggregateStats: options.aggregateStats ?? true,
@@ -70,10 +69,12 @@ export class UsagePlugin extends BasePlugin {
      */
     async recordUsage(usage: Omit<UsageStats, 'timestamp' | 'cost'>): Promise<void> {
         try {
+            const cost = this.options.trackCosts ? this.calculateCost(usage.model, usage.tokensUsed) : undefined;
+
             const entry: UsageStats = {
                 ...usage,
                 timestamp: new Date(),
-                cost: this.options.trackCosts ? this.calculateCost(usage.model, usage.tokensUsed) : undefined
+                ...(cost && { cost })
             };
 
             await this.storage.save(entry);
@@ -234,8 +235,10 @@ export class UsagePlugin extends BasePlugin {
                 return new FileUsageStorage(this.options.filePath);
             case 'remote':
                 return new RemoteUsageStorage(
-                    this.options.remoteEndpoint,
-                    this.options.remoteHeaders,
+                    this.options.remoteEndpoint!,
+                    '',  // apiKey - not in options
+                    30000,  // timeout - not in options
+                    this.options.remoteHeaders || {},
                     this.options.batchSize,
                     this.options.flushInterval
                 );

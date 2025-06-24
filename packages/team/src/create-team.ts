@@ -84,7 +84,7 @@ export function createTeam(options: TeamOptions): TeamContainer {
     }
 
     const defaultProvider = providers[0];
-    const defaultModel = getDefaultModelForProvider(defaultProvider);
+    const defaultModel = getDefaultModelForProvider(defaultProvider!) || 'gpt-4o-mini';
 
     // Convert to full TeamContainerOptions
     const fullOptions: TeamContainerOptions = {
@@ -98,9 +98,9 @@ export function createTeam(options: TeamOptions): TeamContainer {
         },
         maxMembers: options.maxMembers || 5,
         debug: options.debug || false,
-        customTemplates: options.customTemplates,
-        leaderTemplate: options.leaderTemplate,
-        logger: options.logger
+        ...(options.customTemplates && { customTemplates: options.customTemplates }),
+        ...(options.leaderTemplate && { leaderTemplate: options.leaderTemplate }),
+        ...(options.logger && { logger: options.logger })
     };
 
     return new TeamContainer(fullOptions);

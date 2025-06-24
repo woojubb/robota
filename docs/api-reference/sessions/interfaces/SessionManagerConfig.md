@@ -23,7 +23,7 @@
 
 #### Defined in
 
-[types/core.ts:45](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/sessions/src/types/core.ts#L45)
+[types/core.ts:45](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/core.ts#L45)
 
 ___
 
@@ -33,4 +33,4 @@ ___
 
 #### Defined in
 
-[types/core.ts:46](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/sessions/src/types/core.ts#L46)
+[types/core.ts:46](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/core.ts#L46)

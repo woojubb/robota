@@ -62,7 +62,7 @@ Storage related errors
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:191](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/utils/errors.ts#L191)
+[packages/agents/src/utils/errors.ts:191](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L191)
 
 ## Properties
 
@@ -156,7 +156,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:11](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/utils/errors.ts#L11)
+[packages/agents/src/utils/errors.ts:11](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L11)
 
 ___
 
@@ -170,7 +170,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:187](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/utils/errors.ts#L187)
+[packages/agents/src/utils/errors.ts:187](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L187)
 
 ___
 
@@ -184,7 +184,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:188](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/utils/errors.ts#L188)
+[packages/agents/src/utils/errors.ts:188](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L188)
 
 ___
 
@@ -198,7 +198,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:189](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/utils/errors.ts#L189)
+[packages/agents/src/utils/errors.ts:189](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L189)
 
 ## Methods
 

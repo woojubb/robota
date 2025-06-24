@@ -51,7 +51,7 @@ Each template specifies which provider it prefers.
 
 #### Defined in
 
-[team/src/types.ts:27](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/team/src/types.ts#L27)
+[team/src/types.ts:27](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/team/src/types.ts#L27)
 
 ___
 
@@ -64,7 +64,7 @@ Default: 5
 
 #### Defined in
 
-[team/src/types.ts:33](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/team/src/types.ts#L33)
+[team/src/types.ts:33](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/team/src/types.ts#L33)
 
 ___
 
@@ -77,7 +77,7 @@ Default: false
 
 #### Defined in
 
-[team/src/types.ts:39](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/team/src/types.ts#L39)
+[team/src/types.ts:39](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/team/src/types.ts#L39)
 
 ___
 
@@ -90,7 +90,7 @@ Default: 50000
 
 #### Defined in
 
-[team/src/types.ts:45](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/team/src/types.ts#L45)
+[team/src/types.ts:45](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/team/src/types.ts#L45)
 
 ___
 
@@ -102,7 +102,7 @@ Logger for team operations. If not provided, no logging will be done.
 
 #### Defined in
 
-[team/src/types.ts:50](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/team/src/types.ts#L50)
+[team/src/types.ts:50](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/team/src/types.ts#L50)
 
 ___
 
@@ -115,7 +115,7 @@ Built-in templates are automatically available.
 
 #### Defined in
 
-[team/src/types.ts:56](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/team/src/types.ts#L56)
+[team/src/types.ts:56](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/team/src/types.ts#L56)
 
 ___
 
@@ -129,4 +129,4 @@ Default: "task_coordinator"
 
 #### Defined in
 
-[team/src/types.ts:63](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/team/src/types.ts#L63)
+[team/src/types.ts:63](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/team/src/types.ts#L63)

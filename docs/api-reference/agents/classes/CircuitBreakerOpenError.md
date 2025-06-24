@@ -62,7 +62,7 @@ Circuit breaker open error
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:161](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/utils/errors.ts#L161)
+[packages/agents/src/utils/errors.ts:161](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L161)
 
 ## Properties
 
@@ -156,7 +156,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:11](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/utils/errors.ts#L11)
+[packages/agents/src/utils/errors.ts:11](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L11)
 
 ___
 
@@ -170,7 +170,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:157](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/utils/errors.ts#L157)
+[packages/agents/src/utils/errors.ts:157](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L157)
 
 ___
 
@@ -184,7 +184,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:158](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/utils/errors.ts#L158)
+[packages/agents/src/utils/errors.ts:158](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L158)
 
 ___
 
@@ -198,7 +198,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:159](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/utils/errors.ts#L159)
+[packages/agents/src/utils/errors.ts:159](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L159)
 
 ## Methods
 

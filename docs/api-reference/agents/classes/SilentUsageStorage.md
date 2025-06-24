@@ -43,13 +43,13 @@ Silent storage implementation for usage statistics (no-op)
 
 ### save
 
-▸ **save**(`entry`): `Promise`\<`void`\>
+▸ **save**(`_entry`): `Promise`\<`void`\>
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `entry` | [`UsageStats`](../interfaces/UsageStats) |
+| `_entry` | [`UsageStats`](../interfaces/UsageStats) |
 
 #### Returns
 
@@ -61,22 +61,22 @@ Silent storage implementation for usage statistics (no-op)
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/silent-storage.ts:7](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/usage/storages/silent-storage.ts#L7)
+[packages/agents/src/plugins/usage/storages/silent-storage.ts:7](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/usage/storages/silent-storage.ts#L7)
 
 ___
 
 ### getStats
 
-▸ **getStats**(`conversationId?`, `timeRange?`): `Promise`\<[`UsageStats`](../interfaces/UsageStats)[]\>
+▸ **getStats**(`_conversationId?`, `_timeRange?`): `Promise`\<[`UsageStats`](../interfaces/UsageStats)[]\>
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `conversationId?` | `string` |
-| `timeRange?` | `Object` |
-| `timeRange.start` | `Date` |
-| `timeRange.end` | `Date` |
+| `_conversationId?` | `string` |
+| `_timeRange?` | `Object` |
+| `_timeRange.start` | `Date` |
+| `_timeRange.end` | `Date` |
 
 #### Returns
 
@@ -88,21 +88,21 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/silent-storage.ts:11](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/usage/storages/silent-storage.ts#L11)
+[packages/agents/src/plugins/usage/storages/silent-storage.ts:11](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/usage/storages/silent-storage.ts#L11)
 
 ___
 
 ### getAggregatedStats
 
-▸ **getAggregatedStats**(`timeRange?`): `Promise`\<[`AggregatedUsageStats`](../interfaces/AggregatedUsageStats)\>
+▸ **getAggregatedStats**(`_timeRange?`): `Promise`\<[`AggregatedUsageStats`](../interfaces/AggregatedUsageStats)\>
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `timeRange?` | `Object` |
-| `timeRange.start` | `Date` |
-| `timeRange.end` | `Date` |
+| `_timeRange?` | `Object` |
+| `_timeRange.start` | `Date` |
+| `_timeRange.end` | `Date` |
 
 #### Returns
 
@@ -114,7 +114,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/silent-storage.ts:16](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/usage/storages/silent-storage.ts#L16)
+[packages/agents/src/plugins/usage/storages/silent-storage.ts:16](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/usage/storages/silent-storage.ts#L16)
 
 ___
 
@@ -132,7 +132,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/silent-storage.ts:35](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/usage/storages/silent-storage.ts#L35)
+[packages/agents/src/plugins/usage/storages/silent-storage.ts:35](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/usage/storages/silent-storage.ts#L35)
 
 ___
 
@@ -150,7 +150,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/silent-storage.ts:39](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/usage/storages/silent-storage.ts#L39)
+[packages/agents/src/plugins/usage/storages/silent-storage.ts:39](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/usage/storages/silent-storage.ts#L39)
 
 ___
 
@@ -168,4 +168,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/silent-storage.ts:43](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/usage/storages/silent-storage.ts#L43)
+[packages/agents/src/plugins/usage/storages/silent-storage.ts:43](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/usage/storages/silent-storage.ts#L43)

@@ -67,7 +67,7 @@ export function createUserMessage(content: string, metadata?: Record<string, any
         role: 'user',
         content,
         timestamp: new Date(),
-        metadata,
+        ...(metadata && { metadata }),
     };
 }
 
@@ -83,9 +83,9 @@ export function createAssistantMessage(
     return {
         role: 'assistant',
         content,
-        toolCalls,
+        ...(toolCalls && { toolCalls }),
         timestamp: new Date(),
-        metadata,
+        ...(metadata && { metadata }),
     };
 }
 
@@ -94,7 +94,7 @@ export function createSystemMessage(content: string, metadata?: Record<string, a
         role: 'system',
         content,
         timestamp: new Date(),
-        metadata,
+        ...(metadata && { metadata }),
     };
 }
 
@@ -108,9 +108,9 @@ export function createToolMessage(
         role: 'tool',
         content,
         toolCallId,
-        name: toolName,
+        ...(toolName && { name: toolName }),
         timestamp: new Date(),
-        metadata,
+        ...(metadata && { metadata }),
     };
 }
 

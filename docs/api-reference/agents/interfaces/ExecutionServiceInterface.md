@@ -39,7 +39,7 @@ Execute complete agent pipeline
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:168](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/service.ts#L168)
+[packages/agents/src/interfaces/service.ts:167](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/service.ts#L167)
 
 ___
 
@@ -63,4 +63,4 @@ Execute streaming agent pipeline
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:177](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/service.ts#L177)
+[packages/agents/src/interfaces/service.ts:176](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/service.ts#L176)

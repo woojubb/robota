@@ -315,7 +315,7 @@ export class LimitsPlugin extends BasePlugin {
     /**
      * Update token bucket after execution
      */
-    private updateTokenBucket(key: string, tokensUsed: number, cost: number): void {
+    private updateTokenBucket(key: string, _tokensUsed: number, cost: number): void {
         const bucket = this.getBucket(key);
         bucket.cost += cost;
     }

@@ -27,7 +27,7 @@ Whether parameters are valid
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:49](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/tool.ts#L49)
+[packages/agents/src/interfaces/tool.ts:49](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/tool.ts#L49)
 
 ___
 
@@ -39,4 +39,4 @@ Validation error messages
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:51](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/tool.ts#L51)
+[packages/agents/src/interfaces/tool.ts:51](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/tool.ts#L51)

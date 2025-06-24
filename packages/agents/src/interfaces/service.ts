@@ -3,7 +3,6 @@
  * Defines contracts for stateless service implementations
  */
 
-import { Message } from './agent';
 import { UniversalMessage } from '../managers/conversation-history-manager';
 import { AIProvider } from './provider';
 

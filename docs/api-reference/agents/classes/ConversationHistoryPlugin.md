@@ -82,7 +82,7 @@ Saves and loads conversation history using configurable storage strategies
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:32](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L32)
+[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:31](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L31)
 
 ## Properties
 
@@ -98,7 +98,7 @@ Plugin name
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:22](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L22)
+[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:21](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L21)
 
 ___
 
@@ -114,7 +114,7 @@ Plugin version
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:23](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L23)
+[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:22](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L22)
 
 ## Methods
 
@@ -134,7 +134,7 @@ Initialize the plugin
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:71](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L71)
+[packages/agents/src/abstracts/base-plugin.ts:71](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L71)
 
 ___
 
@@ -154,7 +154,7 @@ Cleanup plugin resources
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:78](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L78)
+[packages/agents/src/abstracts/base-plugin.ts:78](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L78)
 
 ___
 
@@ -174,7 +174,7 @@ Enable the plugin
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:85](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L85)
+[packages/agents/src/abstracts/base-plugin.ts:85](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L85)
 
 ___
 
@@ -194,7 +194,7 @@ Disable the plugin
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:92](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L92)
+[packages/agents/src/abstracts/base-plugin.ts:92](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L92)
 
 ___
 
@@ -214,7 +214,7 @@ Check if plugin is enabled
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:99](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L99)
+[packages/agents/src/abstracts/base-plugin.ts:99](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L99)
 
 ___
 
@@ -234,7 +234,7 @@ Get plugin configuration
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:106](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L106)
+[packages/agents/src/abstracts/base-plugin.ts:106](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L106)
 
 ___
 
@@ -260,7 +260,7 @@ Update plugin configuration
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:113](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L113)
+[packages/agents/src/abstracts/base-plugin.ts:113](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L113)
 
 ___
 
@@ -281,7 +281,7 @@ This method should be implemented by plugins that collect data
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:121](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L121)
+[packages/agents/src/abstracts/base-plugin.ts:121](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L121)
 
 ___
 
@@ -302,7 +302,7 @@ This method should be implemented by plugins that track statistics
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L127)
+[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L127)
 
 ___
 
@@ -323,7 +323,7 @@ This method should be implemented by plugins that store data
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L133)
+[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L133)
 
 ___
 
@@ -350,7 +350,7 @@ Get plugin status - common interface for all plugins
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:138](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L138)
+[packages/agents/src/abstracts/base-plugin.ts:138](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L138)
 
 ___
 
@@ -377,7 +377,7 @@ Called before agent run
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:153](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L153)
+[packages/agents/src/abstracts/base-plugin.ts:153](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L153)
 
 ___
 
@@ -405,7 +405,7 @@ Called after agent run
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:154](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L154)
+[packages/agents/src/abstracts/base-plugin.ts:154](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L154)
 
 ___
 
@@ -432,7 +432,7 @@ Called before tool execution
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:155](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L155)
+[packages/agents/src/abstracts/base-plugin.ts:155](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L155)
 
 ___
 
@@ -460,7 +460,7 @@ Called after tool execution
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:156](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L156)
+[packages/agents/src/abstracts/base-plugin.ts:156](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L156)
 
 ___
 
@@ -486,7 +486,7 @@ Called before AI provider call
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:157](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L157)
+[packages/agents/src/abstracts/base-plugin.ts:157](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L157)
 
 ___
 
@@ -513,7 +513,7 @@ Called after AI provider call
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:158](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L158)
+[packages/agents/src/abstracts/base-plugin.ts:158](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L158)
 
 ___
 
@@ -539,7 +539,7 @@ Called on streaming chunk
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:159](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L159)
+[packages/agents/src/abstracts/base-plugin.ts:159](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L159)
 
 ___
 
@@ -566,7 +566,7 @@ Called on error
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:160](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L160)
+[packages/agents/src/abstracts/base-plugin.ts:160](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L160)
 
 ___
 
@@ -592,7 +592,7 @@ Called on message added to history
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:161](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-plugin.ts#L161)
+[packages/agents/src/abstracts/base-plugin.ts:161](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-plugin.ts#L161)
 
 ___
 
@@ -614,7 +614,7 @@ Start a new conversation
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:68](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L68)
+[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:67](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L67)
 
 ___
 
@@ -636,7 +636,7 @@ Add a message to the current conversation
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:95](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L95)
+[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:94](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L94)
 
 ___
 
@@ -658,7 +658,7 @@ Load conversation history
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:138](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L138)
+[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:137](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L137)
 
 ___
 
@@ -680,7 +680,7 @@ Get conversation history as messages
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:155](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L155)
+[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:154](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L154)
 
 ___
 
@@ -696,7 +696,7 @@ List all conversation IDs
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:163](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L163)
+[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:162](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L162)
 
 ___
 
@@ -718,7 +718,7 @@ Delete a conversation
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:174](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L174)
+[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:173](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L173)
 
 ___
 
@@ -734,7 +734,7 @@ Clear all conversations
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:188](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L188)
+[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:187](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L187)
 
 ___
 
@@ -750,7 +750,7 @@ Save pending conversations (for batch mode)
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:201](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L201)
+[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:200](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L200)
 
 ___
 
@@ -766,4 +766,4 @@ Cleanup resources
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:223](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L223)
+[packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts:222](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/conversation-history/conversation-history-plugin.ts#L222)

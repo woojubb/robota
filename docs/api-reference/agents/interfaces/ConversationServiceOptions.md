@@ -30,7 +30,7 @@ Maximum conversation history length
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:75](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/service.ts#L75)
+[packages/agents/src/interfaces/service.ts:74](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/service.ts#L74)
 
 ___
 
@@ -42,7 +42,7 @@ Whether to automatically retry on failure
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:77](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/service.ts#L77)
+[packages/agents/src/interfaces/service.ts:76](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/service.ts#L76)
 
 ___
 
@@ -54,7 +54,7 @@ Maximum number of retries
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:79](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/service.ts#L79)
+[packages/agents/src/interfaces/service.ts:78](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/service.ts#L78)
 
 ___
 
@@ -66,7 +66,7 @@ Retry delay in milliseconds
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:81](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/service.ts#L81)
+[packages/agents/src/interfaces/service.ts:80](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/service.ts#L80)
 
 ___
 
@@ -78,4 +78,4 @@ Request timeout in milliseconds
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:83](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/service.ts#L83)
+[packages/agents/src/interfaces/service.ts:82](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/service.ts#L82)

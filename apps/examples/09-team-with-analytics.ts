@@ -1,4 +1,5 @@
-import { Robota, OpenAIProvider, ExecutionAnalyticsPlugin } from '@robota-sdk/agents';
+import { Robota, ExecutionAnalyticsPlugin } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 import chalk from 'chalk';
@@ -59,17 +60,13 @@ async function main() {
         // Execute some tasks - plugin automatically tracks everything
         console.log('\n📋 Executing tasks...');
 
-        console.log('Task 1: What is artificial intelligence?');
-        const result1 = await agent.run('What is artificial intelligence?');
-        console.log('✅ Task 1 completed');
+        const queries = ['What is AI?', 'Tell me about ML.']; // Minimal queries always
 
-        console.log('\nTask 2: Explain machine learning');
-        const result2 = await agent.run('Explain machine learning in simple terms.');
-        console.log('✅ Task 2 completed');
-
-        console.log('\nTask 3: Benefits of renewable energy');
-        const result3 = await agent.run('What are the benefits of renewable energy?');
-        console.log('✅ Task 3 completed');
+        for (let i = 0; i < queries.length; i++) {
+            console.log(`Task ${i + 1}: ${queries[i]}`);
+            const result = await agent.run(queries[i]);
+            console.log(`✅ Task ${i + 1} completed`);
+        }
 
         // Access analytics through the agent's plugin (Method 1 - Recommended)
         console.log('\n📊 Method 1: Access through agent.getPlugin()');
@@ -135,7 +132,12 @@ async function main() {
         }
     } finally {
         // Cleanup
-        console.log('\n🧹 Agent cleanup completed');
+        await agent.destroy();
+        console.log('🧹 Agent cleanup completed');
+
+        // Ensure process exits cleanly
+        console.log('🧹 Exiting...');
+        process.exit(0);
     }
 }
 

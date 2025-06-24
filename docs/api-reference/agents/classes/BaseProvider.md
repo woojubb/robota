@@ -50,7 +50,7 @@ Base abstract class for providers
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-provider.ts:5](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-provider.ts#L5)
+[packages/agents/src/abstracts/base-provider.ts:5](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-provider.ts#L5)
 
 ## Methods
 
@@ -64,7 +64,7 @@ Base abstract class for providers
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-provider.ts:9](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-provider.ts#L9)
+[packages/agents/src/abstracts/base-provider.ts:9](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-provider.ts#L9)
 
 ___
 
@@ -78,7 +78,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-provider.ts:13](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-provider.ts#L13)
+[packages/agents/src/abstracts/base-provider.ts:13](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-provider.ts#L13)
 
 ___
 
@@ -92,4 +92,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-provider.ts:17](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/abstracts/base-provider.ts#L17)
+[packages/agents/src/abstracts/base-provider.ts:17](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-provider.ts#L17)

@@ -30,7 +30,7 @@ AI provider to use (e.g., 'openai', 'anthropic', 'google')
 
 #### Defined in
 
-[team/src/types.ts:84](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/team/src/types.ts#L84)
+[team/src/types.ts:84](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/team/src/types.ts#L84)
 
 ___
 
@@ -42,7 +42,7 @@ Model name to use
 
 #### Defined in
 
-[team/src/types.ts:86](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/team/src/types.ts#L86)
+[team/src/types.ts:86](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/team/src/types.ts#L86)
 
 ___
 
@@ -54,7 +54,7 @@ System prompt for the agent
 
 #### Defined in
 
-[team/src/types.ts:88](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/team/src/types.ts#L88)
+[team/src/types.ts:88](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/team/src/types.ts#L88)
 
 ___
 
@@ -66,7 +66,7 @@ Maximum tokens for responses
 
 #### Defined in
 
-[team/src/types.ts:90](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/team/src/types.ts#L90)
+[team/src/types.ts:90](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/team/src/types.ts#L90)
 
 ___
 
@@ -78,4 +78,4 @@ Temperature for response generation
 
 #### Defined in
 
-[team/src/types.ts:92](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/team/src/types.ts#L92)
+[team/src/types.ts:92](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/team/src/types.ts#L92)

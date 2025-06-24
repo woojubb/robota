@@ -9,16 +9,20 @@
  */
 
 import OpenAI from 'openai';
-import { Robota, ExecutionAnalyticsPlugin, LoggingPlugin } from '@robota-sdk/agents';
+import {
+    Robota,
+    ExecutionAnalyticsPlugin,
+    LoggingPlugin
+} from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import dotenv from 'dotenv';
 
-// Load environment variables
+// Load environment variables from examples directory
 dotenv.config();
 
 async function main() {
     try {
-        console.log('⚡ Advanced Features Example Started...\\n');
+        console.log('⚡ Advanced Features Example Started...\n');
 
         // Validate API key
         const apiKey = process.env.OPENAI_API_KEY;
@@ -48,9 +52,10 @@ async function main() {
 
         // === Advanced Configuration ===
         const robota = new Robota({
-            aiProviders: { openai: openaiProvider },
-            provider: 'openai',
+            name: 'AdvancedAgent',
             model: 'gpt-3.5-turbo',
+            provider: 'openai',
+            aiProviders: { openai: openaiProvider },
             currentProvider: 'openai',
             currentModel: 'gpt-3.5-turbo',
             systemMessage: 'You are an advanced AI assistant with detailed analytical capabilities. Provide comprehensive and well-structured responses.',
@@ -62,26 +67,24 @@ async function main() {
         console.log('='.repeat(40));
 
         // Check initial analytics
-        console.log('\\n📈 Initial Plugin Status:');
+        console.log('\n📈 Initial Plugin Status:');
         const initialStats = analyticsPlugin.getStats();
         console.log('- Total executions:', initialStats.totalExecutions);
         console.log('- Success rate:', initialStats.successRate.toFixed(1) + '%');
 
         // === Conversation History Demo ===
-        console.log('\\n💬 Advanced Conversation Demo');
+        console.log('\n💬 Advanced Conversation Demo');
         console.log('='.repeat(40));
 
+        // Use minimal queries for token efficiency
         const queries = [
-            'Hello! What are the latest developments in artificial intelligence?',
-            'How do neural networks learn from data? Please explain in detail.',
-            'What are the ethical considerations in AI development?',
-            'Compare machine learning and deep learning approaches.',
-            'What is the future of AGI (Artificial General Intelligence)?'
-        ];
+            'What is AI?',
+            'Tell me about ML.'
+        ]; // Minimal queries always
 
         for (let i = 0; i < queries.length; i++) {
             const query = queries[i];
-            console.log(`\\n${i + 1}. User: ${query}`);
+            console.log(`\n${i + 1}. User: ${query}`);
 
             const startTime = Date.now();
             const response = await robota.run(query);
@@ -96,7 +99,7 @@ async function main() {
         }
 
         // === Analytics Deep Dive ===
-        console.log('\\n📊 Detailed Analytics:');
+        console.log('\n📊 Detailed Analytics:');
         console.log('='.repeat(40));
 
         const finalStats = analyticsPlugin.getStats();
@@ -109,14 +112,14 @@ async function main() {
         console.log('- Total Duration:', finalStats.totalDuration + 'ms');
 
         // Operation breakdown - removed due to type constraints
-        console.log('\\nExecution Summary:');
+        console.log('\nExecution Summary:');
         console.log(`- Success Rate: ${finalStats.successRate.toFixed(1)}%`);
         if (finalStats.failedExecutions > 0) {
             console.log(`- ${finalStats.failedExecutions} failed executions detected`);
         }
 
         // === Plugin Status Check ===
-        console.log('\\n🔍 Plugin Status:');
+        console.log('\n🔍 Plugin Status:');
         console.log('='.repeat(40));
 
         const analyticsStatus = analyticsPlugin.getStatus();
@@ -126,8 +129,19 @@ async function main() {
         console.log('- Enabled:', analyticsStatus.enabled);
         console.log('- Total Recorded:', analyticsStatus.totalRecorded);
 
+        // === Agent Statistics ===
+        console.log('\n📈 Agent Statistics:');
+        console.log('='.repeat(40));
+
+        const agentStats = robota.getStats();
+        console.log(`- Agent name: ${agentStats.name}`);
+        console.log(`- History length: ${agentStats.historyLength}`);
+        console.log(`- Current provider: ${agentStats.currentProvider}`);
+        console.log(`- Plugins: ${agentStats.plugins.join(', ')}`);
+        console.log(`- Uptime: ${Math.round(agentStats.uptime)}ms`);
+
         // === Memory Management Demo ===
-        console.log('\\n🧹 Memory Management:');
+        console.log('\n🧹 Memory Management:');
         console.log('='.repeat(40));
 
         console.log('Clearing analytics data...');
@@ -137,7 +151,7 @@ async function main() {
         console.log('After clearing - Total executions:', clearedStats.totalExecutions);
 
         // === Final Test ===
-        console.log('\\n🎯 Final Performance Test:');
+        console.log('\n🎯 Final Performance Test:');
         console.log('='.repeat(40));
 
         const finalQuery = 'Summarize our conversation and the key topics we discussed.';
@@ -149,8 +163,8 @@ async function main() {
         const postClearStats = analyticsPlugin.getStats();
         console.log(`Final execution count: ${postClearStats.totalExecutions}`);
 
-        console.log('\\n✅ Advanced Features Example Completed!');
-        console.log('\\n💡 Features Demonstrated:');
+        console.log('\n✅ Advanced Features Example Completed!');
+        console.log('\n💡 Features Demonstrated:');
         console.log('   - ExecutionAnalyticsPlugin for performance tracking');
         console.log('   - LoggingPlugin for detailed execution logs');
         console.log('   - Plugin lifecycle management');
@@ -158,8 +172,15 @@ async function main() {
 
         // Clean up resources
         await robota.destroy();
+
+        // Ensure process exits cleanly
+        console.log('🧹 Cleanup completed. Exiting...');
+        process.exit(0);
     } catch (error) {
         console.error('❌ Error occurred:', error);
+        if (error instanceof Error) {
+            console.error('Stack trace:', error.stack);
+        }
         process.exit(1);
     }
 }

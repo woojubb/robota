@@ -2,18 +2,18 @@
  * 02-tool-calling.ts
  * 
  * This example demonstrates tool calling functionality:
- * - Define tools using Zod schemas
+ * - Define tools using JSON schemas
  * - AI agent automatically calls appropriate tools
  * - Handle tool execution results
+ * - Show tool usage statistics
  */
 
-import { z } from 'zod';
 import { Robota, createFunctionTool } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
-// Load environment variables
+// Load environment variables from examples directory
 dotenv.config();
 
 // Define tool functions using createFunctionTool with manual JSON schema
@@ -163,49 +163,70 @@ async function main() {
 
         // Create Robota instance with tools
         const robota = new Robota({
+            name: 'ToolAgent',
+            model: 'gpt-3.5-turbo',
+            provider: 'openai',
             aiProviders: {
                 'openai': openaiProvider
             },
-            provider: 'openai',
-            model: 'gpt-3.5-turbo',
             currentProvider: 'openai',
             currentModel: 'gpt-3.5-turbo',
-            tools: [calculateTool, weatherTool, timeTool],
-            systemMessage: 'You are a helpful assistant that can perform calculations, check weather, and tell time. Use the available tools when needed.',
+            tools: [calculateTool],
+            systemMessage: 'You are a helpful assistant that can perform calculations. When using tools, use the results to provide a complete answer.',
             logging: {
                 level: (process.env.ROBOTA_LOG_LEVEL as any) || 'warn',
                 enabled: process.env.ROBOTA_VERBOSE === 'true'
             }
-        } as any);
+        });
 
-        // Test queries that should trigger tool calls
+        // Test queries optimized for minimal token usage
         const queries = [
-            'Hello! What can you help me with?',
-            'What is 15 multiplied by 8?',
-            'What\'s the weather like in Seoul?',
-            'Can you tell me the current time in UTC?',
-            'Calculate 100 divided by 4, and then tell me the weather in Tokyo in Fahrenheit'
+            'Hi', // Minimal greeting to test basic functionality
+            'What is 5 plus 3?' // Single tool demonstration with clear instruction
         ];
 
-        // Process each query
+        console.log(`📝 Executing ${queries.length} minimal queries for efficiency`);
+
+        // Process each query with error handling
         for (let i = 0; i < queries.length; i++) {
             const query = queries[i];
             console.log(`\n${i + 1}. User: ${query}`);
 
-            const response = await robota.run(query);
-            console.log(`   Assistant: ${response}`);
+            try {
+                const response = await robota.run(query);
+                console.log(`   Assistant: ${response}`);
+            } catch (error) {
+                console.error(`   Error: ${error}`);
+                break; // Stop on error to prevent infinite loops
+            }
 
             if (i < queries.length - 1) {
                 console.log('   ' + '─'.repeat(50));
             }
         }
 
+        // === Show Final Statistics ===
+        console.log('\n📊 Final Statistics:');
+        const stats = robota.getStats();
+        console.log(`- Agent name: ${stats.name}`);
+        console.log(`- Tools registered: ${stats.tools.join(', ')}`);
+        console.log(`- History length: ${stats.historyLength}`);
+        console.log(`- Current provider: ${stats.currentProvider}`);
+        console.log(`- Uptime: ${Math.round(stats.uptime)}ms`);
+
         console.log('\n✅ Tool Calling Example Completed!');
 
         // Clean up resources
         await robota.destroy();
+
+        // Ensure process exits cleanly
+        console.log('🧹 Cleanup completed. Exiting...');
+        process.exit(0);
     } catch (error) {
         console.error('❌ Error occurred:', error);
+        if (error instanceof Error) {
+            console.error('Stack trace:', error.stack);
+        }
         process.exit(1);
     }
 }

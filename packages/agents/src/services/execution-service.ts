@@ -118,9 +118,9 @@ export class ExecutionService {
             startTime,
             executionId,
             conversationId,
-            sessionId: context?.sessionId,
-            userId: context?.userId,
-            metadata: context?.metadata || {}
+            ...(context?.sessionId && { sessionId: context.sessionId }),
+            ...(context?.userId && { userId: context.userId }),
+            ...(context?.metadata && { metadata: context.metadata })
         };
 
         this.logger.debug('Starting execution pipeline', {
@@ -136,6 +136,8 @@ export class ExecutionService {
 
             // Initialize conversation history with existing messages if this is first time
             if (conversationSession.getMessageCount() === 0 && messages.length > 0) {
+                // Add all messages in the order they appear in the messages array
+                // This preserves the original order including multiple system messages
                 messages.forEach(msg => {
                     if (msg.role === 'user') {
                         conversationSession.addUserMessage(msg.content, msg.metadata);
@@ -154,7 +156,13 @@ export class ExecutionService {
                 });
             }
 
-            // Check if the current input is already the last message to avoid duplication
+            // Add system message from config if provided
+            // This allows for additional system messages during execution
+            if (config.systemMessage) {
+                conversationSession.addSystemMessage(config.systemMessage, { executionId });
+            }
+
+            // Only add the current input if it's not already the last message in the conversation
             const existingMessages = conversationSession.getMessages();
             const lastMessage = existingMessages[existingMessages.length - 1];
             const shouldAddInput = !lastMessage ||
@@ -162,7 +170,7 @@ export class ExecutionService {
                 lastMessage.content !== input;
 
             if (shouldAddInput) {
-                conversationSession.addUserMessage(input);
+                conversationSession.addUserMessage(input, { executionId });
             }
 
             // Call beforeRun hook on all plugins
@@ -196,11 +204,11 @@ export class ExecutionService {
                 // Prepare configuration for provider execution
                 const providerConfig: ProviderExecutionConfig = {
                     model: config.model,
-                    systemMessage: config.systemMessage,
-                    temperature: config.temperature,
-                    maxTokens: config.maxTokens,
+                    ...(config.systemMessage && { systemMessage: config.systemMessage }),
+                    ...(config.temperature !== undefined && { temperature: config.temperature }),
+                    ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
                     tools: toolSchemas,
-                    metadata: context?.metadata
+                    ...(context?.metadata && { metadata: context.metadata })
                 };
 
                 // Call beforeProviderCall hook
@@ -216,7 +224,7 @@ export class ExecutionService {
                 conversationSession.addAssistantMessage(
                     response.content,
                     response.toolCalls,
-                    { round: currentRound, usage: response.usage }
+                    { round: currentRound, usage: response['usage'] }
                 );
 
                 // Check if we need to execute tools
@@ -284,18 +292,18 @@ export class ExecutionService {
                     let content: string;
                     let metadata: Record<string, any> = { round: currentRound };
 
-                    if (result.success) {
+                    if ('success' in result && result['success']) {
                         // Ensure content is always a string (core pattern)
                         content = typeof result.result === 'string'
                             ? result.result
                             : JSON.stringify(result.result || 'Tool executed successfully');
-                        metadata.success = true;
+                        metadata['success'] = true;
                     } else {
-                        content = `Error: ${result.error || 'Tool execution failed'}`;
-                        metadata.success = false;
-                        metadata.error = result.error;
+                        content = `Error: ${result['error'] || 'Tool execution failed'}`;
+                        metadata['success'] = false;
+                        metadata['error'] = result['error'];
                     }
-                    metadata.toolName = result.toolName;
+                    metadata['toolName'] = result['toolName'];
 
                     conversationSession.addToolMessageWithId(
                         content,
@@ -304,6 +312,11 @@ export class ExecutionService {
                         metadata
                     );
                 });
+
+                // Continue to next round - let the AI decide if more tools are needed
+                // The AI will see the tool results and can either:
+                // 1. Call more tools if needed
+                // 2. Provide a final response without tool calls
             }
 
             // Check if we hit the round limit
@@ -334,8 +347,8 @@ export class ExecutionService {
                 executionId,
                 duration,
                 tokensUsed: finalMessages
-                    .filter(msg => msg.metadata?.usage?.totalTokens)
-                    .reduce((sum, msg) => sum + (msg.metadata?.usage?.totalTokens || 0), 0),
+                    .filter(msg => msg.metadata?.['usage']?.['totalTokens'])
+                    .reduce((sum, msg) => sum + (msg.metadata?.['usage']?.['totalTokens'] || 0), 0),
                 toolsExecuted,
                 success: true
             };

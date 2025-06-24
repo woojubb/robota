@@ -39,7 +39,7 @@ Base message interface for agent communication
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:5](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/agent.ts#L5)
+[packages/agents/src/interfaces/agent.ts:5](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/agent.ts#L5)
 
 ___
 
@@ -49,7 +49,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:6](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/agent.ts#L6)
+[packages/agents/src/interfaces/agent.ts:6](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/agent.ts#L6)
 
 ___
 
@@ -59,7 +59,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:7](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/agent.ts#L7)
+[packages/agents/src/interfaces/agent.ts:7](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/agent.ts#L7)
 
 ___
 
@@ -69,4 +69,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:8](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/agent.ts#L8)
+[packages/agents/src/interfaces/agent.ts:8](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/agent.ts#L8)

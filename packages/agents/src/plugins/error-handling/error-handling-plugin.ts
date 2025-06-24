@@ -56,7 +56,7 @@ export class ErrorHandlingPlugin extends BasePlugin {
             logErrors: options.logErrors ?? true,
             failureThreshold: options.failureThreshold ?? 5,
             circuitBreakerTimeout: options.circuitBreakerTimeout ?? 60000, // 1 minute
-            customErrorHandler: options.customErrorHandler,
+            ...(options.customErrorHandler && { customErrorHandler: options.customErrorHandler }),
         };
 
         this.logger.info('ErrorHandlingPlugin initialized', {
@@ -171,7 +171,7 @@ export class ErrorHandlingPlugin extends BasePlugin {
     /**
      * Get current error handling stats
      */
-    getStats(): { failureCount: number; circuitBreakerOpen: boolean; lastFailureTime: number } {
+    override getStats(): { failureCount: number; circuitBreakerOpen: boolean; lastFailureTime: number } {
         return {
             failureCount: this.failureCount,
             circuitBreakerOpen: this.circuitBreakerOpen,
@@ -191,7 +191,7 @@ export class ErrorHandlingPlugin extends BasePlugin {
         this.logger.debug('Simple error handling applied', { error: error.message, context });
     }
 
-    private async handleCircuitBreaker(error: Error, context: Record<string, any>): Promise<void> {
+    private async handleCircuitBreaker(_error: Error, context: Record<string, any>): Promise<void> {
         this.failureCount++;
         this.lastFailureTime = Date.now();
 
@@ -205,10 +205,10 @@ export class ErrorHandlingPlugin extends BasePlugin {
         }
     }
 
-    private async handleExponentialBackoff(error: Error, context: Record<string, any>): Promise<void> {
+    private async handleExponentialBackoff(_error: Error, context: Record<string, any>): Promise<void> {
         this.failureCount++;
         this.logger.debug('Exponential backoff error handling applied', {
-            error: error.message,
+            error: _error.message,
             failureCount: this.failureCount,
             context
         });

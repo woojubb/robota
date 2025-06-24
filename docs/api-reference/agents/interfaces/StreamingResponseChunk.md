@@ -27,7 +27,7 @@ Streaming response chunk
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:38](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/provider.ts#L38)
+[packages/agents/src/interfaces/provider.ts:38](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/provider.ts#L38)
 
 ___
 
@@ -37,7 +37,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:39](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/provider.ts#L39)
+[packages/agents/src/interfaces/provider.ts:39](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/provider.ts#L39)
 
 ___
 
@@ -47,7 +47,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:40](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/provider.ts#L40)
+[packages/agents/src/interfaces/provider.ts:40](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/provider.ts#L40)
 
 ___
 
@@ -65,4 +65,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:41](https://github.com/woojubb/robota/blob/1b62bb02b890c71ae884378577a1521b0f8628be/packages/agents/src/interfaces/provider.ts#L41)
+[packages/agents/src/interfaces/provider.ts:41](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/provider.ts#L41)

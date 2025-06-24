@@ -1,5 +1,5 @@
-import { Robota, OpenAIProvider } from '@robota-sdk/agents';
-import { ExecutionAnalyticsPlugin } from '@robota-sdk/agents';
+import { Robota, ExecutionAnalyticsPlugin } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
@@ -64,14 +64,12 @@ async function main() {
 
     try {
         // Execute some tasks - plugin automatically tracks everything
-        console.log('Executing task 1...');
-        await agent.run('What is artificial intelligence?');
+        const queries = ['What is AI?', 'Tell me about ML.']; // Minimal queries always
 
-        console.log('Executing task 2...');
-        await agent.run('Explain machine learning in simple terms.');
-
-        console.log('Executing task 3...');
-        await agent.run('What are the benefits of renewable energy?');
+        for (let i = 0; i < queries.length; i++) {
+            console.log(`Executing task ${i + 1}...`);
+            await agent.run(queries[i]);
+        }
 
         // Access analytics through the agent's plugin
         const pluginFromAgent = agent.getPlugin('ExecutionAnalyticsPlugin');
@@ -130,6 +128,10 @@ async function main() {
 
     // Cleanup
     await agent.destroy();
+
+    // Ensure process exits cleanly
+    console.log('🧹 Cleanup completed. Exiting...');
+    process.exit(0);
 }
 
 function displayAnalytics(method: string, stats: any) {

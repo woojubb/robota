@@ -78,14 +78,14 @@ export class FunctionTool extends BaseTool implements IFunctionTool {
     /**
      * Enhanced validation with detailed error reporting
      */
-    validate(parameters: Record<string, any>): boolean {
+    override validate(parameters: Record<string, any>): boolean {
         return this.getValidationErrors(parameters).length === 0;
     }
 
     /**
      * Validate tool parameters with detailed result
      */
-    validateParameters(parameters: Record<string, any>): ParameterValidationResult {
+    override validateParameters(parameters: Record<string, any>): ParameterValidationResult {
         const errors = this.getValidationErrors(parameters);
         return {
             isValid: errors.length === 0,
@@ -129,7 +129,7 @@ export class FunctionTool extends BaseTool implements IFunctionTool {
      * Validate individual parameter type
      */
     private validateParameterType(key: string, value: any, schema: any): string | null {
-        const expectedType = schema.type;
+        const expectedType = schema['type'];
 
         switch (expectedType) {
             case 'string':
@@ -154,6 +154,15 @@ export class FunctionTool extends BaseTool implements IFunctionTool {
                 if (!Array.isArray(value)) {
                     return `Parameter "${key}" must be an array, got ${typeof value}`;
                 }
+                // Check array items if specified
+                if (schema['items']) {
+                    for (let i = 0; i < value.length; i++) {
+                        const itemError = this.validateParameterType(`${key}[${i}]`, value[i], schema['items']);
+                        if (itemError) {
+                            return itemError;
+                        }
+                    }
+                }
                 break;
 
             case 'object':
@@ -164,8 +173,8 @@ export class FunctionTool extends BaseTool implements IFunctionTool {
         }
 
         // Check enum constraints
-        if (schema.enum && !schema.enum.includes(value)) {
-            return `Parameter "${key}" must be one of: ${schema.enum.join(', ')}, got ${value}`;
+        if (schema['enum'] && !schema['enum'].includes(value)) {
+            return `Parameter "${key}" must be one of: ${schema['enum'].join(', ')}, got ${value}`;
         }
 
         return null;
@@ -282,39 +291,37 @@ function zodToJsonSchema(schema: any): ToolSchema['parameters'] {
         const typeName = typeObj._def?.typeName;
 
         if (typeName === 'ZodNumber') {
-            property.type = "number";
+            property['type'] = "number";
         } else if (typeName === 'ZodString') {
-            property.type = "string";
+            property['type'] = "string";
         } else if (typeName === 'ZodBoolean') {
-            property.type = "boolean";
+            property['type'] = "boolean";
         } else if (typeName === 'ZodEnum') {
-            property.type = "string";
-            property.enum = typeObj._def.values;
+            property['type'] = "string";
+            property['enum'] = typeObj._def.values;
         } else if (typeName === 'ZodArray') {
-            property.type = "array";
+            property['type'] = "array";
             // Process array item type
             const itemTypeName = typeObj._def.type?._def?.typeName;
             if (itemTypeName === 'ZodString') {
-                property.items = { type: "string" };
+                property['items'] = { type: "string" };
             } else if (itemTypeName === 'ZodObject') {
-                property.items = zodToJsonSchema(typeObj._def.type);
+                property['items'] = zodToJsonSchema(typeObj._def.type);
             } else {
-                property.items = { type: "string" }; // fallback
+                property['items'] = { type: "string" }; // fallback
             }
         } else if (typeName === 'ZodObject') {
             // Process nested object
             property = zodToJsonSchema(typeObj);
         } else {
             // Fallback for unsupported types
-            property.type = "string";
+            property['type'] = "string";
         }
 
-        // Add description - try optional wrapper first, then inner type
-        if (!description) {
-            description = typeObj._def?.description;
-        }
+        // Get description from optional wrapper first if available
+        description = description || typeObj._def?.description;
         if (description) {
-            property.description = description;
+            property['description'] = description;
         }
 
         // Add to required if not optional
@@ -327,8 +334,8 @@ function zodToJsonSchema(schema: any): ToolSchema['parameters'] {
 
     // Final JSON schema object
     return {
-        type: "object",
+        type: 'object',
         properties,
-        required: required.length > 0 ? required : undefined
+        ...(required.length > 0 && { required })
     };
 } 

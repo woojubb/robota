@@ -65,11 +65,11 @@ export abstract class BaseAIProvider extends BaseProvider implements AIProvider 
             // Prepare context with all configuration
             const context: Context = {
                 messages: convertedMessages,
-                systemMessage: config.systemMessage,
-                temperature: config.temperature,
-                maxTokens: config.maxTokens,
-                tools: config.tools,  // Pass original ToolSchema[] to context
-                metadata: config.metadata
+                ...(config.systemMessage && { systemMessage: config.systemMessage }),
+                ...(config.temperature !== undefined && { temperature: config.temperature }),
+                ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
+                ...(config.tools && { tools: config.tools }),
+                ...(config.metadata && { metadata: config.metadata })
             };
 
             // Generate response using provider's chat method
@@ -102,11 +102,11 @@ export abstract class BaseAIProvider extends BaseProvider implements AIProvider 
             // Prepare context with all configuration
             const context: Context = {
                 messages: convertedMessages,
-                systemMessage: config.systemMessage,
-                temperature: config.temperature,
-                maxTokens: config.maxTokens,
-                tools: config.tools,  // Pass original ToolSchema[] to context
-                metadata: config.metadata
+                ...(config.systemMessage && { systemMessage: config.systemMessage }),
+                ...(config.temperature !== undefined && { temperature: config.temperature }),
+                ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
+                ...(config.tools && { tools: config.tools }),
+                ...(config.metadata && { metadata: config.metadata })
             };
 
             // Generate streaming response
