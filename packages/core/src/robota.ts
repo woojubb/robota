@@ -29,14 +29,14 @@ export interface RobotaOptions {
     /** 
      * Tool providers that supply tools like MCP, OpenAPI, ZodFunction, etc.
      * 
-     * @see {@link ../../../apps/examples/02-functions | Function Examples}
+     * @see {@link @examples/02-functions | Function Examples}
      */
     toolProviders?: ToolProvider[];
 
     /** 
      * AI providers - Register multiple AI providers by name
      * 
-     * @see {@link ../../../apps/examples/03-integrations | Provider Integration Examples}
+     * @see {@link @examples/03-integrations | Provider Integration Examples}
      */
     aiProviders?: Record<string, AIProvider>;
 
@@ -178,8 +178,8 @@ export interface RobotaOptions {
  * - tools: Tool provider management
  * - conversation: Conversation history management
  * 
- * @see {@link ../../../apps/examples/01-basic | Basic Usage Examples}
- * @see {@link ../../../apps/examples/05-advanced | Advanced Configuration Examples}
+ * @see {@link @examples/01-basic | Basic Usage Examples}
+ * @see {@link @examples/05-advanced | Advanced Configuration Examples}
  * 
  * @public
  */
@@ -395,7 +395,7 @@ export class Robota implements RobotaComplete {
  * @throws {Error} When rate limits are exceeded
  * @throws {Error} When AI provider fails
  * 
- * @see {@link ../../../apps/examples/01-basic/01-simple-conversation.ts | Basic Usage}
+      * @see {@link @examples/01-basic/01-simple-conversation.ts | Basic Usage}
  */
     async run(prompt: string, options: RunOptions = {}): Promise<string> {
         return this.executionService.executePrompt(prompt, {
@@ -419,7 +419,7 @@ export class Robota implements RobotaComplete {
      * @throws {Error} When rate limits are exceeded
      * @throws {Error} When AI provider fails
      * 
-     * @see {@link ../../../apps/examples/01-basic/01-simple-conversation.ts | Streaming Example}
+     * @see {@link @examples/01-basic/01-simple-conversation.ts | Streaming Example}
      */
     async runStream(prompt: string, options: RunOptions = {}): Promise<AsyncIterable<StreamingResponseChunk>> {
         return this.executionService.executeStream(prompt, {

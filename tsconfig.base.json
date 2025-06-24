@@ -17,7 +17,19 @@
     "sourceMap": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "useDefineForClassFields": true
+    "useDefineForClassFields": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "@examples/*": [
+        "./apps/examples/*"
+      ],
+      "@docs/*": [
+        "./docs/*"
+      ]
+    }
   },
   "exclude": [
     "**/node_modules",

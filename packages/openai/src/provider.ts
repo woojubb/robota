@@ -19,7 +19,7 @@ import { PayloadLogger } from './payload-logger';
  * Provides integration with OpenAI's GPT models and other services.
  * Extends BaseAIProvider for common functionality and tool calling support.
  * 
- * @see {@link ../../../apps/examples/03-integrations | Provider Integration Examples}
+ * @see {@link @examples/03-integrations | Provider Integration Examples}
  * 
  * @public
  */
@@ -372,7 +372,7 @@ export class OpenAIProvider extends BaseAIProvider {
    * @throws {Error} When message format conversion fails
    * @throws {Error} When OpenAI streaming API call fails
    * 
-   * @see {@link ../../../apps/examples/01-basic | Basic Usage Examples}
+   * @see {@link @examples/01-basic | Basic Usage Examples}
    */
   async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
     // Validate context parameter

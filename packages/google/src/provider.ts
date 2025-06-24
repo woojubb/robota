@@ -20,7 +20,7 @@ import { GoogleConversationAdapter } from './adapter';
  * Provides integration with Google's Generative AI services including Gemini models.
  * Extends BaseAIProvider for common functionality and tool calling support.
  * 
- * @see {@link ../../../apps/examples/03-integrations | Provider Integration Examples}
+ * @see {@link @examples/03-integrations | Provider Integration Examples}
  * 
  * @public
  */

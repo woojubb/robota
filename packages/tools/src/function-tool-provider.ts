@@ -171,7 +171,7 @@ export class ZodFunctionToolProvider extends BaseToolProvider {
  * @param options - Function tool provider options
  * @returns Tool provider instance (implements ToolProvider interface)
  * 
- * @see {@link ../../apps/examples/02-functions | Function Tool Examples}
+ * @see {@link @examples/02-functions | Function Tool Examples}
  */
 export function createZodFunctionToolProvider(options: ZodFunctionToolProviderOptions): ToolProvider {
     return new ZodFunctionToolProvider(options);

@@ -20,7 +20,7 @@ import type { OpenApiToolOptions } from './interfaces';
  * @template TParams - Tool parameter type
  * @template TResult - Tool result type
  * 
- * @see {@link ../../../../apps/examples/03-integrations/03-api-integration.ts | API Integration Example}
+ * @see {@link @examples/03-integrations/03-api-integration.ts | API Integration Example}
  */
 export class OpenApiTool<TParams = any, TResult = any> extends BaseTool<TParams, TResult> {
     /**

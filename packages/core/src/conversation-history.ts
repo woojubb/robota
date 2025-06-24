@@ -100,7 +100,7 @@ export interface ToolMessage extends BaseMessage {
  * This union type ensures type safety by requiring specific properties
  * based on the message role, preventing invalid combinations.
  * 
- * @see {@link ../../apps/examples/04-sessions | Session and Conversation Examples}
+ * @see {@link @examples/04-sessions | Session and Conversation Examples}
  * 
  * @public
  */
@@ -445,7 +445,7 @@ export abstract class BaseConversationHistory implements ConversationHistory {
  * Provides a simple in-memory storage for conversation messages with optional
  * message count limiting. Supports all message types with type safety.
  * 
- * @see {@link ../../apps/examples/04-sessions | Session and Conversation Examples}
+ * @see {@link @examples/04-sessions | Session and Conversation Examples}
  * 
  * @public
  */
@@ -522,7 +522,7 @@ export class SimpleConversationHistory extends BaseConversationHistory {
  * Extends SimpleConversationHistory with automatic system prompt management.
  * The system prompt is automatically maintained and can be updated dynamically.
  * 
- * @see {@link ../../apps/examples/04-sessions | Session and Conversation Examples}
+ * @see {@link @examples/04-sessions | Session and Conversation Examples}
  * 
  * @public
  */

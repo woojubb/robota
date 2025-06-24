@@ -18,7 +18,7 @@ import { z } from 'zod';
  * @param schema - Zod object schema to convert
  * @returns JSON schema object
  * 
- * @see {@link ../../apps/examples/02-functions | Function Tool Examples}
+ * @see {@link @examples/02-functions | Function Tool Examples}
  */
 export function zodToJsonSchema(schema: z.ZodObject<z.ZodRawShape>): {
     type: string;
