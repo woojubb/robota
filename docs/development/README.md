@@ -1,30 +1,42 @@
-# Development
+# Development Documentation
 
-Guides and reference documents for developers.
+Guides and reference documents for Robota SDK development.
 
-## Development Guides
+## Core Development Guides
 
-- **[Development Guidelines](./development-guidelines.md)** - Development guidelines and coding standards
-- **[Testing Guidelines](./testing-guidelines.md)** - Guide for writing and running tests
-- **[Build and Deployment](./build-and-deployment.md)** - Build and deployment processes
-- **[Environment Setup](./environment-setup.md)** - Development environment setup guide
-- **[Package Publishing](./package-publishing.md)** - Package publishing guide
+### Getting Started
+- **[Development Principles](./development-principles.md)** - Core principles and philosophy
+- **[Setup Guide](../examples/setup.md)** - Environment setup and prerequisites
 
-## Code Quality and Improvement
+### Development Process
+- **[Development Workflow](./development-workflow.md)** - Code quality processes and package guidelines  
+- **[Testing Guidelines](./testing-guidelines.md)** - Testing strategies and mock usage
+- **[Build and Deployment](./build-and-deployment.md)** - Build configuration and deployment processes
 
-- **[Code Quality Standards](./code-quality-standards.md)** - Code quality standards and linting guidelines
-- **[Code Improvements](./code-improvements.md)** - Code improvement work and refactoring details
+### Code Standards
+- **[TypeScript Standards](./typescript-standards.md)** - Type safety standards and best practices
+- **[Documentation Guidelines](./documentation-guidelines.md)** - Documentation standards and processes
+- **[Logging Configuration](./logging-configuration.md)** - Logging setup and best practices
 
-## Technical Documentation
+## Advanced Topics
 
-- **[System Messages](./system-messages.md)** - System message design and usage
+### Error Handling & Resilience
+- **[Error Handling Guidelines](./error-handling-guidelines.md)** - Comprehensive error handling strategies
+
+### Performance & Architecture  
+- **[Performance Optimization](./performance-optimization.md)** - Performance optimization features and best practices
+- **[Code Improvements](./code-improvements.md)** - Architecture patterns and refactoring details
+
+### Integration & Features
 - **[OpenAPI Integration](./openapi-integration.md)** - OpenAPI specification integration guide
+
+### Infrastructure
+- **[Package Publishing](./package-publishing.md)** - Package publishing workflow and guidelines
 - **[Documentation Site Setup](./documentation-site-setup.md)** - Documentation site setup and management
 
-## Getting Started
+## Quick Reference
 
-Before contributing to development, please review these documents:
-
-1. [Development Guidelines](./development-guidelines.md) - Coding style and rules
-2. [Testing Guidelines](./testing-guidelines.md) - How to write tests
-3. [Build and Deployment](./build-and-deployment.md) - How to build the project 
+- **New to the project?** Start with [Setup Guide](../examples/setup.md) → [Development Principles](./development-principles.md)
+- **Writing code?** Check [Development Workflow](./development-workflow.md) → [TypeScript Standards](./typescript-standards.md)
+- **Need to deploy?** Follow [Build and Deployment](./build-and-deployment.md) → [Package Publishing](./package-publishing.md)
+- **Writing tests?** Review [Testing Guidelines](./testing-guidelines.md) 
