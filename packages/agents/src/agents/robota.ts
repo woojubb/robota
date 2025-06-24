@@ -12,35 +12,113 @@ import { Logger, UtilLogLevel, setGlobalLogLevel } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
 
 /**
- * Robota configuration options
+ * Configuration options for creating a Robota instance.
+ * Extends AgentConfig with additional options specific to the Robota agent system.
+ * 
+ * @public
+ * @interface
+ * @example
+ * ```typescript
+ * const config: RobotaConfig = {
+ *   name: 'MyAgent',
+ *   aiProviders: { openai: new OpenAIProvider() },
+ *   currentProvider: 'openai',
+ *   currentModel: 'gpt-4',
+ *   tools: [weatherTool, calculatorTool],
+ *   plugins: [new LoggingPlugin(), new UsagePlugin()],
+ *   logging: { level: 'info', enabled: true }
+ * };
+ * ```
  */
 export interface RobotaConfig extends AgentConfig {
-    /** AI providers to register */
+    /** AI providers to register - key-value pairs of provider name and provider instance */
     aiProviders?: Record<string, AIProvider>;
-    /** Current AI provider to use */
+    /** Current AI provider to use - must match a key in aiProviders */
     currentProvider?: string;
-    /** Current model to use */
+    /** Current model to use - must be supported by the current provider */
     currentModel?: string;
-    /** Tools to register */
+    /** Tools to register - array of BaseTool instances for function calling */
     tools?: BaseTool[];
-    /** Plugins to register */
+    /** Plugins to register - array of BasePlugin instances for lifecycle hooks */
     plugins?: BasePlugin[];
-    /** Conversation ID for centralized history management */
+    /** Conversation ID for centralized history management - auto-generated if not provided */
     conversationId?: string;
     /** Logging configuration */
     logging?: {
+        /** Log level - 'debug', 'info', 'warn', 'error', 'silent' */
         level?: UtilLogLevel;
+        /** Whether logging is enabled */
         enabled?: boolean;
     };
 }
 
 /**
- * Robota class - Main AI agent implementation
- * Each instance is completely independent with its own managers and services
- * NO GLOBAL SINGLETONS - Each Robota instance manages its own resources
+ * Main AI agent implementation for the Robota SDK.
+ * 
+ * Robota is a comprehensive AI agent that integrates multiple AI providers, tools, and plugins
+ * into a unified conversational interface. Each instance is completely independent with its own
+ * managers and services - NO GLOBAL SINGLETONS are used.
+ * 
+ * Key Features:
+ * - Multiple AI provider support (OpenAI, Anthropic, Google)
+ * - Function/tool calling with Zod schema validation
+ * - Plugin system for extensible functionality
+ * - Streaming response support
+ * - Conversation history management
+ * - Instance-specific resource management
+ * 
+ * @public
+ * @class
+ * @extends BaseAgent
+ * @implements AgentInterface
+ * 
+ * @example Basic Usage
+ * ```typescript
+ * import { Robota } from '@robota-sdk/agents';
+ * import { OpenAIProvider } from '@robota-sdk/openai';
+ * 
+ * const robota = new Robota({
+ *   name: 'MyAgent',
+ *   aiProviders: { openai: new OpenAIProvider({ apiKey: 'sk-...' }) },
+ *   currentProvider: 'openai',
+ *   currentModel: 'gpt-4'
+ * });
+ * 
+ * const response = await robota.run('Hello, how are you?');
+ * console.log(response);
+ * ```
+ * 
+ * @example With Tools and Plugins
+ * ```typescript
+ * import { Robota, LoggingPlugin, UsagePlugin } from '@robota-sdk/agents';
+ * import { weatherTool, calculatorTool } from './my-tools';
+ * 
+ * const robota = new Robota({
+ *   name: 'AdvancedAgent',
+ *   aiProviders: { openai: openaiProvider },
+ *   currentProvider: 'openai',
+ *   currentModel: 'gpt-4',
+ *   tools: [weatherTool, calculatorTool],
+ *   plugins: [
+ *     new LoggingPlugin({ level: 'info' }),
+ *     new UsagePlugin({ trackTokens: true })
+ *   ]
+ * });
+ * 
+ * const response = await robota.run('What\'s the weather in Tokyo?');
+ * ```
+ * 
+ * @example Streaming Response
+ * ```typescript
+ * for await (const chunk of robota.runStream('Tell me a story')) {
+ *   process.stdout.write(chunk);
+ * }
+ * ```
  */
 export class Robota extends BaseAgent implements AgentInterface {
+    /** The name of this agent instance */
     public readonly name: string;
+    /** The version of the Robota agent implementation */
     public readonly version: string = '1.0.0';
 
     // Instance-specific managers (NO SINGLETONS)
@@ -60,6 +138,33 @@ export class Robota extends BaseAgent implements AgentInterface {
     private isFullyInitialized = false;
     private startTime: number;
 
+    /**
+     * Creates a new Robota agent instance.
+     * 
+     * The constructor performs synchronous initialization and validation.
+     * Async initialization (AI provider setup, tool registration) is deferred
+     * until the first run() call for optimal performance.
+     * 
+     * @param config - Configuration options for the agent
+     * @throws {ConfigurationError} When required configuration is missing or invalid
+     * @throws {ValidationError} When configuration values are invalid
+     * 
+     * @example
+     * ```typescript
+     * const robota = new Robota({
+     *   name: 'CustomerSupport',
+     *   aiProviders: {
+     *     openai: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
+     *     anthropic: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })
+     *   },
+     *   currentProvider: 'openai',
+     *   currentModel: 'gpt-4',
+     *   tools: [emailTool, ticketTool],
+     *   plugins: [new LoggingPlugin(), new ErrorHandlingPlugin()],
+     *   logging: { level: 'info', enabled: true }
+     * });
+     * ```
+     */
     constructor(config: RobotaConfig) {
         super();
 
@@ -205,11 +310,53 @@ export class Robota extends BaseAgent implements AgentInterface {
 
     /**
      * Initialize the agent if not already done
+     * @internal
      */
     protected async initialize(): Promise<void> {
         await this.ensureFullyInitialized();
     }
 
+    /**
+     * Execute a conversation turn with the AI agent.
+     * 
+     * This is the primary method for interacting with the agent. It processes user input,
+     * manages conversation history, executes any required tools, and returns the AI response.
+     * The method automatically initializes the agent on first use.
+     * 
+     * @param input - The user's message or prompt to send to the AI
+     * @param options - Optional configuration for this specific execution
+     * @returns Promise that resolves to the AI's response as a string
+     * 
+     * @throws {ConfigurationError} When the agent configuration is invalid
+     * @throws {ProviderError} When the AI provider encounters an error
+     * @throws {ToolExecutionError} When a tool execution fails
+     * 
+     * @example Basic conversation
+     * ```typescript
+     * const response = await robota.run('Hello, how are you?');
+     * console.log(response); // "Hello! I'm doing well, thank you for asking..."
+     * ```
+     * 
+     * @example With execution options
+     * ```typescript
+     * const response = await robota.run('Analyze this data', {
+     *   sessionId: 'user-123',
+     *   userId: 'john.doe',
+     *   metadata: { source: 'web-app', priority: 'high' }
+     * });
+     * ```
+     * 
+     * @example Error handling
+     * ```typescript
+     * try {
+     *   const response = await robota.run('Complex request');
+     * } catch (error) {
+     *   if (error instanceof ToolExecutionError) {
+     *     console.error('Tool failed:', error.toolName, error.message);
+     *   }
+     * }
+     * ```
+     */
     async run(input: string, options: RunOptions = {}): Promise<string> {
         await this.ensureFullyInitialized();
 
@@ -237,9 +384,9 @@ export class Robota extends BaseAgent implements AgentInterface {
                 executionConfig,
                 {
                     conversationId: this.conversationId,
-                    sessionId: options.sessionId,
-                    userId: options.userId,
-                    metadata: options.metadata
+                    ...(options.sessionId && { sessionId: options.sessionId }),
+                    ...(options.userId && { userId: options.userId }),
+                    ...(options.metadata && { metadata: options.metadata })
                 }
             );
 
@@ -265,6 +412,50 @@ export class Robota extends BaseAgent implements AgentInterface {
         }
     }
 
+    /**
+     * Execute a conversation turn with streaming response.
+     * 
+     * Similar to run() but returns an async generator that yields response chunks
+     * as they arrive from the AI provider. This enables real-time streaming of
+     * the AI's response for better user experience.
+     * 
+     * @param input - The user's message or prompt to send to the AI
+     * @param options - Optional configuration for this specific execution
+     * @returns AsyncGenerator that yields string chunks of the AI response
+     * 
+     * @throws {ConfigurationError} When the agent configuration is invalid
+     * @throws {ProviderError} When the AI provider encounters an error
+     * @throws {ToolExecutionError} When a tool execution fails
+     * 
+     * @example Basic streaming
+     * ```typescript
+     * for await (const chunk of robota.runStream('Tell me a story')) {
+     *   process.stdout.write(chunk);
+     * }
+     * console.log('\n'); // New line after story
+     * ```
+     * 
+     * @example Collecting full response
+     * ```typescript
+     * let fullResponse = '';
+     * for await (const chunk of robota.runStream('Explain quantum computing')) {
+     *   fullResponse += chunk;
+     *   updateUI(chunk); // Update UI in real-time
+     * }
+     * console.log('Complete response:', fullResponse);
+     * ```
+     * 
+     * @example Error handling in streams
+     * ```typescript
+     * try {
+     *   for await (const chunk of robota.runStream('Complex request')) {
+     *     handleChunk(chunk);
+     *   }
+     * } catch (error) {
+     *   console.error('Streaming failed:', error.message);
+     * }
+     * ```
+     */
     async* runStream(input: string, options: RunOptions = {}): AsyncGenerator<string, void, unknown> {
         await this.ensureFullyInitialized();
 
@@ -285,16 +476,16 @@ export class Robota extends BaseAgent implements AgentInterface {
                 provider: this.config.currentProvider || this.config.provider
             };
 
-            // Execute using execution service streaming
+            // Execute using execution service
             const stream = this.executionService.executeStream(
                 input,
                 messages,
                 executionConfig,
                 {
                     conversationId: this.conversationId,
-                    sessionId: options.sessionId,
-                    userId: options.userId,
-                    metadata: options.metadata
+                    ...(options.sessionId && { sessionId: options.sessionId }),
+                    ...(options.userId && { userId: options.userId }),
+                    ...(options.metadata && { metadata: options.metadata })
                 }
             );
 
@@ -312,9 +503,26 @@ export class Robota extends BaseAgent implements AgentInterface {
     }
 
     /**
-     * Get conversation history
+     * Get the conversation history for this agent instance.
+     * 
+     * Returns an array of messages representing the complete conversation history
+     * for this agent's conversation session. The history includes user messages,
+     * assistant responses, and tool call results.
+     * 
+     * @returns Array of Message objects representing the conversation history
+     * 
+     * @example
+     * ```typescript
+     * await robota.run('What is 2 + 2?');
+     * await robota.run('What about 3 + 3?');
+     * 
+     * const history = robota.getHistory();
+     * console.log(history.length); // 4 (2 user messages, 2 assistant responses)
+     * console.log(history[0].role); // 'user'
+     * console.log(history[0].content); // 'What is 2 + 2?'
+     * ```
      */
-    getHistory(): Message[] {
+    override getHistory(): Message[] {
         const conversationSession = this.conversationHistory.getConversationSession(this.conversationId);
         const universalMessages = conversationSession.getMessages();
 
@@ -329,16 +537,44 @@ export class Robota extends BaseAgent implements AgentInterface {
     }
 
     /**
-     * Clear conversation history
+     * Clear the conversation history for this agent instance.
+     * 
+     * Removes all messages from the conversation history, starting fresh.
+     * This does not affect the agent's configuration or other state.
+     * 
+     * @example
+     * ```typescript
+     * await robota.run('First message');
+     * console.log(robota.getHistory().length); // 2 (user + assistant)
+     * 
+     * robota.clearHistory();
+     * console.log(robota.getHistory().length); // 0
+     * ```
      */
-    clearHistory(): void {
+    override clearHistory(): void {
         const conversationSession = this.conversationHistory.getConversationSession(this.conversationId);
         conversationSession.clear();
         this.logger.debug('Conversation history cleared', { conversationId: this.conversationId });
     }
 
     /**
-     * Add a plugin dynamically
+     * Add a plugin to the agent at runtime.
+     * 
+     * Plugins provide extensible functionality through lifecycle hooks.
+     * This method allows dynamic addition of plugins after agent creation.
+     * 
+     * @param plugin - The plugin instance to add
+     * 
+     * @example
+     * ```typescript
+     * import { UsagePlugin, PerformancePlugin } from '@robota-sdk/agents';
+     * 
+     * const robota = new Robota(config);
+     * 
+     * // Add plugins dynamically
+     * robota.addPlugin(new UsagePlugin({ trackTokens: true }));
+     * robota.addPlugin(new PerformancePlugin({ trackMemory: true }));
+     * ```
      */
     addPlugin(plugin: BasePlugin): void {
         this.executionService.registerPlugin(plugin);
@@ -346,7 +582,20 @@ export class Robota extends BaseAgent implements AgentInterface {
     }
 
     /**
-     * Remove a plugin
+     * Remove a plugin from the agent by name.
+     * 
+     * @param pluginName - The name of the plugin to remove
+     * @returns true if the plugin was found and removed, false otherwise
+     * 
+     * @example
+     * ```typescript
+     * const removed = robota.removePlugin('usage-plugin');
+     * if (removed) {
+     *   console.log('Plugin removed successfully');
+     * } else {
+     *   console.log('Plugin not found');
+     * }
+     * ```
      */
     removePlugin(pluginName: string): boolean {
         const removed = this.executionService.removePlugin(pluginName);
@@ -357,28 +606,81 @@ export class Robota extends BaseAgent implements AgentInterface {
     }
 
     /**
-     * Get a specific plugin by name
+     * Get a specific plugin by name with type safety.
+     * 
+     * @template T - The expected plugin type extending BasePlugin
+     * @param pluginName - The name of the plugin to retrieve
+     * @returns The plugin instance if found, null otherwise
+     * 
+     * @example
+     * ```typescript
+     * import { UsagePlugin } from '@robota-sdk/agents';
+     * 
+     * const usagePlugin = robota.getPlugin<UsagePlugin>('usage-plugin');
+     * if (usagePlugin) {
+     *   const stats = usagePlugin.getUsageStats();
+     *   console.log('Token usage:', stats.totalTokens);
+     * }
+     * ```
      */
     getPlugin<T extends BasePlugin = BasePlugin>(pluginName: string): T | null {
         return this.executionService.getPlugin<T>(pluginName);
     }
 
     /**
-     * Get all registered plugins
+     * Get all registered plugins.
+     * 
+     * @returns Array of all currently registered plugin instances
+     * 
+     * @example
+     * ```typescript
+     * const plugins = robota.getPlugins();
+     * console.log(`Agent has ${plugins.length} plugins registered`);
+     * plugins.forEach(plugin => {
+     *   console.log(`- ${plugin.name} (${plugin.version})`);
+     * });
+     * ```
      */
     getPlugins(): BasePlugin[] {
         return this.executionService.getPlugins();
     }
 
     /**
-     * Get all plugin names
+     * Get all plugin names currently registered.
+     * 
+     * @returns Array of plugin names
+     * 
+     * @example
+     * ```typescript
+     * const pluginNames = robota.getPluginNames();
+     * console.log('Active plugins:', pluginNames.join(', '));
+     * // Output: "Active plugins: logging-plugin, usage-plugin, performance-plugin"
+     * ```
      */
     getPluginNames(): string[] {
         return this.executionService.getPlugins().map(plugin => plugin.name);
     }
 
     /**
-     * Register a new AI provider
+     * Register a new AI provider at runtime.
+     * 
+     * Allows dynamic addition of AI providers after agent creation.
+     * The provider can then be selected using switchProvider().
+     * 
+     * @param name - Unique name for the provider
+     * @param provider - The AI provider instance to register
+     * 
+     * @example
+     * ```typescript
+     * import { AnthropicProvider } from '@robota-sdk/anthropic';
+     * 
+     * const anthropicProvider = new AnthropicProvider({ 
+     *   apiKey: process.env.ANTHROPIC_API_KEY 
+     * });
+     * 
+     * robota.registerProvider('anthropic', anthropicProvider);
+     * robota.switchProvider('anthropic', 'claude-3-opus-20240229');
+     * ```
      */
     registerProvider(name: string, provider: AIProvider): void {
         this.aiProviders.addProvider(name, provider);
@@ -386,7 +688,29 @@ export class Robota extends BaseAgent implements AgentInterface {
     }
 
     /**
-     * Switch to a different AI provider and model
+     * Switch to a different AI provider and model.
+     * 
+     * Changes the current active provider and model for subsequent conversations.
+     * The provider must be previously registered via constructor or registerProvider().
+     * 
+     * @param providerName - Name of the provider to switch to
+     * @param model - Model identifier supported by the provider
+     * 
+     * @throws {ConfigurationError} When the provider is not registered
+     * @throws {ValidationError} When the model is not supported by the provider
+     * 
+     * @example
+     * ```typescript
+     * // Switch from OpenAI to Anthropic
+     * robota.switchProvider('anthropic', 'claude-3-opus-20240229');
+     * 
+     * // Switch back to OpenAI with a different model
+     * robota.switchProvider('openai', 'gpt-4-turbo-preview');
+     * 
+     * // Verify the switch
+     * const stats = robota.getStats();
+     * console.log('Current provider:', stats.currentProvider);
+     * ```
      */
     switchProvider(providerName: string, model: string): void {
         this.aiProviders.setCurrentProvider(providerName, model);
@@ -396,7 +720,43 @@ export class Robota extends BaseAgent implements AgentInterface {
     }
 
     /**
-     * Register a new tool
+     * Register a new tool for function calling.
+     * 
+     * Adds a tool that the AI can call during conversations. The tool's schema
+     * defines its name, description, and parameters for the AI to understand.
+     * 
+     * @param tool - The tool instance to register
+     * 
+     * @example
+     * ```typescript
+     * import { BaseTool } from '@robota-sdk/agents';
+     * 
+     * class WeatherTool extends BaseTool {
+     *   name = 'get_weather';
+     *   description = 'Get current weather for a location';
+     *   
+     *   get schema() {
+     *     return {
+     *       name: this.name,
+     *       description: this.description,
+     *       parameters: {
+     *         type: 'object',
+     *         properties: {
+     *           location: { type: 'string', description: 'City name' }
+     *         },
+     *         required: ['location']
+     *       }
+     *     };
+     *   }
+     *   
+     *   async execute(params: { location: string }) {
+     *     // Implementation here
+     *     return { temperature: 22, condition: 'sunny' };
+     *   }
+     * }
+     * 
+     * robota.registerTool(new WeatherTool());
+     * ```
      */
     registerTool(tool: BaseTool): void {
         this.tools.addTool(tool.schema, tool.execute.bind(tool));
@@ -404,7 +764,19 @@ export class Robota extends BaseAgent implements AgentInterface {
     }
 
     /**
-     * Unregister a tool
+     * Unregister a tool by name.
+     * 
+     * Removes a previously registered tool, making it unavailable for future AI calls.
+     * 
+     * @param toolName - Name of the tool to unregister
+     * 
+     * @example
+     * ```typescript
+     * robota.unregisterTool('weather-tool');
+     * 
+     * const stats = robota.getStats();
+     * console.log('Remaining tools:', stats.tools);
+     * ```
      */
     unregisterTool(toolName: string): void {
         this.tools.removeTool(toolName);
@@ -412,14 +784,46 @@ export class Robota extends BaseAgent implements AgentInterface {
     }
 
     /**
-     * Get current configuration
+     * Get the current agent configuration.
+     * 
+     * Returns a copy of the current configuration object. Modifications to the
+     * returned object do not affect the agent - use updateConfig() to make changes.
+     * 
+     * @returns Copy of the current RobotaConfig
+     * 
+     * @example
+     * ```typescript
+     * const config = robota.getConfig();
+     * console.log('Current model:', config.currentModel);
+     * console.log('Available providers:', Object.keys(config.aiProviders || {}));
+     * ```
      */
     getConfig(): RobotaConfig {
         return { ...this.config };
     }
 
     /**
-     * Update configuration
+     * Update the agent configuration at runtime.
+     * 
+     * Allows partial updates to the agent configuration. Only specified fields
+     * are updated - other configuration remains unchanged.
+     * 
+     * @param updates - Partial configuration object with fields to update
+     * 
+     * @example
+     * ```typescript
+     * // Update AI parameters
+     * robota.updateConfig({
+     *   temperature: 0.8,
+     *   maxTokens: 2000,
+     *   topP: 0.9
+     * });
+     * 
+     * // Update logging settings
+     * robota.updateConfig({
+     *   logging: { level: 'debug', enabled: true }
+     * });
+     * ```
      */
     updateConfig(updates: Partial<RobotaConfig>): void {
         this.config = { ...this.config, ...updates };
@@ -427,7 +831,25 @@ export class Robota extends BaseAgent implements AgentInterface {
     }
 
     /**
-     * Get enhanced statistics including history manager stats
+     * Get comprehensive statistics about the agent.
+     * 
+     * Returns detailed information about the agent's current state, including
+     * registered providers, tools, plugins, conversation metrics, and uptime.
+     * 
+     * @returns Object containing detailed agent statistics
+     * 
+     * @example
+     * ```typescript
+     * const stats = robota.getStats();
+     * 
+     * console.log(`Agent: ${stats.name} v${stats.version}`);
+     * console.log(`Uptime: ${Math.round(stats.uptime / 1000)}s`);
+     * console.log(`Current provider: ${stats.currentProvider}`);
+     * console.log(`Available providers: ${stats.providers.join(', ')}`);
+     * console.log(`Registered tools: ${stats.tools.join(', ')}`);
+     * console.log(`Active plugins: ${stats.plugins.join(', ')}`);
+     * console.log(`Messages in history: ${stats.historyLength}`);
+     * ```
      */
     getStats(): {
         name: string;
@@ -459,7 +881,8 @@ export class Robota extends BaseAgent implements AgentInterface {
     }
 
     /**
-     * Validate configuration
+     * Validate the agent configuration.
+     * @internal
      */
     private validateConfig(config: RobotaConfig): void {
         if (!config.model && !config.currentModel) {
@@ -487,16 +910,39 @@ export class Robota extends BaseAgent implements AgentInterface {
         }
     }
 
-
-
     /**
-     * Cleanup agent resources
+     * Cleanup agent resources and prepare for disposal.
+     * 
+     * Properly shuts down the agent by cleaning up plugins, disposing managers,
+     * and releasing resources. The agent should not be used after calling destroy().
+     * Multiple calls to destroy() are safe and will not cause errors.
+     * 
+     * @example
+     * ```typescript
+     * // Graceful shutdown
+     * await robota.destroy();
+     * console.log('Agent shutdown complete');
+     * 
+     * // Agent is no longer usable
+     * // await robota.run('test'); // This would require re-initialization
+     * ```
+     * 
+     * @example In a web server shutdown
+     * ```typescript
+     * process.on('SIGTERM', async () => {
+     *   console.log('Shutting down...');
+     *   await robota.destroy();
+     *   process.exit(0);
+     * });
+     * ```
      */
     async destroy(): Promise<void> {
         this.logger.debug('Destroying Robota instance');
 
         // Clear plugins first
-        this.executionService.clearPlugins();
+        if (this.executionService) {
+            this.executionService.clearPlugins();
+        }
 
         // Dispose instance-specific managers
         await this.aiProviders.dispose();
