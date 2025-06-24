@@ -58,6 +58,7 @@ export class Robota extends BaseAgent implements AgentInterface {
     private logger: Logger;
     private initializationPromise?: Promise<void>;
     private isFullyInitialized = false;
+    private startTime: number;
 
     constructor(config: RobotaConfig) {
         super();
@@ -66,6 +67,7 @@ export class Robota extends BaseAgent implements AgentInterface {
         this.config = config;
         this.conversationId = config.conversationId || `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         this.logger = new Logger('Robota');
+        this.startTime = Date.now();
 
         // Apply logging configuration
         if (config.logging) {
@@ -485,10 +487,7 @@ export class Robota extends BaseAgent implements AgentInterface {
         }
     }
 
-    /**
-     * Agent start time for uptime calculation
-     */
-    private startTime = Date.now();
+
 
     /**
      * Cleanup agent resources
