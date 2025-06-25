@@ -1,6 +1,6 @@
 import { LogEntry, LogStorage, LogFormatter } from '../types';
 import { JsonLogFormatter } from '../formatters';
-import { Logger } from '../../../utils/logger';
+import { Logger, createLogger } from '../../../utils/logger';
 import { PluginError } from '../../../utils/errors';
 
 /**
@@ -28,7 +28,7 @@ export class RemoteLogStorage implements LogStorage {
         this.formatter = formatter || new JsonLogFormatter();
         this.batchSize = batchSize;
         this.flushInterval = flushInterval;
-        this.logger = new Logger('RemoteLogStorage');
+        this.logger = createLogger('RemoteLogStorage');
 
         this.startTimer();
     }

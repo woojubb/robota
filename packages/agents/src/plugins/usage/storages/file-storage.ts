@@ -1,5 +1,5 @@
 import { UsageStorage, UsageStats, AggregatedUsageStats } from '../types';
-import { Logger } from '../../../utils/logger';
+import { Logger, createLogger } from '../../../utils/logger';
 import { StorageError } from '../../../utils/errors';
 
 /**
@@ -11,7 +11,7 @@ export class FileUsageStorage implements UsageStorage {
 
     constructor(filePath: string) {
         this.filePath = filePath;
-        this.logger = new Logger('FileUsageStorage');
+        this.logger = createLogger('FileUsageStorage');
     }
 
     async save(entry: UsageStats): Promise<void> {

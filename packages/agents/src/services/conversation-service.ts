@@ -9,7 +9,7 @@ import {
     ContextOptions,
     ConversationServiceInterface
 } from '../interfaces/service';
-import { Logger } from '../utils/logger';
+import { Logger, createLogger } from '../utils/logger';
 import { NetworkError, ProviderError } from '../utils/errors';
 
 /**
@@ -41,7 +41,7 @@ export class ConversationService implements ConversationServiceInterface {
         contextOptions: ContextOptions = {},
         serviceOptions: ConversationServiceOptions = {}
     ): ConversationContext {
-        const logger = new Logger('ConversationService');
+        const logger = createLogger('ConversationService');
         return ConversationService.createContext(
             messages,
             model,
@@ -61,7 +61,7 @@ export class ConversationService implements ConversationServiceInterface {
         context: ConversationContext,
         serviceOptions: ConversationServiceOptions = {}
     ): Promise<ConversationResponse> {
-        const logger = new Logger('ConversationService');
+        const logger = createLogger('ConversationService');
         return ConversationService.performResponseGeneration(provider, context, serviceOptions, logger);
     }
 
@@ -74,7 +74,7 @@ export class ConversationService implements ConversationServiceInterface {
         context: ConversationContext,
         serviceOptions: ConversationServiceOptions = {}
     ): AsyncGenerator<StreamingChunk, void, unknown> {
-        const logger = new Logger('ConversationService');
+        const logger = createLogger('ConversationService');
         yield* ConversationService.performStreamingResponse(provider, context, serviceOptions, logger);
     }
 

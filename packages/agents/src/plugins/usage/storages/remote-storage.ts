@@ -1,5 +1,5 @@
 import { UsageStorage, UsageStats, AggregatedUsageStats } from '../types';
-import { Logger } from '../../../utils/logger';
+import { Logger, createLogger } from '../../../utils/logger';
 import { StorageError } from '../../../utils/errors';
 
 /**
@@ -24,7 +24,7 @@ export class RemoteUsageStorage implements UsageStorage {
         this.apiUrl = apiUrl;
         this.batchSize = batchSize;
         this.flushInterval = flushInterval;
-        this.logger = new Logger('RemoteUsageStorage');
+        this.logger = createLogger('RemoteUsageStorage');
 
         this.startTimer();
     }

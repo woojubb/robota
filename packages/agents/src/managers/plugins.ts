@@ -1,6 +1,6 @@
 import { BaseManager } from '../abstracts/base-manager';
 import { BasePlugin } from '../abstracts/base-plugin';
-import { Logger } from '../utils/logger';
+import { Logger, createLogger } from '../utils/logger';
 import { PluginError, ConfigurationError } from '../utils/errors';
 
 /**
@@ -113,7 +113,7 @@ export class Plugins extends BaseManager implements PluginsManagerInterface {
     constructor(lifecycleEvents: PluginLifecycleEvents = {}) {
         super();
         this.lifecycleEvents = lifecycleEvents;
-        this.logger = new Logger('Plugins');
+        this.logger = createLogger('Plugins');
     }
 
     /**

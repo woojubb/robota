@@ -1,6 +1,6 @@
 import { BasePlugin } from '../../abstracts/base-plugin';
 import { Message } from '../../interfaces/agent';
-import { Logger } from '../../utils/logger';
+import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import {
     ConversationHistoryPluginOptions,
@@ -30,7 +30,7 @@ export class ConversationHistoryPlugin extends BasePlugin {
 
     constructor(options: ConversationHistoryPluginOptions) {
         super();
-        this.logger = new Logger('ConversationHistoryPlugin');
+        this.logger = createLogger('ConversationHistoryPlugin');
 
         // Validate options
         this.validateOptions(options);

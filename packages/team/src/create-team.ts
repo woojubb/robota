@@ -73,9 +73,6 @@ import type { TeamContainerOptions, TeamOptions } from './types';
  * @see {@link TeamContainer} - The underlying team container class
  * @see {@link TeamOptions} - Available configuration options
  */
-export function createTeam(options: TeamOptions): TeamContainer;
-
-// Implementation
 export function createTeam(options: TeamOptions): TeamContainer {
     // Get first available provider as default
     const providers = Object.keys(options.aiProviders);

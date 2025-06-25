@@ -1,6 +1,6 @@
 import { ToolInterface, ToolExecutionResult, ToolResult } from '../interfaces/tool';
 import { Tools } from '../managers/tool-manager';
-import { Logger } from '../utils/logger';
+import { Logger, createLogger } from '../utils/logger';
 import { ToolExecutionError, ValidationError } from '../utils/errors';
 
 /**
@@ -102,7 +102,7 @@ export class ToolExecutionService {
         options: ToolExecutionServiceOptions = {}
     ) {
         this.toolManager = toolManager;
-        this.logger = new Logger('ToolExecutionService');
+        this.logger = createLogger('ToolExecutionService');
         this.options = {
             defaultTimeout: options.defaultTimeout || 120000, // Increased to 2 minutes for complex team tasks
             defaultMaxConcurrency: options.defaultMaxConcurrency || 5,

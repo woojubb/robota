@@ -6,7 +6,7 @@ import { Tools } from '../managers/tool-manager';
 import { ConversationHistory, ConversationSession, UniversalMessage } from '../managers/conversation-history-manager';
 import { AIProvider } from '../interfaces/provider';
 import { BaseAIProvider, ProviderExecutionConfig, ProviderExecutionResult } from '../abstracts/base-ai-provider';
-import { Logger } from '../utils/logger';
+import { Logger, createLogger } from '../utils/logger';
 import { ToolExecutionError } from '../utils/errors';
 
 /**
@@ -60,7 +60,7 @@ export class ExecutionService {
         this.tools = tools;
         this.conversationHistory = conversationHistory;
         this.plugins = [];
-        this.logger = new Logger('ExecutionService');
+        this.logger = createLogger('ExecutionService');
     }
 
     /**

@@ -43,7 +43,7 @@
 
 #### Defined in
 
-[sessions/src/conversation/conversation-service-impl.ts:19](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/sessions/src/conversation/conversation-service-impl.ts#L19)
+[sessions/src/conversation/conversation-service-impl.ts:19](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/conversation/conversation-service-impl.ts#L19)
 
 ## Methods
 
@@ -67,7 +67,7 @@ ConversationService.addMessage
 
 #### Defined in
 
-[sessions/src/conversation/conversation-service-impl.ts:23](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/sessions/src/conversation/conversation-service-impl.ts#L23)
+[sessions/src/conversation/conversation-service-impl.ts:23](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/conversation/conversation-service-impl.ts#L23)
 
 ___
 
@@ -85,7 +85,7 @@ ConversationService.getMessages
 
 #### Defined in
 
-[sessions/src/conversation/conversation-service-impl.ts:27](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/sessions/src/conversation/conversation-service-impl.ts#L27)
+[sessions/src/conversation/conversation-service-impl.ts:27](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/conversation/conversation-service-impl.ts#L27)
 
 ___
 
@@ -103,7 +103,7 @@ ConversationService.getConversationSummary
 
 #### Defined in
 
-[sessions/src/conversation/conversation-service-impl.ts:31](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/sessions/src/conversation/conversation-service-impl.ts#L31)
+[sessions/src/conversation/conversation-service-impl.ts:31](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/conversation/conversation-service-impl.ts#L31)
 
 ___
 
@@ -121,4 +121,4 @@ ConversationService.clearConversation
 
 #### Defined in
 
-[sessions/src/conversation/conversation-service-impl.ts:40](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/sessions/src/conversation/conversation-service-impl.ts#L40)
+[sessions/src/conversation/conversation-service-impl.ts:40](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/conversation/conversation-service-impl.ts#L40)

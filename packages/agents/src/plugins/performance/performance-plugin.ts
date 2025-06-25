@@ -1,5 +1,5 @@
 import { BasePlugin } from '../../abstracts/base-plugin';
-import { Logger } from '../../utils/logger';
+import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import {
     PerformanceMetrics,
@@ -26,7 +26,7 @@ export class PerformancePlugin extends BasePlugin {
 
     constructor(options: PerformancePluginOptions) {
         super();
-        this.logger = new Logger('PerformancePlugin');
+        this.logger = createLogger('PerformancePlugin');
 
         // Validate options
         this.validateOptions(options);

@@ -32,7 +32,7 @@ Aggregated usage statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:36](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L36)
+[packages/agents/src/plugins/usage/types.ts:36](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/usage/types.ts#L36)
 
 ___
 
@@ -42,7 +42,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:37](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L37)
+[packages/agents/src/plugins/usage/types.ts:37](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/usage/types.ts#L37)
 
 ___
 
@@ -52,7 +52,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:38](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L38)
+[packages/agents/src/plugins/usage/types.ts:38](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/usage/types.ts#L38)
 
 ___
 
@@ -62,7 +62,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:39](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L39)
+[packages/agents/src/plugins/usage/types.ts:39](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/usage/types.ts#L39)
 
 ___
 
@@ -72,7 +72,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:40](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L40)
+[packages/agents/src/plugins/usage/types.ts:40](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/usage/types.ts#L40)
 
 ___
 
@@ -82,7 +82,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:41](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L41)
+[packages/agents/src/plugins/usage/types.ts:41](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/usage/types.ts#L41)
 
 ___
 
@@ -92,7 +92,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:47](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L47)
+[packages/agents/src/plugins/usage/types.ts:47](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/usage/types.ts#L47)
 
 ___
 
@@ -102,7 +102,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:53](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L53)
+[packages/agents/src/plugins/usage/types.ts:53](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/usage/types.ts#L53)
 
 ___
 
@@ -120,4 +120,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:58](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L58)
+[packages/agents/src/plugins/usage/types.ts:58](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/usage/types.ts#L58)

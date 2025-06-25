@@ -144,7 +144,7 @@ export class GoogleProvider extends BaseAIProvider {
                         role: 'user',
                         parts: [{ text: msg.content || '' }]
                     };
-                case 'assistant':
+                case 'assistant': {
                     const parts: any[] = [];
 
                     if (msg.content) {
@@ -167,6 +167,7 @@ export class GoogleProvider extends BaseAIProvider {
                         role: 'model',
                         parts
                     };
+                }
                 case 'tool':
                     return {
                         role: 'function',

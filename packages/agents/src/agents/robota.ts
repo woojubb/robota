@@ -8,7 +8,7 @@ import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ExecutionService } from '../services/execution-service';
 import { AIProvider } from '../interfaces/provider';
 import { BaseTool } from '../abstracts/base-tool';
-import { Logger, UtilLogLevel, setGlobalLogLevel } from '../utils/logger';
+import { Logger, createLogger, UtilLogLevel, setGlobalLogLevel } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
 
 /**
@@ -171,7 +171,7 @@ export class Robota extends BaseAgent implements AgentInterface {
         this.name = config.name || 'Robota';
         this.config = config;
         this.conversationId = config.conversationId || `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        this.logger = new Logger('Robota');
+        this.logger = createLogger('Robota');
         this.startTime = Date.now();
 
         // Apply logging configuration

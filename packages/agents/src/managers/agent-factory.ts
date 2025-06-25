@@ -1,7 +1,7 @@
 import { AgentInterface, AgentConfig, AgentTemplate } from '../interfaces/agent';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { validateAgentConfig } from '../utils/validation';
-import { Logger } from '../utils/logger';
+import { Logger, createLogger } from '../utils/logger';
 import { AgentTemplates, TemplateApplicationResult } from './agent-templates';
 
 /**
@@ -66,7 +66,7 @@ export class AgentFactory {
 
     constructor(options: AgentFactoryOptions = {}, lifecycleEvents: AgentLifecycleEvents = {}) {
         this.agentTemplates = new AgentTemplates();
-        this.logger = new Logger('AgentFactory');
+        this.logger = createLogger('AgentFactory');
         this.options = {
             defaultModel: options.defaultModel || 'gpt-4',
             defaultProvider: options.defaultProvider || 'openai',

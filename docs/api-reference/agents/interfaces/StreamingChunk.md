@@ -29,7 +29,7 @@ Content delta
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:56](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/service.ts#L56)
+[packages/agents/src/interfaces/service.ts:56](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L56)
 
 ___
 
@@ -41,7 +41,7 @@ Whether this is the final chunk
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:58](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/service.ts#L58)
+[packages/agents/src/interfaces/service.ts:58](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L58)
 
 ___
 
@@ -53,7 +53,7 @@ Tool calls if any
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:60](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/service.ts#L60)
+[packages/agents/src/interfaces/service.ts:60](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L60)
 
 ___
 
@@ -73,4 +73,4 @@ Usage statistics (only in final chunk)
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:62](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/service.ts#L62)
+[packages/agents/src/interfaces/service.ts:62](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L62)

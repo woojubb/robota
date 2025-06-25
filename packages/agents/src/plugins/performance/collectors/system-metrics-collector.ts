@@ -1,5 +1,5 @@
 import { SystemMetricsCollector, PerformanceMetrics } from '../types';
-import { Logger } from '../../../utils/logger';
+import { Logger, createLogger } from '../../../utils/logger';
 
 /**
  * Node.js system metrics collector
@@ -8,7 +8,7 @@ export class NodeSystemMetricsCollector implements SystemMetricsCollector {
     private logger: Logger;
 
     constructor() {
-        this.logger = new Logger('NodeSystemMetricsCollector');
+        this.logger = createLogger('NodeSystemMetricsCollector');
     }
 
     async getMemoryUsage(): Promise<PerformanceMetrics['memoryUsage']> {

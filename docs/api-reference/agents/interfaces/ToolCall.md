@@ -26,7 +26,7 @@ Tool call interface
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:51](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/agent.ts#L51)
+[packages/agents/src/interfaces/agent.ts:51](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L51)
 
 ___
 
@@ -36,7 +36,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:52](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/agent.ts#L52)
+[packages/agents/src/interfaces/agent.ts:52](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L52)
 
 ___
 
@@ -53,4 +53,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:53](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/agent.ts#L53)
+[packages/agents/src/interfaces/agent.ts:53](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L53)

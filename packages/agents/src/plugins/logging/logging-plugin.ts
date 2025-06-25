@@ -1,5 +1,5 @@
 import { BasePlugin } from '../../abstracts/base-plugin';
-import { Logger } from '../../utils/logger';
+import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import {
     LogLevel,
@@ -30,7 +30,7 @@ export class LoggingPlugin extends BasePlugin {
 
     constructor(options: LoggingPluginOptions) {
         super();
-        this.logger = new Logger('LoggingPlugin');
+        this.logger = createLogger('LoggingPlugin');
 
         // Validate options
         this.validateOptions(options);
