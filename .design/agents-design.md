@@ -117,6 +117,32 @@
   - [ ] 도구 호출과 스트리밍 조합 테스트
   - [ ] 에러 처리 및 중단 기능
 
+- [ ] **TSDoc 문서화 전체 업데이트**
+  - [ ] **packages/agents TSDoc 표준화**
+    - [ ] 모든 public 클래스에 @public 태그 추가
+    - [ ] 모든 interface에 @interface 태그 추가
+    - [ ] 메서드 파라미터 @param 태그 완성
+    - [ ] 리턴 값 @returns 태그 추가
+    - [ ] @example 코드 블록 추가 및 검증
+    - [ ] @throws 에러 문서화
+    - [ ] @deprecated 메서드 문서화 또는 제거
+    - [ ] @since 버전 정보 추가
+  - [ ] **Provider 패키지들 TSDoc 통일**
+    - [ ] packages/openai TSDoc 표준화
+    - [ ] packages/anthropic TSDoc 표준화  
+    - [ ] packages/google TSDoc 표준화
+    - [ ] packages/team TSDoc 표준화
+  - [ ] **TSDoc 생성 및 검증**
+    - [ ] `pnpm typedoc:convert` 실행하여 문서 생성
+    - [ ] 생성된 API 문서 품질 검토
+    - [ ] 누락된 문서나 잘못된 링크 수정
+    - [ ] 코드 예제 실행 가능성 확인
+  - [ ] **문서 일관성 검토**
+    - [ ] 모든 영어 주석 문법 및 스타일 통일
+    - [ ] 기술 용어 일관성 확인 (Agent, Provider, Tool 등)
+    - [ ] @see 링크 및 상호 참조 완성
+    - [ ] 패키지 간 문서 연결성 확인
+
 - [ ] **문서화 완성**
   - [ ] README 통합 가이드 작성
   - [ ] 마이그레이션 가이드 작성
