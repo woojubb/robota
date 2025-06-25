@@ -1,4 +1,4 @@
-import { ModelResponse, StreamingResponseChunk, logger } from '@robota-sdk/agents';
+import { UniversalMessage, logger } from '@robota-sdk/agents';
 
 /**
  * Anthropic response parser utility
@@ -12,9 +12,9 @@ export class AnthropicResponseParser {
      * Parse complete Anthropic message response
      * 
      * @param response - Raw Anthropic API response
-     * @returns Standardized model response
+     * @returns Standardized universal message
      */
-    static parseResponse(response: any): ModelResponse {
+    static parseResponse(response: any): UniversalMessage {
         try {
             const content = response.content?.[0]?.text || '';
 
@@ -37,18 +37,17 @@ export class AnthropicResponseParser {
                 totalTokens: response.usage.input_tokens + response.usage.output_tokens
             } : undefined;
 
-            const result: ModelResponse = {
+            const result: UniversalMessage = {
+                role: 'assistant',
                 content,
-                toolCalls,
+                timestamp: new Date(),
+                ...(toolCalls.length > 0 && { toolCalls }),
+                ...(usage && { usage }),
                 metadata: {
                     model: response.model,
                     finishReason: response.stop_reason
                 }
             };
-
-            if (usage) {
-                result.usage = usage;
-            }
 
             return result;
         } catch (error) {
@@ -61,31 +60,41 @@ export class AnthropicResponseParser {
      * Parse Anthropic streaming chunk
      * 
      * @param chunk - Raw streaming chunk from Anthropic API
-     * @returns Parsed streaming response chunk or null if no content
+     * @returns Parsed universal message or null if no content
      */
-    static parseStreamingChunk(chunk: any): StreamingResponseChunk | null {
+    static parseStreamingChunk(chunk: any): UniversalMessage | null {
         try {
             // Handle different chunk types
             switch (chunk.type) {
                 case 'content_block_start':
                     if (chunk.content_block?.type === 'text') {
                         return {
+                            role: 'assistant',
                             content: '',
-                            isComplete: false
+                            timestamp: new Date(),
+                            metadata: {
+                                isStreamChunk: true,
+                                isComplete: false
+                            }
                         };
                     }
                     if (chunk.content_block?.type === 'tool_use') {
                         return {
+                            role: 'assistant',
                             content: '',
-                            toolCall: {
+                            timestamp: new Date(),
+                            toolCalls: [{
                                 id: chunk.content_block.id,
                                 type: 'function' as const,
                                 function: {
                                     name: chunk.content_block.name || '',
                                     arguments: JSON.stringify(chunk.content_block.input || {})
                                 }
-                            },
-                            isComplete: false
+                            }],
+                            metadata: {
+                                isStreamChunk: true,
+                                isComplete: false
+                            }
                         };
                     }
                     break;
@@ -93,29 +102,49 @@ export class AnthropicResponseParser {
                 case 'content_block_delta':
                     if (chunk.delta?.type === 'text_delta') {
                         return {
+                            role: 'assistant',
                             content: chunk.delta.text || '',
-                            isComplete: false
+                            timestamp: new Date(),
+                            metadata: {
+                                isStreamChunk: true,
+                                isComplete: false
+                            }
                         };
                     }
                     if (chunk.delta?.type === 'input_json_delta') {
                         // Handle tool call argument streaming
                         return {
+                            role: 'assistant',
                             content: '',
-                            isComplete: false
+                            timestamp: new Date(),
+                            metadata: {
+                                isStreamChunk: true,
+                                isComplete: false
+                            }
                         };
                     }
                     break;
 
                 case 'content_block_stop':
                     return {
+                        role: 'assistant',
                         content: '',
-                        isComplete: false
+                        timestamp: new Date(),
+                        metadata: {
+                            isStreamChunk: true,
+                            isComplete: false
+                        }
                     };
 
                 case 'message_stop':
                     return {
+                        role: 'assistant',
                         content: '',
-                        isComplete: true
+                        timestamp: new Date(),
+                        metadata: {
+                            isStreamChunk: true,
+                            isComplete: true
+                        }
                     };
 
                 default:

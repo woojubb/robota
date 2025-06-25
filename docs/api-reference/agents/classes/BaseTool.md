@@ -62,7 +62,7 @@ Tool schema
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:8](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-tool.ts#L8)
+[packages/agents/src/abstracts/base-tool.ts:8](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-tool.ts#L8)
 
 ## Methods
 
@@ -89,7 +89,7 @@ Execute the tool with given parameters
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:10](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-tool.ts#L10)
+[packages/agents/src/abstracts/base-tool.ts:10](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-tool.ts#L10)
 
 ___
 
@@ -115,7 +115,7 @@ Validate tool parameters
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:12](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-tool.ts#L12)
+[packages/agents/src/abstracts/base-tool.ts:12](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-tool.ts#L12)
 
 ___
 
@@ -141,7 +141,7 @@ Validate tool parameters with detailed result (default implementation)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:20](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-tool.ts#L20)
+[packages/agents/src/abstracts/base-tool.ts:20](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-tool.ts#L20)
 
 ___
 
@@ -161,7 +161,7 @@ Get tool description
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:36](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-tool.ts#L36)
+[packages/agents/src/abstracts/base-tool.ts:36](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-tool.ts#L36)
 
 ___
 
@@ -175,4 +175,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:40](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-tool.ts#L40)
+[packages/agents/src/abstracts/base-tool.ts:40](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-tool.ts#L40)

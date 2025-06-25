@@ -7,7 +7,7 @@
  */
 
 import 'dotenv/config';
-import { RobotaCore as Robota } from '@robota-sdk/agents';
+import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { createZodFunctionTool } from '@robota-sdk/agents';
 import OpenAI from 'openai';

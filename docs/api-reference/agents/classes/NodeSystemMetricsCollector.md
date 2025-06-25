@@ -38,7 +38,7 @@ Node.js system metrics collector
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/collectors/system-metrics-collector.ts:10](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/performance/collectors/system-metrics-collector.ts#L10)
+[packages/agents/src/plugins/performance/collectors/system-metrics-collector.ts:10](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/performance/collectors/system-metrics-collector.ts#L10)
 
 ## Methods
 
@@ -56,7 +56,7 @@ Node.js system metrics collector
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/collectors/system-metrics-collector.ts:14](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/performance/collectors/system-metrics-collector.ts#L14)
+[packages/agents/src/plugins/performance/collectors/system-metrics-collector.ts:14](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/performance/collectors/system-metrics-collector.ts#L14)
 
 ___
 
@@ -74,7 +74,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/collectors/system-metrics-collector.ts:37](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/performance/collectors/system-metrics-collector.ts#L37)
+[packages/agents/src/plugins/performance/collectors/system-metrics-collector.ts:37](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/performance/collectors/system-metrics-collector.ts#L37)
 
 ___
 
@@ -92,4 +92,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/collectors/system-metrics-collector.ts:56](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/performance/collectors/system-metrics-collector.ts#L56)
+[packages/agents/src/plugins/performance/collectors/system-metrics-collector.ts:56](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/performance/collectors/system-metrics-collector.ts#L56)

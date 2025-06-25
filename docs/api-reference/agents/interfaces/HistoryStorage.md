@@ -39,7 +39,7 @@ Storage interface for conversation history
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:43](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/conversation-history/types.ts#L43)
+[packages/agents/src/plugins/conversation-history/types.ts:43](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/conversation-history/types.ts#L43)
 
 ___
 
@@ -59,7 +59,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:44](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/conversation-history/types.ts#L44)
+[packages/agents/src/plugins/conversation-history/types.ts:44](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/conversation-history/types.ts#L44)
 
 ___
 
@@ -73,7 +73,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:45](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/conversation-history/types.ts#L45)
+[packages/agents/src/plugins/conversation-history/types.ts:45](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/conversation-history/types.ts#L45)
 
 ___
 
@@ -93,7 +93,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:46](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/conversation-history/types.ts#L46)
+[packages/agents/src/plugins/conversation-history/types.ts:46](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/conversation-history/types.ts#L46)
 
 ___
 
@@ -107,4 +107,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:47](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/conversation-history/types.ts#L47)
+[packages/agents/src/plugins/conversation-history/types.ts:47](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/conversation-history/types.ts#L47)

@@ -58,7 +58,7 @@ IMultiProviderAdapterManager.addProvider
 
 #### Defined in
 
-[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:15](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L15)
+[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:15](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L15)
 
 ___
 
@@ -82,7 +82,7 @@ IMultiProviderAdapterManager.getProvider
 
 #### Defined in
 
-[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:19](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L19)
+[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:19](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L19)
 
 ___
 
@@ -106,7 +106,7 @@ IMultiProviderAdapterManager.setDefaultProvider
 
 #### Defined in
 
-[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:23](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L23)
+[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:23](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L23)
 
 ___
 
@@ -124,4 +124,4 @@ IMultiProviderAdapterManager.getDefaultProvider
 
 #### Defined in
 
-[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:29](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L29)
+[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:29](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L29)

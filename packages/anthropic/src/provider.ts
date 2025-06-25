@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { BaseAIProvider } from '@robota-sdk/agents';
-import type { UniversalMessage, UniversalAssistantMessage, ToolSchema, ChatOptions } from '@robota-sdk/agents';
+import type { UniversalMessage, ToolSchema, ChatOptions } from '@robota-sdk/agents';
 import { AnthropicProviderOptions } from './types';
 
 /**
@@ -124,12 +124,11 @@ export class AnthropicProvider extends BaseAIProvider {
                 case 'user':
                     return { role: 'user', content: msg.content || '' };
                 case 'assistant':
-                    const assistantMsg = msg as UniversalAssistantMessage;
                     return {
                         role: 'assistant',
-                        content: assistantMsg.content || '',
-                        ...(assistantMsg.toolCalls && {
-                            tool_calls: assistantMsg.toolCalls.map(tc => ({
+                        content: msg.content || '',
+                        ...((msg as any).toolCalls && {
+                            tool_calls: (msg as any).toolCalls.map((tc: any) => ({
                                 id: tc.id,
                                 type: 'function' as const,
                                 function: {

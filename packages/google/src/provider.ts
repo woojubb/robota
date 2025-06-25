@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { GenerateContentResult, GenerateContentStreamResult } from '@google/generative-ai';
 import { BaseAIProvider } from '@robota-sdk/agents';
-import type { UniversalMessage, UniversalAssistantMessage, ToolSchema, ChatOptions } from '@robota-sdk/agents';
+import type { UniversalMessage, ToolSchema, ChatOptions } from '@robota-sdk/agents';
 import type { GoogleProviderOptions } from './types';
 
 /**
@@ -145,16 +145,15 @@ export class GoogleProvider extends BaseAIProvider {
                         parts: [{ text: msg.content || '' }]
                     };
                 case 'assistant':
-                    const assistantMsg = msg as UniversalAssistantMessage;
                     const parts: any[] = [];
 
-                    if (assistantMsg.content) {
-                        parts.push({ text: assistantMsg.content });
+                    if (msg.content) {
+                        parts.push({ text: msg.content });
                     }
 
                     // Handle tool calls (Google uses function calls)
-                    if (assistantMsg.toolCalls) {
-                        for (const toolCall of assistantMsg.toolCalls) {
+                    if ((msg as any).toolCalls) {
+                        for (const toolCall of (msg as any).toolCalls) {
                             parts.push({
                                 functionCall: {
                                     name: toolCall.function.name,

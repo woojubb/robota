@@ -35,7 +35,7 @@ Tool schemas to provide to the AI provider
 
 #### Defined in
 
-[openai/src/provider.ts:11](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/openai/src/provider.ts#L11)
+[openai/src/provider.ts:11](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/openai/src/provider.ts#L11)
 
 ___
 
@@ -47,7 +47,7 @@ Maximum number of tokens to generate
 
 #### Defined in
 
-[openai/src/provider.ts:13](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/openai/src/provider.ts#L13)
+[openai/src/provider.ts:13](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/openai/src/provider.ts#L13)
 
 ___
 
@@ -59,7 +59,7 @@ Temperature for response randomness (0-1)
 
 #### Defined in
 
-[openai/src/provider.ts:15](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/openai/src/provider.ts#L15)
+[openai/src/provider.ts:15](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/openai/src/provider.ts#L15)
 
 ___
 
@@ -71,4 +71,4 @@ Model to use for the request
 
 #### Defined in
 
-[openai/src/provider.ts:17](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/openai/src/provider.ts#L17)
+[openai/src/provider.ts:17](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/openai/src/provider.ts#L17)

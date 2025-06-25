@@ -30,7 +30,7 @@ Total number of agents created
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:28](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/managers/agent-factory.ts#L28)
+[packages/agents/src/managers/agent-factory.ts:28](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/managers/agent-factory.ts#L28)
 
 ___
 
@@ -42,7 +42,7 @@ Number of currently active agents
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:30](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/managers/agent-factory.ts#L30)
+[packages/agents/src/managers/agent-factory.ts:30](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/managers/agent-factory.ts#L30)
 
 ___
 
@@ -54,7 +54,7 @@ Number of agents created from templates
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:32](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/managers/agent-factory.ts#L32)
+[packages/agents/src/managers/agent-factory.ts:32](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/managers/agent-factory.ts#L32)
 
 ___
 
@@ -66,7 +66,7 @@ Number of custom configured agents
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:34](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/managers/agent-factory.ts#L34)
+[packages/agents/src/managers/agent-factory.ts:34](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/managers/agent-factory.ts#L34)
 
 ___
 
@@ -78,4 +78,4 @@ Template vs custom creation ratio (fromTemplates / totalCreated)
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:36](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/managers/agent-factory.ts#L36)
+[packages/agents/src/managers/agent-factory.ts:36](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/managers/agent-factory.ts#L36)
