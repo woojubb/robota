@@ -61,7 +61,7 @@ Silent storage implementation for usage statistics (no-op)
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/silent-storage.ts:7](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/usage/storages/silent-storage.ts#L7)
+[packages/agents/src/plugins/usage/storages/silent-storage.ts:7](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/usage/storages/silent-storage.ts#L7)
 
 ___
 
@@ -88,7 +88,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/silent-storage.ts:11](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/usage/storages/silent-storage.ts#L11)
+[packages/agents/src/plugins/usage/storages/silent-storage.ts:11](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/usage/storages/silent-storage.ts#L11)
 
 ___
 
@@ -114,7 +114,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/silent-storage.ts:16](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/usage/storages/silent-storage.ts#L16)
+[packages/agents/src/plugins/usage/storages/silent-storage.ts:16](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/usage/storages/silent-storage.ts#L16)
 
 ___
 
@@ -132,7 +132,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/silent-storage.ts:35](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/usage/storages/silent-storage.ts#L35)
+[packages/agents/src/plugins/usage/storages/silent-storage.ts:35](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/usage/storages/silent-storage.ts#L35)
 
 ___
 
@@ -150,7 +150,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/silent-storage.ts:39](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/usage/storages/silent-storage.ts#L39)
+[packages/agents/src/plugins/usage/storages/silent-storage.ts:39](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/usage/storages/silent-storage.ts#L39)
 
 ___
 
@@ -168,4 +168,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/storages/silent-storage.ts:43](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/usage/storages/silent-storage.ts#L43)
+[packages/agents/src/plugins/usage/storages/silent-storage.ts:43](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/usage/storages/silent-storage.ts#L43)

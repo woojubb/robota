@@ -12,11 +12,7 @@
 
 ### Classes
 
-- [AnthropicConversationAdapter](classes/AnthropicConversationAdapter)
-- [AnthropicResponseParser](classes/AnthropicResponseParser)
-- [PayloadLogger](classes/PayloadLogger)
 - [AnthropicProvider](classes/AnthropicProvider)
-- [AnthropicStreamHandler](classes/AnthropicStreamHandler)
 
 ### Interfaces
 
@@ -44,4 +40,4 @@
 
 #### Defined in
 
-[anthropic/src/index.ts:21](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/anthropic/src/index.ts#L21)
+[anthropic/src/index.ts:13](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/anthropic/src/index.ts#L13)

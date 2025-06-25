@@ -29,7 +29,7 @@ Maximum number of entries to keep in memory
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:53](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L53)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:54](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L54)
 
 ___
 
@@ -41,7 +41,7 @@ Whether to track error details
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:55](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L55)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:56](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L56)
 
 ___
 
@@ -53,7 +53,7 @@ Performance threshold in milliseconds for warnings
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:57](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L57)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:58](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L58)
 
 ___
 
@@ -65,4 +65,4 @@ Enable performance warnings
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:59](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L59)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:60](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L60)

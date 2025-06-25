@@ -39,7 +39,7 @@ Create function tool from schema and function
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:137](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/tool.ts#L137)
+[packages/agents/src/interfaces/tool.ts:137](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/tool.ts#L137)
 
 ___
 
@@ -61,7 +61,7 @@ Create tool from OpenAPI specification
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:142](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/tool.ts#L142)
+[packages/agents/src/interfaces/tool.ts:142](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/tool.ts#L142)
 
 ___
 
@@ -83,4 +83,4 @@ Create MCP tool
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:147](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/tool.ts#L147)
+[packages/agents/src/interfaces/tool.ts:147](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/tool.ts#L147)

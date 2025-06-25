@@ -10,12 +10,8 @@
 
 Google AI provider implementation for Robota
 
-Provides integration with Google's Generative AI services including Gemini models.
-Extends BaseAIProvider for common functionality and tool calling support.
-
-**`See`**
-
-@examples/03-integrations | Provider Integration Examples
+Provides integration with Google's Generative AI services using provider-agnostic UniversalMessage.
+Uses Google SDK native types internally for optimal performance and feature support.
 
 ## Hierarchy
 
@@ -32,24 +28,15 @@ Extends BaseAIProvider for common functionality and tool calling support.
 ### Properties
 
 - [name](GoogleProvider#name)
-- [models](GoogleProvider#models)
-- [options](GoogleProvider#options)
+- [version](GoogleProvider#version)
 
 ### Methods
 
-- [initialize](GoogleProvider#initialize)
-- [dispose](GoogleProvider#dispose)
-- [isInitialized](GoogleProvider#isinitialized)
-- [execute](GoogleProvider#execute)
-- [executeStream](GoogleProvider#executestream)
-- [generateResponse](GoogleProvider#generateresponse)
-- [supportsModel](GoogleProvider#supportsmodel)
 - [chat](GoogleProvider#chat)
-- [generateStreamingResponse](GoogleProvider#generatestreamingresponse)
 - [chatStream](GoogleProvider#chatstream)
-- [parseResponse](GoogleProvider#parseresponse)
-- [parseStreamingChunk](GoogleProvider#parsestreamingchunk)
-- [close](GoogleProvider#close)
+- [supportsTools](GoogleProvider#supportstools)
+- [validateConfig](GoogleProvider#validateconfig)
+- [dispose](GoogleProvider#dispose)
 
 ## Constructors
 
@@ -57,21 +44,15 @@ Extends BaseAIProvider for common functionality and tool calling support.
 
 • **new GoogleProvider**(`options`): [`GoogleProvider`](GoogleProvider)
 
-Create a new Google AI provider instance
-
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `options` | [`GoogleProviderOptions`](../interfaces/GoogleProviderOptions) | Configuration options for the Google provider |
+| Name | Type |
+| :------ | :------ |
+| `options` | [`GoogleProviderOptions`](../interfaces/GoogleProviderOptions) |
 
 #### Returns
 
 [`GoogleProvider`](GoogleProvider)
-
-**`Throws`**
-
-When client is not provided in options
 
 #### Overrides
 
@@ -79,15 +60,13 @@ BaseAIProvider.constructor
 
 #### Defined in
 
-[google/src/provider.ts:64](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L64)
+[google/src/provider.ts:22](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/google/src/provider.ts#L22)
 
 ## Properties
 
 ### name
 
-• `Readonly` **name**: `string` = `'google'`
-
-Provider identifier name
+• `Readonly` **name**: ``"google"``
 
 #### Overrides
 
@@ -95,53 +74,111 @@ BaseAIProvider.name
 
 #### Defined in
 
-[google/src/provider.ts:32](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L32)
+[google/src/provider.ts:16](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/google/src/provider.ts#L16)
 
 ___
 
-### models
+### version
 
-• `Readonly` **models**: `string`[]
-
-Available models
+• `Readonly` **version**: ``"1.0.0"``
 
 #### Overrides
 
-BaseAIProvider.models
+BaseAIProvider.version
 
 #### Defined in
 
-[google/src/provider.ts:38](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L38)
-
-___
-
-### options
-
-• `Readonly` **options**: [`GoogleProviderOptions`](../interfaces/GoogleProviderOptions)
-
-Provider configuration options
-
-#### Defined in
-
-[google/src/provider.ts:55](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L55)
+[google/src/provider.ts:17](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/google/src/provider.ts#L17)
 
 ## Methods
 
-### initialize
+### chat
 
-▸ **initialize**(): `Promise`\<`void`\>
+▸ **chat**(`messages`, `options?`): `Promise`\<`UniversalMessage`\>
+
+Generate response using UniversalMessage
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `messages` | `UniversalMessage`[] |
+| `options?` | `ChatOptions` |
 
 #### Returns
 
-`Promise`\<`void`\>
+`Promise`\<`UniversalMessage`\>
 
-#### Inherited from
+#### Overrides
 
-BaseAIProvider.initialize
+BaseAIProvider.chat
 
 #### Defined in
 
-agents/dist/index.d.ts:850
+[google/src/provider.ts:35](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/google/src/provider.ts#L35)
+
+___
+
+### chatStream
+
+▸ **chatStream**(`messages`, `options?`): `AsyncIterable`\<`UniversalMessage`, `any`, `any`\>
+
+Generate streaming response using UniversalMessage
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `messages` | `UniversalMessage`[] |
+| `options?` | `ChatOptions` |
+
+#### Returns
+
+`AsyncIterable`\<`UniversalMessage`, `any`, `any`\>
+
+#### Overrides
+
+BaseAIProvider.chatStream
+
+#### Defined in
+
+[google/src/provider.ts:77](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/google/src/provider.ts#L77)
+
+___
+
+### supportsTools
+
+▸ **supportsTools**(): `boolean`
+
+#### Returns
+
+`boolean`
+
+#### Overrides
+
+BaseAIProvider.supportsTools
+
+#### Defined in
+
+[google/src/provider.ts:121](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/google/src/provider.ts#L121)
+
+___
+
+### validateConfig
+
+▸ **validateConfig**(): `boolean`
+
+#### Returns
+
+`boolean`
+
+#### Overrides
+
+BaseAIProvider.validateConfig
+
+#### Defined in
+
+[google/src/provider.ts:125](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/google/src/provider.ts#L125)
 
 ___
 
@@ -153,342 +190,10 @@ ___
 
 `Promise`\<`void`\>
 
-#### Inherited from
+#### Overrides
 
 BaseAIProvider.dispose
 
 #### Defined in
 
-agents/dist/index.d.ts:851
-
-___
-
-### isInitialized
-
-▸ **isInitialized**(): `boolean`
-
-#### Returns
-
-`boolean`
-
-#### Inherited from
-
-BaseAIProvider.isInitialized
-
-#### Defined in
-
-agents/dist/index.d.ts:852
-
-___
-
-### execute
-
-▸ **execute**(`messages`, `config`): `Promise`\<`ProviderExecutionResult`\>
-
-High-level execute method that handles the entire conversation process
-
-This method encapsulates all provider-specific logic including:
-- Message format conversion
-- Tool configuration
-- Request preparation
-- Response processing
-
-ExecutionService delegates the entire AI interaction to this method.
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `messages` | `UniversalMessage`[] | Array of UniversalMessage from conversation history |
-| `config` | `ProviderExecutionConfig` | Execution configuration |
-
-#### Returns
-
-`Promise`\<`ProviderExecutionResult`\>
-
-Provider execution result
-
-#### Inherited from
-
-BaseAIProvider.execute
-
-#### Defined in
-
-agents/dist/index.d.ts:902
-
-___
-
-### executeStream
-
-▸ **executeStream**(`messages`, `config`): `AsyncGenerator`\<`ProviderExecutionResult`, `void`, `unknown`\>
-
-High-level streaming execute method
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `messages` | `UniversalMessage`[] | Array of UniversalMessage from conversation history |
-| `config` | `ProviderExecutionConfig` | Execution configuration |
-
-#### Returns
-
-`AsyncGenerator`\<`ProviderExecutionResult`, `void`, `unknown`\>
-
-Async generator of streaming results
-
-#### Inherited from
-
-BaseAIProvider.executeStream
-
-#### Defined in
-
-agents/dist/index.d.ts:910
-
-___
-
-### generateResponse
-
-▸ **generateResponse**(`request`): `Promise`\<`any`\>
-
-Generate response using raw request payload (default implementation uses chat)
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `request` | `any` |
-
-#### Returns
-
-`Promise`\<`any`\>
-
-#### Inherited from
-
-BaseAIProvider.generateResponse
-
-#### Defined in
-
-agents/dist/index.d.ts:914
-
-___
-
-### supportsModel
-
-▸ **supportsModel**(`model`): `boolean`
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `model` | `string` |
-
-#### Returns
-
-`boolean`
-
-#### Inherited from
-
-BaseAIProvider.supportsModel
-
-#### Defined in
-
-agents/dist/index.d.ts:919
-
-___
-
-### chat
-
-▸ **chat**(`model`, `context`, `options?`): `Promise`\<`ModelResponse`\>
-
-Send a chat request to Google AI and receive a complete response
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `model` | `string` | Model name to use (e.g., 'gemini-1.5-pro', 'gemini-1.5-flash') |
-| `context` | `Context` | Context object containing messages and system prompt |
-| `options?` | `any` | Optional generation parameters and tools |
-
-#### Returns
-
-`Promise`\<`ModelResponse`\>
-
-Promise resolving to the model's response
-
-**`Throws`**
-
-When context is invalid
-
-**`Throws`**
-
-When messages array is invalid
-
-**`Throws`**
-
-When Google AI API call fails
-
-#### Overrides
-
-BaseAIProvider.chat
-
-#### Defined in
-
-[google/src/provider.ts:97](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L97)
-
-___
-
-### generateStreamingResponse
-
-▸ **generateStreamingResponse**(`request`): `AsyncGenerator`\<`any`, `void`, `unknown`\>
-
-Generate streaming response using raw request payload (for agents package compatibility)
-
-This method is required by the agents package's ConversationService for streaming.
-It adapts the raw request payload to the Google AI streaming API format.
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `request` | `any` | Raw request payload from ConversationService |
-
-#### Returns
-
-`AsyncGenerator`\<`any`, `void`, `unknown`\>
-
-AsyncGenerator yielding streaming response chunks
-
-#### Overrides
-
-BaseAIProvider.generateStreamingResponse
-
-#### Defined in
-
-[google/src/provider.ts:158](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L158)
-
-___
-
-### chatStream
-
-▸ **chatStream**(`model`, `context`, `options?`): `AsyncGenerator`\<`StreamingResponseChunk`, `void`, `unknown`\>
-
-Send a streaming chat request to Google AI and receive response chunks
-
-Generates an async iterator that yields response chunks as they arrive.
-Useful for real-time display of responses or handling large responses incrementally.
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `model` | `string` | Model name to use |
-| `context` | `Context` | Context object containing messages and system prompt |
-| `options?` | `any` | Optional generation parameters and tools |
-
-#### Returns
-
-`AsyncGenerator`\<`StreamingResponseChunk`, `void`, `unknown`\>
-
-Async generator yielding response chunks
-
-**`Throws`**
-
-When context is invalid
-
-**`Throws`**
-
-When messages array is invalid
-
-**`Throws`**
-
-When Google AI API streaming call fails
-
-#### Overrides
-
-BaseAIProvider.chatStream
-
-#### Defined in
-
-[google/src/provider.ts:222](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L222)
-
-___
-
-### parseResponse
-
-▸ **parseResponse**(`response`): `ModelResponse`
-
-Parse Google AI response into universal ModelResponse format
-
-Extracts content, usage information, and metadata from the Google AI response
-and converts it to the standard format used across all providers.
-Supports function calling with Gemini models.
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `response` | `any` | Raw response from Google AI API |
-
-#### Returns
-
-`ModelResponse`
-
-Parsed model response in universal format
-
-#### Defined in
-
-[google/src/provider.ts:336](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L336)
-
-___
-
-### parseStreamingChunk
-
-▸ **parseStreamingChunk**(`chunk`): `StreamingResponseChunk`
-
-Parse Google AI streaming response chunk into universal format
-
-Converts individual chunks from the streaming response into the standard
-StreamingResponseChunk format used across all providers.
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `chunk` | `any` | Raw chunk from Google AI streaming API |
-
-#### Returns
-
-`StreamingResponseChunk`
-
-Parsed streaming response chunk
-
-#### Defined in
-
-[google/src/provider.ts:401](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L401)
-
-___
-
-### close
-
-▸ **close**(): `Promise`\<`void`\>
-
-Release resources and close connections
-
-Performs cleanup operations when the provider is no longer needed.
-Google AI client doesn't require explicit cleanup, so this is a no-op.
-
-#### Returns
-
-`Promise`\<`void`\>
-
-Promise that resolves when cleanup is complete
-
-#### Overrides
-
-BaseAIProvider.close
-
-#### Defined in
-
-[google/src/provider.ts:422](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L422)
+[google/src/provider.ts:129](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/google/src/provider.ts#L129)

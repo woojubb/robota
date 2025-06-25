@@ -52,7 +52,7 @@ Instance-based for isolated agent factory management
 
 #### Defined in
 
-agents/dist/index.d.ts:3400
+agents/dist/index.d.ts:3483
 
 ## Methods
 
@@ -68,13 +68,13 @@ Initialize the factory
 
 #### Defined in
 
-agents/dist/index.d.ts:3404
+agents/dist/index.d.ts:3487
 
 ___
 
 ### createAgent
 
-▸ **createAgent**(`AgentClass`, `config`): `Promise`\<[`AgentInterface`](../interfaces/AgentInterface)\>
+▸ **createAgent**(`AgentClass`, `config`, `fromTemplate?`): `Promise`\<[`AgentInterface`](../interfaces/AgentInterface)\>
 
 Create a new agent instance
 
@@ -84,6 +84,7 @@ Create a new agent instance
 | :------ | :------ |
 | `AgentClass` | (`config`: [`AgentConfig`](../interfaces/AgentConfig)) => [`AgentInterface`](../interfaces/AgentInterface) |
 | `config` | `Partial`\<[`AgentConfig`](../interfaces/AgentConfig)\> |
+| `fromTemplate?` | `boolean` |
 
 #### Returns
 
@@ -91,7 +92,7 @@ Create a new agent instance
 
 #### Defined in
 
-agents/dist/index.d.ts:3408
+agents/dist/index.d.ts:3491
 
 ___
 
@@ -115,7 +116,7 @@ Create agent from template
 
 #### Defined in
 
-agents/dist/index.d.ts:3412
+agents/dist/index.d.ts:3495
 
 ___
 
@@ -137,7 +138,7 @@ Register a template
 
 #### Defined in
 
-agents/dist/index.d.ts:3416
+agents/dist/index.d.ts:3499
 
 ___
 
@@ -159,7 +160,7 @@ Unregister a template
 
 #### Defined in
 
-agents/dist/index.d.ts:3420
+agents/dist/index.d.ts:3503
 
 ___
 
@@ -175,7 +176,7 @@ Get all templates
 
 #### Defined in
 
-agents/dist/index.d.ts:3424
+agents/dist/index.d.ts:3507
 
 ___
 
@@ -197,7 +198,7 @@ Get template by ID
 
 #### Defined in
 
-agents/dist/index.d.ts:3428
+agents/dist/index.d.ts:3511
 
 ___
 
@@ -223,7 +224,7 @@ Find templates by criteria
 
 #### Defined in
 
-agents/dist/index.d.ts:3432
+agents/dist/index.d.ts:3515
 
 ___
 
@@ -246,7 +247,7 @@ Apply template to configuration
 
 #### Defined in
 
-agents/dist/index.d.ts:3441
+agents/dist/index.d.ts:3524
 
 ___
 
@@ -268,7 +269,7 @@ Destroy an agent
 
 #### Defined in
 
-agents/dist/index.d.ts:3445
+agents/dist/index.d.ts:3528
 
 ___
 
@@ -284,7 +285,7 @@ Get creation statistics
 
 #### Defined in
 
-agents/dist/index.d.ts:3449
+agents/dist/index.d.ts:3532
 
 ___
 
@@ -300,7 +301,7 @@ Get all active agents
 
 #### Defined in
 
-agents/dist/index.d.ts:3453
+agents/dist/index.d.ts:3536
 
 ___
 
@@ -327,4 +328,4 @@ Validate agent configuration
 
 #### Defined in
 
-agents/dist/index.d.ts:3457
+agents/dist/index.d.ts:3540

@@ -32,7 +32,7 @@ Aggregated execution statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:28](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L28)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:29](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L29)
 
 ___
 
@@ -42,7 +42,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:29](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L29)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:30](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L30)
 
 ___
 
@@ -52,7 +52,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:30](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L30)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:31](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L31)
 
 ___
 
@@ -62,7 +62,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:31](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L31)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:32](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L32)
 
 ___
 
@@ -72,7 +72,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:32](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L32)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:33](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L33)
 
 ___
 
@@ -82,7 +82,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:33](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L33)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:34](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L34)
 
 ___
 
@@ -92,7 +92,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:34](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L34)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:35](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L35)
 
 ___
 
@@ -102,7 +102,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:41](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L41)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:42](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L42)
 
 ___
 
@@ -119,4 +119,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:42](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L42)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:43](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L43)

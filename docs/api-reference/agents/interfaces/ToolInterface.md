@@ -37,7 +37,7 @@ Tool schema
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:59](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/tool.ts#L59)
+[packages/agents/src/interfaces/tool.ts:59](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/tool.ts#L59)
 
 ## Methods
 
@@ -60,7 +60,7 @@ Execute the tool with given parameters
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:64](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/tool.ts#L64)
+[packages/agents/src/interfaces/tool.ts:64](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/tool.ts#L64)
 
 ___
 
@@ -82,7 +82,7 @@ Validate tool parameters
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:69](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/tool.ts#L69)
+[packages/agents/src/interfaces/tool.ts:69](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/tool.ts#L69)
 
 ___
 
@@ -104,7 +104,7 @@ Validate tool parameters with detailed result
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:74](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/tool.ts#L74)
+[packages/agents/src/interfaces/tool.ts:74](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/tool.ts#L74)
 
 ___
 
@@ -120,4 +120,4 @@ Get tool description
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:79](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/tool.ts#L79)
+[packages/agents/src/interfaces/tool.ts:79](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/tool.ts#L79)

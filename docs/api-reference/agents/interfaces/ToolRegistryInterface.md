@@ -46,7 +46,7 @@ Register a tool
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:97](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/tool.ts#L97)
+[packages/agents/src/interfaces/tool.ts:97](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/tool.ts#L97)
 
 ___
 
@@ -68,7 +68,7 @@ Unregister a tool
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:102](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/tool.ts#L102)
+[packages/agents/src/interfaces/tool.ts:102](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/tool.ts#L102)
 
 ___
 
@@ -90,7 +90,7 @@ Get tool by name
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:107](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/tool.ts#L107)
+[packages/agents/src/interfaces/tool.ts:107](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/tool.ts#L107)
 
 ___
 
@@ -106,7 +106,7 @@ Get all registered tools
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:112](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/tool.ts#L112)
+[packages/agents/src/interfaces/tool.ts:112](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/tool.ts#L112)
 
 ___
 
@@ -122,7 +122,7 @@ Get tool schemas
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:117](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/tool.ts#L117)
+[packages/agents/src/interfaces/tool.ts:117](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/tool.ts#L117)
 
 ___
 
@@ -144,7 +144,7 @@ Check if tool exists
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:122](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/tool.ts#L122)
+[packages/agents/src/interfaces/tool.ts:122](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/tool.ts#L122)
 
 ___
 
@@ -160,4 +160,4 @@ Clear all tools
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:127](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/tool.ts#L127)
+[packages/agents/src/interfaces/tool.ts:127](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/tool.ts#L127)
