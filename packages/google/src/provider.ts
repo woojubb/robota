@@ -1,444 +1,298 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import {
-    BaseAIProvider,
-    logger
-} from '@robota-sdk/agents';
-import type {
-    Context,
-    ModelResponse,
-    StreamingResponseChunk,
-    ToolSchema
-} from '@robota-sdk/agents';
-import type { UniversalMessage } from '@robota-sdk/agents/src/managers/conversation-history-manager';
-import type { ProviderExecutionResult } from '@robota-sdk/agents/src/abstracts/base-ai-provider';
+import type { GenerateContentResult, GenerateContentStreamResult } from '@google/generative-ai';
+import { BaseAIProvider } from '@robota-sdk/agents';
+import type { UniversalMessage, UniversalAssistantMessage, ToolSchema, ChatOptions } from '@robota-sdk/agents';
 import type { GoogleProviderOptions } from './types';
-import { GoogleConversationAdapter } from './adapter';
 
 /**
  * Google AI provider implementation for Robota
  * 
- * Provides integration with Google's Generative AI services including Gemini models.
- * Extends BaseAIProvider for common functionality and tool calling support.
- * 
- * @see {@link @examples/03-integrations | Provider Integration Examples}
+ * Provides integration with Google's Generative AI services using provider-agnostic UniversalMessage.
+ * Uses Google SDK native types internally for optimal performance and feature support.
  * 
  * @public
  */
 export class GoogleProvider extends BaseAIProvider {
-    /**
-     * Provider identifier name
-     * @readonly
-     */
-    public readonly name: string = 'google';
+    readonly name = 'google';
+    readonly version = '1.0.0';
 
-    /**
-     * Available models
-     * @readonly
-     */
-    public readonly models: string[] = [
-        'gemini-1.5-pro',
-        'gemini-1.5-flash',
-        'gemini-pro',
-        'gemini-pro-vision'
-    ];
-
-    /**
-     * Google AI client instance
-     * @internal
-     */
     private readonly client: GoogleGenerativeAI;
+    private readonly options: GoogleProviderOptions;
 
-    /**
-     * Provider configuration options
-     * @readonly
-     */
-    public readonly options: GoogleProviderOptions;
-
-    /**
-     * Create a new Google AI provider instance
-     * 
-     * @param options - Configuration options for the Google provider
-     * 
-     * @throws {Error} When client is not provided in options
-     */
     constructor(options: GoogleProviderOptions) {
         super();
-
-        this.options = {
-            temperature: 0.7,
-            maxTokens: undefined,
-            // Set default values for parallel tool call options
-            enableParallelToolCalls: true,
-            maxConcurrentToolCalls: 3,
-            toolCallDelayMs: 100,
-            ...options
-        };
-
-        // Validate required client injection
-        if (!options.client) {
-            throw new Error('Google AI client is not injected. The client option is required.');
-        }
-
+        this.options = options;
         this.client = options.client;
-    }
 
-    /**
-     * Send a chat request to Google AI and receive a complete response
-     * 
-     * @param model - Model name to use (e.g., 'gemini-1.5-pro', 'gemini-1.5-flash')
-     * @param context - Context object containing messages and system prompt
-     * @param options - Optional generation parameters and tools
-     * @returns Promise resolving to the model's response
-     * 
-     * @throws {Error} When context is invalid
-     * @throws {Error} When messages array is invalid
-     * @throws {Error} When Google AI API call fails
-     */
-    async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
-        // Use base class validation
-        this.validateContext(context);
-
-        const { messages, systemMessage } = context;
-
-        try {
-            // Convert UniversalMessage[] to Google AI format
-            const { contents, systemInstruction } = this.processGoogleMessages(
-                messages as UniversalMessage[],
-                systemMessage
-            );
-
-            // Configure tools if provided
-            const toolConfig = this.configureTools(context.tools);
-            const modelConfig: any = {
-                model: model || this.options.model || 'gemini-1.5-flash',
-                systemInstruction: systemInstruction
-            };
-
-            // Add tools to model configuration if available
-            if (toolConfig) {
-                modelConfig.tools = toolConfig.tools;
-            }
-
-            // Get Google AI model instance
-            const generativeModel = this.client.getGenerativeModel(modelConfig);
-
-            // Configure generation parameters
-            const generationConfig = {
-                temperature: options?.temperature ?? this.options.temperature,
-                maxOutputTokens: options?.maxTokens ?? this.options.maxTokens,
-                ...(this.options.responseMimeType && {
-                    responseMimeType: this.options.responseMimeType
-                }),
-                ...(this.options.responseSchema && {
-                    responseSchema: this.options.responseSchema
-                })
-            };
-
-            // Generate content
-            const result = await generativeModel.generateContent({
-                contents,
-                generationConfig
-            });
-
-            return this.parseResponse(result);
-        } catch (error) {
-            this.handleApiError(error, 'chat');
+        if (!this.client) {
+            throw new Error('Google AI client is required');
         }
     }
 
     /**
-     * Generate streaming response using raw request payload (for agents package compatibility)
-     * 
-     * This method is required by the agents package's ConversationService for streaming.
-     * It adapts the raw request payload to the Google AI streaming API format.
-     * 
-     * @param request - Raw request payload from ConversationService
-     * @returns AsyncGenerator yielding streaming response chunks
+     * Generate response using UniversalMessage
      */
-    override async *generateStreamingResponse(request: any): AsyncGenerator<any, void, unknown> {
+    async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+        this.validateMessages(messages);
+
         try {
-            // Extract parameters from request payload
-            const model = request.model;
-            const messages = request.messages || [];
-            const temperature = request.temperature;
-            const maxTokens = request.max_tokens;
-            const tools = request.tools;
-            const systemMessage = request.system;
+            // 1. Convert UniversalMessage → Google format
+            const { contents, systemInstruction } = this.convertToGoogleMessages(messages);
 
-            // Convert to Google format
-            const { contents, systemInstruction } = this.processGoogleMessages(messages, systemMessage);
-
-            // Configure tools if provided
-            const toolConfig = this.configureTools(tools);
+            // 2. Configure Google AI model
             const modelConfig: any = {
-                model: model || 'gemini-1.5-flash',
-                systemInstruction: systemInstruction
+                model: options?.model || 'gemini-1.5-flash',
+                ...(systemInstruction && { systemInstruction })
             };
 
-            // Add tools to model configuration if available
-            if (toolConfig) {
-                modelConfig.tools = toolConfig.tools;
+            // Add tools if provided
+            if (options?.tools && options.tools.length > 0) {
+                modelConfig.tools = this.convertToGoogleTools(options.tools);
             }
 
-            // Get Google AI model instance
-            const generativeModel = this.client.getGenerativeModel(modelConfig);
+            const model = this.client.getGenerativeModel(modelConfig);
 
-            // Configure generation parameters
+            // 3. Call Google AI API (native SDK types)
             const generationConfig = {
-                temperature,
-                maxOutputTokens: maxTokens
+                temperature: options?.temperature,
+                maxOutputTokens: options?.maxTokens
             };
 
-            // Generate streaming content
-            const result = await generativeModel.generateContentStream({
+            const result: GenerateContentResult = await model.generateContent({
                 contents,
                 generationConfig
             });
 
-            // Yield each chunk
+            // 4. Convert Google response → UniversalMessage
+            return this.convertFromGoogleResponse(result);
+
+        } catch (error: any) {
+            throw new Error(`Google AI chat failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Generate streaming response using UniversalMessage
+     */
+    async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+        this.validateMessages(messages);
+
+        try {
+            // 1. Convert UniversalMessage → Google format
+            const { contents, systemInstruction } = this.convertToGoogleMessages(messages);
+
+            // 2. Configure Google AI model
+            const modelConfig: any = {
+                model: options?.model || 'gemini-1.5-flash',
+                ...(systemInstruction && { systemInstruction })
+            };
+
+            // Add tools if provided
+            if (options?.tools && options.tools.length > 0) {
+                modelConfig.tools = this.convertToGoogleTools(options.tools);
+            }
+
+            const model = this.client.getGenerativeModel(modelConfig);
+
+            // 3. Call Google AI streaming API
+            const generationConfig = {
+                temperature: options?.temperature,
+                maxOutputTokens: options?.maxTokens
+            };
+
+            const result: GenerateContentStreamResult = await model.generateContentStream({
+                contents,
+                generationConfig
+            });
+
+            // 4. Stream conversion: Google chunks → UniversalMessage
             for await (const chunk of result.stream) {
-                yield this.parseStreamingChunk(chunk);
+                const universalMessage = this.convertFromGoogleChunk(chunk);
+                if (universalMessage) {
+                    yield universalMessage;
+                }
             }
-        } catch (error) {
-            this.handleApiError(error, 'generateStreamingResponse');
+
+        } catch (error: any) {
+            throw new Error(`Google AI stream failed: ${error.message}`);
         }
     }
 
+    override supportsTools(): boolean {
+        return true;
+    }
+
+    override validateConfig(): boolean {
+        return !!this.client && !!this.options;
+    }
+
+    override async dispose(): Promise<void> {
+        // Google AI client doesn't need explicit cleanup
+    }
+
     /**
-     * Send a streaming chat request to Google AI and receive response chunks
-     * 
-     * Generates an async iterator that yields response chunks as they arrive.
-     * Useful for real-time display of responses or handling large responses incrementally.
-     * 
-     * @param model - Model name to use
-     * @param context - Context object containing messages and system prompt
-     * @param options - Optional generation parameters and tools
-     * @returns Async generator yielding response chunks
-     * 
-     * @throws {Error} When context is invalid
-     * @throws {Error} When messages array is invalid
-     * @throws {Error} When Google AI API streaming call fails
+     * Convert UniversalMessage array to Google format
      */
-    async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
-        // Use base class validation
-        this.validateContext(context);
+    private convertToGoogleMessages(messages: UniversalMessage[]): { contents: any[], systemInstruction?: string } {
+        const systemMessage = messages.find(msg => msg.role === 'system');
+        const nonSystemMessages = messages.filter(msg => msg.role !== 'system');
 
-        const { messages, systemMessage } = context;
+        const contents = nonSystemMessages.map(msg => {
+            switch (msg.role) {
+                case 'user':
+                    return {
+                        role: 'user',
+                        parts: [{ text: msg.content || '' }]
+                    };
+                case 'assistant':
+                    const assistantMsg = msg as UniversalAssistantMessage;
+                    const parts: any[] = [];
 
-        try {
-            // Convert UniversalMessage[] to Google AI format
-            const { contents, systemInstruction } = this.processGoogleMessages(
-                messages as UniversalMessage[],
-                systemMessage
-            );
+                    if (assistantMsg.content) {
+                        parts.push({ text: assistantMsg.content });
+                    }
 
-            // Configure tools if provided
-            const toolConfig = this.configureTools(context.tools);
-            const modelConfig: any = {
-                model: model || this.options.model || 'gemini-1.5-flash',
-                systemInstruction: systemInstruction
-            };
+                    // Handle tool calls (Google uses function calls)
+                    if (assistantMsg.toolCalls) {
+                        for (const toolCall of assistantMsg.toolCalls) {
+                            parts.push({
+                                functionCall: {
+                                    name: toolCall.function.name,
+                                    args: JSON.parse(toolCall.function.arguments || '{}')
+                                }
+                            });
+                        }
+                    }
 
-            // Add tools to model configuration if available
-            if (toolConfig) {
-                modelConfig.tools = toolConfig.tools;
+                    return {
+                        role: 'model',
+                        parts
+                    };
+                case 'tool':
+                    return {
+                        role: 'function',
+                        parts: [{
+                            functionResponse: {
+                                name: (msg as any).name || 'unknown',
+                                response: JSON.parse(msg.content || '{}')
+                            }
+                        }]
+                    };
+                default:
+                    throw new Error(`Unsupported message role: ${(msg as any).role}`);
             }
-
-            // Get Google AI model instance
-            const generativeModel = this.client.getGenerativeModel(modelConfig);
-
-            // Configure generation parameters
-            const generationConfig = {
-                temperature: options?.temperature ?? this.options.temperature,
-                maxOutputTokens: options?.maxTokens ?? this.options.maxTokens,
-                ...(this.options.responseMimeType && {
-                    responseMimeType: this.options.responseMimeType
-                }),
-                ...(this.options.responseSchema && {
-                    responseSchema: this.options.responseSchema
-                })
-            };
-
-            // Generate streaming content
-            const result = await generativeModel.generateContentStream({
-                contents,
-                generationConfig
-            });
-
-            for await (const chunk of result.stream) {
-                yield this.parseStreamingChunk(chunk);
-            }
-        } catch (error) {
-            this.handleApiError(error, 'chatStream');
-        }
-    }
-
-    /**
-     * Convert UniversalMessage[] to Google AI-specific message format
-     * 
-     * @param messages - Array of UniversalMessage to convert
-     * @returns Google AI-formatted messages and system instruction
-     */
-    protected convertMessages(messages: UniversalMessage[]): any[] {
-        // For base class compatibility, just return the messages
-        // Actual processing is done in Google-specific methods
-        return messages as any[];
-    }
-
-    /**
-     * Process messages with Google AI-specific format
-     * 
-     * @param messages - Array of UniversalMessage to process
-     * @param systemMessage - Optional system message
-     * @returns Google AI-formatted messages and system instruction
-     */
-    private processGoogleMessages(messages: UniversalMessage[], systemMessage?: string): { contents: any[], systemInstruction?: string } {
-        return GoogleConversationAdapter.processMessages(messages, systemMessage);
-    }
-
-    /**
-     * Configure tools for Google AI API request
-     * 
-     * Google AI supports function calling with Gemini models.
-     * Transforms function schemas into Google AI tool format.
-     * 
-     * @param tools - Array of function schemas
-     * @returns Google AI tool configuration object or undefined
-     */
-    protected configureTools(tools?: ToolSchema[]): { tools: any[] } | undefined {
-        if (!tools || !Array.isArray(tools)) {
-            return undefined;
-        }
+        });
 
         return {
-            tools: [{
-                functionDeclarations: tools.map(fn => ({
-                    name: fn.name,
-                    description: fn.description || '',
-                    parameters: fn.parameters
-                }))
-            }]
+            contents,
+            systemInstruction: systemMessage?.content || undefined
         };
     }
 
     /**
-     * Parse Google AI response into universal ModelResponse format
-     * 
-     * Extracts content, usage information, and metadata from the Google AI response
-     * and converts it to the standard format used across all providers.
-     * Supports function calling with Gemini models.
-     * 
-     * @param response - Raw response from Google AI API
-     * @returns Parsed model response in universal format
-     * 
-     * @internal
+     * Convert tool schemas to Google format
      */
-    parseResponse(response: any): ModelResponse {
+    private convertToGoogleTools(tools: ToolSchema[]): any[] {
+        return tools.map(tool => ({
+            functionDeclarations: [{
+                name: tool.name,
+                description: tool.description,
+                parameters: tool.parameters
+            }]
+        }));
+    }
+
+    /**
+     * Convert Google response to UniversalMessage
+     */
+    private convertFromGoogleResponse(result: GenerateContentResult): UniversalMessage {
+        const response = result.response;
+        const candidate = response.candidates?.[0];
+
+        if (!candidate) {
+            throw new Error('No candidate in Google AI response');
+        }
+
         let content = '';
         const toolCalls: any[] = [];
 
-        // Extract content and function calls from response
-        const candidate = response.response?.candidates?.[0];
-        if (candidate?.content?.parts) {
-            for (const part of candidate.content.parts) {
-                if (part.text) {
-                    content += part.text;
-                } else if (part.functionCall) {
-                    // Convert Google AI function call to OpenAI format for consistency
-                    toolCalls.push({
-                        id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                        type: 'function' as const,
-                        function: {
-                            name: part.functionCall.name,
-                            arguments: JSON.stringify(part.functionCall.args || {})
-                        }
-                    });
-                }
+        // Process parts from the candidate
+        for (const part of candidate.content?.parts || []) {
+            if (part.text) {
+                content += part.text;
+            } else if (part.functionCall) {
+                toolCalls.push({
+                    id: `call_${Math.random().toString(36).substr(2, 9)}`,
+                    type: 'function' as const,
+                    function: {
+                        name: part.functionCall.name,
+                        arguments: JSON.stringify(part.functionCall.args || {})
+                    }
+                });
             }
         }
 
-        // Extract usage information from response if available
-        const usageMetadata = response.response?.usageMetadata;
-        const usage = usageMetadata ? {
-            promptTokens: usageMetadata.promptTokenCount || 0,
-            completionTokens: usageMetadata.candidatesTokenCount || 0,
-            totalTokens: usageMetadata.totalTokenCount || 0
-        } : {
-            promptTokens: 0,
-            completionTokens: 0,
-            totalTokens: 0
+        return {
+            role: 'assistant',
+            content: content || null,
+            timestamp: new Date(),
+            ...(toolCalls.length > 0 && { toolCalls })
         };
-
-        const result: ModelResponse = {
-            content: content || undefined,
-            usage,
-            metadata: {
-                model: response.response?.model,
-                finishReason: candidate?.finishReason,
-                safetyRatings: candidate?.safetyRatings
-            }
-        };
-
-        // Add tool calls if present
-        if (toolCalls.length > 0) {
-            result.toolCalls = toolCalls;
-        }
-
-        return result;
     }
 
     /**
-     * Parse Google AI streaming response chunk into universal format
-     * 
-     * Converts individual chunks from the streaming response into the standard
-     * StreamingResponseChunk format used across all providers.
-     * 
-     * @param chunk - Raw chunk from Google AI streaming API
-     * @returns Parsed streaming response chunk
-     * 
-     * @internal
+     * Convert Google streaming chunk to UniversalMessage
      */
-    parseStreamingChunk(chunk: any): StreamingResponseChunk {
-        const text = chunk.text() || '';
-
-        // Determine if this is the final chunk
+    private convertFromGoogleChunk(chunk: any): UniversalMessage | null {
         const candidate = chunk.candidates?.[0];
-        const isComplete = candidate?.finishReason !== undefined && candidate.finishReason !== null;
+
+        if (!candidate) {
+            return null;
+        }
+
+        let content = '';
+        const toolCalls: any[] = [];
+
+        // Process parts from the candidate
+        for (const part of candidate.content?.parts || []) {
+            if (part.text) {
+                content += part.text;
+            } else if (part.functionCall) {
+                toolCalls.push({
+                    id: `call_${Math.random().toString(36).substr(2, 9)}`,
+                    type: 'function' as const,
+                    function: {
+                        name: part.functionCall.name,
+                        arguments: JSON.stringify(part.functionCall.args || {})
+                    }
+                });
+            }
+        }
 
         return {
-            content: text,
-            isComplete
+            role: 'assistant',
+            content: content || null,
+            timestamp: new Date(),
+            ...(toolCalls.length > 0 && { toolCalls })
         };
     }
 
     /**
-     * Release resources and close connections
-     * 
-     * Performs cleanup operations when the provider is no longer needed.
-     * Google AI client doesn't require explicit cleanup, so this is a no-op.
-     * 
-     * @returns Promise that resolves when cleanup is complete
+     * Validate UniversalMessage array
      */
-    async close(): Promise<void> {
-        // Google AI client doesn't have explicit close method
-        // This is implemented as no-op for interface compliance
-    }
+    protected override validateMessages(messages: UniversalMessage[]): void {
+        if (!Array.isArray(messages)) {
+            throw new Error('Messages must be an array');
+        }
 
-    /**
-     * Process Google provider response into standardized format
-     * 
-     * Overrides the base implementation to use Google-specific parsing logic.
-     * 
-     * @param response - Raw response from Google chat method
-     * @returns Standardized ProviderExecutionResult
-     */
-    protected processResponse(response: ModelResponse): ProviderExecutionResult {
-        return {
-            content: response.content || '',
-            toolCalls: response.toolCalls,
-            usage: response.usage,
-            finishReason: response.metadata?.finishReason,
-            metadata: response.metadata
-        };
+        if (messages.length === 0) {
+            throw new Error('Messages array cannot be empty');
+        }
+
+        for (const message of messages) {
+            if (!message.role || !['user', 'assistant', 'system', 'tool'].includes(message.role)) {
+                throw new Error(`Invalid message role: ${message.role}`);
+            }
+        }
     }
 } 
