@@ -28,7 +28,7 @@ Description of the task the agent will perform
 
 #### Defined in
 
-[team/src/types.ts:245](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/team/src/types.ts#L245)
+[team/src/types.ts:245](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/types.ts#L245)
 
 ___
 
@@ -40,7 +40,7 @@ Required tools for the task
 
 #### Defined in
 
-[team/src/types.ts:247](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/team/src/types.ts#L247)
+[team/src/types.ts:247](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/types.ts#L247)
 
 ___
 
@@ -52,4 +52,4 @@ Agent configuration overrides
 
 #### Defined in
 
-[team/src/types.ts:249](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/team/src/types.ts#L249)
+[team/src/types.ts:249](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/types.ts#L249)

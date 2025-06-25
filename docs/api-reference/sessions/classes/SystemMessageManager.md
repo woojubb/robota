@@ -58,7 +58,7 @@ SystemMessageManager.setSystemPrompt
 
 #### Defined in
 
-[sessions/src/system-message/system-message-manager-impl.ts:17](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/system-message/system-message-manager-impl.ts#L17)
+[sessions/src/system-message/system-message-manager-impl.ts:17](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/sessions/src/system-message/system-message-manager-impl.ts#L17)
 
 ___
 
@@ -82,7 +82,7 @@ SystemMessageManager.addSystemMessage
 
 #### Defined in
 
-[sessions/src/system-message/system-message-manager-impl.ts:25](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/system-message/system-message-manager-impl.ts#L25)
+[sessions/src/system-message/system-message-manager-impl.ts:25](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/sessions/src/system-message/system-message-manager-impl.ts#L25)
 
 ___
 
@@ -100,7 +100,7 @@ SystemMessageManager.getSystemMessages
 
 #### Defined in
 
-[sessions/src/system-message/system-message-manager-impl.ts:33](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/system-message/system-message-manager-impl.ts#L33)
+[sessions/src/system-message/system-message-manager-impl.ts:33](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/sessions/src/system-message/system-message-manager-impl.ts#L33)
 
 ___
 
@@ -118,7 +118,7 @@ SystemMessageManager.clearSystemMessages
 
 #### Defined in
 
-[sessions/src/system-message/system-message-manager-impl.ts:37](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/system-message/system-message-manager-impl.ts#L37)
+[sessions/src/system-message/system-message-manager-impl.ts:37](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/sessions/src/system-message/system-message-manager-impl.ts#L37)
 
 ___
 
@@ -136,4 +136,4 @@ SystemMessageManager.hasSystemMessages
 
 #### Defined in
 
-[sessions/src/system-message/system-message-manager-impl.ts:41](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/system-message/system-message-manager-impl.ts#L41)
+[sessions/src/system-message/system-message-manager-impl.ts:41](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/sessions/src/system-message/system-message-manager-impl.ts#L41)

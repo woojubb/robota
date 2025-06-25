@@ -68,7 +68,7 @@ Register a tool
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:16](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/tools/registry/tool-registry.ts#L16)
+[packages/agents/src/tools/registry/tool-registry.ts:16](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/tools/registry/tool-registry.ts#L16)
 
 ___
 
@@ -94,7 +94,7 @@ Unregister a tool
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:45](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/tools/registry/tool-registry.ts#L45)
+[packages/agents/src/tools/registry/tool-registry.ts:45](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/tools/registry/tool-registry.ts#L45)
 
 ___
 
@@ -120,7 +120,7 @@ Get tool by name
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:58](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/tools/registry/tool-registry.ts#L58)
+[packages/agents/src/tools/registry/tool-registry.ts:58](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/tools/registry/tool-registry.ts#L58)
 
 ___
 
@@ -140,7 +140,7 @@ Get all registered tools
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:65](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/tools/registry/tool-registry.ts#L65)
+[packages/agents/src/tools/registry/tool-registry.ts:65](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/tools/registry/tool-registry.ts#L65)
 
 ___
 
@@ -160,7 +160,7 @@ Get tool schemas
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:72](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/tools/registry/tool-registry.ts#L72)
+[packages/agents/src/tools/registry/tool-registry.ts:72](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/tools/registry/tool-registry.ts#L72)
 
 ___
 
@@ -186,7 +186,7 @@ Check if tool exists
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:79](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/tools/registry/tool-registry.ts#L79)
+[packages/agents/src/tools/registry/tool-registry.ts:79](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/tools/registry/tool-registry.ts#L79)
 
 ___
 
@@ -206,7 +206,7 @@ Clear all tools
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:86](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/tools/registry/tool-registry.ts#L86)
+[packages/agents/src/tools/registry/tool-registry.ts:86](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/tools/registry/tool-registry.ts#L86)
 
 ___
 
@@ -222,7 +222,7 @@ Get tool names
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:95](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/tools/registry/tool-registry.ts#L95)
+[packages/agents/src/tools/registry/tool-registry.ts:95](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/tools/registry/tool-registry.ts#L95)
 
 ___
 
@@ -244,7 +244,7 @@ Get tools by pattern
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:102](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/tools/registry/tool-registry.ts#L102)
+[packages/agents/src/tools/registry/tool-registry.ts:102](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/tools/registry/tool-registry.ts#L102)
 
 ___
 
@@ -260,4 +260,4 @@ Get tool count
 
 #### Defined in
 
-[packages/agents/src/tools/registry/tool-registry.ts:110](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/tools/registry/tool-registry.ts#L110)
+[packages/agents/src/tools/registry/tool-registry.ts:110](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/tools/registry/tool-registry.ts#L110)

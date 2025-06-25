@@ -1,13 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ExecutionService } from './execution-service';
-import { ConversationHistoryManager } from '../managers/conversation-history-manager';
+import { ConversationHistory } from '../managers/conversation-history-manager';
 import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
-import { Plugins } from '../managers/plugin-manager';
-import { ToolExecutionService } from './tool-execution-service';
 import { BaseAIProvider } from '../abstracts/base-ai-provider';
-import type { Message } from '../interfaces/agent';
-import type { ProviderExecutionResult } from '../interfaces/provider';
+import type { UniversalMessage } from '../managers/conversation-history-manager';
 import type { AgentConfig } from '../interfaces/agent';
 
 // Mock dependencies
@@ -20,39 +17,27 @@ vi.mock('../utils/logger', () => ({
     }))
 }));
 
-vi.mock('./tool-execution-service', () => ({
-    ToolExecutionService: vi.fn().mockImplementation(() => ({
-        createExecutionRequests: vi.fn().mockReturnValue([
-            { toolName: 'testTool', parameters: { param: 'value' }, executionId: 'tool-1' }
-        ]),
-        executeTools: vi.fn().mockResolvedValue({
-            totalExecuted: 1,
-            successful: 1,
-            failed: 0,
-            totalDuration: 100,
-            averageDuration: 100,
-            results: [
-                {
-                    success: true,
-                    toolName: 'testTool',
-                    result: JSON.stringify({ result: 'success' }),
-                    executionId: 'tool-1',
-                    duration: 100
-                }
-            ],
-            errors: []
-        })
-    }))
-}));
+// Create a mock class that extends BaseAIProvider
+class MockAIProvider extends BaseAIProvider {
+    chat = vi.fn().mockResolvedValue({
+        content: 'Mock response',
+        toolCalls: [],
+        usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+        finishReason: 'stop'
+    });
+
+    chatStream = vi.fn();
+    supportsTools = vi.fn().mockReturnValue(true);
+    validateConfig = vi.fn().mockReturnValue(true);
+    dispose = vi.fn();
+}
 
 describe('ExecutionService', () => {
     let executionService: ExecutionService;
-    let conversationHistory: ConversationHistoryManager;
+    let conversationHistory: ConversationHistory;
     let aiProviders: AIProviders;
     let tools: Tools;
-    let plugins: Plugins;
-    let toolExecutionService: ToolExecutionService;
-    let mockProvider: BaseAIProvider;
+    let mockProvider: MockAIProvider;
     let conversationSession: any;
 
     beforeEach(() => {
@@ -72,23 +57,27 @@ describe('ExecutionService', () => {
         // Create mock conversation history
         conversationHistory = {
             getConversationSession: vi.fn().mockReturnValue(conversationSession),
-            createConversationSession: vi.fn(),
-            getStats: vi.fn().mockReturnValue({})
-        } as unknown as ConversationHistoryManager;
-
-        // Create mock AI provider
-        mockProvider = {
-            execute: vi.fn().mockResolvedValue({
-                content: 'Mock response',
-                toolCalls: [],
-                usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
-                finishReason: 'stop'
+            hasConversation: vi.fn(),
+            removeConversation: vi.fn(),
+            clearAll: vi.fn(),
+            getStats: vi.fn().mockReturnValue({
+                totalConversations: 0,
+                conversationIds: [],
+                totalMessages: 0
             })
-        } as unknown as BaseAIProvider;
+        } as unknown as ConversationHistory;
+
+        // Create mock AI provider that extends BaseAIProvider
+        mockProvider = new MockAIProvider();
 
         // Create mock AI providers manager
         aiProviders = {
-            getCurrentProviderInstance: vi.fn().mockReturnValue(mockProvider)
+            getCurrentProviderInstance: vi.fn().mockReturnValue(mockProvider),
+            getCurrentProvider: vi.fn().mockReturnValue('openai'),
+            getProviderInstance: vi.fn().mockReturnValue(mockProvider),
+            switchProvider: vi.fn(),
+            getAvailableProviders: vi.fn().mockReturnValue(['openai']),
+            dispose: vi.fn()
         } as unknown as AIProviders;
 
         // Create mock tools manager
@@ -108,24 +97,22 @@ describe('ExecutionService', () => {
                         }
                     }
                 }
-            ])
+            ]),
+            registerTool: vi.fn(),
+            unregisterTool: vi.fn(),
+            clearTools: vi.fn(),
+            hasTools: vi.fn().mockReturnValue(true),
+            getRegisteredToolNames: vi.fn().mockReturnValue(['testTool']),
+            getToolsForExecution: vi.fn().mockReturnValue([]),
+            filterTools: vi.fn(),
+            dispose: vi.fn()
         } as unknown as Tools;
-
-        // Create mock plugins manager
-        plugins = {
-            callHook: vi.fn().mockResolvedValue(undefined)
-        } as unknown as Plugins;
-
-        // Create mock tool execution service
-        toolExecutionService = new ToolExecutionService(tools);
 
         // Create execution service
         executionService = new ExecutionService(
-            conversationHistory,
             aiProviders,
             tools,
-            plugins,
-            toolExecutionService
+            conversationHistory
         );
     });
 
@@ -136,20 +123,33 @@ describe('ExecutionService', () => {
     describe('execute', () => {
         it('should execute a conversation without tool calls', async () => {
             const input = 'Hello, how are you?';
-            const messages: Message[] = [];
-            const config = { model: 'gpt-4', systemMessage: 'You are a helpful assistant.' };
+            const messages: UniversalMessage[] = [];
+            const config: AgentConfig = {
+                model: 'gpt-4',
+                provider: 'openai',
+                name: 'test-agent',
+                systemMessage: 'You are a helpful assistant.'
+            };
+
+            // Mock conversation session messages with assistant response
+            conversationSession.getMessages = vi.fn()
+                .mockReturnValueOnce([]) // first call (empty)
+                .mockReturnValue([
+                    { role: 'user', content: input, timestamp: new Date() },
+                    { role: 'assistant', content: 'Mock response', timestamp: new Date() }
+                ]);
 
             const result = await executionService.execute(input, messages, config);
 
             expect(result.success).toBe(true);
             expect(result.response).toBe('Mock response');
-            expect(mockProvider.execute).toHaveBeenCalledTimes(1);
+            expect(mockProvider.chat).toHaveBeenCalledTimes(1);
             expect(conversationHistory.getConversationSession).toHaveBeenCalled();
         });
 
         it('should execute a conversation with tool calls', async () => {
             // Mock provider to return tool calls
-            mockProvider.execute = vi.fn()
+            mockProvider.chat = vi.fn()
                 .mockResolvedValueOnce({
                     content: 'I need to use a tool',
                     toolCalls: [
@@ -172,46 +172,128 @@ describe('ExecutionService', () => {
                     finishReason: 'stop'
                 });
 
+            // Mock tool execution service in ExecutionService
+            const mockToolExecutionService = {
+                createExecutionRequests: vi.fn().mockReturnValue([
+                    { toolName: 'testTool', parameters: { param: 'value' }, executionId: 'tool-1' }
+                ]),
+                executeTools: vi.fn().mockResolvedValue({
+                    totalExecuted: 1,
+                    successful: 1,
+                    failed: 0,
+                    totalDuration: 100,
+                    averageDuration: 100,
+                    results: [
+                        {
+                            success: true,
+                            toolName: 'testTool',
+                            result: JSON.stringify({ result: 'success' }),
+                            executionId: 'tool-1',
+                            duration: 100
+                        }
+                    ],
+                    errors: []
+                })
+            };
+
+            // Replace the tool execution service in the execution service
+            (executionService as any).toolExecutionService = mockToolExecutionService;
+
+            // Mock conversation session messages progression
+            conversationSession.getMessages = vi.fn()
+                .mockReturnValueOnce([]) // first call (empty)
+                .mockReturnValueOnce([  // after first AI response
+                    { role: 'user', content: 'Use a tool to do something', timestamp: new Date() },
+                    {
+                        role: 'assistant',
+                        content: 'I need to use a tool',
+                        toolCalls: [
+                            {
+                                id: 'tool-1',
+                                type: 'function',
+                                function: { name: 'testTool', arguments: JSON.stringify({ param: 'value' }) }
+                            }
+                        ],
+                        timestamp: new Date()
+                    }
+                ])
+                .mockReturnValue([  // final messages
+                    { role: 'user', content: 'Use a tool to do something', timestamp: new Date() },
+                    {
+                        role: 'assistant',
+                        content: 'I need to use a tool',
+                        toolCalls: [
+                            {
+                                id: 'tool-1',
+                                type: 'function',
+                                function: { name: 'testTool', arguments: JSON.stringify({ param: 'value' }) }
+                            }
+                        ],
+                        timestamp: new Date()
+                    },
+                    {
+                        role: 'tool',
+                        content: JSON.stringify({ result: 'success' }),
+                        toolCallId: 'tool-1',
+                        name: 'testTool',
+                        timestamp: new Date()
+                    },
+                    {
+                        role: 'assistant',
+                        content: 'Task completed with tool result',
+                        timestamp: new Date()
+                    }
+                ]);
+
             const input = 'Use a tool to do something';
-            const messages: Message[] = [];
-            const config = { model: 'gpt-4' };
+            const messages: UniversalMessage[] = [];
+            const config: AgentConfig = {
+                model: 'gpt-4',
+                provider: 'openai',
+                name: 'test-agent'
+            };
 
             const result = await executionService.execute(input, messages, config);
 
             expect(result.success).toBe(true);
             expect(result.response).toBe('Task completed with tool result');
-            expect(mockProvider.execute).toHaveBeenCalledTimes(2);
-            expect(toolExecutionService.createExecutionRequests).toHaveBeenCalledTimes(1);
-            expect(toolExecutionService.executeTools).toHaveBeenCalledTimes(1);
+            expect(mockProvider.chat).toHaveBeenCalledTimes(2);
+            expect(mockToolExecutionService.createExecutionRequests).toHaveBeenCalledTimes(1);
+            expect(mockToolExecutionService.executeTools).toHaveBeenCalledTimes(1);
 
             // Verify conversation history updates
-            const conversationSession = conversationHistory.getConversationSession();
             expect(conversationSession.addUserMessage).toHaveBeenCalledWith(input, expect.any(Object));
             expect(conversationSession.addAssistantMessage).toHaveBeenCalledTimes(2);
             expect(conversationSession.addToolMessageWithId).toHaveBeenCalledTimes(1);
         });
 
         it('should handle errors during execution', async () => {
-            mockProvider.execute = vi.fn().mockRejectedValue(new Error('Provider error'));
+            mockProvider.chat = vi.fn().mockRejectedValue(new Error('Provider error'));
 
             const input = 'Hello';
-            const messages: Message[] = [];
-            const config = { model: 'gpt-4' };
+            const messages: UniversalMessage[] = [];
+            const config: AgentConfig = {
+                model: 'gpt-4',
+                provider: 'openai',
+                name: 'test-agent'
+            };
 
             await expect(executionService.execute(input, messages, config)).rejects.toThrow('Provider error');
-            expect(plugins.callHook).toHaveBeenCalledWith('onError', expect.any(Error), expect.any(Object));
         });
 
         it('should initialize conversation history with existing messages', async () => {
             const input = 'Hello again';
-            const messages: Message[] = [
-                { role: 'user', content: 'Hello', timestamp: new Date().toISOString() },
-                { role: 'assistant', content: 'Hi there!', timestamp: new Date().toISOString() }
+            const messages: UniversalMessage[] = [
+                { role: 'user', content: 'Hello', timestamp: new Date() },
+                { role: 'assistant', content: 'Hi there!', timestamp: new Date() }
             ];
-            const config = { model: 'gpt-4' };
+            const config: AgentConfig = {
+                model: 'gpt-4',
+                provider: 'openai',
+                name: 'test-agent'
+            };
 
             // Mock empty conversation history
-            const conversationSession = conversationHistory.getConversationSession();
             (conversationSession.getMessageCount as any).mockReturnValue(0);
 
             await executionService.execute(input, messages, config);
@@ -221,121 +303,43 @@ describe('ExecutionService', () => {
             expect(conversationSession.addAssistantMessage).toHaveBeenCalledWith('Hi there!', undefined, undefined);
             expect(conversationSession.addUserMessage).toHaveBeenCalledWith(input, expect.any(Object));
         });
-    });
 
-    describe('도구 실행 결과 처리', () => {
-        it('should prevent duplicate tool results in conversation history', async () => {
-            // 1. 도구 호출이 포함된 응답을 반환하도록 AI 제공자 설정
-            mockProvider.execute = vi.fn()
-                .mockResolvedValueOnce({
-                    content: 'I need to use a tool',
-                    toolCalls: [
-                        {
-                            id: 'tool-1',
-                            type: 'function',
-                            function: {
-                                name: 'testTool',
-                                arguments: JSON.stringify({ param: 'value' })
-                            }
-                        }
-                    ],
-                    usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
-                    finishReason: 'tool_calls'
-                })
-                .mockResolvedValueOnce({
-                    content: 'Task completed with tool result',
-                    toolCalls: [],
-                    usage: { promptTokens: 15, completionTokens: 25, totalTokens: 40 },
-                    finishReason: 'stop'
-                });
-
-            // 2. 기존 대화 메시지에 이미 동일한 도구 결과가 있다고 가정
-            conversationSession.getMessages = vi.fn().mockReturnValue([
-                { role: 'user', content: 'Use a tool', timestamp: new Date() },
-                {
-                    role: 'assistant',
-                    content: 'I need to use a tool',
-                    toolCalls: [
-                        {
-                            id: 'tool-1',
-                            type: 'function',
-                            function: { name: 'testTool', arguments: JSON.stringify({ param: 'value' }) }
-                        }
-                    ],
-                    timestamp: new Date()
-                },
-                // 이미 존재하는 도구 결과 메시지
-                {
-                    role: 'tool',
-                    content: JSON.stringify({ result: 'success' }),
-                    toolCallId: 'tool-1',
-                    timestamp: new Date()
-                }
-            ]);
-
-            // 3. 실행 서비스 실행
-            const input = 'Use a tool again';
-            const messages: Message[] = [];
+        it('should handle messages with system role', async () => {
+            const input = 'Hello';
+            const messages: UniversalMessage[] = [
+                { role: 'system', content: 'You are a helpful assistant', timestamp: new Date() },
+                { role: 'user', content: 'Previous question', timestamp: new Date() }
+            ];
             const config: AgentConfig = {
                 model: 'gpt-4',
                 provider: 'openai',
-                name: 'test'
+                name: 'test-agent'
             };
+
+            // Mock empty conversation history
+            (conversationSession.getMessageCount as any).mockReturnValue(0);
 
             await executionService.execute(input, messages, config);
 
-            // 4. 도구 결과가 중복으로 추가되지 않았는지 확인
-            expect(conversationSession.addToolMessageWithId).not.toHaveBeenCalled();
+            // Verify system message was added
+            expect(conversationSession.addSystemMessage).toHaveBeenCalledWith('You are a helpful assistant', undefined);
+            expect(conversationSession.addUserMessage).toHaveBeenCalledWith('Previous question', undefined);
+            expect(conversationSession.addUserMessage).toHaveBeenCalledWith(input, expect.any(Object));
         });
 
-        it('should add tool results to conversation history when not duplicated', async () => {
-            // 1. 도구 호출이 포함된 응답을 반환하도록 AI 제공자 설정
-            mockProvider.execute = vi.fn()
-                .mockResolvedValueOnce({
-                    content: 'I need to use a tool',
-                    toolCalls: [
-                        {
-                            id: 'tool-2',
-                            type: 'function',
-                            function: {
-                                name: 'testTool',
-                                arguments: JSON.stringify({ param: 'value' })
-                            }
-                        }
-                    ],
-                    usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
-                    finishReason: 'tool_calls'
-                })
-                .mockResolvedValueOnce({
-                    content: 'Task completed with tool result',
-                    toolCalls: [],
-                    usage: { promptTokens: 15, completionTokens: 25, totalTokens: 40 },
-                    finishReason: 'stop'
-                });
+        it('should handle no AI provider available', async () => {
+            // Mock no provider available
+            aiProviders.getCurrentProviderInstance = vi.fn().mockReturnValue(null);
 
-            // 2. 기존 대화 메시지에 해당 도구 결과가 없다고 가정
-            conversationSession.getMessages = vi.fn().mockReturnValue([
-                { role: 'user', content: 'Use a tool', timestamp: new Date() }
-            ]);
-
-            // 3. 실행 서비스 실행
-            const input = 'Use a tool';
-            const messages: Message[] = [];
+            const input = 'Hello';
+            const messages: UniversalMessage[] = [];
             const config: AgentConfig = {
                 model: 'gpt-4',
                 provider: 'openai',
-                name: 'test'
+                name: 'test-agent'
             };
 
-            await executionService.execute(input, messages, config);
-
-            // 4. 도구 결과가 추가되었는지 확인
-            expect(conversationSession.addToolMessageWithId).toHaveBeenCalledWith(
-                expect.any(String),
-                'tool-2',
-                'testTool',
-                expect.any(Object)
-            );
+            await expect(executionService.execute(input, messages, config)).rejects.toThrow('No AI provider available');
         });
     });
 }); 

@@ -32,7 +32,7 @@ Error handling strategy to use
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:15](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L15)
+[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:15](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L15)
 
 ___
 
@@ -44,7 +44,7 @@ Maximum number of retry attempts
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:17](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L17)
+[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:17](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L17)
 
 ___
 
@@ -56,7 +56,7 @@ Initial delay between retries in milliseconds
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:19](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L19)
+[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:19](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L19)
 
 ___
 
@@ -68,7 +68,7 @@ Whether to log errors
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:21](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L21)
+[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:21](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L21)
 
 ___
 
@@ -80,7 +80,7 @@ Circuit breaker failure threshold
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:23](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L23)
+[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:23](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L23)
 
 ___
 
@@ -92,7 +92,7 @@ Circuit breaker timeout in milliseconds
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:25](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L25)
+[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:25](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L25)
 
 ___
 
@@ -119,4 +119,4 @@ Custom error handler function
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:27](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L27)
+[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:27](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L27)

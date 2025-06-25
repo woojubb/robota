@@ -292,13 +292,15 @@ describe('ConversationSession', () => {
 
     describe('Factory functions data integrity', () => {
         it('should create assistant message with null content correctly', () => {
-            const message = createAssistantMessage(null, [
-                {
-                    id: 'call_123',
-                    type: 'function',
-                    function: { name: 'test', arguments: '{}' }
-                }
-            ]);
+            const message = createAssistantMessage(null, {
+                toolCalls: [
+                    {
+                        id: 'call_123',
+                        type: 'function',
+                        function: { name: 'test', arguments: '{}' }
+                    }
+                ]
+            });
 
             expect(message.role).toBe('assistant');
             expect(message.content).toBe(null);
@@ -307,12 +309,11 @@ describe('ConversationSession', () => {
         });
 
         it('should create tool message with all required fields', () => {
-            const message = createToolMessage(
-                '{"result": "success"}',
-                'call_123',
-                'testTool',
-                { success: true }
-            );
+            const message = createToolMessage('{"result": "success"}', {
+                toolCallId: 'call_123',
+                name: 'testTool',
+                metadata: { success: true }
+            });
 
             expect(message.role).toBe('tool');
             expect(message.content).toBe('{"result": "success"}');
@@ -431,28 +432,32 @@ describe('ConversationHistory', () => {
 
             // BEFORE FIX: We were incorrectly storing empty string instead of null
             // This made the AI think no tool call was made, causing it to call the tool again
-            const incorrectAssistantMessage = createAssistantMessage('', [
-                {
-                    id: 'call_calculate_xyz789',
-                    type: 'function',
-                    function: {
-                        name: 'calculate',
-                        arguments: '{"operation":"add","a":5,"b":3}'
+            const incorrectAssistantMessage = createAssistantMessage('', {
+                toolCalls: [
+                    {
+                        id: 'call_calculate_xyz789',
+                        type: 'function',
+                        function: {
+                            name: 'calculate',
+                            arguments: '{"operation":"add","a":5,"b":3}'
+                        }
                     }
-                }
-            ]);
+                ]
+            });
 
             // AFTER FIX: We now correctly store null content
-            const correctAssistantMessage = createAssistantMessage(null, [
-                {
-                    id: 'call_calculate_xyz789',
-                    type: 'function',
-                    function: {
-                        name: 'calculate',
-                        arguments: '{"operation":"add","a":5,"b":3}'
+            const correctAssistantMessage = createAssistantMessage(null, {
+                toolCalls: [
+                    {
+                        id: 'call_calculate_xyz789',
+                        type: 'function',
+                        function: {
+                            name: 'calculate',
+                            arguments: '{"operation":"add","a":5,"b":3}'
+                        }
                     }
-                }
-            ]);
+                ]
+            });
 
             // Both messages have tool calls, but content differs
             expect(incorrectAssistantMessage.content).toBe('');  // This was causing the problem

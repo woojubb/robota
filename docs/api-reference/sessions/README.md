@@ -29,7 +29,6 @@
 - [AgentConfig](interfaces/AgentConfig)
 - [RunOptions](interfaces/RunOptions)
 - [AgentInterface](interfaces/AgentInterface)
-- [Context](interfaces/Context)
 - [TemplateApplicationResult](interfaces/TemplateApplicationResult)
 - [ProviderConfig](interfaces/ProviderConfig)
 - [ProviderManager](interfaces/ProviderManager)
@@ -46,6 +45,10 @@
 
 - [Message](#message)
 - [MessageContent](#messagecontent)
+
+### Variables
+
+- [Context](#context)
 
 ## Type Aliases
 
@@ -67,4 +70,10 @@ ___
 
 #### Defined in
 
-[sessions/src/types/chat.ts:17](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L17)
+[sessions/src/types/chat.ts:17](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/sessions/src/types/chat.ts#L17)
+
+## Variables
+
+### Context
+
+• **Context**: `any`

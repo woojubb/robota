@@ -8,7 +8,10 @@
 
 # Class: ConversationHistory
 
-Instance-based Conversation History for isolated conversation management
+Multi-session conversation history manager
+
+Manages multiple conversation sessions identified by conversation IDs.
+Provides session isolation and resource management.
 
 ## Table of contents
 
@@ -42,7 +45,7 @@ Instance-based Conversation History for isolated conversation management
 
 #### Defined in
 
-agents/dist/index.d.ts:245
+agents/dist/index.d.ts:398
 
 ## Methods
 
@@ -50,21 +53,23 @@ agents/dist/index.d.ts:245
 
 ▸ **getConversationSession**(`conversationId`): [`ConversationSession`](ConversationSession)
 
-Get or create conversation session for a conversation ID
+Get or create a conversation session
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `conversationId` | `string` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `conversationId` | `string` | Unique conversation identifier |
 
 #### Returns
 
 [`ConversationSession`](ConversationSession)
 
+ConversationSession instance
+
 #### Defined in
 
-agents/dist/index.d.ts:249
+agents/dist/index.d.ts:405
 
 ___
 
@@ -72,21 +77,23 @@ ___
 
 ▸ **hasConversation**(`conversationId`): `boolean`
 
-Check if conversation exists
+Check if a conversation exists
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `conversationId` | `string` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `conversationId` | `string` | Conversation identifier to check |
 
 #### Returns
 
 `boolean`
 
+True if conversation exists
+
 #### Defined in
 
-agents/dist/index.d.ts:253
+agents/dist/index.d.ts:412
 
 ___
 
@@ -94,21 +101,23 @@ ___
 
 ▸ **removeConversation**(`conversationId`): `boolean`
 
-Remove conversation session
+Remove a specific conversation
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `conversationId` | `string` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `conversationId` | `string` | Conversation identifier to remove |
 
 #### Returns
 
 `boolean`
 
+True if conversation was removed, false if not found
+
 #### Defined in
 
-agents/dist/index.d.ts:257
+agents/dist/index.d.ts:419
 
 ___
 
@@ -116,7 +125,7 @@ ___
 
 ▸ **clearAll**(): `void`
 
-Clear all conversation sessions
+Clear all conversations
 
 #### Returns
 
@@ -124,7 +133,7 @@ Clear all conversation sessions
 
 #### Defined in
 
-agents/dist/index.d.ts:261
+agents/dist/index.d.ts:423
 
 ___
 
@@ -132,11 +141,13 @@ ___
 
 ▸ **getStats**(): `Object`
 
-Get statistics
+Get conversation statistics
 
 #### Returns
 
 `Object`
+
+Statistics about managed conversations
 
 | Name | Type |
 | :------ | :------ |
@@ -146,4 +157,4 @@ Get statistics
 
 #### Defined in
 
-agents/dist/index.d.ts:265
+agents/dist/index.d.ts:429

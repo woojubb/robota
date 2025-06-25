@@ -8,7 +8,8 @@
 
 # Interface: AIProvider
 
-AI Provider interface
+Provider-agnostic AI Provider interface
+This interface uses only UniversalMessage types and avoids provider-specific types
 
 ## Implemented by
 
@@ -19,162 +20,133 @@ AI Provider interface
 ### Properties
 
 - [name](AIProvider#name)
-- [models](AIProvider#models)
+- [version](AIProvider#version)
 
 ### Methods
 
 - [chat](AIProvider#chat)
 - [chatStream](AIProvider#chatstream)
-- [generateResponse](AIProvider#generateresponse)
-- [generateStreamingResponse](AIProvider#generatestreamingresponse)
-- [supportsModel](AIProvider#supportsmodel)
-- [close](AIProvider#close)
+- [supportsTools](AIProvider#supportstools)
+- [validateConfig](AIProvider#validateconfig)
+- [dispose](AIProvider#dispose)
 
 ## Properties
 
 ### name
 
-• **name**: `string`
+• `Readonly` **name**: `string`
 
-Provider name
+Provider identifier
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:77](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/provider.ts#L77)
+[packages/agents/src/interfaces/provider.ts:51](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/provider.ts#L51)
 
 ___
 
-### models
+### version
 
-• **models**: `string`[]
+• `Readonly` **version**: `string`
 
-Available models
+Provider version
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:80](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/provider.ts#L80)
+[packages/agents/src/interfaces/provider.ts:53](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/provider.ts#L53)
 
 ## Methods
 
 ### chat
 
-▸ **chat**(`model`, `context`, `options?`): `Promise`\<[`ModelResponse`](ModelResponse)\>
+▸ **chat**(`messages`, `options?`): `Promise`\<[`UniversalMessage`](../modules#universalmessage)\>
 
-Generate response from AI model
+Generate response from AI model using UniversalMessage
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `model` | `string` |
-| `context` | [`Context`](Context) |
-| `options?` | `any` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `messages` | [`UniversalMessage`](../modules#universalmessage)[] | Array of UniversalMessage from conversation history |
+| `options?` | [`ChatOptions`](ChatOptions) | Chat options including tools, model settings, etc. |
 
 #### Returns
 
-`Promise`\<[`ModelResponse`](ModelResponse)\>
+`Promise`\<[`UniversalMessage`](../modules#universalmessage)\>
+
+Promise resolving to a UniversalMessage response
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:85](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/provider.ts#L85)
+[packages/agents/src/interfaces/provider.ts:61](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/provider.ts#L61)
 
 ___
 
 ### chatStream
 
-▸ **chatStream**(`model`, `context`, `options?`): `AsyncGenerator`\<[`StreamingResponseChunk`](StreamingResponseChunk), `void`, `unknown`\>
+▸ **chatStream**(`messages`, `options?`): `AsyncIterable`\<[`UniversalMessage`](../modules#universalmessage), `any`, `any`\>
 
-Generate streaming response from AI model
+Generate streaming response from AI model using UniversalMessage
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `model` | `string` |
-| `context` | [`Context`](Context) |
-| `options?` | `any` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `messages` | [`UniversalMessage`](../modules#universalmessage)[] | Array of UniversalMessage from conversation history |
+| `options?` | [`ChatOptions`](ChatOptions) | Chat options including tools, model settings, etc. |
 
 #### Returns
 
-`AsyncGenerator`\<[`StreamingResponseChunk`](StreamingResponseChunk), `void`, `unknown`\>
+`AsyncIterable`\<[`UniversalMessage`](../modules#universalmessage), `any`, `any`\>
+
+AsyncIterable of UniversalMessage chunks
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:90](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/provider.ts#L90)
+[packages/agents/src/interfaces/provider.ts:69](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/provider.ts#L69)
 
 ___
 
-### generateResponse
+### supportsTools
 
-▸ **generateResponse**(`request`): `Promise`\<`any`\>
+▸ **supportsTools**(): `boolean`
 
-Generate response using raw request payload (for ConversationService)
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `request` | `any` |
-
-#### Returns
-
-`Promise`\<`any`\>
-
-#### Defined in
-
-[packages/agents/src/interfaces/provider.ts:95](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/provider.ts#L95)
-
-___
-
-### generateStreamingResponse
-
-▸ **generateStreamingResponse**(`request`): `AsyncGenerator`\<`any`, `void`, `unknown`\>
-
-Generate streaming response using raw request payload (for ConversationService)
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `request` | `any` |
-
-#### Returns
-
-`AsyncGenerator`\<`any`, `void`, `unknown`\>
-
-#### Defined in
-
-[packages/agents/src/interfaces/provider.ts:100](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/provider.ts#L100)
-
-___
-
-### supportsModel
-
-▸ **supportsModel**(`model`): `boolean`
-
-Check if model is supported
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `model` | `string` |
+Check if the provider supports tool calling
 
 #### Returns
 
 `boolean`
 
+true if tool calling is supported
+
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:105](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/provider.ts#L105)
+[packages/agents/src/interfaces/provider.ts:75](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/provider.ts#L75)
 
 ___
 
-### close
+### validateConfig
 
-▸ **close**(): `Promise`\<`void`\>
+▸ **validateConfig**(): `boolean`
 
-Resource cleanup
+Validate provider configuration
+
+#### Returns
+
+`boolean`
+
+true if configuration is valid
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:81](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/provider.ts#L81)
+
+___
+
+### dispose
+
+▸ **dispose**(): `Promise`\<`void`\>
+
+Clean up resources when provider is no longer needed
 
 #### Returns
 
@@ -182,4 +154,4 @@ Resource cleanup
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:110](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/provider.ts#L110)
+[packages/agents/src/interfaces/provider.ts:86](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/provider.ts#L86)

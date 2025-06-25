@@ -32,8 +32,8 @@ export interface AgentCreationStats {
     fromTemplates: number;
     /** Number of custom configured agents */
     customConfigured: number;
-    /** Average creation time in milliseconds */
-    averageCreationTime: number;
+    /** Template vs custom creation ratio (fromTemplates / totalCreated) */
+    templateUsageRatio: number;
 }
 
 /**
@@ -62,7 +62,7 @@ export class AgentFactory {
     private activeAgents: Map<string, AgentInterface>;
     private creationStats: AgentCreationStats;
     private lifecycleEvents: AgentLifecycleEvents;
-    private creationTimes: number[];
+
 
     constructor(options: AgentFactoryOptions = {}, lifecycleEvents: AgentLifecycleEvents = {}) {
         this.agentTemplates = new AgentTemplates();
@@ -80,10 +80,9 @@ export class AgentFactory {
             activeCount: 0,
             fromTemplates: 0,
             customConfigured: 0,
-            averageCreationTime: 0,
+            templateUsageRatio: 0,
         };
         this.lifecycleEvents = lifecycleEvents;
-        this.creationTimes = [];
 
         this.logger.debug('AgentFactory initialized', {
             options: this.options,
@@ -109,10 +108,9 @@ export class AgentFactory {
      */
     async createAgent(
         AgentClass: new (config: AgentConfig) => AgentInterface,
-        config: Partial<AgentConfig>
+        config: Partial<AgentConfig>,
+        fromTemplate: boolean = false
     ): Promise<AgentInterface> {
-        const startTime = Date.now();
-
         try {
             // Check concurrent agent limit
             if (this.activeAgents.size >= this.options.maxConcurrentAgents) {
@@ -150,8 +148,7 @@ export class AgentFactory {
             this.activeAgents.set(agentId, agent);
 
             // Update statistics
-            const creationTime = Date.now() - startTime;
-            this.updateCreationStats(creationTime, false);
+            this.updateCreationStats(fromTemplate);
 
             // Call after create lifecycle event
             if (this.lifecycleEvents.afterCreate) {
@@ -162,7 +159,6 @@ export class AgentFactory {
                 agentId,
                 model: fullConfig.model,
                 provider: fullConfig.provider,
-                creationTime,
             });
 
             return agent;
@@ -201,10 +197,7 @@ export class AgentFactory {
         }
 
         // Create agent with template configuration
-        const agent = await this.createAgent(AgentClass, templateResult.config);
-
-        // Update template usage statistics
-        this.creationStats.fromTemplates++;
+        const agent = await this.createAgent(AgentClass, templateResult.config, true);
 
         this.logger.info('Agent created from template', {
             templateId,
@@ -345,7 +338,7 @@ export class AgentFactory {
     /**
      * Update creation statistics
      */
-    private updateCreationStats(creationTime: number, fromTemplate: boolean): void {
+    private updateCreationStats(fromTemplate: boolean): void {
         this.creationStats.totalCreated++;
         this.creationStats.activeCount++;
 
@@ -355,15 +348,9 @@ export class AgentFactory {
             this.creationStats.customConfigured++;
         }
 
-        // Update average creation time
-        this.creationTimes.push(creationTime);
-
-        // Keep only last 100 creation times for moving average
-        if (this.creationTimes.length > 100) {
-            this.creationTimes.shift();
-        }
-
-        this.creationStats.averageCreationTime =
-            this.creationTimes.reduce((sum, time) => sum + time, 0) / this.creationTimes.length;
+        // Update template usage ratio
+        this.creationStats.templateUsageRatio = this.creationStats.totalCreated > 0
+            ? this.creationStats.fromTemplates / this.creationStats.totalCreated
+            : 0;
     }
 } 

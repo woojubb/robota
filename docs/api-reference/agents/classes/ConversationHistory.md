@@ -8,7 +8,10 @@
 
 # Class: ConversationHistory
 
-Instance-based Conversation History for isolated conversation management
+Multi-session conversation history manager
+
+Manages multiple conversation sessions identified by conversation IDs.
+Provides session isolation and resource management.
 
 ## Table of contents
 
@@ -42,7 +45,7 @@ Instance-based Conversation History for isolated conversation management
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:272](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/managers/conversation-history-manager.ts#L272)
+[packages/agents/src/managers/conversation-history-manager.ts:841](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/managers/conversation-history-manager.ts#L841)
 
 ## Methods
 
@@ -50,21 +53,23 @@ Instance-based Conversation History for isolated conversation management
 
 ▸ **getConversationSession**(`conversationId`): [`ConversationSession`](ConversationSession)
 
-Get or create conversation session for a conversation ID
+Get or create a conversation session
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `conversationId` | `string` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `conversationId` | `string` | Unique conversation identifier |
 
 #### Returns
 
 [`ConversationSession`](ConversationSession)
 
+ConversationSession instance
+
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:286](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/managers/conversation-history-manager.ts#L286)
+[packages/agents/src/managers/conversation-history-manager.ts:853](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/managers/conversation-history-manager.ts#L853)
 
 ___
 
@@ -72,21 +77,23 @@ ___
 
 ▸ **hasConversation**(`conversationId`): `boolean`
 
-Check if conversation exists
+Check if a conversation exists
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `conversationId` | `string` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `conversationId` | `string` | Conversation identifier to check |
 
 #### Returns
 
 `boolean`
 
+True if conversation exists
+
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:307](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/managers/conversation-history-manager.ts#L307)
+[packages/agents/src/managers/conversation-history-manager.ts:878](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/managers/conversation-history-manager.ts#L878)
 
 ___
 
@@ -94,21 +101,23 @@ ___
 
 ▸ **removeConversation**(`conversationId`): `boolean`
 
-Remove conversation session
+Remove a specific conversation
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `conversationId` | `string` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `conversationId` | `string` | Conversation identifier to remove |
 
 #### Returns
 
 `boolean`
 
+True if conversation was removed, false if not found
+
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:314](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/managers/conversation-history-manager.ts#L314)
+[packages/agents/src/managers/conversation-history-manager.ts:888](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/managers/conversation-history-manager.ts#L888)
 
 ___
 
@@ -116,7 +125,7 @@ ___
 
 ▸ **clearAll**(): `void`
 
-Clear all conversation sessions
+Clear all conversations
 
 #### Returns
 
@@ -124,7 +133,7 @@ Clear all conversation sessions
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:325](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/managers/conversation-history-manager.ts#L325)
+[packages/agents/src/managers/conversation-history-manager.ts:899](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/managers/conversation-history-manager.ts#L899)
 
 ___
 
@@ -132,11 +141,13 @@ ___
 
 ▸ **getStats**(): `Object`
 
-Get statistics
+Get conversation statistics
 
 #### Returns
 
 `Object`
+
+Statistics about managed conversations
 
 | Name | Type |
 | :------ | :------ |
@@ -146,4 +157,4 @@ Get statistics
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:333](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/managers/conversation-history-manager.ts#L333)
+[packages/agents/src/managers/conversation-history-manager.ts:910](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/managers/conversation-history-manager.ts#L910)

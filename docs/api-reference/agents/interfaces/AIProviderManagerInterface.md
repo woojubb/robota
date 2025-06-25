@@ -44,7 +44,7 @@ Register an AI provider
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:12](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/manager.ts#L12)
+[packages/agents/src/interfaces/manager.ts:12](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/manager.ts#L12)
 
 ___
 
@@ -66,7 +66,7 @@ Remove an AI provider
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:17](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/manager.ts#L17)
+[packages/agents/src/interfaces/manager.ts:17](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/manager.ts#L17)
 
 ___
 
@@ -88,7 +88,7 @@ Get registered provider by name
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:22](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/manager.ts#L22)
+[packages/agents/src/interfaces/manager.ts:22](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/manager.ts#L22)
 
 ___
 
@@ -104,7 +104,7 @@ Get all registered providers
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:27](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/manager.ts#L27)
+[packages/agents/src/interfaces/manager.ts:27](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/manager.ts#L27)
 
 ___
 
@@ -127,7 +127,7 @@ Set current provider and model
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:32](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/manager.ts#L32)
+[packages/agents/src/interfaces/manager.ts:32](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/manager.ts#L32)
 
 ___
 
@@ -143,7 +143,7 @@ Get current provider and model
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:37](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/manager.ts#L37)
+[packages/agents/src/interfaces/manager.ts:37](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/manager.ts#L37)
 
 ___
 
@@ -159,7 +159,7 @@ Check if provider is configured
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:42](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/manager.ts#L42)
+[packages/agents/src/interfaces/manager.ts:42](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/manager.ts#L42)
 
 ___
 
@@ -181,4 +181,4 @@ Get available models for a provider
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:47](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/manager.ts#L47)
+[packages/agents/src/interfaces/manager.ts:47](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/interfaces/manager.ts#L47)

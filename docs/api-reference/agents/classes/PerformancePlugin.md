@@ -78,7 +78,7 @@ Collects system and application performance data
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/performance-plugin.ts:27](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/performance-plugin.ts#L27)
+[packages/agents/src/plugins/performance/performance-plugin.ts:27](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/performance/performance-plugin.ts#L27)
 
 ## Properties
 
@@ -94,7 +94,7 @@ Plugin name
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/performance-plugin.ts:19](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/performance-plugin.ts#L19)
+[packages/agents/src/plugins/performance/performance-plugin.ts:19](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/performance/performance-plugin.ts#L19)
 
 ___
 
@@ -110,7 +110,7 @@ Plugin version
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/performance-plugin.ts:20](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/performance-plugin.ts#L20)
+[packages/agents/src/plugins/performance/performance-plugin.ts:20](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/performance/performance-plugin.ts#L20)
 
 ## Methods
 
@@ -130,7 +130,7 @@ Initialize the plugin
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:71](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L71)
+[packages/agents/src/abstracts/base-plugin.ts:71](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L71)
 
 ___
 
@@ -150,7 +150,7 @@ Cleanup plugin resources
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:78](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L78)
+[packages/agents/src/abstracts/base-plugin.ts:78](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L78)
 
 ___
 
@@ -170,7 +170,7 @@ Enable the plugin
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:85](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L85)
+[packages/agents/src/abstracts/base-plugin.ts:85](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L85)
 
 ___
 
@@ -190,7 +190,7 @@ Disable the plugin
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:92](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L92)
+[packages/agents/src/abstracts/base-plugin.ts:92](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L92)
 
 ___
 
@@ -210,7 +210,7 @@ Check if plugin is enabled
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:99](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L99)
+[packages/agents/src/abstracts/base-plugin.ts:99](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L99)
 
 ___
 
@@ -230,7 +230,7 @@ Get plugin configuration
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:106](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L106)
+[packages/agents/src/abstracts/base-plugin.ts:106](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L106)
 
 ___
 
@@ -256,7 +256,7 @@ Update plugin configuration
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:113](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L113)
+[packages/agents/src/abstracts/base-plugin.ts:113](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L113)
 
 ___
 
@@ -277,7 +277,7 @@ This method should be implemented by plugins that collect data
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:121](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L121)
+[packages/agents/src/abstracts/base-plugin.ts:121](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L121)
 
 ___
 
@@ -298,7 +298,7 @@ This method should be implemented by plugins that track statistics
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L127)
+[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L127)
 
 ___
 
@@ -319,7 +319,7 @@ This method should be implemented by plugins that store data
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L133)
+[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L133)
 
 ___
 
@@ -346,7 +346,7 @@ Get plugin status - common interface for all plugins
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:138](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L138)
+[packages/agents/src/abstracts/base-plugin.ts:138](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L138)
 
 ___
 
@@ -373,7 +373,7 @@ Called before agent run
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:153](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L153)
+[packages/agents/src/abstracts/base-plugin.ts:153](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L153)
 
 ___
 
@@ -401,7 +401,7 @@ Called after agent run
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:154](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L154)
+[packages/agents/src/abstracts/base-plugin.ts:154](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L154)
 
 ___
 
@@ -428,7 +428,7 @@ Called before tool execution
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:155](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L155)
+[packages/agents/src/abstracts/base-plugin.ts:155](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L155)
 
 ___
 
@@ -456,13 +456,13 @@ Called after tool execution
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:156](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L156)
+[packages/agents/src/abstracts/base-plugin.ts:156](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L156)
 
 ___
 
 ### beforeProviderCall
 
-▸ **beforeProviderCall**(`context`): `Promise`\<`void`\>
+▸ **beforeProviderCall**(`messages`): `Promise`\<`void`\>
 
 Called before AI provider call
 
@@ -470,7 +470,7 @@ Called before AI provider call
 
 | Name | Type |
 | :------ | :------ |
-| `context` | [`Context`](../interfaces/Context) |
+| `messages` | [`UniversalMessage`](../modules#universalmessage)[] |
 
 #### Returns
 
@@ -482,13 +482,13 @@ Called before AI provider call
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:157](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L157)
+[packages/agents/src/abstracts/base-plugin.ts:157](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L157)
 
 ___
 
 ### afterProviderCall
 
-▸ **afterProviderCall**(`context`, `response`): `Promise`\<`void`\>
+▸ **afterProviderCall**(`messages`, `response`): `Promise`\<`void`\>
 
 Called after AI provider call
 
@@ -496,8 +496,8 @@ Called after AI provider call
 
 | Name | Type |
 | :------ | :------ |
-| `context` | [`Context`](../interfaces/Context) |
-| `response` | [`ModelResponse`](../interfaces/ModelResponse) |
+| `messages` | [`UniversalMessage`](../modules#universalmessage)[] |
+| `response` | [`UniversalMessage`](../modules#universalmessage) |
 
 #### Returns
 
@@ -509,7 +509,7 @@ Called after AI provider call
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:158](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L158)
+[packages/agents/src/abstracts/base-plugin.ts:158](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L158)
 
 ___
 
@@ -523,7 +523,7 @@ Called on streaming chunk
 
 | Name | Type |
 | :------ | :------ |
-| `chunk` | [`StreamingResponseChunk`](../interfaces/StreamingResponseChunk) |
+| `chunk` | [`UniversalMessage`](../modules#universalmessage) |
 
 #### Returns
 
@@ -535,7 +535,7 @@ Called on streaming chunk
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:159](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L159)
+[packages/agents/src/abstracts/base-plugin.ts:159](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L159)
 
 ___
 
@@ -562,7 +562,7 @@ Called on error
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:160](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L160)
+[packages/agents/src/abstracts/base-plugin.ts:160](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L160)
 
 ___
 
@@ -588,7 +588,7 @@ Called on message added to history
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:161](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-plugin.ts#L161)
+[packages/agents/src/abstracts/base-plugin.ts:161](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-plugin.ts#L161)
 
 ___
 
@@ -610,7 +610,7 @@ Record performance metrics
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/performance-plugin.ts:67](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/performance-plugin.ts#L67)
+[packages/agents/src/plugins/performance/performance-plugin.ts:67](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/performance/performance-plugin.ts#L67)
 
 ___
 
@@ -635,7 +635,7 @@ Get performance metrics
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/performance-plugin.ts:109](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/performance-plugin.ts#L109)
+[packages/agents/src/plugins/performance/performance-plugin.ts:109](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/performance/performance-plugin.ts#L109)
 
 ___
 
@@ -659,7 +659,7 @@ Get aggregated performance statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/performance-plugin.ts:124](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/performance-plugin.ts#L124)
+[packages/agents/src/plugins/performance/performance-plugin.ts:124](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/performance/performance-plugin.ts#L124)
 
 ___
 
@@ -675,7 +675,7 @@ Clear all performance metrics
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/performance-plugin.ts:138](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/performance-plugin.ts#L138)
+[packages/agents/src/plugins/performance/performance-plugin.ts:138](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/performance/performance-plugin.ts#L138)
 
 ___
 
@@ -691,4 +691,4 @@ Cleanup resources
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/performance-plugin.ts:152](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/performance-plugin.ts#L152)
+[packages/agents/src/plugins/performance/performance-plugin.ts:152](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/performance/performance-plugin.ts#L152)

@@ -56,7 +56,8 @@ async function main() {
                     strategy: 'memory'
                 }),
                 new LoggingPlugin({
-                    level: 'silent',
+                    strategy: 'silent',
+                    level: 'error',
                     enabled: false
                 })
             ],

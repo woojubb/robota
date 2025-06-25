@@ -8,13 +8,8 @@
 
 # Class: BaseAIProvider
 
-Base abstract class for AI providers
-
-## Hierarchy
-
-- [`BaseProvider`](BaseProvider)
-
-  ↳ **`BaseAIProvider`**
+Base AI Provider abstract class that uses UniversalMessage only
+This is the provider-agnostic base class that all providers should extend
 
 ## Implements
 
@@ -28,22 +23,16 @@ Base abstract class for AI providers
 
 ### Properties
 
-- [models](BaseAIProvider#models)
 - [name](BaseAIProvider#name)
+- [version](BaseAIProvider#version)
 
 ### Methods
 
 - [chat](BaseAIProvider#chat)
 - [chatStream](BaseAIProvider#chatstream)
-- [execute](BaseAIProvider#execute)
-- [executeStream](BaseAIProvider#executestream)
-- [generateResponse](BaseAIProvider#generateresponse)
-- [generateStreamingResponse](BaseAIProvider#generatestreamingresponse)
-- [supportsModel](BaseAIProvider#supportsmodel)
-- [close](BaseAIProvider#close)
-- [initialize](BaseAIProvider#initialize)
+- [supportsTools](BaseAIProvider#supportstools)
+- [validateConfig](BaseAIProvider#validateconfig)
 - [dispose](BaseAIProvider#dispose)
-- [isInitialized](BaseAIProvider#isinitialized)
 
 ## Constructors
 
@@ -55,65 +44,58 @@ Base abstract class for AI providers
 
 [`BaseAIProvider`](BaseAIProvider)
 
-#### Inherited from
-
-[BaseProvider](BaseProvider).[constructor](BaseProvider#constructor)
-
 ## Properties
-
-### models
-
-• `Readonly` `Abstract` **models**: `string`[]
-
-Available models
-
-#### Implementation of
-
-[AIProvider](../interfaces/AIProvider).[models](../interfaces/AIProvider#models)
-
-#### Defined in
-
-[packages/agents/src/abstracts/base-ai-provider.ts:37](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-ai-provider.ts#L37)
-
-___
 
 ### name
 
 • `Readonly` `Abstract` **name**: `string`
 
-Provider name
+Provider identifier
 
 #### Implementation of
 
 [AIProvider](../interfaces/AIProvider).[name](../interfaces/AIProvider#name)
 
-#### Inherited from
+#### Defined in
 
-[BaseProvider](BaseProvider).[name](BaseProvider#name)
+[packages/agents/src/abstracts/base-ai-provider.ts:10](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-ai-provider.ts#L10)
+
+___
+
+### version
+
+• `Readonly` `Abstract` **version**: `string`
+
+Provider version
+
+#### Implementation of
+
+[AIProvider](../interfaces/AIProvider).[version](../interfaces/AIProvider#version)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-provider.ts:5](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-provider.ts#L5)
+[packages/agents/src/abstracts/base-ai-provider.ts:11](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-ai-provider.ts#L11)
 
 ## Methods
 
 ### chat
 
-▸ **chat**(`model`, `context`, `options?`): `Promise`\<[`ModelResponse`](../interfaces/ModelResponse)\>
+▸ **chat**(`messages`, `options?`): `Promise`\<[`UniversalMessage`](../modules#universalmessage)\>
 
-Generate response from AI model
+Each provider must implement chat using their own native SDK types internally
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `model` | `string` |
-| `context` | [`Context`](../interfaces/Context) |
-| `options?` | `any` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `messages` | [`UniversalMessage`](../modules#universalmessage)[] | Array of UniversalMessage from conversation history |
+| `options?` | [`ChatOptions`](../interfaces/ChatOptions) | Chat options including tools, model settings, etc. |
 
 #### Returns
 
-`Promise`\<[`ModelResponse`](../interfaces/ModelResponse)\>
+`Promise`\<[`UniversalMessage`](../modules#universalmessage)\>
+
+Promise resolving to a UniversalMessage response
 
 #### Implementation of
 
@@ -121,27 +103,28 @@ Generate response from AI model
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:39](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-ai-provider.ts#L39)
+[packages/agents/src/abstracts/base-ai-provider.ts:19](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-ai-provider.ts#L19)
 
 ___
 
 ### chatStream
 
-▸ **chatStream**(`model`, `context`, `options?`): `AsyncGenerator`\<[`StreamingResponseChunk`](../interfaces/StreamingResponseChunk), `void`, `unknown`\>
+▸ **chatStream**(`messages`, `options?`): `AsyncIterable`\<[`UniversalMessage`](../modules#universalmessage), `any`, `any`\>
 
-Generate streaming response from AI model
+Each provider must implement streaming chat using their own native SDK types internally
 
 #### Parameters
 
-| Name | Type |
-| :------ | :------ |
-| `model` | `string` |
-| `context` | [`Context`](../interfaces/Context) |
-| `options?` | `any` |
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `messages` | [`UniversalMessage`](../modules#universalmessage)[] | Array of UniversalMessage from conversation history |
+| `options?` | [`ChatOptions`](../interfaces/ChatOptions) | Chat options including tools, model settings, etc. |
 
 #### Returns
 
-`AsyncGenerator`\<[`StreamingResponseChunk`](../interfaces/StreamingResponseChunk), `void`, `unknown`\>
+`AsyncIterable`\<[`UniversalMessage`](../modules#universalmessage), `any`, `any`\>
+
+AsyncIterable of UniversalMessage chunks
 
 #### Implementation of
 
@@ -149,181 +132,51 @@ Generate streaming response from AI model
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:41](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-ai-provider.ts#L41)
+[packages/agents/src/abstracts/base-ai-provider.ts:27](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-ai-provider.ts#L27)
 
 ___
 
-### execute
+### supportsTools
 
-▸ **execute**(`messages`, `config`): `Promise`\<[`ProviderExecutionResult`](../interfaces/ProviderExecutionResult)\>
+▸ **supportsTools**(): `boolean`
 
-High-level execute method that handles the entire conversation process
-
-This method encapsulates all provider-specific logic including:
-- Message format conversion
-- Tool configuration
-- Request preparation
-- Response processing
-
-ExecutionService delegates the entire AI interaction to this method.
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `messages` | [`UniversalMessage`](../modules#universalmessage)[] | Array of UniversalMessage from conversation history |
-| `config` | [`ProviderExecutionConfig`](../interfaces/ProviderExecutionConfig) | Execution configuration |
-
-#### Returns
-
-`Promise`\<[`ProviderExecutionResult`](../interfaces/ProviderExecutionResult)\>
-
-Provider execution result
-
-#### Defined in
-
-[packages/agents/src/abstracts/base-ai-provider.ts:58](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-ai-provider.ts#L58)
-
-___
-
-### executeStream
-
-▸ **executeStream**(`messages`, `config`): `AsyncGenerator`\<[`ProviderExecutionResult`](../interfaces/ProviderExecutionResult), `void`, `unknown`\>
-
-High-level streaming execute method
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `messages` | [`UniversalMessage`](../modules#universalmessage)[] | Array of UniversalMessage from conversation history |
-| `config` | [`ProviderExecutionConfig`](../interfaces/ProviderExecutionConfig) | Execution configuration |
-
-#### Returns
-
-`AsyncGenerator`\<[`ProviderExecutionResult`](../interfaces/ProviderExecutionResult), `void`, `unknown`\>
-
-Async generator of streaming results
-
-#### Defined in
-
-[packages/agents/src/abstracts/base-ai-provider.ts:93](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-ai-provider.ts#L93)
-
-___
-
-### generateResponse
-
-▸ **generateResponse**(`request`): `Promise`\<`any`\>
-
-Generate response using raw request payload (default implementation uses chat)
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `request` | `any` |
-
-#### Returns
-
-`Promise`\<`any`\>
-
-#### Implementation of
-
-[AIProvider](../interfaces/AIProvider).[generateResponse](../interfaces/AIProvider#generateresponse)
-
-#### Defined in
-
-[packages/agents/src/abstracts/base-ai-provider.ts:125](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-ai-provider.ts#L125)
-
-___
-
-### generateStreamingResponse
-
-▸ **generateStreamingResponse**(`request`): `AsyncGenerator`\<`any`, `void`, `unknown`\>
-
-Generate streaming response using raw request payload (default implementation uses chatStream)
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `request` | `any` |
-
-#### Returns
-
-`AsyncGenerator`\<`any`, `void`, `unknown`\>
-
-#### Implementation of
-
-[AIProvider](../interfaces/AIProvider).[generateStreamingResponse](../interfaces/AIProvider#generatestreamingresponse)
-
-#### Defined in
-
-[packages/agents/src/abstracts/base-ai-provider.ts:132](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-ai-provider.ts#L132)
-
-___
-
-### supportsModel
-
-▸ **supportsModel**(`model`): `boolean`
-
-Check if model is supported
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `model` | `string` |
+Default implementation - most modern providers support tools
 
 #### Returns
 
 `boolean`
 
-#### Implementation of
-
-[AIProvider](../interfaces/AIProvider).[supportsModel](../interfaces/AIProvider#supportsmodel)
-
-#### Defined in
-
-[packages/agents/src/abstracts/base-ai-provider.ts:140](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-ai-provider.ts#L140)
-
-___
-
-### close
-
-▸ **close**(): `Promise`\<`void`\>
-
-Resource cleanup
-
-#### Returns
-
-`Promise`\<`void`\>
+true if tool calling is supported
 
 #### Implementation of
 
-[AIProvider](../interfaces/AIProvider).[close](../interfaces/AIProvider#close)
+[AIProvider](../interfaces/AIProvider).[supportsTools](../interfaces/AIProvider#supportstools)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:144](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-ai-provider.ts#L144)
+[packages/agents/src/abstracts/base-ai-provider.ts:33](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-ai-provider.ts#L33)
 
 ___
 
-### initialize
+### validateConfig
 
-▸ **initialize**(): `Promise`\<`void`\>
+▸ **validateConfig**(): `boolean`
+
+Default implementation - providers can override for specific validation
 
 #### Returns
 
-`Promise`\<`void`\>
+`boolean`
 
-#### Inherited from
+true if configuration is valid
 
-[BaseProvider](BaseProvider).[initialize](BaseProvider#initialize)
+#### Implementation of
+
+[AIProvider](../interfaces/AIProvider).[validateConfig](../interfaces/AIProvider#validateconfig)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-provider.ts:9](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-provider.ts#L9)
+[packages/agents/src/abstracts/base-ai-provider.ts:41](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-ai-provider.ts#L41)
 
 ___
 
@@ -331,32 +184,16 @@ ___
 
 ▸ **dispose**(): `Promise`\<`void`\>
 
+Default implementation - providers can override for cleanup
+
 #### Returns
 
 `Promise`\<`void`\>
 
-#### Inherited from
+#### Implementation of
 
-[BaseProvider](BaseProvider).[dispose](BaseProvider#dispose)
-
-#### Defined in
-
-[packages/agents/src/abstracts/base-provider.ts:13](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-provider.ts#L13)
-
-___
-
-### isInitialized
-
-▸ **isInitialized**(): `boolean`
-
-#### Returns
-
-`boolean`
-
-#### Inherited from
-
-[BaseProvider](BaseProvider).[isInitialized](BaseProvider#isinitialized)
+[AIProvider](../interfaces/AIProvider).[dispose](../interfaces/AIProvider#dispose)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-provider.ts:17](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-provider.ts#L17)
+[packages/agents/src/abstracts/base-ai-provider.ts:48](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/abstracts/base-ai-provider.ts#L48)

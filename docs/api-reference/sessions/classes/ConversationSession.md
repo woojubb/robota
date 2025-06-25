@@ -8,7 +8,14 @@
 
 # Class: ConversationSession
 
-Conversation Session for a single conversation/session
+Conversation Session for a single conversation/session with enhanced features
+
+Implements ConversationHistoryInterface with additional features like
+duplicate prevention and API format conversion.
+
+## Implements
+
+- `ConversationHistoryInterface`
 
 ## Table of contents
 
@@ -25,6 +32,8 @@ Conversation Session for a single conversation/session
 - [addToolMessage](ConversationSession#addtoolmessage)
 - [addToolMessageWithId](ConversationSession#addtoolmessagewithid)
 - [getMessages](ConversationSession#getmessages)
+- [getMessagesByRole](ConversationSession#getmessagesbyrole)
+- [getRecentMessages](ConversationSession#getrecentmessages)
 - [getMessagesForAPI](ConversationSession#getmessagesforapi)
 - [getMessageCount](ConversationSession#getmessagecount)
 - [clear](ConversationSession#clear)
@@ -47,7 +56,7 @@ Conversation Session for a single conversation/session
 
 #### Defined in
 
-agents/dist/index.d.ts:158
+agents/dist/index.d.ts:302
 
 ## Methods
 
@@ -67,9 +76,13 @@ Add any message to history
 
 `void`
 
+#### Implementation of
+
+ConversationHistoryInterface.addMessage
+
 #### Defined in
 
-agents/dist/index.d.ts:162
+agents/dist/index.d.ts:306
 
 ___
 
@@ -90,9 +103,13 @@ Add user message
 
 `void`
 
+#### Implementation of
+
+ConversationHistoryInterface.addUserMessage
+
 #### Defined in
 
-agents/dist/index.d.ts:166
+agents/dist/index.d.ts:310
 
 ___
 
@@ -114,9 +131,13 @@ Add assistant message with optional tool calls
 
 `void`
 
+#### Implementation of
+
+ConversationHistoryInterface.addAssistantMessage
+
 #### Defined in
 
-agents/dist/index.d.ts:170
+agents/dist/index.d.ts:314
 
 ___
 
@@ -137,9 +158,13 @@ Add system message
 
 `void`
 
+#### Implementation of
+
+ConversationHistoryInterface.addSystemMessage
+
 #### Defined in
 
-agents/dist/index.d.ts:181
+agents/dist/index.d.ts:325
 
 ___
 
@@ -164,7 +189,7 @@ Add tool result message
 
 #### Defined in
 
-agents/dist/index.d.ts:185
+agents/dist/index.d.ts:329
 
 ___
 
@@ -173,7 +198,7 @@ ___
 ▸ **addToolMessageWithId**(`content`, `toolCallId`, `toolName`, `metadata?`): `void`
 
 Add tool execution result message with tool call ID (for tool calling format)
-High-level API matching core package
+High-level API matching core package with duplicate prevention
 
 Throws error if a tool message with the same toolCallId already exists.
 
@@ -190,9 +215,13 @@ Throws error if a tool message with the same toolCallId already exists.
 
 `void`
 
+#### Implementation of
+
+ConversationHistoryInterface.addToolMessageWithId
+
 #### Defined in
 
-agents/dist/index.d.ts:192
+agents/dist/index.d.ts:336
 
 ___
 
@@ -206,9 +235,65 @@ Get all messages in chronological order
 
 `UniversalMessage`[]
 
+#### Implementation of
+
+ConversationHistoryInterface.getMessages
+
 #### Defined in
 
-agents/dist/index.d.ts:196
+agents/dist/index.d.ts:340
+
+___
+
+### getMessagesByRole
+
+▸ **getMessagesByRole**(`role`): `UniversalMessage`[]
+
+Get messages filtered by specific role
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `role` | `UniversalMessageRole` |
+
+#### Returns
+
+`UniversalMessage`[]
+
+#### Implementation of
+
+ConversationHistoryInterface.getMessagesByRole
+
+#### Defined in
+
+agents/dist/index.d.ts:344
+
+___
+
+### getRecentMessages
+
+▸ **getRecentMessages**(`count`): `UniversalMessage`[]
+
+Get the most recent n messages
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `count` | `number` |
+
+#### Returns
+
+`UniversalMessage`[]
+
+#### Implementation of
+
+ConversationHistoryInterface.getRecentMessages
+
+#### Defined in
+
+agents/dist/index.d.ts:348
 
 ___
 
@@ -224,7 +309,7 @@ Get messages formatted for API consumption
 
 #### Defined in
 
-agents/dist/index.d.ts:200
+agents/dist/index.d.ts:352
 
 ___
 
@@ -232,15 +317,19 @@ ___
 
 ▸ **getMessageCount**(): `number`
 
-Get message count
+Get total message count
 
 #### Returns
 
 `number`
 
+#### Implementation of
+
+ConversationHistoryInterface.getMessageCount
+
 #### Defined in
 
-agents/dist/index.d.ts:204
+agents/dist/index.d.ts:356
 
 ___
 
@@ -248,12 +337,16 @@ ___
 
 ▸ **clear**(): `void`
 
-Clear all messages
+Clear all conversation history
 
 #### Returns
 
 `void`
 
+#### Implementation of
+
+ConversationHistoryInterface.clear
+
 #### Defined in
 
-agents/dist/index.d.ts:208
+agents/dist/index.d.ts:360
