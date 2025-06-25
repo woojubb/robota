@@ -150,6 +150,8 @@ export class TeamContainer {
     private delegationHistory: TaskDelegationRecord[] = [];
     private activeAgentsCount: number = 0; // Track currently active agents
     private totalAgentsCreated: number = 0; // Track total agents created
+    private tasksCompleted: number = 0; // Track completed tasks
+    private totalExecutionTime: number = 0; // Track total execution time in ms
 
     constructor(options: TeamContainerOptions) {
         this.options = options;
@@ -212,16 +214,25 @@ export class TeamContainer {
      * @returns Promise<string> - The result of the task execution
      */
     async execute(userPrompt: string): Promise<string> {
+        const startTime = Date.now();
+
         try {
             this.logger?.info(`🚀 Starting team execution`);
 
             const result = await this.teamAgent.run(userPrompt);
 
-            this.logger?.info(`✅ Team execution completed`);
+            const executionTime = Date.now() - startTime;
+            this.tasksCompleted++;
+            this.totalExecutionTime += executionTime;
+
+            this.logger?.info(`✅ Team execution completed in ${executionTime}ms`);
             return result;
 
         } catch (error) {
-            this.logger?.error(`❌ Team execution failed`, error);
+            const executionTime = Date.now() - startTime;
+            this.totalExecutionTime += executionTime;
+
+            this.logger?.error(`❌ Team execution failed after ${executionTime}ms`, error);
             throw error;
         }
     }
@@ -608,6 +619,24 @@ export class TeamContainer {
     /**
      * Get current team statistics
      */
+    /**
+     * Get statistics for team performance (alias for getTeamStats)
+     * 
+     * @description
+     * Returns statistics about team performance including task completion,
+     * agent creation, and execution time. This method is used by examples
+     * to show team performance metrics.
+     * 
+     * @returns Object containing team performance statistics
+     */
+    getStats() {
+        return {
+            tasksCompleted: this.tasksCompleted,
+            totalAgentsCreated: this.totalAgentsCreated,
+            totalExecutionTime: this.totalExecutionTime
+        };
+    }
+
     getTeamStats() {
         return {
             activeAgentsCount: this.activeAgentsCount,
@@ -615,7 +644,9 @@ export class TeamContainer {
             maxMembers: this.options.maxMembers || 'unlimited',
             delegationHistoryLength: this.delegationHistory.length,
             successfulTasks: this.delegationHistory.filter(d => d.success).length,
-            failedTasks: this.delegationHistory.filter(d => !d.success).length
+            failedTasks: this.delegationHistory.filter(d => !d.success).length,
+            tasksCompleted: this.tasksCompleted,
+            totalExecutionTime: this.totalExecutionTime
         };
     }
 
@@ -625,6 +656,8 @@ export class TeamContainer {
     resetTeamStats(): void {
         this.activeAgentsCount = 0;
         this.totalAgentsCreated = 0;
+        this.tasksCompleted = 0;
+        this.totalExecutionTime = 0;
         this.delegationHistory = [];
     }
 
