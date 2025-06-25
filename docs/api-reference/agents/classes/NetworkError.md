@@ -64,7 +64,7 @@ Network/connectivity errors
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:108](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L108)
+[packages/agents/src/utils/errors.ts:108](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/utils/errors.ts#L108)
 
 ## Properties
 
@@ -158,7 +158,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:11](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L11)
+[packages/agents/src/utils/errors.ts:11](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/utils/errors.ts#L11)
 
 ___
 
@@ -172,7 +172,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:104](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L104)
+[packages/agents/src/utils/errors.ts:104](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/utils/errors.ts#L104)
 
 ___
 
@@ -186,7 +186,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:105](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L105)
+[packages/agents/src/utils/errors.ts:105](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/utils/errors.ts#L105)
 
 ___
 
@@ -200,7 +200,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:106](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L106)
+[packages/agents/src/utils/errors.ts:106](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/utils/errors.ts#L106)
 
 ___
 
@@ -210,7 +210,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:110](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L110)
+[packages/agents/src/utils/errors.ts:110](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/utils/errors.ts#L110)
 
 ## Methods
 

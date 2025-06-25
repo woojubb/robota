@@ -157,8 +157,7 @@ async function main() {
         // Create OpenAI client and provider
         const openaiClient = new OpenAI({ apiKey });
         const openaiProvider = new OpenAIProvider({
-            client: openaiClient,
-            model: 'gpt-3.5-turbo'
+            client: openaiClient
         });
 
         // Create Robota instance with tools
@@ -174,8 +173,8 @@ async function main() {
             tools: [calculateTool],
             systemMessage: 'You are a helpful assistant that can perform calculations. When using tools, use the results to provide a complete answer.',
             logging: {
-                level: (process.env.ROBOTA_LOG_LEVEL as any) || 'warn',
-                enabled: process.env.ROBOTA_VERBOSE === 'true'
+                level: 'info', // 자세한 로그를 통해 중복 실행 원인 파악
+                enabled: true
             }
         });
 
@@ -213,6 +212,16 @@ async function main() {
         console.log(`- History length: ${stats.historyLength}`);
         console.log(`- Current provider: ${stats.currentProvider}`);
         console.log(`- Uptime: ${Math.round(stats.uptime)}ms`);
+
+        // Debug: Show conversation history
+        console.log('\n🔍 Final Conversation History:');
+        const history = robota.getHistory();
+        history.forEach((msg, index) => {
+            const content = msg.content?.substring(0, 100) || '';
+            const toolCalls = 'toolCalls' in msg ? (msg as any).toolCalls?.length || 0 : 0;
+            const toolCallId = 'toolCallId' in msg ? (msg as any).toolCallId : '';
+            console.log(`${index + 1}. ${msg.role}: ${content}${toolCalls > 0 ? ` [${toolCalls} tool calls]` : ''}${toolCallId ? ` [toolCallId: ${toolCallId}]` : ''}`);
+        });
 
         console.log('\n✅ Tool Calling Example Completed!');
 

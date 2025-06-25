@@ -79,7 +79,7 @@ BaseAIProvider.constructor
 
 #### Defined in
 
-[google/src/provider.ts:64](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L64)
+[google/src/provider.ts:64](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L64)
 
 ## Properties
 
@@ -95,7 +95,7 @@ BaseAIProvider.name
 
 #### Defined in
 
-[google/src/provider.ts:32](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L32)
+[google/src/provider.ts:32](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L32)
 
 ___
 
@@ -111,7 +111,7 @@ BaseAIProvider.models
 
 #### Defined in
 
-[google/src/provider.ts:38](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L38)
+[google/src/provider.ts:38](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L38)
 
 ___
 
@@ -123,7 +123,7 @@ Provider configuration options
 
 #### Defined in
 
-[google/src/provider.ts:55](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L55)
+[google/src/provider.ts:55](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L55)
 
 ## Methods
 
@@ -141,7 +141,7 @@ BaseAIProvider.initialize
 
 #### Defined in
 
-agents/dist/index.d.ts:848
+agents/dist/index.d.ts:850
 
 ___
 
@@ -159,7 +159,7 @@ BaseAIProvider.dispose
 
 #### Defined in
 
-agents/dist/index.d.ts:849
+agents/dist/index.d.ts:851
 
 ___
 
@@ -177,7 +177,7 @@ BaseAIProvider.isInitialized
 
 #### Defined in
 
-agents/dist/index.d.ts:850
+agents/dist/index.d.ts:852
 
 ___
 
@@ -214,7 +214,7 @@ BaseAIProvider.execute
 
 #### Defined in
 
-agents/dist/index.d.ts:900
+agents/dist/index.d.ts:902
 
 ___
 
@@ -243,7 +243,7 @@ BaseAIProvider.executeStream
 
 #### Defined in
 
-agents/dist/index.d.ts:908
+agents/dist/index.d.ts:910
 
 ___
 
@@ -269,7 +269,7 @@ BaseAIProvider.generateResponse
 
 #### Defined in
 
-agents/dist/index.d.ts:912
+agents/dist/index.d.ts:914
 
 ___
 
@@ -293,7 +293,7 @@ BaseAIProvider.supportsModel
 
 #### Defined in
 
-agents/dist/index.d.ts:917
+agents/dist/index.d.ts:919
 
 ___
 
@@ -335,7 +335,7 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[google/src/provider.ts:97](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L97)
+[google/src/provider.ts:97](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L97)
 
 ___
 
@@ -366,7 +366,7 @@ BaseAIProvider.generateStreamingResponse
 
 #### Defined in
 
-[google/src/provider.ts:158](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L158)
+[google/src/provider.ts:158](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L158)
 
 ___
 
@@ -411,7 +411,7 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[google/src/provider.ts:222](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L222)
+[google/src/provider.ts:222](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L222)
 
 ___
 
@@ -439,7 +439,7 @@ Parsed model response in universal format
 
 #### Defined in
 
-[google/src/provider.ts:336](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L336)
+[google/src/provider.ts:336](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L336)
 
 ___
 
@@ -466,7 +466,7 @@ Parsed streaming response chunk
 
 #### Defined in
 
-[google/src/provider.ts:401](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L401)
+[google/src/provider.ts:401](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L401)
 
 ___
 
@@ -491,4 +491,4 @@ BaseAIProvider.close
 
 #### Defined in
 
-[google/src/provider.ts:422](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/provider.ts#L422)
+[google/src/provider.ts:422](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/provider.ts#L422)

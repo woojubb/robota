@@ -10,23 +10,15 @@
 
 ## Table of contents
 
-### References
-
-- [ConversationSession](#conversationsession)
-- [Context](#context)
-- [AgentInterface](#agentinterface)
-- [AgentConfig](#agentconfig)
-- [Message](#message)
-- [RunOptions](#runoptions)
-- [AgentFactory](#agentfactory)
-- [TemplateApplicationResult](#templateapplicationresult)
-
 ### Enumerations
 
 - [SessionState](enums/SessionState)
 
 ### Classes
 
+- [ConversationSession](classes/ConversationSession)
+- [ConversationHistory](classes/ConversationHistory)
+- [AgentFactory](classes/AgentFactory)
 - [ChatInstance](classes/ChatInstance)
 - [ConversationService](classes/ConversationService)
 - [MultiProviderAdapterManager](classes/MultiProviderAdapterManager)
@@ -34,6 +26,11 @@
 
 ### Interfaces
 
+- [AgentConfig](interfaces/AgentConfig)
+- [RunOptions](interfaces/RunOptions)
+- [AgentInterface](interfaces/AgentInterface)
+- [Context](interfaces/Context)
+- [TemplateApplicationResult](interfaces/TemplateApplicationResult)
 - [ProviderConfig](interfaces/ProviderConfig)
 - [ProviderManager](interfaces/ProviderManager)
 - [ChatMetadata](interfaces/ChatMetadata)
@@ -47,61 +44,22 @@
 
 ### Type Aliases
 
+- [Message](#message)
 - [MessageContent](#messagecontent)
 
-### Variables
-
-- [ConversationHistory](#conversationhistory)
-
-## References
-
-### ConversationSession
-
-Renames and re-exports [ConversationHistory](#conversationhistory)
-
-___
-
-### Context
-
-Renames and re-exports [ConversationHistory](#conversationhistory)
-
-___
-
-### AgentInterface
-
-Renames and re-exports [ConversationHistory](#conversationhistory)
-
-___
-
-### AgentConfig
-
-Renames and re-exports [ConversationHistory](#conversationhistory)
-
-___
+## Type Aliases
 
 ### Message
 
-Renames and re-exports [ConversationHistory](#conversationhistory)
+Ƭ **Message**: `UserMessage$1` \| `AssistantMessage$1` \| `SystemMessage$1` \| `ToolMessage$1`
+
+Universal message type
+
+#### Defined in
+
+agents/dist/index.d.ts:40
 
 ___
-
-### RunOptions
-
-Renames and re-exports [ConversationHistory](#conversationhistory)
-
-___
-
-### AgentFactory
-
-Renames and re-exports [ConversationHistory](#conversationhistory)
-
-___
-
-### TemplateApplicationResult
-
-Renames and re-exports [ConversationHistory](#conversationhistory)
-
-## Type Aliases
 
 ### MessageContent
 
@@ -109,10 +67,4 @@ Renames and re-exports [ConversationHistory](#conversationhistory)
 
 #### Defined in
 
-[types/chat.ts:17](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L17)
-
-## Variables
-
-### ConversationHistory
-
-• **ConversationHistory**: `any`
+[sessions/src/types/chat.ts:17](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L17)

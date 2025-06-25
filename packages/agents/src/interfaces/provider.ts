@@ -1,49 +1,6 @@
-import type { ToolCall } from './agent';
 import type { UniversalMessage } from '../managers/conversation-history-manager';
 
-/**
- * Context for AI provider requests
- */
-export interface Context {
-    messages: UniversalMessage[];
-    systemMessage?: string;
-    temperature?: number;
-    maxTokens?: number;
-    tools?: ToolSchema[];
-    metadata?: Record<string, any>;
-}
 
-/**
- * Response from AI model
- */
-export interface ModelResponse {
-    content?: string;
-    toolCalls?: ToolCall[];
-    usage?: {
-        promptTokens: number;
-        completionTokens: number;
-        totalTokens: number;
-    };
-    metadata?: {
-        model?: string;
-        finishReason?: string;
-        [key: string]: any;
-    };
-}
-
-/**
- * Streaming response chunk
- */
-export interface StreamingResponseChunk {
-    content?: string;
-    toolCall?: Partial<ToolCall>;
-    isComplete?: boolean;
-    usage?: {
-        promptTokens: number;
-        completionTokens: number;
-        totalTokens: number;
-    };
-}
 
 /**
  * Tool schema definition
@@ -70,44 +27,63 @@ export interface ParameterSchema {
 }
 
 /**
- * AI Provider interface
+ * Options for AI provider chat requests
+ */
+export interface ChatOptions {
+    /** Tool schemas to provide to the AI provider */
+    tools?: ToolSchema[];
+    /** Maximum number of tokens to generate */
+    maxTokens?: number;
+    /** Temperature for response randomness (0-1) */
+    temperature?: number;
+    /** Model to use for the request */
+    model?: string;
+    /** Provider-specific options can be added via this index signature */
+    [key: string]: any;
+}
+
+/**
+ * Provider-agnostic AI Provider interface
+ * This interface uses only UniversalMessage types and avoids provider-specific types
  */
 export interface AIProvider {
-    /** Provider name */
-    name: string;
-
-    /** Available models */
-    models: string[];
-
-    /**
-     * Generate response from AI model
-     */
-    chat(model: string, context: Context, options?: any): Promise<ModelResponse>;
+    /** Provider identifier */
+    readonly name: string;
+    /** Provider version */
+    readonly version: string;
 
     /**
-     * Generate streaming response from AI model
+     * Generate response from AI model using UniversalMessage
+     * @param messages - Array of UniversalMessage from conversation history
+     * @param options - Chat options including tools, model settings, etc.
+     * @returns Promise resolving to a UniversalMessage response
      */
-    chatStream?(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown>;
+    chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
 
     /**
-     * Generate response using raw request payload (for ConversationService)
+     * Generate streaming response from AI model using UniversalMessage
+     * @param messages - Array of UniversalMessage from conversation history
+     * @param options - Chat options including tools, model settings, etc.
+     * @returns AsyncIterable of UniversalMessage chunks
      */
-    generateResponse(request: any): Promise<any>;
+    chatStream?(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
 
     /**
-     * Generate streaming response using raw request payload (for ConversationService)
+     * Check if the provider supports tool calling
+     * @returns true if tool calling is supported
      */
-    generateStreamingResponse?(request: any): AsyncGenerator<any, void, unknown>;
+    supportsTools(): boolean;
 
     /**
-     * Check if model is supported
+     * Validate provider configuration
+     * @returns true if configuration is valid
      */
-    supportsModel(model: string): boolean;
+    validateConfig(): boolean;
 
     /**
-     * Resource cleanup
+     * Clean up resources when provider is no longer needed
      */
-    close?(): Promise<void>;
+    dispose?(): Promise<void>;
 }
 
 /**

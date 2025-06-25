@@ -82,9 +82,6 @@ export * from './utils';
  * @public
  */
 export type {
-    Context,
-    ModelResponse,
-    StreamingResponseChunk,
     ToolSchema,
     ProviderOptions
 } from './interfaces/provider';
@@ -109,7 +106,13 @@ export type {
  * 
  * @public
  */
-export type { UniversalMessage } from './managers/conversation-history-manager';
+export type {
+    UniversalMessage,
+    AssistantMessage as UniversalAssistantMessage,
+    UserMessage as UniversalUserMessage,
+    SystemMessage as UniversalSystemMessage,
+    ToolMessage as UniversalToolMessage
+} from './managers/conversation-history-manager';
 
 /**
  * Base AI provider implementation that all AI providers must extend.
@@ -119,13 +122,7 @@ export type { UniversalMessage } from './managers/conversation-history-manager';
  */
 export { BaseAIProvider } from './abstracts/base-ai-provider';
 
-/**
- * Configuration and result types for AI provider execution.
- * Used for standardizing provider interactions and responses.
- * 
- * @public
- */
-export type { ProviderExecutionConfig, ProviderExecutionResult } from './abstracts/base-ai-provider';
+
 
 /**
  * Centralized logger instance with configurable levels and output targets.

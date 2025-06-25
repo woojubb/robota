@@ -1,5 +1,5 @@
 import type { Message, RunOptions } from '../interfaces/agent';
-import type { Context, ModelResponse, StreamingResponseChunk } from '../interfaces/provider';
+import type { UniversalMessage } from '../managers/conversation-history-manager';
 
 /**
  * Plugin lifecycle hooks
@@ -28,17 +28,17 @@ export interface PluginHooks {
     /**
      * Called before AI provider call
      */
-    beforeProviderCall?(context: Context): Promise<void> | void;
+    beforeProviderCall?(messages: UniversalMessage[]): Promise<void> | void;
 
     /**
      * Called after AI provider call
      */
-    afterProviderCall?(context: Context, response: ModelResponse): Promise<void> | void;
+    afterProviderCall?(messages: UniversalMessage[], response: UniversalMessage): Promise<void> | void;
 
     /**
      * Called on streaming chunk
      */
-    onStreamingChunk?(chunk: StreamingResponseChunk): Promise<void> | void;
+    onStreamingChunk?(chunk: UniversalMessage): Promise<void> | void;
 
     /**
      * Called on error
@@ -154,9 +154,9 @@ export abstract class BasePlugin implements PluginHooks {
     async afterRun?(input: string, response: string, options?: RunOptions): Promise<void>;
     async beforeToolCall?(toolName: string, parameters: Record<string, any>): Promise<void>;
     async afterToolCall?(toolName: string, parameters: Record<string, any>, result: any): Promise<void>;
-    async beforeProviderCall?(context: Context): Promise<void>;
-    async afterProviderCall?(context: Context, response: ModelResponse): Promise<void>;
-    async onStreamingChunk?(chunk: StreamingResponseChunk): Promise<void>;
+    async beforeProviderCall?(messages: UniversalMessage[]): Promise<void>;
+    async afterProviderCall?(messages: UniversalMessage[], response: UniversalMessage): Promise<void>;
+    async onStreamingChunk?(chunk: UniversalMessage): Promise<void>;
     async onError?(error: Error, context?: any): Promise<void>;
     async onMessageAdded?(message: Message): Promise<void>;
 } 

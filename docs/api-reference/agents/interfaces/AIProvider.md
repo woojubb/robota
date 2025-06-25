@@ -40,7 +40,7 @@ Provider name
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:77](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/provider.ts#L77)
+[packages/agents/src/interfaces/provider.ts:77](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/provider.ts#L77)
 
 ___
 
@@ -52,7 +52,7 @@ Available models
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:80](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/provider.ts#L80)
+[packages/agents/src/interfaces/provider.ts:80](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/provider.ts#L80)
 
 ## Methods
 
@@ -76,7 +76,7 @@ Generate response from AI model
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:85](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/provider.ts#L85)
+[packages/agents/src/interfaces/provider.ts:85](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/provider.ts#L85)
 
 ___
 
@@ -100,7 +100,7 @@ Generate streaming response from AI model
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:90](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/provider.ts#L90)
+[packages/agents/src/interfaces/provider.ts:90](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/provider.ts#L90)
 
 ___
 
@@ -122,7 +122,7 @@ Generate response using raw request payload (for ConversationService)
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:95](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/provider.ts#L95)
+[packages/agents/src/interfaces/provider.ts:95](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/provider.ts#L95)
 
 ___
 
@@ -144,7 +144,7 @@ Generate streaming response using raw request payload (for ConversationService)
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:100](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/provider.ts#L100)
+[packages/agents/src/interfaces/provider.ts:100](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/provider.ts#L100)
 
 ___
 
@@ -166,7 +166,7 @@ Check if model is supported
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:105](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/provider.ts#L105)
+[packages/agents/src/interfaces/provider.ts:105](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/provider.ts#L105)
 
 ___
 
@@ -182,4 +182,4 @@ Resource cleanup
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:110](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/provider.ts#L110)
+[packages/agents/src/interfaces/provider.ts:110](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/provider.ts#L110)

@@ -81,10 +81,10 @@ export class OpenAIConversationAdapter {
                 return result;
             }
 
-            // Regular assistant message
+            // Regular assistant message (without tool calls)
             return {
                 role: 'assistant',
-                content: assistantMsg.content || ''
+                content: assistantMsg.content || ''  // OpenAI requires string for non-tool messages
             };
         }
 

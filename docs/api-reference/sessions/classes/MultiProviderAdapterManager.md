@@ -58,7 +58,7 @@ IMultiProviderAdapterManager.addProvider
 
 #### Defined in
 
-[provider-adapter/multi-provider-adapter-manager.ts:15](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L15)
+[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:15](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L15)
 
 ___
 
@@ -82,7 +82,7 @@ IMultiProviderAdapterManager.getProvider
 
 #### Defined in
 
-[provider-adapter/multi-provider-adapter-manager.ts:19](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L19)
+[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:19](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L19)
 
 ___
 
@@ -106,7 +106,7 @@ IMultiProviderAdapterManager.setDefaultProvider
 
 #### Defined in
 
-[provider-adapter/multi-provider-adapter-manager.ts:23](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L23)
+[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:23](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L23)
 
 ___
 
@@ -124,4 +124,4 @@ IMultiProviderAdapterManager.getDefaultProvider
 
 #### Defined in
 
-[provider-adapter/multi-provider-adapter-manager.ts:29](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L29)
+[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:29](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L29)

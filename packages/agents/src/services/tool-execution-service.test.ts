@@ -47,6 +47,21 @@ class MockTool implements ToolInterface {
     }
 }
 
+// Mock the Logger - 전역 모킹 방식으로 변경
+vi.mock('../utils/logger', () => {
+    const mockLogger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn()
+    };
+
+    return {
+        Logger: vi.fn().mockImplementation(() => mockLogger),
+        logger: mockLogger
+    };
+});
+
 describe('ToolExecutionService', () => {
     let toolExecutionService: ToolExecutionService;
     let toolManager: Tools;
@@ -394,39 +409,39 @@ describe('ToolExecutionService', () => {
         it('should create execution requests from tool calls', () => {
             const toolCalls = [
                 {
-                    id: 'call_1',
+                    id: 'call-1',
                     type: 'function',
                     function: {
                         name: 'tool1',
-                        arguments: '{"input": "test value"}'
+                        arguments: JSON.stringify({ param1: 'test1', param2: 123 })
                     }
                 },
                 {
-                    id: 'call_2',
+                    id: 'call-2',
                     type: 'function',
                     function: {
                         name: 'tool2',
-                        arguments: '{"value": 42}'
+                        arguments: JSON.stringify({ param1: 'test2' })
                     }
                 }
             ];
 
             const requests = toolExecutionService.createExecutionRequests(toolCalls);
 
-            expect(requests).toHaveLength(2);
+            expect(requests.length).toBe(2);
             expect(requests[0].toolName).toBe('tool1');
-            expect(requests[0].parameters).toEqual({ input: 'test value' });
-            expect(requests[0].executionId).toBe('call_1');
+            expect(requests[0].executionId).toBe('call-1');
+            expect(requests[0].parameters).toEqual({ param1: 'test1', param2: 123 });
 
             expect(requests[1].toolName).toBe('tool2');
-            expect(requests[1].parameters).toEqual({ value: 42 });
-            expect(requests[1].executionId).toBe('call_2');
+            expect(requests[1].executionId).toBe('call-2');
+            expect(requests[1].parameters).toEqual({ param1: 'test2' });
         });
 
         it('should handle malformed tool call arguments', () => {
             const toolCalls = [
                 {
-                    id: 'call_1',
+                    id: 'call-1',
                     type: 'function',
                     function: {
                         name: 'tool1',
@@ -510,6 +525,71 @@ describe('ToolExecutionService', () => {
             });
 
             expect(result.success).toBe(true);
+        });
+    });
+
+    // 새로운 테스트: 도구 실행 요청 생성 테스트
+    describe('tool execution request creation', () => {
+        it('should create execution requests for all tool calls', async () => {
+            // 여러 도구 호출 생성
+            const toolCalls = [
+                {
+                    id: 'call-1',
+                    type: 'function',
+                    function: {
+                        name: 'tool1',
+                        arguments: JSON.stringify({ input: 'test1' })
+                    }
+                },
+                {
+                    id: 'call-2',
+                    type: 'function',
+                    function: {
+                        name: 'tool2',
+                        arguments: JSON.stringify({ value: 42 })
+                    }
+                }
+            ];
+
+            const requests = toolExecutionService.createExecutionRequests(toolCalls);
+
+            // 모든 도구 호출이 요청으로 변환되었는지 확인
+            expect(requests.length).toBe(2);
+            expect(requests[0].executionId).toBe('call-1');
+            expect(requests[0].toolName).toBe('tool1');
+            expect(requests[1].executionId).toBe('call-2');
+            expect(requests[1].toolName).toBe('tool2');
+        });
+
+        it('should handle tool calls with duplicate IDs without filtering', async () => {
+            // 동일한 ID를 가진 여러 도구 호출 생성 (AI가 잘못된 응답을 한 경우 시뮬레이션)
+            const toolCalls = [
+                {
+                    id: 'duplicate-id',
+                    type: 'function',
+                    function: {
+                        name: 'tool1',
+                        arguments: JSON.stringify({ input: 'test1' })
+                    }
+                },
+                {
+                    id: 'duplicate-id', // 의도적으로 동일한 ID 사용
+                    type: 'function',
+                    function: {
+                        name: 'tool1',
+                        arguments: JSON.stringify({ input: 'test2' })
+                    }
+                }
+            ];
+
+            const requests = toolExecutionService.createExecutionRequests(toolCalls);
+
+            // 모든 요청이 생성되어야 함 (중복 제거하지 않음)
+            expect(requests.length).toBe(2);
+            expect(requests[0].executionId).toBe('duplicate-id');
+            expect(requests[1].executionId).toBe('duplicate-id');
+            expect(requests[0].parameters.input).toBe('test1');
+            expect(requests[1].parameters.input).toBe('test2');
         });
     });
 }); 

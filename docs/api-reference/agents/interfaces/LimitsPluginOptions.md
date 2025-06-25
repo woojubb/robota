@@ -34,7 +34,7 @@ Rate limiting strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:15](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/limits-plugin.ts#L15)
+[packages/agents/src/plugins/limits-plugin.ts:15](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/limits-plugin.ts#L15)
 
 ___
 
@@ -46,7 +46,7 @@ Maximum tokens per time window
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:17](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/limits-plugin.ts#L17)
+[packages/agents/src/plugins/limits-plugin.ts:17](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/limits-plugin.ts#L17)
 
 ___
 
@@ -58,7 +58,7 @@ Maximum requests per time window
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:19](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/limits-plugin.ts#L19)
+[packages/agents/src/plugins/limits-plugin.ts:19](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/limits-plugin.ts#L19)
 
 ___
 
@@ -70,7 +70,7 @@ Time window in milliseconds
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:21](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/limits-plugin.ts#L21)
+[packages/agents/src/plugins/limits-plugin.ts:21](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/limits-plugin.ts#L21)
 
 ___
 
@@ -82,7 +82,7 @@ Maximum cost per time window (in USD)
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:23](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/limits-plugin.ts#L23)
+[packages/agents/src/plugins/limits-plugin.ts:23](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/limits-plugin.ts#L23)
 
 ___
 
@@ -94,7 +94,7 @@ Token cost per 1000 tokens (in USD)
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:25](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/limits-plugin.ts#L25)
+[packages/agents/src/plugins/limits-plugin.ts:25](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/limits-plugin.ts#L25)
 
 ___
 
@@ -106,7 +106,7 @@ Bucket refill rate for token bucket strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:27](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/limits-plugin.ts#L27)
+[packages/agents/src/plugins/limits-plugin.ts:27](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/limits-plugin.ts#L27)
 
 ___
 
@@ -118,7 +118,7 @@ Initial bucket size for token bucket strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:29](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/limits-plugin.ts#L29)
+[packages/agents/src/plugins/limits-plugin.ts:29](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/limits-plugin.ts#L29)
 
 ___
 
@@ -145,4 +145,4 @@ Custom cost calculator
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:31](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/limits-plugin.ts#L31)
+[packages/agents/src/plugins/limits-plugin.ts:31](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/limits-plugin.ts#L31)

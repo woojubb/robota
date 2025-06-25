@@ -28,7 +28,7 @@ Context options for conversation preparation
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:89](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/service.ts#L89)
+[packages/agents/src/interfaces/service.ts:89](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/service.ts#L89)
 
 ___
 
@@ -38,7 +38,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:90](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/service.ts#L90)
+[packages/agents/src/interfaces/service.ts:90](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/service.ts#L90)
 
 ___
 
@@ -48,7 +48,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:91](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/service.ts#L91)
+[packages/agents/src/interfaces/service.ts:91](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/service.ts#L91)
 
 ___
 
@@ -58,7 +58,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:92](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/service.ts#L92)
+[packages/agents/src/interfaces/service.ts:92](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/service.ts#L92)
 
 ___
 
@@ -68,4 +68,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:93](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/service.ts#L93)
+[packages/agents/src/interfaces/service.ts:93](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/service.ts#L93)

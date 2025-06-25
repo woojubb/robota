@@ -42,7 +42,7 @@ Extracts streaming logic from the main provider for better modularity.
 
 #### Defined in
 
-[google/src/streaming/stream-handler.ts:12](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/streaming/stream-handler.ts#L12)
+[google/src/streaming/stream-handler.ts:12](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/streaming/stream-handler.ts#L12)
 
 ## Methods
 
@@ -67,7 +67,7 @@ AsyncGenerator yielding streaming response chunks
 
 #### Defined in
 
-[google/src/streaming/stream-handler.ts:23](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/streaming/stream-handler.ts#L23)
+[google/src/streaming/stream-handler.ts:23](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/streaming/stream-handler.ts#L23)
 
 ___
 
@@ -91,4 +91,4 @@ AsyncGenerator yielding streaming response chunks
 
 #### Defined in
 
-[google/src/streaming/stream-handler.ts:50](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/google/src/streaming/stream-handler.ts#L50)
+[google/src/streaming/stream-handler.ts:50](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/google/src/streaming/stream-handler.ts#L50)

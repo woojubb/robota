@@ -28,7 +28,7 @@ Result from provider execution
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:22](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-ai-provider.ts#L22)
+[packages/agents/src/abstracts/base-ai-provider.ts:22](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-ai-provider.ts#L22)
 
 ___
 
@@ -38,7 +38,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:23](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-ai-provider.ts#L23)
+[packages/agents/src/abstracts/base-ai-provider.ts:23](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-ai-provider.ts#L23)
 
 ___
 
@@ -56,7 +56,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:24](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-ai-provider.ts#L24)
+[packages/agents/src/abstracts/base-ai-provider.ts:24](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-ai-provider.ts#L24)
 
 ___
 
@@ -66,7 +66,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:29](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-ai-provider.ts#L29)
+[packages/agents/src/abstracts/base-ai-provider.ts:29](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-ai-provider.ts#L29)
 
 ___
 
@@ -76,4 +76,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:30](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-ai-provider.ts#L30)
+[packages/agents/src/abstracts/base-ai-provider.ts:30](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-ai-provider.ts#L30)

@@ -28,7 +28,7 @@ Log entry structure
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:15](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/logging/types.ts#L15)
+[packages/agents/src/plugins/logging/types.ts:15](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/logging/types.ts#L15)
 
 ___
 
@@ -38,7 +38,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:16](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/logging/types.ts#L16)
+[packages/agents/src/plugins/logging/types.ts:16](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/logging/types.ts#L16)
 
 ___
 
@@ -48,7 +48,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:17](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/logging/types.ts#L17)
+[packages/agents/src/plugins/logging/types.ts:17](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/logging/types.ts#L17)
 
 ___
 
@@ -58,7 +58,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:18](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/logging/types.ts#L18)
+[packages/agents/src/plugins/logging/types.ts:18](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/logging/types.ts#L18)
 
 ___
 
@@ -79,4 +79,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:19](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/logging/types.ts#L19)
+[packages/agents/src/plugins/logging/types.ts:19](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/logging/types.ts#L19)

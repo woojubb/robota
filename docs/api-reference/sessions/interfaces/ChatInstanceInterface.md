@@ -49,7 +49,7 @@
 
 #### Defined in
 
-[types/chat.ts:66](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L66)
+[sessions/src/types/chat.ts:66](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L66)
 
 ___
 
@@ -59,7 +59,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:67](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L67)
+[sessions/src/types/chat.ts:67](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L67)
 
 ___
 
@@ -69,7 +69,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:68](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L68)
+[sessions/src/types/chat.ts:68](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L68)
 
 ___
 
@@ -79,7 +79,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:69](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L69)
+[sessions/src/types/chat.ts:69](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L69)
 
 ## Methods
 
@@ -99,7 +99,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:72](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L72)
+[sessions/src/types/chat.ts:72](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L72)
 
 ___
 
@@ -113,7 +113,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:73](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L73)
+[sessions/src/types/chat.ts:73](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L73)
 
 ___
 
@@ -134,7 +134,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:74](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L74)
+[sessions/src/types/chat.ts:74](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L74)
 
 ___
 
@@ -154,7 +154,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:75](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L75)
+[sessions/src/types/chat.ts:75](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L75)
 
 ___
 
@@ -174,7 +174,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:78](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L78)
+[sessions/src/types/chat.ts:78](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L78)
 
 ___
 
@@ -188,7 +188,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:79](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L79)
+[sessions/src/types/chat.ts:79](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L79)
 
 ___
 
@@ -209,7 +209,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:82](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L82)
+[sessions/src/types/chat.ts:82](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L82)
 
 ___
 
@@ -223,7 +223,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:83](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L83)
+[sessions/src/types/chat.ts:83](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L83)
 
 ___
 
@@ -237,7 +237,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:86](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L86)
+[sessions/src/types/chat.ts:86](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L86)
 
 ___
 
@@ -251,7 +251,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:87](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L87)
+[sessions/src/types/chat.ts:87](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L87)
 
 ___
 
@@ -265,7 +265,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:90](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L90)
+[sessions/src/types/chat.ts:90](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L90)
 
 ___
 
@@ -279,7 +279,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:91](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L91)
+[sessions/src/types/chat.ts:91](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L91)
 
 ___
 
@@ -299,7 +299,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:92](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L92)
+[sessions/src/types/chat.ts:92](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L92)
 
 ___
 
@@ -313,7 +313,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:95](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L95)
+[sessions/src/types/chat.ts:95](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L95)
 
 ___
 
@@ -327,7 +327,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:96](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L96)
+[sessions/src/types/chat.ts:96](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L96)
 
 ___
 
@@ -341,7 +341,7 @@ ___
 
 #### Defined in
 
-[types/chat.ts:99](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L99)
+[sessions/src/types/chat.ts:99](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L99)
 
 ___
 
@@ -361,4 +361,4 @@ ___
 
 #### Defined in
 
-[types/chat.ts:100](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/types/chat.ts#L100)
+[sessions/src/types/chat.ts:100](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/types/chat.ts#L100)

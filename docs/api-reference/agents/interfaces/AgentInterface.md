@@ -45,7 +45,7 @@ Run agent with user input
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:115](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/agent.ts#L115)
+[packages/agents/src/interfaces/agent.ts:115](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/agent.ts#L115)
 
 ___
 
@@ -68,7 +68,7 @@ Run agent with streaming response
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:120](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/agent.ts#L120)
+[packages/agents/src/interfaces/agent.ts:120](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/agent.ts#L120)
 
 ___
 
@@ -84,7 +84,7 @@ Get conversation history
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:125](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/agent.ts#L125)
+[packages/agents/src/interfaces/agent.ts:125](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/agent.ts#L125)
 
 ___
 
@@ -100,4 +100,4 @@ Clear conversation history
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:130](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/interfaces/agent.ts#L130)
+[packages/agents/src/interfaces/agent.ts:130](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/interfaces/agent.ts#L130)

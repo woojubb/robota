@@ -1,7 +1,8 @@
 import { BasePlugin } from '../../abstracts/base-plugin';
 import { Logger } from '../../utils/logger';
 import type { RunOptions } from '../../interfaces/agent';
-import type { Context, ModelResponse } from '../../interfaces/provider';
+import type { UniversalMessage } from '../../managers/conversation-history-manager';
+import { isAssistantMessage } from '../../managers/conversation-history-manager';
 
 /**
  * Execution statistics entry
@@ -160,31 +161,30 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
     /**
      * Called before provider call - start tracking
      */
-    override async beforeProviderCall(context: Context): Promise<void> {
+    override async beforeProviderCall(messages: UniversalMessage[]): Promise<void> {
         const executionId = this.generateExecutionId('provider');
 
         this.activeExecutions.set(executionId, {
             startTime: Date.now(),
             operation: 'provider-call',
-            input: context.messages[0]?.content || 'N/A'
+            input: messages[0]?.content || 'N/A'
         });
 
         this.logger.debug('Started tracking provider call', {
             executionId,
-            provider: context.metadata?.['model'] || 'unknown',
-            inputLength: context.messages[0]?.content?.length || 0
+            inputLength: messages[0]?.content?.length || 0
         });
     }
 
     /**
      * Called after provider call - end tracking
      */
-    override async afterProviderCall(context: Context, response: ModelResponse): Promise<void> {
+    override async afterProviderCall(messages: UniversalMessage[], response: UniversalMessage): Promise<void> {
         // Find the related execution
-        const execution = this.findActiveExecution('provider-call', context.messages[0]?.content || '');
+        const execution = this.findActiveExecution('provider-call', messages[0]?.content || '');
 
         if (!execution) {
-            this.logger.warn('No active execution found for afterProviderCall', { provider: context.metadata?.['model'] || 'unknown' });
+            this.logger.warn('No active execution found for afterProviderCall');
             return;
         }
 
@@ -200,11 +200,10 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
             duration,
             success: true, // Provider call completed
             metadata: {
-                provider: context.metadata?.['model'] || 'unknown',
-                inputLength: context.messages[0]?.content?.length || 0,
+                inputLength: messages[0]?.content?.length || 0,
                 responseLength: response.content?.length || 0,
-                hasToolCalls: !!(response.toolCalls && response.toolCalls.length > 0),
-                toolCallCount: response.toolCalls?.length || 0
+                hasToolCalls: !!(isAssistantMessage(response) && response.toolCalls && response.toolCalls.length > 0),
+                toolCallCount: (isAssistantMessage(response) && response.toolCalls) ? response.toolCalls.length : 0
             }
         };
 
@@ -216,15 +215,13 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
             this.logger.warn('Slow provider call detected', {
                 executionId,
                 duration,
-                threshold: this.options.performanceThreshold,
-                provider: context.metadata?.['model'] || 'unknown'
+                threshold: this.options.performanceThreshold
             });
         }
 
         this.logger.debug('Completed tracking provider call', {
             executionId,
-            duration,
-            provider: context.metadata?.['model'] || 'unknown'
+            duration
         });
     }
 
