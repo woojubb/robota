@@ -36,7 +36,7 @@ Usage tracking strategy to use
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:70](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/usage/types.ts#L70)
+[packages/agents/src/plugins/usage/types.ts:70](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L70)
 
 ___
 
@@ -48,7 +48,7 @@ File path for file strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:72](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/usage/types.ts#L72)
+[packages/agents/src/plugins/usage/types.ts:72](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L72)
 
 ___
 
@@ -60,7 +60,7 @@ Remote endpoint for remote strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:74](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/usage/types.ts#L74)
+[packages/agents/src/plugins/usage/types.ts:74](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L74)
 
 ___
 
@@ -72,7 +72,7 @@ Headers for remote logging
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:76](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/usage/types.ts#L76)
+[packages/agents/src/plugins/usage/types.ts:76](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L76)
 
 ___
 
@@ -84,7 +84,7 @@ Maximum number of usage entries to keep in memory
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:78](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/usage/types.ts#L78)
+[packages/agents/src/plugins/usage/types.ts:78](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L78)
 
 ___
 
@@ -96,7 +96,7 @@ Whether to track token costs
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:80](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/usage/types.ts#L80)
+[packages/agents/src/plugins/usage/types.ts:80](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L80)
 
 ___
 
@@ -108,7 +108,7 @@ Cost per token rates for different models
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:82](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/usage/types.ts#L82)
+[packages/agents/src/plugins/usage/types.ts:82](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L82)
 
 ___
 
@@ -120,7 +120,7 @@ Batch size for remote reporting
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:84](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/usage/types.ts#L84)
+[packages/agents/src/plugins/usage/types.ts:84](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L84)
 
 ___
 
@@ -132,7 +132,7 @@ Flush interval for batched reporting in milliseconds
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:86](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/usage/types.ts#L86)
+[packages/agents/src/plugins/usage/types.ts:86](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L86)
 
 ___
 
@@ -144,7 +144,7 @@ Whether to aggregate statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:88](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/usage/types.ts#L88)
+[packages/agents/src/plugins/usage/types.ts:88](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L88)
 
 ___
 
@@ -156,4 +156,4 @@ Aggregation interval in milliseconds
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:90](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/usage/types.ts#L90)
+[packages/agents/src/plugins/usage/types.ts:90](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L90)

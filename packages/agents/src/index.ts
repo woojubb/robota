@@ -3,8 +3,7 @@
  * 
  * The `@robota-sdk/agents` package provides a complete AI agent framework with support for
  * multiple AI providers, tool calling, plugin systems, and streaming responses. This package
- * replaces and extends the functionality of the legacy `@robota-sdk/core` and `@robota-sdk/tools`
- * packages with a modern, modular architecture.
+ * provides a modern, modular architecture for building powerful AI applications.
  * 
  * ## Key Features
  * 
@@ -107,11 +106,7 @@ export type {
  * @public
  */
 export type {
-    UniversalMessage,
-    AssistantMessage as UniversalAssistantMessage,
-    UserMessage as UniversalUserMessage,
-    SystemMessage as UniversalSystemMessage,
-    ToolMessage as UniversalToolMessage
+    UniversalMessage
 } from './managers/conversation-history-manager';
 
 /**
@@ -229,8 +224,8 @@ export { FunctionTool, createFunctionTool, createZodFunctionTool } from './tools
 
 // ===== CORE TYPE EXPORTS =====
 /**
- * Core type definitions migrated from the legacy `@robota-sdk/core` package.
- * These types maintain compatibility while providing modern TypeScript support.
+ * Core type definitions for agent configuration and templates.
+ * These types provide modern TypeScript support for agent creation.
  * 
  * @public
  */
@@ -240,20 +235,10 @@ export type {
 } from './interfaces/agent';
 
 /**
- * Tool provider types migrated from the legacy `@robota-sdk/tools` package.
- * Maintains compatibility with existing tool implementations.
+ * Tool provider types for function calling integration.
+ * Provides type safety for tool implementations and schema validation.
  * 
  * @public
  */
 export type { ToolSchema as FunctionSchema } from './interfaces/provider';
 
-// ===== LEGACY COMPATIBILITY EXPORTS =====
-/**
- * Legacy compatibility exports for smooth migration from older versions.
- * These aliases ensure existing code continues to work without modification.
- * 
- * @deprecated Use the primary exports instead. These will be removed in a future version.
- * @public
- */
-export { Robota as RobotaCore } from './agents/robota';
-export type { RobotaConfig as RobotaOptions } from './agents/robota'; 

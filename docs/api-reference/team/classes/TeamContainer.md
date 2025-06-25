@@ -98,6 +98,7 @@ console.log(`Average execution time: ${analyticsStats.averageDuration.toFixed(0)
 - [getDelegationHistory](TeamContainer#getdelegationhistory)
 - [getTeamExecutionAnalysis](TeamContainer#getteamexecutionanalysis)
 - [clearDelegationHistory](TeamContainer#cleardelegationhistory)
+- [getStats](TeamContainer#getstats)
 - [getTeamStats](TeamContainer#getteamstats)
 - [resetTeamStats](TeamContainer#resetteamstats)
 - [getTemplates](TeamContainer#gettemplates)
@@ -121,7 +122,7 @@ console.log(`Average execution time: ${analyticsStats.averageDuration.toFixed(0)
 
 #### Defined in
 
-[team/src/team-container.ts:154](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/team-container.ts#L154)
+[team/src/team-container.ts:156](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/team-container.ts#L156)
 
 ## Methods
 
@@ -145,7 +146,7 @@ Promise\<string\> - The result of the task execution
 
 #### Defined in
 
-[team/src/team-container.ts:214](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/team-container.ts#L214)
+[team/src/team-container.ts:216](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/team-container.ts#L216)
 
 ___
 
@@ -183,7 +184,7 @@ When task execution fails
 
 #### Defined in
 
-[team/src/team-container.ts:248](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/team-container.ts#L248)
+[team/src/team-container.ts:259](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/team-container.ts#L259)
 
 ___
 
@@ -199,7 +200,7 @@ Get team analytics from ExecutionAnalyticsPlugin
 
 #### Defined in
 
-[team/src/team-container.ts:462](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/team-container.ts#L462)
+[team/src/team-container.ts:473](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/team-container.ts#L473)
 
 ___
 
@@ -221,7 +222,7 @@ Get execution statistics by operation type
 
 #### Defined in
 
-[team/src/team-container.ts:473](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/team-container.ts#L473)
+[team/src/team-container.ts:484](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/team-container.ts#L484)
 
 ___
 
@@ -237,7 +238,7 @@ Get detailed plugin status and memory usage
 
 #### Defined in
 
-[team/src/team-container.ts:484](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/team-container.ts#L484)
+[team/src/team-container.ts:495](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/team-container.ts#L495)
 
 ___
 
@@ -253,7 +254,7 @@ Clear analytics data
 
 #### Defined in
 
-[team/src/team-container.ts:495](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/team-container.ts#L495)
+[team/src/team-container.ts:506](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/team-container.ts#L506)
 
 ___
 
@@ -269,7 +270,7 @@ Get raw analytics data
 
 #### Defined in
 
-[team/src/team-container.ts:505](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/team-container.ts#L505)
+[team/src/team-container.ts:516](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/team-container.ts#L516)
 
 ___
 
@@ -285,7 +286,7 @@ Get all plugin statuses
 
 #### Defined in
 
-[team/src/team-container.ts:516](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/team-container.ts#L516)
+[team/src/team-container.ts:527](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/team-container.ts#L527)
 
 ___
 
@@ -303,7 +304,7 @@ Returns raw delegation records for detailed analysis
 
 #### Defined in
 
-[team/src/team-container.ts:536](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/team-container.ts#L536)
+[team/src/team-container.ts:547](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/team-container.ts#L547)
 
 ___
 
@@ -322,7 +323,7 @@ including delegation patterns and performance metrics
 
 #### Defined in
 
-[team/src/team-container.ts:546](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/team-container.ts#L546)
+[team/src/team-container.ts:557](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/team-container.ts#L557)
 
 ___
 
@@ -338,15 +339,43 @@ Clear delegation history
 
 #### Defined in
 
-[team/src/team-container.ts:603](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/team-container.ts#L603)
+[team/src/team-container.ts:614](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/team-container.ts#L614)
+
+___
+
+### getStats
+
+▸ **getStats**(): `Object`
+
+Get statistics for team performance (alias for getTeamStats)
+
+#### Returns
+
+`Object`
+
+Object containing team performance statistics
+
+| Name | Type |
+| :------ | :------ |
+| `tasksCompleted` | `number` |
+| `totalAgentsCreated` | `number` |
+| `totalExecutionTime` | `number` |
+
+**`Description`**
+
+Returns statistics about team performance including task completion,
+agent creation, and execution time. This method is used by examples
+to show team performance metrics.
+
+#### Defined in
+
+[team/src/team-container.ts:632](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/team-container.ts#L632)
 
 ___
 
 ### getTeamStats
 
 ▸ **getTeamStats**(): `Object`
-
-Get current team statistics
 
 #### Returns
 
@@ -360,10 +389,12 @@ Get current team statistics
 | `delegationHistoryLength` | `number` |
 | `successfulTasks` | `number` |
 | `failedTasks` | `number` |
+| `tasksCompleted` | `number` |
+| `totalExecutionTime` | `number` |
 
 #### Defined in
 
-[team/src/team-container.ts:611](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/team-container.ts#L611)
+[team/src/team-container.ts:640](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/team-container.ts#L640)
 
 ___
 
@@ -379,7 +410,7 @@ Reset team statistics
 
 #### Defined in
 
-[team/src/team-container.ts:625](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/team-container.ts#L625)
+[team/src/team-container.ts:656](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/team-container.ts#L656)
 
 ___
 
@@ -395,7 +426,7 @@ Get available templates
 
 #### Defined in
 
-[team/src/team-container.ts:634](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/team-container.ts#L634)
+[team/src/team-container.ts:667](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/team-container.ts#L667)
 
 ___
 
@@ -417,4 +448,4 @@ Get template by ID
 
 #### Defined in
 
-[team/src/team-container.ts:641](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/team/src/team-container.ts#L641)
+[team/src/team-container.ts:674](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/team-container.ts#L674)

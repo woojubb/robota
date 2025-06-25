@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { UniversalMessage, UniversalAssistantMessage, ToolSchema } from '@robota-sdk/agents';
+import type { UniversalMessage, ToolSchema } from '@robota-sdk/agents';
 import { BaseAIProvider } from '@robota-sdk/agents';
 import { OpenAIProviderOptions } from './types';
 
@@ -82,8 +82,8 @@ export class OpenAIProvider extends BaseAIProvider {
     }
 
     /**
-       * Generate streaming response using UniversalMessage
-       */
+         * Generate streaming response using UniversalMessage
+         */
     async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
         this.validateMessages(messages);
 
@@ -142,12 +142,11 @@ export class OpenAIProvider extends BaseAIProvider {
                 case 'user':
                     return { role: 'user', content: msg.content };
                 case 'assistant':
-                    const assistantMsg = msg as UniversalAssistantMessage;
                     return {
                         role: 'assistant',
-                        content: assistantMsg.content, // Keep null for tool calls - this is crucial!
-                        ...(assistantMsg.toolCalls && {
-                            tool_calls: assistantMsg.toolCalls.map(tc => ({
+                        content: msg.content, // Keep null for tool calls - this is crucial!
+                        ...((msg as any).toolCalls && {
+                            tool_calls: (msg as any).toolCalls.map((tc: any) => ({
                                 id: tc.id,
                                 type: 'function' as const,
                                 function: {
@@ -184,10 +183,10 @@ export class OpenAIProvider extends BaseAIProvider {
     }
 
     /**
-     * Convert OpenAI response to UniversalMessage
+       * Convert OpenAI response to UniversalMessage
      * 
-     * IMPORTANT: This preserves content: null for tool calls to prevent infinite loops
-     */
+       * IMPORTANT: This preserves content: null for tool calls to prevent infinite loops
+       */
     private convertFromOpenAIResponse(response: OpenAI.Chat.ChatCompletion): UniversalMessage {
         const choice = response.choices[0];
         if (!choice) {
@@ -213,8 +212,8 @@ export class OpenAIProvider extends BaseAIProvider {
     }
 
     /**
-     * Convert OpenAI streaming chunk to UniversalMessage
-     */
+       * Convert OpenAI streaming chunk to UniversalMessage
+       */
     private convertFromOpenAIChunk(chunk: OpenAI.Chat.ChatCompletionChunk): UniversalMessage | null {
         const choice = chunk.choices[0];
         if (!choice) return null;
@@ -239,8 +238,8 @@ export class OpenAIProvider extends BaseAIProvider {
     }
 
     /**
-     * Validate UniversalMessage array
-     */
+       * Validate UniversalMessage array
+       */
     protected override validateMessages(messages: UniversalMessage[]): void {
         if (!Array.isArray(messages)) {
             throw new Error('Messages must be an array');

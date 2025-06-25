@@ -31,7 +31,7 @@ Events to listen for
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:56](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/event-emitter-plugin.ts#L56)
+[packages/agents/src/plugins/event-emitter-plugin.ts:56](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/event-emitter-plugin.ts#L56)
 
 ___
 
@@ -43,7 +43,7 @@ Maximum number of listeners per event type
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:58](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/event-emitter-plugin.ts#L58)
+[packages/agents/src/plugins/event-emitter-plugin.ts:58](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/event-emitter-plugin.ts#L58)
 
 ___
 
@@ -55,7 +55,7 @@ Whether to emit events asynchronously
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:60](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/event-emitter-plugin.ts#L60)
+[packages/agents/src/plugins/event-emitter-plugin.ts:60](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/event-emitter-plugin.ts#L60)
 
 ___
 
@@ -67,7 +67,7 @@ Whether to catch and log listener errors
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:62](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/event-emitter-plugin.ts#L62)
+[packages/agents/src/plugins/event-emitter-plugin.ts:62](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/event-emitter-plugin.ts#L62)
 
 ___
 
@@ -79,7 +79,7 @@ Custom event filters
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:64](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/event-emitter-plugin.ts#L64)
+[packages/agents/src/plugins/event-emitter-plugin.ts:64](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/event-emitter-plugin.ts#L64)
 
 ___
 
@@ -99,4 +99,4 @@ Event buffering options
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:66](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/agents/src/plugins/event-emitter-plugin.ts#L66)
+[packages/agents/src/plugins/event-emitter-plugin.ts:66](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/event-emitter-plugin.ts#L66)

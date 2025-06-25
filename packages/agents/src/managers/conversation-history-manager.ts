@@ -469,9 +469,9 @@ export abstract class BaseConversationHistory implements ConversationHistoryInte
     }
 
     /**
-     * Apply message limit by removing oldest messages while preserving system messages
-     * @internal
-     */
+         * Apply message limit by removing oldest messages while preserving system messages
+         * @internal
+         */
     protected applyMessageLimit(messages: UniversalMessage[]): UniversalMessage[] {
         if (this.maxMessages > 0 && messages.length > this.maxMessages) {
             // Separate system messages from other messages

@@ -38,7 +38,7 @@
 
 #### Defined in
 
-[sessions/src/interfaces/ai-provider.ts:12](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/sessions/src/interfaces/ai-provider.ts#L12)
+[sessions/src/interfaces/ai-provider.ts:11](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/sessions/src/interfaces/ai-provider.ts#L11)
 
 ___
 
@@ -58,7 +58,7 @@ ___
 
 #### Defined in
 
-[sessions/src/interfaces/ai-provider.ts:13](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/sessions/src/interfaces/ai-provider.ts#L13)
+[sessions/src/interfaces/ai-provider.ts:12](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/sessions/src/interfaces/ai-provider.ts#L12)
 
 ___
 
@@ -78,7 +78,7 @@ ___
 
 #### Defined in
 
-[sessions/src/interfaces/ai-provider.ts:14](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/sessions/src/interfaces/ai-provider.ts#L14)
+[sessions/src/interfaces/ai-provider.ts:13](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/sessions/src/interfaces/ai-provider.ts#L13)
 
 ___
 
@@ -92,7 +92,7 @@ ___
 
 #### Defined in
 
-[sessions/src/interfaces/ai-provider.ts:15](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/sessions/src/interfaces/ai-provider.ts#L15)
+[sessions/src/interfaces/ai-provider.ts:14](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/sessions/src/interfaces/ai-provider.ts#L14)
 
 ___
 
@@ -112,7 +112,7 @@ ___
 
 #### Defined in
 
-[sessions/src/interfaces/ai-provider.ts:16](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/sessions/src/interfaces/ai-provider.ts#L16)
+[sessions/src/interfaces/ai-provider.ts:15](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/sessions/src/interfaces/ai-provider.ts#L15)
 
 ___
 
@@ -126,4 +126,4 @@ ___
 
 #### Defined in
 
-[sessions/src/interfaces/ai-provider.ts:17](https://github.com/woojubb/robota/blob/bdf92966fb2bc9eb8d5a633591fffc1261e7f0f5/packages/sessions/src/interfaces/ai-provider.ts#L17)
+[sessions/src/interfaces/ai-provider.ts:16](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/sessions/src/interfaces/ai-provider.ts#L16)

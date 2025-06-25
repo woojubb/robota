@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { StreamingResponseChunk, logger } from '@robota-sdk/agents';
+import { UniversalMessage, logger } from '@robota-sdk/agents';
 
 /**
  * OpenAI streaming response handler
@@ -17,9 +17,9 @@ export class OpenAIStreamHandler {
      * Handle streaming response for OpenAI chat completions
      * 
      * @param requestParams - OpenAI API request parameters
-     * @returns AsyncGenerator yielding streaming response chunks
+     * @returns AsyncGenerator yielding universal messages
      */
-    async *handleStream(requestParams: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
+    async *handleStream(requestParams: any): AsyncGenerator<UniversalMessage, void, unknown> {
         try {
             // Log payload for debugging if logger is available
             if (this.payloadLogger?.isEnabled()) {
@@ -47,7 +47,7 @@ export class OpenAIStreamHandler {
      * Generate streaming response using raw request payload (for agents package compatibility)
      * 
      * @param request - Raw request payload from ConversationService
-     * @returns AsyncGenerator yielding streaming response chunks
+     * @returns AsyncGenerator yielding universal messages
      */
     async *generateStreamingResponse(request: any): AsyncGenerator<any, void, unknown> {
         try {
@@ -85,9 +85,9 @@ export class OpenAIStreamHandler {
      * Parse individual streaming chunk from OpenAI
      * 
      * @param chunk - Raw streaming chunk from OpenAI API
-     * @returns Parsed streaming response chunk or null if no content
+     * @returns Parsed universal message or null if no content
      */
-    private parseStreamingChunk(chunk: OpenAI.Chat.ChatCompletionChunk): StreamingResponseChunk | null {
+    private parseStreamingChunk(chunk: OpenAI.Chat.ChatCompletionChunk): UniversalMessage | null {
         try {
             const choice = chunk.choices?.[0];
             if (!choice) {
@@ -102,16 +102,21 @@ export class OpenAIStreamHandler {
                 const toolCall = delta.tool_calls[0];
                 if (toolCall && toolCall.function) {
                     return {
+                        role: 'assistant',
                         content: '',
-                        toolCall: {
+                        timestamp: new Date(),
+                        toolCalls: [{
                             id: toolCall.id || '',
                             type: 'function' as const,
                             function: {
                                 name: toolCall.function?.name || '',
                                 arguments: toolCall.function?.arguments || ''
                             }
-                        },
-                        isComplete: finishReason === 'stop' || finishReason === 'tool_calls'
+                        }],
+                        metadata: {
+                            isStreamChunk: true,
+                            isComplete: finishReason === 'stop' || finishReason === 'tool_calls'
+                        }
                     };
                 }
             }
@@ -120,8 +125,13 @@ export class OpenAIStreamHandler {
             const content = delta.content || '';
 
             return {
+                role: 'assistant',
                 content,
-                isComplete: finishReason === 'stop' || finishReason === 'tool_calls'
+                timestamp: new Date(),
+                metadata: {
+                    isStreamChunk: true,
+                    isComplete: finishReason === 'stop' || finishReason === 'tool_calls'
+                }
             };
         } catch (error) {
             logger.error('Error parsing OpenAI streaming chunk:', error as Record<string, any>);

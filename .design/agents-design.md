@@ -29,14 +29,49 @@
 
 ### 📦 호환성 보장
 - **@robota-sdk/sessions**: 기본 구조 마이그레이션 완료, ConversationHistory 통합
-- **@robota-sdk/team**: agents 표준 완전 마이그레이션 완료  
+- **@robota-sdk/team**: agents 표준 완전 마이그레이션 완료
 - **@robota-sdk/openai**: agents 표준 완전 마이그레이션 완료
 - **@robota-sdk/anthropic**: agents 표준 완전 마이그레이션 완료
 - **@robota-sdk/google**: agents 표준 완전 마이그레이션 완료
 
 ## 📋 남은 개발 작업
 
-### Phase 8: 최종 마무리 작업
+### Phase 8: 레거시 코드 제거 및 클린업
+- [ ] **레거시 타입 제거**
+  - [x] agents 패키지에서 ModelResponse, StreamingResponseChunk 미존재 확인
+  - [x] OpenAI parser에서 ModelResponse 제거하고 UniversalMessage 사용
+  - [x] OpenAI stream handler에서 StreamingResponseChunk 제거하고 UniversalMessage 사용
+  - [x] Anthropic parser에서 ModelResponse 제거하고 UniversalMessage 사용
+  - [x] sessions 패키지에서 레거시 타입 export 제거
+  - [x] Context 관련 레거시 타입 검토 및 정리
+  - [x] UniversalMessage 타입 통일 (불필요한 UniversalAssistantMessage 등 별칭 제거)
+
+- [x] **레거시 export 및 호환성 코드 제거**
+  - [x] agents/index.ts의 LEGACY COMPATIBILITY EXPORTS 섹션 제거
+  - [x] RobotaCore alias 제거 (Robota로 통일)
+  - [x] 예제의 RobotaCore import 수정 (06-payload-logging.ts)
+  - [x] 사용하지 않는 team-container-working.ts 파일 삭제
+
+- [ ] **TODO 및 placeholder 구현 완성**
+  - [ ] execution-service.ts의 "TODO: Implement proper streaming" 해결
+  - [ ] openapi-tool.ts의 placeholder 구현 완성 또는 제거
+  - [ ] mcp-tool.ts의 placeholder 구현 완성 또는 제거
+  - [ ] 각종 storage의 placeholder 구현 검토
+
+- [ ] **deprecated 메서드 제거**
+  - [ ] ai-provider-manager.ts의 getAvailableModels() deprecated 메서드 제거
+  - [ ] 기타 @deprecated 태그가 있는 메서드들 검토 및 제거
+
+- [ ] **legacy 주석 및 문서 정리**
+  - [ ] "legacy", "migrated from" 등의 주석 제거
+  - [ ] 코드 내 마이그레이션 관련 주석 정리
+  - [ ] OpenAI provider의 "no ModelResponse" 주석 정리
+
+- [ ] **team-container-working.ts 정리**
+  - [ ] 사용하지 않는 team-container-working.ts 파일 제거
+  - [ ] RobotaCore import 정리
+
+### Phase 9: 최종 마무리 작업
 - [ ] **스트리밍 예제 및 테스트**
   - [ ] 기본 스트리밍 예제 작성
   - [ ] 도구 호출과 스트리밍 조합 테스트
