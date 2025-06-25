@@ -112,4 +112,4 @@ console.log(`Created ${stats.totalAgentsCreated} specialized agents`);
 
 #### Defined in
 
-[team/src/create-team.ts:76](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/team/src/create-team.ts#L76)
+[team/src/create-team.ts:76](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/team/src/create-team.ts#L76)

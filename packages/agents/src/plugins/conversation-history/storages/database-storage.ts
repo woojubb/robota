@@ -1,5 +1,5 @@
 import { HistoryStorage, ConversationHistoryEntry } from '../types';
-import { Logger } from '../../../utils/logger';
+import { Logger, createLogger } from '../../../utils/logger';
 import { StorageError } from '../../../utils/errors';
 
 /**
@@ -11,7 +11,7 @@ export class DatabaseHistoryStorage implements HistoryStorage {
 
     constructor(connectionString: string) {
         this.connectionString = connectionString;
-        this.logger = new Logger('DatabaseHistoryStorage');
+        this.logger = createLogger('DatabaseHistoryStorage');
     }
 
     async save(conversationId: string, entry: ConversationHistoryEntry): Promise<void> {

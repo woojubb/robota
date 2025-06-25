@@ -1,6 +1,6 @@
 import { LogEntry, LogStorage, LogFormatter } from '../types';
 import { JsonLogFormatter } from '../formatters';
-import { Logger } from '../../../utils/logger';
+import { Logger, createLogger } from '../../../utils/logger';
 import { PluginError } from '../../../utils/errors';
 
 /**
@@ -14,7 +14,7 @@ export class FileLogStorage implements LogStorage {
     constructor(filePath: string, formatter?: LogFormatter) {
         this.filePath = filePath;
         this.formatter = formatter || new JsonLogFormatter();
-        this.logger = new Logger('FileLogStorage');
+        this.logger = createLogger('FileLogStorage');
     }
 
     async write(entry: LogEntry): Promise<void> {

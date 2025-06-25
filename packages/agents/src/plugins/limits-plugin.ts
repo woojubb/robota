@@ -1,5 +1,5 @@
 import { BasePlugin } from '../abstracts/base-plugin';
-import { Logger } from '../utils/logger';
+import { Logger, createLogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 
 /**
@@ -68,7 +68,7 @@ export class LimitsPlugin extends BasePlugin {
 
     constructor(options: LimitsPluginOptions) {
         super();
-        this.logger = new Logger('LimitsPlugin');
+        this.logger = createLogger('LimitsPlugin');
 
         // Set defaults
         this.options = {

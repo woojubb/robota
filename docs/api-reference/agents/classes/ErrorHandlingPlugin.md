@@ -77,7 +77,7 @@ Provides error recovery, retry mechanisms, and circuit breaker patterns
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:44](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L44)
+[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:44](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L44)
 
 ## Properties
 
@@ -93,7 +93,7 @@ Plugin name
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:35](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L35)
+[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:35](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L35)
 
 ___
 
@@ -109,7 +109,7 @@ Plugin version
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:36](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L36)
+[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:36](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L36)
 
 ## Methods
 
@@ -129,7 +129,7 @@ Initialize the plugin
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:71](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L71)
+[packages/agents/src/abstracts/base-plugin.ts:71](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L71)
 
 ___
 
@@ -149,7 +149,7 @@ Cleanup plugin resources
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:78](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L78)
+[packages/agents/src/abstracts/base-plugin.ts:78](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L78)
 
 ___
 
@@ -169,7 +169,7 @@ Enable the plugin
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:85](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L85)
+[packages/agents/src/abstracts/base-plugin.ts:85](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L85)
 
 ___
 
@@ -189,7 +189,7 @@ Disable the plugin
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:92](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L92)
+[packages/agents/src/abstracts/base-plugin.ts:92](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L92)
 
 ___
 
@@ -209,7 +209,7 @@ Check if plugin is enabled
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:99](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L99)
+[packages/agents/src/abstracts/base-plugin.ts:99](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L99)
 
 ___
 
@@ -229,7 +229,7 @@ Get plugin configuration
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:106](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L106)
+[packages/agents/src/abstracts/base-plugin.ts:106](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L106)
 
 ___
 
@@ -255,7 +255,7 @@ Update plugin configuration
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:113](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L113)
+[packages/agents/src/abstracts/base-plugin.ts:113](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L113)
 
 ___
 
@@ -276,7 +276,7 @@ This method should be implemented by plugins that collect data
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:121](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L121)
+[packages/agents/src/abstracts/base-plugin.ts:121](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L121)
 
 ___
 
@@ -297,7 +297,7 @@ This method should be implemented by plugins that store data
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L133)
+[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L133)
 
 ___
 
@@ -324,7 +324,7 @@ Get plugin status - common interface for all plugins
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:138](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L138)
+[packages/agents/src/abstracts/base-plugin.ts:138](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L138)
 
 ___
 
@@ -351,7 +351,7 @@ Called before agent run
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:153](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L153)
+[packages/agents/src/abstracts/base-plugin.ts:153](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L153)
 
 ___
 
@@ -379,7 +379,7 @@ Called after agent run
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:154](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L154)
+[packages/agents/src/abstracts/base-plugin.ts:154](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L154)
 
 ___
 
@@ -406,7 +406,7 @@ Called before tool execution
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:155](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L155)
+[packages/agents/src/abstracts/base-plugin.ts:155](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L155)
 
 ___
 
@@ -434,7 +434,7 @@ Called after tool execution
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:156](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L156)
+[packages/agents/src/abstracts/base-plugin.ts:156](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L156)
 
 ___
 
@@ -460,7 +460,7 @@ Called before AI provider call
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:157](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L157)
+[packages/agents/src/abstracts/base-plugin.ts:157](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L157)
 
 ___
 
@@ -487,7 +487,7 @@ Called after AI provider call
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:158](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L158)
+[packages/agents/src/abstracts/base-plugin.ts:158](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L158)
 
 ___
 
@@ -513,7 +513,7 @@ Called on streaming chunk
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:159](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L159)
+[packages/agents/src/abstracts/base-plugin.ts:159](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L159)
 
 ___
 
@@ -540,7 +540,7 @@ Called on error
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:160](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L160)
+[packages/agents/src/abstracts/base-plugin.ts:160](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L160)
 
 ___
 
@@ -566,7 +566,7 @@ Called on message added to history
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:161](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/abstracts/base-plugin.ts#L161)
+[packages/agents/src/abstracts/base-plugin.ts:161](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L161)
 
 ___
 
@@ -589,7 +589,7 @@ Handle an error with the configured strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:72](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L72)
+[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:72](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L72)
 
 ___
 
@@ -618,7 +618,7 @@ Execute a function with error handling and retry logic
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:111](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L111)
+[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:111](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L111)
 
 ___
 
@@ -634,7 +634,7 @@ Reset circuit breaker state
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:164](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L164)
+[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:164](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L164)
 
 ___
 
@@ -660,7 +660,7 @@ Get current error handling stats
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:174](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L174)
+[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:174](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L174)
 
 ___
 
@@ -676,4 +676,4 @@ Cleanup resources
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:185](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L185)
+[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:185](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L185)

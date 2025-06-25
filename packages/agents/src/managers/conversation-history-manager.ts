@@ -1,4 +1,4 @@
-import { Logger } from '../utils/logger';
+import { Logger, createLogger } from '../utils/logger';
 
 /**
  * Universal message role type - Provider-independent neutral role
@@ -841,7 +841,7 @@ export class ConversationHistory {
     constructor(options: ConversationHistoryOptions = {}) {
         this.maxMessagesPerConversation = options.maxMessagesPerConversation || 100;
         this.maxConversations = options.maxConversations || 50;
-        this.logger = new Logger('ConversationHistory');
+        this.logger = createLogger('ConversationHistory');
     }
 
     /**

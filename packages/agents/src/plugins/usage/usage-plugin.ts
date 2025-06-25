@@ -1,5 +1,5 @@
 import { BasePlugin } from '../../abstracts/base-plugin';
-import { Logger } from '../../utils/logger';
+import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import {
     UsageStats,
@@ -29,7 +29,7 @@ export class UsagePlugin extends BasePlugin {
 
     constructor(options: UsagePluginOptions) {
         super();
-        this.logger = new Logger('UsagePlugin');
+        this.logger = createLogger('UsagePlugin');
 
         // Validate options
         this.validateOptions(options);

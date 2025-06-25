@@ -60,7 +60,7 @@ BaseAIProvider.constructor
 
 #### Defined in
 
-[google/src/provider.ts:22](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/google/src/provider.ts#L22)
+[google/src/provider.ts:22](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/google/src/provider.ts#L22)
 
 ## Properties
 
@@ -74,7 +74,7 @@ BaseAIProvider.name
 
 #### Defined in
 
-[google/src/provider.ts:16](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/google/src/provider.ts#L16)
+[google/src/provider.ts:16](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/google/src/provider.ts#L16)
 
 ___
 
@@ -88,7 +88,7 @@ BaseAIProvider.version
 
 #### Defined in
 
-[google/src/provider.ts:17](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/google/src/provider.ts#L17)
+[google/src/provider.ts:17](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/google/src/provider.ts#L17)
 
 ## Methods
 
@@ -115,7 +115,7 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[google/src/provider.ts:35](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/google/src/provider.ts#L35)
+[google/src/provider.ts:35](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/google/src/provider.ts#L35)
 
 ___
 
@@ -142,7 +142,7 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[google/src/provider.ts:77](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/google/src/provider.ts#L77)
+[google/src/provider.ts:77](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/google/src/provider.ts#L77)
 
 ___
 
@@ -160,7 +160,7 @@ BaseAIProvider.supportsTools
 
 #### Defined in
 
-[google/src/provider.ts:121](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/google/src/provider.ts#L121)
+[google/src/provider.ts:121](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/google/src/provider.ts#L121)
 
 ___
 
@@ -178,7 +178,7 @@ BaseAIProvider.validateConfig
 
 #### Defined in
 
-[google/src/provider.ts:125](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/google/src/provider.ts#L125)
+[google/src/provider.ts:125](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/google/src/provider.ts#L125)
 
 ___
 
@@ -196,4 +196,4 @@ BaseAIProvider.dispose
 
 #### Defined in
 
-[google/src/provider.ts:129](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/google/src/provider.ts#L129)
+[google/src/provider.ts:129](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/google/src/provider.ts#L129)

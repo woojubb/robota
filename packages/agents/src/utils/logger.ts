@@ -63,7 +63,7 @@ class LoggerConfig {
 /**
  * Console logger implementation
  */
-export class Logger implements Logger {
+export class ConsoleLogger implements Logger {
     private level: UtilLogLevel | null = null; // null means use global level
     private packageName: string;
 
@@ -139,7 +139,7 @@ export class Logger implements Logger {
  * Create a logger instance for a package
  */
 export function createLogger(packageName: string): Logger {
-    return new Logger(packageName);
+    return new ConsoleLogger(packageName);
 }
 
 /**

@@ -67,11 +67,10 @@
     },
     "dependencies": {
         "uuid": "^9.0.1",
-        "zod": "^3.24.4"
-    },
-    "peerDependencies": {
+        "zod": "^3.24.4",
         "@robota-sdk/agents": "workspace:*"
     },
+    "peerDependencies": {},
     "devDependencies": {
         "@robota-sdk/agents": "workspace:*",
         "@types/uuid": "^9.0.7",

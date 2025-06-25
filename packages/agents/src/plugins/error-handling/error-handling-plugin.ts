@@ -1,5 +1,5 @@
 import { BasePlugin } from '../../abstracts/base-plugin';
-import { Logger } from '../../utils/logger';
+import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 
 /**
@@ -43,7 +43,7 @@ export class ErrorHandlingPlugin extends BasePlugin {
 
     constructor(options: ErrorHandlingPluginOptions) {
         super();
-        this.logger = new Logger('ErrorHandlingPlugin');
+        this.logger = createLogger('ErrorHandlingPlugin');
 
         // Validate options
         this.validateOptions(options);

@@ -31,7 +31,7 @@ Provider options interface
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:93](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/provider.ts#L93)
+[packages/agents/src/interfaces/provider.ts:93](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L93)
 
 ___
 
@@ -41,7 +41,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:94](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/provider.ts#L94)
+[packages/agents/src/interfaces/provider.ts:94](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L94)
 
 ___
 
@@ -51,7 +51,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:95](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/provider.ts#L95)
+[packages/agents/src/interfaces/provider.ts:95](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L95)
 
 ___
 
@@ -61,4 +61,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:96](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/provider.ts#L96)
+[packages/agents/src/interfaces/provider.ts:96](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L96)

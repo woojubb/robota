@@ -1,5 +1,5 @@
 import { AgentTemplate } from '../interfaces/agent';
-import { Logger } from '../utils/logger';
+import { Logger, createLogger } from '../utils/logger';
 
 /**
  * Template application result
@@ -25,7 +25,7 @@ export class AgentTemplates {
     private logger: Logger;
 
     constructor() {
-        this.logger = new Logger('AgentTemplates');
+        this.logger = createLogger('AgentTemplates');
         this.logger.info('AgentTemplates initialized');
     }
 

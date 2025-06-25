@@ -40,7 +40,7 @@ Provider identifier
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:51](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/provider.ts#L51)
+[packages/agents/src/interfaces/provider.ts:51](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L51)
 
 ___
 
@@ -52,7 +52,7 @@ Provider version
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:53](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/provider.ts#L53)
+[packages/agents/src/interfaces/provider.ts:53](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L53)
 
 ## Methods
 
@@ -77,7 +77,7 @@ Promise resolving to a UniversalMessage response
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:61](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/provider.ts#L61)
+[packages/agents/src/interfaces/provider.ts:61](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L61)
 
 ___
 
@@ -102,7 +102,7 @@ AsyncIterable of UniversalMessage chunks
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:69](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/provider.ts#L69)
+[packages/agents/src/interfaces/provider.ts:69](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L69)
 
 ___
 
@@ -120,7 +120,7 @@ true if tool calling is supported
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:75](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/provider.ts#L75)
+[packages/agents/src/interfaces/provider.ts:75](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L75)
 
 ___
 
@@ -138,7 +138,7 @@ true if configuration is valid
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:81](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/provider.ts#L81)
+[packages/agents/src/interfaces/provider.ts:81](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L81)
 
 ___
 
@@ -154,4 +154,4 @@ Clean up resources when provider is no longer needed
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:86](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/provider.ts#L86)
+[packages/agents/src/interfaces/provider.ts:86](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L86)

@@ -29,7 +29,7 @@ Applied configuration
 
 #### Defined in
 
-agents/dist/index.d.ts:3358
+agents/dist/index.d.ts:3365
 
 ___
 
@@ -41,7 +41,7 @@ Template that was applied
 
 #### Defined in
 
-agents/dist/index.d.ts:3360
+agents/dist/index.d.ts:3367
 
 ___
 
@@ -53,7 +53,7 @@ Any warnings during application
 
 #### Defined in
 
-agents/dist/index.d.ts:3362
+agents/dist/index.d.ts:3369
 
 ___
 
@@ -65,4 +65,4 @@ Whether config was modified during application
 
 #### Defined in
 
-agents/dist/index.d.ts:3364
+agents/dist/index.d.ts:3371

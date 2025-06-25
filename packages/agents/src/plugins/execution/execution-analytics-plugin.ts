@@ -1,5 +1,5 @@
 import { BasePlugin } from '../../abstracts/base-plugin';
-import { Logger } from '../../utils/logger';
+import { Logger, createLogger } from '../../utils/logger';
 import type { RunOptions } from '../../interfaces/agent';
 import type { UniversalMessage } from '../../managers/conversation-history-manager';
 import { isAssistantMessage } from '../../managers/conversation-history-manager';
@@ -83,7 +83,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
             performanceThreshold: options.performanceThreshold || 5000,
             enableWarnings: options.enableWarnings ?? true
         };
-        this.logger = new Logger('ExecutionAnalyticsPlugin');
+        this.logger = createLogger('ExecutionAnalyticsPlugin');
         this.logger.info('ExecutionAnalyticsPlugin initialized', this.options);
         this.initialized = true;
     }

@@ -104,7 +104,7 @@ console.log(response);
 - [PluginError](classes/PluginError)
 - [StorageError](classes/StorageError)
 - [ErrorUtils](classes/ErrorUtils)
-- [Logger](classes/Logger)
+- [ConsoleLogger](classes/ConsoleLogger)
 - [MessageConverter](classes/MessageConverter)
 - [Validator](classes/Validator)
 
@@ -175,6 +175,7 @@ console.log(response);
 - [WebhookEndpoint](interfaces/WebhookEndpoint)
 - [WebhookPluginOptions](interfaces/WebhookPluginOptions)
 - [UtilLogEntry](interfaces/UtilLogEntry)
+- [Logger](interfaces/Logger)
 - [ValidationResult](interfaces/ValidationResult)
 
 ### Type Aliases
@@ -226,7 +227,7 @@ Universal message type
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:45](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/interfaces/agent.ts#L45)
+[packages/agents/src/interfaces/agent.ts:45](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L45)
 
 ___
 
@@ -241,7 +242,7 @@ based on the message role, preventing invalid combinations.
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:95](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/managers/conversation-history-manager.ts#L95)
+[packages/agents/src/managers/conversation-history-manager.ts:95](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L95)
 
 ___
 
@@ -253,7 +254,7 @@ Storage strategy for conversation history
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:6](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/conversation-history/types.ts#L6)
+[packages/agents/src/plugins/conversation-history/types.ts:6](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/conversation-history/types.ts#L6)
 
 ___
 
@@ -265,7 +266,7 @@ Error handling strategy types
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:8](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L8)
+[packages/agents/src/plugins/error-handling/error-handling-plugin.ts:8](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/error-handling/error-handling-plugin.ts#L8)
 
 ___
 
@@ -277,7 +278,7 @@ Event types that can be emitted
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:8](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/event-emitter-plugin.ts#L8)
+[packages/agents/src/plugins/event-emitter-plugin.ts:8](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L8)
 
 ___
 
@@ -303,7 +304,7 @@ Event listener function
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:39](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/event-emitter-plugin.ts#L39)
+[packages/agents/src/plugins/event-emitter-plugin.ts:39](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L39)
 
 ___
 
@@ -315,7 +316,7 @@ Rate limiting strategies
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:8](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/limits-plugin.ts#L8)
+[packages/agents/src/plugins/limits-plugin.ts:8](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/limits-plugin.ts#L8)
 
 ___
 
@@ -327,7 +328,7 @@ Logging strategy types
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:4](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/logging/types.ts#L4)
+[packages/agents/src/plugins/logging/types.ts:4](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/logging/types.ts#L4)
 
 ___
 
@@ -339,7 +340,7 @@ Log levels
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:9](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/logging/types.ts#L9)
+[packages/agents/src/plugins/logging/types.ts:9](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/logging/types.ts#L9)
 
 ___
 
@@ -351,7 +352,7 @@ Performance monitoring strategy types
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:4](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/performance/types.ts#L4)
+[packages/agents/src/plugins/performance/types.ts:4](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/performance/types.ts#L4)
 
 ___
 
@@ -363,7 +364,7 @@ Usage tracking strategy types
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:4](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/usage/types.ts#L4)
+[packages/agents/src/plugins/usage/types.ts:4](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/usage/types.ts#L4)
 
 ___
 
@@ -375,7 +376,7 @@ Webhook event types
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:8](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/plugins/webhook-plugin.ts#L8)
+[packages/agents/src/plugins/webhook-plugin.ts:8](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L8)
 
 ___
 
@@ -387,19 +388,19 @@ Log levels for the logger
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:4](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/utils/logger.ts#L4)
+[packages/agents/src/utils/logger.ts:4](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L4)
 
 ## Variables
 
 ### logger
 
-• `Const` **logger**: [`Logger`](classes/Logger)
+• `Const` **logger**: [`Logger`](interfaces/Logger)
 
 Default logger for the agents package
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:162](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/utils/logger.ts#L162)
+[packages/agents/src/utils/logger.ts:162](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L162)
 
 ## Functions
 
@@ -427,7 +428,7 @@ Helper function to create a function tool from a simple function
 
 #### Defined in
 
-[packages/agents/src/tools/implementations/function-tool.ts:204](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/tools/implementations/function-tool.ts#L204)
+[packages/agents/src/tools/implementations/function-tool.ts:204](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/tools/implementations/function-tool.ts#L204)
 
 ___
 
@@ -452,13 +453,13 @@ Helper function to create a function tool from Zod schema
 
 #### Defined in
 
-[packages/agents/src/tools/implementations/function-tool.ts:222](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/tools/implementations/function-tool.ts#L222)
+[packages/agents/src/tools/implementations/function-tool.ts:222](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/tools/implementations/function-tool.ts#L222)
 
 ___
 
 ### createLogger
 
-▸ **createLogger**(`packageName`): [`Logger`](classes/Logger)
+▸ **createLogger**(`packageName`): [`Logger`](interfaces/Logger)
 
 Create a logger instance for a package
 
@@ -470,11 +471,11 @@ Create a logger instance for a package
 
 #### Returns
 
-[`Logger`](classes/Logger)
+[`Logger`](interfaces/Logger)
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:141](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/utils/logger.ts#L141)
+[packages/agents/src/utils/logger.ts:141](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L141)
 
 ___
 
@@ -496,7 +497,7 @@ Set global log level for all loggers
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:148](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/utils/logger.ts#L148)
+[packages/agents/src/utils/logger.ts:148](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L148)
 
 ___
 
@@ -512,7 +513,7 @@ Get global log level
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:155](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/utils/logger.ts#L155)
+[packages/agents/src/utils/logger.ts:155](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L155)
 
 ___
 
@@ -534,7 +535,7 @@ Validate agent configuration
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:178](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/utils/validation.ts#L178)
+[packages/agents/src/utils/validation.ts:178](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/validation.ts#L178)
 
 ___
 
@@ -556,7 +557,7 @@ Validate user input string
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:179](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/utils/validation.ts#L179)
+[packages/agents/src/utils/validation.ts:179](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/validation.ts#L179)
 
 ___
 
@@ -578,7 +579,7 @@ Validate provider name
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:180](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/utils/validation.ts#L180)
+[packages/agents/src/utils/validation.ts:180](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/validation.ts#L180)
 
 ___
 
@@ -600,7 +601,7 @@ Validate model name
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:181](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/utils/validation.ts#L181)
+[packages/agents/src/utils/validation.ts:181](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/validation.ts#L181)
 
 ___
 
@@ -623,4 +624,4 @@ Validate API key format (basic check)
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:182](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/utils/validation.ts#L182)
+[packages/agents/src/utils/validation.ts:182](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/validation.ts#L182)

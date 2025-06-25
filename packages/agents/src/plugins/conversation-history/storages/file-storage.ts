@@ -1,5 +1,5 @@
 import { HistoryStorage, ConversationHistoryEntry } from '../types';
-import { Logger } from '../../../utils/logger';
+import { Logger, createLogger } from '../../../utils/logger';
 import { StorageError } from '../../../utils/errors';
 
 /**
@@ -11,7 +11,7 @@ export class FileHistoryStorage implements HistoryStorage {
 
     constructor(filePath: string) {
         this.filePath = filePath;
-        this.logger = new Logger('FileHistoryStorage');
+        this.logger = createLogger('FileHistoryStorage');
     }
 
     async save(conversationId: string, entry: ConversationHistoryEntry): Promise<void> {

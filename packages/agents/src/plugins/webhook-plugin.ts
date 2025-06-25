@@ -1,5 +1,5 @@
 import { BasePlugin } from '../abstracts/base-plugin';
-import { Logger } from '../utils/logger';
+import { Logger, createLogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 
 /**
@@ -92,7 +92,7 @@ export class WebhookPlugin extends BasePlugin {
 
     constructor(options: WebhookPluginOptions) {
         super();
-        this.logger = new Logger('WebhookPlugin');
+        this.logger = createLogger('WebhookPlugin');
 
         this.options = {
             endpoints: options.endpoints,

@@ -29,7 +29,7 @@ Applied configuration
 
 #### Defined in
 
-[packages/agents/src/managers/agent-templates.ts:9](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/managers/agent-templates.ts#L9)
+[packages/agents/src/managers/agent-templates.ts:9](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-templates.ts#L9)
 
 ___
 
@@ -41,7 +41,7 @@ Template that was applied
 
 #### Defined in
 
-[packages/agents/src/managers/agent-templates.ts:11](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/managers/agent-templates.ts#L11)
+[packages/agents/src/managers/agent-templates.ts:11](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-templates.ts#L11)
 
 ___
 
@@ -53,7 +53,7 @@ Any warnings during application
 
 #### Defined in
 
-[packages/agents/src/managers/agent-templates.ts:13](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/managers/agent-templates.ts#L13)
+[packages/agents/src/managers/agent-templates.ts:13](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-templates.ts#L13)
 
 ___
 
@@ -65,4 +65,4 @@ Whether config was modified during application
 
 #### Defined in
 
-[packages/agents/src/managers/agent-templates.ts:15](https://github.com/woojubb/robota/blob/69cbf57340262bed3ca42ae6af241896c191a29c/packages/agents/src/managers/agent-templates.ts#L15)
+[packages/agents/src/managers/agent-templates.ts:15](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-templates.ts#L15)

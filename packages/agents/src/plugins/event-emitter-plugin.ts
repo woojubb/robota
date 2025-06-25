@@ -1,5 +1,5 @@
 import { BasePlugin } from '../abstracts/base-plugin';
-import { Logger } from '../utils/logger';
+import { Logger, createLogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 
 /**
@@ -87,7 +87,7 @@ export class EventEmitterPlugin extends BasePlugin {
 
     constructor(options: EventEmitterPluginOptions = {}) {
         super();
-        this.logger = new Logger('EventEmitterPlugin');
+        this.logger = createLogger('EventEmitterPlugin');
 
         this.options = {
             events: options.events ?? [
