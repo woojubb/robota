@@ -2,7 +2,9 @@
 
 ## 개요
 
-이 문서는 Robota SDK를 기반으로 한 Agentic AI 시스템에서 플래너(Planner)들을 어떻게 설계하고 조합할 것인지를 설명한다. 시스템은 다양한 플래닝 전략을 개별 라이브러리로 분리하여 설계하고, 이를 하나의 매니저에서 조합해 실행 가능한 구조를 목표로 한다.
+이 문서는 Robota SDK를 기반으로 한 Agentic AI 시스템에서 플래너(Planner)들을 어떻게 설계하고 조합할 것인지를 설명한다. 시스템은 다양한 플래닝 전략을 개별 패키지로 분리하여 설계하고, 이를 하나의 매니저에서 조합해 실행 가능한 구조를 목표로 한다.
+
+**현재 상황**: `@robota-sdk/team` 패키지가 CAMEL 기법과 유사하게 구현되어 있으며, 이를 체계적인 플래닝 아키텍처로 발전시킬 예정이다.
 
 ---
 
@@ -10,91 +12,218 @@
 
 ### 1. **AbstractPlanner (추상 플래너 클래스)**
 
-* 모든 플래닝 전략은 이 클래스를 상속하여 구현
-* 필수 메서드:
-
-  * `name()`: 플래너 이름 반환
-  * `plan(input: PlanInput): PlanStep[]`
-  * `executeStep(step: PlanStep): PlanResult`
-  * 선택적으로 `finalize(results: PlanResult[])` 포함 가능
+```typescript
+// packages/planning/src/abstracts/base-planner.ts
+export abstract class AbstractPlanner {
+  abstract name(): string;
+  abstract plan(input: PlanInput): Promise<PlanStep[]>;
+  abstract executeStep(step: PlanStep): Promise<PlanResult>;
+  
+  // 선택적 구현
+  async finalize(results: PlanResult[]): Promise<PlanResult> {
+    return results[results.length - 1];
+  }
+}
+```
 
 ### 2. **PlannerManager**
 
-* 플래너 등록 및 조합 실행 담당
-* 여러 개의 플래너를 순차 또는 병렬로 실행 가능
-* 인터페이스:
+```typescript
+// packages/planning/src/managers/planner-manager.ts
+export class PlannerManager {
+  register(planner: AbstractPlanner): void;
+  runSequential(plannerNames: string[], input: PlanInput): Promise<PlanResult[]>;
+  runParallel(plannerNames: string[], input: PlanInput): Promise<PlanResult[]>;
+  runWithFallback(plannerNames: string[], input: PlanInput): Promise<PlanResult>;
+}
+```
 
-  * `register(planner: AbstractPlanner)`
-  * `runSequential(plannerNames: string[], input: PlanInput): PlanResult[]`
-  * 추후 `runParallel`, `runWithFallback` 등의 조합 방식도 확장 가능
+### 3. **Robota Agent 통합**
 
-### 3. **Robota (에이전트 구현체)**
+```typescript
+// packages/agents/src/agents/robota.ts (기존 확장)
+export class Robota extends BaseAgent {
+  private plannerManager?: PlannerManager;
+  
+  // 플래닝 기반 실행 메서드 추가
+  async runWithPlanning(input: string, strategy?: string[]): Promise<string>;
+}
+```
 
-* 실제 사용자 요청을 받아 처리하는 Agent 클래스
-* 내부에서 PlannerManager를 사용하여 전략 조합 실행
-* 사용자와의 인터페이스 역할을 담당
+### 4. **플래너 전략 패키지들**
 
-### 4. **AgentFactory**
+현재 및 계획된 패키지 구조:
+- `@robota-sdk/planning` - 코어 플래닝 시스템
+- `@robota-sdk/planner-react` - ReAct 전략
+- `@robota-sdk/planner-camel` - 현재 team 기능을 발전시킨 CAMEL 구현체
+- `@robota-sdk/planner-reflection` - Reflection 전략
+- `@robota-sdk/planner-plan-execute` - Plan-and-Execute 전략
 
-* Robota를 설정 기반으로 생성하는 클래스
-* 각 전략 라이브러리를 동적으로 import 및 등록
+---
 
-### 5. **플래너 전략 라이브러리**
+## 주요 플래닝 기법 목록
 
-* 각 플래닝 기법(ReAct, Reflection, Plan-and-Execute 등)은 독립적인 라이브러리로 개발
-* 해당 라이브러리는 AbstractPlanner를 상속하여 구현
-* 예시 라이브러리: `@robota-strategy/react`, `@robota-strategy/reflection`
+| 기법명                             | 설명                                                 | 특징                   | 패키지명 (계획)               |
+| ------------------------------- | -------------------------------------------------- | -------------------- | ------------------------ |
+| **ReAct** (Reason + Act)        | Thought → Action → Observation 순으로 사고 및 실행을 번갈아 수행 | 유연하고 도구 기반 추론에 강함    | `@robota-sdk/planner-react` |
+| **Plan-and-Execute**            | 전체 계획 수립 후 순차적으로 실행                                | 구조화 쉬우며 장기 계획에 적합    | `@robota-sdk/planner-plan-execute` |
+| **Reflection**                  | 결과에 대한 평가 및 자기 피드백을 통해 수정                          | 오류 자가 수정 루프에 효과적     | `@robota-sdk/planner-reflection` |
+| **Chain of Thought (CoT)**      | 추론 과정을 단계별로 명시적으로 표현                               | 수학적/논리적 문제에 유리       | `@robota-sdk/planner-cot` |
+| **Tool-augmented (MRKL)**       | 외부 도구 호출을 포함한 실행 전략                                | 정확도 향상 및 모듈 기반 처리 가능 | `@robota-sdk/planner-mrkl` |
+| **Hierarchical Planning (HTN)** | 목표를 하위 목표로 분해하여 재귀적으로 계획                           | 복잡한 시나리오 처리에 적합      | `@robota-sdk/planner-htn` |
+| **AutoGPT 스타일**                 | 목표 기반 반복 루프 실행 (계획 + 실행 + 리플렉션)                    | 장기적인 자율 실행에 유리       | `@robota-sdk/planner-autogpt` |
+| **CAMEL** ⭐                     | 역할 기반 다중 에이전트 커뮤니케이션 구조                            | 멀티 에이전트 협업 처리 가능     | `@robota-sdk/planner-camel` |
+| **Toolformer**                  | 도구 사용 여부를 LLM이 학습 및 결정                             | 도구 호출 조건 최적화         | `@robota-sdk/planner-toolformer` |
+| **MetaGPT**                     | 소프트웨어 팀의 역할을 시뮬레이션하여 구조적 작업 분할                     | 코딩, 설계, 분업형 태스크에 강함  | `@robota-sdk/planner-metagpt` |
+
+⭐ **현재 우선순위**: CAMEL 패키지 구현 (기존 team 라이브러리 재구성)
 
 ---
 
 ## 플래너 조합 실행 예시
 
-1. 사용자 입력: "이 함수 리팩토링해줘"
+1. 사용자 입력: "웹사이트 리디자인 프로젝트를 진행해줘"
 2. Robota가 이를 해석해 PlannerManager에 요청
-3. Manager는 ReActPlanner → ReflectionPlanner 순으로 실행
+3. Manager는 CAMELPlanner (팀 구성) → ReActPlanner (개별 작업) → ReflectionPlanner (검토) 순으로 실행
 4. 최종 결과를 Robota가 사용자에게 반환
 
-이 과정은 모두 하나의 대화 히스토리(context) 내에서 이어지며, 각 플래너는 중간 상태를 공유하거나 독립적으로 결과를 출력할 수 있음
+---
+
+## 현재 Team 라이브러리 분석
+
+### 기존 구조
+```typescript
+// packages/team/src/team-container.ts
+export class TeamContainer {
+  createAgent(config: AgentConfig): string;
+  assignTask(params: AssignTaskParams): Promise<AssignTaskResult>;
+  // ... 다중 에이전트 관리 기능
+}
+```
+
+### CAMEL 패턴 관점에서의 분석
+- ✅ **역할 기반 에이전트**: 이미 구현됨
+- ✅ **태스크 할당**: assignTask 메서드로 구현됨
+- ✅ **결과 수집**: AssignTaskResult로 구현됨
+- 🔄 **개선 필요**: 플래닝 프로토콜과의 통합
+
+---
+
+## 작업 계획 및 체크리스트
+
+### Phase 1: 플래닝 코어 시스템 구축
+- [ ] `packages/planning` 패키지 생성
+  - [ ] `src/abstracts/base-planner.ts` - AbstractPlanner 클래스
+  - [ ] `src/interfaces/plan.ts` - PlanInput, PlanStep, PlanResult 타입 정의
+  - [ ] `src/managers/planner-manager.ts` - PlannerManager 클래스
+  - [ ] `src/index.ts` - 패키지 exports
+- [ ] Planning 패키지 TypeScript 설정 및 빌드 구성
+- [ ] Planning 패키지 테스트 작성
+- [ ] Documentation 작성
+
+### Phase 2: Robota Agent에 플래닝 통합
+- [ ] `packages/agents` 패키지에 planning 의존성 추가
+- [ ] `src/agents/robota.ts`에 PlannerManager 통합
+  - [ ] `runWithPlanning()` 메서드 추가
+  - [ ] 플래너 등록/해제 메서드 추가
+  - [ ] 기존 `run()` 메서드와의 호환성 유지
+- [ ] Agent Factory에서 플래너 동적 로딩 지원
+- [ ] 통합 테스트 작성
+
+### Phase 3: CAMEL 플래너 구현 (기존 Team 리팩토링)
+- [ ] `packages/planner-camel` 패키지 생성
+- [ ] 기존 `packages/team` 코드 분석 및 마이그레이션 계획 수립
+- [ ] CAMEL 플래너 구현
+  - [ ] `src/camel-planner.ts` - AbstractPlanner 상속
+  - [ ] `src/role-based-agent.ts` - 역할 기반 에이전트 관리
+  - [ ] `src/communication-protocol.ts` - 에이전트 간 커뮤니케이션
+  - [ ] `src/task-coordinator.ts` - 태스크 분배 및 조정
+- [ ] 기존 TeamContainer API와의 브릿지 구현
+- [ ] CAMEL 플래너 테스트 작성
+
+### Phase 4: 기존 Team 패키지 업데이트
+- [ ] `packages/team`을 CAMEL 플래너 기반으로 재구성
+- [ ] 기존 API 호환성 유지하면서 내부적으로 CAMEL 플래너 사용
+- [ ] `TeamContainer`를 `CAMELPlanner`의 래퍼로 변경
+- [ ] 기존 예제 코드들이 여전히 작동하는지 확인
+- [ ] Migration guide 작성
+
+### Phase 5: 추가 플래너 구현 (선택사항)
+- [ ] `packages/planner-react` - ReAct 전략 구현
+- [ ] `packages/planner-reflection` - Reflection 전략 구현
+- [ ] `packages/planner-plan-execute` - Plan-and-Execute 전략 구현
+- [ ] 플래너 조합 예제 작성
+
+### Phase 6: 고급 기능 및 최적화
+- [ ] PlannerSelector - LLM 기반 플래너 자동 선택
+- [ ] PlannerComposition - 복합 실행 전략 (병렬, 조건분기, fallback)
+- [ ] PlannerContext - 플래너 간 상태 공유
+- [ ] PlanStepLog - 실행 히스토리 추적
+- [ ] 성능 최적화 및 메모리 관리
+
+### Phase 7: 문서화 및 예제
+- [ ] 전체 플래닝 시스템 가이드 작성
+- [ ] 각 플래너별 사용법 문서
+- [ ] 실제 사용 시나리오별 예제 코드
+- [ ] 플래너 개발자를 위한 가이드
+- [ ] API 레퍼런스 업데이트
 
 ---
 
 ## 플래너 선택 전략
 
 ### A. 사전 고정 방식
-
-* 사람이 특정 상황에 맞게 플래너를 지정
-* 예: `runSequential(['react', 'reflection'])`
+```typescript
+await robota.runWithPlanning(input, ['camel', 'reflection']);
+```
 
 ### B. LLM 기반 동적 선택
+```typescript
+await robota.runWithPlanning(input); // LLM이 자동으로 플래너 선택
+```
 
-* LLM이 요청의 목적, 난이도, 맥락 등을 보고 적절한 플래너 조합을 판단
-* 이 때 플래너 선택도 PlanStep의 일종으로 처리
-
-### C. MCP 방식 하이브리드
-
-* 위 두 방식을 혼합
-* PlannerSelector 툴을 사용하여 LLM이 필요한 플래너 목록을 지정하고 Manager가 실행
-* 예: LLM이 `["react", "reflection"]`을 반환 → Manager가 순차 실행
+### C. 설정 기반 선택
+```typescript
+const robota = new Robota({
+  // ... 기존 설정
+  defaultPlanners: ['camel'],
+  plannerSelection: 'auto' // 'fixed' | 'auto' | 'hybrid'
+});
+```
 
 ---
 
 ## 구조적 장점
 
-* 전략 독립성 보장
-* 외부 개발자 참여 가능 (플래너 생태계 확장)
-* 실행 플로우 유연성 확보
-* 디버깅 및 재현 가능성 향상
+* ✅ **전략 독립성 보장**: 각 플래너는 독립적인 패키지
+* ✅ **기존 코드 호환성**: 점진적 마이그레이션 가능
+* ✅ **외부 개발자 참여**: 플래너 생태계 확장 가능
+* ✅ **실행 플로우 유연성**: 다양한 조합 전략 지원
+* ✅ **디버깅 및 재현**: 각 플래닝 단계 추적 가능
+* ✅ **확장성**: 새로운 플래닝 기법 쉽게 추가
 
 ---
 
-## 향후 확장 포인트
+## 예상 도전과제 및 해결방안
 
-* `PlannerSelector`: 플래너를 선택하는 MCP 스타일 유닛
-* `PlannerComposition`: 전략의 병렬 실행, 조건 분기, fallback 구조 추가
-* `PlannerGraph`: 상태 기반 흐름 정의 (LangGraph 유사)
-* `PlannerContext`: 공유 가능한 중간 상태 메모리 구조
-* `PlanStepLog`: 전체 실행 히스토리 추적을 위한 로그 구조
+### 1. 기존 Team API 호환성
+**문제**: 기존 사용자들이 TeamContainer API에 의존
+**해결**: 브릿지 패턴으로 기존 API 유지하면서 내부적으로 CAMEL 플래너 사용
+
+### 2. 플래너 간 상태 공유
+**문제**: 서로 다른 플래너가 실행될 때 컨텍스트 공유 필요
+**해결**: PlannerContext 객체를 통한 상태 관리
+
+### 3. 성능 최적화
+**문제**: 여러 플래너 조합 시 지연 시간 증가
+**해결**: 병렬 실행, 캐싱, 지연 로딩 등의 최적화 기법 적용
 
 ---
 
-이 문서는 Agentic 시스템에서 플래닝 전략을 효과적으로 관리하고 유연하게 조합하는 기반 설계를 제공한다. Robota 시스템은 내부적으로 다양한 플래너를 자율적으로 선택하고 연결할 수 있는 구조를 가지며, 확장 가능한 오픈형 아키텍처를 지향한다.
+## 다음 단계
+
+1. **즉시 시작**: Phase 1 (플래닝 코어 시스템) 구축
+2. **우선순위**: CAMEL 플래너 구현을 통한 기존 team 기능 향상
+3. **장기 목표**: 다양한 플래닝 전략의 생태계 구축
+
+이 설계를 통해 Robota SDK는 단순한 대화형 AI를 넘어 복잡한 작업을 체계적으로 계획하고 실행할 수 있는 진정한 Agentic AI 플랫폼으로 발전할 것이다.
