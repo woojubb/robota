@@ -1,13 +1,9 @@
 /**
  * @robota-sdk/google package
  * 
- * Provides Provider implementation for using Google AI API.
+ * Provides Provider implementation for using Google AI with provider-agnostic UniversalMessage.
  */
 
-// Import all exports from types.ts and provider.ts
+// Main exports
 export * from './provider';
-export * from './types';
-export * from './adapter';
-
-// Export modular components (optional - for advanced users)
-export { GoogleStreamHandler } from './streaming/stream-handler'; 
+export * from './types'; 

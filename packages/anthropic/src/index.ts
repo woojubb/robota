@@ -1,20 +1,12 @@
-
-
 /**
  * @robota-sdk/anthropic package
  * 
- * Provides Provider implementation for using Anthropic API.
+ * Provides Provider implementation for using Anthropic API with provider-agnostic UniversalMessage.
  */
 
-// Import all exports from types.ts and provider.ts
+// Main exports
 export * from './provider';
 export * from './types';
-export * from './adapter';
-export * from './payload-logger';
-
-// Export modular components (optional - for advanced users)
-export { AnthropicStreamHandler } from './streaming/stream-handler';
-export { AnthropicResponseParser } from './parsers/response-parser';
 
 import { AnthropicProviderOptions } from './types';
 
