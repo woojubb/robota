@@ -156,10 +156,17 @@ export class ExecutionService {
                 });
             }
 
-            // Add system message from config if provided
-            // This allows for additional system messages during execution
+            // Add system message from config if provided and not already present
+            // This allows for additional system messages during execution but prevents duplicates
             if (config.systemMessage) {
-                conversationSession.addSystemMessage(config.systemMessage, { executionId });
+                const existingMessages = conversationSession.getMessages();
+                const hasConfigSystemMessage = existingMessages.some(msg =>
+                    msg.role === 'system' && msg.content === config.systemMessage
+                );
+
+                if (!hasConfigSystemMessage) {
+                    conversationSession.addSystemMessage(config.systemMessage, { executionId });
+                }
             }
 
             // Only add the current input if it's not already the last message in the conversation
@@ -201,6 +208,19 @@ export class ExecutionService {
                 // Get messages from conversation history
                 const conversationMessages = conversationSession.getMessages();
 
+                this.logger.debug('Current conversation messages', {
+                    round: currentRound,
+                    messageCount: conversationMessages.length,
+                    fullHistory: conversationMessages.map((m, index) => ({
+                        index,
+                        role: m.role,
+                        content: m.content?.substring(0, 100),
+                        hasToolCalls: 'toolCalls' in m ? !!m.toolCalls?.length : false,
+                        toolCallId: 'toolCallId' in m ? m.toolCallId : undefined,
+                        toolCallsCount: 'toolCalls' in m ? m.toolCalls?.length : 0
+                    }))
+                });
+
                 // Prepare configuration for provider execution
                 const providerConfig: ProviderExecutionConfig = {
                     model: config.model,
@@ -214,15 +234,41 @@ export class ExecutionService {
                 // Call beforeProviderCall hook
                 await this.callPluginHook('beforeProviderCall', conversationMessages);
 
+                this.logger.debug('Sending messages to AI provider', {
+                    round: currentRound,
+                    messageCount: conversationMessages.length,
+                    lastFewMessages: conversationMessages.slice(-5).map(m => ({
+                        role: m.role,
+                        content: m.content?.substring(0, 50),
+                        hasToolCalls: 'toolCalls' in m ? !!m.toolCalls?.length : false,
+                        toolCallId: 'toolCallId' in m ? m.toolCallId : undefined
+                    }))
+                });
+
+                // Validate required model configuration
+                if (!config.model) {
+                    throw new Error('Model is required in agent configuration');
+                }
+
+                // Get available tools as ToolSchema format (provider-agnostic)
+                const availableTools = this.tools.getTools();
+
                 // Delegate entire execution to provider
-                const response = await provider.execute(conversationMessages, providerConfig);
+                const chatOptions = {
+                    model: config.model,
+                    maxTokens: providerConfig?.maxTokens,
+                    temperature: providerConfig?.temperature,
+                    tools: availableTools.length > 0 ? availableTools : undefined
+                };
+
+                const response = await provider.chat(conversationMessages, chatOptions);
 
                 // Call afterProviderCall hook
                 await this.callPluginHook('afterProviderCall', conversationMessages, response);
 
                 // Add assistant response to history
                 conversationSession.addAssistantMessage(
-                    response.content,
+                    response.content ?? null,  // Convert undefined to null for consistency
                     response.toolCalls,
                     { round: currentRound, usage: response['usage'] }
                 );
@@ -235,7 +281,8 @@ export class ExecutionService {
 
                 this.logger.debug('Tool calls detected, executing tools', {
                     toolCallCount: response.toolCalls.length,
-                    round: currentRound
+                    round: currentRound,
+                    toolCalls: response.toolCalls.map(tc => ({ id: tc.id, name: tc.function?.name }))
                 });
 
                 // Execute tools
@@ -250,60 +297,47 @@ export class ExecutionService {
                 const toolSummary = await this.toolExecutionService.executeTools(toolContext);
                 toolsExecuted.push(...toolSummary.results.map(r => r.toolName || 'unknown'));
 
-                // Add tool results to history - ensuring EVERY tool_call_id gets a response
-                const resultMap = new Map();
-
-                // Map successful results by execution ID (which is the tool call ID)
-                toolSummary.results.forEach(result => {
-                    if (!result.executionId) {
-                        throw new Error(`Tool execution result missing executionId: ${JSON.stringify(result)}`);
-                    }
-                    resultMap.set(result.executionId, result);
-                });
-
-                // Map failed executions by execution ID (which is the tool call ID)
-                toolSummary.errors.forEach(error => {
-                    if (!error.executionId) {
-                        throw new Error(`Tool execution error missing executionId: ${JSON.stringify(error)}`);
-                    }
-                    resultMap.set(error.executionId, {
-                        success: false,
-                        result: null,
-                        error: error.error.message,
-                        toolName: error.toolName,
-                    });
-                });
-
-                // Add tool response for each tool call - MUST ensure every tool_call_id gets a response
-                if (!response.toolCalls || response.toolCalls.length === 0) {
-                    throw new Error('Tool calls array is empty but should contain tool calls');
-                }
-
-                response.toolCalls.forEach((toolCall: any) => {
+                // Add tool results to history in the order they were called
+                // This ensures proper conversation flow and prevents any duplicate entries
+                for (const toolCall of response.toolCalls) {
                     if (!toolCall.id) {
                         throw new Error(`Tool call missing ID: ${JSON.stringify(toolCall)}`);
                     }
 
-                    const result = resultMap.get(toolCall.id);
-                    if (!result) {
-                        throw new Error(`No execution result found for tool call ID: ${toolCall.id}`);
-                    }
+                    // Find the corresponding result for this tool call
+                    const result = toolSummary.results.find(r => r.executionId === toolCall.id);
+                    const error = toolSummary.errors.find(e => e.executionId === toolCall.id);
 
                     let content: string;
                     let metadata: Record<string, any> = { round: currentRound };
 
-                    if ('success' in result && result['success']) {
-                        // Ensure content is always a string (core pattern)
+                    if (result && result.success) {
+                        // Successful tool execution
                         content = typeof result.result === 'string'
                             ? result.result
                             : JSON.stringify(result.result || 'Tool executed successfully');
                         metadata['success'] = true;
-                    } else {
-                        content = `Error: ${result['error'] || 'Tool execution failed'}`;
+                        metadata['toolName'] = result.toolName;
+                    } else if (error) {
+                        // Tool execution failed
+                        content = `Error: ${error.error.message}`;
                         metadata['success'] = false;
-                        metadata['error'] = result['error'];
+                        metadata['error'] = error.error.message;
+                        metadata['toolName'] = error.toolName;
+                    } else {
+                        // No result found for this tool call
+                        throw new Error(`No execution result found for tool call ID: ${toolCall.id}`);
                     }
-                    metadata['toolName'] = result['toolName'];
+
+                    // Add tool result to conversation history
+                    // This will throw an error if duplicate toolCallId is detected
+                    this.logger.debug('Adding tool result to conversation', {
+                        toolCallId: toolCall.id,
+                        toolName: toolCall.function?.name,
+                        content: content.substring(0, 100),
+                        round: currentRound,
+                        currentHistoryLength: conversationSession.getMessages().length
+                    });
 
                     conversationSession.addToolMessageWithId(
                         content,
@@ -311,7 +345,13 @@ export class ExecutionService {
                         toolCall.function?.name || 'unknown',
                         metadata
                     );
-                });
+
+                    this.logger.debug('Tool result added to history', {
+                        toolCallId: toolCall.id,
+                        newHistoryLength: conversationSession.getMessages().length,
+                        round: currentRound
+                    });
+                }
 
                 // Continue to next round - let the AI decide if more tools are needed
                 // The AI will see the tool results and can either:

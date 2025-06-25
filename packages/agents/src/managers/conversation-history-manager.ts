@@ -172,8 +172,20 @@ export class ConversationSession {
     /**
      * Add tool execution result message with tool call ID (for tool calling format)
      * High-level API matching core package
+     * 
+     * Throws error if a tool message with the same toolCallId already exists.
      */
     addToolMessageWithId(content: string, toolCallId: string, toolName: string, metadata?: Record<string, any>): void {
+        // Check if a tool message with this toolCallId already exists
+        const existingToolMessage = this.messages.find(
+            msg => msg.role === 'tool' && isToolMessage(msg) && msg.toolCallId === toolCallId
+        );
+
+        // Throw error if duplicate toolCallId is detected
+        if (existingToolMessage) {
+            throw new Error(`Duplicate tool message detected for toolCallId: ${toolCallId}. Tool messages must have unique toolCallIds.`);
+        }
+
         this.addMessage(createToolMessage(content, toolCallId, toolName, metadata));
     }
 

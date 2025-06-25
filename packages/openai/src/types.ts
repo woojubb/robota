@@ -6,9 +6,9 @@ import OpenAI from 'openai';
  */
 export interface OpenAIProviderOptions extends Omit<ProviderOptions, 'model'> {
   /**
-   * Model name to use (default: gpt-3.5-turbo)
+   * Default model name to use (default: gpt-4)
    */
-  model: string;
+  model?: string;
 
   /**
    * Temperature (0~1)

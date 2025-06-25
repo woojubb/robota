@@ -43,7 +43,7 @@ Extracts streaming logic from the main provider for better modularity.
 
 #### Defined in
 
-[openai/src/streaming/stream-handler.ts:11](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/streaming/stream-handler.ts#L11)
+[openai/src/streaming/stream-handler.ts:11](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/openai/src/streaming/stream-handler.ts#L11)
 
 ## Methods
 
@@ -67,7 +67,7 @@ AsyncGenerator yielding streaming response chunks
 
 #### Defined in
 
-[openai/src/streaming/stream-handler.ts:22](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/streaming/stream-handler.ts#L22)
+[openai/src/streaming/stream-handler.ts:22](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/openai/src/streaming/stream-handler.ts#L22)
 
 ___
 
@@ -91,4 +91,4 @@ AsyncGenerator yielding streaming response chunks
 
 #### Defined in
 
-[openai/src/streaming/stream-handler.ts:52](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/openai/src/streaming/stream-handler.ts#L52)
+[openai/src/streaming/stream-handler.ts:52](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/openai/src/streaming/stream-handler.ts#L52)

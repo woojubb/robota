@@ -68,8 +68,8 @@ export class AIProviders extends BaseManager implements AIProviderManagerInterfa
             throw new ValidationError('Provider must be a valid object');
         }
 
-        if (!provider.name || !provider.models || !Array.isArray(provider.models)) {
-            throw new ValidationError('Provider must have name and models array');
+        if (!provider.name || typeof provider.name !== 'string') {
+            throw new ValidationError('Provider must have a valid name');
         }
 
         if (typeof provider.chat !== 'function') {
@@ -87,7 +87,7 @@ export class AIProviders extends BaseManager implements AIProviderManagerInterfa
         this.providers.set(name, provider);
         logger.debug(`AI provider "${name}" registered successfully`, {
             providerName: name,
-            models: provider.models,
+            version: provider.version,
             supportsStreaming: typeof provider.chatStream === 'function'
         });
 
@@ -159,12 +159,8 @@ export class AIProviders extends BaseManager implements AIProviderManagerInterfa
             throw new ConfigurationError(`Provider "${name}" is not registered`);
         }
 
-        // Validate model is supported
-        if (!provider.supportsModel(model)) {
-            throw new ConfigurationError(
-                `Model "${model}" is not supported by provider "${name}". Available models: ${provider.models.join(', ')}`
-            );
-        }
+        // Note: Model validation is now handled at runtime in ChatOptions
+        // No pre-validation needed since models are provider-specific
 
         this.currentProvider = name;
         this.currentModel = model;
@@ -198,6 +194,7 @@ export class AIProviders extends BaseManager implements AIProviderManagerInterfa
 
     /**
      * Get available models for a provider
+     * Note: In the new architecture, models are handled by each provider internally
      */
     getAvailableModels(providerName: string): string[] {
         this.ensureInitialized();
@@ -207,7 +204,9 @@ export class AIProviders extends BaseManager implements AIProviderManagerInterfa
             throw new ConfigurationError(`Provider "${providerName}" is not registered`);
         }
 
-        return [...provider.models];
+        // Return empty array since models are now provider-specific and handled internally
+        logger.warn(`getAvailableModels() is deprecated. Models are now handled by providers internally.`);
+        return [];
     }
 
     /**

@@ -34,7 +34,7 @@ Aggregated performance statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:44](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/performance/types.ts#L44)
+[packages/agents/src/plugins/performance/types.ts:44](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/types.ts#L44)
 
 ___
 
@@ -44,7 +44,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:45](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/performance/types.ts#L45)
+[packages/agents/src/plugins/performance/types.ts:45](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/types.ts#L45)
 
 ___
 
@@ -54,7 +54,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:46](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/performance/types.ts#L46)
+[packages/agents/src/plugins/performance/types.ts:46](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/types.ts#L46)
 
 ___
 
@@ -64,7 +64,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:47](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/performance/types.ts#L47)
+[packages/agents/src/plugins/performance/types.ts:47](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/types.ts#L47)
 
 ___
 
@@ -74,7 +74,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:48](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/performance/types.ts#L48)
+[packages/agents/src/plugins/performance/types.ts:48](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/types.ts#L48)
 
 ___
 
@@ -84,7 +84,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:49](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/performance/types.ts#L49)
+[packages/agents/src/plugins/performance/types.ts:49](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/types.ts#L49)
 
 ___
 
@@ -103,7 +103,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:50](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/performance/types.ts#L50)
+[packages/agents/src/plugins/performance/types.ts:50](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/types.ts#L50)
 
 ___
 
@@ -120,7 +120,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:56](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/performance/types.ts#L56)
+[packages/agents/src/plugins/performance/types.ts:56](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/types.ts#L56)
 
 ___
 
@@ -139,7 +139,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:60](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/performance/types.ts#L60)
+[packages/agents/src/plugins/performance/types.ts:60](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/types.ts#L60)
 
 ___
 
@@ -149,7 +149,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:66](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/performance/types.ts#L66)
+[packages/agents/src/plugins/performance/types.ts:66](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/types.ts#L66)
 
 ___
 
@@ -167,4 +167,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:72](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/plugins/performance/types.ts#L72)
+[packages/agents/src/plugins/performance/types.ts:72](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/plugins/performance/types.ts#L72)

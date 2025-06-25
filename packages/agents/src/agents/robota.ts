@@ -280,6 +280,7 @@ export class Robota extends BaseAgent implements AgentInterface {
                 for (const tool of this.config.tools) {
                     // Convert BaseTool to ToolSchema and executor
                     this.tools.addTool(tool.schema, tool.execute.bind(tool));
+                    this.logger.debug('Tool registered during initialization', { toolName: tool.schema.name });
                 }
             }
 
@@ -759,6 +760,12 @@ export class Robota extends BaseAgent implements AgentInterface {
      * ```
      */
     registerTool(tool: BaseTool): void {
+        // Check if tool is already registered to prevent duplicates
+        if (this.tools.hasTool(tool.schema.name)) {
+            this.logger.warn('Tool already registered, skipping', { toolName: tool.schema.name });
+            return;
+        }
+
         this.tools.addTool(tool.schema, tool.execute.bind(tool));
         this.logger.debug('Tool registered', { toolName: tool.schema.name });
     }

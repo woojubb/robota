@@ -397,6 +397,11 @@ export class ToolExecutionService {
 
     /**
      * Create tool execution requests from tool calls
+     * 
+     * Converts tool calls from AI provider responses to execution requests.
+     * 
+     * @param toolCalls - Array of tool calls from AI provider
+     * @returns Array of tool execution requests
      */
     createExecutionRequests(toolCalls: Array<{
         id: string;

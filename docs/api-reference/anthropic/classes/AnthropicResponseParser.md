@@ -56,7 +56,7 @@ Standardized model response
 
 #### Defined in
 
-[anthropic/src/parsers/response-parser.ts:17](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/anthropic/src/parsers/response-parser.ts#L17)
+[anthropic/src/parsers/response-parser.ts:17](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/anthropic/src/parsers/response-parser.ts#L17)
 
 ___
 
@@ -80,4 +80,4 @@ Parsed streaming response chunk or null if no content
 
 #### Defined in
 
-[anthropic/src/parsers/response-parser.ts:66](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/anthropic/src/parsers/response-parser.ts#L66)
+[anthropic/src/parsers/response-parser.ts:66](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/anthropic/src/parsers/response-parser.ts#L66)

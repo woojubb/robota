@@ -53,7 +53,7 @@ Check if error is recoverable
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:206](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L206)
+[packages/agents/src/utils/errors.ts:206](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/utils/errors.ts#L206)
 
 ___
 
@@ -75,7 +75,7 @@ Extract error code from any error
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:216](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L216)
+[packages/agents/src/utils/errors.ts:216](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/utils/errors.ts#L216)
 
 ___
 
@@ -98,7 +98,7 @@ Create error from unknown value
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:226](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L226)
+[packages/agents/src/utils/errors.ts:226](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/utils/errors.ts#L226)
 
 ___
 
@@ -122,4 +122,4 @@ Wrap external errors
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:242](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/utils/errors.ts#L242)
+[packages/agents/src/utils/errors.ts:242](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/utils/errors.ts#L242)

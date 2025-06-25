@@ -53,7 +53,7 @@ Performance monitor class
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:102](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/tools/src/performance/performance-monitor.ts#L102)
+[packages/tools/src/performance/performance-monitor.ts:102](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/tools/src/performance/performance-monitor.ts#L102)
 
 ## Methods
 
@@ -75,7 +75,7 @@ Start monitoring
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:116](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/tools/src/performance/performance-monitor.ts#L116)
+[packages/tools/src/performance/performance-monitor.ts:116](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/tools/src/performance/performance-monitor.ts#L116)
 
 ___
 
@@ -91,7 +91,7 @@ Stop monitoring
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:130](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/tools/src/performance/performance-monitor.ts#L130)
+[packages/tools/src/performance/performance-monitor.ts:130](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/tools/src/performance/performance-monitor.ts#L130)
 
 ___
 
@@ -113,7 +113,7 @@ Record tool call
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:145](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/tools/src/performance/performance-monitor.ts#L145)
+[packages/tools/src/performance/performance-monitor.ts:145](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/tools/src/performance/performance-monitor.ts#L145)
 
 ___
 
@@ -136,7 +136,7 @@ Helper for recording tool call start time
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:161](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/tools/src/performance/performance-monitor.ts#L161)
+[packages/tools/src/performance/performance-monitor.ts:161](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/tools/src/performance/performance-monitor.ts#L161)
 
 ___
 
@@ -161,7 +161,7 @@ Helper for recording tool call completion
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:179](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/tools/src/performance/performance-monitor.ts#L179)
+[packages/tools/src/performance/performance-monitor.ts:179](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/tools/src/performance/performance-monitor.ts#L179)
 
 ___
 
@@ -183,7 +183,7 @@ Register external statistics providers
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:206](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/tools/src/performance/performance-monitor.ts#L206)
+[packages/tools/src/performance/performance-monitor.ts:206](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/tools/src/performance/performance-monitor.ts#L206)
 
 ___
 
@@ -203,7 +203,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:210](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/tools/src/performance/performance-monitor.ts#L210)
+[packages/tools/src/performance/performance-monitor.ts:210](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/tools/src/performance/performance-monitor.ts#L210)
 
 ___
 
@@ -223,7 +223,7 @@ ___
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:214](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/tools/src/performance/performance-monitor.ts#L214)
+[packages/tools/src/performance/performance-monitor.ts:214](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/tools/src/performance/performance-monitor.ts#L214)
 
 ___
 
@@ -245,7 +245,7 @@ Register event listener
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:221](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/tools/src/performance/performance-monitor.ts#L221)
+[packages/tools/src/performance/performance-monitor.ts:221](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/tools/src/performance/performance-monitor.ts#L221)
 
 ___
 
@@ -267,7 +267,7 @@ Remove event listener
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:228](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/tools/src/performance/performance-monitor.ts#L228)
+[packages/tools/src/performance/performance-monitor.ts:228](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/tools/src/performance/performance-monitor.ts#L228)
 
 ___
 
@@ -283,7 +283,7 @@ Get current performance metrics
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:238](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/tools/src/performance/performance-monitor.ts#L238)
+[packages/tools/src/performance/performance-monitor.ts:238](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/tools/src/performance/performance-monitor.ts#L238)
 
 ___
 
@@ -305,7 +305,7 @@ Get performance metrics for specific tool
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:283](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/tools/src/performance/performance-monitor.ts#L283)
+[packages/tools/src/performance/performance-monitor.ts:283](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/tools/src/performance/performance-monitor.ts#L283)
 
 ___
 
@@ -321,7 +321,7 @@ Reset performance metrics
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:320](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/tools/src/performance/performance-monitor.ts#L320)
+[packages/tools/src/performance/performance-monitor.ts:320](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/tools/src/performance/performance-monitor.ts#L320)
 
 ___
 
@@ -337,4 +337,4 @@ Generate performance report
 
 #### Defined in
 
-[packages/tools/src/performance/performance-monitor.ts:328](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/tools/src/performance/performance-monitor.ts#L328)
+[packages/tools/src/performance/performance-monitor.ts:328](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/tools/src/performance/performance-monitor.ts#L328)

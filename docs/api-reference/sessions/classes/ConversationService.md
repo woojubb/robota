@@ -43,7 +43,7 @@
 
 #### Defined in
 
-[conversation/conversation-service-impl.ts:19](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/conversation/conversation-service-impl.ts#L19)
+[sessions/src/conversation/conversation-service-impl.ts:19](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/conversation/conversation-service-impl.ts#L19)
 
 ## Methods
 
@@ -55,7 +55,7 @@
 
 | Name | Type |
 | :------ | :------ |
-| `message` | `unknown` |
+| `message` | `UniversalMessage` |
 
 #### Returns
 
@@ -67,17 +67,17 @@ ConversationService.addMessage
 
 #### Defined in
 
-[conversation/conversation-service-impl.ts:23](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/conversation/conversation-service-impl.ts#L23)
+[sessions/src/conversation/conversation-service-impl.ts:23](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/conversation/conversation-service-impl.ts#L23)
 
 ___
 
 ### getMessages
 
-▸ **getMessages**(): `unknown`[]
+▸ **getMessages**(): `UniversalMessage`[]
 
 #### Returns
 
-`unknown`[]
+`UniversalMessage`[]
 
 #### Implementation of
 
@@ -85,7 +85,7 @@ ConversationService.getMessages
 
 #### Defined in
 
-[conversation/conversation-service-impl.ts:27](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/conversation/conversation-service-impl.ts#L27)
+[sessions/src/conversation/conversation-service-impl.ts:27](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/conversation/conversation-service-impl.ts#L27)
 
 ___
 
@@ -103,7 +103,7 @@ ConversationService.getConversationSummary
 
 #### Defined in
 
-[conversation/conversation-service-impl.ts:31](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/conversation/conversation-service-impl.ts#L31)
+[sessions/src/conversation/conversation-service-impl.ts:31](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/conversation/conversation-service-impl.ts#L31)
 
 ___
 
@@ -121,4 +121,4 @@ ConversationService.clearConversation
 
 #### Defined in
 
-[conversation/conversation-service-impl.ts:40](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/sessions/src/conversation/conversation-service-impl.ts#L40)
+[sessions/src/conversation/conversation-service-impl.ts:40](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/sessions/src/conversation/conversation-service-impl.ts#L40)

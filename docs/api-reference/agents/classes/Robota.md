@@ -167,7 +167,7 @@ const robota = new Robota({
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:168](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L168)
+[packages/agents/src/agents/robota.ts:168](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L168)
 
 ## Properties
 
@@ -179,7 +179,7 @@ The name of this agent instance
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:120](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L120)
+[packages/agents/src/agents/robota.ts:120](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L120)
 
 ___
 
@@ -191,7 +191,7 @@ The version of the Robota agent implementation
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:122](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L122)
+[packages/agents/src/agents/robota.ts:122](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L122)
 
 ## Methods
 
@@ -211,7 +211,7 @@ Cleanup resources
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:72](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/abstracts/base-agent.ts#L72)
+[packages/agents/src/abstracts/base-agent.ts:72](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/abstracts/base-agent.ts#L72)
 
 ___
 
@@ -289,7 +289,7 @@ try {
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:360](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L360)
+[packages/agents/src/agents/robota.ts:361](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L361)
 
 ___
 
@@ -370,7 +370,7 @@ try {
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:459](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L459)
+[packages/agents/src/agents/robota.ts:460](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L460)
 
 ___
 
@@ -412,7 +412,7 @@ console.log(history[0].content); // 'What is 2 + 2?'
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:525](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L525)
+[packages/agents/src/agents/robota.ts:526](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L526)
 
 ___
 
@@ -449,7 +449,7 @@ console.log(robota.getHistory().length); // 0
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:554](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L554)
+[packages/agents/src/agents/robota.ts:555](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L555)
 
 ___
 
@@ -486,7 +486,7 @@ robota.addPlugin(new PerformancePlugin({ trackMemory: true }));
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:579](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L579)
+[packages/agents/src/agents/robota.ts:580](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L580)
 
 ___
 
@@ -521,7 +521,7 @@ if (removed) {
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:600](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L600)
+[packages/agents/src/agents/robota.ts:601](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L601)
 
 ___
 
@@ -563,7 +563,7 @@ if (usagePlugin) {
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:626](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L626)
+[packages/agents/src/agents/robota.ts:627](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L627)
 
 ___
 
@@ -591,7 +591,7 @@ plugins.forEach(plugin => {
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:644](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L644)
+[packages/agents/src/agents/robota.ts:645](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L645)
 
 ___
 
@@ -617,7 +617,7 @@ console.log('Active plugins:', pluginNames.join(', '));
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:660](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L660)
+[packages/agents/src/agents/robota.ts:661](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L661)
 
 ___
 
@@ -656,7 +656,7 @@ robota.switchProvider('anthropic', 'claude-3-opus-20240229');
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:685](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L685)
+[packages/agents/src/agents/robota.ts:686](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L686)
 
 ___
 
@@ -704,7 +704,7 @@ console.log('Current provider:', stats.currentProvider);
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:715](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L715)
+[packages/agents/src/agents/robota.ts:716](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L716)
 
 ___
 
@@ -761,7 +761,7 @@ robota.registerTool(new WeatherTool());
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:761](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L761)
+[packages/agents/src/agents/robota.ts:762](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L762)
 
 ___
 
@@ -794,7 +794,7 @@ console.log('Remaining tools:', stats.tools);
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:781](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L781)
+[packages/agents/src/agents/robota.ts:788](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L788)
 
 ___
 
@@ -823,7 +823,7 @@ console.log('Available providers:', Object.keys(config.aiProviders || {}));
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:801](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L801)
+[packages/agents/src/agents/robota.ts:808](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L808)
 
 ___
 
@@ -864,7 +864,7 @@ robota.updateConfig({
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:828](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L828)
+[packages/agents/src/agents/robota.ts:835](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L835)
 
 ___
 
@@ -912,7 +912,7 @@ console.log(`Messages in history: ${stats.historyLength}`);
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:854](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L854)
+[packages/agents/src/agents/robota.ts:861](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L861)
 
 ___
 
@@ -953,4 +953,4 @@ process.on('SIGTERM', async () => {
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:939](https://github.com/woojubb/robota/blob/e1b7b651a85a9b93f075b6523ec8de869e77f12c/packages/agents/src/agents/robota.ts#L939)
+[packages/agents/src/agents/robota.ts:946](https://github.com/woojubb/robota/blob/c50179e56752f80ea03c64201e29ab12275152bf/packages/agents/src/agents/robota.ts#L946)
