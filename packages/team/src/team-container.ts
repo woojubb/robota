@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import { Robota, RobotaConfig, ExecutionAnalyticsPlugin } from '@robota-sdk/agents';
+import { Robota, AgentConfig, ExecutionAnalyticsPlugin } from '@robota-sdk/agents';
 import { createZodFunctionTool } from '@robota-sdk/agents';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
@@ -186,7 +186,7 @@ export class TeamContainer {
         }
 
         // Create team agent using leader template configuration
-        const teamConfig: RobotaConfig = {
+        const teamConfig: AgentConfig = {
             ...this.options.baseRobotaOptions,
             systemMessage: leaderTemplate.config.systemMessage,
             currentModel: leaderTemplate.config.model,
@@ -737,7 +737,7 @@ export class TeamContainer {
         const toolInstance = createZodFunctionTool(
             'assignTask',
             'Assign a specialized task to a temporary expert agent. Use this when the task requires specific expertise, complex analysis, or when breaking down work into specialized components would be beneficial. The expert agent will be created, complete the task, and be automatically cleaned up. Set allowFurtherDelegation=true ONLY for extremely complex tasks requiring multiple different areas of expertise, otherwise keep false for direct execution. Choose appropriate agentTemplate based on the nature of the work.',
-            assignTaskSchema,
+            assignTaskSchema as any, // TODO: Fix ZodSchema type compatibility later
             async (parameters: Record<string, any>) => {
                 const assignTaskParams: AssignTaskParams = {
                     jobDescription: parameters['jobDescription'],

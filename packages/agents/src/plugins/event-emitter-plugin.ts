@@ -20,6 +20,59 @@ export type EventType =
     | 'custom';
 
 /**
+ * Basic event execution value types
+ */
+export type EventExecutionValue = string | number | boolean | Date | string[] | number[] | boolean[];
+
+/**
+ * Event execution context data following semantic naming conventions
+ * Supports nested structures with proper type safety
+ */
+export interface EventExecutionContextData {
+    messageCount?: number;
+    config?: Record<string, EventExecutionValue>;
+    result?: Record<string, EventExecutionValue>;
+    duration?: number;
+    tokensUsed?: number;
+    toolsExecuted?: number;
+    messages?: Record<string, EventExecutionValue>[];
+    response?: string;
+    toolCalls?: Record<string, EventExecutionValue>[];
+    [key: string]: EventExecutionValue | Record<string, EventExecutionValue> | Record<string, EventExecutionValue>[] | undefined;
+}
+
+/**
+ * Event metadata following semantic naming conventions
+ */
+export type EventEmitterMetadata = Record<string, string | number | boolean | Date | string[] | number[]>;
+
+/**
+ * Plugin execution context for event emitter
+ */
+export interface PluginExecutionContext {
+    executionId?: string;
+    sessionId?: string;
+    userId?: string;
+    messages?: EventExecutionContextData[];
+    config?: Record<string, EventExecutionValue>;
+    [key: string]: EventExecutionValue | EventExecutionContextData | EventExecutionContextData[] | undefined;
+}
+
+/**
+ * Plugin execution result for event emitter
+ */
+export interface PluginExecutionResult {
+    content?: string;
+    response?: string;
+    duration?: number;
+    tokensUsed?: number;
+    toolsExecuted?: number;
+    usage?: Record<string, EventExecutionValue>;
+    toolCalls?: Record<string, EventExecutionValue>[];
+    [key: string]: EventExecutionValue | Record<string, EventExecutionValue> | Record<string, EventExecutionValue>[] | undefined;
+}
+
+/**
  * Event data structure
  */
 export interface EventData {
@@ -28,9 +81,9 @@ export interface EventData {
     executionId?: string;
     sessionId?: string;
     userId?: string;
-    data?: any;
+    data?: EventExecutionContextData;
     error?: Error;
-    metadata?: Record<string, any>;
+    metadata?: EventEmitterMetadata;
 }
 
 /**
@@ -68,6 +121,18 @@ export interface EventEmitterPluginOptions {
         maxSize: number;
         flushInterval: number;
     };
+}
+
+/**
+ * Event emitter plugin statistics
+ */
+export interface EventEmitterPluginStats {
+    eventTypes: EventType[];
+    listenerCounts: Record<EventType, number>;
+    totalListeners: number;
+    bufferedEvents: number;
+    totalEmitted: number;
+    totalErrors: number;
 }
 
 /**
@@ -125,14 +190,14 @@ export class EventEmitterPlugin extends BasePlugin {
     /**
      * Before execution starts
      */
-    async beforeExecution(context: any): Promise<void> {
+    async beforeExecution(context: PluginExecutionContext): Promise<void> {
         await this.emit('execution.start', {
             executionId: context.executionId,
             sessionId: context.sessionId,
             userId: context.userId,
             data: {
                 messageCount: context.messages?.length || 0,
-                config: context.config
+                ...(context.config && { config: context.config })
             }
         });
     }
@@ -140,7 +205,7 @@ export class EventEmitterPlugin extends BasePlugin {
     /**
      * After execution completes
      */
-    async afterExecution(context: any, result: any): Promise<void> {
+    async afterExecution(context: PluginExecutionContext, result: PluginExecutionResult): Promise<void> {
         await this.emit('execution.complete', {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -157,7 +222,7 @@ export class EventEmitterPlugin extends BasePlugin {
     /**
      * Before conversation starts
      */
-    async beforeConversation(context: any): Promise<void> {
+    async beforeConversation(context: PluginExecutionContext): Promise<void> {
         await this.emit('conversation.start', {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -471,14 +536,9 @@ export class EventEmitterPlugin extends BasePlugin {
     }
 
     /**
-     * Get listener statistics
+     * Get event emitter statistics
      */
-    override getStats(): {
-        eventTypes: EventType[];
-        listenerCounts: Record<EventType, number>;
-        totalListeners: number;
-        bufferedEvents: number;
-    } {
+    getStats(): EventEmitterPluginStats {
         const listenerCounts: Record<EventType, number> = {} as any;
         let totalListeners = 0;
 
@@ -491,7 +551,9 @@ export class EventEmitterPlugin extends BasePlugin {
             eventTypes: Array.from(this.handlers.keys()),
             listenerCounts,
             totalListeners,
-            bufferedEvents: this.eventBuffer.length
+            bufferedEvents: this.eventBuffer.length,
+            totalEmitted: 0, // TODO: Track total emitted events
+            totalErrors: 0 // TODO: Track total listener errors
         };
     }
 

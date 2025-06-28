@@ -2,11 +2,26 @@ import { AgentTemplate } from '../interfaces/agent';
 import { Logger, createLogger } from '../utils/logger';
 
 /**
+ * Reusable type definitions for agent templates
+ */
+
+/**
+ * Agent template configuration data type
+ * Used for storing template configuration values
+ */
+export type AgentTemplateConfigurationData = Record<string, string | number | boolean | string[] | number[] | boolean[]>;
+
+/**
+ * Agent template configuration following semantic naming conventions
+ */
+export type AgentTemplateConfig = Record<string, string | number | boolean | string[] | number[] | boolean[] | AgentTemplateConfigurationData>;
+
+/**
  * Template application result
  */
 export interface TemplateApplicationResult {
     /** Applied configuration */
-    config: Record<string, any>;
+    config: AgentTemplateConfig;
     /** Template that was applied */
     template: AgentTemplate;
     /** Any warnings during application */
@@ -118,12 +133,12 @@ export class AgentTemplates {
     /**
      * Apply template to configuration
      */
-    applyTemplate(template: AgentTemplate, overrides: Record<string, any> = {}): TemplateApplicationResult {
+    applyTemplate(template: AgentTemplate, overrides: AgentTemplateConfig = {}): TemplateApplicationResult {
         const warnings: string[] = [];
         let modified = false;
 
         // Start with template configuration
-        const config: Record<string, any> = { ...template.config };
+        const config: AgentTemplateConfig = { ...template.config };
 
         // Apply overrides
         for (const [key, value] of Object.entries(overrides)) {

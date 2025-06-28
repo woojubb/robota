@@ -1,4 +1,4 @@
-import type { RobotaConfig, AgentTemplate, AIProvider } from '@robota-sdk/agents';
+import type { AgentConfig as RobotaAgentConfig, AgentTemplate, AIProvider } from '@robota-sdk/agents';
 
 /**
  * Team creation options for template-based teams
@@ -68,7 +68,7 @@ export interface TeamOptions {
  * @internal
  */
 export interface TeamContainerOptions {
-    baseRobotaOptions: RobotaConfig;
+    baseRobotaOptions: RobotaAgentConfig;
     maxMembers?: number;
     debug?: boolean;
     customTemplates?: AgentTemplate[];

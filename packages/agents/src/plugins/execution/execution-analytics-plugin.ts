@@ -3,6 +3,7 @@ import { Logger, createLogger } from '../../utils/logger';
 import type { RunOptions } from '../../interfaces/agent';
 import type { UniversalMessage } from '../../managers/conversation-history-manager';
 import { isAssistantMessage } from '../../managers/conversation-history-manager';
+import type { ToolParameters } from '../../interfaces/tool';
 
 /**
  * Execution statistics entry
@@ -19,7 +20,7 @@ export interface ExecutionStats {
         stack?: string;
         type: string;
     };
-    metadata?: Record<string, any>;
+    metadata?: Record<string, string | number | boolean | Date | string[]>;
 }
 
 /**
@@ -228,7 +229,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
     /**
      * Called before tool call - start tracking
      */
-    override async beforeToolCall(toolName: string, parameters: Record<string, any>): Promise<void> {
+    override async beforeToolCall(toolName: string, parameters: ToolParameters): Promise<void> {
         const executionId = this.generateExecutionId('tool');
 
         this.activeExecutions.set(executionId, {
@@ -247,7 +248,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
     /**
      * Called after tool call - end tracking
      */
-    override async afterToolCall(toolName: string, parameters: Record<string, any>, result: any): Promise<void> {
+    override async afterToolCall(toolName: string, parameters: ToolParameters, result: { error?: Error;[key: string]: unknown }): Promise<void> {
         // Find the related execution
         const execution = this.findActiveExecution('tool-call', toolName);
 
@@ -297,7 +298,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
     /**
      * Called on error - end tracking with error
      */
-    override async onError(error: Error, context?: any): Promise<void> {
+    override async onError(error: Error, context?: Record<string, unknown>): Promise<void> {
         // Find any active execution that might be related to this error
         const activeExecution = Array.from(this.activeExecutions.entries())[0];
 
@@ -509,30 +510,38 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
     }
 
     /**
-     * Get raw data for export
+     * Get execution data for export
      */
-    override getData(): ExecutionStats[] {
+    getExecutionData(): ExecutionStats[] {
         return [...this.executionHistory];
     }
 
     /**
-     * Get plugin stats
+     * Get analytics statistics
      */
-    override getStats(): AggregatedExecutionStats {
+    getAnalyticsStats(): AggregatedExecutionStats {
         return this.getAggregatedStats();
     }
 
     /**
-     * Clear data (alias for clearStats)
+     * Clear execution data
      */
-    override clearData(): void {
+    clearExecutionData(): void {
         this.clearStats();
     }
 
     /**
      * Get plugin status
      */
-    override getStatus(): any {
+    override getStatus(): {
+        name: string;
+        version: string;
+        enabled: boolean;
+        initialized: boolean;
+        totalRecorded: number;
+        activeExecutions: number;
+        memoryUsage: number;
+    } {
         return {
             name: this.name,
             version: this.version,
@@ -566,7 +575,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
         return `${prefix}-${Date.now()}-${++this.executionCounter}`;
     }
 
-    private findActiveExecution(operation: string, input?: string): { executionId: string; executionData: any } | null {
+    private findActiveExecution(operation: string, input?: string): { executionId: string; executionData: { startTime: number; operation: string; input?: string } } | null {
         for (const [executionId, executionData] of this.activeExecutions.entries()) {
             if (executionData.operation === operation) {
                 // For 'run' operations, also match input if provided

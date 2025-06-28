@@ -8,8 +8,20 @@ import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ExecutionService } from '../services/execution-service';
 import { AIProvider } from '../interfaces/provider';
 import { BaseTool } from '../abstracts/base-tool';
-import { Logger, createLogger, UtilLogLevel, setGlobalLogLevel } from '../utils/logger';
+import { Logger, createLogger, setGlobalLogLevel } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
+import type { BaseToolParameters } from '../abstracts/base-tool';
+import type { ToolExecutionData, ToolParameters } from '../interfaces/tool';
+
+/**
+ * Reusable type definitions for Robota agent
+ */
+
+/**
+ * Agent statistics metadata type
+ * Used for storing statistics and performance data in getStats method
+ */
+export type AgentStatsMetadata = Record<string, string | number | boolean | Date | string[]>;
 
 /**
  * Configuration options for creating a Robota instance.
@@ -19,7 +31,7 @@ import { ConfigurationError } from '../utils/errors';
  * @interface
  * @example
  * ```typescript
- * const config: RobotaConfig = {
+ * const config: AgentConfig = {
  *   name: 'MyAgent',
  *   aiProviders: { openai: new OpenAIProvider() },
  *   currentProvider: 'openai',
@@ -30,27 +42,7 @@ import { ConfigurationError } from '../utils/errors';
  * };
  * ```
  */
-export interface RobotaConfig extends AgentConfig {
-    /** AI providers to register - key-value pairs of provider name and provider instance */
-    aiProviders?: Record<string, AIProvider>;
-    /** Current AI provider to use - must match a key in aiProviders */
-    currentProvider?: string;
-    /** Current model to use - must be supported by the current provider */
-    currentModel?: string;
-    /** Tools to register - array of BaseTool instances for function calling */
-    tools?: BaseTool[];
-    /** Plugins to register - array of BasePlugin instances for lifecycle hooks */
-    plugins?: BasePlugin[];
-    /** Conversation ID for centralized history management - auto-generated if not provided */
-    conversationId?: string;
-    /** Logging configuration */
-    logging?: {
-        /** Log level - 'debug', 'info', 'warn', 'error', 'silent' */
-        level?: UtilLogLevel;
-        /** Whether logging is enabled */
-        enabled?: boolean;
-    };
-}
+// Robota uses AgentConfig directly
 
 /**
  * Main AI agent implementation for the Robota SDK.
@@ -131,7 +123,7 @@ export class Robota extends BaseAgent implements AgentInterface {
     private executionService!: ExecutionService;
 
     // State management
-    private config: RobotaConfig;
+    private config: AgentConfig;
     private conversationId: string;
     private logger: Logger;
     private initializationPromise?: Promise<void>;
@@ -160,12 +152,11 @@ export class Robota extends BaseAgent implements AgentInterface {
      *   currentProvider: 'openai',
      *   currentModel: 'gpt-4',
      *   tools: [emailTool, ticketTool],
-     *   plugins: [new LoggingPlugin(), new ErrorHandlingPlugin()],
-     *   logging: { level: 'info', enabled: true }
+     *   plugins: [new LoggingPlugin(), new ErrorHandlingPlugin()]
      * });
      * ```
      */
-    constructor(config: RobotaConfig) {
+    constructor(config: AgentConfig) {
         super();
 
         this.name = config.name || 'Robota';
@@ -279,7 +270,12 @@ export class Robota extends BaseAgent implements AgentInterface {
             if (this.config.tools) {
                 for (const tool of this.config.tools) {
                     // Convert BaseTool to ToolSchema and executor
-                    this.tools.addTool(tool.schema, tool.execute.bind(tool));
+                    // Create an adapter to convert ToolResult to ToolExecutionData
+                    const toolExecutor = async (parameters: BaseToolParameters, context?: Record<string, string | number | boolean>): Promise<ToolExecutionData> => {
+                        const result = await tool.execute(parameters, context);
+                        return result.data ?? result;
+                    };
+                    this.tools.addTool(tool.schema, toolExecutor);
                     this.logger.debug('Tool registered during initialization', { toolName: tool.schema.name });
                 }
             }
@@ -457,7 +453,7 @@ export class Robota extends BaseAgent implements AgentInterface {
      * }
      * ```
      */
-    async* runStream(input: string, options: RunOptions = {}): AsyncGenerator<string, void, unknown> {
+    async* runStream(input: string, options: RunOptions = {}): AsyncGenerator<string, void, undefined> {
         await this.ensureFullyInitialized();
 
         try {
@@ -766,7 +762,12 @@ export class Robota extends BaseAgent implements AgentInterface {
             return;
         }
 
-        this.tools.addTool(tool.schema, tool.execute.bind(tool));
+        // Create an adapter to convert ToolResult to ToolExecutionData
+        const toolExecutor = async (parameters: BaseToolParameters, context?: Record<string, string | number | boolean>): Promise<ToolExecutionData> => {
+            const result = await tool.execute(parameters as ToolParameters, context);
+            return result.data ?? result;
+        };
+        this.tools.addTool(tool.schema, toolExecutor);
         this.logger.debug('Tool registered', { toolName: tool.schema.name });
     }
 
@@ -796,7 +797,7 @@ export class Robota extends BaseAgent implements AgentInterface {
      * Returns a copy of the current configuration object. Modifications to the
      * returned object do not affect the agent - use updateConfig() to make changes.
      * 
-     * @returns Copy of the current RobotaConfig
+     * @returns Copy of the current AgentConfig
      * 
      * @example
      * ```typescript
@@ -805,7 +806,7 @@ export class Robota extends BaseAgent implements AgentInterface {
      * console.log('Available providers:', Object.keys(config.aiProviders || {}));
      * ```
      */
-    getConfig(): RobotaConfig {
+    getConfig(): AgentConfig {
         return { ...this.config };
     }
 
@@ -832,7 +833,7 @@ export class Robota extends BaseAgent implements AgentInterface {
      * });
      * ```
      */
-    updateConfig(updates: Partial<RobotaConfig>): void {
+    updateConfig(updates: Partial<AgentConfig>): void {
         this.config = { ...this.config, ...updates };
         this.logger.debug('Configuration updated', { updates: Object.keys(updates) });
     }
@@ -867,7 +868,7 @@ export class Robota extends BaseAgent implements AgentInterface {
         tools: string[];
         plugins: string[];
         historyLength: number;
-        historyStats: any;
+        historyStats: AgentStatsMetadata;
         uptime: number;
     } {
         const conversationSession = this.conversationHistory.getConversationSession(this.conversationId);
@@ -891,7 +892,7 @@ export class Robota extends BaseAgent implements AgentInterface {
      * Validate the agent configuration.
      * @internal
      */
-    private validateConfig(config: RobotaConfig): void {
+    private validateConfig(config: AgentConfig): void {
         if (!config.model && !config.currentModel) {
             throw new ConfigurationError(
                 'Model must be specified in config.model or config.currentModel',

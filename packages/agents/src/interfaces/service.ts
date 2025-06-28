@@ -3,8 +3,58 @@
  * Defines contracts for stateless service implementations
  */
 
-import { UniversalMessage } from '../managers/conversation-history-manager';
-import { AIProvider } from './provider';
+import type { UniversalMessage } from '../managers/conversation-history-manager';
+import type { ToolSchema, AIProvider } from './provider';
+import type { ToolExecutionData } from './tool';
+
+/**
+ * Reusable type definitions for service layer
+ */
+
+/**
+ * Metadata type for conversation and execution context
+ * Used for storing additional information about conversations, responses, and execution
+ */
+export type ConversationContextMetadata = Record<string, string | number | boolean | Date>;
+
+/**
+ * Tool execution parameters type
+ * Used for passing parameters to tool execution methods
+ */
+export type ToolExecutionParameters = Record<string, string | number | boolean | string[] | number[] | boolean[]>;
+
+/**
+ * Execution metadata type
+ * Used for storing metadata about execution processes and options
+ */
+export type ExecutionMetadata = Record<string, string | number | boolean | Date>;
+
+/**
+ * Response metadata type  
+ * Used for storing metadata about AI provider responses and streaming chunks
+ */
+export type ResponseMetadata = Record<string, string | number | boolean | Date>;
+
+/**
+ * Tool call data structure for function calls
+ */
+export interface ToolCallData {
+    id: string;
+    type: 'function';
+    function: {
+        name: string;
+        arguments: string;
+    };
+}
+
+/**
+ * Tool execution request
+ */
+export interface ToolExecutionRequest {
+    name: string;
+    parameters: ToolExecutionParameters;
+    executionId?: string;
+}
 
 /**
  * Conversation context containing messages and metadata
@@ -23,9 +73,9 @@ export interface ConversationContext {
     /** Maximum tokens to generate */
     maxTokens?: number;
     /** Available tools */
-    tools?: any[];
+    tools?: ToolSchema[];
     /** Additional metadata */
-    metadata?: Record<string, any>;
+    metadata?: ConversationContextMetadata;
 }
 
 /**
@@ -35,7 +85,7 @@ export interface ConversationResponse {
     /** Generated content */
     content: string;
     /** Tool calls if any */
-    toolCalls?: any[];
+    toolCalls?: ToolCallData[];
     /** Usage statistics */
     usage?: {
         promptTokens: number;
@@ -43,7 +93,7 @@ export interface ConversationResponse {
         totalTokens: number;
     };
     /** Response metadata */
-    metadata?: Record<string, any>;
+    metadata?: ResponseMetadata;
     /** Finish reason */
     finishReason?: string;
 }
@@ -57,7 +107,7 @@ export interface StreamingChunk {
     /** Whether this is the final chunk */
     done: boolean;
     /** Tool calls if any */
-    toolCalls?: any[];
+    toolCalls?: ToolCallData[];
     /** Usage statistics (only in final chunk) */
     usage?: {
         promptTokens: number;
@@ -89,8 +139,22 @@ export interface ContextOptions {
     systemMessage?: string;
     temperature?: number;
     maxTokens?: number;
-    tools?: any[];
-    metadata?: Record<string, any>;
+    tools?: ToolSchema[];
+    metadata?: ConversationContextMetadata;
+}
+
+/**
+ * Execution service options
+ */
+export interface ExecutionServiceOptions {
+    /** Maximum number of tool execution rounds */
+    maxToolRounds?: number;
+    /** Tool execution timeout */
+    toolTimeout?: number;
+    /** Whether to enable parallel tool execution */
+    enableParallelExecution?: boolean;
+    /** Additional execution metadata */
+    metadata?: ExecutionMetadata;
 }
 
 /**
@@ -128,7 +192,7 @@ export interface ConversationServiceInterface {
         provider: AIProvider,
         context: ConversationContext,
         serviceOptions?: ConversationServiceOptions
-    ): AsyncGenerator<StreamingChunk, void, unknown>;
+    ): AsyncGenerator<StreamingChunk, void, never>;
 
     /**
      * Validate conversation context
@@ -144,17 +208,17 @@ export interface ToolExecutionServiceInterface {
     /**
      * Execute a single tool
      */
-    executeTool(toolName: string, parameters: any): Promise<any>;
+    executeTool(toolName: string, parameters: ToolExecutionParameters): Promise<ToolExecutionData>;
 
     /**
      * Execute multiple tools in parallel
      */
-    executeToolsParallel(toolCalls: Array<{ name: string; parameters: any }>): Promise<any[]>;
+    executeToolsParallel(toolCalls: ToolExecutionRequest[]): Promise<ToolExecutionData[]>;
 
     /**
      * Execute multiple tools sequentially
      */
-    executeToolsSequential(toolCalls: Array<{ name: string; parameters: any }>): Promise<any[]>;
+    executeToolsSequential(toolCalls: ToolExecutionRequest[]): Promise<ToolExecutionData[]>;
 }
 
 /**
@@ -167,7 +231,7 @@ export interface ExecutionServiceInterface {
     execute(
         input: string,
         context: ConversationContext,
-        options?: any
+        options?: ExecutionServiceOptions
     ): Promise<string>;
 
     /**
@@ -176,6 +240,6 @@ export interface ExecutionServiceInterface {
     executeStream(
         input: string,
         context: ConversationContext,
-        options?: any
-    ): AsyncGenerator<string, void, unknown>;
+        options?: ExecutionServiceOptions
+    ): AsyncGenerator<string, void, never>;
 } 

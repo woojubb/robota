@@ -29,7 +29,7 @@ class MockAIProvider extends BaseAIProvider {
         };
     }
 
-    async *generateStreamingResponse(request: any): AsyncGenerator<any, void, unknown> {
+    async *generateStreamingResponse(request: any): AsyncGenerator<any, void, undefined> {
         yield { content: 'Mock response', isComplete: true };
     }
 

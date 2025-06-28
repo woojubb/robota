@@ -14,7 +14,7 @@ export class FileHistoryStorage implements HistoryStorage {
         this.logger = createLogger('FileHistoryStorage');
     }
 
-    async save(conversationId: string, entry: ConversationHistoryEntry): Promise<void> {
+    async save(conversationId: string, _entry: ConversationHistoryEntry): Promise<void> {
         try {
             // File operations would be implemented here
             // This is a placeholder for actual file system operations

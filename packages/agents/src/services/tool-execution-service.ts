@@ -1,7 +1,23 @@
-import { ToolInterface, ToolExecutionResult, ToolResult } from '../interfaces/tool';
+import { ToolExecutionResult, ToolResult } from '../interfaces/tool';
 import { Tools } from '../managers/tool-manager';
 import { Logger, createLogger } from '../utils/logger';
 import { ToolExecutionError, ValidationError } from '../utils/errors';
+
+/**
+ * Reusable type definitions for tool execution service
+ */
+
+/**
+ * Service tool execution data type
+ * Used for storing tool execution parameters and metadata
+ */
+export type ServiceToolExecutionData = Record<string, string | number | boolean | string[] | number[] | boolean[]>;
+
+/**
+ * Service tool execution metadata type
+ * Used for storing extended metadata including objects and arrays
+ */
+export type ServiceToolExecutionMetadata = Record<string, string | number | boolean | Date | Error | string[] | number[] | boolean[] | ServiceToolExecutionData | Required<ToolExecutionServiceOptions> | null | undefined>;
 
 /**
  * Tool execution request
@@ -10,11 +26,11 @@ export interface ToolExecutionRequest {
     /** Tool name to execute */
     toolName: string;
     /** Input parameters for the tool */
-    parameters: Record<string, any>;
+    parameters: ServiceToolExecutionData;
     /** Execution ID for tracking */
     executionId?: string;
     /** Additional metadata */
-    metadata?: Record<string, any>;
+    metadata?: ServiceToolExecutionData;
 }
 
 /**
@@ -110,7 +126,12 @@ export class ToolExecutionService {
             maxHistorySize: options.maxHistorySize || 100,
         };
 
-        this.logger.info('ToolExecutionService initialized', { options: this.options });
+        this.logger.info('ToolExecutionService initialized', {
+            defaultTimeout: this.options.defaultTimeout,
+            defaultMaxConcurrency: this.options.defaultMaxConcurrency,
+            collectStats: this.options.collectStats,
+            maxHistorySize: this.options.maxHistorySize
+        });
     }
 
     /**
@@ -124,7 +145,7 @@ export class ToolExecutionService {
             this.logger.debug('Starting tool execution', {
                 toolName: request.toolName,
                 executionId,
-                parameters: request.parameters,
+                parametersCount: Object.keys(request.parameters).length,
             });
 
             // Get tool from manager
@@ -168,7 +189,7 @@ export class ToolExecutionService {
                 result: typeof toolResult.data === 'string'
                     ? toolResult.data
                     : JSON.stringify(toolResult.data),
-                error: toolResult.error,
+                error: toolResult.error || '',
                 executionId,
                 duration,
                 metadata: {
@@ -190,7 +211,7 @@ export class ToolExecutionService {
                 toolName: request.toolName,
                 executionId,
                 duration,
-                error,
+                errorMessage: error instanceof Error ? error.message : String(error),
             });
 
             throw new ToolExecutionError(
@@ -211,7 +232,7 @@ export class ToolExecutionService {
         this.logger.info('Starting tool execution batch', {
             mode: context.mode,
             toolCount: context.requests.length,
-            maxConcurrency: context.maxConcurrency,
+            maxConcurrency: context.maxConcurrency || this.options.defaultMaxConcurrency,
         });
 
         let results: ToolExecutionResult[] = [];
@@ -228,7 +249,9 @@ export class ToolExecutionService {
                 errors.push(...sequentialResults.errors);
             }
         } catch (error) {
-            this.logger.error('Tool execution batch failed', { error });
+            this.logger.error('Tool execution batch failed', {
+                errorMessage: error instanceof Error ? error.message : String(error)
+            });
             throw error;
         }
 
@@ -296,11 +319,14 @@ export class ToolExecutionService {
                 if (batchResult.success && batchResult.result) {
                     results.push(batchResult.result);
                 } else if (!batchResult.success) {
-                    errors.push({
+                    const errorEntry: { toolName: string; error: Error; executionId?: string } = {
                         toolName: batchResult.toolName!,
                         error: batchResult.error!,
-                        executionId: batchResult.executionId,
-                    });
+                    };
+                    if (batchResult.executionId) {
+                        errorEntry.executionId = batchResult.executionId;
+                    }
+                    errors.push(errorEntry);
                 }
             }
         }
@@ -322,17 +348,20 @@ export class ToolExecutionService {
                 const result = await this.executeTool(request);
                 results.push(result);
             } catch (error) {
-                errors.push({
+                const errorEntry: { toolName: string; error: Error; executionId?: string } = {
                     toolName: request.toolName,
                     error: error as Error,
-                    executionId: request.executionId,
-                });
+                };
+                if (request.executionId) {
+                    errorEntry.executionId = request.executionId;
+                }
+                errors.push(errorEntry);
 
                 // Stop execution if continueOnError is false
                 if (!context.continueOnError) {
                     this.logger.warn('Stopping sequential execution due to error', {
                         toolName: request.toolName,
-                        error,
+                        errorMessage: error instanceof Error ? error.message : String(error),
                     });
                     break;
                 }
@@ -409,14 +438,14 @@ export class ToolExecutionService {
         function: { name: string; arguments: string };
     }>): ToolExecutionRequest[] {
         return toolCalls.map(toolCall => {
-            let parameters: Record<string, any> = {};
+            let parameters: ServiceToolExecutionData = {};
             try {
-                parameters = JSON.parse(toolCall.function.arguments);
+                parameters = JSON.parse(toolCall.function.arguments) as ServiceToolExecutionData;
             } catch (error) {
                 this.logger.warn('Failed to parse tool arguments', {
                     toolName: toolCall.function.name,
                     arguments: toolCall.function.arguments,
-                    error,
+                    errorMessage: error instanceof Error ? error.message : String(error),
                 });
             }
 

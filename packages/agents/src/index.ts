@@ -163,14 +163,14 @@ export { WebhookPlugin, WebhookEventType, WebhookPayload, WebhookEndpoint, Webho
 
 // ===== MAIN AGENT EXPORTS =====
 /**
- * The main Robota agent class and its configuration interface.
+ * The main Robota agent class.
  * This is the primary entry point for creating AI agents.
  * 
  * @example Basic Usage
  * ```typescript
- * import { Robota, type RobotaConfig } from '@robota-sdk/agents';
+ * import { Robota, type AgentConfig } from '@robota-sdk/agents';
  * 
- * const config: RobotaConfig = {
+ * const config: AgentConfig = {
  *   name: 'Assistant',
  *   aiProviders: { openai: provider },
  *   currentProvider: 'openai',
@@ -182,7 +182,7 @@ export { WebhookPlugin, WebhookEventType, WebhookPayload, WebhookEndpoint, Webho
  * 
  * @public
  */
-export { Robota, RobotaConfig } from './agents/robota';
+export { Robota } from './agents/robota';
 
 // ===== PROVIDER COMPATIBILITY NOTICE =====
 /**

@@ -149,15 +149,12 @@ export class LoggingPlugin extends BasePlugin {
         const message = success ? 'Tool executed successfully' : 'Tool execution failed';
         const level: LogLevel = success ? 'info' : 'error';
 
-        const logMetadata: any = {
+        const logMetadata = {
             executionId,
             operation: 'tool_execution',
-            ...metadata
-        };
-
-        if (duration !== undefined) {
-            logMetadata.duration = duration;
-        }
+            ...(duration !== undefined && { duration }),
+            ...(metadata && typeof metadata === 'object' ? metadata : {})
+        } as LogEntry['metadata'];
 
         await this.log(level, message, { toolName, success }, logMetadata);
     }

@@ -33,7 +33,7 @@ export interface ConversationHistoryEntry {
     messages: Message[];
     startTime: Date;
     lastUpdated: Date;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, string | number | boolean | Date>;
 }
 
 /**

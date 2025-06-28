@@ -1,13 +1,51 @@
 import type { ToolSchema } from './provider';
 
 /**
+ * Specific tool parameter value types - declarative type system
+ */
+export type ToolParameterValue =
+    | string
+    | number
+    | boolean
+    | string[]
+    | number[]
+    | boolean[]
+    | Array<string | number | boolean>
+    | Record<string, string | number | boolean>
+    | null
+    | undefined;
+
+/**
+ * Tool parameters collection - declarative type system
+ */
+export type ToolParameters = Record<string, ToolParameterValue>;
+
+/**
+ * Tool metadata structure - specific type definition
+ */
+export type ToolMetadata = Record<string, string | number | boolean | string[] | number[] | boolean[] | ToolParameters>;
+
+/**
+ * Generic tool execution data - supports complex nested structures
+ */
+export type ToolExecutionData =
+    | string
+    | number
+    | boolean
+    | Record<string, string | number | boolean | ToolParameters>
+    | Array<string | number | boolean | ToolParameters>
+    | ToolParameters
+    | null
+    | undefined;
+
+/**
  * Tool execution result
  */
 export interface ToolResult {
     success: boolean;
-    data?: any;
+    data?: ToolExecutionData;
     error?: string;
-    metadata?: Record<string, any>;
+    metadata?: ToolMetadata;
 }
 
 /**
@@ -19,7 +57,7 @@ export interface ToolExecutionResult {
     /** Tool name that was executed */
     toolName?: string;
     /** Execution result or data */
-    result?: any;
+    result?: ToolExecutionData;
     /** Error message if execution failed */
     error?: string;
     /** Execution duration in milliseconds */
@@ -27,7 +65,7 @@ export interface ToolExecutionResult {
     /** Unique execution ID */
     executionId?: string;
     /** Additional metadata */
-    metadata?: Record<string, any>;
+    metadata?: ToolMetadata;
 }
 
 /**
@@ -35,10 +73,10 @@ export interface ToolExecutionResult {
  */
 export interface ToolExecutionContext {
     toolName: string;
-    parameters: Record<string, any>;
+    parameters: ToolParameters;
     userId?: string;
     sessionId?: string;
-    metadata?: Record<string, any>;
+    metadata?: ToolMetadata;
 }
 
 /**
@@ -52,6 +90,65 @@ export interface ParameterValidationResult {
 }
 
 /**
+ * Generic tool executor function
+ */
+export type ToolExecutor<TParams = ToolParameters, TResult = ToolExecutionData> =
+    (parameters: TParams, context?: ToolExecutionContext) => Promise<TResult>;
+
+/**
+ * OpenAPI specification configuration
+ */
+export interface OpenAPIToolConfig {
+    /** OpenAPI 3.0 specification */
+    spec: {
+        openapi: string;
+        info: {
+            title: string;
+            version: string;
+            description?: string;
+        };
+        servers?: Array<{
+            url: string;
+            description?: string;
+        }>;
+        paths: Record<string, Record<string, string | number | boolean | Record<string, string | number | boolean>>>;
+        components?: Record<string, Record<string, string | number | boolean>>;
+    };
+    /** Operation ID from the OpenAPI spec */
+    operationId: string;
+    /** Base URL for API calls */
+    baseURL: string;
+    /** Authentication configuration */
+    auth?: {
+        type: 'bearer' | 'apiKey' | 'basic';
+        token?: string;
+        apiKey?: string;
+        header?: string;
+        username?: string;
+        password?: string;
+    };
+}
+
+/**
+ * MCP (Model Context Protocol) configuration
+ */
+export interface MCPToolConfig {
+    /** MCP server endpoint */
+    endpoint: string;
+    /** Protocol version */
+    version?: string;
+    /** Authentication configuration */
+    auth?: {
+        type: 'bearer' | 'apiKey';
+        token: string;
+    };
+    /** Tool-specific configuration */
+    toolConfig?: Record<string, string | number | boolean>;
+    /** Timeout in milliseconds */
+    timeout?: number;
+}
+
+/**
  * Base tool interface
  */
 export interface ToolInterface {
@@ -61,17 +158,17 @@ export interface ToolInterface {
     /**
      * Execute the tool with given parameters
      */
-    execute(parameters: Record<string, any>, context?: ToolExecutionContext): Promise<ToolResult>;
+    execute(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult>;
 
     /**
      * Validate tool parameters
      */
-    validate(parameters: Record<string, any>): boolean;
+    validate(parameters: ToolParameters): boolean;
 
     /**
      * Validate tool parameters with detailed result
      */
-    validateParameters(parameters: Record<string, any>): ParameterValidationResult;
+    validateParameters(parameters: ToolParameters): ParameterValidationResult;
 
     /**
      * Get tool description
@@ -84,7 +181,7 @@ export interface ToolInterface {
  */
 export interface FunctionTool extends ToolInterface {
     /** Function to execute */
-    fn: (...args: any[]) => Promise<any>;
+    fn: ToolExecutor;
 }
 
 /**
@@ -134,15 +231,15 @@ export interface ToolFactoryInterface {
     /**
      * Create function tool from schema and function
      */
-    createFunctionTool(schema: ToolSchema, fn: (...args: any[]) => Promise<any>): FunctionTool;
+    createFunctionTool(schema: ToolSchema, fn: ToolExecutor): FunctionTool;
 
     /**
      * Create tool from OpenAPI specification
      */
-    createOpenAPITool(spec: any): ToolInterface;
+    createOpenAPITool(config: OpenAPIToolConfig): ToolInterface;
 
     /**
      * Create MCP tool
      */
-    createMCPTool(config: any): ToolInterface;
+    createMCPTool(config: MCPToolConfig): ToolInterface;
 } 

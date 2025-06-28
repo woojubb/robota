@@ -1,4 +1,4 @@
-import { Message, AgentConfig, ToolCall } from '../interfaces/agent';
+import { Message, AgentConfig } from '../interfaces/agent';
 import { BasePlugin } from '../abstracts/base-plugin';
 import { ToolExecutionService, ToolExecutionContext } from './tool-execution-service';
 import { AIProviders } from '../managers/ai-provider-manager';
@@ -36,6 +36,11 @@ export interface ExecutionResult {
     success: boolean;
     error?: Error;
 }
+
+/**
+ * Plugin statistics type
+ */
+type PluginStats = Record<string, string | number | boolean | object | null>;
 
 /**
  * Service that orchestrates the entire execution pipeline
@@ -458,8 +463,8 @@ export class ExecutionService {
     /**
      * Get execution statistics from plugins
      */
-    async getStats(): Promise<Record<string, any>> {
-        const stats: Record<string, any> = {
+    async getStats(): Promise<PluginStats> {
+        const stats: PluginStats = {
             pluginCount: this.plugins.length,
             pluginNames: this.plugins.map(p => p.name),
             historyStats: this.conversationHistory.getStats()
@@ -467,9 +472,10 @@ export class ExecutionService {
 
         // Collect stats from plugins that have getStats method
         for (const plugin of this.plugins) {
-            if (typeof (plugin as any).getStats === 'function') {
+            if (typeof (plugin as BasePlugin & { getStats?: () => Promise<PluginStats> | PluginStats }).getStats === 'function') {
                 try {
-                    const pluginStats = await (plugin as any).getStats();
+                    const pluginWithStats = plugin as BasePlugin & { getStats: () => Promise<PluginStats> | PluginStats };
+                    const pluginStats = await pluginWithStats.getStats();
                     stats[`plugin_${plugin.name}`] = pluginStats;
                 } catch (error) {
                     this.logger.warn('Failed to get stats from plugin', {
@@ -492,13 +498,25 @@ export class ExecutionService {
     }
 
     /**
-     * Call a hook method on all plugins that implement it
-     */
-    private async callPluginHook(hookName: string, ...args: any[]): Promise<void> {
+* Call a hook method on all plugins that implement it
+*/
+    private async callPluginHook(
+        hookName: string,
+        ...args: [input: string, response: string, metadata?: Record<string, string | number | boolean>] |
+        [error: Error, context: ExecutionContext] |
+        [string, Message[], Record<string, string | number | boolean>?]
+    ): Promise<void> {
         for (const plugin of this.plugins) {
-            if (typeof (plugin as any)[hookName] === 'function') {
+            const pluginWithHook = plugin as BasePlugin & {
+                [key: string]: ((...args: unknown[]) => Promise<void> | void) | undefined
+            };
+
+            if (typeof pluginWithHook[hookName] === 'function') {
                 try {
-                    await (plugin as any)[hookName](...args);
+                    const hookMethod = pluginWithHook[hookName];
+                    if (hookMethod) {
+                        await hookMethod(...args);
+                    }
                 } catch (error) {
                     this.logger.warn('Plugin hook failed', {
                         pluginName: plugin.name,
