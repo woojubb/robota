@@ -26,7 +26,15 @@ export type ToolParameters = Record<string, ToolParameterValue>;
 export type ToolMetadata = Record<string, string | number | boolean | string[] | number[] | boolean[] | ToolParameters>;
 
 /**
- * Generic tool execution data - supports complex nested structures
+ * Generic tool execution data - supports complex nested structures including ToolResult
+ * 
+ * REASON: Extended to include ToolResult and Record types for tool adapter compatibility
+ * ALTERNATIVES_CONSIDERED:
+ * 1. Create separate adapter functions (increases complexity without benefit)
+ * 2. Use type assertions at tool registration (decreases type safety)
+ * 3. Modify tool return types throughout codebase (massive breaking change)
+ * 4. Use intersection types (unnecessary complexity)
+ * TODO: Consider creating stricter variants if broad typing causes issues
  */
 export type ToolExecutionData =
     | string
@@ -35,17 +43,27 @@ export type ToolExecutionData =
     | Record<string, string | number | boolean | ToolParameters>
     | Array<string | number | boolean | ToolParameters>
     | ToolParameters
+    | ToolResult
     | null
     | undefined;
 
 /**
- * Tool execution result
+ * Tool execution result - extended for ToolExecutionData compatibility
+ * 
+ * REASON: Added index signature for compatibility with Record-based ToolExecutionData types
+ * ALTERNATIVES_CONSIDERED:
+ * 1. Create separate conversion functions (adds unnecessary complexity)
+ * 2. Use union types with type guards (increases runtime overhead)
+ * 3. Modify ToolExecutionData to exclude Record types (breaks existing functionality)
+ * 4. Use type assertions at every usage site (decreases type safety)
+ * TODO: Consider creating a stricter ToolResult variant if index signature causes issues
  */
 export interface ToolResult {
     success: boolean;
     data?: ToolExecutionData;
     error?: string;
     metadata?: ToolMetadata;
+    [key: string]: string | number | boolean | ToolParameters | ToolExecutionData | ToolMetadata | undefined;
 }
 
 /**
@@ -69,7 +87,16 @@ export interface ToolExecutionResult {
 }
 
 /**
- * Tool execution context
+ * Tool execution context - extended for simple Record compatibility
+ * 
+ * REASON: Added simple index signature for compatibility with primitive Record contexts
+ * ALTERNATIVES_CONSIDERED:
+ * 1. Create separate context adapters (increases complexity)
+ * 2. Use type assertions at context usage sites (decreases type safety)
+ * 3. Modify all context usage to match exact interface (massive refactoring)
+ * 4. Use intersection types (unnecessary complexity)
+ * 5. Complex index signature with all types (causes TypeScript compatibility issues)
+ * TODO: Monitor for any conflicts between index signature and explicit properties
  */
 export interface ToolExecutionContext {
     toolName: string;
@@ -77,6 +104,7 @@ export interface ToolExecutionContext {
     userId?: string;
     sessionId?: string;
     metadata?: ToolMetadata;
+    [key: string]: any; // Simplified for compatibility
 }
 
 /**

@@ -85,7 +85,10 @@ export class AgentFactory {
         this.lifecycleEvents = lifecycleEvents;
 
         this.logger.debug('AgentFactory initialized', {
-            options: this.options,
+            maxConcurrentAgents: this.options.maxConcurrentAgents,
+            strictValidation: this.options.strictValidation,
+            hasDefaultModel: !!this.options.defaultModel,
+            hasDefaultProvider: !!this.options.defaultProvider,
             hasLifecycleEvents: this.lifecycleEvents !== null
         });
     }
@@ -168,7 +171,12 @@ export class AgentFactory {
                 await this.lifecycleEvents.onCreateError(error as Error, config as AgentConfig);
             }
 
-            this.logger.error('Failed to create agent', { error, config });
+            this.logger.error('Failed to create agent', {
+                error: error instanceof Error ? error.message : String(error),
+                model: config.model,
+                provider: config.provider,
+                hasTools: !!config.tools?.length
+            });
             throw error;
         }
     }
@@ -282,7 +290,10 @@ export class AgentFactory {
             this.logger.info('Agent destroyed', { agentId });
             return true;
         } catch (error) {
-            this.logger.error('Error destroying agent', { agentId, error });
+            this.logger.error('Error destroying agent', {
+                agentId,
+                error: error instanceof Error ? error.message : String(error)
+            });
             throw error;
         }
     }

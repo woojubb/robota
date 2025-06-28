@@ -1,4 +1,4 @@
-import { BasePlugin } from '../abstracts/base-plugin';
+import { BasePlugin, BaseExecutionContext, BaseExecutionResult } from '../abstracts/base-plugin';
 import { Logger, createLogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 
@@ -9,19 +9,16 @@ import { PluginError } from '../utils/errors';
 /**
  * Plugin execution context type
  * Used for processing execution context in limits plugin
+ * Extends BaseExecutionContext for compatibility
  */
-export type PluginExecutionContext = {
+export interface PluginExecutionContext extends BaseExecutionContext {
     config?: {
         model?: string;
         maxTokens?: number;
         temperature?: number;
     };
     conversationId?: string;
-    userId?: string;
-    sessionId?: string;
-    messages?: Array<{ role: string; content: string }>;
-    [key: string]: string | number | boolean | Array<{ role: string; content: string }> | { model?: string; maxTokens?: number; temperature?: number } | undefined;
-};
+}
 
 /**
  * Plugin execution result type
@@ -132,7 +129,7 @@ export class LimitsPlugin extends BasePlugin {
     /**
      * Check limits before execution
      */
-    async beforeExecution(context: PluginExecutionContext): Promise<void> {
+    override async beforeExecution(context: BaseExecutionContext): Promise<void> {
         if (this.options.strategy === 'none') {
             return;
         }
@@ -170,14 +167,14 @@ export class LimitsPlugin extends BasePlugin {
     /**
      * Update limits after execution
      */
-    async afterExecution(context: PluginExecutionContext, result: PluginExecutionResult): Promise<void> {
+    override async afterExecution(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> {
         if (this.options.strategy === 'none') {
             return;
         }
 
         const key = this.getKey(context);
         const tokensUsed = result?.tokensUsed || 0;
-        const cost = this.options.costCalculator(tokensUsed, context.config?.model || 'unknown');
+        const cost = this.options.costCalculator(tokensUsed, (context.config?.['model'] as string) || 'unknown');
 
         try {
             switch (this.options.strategy) {
@@ -438,7 +435,7 @@ export class LimitsPlugin extends BasePlugin {
     /**
      * Get current limits status
      */
-    getLimitsStatus(key?: string): Record<string, string | number | boolean | Array<string | number> | null> {
+    getLimitsStatus(key?: string): Record<string, any> {
         if (key) {
             const bucket = this.buckets.get(key);
             const window = this.windows.get(key);

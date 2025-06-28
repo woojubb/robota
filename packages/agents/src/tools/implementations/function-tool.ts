@@ -4,36 +4,11 @@ import { BaseTool } from '../../abstracts/base-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
 
-/**
- * Zod validation result
- */
-interface ZodParseResult {
-    success: boolean;
-    data?: ToolParameters;
-    error?: string | Error;
-}
+// Import from Facade pattern modules for type safety
+import type { ZodSchema } from './function-tool/types';
+import { zodToJsonSchema } from './function-tool/schema-converter';
 
-/**
- * Zod schema definition structure
- */
-interface ZodSchemaDef {
-    typeName?: string;
-    innerType?: ZodSchema;
-    checks?: Array<{ kind: string; value?: ToolParameterValue }>;
-    shape?: () => Record<string, ZodSchema>;
-    type?: ZodSchema;
-    values?: ToolParameterValue[];
-    description?: string;
-}
-
-/**
- * Zod-like schema interface for compatibility
- */
-interface ZodSchema {
-    parse(value: ToolParameters): ToolParameters;
-    safeParse(value: ToolParameters): ZodParseResult;
-    _def?: ZodSchemaDef;
-}
+// Zod type definitions moved to Facade pattern modules
 
 /**
  * Function tool implementation
@@ -65,8 +40,8 @@ export class FunctionTool extends BaseTool implements IFunctionTool {
 
             logger.debug(`Executing function tool "${toolName}"`, {
                 toolName,
-                parameters,
-                context
+                parameterCount: Object.keys(parameters || {}).length,
+                hasContext: !!context
             });
 
             // Execute the function
@@ -93,7 +68,7 @@ export class FunctionTool extends BaseTool implements IFunctionTool {
         } catch (error) {
             logger.error(`Function tool "${toolName}" execution failed`, {
                 toolName,
-                parameters,
+                parameterCount: Object.keys(parameters || {}).length,
                 error: error instanceof Error ? error.message : String(error)
             });
 
@@ -101,7 +76,10 @@ export class FunctionTool extends BaseTool implements IFunctionTool {
                 `Function execution failed: ${error instanceof Error ? error.message : String(error)}`,
                 toolName,
                 error instanceof Error ? error : new Error(String(error)),
-                { parameters, context }
+                {
+                    parameterCount: Object.keys(parameters || {}).length,
+                    hasContext: !!context
+                }
             );
         }
     }
@@ -294,98 +272,4 @@ export function createZodFunctionTool(
     return new FunctionTool(schema, wrappedFn);
 }
 
-/**
- * Comprehensive Zod to JSON schema conversion
- * Adapted from @robota-sdk/tools zodToJsonSchema implementation
- */
-function zodToJsonSchema(schema: ZodSchema): ToolSchema['parameters'] {
-    if (!schema || !schema._def || !schema._def.shape) {
-        return {
-            type: 'object',
-            properties: {},
-            required: []
-        };
-    }
-
-    // Extract properties from z.object
-    const shape = schema._def.shape();
-
-    // Configure JSON schema properties
-    const properties: Record<string, ParameterSchema> = {};
-    const required: string[] = [];
-
-    // Process each property
-    Object.entries(shape).forEach(([key, zodType]) => {
-        // zodType is a z.ZodType instance
-        let typeObj = zodType as ZodSchema;
-        let isOptional = false;
-        let description: string | undefined;
-
-        // Handle optional types, default types, and preserve description
-        if (typeObj._def && typeObj._def.typeName === 'ZodOptional') {
-            isOptional = true;
-            // Get description from optional wrapper first
-            description = typeObj._def.description;
-            typeObj = typeObj._def.innerType;
-        } else if (typeObj._def && typeObj._def.typeName === 'ZodDefault') {
-            isOptional = true;
-            // Get description from default wrapper first
-            description = typeObj._def.description;
-            typeObj = typeObj._def.innerType;
-        }
-
-        // Basic property information
-        let property: Partial<ParameterSchema> = {};
-
-        // Type processing based on Zod type name
-        const typeName = typeObj._def?.typeName;
-
-        if (typeName === 'ZodNumber') {
-            property['type'] = "number";
-        } else if (typeName === 'ZodString') {
-            property['type'] = "string";
-        } else if (typeName === 'ZodBoolean') {
-            property['type'] = "boolean";
-        } else if (typeName === 'ZodEnum') {
-            property['type'] = "string";
-            property['enum'] = typeObj._def.values;
-        } else if (typeName === 'ZodArray') {
-            property['type'] = "array";
-            // Process array item type
-            const itemTypeName = typeObj._def.type?._def?.typeName;
-            if (itemTypeName === 'ZodString') {
-                property['items'] = { type: "string" };
-            } else if (itemTypeName === 'ZodObject') {
-                property['items'] = zodToJsonSchema(typeObj._def.type);
-            } else {
-                property['items'] = { type: "string" }; // fallback
-            }
-        } else if (typeName === 'ZodObject') {
-            // Process nested object
-            property = zodToJsonSchema(typeObj);
-        } else {
-            // Fallback for unsupported types
-            property['type'] = "string";
-        }
-
-        // Get description from optional wrapper first if available
-        description = description || typeObj._def?.description;
-        if (description) {
-            property['description'] = description;
-        }
-
-        // Add to required if not optional
-        if (!isOptional) {
-            required.push(key);
-        }
-
-        properties[key] = property;
-    });
-
-    // Final JSON schema object
-    return {
-        type: 'object',
-        properties,
-        ...(required.length > 0 && { required })
-    };
-} 
+// zodToJsonSchema function moved to Facade pattern schema-converter module 

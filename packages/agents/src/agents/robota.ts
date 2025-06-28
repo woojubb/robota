@@ -11,7 +11,7 @@ import { BaseTool } from '../abstracts/base-tool';
 import { Logger, createLogger, setGlobalLogLevel } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
 import type { BaseToolParameters } from '../abstracts/base-tool';
-import type { ToolExecutionData, ToolParameters } from '../interfaces/tool';
+import type { ToolExecutionData, ToolParameters, ToolExecutionContext } from '../interfaces/tool';
 
 /**
  * Reusable type definitions for Robota agent
@@ -271,8 +271,17 @@ export class Robota extends BaseAgent implements AgentInterface {
                 for (const tool of this.config.tools) {
                     // Convert BaseTool to ToolSchema and executor
                     // Create an adapter to convert ToolResult to ToolExecutionData
-                    const toolExecutor = async (parameters: BaseToolParameters, context?: Record<string, string | number | boolean>): Promise<ToolExecutionData> => {
-                        const result = await tool.execute(parameters, context);
+                    const toolExecutor = async (parameters: BaseToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
+                        // Create proper ToolExecutionContext for BaseTool.execute
+                        const toolContext: ToolExecutionContext = {
+                            toolName: tool.schema.name,
+                            parameters: parameters as ToolParameters,
+                            ...(context?.userId && { userId: context.userId }),
+                            ...(context?.sessionId && { sessionId: context.sessionId }),
+                            ...(context?.metadata && { metadata: context.metadata })
+                        };
+
+                        const result = await tool.execute(parameters, toolContext);
                         return result.data ?? result;
                     };
                     this.tools.addTool(tool.schema, toolExecutor);
@@ -361,7 +370,9 @@ export class Robota extends BaseAgent implements AgentInterface {
             this.logger.debug('Starting Robota execution', {
                 inputLength: input.length,
                 conversationId: this.conversationId,
-                options
+                sessionId: options.sessionId || 'none',
+                userId: options.userId || 'none',
+                hasMetadata: !!options.metadata
             });
 
             // Get current conversation history from centralized manager
@@ -460,7 +471,9 @@ export class Robota extends BaseAgent implements AgentInterface {
             this.logger.debug('Starting Robota streaming execution', {
                 inputLength: input.length,
                 conversationId: this.conversationId,
-                options
+                sessionId: options.sessionId || 'none',
+                userId: options.userId || 'none',
+                hasMetadata: !!options.metadata
             });
 
             // Get current conversation history from centralized manager
@@ -763,8 +776,17 @@ export class Robota extends BaseAgent implements AgentInterface {
         }
 
         // Create an adapter to convert ToolResult to ToolExecutionData
-        const toolExecutor = async (parameters: BaseToolParameters, context?: Record<string, string | number | boolean>): Promise<ToolExecutionData> => {
-            const result = await tool.execute(parameters as ToolParameters, context);
+        const toolExecutor = async (parameters: BaseToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
+            // Create proper ToolExecutionContext for BaseTool.execute
+            const toolContext: ToolExecutionContext = {
+                toolName: tool.schema.name,
+                parameters: parameters as ToolParameters,
+                ...(context?.userId && { userId: context.userId }),
+                ...(context?.sessionId && { sessionId: context.sessionId }),
+                ...(context?.metadata && { metadata: context.metadata })
+            };
+
+            const result = await tool.execute(parameters, toolContext);
             return result.data ?? result;
         };
         this.tools.addTool(tool.schema, toolExecutor);

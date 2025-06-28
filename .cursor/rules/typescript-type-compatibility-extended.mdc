@@ -1,0 +1,195 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# TypeScript Type Compatibility Extended Rules
+
+## Overview
+This rule extends the standard 3-attempt limitation for TypeScript type compatibility issues, allowing up to 20 attempts for complex type problems that require iterative resolution.
+
+## Extended Attempt Limits
+
+### Standard 3-Attempt Rule Applies To:
+- Simple type errors (missing imports, basic type mismatches)
+- Straightforward linter fixes
+- Basic configuration issues
+- Simple refactoring tasks
+
+### Extended 20-Attempt Rule Applies To:
+- **Complex Type Compatibility Issues** involving:
+  - `exactOptionalPropertyTypes` conflicts
+  - BasePlugin method signature mismatches
+  - Provider interface unification challenges
+  - Tool parameter type conflicts requiring architectural changes
+  - Plugin context type system overhauls
+  - Cross-package type compatibility (sessions, team, providers)
+  - Generic type propagation issues
+  - Intersection and union type conflicts
+
+### Identification Criteria for Extended Attempts:
+Use the 20-attempt limit when encountering ANY of these patterns:
+
+1. **exactOptionalPropertyTypes Errors**:
+   ```
+   Consider adding 'undefined' to the types of the target's properties
+   Types of property 'X' are incompatible with 'exactOptionalPropertyTypes: true'
+   ```
+
+2. **BasePlugin Method Signature Conflicts**:
+   ```
+   Property 'methodName' in type 'PluginClass' is not assignable to the same property in base type 'BasePlugin'
+   Types of parameters 'context' and 'context' are incompatible
+   ```
+
+3. **Provider Interface Mismatches**:
+   ```
+   Type 'ProviderA' is not assignable to type 'ProviderB'
+   Types of property 'chat' are incompatible
+   ```
+
+4. **Complex Generic Type Issues**:
+   ```
+   Type instantiation is excessively deep and possibly infinite
+   Circular constraint of type parameter
+   ```
+
+5. **Cross-Package Type Dependencies**:
+   ```
+   Module has no exported member 'TypeName'
+   Cannot find name 'ConfigType'
+   ```
+
+## Extended Resolution Strategies
+
+### Attempt 1-3: Standard Approaches
+- Direct type replacement
+- Import additions
+- Basic type assertions
+
+### Attempt 4-8: Intermediate Strategies
+- Type interface extensions
+- Conditional type definitions
+- Generic type constraints
+- Union/intersection type modifications
+
+### Attempt 9-15: Advanced Architectural Changes
+- Interface redesign and extension
+- Type system refactoring
+- Cross-file type dependency restructuring
+- Plugin architecture type system overhaul
+- Provider adapter pattern implementation
+
+### Attempt 16-20: Emergency Type Resolution
+- Strategic `as any` casting with comprehensive documentation
+- Type system bypass for legacy compatibility
+- Interim solutions pending architectural redesign
+- Complex workarounds for framework limitations
+
+## Implementation Guidelines
+
+### Documentation Requirements for Extended Attempts:
+When using attempts 4-20, document the approach:
+```typescript
+/**
+ * EXTENDED TYPE RESOLUTION - Attempt X/20
+ * ISSUE: [Specific type compatibility problem]
+ * STRATEGY: [Current approach being tried]
+ * PREVIOUS_ATTEMPTS: [Brief summary of what was tried in attempts 1-(X-1)]
+ * ARCHITECTURAL_IMPACT: [What system changes this affects]
+ */
+```
+
+### Escalation Path:
+- **Attempts 1-3**: Standard type fixes
+- **Attempts 4-8**: Type system extensions and improvements
+- **Attempts 9-15**: Interface and architecture modifications
+- **Attempts 16-20**: Emergency solutions and strategic bypasses
+
+### Success Criteria:
+The extended attempts are considered successful when:
+1. All TypeScript compilation errors are resolved
+2. ESLint type safety warnings are eliminated
+3. No runtime type-related issues are introduced
+4. Type safety is maintained or improved
+5. Code maintainability is preserved or enhanced
+
+### Emergency Type Resolution Guidelines (Attempts 16-20):
+When using emergency solutions:
+```typescript
+/**
+ * EMERGENCY TYPE RESOLUTION - Attempt X/20
+ * REASON: [Why standard approaches failed]
+ * ALTERNATIVES_EXHAUSTED: [List all approaches tried in attempts 1-15]
+ * TEMPORARY_SOLUTION: [Description of bypass/workaround]
+ * TODO: [Plan for future proper resolution]
+ * RISK_ASSESSMENT: [Potential impact of this solution]
+ */
+```
+
+## Rule Override Declaration:
+```typescript
+// EXTENDED_TYPE_COMPATIBILITY_RULE: Using 20-attempt limit for complex type compatibility issue
+// ISSUE_TYPE: [exactOptionalPropertyTypes|BasePlugin|Provider|Generic|CrossPackage]
+// ATTEMPT: X/20
+```
+
+## Examples of Complex Issues Requiring Extended Attempts:
+
+### Example 1: BasePlugin Context Type Compatibility
+```typescript
+// EXTENDED_TYPE_COMPATIBILITY_RULE: Using 20-attempt limit for BasePlugin method signature compatibility
+// ISSUE_TYPE: BasePlugin
+// ATTEMPT: 5/20
+
+// Problem: Plugin method signatures don't match base class due to exactOptionalPropertyTypes
+interface PluginExecutionContext extends BaseExecutionContext {
+    messages?: EventExecutionContextData[] | undefined;  // Needs undefined compatibility
+}
+```
+
+### Example 2: Provider Interface Unification
+```typescript
+// EXTENDED_TYPE_COMPATIBILITY_RULE: Using 20-attempt limit for provider interface unification
+// ISSUE_TYPE: Provider
+// ATTEMPT: 12/20
+
+// Problem: Different provider chat method signatures need unification
+abstract class BaseAIProvider {
+    abstract chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
+}
+```
+
+### Example 3: Cross-Package Type Dependencies
+```typescript
+// EXTENDED_TYPE_COMPATIBILITY_RULE: Using 20-attempt limit for cross-package type compatibility
+// ISSUE_TYPE: CrossPackage
+// ATTEMPT: 8/20
+
+// Problem: RobotaConfig vs AgentConfig compatibility across packages
+import type { AgentConfig } from '@robota-sdk/agents';
+// Instead of: import type { RobotaConfig } from './legacy-types';
+```
+
+### Example 4: Emergency Type Resolution
+```typescript
+// EXTENDED_TYPE_COMPATIBILITY_RULE: Using 20-attempt limit for complex type compatibility issue
+// ISSUE_TYPE: CrossPackage
+// ATTEMPT: 18/20
+
+/**
+ * EMERGENCY TYPE RESOLUTION - Attempt 18/20
+ * REASON: ConversationMessageMetadata vs MessageMetadata incompatibility cannot be resolved without breaking existing APIs
+ * ALTERNATIVES_EXHAUSTED: Interface extension (attempts 4-6), type union (attempts 7-9), adapter pattern (attempts 10-12), metadata type redesign (attempts 13-17)
+ * TEMPORARY_SOLUTION: Strategic type assertion for test compatibility
+ * TODO: Redesign metadata type system to unify ConversationMessageMetadata and MessageMetadata in next major version
+ * RISK_ASSESSMENT: Low risk - isolated to test files, no runtime impact
+ */
+const messages: Message[] = universalMessages as Message[];
+```
+
+## Monitoring and Review:
+- Track usage of extended attempts to identify systemic type architecture issues
+- Review files requiring 15+ attempts for potential architectural improvements
+- Document patterns that consistently require extended resolution for future reference
+- Plan architectural redesigns for issues requiring 16+ attempts

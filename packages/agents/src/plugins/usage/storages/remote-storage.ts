@@ -50,7 +50,7 @@ export class RemoteUsageStorage implements UsageStorage {
         } catch (error) {
             throw new StorageError('Failed to get usage stats from remote endpoint', {
                 endpoint: this.apiUrl,
-                conversationId,
+                conversationId: conversationId || 'all',
                 error: error instanceof Error ? error.message : String(error)
             });
         }

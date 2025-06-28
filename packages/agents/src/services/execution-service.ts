@@ -1,6 +1,6 @@
-import { Message, AgentConfig } from '../interfaces/agent';
+import { Message, AgentConfig, AssistantMessage, ToolMessage } from '../interfaces/agent';
 import { BasePlugin } from '../abstracts/base-plugin';
-import { ToolExecutionService, ToolExecutionContext } from './tool-execution-service';
+import { ToolExecutionService, ToolExecutionBatchContext } from './tool-execution-service';
 import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { ConversationHistory, ConversationSession, UniversalMessage } from '../managers/conversation-history-manager';
@@ -12,13 +12,17 @@ import { ToolExecutionError } from '../utils/errors';
 /**
  * Execution context passed through the pipeline
  */
+/**
+ * Execution context for service operations
+ * Applies Type Deduplication Rule: Use standardized metadata type
+ */
 export interface ExecutionContext {
     conversationId?: string;
     sessionId?: string;
     userId?: string;
     messages: Message[];
     config: AgentConfig;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, string | number | boolean | Date | string[]>;
     startTime: Date;
     executionId: string;
 }
@@ -147,14 +151,14 @@ export class ExecutionService {
                     if (msg.role === 'user') {
                         conversationSession.addUserMessage(msg.content, msg.metadata);
                     } else if (msg.role === 'assistant') {
-                        conversationSession.addAssistantMessage(msg.content, (msg as any).toolCalls, msg.metadata);
+                        conversationSession.addAssistantMessage(msg.content, (msg as AssistantMessage).toolCalls, msg.metadata);
                     } else if (msg.role === 'system') {
                         conversationSession.addSystemMessage(msg.content, msg.metadata);
                     } else if (msg.role === 'tool') {
                         conversationSession.addToolMessageWithId(
                             msg.content,
-                            (msg as any).toolCallId,
-                            (msg as any).toolName,
+                            (msg as ToolMessage).toolCallId,
+                            (msg as ToolMessage).toolName,
                             msg.metadata
                         );
                     }
@@ -292,7 +296,7 @@ export class ExecutionService {
 
                 // Execute tools
                 const toolRequests = this.toolExecutionService.createExecutionRequests(response.toolCalls);
-                const toolContext: ToolExecutionContext = {
+                const toolContext: ToolExecutionBatchContext = {
                     requests: toolRequests,
                     mode: 'parallel',
                     maxConcurrency: 5,
@@ -314,7 +318,7 @@ export class ExecutionService {
                     const error = toolSummary.errors.find(e => e.executionId === toolCall.id);
 
                     let content: string;
-                    let metadata: Record<string, any> = { round: currentRound };
+                    let metadata: Record<string, string | number | boolean> = { round: currentRound };
 
                     if (result && result.success) {
                         // Successful tool execution
@@ -508,7 +512,7 @@ export class ExecutionService {
     ): Promise<void> {
         for (const plugin of this.plugins) {
             const pluginWithHook = plugin as BasePlugin & {
-                [key: string]: ((...args: unknown[]) => Promise<void> | void) | undefined
+                [key: string]: ((...args: string[] | [Error, ExecutionContext] | [string, Message[], Record<string, string | number | boolean>?]) => Promise<void> | void) | undefined
             };
 
             if (typeof pluginWithHook[hookName] === 'function') {

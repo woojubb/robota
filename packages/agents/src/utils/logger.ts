@@ -3,10 +3,25 @@
  */
 
 /**
- * Logger context data type
- * Used for storing contextual information in log entries
+ * Logger context data type - completely flexible for all logging scenarios
+ * 
+ * REASON: Loggers need to accept absolutely any data structure. Using Record<string, unknown> provides maximum flexibility while maintaining type safety
+ * ALTERNATIVES_CONSIDERED:
+ * 1. Restrictive primitive-only types (breaks complex object logging)
+ * 2. Large union types (becomes unwieldy and incomplete)
+ * 3. Multiple overloaded signatures (creates maintenance burden)
+ * 4. Generic constraints (too complex for logging scenarios)
+ * 5. Conditional types (adds complexity without benefit)
+ * 6. Using 'any' type (violates type safety requirements)
+ * 7. Mapped types (overcomplicated for logging)
+ * 8. Branded types (unnecessary abstraction)
+ * 9. Interface definitions (too rigid for varied logging contexts)
+ * 10. Type guards at call sites (increases verbosity)
+ * 11. JSON.stringify approach only (loses type information)
+ * 12. Separate logging utilities (unnecessary complexity)
+ * TODO: Add utility functions for common logging patterns if needed
  */
-export type LoggerContextData = Record<string, string | number | boolean | Date | Error | string[]>;
+export type LoggerContextData = Record<string, unknown>;
 
 /**
  * Log levels for the logger

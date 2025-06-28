@@ -34,9 +34,9 @@ export interface ToolExecutionRequest {
 }
 
 /**
- * Tool execution context
+ * Tool execution batch context
  */
-export interface ToolExecutionContext {
+export interface ToolExecutionBatchContext {
     /** Execution requests */
     requests: ToolExecutionRequest[];
     /** Execution mode */
@@ -226,7 +226,7 @@ export class ToolExecutionService {
     /**
      * Execute multiple tools according to context
      */
-    async executeTools(context: ToolExecutionContext): Promise<ToolExecutionSummary> {
+    async executeTools(context: ToolExecutionBatchContext): Promise<ToolExecutionSummary> {
         const startTime = Date.now();
 
         this.logger.info('Starting tool execution batch', {
@@ -289,7 +289,7 @@ export class ToolExecutionService {
      * Execute tools in parallel
      */
     private async executeToolsParallel(
-        context: ToolExecutionContext
+        context: ToolExecutionBatchContext
     ): Promise<{ results: ToolExecutionResult[]; errors: Array<{ toolName: string; error: Error; executionId?: string }> }> {
         const maxConcurrency = context.maxConcurrency || this.options.defaultMaxConcurrency;
         const results: ToolExecutionResult[] = [];
@@ -338,7 +338,7 @@ export class ToolExecutionService {
      * Execute tools sequentially
      */
     private async executeToolsSequential(
-        context: ToolExecutionContext
+        context: ToolExecutionBatchContext
     ): Promise<{ results: ToolExecutionResult[]; errors: Array<{ toolName: string; error: Error; executionId?: string }> }> {
         const results: ToolExecutionResult[] = [];
         const errors: Array<{ toolName: string; error: Error; executionId?: string }> = [];

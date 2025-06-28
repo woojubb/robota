@@ -1,6 +1,53 @@
 import type { Message, RunOptions } from '../interfaces/agent';
 import type { UniversalMessage } from '../managers/conversation-history-manager';
-import type { ToolParameters, ToolExecutionResult } from '../interfaces/tool';
+import type { ToolParameters, ToolExecutionResult, ToolExecutionContext } from '../interfaces/tool';
+
+/**
+ * Base execution context for all plugins
+ */
+export interface BaseExecutionContext {
+    executionId?: string;
+    sessionId?: string;
+    userId?: string;
+    // Define specific types for common plugin context data
+    messages?: Message[];
+    config?: Record<string, string | number | boolean>;
+    metadata?: Record<string, string | number | boolean | Date>;
+    // Index signature for exactOptionalPropertyTypes compatibility
+    [key: string]: string | number | boolean | Date | string[] | number[] | boolean[] | Message[] | Record<string, string | number | boolean> | Record<string, string | number | boolean | Date> | undefined;
+}
+
+/**
+ * Base execution result for all plugins
+ */
+export interface BaseExecutionResult {
+    response?: string;
+    content?: string;
+    duration?: number;
+    tokensUsed?: number;
+    toolsExecuted?: number;
+    success?: boolean;
+    usage?: { totalTokens?: number; promptTokens?: number; completionTokens?: number };
+    // Define specific types for tool call data
+    toolCalls?: Array<{
+        id?: string;
+        name?: string;
+        arguments?: Record<string, string | number | boolean>;
+        result?: string | number | boolean | null;
+    }>;
+    // Define specific result types
+    results?: Array<{
+        id?: string;
+        type?: string;
+        data?: string | number | boolean | null;
+        success?: boolean;
+    }>;
+    error?: Error;
+    // Additional execution metadata
+    metadata?: Record<string, string | number | boolean | Date>;
+}
+
+
 
 /**
  * Error context for plugin error handling
@@ -11,6 +58,14 @@ export interface ErrorContext {
     parameters?: ToolParameters;
     result?: ToolExecutionResult;
     error?: Error;
+    // Define specific types for common error context data
+    executionId?: string;
+    sessionId?: string;
+    userId?: string;
+    timestamp?: Date;
+    attempt?: number;
+    stack?: string;
+    metadata?: Record<string, string | number | boolean>;
 }
 
 /**
@@ -64,14 +119,44 @@ export interface PluginHooks {
     afterRun?(input: string, response: string, options?: RunOptions): Promise<void> | void;
 
     /**
+     * Called before execution with context
+     */
+    beforeExecution?(context: BaseExecutionContext): Promise<void> | void;
+
+    /**
+     * Called after execution with context and result
+     */
+    afterExecution?(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> | void;
+
+    /**
+     * Called before conversation with context
+     */
+    beforeConversation?(context: BaseExecutionContext): Promise<void> | void;
+
+    /**
+     * Called after conversation with context and result
+     */
+    afterConversation?(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> | void;
+
+    /**
      * Called before tool execution
      */
     beforeToolCall?(toolName: string, parameters: ToolParameters): Promise<void> | void;
 
     /**
+     * Called before tool execution with context
+     */
+    beforeToolExecution?(context: BaseExecutionContext, toolData: ToolExecutionContext): Promise<void> | void;
+
+    /**
      * Called after tool execution
      */
     afterToolCall?(toolName: string, parameters: ToolParameters, result: ToolExecutionResult): Promise<void> | void;
+
+    /**
+     * Called after tool execution with context
+     */
+    afterToolExecution?(context: BaseExecutionContext, toolResults: BaseExecutionResult): Promise<void> | void;
 
     /**
      * Called before AI provider call
@@ -196,8 +281,14 @@ export abstract class BasePlugin implements PluginHooks {
     // Optional lifecycle hooks - plugins can override these
     async beforeRun?(input: string, options?: RunOptions): Promise<void>;
     async afterRun?(input: string, response: string, options?: RunOptions): Promise<void>;
+    async beforeExecution?(context: BaseExecutionContext): Promise<void>;
+    async afterExecution?(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void>;
+    async beforeConversation?(context: BaseExecutionContext): Promise<void>;
+    async afterConversation?(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void>;
     async beforeToolCall?(toolName: string, parameters: ToolParameters): Promise<void>;
+    async beforeToolExecution?(context: BaseExecutionContext, toolData: ToolExecutionContext): Promise<void>;
     async afterToolCall?(toolName: string, parameters: ToolParameters, result: ToolExecutionResult): Promise<void>;
+    async afterToolExecution?(context: BaseExecutionContext, toolResults: BaseExecutionResult): Promise<void>;
     async beforeProviderCall?(messages: UniversalMessage[]): Promise<void>;
     async afterProviderCall?(messages: UniversalMessage[], response: UniversalMessage): Promise<void>;
     async onStreamingChunk?(chunk: UniversalMessage): Promise<void>;

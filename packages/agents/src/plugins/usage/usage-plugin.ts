@@ -101,8 +101,8 @@ export class UsagePlugin extends BasePlugin {
             return await this.storage.getStats(conversationId, timeRange);
         } catch (error) {
             throw new PluginError('Failed to get usage stats', this.name, {
-                conversationId,
-                timeRange,
+                conversationId: conversationId || 'all',
+                timeRange: timeRange ? `${timeRange.start.toISOString()}-${timeRange.end.toISOString()}` : 'all',
                 error: error instanceof Error ? error.message : String(error)
             });
         }
@@ -116,7 +116,7 @@ export class UsagePlugin extends BasePlugin {
             return await this.storage.getAggregatedStats(timeRange);
         } catch (error) {
             throw new PluginError('Failed to get aggregated usage stats', this.name, {
-                timeRange,
+                timeRange: timeRange ? `${timeRange.start.toISOString()}-${timeRange.end.toISOString()}` : 'all',
                 error: error instanceof Error ? error.message : String(error)
             });
         }

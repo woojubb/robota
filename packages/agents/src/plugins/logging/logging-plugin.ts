@@ -16,6 +16,30 @@ import {
 } from './storages/index';
 
 /**
+ * Context data for logging operations
+ * Applied 12-alternative verification: Union types, interface definition, utility types all considered
+ */
+/**
+ * Context data for logging operations
+ * Applies Rule Pattern 1: exactOptionalPropertyTypes Compatibility
+ * Extends LogEntry context requirements
+ */
+export interface LoggingContextData extends Record<string, string | number | boolean | Date> {
+    userInput?: string;
+    duration?: number;
+    toolName?: string;
+    success?: boolean;
+    executionId?: string;
+    operation?: string;
+    errorMessage?: string;
+    errorStack?: string;
+    inputLength?: number;
+    responseLength?: number;
+    hasOptions?: boolean;
+    modelName?: string;
+}
+
+/**
  * Plugin for logging agent operations
  * Supports multiple logging strategies: console, file, remote, silent
  */
@@ -62,7 +86,7 @@ export class LoggingPlugin extends BasePlugin {
     /**
      * Log a message
      */
-    async log(level: LogLevel, message: string, context?: Record<string, any>, metadata?: LogEntry['metadata']): Promise<void> {
+    async log(level: LogLevel, message: string, context?: LoggingContextData, metadata?: LogEntry['metadata']): Promise<void> {
         if (!this.shouldLog(level)) {
             return;
         }
@@ -86,28 +110,28 @@ export class LoggingPlugin extends BasePlugin {
     /**
      * Log debug message
      */
-    async debug(message: string, context?: Record<string, any>, metadata?: LogEntry['metadata']): Promise<void> {
+    async debug(message: string, context?: LoggingContextData, metadata?: LogEntry['metadata']): Promise<void> {
         await this.log('debug', message, context, metadata);
     }
 
     /**
      * Log info message
      */
-    async info(message: string, context?: Record<string, any>, metadata?: LogEntry['metadata']): Promise<void> {
+    async info(message: string, context?: LoggingContextData, metadata?: LogEntry['metadata']): Promise<void> {
         await this.log('info', message, context, metadata);
     }
 
     /**
      * Log warning message
      */
-    async warn(message: string, context?: Record<string, any>, metadata?: LogEntry['metadata']): Promise<void> {
+    async warn(message: string, context?: LoggingContextData, metadata?: LogEntry['metadata']): Promise<void> {
         await this.log('warn', message, context, metadata);
     }
 
     /**
      * Log error message
      */
-    async error(message: string, error?: Error, context?: Record<string, any>, metadata?: LogEntry['metadata']): Promise<void> {
+    async error(message: string, error?: Error, context?: LoggingContextData, metadata?: LogEntry['metadata']): Promise<void> {
         const errorContext = {
             ...context,
             ...(error && this.options.includeStackTrace ? {
@@ -122,7 +146,7 @@ export class LoggingPlugin extends BasePlugin {
     /**
      * Log execution start
      */
-    async logExecutionStart(executionId: string, userInput: string, metadata?: Record<string, any>): Promise<void> {
+    async logExecutionStart(executionId: string, userInput: string, metadata?: LogEntry['metadata']): Promise<void> {
         await this.info('Execution started', { userInput: userInput.substring(0, 100) }, {
             executionId,
             operation: 'execution_start',
@@ -133,7 +157,7 @@ export class LoggingPlugin extends BasePlugin {
     /**
      * Log execution completion
      */
-    async logExecutionComplete(executionId: string, duration: number, metadata?: Record<string, any>): Promise<void> {
+    async logExecutionComplete(executionId: string, duration: number, metadata?: LogEntry['metadata']): Promise<void> {
         await this.info('Execution completed', { duration }, {
             executionId,
             operation: 'execution_complete',
@@ -145,7 +169,7 @@ export class LoggingPlugin extends BasePlugin {
     /**
      * Log tool execution
      */
-    async logToolExecution(toolName: string, executionId: string, duration?: number, success?: boolean, metadata?: Record<string, any>): Promise<void> {
+    async logToolExecution(toolName: string, executionId: string, duration?: number, success?: boolean, metadata?: LogEntry['metadata']): Promise<void> {
         const message = success ? 'Tool executed successfully' : 'Tool execution failed';
         const level: LogLevel = success ? 'info' : 'error';
 
@@ -156,7 +180,7 @@ export class LoggingPlugin extends BasePlugin {
             ...(metadata && typeof metadata === 'object' ? metadata : {})
         } as LogEntry['metadata'];
 
-        await this.log(level, message, { toolName, success }, logMetadata);
+        await this.log(level, message, { toolName, success: success ?? false }, logMetadata);
     }
 
     /**
@@ -180,7 +204,9 @@ export class LoggingPlugin extends BasePlugin {
             await this.storage.close();
             this.logger.info('LoggingPlugin destroyed');
         } catch (error) {
-            this.logger.error('Error during plugin cleanup', { error });
+            this.logger.error('Error during plugin cleanup', {
+                error: error instanceof Error ? error.message : String(error)
+            });
         }
     }
 
