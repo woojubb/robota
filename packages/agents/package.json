@@ -61,23 +61,25 @@
     "author": "Robota SDK Team",
     "license": "MIT",
     "dependencies": {
-        "zod": "^3.24.4",
         "@dqbd/tiktoken": "^1.0.21",
-        "openai": "^4.98.0"
+        "openai": "^4.98.0",
+        "zod": "^3.24.4"
     },
     "peerDependencies": {
-        "@robota-sdk/openai": "workspace:*",
-        "@robota-sdk/anthropic": "workspace:*",
-        "@robota-sdk/google": "workspace:*"
-    },
-    "devDependencies": {
-        "@robota-sdk/openai": "workspace:*",
         "@robota-sdk/anthropic": "workspace:*",
         "@robota-sdk/google": "workspace:*",
+        "@robota-sdk/openai": "workspace:*"
+    },
+    "devDependencies": {
+        "@robota-sdk/anthropic": "workspace:*",
+        "@robota-sdk/google": "workspace:*",
+        "@robota-sdk/openai": "workspace:*",
+        "@types/swagger-schema-official": "^2.0.25",
         "@typescript-eslint/eslint-plugin": "^6.18.0",
         "@typescript-eslint/parser": "^6.18.0",
         "@vitest/coverage-v8": "^3.1.3",
         "eslint": "^8.56.0",
+        "openapi-types": "^12.1.3",
         "rimraf": "^5.0.5",
         "tsup": "^8.0.1",
         "typescript": "^5.3.3",

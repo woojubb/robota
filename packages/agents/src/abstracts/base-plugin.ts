@@ -1,5 +1,53 @@
 import type { Message, RunOptions } from '../interfaces/agent';
 import type { UniversalMessage } from '../managers/conversation-history-manager';
+import type { ToolParameters, ToolExecutionResult } from '../interfaces/tool';
+
+/**
+ * Error context for plugin error handling
+ */
+export interface ErrorContext {
+    action: string;
+    tool?: string;
+    parameters?: ToolParameters;
+    result?: ToolExecutionResult;
+    error?: Error;
+}
+
+/**
+ * Plugin configuration interface
+ */
+export interface PluginConfig {
+    enabled?: boolean;
+    options?: Record<string, string | number | boolean>;
+}
+
+/**
+ * Plugin data interface
+ */
+export interface PluginData {
+    name: string;
+    version: string;
+    enabled: boolean;
+    metadata?: Record<string, string | number | boolean>;
+}
+
+
+
+/**
+ * Base plugin interface
+ */
+export interface BasePluginInterface {
+    name: string;
+    version: string;
+    enabled: boolean;
+
+    initialize(config?: PluginConfig): Promise<void>;
+    beforeExecution?(tool: string, parameters: ToolParameters): Promise<void>;
+    afterExecution?(tool: string, result: ToolExecutionResult): Promise<void>;
+    onError?(error: Error, context: ErrorContext): Promise<void>;
+    cleanup?(): Promise<void>;
+    getData?(): PluginData;
+}
 
 /**
  * Plugin lifecycle hooks
@@ -18,12 +66,12 @@ export interface PluginHooks {
     /**
      * Called before tool execution
      */
-    beforeToolCall?(toolName: string, parameters: Record<string, any>): Promise<void> | void;
+    beforeToolCall?(toolName: string, parameters: ToolParameters): Promise<void> | void;
 
     /**
      * Called after tool execution
      */
-    afterToolCall?(toolName: string, parameters: Record<string, any>, result: any): Promise<void> | void;
+    afterToolCall?(toolName: string, parameters: ToolParameters, result: ToolExecutionResult): Promise<void> | void;
 
     /**
      * Called before AI provider call
@@ -43,7 +91,7 @@ export interface PluginHooks {
     /**
      * Called on error
      */
-    onError?(error: Error, context?: any): Promise<void> | void;
+    onError?(error: Error, context?: ErrorContext): Promise<void> | void;
 
     /**
      * Called on message added to history
@@ -103,14 +151,14 @@ export abstract class BasePlugin implements PluginHooks {
     /**
      * Get plugin configuration
      */
-    getConfig(): Record<string, any> {
+    getConfig(): PluginConfig {
         return {};
     }
 
     /**
      * Update plugin configuration
      */
-    updateConfig(_config: Record<string, any>): void {
+    updateConfig(_config: PluginConfig): void {
         // Default implementation - can be overridden
     }
 
@@ -118,13 +166,9 @@ export abstract class BasePlugin implements PluginHooks {
      * Get plugin data - common interface for all plugins
      * This method should be implemented by plugins that collect data
      */
-    getData?(): any;
+    getData?(): PluginData;
 
-    /**
-     * Get plugin statistics - common interface for all plugins
-     * This method should be implemented by plugins that track statistics
-     */
-    getStats?(): any;
+
 
     /**
      * Clear plugin data - common interface for all plugins
@@ -152,11 +196,11 @@ export abstract class BasePlugin implements PluginHooks {
     // Optional lifecycle hooks - plugins can override these
     async beforeRun?(input: string, options?: RunOptions): Promise<void>;
     async afterRun?(input: string, response: string, options?: RunOptions): Promise<void>;
-    async beforeToolCall?(toolName: string, parameters: Record<string, any>): Promise<void>;
-    async afterToolCall?(toolName: string, parameters: Record<string, any>, result: any): Promise<void>;
+    async beforeToolCall?(toolName: string, parameters: ToolParameters): Promise<void>;
+    async afterToolCall?(toolName: string, parameters: ToolParameters, result: ToolExecutionResult): Promise<void>;
     async beforeProviderCall?(messages: UniversalMessage[]): Promise<void>;
     async afterProviderCall?(messages: UniversalMessage[], response: UniversalMessage): Promise<void>;
     async onStreamingChunk?(chunk: UniversalMessage): Promise<void>;
-    async onError?(error: Error, context?: any): Promise<void>;
+    async onError?(error: Error, context?: ErrorContext): Promise<void>;
     async onMessageAdded?(message: Message): Promise<void>;
 } 

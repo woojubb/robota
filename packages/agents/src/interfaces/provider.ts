@@ -1,6 +1,30 @@
 import type { UniversalMessage } from '../managers/conversation-history-manager';
 
+/**
+ * Reusable type definitions for provider layer
+ */
 
+/**
+ * Provider configuration value type
+ * Used for storing provider-specific configuration values
+ */
+export type ProviderConfigValue = string | number | boolean;
+
+/**
+ * JSON Schema parameter default value type
+ * Used for default values in parameter schemas
+ */
+export type ParameterDefaultValue = string | number | boolean | null;
+
+/**
+ * JSON Schema primitive types
+ */
+export type JSONSchemaType = 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object' | 'null';
+
+/**
+ * JSON Schema enum values
+ */
+export type JSONSchemaEnum = string[] | number[] | boolean[] | (string | number | boolean)[];
 
 /**
  * Tool schema definition
@@ -19,17 +43,66 @@ export interface ToolSchema {
  * Parameter schema for tools
  */
 export interface ParameterSchema {
-    type: 'string' | 'number' | 'boolean' | 'array' | 'object';
+    type: JSONSchemaType;
     description?: string;
-    enum?: any[];
+    enum?: JSONSchemaEnum;
     items?: ParameterSchema;
     properties?: Record<string, ParameterSchema>;
+    minimum?: number;
+    maximum?: number;
+    pattern?: string;
+    format?: string;
+    default?: ParameterDefaultValue;
+}
+
+/**
+ * Provider-specific configuration options
+ */
+export interface ProviderSpecificOptions {
+    /** OpenAI specific options */
+    openai?: {
+        organization?: string;
+        user?: string;
+        stop?: string | string[];
+        presencePenalty?: number;
+        frequencyPenalty?: number;
+        logitBias?: Record<string, number>;
+        topP?: number;
+        n?: number;
+        stream?: boolean;
+        suffix?: string;
+        echo?: boolean;
+        bestOf?: number;
+        logprobs?: number;
+    };
+
+    /** Anthropic specific options */
+    anthropic?: {
+        stopSequences?: string[];
+        topP?: number;
+        topK?: number;
+        metadata?: {
+            userId?: string;
+        };
+    };
+
+    /** Google specific options */
+    google?: {
+        candidateCount?: number;
+        stopSequences?: string[];
+        safetySettings?: Array<{
+            category: string;
+            threshold: string;
+        }>;
+        topP?: number;
+        topK?: number;
+    };
 }
 
 /**
  * Options for AI provider chat requests
  */
-export interface ChatOptions {
+export interface ChatOptions extends ProviderSpecificOptions {
     /** Tool schemas to provide to the AI provider */
     tools?: ToolSchema[];
     /** Maximum number of tokens to generate */
@@ -38,8 +111,6 @@ export interface ChatOptions {
     temperature?: number;
     /** Model to use for the request */
     model?: string;
-    /** Provider-specific options can be added via this index signature */
-    [key: string]: any;
 }
 
 /**
@@ -94,5 +165,10 @@ export interface ProviderOptions {
     baseURL?: string;
     timeout?: number;
     retries?: number;
-    [key: string]: any;
+    maxConcurrentRequests?: number;
+    defaultModel?: string;
+    organization?: string;
+    project?: string;
+    /** Additional provider-specific configuration */
+    extra?: Record<string, ProviderConfigValue>;
 } 

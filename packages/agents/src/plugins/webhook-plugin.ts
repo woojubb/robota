@@ -1,6 +1,6 @@
 import { BasePlugin } from '../abstracts/base-plugin';
 import { Logger, createLogger } from '../utils/logger';
-import { PluginError } from '../utils/errors';
+import { PluginError, ErrorContext } from '../utils/errors';
 
 /**
  * Webhook event types
@@ -15,6 +15,46 @@ export type WebhookEventType =
     | 'custom';
 
 /**
+ * Webhook event data types
+ */
+export type WebhookEventData =
+    | { result: { response?: string; duration?: number; tokensUsed?: number; toolsExecuted?: number; success?: boolean } }
+    | { conversation: { response?: string; tokensUsed?: number; toolCalls?: unknown[] } }
+    | { tool: { name: string; id: string; success: boolean; duration?: number; result?: unknown; error?: string } }
+    | { error: { message: string; stack?: string; context?: Record<string, unknown> } }
+    | Record<string, unknown>;
+
+/**
+ * Webhook metadata for additional context
+ */
+export type WebhookMetadata = Record<string, string | number | boolean | Date | string[]>;
+
+/**
+ * Plugin execution context for webhooks
+ */
+export interface WebhookExecutionContext {
+    executionId?: string;
+    sessionId?: string;
+    userId?: string;
+}
+
+/**
+ * Plugin execution result for webhooks
+ */
+export interface WebhookExecutionResult {
+    response?: string;
+    content?: string;
+    duration?: number;
+    tokensUsed?: number;
+    toolsExecuted?: number;
+    success?: boolean;
+    usage?: { totalTokens?: number };
+    toolCalls?: unknown[];
+    results?: unknown[];
+    error?: Error;
+}
+
+/**
  * Webhook payload structure
  */
 export interface WebhookPayload {
@@ -23,8 +63,8 @@ export interface WebhookPayload {
     executionId?: string;
     sessionId?: string;
     userId?: string;
-    data: any;
-    metadata?: Record<string, any>;
+    data: WebhookEventData;
+    metadata?: WebhookMetadata;
 }
 
 /**
@@ -62,7 +102,21 @@ export interface WebhookPluginOptions {
         flushInterval: number;
     };
     /** Custom payload transformer */
-    payloadTransformer?: (event: WebhookEventType, data: any) => any;
+    payloadTransformer?: (event: WebhookEventType, data: WebhookEventData) => WebhookEventData;
+}
+
+/**
+ * Webhook plugin statistics
+ */
+export interface WebhookPluginStats {
+    endpointCount: number;
+    queueLength: number;
+    batchQueueLength: number;
+    activeConcurrency: number;
+    supportedEvents: WebhookEventType[];
+    totalSent: number;
+    totalErrors: number;
+    averageResponseTime: number;
 }
 
 /**
@@ -132,7 +186,7 @@ export class WebhookPlugin extends BasePlugin {
     /**
      * After execution completes
      */
-    async afterExecution(context: any, result: any): Promise<void> {
+    async afterExecution(context: WebhookExecutionContext, result: WebhookExecutionResult): Promise<void> {
         await this.sendWebhook('execution.complete', {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -150,7 +204,7 @@ export class WebhookPlugin extends BasePlugin {
     /**
      * After conversation completes
      */
-    async afterConversation(context: any, result: any): Promise<void> {
+    async afterConversation(context: WebhookExecutionContext, result: WebhookExecutionResult): Promise<void> {
         await this.sendWebhook('conversation.complete', {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -166,22 +220,23 @@ export class WebhookPlugin extends BasePlugin {
     /**
      * After tool execution
      */
-    async afterToolExecution(context: any, toolResults: any): Promise<void> {
+    async afterToolExecution(context: WebhookExecutionContext, toolResults: WebhookExecutionResult): Promise<void> {
         const results = Array.isArray(toolResults?.results) ? toolResults.results :
             toolResults ? [toolResults] : [];
 
         for (const result of results) {
+            const toolResult = result as any; // Type assertion for tool result structure
             await this.sendWebhook('tool.executed', {
                 executionId: context.executionId,
                 sessionId: context.sessionId,
                 userId: context.userId,
                 tool: {
-                    name: result.toolName,
-                    id: result.toolId || result.executionId,
-                    success: !result.error,
-                    duration: result.duration,
-                    result: result.error ? undefined : result.result,
-                    error: result.error?.message
+                    name: toolResult.toolName || 'unknown',
+                    id: toolResult.toolId || toolResult.executionId || 'unknown',
+                    success: !toolResult.error,
+                    duration: toolResult.duration,
+                    result: toolResult.error ? undefined : toolResult.result,
+                    error: toolResult.error?.message
                 }
             });
         }
@@ -190,7 +245,7 @@ export class WebhookPlugin extends BasePlugin {
     /**
      * On error
      */
-    override async onError(context: any, error: any): Promise<void> {
+    override async onError(error: Error, context?: WebhookExecutionContext): Promise<void> {
         await this.sendWebhook('error.occurred', {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -499,19 +554,16 @@ export class WebhookPlugin extends BasePlugin {
     /**
      * Get webhook statistics
      */
-    override getStats(): {
-        endpointCount: number;
-        queueLength: number;
-        batchQueueLength: number;
-        activeConcurrency: number;
-        supportedEvents: WebhookEventType[];
-    } {
+    getStats(): WebhookPluginStats {
         return {
             endpointCount: this.options.endpoints.length,
             queueLength: this.requestQueue.length,
             batchQueueLength: this.batchQueue.length,
             activeConcurrency: this.activeConcurrency,
-            supportedEvents: this.options.events
+            supportedEvents: this.options.events,
+            totalSent: 0, // TODO: Track total sent webhooks
+            totalErrors: 0, // TODO: Track total errors
+            averageResponseTime: 0 // TODO: Track average response time
         };
     }
 

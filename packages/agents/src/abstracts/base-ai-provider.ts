@@ -3,6 +3,16 @@ import type { UniversalMessage } from '../managers/conversation-history-manager'
 import { logger } from '../utils/logger';
 
 /**
+ * Reusable type definitions for base AI provider
+ */
+
+/**
+ * Provider logging data type
+ * Used for storing logging information in provider operations
+ */
+export type ProviderLoggingData = Record<string, string | number | boolean | Date | string[]>;
+
+/**
  * Base AI Provider abstract class that uses UniversalMessage only
  * This is the provider-agnostic base class that all providers should extend
  */
@@ -98,7 +108,7 @@ export abstract class BaseAIProvider implements AIProvider {
      * @param operation - Operation name
      * @param data - Additional data to log
      */
-    protected log(operation: string, data?: any): void {
+    protected log(operation: string, data?: ProviderLoggingData): void {
         logger.debug(`${this.name} Provider: ${operation}`, data);
     }
 } 

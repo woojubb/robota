@@ -1,6 +1,16 @@
 import { z } from 'zod';
 
 /**
+ * Reusable type definitions for schema validation
+ */
+
+/**
+ * Schema validation input type
+ * Used for validating external data inputs before parsing
+ */
+export type SchemaValidationInput = Record<string, string | number | boolean | Date | string[] | number[] | boolean[] | null | undefined> | string | number | boolean | null | undefined;
+
+/**
  * Zod schema for validating agent template metadata
  */
 export const AgentTemplateMetadataSchema = z.object({
@@ -71,7 +81,7 @@ export type ValidatedAgentTemplate = z.infer<typeof AgentTemplateSchema>;
  * @returns Validated template
  * @throws {z.ZodError} When validation fails
  */
-export function validateAgentTemplate(template: unknown): ValidatedAgentTemplate {
+export function validateAgentTemplate(template: SchemaValidationInput): ValidatedAgentTemplate {
     return AgentTemplateSchema.parse(template);
 }
 
@@ -81,7 +91,7 @@ export function validateAgentTemplate(template: unknown): ValidatedAgentTemplate
  * @param template - Template to validate
  * @returns Validation result with success flag and data or error
  */
-export function safeValidateAgentTemplate(template: unknown): {
+export function safeValidateAgentTemplate(template: SchemaValidationInput): {
     success: boolean;
     data?: ValidatedAgentTemplate;
     error?: z.ZodError;

@@ -1,6 +1,32 @@
 import type { AIProvider } from './provider';
 import type { ToolSchema } from './provider';
-import type { ToolInterface } from './tool';
+import type { ToolInterface, ToolExecutor, ToolExecutionData } from './tool';
+import type { AgentConfig, AgentInterface } from './agent';
+
+/**
+ * Reusable type definitions for manager layer
+ */
+
+/**
+ * Agent creation metadata type
+ * Used for storing additional information about agent creation and configuration
+ */
+export type AgentCreationMetadata = Record<string, string | number | boolean | Date>;
+
+/**
+ * Tool execution parameters for manager operations
+ * Used for tool parameter validation and execution in manager context
+ */
+export type ManagerToolParameters = Record<string, string | number | boolean | string[] | number[] | boolean[]>;
+
+/**
+ * Configuration validation result
+ */
+export interface ConfigValidationResult {
+    isValid: boolean;
+    errors: string[];
+    warnings?: string[];
+}
 
 /**
  * AI Provider Manager interface for provider registration and selection
@@ -54,7 +80,7 @@ export interface ToolManagerInterface {
     /**
      * Register a tool
      */
-    addTool(schema: ToolSchema, executor: (...args: any[]) => Promise<any>): void;
+    addTool(schema: ToolSchema, executor: ToolExecutor): void;
 
     /**
      * Remove a tool by name
@@ -79,7 +105,7 @@ export interface ToolManagerInterface {
     /**
      * Execute a tool
      */
-    executeTool(name: string, parameters: Record<string, any>): Promise<any>;
+    executeTool(name: string, parameters: ManagerToolParameters): Promise<ToolExecutionData>;
 
     /**
      * Check if tool exists
@@ -98,26 +124,41 @@ export interface ToolManagerInterface {
 }
 
 /**
+ * Agent creation options
+ */
+export interface AgentCreationOptions {
+    /** Override default configuration */
+    overrides?: Partial<AgentConfig>;
+    /** Validation options */
+    validation?: {
+        strict?: boolean;
+        skipOptional?: boolean;
+    };
+    /** Additional metadata */
+    metadata?: AgentCreationMetadata;
+}
+
+/**
  * Agent Factory interface for agent creation and configuration
  */
 export interface AgentFactoryInterface {
     /**
      * Create agent instance
      */
-    createAgent(config: any): any;
+    createAgent(config: AgentConfig, options?: AgentCreationOptions): AgentInterface;
 
     /**
      * Validate agent configuration
      */
-    validateConfig(config: any): boolean;
+    validateConfig(config: AgentConfig): ConfigValidationResult;
 
     /**
      * Get default configuration
      */
-    getDefaultConfig(): any;
+    getDefaultConfig(): AgentConfig;
 
     /**
      * Merge configurations
      */
-    mergeConfig(base: any, override: any): any;
+    mergeConfig(base: AgentConfig, override: Partial<AgentConfig>): AgentConfig;
 } 

@@ -14,7 +14,7 @@ export class DatabaseHistoryStorage implements HistoryStorage {
         this.logger = createLogger('DatabaseHistoryStorage');
     }
 
-    async save(conversationId: string, entry: ConversationHistoryEntry): Promise<void> {
+    async save(conversationId: string, _entry: ConversationHistoryEntry): Promise<void> {
         try {
             // Database operations would be implemented here
             this.logger.warn('Database storage not fully implemented yet', {

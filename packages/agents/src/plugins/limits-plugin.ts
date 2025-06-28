@@ -3,6 +3,44 @@ import { Logger, createLogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 
 /**
+ * Reusable type definitions for limits plugin
+ */
+
+/**
+ * Plugin execution context type
+ * Used for processing execution context in limits plugin
+ */
+export type PluginExecutionContext = {
+    config?: {
+        model?: string;
+        maxTokens?: number;
+        temperature?: number;
+    };
+    conversationId?: string;
+    userId?: string;
+    sessionId?: string;
+    messages?: Array<{ role: string; content: string }>;
+    [key: string]: string | number | boolean | Array<{ role: string; content: string }> | { model?: string; maxTokens?: number; temperature?: number } | undefined;
+};
+
+/**
+ * Plugin execution result type
+ * Used for processing execution results in limits plugin
+ */
+export type PluginExecutionResult = {
+    tokensUsed?: number;
+    cost?: number;
+    success?: boolean;
+    [key: string]: string | number | boolean | undefined;
+};
+
+/**
+ * Plugin limits status data type
+ * Used for storing limits status information
+ */
+export type PluginLimitsStatusData = Record<string, string | number | boolean | Array<string | number | boolean>>;
+
+/**
  * Rate limiting strategies
  */
 export type LimitsStrategy = 'token-bucket' | 'sliding-window' | 'fixed-window' | 'none';
@@ -94,7 +132,7 @@ export class LimitsPlugin extends BasePlugin {
     /**
      * Check limits before execution
      */
-    async beforeExecution(context: any): Promise<void> {
+    async beforeExecution(context: PluginExecutionContext): Promise<void> {
         if (this.options.strategy === 'none') {
             return;
         }
@@ -132,7 +170,7 @@ export class LimitsPlugin extends BasePlugin {
     /**
      * Update limits after execution
      */
-    async afterExecution(context: any, result: any): Promise<void> {
+    async afterExecution(context: PluginExecutionContext, result: PluginExecutionResult): Promise<void> {
         if (this.options.strategy === 'none') {
             return;
         }
@@ -171,7 +209,7 @@ export class LimitsPlugin extends BasePlugin {
     /**
      * Token bucket rate limiting
      */
-    private async checkTokenBucket(key: string, context: any): Promise<void> {
+    private async checkTokenBucket(key: string, context: PluginExecutionContext): Promise<void> {
         const bucket = this.getBucket(key);
         const now = Date.now();
 
@@ -223,7 +261,7 @@ export class LimitsPlugin extends BasePlugin {
     /**
      * Sliding window rate limiting
      */
-    private async checkSlidingWindow(key: string, context: any): Promise<void> {
+    private async checkSlidingWindow(key: string, context: PluginExecutionContext): Promise<void> {
         const now = Date.now();
         const window = this.getWindow(key);
 
@@ -270,7 +308,7 @@ export class LimitsPlugin extends BasePlugin {
     /**
      * Fixed window rate limiting
      */
-    private async checkFixedWindow(key: string, context: any): Promise<void> {
+    private async checkFixedWindow(key: string, context: PluginExecutionContext): Promise<void> {
         const now = Date.now();
         const window = this.getWindow(key);
 
@@ -363,16 +401,16 @@ export class LimitsPlugin extends BasePlugin {
     /**
      * Generate key for rate limiting (user/session based)
      */
-    private getKey(context: any): string {
-        return context.userId || context.sessionId || context.executionId || 'default';
+    private getKey(context: PluginExecutionContext): string {
+        return context.userId || context.sessionId || context['executionId'] as string || 'default';
     }
 
     /**
      * Estimate tokens needed for request
      */
-    private estimateTokens(context: any): number {
+    private estimateTokens(context: PluginExecutionContext): number {
         // Simple estimation - in real implementation, this would be more sophisticated
-        const messageLength = context.messages?.reduce((total: number, msg: any) =>
+        const messageLength = context.messages?.reduce((total: number, msg: { role: string; content: string }) =>
             total + (msg.content?.length || 0), 0) || 0;
 
         // Rough estimation: 1 token per 4 characters
@@ -400,7 +438,7 @@ export class LimitsPlugin extends BasePlugin {
     /**
      * Get current limits status
      */
-    getLimitsStatus(key?: string): Record<string, any> {
+    getLimitsStatus(key?: string): Record<string, string | number | boolean | Array<string | number> | null> {
         if (key) {
             const bucket = this.buckets.get(key);
             const window = this.windows.get(key);

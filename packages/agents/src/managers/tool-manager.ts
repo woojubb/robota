@@ -1,6 +1,6 @@
 import type { ToolManagerInterface } from '../interfaces/manager';
 import type { ToolSchema } from '../interfaces/provider';
-import type { ToolInterface } from '../interfaces/tool';
+import type { ToolInterface, ToolExecutor, ToolExecutionData, ToolParameters } from '../interfaces/tool';
 import { BaseManager } from '../abstracts/base-manager';
 import { ToolRegistry } from '../tools/registry/tool-registry';
 import { FunctionTool } from '../tools/implementations/function-tool';
@@ -33,14 +33,14 @@ export class Tools extends BaseManager implements ToolManagerInterface {
      */
     protected async doDispose(): Promise<void> {
         this.registry.clear();
-        this.allowedTools = undefined;
+        delete this.allowedTools;
         logger.debug('Tools disposed');
     }
 
     /**
      * Register a tool with schema and executor function
      */
-    addTool(schema: ToolSchema, executor: (...args: any[]) => Promise<any>): void {
+    addTool(schema: ToolSchema, executor: ToolExecutor): void {
         this.ensureInitialized();
 
         const tool = new FunctionTool(schema, executor);
@@ -93,7 +93,7 @@ export class Tools extends BaseManager implements ToolManagerInterface {
     /**
      * Execute a tool with parameters
      */
-    async executeTool(name: string, parameters: Record<string, any>): Promise<any> {
+    async executeTool(name: string, parameters: ToolParameters): Promise<ToolExecutionData> {
         this.ensureInitialized();
 
         // Check if tool is allowed

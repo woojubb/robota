@@ -84,7 +84,7 @@ export class OpenAIConversationAdapter {
             // Regular assistant message (without tool calls)
             return {
                 role: 'assistant',
-                content: assistantMsg.content || ''  // OpenAI requires string for non-tool messages
+                content: assistantMsg.content || null  // Allow null for empty content to match tests
             };
         }
 

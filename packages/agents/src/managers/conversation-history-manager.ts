@@ -8,6 +8,14 @@ import { Logger, createLogger } from '../utils/logger';
 export type UniversalMessageRole = 'user' | 'assistant' | 'system' | 'tool';
 
 /**
+ * Message metadata type following semantic naming conventions
+ * Supports common message metadata properties
+ * 
+ * @public
+ */
+export type ConversationMessageMetadata = Record<string, string | number | boolean | Date | string[] | number[]>;
+
+/**
  * Base interface for all message types
  * 
  * @public
@@ -16,7 +24,7 @@ export interface BaseMessage {
     /** Message creation timestamp */
     timestamp: Date;
     /** Additional metadata */
-    metadata?: Record<string, any>;
+    metadata?: ConversationMessageMetadata;
 }
 
 /**
@@ -151,7 +159,7 @@ export function isToolMessage(message: UniversalMessage): message is ToolMessage
  */
 export function createUserMessage(
     content: string,
-    options?: { name?: string; metadata?: Record<string, any> }
+    options?: { name?: string; metadata?: ConversationMessageMetadata }
 ): UserMessage {
     const message: UserMessage = {
         role: 'user',
@@ -188,7 +196,7 @@ export function createAssistantMessage(
                 arguments: string;
             };
         }>;
-        metadata?: Record<string, any>;
+        metadata?: ConversationMessageMetadata;
     }
 ): AssistantMessage {
     const message: AssistantMessage = {
@@ -217,7 +225,7 @@ export function createAssistantMessage(
  */
 export function createSystemMessage(
     content: string,
-    options?: { name?: string; metadata?: Record<string, any> }
+    options?: { name?: string; metadata?: ConversationMessageMetadata }
 ): SystemMessage {
     const message: SystemMessage = {
         role: 'system',
@@ -248,7 +256,7 @@ export function createToolMessage(
     options: {
         toolCallId: string;
         name?: string;
-        metadata?: Record<string, any>;
+        metadata?: ConversationMessageMetadata;
     }
 ): ToolMessage {
     const message: ToolMessage = {
@@ -293,7 +301,7 @@ export interface ConversationHistoryInterface {
      * @param content - User message content
      * @param metadata - Optional metadata
      */
-    addUserMessage(content: string, metadata?: Record<string, any>): void;
+    addUserMessage(content: string, metadata?: ConversationMessageMetadata): void;
 
     /**
      * Add assistant message (convenience method)
@@ -312,7 +320,7 @@ export interface ConversationHistoryInterface {
                 arguments: string;
             };
         }>,
-        metadata?: Record<string, any>
+        metadata?: ConversationMessageMetadata
     ): void;
 
     /**
@@ -321,7 +329,7 @@ export interface ConversationHistoryInterface {
      * @param content - System instruction content
      * @param metadata - Optional metadata
      */
-    addSystemMessage(content: string, metadata?: Record<string, any>): void;
+    addSystemMessage(content: string, metadata?: ConversationMessageMetadata): void;
 
     /**
      * Add tool execution result message with tool call ID (for tool calling format)
@@ -331,7 +339,7 @@ export interface ConversationHistoryInterface {
      * @param toolName - Name of the tool that was executed
      * @param metadata - Optional metadata
      */
-    addToolMessageWithId(content: string, toolCallId: string, toolName: string, metadata?: Record<string, any>): void;
+    addToolMessageWithId(content: string, toolCallId: string, toolName: string, metadata?: ConversationMessageMetadata): void;
 
     /**
      * Get all messages in chronological order
@@ -392,8 +400,8 @@ export abstract class BaseConversationHistory implements ConversationHistoryInte
     abstract getMessageCount(): number;
 
     // Common convenience methods with shared implementation
-    addUserMessage(content: string, metadata?: Record<string, any>): void {
-        const options: { name?: string; metadata?: Record<string, any> } = {};
+    addUserMessage(content: string, metadata?: ConversationMessageMetadata): void {
+        const options: { name?: string; metadata?: ConversationMessageMetadata } = {};
         if (metadata) {
             options.metadata = metadata;
         }
@@ -411,7 +419,7 @@ export abstract class BaseConversationHistory implements ConversationHistoryInte
                 arguments: string;
             };
         }>,
-        metadata?: Record<string, any>
+        metadata?: ConversationMessageMetadata
     ): void {
         const options: {
             toolCalls?: Array<{
@@ -422,7 +430,7 @@ export abstract class BaseConversationHistory implements ConversationHistoryInte
                     arguments: string;
                 };
             }>;
-            metadata?: Record<string, any>;
+            metadata?: ConversationMessageMetadata;
         } = {};
         if (toolCalls) {
             options.toolCalls = toolCalls;
@@ -434,8 +442,8 @@ export abstract class BaseConversationHistory implements ConversationHistoryInte
         this.addMessage(message);
     }
 
-    addSystemMessage(content: string, metadata?: Record<string, any>): void {
-        const options: { name?: string; metadata?: Record<string, any> } = {};
+    addSystemMessage(content: string, metadata?: ConversationMessageMetadata): void {
+        const options: { name?: string; metadata?: ConversationMessageMetadata } = {};
         if (metadata) {
             options.metadata = metadata;
         }
@@ -443,11 +451,11 @@ export abstract class BaseConversationHistory implements ConversationHistoryInte
         this.addMessage(message);
     }
 
-    addToolMessageWithId(content: string, toolCallId: string, toolName: string, metadata?: Record<string, any>): void {
+    addToolMessageWithId(content: string, toolCallId: string, toolName: string, metadata?: ConversationMessageMetadata): void {
         const options: {
             toolCallId: string;
             name?: string;
-            metadata?: Record<string, any>;
+            metadata?: ConversationMessageMetadata;
         } = {
             toolCallId,
             name: toolName
@@ -691,7 +699,7 @@ export class ConversationSession implements ConversationHistoryInterface {
     /**
      * Add user message
      */
-    addUserMessage(content: string, metadata?: Record<string, any>): void {
+    addUserMessage(content: string, metadata?: ConversationMessageMetadata): void {
         this.history.addUserMessage(content, metadata);
     }
 
@@ -705,7 +713,7 @@ export class ConversationSession implements ConversationHistoryInterface {
             type: 'function';
             function: { name: string; arguments: string };
         }>,
-        metadata?: Record<string, any>
+        metadata?: ConversationMessageMetadata
     ): void {
         this.history.addAssistantMessage(content, toolCalls, metadata);
     }
@@ -713,14 +721,14 @@ export class ConversationSession implements ConversationHistoryInterface {
     /**
      * Add system message
      */
-    addSystemMessage(content: string, metadata?: Record<string, any>): void {
+    addSystemMessage(content: string, metadata?: ConversationMessageMetadata): void {
         this.history.addSystemMessage(content, metadata);
     }
 
     /**
      * Add tool result message
      */
-    addToolMessage(content: string, toolCallId: string, toolName?: string, metadata?: Record<string, any>): void {
+    addToolMessage(content: string, toolCallId: string, toolName?: string, metadata?: ConversationMessageMetadata): void {
         this.history.addToolMessageWithId(content, toolCallId, toolName || 'unknown', metadata);
     }
 
@@ -730,7 +738,7 @@ export class ConversationSession implements ConversationHistoryInterface {
      * 
      * Throws error if a tool message with the same toolCallId already exists.
      */
-    addToolMessageWithId(content: string, toolCallId: string, toolName: string, metadata?: Record<string, any>): void {
+    addToolMessageWithId(content: string, toolCallId: string, toolName: string, metadata?: ConversationMessageMetadata): void {
         // Check if a tool message with this toolCallId already exists
         const existingToolMessage = this.history.getMessages().find(
             msg => msg.role === 'tool' && isToolMessage(msg) && msg.toolCallId === toolCallId

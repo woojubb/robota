@@ -4,7 +4,7 @@ import { LogEntry, LogStorage } from '../types';
  * Silent log storage (no-op)
  */
 export class SilentLogStorage implements LogStorage {
-    async write(entry: LogEntry): Promise<void> {
+    async write(_entry: LogEntry): Promise<void> {
         // Silent mode - do nothing
     }
 

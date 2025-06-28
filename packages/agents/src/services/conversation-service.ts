@@ -1,6 +1,6 @@
-import { Message, UserMessage, AssistantMessage, SystemMessage, ToolMessage } from '../interfaces/agent';
+import { UserMessage, AssistantMessage, SystemMessage, ToolMessage } from '../interfaces/agent';
 import { UniversalMessage } from '../managers/conversation-history-manager';
-import { AIProvider } from '../interfaces/provider';
+import { AIProvider, ToolSchema, ToolCall } from '../interfaces/provider';
 import {
     ConversationContext,
     ConversationResponse,
@@ -11,6 +11,7 @@ import {
 } from '../interfaces/service';
 import { Logger, createLogger } from '../utils/logger';
 import { NetworkError, ProviderError } from '../utils/errors';
+import type { ToolExecutionResult, ToolParameters } from '../interfaces/tool';
 
 /**
  * Default conversation service options
@@ -22,6 +23,51 @@ const DEFAULT_OPTIONS: Required<ConversationServiceOptions> = {
     retryDelay: 1000,
     timeout: 30000,
 };
+
+
+
+/**
+ * Provider request configuration
+ */
+interface ProviderRequest {
+    messages: UniversalMessage[];
+    model: string;
+    temperature?: number;
+    maxTokens?: number;
+    tools?: ToolSchema[];
+    stream?: boolean;
+    systemMessage?: string;
+    metadata?: Record<string, string | number | boolean>;
+}
+
+/**
+ * Raw provider response structure
+ */
+interface RawProviderResponse {
+    content?: string;
+    toolCalls?: ToolCall[];
+    usage?: {
+        promptTokens?: number;
+        completionTokens?: number;
+        totalTokens?: number;
+    };
+    metadata?: Record<string, string | number | boolean>;
+    finishReason?: string;
+}
+
+/**
+ * Raw streaming chunk structure
+ */
+interface RawStreamingChunk {
+    delta?: string;
+    done?: boolean;
+    toolCalls?: ToolCall[];
+    usage?: {
+        promptTokens?: number;
+        completionTokens?: number;
+        totalTokens?: number;
+    };
+}
 
 /**
  * Service for handling conversation logic
@@ -324,33 +370,33 @@ export class ConversationService implements ConversationServiceInterface {
     /**
      * Create a user message
      */
-    createUserMessage(content: string, metadata?: Record<string, any>): UserMessage {
+    createUserMessage(content: string, metadata?: Record<string, string | number | boolean>): UserMessage {
         return ConversationService.createUserMessageStatic(content, metadata);
     }
 
     /**
      * Create an assistant message from response
      */
-    createAssistantMessage(response: ConversationResponse, metadata?: Record<string, any>): AssistantMessage {
+    createAssistantMessage(response: ConversationResponse, metadata?: Record<string, string | number | boolean>): AssistantMessage {
         return ConversationService.createAssistantMessageStatic(response, metadata);
     }
 
     /**
      * Create a system message
      */
-    createSystemMessage(content: string, metadata?: Record<string, any>): SystemMessage {
+    createSystemMessage(content: string, metadata?: Record<string, string | number | boolean>): SystemMessage {
         return ConversationService.createSystemMessageStatic(content, metadata);
     }
 
     /**
      * Create a tool message
      */
-    createToolMessage(toolCallId: string, result: any, metadata?: Record<string, any>): ToolMessage {
+    createToolMessage(toolCallId: string, result: ToolExecutionResult, metadata?: Record<string, string | number | boolean>): ToolMessage {
         return ConversationService.createToolMessageStatic(toolCallId, result, metadata);
     }
 
     // Static versions of message creation methods
-    private static createUserMessageStatic(content: string, metadata?: Record<string, any>): UserMessage {
+    private static createUserMessageStatic(content: string, metadata?: Record<string, string | number | boolean>): UserMessage {
         return {
             role: 'user',
             content,
@@ -361,7 +407,7 @@ export class ConversationService implements ConversationServiceInterface {
         };
     }
 
-    private static createAssistantMessageStatic(response: ConversationResponse, metadata?: Record<string, any>): AssistantMessage {
+    private static createAssistantMessageStatic(response: ConversationResponse, metadata?: Record<string, string | number | boolean>): AssistantMessage {
         const message: AssistantMessage = {
             role: 'assistant',
             content: response.content,
@@ -380,7 +426,7 @@ export class ConversationService implements ConversationServiceInterface {
         return message;
     }
 
-    private static createSystemMessageStatic(content: string, metadata?: Record<string, any>): SystemMessage {
+    private static createSystemMessageStatic(content: string, metadata?: Record<string, string | number | boolean>): SystemMessage {
         return {
             role: 'system',
             content,
@@ -391,7 +437,7 @@ export class ConversationService implements ConversationServiceInterface {
         };
     }
 
-    private static createToolMessageStatic(toolCallId: string, result: any, metadata?: Record<string, any>): ToolMessage {
+    private static createToolMessageStatic(toolCallId: string, result: ToolExecutionResult, metadata?: Record<string, string | number | boolean>): ToolMessage {
         return {
             role: 'tool',
             content: typeof result === 'string' ? result : JSON.stringify(result),
@@ -408,7 +454,7 @@ export class ConversationService implements ConversationServiceInterface {
     // Pure utility functions
     // ==============================================
 
-    private static createProviderRequest(context: ConversationContext, streaming: boolean = false): any {
+    private static createProviderRequest(context: ConversationContext, streaming: boolean = false): ProviderRequest {
         return {
             messages: context.messages,
             model: context.model,
@@ -421,7 +467,7 @@ export class ConversationService implements ConversationServiceInterface {
         };
     }
 
-    private static processProviderResponse(response: any): ConversationResponse {
+    private static processProviderResponse(response: RawProviderResponse): ConversationResponse {
         return {
             content: response.content || '',
             toolCalls: response.toolCalls || [],
@@ -431,7 +477,7 @@ export class ConversationService implements ConversationServiceInterface {
         };
     }
 
-    private static processStreamingChunk(chunk: any): StreamingChunk {
+    private static processStreamingChunk(chunk: RawStreamingChunk): StreamingChunk {
         return {
             delta: chunk.delta || '',
             done: chunk.done || false,

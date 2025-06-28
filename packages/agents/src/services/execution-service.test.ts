@@ -14,11 +14,23 @@ vi.mock('../utils/logger', () => ({
         info: vi.fn(),
         warn: vi.fn(),
         error: vi.fn()
-    }))
+    })),
+    createLogger: vi.fn().mockReturnValue({
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        isDebugEnabled: vi.fn().mockReturnValue(false),
+        setLevel: vi.fn(),
+        getLevel: vi.fn().mockReturnValue('warn')
+    })
 }));
 
 // Create a mock class that extends BaseAIProvider
 class MockAIProvider extends BaseAIProvider {
+    name = 'mock-provider';
+    version = '1.0.0';
+
     chat = vi.fn().mockResolvedValue({
         content: 'Mock response',
         toolCalls: [],
@@ -139,7 +151,7 @@ describe('ExecutionService', () => {
                     { role: 'assistant', content: 'Mock response', timestamp: new Date() }
                 ]);
 
-            const result = await executionService.execute(input, messages, config);
+            const result = await executionService.execute(input, messages as any, config);
 
             expect(result.success).toBe(true);
             expect(result.response).toBe('Mock response');
@@ -253,7 +265,7 @@ describe('ExecutionService', () => {
                 name: 'test-agent'
             };
 
-            const result = await executionService.execute(input, messages, config);
+            const result = await executionService.execute(input, messages as any, config);
 
             expect(result.success).toBe(true);
             expect(result.response).toBe('Task completed with tool result');

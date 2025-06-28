@@ -34,7 +34,7 @@ export interface PerformanceMetrics {
     };
     errorCount: number;
     success: boolean;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, string | number | boolean | Date>;
 }
 
 /**

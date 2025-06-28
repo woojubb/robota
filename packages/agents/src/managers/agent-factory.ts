@@ -140,7 +140,7 @@ export class AgentFactory {
 
             // Initialize agent if it has an initialize method
             if ('initialize' in agent && typeof agent.initialize === 'function') {
-                await (agent as any).initialize();
+                await (agent as AgentInterface & { initialize(): Promise<void> }).initialize();
             }
 
             // Track agent
@@ -267,7 +267,7 @@ export class AgentFactory {
         try {
             // Cleanup agent if it has a cleanup method
             if ('cleanup' in agent && typeof agent.cleanup === 'function') {
-                await (agent as any).cleanup();
+                await (agent as AgentInterface & { cleanup(): Promise<void> }).cleanup();
             }
 
             // Remove from tracking

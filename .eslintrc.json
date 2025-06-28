@@ -33,7 +33,18 @@
     "no-unused-vars": "off",
     "@typescript-eslint/explicit-module-boundary-types": "off",
     "@typescript-eslint/ban-ts-comment": "warn",
-    "@typescript-eslint/ban-types": "warn",
+    "@typescript-eslint/ban-types": [
+      "warn",
+      {
+        "types": {
+          "unknown": {
+            "message": "Use of 'unknown' type is discouraged. Consider using a more specific type.",
+            "fixWith": "Record<string, unknown>"
+          }
+        },
+        "extendDefaults": true
+      }
+    ],
     "no-useless-catch": "warn",
     "no-console": "error",
     "no-redeclare": "error"

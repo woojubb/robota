@@ -8,6 +8,11 @@ import { PluginError, ConfigurationError } from '../../utils/errors';
 export type ErrorHandlingStrategy = 'simple' | 'circuit-breaker' | 'exponential-backoff' | 'silent';
 
 /**
+ * Error context data for error handling operations
+ */
+export type ErrorHandlingContextData = Record<string, string | number | boolean | Error | Date | string[] | undefined>;
+
+/**
  * Configuration options for error handling plugin
  */
 export interface ErrorHandlingPluginOptions {
@@ -24,7 +29,18 @@ export interface ErrorHandlingPluginOptions {
     /** Circuit breaker timeout in milliseconds */
     circuitBreakerTimeout?: number;
     /** Custom error handler function */
-    customErrorHandler?: (error: Error, context: Record<string, any>) => Promise<void>;
+    customErrorHandler?: (error: Error, context: ErrorHandlingContextData) => Promise<void>;
+}
+
+/**
+ * Error handling plugin statistics
+ */
+export interface ErrorHandlingPluginStats {
+    failureCount: number;
+    circuitBreakerOpen: boolean;
+    lastFailureTime: number;
+    totalRetries: number;
+    successfulRecoveries: number;
 }
 
 /**
@@ -169,13 +185,15 @@ export class ErrorHandlingPlugin extends BasePlugin {
     }
 
     /**
-     * Get current error handling stats
+     * Get error handling statistics
      */
-    override getStats(): { failureCount: number; circuitBreakerOpen: boolean; lastFailureTime: number } {
+    getStats(): ErrorHandlingPluginStats {
         return {
             failureCount: this.failureCount,
             circuitBreakerOpen: this.circuitBreakerOpen,
-            lastFailureTime: this.lastFailureTime
+            lastFailureTime: this.lastFailureTime,
+            totalRetries: 0, // TODO: Track total retries
+            successfulRecoveries: 0 // TODO: Track successful recoveries
         };
     }
 

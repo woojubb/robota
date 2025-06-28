@@ -1,8 +1,39 @@
-import type { FunctionTool as IFunctionTool, ToolResult, ToolExecutionContext, ParameterValidationResult } from '../../interfaces/tool';
-import type { ToolSchema } from '../../interfaces/provider';
+import type { FunctionTool as IFunctionTool, ToolResult, ToolExecutionContext, ParameterValidationResult, ToolExecutor, ToolExecutionData, ToolParameters, ToolParameterValue } from '../../interfaces/tool';
+import type { ToolSchema, ParameterSchema } from '../../interfaces/provider';
 import { BaseTool } from '../../abstracts/base-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
+
+/**
+ * Zod validation result
+ */
+interface ZodParseResult {
+    success: boolean;
+    data?: ToolParameters;
+    error?: string | Error;
+}
+
+/**
+ * Zod schema definition structure
+ */
+interface ZodSchemaDef {
+    typeName?: string;
+    innerType?: ZodSchema;
+    checks?: Array<{ kind: string; value?: ToolParameterValue }>;
+    shape?: () => Record<string, ZodSchema>;
+    type?: ZodSchema;
+    values?: ToolParameterValue[];
+    description?: string;
+}
+
+/**
+ * Zod-like schema interface for compatibility
+ */
+interface ZodSchema {
+    parse(value: ToolParameters): ToolParameters;
+    safeParse(value: ToolParameters): ZodParseResult;
+    _def?: ZodSchemaDef;
+}
 
 /**
  * Function tool implementation
@@ -10,9 +41,9 @@ import { logger } from '../../utils/logger';
  */
 export class FunctionTool extends BaseTool implements IFunctionTool {
     readonly schema: ToolSchema;
-    readonly fn: (...args: any[]) => Promise<any>;
+    readonly fn: ToolExecutor;
 
-    constructor(schema: ToolSchema, fn: (...args: any[]) => Promise<any>) {
+    constructor(schema: ToolSchema, fn: ToolExecutor) {
         super();
         this.schema = schema;
         this.fn = fn;
@@ -22,7 +53,7 @@ export class FunctionTool extends BaseTool implements IFunctionTool {
     /**
      * Execute the function tool
      */
-    async execute(parameters: Record<string, any>, context?: ToolExecutionContext): Promise<ToolResult> {
+    async execute(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
         const toolName = this.schema.name;
 
         try {
@@ -40,7 +71,7 @@ export class FunctionTool extends BaseTool implements IFunctionTool {
 
             // Execute the function
             const startTime = Date.now();
-            const result = await this.fn(parameters);
+            const result = await this.fn(parameters, context);
             const executionTime = Date.now() - startTime;
 
             logger.debug(`Function tool "${toolName}" executed successfully`, {
@@ -78,14 +109,14 @@ export class FunctionTool extends BaseTool implements IFunctionTool {
     /**
      * Enhanced validation with detailed error reporting
      */
-    override validate(parameters: Record<string, any>): boolean {
+    override validate(parameters: ToolParameters): boolean {
         return this.getValidationErrors(parameters).length === 0;
     }
 
     /**
      * Validate tool parameters with detailed result
      */
-    override validateParameters(parameters: Record<string, any>): ParameterValidationResult {
+    override validateParameters(parameters: ToolParameters): ParameterValidationResult {
         const errors = this.getValidationErrors(parameters);
         return {
             isValid: errors.length === 0,
@@ -96,7 +127,7 @@ export class FunctionTool extends BaseTool implements IFunctionTool {
     /**
      * Get detailed validation errors
      */
-    private getValidationErrors(parameters: Record<string, any>): string[] {
+    private getValidationErrors(parameters: ToolParameters): string[] {
         const errors: string[] = [];
         const required = this.schema.parameters.required || [];
         const properties = this.schema.parameters.properties || {};
@@ -128,7 +159,7 @@ export class FunctionTool extends BaseTool implements IFunctionTool {
     /**
      * Validate individual parameter type
      */
-    private validateParameterType(key: string, value: any, schema: any): string | null {
+    private validateParameterType(key: string, value: ToolParameterValue, schema: ParameterSchema): string | null {
         const expectedType = schema['type'];
 
         switch (expectedType) {
@@ -155,9 +186,9 @@ export class FunctionTool extends BaseTool implements IFunctionTool {
                     return `Parameter "${key}" must be an array, got ${typeof value}`;
                 }
                 // Check array items if specified
-                if (schema['items']) {
+                if (schema.items) {
                     for (let i = 0; i < value.length; i++) {
-                        const itemError = this.validateParameterType(`${key}[${i}]`, value[i], schema['items']);
+                        const itemError = this.validateParameterType(`${key}[${i}]`, value[i], schema.items);
                         if (itemError) {
                             return itemError;
                         }
@@ -173,8 +204,21 @@ export class FunctionTool extends BaseTool implements IFunctionTool {
         }
 
         // Check enum constraints
-        if (schema['enum'] && !schema['enum'].includes(value)) {
-            return `Parameter "${key}" must be one of: ${schema['enum'].join(', ')}, got ${value}`;
+        if (schema.enum && schema.enum.length > 0) {
+            const enumValues = schema.enum;
+            let isValidEnum = false;
+
+            // Type-safe enum checking based on JSONSchemaEnum type
+            for (const enumValue of enumValues) {
+                if (value === enumValue) {
+                    isValidEnum = true;
+                    break;
+                }
+            }
+
+            if (!isValidEnum) {
+                return `Parameter "${key}" must be one of: ${enumValues.join(', ')}, got ${value}`;
+            }
         }
 
         return null;
@@ -205,7 +249,7 @@ export function createFunctionTool(
     name: string,
     description: string,
     parameters: ToolSchema['parameters'],
-    fn: (...args: any[]) => Promise<any>
+    fn: ToolExecutor
 ): FunctionTool {
     const schema: ToolSchema = {
         name,
@@ -222,8 +266,8 @@ export function createFunctionTool(
 export function createZodFunctionTool(
     name: string,
     description: string,
-    zodSchema: any, // Zod schema
-    fn: (...args: any[]) => Promise<any>
+    zodSchema: ZodSchema,
+    fn: ToolExecutor
 ): FunctionTool {
     // Use comprehensive Zod to JSON schema conversion
     const parameters = zodToJsonSchema(zodSchema);
@@ -234,9 +278,15 @@ export function createZodFunctionTool(
         parameters
     };
 
-    // Wrap the function to ensure result is always a string (core pattern)
-    const wrappedFn = async (...args: any[]) => {
-        const result = await fn(...args);
+    // Wrap the function with validation and ensure proper parameter handling
+    const wrappedFn: ToolExecutor = async (parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
+        // Use Zod for runtime validation
+        const parseResult = zodSchema.safeParse(parameters);
+        if (!parseResult.success) {
+            throw new ValidationError(`Zod validation failed: ${parseResult.error}`);
+        }
+
+        const result = await fn(parseResult.data || parameters, context);
         // Ensure result is always a string for consistency with core package
         return typeof result === 'string' ? result : JSON.stringify(result);
     };
@@ -248,7 +298,7 @@ export function createZodFunctionTool(
  * Comprehensive Zod to JSON schema conversion
  * Adapted from @robota-sdk/tools zodToJsonSchema implementation
  */
-function zodToJsonSchema(schema: any): ToolSchema['parameters'] {
+function zodToJsonSchema(schema: ZodSchema): ToolSchema['parameters'] {
     if (!schema || !schema._def || !schema._def.shape) {
         return {
             type: 'object',
@@ -261,13 +311,13 @@ function zodToJsonSchema(schema: any): ToolSchema['parameters'] {
     const shape = schema._def.shape();
 
     // Configure JSON schema properties
-    const properties: Record<string, any> = {};
+    const properties: Record<string, ParameterSchema> = {};
     const required: string[] = [];
 
     // Process each property
     Object.entries(shape).forEach(([key, zodType]) => {
         // zodType is a z.ZodType instance
-        let typeObj = zodType as any;
+        let typeObj = zodType as ZodSchema;
         let isOptional = false;
         let description: string | undefined;
 
@@ -285,7 +335,7 @@ function zodToJsonSchema(schema: any): ToolSchema['parameters'] {
         }
 
         // Basic property information
-        let property: Record<string, any> = {};
+        let property: Partial<ParameterSchema> = {};
 
         // Type processing based on Zod type name
         const typeName = typeObj._def?.typeName;

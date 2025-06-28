@@ -26,7 +26,7 @@ export interface UsageStats {
     duration: number; // in milliseconds
     success: boolean;
     toolsUsed?: string[];
-    metadata?: Record<string, any>;
+    metadata?: Record<string, string | number | boolean | Date>;
 }
 
 /**

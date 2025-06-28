@@ -21,7 +21,7 @@ export abstract class BaseAgent implements AgentInterface {
     /**
      * Run agent with streaming response
      */
-    abstract runStream(input: string, options?: RunOptions): AsyncGenerator<string, void, unknown>;
+    abstract runStream(input: string, options?: RunOptions): AsyncGenerator<string, void, never>;
 
     /**
      * Get conversation history
