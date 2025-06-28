@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Tools } from './tool-manager';
 import type { ToolSchema } from '../interfaces/provider';
+import type { ToolParameters } from '../interfaces/tool';
 import { ToolExecutionError } from '../utils/errors';
 
 describe('Tools (ToolManager)', () => {
@@ -21,7 +22,7 @@ describe('Tools (ToolManager)', () => {
         }
     };
 
-    const mockExecutor = async (params: any) => {
+    const mockExecutor = async (params: ToolParameters) => {
         return `Processed: ${params.input}`;
     };
 
@@ -102,7 +103,7 @@ describe('Tools (ToolManager)', () => {
             };
 
             toolManager.addTool(mockToolSchema, mockExecutor);
-            toolManager.addTool(schema2, async (params) => params.value * 2);
+            toolManager.addTool(schema2, async (params) => typeof params.value === 'number' ? params.value * 2 : 0);
 
             expect(toolManager.getToolCount()).toBe(2);
             expect(toolManager.hasTool('testTool')).toBe(true);

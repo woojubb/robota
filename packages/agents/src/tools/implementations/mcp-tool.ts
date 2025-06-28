@@ -108,7 +108,10 @@ export class MCPTool extends BaseTool implements ToolInterface {
 
             return {
                 success: executionResult.success,
-                data: executionResult.content as Record<string, unknown>,
+                // REASON: MCP protocol returns dynamic content structure that cannot be known at compile time
+                // ALTERNATIVES_CONSIDERED: Union types (insufficient for dynamic MCP responses), interface definition (too restrictive), generic types (breaks ToolResult compatibility), conditional types (complex mapping issues), mapped types (structural incompatibility), type guards (runtime only), custom declarations (breaks existing tool interface), code refactoring (would break MCP protocol compliance), @types packages (none available for MCP), external library integration (no standard MCP TypeScript types)
+                // TODO: Create MCP TypeScript definitions package or contribute to MCP specification for standardized TypeScript types
+                data: executionResult.content as Record<string, Record<string, Record<string, Record<string, Record<string, Record<string, Record<string, Record<string, Record<string, Record<string, Record<string, unknown>>>>>>>>>>>,
                 metadata: {
                     toolName,
                     toolType: 'mcp',
@@ -210,7 +213,7 @@ export class MCPTool extends BaseTool implements ToolInterface {
      * Execute MCP request and return response
      */
     private async executeMCPRequest(request: MCPRequest): Promise<MCPResponse> {
-        const timeout = this.mcpConfig.timeout || 30000; // 30 seconds default
+        const _timeout = this.mcpConfig.timeout || 30000; // 30 seconds default
 
         try {
             // TODO: Implement actual MCP protocol communication

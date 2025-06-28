@@ -1,4 +1,4 @@
-import type { ToolInterface, ToolResult, ToolExecutionContext, OpenAPIToolConfig, ToolParameters } from '../../interfaces/tool';
+import type { ToolInterface, ToolResult, ToolExecutionContext, OpenAPIToolConfig, ToolParameters, ToolParameterValue } from '../../interfaces/tool';
 import type { ToolSchema, ParameterSchema } from '../../interfaces/provider';
 import type { OpenAPIV3 } from 'openapi-types';
 import { BaseTool } from '../../abstracts/base-tool';
@@ -10,10 +10,7 @@ import { logger } from '../../utils/logger';
  */
 type HTTPMethod = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'options';
 
-/**
- * OpenAPI parameter location
- */
-type ParameterLocation = 'query' | 'header' | 'path' | 'cookie';
+
 
 /**
  * OpenAPI tool implementation
@@ -160,7 +157,7 @@ export class OpenAPITool extends BaseTool implements ToolInterface {
             if (jsonContent) {
                 headers['Content-Type'] = 'application/json';
                 // Extract body parameters (those not in path/query/header)
-                const bodyParams: Record<string, unknown> = {};
+                const bodyParams: Record<string, ToolParameterValue> = {};
                 for (const [key, value] of Object.entries(parameters)) {
                     const isParamUsed = params.some(p => p.name === key);
                     if (!isParamUsed) {

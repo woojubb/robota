@@ -1,0 +1,122 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Facade Pattern for TypeScript Type Safety
+
+## Overview
+This rule guides the application of Facade Pattern to resolve complex TypeScript type compatibility issues in the @robota-sdk/agents package.
+
+## Core Strategy
+Complex classes are decomposed into multiple focused files using Facade Pattern to improve type safety, maintainability, and reduce TypeScript compilation errors.
+
+## Standard Facade Structure
+```
+src/[component-name]/
+├── types.ts          # All type definitions
+├── utils.ts          # Utility functions
+├── adapters/         # Type conversion adapters
+├── managers/         # State/resource management
+├── handlers/         # Specific feature handlers
+├── [main-class].ts   # Main class (Facade role)
+└── index.ts          # Centralized exports
+```
+
+## Implementation Priorities
+
+### Priority 1: Critical Build Errors
+- Target: Files causing TypeScript build failures
+- Focus: Immediate type compatibility fixes
+- Example: [robota.ts](mdc:packages/agents/src/agents/robota.ts) ToolExecutionContext issues
+
+### Priority 2: Complex Classes
+- Target: Large classes with multiple responsibilities
+- Focus: Decompose into specialized modules
+- Example: Robota class → robota/ folder structure
+
+### Priority 3: Plugin System Standardization
+- Target: All plugin implementations
+- Focus: Standardize to [webhook pattern](mdc:packages/agents/src/plugins/webhook)
+- Example: Convert single-file plugins to folder structures
+
+### Priority 4: Tool System Enhancement
+- Target: Tool implementations and registry
+- Focus: Separate concerns and improve extensibility
+
+## Type Safety Guidelines
+
+### Rule-Based Type Extensions
+When extending types for compatibility, always include:
+
+```typescript
+/**
+ * [Component] - extended for [purpose] compatibility
+ * 
+ * REASON: [Specific reason for extension]
+ * ALTERNATIVES_CONSIDERED:
+ * 1. [Alternative 1] ([why rejected])
+ * 2. [Alternative 2] ([why rejected])
+ * ...
+ * TODO: [Future considerations]
+ */
+```
+
+### Compatibility Patterns
+1. **Index Signatures**: Use `[key: string]: any` for broad compatibility
+2. **Union Types**: Extend with `| undefined` for exactOptionalPropertyTypes
+3. **Record Types**: Add all necessary value types for Record compatibility
+4. **Array Types**: Include both specific (`string[]`) and generic (`Array<T>`) variants
+
+## File Organization Rules
+
+### Types File (`types.ts`)
+- All interfaces and type definitions
+- Export-only, no implementation
+- Clear semantic naming following [type naming rules](mdc:.cursor/rules/typescript-type-safety.mdc)
+
+### Utils File (`utils.ts`)
+- Pure functions with no side effects
+- Type conversion utilities
+- Validation functions
+
+### Adapters Directory (`adapters/`)
+- Type conversion between different systems
+- Bridge incompatible interfaces
+- Maintain backward compatibility
+
+### Main Class File
+- Minimal implementation, primarily delegation
+- Public API surface only
+- Import and orchestrate other modules
+
+## Testing Requirements
+- Maintain 100% test pass rate during refactoring
+- Add tests for new adapter functions
+- Verify public API compatibility
+
+## Success Criteria
+- TypeScript errors: 0
+- ESLint warnings: 0  
+- Test pass rate: 100%
+- Code distribution: 5-7 files per complex class
+- Type safety: Minimize `any` usage with proper justification
+
+## Application Process
+1. **Analyze**: Identify type errors and complex dependencies
+2. **Plan**: Design folder structure and file responsibilities
+3. **Extract**: Move types and utilities to separate files
+4. **Adapt**: Create type conversion adapters as needed
+5. **Integrate**: Update main class to use new structure
+6. **Test**: Verify all functionality remains intact
+7. **Document**: Update exports and API documentation
+
+## Current Status
+- **Completed**: [webhook plugin Facade](mdc:packages/agents/src/plugins/webhook)
+- **In Progress**: [robota.ts type errors](mdc:packages/agents/src/agents/robota.ts)
+- **Next**: ExecutionService and Manager classes
+
+## Related Rules
+- [TypeScript Type Safety](mdc:.cursor/rules/typescript-type-safety.mdc)
+- [Agents Development Guidelines](mdc:.cursor/rules/robota-agents-development.mdc)
+- [Type System Architecture](mdc:.cursor/rules/robota-agents-type-system.mdc)

@@ -1,6 +1,6 @@
 import { BasePlugin } from '../abstracts/base-plugin';
 import { Logger, createLogger } from '../utils/logger';
-import { PluginError, ErrorContext } from '../utils/errors';
+import { PluginError } from '../utils/errors';
 
 /**
  * Webhook event types
@@ -17,12 +17,39 @@ export type WebhookEventType =
 /**
  * Webhook event data types
  */
-export type WebhookEventData =
-    | { result: { response?: string; duration?: number; tokensUsed?: number; toolsExecuted?: number; success?: boolean } }
-    | { conversation: { response?: string; tokensUsed?: number; toolCalls?: unknown[] } }
-    | { tool: { name: string; id: string; success: boolean; duration?: number; result?: unknown; error?: string } }
-    | { error: { message: string; stack?: string; context?: Record<string, unknown> } }
-    | Record<string, unknown>;
+export type WebhookEventData = {
+    executionId?: string;
+    sessionId?: string;
+    userId?: string;
+    result?: {
+        response?: string;
+        duration?: number;
+        tokensUsed?: number;
+        toolsExecuted?: number;
+        success?: boolean;
+    };
+    conversation?: {
+        response?: string;
+        tokensUsed?: number;
+        toolCalls?: Record<string, string | number | boolean>[];
+    };
+    tool?: {
+        name: string;
+        id: string;
+        success: boolean;
+        duration?: number;
+        result?: string | number | boolean | Record<string, string | number | boolean>;
+        error?: string;
+    };
+    error?: {
+        message: string;
+        stack?: string;
+        context?: Record<string, string | number | boolean>;
+        type?: string;
+    };
+    // Additional properties for custom events
+    [key: string]: string | number | boolean | Date | string[] | Record<string, string | number | boolean>[] | Record<string, string | number | boolean> | undefined;
+};
 
 /**
  * Webhook metadata for additional context
@@ -49,8 +76,8 @@ export interface WebhookExecutionResult {
     toolsExecuted?: number;
     success?: boolean;
     usage?: { totalTokens?: number };
-    toolCalls?: unknown[];
-    results?: unknown[];
+    toolCalls?: Record<string, string | number | boolean>[];
+    results?: Record<string, string | number | boolean>[];
     error?: Error;
 }
 
@@ -186,7 +213,7 @@ export class WebhookPlugin extends BasePlugin {
     /**
      * After execution completes
      */
-    async afterExecution(context: WebhookExecutionContext, result: WebhookExecutionResult): Promise<void> {
+    override async afterExecution(context: WebhookExecutionContext, result: WebhookExecutionResult): Promise<void> {
         await this.sendWebhook('execution.complete', {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -204,7 +231,7 @@ export class WebhookPlugin extends BasePlugin {
     /**
      * After conversation completes
      */
-    async afterConversation(context: WebhookExecutionContext, result: WebhookExecutionResult): Promise<void> {
+    override async afterConversation(context: WebhookExecutionContext, result: WebhookExecutionResult): Promise<void> {
         await this.sendWebhook('conversation.complete', {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -220,12 +247,12 @@ export class WebhookPlugin extends BasePlugin {
     /**
      * After tool execution
      */
-    async afterToolExecution(context: WebhookExecutionContext, toolResults: WebhookExecutionResult): Promise<void> {
+    override async afterToolExecution(context: WebhookExecutionContext, toolResults: WebhookExecutionResult): Promise<void> {
         const results = Array.isArray(toolResults?.results) ? toolResults.results :
             toolResults ? [toolResults] : [];
 
         for (const result of results) {
-            const toolResult = result as any; // Type assertion for tool result structure
+            const toolResult = result as Record<string, string | number | boolean>; // Type assertion for tool result structure
             await this.sendWebhook('tool.executed', {
                 executionId: context.executionId,
                 sessionId: context.sessionId,
@@ -273,8 +300,8 @@ export class WebhookPlugin extends BasePlugin {
      */
     async sendWebhook(
         event: WebhookEventType,
-        data: any,
-        metadata?: Record<string, any>
+        data: WebhookEventData,
+        metadata?: WebhookMetadata
     ): Promise<void> {
         if (!this.options.events.includes(event)) {
             return;
@@ -312,7 +339,7 @@ export class WebhookPlugin extends BasePlugin {
     /**
      * Send custom webhook
      */
-    async sendCustomWebhook(data: any, metadata?: Record<string, any>): Promise<void> {
+    async sendCustomWebhook(data: WebhookEventData, metadata?: WebhookMetadata): Promise<void> {
         await this.sendWebhook('custom', data, metadata);
     }
 
@@ -523,7 +550,7 @@ export class WebhookPlugin extends BasePlugin {
     /**
      * Default payload transformer
      */
-    private defaultPayloadTransformer(event: WebhookEventType, data: any): any {
+    private defaultPayloadTransformer(event: WebhookEventType, data: WebhookEventData): WebhookEventData {
         return {
             event,
             ...data

@@ -1,44 +1,40 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { Robota } from './robota';
-import type { RobotaConfig } from './robota';
+import type { AgentConfig } from '../interfaces/agent';
 import { BaseAgent } from '../abstracts/base-agent';
 import type { AgentInterface } from '../interfaces/agent';
 import { BasePlugin } from '../abstracts/base-plugin';
 import { BaseTool } from '../abstracts/base-tool';
 import { BaseAIProvider } from '../abstracts/base-ai-provider';
-import type { ToolSchema } from '../interfaces/provider';
+import type { ToolSchema, ChatOptions } from '../interfaces/provider';
+import type { ToolParameters } from '../interfaces/tool';
+import type { UniversalMessage } from '../managers/conversation-history-manager';
+
 import { ConfigurationError, ValidationError } from '../utils/errors';
 
 // Mock AI Provider for testing
 class MockAIProvider extends BaseAIProvider {
-    name = 'mock-provider';
-    models = ['mock-model'];
+    readonly name = 'mock-provider';
+    readonly version = '1.0.0';
 
     constructor() {
         super();
     }
 
-    supportsModel(model: string): boolean {
-        return this.models.includes(model);
-    }
-
-    async generateResponse(request: any): Promise<any> {
+    async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
         return {
+            role: 'assistant',
             content: 'Mock response',
-            usage: { totalTokens: 10 }
+            timestamp: new Date()
         };
     }
 
-    async *generateStreamingResponse(request: any): AsyncGenerator<any, void, undefined> {
-        yield { content: 'Mock response', isComplete: true };
-    }
-
-    async chat(model: string, context: any, options?: any): Promise<any> {
-        return this.generateResponse({ model, context, options });
-    }
-
-    protected convertMessages(messages: any[]): any[] {
-        return messages;
+    async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+        yield {
+            role: 'assistant',
+            content: 'Mock response',
+            timestamp: new Date()
+        };
     }
 }
 
@@ -94,7 +90,7 @@ describe('Robota Class - Core Functionality', () => {
     let mockProvider: MockAIProvider;
     let mockTool: MockTool;
     let mockPlugin: MockPlugin;
-    let config: RobotaConfig;
+    let config: AgentConfig;
 
     beforeEach(() => {
         mockProvider = new MockAIProvider();
@@ -156,7 +152,7 @@ describe('Robota Class - Core Functionality', () => {
         });
 
         it('should validate configuration on creation', () => {
-            expect(() => new Robota({} as RobotaConfig)).toThrow();
+            expect(() => new Robota({} as AgentConfig)).toThrow();
         });
 
         it('should generate unique conversation ID', async () => {

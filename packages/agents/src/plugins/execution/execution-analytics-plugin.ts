@@ -1,9 +1,30 @@
-import { BasePlugin } from '../../abstracts/base-plugin';
+import { BasePlugin, type ErrorContext } from '../../abstracts/base-plugin';
 import { Logger, createLogger } from '../../utils/logger';
 import type { RunOptions } from '../../interfaces/agent';
 import type { UniversalMessage } from '../../managers/conversation-history-manager';
 import { isAssistantMessage } from '../../managers/conversation-history-manager';
-import type { ToolParameters } from '../../interfaces/tool';
+import type { ToolParameters, ToolExecutionResult } from '../../interfaces/tool';
+
+/**
+ * Analytics context data for execution tracking
+ */
+export interface AnalyticsContextData {
+    executionId?: string;
+    sessionId?: string;
+    userId?: string;
+    operation?: string;
+    toolName?: string;
+    parameterCount?: number;
+    inputLength?: number;
+    responseLength?: number;
+    hasOptions?: boolean;
+    hasError?: boolean;
+    resultType?: string;
+    errorSource?: string;
+    contextType?: string;
+    hasContext?: boolean;
+    modelName?: string;
+}
 
 /**
  * Execution statistics entry
@@ -135,7 +156,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
                 inputLength: input.length,
                 responseLength: response.length,
                 hasOptions: !!options,
-                modelName: options?.metadata?.['model'] || 'unknown'
+                modelName: String(options?.metadata?.['model'] || 'unknown')
             }
         };
 
@@ -248,7 +269,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
     /**
      * Called after tool call - end tracking
      */
-    override async afterToolCall(toolName: string, parameters: ToolParameters, result: { error?: Error;[key: string]: unknown }): Promise<void> {
+    override async afterToolCall(toolName: string, parameters: ToolParameters, result: ToolExecutionResult): Promise<void> {
         // Find the related execution
         const execution = this.findActiveExecution('tool-call', toolName);
 
@@ -263,9 +284,9 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
         const success = !result?.error;
 
         const errorInfo = result?.error && this.options.trackErrors ? {
-            message: result.error.message || String(result.error),
-            stack: result.error.stack,
-            type: result.error.constructor?.name || 'Error'
+            message: String(result.error),
+            // stack is optional in ExecutionStats interface
+            type: 'ToolExecutionError'
         } : undefined;
 
         const stats: ExecutionStats = {
@@ -298,7 +319,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
     /**
      * Called on error - end tracking with error
      */
-    override async onError(error: Error, context?: Record<string, unknown>): Promise<void> {
+    override async onError(error: Error, context?: ErrorContext): Promise<void> {
         // Find any active execution that might be related to this error
         const activeExecution = Array.from(this.activeExecutions.entries())[0];
 
@@ -393,31 +414,44 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
         const averageDuration = totalDuration / totalExecutions;
 
         // Operation statistics
-        const operationStats: Record<string, any> = {};
+        const operationStats: Record<string, {
+            count: number;
+            successCount: number;
+            failureCount: number;
+            totalDuration: number;
+            averageDuration: number;
+        }> = {};
+
         for (const stat of stats) {
             if (!operationStats[stat.operation]) {
                 operationStats[stat.operation] = {
                     count: 0,
                     successCount: 0,
                     failureCount: 0,
-                    totalDuration: 0
+                    totalDuration: 0,
+                    averageDuration: 0
                 };
             }
 
             const opStat = operationStats[stat.operation];
-            opStat.count++;
-            opStat.totalDuration += stat.duration;
+            if (opStat) {
+                opStat.count++;
+                opStat.totalDuration += stat.duration;
 
-            if (stat.success) {
-                opStat.successCount++;
-            } else {
-                opStat.failureCount++;
+                if (stat.success) {
+                    opStat.successCount++;
+                } else {
+                    opStat.failureCount++;
+                }
             }
         }
 
         // Calculate averages for operations
         for (const op in operationStats) {
-            operationStats[op].averageDuration = operationStats[op].totalDuration / operationStats[op].count;
+            const opStat = operationStats[op];
+            if (opStat && opStat.count > 0) {
+                opStat.averageDuration = opStat.totalDuration / opStat.count;
+            }
         }
 
         // Error statistics

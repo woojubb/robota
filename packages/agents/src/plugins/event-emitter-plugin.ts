@@ -1,4 +1,4 @@
-import { BasePlugin } from '../abstracts/base-plugin';
+import { BasePlugin, type BaseExecutionContext, type BaseExecutionResult } from '../abstracts/base-plugin';
 import { Logger, createLogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 
@@ -20,43 +20,50 @@ export type EventType =
     | 'custom';
 
 /**
- * Basic event execution value types
+ * Basic event execution value types - compatible with BaseExecutionResult
  */
-export type EventExecutionValue = string | number | boolean | Date | string[] | number[] | boolean[];
+export type EventExecutionValue =
+    | string
+    | number
+    | boolean
+    | Date
+    | string[]
+    | number[]
+    | boolean[]
+    | object
+    | null
+    | undefined;
 
 /**
  * Event execution context data following semantic naming conventions
  * Supports nested structures with proper type safety
  */
 export interface EventExecutionContextData {
-    messageCount?: number;
-    config?: Record<string, EventExecutionValue>;
-    result?: Record<string, EventExecutionValue>;
-    duration?: number;
-    tokensUsed?: number;
-    toolsExecuted?: number;
-    messages?: Record<string, EventExecutionValue>[];
-    response?: string;
-    toolCalls?: Record<string, EventExecutionValue>[];
-    [key: string]: EventExecutionValue | Record<string, EventExecutionValue> | Record<string, EventExecutionValue>[] | undefined;
+    messageCount?: number | undefined;
+    config?: Record<string, EventExecutionValue> | undefined;
+    result?: BaseExecutionResult | undefined;
+    duration?: number | undefined;
+    tokensUsed?: number | undefined;
+    toolsExecuted?: number | undefined;
+    messages?: Record<string, EventExecutionValue>[] | undefined;
+    response?: string | undefined;
+    toolCalls?: Record<string, EventExecutionValue>[] | undefined;
+    [key: string]: EventExecutionValue | Record<string, EventExecutionValue> | Record<string, EventExecutionValue>[] | BaseExecutionResult | undefined;
 }
 
 /**
  * Event metadata following semantic naming conventions
  */
-export type EventEmitterMetadata = Record<string, string | number | boolean | Date | string[] | number[]>;
+export type EventEmitterMetadata = Record<string, string | number | boolean | Date | string[] | number[] | undefined>;
 
 /**
  * Plugin execution context for event emitter
  */
-export interface PluginExecutionContext {
-    executionId?: string;
-    sessionId?: string;
-    userId?: string;
-    messages?: EventExecutionContextData[];
-    config?: Record<string, EventExecutionValue>;
-    [key: string]: EventExecutionValue | EventExecutionContextData | EventExecutionContextData[] | undefined;
+export interface PluginExecutionContext extends BaseExecutionContext {
+    // Override config to support additional types
 }
+
+
 
 /**
  * Plugin execution result for event emitter
@@ -78,12 +85,12 @@ export interface PluginExecutionResult {
 export interface EventData {
     type: EventType;
     timestamp: Date;
-    executionId?: string;
-    sessionId?: string;
-    userId?: string;
-    data?: EventExecutionContextData;
-    error?: Error;
-    metadata?: EventEmitterMetadata;
+    executionId?: string | undefined;
+    sessionId?: string | undefined;
+    userId?: string | undefined;
+    data?: EventExecutionContextData | undefined;
+    error?: Error | undefined;
+    metadata?: EventEmitterMetadata | undefined;
 }
 
 /**
@@ -190,7 +197,7 @@ export class EventEmitterPlugin extends BasePlugin {
     /**
      * Before execution starts
      */
-    async beforeExecution(context: PluginExecutionContext): Promise<void> {
+    override async beforeExecution(context: BaseExecutionContext): Promise<void> {
         await this.emit('execution.start', {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -205,13 +212,13 @@ export class EventEmitterPlugin extends BasePlugin {
     /**
      * After execution completes
      */
-    async afterExecution(context: PluginExecutionContext, result: PluginExecutionResult): Promise<void> {
+    override async afterExecution(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> {
         await this.emit('execution.complete', {
             executionId: context.executionId,
             sessionId: context.sessionId,
             userId: context.userId,
             data: {
-                result,
+                result: result,
                 duration: result?.duration,
                 tokensUsed: result?.tokensUsed,
                 toolsExecuted: result?.toolsExecuted
@@ -222,14 +229,18 @@ export class EventEmitterPlugin extends BasePlugin {
     /**
      * Before conversation starts
      */
-    async beforeConversation(context: PluginExecutionContext): Promise<void> {
+    override async beforeConversation(context: BaseExecutionContext): Promise<void> {
         await this.emit('conversation.start', {
             executionId: context.executionId,
             sessionId: context.sessionId,
             userId: context.userId,
             data: {
-                messages: context.messages,
-                config: context.config
+                messages: context.messages?.map(msg => ({
+                    role: msg.role,
+                    content: msg.content || '',
+                    timestamp: msg.timestamp ? msg.timestamp.toISOString() : new Date().toISOString()
+                })),
+                config: context.config as Record<string, EventExecutionValue>
             }
         });
     }
@@ -237,15 +248,20 @@ export class EventEmitterPlugin extends BasePlugin {
     /**
      * After conversation completes
      */
-    async afterConversation(context: any, result: any): Promise<void> {
+    override async afterConversation(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> {
         await this.emit('conversation.complete', {
             executionId: context.executionId,
             sessionId: context.sessionId,
             userId: context.userId,
             data: {
-                response: result?.content || result?.response,
-                tokensUsed: result?.usage?.totalTokens || result?.tokensUsed,
-                toolCalls: result?.toolCalls
+                response: result.content || result.response,
+                tokensUsed: result.usage?.totalTokens || result.tokensUsed,
+                toolCalls: result.toolCalls?.map(call => ({
+                    id: call.id || '',
+                    name: call.name || '',
+                    arguments: JSON.stringify(call.arguments || {}),
+                    result: String(call.result || '')
+                }))
             }
         });
     }
@@ -253,7 +269,7 @@ export class EventEmitterPlugin extends BasePlugin {
     /**
      * Before tool execution
      */
-    async beforeToolExecution(context: any, toolData: any): Promise<void> {
+    override async beforeToolExecution(context: BaseExecutionContext, toolData: any): Promise<void> {
         const toolCalls = Array.isArray(toolData?.toolCalls) ? toolData.toolCalls :
             toolData ? [toolData] : [];
 
@@ -274,7 +290,7 @@ export class EventEmitterPlugin extends BasePlugin {
     /**
      * After tool execution
      */
-    async afterToolExecution(context: any, toolResults: any): Promise<void> {
+    override async afterToolExecution(context: BaseExecutionContext, toolResults: any): Promise<void> {
         const results = Array.isArray(toolResults?.results) ? toolResults.results :
             toolResults ? [toolResults] : [];
 
@@ -290,7 +306,7 @@ export class EventEmitterPlugin extends BasePlugin {
                     toolId: result.toolId || result.executionId,
                     result: result.error ? undefined : result.result,
                     duration: result.duration,
-                    success: !result.error
+                    success: result.error ? false : true
                 },
                 error: result.error
             });
@@ -305,7 +321,7 @@ export class EventEmitterPlugin extends BasePlugin {
                     toolId: result.toolId || result.executionId,
                     result: result.result,
                     duration: result.duration,
-                    success: !result.error
+                    success: result.error ? false : true
                 },
                 error: result.error
             });
@@ -315,7 +331,7 @@ export class EventEmitterPlugin extends BasePlugin {
     /**
      * On error
      */
-    override async onError(context: any, error: any): Promise<void> {
+    override async onError(error: Error, context?: any): Promise<void> {
         await this.emit('execution.error', {
             executionId: context.executionId,
             sessionId: context.sessionId,
@@ -360,8 +376,8 @@ export class EventEmitterPlugin extends BasePlugin {
         this.logger.debug('Event listener registered', {
             eventType,
             handlerId,
-            once: options?.once,
-            hasFilter: !!options?.filter
+            once: options?.once ?? false,
+            hasFilter: options?.filter ? true : false
         });
 
         return handlerId;
@@ -453,7 +469,7 @@ export class EventEmitterPlugin extends BasePlugin {
         this.logger.debug('Emitting event', {
             type: event.type,
             handlersCount: handlersToCall.length,
-            executionId: event.executionId
+            executionId: event.executionId || 'undefined'
         });
 
         // Remove one-time handlers
@@ -539,7 +555,7 @@ export class EventEmitterPlugin extends BasePlugin {
      * Get event emitter statistics
      */
     getStats(): EventEmitterPluginStats {
-        const listenerCounts: Record<EventType, number> = {} as any;
+        const listenerCounts: Record<EventType, number> = {} as Record<EventType, number>;
         let totalListeners = 0;
 
         for (const [eventType, handlers] of this.handlers) {

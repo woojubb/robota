@@ -111,8 +111,8 @@ export class PerformancePlugin extends BasePlugin {
             return await this.storage.getMetrics(operation, timeRange);
         } catch (error) {
             throw new PluginError('Failed to get performance metrics', this.name, {
-                operation,
-                timeRange,
+                operation: operation || 'all',
+                timeRange: timeRange ? `${timeRange.start.toISOString()}-${timeRange.end.toISOString()}` : 'all',
                 error: error instanceof Error ? error.message : String(error)
             });
         }
@@ -126,7 +126,7 @@ export class PerformancePlugin extends BasePlugin {
             return await this.storage.getAggregatedStats(timeRange);
         } catch (error) {
             throw new PluginError('Failed to get aggregated performance stats', this.name, {
-                timeRange,
+                timeRange: timeRange ? `${timeRange.start.toISOString()}-${timeRange.end.toISOString()}` : 'all',
                 error: error instanceof Error ? error.message : String(error)
             });
         }

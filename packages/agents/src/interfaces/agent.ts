@@ -1,4 +1,4 @@
-import type { AIProvider } from './provider';
+import type { AIProvider, ProviderConfigValue } from './provider';
 import type { BasePlugin } from '../abstracts/base-plugin';
 import type { BaseTool } from '../abstracts/base-tool';
 import type { UtilLogLevel } from '../utils/logger';
@@ -67,10 +67,7 @@ export interface ToolCall {
     };
 }
 
-/**
- * Provider configuration value types - specific to agent configuration
- */
-export type ProviderConfigValue = string | number | boolean;
+// ProviderConfigValue imported from provider.ts for type ownership consistency
 
 /**
  * Provider-specific configuration
@@ -140,7 +137,16 @@ export interface AgentTemplate {
 }
 
 /**
- * Agent run options
+ * Agent run options - extended for logger compatibility
+ * 
+ * REASON: Added simple index signature for compatibility with LoggerContextData
+ * ALTERNATIVES_CONSIDERED:
+ * 1. JSON.stringify RunOptions in logging calls (loses type safety)
+ * 2. Create separate logging wrappers (unnecessary abstraction)
+ * 3. Use type assertions in logger calls (decreases type safety)
+ * 4. Avoid logging RunOptions directly (reduces debugging capability)
+ * 5. Complex index signature with all types (causes TypeScript compatibility issues)
+ * TODO: Monitor for conflicts between index signature and explicit properties
  */
 export interface RunOptions {
     temperature?: number;
@@ -150,6 +156,7 @@ export interface RunOptions {
     sessionId?: string;
     userId?: string;
     metadata?: MessageMetadata;
+    [key: string]: any; // Simplified for compatibility
 }
 
 /**

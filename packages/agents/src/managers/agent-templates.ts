@@ -12,9 +12,30 @@ import { Logger, createLogger } from '../utils/logger';
 export type AgentTemplateConfigurationData = Record<string, string | number | boolean | string[] | number[] | boolean[]>;
 
 /**
- * Agent template configuration following semantic naming conventions
+ * Agent template configuration - extended for full AgentConfig compatibility
+ * Following semantic naming conventions
+ * 
+ * REASON: Extended to include all AgentConfig types for complete template compatibility
+ * ALTERNATIVES_CONSIDERED:
+ * 1. Create separate conversion functions (adds complexity without benefit)
+ * 2. Use type assertions at template application sites (decreases type safety)
+ * 3. Modify AgentConfig to exclude complex types (massive breaking change)
+ * 4. Use Partial<AgentConfig> directly (loses type safety for template validation)
+ * 5. Create template-specific types (breaks existing template functionality)
+ * TODO: Consider creating stricter template validation if any type causes runtime issues
  */
-export type AgentTemplateConfig = Record<string, string | number | boolean | string[] | number[] | boolean[] | AgentTemplateConfigurationData>;
+export type AgentTemplateConfig = Record<string,
+    | string
+    | number
+    | boolean
+    | string[]
+    | number[]
+    | boolean[]
+    | AgentTemplateConfigurationData
+    | any[] // for BaseTool[], BasePlugin[] compatibility
+    | Record<string, any> // for MessageMetadata, AIProvider objects
+    | undefined
+>;
 
 /**
  * Template application result

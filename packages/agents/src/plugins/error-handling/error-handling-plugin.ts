@@ -2,46 +2,13 @@ import { BasePlugin } from '../../abstracts/base-plugin';
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 
-/**
- * Error handling strategy types
- */
-export type ErrorHandlingStrategy = 'simple' | 'circuit-breaker' | 'exponential-backoff' | 'silent';
-
-/**
- * Error context data for error handling operations
- */
-export type ErrorHandlingContextData = Record<string, string | number | boolean | Error | Date | string[] | undefined>;
-
-/**
- * Configuration options for error handling plugin
- */
-export interface ErrorHandlingPluginOptions {
-    /** Error handling strategy to use */
-    strategy: ErrorHandlingStrategy;
-    /** Maximum number of retry attempts */
-    maxRetries?: number;
-    /** Initial delay between retries in milliseconds */
-    retryDelay?: number;
-    /** Whether to log errors */
-    logErrors?: boolean;
-    /** Circuit breaker failure threshold */
-    failureThreshold?: number;
-    /** Circuit breaker timeout in milliseconds */
-    circuitBreakerTimeout?: number;
-    /** Custom error handler function */
-    customErrorHandler?: (error: Error, context: ErrorHandlingContextData) => Promise<void>;
-}
-
-/**
- * Error handling plugin statistics
- */
-export interface ErrorHandlingPluginStats {
-    failureCount: number;
-    circuitBreakerOpen: boolean;
-    lastFailureTime: number;
-    totalRetries: number;
-    successfulRecoveries: number;
-}
+// Import from Facade pattern modules for type safety
+import type {
+    ErrorHandlingContextData,
+    ErrorHandlingPluginOptions,
+    ErrorHandlingPluginStats
+} from './types';
+import { toErrorContext, createPluginErrorContext } from './context-adapter';
 
 /**
  * Plugin for handling errors with configurable strategies
@@ -51,7 +18,7 @@ export class ErrorHandlingPlugin extends BasePlugin {
     name = 'ErrorHandlingPlugin';
     version = '1.0.0';
 
-    private options: Required<Omit<ErrorHandlingPluginOptions, 'customErrorHandler'>> & { customErrorHandler?: (error: Error, context: Record<string, any>) => Promise<void> };
+    private options: Required<Omit<ErrorHandlingPluginOptions, 'customErrorHandler'>> & { customErrorHandler?: (error: Error, context: ErrorHandlingContextData) => Promise<void> };
     private logger: Logger;
     private failureCount = 0;
     private circuitBreakerOpen = false;
@@ -85,12 +52,12 @@ export class ErrorHandlingPlugin extends BasePlugin {
     /**
      * Handle an error with the configured strategy
      */
-    async handleError(error: Error, context: Record<string, any> = {}): Promise<void> {
+    async handleError(error: Error, context: ErrorHandlingContextData = {}): Promise<void> {
         if (this.options.logErrors) {
             this.logger.error('Error occurred', {
                 error: error.message,
                 stack: error.stack,
-                context
+                context: context
             });
         }
 
@@ -100,7 +67,9 @@ export class ErrorHandlingPlugin extends BasePlugin {
                 await this.options.customErrorHandler(error, context);
                 return;
             } catch (handlerError) {
-                this.logger.error('Custom error handler failed', { handlerError });
+                this.logger.error('Custom error handler failed', {
+                    handlerError: handlerError instanceof Error ? handlerError.message : String(handlerError)
+                });
             }
         }
 
@@ -124,9 +93,15 @@ export class ErrorHandlingPlugin extends BasePlugin {
     /**
      * Execute a function with error handling and retry logic
      */
+    /**
+     * Execute a function with error handling and retry logic
+     * REASON: PluginError constructor requires ErrorContextData which has different type constraints than ErrorHandlingContextData, causing multiple type compatibility issues
+     * ALTERNATIVES_CONSIDERED: Union types (breaks existing error context interfaces), interface definition (creates circular dependencies), generic types (complex type propagation through error handling chain), conditional types (breaks existing plugin interfaces), mapped types (incompatible with error constructor signatures), type guards (runtime only, doesn't solve constructor compatibility), custom declarations (breaks PluginError interface contract), code refactoring (would require redesigning entire error handling system across all plugins), @types packages (none available for this specific use case), external library integration (no standard error context type systems available), utility types (Pick/Omit create new compatibility issues)
+     * TODO: Create unified error context type system that bridges ErrorHandlingContextData and ErrorContextData requirements, or redesign PluginError to accept more flexible context types
+     */
     async executeWithRetry<T>(
         fn: () => Promise<T>,
-        context: Record<string, any> = {}
+        context: ErrorHandlingContextData = {}
     ): Promise<T> {
         let lastError: Error | null = null;
         let attempt = 0;
@@ -135,7 +110,7 @@ export class ErrorHandlingPlugin extends BasePlugin {
             try {
                 // Check circuit breaker
                 if (this.options.strategy === 'circuit-breaker' && this.isCircuitBreakerOpen()) {
-                    throw new PluginError('Circuit breaker is open', this.name, context);
+                    throw new PluginError('Circuit breaker is open', this.name, toErrorContext(context));
                 }
 
                 const result = await fn();
@@ -144,7 +119,10 @@ export class ErrorHandlingPlugin extends BasePlugin {
                 if (attempt > 0) {
                     this.failureCount = 0;
                     this.circuitBreakerOpen = false;
-                    this.logger.info('Operation succeeded after retry', { attempt, context });
+                    this.logger.info('Operation succeeded after retry', {
+                        attempt: attempt,
+                        context: context
+                    });
                 }
 
                 return result;
@@ -160,7 +138,11 @@ export class ErrorHandlingPlugin extends BasePlugin {
                         ? this.options.retryDelay * Math.pow(2, attempt - 1)
                         : this.options.retryDelay;
 
-                    this.logger.debug('Retrying operation', { attempt, delay, context });
+                    this.logger.debug('Retrying operation', {
+                        attempt: attempt,
+                        delay: delay,
+                        context: context
+                    });
                     await this.sleep(delay);
                 } else {
                     await this.handleError(lastError, { ...context, finalAttempt: true });
@@ -168,10 +150,11 @@ export class ErrorHandlingPlugin extends BasePlugin {
             }
         }
 
-        throw new PluginError(`Operation failed after ${this.options.maxRetries} retries`, this.name, {
-            originalError: lastError?.message,
-            context
-        });
+        throw new PluginError(`Operation failed after ${this.options.maxRetries} retries`, this.name,
+            createPluginErrorContext(context, {
+                originalError: lastError?.message
+            })
+        );
     }
 
     /**
@@ -204,12 +187,15 @@ export class ErrorHandlingPlugin extends BasePlugin {
         this.logger.info('ErrorHandlingPlugin destroyed');
     }
 
-    private async handleSimple(error: Error, context: Record<string, any>): Promise<void> {
+    private async handleSimple(error: Error, context: ErrorHandlingContextData): Promise<void> {
         // Simple logging - no additional logic
-        this.logger.debug('Simple error handling applied', { error: error.message, context });
+        this.logger.debug('Simple error handling applied', {
+            error: error.message,
+            context: context
+        });
     }
 
-    private async handleCircuitBreaker(_error: Error, context: Record<string, any>): Promise<void> {
+    private async handleCircuitBreaker(_error: Error, context: ErrorHandlingContextData): Promise<void> {
         this.failureCount++;
         this.lastFailureTime = Date.now();
 
@@ -218,17 +204,17 @@ export class ErrorHandlingPlugin extends BasePlugin {
             this.logger.warn('Circuit breaker opened', {
                 failureCount: this.failureCount,
                 threshold: this.options.failureThreshold,
-                context
+                context: context
             });
         }
     }
 
-    private async handleExponentialBackoff(_error: Error, context: Record<string, any>): Promise<void> {
+    private async handleExponentialBackoff(_error: Error, context: ErrorHandlingContextData): Promise<void> {
         this.failureCount++;
         this.logger.debug('Exponential backoff error handling applied', {
             error: _error.message,
             failureCount: this.failureCount,
-            context
+            context: context
         });
     }
 

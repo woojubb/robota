@@ -119,7 +119,7 @@ export class ConversationService implements ConversationServiceInterface {
         provider: AIProvider,
         context: ConversationContext,
         serviceOptions: ConversationServiceOptions = {}
-    ): AsyncGenerator<StreamingChunk, void, unknown> {
+    ): AsyncGenerator<StreamingChunk, void, undefined> {
         const logger = createLogger('ConversationService');
         yield* ConversationService.performStreamingResponse(provider, context, serviceOptions, logger);
     }
@@ -260,8 +260,8 @@ export class ConversationService implements ConversationServiceInterface {
         context: ConversationContext,
         serviceOptions: ConversationServiceOptions,
         logger: Logger
-    ): AsyncGenerator<StreamingChunk, void, unknown> {
-        const options = { ...DEFAULT_OPTIONS, ...serviceOptions };
+    ): AsyncGenerator<StreamingChunk, void, undefined> {
+        const _options = { ...DEFAULT_OPTIONS, ...serviceOptions };
         const startTime = Date.now();
 
         try {

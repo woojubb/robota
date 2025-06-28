@@ -49,7 +49,7 @@ export class FileUsageStorage implements UsageStorage {
         } catch (error) {
             throw new StorageError('Failed to load usage stats from file', {
                 filePath: this.filePath,
-                conversationId,
+                conversationId: conversationId || 'all',
                 error: error instanceof Error ? error.message : String(error)
             });
         }
