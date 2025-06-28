@@ -11,7 +11,7 @@ import {
 } from '../interfaces/service';
 import { Logger, createLogger } from '../utils/logger';
 import { NetworkError, ProviderError } from '../utils/errors';
-import type { ToolExecutionResult, ToolParameters } from '../interfaces/tool';
+import type { ToolExecutionResult } from '../interfaces/tool';
 
 /**
  * Default conversation service options

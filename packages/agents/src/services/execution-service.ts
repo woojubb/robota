@@ -1,13 +1,11 @@
-import { Message, AgentConfig, AssistantMessage, ToolMessage } from '../interfaces/agent';
+import { Message, AgentConfig, AssistantMessage, ToolMessage, UniversalMessage } from '../interfaces/agent';
 import { BasePlugin } from '../abstracts/base-plugin';
 import { ToolExecutionService, ToolExecutionBatchContext } from './tool-execution-service';
 import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
-import { ConversationHistory, ConversationSession, UniversalMessage } from '../managers/conversation-history-manager';
-import { AIProvider } from '../interfaces/provider';
-import { BaseAIProvider, ProviderExecutionConfig, ProviderExecutionResult } from '../abstracts/base-ai-provider';
+import { ConversationHistory } from '../managers/conversation-history-manager';
+import { BaseAIProvider, ProviderExecutionConfig } from '../abstracts/base-ai-provider';
 import { Logger, createLogger } from '../utils/logger';
-import { ToolExecutionError } from '../utils/errors';
 
 /**
  * Execution context passed through the pipeline
@@ -190,7 +188,7 @@ export class ExecutionService {
             }
 
             // Call beforeRun hook on all plugins
-            await this.callPluginHook('beforeRun', input, context?.metadata);
+            await this.callPluginHook('beforeRun', { input, metadata: context?.metadata as Record<string, unknown> });
 
             // Get AI provider instance
             const provider = this.aiProviders.getCurrentProviderInstance();
@@ -241,7 +239,7 @@ export class ExecutionService {
                 };
 
                 // Call beforeProviderCall hook
-                await this.callPluginHook('beforeProviderCall', conversationMessages);
+                await this.callPluginHook('beforeProviderCall', { messages: conversationMessages });
 
                 this.logger.debug('Sending messages to AI provider', {
                     round: currentRound,
@@ -273,7 +271,7 @@ export class ExecutionService {
                 const response = await provider.chat(conversationMessages, chatOptions);
 
                 // Call afterProviderCall hook
-                await this.callPluginHook('afterProviderCall', conversationMessages, response);
+                await this.callPluginHook('afterProviderCall', { messages: conversationMessages, response });
 
                 // Add assistant response to history
                 conversationSession.addAssistantMessage(
@@ -403,7 +401,7 @@ export class ExecutionService {
             };
 
             // Call afterRun hook on all plugins
-            await this.callPluginHook('afterRun', input, result.response, context?.metadata);
+            await this.callPluginHook('afterRun', { input, response: result.response, metadata: context?.metadata as Record<string, unknown> });
 
             this.logger.debug('Execution pipeline completed successfully', {
                 executionId,
@@ -418,18 +416,9 @@ export class ExecutionService {
 
         } catch (error) {
             const duration = Date.now() - startTime.getTime();
-            const errorResult: ExecutionResult = {
-                response: 'Execution failed',
-                messages: [],
-                executionId,
-                duration,
-                toolsExecuted: [],
-                success: false,
-                error: error instanceof Error ? error : new Error(String(error))
-            };
 
             // Call onError hook on all plugins
-            await this.callPluginHook('onError', error, fullContext);
+            await this.callPluginHook('onError', { error: error as Error, executionContext: fullContext });
 
             this.logger.error('Execution pipeline failed', {
                 executionId,
@@ -503,12 +492,18 @@ export class ExecutionService {
 
     /**
 * Call a hook method on all plugins that implement it
+* Uses unified context object for all hook types
 */
     private async callPluginHook(
         hookName: string,
-        ...args: [input: string, response: string, metadata?: Record<string, string | number | boolean>] |
-        [error: Error, context: ExecutionContext] |
-        [string, Message[], Record<string, string | number | boolean>?]
+        context: {
+            input?: string;
+            response?: string | UniversalMessage;
+            messages?: UniversalMessage[];
+            metadata?: Record<string, unknown>;
+            error?: Error;
+            executionContext?: ExecutionContext;
+        }
     ): Promise<void> {
         for (const plugin of this.plugins) {
             const pluginWithHook = plugin as BasePlugin & {
@@ -519,7 +514,7 @@ export class ExecutionService {
                 try {
                     const hookMethod = pluginWithHook[hookName];
                     if (hookMethod) {
-                        await hookMethod(...args);
+                        await hookMethod(context);
                     }
                 } catch (error) {
                     this.logger.warn('Plugin hook failed', {
