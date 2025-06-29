@@ -1,4 +1,5 @@
-import { Robota, ExecutionAnalyticsPlugin } from '@robota-sdk/agents';
+import { createTeam } from '@robota-sdk/team';
+import { Robota, ExecutionPlugin } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
@@ -26,11 +27,9 @@ async function main() {
     console.log('================================\n');
 
     // Create ExecutionAnalyticsPlugin for automatic tracking
-    const analyticsPlugin = new ExecutionAnalyticsPlugin({
-        maxEntries: 100,
-        trackErrors: true,
-        performanceThreshold: 2000, // 2 seconds
-        enableWarnings: true
+    const analyticsPlugin = new ExecutionPlugin({
+        trackOperationTiming: true,
+        logExecutionDetails: true
     });
 
     // Create OpenAI client
@@ -70,7 +69,7 @@ async function main() {
 
         // Access analytics through the agent's plugin (Method 1 - Recommended)
         console.log('\n📊 Method 1: Access through agent.getPlugin()');
-        const pluginFromAgent = agent.getPlugin('ExecutionAnalyticsPlugin');
+        const pluginFromAgent = agent.getPlugin('execution-analytics');
         if (pluginFromAgent && 'getStats' in pluginFromAgent) {
             const stats = (pluginFromAgent as any).getStats();
             displayAnalytics('Agent Plugin Access', stats);
@@ -79,12 +78,12 @@ async function main() {
         // Also demonstrate getting raw data
         if (pluginFromAgent && 'getData' in pluginFromAgent) {
             const rawData = (pluginFromAgent as any).getData();
-            console.log(`\n📋 Raw execution data: ${rawData.length} entries`);
+            console.log(`\n📋 Raw execution data: ${rawData.operations.length} operations`);
 
             // Show last execution details
-            if (rawData.length > 0) {
-                const lastExecution = rawData[rawData.length - 1];
-                console.log(`   └─ Last execution: ${lastExecution.operation} (${lastExecution.duration}ms, ${lastExecution.success ? 'success' : 'failed'})`);
+            if (rawData.operations.length > 0) {
+                const lastExecution = rawData.operations[rawData.operations.length - 1];
+                console.log(`   └─ Last execution: ${lastExecution.operation} (${lastExecution.duration}ms)`);
             }
         }
 
@@ -125,7 +124,7 @@ async function main() {
         console.error('❌ Task execution failed:', error);
 
         // Even on error, analytics are tracked
-        const pluginFromAgent = agent.getPlugin('ExecutionAnalyticsPlugin');
+        const pluginFromAgent = agent.getPlugin('execution-analytics');
         if (pluginFromAgent && 'getStats' in pluginFromAgent) {
             const stats = (pluginFromAgent as any).getStats();
             console.log(`\n📊 Analytics after error (${stats.totalExecutions} total, ${stats.failedExecutions} failed)`);
@@ -164,6 +163,92 @@ function displayAnalytics(method: string, stats: any) {
         Object.entries(stats.errorStats).forEach(([errorType, count]) => {
             console.log(`   ├─ ${errorType}: ${count} occurrences`);
         });
+    }
+}
+
+async function demonstrateTeamAnalytics() {
+    console.log('🔧 Starting team with analytics demonstration...\n');
+
+    try {
+        // Create team with analytics
+        const team = await createTeam({
+            name: 'Analytics Demo Team',
+            description: 'Demonstrating execution analytics in team workflows',
+            agents: [
+                {
+                    name: 'Analyst',
+                    model: 'gpt-4o-mini',
+                    provider: 'openai',
+                    systemMessage: 'You are a data analyst. Analyze the given data and provide insights.',
+                    plugins: [
+                        new ExecutionPlugin({
+                            trackOperationTiming: true,
+                            logExecutionDetails: true
+                        })
+                    ]
+                },
+                {
+                    name: 'Reviewer',
+                    model: 'gpt-4o-mini',
+                    provider: 'openai',
+                    systemMessage: 'You are a quality reviewer. Review analysis and provide feedback.',
+                    plugins: [
+                        new ExecutionPlugin({
+                            trackOperationTiming: true,
+                            logExecutionDetails: true
+                        })
+                    ]
+                }
+            ],
+            aiProviders: {
+                openai: new OpenAIProvider({
+                    apiKey: process.env.OPENAI_API_KEY || ''
+                })
+            }
+        });
+
+        console.log('✅ Team created successfully\n');
+
+        const _result = await team.assignTask({
+            description: 'Analyze the quarterly sales data and provide actionable insights',
+            agentName: 'Analyst',
+            context: {
+                data: 'Q1: $100k, Q2: $150k, Q3: $120k, Q4: $180k',
+                requirements: 'Focus on trends and growth opportunities'
+            }
+        });
+
+        // Get analytics from agents
+        console.log('📊 Analytics Report:');
+        console.log('='.repeat(50));
+
+        for (const agent of team.getAgents()) {
+            const pluginFromAgent = agent.plugins.find(p => p.name === 'execution-analytics');
+            if (pluginFromAgent) {
+                const stats = (pluginFromAgent as any).getStats();
+
+                console.log(`\n📈 Agent: ${agent.name}`);
+                const rawData = (pluginFromAgent as any).getData();
+
+                if (rawData && rawData.operations) {
+                    console.log(`   Operations Tracked: ${rawData.operations.length}`);
+                    rawData.operations.forEach((op: any, index: number) => {
+                        console.log(`   ${index + 1}. ${op.operation} - ${op.duration}ms`);
+                    });
+                }
+
+                const status = (pluginFromAgent as any).getStatus();
+                console.log(`   Plugin Status: ${status.enabled ? 'Active' : 'Inactive'}`);
+
+                displayAnalytics(`${agent.name} Analytics`, stats);
+            }
+        }
+
+        return team;
+
+    } catch (error) {
+        console.error('❌ Error in team analytics demo:', error);
+        throw error;
     }
 }
 

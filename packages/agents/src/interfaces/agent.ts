@@ -198,7 +198,6 @@ export interface BaseAgentInterface<
  * Supports dynamic provider configurations without hardcoding specific providers
  */
 export interface ExtendedRunContext {
-    // Base options from RunOptions
     temperature?: number;
     maxTokens?: number;
     stream?: boolean;
@@ -208,7 +207,7 @@ export interface ExtendedRunContext {
     metadata?: Metadata;
 
     // Provider-agnostic options that can be used by any provider
-    providerOptions?: Record<string, unknown>;
+    providerOptions?: Record<string, ConfigValue>;
 
     // Common provider options (provider-agnostic naming)
     stopSequences?: string[];
@@ -216,10 +215,38 @@ export interface ExtendedRunContext {
     topP?: number;
     seed?: number;
 
-    // Advanced configuration
-    responseFormat?: Record<string, unknown>;
-    safetySettings?: Array<Record<string, unknown>>;
-    generationConfig?: Record<string, unknown>;
+    // Advanced configuration with specific types
+    responseFormat?: ResponseFormatConfig;
+    safetySettings?: SafetySetting[];
+    generationConfig?: GenerationConfig;
+}
+
+/**
+ * Response format configuration
+ */
+export interface ResponseFormatConfig {
+    type?: 'text' | 'json_object';
+    schema?: Record<string, ConfigValue>;
+}
+
+/**
+ * Safety setting configuration
+ */
+export interface SafetySetting {
+    category: string;
+    threshold: string;
+    [key: string]: ConfigValue;
+}
+
+/**
+ * Generation configuration
+ */
+export interface GenerationConfig {
+    temperature?: number;
+    maxTokens?: number;
+    topP?: number;
+    topK?: number;
+    [key: string]: ConfigValue;
 }
 
 /**

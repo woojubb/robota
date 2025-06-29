@@ -47,8 +47,6 @@ export interface BaseExecutionResult {
     metadata?: Record<string, string | number | boolean | Date>;
 }
 
-
-
 /**
  * Error context for plugin error handling
  */
@@ -87,13 +85,12 @@ export interface PluginData {
 }
 
 /**
- * Type-safe plugin interface with type parameters
+ * Type-safe plugin interface with specific type parameters
  * 
- * @template TOptions - Plugin options type
- * @template TContext - Plugin context type  
- * @template TStats - Plugin statistics type
+ * @template TOptions - Plugin options type (defaults to PluginConfig for backward compatibility)
+ * @template TStats - Plugin statistics type (defaults to PluginStats for type safety)
  */
-export interface TypeSafePluginInterface<TOptions = Record<string, unknown>, TStats = Record<string, unknown>> {
+export interface TypeSafePluginInterface<TOptions = PluginConfig, TStats = PluginStats> {
     name: string;
     version: string;
     enabled: boolean;
@@ -105,10 +102,20 @@ export interface TypeSafePluginInterface<TOptions = Record<string, unknown>, TSt
 }
 
 /**
- * Base plugin interface (legacy)
- * @deprecated Use TypeSafePluginInterface instead
+ * Plugin statistics base interface with common metrics
  */
-export interface BasePluginInterface extends TypeSafePluginInterface<PluginConfig, Record<string, unknown>> { }
+export interface PluginStats {
+    enabled: boolean;
+    calls: number;
+    errors: number;
+    lastActivity?: Date;
+    [key: string]: string | number | boolean | Date | undefined;
+}
+
+/**
+ * Base plugin interface extending TypeSafePluginInterface
+ */
+export interface BasePluginInterface extends TypeSafePluginInterface<PluginConfig, PluginStats> { }
 
 /**
  * Plugin lifecycle hooks
@@ -195,10 +202,9 @@ export interface PluginHooks {
  * Provides plugin lifecycle management and common functionality
  * 
  * @template TOptions - Plugin options type (defaults to PluginConfig for backward compatibility)
- * @template TContext - Plugin context type (defaults to BaseExecutionContext for backward compatibility)
- * @template TStats - Plugin statistics type (defaults to Record<string, unknown> for backward compatibility)
+ * @template TStats - Plugin statistics type (defaults to PluginStats for type safety)
  */
-export abstract class BasePlugin<TOptions = PluginConfig, TStats = Record<string, unknown>>
+export abstract class BasePlugin<TOptions = PluginConfig, TStats = PluginStats>
     implements TypeSafePluginInterface<TOptions, TStats>, PluginHooks {
     /** Plugin name */
     abstract readonly name: string;
@@ -267,8 +273,6 @@ export abstract class BasePlugin<TOptions = PluginConfig, TStats = Record<string
      * This method should be implemented by plugins that collect data
      */
     getData?(): PluginData;
-
-
 
     /**
      * Clear plugin data - common interface for all plugins

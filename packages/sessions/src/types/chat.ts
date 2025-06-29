@@ -1,36 +1,53 @@
 import type {
     Robota,
     ConversationHistory,
-    Message as UniversalMessage
+    AgentConfig
 } from '@robota-sdk/agents';
 
+/**
+ * Configuration value type for chat settings
+ */
+export type ChatConfigValue = string | number | boolean | string[] | number[] | boolean[] | Date | null | undefined;
+
+/**
+ * Configuration change tracking
+ */
 export interface ConfigurationChange {
     id: string;
     timestamp: Date;
     type: 'provider' | 'model' | 'system' | 'function' | 'other';
     description: string;
-    oldValue?: any;
-    newValue: any;
+    oldValue?: ChatConfigValue;
+    newValue: ChatConfigValue;
     userId?: string;
 }
 
+/**
+ * Message content with structured typing
+ */
 export type MessageContent = string | {
     text?: string;
     image?: string;
     file?: string;
-    [key: string]: any;
+    [key: string]: ChatConfigValue;
 };
 
+/**
+ * Chat configuration interface
+ */
 export interface ChatConfig {
     chatName?: string;
     description?: string;
-    robotaConfig?: any; // Initial Robota configuration
+    robotaConfig?: AgentConfig; // Using AgentConfig instead of any
     autoSave?: boolean;
     maxHistorySize?: number;
     agentTemplate?: string; // Agent template name to use for creating specialized agents
     taskDescription?: string; // Task description for dynamic agent creation
 }
 
+/**
+ * Chat metadata interface
+ */
 export interface ChatMetadata {
     chatId: string;
     sessionId: string;
@@ -43,6 +60,9 @@ export interface ChatMetadata {
     isActive: boolean;
 }
 
+/**
+ * Enhanced conversation history with configuration tracking
+ */
 export interface EnhancedConversationHistory extends ConversationHistory {
     configurations: ConfigurationChange[];
     addConfigurationChange(change: ConfigurationChange): void;
@@ -62,6 +82,18 @@ export interface EnhancedConversationHistory extends ConversationHistory {
     getMemoryUsage(): number;
 }
 
+/**
+ * Template manager interface for agent templates
+ */
+export interface TemplateManager {
+    getTemplate(name: string): AgentConfig | undefined;
+    listTemplates(): string[];
+    validateTemplate(config: AgentConfig): boolean;
+}
+
+/**
+ * Chat instance interface with proper typing
+ */
 export interface ChatInstance {
     readonly metadata: ChatMetadata;
     readonly config: ChatConfig;
@@ -75,12 +107,12 @@ export interface ChatInstance {
     deleteMessage(messageId: string): Promise<void>;
 
     // Configuration
-    updateRobotaConfig(config: any): Promise<void>;
-    getRobotaConfig(): any;
+    updateRobotaConfig(config: AgentConfig): Promise<void>;
+    getRobotaConfig(): AgentConfig;
 
     // Agent Template Support
     upgradeToTemplate?(templateName: string, taskDescription?: string): Promise<void>;
-    getTemplateManager?(): any;
+    getTemplateManager?(): TemplateManager;
 
     // State Management  
     activate(): void;
@@ -100,6 +132,9 @@ export interface ChatInstance {
     updateConfig(config: Partial<ChatConfig>): void;
 }
 
+/**
+ * Chat statistics interface
+ */
 export interface ChatStats {
     messageCount: number;
     configurationChanges: number;

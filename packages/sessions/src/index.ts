@@ -1,47 +1,45 @@
-// Chat instances
-export { ChatInstanceImpl as ChatInstance } from './chat/chat-instance';
+// Chat Instance
+export { ChatInstance } from './chat/chat-instance';
 
-// Re-export ConversationHistory from agents (unified implementation)
-export { ConversationHistory, ConversationSession } from '@robota-sdk/agents';
+// Interfaces
+export type { ContextManager, ConversationContext } from './interfaces/ai-context';
+export type { ProviderManager, ProviderConfig } from './interfaces/ai-provider';
 
-// System message management  
-export { SystemMessageManagerImpl as SystemMessageManager } from './system-message/system-message-manager-impl';
+// Conversation Service
+export { ConversationServiceImpl } from './conversation/conversation-service-impl';
 
-// Multi-provider adapter
+// System Message Manager
+export { SystemMessageManagerImpl } from './system-message/system-message-manager-impl';
+
+// Provider Adapter
 export { MultiProviderAdapterManager } from './provider-adapter/multi-provider-adapter-manager';
 
-// Conversation service
-export { ConversationServiceImpl as ConversationService } from './conversation/conversation-service-impl';
-
-// Types and interfaces - core session types
-export type {
-    SessionConfig,
-    SessionInfo,
-    ChatConfig,
-    ChatInfo,
-    SessionManagerConfig,
-    SessionState
-} from './types/core';
-
-// Chat types
-export type {
-    ChatInstance as ChatInstanceInterface,
-    ChatMetadata,
-    ChatStats,
-    MessageContent
-} from './types/chat';
-
-// AI Context and Provider interfaces
-export type { Context } from './interfaces/ai-context';
-export type { ProviderConfig, ProviderManager } from './interfaces/ai-provider';
-
-// Re-export necessary types from agents
+// Type-only exports
 export type {
     AgentInterface,
     AgentConfig,
     Message,
-    RunOptions
-} from '@robota-sdk/agents';
+    RunOptions,
+    SessionState,
+    SessionConfig,
+    SessionInfo,
+    ChatConfig,
+    ChatInfo,
+    SessionManagerConfig
+} from './types/core';
+
+export type {
+    ChatInstance as IChatInstance,
+    ChatMetadata,
+    ChatStats,
+    MessageContent,
+    ConfigurationChange,
+    EnhancedConversationHistory,
+    TemplateManager
+} from './types/chat';
+
+// Re-export ConversationHistory from agents (unified implementation)
+export { ConversationHistory, ConversationSession } from '@robota-sdk/agents';
 
 // Re-export AgentFactory from agents
 export { AgentFactory } from '@robota-sdk/agents';

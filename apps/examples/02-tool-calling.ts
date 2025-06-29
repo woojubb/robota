@@ -66,15 +66,15 @@ const calculateTool = createFunctionTool(
     }
 );
 
-const weatherTool = createFunctionTool(
-    'getWeather',
-    'Gets current weather information for a city',
-    {
+const _weatherTool = {
+    name: 'get_weather',
+    description: 'Get current weather information for a city',
+    parameters: {
         type: 'object',
         properties: {
             city: {
                 type: 'string',
-                description: 'City name to get weather for'
+                description: 'The city name'
             },
             unit: {
                 type: 'string',
@@ -83,66 +83,22 @@ const weatherTool = createFunctionTool(
             }
         },
         required: ['city']
-    },
-    async (params) => {
-        const { city, unit = 'celsius' } = params;
-        console.log(`🌤️ Getting weather for: ${city} (${unit})`);
-
-        // Mock weather data
-        const weatherData: Record<string, any> = {
-            'seoul': { temp: 22, condition: 'Clear', humidity: 65 },
-            'busan': { temp: 24, condition: 'Partly Cloudy', humidity: 70 },
-            'jeju': { temp: 26, condition: 'Cloudy', humidity: 75 },
-            'tokyo': { temp: 20, condition: 'Rainy', humidity: 80 },
-            'new york': { temp: 18, condition: 'Sunny', humidity: 55 }
-        };
-
-        const cityKey = city.toLowerCase();
-        const data = weatherData[cityKey] || { temp: 15, condition: 'Unknown', humidity: 60 };
-
-        const temperature = unit === 'fahrenheit'
-            ? Math.round(data.temp * 9 / 5 + 32)
-            : data.temp;
-
-        return {
-            city,
-            temperature,
-            unit: unit === 'celsius' ? '°C' : '°F',
-            condition: data.condition,
-            humidity: `${data.humidity}%`
-        };
     }
-);
+};
 
-const timeTool = createFunctionTool(
-    'getCurrentTime',
-    'Gets the current date and time',
-    {
+const _timeTool = {
+    name: 'get_current_time',
+    description: 'Get the current time',
+    parameters: {
         type: 'object',
         properties: {
             timezone: {
                 type: 'string',
-                description: 'Timezone (e.g., UTC, Asia/Seoul)'
+                description: 'Timezone (optional)'
             }
-        },
-        required: []
-    },
-    async (params) => {
-        const { timezone = 'UTC' } = params;
-        console.log(`🕐 Getting current time for timezone: ${timezone}`);
-
-        const now = new Date();
-        const timeString = timezone === 'UTC'
-            ? now.toISOString()
-            : now.toLocaleString('en-US', { timeZone: timezone });
-
-        return {
-            timezone,
-            currentTime: timeString,
-            timestamp: now.getTime()
-        };
+        }
     }
-);
+};
 
 async function main() {
     try {
