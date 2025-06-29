@@ -86,17 +86,10 @@ export interface ToolExecutionResult {
     metadata?: ToolMetadata;
 }
 
+
+
 /**
- * Tool execution context - extended for simple Record compatibility
- * 
- * REASON: Added simple index signature for compatibility with primitive Record contexts
- * ALTERNATIVES_CONSIDERED:
- * 1. Create separate context adapters (increases complexity)
- * 2. Use type assertions at context usage sites (decreases type safety)
- * 3. Modify all context usage to match exact interface (massive refactoring)
- * 4. Use intersection types (unnecessary complexity)
- * 5. Complex index signature with all types (causes TypeScript compatibility issues)
- * TODO: Monitor for any conflicts between index signature and explicit properties
+ * Tool execution context - type-safe context for tool execution
  */
 export interface ToolExecutionContext {
     toolName: string;
@@ -104,7 +97,8 @@ export interface ToolExecutionContext {
     userId?: string;
     sessionId?: string;
     metadata?: ToolMetadata;
-    [key: string]: any; // Simplified for compatibility
+    // Additional context data
+    [key: string]: string | number | boolean | ToolParameters | ToolMetadata | undefined;
 }
 
 /**

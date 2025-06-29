@@ -4,6 +4,7 @@
  */
 
 import type { BaseExecutionContext, BaseExecutionResult } from '../../abstracts/base-plugin';
+import type { LoggerData, UniversalValue } from '../../interfaces/types';
 import type {
     WebhookExecutionContext,
     WebhookExecutionResult,
@@ -100,10 +101,19 @@ export class WebhookTransformer {
 
     /**
      * Create tool execution event data
+     * 
+     * REASON: Tool result structure varies by tool type and provider, needs flexible handling for webhook processing
+     * ALTERNATIVES_CONSIDERED:
+     * 1. Strict tool result interfaces (breaks tool compatibility)
+     * 2. Union types (insufficient for dynamic tool results)
+     * 3. Generic constraints (too complex for webhook processing)
+     * 4. Interface definitions (too rigid for varied tool results)
+     * 5. Type assertions (decreases type safety)
+     * TODO: Consider standardized tool result interface across tools
      */
     static createToolData(
         context: WebhookExecutionContext,
-        toolResult: any
+        toolResult: LoggerData
     ): WebhookEventData {
         // Safely extract tool data from result
         const toolName = this.safeGetProperty(toolResult, 'toolName') || 'unknown';
@@ -158,8 +168,17 @@ export class WebhookTransformer {
 
     /**
      * Safely get property from object (handles index signature issues)
+     * 
+     * REASON: Safe property access for webhook data transformation needs flexible input/output types
+     * ALTERNATIVES_CONSIDERED:
+     * 1. Strict object types (breaks dynamic property access)
+     * 2. Union types (insufficient for property extraction)
+     * 3. Generic constraints (too complex for simple property access)
+     * 4. Interface definitions (too rigid for dynamic objects)
+     * 5. Type assertions (decreases type safety)
+     * TODO: Consider typed property access if patterns emerge
      */
-    private static safeGetProperty(obj: any, key: string): any {
+    private static safeGetProperty(obj: LoggerData, key: string): UniversalValue | Date | Error {
         if (!obj || typeof obj !== 'object') {
             return undefined;
         }

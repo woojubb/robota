@@ -1,10 +1,11 @@
-import { Message, AgentConfig, AssistantMessage, ToolMessage, UniversalMessage } from '../interfaces/agent';
+import { Message, AgentConfig, AssistantMessage, ToolMessage } from '../interfaces/agent';
+import { PluginContext, LoggerData, Metadata } from '../interfaces/types';
 import { BasePlugin } from '../abstracts/base-plugin';
 import { ToolExecutionService, ToolExecutionBatchContext } from './tool-execution-service';
 import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { ConversationHistory } from '../managers/conversation-history-manager';
-import { BaseAIProvider, ProviderExecutionConfig } from '../abstracts/base-ai-provider';
+import { BaseAIProvider } from '../abstracts/base-ai-provider';
 import { Logger, createLogger } from '../utils/logger';
 
 /**
@@ -20,7 +21,7 @@ export interface ExecutionContext {
     userId?: string;
     messages: Message[];
     config: AgentConfig;
-    metadata?: Record<string, string | number | boolean | Date | string[]>;
+    metadata?: Metadata;
     startTime: Date;
     executionId: string;
 }
@@ -188,7 +189,7 @@ export class ExecutionService {
             }
 
             // Call beforeRun hook on all plugins
-            await this.callPluginHook('beforeRun', { input, metadata: context?.metadata as Record<string, unknown> });
+            await this.callPluginHook('beforeRun', { input, metadata: context?.metadata as LoggerData });
 
             // Get AI provider instance
             const provider = this.aiProviders.getCurrentProviderInstance();
@@ -401,7 +402,7 @@ export class ExecutionService {
             };
 
             // Call afterRun hook on all plugins
-            await this.callPluginHook('afterRun', { input, response: result.response, metadata: context?.metadata as Record<string, unknown> });
+            await this.callPluginHook('afterRun', { input, response: result.response, metadata: context?.metadata as Metadata });
 
             this.logger.debug('Execution pipeline completed successfully', {
                 executionId,
@@ -496,14 +497,7 @@ export class ExecutionService {
 */
     private async callPluginHook(
         hookName: string,
-        context: {
-            input?: string;
-            response?: string | UniversalMessage;
-            messages?: UniversalMessage[];
-            metadata?: Record<string, unknown>;
-            error?: Error;
-            executionContext?: ExecutionContext;
-        }
+        context: PluginContext
     ): Promise<void> {
         for (const plugin of this.plugins) {
             const pluginWithHook = plugin as BasePlugin & {

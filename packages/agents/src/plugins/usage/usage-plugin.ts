@@ -161,7 +161,9 @@ export class UsagePlugin extends BasePlugin {
             await this.storage.close();
             this.logger.info('UsagePlugin destroyed');
         } catch (error) {
-            this.logger.error('Error during plugin cleanup', { error });
+            this.logger.error('Error during plugin cleanup', {
+                error: error instanceof Error ? error.message : String(error)
+            });
         }
     }
 
@@ -263,7 +265,9 @@ export class UsagePlugin extends BasePlugin {
                     successRate: stats.successRate
                 });
             } catch (error) {
-                this.logger.error('Error during periodic aggregation', { error });
+                this.logger.error('Error during periodic aggregation', {
+                    error: error instanceof Error ? error.message : String(error)
+                });
             }
         }, this.options.aggregationInterval);
     }

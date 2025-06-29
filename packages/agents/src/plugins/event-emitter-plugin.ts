@@ -1,4 +1,4 @@
-import { BasePlugin, type BaseExecutionContext, type BaseExecutionResult } from '../abstracts/base-plugin';
+import { BasePlugin, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext } from '../abstracts/base-plugin';
 import { Logger, createLogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 
@@ -268,9 +268,18 @@ export class EventEmitterPlugin extends BasePlugin {
 
     /**
      * Before tool execution
+     * 
+     * REASON: Tool data structure varies by provider and tool type, needs flexible handling for event processing
+     * ALTERNATIVES_CONSIDERED:
+     * 1. Strict tool interfaces (breaks provider compatibility)
+     * 2. Union types (insufficient for dynamic tool data)
+     * 3. Generic constraints (too complex for event handling)
+     * 4. Interface definitions (too rigid for varied tool structures)
+     * 5. Type assertions (decreases type safety)
+     * TODO: Consider standardized tool data interface across providers
      */
-    override async beforeToolExecution(context: BaseExecutionContext, toolData: any): Promise<void> {
-        const toolCalls = Array.isArray(toolData?.toolCalls) ? toolData.toolCalls :
+    override async beforeToolExecution(context: BaseExecutionContext, toolData: Record<string, string | number | boolean | object | Array<string | number | boolean> | null | undefined>): Promise<void> {
+        const toolCalls = Array.isArray(toolData?.['toolCalls']) ? toolData['toolCalls'] :
             toolData ? [toolData] : [];
 
         for (const toolCall of toolCalls) {
@@ -289,9 +298,18 @@ export class EventEmitterPlugin extends BasePlugin {
 
     /**
      * After tool execution
+     * 
+     * REASON: Tool results structure varies by provider and tool type, needs flexible handling for event processing
+     * ALTERNATIVES_CONSIDERED:
+     * 1. Strict result interfaces (breaks provider compatibility)
+     * 2. Union types (insufficient for dynamic result data)
+     * 3. Generic constraints (too complex for event handling)
+     * 4. Interface definitions (too rigid for varied result structures)
+     * 5. Type assertions (decreases type safety)
+     * TODO: Consider standardized tool result interface across providers
      */
-    override async afterToolExecution(context: BaseExecutionContext, toolResults: any): Promise<void> {
-        const results = Array.isArray(toolResults?.results) ? toolResults.results :
+    override async afterToolExecution(context: BaseExecutionContext, toolResults: Record<string, string | number | boolean | object | Array<string | number | boolean> | null | undefined>): Promise<void> {
+        const results = Array.isArray(toolResults?.['results']) ? toolResults['results'] :
             toolResults ? [toolResults] : [];
 
         for (const result of results) {
@@ -330,12 +348,21 @@ export class EventEmitterPlugin extends BasePlugin {
 
     /**
      * On error
+     * 
+     * REASON: Error context structure varies by execution phase and error type, needs flexible handling
+     * ALTERNATIVES_CONSIDERED:
+     * 1. Strict error context interface (breaks error handling flexibility)
+     * 2. Union types (insufficient for dynamic error contexts)
+     * 3. Generic constraints (too complex for error handling)
+     * 4. Interface definitions (too rigid for varied error contexts)
+     * 5. Type assertions (decreases type safety)
+     * TODO: Consider standardized error context interface
      */
-    override async onError(error: Error, context?: any): Promise<void> {
+    override async onError(error: Error, context?: ErrorContext): Promise<void> {
         await this.emit('execution.error', {
-            executionId: context.executionId,
-            sessionId: context.sessionId,
-            userId: context.userId,
+            executionId: context?.executionId,
+            sessionId: context?.sessionId,
+            userId: context?.userId,
             error: error instanceof Error ? error : new Error(String(error)),
             data: {
                 context: context

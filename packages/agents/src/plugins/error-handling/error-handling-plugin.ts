@@ -152,7 +152,7 @@ export class ErrorHandlingPlugin extends BasePlugin {
 
         throw new PluginError(`Operation failed after ${this.options.maxRetries} retries`, this.name,
             createPluginErrorContext(context, {
-                originalError: lastError?.message
+                originalError: lastError?.message || 'Unknown error'
             })
         );
     }
