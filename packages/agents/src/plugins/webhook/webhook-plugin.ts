@@ -100,10 +100,19 @@ export class WebhookPlugin extends BasePlugin {
 
     /**
      * After tool execution
+     * 
+     * REASON: Tool results structure varies by tool type and provider, needs flexible handling for webhook processing
+     * ALTERNATIVES_CONSIDERED:
+     * 1. Strict tool result interfaces (breaks tool compatibility)
+     * 2. Union types (insufficient for dynamic tool results)
+     * 3. Generic constraints (too complex for webhook processing)
+     * 4. Interface definitions (too rigid for varied tool results)
+     * 5. Type assertions (decreases type safety)
+     * TODO: Consider standardized tool result interface across tools
      */
-    override async afterToolExecution(context: BaseExecutionContext, toolResults: any): Promise<void> {
+    override async afterToolExecution(context: BaseExecutionContext, toolResults: Record<string, string | number | boolean | object | Array<string | number | boolean> | null | undefined>): Promise<void> {
         const webhookContext = WebhookTransformer.contextToWebhook(context);
-        const results = Array.isArray(toolResults?.results) ? toolResults.results :
+        const results = Array.isArray(toolResults?.['results']) ? toolResults['results'] :
             toolResults ? [toolResults] : [];
 
         for (const result of results) {

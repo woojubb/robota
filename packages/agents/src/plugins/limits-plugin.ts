@@ -32,10 +32,18 @@ export type PluginExecutionResult = {
 };
 
 /**
- * Plugin limits status data type
- * Used for storing limits status information
+ * Plugin limits status data type - supports nested objects and null values for comprehensive status reporting
+ * 
+ * REASON: Status data needs to include nested objects for bucket/window details and null values for missing data
+ * ALTERNATIVES_CONSIDERED:
+ * 1. Strict primitive types (loses nested status information)
+ * 2. Union types without null (breaks null handling)
+ * 3. Interface definitions (too rigid for dynamic status)
+ * 4. Generic constraints (too complex for status data)
+ * 5. Type assertions (decreases type safety)
+ * TODO: Consider specific status interfaces if patterns emerge
  */
-export type PluginLimitsStatusData = Record<string, string | number | boolean | Array<string | number | boolean>>;
+export type PluginLimitsStatusData = Record<string, string | number | boolean | Array<string | number | boolean> | Record<string, string | number | boolean> | null>;
 
 /**
  * Rate limiting strategies
@@ -434,8 +442,17 @@ export class LimitsPlugin extends BasePlugin {
 
     /**
      * Get current limits status
+     * 
+     * REASON: Limits status contains mixed data types (numbers, strings, arrays, objects) for comprehensive status reporting
+     * ALTERNATIVES_CONSIDERED:
+     * 1. Strict interface definitions (too rigid for dynamic status data)
+     * 2. Union types (becomes unwieldy for status reporting)
+     * 3. Generic constraints (too complex for status methods)
+     * 4. Separate status types (breaks existing functionality)
+     * 5. Type assertions (decreases type safety)
+     * TODO: Consider specific status interface if patterns emerge
      */
-    getLimitsStatus(key?: string): Record<string, any> {
+    getLimitsStatus(key?: string): PluginLimitsStatusData {
         if (key) {
             const bucket = this.buckets.get(key);
             const window = this.windows.get(key);

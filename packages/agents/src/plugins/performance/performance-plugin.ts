@@ -154,7 +154,9 @@ export class PerformancePlugin extends BasePlugin {
             await this.storage.close();
             this.logger.info('PerformancePlugin destroyed');
         } catch (error) {
-            this.logger.error('Error during plugin cleanup', { error });
+            this.logger.error('Error during plugin cleanup', {
+                error: error instanceof Error ? error.message : String(error)
+            });
         }
     }
 

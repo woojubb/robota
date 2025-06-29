@@ -211,7 +211,10 @@ export class ConversationHistoryPlugin extends BasePlugin {
                 }
                 this.pendingSaves.delete(conversationId);
             } catch (error) {
-                this.logger.error('Failed to save pending conversation', { conversationId, error });
+                this.logger.error('Failed to save pending conversation', {
+                    conversationId,
+                    error: error instanceof Error ? error.message : String(error)
+                });
             }
         }
     }
@@ -230,7 +233,9 @@ export class ConversationHistoryPlugin extends BasePlugin {
 
             this.logger.info('ConversationHistoryPlugin destroyed');
         } catch (error) {
-            this.logger.error('Error during plugin cleanup', { error });
+            this.logger.error('Error during plugin cleanup', {
+                error: error instanceof Error ? error.message : String(error)
+            });
         }
     }
 
@@ -287,7 +292,9 @@ export class ConversationHistoryPlugin extends BasePlugin {
             try {
                 await this.savePending();
             } catch (error) {
-                this.logger.error('Error during batch save', { error });
+                this.logger.error('Error during batch save', {
+                    error: error instanceof Error ? error.message : String(error)
+                });
             }
         }, this.options.saveInterval);
     }

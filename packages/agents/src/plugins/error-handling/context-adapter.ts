@@ -7,6 +7,7 @@
  */
 
 import type { ErrorHandlingContextData, ErrorContextAdapter } from './types';
+import type { ErrorContextData } from '../../utils/errors';
 
 /**
  * Convert ErrorHandlingContextData to ErrorContextData-compatible format for PluginError
@@ -26,8 +27,17 @@ export function toErrorContext(context: ErrorHandlingContextData): ErrorContextA
 
 /**
  * Safe context extraction for PluginError with nested context structure
+ * 
+ * REASON: PluginError context needs flexible data structure for debugging information
+ * ALTERNATIVES_CONSIDERED:
+ * 1. Strict primitive types (loses debugging information)
+ * 2. Interface definitions (too rigid for error contexts)
+ * 3. Union types (becomes unwieldy for error data)
+ * 4. Generic constraints (too complex for error handling)
+ * 5. Type assertions (decreases type safety)
+ * TODO: Consider standardized error context interface if patterns emerge
  */
-export function createPluginErrorContext(context: ErrorHandlingContextData, additionalData?: Record<string, any>): Record<string, any> {
+export function createPluginErrorContext(context: ErrorHandlingContextData, additionalData?: ErrorContextData): ErrorContextData {
     return {
         ...toErrorContext(context),
         ...(additionalData && { ...additionalData })

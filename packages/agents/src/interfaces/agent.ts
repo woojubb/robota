@@ -3,6 +3,7 @@ import type { BasePlugin } from '../abstracts/base-plugin';
 import type { BaseTool } from '../abstracts/base-tool';
 import type { UtilLogLevel } from '../utils/logger';
 import type { ToolExecutionResult } from './tool';
+import type { Metadata } from './types';
 
 /**
  * Message metadata structure - specific type definition for agents
@@ -137,16 +138,7 @@ export interface AgentTemplate {
 }
 
 /**
- * Agent run options - extended for logger compatibility
- * 
- * REASON: Added simple index signature for compatibility with LoggerContextData
- * ALTERNATIVES_CONSIDERED:
- * 1. JSON.stringify RunOptions in logging calls (loses type safety)
- * 2. Create separate logging wrappers (unnecessary abstraction)
- * 3. Use type assertions in logger calls (decreases type safety)
- * 4. Avoid logging RunOptions directly (reduces debugging capability)
- * 5. Complex index signature with all types (causes TypeScript compatibility issues)
- * TODO: Monitor for conflicts between index signature and explicit properties
+ * Agent run options - type-safe interface for all agent execution options
  */
 export interface RunOptions {
     temperature?: number;
@@ -155,8 +147,9 @@ export interface RunOptions {
     toolChoice?: 'auto' | 'none' | string;
     sessionId?: string;
     userId?: string;
-    metadata?: MessageMetadata;
-    [key: string]: any; // Simplified for compatibility
+    metadata?: Metadata;
+    // Additional properties for logger compatibility
+    [key: string]: string | number | boolean | Metadata | undefined;
 }
 
 /**

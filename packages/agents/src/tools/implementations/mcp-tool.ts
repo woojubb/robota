@@ -1,5 +1,6 @@
 import type { ToolInterface, ToolResult, ToolExecutionContext, MCPToolConfig, ToolParameters } from '../../interfaces/tool';
 import type { ToolSchema } from '../../interfaces/provider';
+import type { ToolResultData } from '../../interfaces/types';
 import { BaseTool } from '../../abstracts/base-tool';
 import { ToolExecutionError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
@@ -109,9 +110,17 @@ export class MCPTool extends BaseTool implements ToolInterface {
             return {
                 success: executionResult.success,
                 // REASON: MCP protocol returns dynamic content structure that cannot be known at compile time
-                // ALTERNATIVES_CONSIDERED: Union types (insufficient for dynamic MCP responses), interface definition (too restrictive), generic types (breaks ToolResult compatibility), conditional types (complex mapping issues), mapped types (structural incompatibility), type guards (runtime only), custom declarations (breaks existing tool interface), code refactoring (would break MCP protocol compliance), @types packages (none available for MCP), external library integration (no standard MCP TypeScript types)
+                // ALTERNATIVES_CONSIDERED:
+                // 1. Union types (insufficient for dynamic MCP responses)
+                // 2. Interface definition (too restrictive for MCP protocol)
+                // 3. Generic types (breaks ToolResult compatibility)
+                // 4. Conditional types (complex mapping issues)
+                // 5. Mapped types (structural incompatibility)
+                // 6. Type guards (runtime only, doesn't solve compile time)
+                // 7. Custom declarations (breaks existing tool interface)
+                // 8. Code refactoring (would break MCP protocol compliance)
                 // TODO: Create MCP TypeScript definitions package or contribute to MCP specification for standardized TypeScript types
-                data: executionResult.content as Record<string, Record<string, Record<string, Record<string, Record<string, Record<string, Record<string, Record<string, Record<string, Record<string, Record<string, unknown>>>>>>>>>>>,
+                data: executionResult.content as ToolResultData,
                 metadata: {
                     toolName,
                     toolType: 'mcp',
