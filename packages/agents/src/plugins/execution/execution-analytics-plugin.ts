@@ -37,6 +37,13 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
             enableWarnings: options.enableWarnings ?? true
         };
         this.logger = createLogger('ExecutionAnalyticsPlugin');
+
+        // Bind methods to ensure proper 'this' context
+        this.beforeRun = this.beforeRun.bind(this);
+        this.afterRun = this.afterRun.bind(this);
+        this.beforeProviderCall = this.beforeProviderCall.bind(this);
+        this.afterProviderCall = this.afterProviderCall.bind(this);
+
         this.logger.info('ExecutionAnalyticsPlugin initialized', {
             maxEntries: this.pluginOptions.maxEntries,
             trackErrors: this.pluginOptions.trackErrors,
@@ -49,7 +56,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
     /**
      * Called before agent run - start tracking
      */
-    override async beforeRun(input: string, options?: RunOptions): Promise<void> {
+    override beforeRun = async (input: string, options?: RunOptions): Promise<void> => {
         const executionId = this.generateExecutionId();
 
         this.activeExecutions.set(executionId, {
@@ -68,7 +75,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
     /**
      * Called after agent run - end tracking
      */
-    override async afterRun(input: string, response: string, options?: RunOptions): Promise<void> {
+    override afterRun = async (input: string, response: string, options?: RunOptions): Promise<void> => {
         // Find the related execution
         const execution = this.findActiveExecution('run', input);
 
@@ -119,7 +126,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
     /**
      * Called before provider call - start tracking
      */
-    override async beforeProviderCall(messages: UniversalMessage[]): Promise<void> {
+    override beforeProviderCall = async (messages: UniversalMessage[]): Promise<void> => {
         const executionId = this.generateExecutionId('provider');
 
         this.activeExecutions.set(executionId, {
@@ -137,7 +144,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
     /**
      * Called after provider call - end tracking
      */
-    override async afterProviderCall(messages: UniversalMessage[], response: UniversalMessage): Promise<void> {
+    override afterProviderCall = async (messages: UniversalMessage[], response: UniversalMessage): Promise<void> => {
         // Find the related execution
         const execution = this.findActiveExecution('provider-call', messages[0]?.content || '');
 

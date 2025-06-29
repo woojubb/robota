@@ -76,7 +76,14 @@ export class ExecutionService {
      */
     registerPlugin(plugin: BasePlugin): void {
         this.plugins.push(plugin);
-        this.logger.debug('Plugin registered', { pluginName: plugin.name });
+        this.logger.debug('Plugin registered', {
+            pluginName: plugin.name,
+            pluginType: plugin.constructor.name,
+            hasBeforeRun: typeof plugin.beforeRun,
+            hasAfterRun: typeof plugin.afterRun,
+            hasBeforeProviderCall: typeof plugin.beforeProviderCall,
+            hasAfterProviderCall: typeof plugin.afterProviderCall
+        });
     }
 
     /**
@@ -272,7 +279,7 @@ export class ExecutionService {
                 const response = await provider.chat(conversationMessages, chatOptions);
 
                 // Call afterProviderCall hook
-                await this.callPluginHook('afterProviderCall', { messages: conversationMessages, response });
+                await this.callPluginHook('afterProviderCall', { messages: conversationMessages, response: response.content || '' });
 
                 // Add assistant response to history
                 conversationSession.addAssistantMessage(
@@ -492,31 +499,64 @@ export class ExecutionService {
     }
 
     /**
-* Call a hook method on all plugins that implement it
-* Uses unified context object for all hook types
-*/
+ * Call a hook method on all plugins that implement it
+ * Handles different hook signatures properly
+ */
     private async callPluginHook(
         hookName: string,
         context: PluginContext
     ): Promise<void> {
         for (const plugin of this.plugins) {
-            const pluginWithHook = plugin as BasePlugin & {
-                [key: string]: ((...args: string[] | [Error, ExecutionContext] | [string, Message[], Record<string, string | number | boolean>?]) => Promise<void> | void) | undefined
-            };
+            try {
+                // Use type assertion to access the hook methods
+                const pluginWithHooks = plugin as BasePlugin & {
+                    beforeRun?: (input: string, options?: any) => Promise<void> | void;
+                    afterRun?: (input: string, response: string, options?: any) => Promise<void> | void;
+                    beforeProviderCall?: (messages: any[]) => Promise<void> | void;
+                    afterProviderCall?: (messages: any[], response: any) => Promise<void> | void;
+                    onError?: (error: Error, context?: any) => Promise<void> | void;
+                };
 
-            if (typeof pluginWithHook[hookName] === 'function') {
-                try {
-                    const hookMethod = pluginWithHook[hookName];
-                    if (hookMethod) {
-                        await hookMethod(context);
-                    }
-                } catch (error) {
-                    this.logger.warn('Plugin hook failed', {
-                        pluginName: plugin.name,
-                        hookName,
-                        error: error instanceof Error ? error.message : String(error)
-                    });
+                // Call the appropriate hook method with correct parameters
+                switch (hookName) {
+                    case 'beforeRun':
+                        if (pluginWithHooks.beforeRun && context.input) {
+                            await pluginWithHooks.beforeRun(context.input, context.metadata);
+                        }
+                        break;
+                    case 'afterRun':
+                        if (pluginWithHooks.afterRun && context.input && context.response) {
+                            await pluginWithHooks.afterRun(context.input, context.response, context.metadata);
+                        }
+                        break;
+                    case 'beforeProviderCall':
+                        if (pluginWithHooks.beforeProviderCall && context.messages) {
+                            await pluginWithHooks.beforeProviderCall(context.messages);
+                        }
+                        break;
+                    case 'afterProviderCall':
+                        if (pluginWithHooks.afterProviderCall && context.messages && context.response) {
+                            // For afterProviderCall, we need a single response message
+                            const responseMessage = {
+                                role: 'assistant' as const,
+                                content: context.response,
+                                timestamp: new Date()
+                            };
+                            await pluginWithHooks.afterProviderCall(context.messages, responseMessage);
+                        }
+                        break;
+                    case 'onError':
+                        if (pluginWithHooks.onError && context.error) {
+                            await pluginWithHooks.onError(context.error, context.executionContext);
+                        }
+                        break;
                 }
+            } catch (error) {
+                this.logger.warn('Plugin hook failed', {
+                    pluginName: plugin.name,
+                    hookName,
+                    error: error instanceof Error ? error.message : String(error)
+                });
             }
         }
     }

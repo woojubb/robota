@@ -23,17 +23,32 @@ export interface AssignTaskExecutor {
  * Create ToolParameters compatible schema from AssignTaskParams schema
  */
 function createToolParametersSchema(availableTemplates: TemplateInfo[]) {
-    // Create a schema that extends ToolParameters (Record<string, ToolParameterValue>)
-    return z.record(z.string(), z.union([
-        z.string(),
-        z.number(),
-        z.boolean(),
-        z.array(z.string()),
-        z.record(z.string(), z.string())
-    ])).transform((data) => {
-        // Validate using our dynamic schema
-        const assignTaskSchema = createDynamicAssignTaskSchema(availableTemplates);
-        return assignTaskSchema.parse(data);
+    // Create a simple schema for function calling
+    const templateDescriptions = availableTemplates.map(template =>
+        `${template.id}: ${template.description}`
+    ).join(', ');
+
+    return z.object({
+        jobDescription: z.string().describe(
+            'Clear, specific description of the job to be completed. Should provide enough detail for the specialist agent to understand the scope and deliverables expected.'
+        ),
+        context: z.string().optional().describe(
+            'Additional context, constraints, or requirements for the job.'
+        ),
+        requiredTools: z.array(z.string()).optional().describe(
+            'List of tools the specialist agent might need for this task.'
+        ),
+        priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium').describe(
+            'Priority level for the task.'
+        ),
+        agentTemplate: z.string().optional().describe(
+            availableTemplates.length > 0
+                ? `Name of the agent template to use for this task. Available templates: ${templateDescriptions}.`
+                : 'Agent template to use for this task.'
+        ),
+        allowFurtherDelegation: z.boolean().default(false).describe(
+            'Whether the assigned agent can delegate parts of the task to other specialists if needed.'
+        )
     });
 }
 

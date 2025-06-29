@@ -70,9 +70,9 @@ export type ToolResultData = UniversalValue;
 
 /**
  * Provider configuration value type - for AI provider configs
+ * Note: ProviderConfig is defined in agent.ts to avoid export conflicts
  */
 export type ProviderConfigValue = PrimitiveValue | ArrayValue | ObjectValue;
-export type ProviderConfig = Record<string, ProviderConfigValue>;
 
 /**
  * Plugin context type - for plugin execution contexts
