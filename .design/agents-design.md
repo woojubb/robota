@@ -124,6 +124,53 @@ Robota SDK의 핵심 AI 에이전트 프레임워크가 완전히 구현되었�
   - [ ] Type Safety Standards 완전 검증
   - [x] 모든 패키지 빌드 및 기능 최종 확인
 
+### Phase 13: 제네릭 타입 규칙 준수 (우선순위: 중간) ✅ **완료!**
+
+**🎯 목표**: agents 라이브러리가 `.cursor/rules/generic-facade-patterns.mdc` 규칙에 완전히 준수하도록 수정
+
+#### 13.1 RobotaAgent 제네릭 타입 매개변수화
+- [x] **RobotaAgent를 BaseAgent<TConfig, TContext, TMessage>로 변경**
+  - [x] `Robota extends BaseAgent<AgentConfig, RunOptions, Message>` 명시적 제네릭 사용
+  - [x] Provider 중립적 설계 원칙 적용 확인
+  - [x] 기존 사용법 호환성 유지 (기본 타입 매개변수)
+
+#### 13.2 FunctionTool 제네릭 타입 매개변수화
+- [x] **FunctionTool을 BaseTool<TParameters, TResult>로 변경**
+  - [x] `FunctionTool extends BaseTool<ToolParameters, ToolResult>` 명시적 제네릭 사용
+  - [x] 런타임 검증과 타입 안전성 통합 (로거 타입 호환성 해결)
+  - [x] Zod 스키마 변환 로직과 제네릭 타입 연동
+
+#### 13.3 Provider 중립적 설계 강화
+- [x] **AgentConfig aiProviders 타입 수정**
+  - [x] `aiProviders?: Record<string, BaseAIProvider>` 규칙 준수 (any 제거)
+  - [x] Provider 불가지론적 설계 완전 적용
+  - [x] 동적 Provider 등록 시스템 타입 안전성 강화
+
+#### 13.4 추가 구체 클래스 제네릭 매개변수화
+- [x] **MCP Tool 제네릭 타입 적용**
+  - [x] `MCPTool extends BaseTool<ToolParameters, ToolResult>` 사용
+  - [x] OpenAPI Tool 제네릭 타입 적용
+- [x] **기타 도구 클래스 제네릭 적용**
+  - [x] tools/implementations/ 폴더의 모든 구체 클래스 검토
+  - [x] 각 클래스의 타입 매개변수 명시적 선언
+  - [x] 로거 타입 호환성 오류 수정 (MCP Tool, OpenAPI Tool)
+
+#### 13.5 타입 제약 조건 및 기본값 검증
+- [x] **타입 제약 조건 추가**
+  - [x] `TConfig extends Record<string, ConfigValue>` 형태 제약 조건 적용
+  - [x] `TContext extends Record<string, ConfigValue>` 형태 제약 조건 적용
+  - [x] AgentConfig, RunOptions에 ConfigValue index signature 추가
+- [x] **기본 타입 매개변수 검증**
+  - [x] 하위 호환성을 위한 기본 타입 제공 확인
+  - [x] 점진적 마이그레이션 지원 확인
+
+**🎉 Phase 13 완료 결과:**
+- ✅ **완전한 제네릭 타입 규칙 준수**: 모든 기본 클래스가 올바른 타입 매개변수 사용
+- ✅ **any 타입 완전 제거**: Provider 중립적 설계에서 BaseAIProvider 기본값 사용
+- ✅ **타입 안전성 강화**: Record<string, ConfigValue> 제약 조건으로 타입 호환성 보장
+- ✅ **빌드 성공**: TypeScript 컴파일 오류 0개
+- ✅ **테스트 통과**: 76/76 테스트 100% 통과
+
 ## 📊 현재 상태 요약
 - **아키텍처**: ✅ 완성 (모든 핵심 기능 구현됨)
 - **Provider 통합**: ✅ 완성 (OpenAI, Anthropic, Google 모두 agents 표준 적용)
@@ -135,6 +182,7 @@ Robota SDK의 핵심 AI 에이전트 프레임워크가 완전히 구현되었�
 - **타입 시스템**: ✅ **완전 완성! (any/unknown 완전 제거 달성!)**
   - ✅ **any/unknown 경고**: 18개 → 0개 (100% 제거 달성!)
   - ✅ **TypeScript 빌드**: 완전 성공 (모든 타입 호환성 문제 해결)
+  - ✅ **제네릭 타입 규칙**: 완전 준수 (Phase 13 완료)
 - **플러그인 시스템**: ✅ 완성 (각 플러그인별 특화 통계 타입 구축)
 - **문서화**: ⏳ 진행 중 (TSDoc 표준화 필요)
 
@@ -146,6 +194,7 @@ Robota SDK의 핵심 AI 에이전트 프레임워크가 완전히 구현되었�
 5. **any/unknown 타입 완전 해결**: 18개 ESLint warning → 0개 (100% 개선, Rule 기반 정당화 완료)
 6. **Strict Type Safety Rule 적용**: 12가지 대안 검토 의무화, REASON/ALTERNATIVES_CONSIDERED/TODO 주석 필수
 7. **로거 설계 혁신**: LoggerContextData를 Record<string, unknown>으로 완전히 유연화하여 모든 타입 지원
+8. **제네릭 타입 패턴 완전 적용**: 모든 기본 클래스가 타입 매개변수와 제약 조건 사용
 
 ### ✅ 완성된 Facade 패턴 아키텍처
 

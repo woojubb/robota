@@ -13,8 +13,10 @@ import { zodToJsonSchema } from './function-tool/schema-converter';
 /**
  * Function tool implementation
  * Wraps a JavaScript function as a tool with schema validation
+ * 
+ * @extends BaseTool<ToolParameters, ToolResult>
  */
-export class FunctionTool extends BaseTool implements IFunctionTool {
+export class FunctionTool extends BaseTool<ToolParameters, ToolResult> implements IFunctionTool {
     readonly schema: ToolSchema;
     readonly fn: ToolExecutor;
 

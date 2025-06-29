@@ -59,8 +59,10 @@ interface MCPExecutionResult {
 /**
  * MCP (Model Context Protocol) tool implementation
  * Executes tools via MCP protocol
+ * 
+ * @extends BaseTool<ToolParameters, ToolResult>
  */
-export class MCPTool extends BaseTool implements ToolInterface {
+export class MCPTool extends BaseTool<ToolParameters, ToolResult> implements ToolInterface {
     readonly schema: ToolSchema;
     private readonly mcpConfig: MCPToolConfig;
     private connectionStatus: MCPConnectionStatus = 'disconnected';
@@ -81,7 +83,7 @@ export class MCPTool extends BaseTool implements ToolInterface {
         try {
             logger.debug(`Executing MCP tool "${toolName}"`, {
                 toolName,
-                parameters,
+                parametersCount: Object.keys(parameters || {}).length,
                 endpoint: this.mcpConfig.endpoint,
                 connectionStatus: this.connectionStatus
             });
@@ -120,14 +122,14 @@ export class MCPTool extends BaseTool implements ToolInterface {
                 // 7. Custom declarations (breaks existing tool interface)
                 // 8. Code refactoring (would break MCP protocol compliance)
                 // TODO: Create MCP TypeScript definitions package or contribute to MCP specification for standardized TypeScript types
-                data: executionResult.content as ToolResultData,
+                data: typeof executionResult.content === 'string' ? executionResult.content : JSON.stringify(executionResult.content),
                 metadata: {
                     toolName,
                     toolType: 'mcp',
                     endpoint: this.mcpConfig.endpoint,
                     executionTime,
                     connectionStatus: this.connectionStatus,
-                    mcpMetadata: executionResult.metadata
+                    mcpMetadata: executionResult.metadata || {}
                 }
             };
 
@@ -147,8 +149,8 @@ export class MCPTool extends BaseTool implements ToolInterface {
                 toolName,
                 error instanceof Error ? error : new Error(String(error)),
                 {
-                    parameters,
-                    context,
+                    parametersCount: Object.keys(parameters || {}).length,
+                    hasContext: !!context,
                     endpoint: this.mcpConfig.endpoint,
                     connectionStatus: this.connectionStatus,
                     executionTime
