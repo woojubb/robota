@@ -181,8 +181,8 @@ describe('ExecutionService', () => {
 
             // Create and set mock session
             const mockSession = {
-                getMessages: vi.fn(),
-                getMessageCount: vi.fn(),
+                getMessages: vi.fn().mockReturnValue([]),
+                getMessageCount: vi.fn().mockReturnValue(0),
                 addUserMessage: vi.fn(),
                 addAssistantMessage: vi.fn(),
                 addSystemMessage: vi.fn(),
@@ -192,7 +192,7 @@ describe('ExecutionService', () => {
                 getMessagesByRole: vi.fn(),
                 getRecentMessages: vi.fn()
             };
-            conversationHistory.setMockSession({ 'test-conversation': mockSession });
+            conversationHistory.setMockSession({ 'test-agent': mockSession });
 
             // Mock conversation session messages with assistant response
             mockSession.getMessages = vi.fn()
@@ -202,13 +202,37 @@ describe('ExecutionService', () => {
                     { role: 'assistant', content: 'Mock response', timestamp: new Date() }
                 ]);
 
-            const result = await executionService.execute(input, messages, config);
+            const result = await executionService.execute(input, messages, config, { conversationId: 'test-agent' });
 
             expect(result.success).toBe(true);
             expect(result.response).toBe('Mock response');
         });
 
         it('should execute a conversation with tool calls', async () => {
+            const toolInput = 'Use the test tool';
+            const toolMessages: Message[] = [];
+            const toolConfig: AgentConfig = {
+                model: 'gpt-4',
+                provider: 'openai',
+                name: 'test-agent',
+                systemMessage: 'You are a helpful assistant.'
+            };
+
+            // Create and set mock session
+            const mockSession = {
+                getMessages: vi.fn().mockReturnValue([]),
+                getMessageCount: vi.fn().mockReturnValue(0),
+                addUserMessage: vi.fn(),
+                addAssistantMessage: vi.fn(),
+                addSystemMessage: vi.fn(),
+                addToolMessageWithId: vi.fn(),
+                addMessage: vi.fn(),
+                clear: vi.fn(),
+                getMessagesByRole: vi.fn(),
+                getRecentMessages: vi.fn()
+            };
+            conversationHistory.setMockSession({ 'test-agent': mockSession });
+
             // Mock provider to return tool calls
             mockProvider.chat = vi.fn()
                 .mockResolvedValueOnce({
@@ -262,8 +286,8 @@ describe('ExecutionService', () => {
 
             // Create and set mock session for tool calls test
             const mockToolSession = {
-                getMessages: vi.fn(),
-                getMessageCount: vi.fn(),
+                getMessages: vi.fn().mockReturnValue([]),
+                getMessageCount: vi.fn().mockReturnValue(0),
                 addUserMessage: vi.fn(),
                 addAssistantMessage: vi.fn(),
                 addSystemMessage: vi.fn(),
@@ -273,7 +297,7 @@ describe('ExecutionService', () => {
                 getMessagesByRole: vi.fn(),
                 getRecentMessages: vi.fn()
             };
-            conversationHistory.setMockSession({ 'test-conversation': mockToolSession });
+            conversationHistory.setMockSession({ 'test-agent': mockToolSession });
 
             // Mock conversation session messages progression
             mockToolSession.getMessages = vi.fn()
@@ -321,100 +345,152 @@ describe('ExecutionService', () => {
                     }
                 ]);
 
-            const input = 'Use a tool to do something';
-            const messages: Message[] = [];
-            const config: AgentConfig = {
+            const testInput = 'Use a tool to do something';
+            const testMessages: Message[] = [];
+            const testConfig: AgentConfig = {
                 model: 'gpt-4',
                 provider: 'openai',
                 name: 'test-agent'
             };
 
-            const result = await executionService.execute(input, messages, config);
+            const result = await executionService.execute(testInput, testMessages, testConfig, { conversationId: 'test-agent' });
 
             expect(result.success).toBe(true);
             expect(result.response).toBe('Task completed with tool result');
 
             // Verify conversation history updates
-            expect(mockToolSession.addUserMessage).toHaveBeenCalledWith(input, expect.any(Object));
+            expect(mockToolSession.addUserMessage).toHaveBeenCalledWith(testInput, expect.any(Object));
             expect(mockToolSession.addAssistantMessage).toHaveBeenCalledTimes(2);
             expect(mockToolSession.addToolMessageWithId).toHaveBeenCalledTimes(1);
         });
 
         it('should handle errors during execution', async () => {
-            mockProvider.chat = vi.fn().mockRejectedValue(new Error('Provider error'));
-
-            const input = 'Hello';
-            const messages: Message[] = [];
-            const config: AgentConfig = {
+            const errorInput = 'Hello';
+            const errorMessages: Message[] = [];
+            const errorConfig: AgentConfig = {
                 model: 'gpt-4',
                 provider: 'openai',
                 name: 'test-agent'
             };
 
-            await expect(executionService.execute(input, messages, config)).rejects.toThrow('Provider error');
+            // Create and set mock session
+            const mockSession = {
+                getMessages: vi.fn().mockReturnValue([]),
+                getMessageCount: vi.fn().mockReturnValue(0),
+                addUserMessage: vi.fn(),
+                addAssistantMessage: vi.fn(),
+                addSystemMessage: vi.fn(),
+                addToolMessageWithId: vi.fn(),
+                addMessage: vi.fn(),
+                clear: vi.fn(),
+                getMessagesByRole: vi.fn(),
+                getRecentMessages: vi.fn()
+            };
+            conversationHistory.setMockSession({ 'test-agent': mockSession });
+
+            mockProvider.chat = vi.fn().mockRejectedValue(new Error('Provider error'));
+
+            await expect(executionService.execute(errorInput, errorMessages, errorConfig, { conversationId: 'test-agent' })).rejects.toThrow('Provider error');
         });
 
         it('should initialize conversation history with existing messages', async () => {
-            const input = 'Hello again';
-            const messages: Message[] = [
+            const inputMsg = 'Hello again';
+            const messagesArray: Message[] = [
                 { role: 'user', content: 'Hello', timestamp: new Date() },
                 { role: 'assistant', content: 'Hi there!', timestamp: new Date() }
             ] as Message[];
-            const config: AgentConfig = {
+            const agentConfig: AgentConfig = {
                 model: 'gpt-4',
                 provider: 'openai',
                 name: 'test-agent'
             };
 
-            // Mock empty conversation history
-            const mockSession = conversationHistory.getConversationSession('test-conversation');
-            mockSession.getMessageCount = vi.fn().mockReturnValue(0);
+            // Create and set mock session
+            const mockSession = {
+                getMessages: vi.fn().mockReturnValue([]),
+                getMessageCount: vi.fn().mockReturnValue(0),
+                addUserMessage: vi.fn(),
+                addAssistantMessage: vi.fn(),
+                addSystemMessage: vi.fn(),
+                addToolMessageWithId: vi.fn(),
+                addMessage: vi.fn(),
+                clear: vi.fn(),
+                getMessagesByRole: vi.fn(),
+                getRecentMessages: vi.fn()
+            };
+            conversationHistory.setMockSession({ 'test-agent': mockSession });
 
-            await executionService.execute(input, messages, config);
+            await executionService.execute(inputMsg, messagesArray, agentConfig, { conversationId: 'test-agent' });
 
             // Verify all messages were added
             expect(mockSession.addUserMessage).toHaveBeenCalledWith('Hello', undefined);
             expect(mockSession.addAssistantMessage).toHaveBeenCalledWith('Hi there!', undefined, undefined);
-            expect(mockSession.addUserMessage).toHaveBeenCalledWith(input, expect.any(Object));
+            expect(mockSession.addUserMessage).toHaveBeenCalledWith(inputMsg, expect.any(Object));
         });
 
         it('should handle messages with system role', async () => {
-            const input = 'Hello';
-            const messages: Message[] = [
+            const userInput = 'Hello';
+            const messagesList: Message[] = [
                 { role: 'system', content: 'You are a helpful assistant', timestamp: new Date() },
                 { role: 'user', content: 'Previous question', timestamp: new Date() }
             ] as Message[];
-            const config: AgentConfig = {
+            const testConfig: AgentConfig = {
                 model: 'gpt-4',
                 provider: 'openai',
                 name: 'test-agent'
             };
 
-            // Mock empty conversation history
-            const mockSession = conversationHistory.getConversationSession('test-conversation');
-            mockSession.getMessageCount = vi.fn().mockReturnValue(0);
+            // Create and set mock session
+            const mockSession = {
+                getMessages: vi.fn().mockReturnValue([]),
+                getMessageCount: vi.fn().mockReturnValue(0),
+                addUserMessage: vi.fn(),
+                addAssistantMessage: vi.fn(),
+                addSystemMessage: vi.fn(),
+                addToolMessageWithId: vi.fn(),
+                addMessage: vi.fn(),
+                clear: vi.fn(),
+                getMessagesByRole: vi.fn(),
+                getRecentMessages: vi.fn()
+            };
+            conversationHistory.setMockSession({ 'test-agent': mockSession });
 
-            await executionService.execute(input, messages, config);
+            await executionService.execute(userInput, messagesList, testConfig, { conversationId: 'test-agent' });
 
             // Verify system message was added
             expect(mockSession.addSystemMessage).toHaveBeenCalledWith('You are a helpful assistant', undefined);
             expect(mockSession.addUserMessage).toHaveBeenCalledWith('Previous question', undefined);
-            expect(mockSession.addUserMessage).toHaveBeenCalledWith(input, expect.any(Object));
+            expect(mockSession.addUserMessage).toHaveBeenCalledWith(userInput, expect.any(Object));
         });
 
         it('should handle no AI provider available', async () => {
-            // Mock no provider available
-            aiProviders.getCurrentProviderInstance = vi.fn().mockReturnValue(null);
-
-            const input = 'Hello';
-            const messages: Message[] = [];
-            const config: AgentConfig = {
+            const testInput = 'Hello';
+            const emptyMessages: Message[] = [];
+            const providerConfig: AgentConfig = {
                 model: 'gpt-4',
                 provider: 'openai',
                 name: 'test-agent'
             };
 
-            await expect(executionService.execute(input, messages, config)).rejects.toThrow('No AI provider available');
+            // Create and set mock session
+            const mockSession = {
+                getMessages: vi.fn().mockReturnValue([]),
+                getMessageCount: vi.fn().mockReturnValue(0),
+                addUserMessage: vi.fn(),
+                addAssistantMessage: vi.fn(),
+                addSystemMessage: vi.fn(),
+                addToolMessageWithId: vi.fn(),
+                addMessage: vi.fn(),
+                clear: vi.fn(),
+                getMessagesByRole: vi.fn(),
+                getRecentMessages: vi.fn()
+            };
+            conversationHistory.setMockSession({ 'test-agent': mockSession });
+
+            // Mock no provider available
+            aiProviders.getCurrentProviderInstance = vi.fn().mockReturnValue(null);
+
+            await expect(executionService.execute(testInput, emptyMessages, providerConfig, { conversationId: 'test-agent' })).rejects.toThrow('No AI provider available');
         });
     });
 }); 

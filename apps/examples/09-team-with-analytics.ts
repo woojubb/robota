@@ -1,5 +1,5 @@
 import { createTeam } from '@robota-sdk/team';
-import { Robota, ExecutionPlugin } from '@robota-sdk/agents';
+import { Robota, ExecutionAnalyticsPlugin } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
@@ -27,9 +27,11 @@ async function main() {
     console.log('================================\n');
 
     // Create ExecutionAnalyticsPlugin for automatic tracking
-    const analyticsPlugin = new ExecutionPlugin({
-        trackOperationTiming: true,
-        logExecutionDetails: true
+    const analyticsPlugin = new ExecutionAnalyticsPlugin({
+        maxEntries: 100,
+        trackErrors: true,
+        performanceThreshold: 2000,
+        enableWarnings: true
     });
 
     // Create OpenAI client
@@ -103,7 +105,7 @@ async function main() {
 
         // Method 2: Direct plugin access (for comparison)
         console.log('\n📊 Method 2: Direct plugin access');
-        const directStats = analyticsPlugin.getStats();
+        const directStats = analyticsPlugin.getAggregatedStats();
         displayAnalytics('Direct Plugin Access', directStats);
 
         // Show operation breakdown
@@ -125,8 +127,8 @@ async function main() {
 
         // Even on error, analytics are tracked
         const pluginFromAgent = agent.getPlugin('execution-analytics');
-        if (pluginFromAgent && 'getStats' in pluginFromAgent) {
-            const stats = (pluginFromAgent as any).getStats();
+        if (pluginFromAgent && 'getAggregatedStats' in pluginFromAgent) {
+            const stats = (pluginFromAgent as any).getAggregatedStats();
             console.log(`\n📊 Analytics after error (${stats.totalExecutions} total, ${stats.failedExecutions} failed)`);
         }
     } finally {
@@ -181,9 +183,11 @@ async function demonstrateTeamAnalytics() {
                     provider: 'openai',
                     systemMessage: 'You are a data analyst. Analyze the given data and provide insights.',
                     plugins: [
-                        new ExecutionPlugin({
-                            trackOperationTiming: true,
-                            logExecutionDetails: true
+                        new ExecutionAnalyticsPlugin({
+                            maxEntries: 100,
+                            trackErrors: true,
+                            performanceThreshold: 2000,
+                            enableWarnings: true
                         })
                     ]
                 },
@@ -193,9 +197,11 @@ async function demonstrateTeamAnalytics() {
                     provider: 'openai',
                     systemMessage: 'You are a quality reviewer. Review analysis and provide feedback.',
                     plugins: [
-                        new ExecutionPlugin({
-                            trackOperationTiming: true,
-                            logExecutionDetails: true
+                        new ExecutionAnalyticsPlugin({
+                            maxEntries: 100,
+                            trackErrors: true,
+                            performanceThreshold: 2000,
+                            enableWarnings: true
                         })
                     ]
                 }

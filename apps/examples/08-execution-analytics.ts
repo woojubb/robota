@@ -73,8 +73,8 @@ async function main() {
 
         // Access analytics through the agent's plugin
         const pluginFromAgent = agent.getPlugin('ExecutionAnalyticsPlugin');
-        if (pluginFromAgent && 'getStats' in pluginFromAgent) {
-            const stats = (pluginFromAgent as any).getStats();
+        if (pluginFromAgent && 'getAggregatedStats' in pluginFromAgent) {
+            const stats = (pluginFromAgent as any).getAggregatedStats();
             displayAnalytics('Agent Plugin Access', stats);
         }
 
@@ -109,15 +109,15 @@ async function main() {
 
         // Even on error, analytics are tracked
         const pluginFromAgent = agent.getPlugin('ExecutionAnalyticsPlugin');
-        if (pluginFromAgent && 'getStats' in pluginFromAgent) {
-            const stats = (pluginFromAgent as any).getStats();
+        if (pluginFromAgent && 'getAggregatedStats' in pluginFromAgent) {
+            const stats = (pluginFromAgent as any).getAggregatedStats();
             console.log(`\n📊 Analytics after error (${stats.totalExecutions} total, ${stats.failedExecutions} failed)`);
         }
     }
 
     // Method 2: Direct plugin access (for comparison)
     console.log('\n📊 Method 2: Direct plugin access');
-    const directStats = analyticsPlugin.getStats();
+    const directStats = analyticsPlugin.getAggregatedStats();
     displayAnalytics('Direct Plugin Access', directStats);
 
     // Demonstrate clearing analytics
