@@ -1,196 +1,355 @@
 # @robota-sdk/openai
 
-OpenAI provider for the Robota SDK with full agents standard integration.
+OpenAI Provider for Robota SDK - Complete type-safe integration with OpenAI's GPT models, featuring function calling, streaming, and advanced AI capabilities.
 
-## Overview
+## 🚀 Features
 
-The `@robota-sdk/openai` package provides seamless integration with OpenAI's GPT models within the Robota agent framework. It includes support for chat completions, streaming responses, and tool calling.
+### Core Capabilities
+- **🎯 Type-Safe Integration**: Complete TypeScript support with zero `any` types
+- **🤖 GPT Model Support**: GPT-4, GPT-3.5 Turbo, and all OpenAI models
+- **⚡ Real-Time Streaming**: Asynchronous streaming responses with proper error handling
+- **🛠️ Function Calling**: Native OpenAI function calling with type validation
+- **🔄 Provider-Agnostic Design**: Seamless integration with other Robota providers
+- **📊 Payload Logging**: Optional API request/response logging for debugging
 
-## Installation
+### Architecture Highlights
+- **Generic Type Parameters**: Full `BaseAIProvider<TConfig, TMessage, TResponse>` implementation
+- **Facade Pattern**: Modular design with separated concerns
+- **Error Safety**: Comprehensive error handling without any-type compromises
+- **OpenAI SDK Compatibility**: Direct integration with official OpenAI SDK types
+
+## 📦 Installation
 
 ```bash
-npm install @robota-sdk/openai @robota-sdk/agents
+npm install @robota-sdk/openai @robota-sdk/agents openai
 ```
 
-## Quick Start
+## 🔧 Basic Usage
+
+### Simple Chat Integration
 
 ```typescript
 import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
+import OpenAI from 'openai';
 
-const agent = new Robota({
-  name: 'GPT Agent',
-  aiProviders: { 
-    openai: new OpenAIProvider({ 
-      apiKey: process.env.OPENAI_API_KEY 
-    }) 
-  },
-  currentProvider: 'openai',
-  currentModel: 'gpt-4'
+// Initialize OpenAI client
+const openaiClient = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
 });
 
-const response = await agent.run('What is artificial intelligence?');
-console.log(response);
+// Create type-safe OpenAI provider
+const provider = new OpenAIProvider({
+  client: openaiClient,
+  model: 'gpt-4',
+  temperature: 0.7
+});
+
+// Create Robota agent with OpenAI provider
+const agent = new Robota({
+  aiProviders: {
+    openai: provider
+  },
+  currentProvider: 'openai',
+  systemPrompt: 'You are a helpful AI assistant specialized in technical topics.'
+});
+
+// Execute conversation
+const response = await agent.run('Explain the benefits of TypeScript over JavaScript');
+console.log(response.content);
+
+// Clean up
+await agent.dispose();
 ```
 
-## Features
-
-### ✅ Full Agents Standard Integration
-- **UniversalMessage Support**: Automatic message format conversion
-- **Streaming Support**: Real-time response streaming with `runStream`
-- **Tool Calling**: Function calling integration with Robota tool system
-- **Error Handling**: Comprehensive error management and recovery
-
-### 🔧 OpenAI-Specific Features
-- **Multiple Models**: GPT-4, GPT-3.5, and other OpenAI models
-- **Advanced Parameters**: Temperature, max tokens, presence penalty support
-- **Function Calling**: Native OpenAI function calling integration
-- **Payload Logging**: Detailed request/response logging
-
-### 🌊 Streaming Implementation
-- **Real-time Processing**: Chunk-by-chunk response processing
-- **Tool Integration**: Streaming responses with tool calling support
-- **Error Recovery**: Robust error handling during streaming
-
-## API Reference
-
-### OpenAIProvider
+### Streaming Responses
 
 ```typescript
-class OpenAIProvider extends BaseAIProvider<OpenAIProviderOptions, UniversalMessage, OpenAIResponse>
-```
+// Real-time streaming for immediate feedback
+const stream = await agent.runStream('Write a detailed explanation of machine learning');
 
-#### Configuration Options
-
-```typescript
-interface OpenAIProviderOptions {
-  apiKey: string;
-  baseURL?: string;
-  organization?: string;
-  project?: string;
-  dangerouslyAllowBrowser?: boolean;
-  timeout?: number;
-  maxRetries?: number;
+for await (const chunk of stream) {
+  if (chunk.content) {
+    process.stdout.write(chunk.content);
+  }
+  
+  // Handle streaming metadata
+  if (chunk.metadata?.isComplete) {
+    console.log('\n✓ Stream completed');
+  }
 }
 ```
 
-#### Methods
+## 🛠️ Function Calling
 
-- `run(messages, options)`: Execute chat completion
-- `runStream(messages, options)`: Execute streaming chat completion
-- `configure(options)`: Update provider configuration
-
-### OpenAIConversationAdapter
-
-Handles message format conversion between Robota's UniversalMessage and OpenAI's chat format.
+OpenAI Provider supports type-safe function calling with automatic parameter validation:
 
 ```typescript
-class OpenAIConversationAdapter {
-  static convertToOpenAI(messages: UniversalMessage[]): OpenAI.Chat.ChatCompletionMessageParam[]
-  static convertFromOpenAI(response: OpenAI.Chat.ChatCompletion): UniversalMessage
-}
+import { FunctionTool } from '@robota-sdk/agents';
+import { z } from 'zod';
+
+// Define type-safe function tools
+const weatherTool = new FunctionTool({
+  name: 'getWeather',
+  description: 'Get current weather information for a location',
+  parameters: z.object({
+    location: z.string().describe('City name'),
+    unit: z.enum(['celsius', 'fahrenheit']).default('celsius')
+  }),
+  handler: async ({ location, unit }) => {
+    // Type-safe handler implementation
+    const weatherData = await fetchWeatherAPI(location, unit);
+    return {
+      temperature: weatherData.temp,
+      condition: weatherData.condition,
+      location,
+      unit
+    };
+  }
+});
+
+const calculatorTool = new FunctionTool({
+  name: 'calculate',
+  description: 'Perform mathematical operations',
+  parameters: z.object({
+    operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
+    a: z.number(),
+    b: z.number()
+  }),
+  handler: async ({ operation, a, b }) => {
+    const operations = {
+      add: a + b,
+      subtract: a - b,
+      multiply: a * b,
+      divide: a / b
+    };
+    return { result: operations[operation] };
+  }
+});
+
+// Register tools with the agent
+agent.registerTool(weatherTool);
+agent.registerTool(calculatorTool);
+
+// Execute with function calling
+const result = await agent.run(
+  'What\'s the weather in Tokyo and what\'s 25 * 4?'
+);
 ```
 
-## Architecture
+## 🔄 Multi-Provider Architecture
 
-### Module Structure
-
-```
-packages/openai/src/
-├── provider.ts              # Main OpenAIProvider class
-├── adapter.ts              # Message format conversion
-├── payload-logger.ts       # Request/response logging
-├── parsers/
-│   └── response-parser.ts  # Response parsing utilities
-├── streaming/
-│   └── stream-handler.ts   # Streaming implementation
-└── types.ts               # TypeScript definitions
-```
-
-### Integration Points
-
-- **BaseAIProvider**: Extends the agents standard base class
-- **UniversalMessage**: Uses Robota's universal message format
-- **Tool System**: Integrates with Robota's tool execution system
-- **Plugin System**: Compatible with all Robota plugins
-
-## Development
-
-### Building
-
-```bash
-npm run build
-```
-
-### Testing
-
-```bash
-npm run test
-```
-
-### Linting
-
-```bash
-npm run lint
-npm run lint:fix
-```
-
-## Environment Variables
-
-Required environment variables:
-
-```bash
-OPENAI_API_KEY=sk-your-api-key-here
-```
-
-Optional environment variables:
-
-```bash
-OPENAI_BASE_URL=https://api.openai.com/v1  # Custom API endpoint
-OPENAI_ORGANIZATION=org-your-org-id        # Organization ID
-OPENAI_PROJECT=proj-your-project-id        # Project ID
-```
-
-## Model Support
-
-### Chat Models
-- `gpt-4` - Most capable model
-- `gpt-4-turbo` - Faster, cost-effective alternative
-- `gpt-3.5-turbo` - Fast and efficient for simpler tasks
-
-### Function Calling
-All chat models support function calling with the Robota tool system.
-
-### Streaming
-All chat models support real-time streaming responses.
-
-## Examples
-
-- [Basic Chat](../../../docs/examples/openai-basic.md)
-- [Streaming Responses](../../../docs/examples/openai-streaming.md)
-- [Function Calling](../../../docs/examples/openai-functions.md)
-- [Multi-Model Usage](../../../docs/examples/openai-models.md)
-
-## Migration from Legacy
-
-If migrating from `@robota-sdk/core` with OpenAI:
+Seamlessly integrate with other providers:
 
 ```typescript
-// Old way (deprecated)
-import { createOpenAIProvider } from '@robota-sdk/core';
-
-// New way (recommended)
-import { Robota } from '@robota-sdk/agents';
-import { OpenAIProvider } from '@robota-sdk/openai';
+import { AnthropicProvider } from '@robota-sdk/anthropic';
+import { GoogleProvider } from '@robota-sdk/google';
 
 const agent = new Robota({
-  aiProviders: { 
-    openai: new OpenAIProvider({ apiKey: 'sk-...' }) 
+  aiProviders: {
+    openai: new OpenAIProvider({
+      client: openaiClient,
+      model: 'gpt-4'
+    }),
+    anthropic: new AnthropicProvider({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      model: 'claude-3-sonnet-20240229'
+    }),
+    google: new GoogleProvider({
+      apiKey: process.env.GOOGLE_AI_API_KEY,
+      model: 'gemini-pro'
+    })
   },
   currentProvider: 'openai'
 });
+
+// Dynamic provider switching
+await agent.setCurrentProvider('openai');
+const openaiResponse = await agent.run('Respond using GPT-4');
+
+await agent.setCurrentProvider('anthropic');
+const claudeResponse = await agent.run('Respond using Claude');
 ```
 
-## License
+## ⚙️ Configuration Options
 
-MIT 
+```typescript
+interface OpenAIProviderOptions {
+  // Required
+  client: OpenAI;                    // OpenAI SDK client instance
+  
+  // Model Configuration
+  model?: string;                    // Default: 'gpt-4'
+  temperature?: number;              // 0-1, default: 0.7
+  maxTokens?: number;               // Maximum tokens to generate
+  
+  // API Configuration
+  apiKey?: string;                  // API key (if not set in client)
+  organization?: string;            // OpenAI organization ID
+  timeout?: number;                 // Request timeout (ms)
+  baseURL?: string;                // Custom API base URL
+  
+  // Response Configuration
+  responseFormat?: 'text' | 'json_object' | 'json_schema';
+  jsonSchema?: {                   // For structured outputs
+    name: string;
+    description?: string;
+    schema?: Record<string, string | number | boolean | object>;
+    strict?: boolean;
+  };
+  
+  // Debugging & Logging
+  enablePayloadLogging?: boolean;   // Enable API payload logging
+  payloadLogDir?: string;          // Log directory path
+  includeTimestampInLogFiles?: boolean; // Include timestamps in log files
+}
+```
+
+## 📋 Supported Models
+
+| Model | Description | Use Cases |
+|-------|-------------|-----------|
+| `gpt-4` | Most capable model | Complex reasoning, analysis, creative tasks |
+| `gpt-4-turbo` | Faster GPT-4 variant | Balanced performance and cost |
+| `gpt-3.5-turbo` | Fast and efficient | Simple conversations, basic tasks |
+| `gpt-4-vision-preview` | Vision capabilities | Image analysis and understanding |
+
+## 🔍 API Reference
+
+### OpenAIProvider Class
+
+```typescript
+class OpenAIProvider extends BaseAIProvider<
+  OpenAIProviderOptions,
+  UniversalMessage,
+  UniversalMessage
+> {
+  // Core methods
+  async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>
+  async chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>
+  
+  // Provider information
+  readonly name: string = 'openai'
+  readonly version: string = '1.0.0'
+  
+  // Utility methods
+  supportsTools(): boolean
+  validateConfig(): boolean
+  async dispose(): Promise<void>
+}
+```
+
+### Type Definitions
+
+```typescript
+// Chat Options
+interface ChatOptions {
+  tools?: ToolSchema[];
+  maxTokens?: number;
+  temperature?: number;
+  model?: string;
+}
+
+// OpenAI-specific types
+interface OpenAIToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+interface OpenAILogData {
+  model: string;
+  messagesCount: number;
+  hasTools: boolean;
+  temperature?: number;
+  maxTokens?: number;
+  timestamp: string;
+  requestId?: string;
+}
+```
+
+## 🐛 Debugging & Logging
+
+Enable comprehensive logging for debugging:
+
+```typescript
+const provider = new OpenAIProvider({
+  client: openaiClient,
+  model: 'gpt-4',
+  enablePayloadLogging: true,
+  payloadLogDir: './logs/openai-api',
+  includeTimestampInLogFiles: true
+});
+```
+
+This creates detailed logs of all API requests and responses in the specified directory.
+
+## 🔒 Security Best Practices
+
+### API Key Management
+```typescript
+// ✅ Good: Use environment variables
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
+// ❌ Bad: Hardcoded keys
+const client = new OpenAI({
+  apiKey: 'sk-...' // Never do this!
+});
+```
+
+### Error Handling
+```typescript
+try {
+  const response = await agent.run('Your query');
+} catch (error) {
+  if (error instanceof Error) {
+    console.error('AI Error:', error.message);
+  }
+  // Handle specific OpenAI errors
+}
+```
+
+## 📊 Performance Optimization
+
+### Token Management
+```typescript
+const provider = new OpenAIProvider({
+  client: openaiClient,
+  model: 'gpt-4',
+  maxTokens: 1000,        // Limit response length
+  temperature: 0.3        // More deterministic responses
+});
+```
+
+### Model Selection Strategy
+- Use `gpt-3.5-turbo` for simple tasks
+- Use `gpt-4` for complex reasoning
+- Use `gpt-4-turbo` for balanced performance
+
+## 🤝 Contributing
+
+This package follows strict type safety guidelines:
+- Zero `any` or `unknown` types allowed
+- Complete TypeScript coverage
+- Comprehensive error handling
+- Provider-agnostic design principles
+
+## 📄 License
+
+MIT License - see LICENSE file for details.
+
+## 🔗 Related Packages
+
+- **[@robota-sdk/agents](../agents/)**: Core agent framework
+- **[@robota-sdk/anthropic](../anthropic/)**: Anthropic Claude provider
+- **[@robota-sdk/google](../google/)**: Google AI provider
+- **[@robota-sdk/team](../team/)**: Multi-agent collaboration
+
+---
+
+For complete documentation and examples, visit the [Robota SDK Documentation](https://robota.io). 

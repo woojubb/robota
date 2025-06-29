@@ -54,7 +54,7 @@ export interface OpenAIProviderOptions extends Omit<ProviderOptions, 'model'> {
   jsonSchema?: {
     name: string;
     description?: string;
-    schema?: Record<string, unknown>;
+    schema?: Record<string, string | number | boolean | object>;
     strict?: boolean;
   };
 

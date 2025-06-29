@@ -2,6 +2,10 @@ import OpenAI from 'openai';
 import type { UniversalMessage, ToolSchema } from '@robota-sdk/agents';
 import { BaseAIProvider } from '@robota-sdk/agents';
 import { OpenAIProviderOptions } from './types';
+import type {
+    OpenAIToolCall,
+    OpenAIError
+} from './types/api-types';
 
 /**
  * Chat options for AI provider requests
@@ -15,8 +19,6 @@ export interface ChatOptions {
     temperature?: number;
     /** Model to use for the request */
     model?: string;
-    /** Provider-specific options */
-    [key: string]: any;
 }
 
 /**
@@ -26,8 +28,12 @@ export interface ChatOptions {
  * - Uses OpenAI SDK native types internally
  * - Communicates with agents package using only UniversalMessage
  * - Handles tool execution null content properly
+ * 
+ * @template TConfig - Provider configuration type (defaults to OpenAIProviderOptions)
+ * @template TMessage - Message type (defaults to UniversalMessage)
+ * @template TResponse - Response type (defaults to UniversalMessage)
  */
-export class OpenAIProvider extends BaseAIProvider {
+export class OpenAIProvider extends BaseAIProvider<OpenAIProviderOptions, UniversalMessage, UniversalMessage> {
     readonly name = 'openai';
     readonly version = '1.0.0';
 
@@ -60,7 +66,7 @@ export class OpenAIProvider extends BaseAIProvider {
             const openaiMessages = this.convertToOpenAIMessages(messages);
 
             // 2. Call OpenAI API (native SDK types)
-            const requestParams: any = {
+            const requestParams: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
                 model: options?.model || 'gpt-4',
                 messages: openaiMessages,
                 ...(options?.temperature !== undefined && { temperature: options.temperature }),
@@ -71,13 +77,14 @@ export class OpenAIProvider extends BaseAIProvider {
                 })
             };
 
-            const response: OpenAI.Chat.ChatCompletion = await this.client.chat.completions.create(requestParams);
+            const response = await this.client.chat.completions.create(requestParams);
 
             // 3. Convert OpenAI response → UniversalMessage  
             return this.convertFromOpenAIResponse(response);
 
-        } catch (error: any) {
-            throw new Error(`OpenAI chat failed: ${error.message}`);
+        } catch (error) {
+            const openaiError = error as OpenAIError;
+            throw new Error(`OpenAI chat failed: ${openaiError.message || 'Unknown error'}`);
         }
     }
 
@@ -92,7 +99,7 @@ export class OpenAIProvider extends BaseAIProvider {
             const openaiMessages = this.convertToOpenAIMessages(messages);
 
             // 2. Call OpenAI streaming API
-            const requestParams: any = {
+            const requestParams: OpenAI.Chat.ChatCompletionCreateParamsStreaming = {
                 model: options?.model || 'gpt-4',
                 messages: openaiMessages,
                 stream: true,
@@ -104,7 +111,7 @@ export class OpenAIProvider extends BaseAIProvider {
                 })
             };
 
-            const stream = await this.client.chat.completions.create(requestParams) as any;
+            const stream = await this.client.chat.completions.create(requestParams);
 
             // 3. Stream conversion: OpenAI chunks → UniversalMessage
             for await (const chunk of stream) {
@@ -114,8 +121,9 @@ export class OpenAIProvider extends BaseAIProvider {
                 }
             }
 
-        } catch (error: any) {
-            throw new Error(`OpenAI stream failed: ${error.message}`);
+        } catch (error) {
+            const openaiError = error as OpenAIError;
+            throw new Error(`OpenAI stream failed: ${openaiError.message || 'Unknown error'}`);
         }
     }
 
@@ -141,12 +149,13 @@ export class OpenAIProvider extends BaseAIProvider {
                     return { role: 'system', content: msg.content };
                 case 'user':
                     return { role: 'user', content: msg.content };
-                case 'assistant':
+                case 'assistant': {
+                    const assistantMsg = msg as UniversalMessage & { toolCalls?: OpenAIToolCall[] };
                     return {
                         role: 'assistant',
                         content: msg.content, // Keep null for tool calls - this is crucial!
-                        ...((msg as any).toolCalls && {
-                            tool_calls: (msg as any).toolCalls.map((tc: any) => ({
+                        ...(assistantMsg.toolCalls && {
+                            tool_calls: assistantMsg.toolCalls.map((tc) => ({
                                 id: tc.id,
                                 type: 'function' as const,
                                 function: {
@@ -156,14 +165,17 @@ export class OpenAIProvider extends BaseAIProvider {
                             }))
                         })
                     };
-                case 'tool':
+                }
+                case 'tool': {
+                    const toolMsg = msg as UniversalMessage & { toolCallId: string };
                     return {
                         role: 'tool',
                         content: msg.content,
-                        tool_call_id: (msg as any).toolCallId
+                        tool_call_id: toolMsg.toolCallId
                     };
+                }
                 default:
-                    throw new Error(`Unsupported message role: ${(msg as any).role}`);
+                    throw new Error(`Unsupported message role: ${(msg as UniversalMessage).role}`);
             }
         });
     }
@@ -225,9 +237,9 @@ export class OpenAIProvider extends BaseAIProvider {
             content: delta.content || null,
             timestamp: new Date(),
             ...(delta.tool_calls && {
-                toolCalls: delta.tool_calls.map((tc: any) => ({
+                toolCalls: delta.tool_calls.map((tc) => ({
                     id: tc.id || '',
-                    type: tc.type || 'function',
+                    type: (tc.type as 'function') || 'function',
                     function: {
                         name: tc.function?.name || '',
                         arguments: tc.function?.arguments || ''
