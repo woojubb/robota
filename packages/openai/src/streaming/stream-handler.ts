@@ -1,5 +1,10 @@
 import OpenAI from 'openai';
 import { UniversalMessage, logger } from '@robota-sdk/agents';
+import type { PayloadLogger } from '../payload-logger';
+import type {
+    OpenAIChatRequestParams,
+    OpenAIStreamRequestParams
+} from '../types/api-types';
 
 /**
  * OpenAI streaming response handler
@@ -10,7 +15,7 @@ import { UniversalMessage, logger } from '@robota-sdk/agents';
 export class OpenAIStreamHandler {
     constructor(
         private readonly client: OpenAI,
-        private readonly payloadLogger?: any
+        private readonly payloadLogger?: PayloadLogger
     ) { }
 
     /**
@@ -19,26 +24,48 @@ export class OpenAIStreamHandler {
      * @param requestParams - OpenAI API request parameters
      * @returns AsyncGenerator yielding universal messages
      */
-    async *handleStream(requestParams: any): AsyncGenerator<UniversalMessage, void, unknown> {
+    async *handleStream(requestParams: OpenAIStreamRequestParams): AsyncGenerator<UniversalMessage, void, unknown> {
         try {
             // Log payload for debugging if logger is available
             if (this.payloadLogger?.isEnabled()) {
-                await this.payloadLogger.logPayload(requestParams, 'chatStream');
+                const logData = {
+                    model: requestParams.model,
+                    messagesCount: requestParams.messages.length,
+                    hasTools: !!requestParams.tools,
+                    temperature: requestParams.temperature,
+                    maxTokens: requestParams.max_tokens,
+                    timestamp: new Date().toISOString()
+                };
+                await this.payloadLogger.logPayload(logData, 'stream');
             }
 
-            // Create streaming chat completion
-            const streamParams = { ...requestParams, stream: true };
-            const response = await this.client.chat.completions.create(streamParams as any);
+            // Create streaming chat completion with proper type-safe parameters
+            const streamParams: OpenAI.Chat.ChatCompletionCreateParamsStreaming = {
+                model: requestParams.model,
+                messages: requestParams.messages,
+                stream: true,
+                ...(requestParams.temperature !== undefined && { temperature: requestParams.temperature }),
+                ...(requestParams.max_tokens !== undefined && { max_tokens: requestParams.max_tokens }),
+                ...(requestParams.tools && {
+                    tools: requestParams.tools,
+                    tool_choice: requestParams.tool_choice || 'auto'
+                })
+            };
+            const response = await this.client.chat.completions.create(streamParams);
 
             // Process each chunk in the stream
-            for await (const chunk of response as any) {
+            for await (const chunk of response) {
                 const parsed = this.parseStreamingChunk(chunk);
                 if (parsed) {
                     yield parsed;
                 }
             }
         } catch (error) {
-            logger.error('OpenAI streaming error:', error as Record<string, any>);
+            const errorDetails = error instanceof Error ? error : new Error('Unknown streaming error');
+            logger.error('OpenAI streaming error:', {
+                message: errorDetails.message,
+                name: errorDetails.name
+            });
             throw error;
         }
     }
@@ -49,7 +76,7 @@ export class OpenAIStreamHandler {
      * @param request - Raw request payload from ConversationService
      * @returns AsyncGenerator yielding universal messages
      */
-    async *generateStreamingResponse(request: any): AsyncGenerator<any, void, unknown> {
+    async *generateStreamingResponse(request: OpenAIChatRequestParams): AsyncGenerator<UniversalMessage, void, unknown> {
         try {
             // Extract parameters from request payload
             const model = request.model;
@@ -59,7 +86,7 @@ export class OpenAIStreamHandler {
             const tools = request.tools;
 
             // Build OpenAI request parameters
-            const requestParams: any = {
+            const requestParams: OpenAIStreamRequestParams = {
                 model: model || 'gpt-4o-mini',
                 messages,
                 temperature,
@@ -76,7 +103,8 @@ export class OpenAIStreamHandler {
             // Use existing stream handler
             yield* this.handleStream(requestParams);
         } catch (error) {
-            logger.error('OpenAI generateStreamingResponse error:', error as Record<string, any>);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            logger.error('OpenAI generateStreamingResponse error:', { message: errorMessage });
             throw error;
         }
     }
@@ -134,7 +162,8 @@ export class OpenAIStreamHandler {
                 }
             };
         } catch (error) {
-            logger.error('Error parsing OpenAI streaming chunk:', error as Record<string, any>);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown parsing error';
+            logger.error('Error parsing OpenAI streaming chunk:', { message: errorMessage });
             return null;
         }
     }

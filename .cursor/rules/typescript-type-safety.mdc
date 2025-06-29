@@ -3,244 +3,165 @@ description:
 globs: 
 alwaysApply: false
 ---
-# TypeScript Type Safety Rules
+# TypeScript Type Safety Rules - Zero Any/Unknown Policy
 
-## 🚨 STRICT any/unknown Type Usage Policy
+## 🚨 ABSOLUTE PROHIBITION: any/unknown Types
 
-### 🚫 DEFAULT: NO any/unknown Types
-- **Default position**: `any` and `unknown` types are **PROHIBITED**
-- **Assumption**: There is always a better, more specific type available
-- **Burden of proof**: You must PROVE that no alternative exists
+### Rule 1: Complete any/unknown Ban
+**NO any or unknown types are permitted in the codebase except for user-explicitly requested edge cases.**
 
-### ⚠️ MANDATORY: Exhaustive Alternative Verification
-Before even considering `any`/`unknown`, you MUST systematically verify ALL alternatives:
+**Type complexity is NOT a valid reason for any/unknown usage.**
 
-#### 1. **Union Types** - Can you enumerate all possible types?
+The codebase provides comprehensive solutions:
+- **Generic Type Parameters**: `<TConfig, TMessage, TResponse>`
+- **Facade Pattern Architecture**: Complex types broken into manageable pieces
+- **Type Parameter Constraints**: `T extends Record<string, ConfigValue>`
+- **Default Type Parameters**: Backward compatibility maintained
+
+### Rule 2: Mandatory Pattern Application
+When facing complex typing challenges, you MUST use:
+
 ```typescript
-// ❌ PROHIBITED: Using unknown without checking union types
-let value: unknown;
-
-// ✅ REQUIRED: Use union when types are enumerable
-let value: string | number | boolean | null | undefined;
-```
-
-#### 2. **Generic Types** - Can the function be parameterized?
-```typescript
-// ❌ PROHIBITED: Unknown for reusable functions
-function process(data: unknown): unknown;
-
-// ✅ REQUIRED: Use generics for type preservation
-function process<T>(data: T): T;
-function processWithConstraint<T extends Record<string, any>>(data: T): T;
-```
-
-#### 3. **Intersection & Extension** - Can you build on existing types?
-```typescript
-// ❌ PROHIBITED: Unknown for extensible objects
-interface Context {
-  [key: string]: unknown;
+// ✅ REQUIRED: Generic Type Parameters with Constraints
+interface BaseProvider<
+  TConfig extends Record<string, ConfigValue>,
+  TMessage extends UniversalMessage,
+  TResponse extends ProviderResponse
+> {
+  configure(config: TConfig): Promise<void>;
+  process(message: TMessage): Promise<TResponse>;
 }
 
-// ✅ REQUIRED: Build specific extensions
-interface Context extends BaseContext {
-  [key: string]: string | number | boolean | Date;
-}
+// ✅ REQUIRED: Facade Pattern for Complex Types
+// Create separate files: types.ts, interfaces.ts, adapters/, transformers/
 ```
 
-#### 4. **Conditional Types** - Can type be determined conditionally?
+### Rule 3: Provider-Agnostic Design Enforcement
+All provider integrations MUST follow the established pattern:
+
 ```typescript
-// ❌ PROHIBITED: Unknown for dependent types
-type ApiResponse = unknown;
-
-// ✅ REQUIRED: Use conditional types
-type ApiResponse<T> = T extends 'success' ? SuccessData : ErrorData;
-```
-
-#### 5. **Mapped Types** - Can you transform known structures?
-```typescript
-// ❌ PROHIBITED: Unknown for object transformations
-type TransformedData = Record<string, unknown>;
-
-// ✅ REQUIRED: Use mapped types
-type TransformedData<T> = {
-  [K in keyof T]: string;
-};
-```
-
-#### 6. **Type Guards** - Can you narrow unknown inputs?
-```typescript
-// ❌ PROHIBITED: Accepting unknown without validation
-function process(data: unknown): void {
-  // Direct usage without validation
+// ✅ CORRECT: Provider-neutral with explicit generics
+export class OpenAIProvider extends BaseAIProvider<
+  OpenAIProviderOptions, 
+  UniversalMessage, 
+  UniversalMessage
+> {
+  // Implementation uses OpenAI-specific types internally
+  // Exposes only UniversalMessage externally
 }
 
-// ✅ REQUIRED: Use type guards to narrow
-function process(data: unknown): void {
-  if (isValidData(data)) {
-    // Now data is properly typed
-  }
-}
-
-function isValidData(data: unknown): data is ValidDataType {
-  return typeof data === 'object' && data !== null && 'id' in data;
-}
+// ❌ FORBIDDEN: any types for "simplicity"
+const requestParams: any = { ... }; // VIOLATION
 ```
 
-#### 7. **Interface Definition** - Can you define a specific interface?
-```typescript
-// ❌ PROHIBITED: Unknown for structured data
-function handleApiResponse(response: unknown): void {}
+### Rule 4: Only 2 Exceptional Cases Permitted
+1. **External Library Streaming Protocol Issues**: When 3rd party SDK has broken TypeScript definitions
+2. **User Explicitly Requests Legacy Compatibility**: Only with explicit user approval
 
-// ✅ REQUIRED: Define specific interfaces
-interface ApiResponse {
-  status: 'success' | 'error';
-  data?: ResponseData;
-  error?: ErrorInfo;
-}
-function handleApiResponse(response: ApiResponse): void {}
+### Rule 5: Required Exception Documentation
+When user explicitly allows any/unknown:
+
+```typescript
+// REASON: [User requested legacy compatibility for specific migration scenario]
+// ALTERNATIVES_CONSIDERED: [All 12 pattern-based alternatives verified and documented]
+// USER_APPROVAL: [Explicit user consent with date and context]
+// TODO: [Mandatory timeline to eliminate any/unknown]
+const data: any = userRequestedLegacyCode();
 ```
 
-### ✅ EXCEPTIONAL CASES: Only When NO Alternative Exists
+## Type Architecture Patterns
 
-`any`/`unknown` may ONLY be used in these exceptional cases:
+### Central Type Authorities
+- **[interfaces/tool.ts](mdc:packages/agents/src/interfaces/tool.ts)**: All tool-related types
+- **[interfaces/agent.ts](mdc:packages/agents/src/interfaces/agent.ts)**: Agent and message types  
+- **[abstracts/base-ai-provider.ts](mdc:packages/agents/src/abstracts/base-ai-provider.ts)**: Provider type system
+- **Provider-specific api-types.ts**: Each provider's native API types
 
-#### 1. **External JSON Parsing** (Input genuinely unknown)
+### Generic Type Parameter System
 ```typescript
-// ✅ ACCEPTABLE: JSON structure is truly unknown
-function parseExternalJSON(jsonString: string): unknown {
-  // REASON: External JSON structure is genuinely unpredictable
-  // ALTERNATIVES_CONSIDERED: Cannot predict external API response structure
-  // TODO: Add runtime validation and type narrowing after parsing
-  return JSON.parse(jsonString);
+// ✅ PATTERN: Explicit type parameters with defaults
+interface BaseAgent<
+  TConfig = AgentConfig,
+  TContext = ExecutionContext, 
+  TResult = ExecutionResult
+> {
+  configure(config: TConfig): Promise<void>;
+  execute(context: TContext): Promise<TResult>;
+}
+
+// ✅ PATTERN: Type constraints for safety
+interface BaseTool<
+  TParameters extends Record<string, ConfigValue>,
+  TResult extends ToolExecutionResult
+> {
+  execute(params: TParameters): Promise<TResult>;
 }
 ```
 
-#### 2. **Third-party Library Integration** (No type definitions available)
+### Facade Pattern Implementation
 ```typescript
-// ✅ ACCEPTABLE: External library with no types
-const result = (window as any).legacyLibrary.undocumentedMethod();
-// REASON: Legacy browser library with no TypeScript definitions available
-// ALTERNATIVES_CONSIDERED: No @types package exists, vendor provides no types
-// TODO: Create custom type declarations or replace with typed alternative
+// ✅ PATTERN: Complex types broken into modules
+// src/components/webhook/
+//   ├── types.ts          # Core type definitions
+//   ├── interfaces.ts     # Public contracts
+//   ├── adapters/         # Type conversion logic
+//   ├── validators/       # Type validation
+//   └── index.ts          # Clean facade export
 ```
 
-#### 3. **JavaScript Migration** (Temporary during conversion)
+### Import-Only Type Ownership
 ```typescript
-// ✅ ACCEPTABLE: Temporary during JS to TS migration
-let legacyData: any;
-// REASON: Legacy JavaScript code being incrementally migrated
-// ALTERNATIVES_CONSIDERED: Cannot determine type without extensive legacy code analysis
-// TODO: Analyze legacy usage patterns and replace with specific type
+// ✅ CORRECT: Import from type authority
+import type { ToolParameters, ToolResult } from '../interfaces/tool';
+
+// ❌ FORBIDDEN: Local type redefinition
+type ToolParameters = Record<string, unknown>; // VIOLATION
 ```
 
-### 📝 MANDATORY DOCUMENTATION FORMAT
+## Advanced Type Patterns
 
-Every `any`/`unknown` usage MUST include this exact format:
-
+### Pattern 1: Provider Type Conversion
 ```typescript
-// REASON: [Specific technical reason why NO alternative exists]
-// ALTERNATIVES_CONSIDERED: [List ALL alternatives you verified as impossible]
-// TODO: [Mandatory - specific plan to eliminate any/unknown in the future]
-const data: unknown = externalSource;
-```
-
-**Example of complete documentation:**
-```typescript
-// REASON: External API returns unpredictable JSON structure varying by endpoint
-// ALTERNATIVES_CONSIDERED: Union types (impossible - infinite variations), 
-//                          Generic types (no way to parameterize unknown structure),
-//                          Conditional types (no condition to base on),
-//                          Interface definition (structure varies completely)
-// TODO: Implement runtime schema validation with Zod and create specific types per endpoint
-const apiResponse: unknown = await fetch('/api/dynamic-endpoint').then(r => r.json());
-```
-
-### 🔍 PRE-IMPLEMENTATION VERIFICATION CHECKLIST
-
-Before using `any`/`unknown`, you MUST answer "NO" to ALL of these:
-
-- [ ] Can I use a union type (e.g., `string | number | boolean`)?
-- [ ] Can I use a generic type parameter (e.g., `<T>` or `<T extends SomeType>`)?
-- [ ] Can I define a specific interface for this data structure?
-- [ ] Can I use conditional types to determine the type?
-- [ ] Can I use mapped types to transform known types?
-- [ ] Can I extend existing interfaces or types?
-- [ ] Can I use intersection types to combine known types?
-- [ ] Can I create type guards to narrow the type?
-- [ ] Can I use utility types (Partial, Pick, Omit, etc.)?
-- [ ] Is there a @types package available for external libraries?
-- [ ] Can I create custom type declarations for external code?
-- [ ] Can I refactor the code to avoid needing unknown types?
-
-**If ANY answer is "YES", you CANNOT use `any`/`unknown`.**
-
-### 🚨 ENFORCEMENT AND CODE REVIEW
-
-#### Code Review Requirements:
-- [ ] Reviewer MUST verify all 12 alternatives were genuinely considered
-- [ ] REASON must be specific and technically sound
-- [ ] ALTERNATIVES_CONSIDERED must list actual attempts, not assumptions
-- [ ] TODO must include specific, actionable improvement plan
-- [ ] Scope of `any`/`unknown` must be absolutely minimal
-- [ ] Must have clear timeline for elimination
-
-#### CI/CD Pipeline:
-- ESLint rules: `@typescript-eslint/no-explicit-any` and `@typescript-eslint/ban-types`
-- Custom lint rule to verify comment format
-- All `any`/`unknown` usage requires manual approval
-- Automatic TODO tracking for future type improvements
-
-### ❌ EXAMPLES: UNACCEPTABLE Usage
-
-```typescript
-// ❌ WRONG: Lazy typing
-let config: any = { host: 'localhost' }; // Should be specific interface
-
-// ❌ WRONG: Avoiding type complexity  
-function process(data: unknown): void {} // Should define specific types
-
-// ❌ WRONG: Plugin extensibility
-interface PluginContext {
-  [key: string]: unknown; // Should use specific value types
+// ✅ Internal provider types → Universal types
+private convertToUniversalMessage(
+  openaiResponse: OpenAI.Chat.ChatCompletion
+): UniversalMessage {
+  // Type-safe conversion logic
 }
-
-// ❌ WRONG: Missing alternatives consideration
-const result: any = complexFunction(); // No documentation or alternatives
 ```
 
-### ✅ EXAMPLES: ACCEPTABLE Usage (Rare)
-
+### Pattern 2: Conditional Type Safety
 ```typescript
-// ✅ CORRECT: External JSON with proper documentation
-function parseUserSubmittedJSON(input: string): unknown {
-  // REASON: User-submitted JSON can contain any valid JSON structure
-  // ALTERNATIVES_CONSIDERED: Union types (infinite possibilities),
-  //                          Interface (user controls structure),
-  //                          Generic (no way to parameterize user input)
-  // TODO: Implement Zod schema validation to convert to typed structures
-  return JSON.parse(input);
-}
-
-// ✅ CORRECT: Legacy integration with migration plan
-declare const legacyGlobal: any;
-// REASON: Legacy global variable from 10-year-old jQuery plugin
-// ALTERNATIVES_CONSIDERED: Custom types (plugin source unavailable),
-//                          @types package (doesn't exist),
-//                          Refactoring (requires 6-month migration)
-// TODO: Replace with modern typed alternative by Q2 2024
+// ✅ Type-safe conditional logic
+type ProviderMessage<T extends string> = T extends 'openai' 
+  ? OpenAIMessage 
+  : T extends 'anthropic'
+  ? AnthropicMessage
+  : UniversalMessage;
 ```
 
-### 📊 TRACKING AND METRICS
+### Pattern 3: Utility Type Composition
+```typescript
+// ✅ Complex types from utility combinations
+type PartialConfig<T> = Partial<Pick<T, keyof T>>;
+type RequiredFields<T, K extends keyof T> = T & Required<Pick<T, K>>;
+```
 
-Maintain metrics on:
-- Total count of `any`/`unknown` usages
-- Age of each usage (how long it's been in codebase)
-- Progress on TODO elimination plans
-- New additions (should trend toward zero)
+## Enforcement Guidelines
 
-### Reference Implementations
+### For Code Reviews
+- **Immediate rejection** of any PR containing any/unknown without user approval
+- **Mandatory pattern application** for all type challenges
+- **Architecture compliance** verification for all provider integrations
 
-See proper type safety examples in:
-- [base-plugin.ts](mdc:packages/agents/src/abstracts/base-plugin.ts) - Specific context types
-- [tool.ts](mdc:packages/agents/src/interfaces/tool.ts) - Type ownership patterns
-- [conversation-history-manager.ts](mdc:packages/agents/src/managers/conversation-history-manager.ts) - Semantic naming
+### For Development
+- **Use established patterns** before attempting custom solutions
+- **Leverage generic type system** for all base classes
+- **Apply facade pattern** for complex type structures
+- **Import from type authorities** - never duplicate type definitions
+
+### For Refactoring
+- **Convert any/unknown** to proper generic patterns immediately
+- **Establish type ownership** for new type definitions
+- **Apply constraints** to all generic type parameters
+- **Maintain backward compatibility** through default type parameters
