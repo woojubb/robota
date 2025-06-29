@@ -61,7 +61,7 @@ export type AgentStatsMetadata = Record<string, string | number | boolean | Date
  * 
  * @public
  * @class
- * @extends BaseAgent
+ * @extends BaseAgent<AgentConfig, RunOptions, Message>
  * @implements AgentInterface
  * 
  * @example Basic Usage
@@ -107,7 +107,7 @@ export type AgentStatsMetadata = Record<string, string | number | boolean | Date
  * }
  * ```
  */
-export class Robota extends BaseAgent implements AgentInterface {
+export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implements AgentInterface {
     /** The name of this agent instance */
     public readonly name: string;
     /** The version of the Robota agent implementation */

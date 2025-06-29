@@ -1,4 +1,5 @@
 import type { BaseAgentInterface, AgentConfig, Message, RunOptions } from '../interfaces/agent';
+import type { ConfigValue } from '../interfaces/types';
 
 /**
  * Base abstract class for all agents with type parameter support
@@ -9,8 +10,8 @@ import type { BaseAgentInterface, AgentConfig, Message, RunOptions } from '../in
  * @template TMessage - Message type (defaults to Message for backward compatibility)
  */
 export abstract class BaseAgent<
-    TConfig = AgentConfig,
-    TContext = RunOptions,
+    TConfig extends Record<string, ConfigValue> = AgentConfig,
+    TContext extends Record<string, ConfigValue> = RunOptions,
     TMessage = Message
 > implements BaseAgentInterface<TConfig, TContext, TMessage> {
     protected history: TMessage[] = [];

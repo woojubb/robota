@@ -6,6 +6,7 @@ import { Tools } from '../managers/tool-manager';
 import { BaseAIProvider } from '../abstracts/base-ai-provider';
 import type { UniversalMessage } from '../managers/conversation-history-manager';
 import type { AgentConfig, Message } from '../interfaces/agent';
+import type { ChatOptions } from '../interfaces/provider';
 
 // Mock dependencies
 vi.mock('../utils/logger', () => ({
@@ -31,7 +32,7 @@ class MockAIProvider extends BaseAIProvider {
     readonly name = 'mock-provider';
     readonly version = '1.0.0';
 
-    async chat(messages: UniversalMessage[], options?: any): Promise<UniversalMessage> {
+    async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
         return {
             role: 'assistant',
             content: 'Mock response',
@@ -39,7 +40,7 @@ class MockAIProvider extends BaseAIProvider {
         };
     }
 
-    async *chatStream(messages: UniversalMessage[], options?: any): AsyncIterable<UniversalMessage> {
+    async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
         yield {
             role: 'assistant',
             content: 'Mock response',
@@ -50,7 +51,7 @@ class MockAIProvider extends BaseAIProvider {
 
 // Create a mock class that extends ConversationHistory
 class MockConversationHistory extends ConversationHistory {
-    private mockSession: any;
+    private mockSession: Record<string, unknown>;
 
     constructor() {
         super({ maxMessagesPerConversation: 100, maxConversations: 10 });
@@ -68,11 +69,11 @@ class MockConversationHistory extends ConversationHistory {
         };
     }
 
-    override getConversationSession(conversationId: string): any {
+    override getConversationSession(conversationId: string): unknown {
         return this.mockSession;
     }
 
-    setMockSession(session: any): void {
+    setMockSession(session: Record<string, unknown>): void {
         this.mockSession = session;
     }
 }
@@ -82,8 +83,8 @@ class MockConversationHistory extends ConversationHistory {
 describe('ExecutionService', () => {
     let executionService: ExecutionService;
     let conversationHistory: MockConversationHistory;
-    let aiProviders: any;
-    let tools: any;
+    let aiProviders: AIProviders;
+    let tools: Tools;
     let mockProvider: MockAIProvider;
 
     beforeEach(() => {

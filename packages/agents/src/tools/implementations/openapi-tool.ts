@@ -15,8 +15,10 @@ type HTTPMethod = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'option
 /**
  * OpenAPI tool implementation
  * Executes API calls based on OpenAPI 3.0 specifications
+ * 
+ * @extends BaseTool<ToolParameters, ToolResult>
  */
-export class OpenAPITool extends BaseTool implements ToolInterface {
+export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements ToolInterface {
     readonly schema: ToolSchema;
     private readonly apiSpec: OpenAPIV3.Document;
     private readonly operationId: string;
@@ -41,7 +43,7 @@ export class OpenAPITool extends BaseTool implements ToolInterface {
         try {
             logger.debug(`Executing OpenAPI tool "${toolName}"`, {
                 toolName,
-                parameters,
+                parametersCount: Object.keys(parameters || {}).length,
                 baseURL: this.baseURL,
                 operationId: this.operationId
             });
@@ -89,7 +91,12 @@ export class OpenAPITool extends BaseTool implements ToolInterface {
                 `OpenAPI execution failed: ${error instanceof Error ? error.message : String(error)}`,
                 toolName,
                 error instanceof Error ? error : new Error(String(error)),
-                { parameters, context, operationId: this.operationId, baseURL: this.baseURL }
+                {
+                    parametersCount: Object.keys(parameters || {}).length,
+                    hasContext: !!context,
+                    operationId: this.operationId,
+                    baseURL: this.baseURL
+                }
             );
         }
     }

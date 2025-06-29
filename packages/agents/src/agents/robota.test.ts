@@ -7,7 +7,7 @@ import { BasePlugin } from '../abstracts/base-plugin';
 import { BaseTool } from '../abstracts/base-tool';
 import { BaseAIProvider } from '../abstracts/base-ai-provider';
 import type { ToolSchema, ChatOptions } from '../interfaces/provider';
-import type { ToolParameters } from '../interfaces/tool';
+import type { ToolParameters, ToolResult } from '../interfaces/tool';
 import type { UniversalMessage } from '../managers/conversation-history-manager';
 
 import { ConfigurationError, ValidationError } from '../utils/errors';
@@ -60,14 +60,14 @@ class MockTool extends BaseTool {
         };
     }
 
-    async execute(parameters: any): Promise<any> {
+    async execute(parameters: ToolParameters): Promise<ToolResult> {
         return {
             success: true,
-            data: `Mock tool executed with: ${parameters.input}`
+            data: `Mock tool executed with: ${(parameters as Record<string, unknown>).input || 'no input'}`
         };
     }
 
-    validateParameters(parameters: any): { isValid: boolean; errors: string[] } {
+    validateParameters(parameters: ToolParameters): { isValid: boolean; errors: string[] } {
         return { isValid: true, errors: [] };
     }
 }

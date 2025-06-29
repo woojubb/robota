@@ -1,9 +1,10 @@
-import type { AIProvider, ProviderConfigValue } from './provider';
+import type { ProviderConfigValue } from './provider';
 import type { BasePlugin } from '../abstracts/base-plugin';
 import type { BaseTool } from '../abstracts/base-tool';
+import type { BaseAIProvider } from '../abstracts/base-ai-provider';
 import type { UtilLogLevel } from '../utils/logger';
 import type { ToolExecutionResult } from './tool';
-import type { Metadata } from './types';
+import type { Metadata, ConfigValue } from './types';
 
 /**
  * Message metadata structure - specific type definition for agents
@@ -108,8 +109,8 @@ export interface AgentConfig {
     temperature?: number;
     maxTokens?: number;
     metadata?: MessageMetadata;
-    // Provider configuration
-    aiProviders?: Record<string, AIProvider>;
+    // Provider configuration (provider-agnostic with type parameters)
+    aiProviders?: Record<string, BaseAIProvider>;
     currentProvider?: string;
     currentModel?: string;
     // Conversation management
@@ -119,6 +120,8 @@ export interface AgentConfig {
         level?: UtilLogLevel;
         enabled?: boolean;
     };
+    // Index signature for type parameter constraints compatibility
+    [key: string]: ConfigValue;
 }
 
 /**
@@ -148,8 +151,8 @@ export interface RunOptions {
     sessionId?: string;
     userId?: string;
     metadata?: Metadata;
-    // Additional properties for logger compatibility
-    [key: string]: string | number | boolean | Metadata | undefined;
+    // Index signature for type parameter constraints compatibility
+    [key: string]: ConfigValue;
 }
 
 /**
