@@ -47,7 +47,7 @@ Initialize the manager
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-manager.ts:11](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-manager.ts#L11)
+[packages/agents/src/abstracts/base-manager.ts:11](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-manager.ts#L11)
 
 ___
 
@@ -63,7 +63,7 @@ Cleanup manager resources
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-manager.ts:27](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-manager.ts#L27)
+[packages/agents/src/abstracts/base-manager.ts:27](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-manager.ts#L27)
 
 ___
 
@@ -79,4 +79,4 @@ Check if manager is initialized
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-manager.ts:40](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-manager.ts#L40)
+[packages/agents/src/abstracts/base-manager.ts:40](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-manager.ts#L40)

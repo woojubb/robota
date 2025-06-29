@@ -36,8 +36,8 @@ Pure function that transforms inputs to context object
 | `messages` | [`UniversalMessage`](../modules#universalmessage)[] |
 | `model` | `string` |
 | `provider` | `string` |
-| `contextOptions?` | [`ContextOptions`](ContextOptions) |
-| `serviceOptions?` | [`ConversationServiceOptions`](ConversationServiceOptions) |
+| `contextOptions?` | `ContextOptions` |
+| `serviceOptions?` | `ConversationServiceOptions` |
 
 #### Returns
 
@@ -45,13 +45,13 @@ Pure function that transforms inputs to context object
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:105](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L105)
+[packages/agents/src/interfaces/service.ts:169](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L169)
 
 ___
 
 ### generateResponse
 
-▸ **generateResponse**(`provider`, `context`, `serviceOptions?`): `Promise`\<[`ConversationResponse`](ConversationResponse)\>
+▸ **generateResponse**(`provider`, `context`, `serviceOptions?`): `Promise`\<`ConversationResponse`\>
 
 Generate a response using the AI provider
 Stateless operation that handles the full request-response cycle
@@ -62,21 +62,21 @@ Stateless operation that handles the full request-response cycle
 | :------ | :------ |
 | `provider` | [`AIProvider`](AIProvider) |
 | `context` | [`ConversationContext`](ConversationContext) |
-| `serviceOptions?` | [`ConversationServiceOptions`](ConversationServiceOptions) |
+| `serviceOptions?` | `ConversationServiceOptions` |
 
 #### Returns
 
-`Promise`\<[`ConversationResponse`](ConversationResponse)\>
+`Promise`\<`ConversationResponse`\>
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:117](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L117)
+[packages/agents/src/interfaces/service.ts:181](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L181)
 
 ___
 
 ### generateStreamingResponse
 
-▸ **generateStreamingResponse**(`provider`, `context`, `serviceOptions?`): `AsyncGenerator`\<[`StreamingChunk`](StreamingChunk), `void`, `unknown`\>
+▸ **generateStreamingResponse**(`provider`, `context`, `serviceOptions?`): `AsyncGenerator`\<`StreamingChunk`, `void`, `never`\>
 
 Generate streaming response using the AI provider
 Stateless streaming operation
@@ -87,15 +87,15 @@ Stateless streaming operation
 | :------ | :------ |
 | `provider` | [`AIProvider`](AIProvider) |
 | `context` | [`ConversationContext`](ConversationContext) |
-| `serviceOptions?` | [`ConversationServiceOptions`](ConversationServiceOptions) |
+| `serviceOptions?` | `ConversationServiceOptions` |
 
 #### Returns
 
-`AsyncGenerator`\<[`StreamingChunk`](StreamingChunk), `void`, `unknown`\>
+`AsyncGenerator`\<`StreamingChunk`, `void`, `never`\>
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:127](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L127)
+[packages/agents/src/interfaces/service.ts:191](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L191)
 
 ___
 
@@ -123,4 +123,4 @@ Pure validation function
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:137](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L137)
+[packages/agents/src/interfaces/service.ts:201](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L201)

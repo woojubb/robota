@@ -8,7 +8,11 @@
 
 # Interface: RunOptions
 
-Agent run options
+Agent run options - type-safe interface for all agent execution options
+
+## Indexable
+
+▪ [key: `string`]: `ConfigValue`
 
 ## Table of contents
 
@@ -30,7 +34,7 @@ Agent run options
 
 #### Defined in
 
-agents/dist/index.d.ts:89
+agents/dist/index.d.ts:1375
 
 ___
 
@@ -40,7 +44,7 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:90
+agents/dist/index.d.ts:1376
 
 ___
 
@@ -50,7 +54,7 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:91
+agents/dist/index.d.ts:1377
 
 ___
 
@@ -60,7 +64,7 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:92
+agents/dist/index.d.ts:1378
 
 ___
 
@@ -70,7 +74,7 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:93
+agents/dist/index.d.ts:1379
 
 ___
 
@@ -80,14 +84,14 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:94
+agents/dist/index.d.ts:1380
 
 ___
 
 ### metadata
 
-• `Optional` **metadata**: `Record`\<`string`, `any`\>
+• `Optional` **metadata**: `Metadata`
 
 #### Defined in
 
-agents/dist/index.d.ts:95
+agents/dist/index.d.ts:1381

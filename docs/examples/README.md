@@ -1,316 +1,192 @@
-# Robota Examples
+# Examples
 
-This directory contains comprehensive examples demonstrating how to use the Robota SDK for building AI-powered applications. All examples have been simplified and modernized to showcase the latest architecture improvements.
+This directory contains practical examples demonstrating various features and use cases of the Robota SDK.
 
-## Quick Start
+## 🚀 Getting Started
 
-All examples are located in [`apps/examples/`](../../apps/examples/) and can be run directly:
+### Quick Setup
 
+1. **Clone and Install**:
+   ```bash
+   git clone https://github.com/your-org/robota.git
+   cd robota
+   pnpm install
+   ```
+
+2. **Environment Setup**:
 ```bash
-# Navigate to examples directory
 cd apps/examples
-
-# Install dependencies
-npm install
-
-# Create environment file
 cp .env.example .env
-# Add your API keys to .env
+   # Edit .env with your API keys
+   ```
 
+3. **Run Examples**:
+   ```bash
 # Run any example
 npx tsx 01-basic-conversation.ts
 ```
 
-## Core Examples
+## 📋 Example Categories
 
-### 1. [Basic Conversation](./basic-conversation.md)
-**File**: `01-basic-conversation.ts`
+### Basic Usage
+- **[Basic Conversation](./basic-conversation.md)** - Simple AI conversation setup
+- **[Agents Basic Usage](./agents-basic-usage.md)** - New @robota-sdk/agents package features
+- **[Agents Streaming](./agents-streaming.md)** - Real-time streaming responses with performance monitoring
+- **[AI with Tools](./ai-with-tools.md)** - Function calling and tool usage
 
-Learn the fundamentals of Robota:
-- Setting up OpenAI provider with the new `BaseAIProvider` architecture
-- Simple message exchange and streaming responses
-- Proper resource cleanup with `robota.close()`
-- Error handling and environment setup
+### Multi-Provider & Templates
+- **[Multi-Provider](./multi-provider.md)** - Using multiple AI providers (OpenAI, Anthropic, Google)
+- **[Agent Templates](./team-templates.md)** - Specialized agent configurations for optimal performance
 
-```typescript
-// Basic setup with modern provider architecture
-const openaiProvider = new OpenAIProvider({
-    client: openaiClient,
-    model: 'gpt-3.5-turbo'
-});
+### Advanced Features
+- **[Execution Analytics](./execution-analytics.md)** - Performance monitoring and analytics
+- **[Team Collaboration](./team-collaboration.md)** - Multi-agent teamwork and coordination
 
-const robota = new Robota({
-    aiProviders: { openai: openaiProvider },
-    currentProvider: 'openai',
-    systemPrompt: 'You are a helpful AI assistant.'
-});
-```
+### Learning Path
+For new users, we recommend following this learning sequence:
 
-### 2. [Tool Calling](./ai-with-tools.md)
-**File**: `02-tool-calling.ts`
+1. **Start with Basics**: [Basic Conversation](./basic-conversation.md)
+2. **Add Tools**: [AI with Tools](./ai-with-tools.md)
+3. **Explore Streaming**: [Agents Streaming](./agents-streaming.md)
+4. **Try Multi-Provider**: [Multi-Provider](./multi-provider.md)
+5. **Use Templates**: [Agent Templates](./team-templates.md)
+6. **Monitor Performance**: [Execution Analytics](./execution-analytics.md)
+7. **Scale with Teams**: [Team Collaboration](./team-collaboration.md)
 
-Explore advanced tool calling capabilities:
-- Define tools using Zod schemas for type safety
-- Automatic tool calling by AI agents
-- Modern `toolCalls` format (no legacy `functionCall`)
-- Complex multi-tool interactions
-- Error handling in tool execution
+## 🎯 Quick Feature Overview
 
-```typescript
-// Tool definition with Zod
-const tools = {
-    calculate: {
-        name: 'calculate',
-        description: 'Performs mathematical calculations',
-        parameters: z.object({
-            operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
-            a: z.number(),
-            b: z.number()
-        }),
-        handler: async (params) => {
-            // Tool implementation
-        }
-    }
-};
-```
+### New Unified Architecture (`@robota-sdk/agents`)
+The examples showcase the powerful new unified architecture:
 
-### 3. [Multi-Provider](./multi-provider.md)
-**File**: `03-multi-providers.ts`
+- **Zero `any` Types**: Complete TypeScript safety
+- **Plugin System**: Modular functionality with built-in plugins
+- **Multi-Provider**: Seamless switching between OpenAI, Anthropic, Google
+- **Advanced Analytics**: Built-in execution monitoring and performance tracking
+- **Tool System**: Type-safe function calling with automatic schema conversion
+- **Streaming Support**: Real-time response streaming with metadata
 
-Master multi-provider configurations:
-- Use OpenAI, Anthropic, and Google AI providers
-- Unified `BaseAIProvider` architecture ensures consistency
-- Same tool calling interface across all providers
-- Dynamic provider switching
-- Provider-specific optimizations
+### Core Capabilities Demonstrated
 
-```typescript
-// All providers extend BaseAIProvider
-const providers = {
-    openai: new OpenAIProvider({ client, model: 'gpt-3.5-turbo' }),
-    anthropic: new AnthropicProvider({ client, model: 'claude-3-sonnet' }),
-    google: new GoogleProvider({ client, model: 'gemini-pro' })
-};
-```
+| Feature | Examples | Description |
+|---------|----------|-------------|
+| **Basic AI Chat** | 01, 10 | Simple conversations and basic setup |
+| **Function Calling** | 02 | Tool integration and automated function calls |
+| **Multi-Provider** | 03, 07 | OpenAI, Anthropic, Google AI provider usage |
+| **Streaming** | 11 | Real-time response streaming |
+| **Team Coordination** | 05, 09 | Multi-agent collaboration |
+| **Performance Analytics** | 08, 09 | Execution monitoring and optimization |
+| **Template Patterns** | 07 | Reusable agent configurations |
 
-### 4. [Advanced Features](./session-management.md)
-**File**: `04-advanced-features.ts`
+## 🔧 Running Examples
 
-Explore advanced Robota capabilities:
-- Analytics and usage tracking
-- Request and token limits
-- Conversation history management
-- Streaming responses with tool calling
-- Custom system messages and callbacks
-- Performance monitoring
-
-```typescript
-// Advanced configuration
-const robota = new Robota({
-    aiProviders: { openai: openaiProvider },
-    toolProviders: [toolProvider],
-    temperature: 0.7,
-    maxTokens: 1000,
-    maxTokenLimit: 5000,
-    maxRequestLimit: 10,
-    debug: true,
-    onToolCall: (toolName, params, result) => {
-        console.log(`Tool ${toolName} called with:`, params);
-    }
-});
-```
-
-### 5. [Multi-Agent Team Collaboration](./team-collaboration.md)
-**File**: `05-team-collaboration-ko.ts`
-
-Master intelligent multi-agent teamwork:
-- Team coordinator that delegates specialized tasks
-- Dynamic expert agent creation for complex workflows
-- Collaborative problem-solving for multi-faceted requests
-- Automatic result synthesis and resource cleanup
-- Performance monitoring and statistics tracking
-
-```typescript
-// Create intelligent team
-const team = createTeam({
-  provider: new OpenAIProvider({
-    apiKey: process.env.OPENAI_API_KEY,
-    model: 'gpt-4'
-  }),
-  maxTokenLimit: 50000,
-  logger: console
-});
-
-// Team automatically delegates complex requests
-const response = await team.execute(`
-  Create a comprehensive business plan including:
-  1) Market analysis with competitor research
-  2) Financial projections for first year
-  3) Marketing strategy and brand positioning
-`);
-```
-
-## Environment Setup
-
-Create a `.env` file in the examples directory:
+### Prerequisites
 
 ```bash
-# Required for basic examples
-OPENAI_API_KEY=your_openai_api_key_here
-
-# Optional - for multi-provider examples
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
-GOOGLE_AI_API_KEY=your_google_ai_api_key_here
+# Required environment variables
+OPENAI_API_KEY=your_openai_key
+ANTHROPIC_API_KEY=your_anthropic_key  # For multi-provider examples
+GOOGLE_AI_API_KEY=your_google_key     # For Google AI examples
 ```
-
-## Architecture Highlights
-
-### Modern Provider System
-
-All AI providers now extend `BaseAIProvider`, providing:
-- Consistent tool calling interface across providers
-- Unified message format conversion
-- Standardized error handling
-- Automatic resource cleanup
-
-### Tool Calling Evolution
-
-The examples showcase the modern tool calling system:
-- **Modern**: `toolCalls` with proper `toolCallId` tracking
-- **Type Safe**: Zod schemas for parameter validation
-- **Universal**: Same interface works with OpenAI, Anthropic, and Google AI
-
-### Resource Management
-
-All examples demonstrate proper resource cleanup:
-```typescript
-// Always clean up resources
-await robota.close();
-process.exit(0);
-```
-
-## Running Examples
 
 ### Individual Examples
+
 ```bash
+# Navigate to examples
+cd apps/examples
+
 # Basic conversation
 npx tsx 01-basic-conversation.ts
 
-# Tool calling
+# Advanced agents features
+npx tsx 10-agents-basic-usage.ts
+
+# Streaming responses
+npx tsx 11-agents-streaming.ts
+
+# Function calling
 npx tsx 02-tool-calling.ts
 
-# Multi-provider
+# Multi-provider comparison
 npx tsx 03-multi-providers.ts
 
-# Advanced features
-npx tsx 04-advanced-features.ts
+# Agent templates
+npx tsx 07-team-templates.ts
+
+# Performance analytics
+npx tsx 08-execution-analytics.ts
 ```
 
-### All Examples
+### Run All Examples
+
 ```bash
-# Run all examples in sequence
-npm run examples
-
-# Team collaboration example
-npx tsx 05-team-collaboration-ko.ts
+# Run a sequence of examples to see progression
+npm run examples:basic     # Basic examples (01, 02, 10)
+npm run examples:advanced  # Advanced examples (03, 07, 08, 11)
+npm run examples:all       # All examples in sequence
 ```
 
-## Example Features
+## 🎨 Example Structure
 
-| Feature | Basic | Tools | Multi-Provider | Advanced | Team |
-|---------|-------|-------|----------------|----------|------|
-| Simple Chat | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Streaming | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Tool Calling | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Multiple Providers | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Analytics | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Rate Limiting | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Multi-Agent Coordination | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Task Delegation | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Expert Agent Creation | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Error Handling | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Resource Cleanup | ✅ | ✅ | ✅ | ✅ | ✅ |
+Each example follows a consistent structure:
 
-## Legacy Examples Removed
-
-The following legacy examples have been removed in favor of the simplified structure:
-
-- ❌ `01-basic/` - Consolidated into single files
-- ❌ `02-functions/` - Merged into tool calling example
-- ❌ `03-advanced/` - Integrated into advanced features
-- ❌ Multiple provider-specific directories
-- ❌ Redundant setup and configuration examples
-
-## Best Practices Demonstrated
-
-### 1. Environment Management
 ```typescript
-// Always validate environment variables
-const apiKey = process.env.OPENAI_API_KEY;
-if (!apiKey) {
-    throw new Error('OPENAI_API_KEY environment variable is required');
-}
-```
+/**
+ * XX-example-name.ts
+ * 
+ * Brief description of what this example demonstrates:
+ * - Key feature 1
+ * - Key feature 2
+ * - Key feature 3
+ */
 
-### 2. Error Handling
-```typescript
-try {
-    const response = await robota.run(query);
-    console.log(response);
-} catch (error) {
-    console.error('❌ Error occurred:', error);
-    process.exit(1);
-}
-```
+import { /* required imports */ } from '@robota-sdk/agents';
+import dotenv from 'dotenv';
 
-### 3. Resource Cleanup
-```typescript
-// Clean up resources to prevent memory leaks
-await robota.close();
-```
+dotenv.config();
 
-### 4. Tool Design
-```typescript
-// Use descriptive names and clear parameter validation
-const tools = {
-    toolName: {
-        name: 'toolName',
-        description: 'Clear description of what the tool does',
-        parameters: z.object({
-            param: z.string().describe('Clear parameter description')
-        }),
-        handler: async (params) => {
-            // Robust error handling in tools
-            try {
-                return { success: true, result: /* result */ };
+async function main() {
+    try {
+        // Example implementation
+        console.log('🚀 Example Started...');
+        
+        // Create agents, configure providers, demonstrate features
+        
+        console.log('✅ Example Completed!');
             } catch (error) {
-                return { success: false, error: error.message };
+        console.error('❌ Error:', error);
+        process.exit(1);
+    } finally {
+        // Cleanup resources
+        process.exit(0);
             }
         }
-    }
-};
+
+main();
 ```
 
-## Next Steps
+## 📊 Performance Considerations
 
-After exploring these examples:
+The examples are optimized for learning and demonstration:
 
-1. **Read the [Core Concepts](../guide/core-concepts.md)** for deeper understanding
-2. **Explore [API Reference](../api-reference/)** for detailed documentation
-3. **Check out [Protocols](../protocols/)** for advanced integrations
-4. **Visit [Building Agents](../guide/building-agents.md)** for production patterns
+- **Minimal Token Usage**: Short queries to reduce API costs
+- **Error Handling**: Robust error handling and recovery
+- **Resource Cleanup**: Proper cleanup to prevent memory leaks
+- **Performance Monitoring**: Built-in timing and analytics
 
-## Troubleshooting
+## 🔗 Related Documentation
 
-### Common Issues
+- **[Getting Started Guide](../getting-started/README.md)** - Initial setup and basic concepts
+- **[Core Concepts](../guide/core-concepts.md)** - Understanding the architecture
+- **[API Reference](../api-reference/README.md)** - Complete API documentation
+- **[Provider Guides](../providers/README.md)** - Provider-specific documentation
 
-1. **Missing API Keys**: Ensure all required environment variables are set
-2. **Module Import Errors**: Run `npm install` in the examples directory
-3. **TypeScript Errors**: Ensure you're using Node.js 18+ with TypeScript support
-4. **Rate Limits**: Some examples may hit API rate limits with free tier accounts
+## 💡 Tips for Learning
 
-### Getting Help
+1. **Start Simple**: Begin with basic conversation example
+2. **Read Comments**: Each example has detailed inline comments
+3. **Experiment**: Modify examples to explore different configurations
+4. **Check Output**: Expected output is documented for each example
+5. **Use TypeScript**: Examples showcase full type safety benefits
+6. **Monitor Performance**: Use analytics examples to optimize your usage
 
-- Check the [troubleshooting guide](../development/README.md)
-- Review [API documentation](../api-reference/README.md)
-- Look at [development guidelines](../development/development-guidelines.md) 
+Happy coding with Robota! 🤖 

@@ -26,7 +26,7 @@ Tool schema definition
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:9](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L9)
+[packages/agents/src/interfaces/provider.ts:33](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L33)
 
 ___
 
@@ -36,7 +36,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:10](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L10)
+[packages/agents/src/interfaces/provider.ts:34](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L34)
 
 ___
 
@@ -54,4 +54,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:11](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L11)
+[packages/agents/src/interfaces/provider.ts:35](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L35)

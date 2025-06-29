@@ -30,7 +30,7 @@
 | Name | Type |
 | :------ | :------ |
 | `name` | `string` |
-| `provider` | `any` |
+| `provider` | `BaseAIProvider`\<`ProviderConfig`, `UniversalMessage`, `UniversalMessage`\> |
 
 #### Returns
 
@@ -38,13 +38,13 @@
 
 #### Defined in
 
-[sessions/src/interfaces/ai-provider.ts:11](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/interfaces/ai-provider.ts#L11)
+[sessions/src/interfaces/ai-provider.ts:13](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/interfaces/ai-provider.ts#L13)
 
 ___
 
 ### getProvider
 
-▸ **getProvider**(`name`): `any`
+▸ **getProvider**(`name`): ``null`` \| `BaseAIProvider`\<`ProviderConfig`, `UniversalMessage`, `UniversalMessage`\>
 
 #### Parameters
 
@@ -54,11 +54,11 @@ ___
 
 #### Returns
 
-`any`
+``null`` \| `BaseAIProvider`\<`ProviderConfig`, `UniversalMessage`, `UniversalMessage`\>
 
 #### Defined in
 
-[sessions/src/interfaces/ai-provider.ts:12](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/interfaces/ai-provider.ts#L12)
+[sessions/src/interfaces/ai-provider.ts:14](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/interfaces/ai-provider.ts#L14)
 
 ___
 
@@ -78,7 +78,7 @@ ___
 
 #### Defined in
 
-[sessions/src/interfaces/ai-provider.ts:13](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/interfaces/ai-provider.ts#L13)
+[sessions/src/interfaces/ai-provider.ts:15](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/interfaces/ai-provider.ts#L15)
 
 ___
 
@@ -92,7 +92,7 @@ ___
 
 #### Defined in
 
-[sessions/src/interfaces/ai-provider.ts:14](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/interfaces/ai-provider.ts#L14)
+[sessions/src/interfaces/ai-provider.ts:16](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/interfaces/ai-provider.ts#L16)
 
 ___
 
@@ -112,7 +112,7 @@ ___
 
 #### Defined in
 
-[sessions/src/interfaces/ai-provider.ts:15](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/interfaces/ai-provider.ts#L15)
+[sessions/src/interfaces/ai-provider.ts:17](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/interfaces/ai-provider.ts#L17)
 
 ___
 
@@ -126,4 +126,4 @@ ___
 
 #### Defined in
 
-[sessions/src/interfaces/ai-provider.ts:16](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/interfaces/ai-provider.ts#L16)
+[sessions/src/interfaces/ai-provider.ts:18](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/interfaces/ai-provider.ts#L18)

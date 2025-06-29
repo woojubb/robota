@@ -13,7 +13,7 @@ Wraps a JavaScript function as a tool with schema validation
 
 ## Hierarchy
 
-- [`BaseTool`](BaseTool)
+- [`BaseTool`](BaseTool)\<`ToolParameters`, [`ToolResult`](../interfaces/ToolResult)\>
 
   ↳ **`FunctionTool`**
 
@@ -51,7 +51,7 @@ Wraps a JavaScript function as a tool with schema validation
 | Name | Type |
 | :------ | :------ |
 | `schema` | [`ToolSchema`](../interfaces/ToolSchema) |
-| `fn` | (...`args`: `any`[]) => `Promise`\<`any`\> |
+| `fn` | [`ToolExecutor`](../modules#toolexecutor) |
 
 #### Returns
 
@@ -63,15 +63,13 @@ Wraps a JavaScript function as a tool with schema validation
 
 #### Defined in
 
-[packages/agents/src/tools/implementations/function-tool.ts:15](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/tools/implementations/function-tool.ts#L15)
+[packages/agents/src/tools/implementations/function-tool.ts:23](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/tools/implementations/function-tool.ts#L23)
 
 ## Properties
 
 ### schema
 
 • `Readonly` **schema**: [`ToolSchema`](../interfaces/ToolSchema)
-
-Tool schema
 
 #### Implementation of
 
@@ -83,27 +81,13 @@ IFunctionTool.schema
 
 #### Defined in
 
-[packages/agents/src/tools/implementations/function-tool.ts:12](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/tools/implementations/function-tool.ts#L12)
+[packages/agents/src/tools/implementations/function-tool.ts:20](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/tools/implementations/function-tool.ts#L20)
 
 ___
 
 ### fn
 
-• `Readonly` **fn**: (...`args`: `any`[]) => `Promise`\<`any`\>
-
-#### Type declaration
-
-▸ (`...args`): `Promise`\<`any`\>
-
-##### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `...args` | `any`[] |
-
-##### Returns
-
-`Promise`\<`any`\>
+• `Readonly` **fn**: [`ToolExecutor`](../modules#toolexecutor)
 
 #### Implementation of
 
@@ -111,15 +95,13 @@ IFunctionTool.fn
 
 #### Defined in
 
-[packages/agents/src/tools/implementations/function-tool.ts:13](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/tools/implementations/function-tool.ts#L13)
+[packages/agents/src/tools/implementations/function-tool.ts:21](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/tools/implementations/function-tool.ts#L21)
 
 ## Methods
 
 ### getDescription
 
 ▸ **getDescription**(): `string`
-
-Get tool description
 
 #### Returns
 
@@ -135,7 +117,7 @@ IFunctionTool.getDescription
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:36](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-tool.ts#L36)
+[packages/agents/src/abstracts/base-tool.ts:103](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-tool.ts#L103)
 
 ___
 
@@ -153,7 +135,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:40](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-tool.ts#L40)
+[packages/agents/src/abstracts/base-tool.ts:107](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-tool.ts#L107)
 
 ___
 
@@ -167,7 +149,7 @@ Execute the function tool
 
 | Name | Type |
 | :------ | :------ |
-| `parameters` | `Record`\<`string`, `any`\> |
+| `parameters` | `ToolParameters` |
 | `context?` | [`ToolExecutionContext`](../interfaces/ToolExecutionContext) |
 
 #### Returns
@@ -184,7 +166,7 @@ IFunctionTool.execute
 
 #### Defined in
 
-[packages/agents/src/tools/implementations/function-tool.ts:25](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/tools/implementations/function-tool.ts#L25)
+[packages/agents/src/tools/implementations/function-tool.ts:33](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/tools/implementations/function-tool.ts#L33)
 
 ___
 
@@ -198,7 +180,7 @@ Enhanced validation with detailed error reporting
 
 | Name | Type |
 | :------ | :------ |
-| `parameters` | `Record`\<`string`, `any`\> |
+| `parameters` | `ToolParameters` |
 
 #### Returns
 
@@ -214,7 +196,7 @@ IFunctionTool.validate
 
 #### Defined in
 
-[packages/agents/src/tools/implementations/function-tool.ts:81](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/tools/implementations/function-tool.ts#L81)
+[packages/agents/src/tools/implementations/function-tool.ts:92](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/tools/implementations/function-tool.ts#L92)
 
 ___
 
@@ -228,7 +210,7 @@ Validate tool parameters with detailed result
 
 | Name | Type |
 | :------ | :------ |
-| `parameters` | `Record`\<`string`, `any`\> |
+| `parameters` | `ToolParameters` |
 
 #### Returns
 
@@ -244,4 +226,4 @@ IFunctionTool.validateParameters
 
 #### Defined in
 
-[packages/agents/src/tools/implementations/function-tool.ts:88](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/tools/implementations/function-tool.ts#L88)
+[packages/agents/src/tools/implementations/function-tool.ts:99](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/tools/implementations/function-tool.ts#L99)

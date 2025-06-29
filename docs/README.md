@@ -24,7 +24,8 @@ A powerful TypeScript library for building AI agents with multi-provider support
 
 ### Single Agent
 ```typescript
-import { Robota, OpenAIProvider } from '@robota-sdk/core';
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 
 const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -44,7 +45,8 @@ console.log(response);
 ### Multi-Agent Team
 ```typescript
 import { createTeam } from '@robota-sdk/team';
-import { OpenAIProvider, AnthropicProvider } from '@robota-sdk/core';
+import { OpenAIProvider } from '@robota-sdk/openai';
+import { AnthropicProvider } from '@robota-sdk/anthropic';
 
 const team = await createTeam({
     aiProviders: {
@@ -63,7 +65,7 @@ console.log(result);
 
 ```bash
 # Core package
-npm install @robota-sdk/core
+npm install @robota-sdk/agents
 
 # AI Providers (choose one or more)
 npm install @robota-sdk/openai openai

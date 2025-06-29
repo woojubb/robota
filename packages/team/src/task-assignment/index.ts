@@ -8,7 +8,7 @@
 // Import types first
 import type { TemplateInfo, AssignTaskExecutor } from './tool-factory.js';
 import { createAssignTaskTool, validateTaskParams } from './tool-factory.js';
-import { safeConvertUnknownToParams } from './type-converter.js';
+import { createDynamicAssignTaskSchema } from './schema.js';
 
 // Export types and schemas
 export type {
@@ -23,13 +23,7 @@ export {
     createDynamicAssignTaskSchema
 } from './schema.js';
 
-// Export type converters
-export {
-    convertSchemaToParams,
-    convertDynamicSchemaToParams,
-    convertUnknownToParams,
-    safeConvertUnknownToParams
-} from './type-converter.js';
+// Type converters are no longer needed - Zod handles everything
 
 // Export tool factory
 export type {
@@ -56,9 +50,16 @@ export function createTaskAssignmentFacade(
     const validateParams = (parameters: Record<string, string | number | boolean | Array<string>>) =>
         validateTaskParams(parameters, availableTemplates);
 
-    // Create safe validation function
-    const safeValidateParams = (parameters: Record<string, string | number | boolean | Array<string>>) =>
-        safeConvertUnknownToParams(parameters);
+    // Create safe validation function - now handled entirely by Zod
+    const safeValidateParams = (parameters: Record<string, string | number | boolean | Array<string>>) => {
+        const schema = createDynamicAssignTaskSchema(availableTemplates);
+        const result = schema.safeParse(parameters);
+        return {
+            success: result.success,
+            data: result.success ? result.data : undefined,
+            error: result.success ? undefined : result.error.message
+        };
+    };
 
     return {
         tool,

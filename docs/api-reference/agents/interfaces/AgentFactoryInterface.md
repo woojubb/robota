@@ -23,7 +23,7 @@ Agent Factory interface for agent creation and configuration
 
 ### createAgent
 
-▸ **createAgent**(`config`): `any`
+▸ **createAgent**(`config`, `options?`): [`AgentInterface`](AgentInterface)
 
 Create agent instance
 
@@ -31,21 +31,22 @@ Create agent instance
 
 | Name | Type |
 | :------ | :------ |
-| `config` | `any` |
+| `config` | [`AgentConfig`](AgentConfig) |
+| `options?` | `AgentCreationOptions` |
 
 #### Returns
 
-`any`
+[`AgentInterface`](AgentInterface)
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:107](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/manager.ts#L107)
+[packages/agents/src/interfaces/manager.ts:148](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/manager.ts#L148)
 
 ___
 
 ### validateConfig
 
-▸ **validateConfig**(`config`): `boolean`
+▸ **validateConfig**(`config`): [`ConfigValidationResult`](ConfigValidationResult)
 
 Validate agent configuration
 
@@ -53,37 +54,37 @@ Validate agent configuration
 
 | Name | Type |
 | :------ | :------ |
-| `config` | `any` |
+| `config` | [`AgentConfig`](AgentConfig) |
 
 #### Returns
 
-`boolean`
+[`ConfigValidationResult`](ConfigValidationResult)
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:112](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/manager.ts#L112)
+[packages/agents/src/interfaces/manager.ts:153](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/manager.ts#L153)
 
 ___
 
 ### getDefaultConfig
 
-▸ **getDefaultConfig**(): `any`
+▸ **getDefaultConfig**(): [`AgentConfig`](AgentConfig)
 
 Get default configuration
 
 #### Returns
 
-`any`
+[`AgentConfig`](AgentConfig)
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:117](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/manager.ts#L117)
+[packages/agents/src/interfaces/manager.ts:158](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/manager.ts#L158)
 
 ___
 
 ### mergeConfig
 
-▸ **mergeConfig**(`base`, `override`): `any`
+▸ **mergeConfig**(`base`, `override`): [`AgentConfig`](AgentConfig)
 
 Merge configurations
 
@@ -91,13 +92,13 @@ Merge configurations
 
 | Name | Type |
 | :------ | :------ |
-| `base` | `any` |
-| `override` | `any` |
+| `base` | [`AgentConfig`](AgentConfig) |
+| `override` | `Partial`\<[`AgentConfig`](AgentConfig)\> |
 
 #### Returns
 
-`any`
+[`AgentConfig`](AgentConfig)
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:122](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/manager.ts#L122)
+[packages/agents/src/interfaces/manager.ts:163](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/manager.ts#L163)

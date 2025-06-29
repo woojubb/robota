@@ -45,7 +45,7 @@ Provides session isolation and resource management.
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:841](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L841)
+[packages/agents/src/managers/conversation-history-manager.ts:849](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L849)
 
 ## Methods
 
@@ -69,7 +69,7 @@ ConversationSession instance
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:853](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L853)
+[packages/agents/src/managers/conversation-history-manager.ts:861](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L861)
 
 ___
 
@@ -93,7 +93,7 @@ True if conversation exists
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:878](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L878)
+[packages/agents/src/managers/conversation-history-manager.ts:886](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L886)
 
 ___
 
@@ -117,7 +117,7 @@ True if conversation was removed, false if not found
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:888](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L888)
+[packages/agents/src/managers/conversation-history-manager.ts:896](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L896)
 
 ___
 
@@ -133,7 +133,7 @@ Clear all conversations
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:899](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L899)
+[packages/agents/src/managers/conversation-history-manager.ts:907](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L907)
 
 ___
 
@@ -157,4 +157,4 @@ Statistics about managed conversations
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:910](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L910)
+[packages/agents/src/managers/conversation-history-manager.ts:918](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L918)

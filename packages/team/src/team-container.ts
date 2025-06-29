@@ -261,7 +261,7 @@ export class TeamContainer {
      * @throws {Error} When maximum number of team members is reached
      * @throws {Error} When task execution fails
      */
-    async assignTask(params: AssignTaskParams): Promise<AssignTaskResult> {
+    private async assignTask(params: AssignTaskParams): Promise<AssignTaskResult> {
         let temporaryAgent: Robota | null = null;
         let counterIncremented = false; // Track if we incremented the counter
         const agentId = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

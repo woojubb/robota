@@ -50,7 +50,7 @@ Configuration related errors
 | Name | Type |
 | :------ | :------ |
 | `message` | `string` |
-| `context?` | `Record`\<`string`, `any`\> |
+| `context?` | [`ErrorContextData`](../modules#errorcontextdata) |
 
 #### Returns
 
@@ -62,7 +62,7 @@ Configuration related errors
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:29](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/errors.ts#L29)
+[packages/agents/src/utils/errors.ts:45](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L45)
 
 ## Properties
 
@@ -148,7 +148,7 @@ ___
 
 ### context
 
-• `Optional` `Readonly` **context**: `Record`\<`string`, `any`\>
+• `Optional` `Readonly` **context**: [`ErrorContextData`](../modules#errorcontextdata)
 
 #### Inherited from
 
@@ -156,7 +156,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:11](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/errors.ts#L11)
+[packages/agents/src/utils/errors.ts:27](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L27)
 
 ___
 
@@ -170,7 +170,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:25](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/errors.ts#L25)
+[packages/agents/src/utils/errors.ts:41](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L41)
 
 ___
 
@@ -184,7 +184,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:26](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/errors.ts#L26)
+[packages/agents/src/utils/errors.ts:42](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L42)
 
 ___
 
@@ -198,7 +198,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:27](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/errors.ts#L27)
+[packages/agents/src/utils/errors.ts:43](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L43)
 
 ## Methods
 

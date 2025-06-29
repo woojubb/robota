@@ -39,7 +39,7 @@ export abstract class BasePlanner<
     /**
      * Get planner name for identification
      */
-    abstract name(): string;
+  abstract name(): string;
 
     /**
      * Create execution plan from input
@@ -50,13 +50,13 @@ export abstract class BasePlanner<
      * Execute a single plan step with agent coordination
      */
     abstract executeStep(step: PlanStep, context?: TContext): Promise<PlanResult>;
-
+  
     /**
      * Finalize multiple plan results (optional override)
      */
     async finalize(results: PlanResult[], context?: TContext): Promise<PlanResult> {
-        return results[results.length - 1];
-    }
+    return results[results.length - 1];
+  }
 
     /**
      * Configure the planner
@@ -294,7 +294,7 @@ export class PlannerContainer {
                 for (const step of plan) {
                     const result = await planner.executeStep(step);
                     results.push(result);
-                }
+}
                 
                 return await planner.finalize(results);
             } catch (error) {

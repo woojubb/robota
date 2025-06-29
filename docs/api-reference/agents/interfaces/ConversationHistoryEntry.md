@@ -28,7 +28,7 @@ Conversation history entry
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:32](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/conversation-history/types.ts#L32)
+[packages/agents/src/plugins/conversation-history/types.ts:32](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/conversation-history/types.ts#L32)
 
 ___
 
@@ -38,7 +38,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:33](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/conversation-history/types.ts#L33)
+[packages/agents/src/plugins/conversation-history/types.ts:33](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/conversation-history/types.ts#L33)
 
 ___
 
@@ -48,7 +48,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:34](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/conversation-history/types.ts#L34)
+[packages/agents/src/plugins/conversation-history/types.ts:34](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/conversation-history/types.ts#L34)
 
 ___
 
@@ -58,14 +58,14 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:35](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/conversation-history/types.ts#L35)
+[packages/agents/src/plugins/conversation-history/types.ts:35](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/conversation-history/types.ts#L35)
 
 ___
 
 ### metadata
 
-• `Optional` **metadata**: `Record`\<`string`, `any`\>
+• `Optional` **metadata**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `Date`\>
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:36](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/conversation-history/types.ts#L36)
+[packages/agents/src/plugins/conversation-history/types.ts:36](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/conversation-history/types.ts#L36)

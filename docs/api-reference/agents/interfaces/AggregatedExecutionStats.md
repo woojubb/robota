@@ -32,7 +32,7 @@ Aggregated execution statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:29](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L29)
+[packages/agents/src/plugins/execution/types.ts:44](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/execution/types.ts#L44)
 
 ___
 
@@ -42,7 +42,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:30](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L30)
+[packages/agents/src/plugins/execution/types.ts:45](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/execution/types.ts#L45)
 
 ___
 
@@ -52,7 +52,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:31](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L31)
+[packages/agents/src/plugins/execution/types.ts:46](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/execution/types.ts#L46)
 
 ___
 
@@ -62,7 +62,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:32](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L32)
+[packages/agents/src/plugins/execution/types.ts:47](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/execution/types.ts#L47)
 
 ___
 
@@ -72,7 +72,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:33](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L33)
+[packages/agents/src/plugins/execution/types.ts:48](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/execution/types.ts#L48)
 
 ___
 
@@ -82,7 +82,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:34](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L34)
+[packages/agents/src/plugins/execution/types.ts:49](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/execution/types.ts#L49)
 
 ___
 
@@ -92,7 +92,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:35](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L35)
+[packages/agents/src/plugins/execution/types.ts:50](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/execution/types.ts#L50)
 
 ___
 
@@ -102,7 +102,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:42](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L42)
+[packages/agents/src/plugins/execution/types.ts:57](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/execution/types.ts#L57)
 
 ___
 
@@ -119,4 +119,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:43](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L43)
+[packages/agents/src/plugins/execution/types.ts:58](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/execution/types.ts#L58)

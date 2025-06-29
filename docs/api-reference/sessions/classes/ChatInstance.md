@@ -8,9 +8,11 @@
 
 # Class: ChatInstance
 
+Implementation of ChatInstance interface with proper type safety
+
 ## Implements
 
-- [`ChatInstanceInterface`](../interfaces/ChatInstanceInterface)
+- [`IChatInstance`](../interfaces/IChatInstance)
 
 ## Table of contents
 
@@ -23,44 +25,42 @@
 - [metadata](ChatInstance#metadata)
 - [config](ChatInstance#config)
 - [robota](ChatInstance#robota)
-
-### Accessors
-
 - [history](ChatInstance#history)
 
 ### Methods
 
 - [sendMessage](ChatInstance#sendmessage)
-- [activate](ChatInstance#activate)
-- [deactivate](ChatInstance#deactivate)
-- [clearHistory](ChatInstance#clearhistory)
-- [updateRobotaConfig](ChatInstance#updaterobotaconfig)
-- [getRobotaConfig](ChatInstance#getrobotaconfig)
 - [regenerateResponse](ChatInstance#regenerateresponse)
 - [editMessage](ChatInstance#editmessage)
 - [deleteMessage](ChatInstance#deletemessage)
+- [updateRobotaConfig](ChatInstance#updaterobotaconfig)
+- [getRobotaConfig](ChatInstance#getrobotaconfig)
+- [upgradeToTemplate](ChatInstance#upgradetotemplate)
+- [getTemplateManager](ChatInstance#gettemplatemanager)
+- [activate](ChatInstance#activate)
+- [deactivate](ChatInstance#deactivate)
+- [clearHistory](ChatInstance#clearhistory)
 - [exportHistory](ChatInstance#exporthistory)
 - [importHistory](ChatInstance#importhistory)
 - [save](ChatInstance#save)
 - [load](ChatInstance#load)
 - [getStats](ChatInstance#getstats)
 - [updateConfig](ChatInstance#updateconfig)
-- [upgradeToTemplate](ChatInstance#upgradetotemplate)
-- [getTemplateManager](ChatInstance#gettemplatemanager)
 
 ## Constructors
 
 ### constructor
 
-• **new ChatInstance**(`sessionId`, `config?`, `robotaConfig?`): [`ChatInstance`](ChatInstance)
+• **new ChatInstance**(`metadata`, `config`, `robota`, `history`): [`ChatInstance`](ChatInstance)
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `sessionId` | `string` |
+| `metadata` | [`ChatMetadata`](../interfaces/ChatMetadata) |
 | `config` | `ChatConfig` |
-| `robotaConfig?` | `any` |
+| `robota` | `Robota` |
+| `history` | [`EnhancedConversationHistory`](../interfaces/EnhancedConversationHistory) |
 
 #### Returns
 
@@ -68,7 +68,7 @@
 
 #### Defined in
 
-[sessions/src/chat/chat-instance.ts:21](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L21)
+[sessions/src/chat/chat-instance.ts:21](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L21)
 
 ## Properties
 
@@ -78,11 +78,11 @@
 
 #### Implementation of
 
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[metadata](../interfaces/ChatInstanceInterface#metadata)
+[IChatInstance](../interfaces/IChatInstance).[metadata](../interfaces/IChatInstance#metadata)
 
 #### Defined in
 
-[sessions/src/chat/chat-instance.ts:13](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L13)
+[sessions/src/chat/chat-instance.ts:16](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L16)
 
 ___
 
@@ -92,11 +92,11 @@ ___
 
 #### Implementation of
 
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[config](../interfaces/ChatInstanceInterface#config)
+[IChatInstance](../interfaces/IChatInstance).[config](../interfaces/IChatInstance#config)
 
 #### Defined in
 
-[sessions/src/chat/chat-instance.ts:14](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L14)
+[sessions/src/chat/chat-instance.ts:17](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L17)
 
 ___
 
@@ -106,35 +106,33 @@ ___
 
 #### Implementation of
 
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[robota](../interfaces/ChatInstanceInterface#robota)
+[IChatInstance](../interfaces/IChatInstance).[robota](../interfaces/IChatInstance#robota)
 
 #### Defined in
 
-[sessions/src/chat/chat-instance.ts:15](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L15)
+[sessions/src/chat/chat-instance.ts:18](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L18)
 
-## Accessors
+___
 
 ### history
 
-• `get` **history**(): `any`
-
-#### Returns
-
-`any`
+• `Readonly` **history**: [`EnhancedConversationHistory`](../interfaces/EnhancedConversationHistory)
 
 #### Implementation of
 
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[history](../interfaces/ChatInstanceInterface#history)
+[IChatInstance](../interfaces/IChatInstance).[history](../interfaces/IChatInstance#history)
 
 #### Defined in
 
-[sessions/src/chat/chat-instance.ts:237](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L237)
+[sessions/src/chat/chat-instance.ts:19](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L19)
 
 ## Methods
 
 ### sendMessage
 
 ▸ **sendMessage**(`content`): `Promise`\<`string`\>
+
+Send a message and get AI response
 
 #### Parameters
 
@@ -148,107 +146,11 @@ ___
 
 #### Implementation of
 
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[sendMessage](../interfaces/ChatInstanceInterface#sendmessage)
+[IChatInstance](../interfaces/IChatInstance).[sendMessage](../interfaces/IChatInstance#sendmessage)
 
 #### Defined in
 
-[sessions/src/chat/chat-instance.ts:55](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L55)
-
-___
-
-### activate
-
-▸ **activate**(): `void`
-
-#### Returns
-
-`void`
-
-#### Implementation of
-
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[activate](../interfaces/ChatInstanceInterface#activate)
-
-#### Defined in
-
-[sessions/src/chat/chat-instance.ts:72](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L72)
-
-___
-
-### deactivate
-
-▸ **deactivate**(): `void`
-
-#### Returns
-
-`void`
-
-#### Implementation of
-
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[deactivate](../interfaces/ChatInstanceInterface#deactivate)
-
-#### Defined in
-
-[sessions/src/chat/chat-instance.ts:78](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L78)
-
-___
-
-### clearHistory
-
-▸ **clearHistory**(): `void`
-
-#### Returns
-
-`void`
-
-#### Implementation of
-
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[clearHistory](../interfaces/ChatInstanceInterface#clearhistory)
-
-#### Defined in
-
-[sessions/src/chat/chat-instance.ts:84](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L84)
-
-___
-
-### updateRobotaConfig
-
-▸ **updateRobotaConfig**(`config`): `Promise`\<`void`\>
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `config` | `any` |
-
-#### Returns
-
-`Promise`\<`void`\>
-
-#### Implementation of
-
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[updateRobotaConfig](../interfaces/ChatInstanceInterface#updaterobotaconfig)
-
-#### Defined in
-
-[sessions/src/chat/chat-instance.ts:91](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L91)
-
-___
-
-### getRobotaConfig
-
-▸ **getRobotaConfig**(): `any`
-
-#### Returns
-
-`any`
-
-#### Implementation of
-
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[getRobotaConfig](../interfaces/ChatInstanceInterface#getrobotaconfig)
-
-#### Defined in
-
-[sessions/src/chat/chat-instance.ts:96](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L96)
+[sessions/src/chat/chat-instance.ts:36](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L36)
 
 ___
 
@@ -256,30 +158,34 @@ ___
 
 ▸ **regenerateResponse**(): `Promise`\<`string`\>
 
+Regenerate the last response
+
 #### Returns
 
 `Promise`\<`string`\>
 
 #### Implementation of
 
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[regenerateResponse](../interfaces/ChatInstanceInterface#regenerateresponse)
+[IChatInstance](../interfaces/IChatInstance).[regenerateResponse](../interfaces/IChatInstance#regenerateresponse)
 
 #### Defined in
 
-[sessions/src/chat/chat-instance.ts:101](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L101)
+[sessions/src/chat/chat-instance.ts:54](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L54)
 
 ___
 
 ### editMessage
 
-▸ **editMessage**(`messageId`, `newContent`): `Promise`\<`void`\>
+▸ **editMessage**(`_messageId`, `_newContent`): `Promise`\<`void`\>
+
+Edit a message in history
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `messageId` | `string` |
-| `newContent` | [`MessageContent`](../modules#messagecontent) |
+| `_messageId` | `string` |
+| `_newContent` | [`MessageContent`](../modules#messagecontent) |
 
 #### Returns
 
@@ -287,23 +193,25 @@ ___
 
 #### Implementation of
 
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[editMessage](../interfaces/ChatInstanceInterface#editmessage)
+[IChatInstance](../interfaces/IChatInstance).[editMessage](../interfaces/IChatInstance#editmessage)
 
 #### Defined in
 
-[sessions/src/chat/chat-instance.ts:105](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L105)
+[sessions/src/chat/chat-instance.ts:62](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L62)
 
 ___
 
 ### deleteMessage
 
-▸ **deleteMessage**(`messageId`): `Promise`\<`void`\>
+▸ **deleteMessage**(`_messageId`): `Promise`\<`void`\>
+
+Delete a message from history
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `messageId` | `string` |
+| `_messageId` | `string` |
 
 #### Returns
 
@@ -311,41 +219,25 @@ ___
 
 #### Implementation of
 
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[deleteMessage](../interfaces/ChatInstanceInterface#deletemessage)
+[IChatInstance](../interfaces/IChatInstance).[deleteMessage](../interfaces/IChatInstance#deletemessage)
 
 #### Defined in
 
-[sessions/src/chat/chat-instance.ts:109](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L109)
+[sessions/src/chat/chat-instance.ts:70](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L70)
 
 ___
 
-### exportHistory
+### updateRobotaConfig
 
-▸ **exportHistory**(): `Promise`\<`string`\>
+▸ **updateRobotaConfig**(`config`): `Promise`\<`void`\>
 
-#### Returns
-
-`Promise`\<`string`\>
-
-#### Implementation of
-
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[exportHistory](../interfaces/ChatInstanceInterface#exporthistory)
-
-#### Defined in
-
-[sessions/src/chat/chat-instance.ts:113](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L113)
-
-___
-
-### importHistory
-
-▸ **importHistory**(`data`): `Promise`\<`void`\>
+Update robota configuration
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `data` | `string` |
+| `config` | [`AgentConfig`](../interfaces/AgentConfig) |
 
 #### Returns
 
@@ -353,89 +245,31 @@ ___
 
 #### Implementation of
 
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[importHistory](../interfaces/ChatInstanceInterface#importhistory)
+[IChatInstance](../interfaces/IChatInstance).[updateRobotaConfig](../interfaces/IChatInstance#updaterobotaconfig)
 
 #### Defined in
 
-[sessions/src/chat/chat-instance.ts:117](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L117)
+[sessions/src/chat/chat-instance.ts:78](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L78)
 
 ___
 
-### save
+### getRobotaConfig
 
-▸ **save**(): `Promise`\<`void`\>
+▸ **getRobotaConfig**(): [`AgentConfig`](../interfaces/AgentConfig)
 
-#### Returns
-
-`Promise`\<`void`\>
-
-#### Implementation of
-
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[save](../interfaces/ChatInstanceInterface#save)
-
-#### Defined in
-
-[sessions/src/chat/chat-instance.ts:122](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L122)
-
-___
-
-### load
-
-▸ **load**(): `Promise`\<`void`\>
+Get current robota configuration
 
 #### Returns
 
-`Promise`\<`void`\>
+[`AgentConfig`](../interfaces/AgentConfig)
 
 #### Implementation of
 
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[load](../interfaces/ChatInstanceInterface#load)
+[IChatInstance](../interfaces/IChatInstance).[getRobotaConfig](../interfaces/IChatInstance#getrobotaconfig)
 
 #### Defined in
 
-[sessions/src/chat/chat-instance.ts:126](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L126)
-
-___
-
-### getStats
-
-▸ **getStats**(): [`ChatStats`](../interfaces/ChatStats)
-
-#### Returns
-
-[`ChatStats`](../interfaces/ChatStats)
-
-#### Implementation of
-
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[getStats](../interfaces/ChatInstanceInterface#getstats)
-
-#### Defined in
-
-[sessions/src/chat/chat-instance.ts:131](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L131)
-
-___
-
-### updateConfig
-
-▸ **updateConfig**(`config`): `void`
-
-#### Parameters
-
-| Name | Type |
-| :------ | :------ |
-| `config` | `Partial`\<`ChatConfig`\> |
-
-#### Returns
-
-`void`
-
-#### Implementation of
-
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[updateConfig](../interfaces/ChatInstanceInterface#updateconfig)
-
-#### Defined in
-
-[sessions/src/chat/chat-instance.ts:143](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L143)
+[sessions/src/chat/chat-instance.ts:91](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L91)
 
 ___
 
@@ -443,7 +277,7 @@ ___
 
 ▸ **upgradeToTemplate**(`templateName`, `taskDescription?`): `Promise`\<`void`\>
 
-Upgrade chat to use a specific agent template
+Upgrade to use an agent template
 
 #### Parameters
 
@@ -458,28 +292,220 @@ Upgrade chat to use a specific agent template
 
 #### Implementation of
 
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[upgradeToTemplate](../interfaces/ChatInstanceInterface#upgradetotemplate)
+[IChatInstance](../interfaces/IChatInstance).[upgradeToTemplate](../interfaces/IChatInstance#upgradetotemplate)
 
 #### Defined in
 
-[sessions/src/chat/chat-instance.ts:190](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L190)
+[sessions/src/chat/chat-instance.ts:102](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L102)
 
 ___
 
 ### getTemplateManager
 
-▸ **getTemplateManager**(): `any`
+▸ **getTemplateManager**(): [`TemplateManager`](../interfaces/TemplateManager)
 
-Get the template manager for advanced template operations
+Get template manager instance
 
 #### Returns
 
-`any`
+[`TemplateManager`](../interfaces/TemplateManager)
 
 #### Implementation of
 
-[ChatInstanceInterface](../interfaces/ChatInstanceInterface).[getTemplateManager](../interfaces/ChatInstanceInterface#gettemplatemanager)
+[IChatInstance](../interfaces/IChatInstance).[getTemplateManager](../interfaces/IChatInstance#gettemplatemanager)
 
 #### Defined in
 
-[sessions/src/chat/chat-instance.ts:229](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/chat/chat-instance.ts#L229)
+[sessions/src/chat/chat-instance.ts:123](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L123)
+
+___
+
+### activate
+
+▸ **activate**(): `void`
+
+Activate this chat session
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+[IChatInstance](../interfaces/IChatInstance).[activate](../interfaces/IChatInstance#activate)
+
+#### Defined in
+
+[sessions/src/chat/chat-instance.ts:141](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L141)
+
+___
+
+### deactivate
+
+▸ **deactivate**(): `void`
+
+Deactivate this chat session
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+[IChatInstance](../interfaces/IChatInstance).[deactivate](../interfaces/IChatInstance#deactivate)
+
+#### Defined in
+
+[sessions/src/chat/chat-instance.ts:149](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L149)
+
+___
+
+### clearHistory
+
+▸ **clearHistory**(): `void`
+
+Clear conversation history
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+[IChatInstance](../interfaces/IChatInstance).[clearHistory](../interfaces/IChatInstance#clearhistory)
+
+#### Defined in
+
+[sessions/src/chat/chat-instance.ts:156](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L156)
+
+___
+
+### exportHistory
+
+▸ **exportHistory**(): `Promise`\<`string`\>
+
+Export conversation history
+
+#### Returns
+
+`Promise`\<`string`\>
+
+#### Implementation of
+
+[IChatInstance](../interfaces/IChatInstance).[exportHistory](../interfaces/IChatInstance#exporthistory)
+
+#### Defined in
+
+[sessions/src/chat/chat-instance.ts:165](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L165)
+
+___
+
+### importHistory
+
+▸ **importHistory**(`data`): `Promise`\<`void`\>
+
+Import conversation history
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `data` | `string` |
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[IChatInstance](../interfaces/IChatInstance).[importHistory](../interfaces/IChatInstance#importhistory)
+
+#### Defined in
+
+[sessions/src/chat/chat-instance.ts:172](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L172)
+
+___
+
+### save
+
+▸ **save**(): `Promise`\<`void`\>
+
+Save chat state
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[IChatInstance](../interfaces/IChatInstance).[save](../interfaces/IChatInstance#save)
+
+#### Defined in
+
+[sessions/src/chat/chat-instance.ts:181](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L181)
+
+___
+
+### load
+
+▸ **load**(): `Promise`\<`void`\>
+
+Load chat state
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[IChatInstance](../interfaces/IChatInstance).[load](../interfaces/IChatInstance#load)
+
+#### Defined in
+
+[sessions/src/chat/chat-instance.ts:189](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L189)
+
+___
+
+### getStats
+
+▸ **getStats**(): [`ChatStats`](../interfaces/ChatStats)
+
+Get chat statistics
+
+#### Returns
+
+[`ChatStats`](../interfaces/ChatStats)
+
+#### Implementation of
+
+[IChatInstance](../interfaces/IChatInstance).[getStats](../interfaces/IChatInstance#getstats)
+
+#### Defined in
+
+[sessions/src/chat/chat-instance.ts:197](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L197)
+
+___
+
+### updateConfig
+
+▸ **updateConfig**(`config`): `void`
+
+Update chat configuration
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `config` | `Partial`\<`ChatConfig`\> |
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+[IChatInstance](../interfaces/IChatInstance).[updateConfig](../interfaces/IChatInstance#updateconfig)
+
+#### Defined in
+
+[sessions/src/chat/chat-instance.ts:210](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/chat/chat-instance.ts#L210)

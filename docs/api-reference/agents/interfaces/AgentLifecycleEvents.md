@@ -43,7 +43,7 @@ Called before agent creation
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:44](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L44)
+[packages/agents/src/managers/agent-factory.ts:45](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L45)
 
 ___
 
@@ -70,7 +70,7 @@ Called after successful agent creation
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:46](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L46)
+[packages/agents/src/managers/agent-factory.ts:47](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L47)
 
 ___
 
@@ -97,7 +97,7 @@ Called when agent creation fails
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:48](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L48)
+[packages/agents/src/managers/agent-factory.ts:49](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L49)
 
 ___
 
@@ -123,4 +123,4 @@ Called when agent is destroyed
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:50](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L50)
+[packages/agents/src/managers/agent-factory.ts:51](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L51)

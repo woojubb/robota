@@ -28,7 +28,7 @@
 
 #### Defined in
 
-[sessions/src/types/core.ts:34](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/types/core.ts#L34)
+[sessions/src/types/core.ts:37](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/types/core.ts#L37)
 
 ___
 
@@ -38,7 +38,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/core.ts:35](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/types/core.ts#L35)
+[sessions/src/types/core.ts:38](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/types/core.ts#L38)
 
 ___
 
@@ -48,7 +48,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/core.ts:36](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/types/core.ts#L36)
+[sessions/src/types/core.ts:39](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/types/core.ts#L39)
 
 ___
 
@@ -58,7 +58,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/core.ts:37](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/types/core.ts#L37)
+[sessions/src/types/core.ts:40](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/types/core.ts#L40)
 
 ___
 
@@ -68,7 +68,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/core.ts:38](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/types/core.ts#L38)
+[sessions/src/types/core.ts:41](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/types/core.ts#L41)
 
 ___
 
@@ -78,7 +78,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/core.ts:39](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/types/core.ts#L39)
+[sessions/src/types/core.ts:42](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/types/core.ts#L42)
 
 ___
 
@@ -88,4 +88,4 @@ ___
 
 #### Defined in
 
-[sessions/src/types/core.ts:40](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/types/core.ts#L40)
+[sessions/src/types/core.ts:43](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/types/core.ts#L43)

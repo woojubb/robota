@@ -215,14 +215,9 @@ async function demonstrateTeamAnalytics() {
 
         console.log('✅ Team created successfully\n');
 
-        const _result = await team.assignTask({
-            description: 'Analyze the quarterly sales data and provide actionable insights',
-            agentName: 'Analyst',
-            context: {
-                data: 'Q1: $100k, Q2: $150k, Q3: $120k, Q4: $180k',
-                requirements: 'Focus on trends and growth opportunities'
-            }
-        });
+        const _result = await team.execute(
+            'Analyze the quarterly sales data and provide actionable insights. Data: Q1: $100k, Q2: $150k, Q3: $120k, Q4: $180k. Focus on trends and growth opportunities.'
+        );
 
         // Get analytics from agents
         console.log('📊 Analytics Report:');

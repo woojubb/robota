@@ -9,7 +9,8 @@ export type {
     TeamOptions,
     TeamContainerOptions,
     AgentConfig,
-    AssignTaskParams,
-    AssignTaskResult,
     TaskAgentConfig
-} from './types'; 
+} from './types';
+
+// Internal types (not exported publicly)
+// AssignTaskParams, AssignTaskResult are for internal use only 

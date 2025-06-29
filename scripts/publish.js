@@ -22,11 +22,20 @@ const __dirname = path.dirname(__filename);
 process.chdir(path.join(__dirname, '..'));
 
 // Define paths
-const docsBasePath = path.resolve(__dirname, '../apps/docs/docs/packages');
+const docsBasePath = path.resolve(__dirname, '../docs');
 const packagesPath = path.resolve(__dirname, '../packages');
 
-// Define packages
-const packages = ['core', 'openai', 'anthropic', 'mcp', 'tools'];
+// Define packages based on actual package structure
+const packages = [
+    'agents',      // @robota-sdk/agents
+    'openai',      // @robota-sdk/openai
+    'anthropic',   // @robota-sdk/anthropic
+    'google',      // @robota-sdk/google
+    'team',        // @robota-sdk/team
+    'sessions',    // @robota-sdk/sessions
+    'tools',       // @robota-sdk/tools
+    'core'         // @robota-sdk/core (legacy)
+];
 
 // ANSI color codes for console output
 const colors = {
@@ -56,27 +65,85 @@ function exec(command, options = {}) {
 }
 
 /**
- * Copy README files from docs to packages
+ * Copy README files from package docs to package root
  */
 function copyReadmeFiles() {
-    console.log(`\n${colors.magenta}📝 Copying README files from docs to packages${colors.reset}`);
+    console.log(`\n${colors.magenta}📝 Copying README files from package docs to package root${colors.reset}`);
 
     packages.forEach(pkg => {
-        const sourcePath = path.join(docsBasePath, pkg, 'README.md');
-        const destPath = path.join(packagesPath, pkg, 'README.md');
+        // Try package-specific docs first, then fallback to docs structure
+        const possibleSources = [
+            path.join(packagesPath, pkg, 'docs', 'README.md'),
+            path.join(docsBasePath, 'providers', `${pkg}.md`),
+            path.join(docsBasePath, 'api-reference', pkg, 'README.md')
+        ];
 
-        try {
+        const destPath = path.join(packagesPath, pkg, 'README.md');
+        let copied = false;
+
+        for (const sourcePath of possibleSources) {
             if (fs.existsSync(sourcePath)) {
-                const content = fs.readFileSync(sourcePath, 'utf8');
-                fs.writeFileSync(destPath, content);
-                console.log(`✅ Copied: ${sourcePath} -> ${destPath}`);
-            } else {
-                console.error(`❌ Source file not found: ${sourcePath}`);
+                try {
+                    const content = fs.readFileSync(sourcePath, 'utf8');
+                    fs.writeFileSync(destPath, content);
+                    console.log(`✅ Copied: ${sourcePath} -> ${destPath}`);
+                    copied = true;
+                    break;
+                } catch (error) {
+                    console.error(`❌ Error copying from ${sourcePath}:`, error);
+                }
             }
-        } catch (error) {
-            console.error(`❌ Error copying ${pkg} README:`, error);
+        }
+
+        if (!copied) {
+            console.warn(`⚠️  No README source found for ${pkg}, will use existing or generate minimal`);
+
+            // Generate minimal README if none exists
+            if (!fs.existsSync(destPath)) {
+                const minimalReadme = generateMinimalReadme(pkg);
+                fs.writeFileSync(destPath, minimalReadme);
+                console.log(`📝 Generated minimal README for ${pkg}`);
+            }
         }
     });
+}
+
+/**
+ * Generate minimal README for packages without documentation
+ */
+function generateMinimalReadme(packageName) {
+    const packageJsonPath = path.join(packagesPath, packageName, 'package.json');
+    let description = `${packageName} package for Robota SDK`;
+    let name = `@robota-sdk/${packageName}`;
+
+    if (fs.existsSync(packageJsonPath)) {
+        try {
+            const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+            description = packageJson.description || description;
+            name = packageJson.name || name;
+        } catch (error) {
+            console.warn(`Warning: Could not read package.json for ${packageName}`);
+        }
+    }
+
+    return `# ${name}
+
+${description}
+
+## Installation
+
+\`\`\`bash
+npm install ${name}
+\`\`\`
+
+## Documentation
+
+For complete documentation, visit [https://robota.io/](https://robota.io/)
+
+## License
+
+MIT
+`;
 }
 
 /**
@@ -90,11 +157,17 @@ function cleanupReadmeFiles() {
 
         try {
             if (fs.existsSync(readmePath)) {
-                fs.unlinkSync(readmePath);
-                console.log(`✅ Removed: ${readmePath}`);
+                // Check if this was a generated README by looking for our marker
+                const content = fs.readFileSync(readmePath, 'utf8');
+                if (content.includes('For complete documentation, visit [https://robota.io/](https://robota.io/)')) {
+                    fs.unlinkSync(readmePath);
+                    console.log(`✅ Removed generated README: ${readmePath}`);
+                } else {
+                    console.log(`ℹ️  Kept existing README: ${readmePath}`);
+                }
             }
         } catch (error) {
-            console.error(`❌ Error removing ${pkg} README:`, error);
+            console.error(`❌ Error processing ${pkg} README:`, error);
         }
     });
 }

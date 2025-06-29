@@ -11,7 +11,7 @@ For full documentation, visit [https://robota.io](https://robota.io)
 ## Installation
 
 ```bash
-npm install @robota-sdk/anthropic @robota-sdk/core @anthropic-ai/sdk
+npm install @robota-sdk/anthropic @robota-sdk/agents @anthropic-ai/sdk
 ```
 
 ## Overview
@@ -45,7 +45,7 @@ npm install @robota-sdk/anthropic @robota-sdk/core @anthropic-ai/sdk
 ## Basic Usage
 
 ```typescript
-import { Robota } from '@robota-sdk/core';
+import { Robota } from '@robota-sdk/agents';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -96,7 +96,7 @@ for await (const chunk of stream) {
 Anthropic provider supports Claude's advanced tool use capabilities through tool providers:
 
 ```typescript
-import { Robota } from '@robota-sdk/core';
+import { Robota } from '@robota-sdk/agents';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { createZodFunctionToolProvider } from '@robota-sdk/tools';
 import Anthropic from '@anthropic-ai/sdk';

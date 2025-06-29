@@ -20,8 +20,14 @@ Plugin lifecycle hooks
 
 - [beforeRun](PluginHooks#beforerun)
 - [afterRun](PluginHooks#afterrun)
+- [beforeExecution](PluginHooks#beforeexecution)
+- [afterExecution](PluginHooks#afterexecution)
+- [beforeConversation](PluginHooks#beforeconversation)
+- [afterConversation](PluginHooks#afterconversation)
 - [beforeToolCall](PluginHooks#beforetoolcall)
+- [beforeToolExecution](PluginHooks#beforetoolexecution)
 - [afterToolCall](PluginHooks#aftertoolcall)
+- [afterToolExecution](PluginHooks#aftertoolexecution)
 - [beforeProviderCall](PluginHooks#beforeprovidercall)
 - [afterProviderCall](PluginHooks#afterprovidercall)
 - [onStreamingChunk](PluginHooks#onstreamingchunk)
@@ -49,7 +55,7 @@ Called before agent run
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:11](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L11)
+[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L127)
 
 ___
 
@@ -73,7 +79,97 @@ Called after agent run
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:16](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L16)
+[packages/agents/src/abstracts/base-plugin.ts:132](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L132)
+
+___
+
+### beforeExecution
+
+▸ **beforeExecution**(`context`): `void` \| `Promise`\<`void`\>
+
+Called before execution with context
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `context` | [`BaseExecutionContext`](BaseExecutionContext) |
+
+#### Returns
+
+`void` \| `Promise`\<`void`\>
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:137](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L137)
+
+___
+
+### afterExecution
+
+▸ **afterExecution**(`context`, `result`): `void` \| `Promise`\<`void`\>
+
+Called after execution with context and result
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `context` | [`BaseExecutionContext`](BaseExecutionContext) |
+| `result` | [`BaseExecutionResult`](BaseExecutionResult) |
+
+#### Returns
+
+`void` \| `Promise`\<`void`\>
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:142](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L142)
+
+___
+
+### beforeConversation
+
+▸ **beforeConversation**(`context`): `void` \| `Promise`\<`void`\>
+
+Called before conversation with context
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `context` | [`BaseExecutionContext`](BaseExecutionContext) |
+
+#### Returns
+
+`void` \| `Promise`\<`void`\>
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:147](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L147)
+
+___
+
+### afterConversation
+
+▸ **afterConversation**(`context`, `result`): `void` \| `Promise`\<`void`\>
+
+Called after conversation with context and result
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `context` | [`BaseExecutionContext`](BaseExecutionContext) |
+| `result` | [`BaseExecutionResult`](BaseExecutionResult) |
+
+#### Returns
+
+`void` \| `Promise`\<`void`\>
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:152](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L152)
 
 ___
 
@@ -88,7 +184,7 @@ Called before tool execution
 | Name | Type |
 | :------ | :------ |
 | `toolName` | `string` |
-| `parameters` | `Record`\<`string`, `any`\> |
+| `parameters` | `ToolParameters` |
 
 #### Returns
 
@@ -96,7 +192,30 @@ Called before tool execution
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:21](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L21)
+[packages/agents/src/abstracts/base-plugin.ts:157](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L157)
+
+___
+
+### beforeToolExecution
+
+▸ **beforeToolExecution**(`context`, `toolData`): `void` \| `Promise`\<`void`\>
+
+Called before tool execution with context
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `context` | [`BaseExecutionContext`](BaseExecutionContext) |
+| `toolData` | [`ToolExecutionContext`](ToolExecutionContext) |
+
+#### Returns
+
+`void` \| `Promise`\<`void`\>
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:162](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L162)
 
 ___
 
@@ -111,8 +230,8 @@ Called after tool execution
 | Name | Type |
 | :------ | :------ |
 | `toolName` | `string` |
-| `parameters` | `Record`\<`string`, `any`\> |
-| `result` | `any` |
+| `parameters` | `ToolParameters` |
+| `result` | [`ToolExecutionResult`](ToolExecutionResult) |
 
 #### Returns
 
@@ -120,7 +239,30 @@ Called after tool execution
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:26](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L26)
+[packages/agents/src/abstracts/base-plugin.ts:167](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L167)
+
+___
+
+### afterToolExecution
+
+▸ **afterToolExecution**(`context`, `toolResults`): `void` \| `Promise`\<`void`\>
+
+Called after tool execution with context
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `context` | [`BaseExecutionContext`](BaseExecutionContext) |
+| `toolResults` | [`BaseExecutionResult`](BaseExecutionResult) |
+
+#### Returns
+
+`void` \| `Promise`\<`void`\>
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:172](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L172)
 
 ___
 
@@ -142,7 +284,7 @@ Called before AI provider call
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:31](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L31)
+[packages/agents/src/abstracts/base-plugin.ts:177](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L177)
 
 ___
 
@@ -165,7 +307,7 @@ Called after AI provider call
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:36](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L36)
+[packages/agents/src/abstracts/base-plugin.ts:182](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L182)
 
 ___
 
@@ -187,7 +329,7 @@ Called on streaming chunk
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:41](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L41)
+[packages/agents/src/abstracts/base-plugin.ts:187](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L187)
 
 ___
 
@@ -202,7 +344,7 @@ Called on error
 | Name | Type |
 | :------ | :------ |
 | `error` | `Error` |
-| `context?` | `any` |
+| `context?` | [`ErrorContext`](ErrorContext) |
 
 #### Returns
 
@@ -210,7 +352,7 @@ Called on error
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:46](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L46)
+[packages/agents/src/abstracts/base-plugin.ts:192](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L192)
 
 ___
 
@@ -232,4 +374,4 @@ Called on message added to history
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:51](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L51)
+[packages/agents/src/abstracts/base-plugin.ts:197](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L197)

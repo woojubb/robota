@@ -28,7 +28,7 @@ Log entry structure
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:15](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/logging/types.ts#L15)
+[packages/agents/src/plugins/logging/types.ts:15](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/logging/types.ts#L15)
 
 ___
 
@@ -38,7 +38,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:16](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/logging/types.ts#L16)
+[packages/agents/src/plugins/logging/types.ts:16](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/logging/types.ts#L16)
 
 ___
 
@@ -48,17 +48,17 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:17](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/logging/types.ts#L17)
+[packages/agents/src/plugins/logging/types.ts:17](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/logging/types.ts#L17)
 
 ___
 
 ### context
 
-• `Optional` **context**: `Record`\<`string`, `any`\>
+• `Optional` **context**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `Date`\>
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:18](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/logging/types.ts#L18)
+[packages/agents/src/plugins/logging/types.ts:18](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/logging/types.ts#L18)
 
 ___
 
@@ -79,4 +79,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:19](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/logging/types.ts#L19)
+[packages/agents/src/plugins/logging/types.ts:19](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/logging/types.ts#L19)

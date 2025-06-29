@@ -54,7 +54,7 @@ Rate limit errors
 | `message` | `string` |
 | `retryAfter?` | `number` |
 | `provider?` | `string` |
-| `context?` | `Record`\<`string`, `any`\> |
+| `context?` | [`ErrorContextData`](../modules#errorcontextdata) |
 
 #### Returns
 
@@ -66,7 +66,7 @@ Rate limit errors
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:90](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/errors.ts#L90)
+[packages/agents/src/utils/errors.ts:106](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L106)
 
 ## Properties
 
@@ -152,7 +152,7 @@ ___
 
 ### context
 
-• `Optional` `Readonly` **context**: `Record`\<`string`, `any`\>
+• `Optional` `Readonly` **context**: [`ErrorContextData`](../modules#errorcontextdata)
 
 #### Inherited from
 
@@ -160,7 +160,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:11](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/errors.ts#L11)
+[packages/agents/src/utils/errors.ts:27](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L27)
 
 ___
 
@@ -174,7 +174,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:86](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/errors.ts#L86)
+[packages/agents/src/utils/errors.ts:102](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L102)
 
 ___
 
@@ -188,7 +188,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:87](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/errors.ts#L87)
+[packages/agents/src/utils/errors.ts:103](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L103)
 
 ___
 
@@ -202,7 +202,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:88](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/errors.ts#L88)
+[packages/agents/src/utils/errors.ts:104](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L104)
 
 ___
 
@@ -212,7 +212,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:92](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/errors.ts#L92)
+[packages/agents/src/utils/errors.ts:108](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L108)
 
 ___
 
@@ -222,7 +222,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:93](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/errors.ts#L93)
+[packages/agents/src/utils/errors.ts:109](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L109)
 
 ## Methods
 

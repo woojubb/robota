@@ -135,6 +135,14 @@ function convertZodTypeToProperty(typeObj: ZodSchema): ParameterSchema | null {
             }
             return null;
 
+        case 'ZodDefault':
+            // Handle default values by processing the inner type
+            if (typeDef.innerType) {
+                const innerProperty = convertZodTypeToProperty(typeDef.innerType);
+                return innerProperty ? { ...innerProperty, ...base } : null;
+            }
+            return null;
+
         default:
             // Fallback for unknown types
             return { type: 'string', ...base };
@@ -150,9 +158,10 @@ function isRequiredField(typeObj: ZodSchema): boolean {
         return false;
     }
 
-    // Field is optional if it's ZodOptional or ZodNullable
+    // Field is optional if it's ZodOptional, ZodNullable, or ZodDefault
     return typeDef.typeName !== 'ZodOptional' &&
-        typeDef.typeName !== 'ZodNullable';
+        typeDef.typeName !== 'ZodNullable' &&
+        typeDef.typeName !== 'ZodDefault';
 }
 
 /**

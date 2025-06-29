@@ -81,8 +81,7 @@ class TeamContainer {
   constructor(config: TeamConfig)
   
   // Workflow execution
-  executeWorkflow(input: string, options?: WorkflowOptions): Promise<WorkflowResult>
-  assignTask(params: AssignTaskParams): Promise<AssignTaskResult>
+  execute(input: string): Promise<string>
   
   // Team management
   addAgent(name: string, agent: AgentInterface): void

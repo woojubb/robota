@@ -28,7 +28,7 @@ Log entry structure
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:10](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L10)
+[packages/agents/src/utils/logger.ts:21](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L21)
 
 ___
 
@@ -38,7 +38,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:11](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L11)
+[packages/agents/src/utils/logger.ts:22](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L22)
 
 ___
 
@@ -48,17 +48,17 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:12](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L12)
+[packages/agents/src/utils/logger.ts:23](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L23)
 
 ___
 
 ### context
 
-• `Optional` **context**: `Record`\<`string`, `any`\>
+• `Optional` **context**: [`LoggerData`](../modules#loggerdata)
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:13](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L13)
+[packages/agents/src/utils/logger.ts:24](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L24)
 
 ___
 
@@ -68,4 +68,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:14](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L14)
+[packages/agents/src/utils/logger.ts:25](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L25)

@@ -53,7 +53,7 @@ Check if error is recoverable
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:206](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/errors.ts#L206)
+[packages/agents/src/utils/errors.ts:222](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L222)
 
 ___
 
@@ -75,7 +75,7 @@ Extract error code from any error
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:216](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/errors.ts#L216)
+[packages/agents/src/utils/errors.ts:232](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L232)
 
 ___
 
@@ -89,7 +89,7 @@ Create error from unknown value
 
 | Name | Type | Default value |
 | :------ | :------ | :------ |
-| `error` | `unknown` | `undefined` |
+| `error` | [`ErrorExternalInput`](../modules#errorexternalinput) | `undefined` |
 | `defaultMessage` | `string` | `'An unknown error occurred'` |
 
 #### Returns
@@ -98,7 +98,7 @@ Create error from unknown value
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:226](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/errors.ts#L226)
+[packages/agents/src/utils/errors.ts:242](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L242)
 
 ___
 
@@ -112,7 +112,7 @@ Wrap external errors
 
 | Name | Type |
 | :------ | :------ |
-| `error` | `unknown` |
+| `error` | [`ErrorExternalInput`](../modules#errorexternalinput) |
 | `provider` | `string` |
 | `operation` | `string` |
 
@@ -122,4 +122,4 @@ Wrap external errors
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:242](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/errors.ts#L242)
+[packages/agents/src/utils/errors.ts:258](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L258)

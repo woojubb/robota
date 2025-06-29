@@ -13,7 +13,7 @@ Emits events during agent execution lifecycle
 
 ## Hierarchy
 
-- [`BasePlugin`](BasePlugin)
+- [`BasePlugin`](BasePlugin)\<[`EventEmitterPluginOptions`](../interfaces/EventEmitterPluginOptions), `EventEmitterPluginStats`\>
 
   ↳ **`EventEmitterPlugin`**
 
@@ -25,6 +25,7 @@ Emits events during agent execution lifecycle
 
 ### Properties
 
+- [enabled](EventEmitterPlugin#enabled)
 - [name](EventEmitterPlugin#name)
 - [version](EventEmitterPlugin#version)
 
@@ -86,9 +87,25 @@ Emits events during agent execution lifecycle
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:88](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L88)
+[packages/agents/src/plugins/event-emitter-plugin.ts:161](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L161)
 
 ## Properties
+
+### enabled
+
+• **enabled**: `boolean` = `true`
+
+Plugin enabled state
+
+#### Inherited from
+
+[BasePlugin](BasePlugin).[enabled](BasePlugin#enabled)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:216](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L216)
+
+___
 
 ### name
 
@@ -102,7 +119,7 @@ Plugin name
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:78](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L78)
+[packages/agents/src/plugins/event-emitter-plugin.ts:150](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L150)
 
 ___
 
@@ -118,15 +135,21 @@ Plugin version
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:79](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L79)
+[packages/agents/src/plugins/event-emitter-plugin.ts:151](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L151)
 
 ## Methods
 
 ### initialize
 
-▸ **initialize**(): `Promise`\<`void`\>
+▸ **initialize**(`options?`): `Promise`\<`void`\>
 
-Initialize the plugin
+Initialize the plugin with type-safe options
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `options?` | [`EventEmitterPluginOptions`](../interfaces/EventEmitterPluginOptions) |
 
 #### Returns
 
@@ -138,7 +161,7 @@ Initialize the plugin
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:71](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L71)
+[packages/agents/src/abstracts/base-plugin.ts:224](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L224)
 
 ___
 
@@ -158,7 +181,7 @@ Cleanup plugin resources
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:78](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L78)
+[packages/agents/src/abstracts/base-plugin.ts:232](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L232)
 
 ___
 
@@ -178,7 +201,7 @@ Enable the plugin
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:85](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L85)
+[packages/agents/src/abstracts/base-plugin.ts:239](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L239)
 
 ___
 
@@ -198,7 +221,7 @@ Disable the plugin
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:92](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L92)
+[packages/agents/src/abstracts/base-plugin.ts:246](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L246)
 
 ___
 
@@ -218,19 +241,19 @@ Check if plugin is enabled
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:99](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L99)
+[packages/agents/src/abstracts/base-plugin.ts:253](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L253)
 
 ___
 
 ### getConfig
 
-▸ **getConfig**(): `Record`\<`string`, `any`\>
+▸ **getConfig**(): [`PluginConfig`](../interfaces/PluginConfig)
 
 Get plugin configuration
 
 #### Returns
 
-`Record`\<`string`, `any`\>
+[`PluginConfig`](../interfaces/PluginConfig)
 
 #### Inherited from
 
@@ -238,7 +261,7 @@ Get plugin configuration
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:106](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L106)
+[packages/agents/src/abstracts/base-plugin.ts:260](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L260)
 
 ___
 
@@ -252,7 +275,7 @@ Update plugin configuration
 
 | Name | Type |
 | :------ | :------ |
-| `_config` | `Record`\<`string`, `any`\> |
+| `_config` | [`PluginConfig`](../interfaces/PluginConfig) |
 
 #### Returns
 
@@ -264,20 +287,20 @@ Update plugin configuration
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:113](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L113)
+[packages/agents/src/abstracts/base-plugin.ts:267](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L267)
 
 ___
 
 ### getData
 
-▸ **getData**(): `any`
+▸ **getData**(): [`PluginData`](../interfaces/PluginData)
 
 Get plugin data - common interface for all plugins
 This method should be implemented by plugins that collect data
 
 #### Returns
 
-`any`
+[`PluginData`](../interfaces/PluginData)
 
 #### Inherited from
 
@@ -285,7 +308,7 @@ This method should be implemented by plugins that collect data
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:121](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L121)
+[packages/agents/src/abstracts/base-plugin.ts:275](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L275)
 
 ___
 
@@ -306,7 +329,7 @@ This method should be implemented by plugins that store data
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L133)
+[packages/agents/src/abstracts/base-plugin.ts:281](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L281)
 
 ___
 
@@ -333,7 +356,7 @@ Get plugin status - common interface for all plugins
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:138](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L138)
+[packages/agents/src/abstracts/base-plugin.ts:286](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L286)
 
 ___
 
@@ -360,7 +383,7 @@ Called before agent run
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:153](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L153)
+[packages/agents/src/abstracts/base-plugin.ts:301](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L301)
 
 ___
 
@@ -388,7 +411,7 @@ Called after agent run
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:154](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L154)
+[packages/agents/src/abstracts/base-plugin.ts:302](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L302)
 
 ___
 
@@ -403,7 +426,7 @@ Called before tool execution
 | Name | Type |
 | :------ | :------ |
 | `toolName` | `string` |
-| `parameters` | `Record`\<`string`, `any`\> |
+| `parameters` | `ToolParameters` |
 
 #### Returns
 
@@ -415,7 +438,7 @@ Called before tool execution
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:155](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L155)
+[packages/agents/src/abstracts/base-plugin.ts:307](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L307)
 
 ___
 
@@ -430,8 +453,8 @@ Called after tool execution
 | Name | Type |
 | :------ | :------ |
 | `toolName` | `string` |
-| `parameters` | `Record`\<`string`, `any`\> |
-| `result` | `any` |
+| `parameters` | `ToolParameters` |
+| `result` | [`ToolExecutionResult`](../interfaces/ToolExecutionResult) |
 
 #### Returns
 
@@ -443,7 +466,7 @@ Called after tool execution
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:156](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L156)
+[packages/agents/src/abstracts/base-plugin.ts:309](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L309)
 
 ___
 
@@ -469,7 +492,7 @@ Called before AI provider call
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:157](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L157)
+[packages/agents/src/abstracts/base-plugin.ts:311](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L311)
 
 ___
 
@@ -496,7 +519,7 @@ Called after AI provider call
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:158](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L158)
+[packages/agents/src/abstracts/base-plugin.ts:312](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L312)
 
 ___
 
@@ -522,7 +545,7 @@ Called on streaming chunk
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:159](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L159)
+[packages/agents/src/abstracts/base-plugin.ts:313](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L313)
 
 ___
 
@@ -548,7 +571,7 @@ Called on message added to history
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:161](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L161)
+[packages/agents/src/abstracts/base-plugin.ts:315](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L315)
 
 ___
 
@@ -562,15 +585,19 @@ Before execution starts
 
 | Name | Type |
 | :------ | :------ |
-| `context` | `any` |
+| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
 
 #### Returns
 
 `Promise`\<`void`\>
 
+#### Overrides
+
+[BasePlugin](BasePlugin).[beforeExecution](BasePlugin#beforeexecution)
+
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:128](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L128)
+[packages/agents/src/plugins/event-emitter-plugin.ts:201](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L201)
 
 ___
 
@@ -584,16 +611,20 @@ After execution completes
 
 | Name | Type |
 | :------ | :------ |
-| `context` | `any` |
-| `result` | `any` |
+| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
+| `result` | [`BaseExecutionResult`](../interfaces/BaseExecutionResult) |
 
 #### Returns
 
 `Promise`\<`void`\>
 
+#### Overrides
+
+[BasePlugin](BasePlugin).[afterExecution](BasePlugin#afterexecution)
+
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:143](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L143)
+[packages/agents/src/plugins/event-emitter-plugin.ts:216](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L216)
 
 ___
 
@@ -607,15 +638,19 @@ Before conversation starts
 
 | Name | Type |
 | :------ | :------ |
-| `context` | `any` |
+| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
 
 #### Returns
 
 `Promise`\<`void`\>
 
+#### Overrides
+
+[BasePlugin](BasePlugin).[beforeConversation](BasePlugin#beforeconversation)
+
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:160](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L160)
+[packages/agents/src/plugins/event-emitter-plugin.ts:233](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L233)
 
 ___
 
@@ -629,16 +664,20 @@ After conversation completes
 
 | Name | Type |
 | :------ | :------ |
-| `context` | `any` |
-| `result` | `any` |
+| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
+| `result` | [`BaseExecutionResult`](../interfaces/BaseExecutionResult) |
 
 #### Returns
 
 `Promise`\<`void`\>
 
+#### Overrides
+
+[BasePlugin](BasePlugin).[afterConversation](BasePlugin#afterconversation)
+
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:175](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L175)
+[packages/agents/src/plugins/event-emitter-plugin.ts:252](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L252)
 
 ___
 
@@ -648,20 +687,33 @@ ___
 
 Before tool execution
 
+REASON: Tool data structure varies by provider and tool type, needs flexible handling for event processing
+ALTERNATIVES_CONSIDERED:
+1. Strict tool interfaces (breaks provider compatibility)
+2. Union types (insufficient for dynamic tool data)
+3. Generic constraints (too complex for event handling)
+4. Interface definitions (too rigid for varied tool structures)
+5. Type assertions (decreases type safety)
+TODO: Consider standardized tool data interface across providers
+
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `context` | `any` |
-| `toolData` | `any` |
+| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
+| `toolData` | `Record`\<`string`, `undefined` \| ``null`` \| `string` \| `number` \| `boolean` \| `object` \| (`string` \| `number` \| `boolean`)[]\> |
 
 #### Returns
 
 `Promise`\<`void`\>
 
+#### Overrides
+
+[BasePlugin](BasePlugin).[beforeToolExecution](BasePlugin#beforetoolexecution)
+
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:191](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L191)
+[packages/agents/src/plugins/event-emitter-plugin.ts:282](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L282)
 
 ___
 
@@ -671,35 +723,57 @@ ___
 
 After tool execution
 
+REASON: Tool results structure varies by provider and tool type, needs flexible handling for event processing
+ALTERNATIVES_CONSIDERED:
+1. Strict result interfaces (breaks provider compatibility)
+2. Union types (insufficient for dynamic result data)
+3. Generic constraints (too complex for event handling)
+4. Interface definitions (too rigid for varied result structures)
+5. Type assertions (decreases type safety)
+TODO: Consider standardized tool result interface across providers
+
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `context` | `any` |
-| `toolResults` | `any` |
+| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
+| `toolResults` | `Record`\<`string`, `undefined` \| ``null`` \| `string` \| `number` \| `boolean` \| `object` \| (`string` \| `number` \| `boolean`)[]\> |
 
 #### Returns
 
 `Promise`\<`void`\>
 
+#### Overrides
+
+[BasePlugin](BasePlugin).[afterToolExecution](BasePlugin#aftertoolexecution)
+
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:212](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L212)
+[packages/agents/src/plugins/event-emitter-plugin.ts:312](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L312)
 
 ___
 
 ### onError
 
-▸ **onError**(`context`, `error`): `Promise`\<`void`\>
+▸ **onError**(`error`, `context?`): `Promise`\<`void`\>
 
 On error
+
+REASON: Error context structure varies by execution phase and error type, needs flexible handling
+ALTERNATIVES_CONSIDERED:
+1. Strict error context interface (breaks error handling flexibility)
+2. Union types (insufficient for dynamic error contexts)
+3. Generic constraints (too complex for error handling)
+4. Interface definitions (too rigid for varied error contexts)
+5. Type assertions (decreases type safety)
+TODO: Consider standardized error context interface
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `context` | `any` |
-| `error` | `any` |
+| `error` | `Error` |
+| `context?` | [`ErrorContext`](../interfaces/ErrorContext) |
 
 #### Returns
 
@@ -711,7 +785,7 @@ On error
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:253](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L253)
+[packages/agents/src/plugins/event-emitter-plugin.ts:362](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L362)
 
 ___
 
@@ -737,7 +811,7 @@ Register event listener
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:268](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L268)
+[packages/agents/src/plugins/event-emitter-plugin.ts:377](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L377)
 
 ___
 
@@ -761,7 +835,7 @@ Register one-time event listener
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:308](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L308)
+[packages/agents/src/plugins/event-emitter-plugin.ts:417](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L417)
 
 ___
 
@@ -784,7 +858,7 @@ Remove event listener
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:318](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L318)
+[packages/agents/src/plugins/event-emitter-plugin.ts:427](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L427)
 
 ___
 
@@ -807,7 +881,7 @@ Emit an event
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:345](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L345)
+[packages/agents/src/plugins/event-emitter-plugin.ts:454](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L454)
 
 ___
 
@@ -823,34 +897,23 @@ Flush buffered events
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:458](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L458)
+[packages/agents/src/plugins/event-emitter-plugin.ts:567](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L567)
 
 ___
 
 ### getStats
 
-▸ **getStats**(): `Object`
+▸ **getStats**(): `EventEmitterPluginStats`
 
-Get listener statistics
+Get event emitter statistics
 
 #### Returns
 
-`Object`
-
-| Name | Type |
-| :------ | :------ |
-| `eventTypes` | [`EventType`](../modules#eventtype)[] |
-| `listenerCounts` | `Record`\<[`EventType`](../modules#eventtype), `number`\> |
-| `totalListeners` | `number` |
-| `bufferedEvents` | `number` |
-
-#### Overrides
-
-[BasePlugin](BasePlugin).[getStats](BasePlugin#getstats)
+`EventEmitterPluginStats`
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:476](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L476)
+[packages/agents/src/plugins/event-emitter-plugin.ts:585](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L585)
 
 ___
 
@@ -866,7 +929,7 @@ Clear all listeners
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:501](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L501)
+[packages/agents/src/plugins/event-emitter-plugin.ts:607](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L607)
 
 ___
 
@@ -882,4 +945,4 @@ Cleanup on plugin destruction
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:509](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/event-emitter-plugin.ts#L509)
+[packages/agents/src/plugins/event-emitter-plugin.ts:615](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L615)

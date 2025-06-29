@@ -37,7 +37,7 @@ Handles message format conversion between different providers
 
 ### toProviderFormat
 
-▸ **toProviderFormat**(`messages`, `providerName`): `any`[]
+▸ **toProviderFormat**(`messages`, `providerName`): `ProviderMessage`[]
 
 Convert messages to provider-specific format
 
@@ -50,11 +50,11 @@ Convert messages to provider-specific format
 
 #### Returns
 
-`any`[]
+`ProviderMessage`[]
 
 #### Defined in
 
-[packages/agents/src/utils/message-converter.ts:11](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/message-converter.ts#L11)
+[packages/agents/src/utils/message-converter.ts:46](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/message-converter.ts#L46)
 
 ___
 
@@ -76,7 +76,7 @@ Extract system message from messages
 
 #### Defined in
 
-[packages/agents/src/utils/message-converter.ts:78](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/message-converter.ts#L78)
+[packages/agents/src/utils/message-converter.ts:121](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/message-converter.ts#L121)
 
 ___
 
@@ -98,4 +98,4 @@ Filter non-system messages
 
 #### Defined in
 
-[packages/agents/src/utils/message-converter.ts:86](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/message-converter.ts#L86)
+[packages/agents/src/utils/message-converter.ts:129](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/message-converter.ts#L129)
