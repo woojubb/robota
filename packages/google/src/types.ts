@@ -27,5 +27,5 @@ export interface GoogleProviderOptions extends Omit<ProviderOptions, 'model'> {
     /** 
      * Response schema for JSON output (only used when responseMimeType is 'application/json')
      */
-    responseSchema?: Record<string, unknown>;
+    responseSchema?: Record<string, string | number | boolean | object>;
 } 
