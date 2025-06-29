@@ -230,7 +230,7 @@ export class ExecutionService {
                 });
 
                 // Prepare configuration for provider execution
-                const providerConfig: ProviderExecutionConfig = {
+                const providerConfig = {
                     model: config.model,
                     ...(config.systemMessage && { systemMessage: config.systemMessage }),
                     ...(config.temperature !== undefined && { temperature: config.temperature }),

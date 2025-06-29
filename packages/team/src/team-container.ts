@@ -1,8 +1,7 @@
 /* eslint-disable no-console */
-import { Robota, AgentConfig, ExecutionAnalyticsPlugin } from '@robota-sdk/agents';
-import { createZodFunctionTool } from '@robota-sdk/agents';
+import { Robota, AgentConfig, ExecutionAnalyticsPlugin, BasePlugin } from '@robota-sdk/agents';
 import { v4 as uuidv4 } from 'uuid';
-import { z } from 'zod';
+import { createTaskAssignmentFacade } from './task-assignment/index.js';
 
 import {
     TeamContainerOptions,
@@ -145,7 +144,12 @@ interface AgentTemplate {
 export class TeamContainer {
     private teamAgent!: Robota;
     private options: TeamContainerOptions;
-    private logger?: any;
+    private logger: {
+        info: (message: string) => void;
+        warn: (message: string) => void;
+        error: (message: string) => void;
+        debug: (message: string) => void;
+    } | undefined;
     private availableTemplates: AgentTemplate[];
     private delegationHistory: TaskDelegationRecord[] = [];
     private activeAgentsCount: number = 0; // Track currently active agents
@@ -195,7 +199,7 @@ export class TeamContainer {
             ...(leaderTemplate.config.maxTokens && { maxTokens: leaderTemplate.config.maxTokens }),
             plugins: [
                 ...(this.options.baseRobotaOptions.plugins || []),
-                teamAnalyticsPlugin
+                teamAnalyticsPlugin as BasePlugin
             ],
             tools: [
                 ...(this.options.baseRobotaOptions.tools || []),
@@ -232,7 +236,8 @@ export class TeamContainer {
             const executionTime = Date.now() - startTime;
             this.totalExecutionTime += executionTime;
 
-            this.logger?.error(`❌ Team execution failed after ${executionTime}ms`, error);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger?.error(`❌ Team execution failed after ${executionTime}ms: ${errorMessage}`);
             throw error;
         }
     }
@@ -336,7 +341,7 @@ export class TeamContainer {
                     currentProvider: template.config.provider,
                     temperature: template.config.temperature,
                     ...(template.config.maxTokens && { maxTokens: template.config.maxTokens }),
-                    plugins: [taskAnalyticsPlugin], // Add analytics to temporary agent
+                    plugins: [taskAnalyticsPlugin as BasePlugin], // Add analytics to temporary agent
                     tools: [...delegationTools, ...(this.options.baseRobotaOptions.tools || [])]
                 });
             } else {
@@ -351,7 +356,7 @@ export class TeamContainer {
                 temporaryAgent = new Robota({
                     ...this.options.baseRobotaOptions,
                     systemMessage: systemMessage,
-                    plugins: [taskAnalyticsPlugin], // Add analytics to temporary agent
+                    plugins: [taskAnalyticsPlugin as BasePlugin], // Add analytics to temporary agent
                     tools: [...delegationTools, ...(this.options.baseRobotaOptions.tools || [])]
                 });
             }
@@ -420,7 +425,7 @@ export class TeamContainer {
                 this.logger?.info(`📊 Agent failed, slot released - Active: ${this.activeAgentsCount}`);
             }
 
-            this.logger?.error(`❌ Task failed for agent ${agentId} (${taskDuration}ms):`, error);
+            this.logger?.error(`❌ Task failed for agent ${agentId} (${taskDuration}ms): ${errorMessage}`);
 
             const delegationRecord: TaskDelegationRecord = {
                 id: uuidv4(),
@@ -482,9 +487,9 @@ export class TeamContainer {
      * Get execution statistics by operation type
      */
     getExecutionStats(operation?: string) {
-        const analyticsPlugin = this.teamAgent.getPlugin('ExecutionAnalyticsPlugin');
-        if (analyticsPlugin && 'getExecutionStats' in analyticsPlugin && typeof (analyticsPlugin as any).getExecutionStats === 'function') {
-            return (analyticsPlugin as any).getExecutionStats(operation);
+        const analyticsPlugin = this.teamAgent.getPlugin('ExecutionAnalyticsPlugin') as ExecutionAnalyticsPlugin | null;
+        if (analyticsPlugin && typeof analyticsPlugin.getExecutionStats === 'function') {
+            return analyticsPlugin.getExecutionStats(operation);
         }
         return [];
     }
@@ -703,63 +708,27 @@ export class TeamContainer {
     }
 
     /**
-     * Create AssignTask tool with dynamic schema based on available templates
+     * Create AssignTask tool using facade pattern with dynamic schema based on available templates
      */
     private createAssignTaskTool() {
-        // Generate template descriptions for better AI understanding
-        const templateDescriptions = this.availableTemplates.map(template =>
-            `${template.id}: ${template.description}`
-        ).join(', ');
+        // Convert templates to the format expected by the facade
+        const templateInfo = this.availableTemplates.map(template => ({
+            id: template.id,
+            description: template.description
+        }));
 
-        // Create dynamic Zod schema
-        const assignTaskSchema = z.object({
-            jobDescription: z.string().describe(
-                'Clear, specific description of the job to be completed. Should provide enough detail for the specialist agent to understand the scope and deliverables expected.'
-            ),
-            context: z.string().optional().describe(
-                'Additional context, constraints, or requirements for the job. Helps the specialist agent understand the broader context and any specific limitations or guidelines to follow.'
-            ),
-            requiredTools: z.array(z.string()).optional().describe(
-                'List of tools the specialist agent might need for this task. If specified, the system will attempt to configure the agent with access to these tools.'
-            ),
-            priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium').describe(
-                'Priority level for the task, affecting resource allocation and urgency. Higher priority tasks may receive more resources or faster processing.'
-            ),
-            agentTemplate: z.string().optional().describe(
-                `Name of the agent template to use for this task. Available templates: ${templateDescriptions}. If not specified, a dynamic agent will be created based on the job description.`
-            ),
-            allowFurtherDelegation: z.boolean().default(false).describe(
-                'Whether the assigned agent can delegate parts of the task to other specialists if needed. Set true ONLY for very complex tasks requiring multiple specialized areas of expertise, false for focused execution.'
-            )
-        });
-
-        // Log the converted schema for debugging
-        const toolInstance = createZodFunctionTool(
-            'assignTask',
-            'Assign a specialized task to a temporary expert agent. Use this when the task requires specific expertise, complex analysis, or when breaking down work into specialized components would be beneficial. The expert agent will be created, complete the task, and be automatically cleaned up. Set allowFurtherDelegation=true ONLY for extremely complex tasks requiring multiple different areas of expertise, otherwise keep false for direct execution. Choose appropriate agentTemplate based on the nature of the work.',
-            assignTaskSchema as any, // TODO: Fix ZodSchema type compatibility later
-            async (parameters: Record<string, any>) => {
-                const assignTaskParams: AssignTaskParams = {
-                    jobDescription: parameters['jobDescription'],
-                    context: parameters['context'],
-                    requiredTools: parameters['requiredTools'] || [],
-                    priority: parameters['priority'] || 'medium',
-                    agentTemplate: parameters['agentTemplate'],
-                    allowFurtherDelegation: parameters['allowFurtherDelegation']
-                };
-
-                const result = await this.assignTask(assignTaskParams);
-
-                // Return formatted string result for LLM consumption
-                const formattedResult = `Task completed successfully by ${result.agentId}.\n\nResult:\n${result.result}\n\nExecution time: ${result.metadata.executionTime}ms`;
-
-                return formattedResult;
+        // Create the task assignment facade
+        const taskAssignment = createTaskAssignmentFacade(
+            templateInfo,
+            async (params: AssignTaskParams) => {
+                return await this.assignTask(params);
             }
         );
 
-        console.log('assignTask converted schema:', JSON.stringify(toolInstance.schema, null, 2));
+        // Log the schema for debugging
+        console.log('assignTask schema:', JSON.stringify(taskAssignment.tool.schema, null, 2));
 
-        return toolInstance;
+        return taskAssignment.tool;
     }
 
     /**

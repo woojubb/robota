@@ -1,4 +1,4 @@
-import type { WorkflowHistory, AgentTreeNode, AgentConversationData } from './team-container';
+import type { WorkflowHistory, AgentTreeNode, AgentConversationData, WorkflowMessage } from './workflow-types.js';
 
 /**
  * Workflow History Formatting Utilities
@@ -360,6 +360,13 @@ export function getAgentConversation(workflowHistory: WorkflowHistory, agentId: 
 }
 
 /**
+ * Message with agent ID for chronological sorting
+ */
+interface MessageWithAgent extends WorkflowMessage {
+    agentId: string;
+}
+
+/**
  * Get all messages from all agents in chronological order
  * 
  * @param workflowHistory - Complete workflow history
@@ -378,8 +385,8 @@ export function getAgentConversation(workflowHistory: WorkflowHistory, agentId: 
  * }
  * ```
  */
-export function getAllMessagesChronologically(workflowHistory: WorkflowHistory): Array<any & { agentId: string }> {
-    const allMessages: Array<any & { agentId: string }> = [];
+export function getAllMessagesChronologically(workflowHistory: WorkflowHistory): MessageWithAgent[] {
+    const allMessages: MessageWithAgent[] = [];
 
     for (const agentConv of workflowHistory.agentConversations) {
         for (const message of agentConv.messages) {
@@ -405,8 +412,9 @@ export function getAllMessagesChronologically(workflowHistory: WorkflowHistory):
 
 /**
  * Render agent tree with improved visual structure
+ * @internal - Helper function for tree visualization
  */
-function renderAgentTree(node: AgentTreeNode, prefix: string, isLast: boolean): string[] {
+export function renderAgentTree(node: AgentTreeNode, prefix: string, isLast: boolean): string[] {
     const lines: string[] = [];
     const connector = isLast ? '└─' : '├─';
 

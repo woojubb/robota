@@ -1,4 +1,4 @@
-import type { AgentConfig as RobotaAgentConfig, AgentTemplate, AIProvider } from '@robota-sdk/agents';
+import type { AgentConfig as RobotaAgentConfig, AgentTemplate, BaseAIProvider } from '@robota-sdk/agents';
 
 /**
  * Team creation options for template-based teams
@@ -24,7 +24,7 @@ export interface TeamOptions {
      * AI providers available for templates to use.
      * Each template specifies which provider it prefers.
      */
-    aiProviders: Record<string, AIProvider>;
+    aiProviders: Record<string, BaseAIProvider>;
 
     /** 
      * Maximum number of team members that can be created concurrently.
@@ -47,7 +47,12 @@ export interface TeamOptions {
     /** 
      * Logger for team operations. If not provided, no logging will be done.
      */
-    logger?: any;
+    logger?: {
+        info: (message: string) => void;
+        warn: (message: string) => void;
+        error: (message: string) => void;
+        debug: (message: string) => void;
+    };
 
     /** 
      * Custom agent templates to register in addition to built-in templates.
@@ -73,7 +78,12 @@ export interface TeamContainerOptions {
     debug?: boolean;
     customTemplates?: AgentTemplate[];
     leaderTemplate?: string;
-    logger?: any;
+    logger?: {
+        info: (message: string) => void;
+        warn: (message: string) => void;
+        error: (message: string) => void;
+        debug: (message: string) => void;
+    } | undefined;
 }
 
 /**
