@@ -28,6 +28,26 @@ export type BaseToolParameters = Record<string,
 >;
 
 /**
+ * Tool execution function type with proper parameter constraints
+ */
+export type ToolExecutionFunction<TParams = BaseToolParameters, TResult = ToolResult> = (
+    parameters: TParams
+) => Promise<TResult> | TResult;
+
+/**
+ * Base tool interface with type parameters for enhanced type safety
+ * 
+ * @template TParams - Tool parameters type (defaults to BaseToolParameters for backward compatibility)
+ * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)  
+ */
+export interface BaseToolInterface<TParams = BaseToolParameters, TResult = ToolResult> {
+    name: string;
+    description: string;
+    parameters: ToolSchema['parameters'];
+    execute: ToolExecutionFunction<TParams, TResult>;
+}
+
+/**
  * Type-safe tool interface with type parameters
  * 
  * @template TParameters - Tool parameters type (defaults to BaseToolParameters for backward compatibility)
@@ -57,7 +77,7 @@ export abstract class BaseTool<TParameters = BaseToolParameters, TResult = ToolR
 
     validate(parameters: TParameters): boolean {
         const required = this.schema.parameters.required || [];
-        return required.every(field => field in (parameters as Record<string, unknown>));
+        return required.every(field => field in (parameters as Record<string, string | number | boolean>));
     }
 
     /**
@@ -66,7 +86,7 @@ export abstract class BaseTool<TParameters = BaseToolParameters, TResult = ToolR
     validateParameters(parameters: TParameters): ParameterValidationResult {
         const required = this.schema.parameters.required || [];
         const errors: string[] = [];
-        const paramObj = parameters as Record<string, unknown>;
+        const paramObj = parameters as Record<string, string | number | boolean>;
 
         for (const field of required) {
             if (!(field in paramObj)) {

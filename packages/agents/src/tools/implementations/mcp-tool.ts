@@ -1,6 +1,5 @@
 import type { ToolInterface, ToolResult, ToolExecutionContext, MCPToolConfig, ToolParameters } from '../../interfaces/tool';
 import type { ToolSchema } from '../../interfaces/provider';
-import type { ToolResultData } from '../../interfaces/types';
 import { BaseTool } from '../../abstracts/base-tool';
 import { ToolExecutionError } from '../../utils/errors';
 import { logger } from '../../utils/logger';

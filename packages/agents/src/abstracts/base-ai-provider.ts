@@ -9,13 +9,13 @@ import { logger } from '../utils/logger';
 export type ProviderLoggingData = Record<string, string | number | boolean | Date | string[]>;
 
 /**
- * Type-safe AI Provider interface with type parameters
+ * Type-safe AI provider interface with proper generic constraints
  * 
- * @template TConfig - Provider configuration type
- * @template TMessage - Message type used by the provider
- * @template TResponse - Response type returned by the provider
+ * @template TConfig - Provider configuration type (defaults to ProviderConfig for type safety)
+ * @template TMessage - Message type (defaults to UniversalMessage for backward compatibility)
+ * @template TResponse - Response type (defaults to UniversalMessage for backward compatibility)
  */
-export interface TypeSafeAIProvider<TConfig = unknown, TMessage = UniversalMessage, TResponse = UniversalMessage> {
+export interface TypeSafeAIProvider<TConfig = ProviderConfig, TMessage = UniversalMessage, TResponse = UniversalMessage> {
     readonly name: string;
     readonly version: string;
 
@@ -28,14 +28,24 @@ export interface TypeSafeAIProvider<TConfig = unknown, TMessage = UniversalMessa
 }
 
 /**
- * Base AI Provider abstract class with type parameter support
- * This is the provider-agnostic base class that all providers should extend
+ * Provider configuration base interface
+ */
+export interface ProviderConfig {
+    apiKey?: string;
+    baseUrl?: string;
+    timeout?: number;
+    [key: string]: string | number | boolean | undefined;
+}
+
+/**
+ * Base AI provider implementation with proper type constraints
+ * All AI providers should extend this class
  * 
- * @template TConfig - Provider configuration type (defaults to unknown for maximum flexibility)
+ * @template TConfig - Provider configuration type (defaults to ProviderConfig for type safety)
  * @template TMessage - Message type (defaults to UniversalMessage for backward compatibility)
  * @template TResponse - Response type (defaults to UniversalMessage for backward compatibility)
  */
-export abstract class BaseAIProvider<TConfig = unknown, TMessage = UniversalMessage, TResponse = UniversalMessage>
+export abstract class BaseAIProvider<TConfig = ProviderConfig, TMessage = UniversalMessage, TResponse = UniversalMessage>
     implements TypeSafeAIProvider<TConfig, TMessage, TResponse> {
     abstract readonly name: string;
     abstract readonly version: string;

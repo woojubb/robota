@@ -49,31 +49,34 @@ class MockAIProvider extends BaseAIProvider {
     }
 }
 
+// Define mock session value type
+type MockSessionValue = {
+    getMessages: () => any[];
+    getMessageCount: () => number;
+    addUserMessage: (content: string, metadata?: any) => void;
+    addAssistantMessage: (content: string, metadata?: any) => void;
+    addSystemMessage: (content: string) => void;
+    addToolMessageWithId: (content: string, toolCallId: string, toolName: string, metadata?: any) => void;
+    addMessage: (message: any) => void;
+    clear: () => void;
+    getMessagesByRole: (role: string) => any[];
+    getRecentMessages: (count: number) => any[];
+} | null;
+
 // Create a mock class that extends ConversationHistory
 class MockConversationHistory extends ConversationHistory {
-    private mockSession: Record<string, unknown>;
+    private mockSession: Record<string, MockSessionValue>;
 
     constructor() {
         super({ maxMessagesPerConversation: 100, maxConversations: 10 });
-        this.mockSession = {
-            getMessages: vi.fn().mockReturnValue([]),
-            getMessageCount: vi.fn().mockReturnValue(0),
-            addUserMessage: vi.fn(),
-            addAssistantMessage: vi.fn(),
-            addSystemMessage: vi.fn(),
-            addToolMessageWithId: vi.fn(),
-            addMessage: vi.fn(),
-            clear: vi.fn(),
-            getMessagesByRole: vi.fn().mockReturnValue([]),
-            getRecentMessages: vi.fn().mockReturnValue([])
-        };
+        this.mockSession = {};
     }
 
-    override getConversationSession(conversationId: string): unknown {
-        return this.mockSession;
+    override getConversationSession(conversationId: string): MockSessionValue {
+        return this.mockSession[conversationId] || null;
     }
 
-    setMockSession(session: Record<string, unknown>): void {
+    setMockSession(session: Record<string, MockSessionValue>): void {
         this.mockSession = session;
     }
 }

@@ -1,11 +1,11 @@
-import type { Context } from '@robota-sdk/agents';
+import type { ConversationContext, Message } from '@robota-sdk/agents';
 
 export interface ContextManager {
-    getContext(): Context;
-    updateContext(context: Partial<Context>): void;
+    getContext(): ConversationContext;
+    updateContext(context: Partial<ConversationContext>): void;
     clearContext(): void;
     addSystemMessage(content: string): void;
-    getSystemMessages(): any[];
+    getSystemMessages(): Message[];
 }
 
-export type { Context }; 
+export type { ConversationContext }; 

@@ -63,7 +63,7 @@ class MockTool extends BaseTool {
     async execute(parameters: ToolParameters): Promise<ToolResult> {
         return {
             success: true,
-            data: `Mock tool executed with: ${(parameters as Record<string, unknown>).input || 'no input'}`
+            data: `Mock tool executed with: ${(parameters as Record<string, string | number | boolean>).input || 'no input'}`
         };
     }
 
