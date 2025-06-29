@@ -3,6 +3,7 @@ import { BaseAIProvider } from '@robota-sdk/agents';
 import type { UniversalMessage, ToolSchema, ChatOptions } from '@robota-sdk/agents';
 import { AnthropicProviderOptions } from './types';
 
+
 /**
  * Anthropic AI provider implementation for Robota
  * 
@@ -11,7 +12,11 @@ import { AnthropicProviderOptions } from './types';
  * 
  * @public
  */
-export class AnthropicProvider extends BaseAIProvider {
+export class AnthropicProvider extends BaseAIProvider<
+    AnthropicProviderOptions,
+    UniversalMessage,
+    UniversalMessage
+> {
     readonly name = 'anthropic';
     readonly version = '1.0.0';
 
@@ -56,8 +61,9 @@ export class AnthropicProvider extends BaseAIProvider {
             // 3. Convert Anthropic response → UniversalMessage
             return this.convertFromAnthropicResponse(response);
 
-        } catch (error: any) {
-            throw new Error(`Anthropic chat failed: ${error.message}`);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            throw new Error(`Anthropic chat failed: ${errorMessage}`);
         }
     }
 
@@ -85,7 +91,7 @@ export class AnthropicProvider extends BaseAIProvider {
                 })
             };
 
-            const stream = await this.client.messages.create(requestParams) as any;
+            const stream = await this.client.messages.create(requestParams as Anthropic.MessageCreateParamsStreaming);
 
             // 3. Stream conversion: Anthropic chunks → UniversalMessage
             for await (const chunk of stream) {
@@ -95,8 +101,9 @@ export class AnthropicProvider extends BaseAIProvider {
                 }
             }
 
-        } catch (error: any) {
-            throw new Error(`Anthropic stream failed: ${error.message}`);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            throw new Error(`Anthropic stream failed: ${errorMessage}`);
         }
     }
 
@@ -127,8 +134,8 @@ export class AnthropicProvider extends BaseAIProvider {
                     return {
                         role: 'assistant',
                         content: msg.content || '',
-                        ...((msg as any).toolCalls && {
-                            tool_calls: (msg as any).toolCalls.map((tc: any) => ({
+                        ...(msg.toolCalls && {
+                            tool_calls: msg.toolCalls.map(tc => ({
                                 id: tc.id,
                                 type: 'function' as const,
                                 function: {
@@ -145,7 +152,7 @@ export class AnthropicProvider extends BaseAIProvider {
                         // Note: Anthropic handles tool results differently
                     };
                 default:
-                    throw new Error(`Unsupported message role: ${(msg as any).role}`);
+                    throw new Error(`Unsupported message role: ${(msg as UniversalMessage).role}`);
             }
         });
     }
@@ -203,8 +210,8 @@ export class AnthropicProvider extends BaseAIProvider {
     /**
      * Convert Anthropic streaming chunk to UniversalMessage
      */
-    private convertFromAnthropicChunk(chunk: any): UniversalMessage | null {
-        if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
+    private convertFromAnthropicChunk(chunk: Anthropic.MessageStreamEvent): UniversalMessage | null {
+        if (chunk.type === 'content_block_delta' && chunk.delta && 'text' in chunk.delta) {
             return {
                 role: 'assistant',
                 content: chunk.delta.text,

@@ -1,4 +1,6 @@
 import { UniversalMessage, logger } from '@robota-sdk/agents';
+import type Anthropic from '@anthropic-ai/sdk';
+import type { AnthropicMessage } from '../types/api-types';
 
 /**
  * Anthropic response parser utility
@@ -14,21 +16,22 @@ export class AnthropicResponseParser {
      * @param response - Raw Anthropic API response
      * @returns Standardized universal message
      */
-    static parseResponse(response: any): UniversalMessage {
+    static parseResponse(response: AnthropicMessage): UniversalMessage {
         try {
             const content = response.content?.[0]?.text || '';
 
             // Parse tool calls if present
-            const toolCalls = response.content
-                ?.filter((block: any) => block.type === 'tool_use')
-                ?.map((toolBlock: any) => ({
-                    id: toolBlock.id,
+            const toolUseBlocks = response.content?.filter(block => block.type === 'tool_use') || [];
+            const toolCalls = toolUseBlocks
+                .filter(toolBlock => toolBlock.id && toolBlock.name)
+                .map(toolBlock => ({
+                    id: toolBlock.id!,
                     type: 'function' as const,
                     function: {
-                        name: toolBlock.name,
-                        arguments: JSON.stringify(toolBlock.input)
+                        name: toolBlock.name!,
+                        arguments: JSON.stringify(toolBlock.input || {})
                     }
-                })) || [];
+                }));
 
             // Calculate token usage
             const usage = response.usage ? {
@@ -45,13 +48,14 @@ export class AnthropicResponseParser {
                 ...(usage && { usage }),
                 metadata: {
                     model: response.model,
-                    finishReason: response.stop_reason
+                    finishReason: response.stop_reason || 'unknown'
                 }
             };
 
             return result;
         } catch (error) {
-            logger.error('Error parsing Anthropic response:', error as Record<string, any>);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown parsing error';
+            logger.error('Error parsing Anthropic response:', { message: errorMessage });
             throw error;
         }
     }
@@ -62,7 +66,7 @@ export class AnthropicResponseParser {
      * @param chunk - Raw streaming chunk from Anthropic API
      * @returns Parsed universal message or null if no content
      */
-    static parseStreamingChunk(chunk: any): UniversalMessage | null {
+    static parseStreamingChunk(chunk: Anthropic.MessageStreamEvent): UniversalMessage | null {
         try {
             // Handle different chunk types
             switch (chunk.type) {
@@ -154,7 +158,8 @@ export class AnthropicResponseParser {
 
             return null;
         } catch (error) {
-            logger.error('Error parsing Anthropic streaming chunk:', error as Record<string, any>);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown parsing error';
+            logger.error('Error parsing Anthropic streaming chunk:', { message: errorMessage });
             return null;
         }
     }
