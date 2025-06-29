@@ -15,7 +15,7 @@ Uses Anthropic SDK native types internally for optimal performance and feature s
 
 ## Hierarchy
 
-- `BaseAIProvider`
+- `BaseAIProvider`\<[`AnthropicProviderOptions`](../interfaces/AnthropicProviderOptions), `UniversalMessage`, `UniversalMessage`\>
 
   ↳ **`AnthropicProvider`**
 
@@ -32,6 +32,7 @@ Uses Anthropic SDK native types internally for optimal performance and feature s
 
 ### Methods
 
+- [configure](AnthropicProvider#configure)
 - [chat](AnthropicProvider#chat)
 - [chatStream](AnthropicProvider#chatstream)
 - [supportsTools](AnthropicProvider#supportstools)
@@ -56,11 +57,15 @@ Uses Anthropic SDK native types internally for optimal performance and feature s
 
 #### Overrides
 
-BaseAIProvider.constructor
+BaseAIProvider\&lt;
+    AnthropicProviderOptions,
+    UniversalMessage,
+    UniversalMessage
+\&gt;.constructor
 
 #### Defined in
 
-[anthropic/src/provider.ts:21](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/anthropic/src/provider.ts#L21)
+[anthropic/src/provider.ts:26](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/anthropic/src/provider.ts#L26)
 
 ## Properties
 
@@ -74,7 +79,7 @@ BaseAIProvider.name
 
 #### Defined in
 
-[anthropic/src/provider.ts:15](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/anthropic/src/provider.ts#L15)
+[anthropic/src/provider.ts:20](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/anthropic/src/provider.ts#L20)
 
 ___
 
@@ -88,9 +93,35 @@ BaseAIProvider.version
 
 #### Defined in
 
-[anthropic/src/provider.ts:16](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/anthropic/src/provider.ts#L16)
+[anthropic/src/provider.ts:21](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/anthropic/src/provider.ts#L21)
 
 ## Methods
+
+### configure
+
+▸ **configure**(`config`): `Promise`\<`void`\>
+
+Configure the provider with type-safe configuration
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `config` | [`AnthropicProviderOptions`](../interfaces/AnthropicProviderOptions) |
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Inherited from
+
+BaseAIProvider.configure
+
+#### Defined in
+
+agents/dist/index.d.ts:1163
+
+___
 
 ### chat
 
@@ -115,7 +146,7 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[anthropic/src/provider.ts:34](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/anthropic/src/provider.ts#L34)
+[anthropic/src/provider.ts:39](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/anthropic/src/provider.ts#L39)
 
 ___
 
@@ -142,7 +173,7 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[anthropic/src/provider.ts:67](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/anthropic/src/provider.ts#L67)
+[anthropic/src/provider.ts:73](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/anthropic/src/provider.ts#L73)
 
 ___
 
@@ -160,7 +191,7 @@ BaseAIProvider.supportsTools
 
 #### Defined in
 
-[anthropic/src/provider.ts:103](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/anthropic/src/provider.ts#L103)
+[anthropic/src/provider.ts:110](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/anthropic/src/provider.ts#L110)
 
 ___
 
@@ -178,7 +209,7 @@ BaseAIProvider.validateConfig
 
 #### Defined in
 
-[anthropic/src/provider.ts:107](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/anthropic/src/provider.ts#L107)
+[anthropic/src/provider.ts:114](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/anthropic/src/provider.ts#L114)
 
 ___
 
@@ -196,4 +227,4 @@ BaseAIProvider.dispose
 
 #### Defined in
 
-[anthropic/src/provider.ts:111](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/anthropic/src/provider.ts#L111)
+[anthropic/src/provider.ts:118](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/anthropic/src/provider.ts#L118)

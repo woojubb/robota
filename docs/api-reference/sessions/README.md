@@ -20,20 +20,25 @@
 - [ConversationHistory](classes/ConversationHistory)
 - [AgentFactory](classes/AgentFactory)
 - [ChatInstance](classes/ChatInstance)
-- [ConversationService](classes/ConversationService)
+- [ConversationServiceImpl](classes/ConversationServiceImpl)
 - [MultiProviderAdapterManager](classes/MultiProviderAdapterManager)
-- [SystemMessageManager](classes/SystemMessageManager)
+- [SystemMessageManagerImpl](classes/SystemMessageManagerImpl)
 
 ### Interfaces
 
 - [AgentConfig](interfaces/AgentConfig)
 - [RunOptions](interfaces/RunOptions)
 - [AgentInterface](interfaces/AgentInterface)
+- [ConversationContext](interfaces/ConversationContext)
 - [TemplateApplicationResult](interfaces/TemplateApplicationResult)
+- [ContextManager](interfaces/ContextManager)
 - [ProviderConfig](interfaces/ProviderConfig)
 - [ProviderManager](interfaces/ProviderManager)
+- [ConfigurationChange](interfaces/ConfigurationChange)
 - [ChatMetadata](interfaces/ChatMetadata)
-- [ChatInstanceInterface](interfaces/ChatInstanceInterface)
+- [EnhancedConversationHistory](interfaces/EnhancedConversationHistory)
+- [TemplateManager](interfaces/TemplateManager)
+- [IChatInstance](interfaces/IChatInstance)
 - [ChatStats](interfaces/ChatStats)
 - [SessionConfig](interfaces/SessionConfig)
 - [SessionInfo](interfaces/SessionInfo)
@@ -46,34 +51,26 @@
 - [Message](#message)
 - [MessageContent](#messagecontent)
 
-### Variables
-
-- [Context](#context)
-
 ## Type Aliases
 
 ### Message
 
-Ƭ **Message**: `UserMessage$1` \| `AssistantMessage$1` \| `SystemMessage$1` \| `ToolMessage$1`
+Ƭ **Message**: `UserMessage` \| `AssistantMessage` \| `SystemMessage` \| `ToolMessage`
 
 Universal message type
 
 #### Defined in
 
-agents/dist/index.d.ts:40
+agents/dist/index.d.ts:1320
 
 ___
 
 ### MessageContent
 
-Ƭ **MessageContent**: `string` \| \{ `[key: string]`: `any`; `text?`: `string` ; `image?`: `string` ; `file?`: `string`  }
+Ƭ **MessageContent**: `string` \| \{ `[key: string]`: `ChatConfigValue`; `text?`: `string` ; `image?`: `string` ; `file?`: `string`  }
+
+Message content with structured typing
 
 #### Defined in
 
-[sessions/src/types/chat.ts:17](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/types/chat.ts#L17)
-
-## Variables
-
-### Context
-
-• **Context**: `any`
+[sessions/src/types/chat.ts:28](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/types/chat.ts#L28)

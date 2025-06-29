@@ -56,7 +56,7 @@ duplicate prevention and API format conversion.
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:680](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L680)
+[packages/agents/src/managers/conversation-history-manager.ts:688](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L688)
 
 ## Methods
 
@@ -82,7 +82,7 @@ ConversationHistoryInterface.addMessage
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:687](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L687)
+[packages/agents/src/managers/conversation-history-manager.ts:695](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L695)
 
 ___
 
@@ -97,7 +97,7 @@ Add user message
 | Name | Type |
 | :------ | :------ |
 | `content` | `string` |
-| `metadata?` | `Record`\<`string`, `any`\> |
+| `metadata?` | `ConversationMessageMetadata` |
 
 #### Returns
 
@@ -109,7 +109,7 @@ ConversationHistoryInterface.addUserMessage
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:694](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L694)
+[packages/agents/src/managers/conversation-history-manager.ts:702](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L702)
 
 ___
 
@@ -125,7 +125,7 @@ Add assistant message with optional tool calls
 | :------ | :------ |
 | `content` | ``null`` \| `string` |
 | `toolCalls?` | \{ `id`: `string` ; `type`: ``"function"`` ; `function`: \{ `name`: `string` ; `arguments`: `string`  }  }[] |
-| `metadata?` | `Record`\<`string`, `any`\> |
+| `metadata?` | `ConversationMessageMetadata` |
 
 #### Returns
 
@@ -137,7 +137,7 @@ ConversationHistoryInterface.addAssistantMessage
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:701](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L701)
+[packages/agents/src/managers/conversation-history-manager.ts:709](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L709)
 
 ___
 
@@ -152,7 +152,7 @@ Add system message
 | Name | Type |
 | :------ | :------ |
 | `content` | `string` |
-| `metadata?` | `Record`\<`string`, `any`\> |
+| `metadata?` | `ConversationMessageMetadata` |
 
 #### Returns
 
@@ -164,7 +164,7 @@ ConversationHistoryInterface.addSystemMessage
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:716](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L716)
+[packages/agents/src/managers/conversation-history-manager.ts:724](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L724)
 
 ___
 
@@ -181,7 +181,7 @@ Add tool result message
 | `content` | `string` |
 | `toolCallId` | `string` |
 | `toolName?` | `string` |
-| `metadata?` | `Record`\<`string`, `any`\> |
+| `metadata?` | `ConversationMessageMetadata` |
 
 #### Returns
 
@@ -189,7 +189,7 @@ Add tool result message
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:723](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L723)
+[packages/agents/src/managers/conversation-history-manager.ts:731](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L731)
 
 ___
 
@@ -209,7 +209,7 @@ Throws error if a tool message with the same toolCallId already exists.
 | `content` | `string` |
 | `toolCallId` | `string` |
 | `toolName` | `string` |
-| `metadata?` | `Record`\<`string`, `any`\> |
+| `metadata?` | `ConversationMessageMetadata` |
 
 #### Returns
 
@@ -221,7 +221,7 @@ ConversationHistoryInterface.addToolMessageWithId
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:733](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L733)
+[packages/agents/src/managers/conversation-history-manager.ts:741](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L741)
 
 ___
 
@@ -241,7 +241,7 @@ ConversationHistoryInterface.getMessages
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:750](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L750)
+[packages/agents/src/managers/conversation-history-manager.ts:758](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L758)
 
 ___
 
@@ -267,7 +267,7 @@ ConversationHistoryInterface.getMessagesByRole
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:757](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L757)
+[packages/agents/src/managers/conversation-history-manager.ts:765](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L765)
 
 ___
 
@@ -293,7 +293,7 @@ ConversationHistoryInterface.getRecentMessages
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:764](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L764)
+[packages/agents/src/managers/conversation-history-manager.ts:772](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L772)
 
 ___
 
@@ -309,7 +309,7 @@ Get messages formatted for API consumption
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:771](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L771)
+[packages/agents/src/managers/conversation-history-manager.ts:779](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L779)
 
 ___
 
@@ -329,7 +329,7 @@ ConversationHistoryInterface.getMessageCount
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:793](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L793)
+[packages/agents/src/managers/conversation-history-manager.ts:801](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L801)
 
 ___
 
@@ -349,4 +349,4 @@ ConversationHistoryInterface.clear
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:800](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/conversation-history-manager.ts#L800)
+[packages/agents/src/managers/conversation-history-manager.ts:808](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L808)

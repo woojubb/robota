@@ -8,7 +8,11 @@
 
 # Interface: ToolExecutionContext
 
-Tool execution context
+Tool execution context - type-safe context for tool execution
+
+## Indexable
+
+▪ [key: `string`]: `string` \| `number` \| `boolean` \| `ToolParameters` \| [`ToolMetadata`](../modules#toolmetadata) \| `undefined`
 
 ## Table of contents
 
@@ -28,17 +32,17 @@ Tool execution context
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:37](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/tool.ts#L37)
+[packages/agents/src/interfaces/tool.ts:95](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L95)
 
 ___
 
 ### parameters
 
-• **parameters**: `Record`\<`string`, `any`\>
+• **parameters**: `ToolParameters`
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:38](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/tool.ts#L38)
+[packages/agents/src/interfaces/tool.ts:96](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L96)
 
 ___
 
@@ -48,7 +52,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:39](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/tool.ts#L39)
+[packages/agents/src/interfaces/tool.ts:97](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L97)
 
 ___
 
@@ -58,14 +62,14 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:40](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/tool.ts#L40)
+[packages/agents/src/interfaces/tool.ts:98](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L98)
 
 ___
 
 ### metadata
 
-• `Optional` **metadata**: `Record`\<`string`, `any`\>
+• `Optional` **metadata**: [`ToolMetadata`](../modules#toolmetadata)
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:41](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/tool.ts#L41)
+[packages/agents/src/interfaces/tool.ts:99](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L99)

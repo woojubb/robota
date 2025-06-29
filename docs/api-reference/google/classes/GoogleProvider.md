@@ -15,7 +15,7 @@ Uses Google SDK native types internally for optimal performance and feature supp
 
 ## Hierarchy
 
-- `BaseAIProvider`
+- `BaseAIProvider`\<[`GoogleProviderOptions`](../interfaces/GoogleProviderOptions), `UniversalMessage`, `UniversalMessage`\>
 
   ↳ **`GoogleProvider`**
 
@@ -32,6 +32,7 @@ Uses Google SDK native types internally for optimal performance and feature supp
 
 ### Methods
 
+- [configure](GoogleProvider#configure)
 - [chat](GoogleProvider#chat)
 - [chatStream](GoogleProvider#chatstream)
 - [supportsTools](GoogleProvider#supportstools)
@@ -56,11 +57,15 @@ Uses Google SDK native types internally for optimal performance and feature supp
 
 #### Overrides
 
-BaseAIProvider.constructor
+BaseAIProvider\&lt;
+    GoogleProviderOptions,
+    UniversalMessage,
+    UniversalMessage
+\&gt;.constructor
 
 #### Defined in
 
-[google/src/provider.ts:22](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/google/src/provider.ts#L22)
+[google/src/provider.ts:38](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/provider.ts#L38)
 
 ## Properties
 
@@ -74,7 +79,7 @@ BaseAIProvider.name
 
 #### Defined in
 
-[google/src/provider.ts:16](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/google/src/provider.ts#L16)
+[google/src/provider.ts:32](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/provider.ts#L32)
 
 ___
 
@@ -88,9 +93,35 @@ BaseAIProvider.version
 
 #### Defined in
 
-[google/src/provider.ts:17](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/google/src/provider.ts#L17)
+[google/src/provider.ts:33](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/provider.ts#L33)
 
 ## Methods
+
+### configure
+
+▸ **configure**(`config`): `Promise`\<`void`\>
+
+Configure the provider with type-safe configuration
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `config` | [`GoogleProviderOptions`](../interfaces/GoogleProviderOptions) |
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Inherited from
+
+BaseAIProvider.configure
+
+#### Defined in
+
+agents/dist/index.d.ts:1163
+
+___
 
 ### chat
 
@@ -115,7 +146,7 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[google/src/provider.ts:35](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/google/src/provider.ts#L35)
+[google/src/provider.ts:51](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/provider.ts#L51)
 
 ___
 
@@ -142,7 +173,7 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[google/src/provider.ts:77](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/google/src/provider.ts#L77)
+[google/src/provider.ts:98](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/provider.ts#L98)
 
 ___
 
@@ -160,7 +191,7 @@ BaseAIProvider.supportsTools
 
 #### Defined in
 
-[google/src/provider.ts:121](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/google/src/provider.ts#L121)
+[google/src/provider.ts:147](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/provider.ts#L147)
 
 ___
 
@@ -178,7 +209,7 @@ BaseAIProvider.validateConfig
 
 #### Defined in
 
-[google/src/provider.ts:125](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/google/src/provider.ts#L125)
+[google/src/provider.ts:151](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/provider.ts#L151)
 
 ___
 
@@ -196,4 +227,4 @@ BaseAIProvider.dispose
 
 #### Defined in
 
-[google/src/provider.ts:129](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/google/src/provider.ts#L129)
+[google/src/provider.ts:155](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/provider.ts#L155)

@@ -15,9 +15,21 @@ This implementation follows the AI Provider Architecture Separation principles:
 - Communicates with agents package using only UniversalMessage
 - Handles tool execution null content properly
 
+**`Template`**
+
+Provider configuration type (defaults to OpenAIProviderOptions)
+
+**`Template`**
+
+Message type (defaults to UniversalMessage)
+
+**`Template`**
+
+Response type (defaults to UniversalMessage)
+
 ## Hierarchy
 
-- `BaseAIProvider`
+- `BaseAIProvider`\<[`OpenAIProviderOptions`](../interfaces/OpenAIProviderOptions), `UniversalMessage`, `UniversalMessage`\>
 
   ↳ **`OpenAIProvider`**
 
@@ -34,6 +46,7 @@ This implementation follows the AI Provider Architecture Separation principles:
 
 ### Methods
 
+- [configure](OpenAIProvider#configure)
 - [chat](OpenAIProvider#chat)
 - [chatStream](OpenAIProvider#chatstream)
 - [supportsTools](OpenAIProvider#supportstools)
@@ -58,11 +71,11 @@ This implementation follows the AI Provider Architecture Separation principles:
 
 #### Overrides
 
-BaseAIProvider.constructor
+BaseAIProvider\&lt;OpenAIProviderOptions, UniversalMessage, UniversalMessage\&gt;.constructor
 
 #### Defined in
 
-[openai/src/provider.ts:37](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/openai/src/provider.ts#L37)
+[openai/src/provider.ts:43](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L43)
 
 ## Properties
 
@@ -76,7 +89,7 @@ BaseAIProvider.name
 
 #### Defined in
 
-[openai/src/provider.ts:31](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/openai/src/provider.ts#L31)
+[openai/src/provider.ts:37](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L37)
 
 ___
 
@@ -90,9 +103,35 @@ BaseAIProvider.version
 
 #### Defined in
 
-[openai/src/provider.ts:32](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/openai/src/provider.ts#L32)
+[openai/src/provider.ts:38](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L38)
 
 ## Methods
+
+### configure
+
+▸ **configure**(`config`): `Promise`\<`void`\>
+
+Configure the provider with type-safe configuration
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `config` | [`OpenAIProviderOptions`](../interfaces/OpenAIProviderOptions) |
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Inherited from
+
+BaseAIProvider.configure
+
+#### Defined in
+
+agents/dist/index.d.ts:1163
+
+___
 
 ### chat
 
@@ -117,7 +156,7 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[openai/src/provider.ts:55](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/openai/src/provider.ts#L55)
+[openai/src/provider.ts:61](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L61)
 
 ___
 
@@ -144,7 +183,7 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[openai/src/provider.ts:87](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/openai/src/provider.ts#L87)
+[openai/src/provider.ts:94](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L94)
 
 ___
 
@@ -162,7 +201,7 @@ BaseAIProvider.supportsTools
 
 #### Defined in
 
-[openai/src/provider.ts:122](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/openai/src/provider.ts#L122)
+[openai/src/provider.ts:130](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L130)
 
 ___
 
@@ -180,7 +219,7 @@ BaseAIProvider.validateConfig
 
 #### Defined in
 
-[openai/src/provider.ts:126](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/openai/src/provider.ts#L126)
+[openai/src/provider.ts:134](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L134)
 
 ___
 
@@ -198,4 +237,4 @@ BaseAIProvider.dispose
 
 #### Defined in
 
-[openai/src/provider.ts:130](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/openai/src/provider.ts#L130)
+[openai/src/provider.ts:138](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L138)

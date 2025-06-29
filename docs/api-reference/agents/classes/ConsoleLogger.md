@@ -48,7 +48,7 @@ Console logger implementation
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:70](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L70)
+[packages/agents/src/utils/logger.ts:81](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L81)
 
 ## Methods
 
@@ -61,7 +61,7 @@ Console logger implementation
 | Name | Type |
 | :------ | :------ |
 | `message` | `string` |
-| `context?` | `Record`\<`string`, `any`\> |
+| `context?` | [`LoggerData`](../modules#loggerdata) |
 
 #### Returns
 
@@ -73,7 +73,7 @@ Console logger implementation
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:74](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L74)
+[packages/agents/src/utils/logger.ts:85](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L85)
 
 ___
 
@@ -86,7 +86,7 @@ ___
 | Name | Type |
 | :------ | :------ |
 | `message` | `string` |
-| `context?` | `Record`\<`string`, `any`\> |
+| `context?` | [`LoggerData`](../modules#loggerdata) |
 
 #### Returns
 
@@ -98,7 +98,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:80](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L80)
+[packages/agents/src/utils/logger.ts:91](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L91)
 
 ___
 
@@ -111,7 +111,7 @@ ___
 | Name | Type |
 | :------ | :------ |
 | `message` | `string` |
-| `context?` | `Record`\<`string`, `any`\> |
+| `context?` | [`LoggerData`](../modules#loggerdata) |
 
 #### Returns
 
@@ -123,7 +123,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:86](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L86)
+[packages/agents/src/utils/logger.ts:97](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L97)
 
 ___
 
@@ -136,7 +136,7 @@ ___
 | Name | Type |
 | :------ | :------ |
 | `message` | `string` |
-| `context?` | `Record`\<`string`, `any`\> |
+| `context?` | [`LoggerData`](../modules#loggerdata) |
 
 #### Returns
 
@@ -148,7 +148,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:92](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L92)
+[packages/agents/src/utils/logger.ts:103](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L103)
 
 ___
 
@@ -166,7 +166,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:98](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L98)
+[packages/agents/src/utils/logger.ts:109](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L109)
 
 ___
 
@@ -190,7 +190,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:102](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L102)
+[packages/agents/src/utils/logger.ts:113](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L113)
 
 ___
 
@@ -208,4 +208,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:106](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/utils/logger.ts#L106)
+[packages/agents/src/utils/logger.ts:117](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L117)

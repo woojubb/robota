@@ -37,7 +37,7 @@ Register a tool
 | Name | Type |
 | :------ | :------ |
 | `schema` | [`ToolSchema`](ToolSchema) |
-| `executor` | (...`args`: `any`[]) => `Promise`\<`any`\> |
+| `executor` | [`ToolExecutor`](../modules#toolexecutor) |
 
 #### Returns
 
@@ -45,7 +45,7 @@ Register a tool
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:57](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/manager.ts#L57)
+[packages/agents/src/interfaces/manager.ts:83](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/manager.ts#L83)
 
 ___
 
@@ -67,7 +67,7 @@ Remove a tool by name
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:62](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/manager.ts#L62)
+[packages/agents/src/interfaces/manager.ts:88](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/manager.ts#L88)
 
 ___
 
@@ -89,7 +89,7 @@ Get tool interface by name
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:67](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/manager.ts#L67)
+[packages/agents/src/interfaces/manager.ts:93](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/manager.ts#L93)
 
 ___
 
@@ -111,7 +111,7 @@ Get tool schema by name
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:72](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/manager.ts#L72)
+[packages/agents/src/interfaces/manager.ts:98](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/manager.ts#L98)
 
 ___
 
@@ -127,13 +127,13 @@ Get all registered tools
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:77](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/manager.ts#L77)
+[packages/agents/src/interfaces/manager.ts:103](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/manager.ts#L103)
 
 ___
 
 ### executeTool
 
-▸ **executeTool**(`name`, `parameters`): `Promise`\<`any`\>
+▸ **executeTool**(`name`, `parameters`): `Promise`\<[`ToolExecutionData`](../modules#toolexecutiondata)\>
 
 Execute a tool
 
@@ -142,15 +142,15 @@ Execute a tool
 | Name | Type |
 | :------ | :------ |
 | `name` | `string` |
-| `parameters` | `Record`\<`string`, `any`\> |
+| `parameters` | `ManagerToolParameters` |
 
 #### Returns
 
-`Promise`\<`any`\>
+`Promise`\<[`ToolExecutionData`](../modules#toolexecutiondata)\>
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:82](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/manager.ts#L82)
+[packages/agents/src/interfaces/manager.ts:108](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/manager.ts#L108)
 
 ___
 
@@ -172,7 +172,7 @@ Check if tool exists
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:87](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/manager.ts#L87)
+[packages/agents/src/interfaces/manager.ts:113](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/manager.ts#L113)
 
 ___
 
@@ -194,7 +194,7 @@ Set allowed tools (for filtering)
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:92](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/manager.ts#L92)
+[packages/agents/src/interfaces/manager.ts:118](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/manager.ts#L118)
 
 ___
 
@@ -210,4 +210,4 @@ Get allowed tools
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:97](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/manager.ts#L97)
+[packages/agents/src/interfaces/manager.ts:123](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/manager.ts#L123)

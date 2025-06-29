@@ -8,7 +8,7 @@
 
 # Interface: WebhookPluginOptions
 
-Webhook plugin configuration
+Webhook plugin configuration options
 
 ## Table of contents
 
@@ -33,7 +33,7 @@ Webhook endpoints
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:47](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L47)
+[packages/agents/src/plugins/webhook/types.ts:161](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/types.ts#L161)
 
 ___
 
@@ -45,7 +45,7 @@ Events to send webhooks for
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:49](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L49)
+[packages/agents/src/plugins/webhook/types.ts:163](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/types.ts#L163)
 
 ___
 
@@ -57,7 +57,7 @@ Default timeout for webhook requests
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:51](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L51)
+[packages/agents/src/plugins/webhook/types.ts:165](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/types.ts#L165)
 
 ___
 
@@ -69,7 +69,7 @@ Default retry attempts
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:53](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L53)
+[packages/agents/src/plugins/webhook/types.ts:167](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/types.ts#L167)
 
 ___
 
@@ -81,7 +81,7 @@ Whether to use async sending
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:55](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L55)
+[packages/agents/src/plugins/webhook/types.ts:169](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/types.ts#L169)
 
 ___
 
@@ -93,7 +93,7 @@ Maximum concurrent webhook requests
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:57](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L57)
+[packages/agents/src/plugins/webhook/types.ts:171](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/types.ts#L171)
 
 ___
 
@@ -113,31 +113,31 @@ Whether to batch webhook requests
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:59](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L59)
+[packages/agents/src/plugins/webhook/types.ts:173](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/types.ts#L173)
 
 ___
 
 ### payloadTransformer
 
-• `Optional` **payloadTransformer**: (`event`: [`WebhookEventType`](../modules#webhookeventtype), `data`: `any`) => `any`
+• `Optional` **payloadTransformer**: (`event`: [`WebhookEventType`](../modules#webhookeventtype), `data`: `WebhookEventData`) => `WebhookEventData`
 
 Custom payload transformer
 
 #### Type declaration
 
-▸ (`event`, `data`): `any`
+▸ (`event`, `data`): `WebhookEventData`
 
 ##### Parameters
 
 | Name | Type |
 | :------ | :------ |
 | `event` | [`WebhookEventType`](../modules#webhookeventtype) |
-| `data` | `any` |
+| `data` | `WebhookEventData` |
 
 ##### Returns
 
-`any`
+`WebhookEventData`
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:65](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L65)
+[packages/agents/src/plugins/webhook/types.ts:179](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/types.ts#L179)

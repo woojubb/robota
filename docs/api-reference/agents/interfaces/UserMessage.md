@@ -12,7 +12,7 @@ User message interface
 
 ## Hierarchy
 
-- [`BaseMessage`](BaseMessage)
+- `BaseMessage`
 
   ↳ **`UserMessage`**
 
@@ -33,11 +33,11 @@ User message interface
 
 #### Inherited from
 
-[BaseMessage](BaseMessage).[content](BaseMessage#content)
+BaseMessage.content
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:6](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L6)
+[packages/agents/src/interfaces/agent.ts:19](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L19)
 
 ___
 
@@ -47,25 +47,25 @@ ___
 
 #### Inherited from
 
-[BaseMessage](BaseMessage).[timestamp](BaseMessage#timestamp)
+BaseMessage.timestamp
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:7](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L7)
+[packages/agents/src/interfaces/agent.ts:20](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L20)
 
 ___
 
 ### metadata
 
-• `Optional` **metadata**: `Record`\<`string`, `any`\>
+• `Optional` **metadata**: `MessageMetadata`
 
 #### Inherited from
 
-[BaseMessage](BaseMessage).[metadata](BaseMessage#metadata)
+BaseMessage.metadata
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:8](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L8)
+[packages/agents/src/interfaces/agent.ts:21](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L21)
 
 ___
 
@@ -75,8 +75,8 @@ ___
 
 #### Overrides
 
-[BaseMessage](BaseMessage).[role](BaseMessage#role)
+BaseMessage.role
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:15](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L15)
+[packages/agents/src/interfaces/agent.ts:28](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L28)

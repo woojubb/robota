@@ -10,12 +10,6 @@
 
 Chat options for AI provider requests
 
-## Indexable
-
-▪ [key: `string`]: `any`
-
-Provider-specific options
-
 ## Table of contents
 
 ### Properties
@@ -35,7 +29,7 @@ Tool schemas to provide to the AI provider
 
 #### Defined in
 
-[openai/src/provider.ts:11](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/openai/src/provider.ts#L11)
+[openai/src/provider.ts:15](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L15)
 
 ___
 
@@ -47,7 +41,7 @@ Maximum number of tokens to generate
 
 #### Defined in
 
-[openai/src/provider.ts:13](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/openai/src/provider.ts#L13)
+[openai/src/provider.ts:17](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L17)
 
 ___
 
@@ -59,7 +53,7 @@ Temperature for response randomness (0-1)
 
 #### Defined in
 
-[openai/src/provider.ts:15](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/openai/src/provider.ts#L15)
+[openai/src/provider.ts:19](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L19)
 
 ___
 
@@ -71,4 +65,4 @@ Model to use for the request
 
 #### Defined in
 
-[openai/src/provider.ts:17](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/openai/src/provider.ts#L17)
+[openai/src/provider.ts:21](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L21)

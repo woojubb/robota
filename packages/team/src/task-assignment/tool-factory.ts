@@ -1,8 +1,7 @@
 import { createZodFunctionTool, type ToolParameters } from '@robota-sdk/agents';
-import { z } from 'zod';
+import { z, type ZodType, type ZodTypeAny } from 'zod';
 import type { AssignTaskParams, AssignTaskResult } from '../types.js';
 import { createDynamicAssignTaskSchema } from './schema.js';
-import { safeConvertUnknownToParams } from './type-converter.js';
 
 /**
  * Interface for template information
@@ -20,36 +19,11 @@ export interface AssignTaskExecutor {
 }
 
 /**
- * Create ToolParameters compatible schema from AssignTaskParams schema
+ * Create ToolParameters compatible schema from existing AssignTaskParams schema
  */
-function createToolParametersSchema(availableTemplates: TemplateInfo[]) {
-    // Create a simple schema for function calling
-    const templateDescriptions = availableTemplates.map(template =>
-        `${template.id}: ${template.description}`
-    ).join(', ');
-
-    return z.object({
-        jobDescription: z.string().describe(
-            'Clear, specific description of the job to be completed. Should provide enough detail for the specialist agent to understand the scope and deliverables expected.'
-        ),
-        context: z.string().optional().describe(
-            'Additional context, constraints, or requirements for the job.'
-        ),
-        requiredTools: z.array(z.string()).optional().describe(
-            'List of tools the specialist agent might need for this task.'
-        ),
-        priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium').describe(
-            'Priority level for the task.'
-        ),
-        agentTemplate: z.string().optional().describe(
-            availableTemplates.length > 0
-                ? `Name of the agent template to use for this task. Available templates: ${templateDescriptions}.`
-                : 'Agent template to use for this task.'
-        ),
-        allowFurtherDelegation: z.boolean().default(false).describe(
-            'Whether the assigned agent can delegate parts of the task to other specialists if needed.'
-        )
-    });
+function createToolParametersSchema(availableTemplates: TemplateInfo[]): ZodTypeAny {
+    // Use the existing schema as base and extend it with dynamic template descriptions
+    return createDynamicAssignTaskSchema(availableTemplates);
 }
 
 /**
@@ -62,21 +36,15 @@ export function createAssignTaskTool(
     // Create ToolParameters compatible schema
     const toolParametersSchema = createToolParametersSchema(availableTemplates);
 
-    // Create the tool instance with proper type casting for createZodFunctionTool compatibility
+    // Create the tool instance with proper schema validation
     const toolInstance = createZodFunctionTool(
         'assignTask',
         createToolDescription(availableTemplates),
-        toolParametersSchema,
+        toolParametersSchema, // Now properly typed as ZodTypeAny
         async (parameters: ToolParameters) => {
-            // Use safe conversion to handle unknown parameters
-            const conversionResult = safeConvertUnknownToParams(parameters);
-
-            if (!conversionResult.success) {
-                throw new Error(`Invalid task assignment parameters: ${conversionResult.error}`);
-            }
-
-            // Execute the task with validated parameters
-            const result = await executor(conversionResult.data);
+            // Parameters are already validated and converted by Zod
+            // No manual conversion needed - Zod handles everything
+            const result = await executor(parameters as unknown as AssignTaskParams);
 
             // Return formatted string result for LLM consumption
             return formatResultForLLM(result);

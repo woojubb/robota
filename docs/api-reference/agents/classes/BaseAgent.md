@@ -6,10 +6,18 @@
 
 [agents](../../) / [Exports](../modules) / BaseAgent
 
-# Class: BaseAgent
+# Class: BaseAgent\<TConfig, TContext, TMessage\>
 
-Base abstract class for all agents
+Base abstract class for all agents with type parameter support
 Provides common structure and lifecycle management
+
+## Type parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `TConfig` | extends `Record`\<`string`, [`ConfigValue`](../modules#configvalue)\> = [`AgentConfig`](../interfaces/AgentConfig) | Agent configuration type (defaults to AgentConfig for backward compatibility) |
+| `TContext` | extends `Record`\<`string`, [`ConfigValue`](../modules#configvalue)\> = [`RunOptions`](../interfaces/RunOptions) | Execution context type (defaults to RunOptions for backward compatibility) |
+| `TMessage` | [`Message`](../modules#message) | Message type (defaults to Message for backward compatibility) |
 
 ## Hierarchy
 
@@ -19,7 +27,7 @@ Provides common structure and lifecycle management
 
 ## Implements
 
-- [`AgentInterface`](../interfaces/AgentInterface)
+- `BaseAgentInterface`\<`TConfig`, `TContext`, `TMessage`\>
 
 ## Table of contents
 
@@ -29,6 +37,7 @@ Provides common structure and lifecycle management
 
 ### Methods
 
+- [configure](BaseAgent#configure)
 - [run](BaseAgent#run)
 - [runStream](BaseAgent#runstream)
 - [getHistory](BaseAgent#gethistory)
@@ -39,26 +48,60 @@ Provides common structure and lifecycle management
 
 ### constructor
 
-• **new BaseAgent**(): [`BaseAgent`](BaseAgent)
+• **new BaseAgent**\<`TConfig`, `TContext`, `TMessage`\>(): [`BaseAgent`](BaseAgent)\<`TConfig`, `TContext`, `TMessage`\>
+
+#### Type parameters
+
+| Name | Type |
+| :------ | :------ |
+| `TConfig` | extends `Record`\<`string`, [`ConfigValue`](../modules#configvalue)\> = [`AgentConfig`](../interfaces/AgentConfig) |
+| `TContext` | extends `Record`\<`string`, [`ConfigValue`](../modules#configvalue)\> = [`RunOptions`](../interfaces/RunOptions) |
+| `TMessage` | [`Message`](../modules#message) |
 
 #### Returns
 
-[`BaseAgent`](BaseAgent)
+[`BaseAgent`](BaseAgent)\<`TConfig`, `TContext`, `TMessage`\>
 
 ## Methods
 
+### configure
+
+▸ **configure**(`config`): `Promise`\<`void`\>
+
+Configure the agent with type-safe configuration
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `config` | `TConfig` |
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+BaseAgentInterface.configure
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-agent.ts:29](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-agent.ts#L29)
+
+___
+
 ### run
 
-▸ **run**(`input`, `options?`): `Promise`\<`string`\>
+▸ **run**(`input`, `context?`): `Promise`\<`string`\>
 
-Run agent with user input
+Run agent with user input and type-safe context
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
 | `input` | `string` |
-| `options?` | [`RunOptions`](../interfaces/RunOptions) |
+| `context?` | `TContext` |
 
 #### Returns
 
@@ -66,58 +109,58 @@ Run agent with user input
 
 #### Implementation of
 
-[AgentInterface](../interfaces/AgentInterface).[run](../interfaces/AgentInterface#run)
+BaseAgentInterface.run
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:19](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-agent.ts#L19)
+[packages/agents/src/abstracts/base-agent.ts:37](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-agent.ts#L37)
 
 ___
 
 ### runStream
 
-▸ **runStream**(`input`, `options?`): `AsyncGenerator`\<`string`, `void`, `unknown`\>
+▸ **runStream**(`input`, `context?`): `AsyncGenerator`\<`string`, `void`, `never`\>
 
-Run agent with streaming response
+Run agent with streaming response and type-safe context
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
 | `input` | `string` |
-| `options?` | [`RunOptions`](../interfaces/RunOptions) |
+| `context?` | `TContext` |
 
 #### Returns
 
-`AsyncGenerator`\<`string`, `void`, `unknown`\>
+`AsyncGenerator`\<`string`, `void`, `never`\>
 
 #### Implementation of
 
-[AgentInterface](../interfaces/AgentInterface).[runStream](../interfaces/AgentInterface#runstream)
+BaseAgentInterface.runStream
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:24](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-agent.ts#L24)
+[packages/agents/src/abstracts/base-agent.ts:42](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-agent.ts#L42)
 
 ___
 
 ### getHistory
 
-▸ **getHistory**(): [`Message`](../modules#message)[]
+▸ **getHistory**(): `TMessage`[]
 
-Get conversation history
+Get conversation history with type-safe messages
 
 #### Returns
 
-[`Message`](../modules#message)[]
+`TMessage`[]
 
 #### Implementation of
 
-[AgentInterface](../interfaces/AgentInterface).[getHistory](../interfaces/AgentInterface#gethistory)
+BaseAgentInterface.getHistory
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:29](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-agent.ts#L29)
+[packages/agents/src/abstracts/base-agent.ts:47](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-agent.ts#L47)
 
 ___
 
@@ -133,11 +176,11 @@ Clear conversation history
 
 #### Implementation of
 
-[AgentInterface](../interfaces/AgentInterface).[clearHistory](../interfaces/AgentInterface#clearhistory)
+BaseAgentInterface.clearHistory
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:36](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-agent.ts#L36)
+[packages/agents/src/abstracts/base-agent.ts:54](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-agent.ts#L54)
 
 ___
 
@@ -153,4 +196,4 @@ Cleanup resources
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:72](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-agent.ts#L72)
+[packages/agents/src/abstracts/base-agent.ts:87](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-agent.ts#L87)

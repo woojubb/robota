@@ -52,7 +52,7 @@ Instance-based for isolated agent factory management
 
 #### Defined in
 
-agents/dist/index.d.ts:3490
+agents/dist/index.d.ts:4469
 
 ## Methods
 
@@ -68,7 +68,7 @@ Initialize the factory
 
 #### Defined in
 
-agents/dist/index.d.ts:3494
+agents/dist/index.d.ts:4473
 
 ___
 
@@ -92,7 +92,7 @@ Create a new agent instance
 
 #### Defined in
 
-agents/dist/index.d.ts:3498
+agents/dist/index.d.ts:4477
 
 ___
 
@@ -116,7 +116,7 @@ Create agent from template
 
 #### Defined in
 
-agents/dist/index.d.ts:3502
+agents/dist/index.d.ts:4481
 
 ___
 
@@ -138,7 +138,7 @@ Register a template
 
 #### Defined in
 
-agents/dist/index.d.ts:3506
+agents/dist/index.d.ts:4485
 
 ___
 
@@ -160,7 +160,7 @@ Unregister a template
 
 #### Defined in
 
-agents/dist/index.d.ts:3510
+agents/dist/index.d.ts:4489
 
 ___
 
@@ -176,7 +176,7 @@ Get all templates
 
 #### Defined in
 
-agents/dist/index.d.ts:3514
+agents/dist/index.d.ts:4493
 
 ___
 
@@ -198,7 +198,7 @@ Get template by ID
 
 #### Defined in
 
-agents/dist/index.d.ts:3518
+agents/dist/index.d.ts:4497
 
 ___
 
@@ -224,7 +224,7 @@ Find templates by criteria
 
 #### Defined in
 
-agents/dist/index.d.ts:3522
+agents/dist/index.d.ts:4501
 
 ___
 
@@ -247,7 +247,7 @@ Apply template to configuration
 
 #### Defined in
 
-agents/dist/index.d.ts:3531
+agents/dist/index.d.ts:4510
 
 ___
 
@@ -269,7 +269,7 @@ Destroy an agent
 
 #### Defined in
 
-agents/dist/index.d.ts:3535
+agents/dist/index.d.ts:4514
 
 ___
 
@@ -285,7 +285,7 @@ Get creation statistics
 
 #### Defined in
 
-agents/dist/index.d.ts:3539
+agents/dist/index.d.ts:4518
 
 ___
 
@@ -301,7 +301,7 @@ Get all active agents
 
 #### Defined in
 
-agents/dist/index.d.ts:3543
+agents/dist/index.d.ts:4522
 
 ___
 
@@ -328,4 +328,4 @@ Validate agent configuration
 
 #### Defined in
 
-agents/dist/index.d.ts:3547
+agents/dist/index.d.ts:4526

@@ -12,7 +12,7 @@ Base tool interface
 
 ## Implemented by
 
-- [`BaseTool`](../classes/BaseTool)
+- [`LegacyBaseTool`](../classes/LegacyBaseTool)
 
 ## Table of contents
 
@@ -37,7 +37,7 @@ Tool schema
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:59](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/tool.ts#L59)
+[packages/agents/src/interfaces/tool.ts:178](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L178)
 
 ## Methods
 
@@ -51,7 +51,7 @@ Execute the tool with given parameters
 
 | Name | Type |
 | :------ | :------ |
-| `parameters` | `Record`\<`string`, `any`\> |
+| `parameters` | `ToolParameters` |
 | `context?` | [`ToolExecutionContext`](ToolExecutionContext) |
 
 #### Returns
@@ -60,7 +60,7 @@ Execute the tool with given parameters
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:64](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/tool.ts#L64)
+[packages/agents/src/interfaces/tool.ts:183](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L183)
 
 ___
 
@@ -74,7 +74,7 @@ Validate tool parameters
 
 | Name | Type |
 | :------ | :------ |
-| `parameters` | `Record`\<`string`, `any`\> |
+| `parameters` | `ToolParameters` |
 
 #### Returns
 
@@ -82,7 +82,7 @@ Validate tool parameters
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:69](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/tool.ts#L69)
+[packages/agents/src/interfaces/tool.ts:188](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L188)
 
 ___
 
@@ -96,7 +96,7 @@ Validate tool parameters with detailed result
 
 | Name | Type |
 | :------ | :------ |
-| `parameters` | `Record`\<`string`, `any`\> |
+| `parameters` | `ToolParameters` |
 
 #### Returns
 
@@ -104,7 +104,7 @@ Validate tool parameters with detailed result
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:74](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/tool.ts#L74)
+[packages/agents/src/interfaces/tool.ts:193](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L193)
 
 ___
 
@@ -120,4 +120,4 @@ Get tool description
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:79](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/tool.ts#L79)
+[packages/agents/src/interfaces/tool.ts:198](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L198)

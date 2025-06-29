@@ -44,7 +44,7 @@ npm install @robota-sdk/team
 - **TeamContainer**: 메인 조정 클래스
 - **AgentFactory**: 적절한 프롬프트로 작업별 에이전트 생성
 - **AgentTemplateManager**: 전문가 템플릿 관리 및 자동 선택
-- **assignTask Tool**: 범용 작업 할당 인터페이스
+- **Internal Task Assignment**: 내부적으로 작업을 전문가 에이전트들에게 자동 위임
 
 ## 기본 사용법
 
@@ -139,7 +139,7 @@ templateManager.addTemplate({
 ### 커스텀 템플릿 매니저 및 리더 지정
 
 ```typescript
-import { AgentTemplateManager } from '@robota-sdk/core';
+import { AgentTemplateManager } from '@robota-sdk/agents';
 
 // 커스텀 템플릿 매니저 생성
 const templateManager = new AgentTemplateManager();

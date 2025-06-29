@@ -11,7 +11,7 @@ For full documentation, visit [https://robota.io](https://robota.io)
 ## Installation
 
 ```bash
-npm install @robota-sdk/openai @robota-sdk/core openai
+npm install @robota-sdk/openai @robota-sdk/agents openai
 ```
 
 ## Overview
@@ -40,7 +40,7 @@ npm install @robota-sdk/openai @robota-sdk/core openai
 ## Basic Usage
 
 ```typescript
-import { Robota } from '@robota-sdk/core';
+import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 
@@ -91,7 +91,7 @@ for await (const chunk of stream) {
 OpenAI provider supports advanced function calling capabilities through tool providers:
 
 ```typescript
-import { Robota } from '@robota-sdk/core';
+import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { createZodFunctionToolProvider } from '@robota-sdk/tools';
 import OpenAI from 'openai';

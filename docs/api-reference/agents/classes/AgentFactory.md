@@ -52,7 +52,7 @@ Instance-based for isolated agent factory management
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:67](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L67)
+[packages/agents/src/managers/agent-factory.ts:68](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L68)
 
 ## Methods
 
@@ -68,7 +68,7 @@ Initialize the factory
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:96](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L96)
+[packages/agents/src/managers/agent-factory.ts:100](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L100)
 
 ___
 
@@ -92,7 +92,7 @@ Create a new agent instance
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:109](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L109)
+[packages/agents/src/managers/agent-factory.ts:113](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L113)
 
 ___
 
@@ -116,7 +116,7 @@ Create agent from template
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:179](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L179)
+[packages/agents/src/managers/agent-factory.ts:188](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L188)
 
 ___
 
@@ -138,7 +138,7 @@ Register a template
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:214](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L214)
+[packages/agents/src/managers/agent-factory.ts:223](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L223)
 
 ___
 
@@ -160,7 +160,7 @@ Unregister a template
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:221](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L221)
+[packages/agents/src/managers/agent-factory.ts:230](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L230)
 
 ___
 
@@ -176,7 +176,7 @@ Get all templates
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:228](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L228)
+[packages/agents/src/managers/agent-factory.ts:237](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L237)
 
 ___
 
@@ -198,7 +198,7 @@ Get template by ID
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:235](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L235)
+[packages/agents/src/managers/agent-factory.ts:244](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L244)
 
 ___
 
@@ -224,7 +224,7 @@ Find templates by criteria
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:242](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L242)
+[packages/agents/src/managers/agent-factory.ts:251](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L251)
 
 ___
 
@@ -247,7 +247,7 @@ Apply template to configuration
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:254](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L254)
+[packages/agents/src/managers/agent-factory.ts:263](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L263)
 
 ___
 
@@ -269,7 +269,7 @@ Destroy an agent
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:261](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L261)
+[packages/agents/src/managers/agent-factory.ts:270](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L270)
 
 ___
 
@@ -285,7 +285,7 @@ Get creation statistics
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:293](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L293)
+[packages/agents/src/managers/agent-factory.ts:305](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L305)
 
 ___
 
@@ -301,7 +301,7 @@ Get all active agents
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:300](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L300)
+[packages/agents/src/managers/agent-factory.ts:312](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L312)
 
 ___
 
@@ -328,4 +328,4 @@ Validate agent configuration
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:307](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/managers/agent-factory.ts#L307)
+[packages/agents/src/managers/agent-factory.ts:319](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/agent-factory.ts#L319)

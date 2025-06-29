@@ -10,11 +10,9 @@
 
 Agent configuration options
 
-## Hierarchy
+## Indexable
 
-- **`AgentConfig`**
-
-  ↳ [`RobotaConfig`](RobotaConfig)
+▪ [key: `string`]: [`ConfigValue`](../modules#configvalue)
 
 ## Table of contents
 
@@ -33,6 +31,8 @@ Agent configuration options
 - [aiProviders](AgentConfig#aiproviders)
 - [currentProvider](AgentConfig#currentprovider)
 - [currentModel](AgentConfig#currentmodel)
+- [conversationId](AgentConfig#conversationid)
+- [logging](AgentConfig#logging)
 
 ## Properties
 
@@ -42,7 +42,7 @@ Agent configuration options
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:63](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L63)
+[packages/agents/src/interfaces/agent.ts:102](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L102)
 
 ___
 
@@ -52,7 +52,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:64](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L64)
+[packages/agents/src/interfaces/agent.ts:103](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L103)
 
 ___
 
@@ -62,7 +62,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:65](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L65)
+[packages/agents/src/interfaces/agent.ts:104](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L104)
 
 ___
 
@@ -72,7 +72,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:66](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L66)
+[packages/agents/src/interfaces/agent.ts:105](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L105)
 
 ___
 
@@ -82,27 +82,27 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:67](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L67)
+[packages/agents/src/interfaces/agent.ts:106](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L106)
 
 ___
 
 ### tools
 
-• `Optional` **tools**: `any`[]
+• `Optional` **tools**: [`BaseTool`](../classes/BaseTool)\<[`BaseToolParameters`](../modules#basetoolparameters), [`ToolResult`](ToolResult)\>[]
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:68](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L68)
+[packages/agents/src/interfaces/agent.ts:107](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L107)
 
 ___
 
 ### plugins
 
-• `Optional` **plugins**: `any`[]
+• `Optional` **plugins**: [`BasePlugin`](../classes/BasePlugin)\<[`PluginConfig`](PluginConfig), [`PluginStats`](PluginStats)\>[]
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:69](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L69)
+[packages/agents/src/interfaces/agent.ts:108](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L108)
 
 ___
 
@@ -112,7 +112,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:70](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L70)
+[packages/agents/src/interfaces/agent.ts:109](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L109)
 
 ___
 
@@ -122,27 +122,27 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:71](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L71)
+[packages/agents/src/interfaces/agent.ts:110](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L110)
 
 ___
 
 ### metadata
 
-• `Optional` **metadata**: `Record`\<`string`, `any`\>
+• `Optional` **metadata**: `MessageMetadata`
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:72](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L72)
+[packages/agents/src/interfaces/agent.ts:111](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L111)
 
 ___
 
 ### aiProviders
 
-• `Optional` **aiProviders**: `Record`\<`string`, `any`\>
+• `Optional` **aiProviders**: `Record`\<`string`, [`BaseAIProvider`](../classes/BaseAIProvider)\<[`ProviderConfig`](ProviderConfig), [`UniversalMessage`](../modules#universalmessage), [`UniversalMessage`](../modules#universalmessage)\>\>
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:74](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L74)
+[packages/agents/src/interfaces/agent.ts:113](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L113)
 
 ___
 
@@ -152,7 +152,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:75](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L75)
+[packages/agents/src/interfaces/agent.ts:114](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L114)
 
 ___
 
@@ -162,4 +162,31 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:76](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L76)
+[packages/agents/src/interfaces/agent.ts:115](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L115)
+
+___
+
+### conversationId
+
+• `Optional` **conversationId**: `string`
+
+#### Defined in
+
+[packages/agents/src/interfaces/agent.ts:117](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L117)
+
+___
+
+### logging
+
+• `Optional` **logging**: `Object`
+
+#### Type declaration
+
+| Name | Type |
+| :------ | :------ |
+| `level?` | [`UtilLogLevel`](../modules#utilloglevel) |
+| `enabled?` | `boolean` |
+
+#### Defined in
+
+[packages/agents/src/interfaces/agent.ts:119](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L119)

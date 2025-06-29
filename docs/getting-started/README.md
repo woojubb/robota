@@ -6,218 +6,324 @@ lang: en-US
 
 # Getting Started
 
-Learn how to build powerful AI agents with Robota.
+Learn how to build powerful AI agents with the Robota SDK.
 
-## Installation
+## Quick Start
 
-Install the core package along with your preferred AI provider:
+### Installation
+
+Install the unified agents package with your preferred AI provider:
 
 ```bash
-# Using npm
-npm install @robota-sdk/core @robota-sdk/openai
-npm install openai  # OpenAI client
+# Core agents package (includes everything you need)
+npm install @robota-sdk/agents
 
-# Using pnpm
-pnpm add @robota-sdk/core @robota-sdk/openai
-pnpm add openai
+# AI Providers (choose one or more)
+npm install @robota-sdk/openai openai
+npm install @robota-sdk/anthropic @anthropic-ai/sdk
+npm install @robota-sdk/google @google/generative-ai
 
-# Using yarn
-yarn add @robota-sdk/core @robota-sdk/openai
-yarn add openai
+# Optional: Additional packages
+npm install @robota-sdk/team    # For multi-agent collaboration
+npm install dotenv              # For environment variables
 ```
 
-### Available Providers
+### Environment Setup
 
-- `@robota-sdk/openai` - OpenAI GPT models (GPT-3.5, GPT-4, etc.)
-- `@robota-sdk/anthropic` - Anthropic Claude models  
-- `@robota-sdk/google` - Google AI Gemini models
-- `@robota-sdk/tools` - Tool providers for function calling
+Create a `.env` file in your project root:
 
-## Basic Usage
+```env
+OPENAI_API_KEY=your_openai_api_key
+ANTHROPIC_API_KEY=your_anthropic_api_key  # Optional
+GOOGLE_AI_API_KEY=your_google_api_key     # Optional
+```
 
-Here's how to set up and use Robota for simple conversations:
+### Your First Agent
+
+Create a simple AI agent in under 5 minutes:
 
 ```typescript
-import { Robota, OpenAIProvider } from '@robota-sdk/core';
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
-// Load environment variables
 dotenv.config();
 
 async function main() {
-    // Validate API key
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-        throw new Error('OPENAI_API_KEY environment variable is required');
-    }
-
-    // Create OpenAI client
+    // Create OpenAI client and provider
     const openaiClient = new OpenAI({
-        apiKey
+        apiKey: process.env.OPENAI_API_KEY!
     });
 
-    // Create OpenAI Provider
-    const openaiProvider = new OpenAIProvider(openaiClient);
+    const openaiProvider = new OpenAIProvider({
+        client: openaiClient
+    });
 
-    // Create Robota instance
-    const robota = new Robota({
+    // Create your first agent
+    const agent = new Robota({
+        name: 'MyFirstAgent',
+        model: 'gpt-3.5-turbo',
+        provider: 'openai',
         aiProviders: {
-            'openai': openaiProvider
+            openai: openaiProvider
         },
         currentProvider: 'openai',
         currentModel: 'gpt-3.5-turbo',
-        systemPrompt: 'You are a helpful AI assistant. Provide concise and useful responses.'
+        systemMessage: 'You are a helpful AI assistant.'
     });
 
-    // Simple conversation
-    const response = await robota.run('Hello! Tell me about TypeScript.');
-    console.log('Response:', response);
+    // Have a conversation
+    const response = await agent.run('Hello! Tell me about TypeScript.');
+    console.log('Agent:', response);
+
+    // Clean up
+    await agent.destroy();
 }
 
 main().catch(console.error);
 ```
 
-## Streaming Responses
+## Key Features
 
-Get real-time streaming responses:
+### ✅ Type-Safe Architecture
+- **Zero `any` types**: Complete TypeScript safety
+- **Generic type system**: Fully parameterized components
+- **Compile-time validation**: Catch errors before runtime
+
+### 🔌 Multi-Provider Support
+- **OpenAI**: GPT-3.5, GPT-4, GPT-4o-mini models
+- **Anthropic**: Claude 3 family (Haiku, Sonnet, Opus)
+- **Google AI**: Gemini 1.5 (Flash, Pro) models
+- **Provider switching**: Dynamic provider changes
+
+### 🛠️ Advanced Tool System
+- **Function calling**: Type-safe tool integration
+- **Automatic schema conversion**: JSON Schema → Function calls
+- **Built-in error handling**: Robust tool execution
+
+### 🌊 Real-Time Streaming
+- **Streaming responses**: Real-time AI responses
+- **Cross-provider**: Works with all supported providers
+- **Performance monitoring**: Built-in metrics
+
+### 📊 Built-in Analytics
+- **Execution tracking**: Monitor agent performance
+- **Usage analytics**: Track token usage and costs
+- **Error monitoring**: Comprehensive error tracking
+
+### 👥 Team Collaboration
+- **Multi-agent coordination**: Orchestrate multiple agents working together
+- **Role-based assignment**: Assign specific roles to different agents
+- **Task delegation**: Automatically distribute work across team members
+- **Collective intelligence**: Combine strengths of different AI models
+
+### 🗓️ Future Roadmap
+- **Advanced Planning System**: Sophisticated planning strategies (ReAct, Plan-and-Execute, Reflection, CAMEL)
+- **Hierarchical Task Networks**: Complex workflow management
+- **Autonomous Agent Systems**: Self-directed agent behaviors
+
+## Basic Examples
+
+### Streaming Responses
+
+Get real-time responses as they're generated:
 
 ```typescript
-// Streaming response example
-console.log('Streaming response:');
+const agent = new Robota({
+    name: 'StreamingAgent',
+    model: 'gpt-3.5-turbo',
+    provider: 'openai',
+    aiProviders: { openai: openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-3.5-turbo',
+    systemMessage: 'You are a helpful assistant.'
+});
 
-const stream = await robota.runStream('Explain the advantages of TypeScript briefly.');
+// Stream the response
+const stream = await agent.stream('Explain quantum computing in simple terms.');
 
 for await (const chunk of stream) {
-    process.stdout.write(chunk.content || '');
+    if (chunk.content) {
+        process.stdout.write(chunk.content);
+    }
 }
-console.log('\n');
 ```
 
-## Multiple AI Providers
+### Multiple Providers
 
-Use different AI providers and switch between them:
+Use different AI providers for different tasks:
 
 ```typescript
-import { Robota, OpenAIProvider } from '@robota-sdk/core';
-import { GoogleProvider } from '@robota-sdk/google';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
-import OpenAI from 'openai';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import Anthropic from '@anthropic-ai/sdk';
 
-// Create clients
-const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const googleClient = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
-const anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+// Create multiple providers
+const openaiProvider = new OpenAIProvider({ client: openaiClient });
+const anthropicProvider = new AnthropicProvider({
+    client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+});
 
-// Create providers
-const openaiProvider = new OpenAIProvider(openaiClient);
-const googleProvider = new GoogleProvider({ client: googleClient });
-const anthropicProvider = new AnthropicProvider({ client: anthropicClient });
-
-// Setup Robota with multiple providers
-const robota = new Robota({
+// Agent with multiple providers
+const agent = new Robota({
+    name: 'MultiProviderAgent',
+    model: 'gpt-3.5-turbo',
+    provider: 'openai',
     aiProviders: {
         openai: openaiProvider,
-        google: googleProvider,
         anthropic: anthropicProvider
     },
     currentProvider: 'openai',
-    currentModel: 'gpt-3.5-turbo'
+    currentModel: 'gpt-3.5-turbo',
+    systemMessage: 'You are a helpful assistant.'
 });
 
-// Check current AI settings
-const currentAI = robota.getCurrentAI();
-console.log(`Current Provider: ${currentAI.provider}`);
-console.log(`Current Model: ${currentAI.model}`);
+// Use OpenAI
+const openaiResponse = await agent.run('Quick summary please.');
 
-// Switch to different provider/model
-robota.setCurrentAI('google', 'gemini-1.5-flash');
-const response = await robota.run('Hello from Google AI!');
-
-// Switch to Anthropic
-robota.setCurrentAI('anthropic', 'claude-3-sonnet');
-const response2 = await robota.run('Hello from Anthropic!');
+// Switch to Anthropic for detailed analysis
+await agent.switchProvider('anthropic', 'claude-3-haiku-20240307');
+const claudeResponse = await agent.run('Detailed analysis please.');
 ```
 
-## Using Tools and Function Calling
+### Function Calling (Tools)
 
-Enhance your AI with custom tools:
+Add custom tools to your agent:
 
 ```typescript
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
-import { z } from 'zod';
+import { createFunctionTool } from '@robota-sdk/agents';
 
-// Define a calculator tool
-const calculatorTool = {
-    name: 'calculate',
-    description: 'Performs mathematical calculations',
-    parameters: z.object({
-        operation: z.enum(['add', 'subtract', 'multiply', 'divide']).describe('Operation to perform'),
-        a: z.number().describe('First number'),
-        b: z.number().describe('Second number')
-    }),
-    handler: async (params) => {
-        const { operation, a, b } = params;
-        console.log(`[Tool] Calculating: ${a} ${operation} ${b}`);
-        
-        let result;
-        switch (operation) {
-            case 'add': result = { result: a + b }; break;
-            case 'subtract': result = { result: a - b }; break;
-            case 'multiply': result = { result: a * b }; break;
-            case 'divide': result = b !== 0 ? { result: a / b } : { error: 'Cannot divide by zero' }; break;
-        }
-        
-        console.log(`[Tool] Result:`, result);
-        return result;
-    }
-};
-
-// Create tool provider
-const toolProvider = createZodFunctionToolProvider({
-    tools: {
-        calculate: calculatorTool
-    }
-});
-
-// AI with tools
-const robota = new Robota({
-    aiProviders: {
-        'openai': openaiProvider
+// Create a calculator tool
+const calculatorTool = createFunctionTool(
+    'calculate',
+    'Performs mathematical calculations',
+    {
+        type: 'object',
+        properties: {
+            operation: {
+                type: 'string',
+                enum: ['add', 'subtract', 'multiply', 'divide'],
+                description: 'Mathematical operation'
+            },
+            a: { type: 'number', description: 'First number' },
+            b: { type: 'number', description: 'Second number' }
+        },
+        required: ['operation', 'a', 'b']
     },
+    async (params) => {
+        const { operation, a, b } = params;
+        
+        switch (operation) {
+            case 'add': return { result: a + b };
+            case 'subtract': return { result: a - b };
+            case 'multiply': return { result: a * b };
+            case 'divide': return { result: b !== 0 ? a / b : 'Error: Division by zero' };
+            default: return { error: 'Unknown operation' };
+    }
+    }
+);
+
+// Agent with tools
+const agent = new Robota({
+    name: 'CalculatorAgent',
+    model: 'gpt-3.5-turbo',
+    provider: 'openai',
+    aiProviders: { openai: openaiProvider },
     currentProvider: 'openai',
     currentModel: 'gpt-3.5-turbo',
-    toolProviders: [toolProvider],
-    systemPrompt: 'You are a helpful AI assistant. Use the calculate tool for mathematical operations.',
-    debug: true  // Enable tool call logging
+    tools: [calculatorTool],
+    systemMessage: 'You are a helpful assistant with calculation abilities.'
 });
 
-// AI will automatically use the calculator tool
-const response = await robota.run('Please calculate 15 multiplied by 7 using the calculator tool.');
-console.log('Response:', response);
+// Agent will automatically use the calculator tool
+const response = await agent.run('What is 25 * 7?');
 ```
 
-## Environment Variables
+### Team Collaboration
 
-Create a `.env` file in your project root:
+Create a team that intelligently delegates complex tasks:
 
-```bash
-# OpenAI
-OPENAI_API_KEY=your_openai_api_key_here
+```typescript
+import { createTeam } from '@robota-sdk/team';
 
-# Google AI (optional)
-GOOGLE_AI_API_KEY=your_google_ai_api_key_here
+// Create a team with AI providers
+const team = createTeam({
+    aiProviders: {
+        openai: openaiProvider,
+        anthropic: anthropicProvider
+    },
+    maxMembers: 5,
+    debug: true
+});
 
-# Anthropic (optional)
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
+// Team automatically breaks down complex tasks and assigns to specialists
+const result = await team.execute(
+    'Create a comprehensive blog post about quantum computing for beginners'
+);
+
+console.log('Team result:', result);
+```
+
+### Performance Monitoring
+
+Monitor your agent's performance:
+
+```typescript
+import { ExecutionAnalyticsPlugin } from '@robota-sdk/agents';
+
+// Create analytics plugin
+const analyticsPlugin = new ExecutionAnalyticsPlugin({
+    maxEntries: 1000,
+    trackErrors: true,
+    performanceThreshold: 2000
+});
+
+// Agent with analytics
+const agent = new Robota({
+    name: 'MonitoredAgent',
+    model: 'gpt-3.5-turbo',
+    provider: 'openai',
+    aiProviders: { openai: openaiProvider },
+    currentProvider: 'openai',
+    currentModel: 'gpt-3.5-turbo',
+    plugins: [analyticsPlugin],
+    systemMessage: 'You are a helpful assistant.'
+});
+
+// Use the agent
+await agent.run('Hello!');
+await agent.run('Tell me about AI.');
+
+// Get performance stats
+const stats = agent.getStats();
+console.log(`Total interactions: ${stats.historyLength / 2}`);
+console.log(`Uptime: ${Math.round(stats.uptime)}ms`);
+
+// Get detailed analytics
+const plugin = agent.getPlugin('ExecutionAnalyticsPlugin');
+if (plugin && 'getAggregatedStats' in plugin) {
+    const analytics = (plugin as any).getAggregatedStats();
+    console.log(`Success rate: ${(analytics.successRate * 100).toFixed(1)}%`);
+    console.log(`Average duration: ${analytics.averageDuration.toFixed(0)}ms`);
+}
 ```
 
 ## Next Steps
 
-- Read [Core Concepts](./core-concepts.md) to understand Robota's architecture
-- Explore [Function Calling](./function-calling.md) for advanced tool integration
-- Learn about [Building Agents](./building-agents.md) for complex AI workflows
-- Check out the [AI Providers](../providers.md) documentation
-- View complete examples in the `apps/examples` directory of the repository 
+Now that you have a basic agent running, explore these advanced features:
+
+1. **[Core Concepts](../guide/core-concepts.md)** - Understand the architecture
+2. **[Function Calling](../guide/function-calling.md)** - Add custom tools and capabilities
+3. **[Building Agents](../guide/building-agents.md)** - Advanced patterns and best practices
+4. **[Team Collaboration](../examples/team-collaboration.md)** - Multi-agent coordination
+5. **[Examples](../examples/README.md)** - Real-world usage examples
+
+## Need Help?
+
+- **[Examples](../examples/README.md)** - Complete working examples
+- **[API Reference](../api-reference/README.md)** - Detailed API documentation
+- **[Development Guide](../development/README.md)** - Contributing and development setup
+
+## Migration from v1
+
+If you're upgrading from Robota SDK v1, see our [migration guide](../development/code-improvements.md) for breaking changes and upgrade steps. 

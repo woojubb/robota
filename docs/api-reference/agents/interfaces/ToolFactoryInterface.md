@@ -31,7 +31,7 @@ Create function tool from schema and function
 | Name | Type |
 | :------ | :------ |
 | `schema` | [`ToolSchema`](ToolSchema) |
-| `fn` | (...`args`: `any`[]) => `Promise`\<`any`\> |
+| `fn` | [`ToolExecutor`](../modules#toolexecutor)\<`ToolParameters`, [`ToolExecutionData`](../modules#toolexecutiondata)\> |
 
 #### Returns
 
@@ -39,13 +39,13 @@ Create function tool from schema and function
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:137](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/tool.ts#L137)
+[packages/agents/src/interfaces/tool.ts:256](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L256)
 
 ___
 
 ### createOpenAPITool
 
-▸ **createOpenAPITool**(`spec`): [`ToolInterface`](ToolInterface)
+▸ **createOpenAPITool**(`config`): [`ToolInterface`](ToolInterface)
 
 Create tool from OpenAPI specification
 
@@ -53,7 +53,7 @@ Create tool from OpenAPI specification
 
 | Name | Type |
 | :------ | :------ |
-| `spec` | `any` |
+| `config` | [`OpenAPIToolConfig`](OpenAPIToolConfig) |
 
 #### Returns
 
@@ -61,7 +61,7 @@ Create tool from OpenAPI specification
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:142](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/tool.ts#L142)
+[packages/agents/src/interfaces/tool.ts:261](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L261)
 
 ___
 
@@ -75,7 +75,7 @@ Create MCP tool
 
 | Name | Type |
 | :------ | :------ |
-| `config` | `any` |
+| `config` | [`MCPToolConfig`](MCPToolConfig) |
 
 #### Returns
 
@@ -83,4 +83,4 @@ Create MCP tool
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:147](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/tool.ts#L147)
+[packages/agents/src/interfaces/tool.ts:266](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L266)

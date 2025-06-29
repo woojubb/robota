@@ -8,12 +8,12 @@
 
 # Class: WebhookPlugin
 
-Plugin for sending webhook notifications
-Sends HTTP requests to external systems on agent events
+Webhook Plugin using Facade Pattern
+Provides a clean interface for webhook functionality
 
 ## Hierarchy
 
-- [`BasePlugin`](BasePlugin)
+- [`BasePlugin`](BasePlugin)\<[`WebhookPluginOptions`](../interfaces/WebhookPluginOptions), `WebhookPluginStats`\>
 
   ↳ **`WebhookPlugin`**
 
@@ -25,6 +25,7 @@ Sends HTTP requests to external systems on agent events
 
 ### Properties
 
+- [enabled](WebhookPlugin#enabled)
 - [name](WebhookPlugin#name)
 - [version](WebhookPlugin#version)
 
@@ -42,7 +43,10 @@ Sends HTTP requests to external systems on agent events
 - [getStatus](WebhookPlugin#getstatus)
 - [beforeRun](WebhookPlugin#beforerun)
 - [afterRun](WebhookPlugin#afterrun)
+- [beforeExecution](WebhookPlugin#beforeexecution)
+- [beforeConversation](WebhookPlugin#beforeconversation)
 - [beforeToolCall](WebhookPlugin#beforetoolcall)
+- [beforeToolExecution](WebhookPlugin#beforetoolexecution)
 - [afterToolCall](WebhookPlugin#aftertoolcall)
 - [beforeProviderCall](WebhookPlugin#beforeprovidercall)
 - [afterProviderCall](WebhookPlugin#afterprovidercall)
@@ -80,9 +84,25 @@ Sends HTTP requests to external systems on agent events
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:93](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L93)
+[packages/agents/src/plugins/webhook/webhook-plugin.ts:39](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/webhook-plugin.ts#L39)
 
 ## Properties
+
+### enabled
+
+• **enabled**: `boolean` = `true`
+
+Plugin enabled state
+
+#### Inherited from
+
+[BasePlugin](BasePlugin).[enabled](BasePlugin#enabled)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:216](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L216)
+
+___
 
 ### name
 
@@ -96,7 +116,7 @@ Plugin name
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:83](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L83)
+[packages/agents/src/plugins/webhook/webhook-plugin.ts:28](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/webhook-plugin.ts#L28)
 
 ___
 
@@ -112,15 +132,21 @@ Plugin version
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:84](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L84)
+[packages/agents/src/plugins/webhook/webhook-plugin.ts:29](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/webhook-plugin.ts#L29)
 
 ## Methods
 
 ### initialize
 
-▸ **initialize**(): `Promise`\<`void`\>
+▸ **initialize**(`options?`): `Promise`\<`void`\>
 
-Initialize the plugin
+Initialize the plugin with type-safe options
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `options?` | [`WebhookPluginOptions`](../interfaces/WebhookPluginOptions) |
 
 #### Returns
 
@@ -132,7 +158,7 @@ Initialize the plugin
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:71](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L71)
+[packages/agents/src/abstracts/base-plugin.ts:224](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L224)
 
 ___
 
@@ -152,7 +178,7 @@ Cleanup plugin resources
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:78](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L78)
+[packages/agents/src/abstracts/base-plugin.ts:232](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L232)
 
 ___
 
@@ -172,7 +198,7 @@ Enable the plugin
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:85](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L85)
+[packages/agents/src/abstracts/base-plugin.ts:239](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L239)
 
 ___
 
@@ -192,7 +218,7 @@ Disable the plugin
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:92](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L92)
+[packages/agents/src/abstracts/base-plugin.ts:246](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L246)
 
 ___
 
@@ -212,19 +238,19 @@ Check if plugin is enabled
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:99](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L99)
+[packages/agents/src/abstracts/base-plugin.ts:253](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L253)
 
 ___
 
 ### getConfig
 
-▸ **getConfig**(): `Record`\<`string`, `any`\>
+▸ **getConfig**(): [`PluginConfig`](../interfaces/PluginConfig)
 
 Get plugin configuration
 
 #### Returns
 
-`Record`\<`string`, `any`\>
+[`PluginConfig`](../interfaces/PluginConfig)
 
 #### Inherited from
 
@@ -232,7 +258,7 @@ Get plugin configuration
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:106](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L106)
+[packages/agents/src/abstracts/base-plugin.ts:260](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L260)
 
 ___
 
@@ -246,7 +272,7 @@ Update plugin configuration
 
 | Name | Type |
 | :------ | :------ |
-| `_config` | `Record`\<`string`, `any`\> |
+| `_config` | [`PluginConfig`](../interfaces/PluginConfig) |
 
 #### Returns
 
@@ -258,20 +284,20 @@ Update plugin configuration
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:113](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L113)
+[packages/agents/src/abstracts/base-plugin.ts:267](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L267)
 
 ___
 
 ### getData
 
-▸ **getData**(): `any`
+▸ **getData**(): [`PluginData`](../interfaces/PluginData)
 
 Get plugin data - common interface for all plugins
 This method should be implemented by plugins that collect data
 
 #### Returns
 
-`any`
+[`PluginData`](../interfaces/PluginData)
 
 #### Inherited from
 
@@ -279,7 +305,7 @@ This method should be implemented by plugins that collect data
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:121](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L121)
+[packages/agents/src/abstracts/base-plugin.ts:275](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L275)
 
 ___
 
@@ -300,7 +326,7 @@ This method should be implemented by plugins that store data
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L133)
+[packages/agents/src/abstracts/base-plugin.ts:281](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L281)
 
 ___
 
@@ -327,7 +353,7 @@ Get plugin status - common interface for all plugins
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:138](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L138)
+[packages/agents/src/abstracts/base-plugin.ts:286](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L286)
 
 ___
 
@@ -354,7 +380,7 @@ Called before agent run
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:153](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L153)
+[packages/agents/src/abstracts/base-plugin.ts:301](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L301)
 
 ___
 
@@ -382,7 +408,59 @@ Called after agent run
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:154](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L154)
+[packages/agents/src/abstracts/base-plugin.ts:302](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L302)
+
+___
+
+### beforeExecution
+
+▸ **beforeExecution**(`context`): `Promise`\<`void`\>
+
+Called before execution with context
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Inherited from
+
+[BasePlugin](BasePlugin).[beforeExecution](BasePlugin#beforeexecution)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:303](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L303)
+
+___
+
+### beforeConversation
+
+▸ **beforeConversation**(`context`): `Promise`\<`void`\>
+
+Called before conversation with context
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Inherited from
+
+[BasePlugin](BasePlugin).[beforeConversation](BasePlugin#beforeconversation)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:305](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L305)
 
 ___
 
@@ -397,7 +475,7 @@ Called before tool execution
 | Name | Type |
 | :------ | :------ |
 | `toolName` | `string` |
-| `parameters` | `Record`\<`string`, `any`\> |
+| `parameters` | `ToolParameters` |
 
 #### Returns
 
@@ -409,7 +487,34 @@ Called before tool execution
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:155](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L155)
+[packages/agents/src/abstracts/base-plugin.ts:307](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L307)
+
+___
+
+### beforeToolExecution
+
+▸ **beforeToolExecution**(`context`, `toolData`): `Promise`\<`void`\>
+
+Called before tool execution with context
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
+| `toolData` | [`ToolExecutionContext`](../interfaces/ToolExecutionContext) |
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Inherited from
+
+[BasePlugin](BasePlugin).[beforeToolExecution](BasePlugin#beforetoolexecution)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:308](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L308)
 
 ___
 
@@ -424,8 +529,8 @@ Called after tool execution
 | Name | Type |
 | :------ | :------ |
 | `toolName` | `string` |
-| `parameters` | `Record`\<`string`, `any`\> |
-| `result` | `any` |
+| `parameters` | `ToolParameters` |
+| `result` | [`ToolExecutionResult`](../interfaces/ToolExecutionResult) |
 
 #### Returns
 
@@ -437,7 +542,7 @@ Called after tool execution
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:156](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L156)
+[packages/agents/src/abstracts/base-plugin.ts:309](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L309)
 
 ___
 
@@ -463,7 +568,7 @@ Called before AI provider call
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:157](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L157)
+[packages/agents/src/abstracts/base-plugin.ts:311](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L311)
 
 ___
 
@@ -490,7 +595,7 @@ Called after AI provider call
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:158](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L158)
+[packages/agents/src/abstracts/base-plugin.ts:312](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L312)
 
 ___
 
@@ -516,7 +621,7 @@ Called on streaming chunk
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:159](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L159)
+[packages/agents/src/abstracts/base-plugin.ts:313](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L313)
 
 ___
 
@@ -542,7 +647,7 @@ Called on message added to history
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:161](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-plugin.ts#L161)
+[packages/agents/src/abstracts/base-plugin.ts:315](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L315)
 
 ___
 
@@ -556,16 +661,20 @@ After execution completes
 
 | Name | Type |
 | :------ | :------ |
-| `context` | `any` |
-| `result` | `any` |
+| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
+| `result` | [`BaseExecutionResult`](../interfaces/BaseExecutionResult) |
 
 #### Returns
 
 `Promise`\<`void`\>
 
+#### Overrides
+
+[BasePlugin](BasePlugin).[afterExecution](BasePlugin#afterexecution)
+
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:135](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L135)
+[packages/agents/src/plugins/webhook/webhook-plugin.ts:82](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/webhook-plugin.ts#L82)
 
 ___
 
@@ -579,16 +688,20 @@ After conversation completes
 
 | Name | Type |
 | :------ | :------ |
-| `context` | `any` |
-| `result` | `any` |
+| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
+| `result` | [`BaseExecutionResult`](../interfaces/BaseExecutionResult) |
 
 #### Returns
 
 `Promise`\<`void`\>
 
+#### Overrides
+
+[BasePlugin](BasePlugin).[afterConversation](BasePlugin#afterconversation)
+
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:153](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L153)
+[packages/agents/src/plugins/webhook/webhook-plugin.ts:93](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/webhook-plugin.ts#L93)
 
 ___
 
@@ -598,26 +711,39 @@ ___
 
 After tool execution
 
+REASON: Tool results structure varies by tool type and provider, needs flexible handling for webhook processing
+ALTERNATIVES_CONSIDERED:
+1. Strict tool result interfaces (breaks tool compatibility)
+2. Union types (insufficient for dynamic tool results)
+3. Generic constraints (too complex for webhook processing)
+4. Interface definitions (too rigid for varied tool results)
+5. Type assertions (decreases type safety)
+TODO: Consider standardized tool result interface across tools
+
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `context` | `any` |
-| `toolResults` | `any` |
+| `context` | [`BaseExecutionContext`](../interfaces/BaseExecutionContext) |
+| `toolResults` | `Record`\<`string`, `undefined` \| ``null`` \| `string` \| `number` \| `boolean` \| `object` \| (`string` \| `number` \| `boolean`)[]\> |
 
 #### Returns
 
 `Promise`\<`void`\>
 
+#### Overrides
+
+[BasePlugin](BasePlugin).[afterToolExecution](BasePlugin#aftertoolexecution)
+
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:169](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L169)
+[packages/agents/src/plugins/webhook/webhook-plugin.ts:113](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/webhook-plugin.ts#L113)
 
 ___
 
 ### onError
 
-▸ **onError**(`context`, `error`): `Promise`\<`void`\>
+▸ **onError**(`error`, `context?`): `Promise`\<`void`\>
 
 On error
 
@@ -625,8 +751,8 @@ On error
 
 | Name | Type |
 | :------ | :------ |
-| `context` | `any` |
-| `error` | `any` |
+| `error` | `Error` |
+| `context?` | [`ErrorContext`](../interfaces/ErrorContext) |
 
 #### Returns
 
@@ -638,7 +764,7 @@ On error
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:193](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L193)
+[packages/agents/src/plugins/webhook/webhook-plugin.ts:127](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/webhook-plugin.ts#L127)
 
 ___
 
@@ -653,8 +779,8 @@ Send webhook notification
 | Name | Type |
 | :------ | :------ |
 | `event` | [`WebhookEventType`](../modules#webhookeventtype) |
-| `data` | `any` |
-| `metadata?` | `Record`\<`string`, `any`\> |
+| `data` | `WebhookEventData` |
+| `metadata?` | `WebhookMetadata` |
 
 #### Returns
 
@@ -662,7 +788,7 @@ Send webhook notification
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:219](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L219)
+[packages/agents/src/plugins/webhook/webhook-plugin.ts:147](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/webhook-plugin.ts#L147)
 
 ___
 
@@ -676,8 +802,8 @@ Send custom webhook
 
 | Name | Type |
 | :------ | :------ |
-| `data` | `any` |
-| `metadata?` | `Record`\<`string`, `any`\> |
+| `data` | `WebhookEventData` |
+| `metadata?` | `WebhookMetadata` |
 
 #### Returns
 
@@ -685,35 +811,23 @@ Send custom webhook
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:260](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L260)
+[packages/agents/src/plugins/webhook/webhook-plugin.ts:188](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/webhook-plugin.ts#L188)
 
 ___
 
 ### getStats
 
-▸ **getStats**(): `Object`
+▸ **getStats**(): `WebhookPluginStats`
 
-Get webhook statistics
+Get webhook plugin statistics
 
 #### Returns
 
-`Object`
-
-| Name | Type |
-| :------ | :------ |
-| `endpointCount` | `number` |
-| `queueLength` | `number` |
-| `batchQueueLength` | `number` |
-| `activeConcurrency` | `number` |
-| `supportedEvents` | [`WebhookEventType`](../modules#webhookeventtype)[] |
-
-#### Overrides
-
-[BasePlugin](BasePlugin).[getStats](BasePlugin#getstats)
+`WebhookPluginStats`
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:502](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L502)
+[packages/agents/src/plugins/webhook/webhook-plugin.ts:313](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/webhook-plugin.ts#L313)
 
 ___
 
@@ -721,7 +835,7 @@ ___
 
 ▸ **clearQueue**(): `void`
 
-Clear all queued requests
+Clear webhook queue
 
 #### Returns
 
@@ -729,7 +843,7 @@ Clear all queued requests
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:521](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L521)
+[packages/agents/src/plugins/webhook/webhook-plugin.ts:329](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/webhook-plugin.ts#L329)
 
 ___
 
@@ -745,4 +859,4 @@ Cleanup on plugin destruction
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook-plugin.ts:530](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/plugins/webhook-plugin.ts#L530)
+[packages/agents/src/plugins/webhook/webhook-plugin.ts:338](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/webhook-plugin.ts#L338)

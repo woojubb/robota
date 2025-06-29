@@ -8,12 +8,23 @@
 
 # Interface: AgentInterface
 
-Agent interface
+Legacy agent interface for backward compatibility
+
+**`Deprecated`**
+
+Use BaseAgentInterface or provider-specific interfaces instead
+
+## Hierarchy
+
+- `BaseAgentInterface`\<[`AgentConfig`](AgentConfig), [`RunOptions`](RunOptions), [`Message`](../modules#message)\>
+
+  ↳ **`AgentInterface`**
 
 ## Table of contents
 
 ### Methods
 
+- [configure](AgentInterface#configure)
 - [run](AgentInterface#run)
 - [runStream](AgentInterface#runstream)
 - [getHistory](AgentInterface#gethistory)
@@ -21,49 +32,83 @@ Agent interface
 
 ## Methods
 
+### configure
+
+▸ **configure**(`config`): `Promise`\<`void`\>
+
+Configure the agent with type-safe configuration
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `config` | [`AgentConfig`](AgentConfig) |
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Inherited from
+
+BaseAgentInterface.configure
+
+#### Defined in
+
+agents/dist/index.d.ts:1395
+
+___
+
 ### run
 
-▸ **run**(`input`, `options?`): `Promise`\<`string`\>
+▸ **run**(`input`, `context?`): `Promise`\<`string`\>
 
-Run agent with user input
+Run agent with user input and type-safe context
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
 | `input` | `string` |
-| `options?` | [`RunOptions`](RunOptions) |
+| `context?` | [`RunOptions`](RunOptions) |
 
 #### Returns
 
 `Promise`\<`string`\>
 
+#### Inherited from
+
+BaseAgentInterface.run
+
 #### Defined in
 
-agents/dist/index.d.ts:104
+agents/dist/index.d.ts:1399
 
 ___
 
 ### runStream
 
-▸ **runStream**(`input`, `options?`): `AsyncGenerator`\<`string`, `void`, `unknown`\>
+▸ **runStream**(`input`, `context?`): `AsyncGenerator`\<`string`, `void`, `never`\>
 
-Run agent with streaming response
+Run agent with streaming response and type-safe context
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
 | `input` | `string` |
-| `options?` | [`RunOptions`](RunOptions) |
+| `context?` | [`RunOptions`](RunOptions) |
 
 #### Returns
 
-`AsyncGenerator`\<`string`, `void`, `unknown`\>
+`AsyncGenerator`\<`string`, `void`, `never`\>
+
+#### Inherited from
+
+BaseAgentInterface.runStream
 
 #### Defined in
 
-agents/dist/index.d.ts:108
+agents/dist/index.d.ts:1403
 
 ___
 
@@ -71,15 +116,19 @@ ___
 
 ▸ **getHistory**(): [`Message`](../modules#message)[]
 
-Get conversation history
+Get conversation history with type-safe messages
 
 #### Returns
 
 [`Message`](../modules#message)[]
 
+#### Inherited from
+
+BaseAgentInterface.getHistory
+
 #### Defined in
 
-agents/dist/index.d.ts:112
+agents/dist/index.d.ts:1407
 
 ___
 
@@ -93,6 +142,10 @@ Clear conversation history
 
 `void`
 
+#### Inherited from
+
+BaseAgentInterface.clearHistory
+
 #### Defined in
 
-agents/dist/index.d.ts:116
+agents/dist/index.d.ts:1411

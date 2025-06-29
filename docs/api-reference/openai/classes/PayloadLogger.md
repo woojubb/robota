@@ -41,7 +41,7 @@ Utility class for logging OpenAI API payloads to files
 
 #### Defined in
 
-[openai/src/payload-logger.ts:12](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/openai/src/payload-logger.ts#L12)
+[openai/src/payload-logger.ts:13](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/payload-logger.ts#L13)
 
 ## Methods
 
@@ -55,7 +55,7 @@ Log API payload to file
 
 | Name | Type | Default value | Description |
 | :------ | :------ | :------ | :------ |
-| `payload` | `any` | `undefined` | The API request payload |
+| `payload` | `OpenAILogData` | `undefined` | The API request payload |
 | `type` | ``"chat"`` \| ``"stream"`` | `'chat'` | Type of request ('chat' or 'stream') |
 
 #### Returns
@@ -64,7 +64,7 @@ Log API payload to file
 
 #### Defined in
 
-[openai/src/payload-logger.ts:31](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/openai/src/payload-logger.ts#L31)
+[openai/src/payload-logger.ts:32](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/payload-logger.ts#L32)
 
 ___
 
@@ -80,4 +80,4 @@ Check if logging is enabled
 
 #### Defined in
 
-[openai/src/payload-logger.ts:97](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/openai/src/payload-logger.ts#L97)
+[openai/src/payload-logger.ts:98](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/payload-logger.ts#L98)

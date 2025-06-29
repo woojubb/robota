@@ -103,24 +103,14 @@ export interface AgentConfig {
 }
 
 /**
- * Parameters for assigning tasks to a specialized team member
+ * Parameters for assigning tasks to a specialized team member (internal use only)
  * 
  * @description
  * Defines the parameters needed when the team coordinator assigns a specialized
  * task to a temporary expert agent. The system uses these parameters to create
  * an appropriately configured agent and execute the task.
  * 
- * @example
- * ```typescript
- * const taskParams: AssignTaskParams = {
- *   jobDescription: 'Analyze market trends for electric vehicles in California',
- *   context: 'Focus on pricing strategies and customer adoption rates for Q1 2024',
- *   requiredTools: ['market-data-api', 'trend-analysis'],
- *   priority: 'high'
- * };
- * 
- * const result = await team.assignTask(taskParams);
- * ```
+ * @internal This interface is for internal use only.
  */
 export interface AssignTaskParams {
     /** 
@@ -169,30 +159,14 @@ export interface AssignTaskParams {
 }
 
 /**
- * Result from an assigned task with execution metadata
+ * Result from an assigned task with execution metadata (internal use only)
  * 
  * @description
  * Contains the output from a specialized agent along with comprehensive
  * metadata about the task execution including performance metrics,
  * resource usage, and any errors encountered.
  * 
- * @example
- * ```typescript
- * const result: AssignTaskResult = await team.assignTask({
- *   jobDescription: 'Create financial projections',
- *   context: 'For a startup coffee shop',
- *   priority: 'high'
- * });
- * 
- * console.log('Task result:', result.result);
- * console.log('Executed by agent:', result.agentId);
- * console.log('Execution time:', result.metadata.executionTime + 'ms');
- * console.log('Tokens used:', result.metadata.tokensUsed);
- * 
- * if (result.metadata.errors?.length > 0) {
- *   console.log('Errors encountered:', result.metadata.errors);
- * }
- * ```
+ * @internal This interface is for internal use only.
  */
 export interface AssignTaskResult {
     /** 

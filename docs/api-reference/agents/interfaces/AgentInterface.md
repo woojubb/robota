@@ -8,17 +8,27 @@
 
 # Interface: AgentInterface
 
-Agent interface
+Legacy agent interface for backward compatibility
+
+**`Deprecated`**
+
+Use BaseAgentInterface or provider-specific interfaces instead
+
+## Hierarchy
+
+- `BaseAgentInterface`\<[`AgentConfig`](AgentConfig), [`RunOptions`](RunOptions), [`Message`](../modules#message)\>
+
+  ↳ **`AgentInterface`**
 
 ## Implemented by
 
-- [`BaseAgent`](../classes/BaseAgent)
 - [`Robota`](../classes/Robota)
 
 ## Table of contents
 
 ### Methods
 
+- [configure](AgentInterface#configure)
 - [run](AgentInterface#run)
 - [runStream](AgentInterface#runstream)
 - [getHistory](AgentInterface#gethistory)
@@ -26,49 +36,83 @@ Agent interface
 
 ## Methods
 
+### configure
+
+▸ **configure**(`config`): `Promise`\<`void`\>
+
+Configure the agent with type-safe configuration
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `config` | [`AgentConfig`](AgentConfig) |
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Inherited from
+
+BaseAgentInterface.configure
+
+#### Defined in
+
+[packages/agents/src/interfaces/agent.ts:173](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L173)
+
+___
+
 ### run
 
-▸ **run**(`input`, `options?`): `Promise`\<`string`\>
+▸ **run**(`input`, `context?`): `Promise`\<`string`\>
 
-Run agent with user input
+Run agent with user input and type-safe context
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
 | `input` | `string` |
-| `options?` | [`RunOptions`](RunOptions) |
+| `context?` | [`RunOptions`](RunOptions) |
 
 #### Returns
 
 `Promise`\<`string`\>
 
+#### Inherited from
+
+BaseAgentInterface.run
+
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:115](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L115)
+[packages/agents/src/interfaces/agent.ts:178](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L178)
 
 ___
 
 ### runStream
 
-▸ **runStream**(`input`, `options?`): `AsyncGenerator`\<`string`, `void`, `unknown`\>
+▸ **runStream**(`input`, `context?`): `AsyncGenerator`\<`string`, `void`, `never`\>
 
-Run agent with streaming response
+Run agent with streaming response and type-safe context
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
 | `input` | `string` |
-| `options?` | [`RunOptions`](RunOptions) |
+| `context?` | [`RunOptions`](RunOptions) |
 
 #### Returns
 
-`AsyncGenerator`\<`string`, `void`, `unknown`\>
+`AsyncGenerator`\<`string`, `void`, `never`\>
+
+#### Inherited from
+
+BaseAgentInterface.runStream
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:120](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L120)
+[packages/agents/src/interfaces/agent.ts:183](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L183)
 
 ___
 
@@ -76,15 +120,19 @@ ___
 
 ▸ **getHistory**(): [`Message`](../modules#message)[]
 
-Get conversation history
+Get conversation history with type-safe messages
 
 #### Returns
 
 [`Message`](../modules#message)[]
 
+#### Inherited from
+
+BaseAgentInterface.getHistory
+
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:125](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L125)
+[packages/agents/src/interfaces/agent.ts:188](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L188)
 
 ___
 
@@ -98,6 +146,10 @@ Clear conversation history
 
 `void`
 
+#### Inherited from
+
+BaseAgentInterface.clearHistory
+
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:130](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/agent.ts#L130)
+[packages/agents/src/interfaces/agent.ts:193](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L193)

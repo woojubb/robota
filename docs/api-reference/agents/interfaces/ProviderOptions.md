@@ -10,10 +10,6 @@
 
 Provider options interface
 
-## Indexable
-
-▪ [key: `string`]: `any`
-
 ## Table of contents
 
 ### Properties
@@ -22,6 +18,11 @@ Provider options interface
 - [baseURL](ProviderOptions#baseurl)
 - [timeout](ProviderOptions#timeout)
 - [retries](ProviderOptions#retries)
+- [maxConcurrentRequests](ProviderOptions#maxconcurrentrequests)
+- [defaultModel](ProviderOptions#defaultmodel)
+- [organization](ProviderOptions#organization)
+- [project](ProviderOptions#project)
+- [extra](ProviderOptions#extra)
 
 ## Properties
 
@@ -31,7 +32,7 @@ Provider options interface
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:93](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L93)
+[packages/agents/src/interfaces/provider.ts:164](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L164)
 
 ___
 
@@ -41,7 +42,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:94](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L94)
+[packages/agents/src/interfaces/provider.ts:165](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L165)
 
 ___
 
@@ -51,7 +52,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:95](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L95)
+[packages/agents/src/interfaces/provider.ts:166](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L166)
 
 ___
 
@@ -61,4 +62,56 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:96](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L96)
+[packages/agents/src/interfaces/provider.ts:167](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L167)
+
+___
+
+### maxConcurrentRequests
+
+• `Optional` **maxConcurrentRequests**: `number`
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:168](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L168)
+
+___
+
+### defaultModel
+
+• `Optional` **defaultModel**: `string`
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:169](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L169)
+
+___
+
+### organization
+
+• `Optional` **organization**: `string`
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:170](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L170)
+
+___
+
+### project
+
+• `Optional` **project**: `string`
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:171](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L171)
+
+___
+
+### extra
+
+• `Optional` **extra**: `Record`\<`string`, `ProviderConfigValue`\>
+
+Additional provider-specific configuration
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:173](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L173)

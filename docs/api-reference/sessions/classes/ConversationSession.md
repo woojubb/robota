@@ -56,7 +56,7 @@ duplicate prevention and API format conversion.
 
 #### Defined in
 
-agents/dist/index.d.ts:302
+agents/dist/index.d.ts:285
 
 ## Methods
 
@@ -82,7 +82,7 @@ ConversationHistoryInterface.addMessage
 
 #### Defined in
 
-agents/dist/index.d.ts:306
+agents/dist/index.d.ts:289
 
 ___
 
@@ -97,7 +97,7 @@ Add user message
 | Name | Type |
 | :------ | :------ |
 | `content` | `string` |
-| `metadata?` | `Record`\<`string`, `any`\> |
+| `metadata?` | `ConversationMessageMetadata` |
 
 #### Returns
 
@@ -109,7 +109,7 @@ ConversationHistoryInterface.addUserMessage
 
 #### Defined in
 
-agents/dist/index.d.ts:310
+agents/dist/index.d.ts:293
 
 ___
 
@@ -125,7 +125,7 @@ Add assistant message with optional tool calls
 | :------ | :------ |
 | `content` | ``null`` \| `string` |
 | `toolCalls?` | \{ `id`: `string` ; `type`: ``"function"`` ; `function`: \{ `name`: `string` ; `arguments`: `string`  }  }[] |
-| `metadata?` | `Record`\<`string`, `any`\> |
+| `metadata?` | `ConversationMessageMetadata` |
 
 #### Returns
 
@@ -137,7 +137,7 @@ ConversationHistoryInterface.addAssistantMessage
 
 #### Defined in
 
-agents/dist/index.d.ts:314
+agents/dist/index.d.ts:297
 
 ___
 
@@ -152,7 +152,7 @@ Add system message
 | Name | Type |
 | :------ | :------ |
 | `content` | `string` |
-| `metadata?` | `Record`\<`string`, `any`\> |
+| `metadata?` | `ConversationMessageMetadata` |
 
 #### Returns
 
@@ -164,7 +164,7 @@ ConversationHistoryInterface.addSystemMessage
 
 #### Defined in
 
-agents/dist/index.d.ts:325
+agents/dist/index.d.ts:308
 
 ___
 
@@ -181,7 +181,7 @@ Add tool result message
 | `content` | `string` |
 | `toolCallId` | `string` |
 | `toolName?` | `string` |
-| `metadata?` | `Record`\<`string`, `any`\> |
+| `metadata?` | `ConversationMessageMetadata` |
 
 #### Returns
 
@@ -189,7 +189,7 @@ Add tool result message
 
 #### Defined in
 
-agents/dist/index.d.ts:329
+agents/dist/index.d.ts:312
 
 ___
 
@@ -209,7 +209,7 @@ Throws error if a tool message with the same toolCallId already exists.
 | `content` | `string` |
 | `toolCallId` | `string` |
 | `toolName` | `string` |
-| `metadata?` | `Record`\<`string`, `any`\> |
+| `metadata?` | `ConversationMessageMetadata` |
 
 #### Returns
 
@@ -221,7 +221,7 @@ ConversationHistoryInterface.addToolMessageWithId
 
 #### Defined in
 
-agents/dist/index.d.ts:336
+agents/dist/index.d.ts:319
 
 ___
 
@@ -241,7 +241,7 @@ ConversationHistoryInterface.getMessages
 
 #### Defined in
 
-agents/dist/index.d.ts:340
+agents/dist/index.d.ts:323
 
 ___
 
@@ -267,7 +267,7 @@ ConversationHistoryInterface.getMessagesByRole
 
 #### Defined in
 
-agents/dist/index.d.ts:344
+agents/dist/index.d.ts:327
 
 ___
 
@@ -293,7 +293,7 @@ ConversationHistoryInterface.getRecentMessages
 
 #### Defined in
 
-agents/dist/index.d.ts:348
+agents/dist/index.d.ts:331
 
 ___
 
@@ -309,7 +309,7 @@ Get messages formatted for API consumption
 
 #### Defined in
 
-agents/dist/index.d.ts:352
+agents/dist/index.d.ts:335
 
 ___
 
@@ -329,7 +329,7 @@ ConversationHistoryInterface.getMessageCount
 
 #### Defined in
 
-agents/dist/index.d.ts:356
+agents/dist/index.d.ts:339
 
 ___
 
@@ -349,4 +349,4 @@ ConversationHistoryInterface.clear
 
 #### Defined in
 
-agents/dist/index.d.ts:360
+agents/dist/index.d.ts:343

@@ -8,7 +8,19 @@
 
 # Interface: ToolResult
 
-Tool execution result
+Tool execution result - extended for ToolExecutionData compatibility
+
+REASON: Added index signature for compatibility with Record-based ToolExecutionData types
+ALTERNATIVES_CONSIDERED:
+1. Create separate conversion functions (adds unnecessary complexity)
+2. Use union types with type guards (increases runtime overhead)
+3. Modify ToolExecutionData to exclude Record types (breaks existing functionality)
+4. Use type assertions at every usage site (decreases type safety)
+TODO: Consider creating a stricter ToolResult variant if index signature causes issues
+
+## Indexable
+
+▪ [key: `string`]: `string` \| `number` \| `boolean` \| `ToolParameters` \| [`ToolExecutionData`](../modules#toolexecutiondata) \| [`ToolMetadata`](../modules#toolmetadata) \| `undefined`
 
 ## Table of contents
 
@@ -27,17 +39,17 @@ Tool execution result
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:7](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/tool.ts#L7)
+[packages/agents/src/interfaces/tool.ts:62](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L62)
 
 ___
 
 ### data
 
-• `Optional` **data**: `any`
+• `Optional` **data**: [`ToolExecutionData`](../modules#toolexecutiondata)
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:8](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/tool.ts#L8)
+[packages/agents/src/interfaces/tool.ts:63](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L63)
 
 ___
 
@@ -47,14 +59,14 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:9](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/tool.ts#L9)
+[packages/agents/src/interfaces/tool.ts:64](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L64)
 
 ___
 
 ### metadata
 
-• `Optional` **metadata**: `Record`\<`string`, `any`\>
+• `Optional` **metadata**: [`ToolMetadata`](../modules#toolmetadata)
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:10](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/tool.ts#L10)
+[packages/agents/src/interfaces/tool.ts:65](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L65)

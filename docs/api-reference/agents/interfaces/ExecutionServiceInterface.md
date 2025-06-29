@@ -31,7 +31,7 @@ Execute complete agent pipeline
 | :------ | :------ |
 | `input` | `string` |
 | `context` | [`ConversationContext`](ConversationContext) |
-| `options?` | `any` |
+| `options?` | `ExecutionServiceOptions` |
 
 #### Returns
 
@@ -39,13 +39,13 @@ Execute complete agent pipeline
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:167](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L167)
+[packages/agents/src/interfaces/service.ts:231](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L231)
 
 ___
 
 ### executeStream
 
-▸ **executeStream**(`input`, `context`, `options?`): `AsyncGenerator`\<`string`, `void`, `unknown`\>
+▸ **executeStream**(`input`, `context`, `options?`): `AsyncGenerator`\<`string`, `void`, `never`\>
 
 Execute streaming agent pipeline
 
@@ -55,12 +55,12 @@ Execute streaming agent pipeline
 | :------ | :------ |
 | `input` | `string` |
 | `context` | [`ConversationContext`](ConversationContext) |
-| `options?` | `any` |
+| `options?` | `ExecutionServiceOptions` |
 
 #### Returns
 
-`AsyncGenerator`\<`string`, `void`, `unknown`\>
+`AsyncGenerator`\<`string`, `void`, `never`\>
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:176](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L176)
+[packages/agents/src/interfaces/service.ts:240](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L240)

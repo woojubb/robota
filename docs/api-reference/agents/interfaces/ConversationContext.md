@@ -33,7 +33,7 @@ All messages in the conversation
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:14](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L14)
+[packages/agents/src/interfaces/service.ts:64](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L64)
 
 ___
 
@@ -45,7 +45,7 @@ System message for the conversation
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:16](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L16)
+[packages/agents/src/interfaces/service.ts:66](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L66)
 
 ___
 
@@ -57,7 +57,7 @@ Model to use for generation
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:18](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L18)
+[packages/agents/src/interfaces/service.ts:68](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L68)
 
 ___
 
@@ -69,7 +69,7 @@ Provider to use for generation
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:20](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L20)
+[packages/agents/src/interfaces/service.ts:70](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L70)
 
 ___
 
@@ -81,7 +81,7 @@ Temperature for generation
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:22](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L22)
+[packages/agents/src/interfaces/service.ts:72](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L72)
 
 ___
 
@@ -93,28 +93,28 @@ Maximum tokens to generate
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:24](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L24)
+[packages/agents/src/interfaces/service.ts:74](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L74)
 
 ___
 
 ### tools
 
-• `Optional` **tools**: `any`[]
+• `Optional` **tools**: [`ToolSchema`](ToolSchema)[]
 
 Available tools
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:26](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L26)
+[packages/agents/src/interfaces/service.ts:76](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L76)
 
 ___
 
 ### metadata
 
-• `Optional` **metadata**: `Record`\<`string`, `any`\>
+• `Optional` **metadata**: [`ConversationContextMetadata`](../modules#conversationcontextmetadata)
 
 Additional metadata
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:28](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L28)
+[packages/agents/src/interfaces/service.ts:78](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L78)

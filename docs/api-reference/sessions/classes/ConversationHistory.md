@@ -13,6 +13,12 @@ Multi-session conversation history manager
 Manages multiple conversation sessions identified by conversation IDs.
 Provides session isolation and resource management.
 
+## Hierarchy
+
+- **`ConversationHistory`**
+
+  ↳ [`EnhancedConversationHistory`](../interfaces/EnhancedConversationHistory)
+
 ## Table of contents
 
 ### Constructors
@@ -45,7 +51,7 @@ Provides session isolation and resource management.
 
 #### Defined in
 
-agents/dist/index.d.ts:398
+agents/dist/index.d.ts:381
 
 ## Methods
 
@@ -69,7 +75,7 @@ ConversationSession instance
 
 #### Defined in
 
-agents/dist/index.d.ts:405
+agents/dist/index.d.ts:388
 
 ___
 
@@ -93,7 +99,7 @@ True if conversation exists
 
 #### Defined in
 
-agents/dist/index.d.ts:412
+agents/dist/index.d.ts:395
 
 ___
 
@@ -117,7 +123,7 @@ True if conversation was removed, false if not found
 
 #### Defined in
 
-agents/dist/index.d.ts:419
+agents/dist/index.d.ts:402
 
 ___
 
@@ -133,7 +139,7 @@ Clear all conversations
 
 #### Defined in
 
-agents/dist/index.d.ts:423
+agents/dist/index.d.ts:406
 
 ___
 
@@ -157,4 +163,4 @@ Statistics about managed conversations
 
 #### Defined in
 
-agents/dist/index.d.ts:429
+agents/dist/index.d.ts:412

@@ -6,9 +6,17 @@
 
 [agents](../../) / [Exports](../modules) / BaseTool
 
-# Class: BaseTool
+# Class: BaseTool\<TParameters, TResult\>
 
-Base abstract class for tools
+Base abstract class for tools with type parameter support
+Provides type-safe parameter handling and result processing
+
+## Type parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `TParameters` | [`BaseToolParameters`](../modules#basetoolparameters) | Tool parameters type (defaults to BaseToolParameters for backward compatibility) |
+| `TResult` | [`ToolResult`](../interfaces/ToolResult) | Tool result type (defaults to ToolResult for backward compatibility) |
 
 ## Hierarchy
 
@@ -16,9 +24,11 @@ Base abstract class for tools
 
   ↳ [`FunctionTool`](FunctionTool)
 
+  ↳ [`LegacyBaseTool`](LegacyBaseTool)
+
 ## Implements
 
-- [`ToolInterface`](../interfaces/ToolInterface)
+- [`TypeSafeToolInterface`](../interfaces/TypeSafeToolInterface)\<`TParameters`, `TResult`\>
 
 ## Table of contents
 
@@ -42,11 +52,18 @@ Base abstract class for tools
 
 ### constructor
 
-• **new BaseTool**(): [`BaseTool`](BaseTool)
+• **new BaseTool**\<`TParameters`, `TResult`\>(): [`BaseTool`](BaseTool)\<`TParameters`, `TResult`\>
+
+#### Type parameters
+
+| Name | Type |
+| :------ | :------ |
+| `TParameters` | [`BaseToolParameters`](../modules#basetoolparameters) |
+| `TResult` | [`ToolResult`](../interfaces/ToolResult) |
 
 #### Returns
 
-[`BaseTool`](BaseTool)
+[`BaseTool`](BaseTool)\<`TParameters`, `TResult`\>
 
 ## Properties
 
@@ -54,42 +71,38 @@ Base abstract class for tools
 
 • `Readonly` `Abstract` **schema**: [`ToolSchema`](../interfaces/ToolSchema)
 
-Tool schema
-
 #### Implementation of
 
-[ToolInterface](../interfaces/ToolInterface).[schema](../interfaces/ToolInterface#schema)
+[TypeSafeToolInterface](../interfaces/TypeSafeToolInterface).[schema](../interfaces/TypeSafeToolInterface#schema)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:8](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-tool.ts#L8)
+[packages/agents/src/abstracts/base-tool.ts:74](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-tool.ts#L74)
 
 ## Methods
 
 ### execute
 
-▸ **execute**(`parameters`, `context?`): `Promise`\<[`ToolResult`](../interfaces/ToolResult)\>
-
-Execute the tool with given parameters
+▸ **execute**(`parameters`, `context?`): `Promise`\<`TResult`\>
 
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `parameters` | `Record`\<`string`, `any`\> |
+| `parameters` | `TParameters` |
 | `context?` | [`ToolExecutionContext`](../interfaces/ToolExecutionContext) |
 
 #### Returns
 
-`Promise`\<[`ToolResult`](../interfaces/ToolResult)\>
+`Promise`\<`TResult`\>
 
 #### Implementation of
 
-[ToolInterface](../interfaces/ToolInterface).[execute](../interfaces/ToolInterface#execute)
+[TypeSafeToolInterface](../interfaces/TypeSafeToolInterface).[execute](../interfaces/TypeSafeToolInterface#execute)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:10](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-tool.ts#L10)
+[packages/agents/src/abstracts/base-tool.ts:76](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-tool.ts#L76)
 
 ___
 
@@ -97,13 +110,11 @@ ___
 
 ▸ **validate**(`parameters`): `boolean`
 
-Validate tool parameters
-
 #### Parameters
 
 | Name | Type |
 | :------ | :------ |
-| `parameters` | `Record`\<`string`, `any`\> |
+| `parameters` | `TParameters` |
 
 #### Returns
 
@@ -111,11 +122,11 @@ Validate tool parameters
 
 #### Implementation of
 
-[ToolInterface](../interfaces/ToolInterface).[validate](../interfaces/ToolInterface#validate)
+[TypeSafeToolInterface](../interfaces/TypeSafeToolInterface).[validate](../interfaces/TypeSafeToolInterface#validate)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:12](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-tool.ts#L12)
+[packages/agents/src/abstracts/base-tool.ts:78](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-tool.ts#L78)
 
 ___
 
@@ -129,7 +140,7 @@ Validate tool parameters with detailed result (default implementation)
 
 | Name | Type |
 | :------ | :------ |
-| `parameters` | `Record`\<`string`, `any`\> |
+| `parameters` | `TParameters` |
 
 #### Returns
 
@@ -137,11 +148,11 @@ Validate tool parameters with detailed result (default implementation)
 
 #### Implementation of
 
-[ToolInterface](../interfaces/ToolInterface).[validateParameters](../interfaces/ToolInterface#validateparameters)
+[TypeSafeToolInterface](../interfaces/TypeSafeToolInterface).[validateParameters](../interfaces/TypeSafeToolInterface#validateparameters)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:20](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-tool.ts#L20)
+[packages/agents/src/abstracts/base-tool.ts:86](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-tool.ts#L86)
 
 ___
 
@@ -149,19 +160,17 @@ ___
 
 ▸ **getDescription**(): `string`
 
-Get tool description
-
 #### Returns
 
 `string`
 
 #### Implementation of
 
-[ToolInterface](../interfaces/ToolInterface).[getDescription](../interfaces/ToolInterface#getdescription)
+[TypeSafeToolInterface](../interfaces/TypeSafeToolInterface).[getDescription](../interfaces/TypeSafeToolInterface#getdescription)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:36](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-tool.ts#L36)
+[packages/agents/src/abstracts/base-tool.ts:103](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-tool.ts#L103)
 
 ___
 
@@ -173,6 +182,10 @@ ___
 
 `string`
 
+#### Implementation of
+
+[TypeSafeToolInterface](../interfaces/TypeSafeToolInterface).[getName](../interfaces/TypeSafeToolInterface#getname)
+
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:40](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-tool.ts#L40)
+[packages/agents/src/abstracts/base-tool.ts:107](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-tool.ts#L107)

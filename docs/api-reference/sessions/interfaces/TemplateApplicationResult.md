@@ -23,13 +23,13 @@ Template application result
 
 ### config
 
-• **config**: `Record`\<`string`, `any`\>
+• **config**: `ConfigData`
 
 Applied configuration
 
 #### Defined in
 
-agents/dist/index.d.ts:3365
+agents/dist/index.d.ts:4344
 
 ___
 
@@ -41,7 +41,7 @@ Template that was applied
 
 #### Defined in
 
-agents/dist/index.d.ts:3367
+agents/dist/index.d.ts:4346
 
 ___
 
@@ -53,7 +53,7 @@ Any warnings during application
 
 #### Defined in
 
-agents/dist/index.d.ts:3369
+agents/dist/index.d.ts:4348
 
 ___
 
@@ -65,4 +65,4 @@ Whether config was modified during application
 
 #### Defined in
 
-agents/dist/index.d.ts:3371
+agents/dist/index.d.ts:4350

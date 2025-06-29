@@ -6,14 +6,22 @@
 
 [agents](../../) / [Exports](../modules) / BaseAIProvider
 
-# Class: BaseAIProvider
+# Class: BaseAIProvider\<TConfig, TMessage, TResponse\>
 
-Base AI Provider abstract class that uses UniversalMessage only
-This is the provider-agnostic base class that all providers should extend
+Base AI provider implementation with proper type constraints
+All AI providers should extend this class
+
+## Type parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `TConfig` | [`ProviderConfig`](../interfaces/ProviderConfig) | Provider configuration type (defaults to ProviderConfig for type safety) |
+| `TMessage` | [`UniversalMessage`](../modules#universalmessage) | Message type (defaults to UniversalMessage for backward compatibility) |
+| `TResponse` | [`UniversalMessage`](../modules#universalmessage) | Response type (defaults to UniversalMessage for backward compatibility) |
 
 ## Implements
 
-- [`AIProvider`](../interfaces/AIProvider)
+- [`TypeSafeAIProvider`](../interfaces/TypeSafeAIProvider)\<`TConfig`, `TMessage`, `TResponse`\>
 
 ## Table of contents
 
@@ -28,6 +36,7 @@ This is the provider-agnostic base class that all providers should extend
 
 ### Methods
 
+- [configure](BaseAIProvider#configure)
 - [chat](BaseAIProvider#chat)
 - [chatStream](BaseAIProvider#chatstream)
 - [supportsTools](BaseAIProvider#supportstools)
@@ -38,11 +47,19 @@ This is the provider-agnostic base class that all providers should extend
 
 ### constructor
 
-• **new BaseAIProvider**(): [`BaseAIProvider`](BaseAIProvider)
+• **new BaseAIProvider**\<`TConfig`, `TMessage`, `TResponse`\>(): [`BaseAIProvider`](BaseAIProvider)\<`TConfig`, `TMessage`, `TResponse`\>
+
+#### Type parameters
+
+| Name | Type |
+| :------ | :------ |
+| `TConfig` | [`ProviderConfig`](../interfaces/ProviderConfig) |
+| `TMessage` | [`UniversalMessage`](../modules#universalmessage) |
+| `TResponse` | [`UniversalMessage`](../modules#universalmessage) |
 
 #### Returns
 
-[`BaseAIProvider`](BaseAIProvider)
+[`BaseAIProvider`](BaseAIProvider)\<`TConfig`, `TMessage`, `TResponse`\>
 
 ## Properties
 
@@ -50,15 +67,13 @@ This is the provider-agnostic base class that all providers should extend
 
 • `Readonly` `Abstract` **name**: `string`
 
-Provider identifier
-
 #### Implementation of
 
-[AIProvider](../interfaces/AIProvider).[name](../interfaces/AIProvider#name)
+[TypeSafeAIProvider](../interfaces/TypeSafeAIProvider).[name](../interfaces/TypeSafeAIProvider#name)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:10](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-ai-provider.ts#L10)
+[packages/agents/src/abstracts/base-ai-provider.ts:50](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-ai-provider.ts#L50)
 
 ___
 
@@ -66,21 +81,45 @@ ___
 
 • `Readonly` `Abstract` **version**: `string`
 
-Provider version
-
 #### Implementation of
 
-[AIProvider](../interfaces/AIProvider).[version](../interfaces/AIProvider#version)
+[TypeSafeAIProvider](../interfaces/TypeSafeAIProvider).[version](../interfaces/TypeSafeAIProvider#version)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:11](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-ai-provider.ts#L11)
+[packages/agents/src/abstracts/base-ai-provider.ts:51](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-ai-provider.ts#L51)
 
 ## Methods
 
+### configure
+
+▸ **configure**(`config`): `Promise`\<`void`\>
+
+Configure the provider with type-safe configuration
+
+#### Parameters
+
+| Name | Type |
+| :------ | :------ |
+| `config` | `TConfig` |
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[TypeSafeAIProvider](../interfaces/TypeSafeAIProvider).[configure](../interfaces/TypeSafeAIProvider#configure)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-ai-provider.ts:57](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-ai-provider.ts#L57)
+
+___
+
 ### chat
 
-▸ **chat**(`messages`, `options?`): `Promise`\<[`UniversalMessage`](../modules#universalmessage)\>
+▸ **chat**(`messages`, `options?`): `Promise`\<`TResponse`\>
 
 Each provider must implement chat using their own native SDK types internally
 
@@ -88,28 +127,28 @@ Each provider must implement chat using their own native SDK types internally
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `messages` | [`UniversalMessage`](../modules#universalmessage)[] | Array of UniversalMessage from conversation history |
+| `messages` | `TMessage`[] | Array of messages from conversation history |
 | `options?` | [`ChatOptions`](../interfaces/ChatOptions) | Chat options including tools, model settings, etc. |
 
 #### Returns
 
-`Promise`\<[`UniversalMessage`](../modules#universalmessage)\>
+`Promise`\<`TResponse`\>
 
-Promise resolving to a UniversalMessage response
+Promise resolving to a response
 
 #### Implementation of
 
-[AIProvider](../interfaces/AIProvider).[chat](../interfaces/AIProvider#chat)
+[TypeSafeAIProvider](../interfaces/TypeSafeAIProvider).[chat](../interfaces/TypeSafeAIProvider#chat)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:19](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-ai-provider.ts#L19)
+[packages/agents/src/abstracts/base-ai-provider.ts:68](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-ai-provider.ts#L68)
 
 ___
 
 ### chatStream
 
-▸ **chatStream**(`messages`, `options?`): `AsyncIterable`\<[`UniversalMessage`](../modules#universalmessage), `any`, `any`\>
+▸ **chatStream**(`messages`, `options?`): `AsyncIterable`\<`TResponse`, `any`, `any`\>
 
 Each provider must implement streaming chat using their own native SDK types internally
 
@@ -117,22 +156,22 @@ Each provider must implement streaming chat using their own native SDK types int
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `messages` | [`UniversalMessage`](../modules#universalmessage)[] | Array of UniversalMessage from conversation history |
+| `messages` | `TMessage`[] | Array of messages from conversation history |
 | `options?` | [`ChatOptions`](../interfaces/ChatOptions) | Chat options including tools, model settings, etc. |
 
 #### Returns
 
-`AsyncIterable`\<[`UniversalMessage`](../modules#universalmessage), `any`, `any`\>
+`AsyncIterable`\<`TResponse`, `any`, `any`\>
 
-AsyncIterable of UniversalMessage chunks
+AsyncIterable of response chunks
 
 #### Implementation of
 
-[AIProvider](../interfaces/AIProvider).[chatStream](../interfaces/AIProvider#chatstream)
+[TypeSafeAIProvider](../interfaces/TypeSafeAIProvider).[chatStream](../interfaces/TypeSafeAIProvider#chatstream)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:27](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-ai-provider.ts#L27)
+[packages/agents/src/abstracts/base-ai-provider.ts:76](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-ai-provider.ts#L76)
 
 ___
 
@@ -150,11 +189,11 @@ true if tool calling is supported
 
 #### Implementation of
 
-[AIProvider](../interfaces/AIProvider).[supportsTools](../interfaces/AIProvider#supportstools)
+[TypeSafeAIProvider](../interfaces/TypeSafeAIProvider).[supportsTools](../interfaces/TypeSafeAIProvider#supportstools)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:33](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-ai-provider.ts#L33)
+[packages/agents/src/abstracts/base-ai-provider.ts:82](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-ai-provider.ts#L82)
 
 ___
 
@@ -172,11 +211,11 @@ true if configuration is valid
 
 #### Implementation of
 
-[AIProvider](../interfaces/AIProvider).[validateConfig](../interfaces/AIProvider#validateconfig)
+[TypeSafeAIProvider](../interfaces/TypeSafeAIProvider).[validateConfig](../interfaces/TypeSafeAIProvider#validateconfig)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:41](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-ai-provider.ts#L41)
+[packages/agents/src/abstracts/base-ai-provider.ts:90](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-ai-provider.ts#L90)
 
 ___
 
@@ -192,8 +231,8 @@ Default implementation - providers can override for cleanup
 
 #### Implementation of
 
-[AIProvider](../interfaces/AIProvider).[dispose](../interfaces/AIProvider#dispose)
+[TypeSafeAIProvider](../interfaces/TypeSafeAIProvider).[dispose](../interfaces/TypeSafeAIProvider#dispose)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:48](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/abstracts/base-ai-provider.ts#L48)
+[packages/agents/src/abstracts/base-ai-provider.ts:97](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-ai-provider.ts#L97)

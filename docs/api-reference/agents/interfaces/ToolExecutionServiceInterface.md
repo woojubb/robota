@@ -22,7 +22,7 @@ Interface for tool execution service operations
 
 ### executeTool
 
-▸ **executeTool**(`toolName`, `parameters`): `Promise`\<`any`\>
+▸ **executeTool**(`toolName`, `parameters`): `Promise`\<[`ToolExecutionData`](../modules#toolexecutiondata)\>
 
 Execute a single tool
 
@@ -31,21 +31,21 @@ Execute a single tool
 | Name | Type |
 | :------ | :------ |
 | `toolName` | `string` |
-| `parameters` | `any` |
+| `parameters` | `ToolExecutionParameters` |
 
 #### Returns
 
-`Promise`\<`any`\>
+`Promise`\<[`ToolExecutionData`](../modules#toolexecutiondata)\>
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:147](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L147)
+[packages/agents/src/interfaces/service.ts:211](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L211)
 
 ___
 
 ### executeToolsParallel
 
-▸ **executeToolsParallel**(`toolCalls`): `Promise`\<`any`[]\>
+▸ **executeToolsParallel**(`toolCalls`): `Promise`\<[`ToolExecutionData`](../modules#toolexecutiondata)[]\>
 
 Execute multiple tools in parallel
 
@@ -53,21 +53,21 @@ Execute multiple tools in parallel
 
 | Name | Type |
 | :------ | :------ |
-| `toolCalls` | \{ `name`: `string` ; `parameters`: `any`  }[] |
+| `toolCalls` | `ToolExecutionRequest`[] |
 
 #### Returns
 
-`Promise`\<`any`[]\>
+`Promise`\<[`ToolExecutionData`](../modules#toolexecutiondata)[]\>
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:152](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L152)
+[packages/agents/src/interfaces/service.ts:216](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L216)
 
 ___
 
 ### executeToolsSequential
 
-▸ **executeToolsSequential**(`toolCalls`): `Promise`\<`any`[]\>
+▸ **executeToolsSequential**(`toolCalls`): `Promise`\<[`ToolExecutionData`](../modules#toolexecutiondata)[]\>
 
 Execute multiple tools sequentially
 
@@ -75,12 +75,12 @@ Execute multiple tools sequentially
 
 | Name | Type |
 | :------ | :------ |
-| `toolCalls` | \{ `name`: `string` ; `parameters`: `any`  }[] |
+| `toolCalls` | `ToolExecutionRequest`[] |
 
 #### Returns
 
-`Promise`\<`any`[]\>
+`Promise`\<[`ToolExecutionData`](../modules#toolexecutiondata)[]\>
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:157](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/service.ts#L157)
+[packages/agents/src/interfaces/service.ts:221](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L221)

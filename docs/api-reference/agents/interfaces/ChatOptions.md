@@ -10,22 +10,111 @@
 
 Options for AI provider chat requests
 
-## Indexable
+## Hierarchy
 
-▪ [key: `string`]: `any`
+- `ProviderSpecificOptions`
 
-Provider-specific options can be added via this index signature
+  ↳ **`ChatOptions`**
 
 ## Table of contents
 
 ### Properties
 
+- [openai](ChatOptions#openai)
+- [anthropic](ChatOptions#anthropic)
+- [google](ChatOptions#google)
 - [tools](ChatOptions#tools)
 - [maxTokens](ChatOptions#maxtokens)
 - [temperature](ChatOptions#temperature)
 - [model](ChatOptions#model)
 
 ## Properties
+
+### openai
+
+• `Optional` **openai**: `Object`
+
+OpenAI specific options
+
+#### Type declaration
+
+| Name | Type |
+| :------ | :------ |
+| `organization?` | `string` |
+| `user?` | `string` |
+| `stop?` | `string` \| `string`[] |
+| `presencePenalty?` | `number` |
+| `frequencyPenalty?` | `number` |
+| `logitBias?` | `Record`\<`string`, `number`\> |
+| `topP?` | `number` |
+| `n?` | `number` |
+| `stream?` | `boolean` |
+| `suffix?` | `string` |
+| `echo?` | `boolean` |
+| `bestOf?` | `number` |
+| `logprobs?` | `number` |
+
+#### Inherited from
+
+ProviderSpecificOptions.openai
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:63](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L63)
+
+___
+
+### anthropic
+
+• `Optional` **anthropic**: `Object`
+
+Anthropic specific options
+
+#### Type declaration
+
+| Name | Type |
+| :------ | :------ |
+| `stopSequences?` | `string`[] |
+| `topP?` | `number` |
+| `topK?` | `number` |
+| `metadata?` | \{ `userId?`: `string`  } |
+| `metadata.userId?` | `string` |
+
+#### Inherited from
+
+ProviderSpecificOptions.anthropic
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:80](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L80)
+
+___
+
+### google
+
+• `Optional` **google**: `Object`
+
+Google specific options
+
+#### Type declaration
+
+| Name | Type |
+| :------ | :------ |
+| `candidateCount?` | `number` |
+| `stopSequences?` | `string`[] |
+| `safetySettings?` | \{ `category`: `string` ; `threshold`: `string`  }[] |
+| `topP?` | `number` |
+| `topK?` | `number` |
+
+#### Inherited from
+
+ProviderSpecificOptions.google
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:90](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L90)
+
+___
 
 ### tools
 
@@ -35,7 +124,7 @@ Tool schemas to provide to the AI provider
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:34](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L34)
+[packages/agents/src/interfaces/provider.ts:107](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L107)
 
 ___
 
@@ -47,7 +136,7 @@ Maximum number of tokens to generate
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:36](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L36)
+[packages/agents/src/interfaces/provider.ts:109](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L109)
 
 ___
 
@@ -59,7 +148,7 @@ Temperature for response randomness (0-1)
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:38](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L38)
+[packages/agents/src/interfaces/provider.ts:111](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L111)
 
 ___
 
@@ -71,4 +160,4 @@ Model to use for the request
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:40](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L40)
+[packages/agents/src/interfaces/provider.ts:113](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L113)

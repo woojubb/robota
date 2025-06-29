@@ -23,14 +23,14 @@
 
 #### Defined in
 
-[sessions/src/types/core.ts:29](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/types/core.ts#L29)
+[sessions/src/types/core.ts:32](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/types/core.ts#L32)
 
 ___
 
 ### robotaConfig
 
-• `Optional` **robotaConfig**: `any`
+• `Optional` **robotaConfig**: [`AgentConfig`](AgentConfig)
 
 #### Defined in
 
-[sessions/src/types/core.ts:30](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/sessions/src/types/core.ts#L30)
+[sessions/src/types/core.ts:33](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/sessions/src/types/core.ts#L33)

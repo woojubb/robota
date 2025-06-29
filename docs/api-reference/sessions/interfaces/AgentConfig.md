@@ -10,6 +10,10 @@
 
 Agent configuration options
 
+## Indexable
+
+▪ [key: `string`]: `ConfigValue`
+
 ## Table of contents
 
 ### Properties
@@ -27,6 +31,8 @@ Agent configuration options
 - [aiProviders](AgentConfig#aiproviders)
 - [currentProvider](AgentConfig#currentprovider)
 - [currentModel](AgentConfig#currentmodel)
+- [conversationId](AgentConfig#conversationid)
+- [logging](AgentConfig#logging)
 
 ## Properties
 
@@ -36,7 +42,7 @@ Agent configuration options
 
 #### Defined in
 
-agents/dist/index.d.ts:56
+agents/dist/index.d.ts:1336
 
 ___
 
@@ -46,7 +52,7 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:57
+agents/dist/index.d.ts:1337
 
 ___
 
@@ -56,7 +62,7 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:58
+agents/dist/index.d.ts:1338
 
 ___
 
@@ -66,7 +72,7 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:59
+agents/dist/index.d.ts:1339
 
 ___
 
@@ -76,27 +82,27 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:60
+agents/dist/index.d.ts:1340
 
 ___
 
 ### tools
 
-• `Optional` **tools**: `any`[]
+• `Optional` **tools**: `BaseTool`\<`BaseToolParameters`, `ToolResult`\>[]
 
 #### Defined in
 
-agents/dist/index.d.ts:61
+agents/dist/index.d.ts:1341
 
 ___
 
 ### plugins
 
-• `Optional` **plugins**: `any`[]
+• `Optional` **plugins**: `BasePlugin`\<`PluginConfig`, `PluginStats`\>[]
 
 #### Defined in
 
-agents/dist/index.d.ts:62
+agents/dist/index.d.ts:1342
 
 ___
 
@@ -106,7 +112,7 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:63
+agents/dist/index.d.ts:1343
 
 ___
 
@@ -116,27 +122,27 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:64
+agents/dist/index.d.ts:1344
 
 ___
 
 ### metadata
 
-• `Optional` **metadata**: `Record`\<`string`, `any`\>
+• `Optional` **metadata**: `MessageMetadata`
 
 #### Defined in
 
-agents/dist/index.d.ts:65
+agents/dist/index.d.ts:1345
 
 ___
 
 ### aiProviders
 
-• `Optional` **aiProviders**: `Record`\<`string`, `any`\>
+• `Optional` **aiProviders**: `Record`\<`string`, `BaseAIProvider`\<`ProviderConfig`, `UniversalMessage`, `UniversalMessage`\>\>
 
 #### Defined in
 
-agents/dist/index.d.ts:66
+agents/dist/index.d.ts:1346
 
 ___
 
@@ -146,7 +152,7 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:67
+agents/dist/index.d.ts:1347
 
 ___
 
@@ -156,4 +162,31 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:68
+agents/dist/index.d.ts:1348
+
+___
+
+### conversationId
+
+• `Optional` **conversationId**: `string`
+
+#### Defined in
+
+agents/dist/index.d.ts:1349
+
+___
+
+### logging
+
+• `Optional` **logging**: `Object`
+
+#### Type declaration
+
+| Name | Type |
+| :------ | :------ |
+| `level?` | `UtilLogLevel` |
+| `enabled?` | `boolean` |
+
+#### Defined in
+
+agents/dist/index.d.ts:1350

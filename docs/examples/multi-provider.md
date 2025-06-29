@@ -1,14 +1,14 @@
 # Multi-Provider
 
-This guide demonstrates how to use multiple AI providers with Robota, showcasing the unified `BaseAIProvider` architecture that ensures consistent behavior across different AI services.
+This guide demonstrates how to use multiple AI providers with Robota, showcasing different models and comparing their responses.
 
 ## Overview
 
 The multi-provider example shows how to:
-- Configure multiple AI providers (OpenAI, Anthropic, Google AI)
-- Use the same tool calling interface across all providers
+- Configure multiple OpenAI models (GPT-3.5, GPT-4o-mini)
+- Create independent agent instances with different providers
 - Compare responses from different models
-- Switch between providers dynamically
+- Monitor individual agent statistics
 
 ## Code Example
 
@@ -17,58 +17,19 @@ The multi-provider example shows how to:
  * 03-multi-providers.ts
  * 
  * This example demonstrates using multiple AI providers:
- * - OpenAI, Anthropic, and Google AI providers
- * - Each provider with tool calling support
+ * - OpenAI with different models
  * - Comparing responses from different models
+ * - Provider switching capabilities
+ * - Independent agent instances
  */
 
-import { z } from 'zod';
-import { Robota } from '@robota-sdk/core';
-import { OpenAIProvider } from '@robota-sdk/openai';
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
 import OpenAI from 'openai';
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import dotenv from 'dotenv';
 
-// Load environment variables
+// Load environment variables from examples directory
 dotenv.config();
-
-// Simple tool for demonstration
-const tools = {
-    getRandomFact: {
-        name: 'getRandomFact',
-        description: 'Returns a random interesting fact',
-        parameters: z.object({
-            category: z.enum(['science', 'history', 'technology']).describe('Category of fact to retrieve')
-        }),
-        handler: async (params) => {
-            const { category } = params;
-            console.log(`📚 Getting ${category} fact...`);
-
-            const facts = {
-                science: [
-                    'Honey never spoils - archaeologists have found edible honey in ancient Egyptian tombs.',
-                    'A group of flamingos is called a "flamboyance".',
-                    'Octopuses have three hearts and blue blood.'
-                ],
-                history: [
-                    'The Great Wall of China is not visible from space with the naked eye.',
-                    'Cleopatra lived closer in time to the moon landing than to the construction of the Great Pyramid.',
-                    'Oxford University is older than the Aztec Empire.'
-                ],
-                technology: [
-                    'The first computer bug was an actual bug - a moth trapped in a Harvard computer in 1947.',
-                    'More than 50% of all website traffic comes from mobile devices.',
-                    'The first iPhone was released in 2007, just 16 years ago.'
-                ]
-            };
-
-            const categoryFacts = facts[category];
-            const randomFact = categoryFacts[Math.floor(Math.random() * categoryFacts.length)];
-
-            return { category, fact: randomFact };
-        }
-    }
-};
 
 async function testProvider(providerName: string, robota: Robota, query: string) {
     console.log(`\n${'='.repeat(50)}`);
@@ -94,81 +55,101 @@ async function main() {
             throw new Error('OPENAI_API_KEY environment variable is required for this example');
         }
 
-        // Create tool provider
-        const toolProvider = createZodFunctionToolProvider({ tools });
-
-        // === OpenAI Provider Test ===
+        // Create OpenAI client
         const openaiClient = new OpenAI({ apiKey: openaiKey });
-        const openaiProvider = new OpenAIProvider({
+
+        // === OpenAI GPT-3.5-turbo Provider Test ===
+        const openai35Provider = new OpenAIProvider({
             client: openaiClient,
             model: 'gpt-3.5-turbo'
         });
 
-        const robotaOpenAI = new Robota({
-            aiProviders: { openai: openaiProvider },
+        const robota35 = new Robota({
+            name: 'GPT35Agent',
+            model: 'gpt-3.5-turbo',
+            provider: 'openai',
+            aiProviders: { openai: openai35Provider },
             currentProvider: 'openai',
             currentModel: 'gpt-3.5-turbo',
-            toolProviders: [toolProvider],
-            systemPrompt: 'You are a helpful assistant powered by OpenAI. Use tools when appropriate and mention that you are using OpenAI.'
+            systemMessage: 'You are a helpful assistant powered by OpenAI GPT-3.5. Be concise and mention that you are GPT-3.5.'
         });
 
-        await testProvider('OpenAI', robotaOpenAI, 'Hello! Please tell me a random science fact.');
+        await testProvider('OpenAI GPT-3.5', robota35, 'Hello! Please tell me about artificial intelligence in 2-3 sentences.');
 
-        // === Test different models ===
-        console.log(`\n${'='.repeat(50)}`);
-        console.log('🔄 Testing Different Models');
-        console.log(`${'='.repeat(50)}`);
-
-        // Test with GPT-4 if available
-        const gpt4Provider = new OpenAIProvider({
+        // === OpenAI GPT-4o-mini Provider Test ===
+        const openai4MiniProvider = new OpenAIProvider({
             client: openaiClient,
-            model: 'gpt-4'
+            model: 'gpt-4o-mini'
         });
 
-        const robotaGPT4 = new Robota({
-            aiProviders: { 'gpt-4': gpt4Provider },
-            currentProvider: 'gpt-4',
-            currentModel: 'gpt-4',
-            toolProviders: [toolProvider],
-            systemPrompt: 'You are a helpful assistant powered by GPT-4. Use tools when appropriate.'
+        const robota4Mini = new Robota({
+            name: 'GPT4MiniAgent',
+            model: 'gpt-4o-mini',
+            provider: 'openai',
+            aiProviders: { openai: openai4MiniProvider },
+            currentProvider: 'openai',
+            currentModel: 'gpt-4o-mini',
+            systemMessage: 'You are a helpful assistant powered by OpenAI GPT-4o-mini. Be detailed and mention that you are GPT-4o-mini.'
         });
 
-        console.log('\n🧠 Testing GPT-4:');
-        console.log('User: Tell me a technology fact and explain why it\'s significant.');
+        await testProvider('OpenAI GPT-4o-mini', robota4Mini, 'Hello! Please tell me about artificial intelligence in 2-3 sentences.');
 
-        try {
-            const response = await robotaGPT4.run('Tell me a technology fact and explain why it\'s significant.');
-            console.log(`GPT-4: ${response}`);
-        } catch (error) {
-            console.error('❌ GPT-4 not available or insufficient quota:', error);
-        }
-
-        // === Demonstrate tool calling consistency ===
+        // === Test different model comparison ===
         console.log(`\n${'='.repeat(50)}`);
-        console.log('🛠️ Tool Calling Consistency Test');
+        console.log('🔄 Testing Model Comparison');
         console.log(`${'='.repeat(50)}`);
 
-        const queries = [
-            'Give me a history fact.',
-            'Tell me something interesting about technology.',
-            'What\'s a cool science fact?'
-        ];
+        const testQueries = ['What is AI?'];
 
-        for (const query of queries) {
-            console.log(`\nUser: ${query}`);
-            const response = await robotaOpenAI.run(query);
-            console.log(`Assistant: ${response}`);
+        for (const query of testQueries) {
+            console.log(`\n📝 Query: ${query}`);
+
+            console.log('\n🤖 GPT-3.5-turbo:');
+            try {
+                const response35 = await robota35.run(query);
+                console.log(response35);
+            } catch (error) {
+                console.error('Error:', error);
+            }
+
+            console.log('\n🧠 GPT-4o-mini:');
+            try {
+                const response4 = await robota4Mini.run(query);
+                console.log(response4);
+            } catch (error) {
+                console.error('Error:', error);
+            }
+
+            console.log('\n' + '-'.repeat(40));
         }
+
+        // === Show Agent Statistics ===
+        console.log('\n📊 Agent Comparison:');
+
+        const stats35 = robota35.getStats();
+        console.log(`\nGPT-3.5 Agent (${stats35.name}):`);
+        console.log(`- History length: ${stats35.historyLength}`);
+        console.log(`- Current provider: ${stats35.currentProvider}`);
+        console.log(`- Uptime: ${Math.round(stats35.uptime)}ms`);
+
+        const stats4 = robota4Mini.getStats();
+        console.log(`\nGPT-4o-mini Agent (${stats4.name}):`);
+        console.log(`- History length: ${stats4.historyLength}`);
+        console.log(`- Current provider: ${stats4.currentProvider}`);
+        console.log(`- Uptime: ${Math.round(stats4.uptime)}ms`);
 
         console.log('\n✅ Multi-Provider Example Completed!');
         console.log('\n💡 To test other providers (Anthropic, Google AI):');
         console.log('   - Set ANTHROPIC_API_KEY environment variable');
         console.log('   - Set GOOGLE_AI_API_KEY environment variable');
-        console.log('   - Import and configure respective providers');
+        console.log('   - Import @robota-sdk/anthropic and @robota-sdk/google packages');
 
         // Clean up resources
-        await robotaOpenAI.close();
-        await robotaGPT4.close();
+        await robota35.destroy();
+        await robota4Mini.destroy();
+
+        console.log('🧹 Cleanup completed. Exiting...');
+        process.exit(0);
     } catch (error) {
         console.error('❌ Error occurred:', error);
         process.exit(1);
@@ -179,343 +160,173 @@ async function main() {
 main();
 ```
 
-## Setup Requirements
-
-Before running this example, ensure you have:
-
-1. **Environment Variables**: Create a `.env` file with your API keys:
-   ```
-   OPENAI_API_KEY=your_openai_api_key_here
-   ANTHROPIC_API_KEY=your_anthropic_api_key_here
-   GOOGLE_AI_API_KEY=your_google_ai_api_key_here
-   ```
-
-2. **Dependencies**: Install required packages:
-   ```bash
-   npm install @robota-sdk/core @robota-sdk/openai @robota-sdk/anthropic @robota-sdk/google @robota-sdk/tools openai @anthropic-ai/sdk @google/generative-ai zod dotenv
-   ```
-
-## Key Concepts
-
-### 1. BaseAIProvider Architecture
-
-All providers now extend the `BaseAIProvider` class, ensuring consistent behavior:
-
-```typescript
-// OpenAI Provider
-const openaiProvider = new OpenAIProvider({
-    client: openaiClient,
-    model: 'gpt-3.5-turbo'
-});
-
-// Anthropic Provider
-const anthropicProvider = new AnthropicProvider({
-    client: anthropicClient,
-    model: 'claude-3-sonnet-20240229'
-});
-
-// Google AI Provider
-const googleProvider = new GoogleProvider({
-    client: googleClient,
-    model: 'gemini-pro'
-});
-```
-
-### 2. Unified Tool Calling
-
-All providers support the same tool calling interface:
-
-```typescript
-// Same tool provider works with all AI providers
-const toolProvider = createZodFunctionToolProvider({ tools });
-
-// OpenAI with tools
-const robotaOpenAI = new Robota({
-    aiProviders: { openai: openaiProvider },
-    toolProviders: [toolProvider]
-});
-
-// Anthropic with tools
-const robotaAnthropic = new Robota({
-    aiProviders: { anthropic: anthropicProvider },
-    toolProviders: [toolProvider]
-});
-```
-
-### 3. Provider-Specific Formats
-
-Behind the scenes, each provider uses its native tool calling format:
-
-- **OpenAI**: `tool_calls` format
-- **Anthropic**: `tool_use` format
-- **Google AI**: `functionDeclarations` format
-
-The adapters automatically convert between the universal format and provider-specific formats.
-
-### 4. Multiple Providers in One Instance
-
-```typescript
-const robota = new Robota({
-    aiProviders: {
-        'openai': openaiProvider,
-        'anthropic': anthropicProvider,
-        'google': googleProvider
-    },
-    currentProvider: 'openai',  // Start with OpenAI
-    currentModel: 'gpt-3.5-turbo',
-    toolProviders: [toolProvider]
-});
-
-// Switch provider dynamically
-robota.switchProvider('anthropic', 'claude-3-sonnet-20240229');
-```
-
-## Complete Multi-Provider Example
-
-Here's a comprehensive example showing all three providers:
-
-```typescript
-import { Robota } from '@robota-sdk/core';
-import { OpenAIProvider } from '@robota-sdk/openai';
-import { AnthropicProvider } from '@robota-sdk/anthropic';
-import { GoogleProvider } from '@robota-sdk/google';
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
-import OpenAI from 'openai';
-import Anthropic from '@anthropic-ai/sdk';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { z } from 'zod';
-
-// Tool definition (works with all providers)
-const tools = {
-    getWeather: {
-        name: 'getWeather',
-        description: 'Gets weather information for a city',
-        parameters: z.object({
-            city: z.string().describe('City name')
-        }),
-        handler: async ({ city }) => {
-            // Mock weather data
-            return {
-                city,
-                temperature: '22°C',
-                condition: 'Sunny',
-                humidity: '65%'
-            };
-        }
-    }
-};
-
-async function demonstrateAllProviders() {
-    const toolProvider = createZodFunctionToolProvider({ tools });
-
-    // Create all providers
-    const openaiProvider = new OpenAIProvider({
-        client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
-        model: 'gpt-3.5-turbo'
-    });
-
-    const anthropicProvider = new AnthropicProvider({
-        client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }),
-        model: 'claude-3-sonnet-20240229'
-    });
-
-    const googleProvider = new GoogleProvider({
-        client: new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY),
-        model: 'gemini-pro'
-    });
-
-    // Test each provider
-    const providers = [
-        { name: 'OpenAI', provider: openaiProvider, model: 'gpt-3.5-turbo' },
-        { name: 'Anthropic', provider: anthropicProvider, model: 'claude-3-sonnet-20240229' },
-        { name: 'Google AI', provider: googleProvider, model: 'gemini-pro' }
-    ];
-
-    for (const { name, provider, model } of providers) {
-        console.log(`\n=== Testing ${name} ===`);
-        
-        const robota = new Robota({
-            aiProviders: { [name.toLowerCase()]: provider },
-            currentProvider: name.toLowerCase(),
-            currentModel: model,
-            toolProviders: [toolProvider]
-        });
-
-        try {
-            const response = await robota.run('What\'s the weather like in Seoul?');
-            console.log(`${name}: ${response}`);
-        } catch (error) {
-            console.error(`${name} Error:`, error.message);
-        }
-
-        await robota.close();
-    }
-}
-```
-
-## Running the Example
-
-```bash
-# Navigate to the examples directory
-cd apps/examples
-
-# Run the multi-provider example
-npx tsx 03-multi-providers.ts
-```
-
 ## Expected Output
 
 ```
 🌐 Multi-Provider Example Started...
 
 ==================================================
-🤖 Testing OPENAI Provider
+🤖 Testing OPENAI GPT-3.5 Provider
 ==================================================
-User: Hello! Please tell me a random science fact.
-📚 Getting science fact...
-Assistant: Hello! I'm powered by OpenAI, and I'd be happy to share a fascinating science fact with you.
-
-Here's an interesting fact: Honey never spoils - archaeologists have found edible honey in ancient Egyptian tombs! This is because honey has natural antimicrobial properties and extremely low moisture content, which prevents bacterial growth and spoilage.
+User: Hello! Please tell me about artificial intelligence in 2-3 sentences.
+Assistant: Hello! I'm GPT-3.5, an AI assistant. Artificial intelligence (AI) refers to computer systems that can perform tasks typically requiring human intelligence, such as learning, reasoning, and problem-solving. AI technologies power everything from voice assistants to autonomous vehicles, and continue to advance rapidly across various industries.
 
 ==================================================
-🔄 Testing Different Models
+🤖 Testing OPENAI GPT-4O-MINI Provider
 ==================================================
-
-🧠 Testing GPT-4:
-User: Tell me a technology fact and explain why it's significant.
-📚 Getting technology fact...
-GPT-4: Here's a fascinating technology fact: The first computer bug was an actual bug - a moth trapped in a Harvard computer in 1947.
-
-This is significant because it coined the term "debugging" that we still use today in software development...
+User: Hello! Please tell me about artificial intelligence in 2-3 sentences.
+Assistant: Hello! I'm GPT-4o-mini, an advanced AI assistant. Artificial intelligence is a field of computer science focused on creating systems that can perform tasks requiring human-like intelligence, including learning from data, recognizing patterns, and making decisions. AI has revolutionized numerous industries by enabling automation, predictive analytics, and intelligent human-computer interactions, from chatbots and recommendation systems to medical diagnosis and autonomous vehicles.
 
 ==================================================
-🛠️ Tool Calling Consistency Test
+🔄 Testing Model Comparison
 ==================================================
 
-User: Give me a history fact.
-📚 Getting history fact...
-Assistant: Here's a fascinating history fact: Oxford University is older than the Aztec Empire.
+📝 Query: What is AI?
 
-User: Tell me something interesting about technology.
-📚 Getting technology fact...
-Assistant: Here's an interesting technology fact: More than 50% of all website traffic comes from mobile devices.
+🤖 GPT-3.5-turbo:
+AI, or Artificial Intelligence, refers to computer systems designed to perform tasks that typically require human intelligence...
 
-User: What's a cool science fact?
-📚 Getting science fact...
-Assistant: Here's a cool science fact: Octopuses have three hearts and blue blood!
+🧠 GPT-4o-mini:
+AI (Artificial Intelligence) is a comprehensive field of computer science that focuses on creating intelligent machines...
+
+📊 Agent Comparison:
+
+GPT-3.5 Agent (GPT35Agent):
+- History length: 4
+- Current provider: openai
+- Uptime: 2156ms
+
+GPT-4o-mini Agent (GPT4MiniAgent):
+- History length: 4  
+- Current provider: openai
+- Uptime: 2287ms
 
 ✅ Multi-Provider Example Completed!
-
-💡 To test other providers (Anthropic, Google AI):
-   - Set ANTHROPIC_API_KEY environment variable
-   - Set GOOGLE_AI_API_KEY environment variable
-   - Import and configure respective providers
 ```
 
-## Provider Comparison
+## Key Features
 
-### OpenAI Provider
-- **Models**: GPT-3.5-turbo, GPT-4, GPT-4-turbo
-- **Tool Format**: `tool_calls`
-- **Strengths**: Fast, cost-effective, excellent tool calling
-- **Use Cases**: General conversation, function calling, code generation
-
-### Anthropic Provider
-- **Models**: Claude-3-haiku, Claude-3-sonnet, Claude-3-opus
-- **Tool Format**: `tool_use` (converted to universal format)
-- **Strengths**: Strong reasoning, ethical alignment, long context
-- **Use Cases**: Complex analysis, ethical AI, long-form content
-
-### Google AI Provider
-- **Models**: Gemini-pro, Gemini-pro-vision
-- **Tool Format**: `functionDeclarations` (converted to universal format)
-- **Strengths**: Multimodal capabilities, fast inference
-- **Use Cases**: Visual analysis, real-time applications, Google services integration
-
-## Advanced Multi-Provider Patterns
-
-### Dynamic Provider Switching
+### 1. **Independent Agent Instances**
+Each provider has its own Robota instance with separate configuration:
 
 ```typescript
-const robota = new Robota({
-    aiProviders: {
-        'fast': openaiProvider,
-        'smart': anthropicProvider,
-        'multimodal': googleProvider
-    },
-    currentProvider: 'fast'
+// GPT-3.5 instance
+const robota35 = new Robota({
+    name: 'GPT35Agent',
+    model: 'gpt-3.5-turbo',
+    provider: 'openai',
+    aiProviders: { openai: openai35Provider },
+    systemMessage: 'You are a helpful assistant powered by OpenAI GPT-3.5.'
 });
 
-// Switch based on query complexity
-async function smartRoute(query: string) {
-    if (query.includes('analyze') || query.includes('complex')) {
-        robota.switchProvider('smart', 'claude-3-sonnet-20240229');
-    } else if (query.includes('image') || query.includes('visual')) {
-        robota.switchProvider('multimodal', 'gemini-pro-vision');
-    } else {
-        robota.switchProvider('fast', 'gpt-3.5-turbo');
-    }
-    
-    return robota.run(query);
-}
+// GPT-4o-mini instance  
+const robota4Mini = new Robota({
+    name: 'GPT4MiniAgent',
+    model: 'gpt-4o-mini',
+    provider: 'openai',
+    aiProviders: { openai: openai4MiniProvider },
+    systemMessage: 'You are a helpful assistant powered by OpenAI GPT-4o-mini.'
+});
 ```
 
-### Provider Fallback
+### 2. **Provider Testing Helper**
+Reusable function to test different providers:
 
 ```typescript
-async function robustQuery(query: string) {
-    const providers = ['openai', 'anthropic', 'google'];
+async function testProvider(providerName: string, robota: Robota, query: string) {
+    console.log(`🤖 Testing ${providerName.toUpperCase()} Provider`);
+    console.log(`User: ${query}`);
     
-    for (const provider of providers) {
         try {
-            robota.switchProvider(provider);
-            return await robota.run(query);
+        const response = await robota.run(query);
+        console.log(`Assistant: ${response}`);
         } catch (error) {
-            console.warn(`Provider ${provider} failed, trying next...`);
+        console.error(`❌ Error with ${providerName}:`, error);
         }
     }
-    
-    throw new Error('All providers failed');
-}
+```
+
+### 3. **Model Comparison**
+Side-by-side comparison of model responses:
+
+```typescript
+console.log('\n🤖 GPT-3.5-turbo:');
+const response35 = await robota35.run(query);
+console.log(response35);
+
+console.log('\n🧠 GPT-4o-mini:');
+const response4 = await robota4Mini.run(query);
+console.log(response4);
+```
+
+### 4. **Statistics Comparison**
+Compare performance metrics across different agents:
+
+```typescript
+const stats35 = robota35.getStats();
+const stats4 = robota4Mini.getStats();
+
+console.log(`GPT-3.5 Agent: ${stats35.historyLength} messages, ${stats35.uptime}ms uptime`);
+console.log(`GPT-4o-mini Agent: ${stats4.historyLength} messages, ${stats4.uptime}ms uptime`);
+```
+
+## Advanced Multi-Provider Setup
+
+### Adding Anthropic Provider
+
+```typescript
+import { AnthropicProvider } from '@robota-sdk/anthropic';
+
+const anthropicProvider = new AnthropicProvider({
+    apiKey: process.env.ANTHROPIC_API_KEY!,
+    model: 'claude-3-haiku-20240307'
+});
+
+const robotaClaude = new Robota({
+    name: 'ClaudeAgent',
+    model: 'claude-3-haiku-20240307',
+    provider: 'anthropic',
+    aiProviders: { anthropic: anthropicProvider },
+    currentProvider: 'anthropic',
+    currentModel: 'claude-3-haiku-20240307',
+    systemMessage: 'You are Claude, an AI assistant by Anthropic.'
+});
+```
+
+### Adding Google AI Provider
+
+```typescript
+import { GoogleProvider } from '@robota-sdk/google';
+
+const googleProvider = new GoogleProvider({
+    apiKey: process.env.GOOGLE_AI_API_KEY!,
+    model: 'gemini-1.5-flash'
+});
+
+const robotaGemini = new Robota({
+    name: 'GeminiAgent',
+    model: 'gemini-1.5-flash',
+    provider: 'google',
+    aiProviders: { google: googleProvider },
+    currentProvider: 'google',
+    currentModel: 'gemini-1.5-flash',
+    systemMessage: 'You are Gemini, an AI model by Google.'
+});
 ```
 
 ## Best Practices
 
-### 1. Provider Selection
+1. **Environment Variables**: Use environment variables for API keys
+2. **Error Handling**: Implement proper error handling for each provider
+3. **Resource Management**: Always call `destroy()` on each agent instance
+4. **Provider Naming**: Use clear, descriptive names for different provider instances
+5. **Statistics Monitoring**: Track performance metrics for comparison
 
-- **OpenAI**: Best for general use, fast responses, function calling
-- **Anthropic**: Best for complex reasoning, ethical considerations
-- **Google AI**: Best for multimodal tasks, real-time applications
+## Provider Support
 
-### 2. Cost Optimization
+Currently supported providers:
+- **OpenAI**: GPT-3.5, GPT-4, GPT-4o-mini and other models
+- **Anthropic**: Claude 3 family (Haiku, Sonnet, Opus)
+- **Google AI**: Gemini 1.5 (Flash, Pro) models
 
-```typescript
-// Use cheaper models for simple tasks
-const chatConfig = {
-    simple: { provider: 'openai', model: 'gpt-3.5-turbo' },
-    complex: { provider: 'anthropic', model: 'claude-3-sonnet-20240229' },
-    premium: { provider: 'openai', model: 'gpt-4' }
-};
-```
-
-### 3. Error Handling
-
-```typescript
-try {
-    const response = await robota.run(query);
-    return response;
-} catch (error) {
-    if (error.code === 'rate_limit') {
-        // Switch to different provider
-        robota.switchProvider('backup-provider');
-        return robota.run(query);
-    }
-    throw error;
-}
-```
-
-## Next Steps
-
-- Try [Advanced Features](./session-management.md) for analytics and limits across providers
-- Explore [Provider Switching](./provider-switching.md) for dynamic provider selection
-- Learn about [Token Limits](./token-limits.md) for cost optimization across providers 
+Each provider maintains feature parity through the unified `BaseAIProvider` architecture. 

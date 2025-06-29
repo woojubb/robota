@@ -19,16 +19,21 @@ Parameter schema for tools
 - [enum](ParameterSchema#enum)
 - [items](ParameterSchema#items)
 - [properties](ParameterSchema#properties)
+- [minimum](ParameterSchema#minimum)
+- [maximum](ParameterSchema#maximum)
+- [pattern](ParameterSchema#pattern)
+- [format](ParameterSchema#format)
+- [default](ParameterSchema#default)
 
 ## Properties
 
 ### type
 
-• **type**: ``"string"`` \| ``"number"`` \| ``"boolean"`` \| ``"object"`` \| ``"array"``
+• **type**: [`JSONSchemaType`](../modules#jsonschematype)
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:22](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L22)
+[packages/agents/src/interfaces/provider.ts:46](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L46)
 
 ___
 
@@ -38,17 +43,17 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:23](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L23)
+[packages/agents/src/interfaces/provider.ts:47](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L47)
 
 ___
 
 ### enum
 
-• `Optional` **enum**: `any`[]
+• `Optional` **enum**: [`JSONSchemaEnum`](../modules#jsonschemaenum)
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:24](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L24)
+[packages/agents/src/interfaces/provider.ts:48](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L48)
 
 ___
 
@@ -58,7 +63,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:25](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L25)
+[packages/agents/src/interfaces/provider.ts:49](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L49)
 
 ___
 
@@ -68,4 +73,54 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:26](https://github.com/woojubb/robota/blob/411e4a15f65b96ceeb9a966ecfd26b5a6b3b568b/packages/agents/src/interfaces/provider.ts#L26)
+[packages/agents/src/interfaces/provider.ts:50](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L50)
+
+___
+
+### minimum
+
+• `Optional` **minimum**: `number`
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:51](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L51)
+
+___
+
+### maximum
+
+• `Optional` **maximum**: `number`
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:52](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L52)
+
+___
+
+### pattern
+
+• `Optional` **pattern**: `string`
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:53](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L53)
+
+___
+
+### format
+
+• `Optional` **format**: `string`
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:54](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L54)
+
+___
+
+### default
+
+• `Optional` **default**: [`ParameterDefaultValue`](../modules#parameterdefaultvalue)
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:55](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L55)
