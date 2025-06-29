@@ -14,11 +14,11 @@ import { toErrorContext, createPluginErrorContext } from './context-adapter';
  * Plugin for handling errors with configurable strategies
  * Provides error recovery, retry mechanisms, and circuit breaker patterns
  */
-export class ErrorHandlingPlugin extends BasePlugin {
+export class ErrorHandlingPlugin extends BasePlugin<ErrorHandlingPluginOptions, ErrorHandlingPluginStats> {
     name = 'ErrorHandlingPlugin';
     version = '1.0.0';
 
-    private options: Required<Omit<ErrorHandlingPluginOptions, 'customErrorHandler'>> & { customErrorHandler?: (error: Error, context: ErrorHandlingContextData) => Promise<void> };
+    private pluginOptions: Required<Omit<ErrorHandlingPluginOptions, 'customErrorHandler'>> & { customErrorHandler?: (error: Error, context: ErrorHandlingContextData) => Promise<void> };
     private logger: Logger;
     private failureCount = 0;
     private circuitBreakerOpen = false;
@@ -32,7 +32,7 @@ export class ErrorHandlingPlugin extends BasePlugin {
         this.validateOptions(options);
 
         // Set defaults
-        this.options = {
+        this.pluginOptions = {
             strategy: options.strategy,
             maxRetries: options.maxRetries ?? 3,
             retryDelay: options.retryDelay ?? 1000,
@@ -43,9 +43,9 @@ export class ErrorHandlingPlugin extends BasePlugin {
         };
 
         this.logger.info('ErrorHandlingPlugin initialized', {
-            strategy: this.options.strategy,
-            maxRetries: this.options.maxRetries,
-            failureThreshold: this.options.failureThreshold
+            strategy: this.pluginOptions.strategy,
+            maxRetries: this.pluginOptions.maxRetries,
+            failureThreshold: this.pluginOptions.failureThreshold
         });
     }
 
@@ -53,7 +53,7 @@ export class ErrorHandlingPlugin extends BasePlugin {
      * Handle an error with the configured strategy
      */
     async handleError(error: Error, context: ErrorHandlingContextData = {}): Promise<void> {
-        if (this.options.logErrors) {
+        if (this.pluginOptions.logErrors) {
             this.logger.error('Error occurred', {
                 error: error.message,
                 stack: error.stack,
@@ -62,9 +62,9 @@ export class ErrorHandlingPlugin extends BasePlugin {
         }
 
         // Custom error handler takes precedence
-        if (this.options.customErrorHandler) {
+        if (this.pluginOptions.customErrorHandler) {
             try {
-                await this.options.customErrorHandler(error, context);
+                await this.pluginOptions.customErrorHandler(error, context);
                 return;
             } catch (handlerError) {
                 this.logger.error('Custom error handler failed', {
@@ -74,7 +74,7 @@ export class ErrorHandlingPlugin extends BasePlugin {
         }
 
         // Apply strategy-specific handling
-        switch (this.options.strategy) {
+        switch (this.pluginOptions.strategy) {
             case 'circuit-breaker':
                 await this.handleCircuitBreaker(error, context);
                 break;
@@ -106,10 +106,10 @@ export class ErrorHandlingPlugin extends BasePlugin {
         let lastError: Error | null = null;
         let attempt = 0;
 
-        while (attempt <= this.options.maxRetries) {
+        while (attempt <= this.pluginOptions.maxRetries) {
             try {
                 // Check circuit breaker
-                if (this.options.strategy === 'circuit-breaker' && this.isCircuitBreakerOpen()) {
+                if (this.pluginOptions.strategy === 'circuit-breaker' && this.isCircuitBreakerOpen()) {
                     throw new PluginError('Circuit breaker is open', this.name, toErrorContext(context));
                 }
 
@@ -130,13 +130,13 @@ export class ErrorHandlingPlugin extends BasePlugin {
                 lastError = error instanceof Error ? error : new Error(String(error));
                 attempt++;
 
-                if (attempt <= this.options.maxRetries) {
+                if (attempt <= this.pluginOptions.maxRetries) {
                     await this.handleError(lastError, { ...context, attempt });
 
                     // Calculate delay
-                    const delay = this.options.strategy === 'exponential-backoff'
-                        ? this.options.retryDelay * Math.pow(2, attempt - 1)
-                        : this.options.retryDelay;
+                    const delay = this.pluginOptions.strategy === 'exponential-backoff'
+                        ? this.pluginOptions.retryDelay * Math.pow(2, attempt - 1)
+                        : this.pluginOptions.retryDelay;
 
                     this.logger.debug('Retrying operation', {
                         attempt: attempt,
@@ -150,7 +150,7 @@ export class ErrorHandlingPlugin extends BasePlugin {
             }
         }
 
-        throw new PluginError(`Operation failed after ${this.options.maxRetries} retries`, this.name,
+        throw new PluginError(`Operation failed after ${this.pluginOptions.maxRetries} retries`, this.name,
             createPluginErrorContext(context, {
                 originalError: lastError?.message || 'Unknown error'
             })
@@ -199,11 +199,11 @@ export class ErrorHandlingPlugin extends BasePlugin {
         this.failureCount++;
         this.lastFailureTime = Date.now();
 
-        if (this.failureCount >= this.options.failureThreshold) {
+        if (this.failureCount >= this.pluginOptions.failureThreshold) {
             this.circuitBreakerOpen = true;
             this.logger.warn('Circuit breaker opened', {
                 failureCount: this.failureCount,
-                threshold: this.options.failureThreshold,
+                threshold: this.pluginOptions.failureThreshold,
                 context: context
             });
         }
@@ -224,7 +224,7 @@ export class ErrorHandlingPlugin extends BasePlugin {
         }
 
         // Check if timeout period has passed
-        const timeoutPassed = Date.now() - this.lastFailureTime > this.options.circuitBreakerTimeout;
+        const timeoutPassed = Date.now() - this.lastFailureTime > this.pluginOptions.circuitBreakerTimeout;
         if (timeoutPassed) {
             this.circuitBreakerOpen = false;
             this.failureCount = 0;

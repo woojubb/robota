@@ -146,11 +146,12 @@ export interface EventEmitterPluginStats {
  * Plugin for event detection and propagation
  * Emits events during agent execution lifecycle
  */
-export class EventEmitterPlugin extends BasePlugin {
+export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, EventEmitterPluginStats> {
     name = 'EventEmitterPlugin';
     version = '1.0.0';
 
-    private options: Required<EventEmitterPluginOptions>;
+
+    private pluginOptions: Required<EventEmitterPluginOptions>;
     private logger: Logger;
     private handlers = new Map<EventType, EventHandler[]>();
     private eventBuffer: EventData[] = [];
@@ -161,7 +162,7 @@ export class EventEmitterPlugin extends BasePlugin {
         super();
         this.logger = createLogger('EventEmitterPlugin');
 
-        this.options = {
+        this.pluginOptions = {
             events: options.events ?? [
                 'execution.start',
                 'execution.complete',
@@ -182,15 +183,15 @@ export class EventEmitterPlugin extends BasePlugin {
             }
         };
 
-        if (this.options.buffer.enabled) {
+        if (this.pluginOptions.buffer.enabled) {
             this.setupBuffering();
         }
 
         this.logger.info('EventEmitterPlugin initialized', {
-            events: this.options.events,
-            maxListeners: this.options.maxListeners,
-            async: this.options.async,
-            bufferEnabled: this.options.buffer.enabled
+            events: this.pluginOptions.events,
+            maxListeners: this.pluginOptions.maxListeners,
+            async: this.pluginOptions.async,
+            bufferEnabled: this.pluginOptions.buffer.enabled
         });
     }
 
@@ -385,9 +386,9 @@ export class EventEmitterPlugin extends BasePlugin {
 
         const handlers = this.handlers.get(eventType)!;
 
-        if (handlers.length >= this.options.maxListeners) {
+        if (handlers.length >= this.pluginOptions.maxListeners) {
             throw new PluginError(
-                `Maximum listeners (${this.options.maxListeners}) exceeded for event type: ${eventType}`,
+                `Maximum listeners (${this.pluginOptions.maxListeners}) exceeded for event type: ${eventType}`,
                 this.name,
                 { eventType, currentListeners: handlers.length }
             );
@@ -451,7 +452,7 @@ export class EventEmitterPlugin extends BasePlugin {
      * Emit an event
      */
     async emit(eventType: EventType, eventData: Partial<EventData> = {}): Promise<void> {
-        if (!this.options.events.includes(eventType)) {
+        if (!this.pluginOptions.events.includes(eventType)) {
             return;
         }
 
@@ -462,13 +463,13 @@ export class EventEmitterPlugin extends BasePlugin {
         };
 
         // Apply global filter if exists
-        const globalFilter = this.options.filters[eventType];
+        const globalFilter = this.pluginOptions.filters[eventType];
         if (globalFilter && !globalFilter(event)) {
             return;
         }
 
         // Buffer events if enabled
-        if (this.options.buffer.enabled) {
+        if (this.pluginOptions.buffer.enabled) {
             this.bufferEvent(event);
             return;
         }
@@ -508,13 +509,13 @@ export class EventEmitterPlugin extends BasePlugin {
         // Execute handlers
         const promises = handlersToCall.map(async (handler) => {
             try {
-                if (this.options.async) {
+                if (this.pluginOptions.async) {
                     await handler.listener(event);
                 } else {
                     handler.listener(event);
                 }
             } catch (error) {
-                if (this.options.catchErrors) {
+                if (this.pluginOptions.catchErrors) {
                     this.logger.error('Event handler error', {
                         eventType: event.type,
                         handlerId: handler.id,
@@ -535,7 +536,7 @@ export class EventEmitterPlugin extends BasePlugin {
             }
         });
 
-        if (this.options.async) {
+        if (this.pluginOptions.async) {
             await Promise.allSettled(promises);
         }
     }
@@ -546,7 +547,7 @@ export class EventEmitterPlugin extends BasePlugin {
     private bufferEvent(event: EventData): void {
         this.eventBuffer.push(event);
 
-        if (this.eventBuffer.length >= this.options.buffer.maxSize) {
+        if (this.eventBuffer.length >= this.pluginOptions.buffer.maxSize) {
             this.flushBuffer();
         }
     }
@@ -557,7 +558,7 @@ export class EventEmitterPlugin extends BasePlugin {
     private setupBuffering(): void {
         this.bufferTimer = setInterval(() => {
             this.flushBuffer();
-        }, this.options.buffer.flushInterval);
+        }, this.pluginOptions.buffer.flushInterval);
     }
 
     /**

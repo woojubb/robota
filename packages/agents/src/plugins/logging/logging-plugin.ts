@@ -5,6 +5,7 @@ import {
     LogLevel,
     LogEntry,
     LoggingPluginOptions,
+    LoggingPluginStats,
     LogStorage,
     LogFormatter
 } from './types';
@@ -43,12 +44,12 @@ export interface LoggingContextData extends Record<string, string | number | boo
  * Plugin for logging agent operations
  * Supports multiple logging strategies: console, file, remote, silent
  */
-export class LoggingPlugin extends BasePlugin {
+export class LoggingPlugin extends BasePlugin<LoggingPluginOptions, LoggingPluginStats> {
     name = 'LoggingPlugin';
     version = '1.0.0';
 
     private storage: LogStorage;
-    private options: Required<Omit<LoggingPluginOptions, 'formatter'>> & { formatter?: LogFormatter };
+    private pluginOptions: Required<Omit<LoggingPluginOptions, 'formatter'>> & { formatter?: LogFormatter };
     private logger: Logger;
     private logLevels: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 
@@ -60,7 +61,7 @@ export class LoggingPlugin extends BasePlugin {
         this.validateOptions(options);
 
         // Set defaults
-        this.options = {
+        this.pluginOptions = {
             strategy: options.strategy,
             level: options.level ?? 'info',
             filePath: options.filePath ?? './agent.log',
@@ -77,9 +78,9 @@ export class LoggingPlugin extends BasePlugin {
         this.storage = this.createStorage();
 
         this.logger.info('LoggingPlugin initialized', {
-            strategy: this.options.strategy,
-            level: this.options.level,
-            maxLogs: this.options.maxLogs
+            strategy: this.pluginOptions.strategy,
+            level: this.pluginOptions.level,
+            maxLogs: this.pluginOptions.maxLogs
         });
     }
 
@@ -134,7 +135,7 @@ export class LoggingPlugin extends BasePlugin {
     async error(message: string, error?: Error, context?: LoggingContextData, metadata?: LogEntry['metadata']): Promise<void> {
         const errorContext = {
             ...context,
-            ...(error && this.options.includeStackTrace ? {
+            ...(error && this.pluginOptions.includeStackTrace ? {
                 errorMessage: error.message,
                 errorStack: error.stack
             } : {})
@@ -214,7 +215,7 @@ export class LoggingPlugin extends BasePlugin {
      * Check if message should be logged based on level
      */
     private shouldLog(level: LogLevel): boolean {
-        const currentLevelIndex = this.logLevels.indexOf(this.options.level);
+        const currentLevelIndex = this.logLevels.indexOf(this.pluginOptions.level);
         const messageLevelIndex = this.logLevels.indexOf(level);
         return messageLevelIndex >= currentLevelIndex;
     }
@@ -266,25 +267,25 @@ export class LoggingPlugin extends BasePlugin {
      * Create storage instance based on strategy
      */
     private createStorage(): LogStorage {
-        const formatter = this.options.formatter;
+        const formatter = this.pluginOptions.formatter;
 
-        switch (this.options.strategy) {
+        switch (this.pluginOptions.strategy) {
             case 'console':
                 return new ConsoleLogStorage(formatter);
             case 'file':
-                return new FileLogStorage(this.options.filePath, formatter);
+                return new FileLogStorage(this.pluginOptions.filePath, formatter);
             case 'remote':
                 return new RemoteLogStorage(
-                    this.options.remoteEndpoint,
-                    this.options.remoteHeaders,
+                    this.pluginOptions.remoteEndpoint,
+                    this.pluginOptions.remoteHeaders,
                     formatter,
-                    this.options.batchSize,
-                    this.options.flushInterval
+                    this.pluginOptions.batchSize,
+                    this.pluginOptions.flushInterval
                 );
             case 'silent':
                 return new SilentLogStorage();
             default:
-                throw new ConfigurationError('Unknown logging strategy', { strategy: this.options.strategy });
+                throw new ConfigurationError('Unknown logging strategy', { strategy: this.pluginOptions.strategy });
         }
     }
 } 

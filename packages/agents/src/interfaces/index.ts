@@ -21,7 +21,8 @@ export type {
     ParameterSchema,
     JSONSchemaType,
     JSONSchemaEnum,
-    ParameterDefaultValue
+    ParameterDefaultValue,
+    ChatOptions
 } from './provider';
 
 export type {

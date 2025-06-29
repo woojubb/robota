@@ -66,4 +66,20 @@ export interface LogStorage {
     write(entry: LogEntry): Promise<void>;
     flush(): Promise<void>;
     close(): Promise<void>;
+}
+
+/**
+ * Logging plugin statistics
+ */
+export interface LoggingPluginStats {
+    /** Total number of logs written */
+    logsWritten: number;
+    /** Number of failed log writes */
+    failedWrites: number;
+    /** Current log level */
+    currentLevel: LogLevel;
+    /** Storage strategy in use */
+    strategy: LoggingStrategy;
+    /** Last flush timestamp */
+    lastFlushTime?: Date;
 } 

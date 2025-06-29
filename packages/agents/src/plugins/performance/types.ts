@@ -129,4 +129,24 @@ export interface SystemMetricsCollector {
     getMemoryUsage(): Promise<PerformanceMetrics['memoryUsage']>;
     getCPUUsage(): Promise<PerformanceMetrics['cpuUsage']>;
     getNetworkStats(): Promise<PerformanceMetrics['networkStats']>;
+}
+
+/**
+ * Performance plugin statistics
+ */
+export interface PerformancePluginStats {
+    /** Total number of metrics recorded */
+    metricsRecorded: number;
+    /** Number of performance threshold violations */
+    thresholdViolations: number;
+    /** Current monitoring strategy */
+    strategy: PerformanceMonitoringStrategy;
+    /** Monitoring status */
+    monitoring: {
+        memory: boolean;
+        cpu: boolean;
+        network: boolean;
+    };
+    /** Last metrics collection timestamp */
+    lastCollectionTime?: Date;
 } 

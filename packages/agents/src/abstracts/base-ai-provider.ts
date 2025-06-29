@@ -1,10 +1,6 @@
-import type { AIProvider, ToolSchema, ChatOptions } from '../interfaces/provider';
+import type { ToolSchema, ChatOptions } from '../interfaces/provider';
 import type { UniversalMessage } from '../managers/conversation-history-manager';
 import { logger } from '../utils/logger';
-
-/**
- * Reusable type definitions for base AI provider
- */
 
 /**
  * Provider logging data type
@@ -13,28 +9,61 @@ import { logger } from '../utils/logger';
 export type ProviderLoggingData = Record<string, string | number | boolean | Date | string[]>;
 
 /**
- * Base AI Provider abstract class that uses UniversalMessage only
- * This is the provider-agnostic base class that all providers should extend
+ * Type-safe AI Provider interface with type parameters
+ * 
+ * @template TConfig - Provider configuration type
+ * @template TMessage - Message type used by the provider
+ * @template TResponse - Response type returned by the provider
  */
-export abstract class BaseAIProvider implements AIProvider {
+export interface TypeSafeAIProvider<TConfig = unknown, TMessage = UniversalMessage, TResponse = UniversalMessage> {
+    readonly name: string;
+    readonly version: string;
+
+    configure?(config: TConfig): Promise<void> | void;
+    chat(messages: TMessage[], options?: ChatOptions): Promise<TResponse>;
+    chatStream?(messages: TMessage[], options?: ChatOptions): AsyncIterable<TResponse>;
+    supportsTools(): boolean;
+    validateConfig(): boolean;
+    dispose(): Promise<void>;
+}
+
+/**
+ * Base AI Provider abstract class with type parameter support
+ * This is the provider-agnostic base class that all providers should extend
+ * 
+ * @template TConfig - Provider configuration type (defaults to unknown for maximum flexibility)
+ * @template TMessage - Message type (defaults to UniversalMessage for backward compatibility)
+ * @template TResponse - Response type (defaults to UniversalMessage for backward compatibility)
+ */
+export abstract class BaseAIProvider<TConfig = unknown, TMessage = UniversalMessage, TResponse = UniversalMessage>
+    implements TypeSafeAIProvider<TConfig, TMessage, TResponse> {
     abstract readonly name: string;
     abstract readonly version: string;
+    protected config?: TConfig;
+
+    /**
+     * Configure the provider with type-safe configuration
+     */
+    async configure(config: TConfig): Promise<void> {
+        this.config = config;
+        // Subclasses can override for additional setup
+    }
 
     /**
      * Each provider must implement chat using their own native SDK types internally
-     * @param messages - Array of UniversalMessage from conversation history
+     * @param messages - Array of messages from conversation history
      * @param options - Chat options including tools, model settings, etc.
-     * @returns Promise resolving to a UniversalMessage response
+     * @returns Promise resolving to a response
      */
-    abstract chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
+    abstract chat(messages: TMessage[], options?: ChatOptions): Promise<TResponse>;
 
     /**
      * Each provider must implement streaming chat using their own native SDK types internally
-     * @param messages - Array of UniversalMessage from conversation history  
+     * @param messages - Array of messages from conversation history  
      * @param options - Chat options including tools, model settings, etc.
-     * @returns AsyncIterable of UniversalMessage chunks
+     * @returns AsyncIterable of response chunks
      */
-    abstract chatStream?(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
+    abstract chatStream?(messages: TMessage[], options?: ChatOptions): AsyncIterable<TResponse>;
 
     /**
      * Default implementation - most modern providers support tools

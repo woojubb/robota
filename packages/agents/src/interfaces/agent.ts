@@ -153,26 +153,74 @@ export interface RunOptions {
 }
 
 /**
- * Agent interface
+ * Generic agent interface with type parameters for enhanced type safety
+ * 
+ * @template TConfig - Agent configuration type (defaults to AgentConfig for backward compatibility)
+ * @template TContext - Execution context type (defaults to RunOptions for backward compatibility)
+ * @template TMessage - Message type (defaults to Message for backward compatibility)
  */
-export interface AgentInterface {
+export interface BaseAgentInterface<
+    TConfig = AgentConfig,
+    TContext = RunOptions,
+    TMessage = Message
+> {
     /**
-     * Run agent with user input
+     * Configure the agent with type-safe configuration
      */
-    run(input: string, options?: RunOptions): Promise<string>;
+    configure?(config: TConfig): Promise<void>;
 
     /**
-     * Run agent with streaming response
+     * Run agent with user input and type-safe context
      */
-    runStream(input: string, options?: RunOptions): AsyncGenerator<string, void, never>;
+    run(input: string, context?: TContext): Promise<string>;
 
     /**
-     * Get conversation history
+     * Run agent with streaming response and type-safe context
      */
-    getHistory(): Message[];
+    runStream(input: string, context?: TContext): AsyncGenerator<string, void, never>;
+
+    /**
+     * Get conversation history with type-safe messages
+     */
+    getHistory(): TMessage[];
 
     /**
      * Clear conversation history
      */
     clearHistory(): void;
-} 
+}
+
+/**
+ * Extended run context with provider-agnostic options
+ * Supports dynamic provider configurations without hardcoding specific providers
+ */
+export interface ExtendedRunContext {
+    // Base options from RunOptions
+    temperature?: number;
+    maxTokens?: number;
+    stream?: boolean;
+    toolChoice?: 'auto' | 'none' | string;
+    sessionId?: string;
+    userId?: string;
+    metadata?: Metadata;
+
+    // Provider-agnostic options that can be used by any provider
+    providerOptions?: Record<string, unknown>;
+
+    // Common provider options (provider-agnostic naming)
+    stopSequences?: string[];
+    topK?: number;
+    topP?: number;
+    seed?: number;
+
+    // Advanced configuration
+    responseFormat?: Record<string, unknown>;
+    safetySettings?: Array<Record<string, unknown>>;
+    generationConfig?: Record<string, unknown>;
+}
+
+/**
+ * Legacy agent interface for backward compatibility
+ * @deprecated Use BaseAgentInterface or provider-specific interfaces instead
+ */
+export interface AgentInterface extends BaseAgentInterface<AgentConfig, RunOptions, Message> { } 

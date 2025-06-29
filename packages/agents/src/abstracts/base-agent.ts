@@ -1,12 +1,21 @@
-import type { AgentInterface, Message, RunOptions } from '../interfaces/agent';
+import type { BaseAgentInterface, AgentConfig, Message, RunOptions } from '../interfaces/agent';
 
 /**
- * Base abstract class for all agents
+ * Base abstract class for all agents with type parameter support
  * Provides common structure and lifecycle management
+ * 
+ * @template TConfig - Agent configuration type (defaults to AgentConfig for backward compatibility)
+ * @template TContext - Execution context type (defaults to RunOptions for backward compatibility)
+ * @template TMessage - Message type (defaults to Message for backward compatibility)
  */
-export abstract class BaseAgent implements AgentInterface {
-    protected history: Message[] = [];
+export abstract class BaseAgent<
+    TConfig = AgentConfig,
+    TContext = RunOptions,
+    TMessage = Message
+> implements BaseAgentInterface<TConfig, TContext, TMessage> {
+    protected history: TMessage[] = [];
     protected isInitialized = false;
+    protected config?: TConfig;
 
     /**
      * Initialize the agent
@@ -14,19 +23,27 @@ export abstract class BaseAgent implements AgentInterface {
     protected abstract initialize(): Promise<void>;
 
     /**
-     * Run agent with user input
+     * Configure the agent with type-safe configuration
      */
-    abstract run(input: string, options?: RunOptions): Promise<string>;
+    async configure(config: TConfig): Promise<void> {
+        this.config = config;
+        await this.ensureInitialized();
+    }
 
     /**
-     * Run agent with streaming response
+     * Run agent with user input and type-safe context
      */
-    abstract runStream(input: string, options?: RunOptions): AsyncGenerator<string, void, never>;
+    abstract run(input: string, context?: TContext): Promise<string>;
 
     /**
-     * Get conversation history
+     * Run agent with streaming response and type-safe context
      */
-    getHistory(): Message[] {
+    abstract runStream(input: string, context?: TContext): AsyncGenerator<string, void, never>;
+
+    /**
+     * Get conversation history with type-safe messages
+     */
+    getHistory(): TMessage[] {
         return [...this.history];
     }
 
@@ -40,11 +57,8 @@ export abstract class BaseAgent implements AgentInterface {
     /**
      * Add message to history
      */
-    protected addMessage(message: Message): void {
-        this.history.push({
-            ...message,
-            timestamp: message.timestamp || new Date()
-        });
+    protected addMessage(message: TMessage): void {
+        this.history.push(message);
     }
 
     /**

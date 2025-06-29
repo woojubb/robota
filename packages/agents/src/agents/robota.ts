@@ -123,7 +123,7 @@ export class Robota extends BaseAgent implements AgentInterface {
     private executionService!: ExecutionService;
 
     // State management
-    private config: AgentConfig;
+    protected override config: AgentConfig;
     private conversationId: string;
     private logger: Logger;
     private initializationPromise?: Promise<void>;
@@ -318,7 +318,7 @@ export class Robota extends BaseAgent implements AgentInterface {
      * Initialize the agent if not already done
      * @internal
      */
-    protected async initialize(): Promise<void> {
+    protected override async initialize(): Promise<void> {
         await this.ensureFullyInitialized();
     }
 
