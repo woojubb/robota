@@ -2,7 +2,6 @@
  * 04-advanced-features.ts
  * 
  * This example demonstrates advanced Robota features:
- * - ExecutionAnalyticsPlugin for usage tracking
  * - LoggingPlugin for detailed logging
  * - Custom system messages
  * - Multiple queries with history
@@ -11,7 +10,6 @@
 import OpenAI from 'openai';
 import {
     Robota,
-    ExecutionAnalyticsPlugin,
     LoggingPlugin
 } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
@@ -38,13 +36,6 @@ async function main() {
         });
 
         // Create advanced plugins
-        const analyticsPlugin = new ExecutionAnalyticsPlugin({
-            maxEntries: 50,
-            trackErrors: true,
-            performanceThreshold: 1500, // 1.5 seconds
-            enableWarnings: true
-        });
-
         const loggingPlugin = new LoggingPlugin({
             level: 'info',
             strategy: 'console'
@@ -59,21 +50,11 @@ async function main() {
             currentProvider: 'openai',
             currentModel: 'gpt-3.5-turbo',
             systemMessage: 'You are an advanced AI assistant with detailed analytical capabilities. Provide comprehensive and well-structured responses.',
-            plugins: [analyticsPlugin, loggingPlugin] // Add plugins for advanced features
+            plugins: [loggingPlugin] // Add plugins for advanced features
         });
 
-        // === Plugin Demo ===
-        console.log('📊 Advanced Plugin Demo');
-        console.log('='.repeat(40));
-
-        // Check initial analytics
-        console.log('\n📈 Initial Plugin Status:');
-        const initialStats = analyticsPlugin.getStats();
-        console.log('- Total executions:', initialStats.totalExecutions);
-        console.log('- Success rate:', initialStats.successRate.toFixed(1) + '%');
-
         // === Conversation History Demo ===
-        console.log('\n💬 Advanced Conversation Demo');
+        console.log('💬 Advanced Conversation Demo');
         console.log('='.repeat(40));
 
         // Use minimal queries for token efficiency
@@ -92,42 +73,22 @@ async function main() {
 
             console.log(`   Assistant: ${response.substring(0, 200)}${response.length > 200 ? '...' : ''}`);
             console.log(`   ⏱️ Response time: ${duration}ms`);
-
-            // Show updated analytics
-            const currentStats = analyticsPlugin.getStats();
-            console.log(`   📊 Total executions: ${currentStats.totalExecutions}`);
         }
 
-        // === Analytics Deep Dive ===
-        console.log('\n📊 Detailed Analytics:');
+        // === Plugin Demo (after initialization) ===
+        console.log('\n📊 Plugin Status:');
         console.log('='.repeat(40));
 
-        const finalStats = analyticsPlugin.getStats();
-        console.log('Final Analytics Report:');
-        console.log('- Total Executions:', finalStats.totalExecutions);
-        console.log('- Successful:', finalStats.successfulExecutions);
-        console.log('- Failed:', finalStats.failedExecutions);
-        console.log('- Success Rate:', finalStats.successRate.toFixed(1) + '%');
-        console.log('- Average Duration:', finalStats.averageDuration.toFixed(0) + 'ms');
-        console.log('- Total Duration:', finalStats.totalDuration + 'ms');
-
-        // Operation breakdown - removed due to type constraints
-        console.log('\nExecution Summary:');
-        console.log(`- Success Rate: ${finalStats.successRate.toFixed(1)}%`);
-        if (finalStats.failedExecutions > 0) {
-            console.log(`- ${finalStats.failedExecutions} failed executions detected`);
-        }
+        const plugins = robota.getPlugins();
+        console.log('- Active plugins:', plugins.map(p => p.name).join(', '));
 
         // === Plugin Status Check ===
         console.log('\n🔍 Plugin Status:');
         console.log('='.repeat(40));
 
-        const analyticsStatus = analyticsPlugin.getStatus();
-        console.log('Analytics Plugin Status:');
-        console.log('- Name:', analyticsStatus.name);
-        console.log('- Version:', analyticsStatus.version);
-        console.log('- Enabled:', analyticsStatus.enabled);
-        console.log('- Total Recorded:', analyticsStatus.totalRecorded);
+        const pluginNames = robota.getPluginNames();
+        console.log('Logging Plugin Status:');
+        console.log('- Active plugins:', pluginNames.join(', '));
 
         // === Agent Statistics ===
         console.log('\n📈 Agent Statistics:');
@@ -140,16 +101,6 @@ async function main() {
         console.log(`- Plugins: ${agentStats.plugins.join(', ')}`);
         console.log(`- Uptime: ${Math.round(agentStats.uptime)}ms`);
 
-        // === Memory Management Demo ===
-        console.log('\n🧹 Memory Management:');
-        console.log('='.repeat(40));
-
-        console.log('Clearing analytics data...');
-        analyticsPlugin.clearData();
-
-        const clearedStats = analyticsPlugin.getStats();
-        console.log('After clearing - Total executions:', clearedStats.totalExecutions);
-
         // === Final Test ===
         console.log('\n🎯 Final Performance Test:');
         console.log('='.repeat(40));
@@ -160,15 +111,12 @@ async function main() {
         const finalResponse = await robota.run(finalQuery);
         console.log(`Assistant: ${finalResponse}`);
 
-        const postClearStats = analyticsPlugin.getStats();
-        console.log(`Final execution count: ${postClearStats.totalExecutions}`);
-
         console.log('\n✅ Advanced Features Example Completed!');
         console.log('\n💡 Features Demonstrated:');
-        console.log('   - ExecutionAnalyticsPlugin for performance tracking');
         console.log('   - LoggingPlugin for detailed execution logs');
         console.log('   - Plugin lifecycle management');
-        console.log('   - Memory and performance monitoring');
+        console.log('   - Conversation history tracking');
+        console.log('   - Advanced system messages');
 
         // Clean up resources
         await robota.destroy();

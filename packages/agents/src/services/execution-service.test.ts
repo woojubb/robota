@@ -179,8 +179,22 @@ describe('ExecutionService', () => {
                 systemMessage: 'You are a helpful assistant.'
             };
 
+            // Create and set mock session
+            const mockSession = {
+                getMessages: vi.fn(),
+                getMessageCount: vi.fn(),
+                addUserMessage: vi.fn(),
+                addAssistantMessage: vi.fn(),
+                addSystemMessage: vi.fn(),
+                addToolMessageWithId: vi.fn(),
+                addMessage: vi.fn(),
+                clear: vi.fn(),
+                getMessagesByRole: vi.fn(),
+                getRecentMessages: vi.fn()
+            };
+            conversationHistory.setMockSession({ 'test-conversation': mockSession });
+
             // Mock conversation session messages with assistant response
-            const mockSession = conversationHistory.getConversationSession('test-conversation');
             mockSession.getMessages = vi.fn()
                 .mockReturnValueOnce([]) // first call (empty)
                 .mockReturnValue([
@@ -246,9 +260,23 @@ describe('ExecutionService', () => {
             // Replace the tool execution service in the execution service
             (executionService as any).toolExecutionService = mockToolExecutionService;
 
+            // Create and set mock session for tool calls test
+            const mockToolSession = {
+                getMessages: vi.fn(),
+                getMessageCount: vi.fn(),
+                addUserMessage: vi.fn(),
+                addAssistantMessage: vi.fn(),
+                addSystemMessage: vi.fn(),
+                addToolMessageWithId: vi.fn(),
+                addMessage: vi.fn(),
+                clear: vi.fn(),
+                getMessagesByRole: vi.fn(),
+                getRecentMessages: vi.fn()
+            };
+            conversationHistory.setMockSession({ 'test-conversation': mockToolSession });
+
             // Mock conversation session messages progression
-            const mockSession = conversationHistory.getConversationSession('test-conversation');
-            mockSession.getMessages = vi.fn()
+            mockToolSession.getMessages = vi.fn()
                 .mockReturnValueOnce([]) // first call (empty)
                 .mockReturnValueOnce([  // after first AI response
                     { role: 'user', content: 'Use a tool to do something', timestamp: new Date() },
@@ -307,9 +335,9 @@ describe('ExecutionService', () => {
             expect(result.response).toBe('Task completed with tool result');
 
             // Verify conversation history updates
-            expect(mockSession.addUserMessage).toHaveBeenCalledWith(input, expect.any(Object));
-            expect(mockSession.addAssistantMessage).toHaveBeenCalledTimes(2);
-            expect(mockSession.addToolMessageWithId).toHaveBeenCalledTimes(1);
+            expect(mockToolSession.addUserMessage).toHaveBeenCalledWith(input, expect.any(Object));
+            expect(mockToolSession.addAssistantMessage).toHaveBeenCalledTimes(2);
+            expect(mockToolSession.addToolMessageWithId).toHaveBeenCalledTimes(1);
         });
 
         it('should handle errors during execution', async () => {

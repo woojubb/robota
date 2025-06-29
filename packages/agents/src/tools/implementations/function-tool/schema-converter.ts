@@ -40,7 +40,8 @@ export function zodToJsonSchema(
 
     // Handle object schemas with shape
     if (schemaDef.typeName === 'ZodObject' && schemaDef.shape) {
-        const shape = schemaDef.shape();
+        // In Zod v3, shape is a property, not a function
+        const shape = typeof schemaDef.shape === 'function' ? schemaDef.shape() : schemaDef.shape;
 
         for (const [key, typeObj] of Object.entries(shape)) {
             // Safe property conversion with undefined checks
