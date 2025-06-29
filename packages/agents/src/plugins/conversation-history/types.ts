@@ -45,4 +45,20 @@ export interface HistoryStorage {
     list(): Promise<string[]>;
     delete(conversationId: string): Promise<boolean>;
     clear(): Promise<void>;
+}
+
+/**
+ * Conversation history plugin statistics
+ */
+export interface ConversationHistoryPluginStats {
+    /** Total number of conversations stored */
+    totalConversations: number;
+    /** Total number of messages stored */
+    totalMessages: number;
+    /** Storage strategy in use */
+    storageStrategy: HistoryStorageStrategy;
+    /** Last save timestamp */
+    lastSaveTime?: Date;
+    /** Number of failed saves */
+    failedSaves: number;
 } 

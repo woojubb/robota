@@ -5,6 +5,7 @@ import {
     UsageStats,
     AggregatedUsageStats,
     UsagePluginOptions,
+    UsagePluginStats,
     UsageStorage
 } from './types';
 import {
@@ -18,12 +19,12 @@ import {
  * Plugin for tracking usage statistics
  * Collects and stores usage data including tokens, costs, performance metrics
  */
-export class UsagePlugin extends BasePlugin {
+export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats> {
     name = 'UsagePlugin';
     version = '1.0.0';
 
     private storage: UsageStorage;
-    private options: Required<Omit<UsagePluginOptions, 'costRates'>> & { costRates?: Record<string, { input: number; output: number }> };
+    private pluginOptions: Required<Omit<UsagePluginOptions, 'costRates'>> & { costRates?: Record<string, { input: number; output: number }> };
     private logger: Logger;
     private aggregationTimer?: NodeJS.Timeout;
 
@@ -35,7 +36,7 @@ export class UsagePlugin extends BasePlugin {
         this.validateOptions(options);
 
         // Set defaults
-        this.options = {
+        this.pluginOptions = {
             strategy: options.strategy,
             filePath: options.filePath ?? './usage-stats.json',
             remoteEndpoint: options.remoteEndpoint ?? '',
@@ -53,14 +54,14 @@ export class UsagePlugin extends BasePlugin {
         this.storage = this.createStorage();
 
         // Setup aggregation if enabled
-        if (this.options.aggregateStats) {
+        if (this.pluginOptions.aggregateStats) {
             this.setupAggregation();
         }
 
         this.logger.info('UsagePlugin initialized', {
-            strategy: this.options.strategy,
-            trackCosts: this.options.trackCosts,
-            maxEntries: this.options.maxEntries
+            strategy: this.pluginOptions.strategy,
+            trackCosts: this.pluginOptions.trackCosts,
+            maxEntries: this.pluginOptions.maxEntries
         });
     }
 
@@ -69,7 +70,7 @@ export class UsagePlugin extends BasePlugin {
      */
     async recordUsage(usage: Omit<UsageStats, 'timestamp' | 'cost'>): Promise<void> {
         try {
-            const cost = this.options.trackCosts ? this.calculateCost(usage.model, usage.tokensUsed) : undefined;
+            const cost = this.pluginOptions.trackCosts ? this.calculateCost(usage.model, usage.tokensUsed) : undefined;
 
             const entry: UsageStats = {
                 ...usage,
@@ -171,11 +172,11 @@ export class UsagePlugin extends BasePlugin {
      * Calculate cost based on token usage and model rates
      */
     private calculateCost(model: string, tokens: { input: number; output: number; total: number }): { input: number; output: number; total: number } | undefined {
-        if (!this.options.costRates || !this.options.costRates[model]) {
+        if (!this.pluginOptions.costRates || !this.pluginOptions.costRates[model]) {
             return undefined;
         }
 
-        const rates = this.options.costRates[model];
+        const rates = this.pluginOptions.costRates[model];
         const inputCost = tokens.input * rates.input;
         const outputCost = tokens.output * rates.output;
 
@@ -230,24 +231,24 @@ export class UsagePlugin extends BasePlugin {
      * Create storage instance based on strategy
      */
     private createStorage(): UsageStorage {
-        switch (this.options.strategy) {
+        switch (this.pluginOptions.strategy) {
             case 'memory':
-                return new MemoryUsageStorage(this.options.maxEntries);
+                return new MemoryUsageStorage(this.pluginOptions.maxEntries);
             case 'file':
-                return new FileUsageStorage(this.options.filePath);
+                return new FileUsageStorage(this.pluginOptions.filePath);
             case 'remote':
                 return new RemoteUsageStorage(
-                    this.options.remoteEndpoint!,
+                    this.pluginOptions.remoteEndpoint!,
                     '',  // apiKey - not in options
                     30000,  // timeout - not in options
-                    this.options.remoteHeaders || {},
-                    this.options.batchSize,
-                    this.options.flushInterval
+                    this.pluginOptions.remoteHeaders || {},
+                    this.pluginOptions.batchSize,
+                    this.pluginOptions.flushInterval
                 );
             case 'silent':
                 return new SilentUsageStorage();
             default:
-                throw new ConfigurationError('Unknown usage tracking strategy', { strategy: this.options.strategy });
+                throw new ConfigurationError('Unknown usage tracking strategy', { strategy: this.pluginOptions.strategy });
         }
     }
 
@@ -269,6 +270,6 @@ export class UsagePlugin extends BasePlugin {
                     error: error instanceof Error ? error.message : String(error)
                 });
             }
-        }, this.options.aggregationInterval);
+        }, this.pluginOptions.aggregationInterval);
     }
 } 

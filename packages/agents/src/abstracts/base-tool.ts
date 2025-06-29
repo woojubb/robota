@@ -2,10 +2,6 @@ import type { ToolInterface, ToolResult, ToolExecutionContext, ParameterValidati
 import type { ToolSchema } from '../interfaces/provider';
 
 /**
- * Reusable type definitions for base tool
- */
-
-/**
  * Base tool parameters type - extended for full ToolParameters compatibility
  * Used for parameter validation and execution in base tool context
  * 
@@ -32,27 +28,48 @@ export type BaseToolParameters = Record<string,
 >;
 
 /**
- * Base abstract class for tools
+ * Type-safe tool interface with type parameters
+ * 
+ * @template TParameters - Tool parameters type (defaults to BaseToolParameters for backward compatibility)
+ * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)
  */
-export abstract class BaseTool implements ToolInterface {
+export interface TypeSafeToolInterface<TParameters = BaseToolParameters, TResult = ToolResult> {
+    readonly schema: ToolSchema;
+    execute(parameters: TParameters, context?: ToolExecutionContext): Promise<TResult>;
+    validate(parameters: TParameters): boolean;
+    validateParameters(parameters: TParameters): ParameterValidationResult;
+    getDescription(): string;
+    getName(): string;
+}
+
+/**
+ * Base abstract class for tools with type parameter support
+ * Provides type-safe parameter handling and result processing
+ * 
+ * @template TParameters - Tool parameters type (defaults to BaseToolParameters for backward compatibility)
+ * @template TResult - Tool result type (defaults to ToolResult for backward compatibility)
+ */
+export abstract class BaseTool<TParameters = BaseToolParameters, TResult = ToolResult>
+    implements TypeSafeToolInterface<TParameters, TResult> {
     abstract readonly schema: ToolSchema;
 
-    abstract execute(parameters: BaseToolParameters, context?: ToolExecutionContext): Promise<ToolResult>;
+    abstract execute(parameters: TParameters, context?: ToolExecutionContext): Promise<TResult>;
 
-    validate(parameters: BaseToolParameters): boolean {
+    validate(parameters: TParameters): boolean {
         const required = this.schema.parameters.required || [];
-        return required.every(field => field in parameters);
+        return required.every(field => field in (parameters as Record<string, unknown>));
     }
 
     /**
      * Validate tool parameters with detailed result (default implementation)
      */
-    validateParameters(parameters: BaseToolParameters): ParameterValidationResult {
+    validateParameters(parameters: TParameters): ParameterValidationResult {
         const required = this.schema.parameters.required || [];
         const errors: string[] = [];
+        const paramObj = parameters as Record<string, unknown>;
 
         for (const field of required) {
-            if (!(field in parameters)) {
+            if (!(field in paramObj)) {
                 errors.push(`Missing required parameter: ${field}`);
             }
         }
@@ -70,4 +87,10 @@ export abstract class BaseTool implements ToolInterface {
     getName(): string {
         return this.schema.name;
     }
-} 
+}
+
+/**
+ * Legacy tool class for backward compatibility
+ * @deprecated Use BaseTool with type parameters instead
+ */
+export abstract class LegacyBaseTool extends BaseTool<BaseToolParameters, ToolResult> implements ToolInterface { } 

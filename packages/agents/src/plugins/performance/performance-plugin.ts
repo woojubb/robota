@@ -5,6 +5,7 @@ import {
     PerformanceMetrics,
     AggregatedPerformanceStats,
     PerformancePluginOptions,
+    PerformancePluginStats,
     PerformanceStorage,
     SystemMetricsCollector
 } from './types';
@@ -15,13 +16,13 @@ import { NodeSystemMetricsCollector } from './collectors/system-metrics-collecto
  * Plugin for monitoring performance metrics
  * Collects system and application performance data
  */
-export class PerformancePlugin extends BasePlugin {
+export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, PerformancePluginStats> {
     name = 'PerformancePlugin';
     version = '1.0.0';
 
     private storage: PerformanceStorage;
     private metricsCollector: SystemMetricsCollector;
-    private options: Required<PerformancePluginOptions>;
+    private pluginOptions: Required<PerformancePluginOptions>;
     private logger: Logger;
 
     constructor(options: PerformancePluginOptions) {
@@ -32,7 +33,7 @@ export class PerformancePlugin extends BasePlugin {
         this.validateOptions(options);
 
         // Set defaults
-        this.options = {
+        this.pluginOptions = {
             strategy: options.strategy,
             filePath: options.filePath ?? './performance-metrics.json',
             remoteEndpoint: options.remoteEndpoint ?? '',
@@ -54,10 +55,10 @@ export class PerformancePlugin extends BasePlugin {
         this.metricsCollector = new NodeSystemMetricsCollector();
 
         this.logger.info('PerformancePlugin initialized', {
-            strategy: this.options.strategy,
-            monitorMemory: this.options.monitorMemory,
-            monitorCPU: this.options.monitorCPU,
-            performanceThreshold: this.options.performanceThreshold
+            strategy: this.pluginOptions.strategy,
+            monitorMemory: this.pluginOptions.monitorMemory,
+            monitorCPU: this.pluginOptions.monitorCPU,
+            performanceThreshold: this.pluginOptions.performanceThreshold
         });
     }
 
@@ -66,9 +67,9 @@ export class PerformancePlugin extends BasePlugin {
      */
     async recordMetrics(metrics: Omit<PerformanceMetrics, 'timestamp' | 'memoryUsage' | 'cpuUsage' | 'networkStats'>): Promise<void> {
         try {
-            const memoryUsage = this.options.monitorMemory ? await this.metricsCollector.getMemoryUsage() : undefined;
-            const cpuUsage = this.options.monitorCPU ? await this.metricsCollector.getCPUUsage() : undefined;
-            const networkStats = this.options.monitorNetwork ? await this.metricsCollector.getNetworkStats() : undefined;
+            const memoryUsage = this.pluginOptions.monitorMemory ? await this.metricsCollector.getMemoryUsage() : undefined;
+            const cpuUsage = this.pluginOptions.monitorCPU ? await this.metricsCollector.getCPUUsage() : undefined;
+            const networkStats = this.pluginOptions.monitorNetwork ? await this.metricsCollector.getNetworkStats() : undefined;
 
             const entry: PerformanceMetrics = {
                 ...metrics,
@@ -81,11 +82,11 @@ export class PerformancePlugin extends BasePlugin {
             await this.storage.save(entry);
 
             // Log warning if performance threshold exceeded
-            if (entry.duration > this.options.performanceThreshold) {
+            if (entry.duration > this.pluginOptions.performanceThreshold) {
                 this.logger.warn('Performance threshold exceeded', {
                     operation: entry.operation,
                     duration: entry.duration,
-                    threshold: this.options.performanceThreshold,
+                    threshold: this.pluginOptions.performanceThreshold,
                     executionId: entry.executionId
                 });
             }
@@ -174,13 +175,13 @@ export class PerformancePlugin extends BasePlugin {
     }
 
     private createStorage(): PerformanceStorage {
-        switch (this.options.strategy) {
+        switch (this.pluginOptions.strategy) {
             case 'memory':
-                return new MemoryPerformanceStorage(this.options.maxEntries);
+                return new MemoryPerformanceStorage(this.pluginOptions.maxEntries);
             default:
                 // For now, fallback to memory storage for other strategies
-                this.logger.warn(`Strategy '${this.options.strategy}' not fully implemented, using memory storage`);
-                return new MemoryPerformanceStorage(this.options.maxEntries);
+                this.logger.warn(`Strategy '${this.pluginOptions.strategy}' not fully implemented, using memory storage`);
+                return new MemoryPerformanceStorage(this.pluginOptions.maxEntries);
         }
     }
 } 

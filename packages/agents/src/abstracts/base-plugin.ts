@@ -86,23 +86,29 @@ export interface PluginData {
     metadata?: Record<string, string | number | boolean>;
 }
 
-
-
 /**
- * Base plugin interface
+ * Type-safe plugin interface with type parameters
+ * 
+ * @template TOptions - Plugin options type
+ * @template TContext - Plugin context type  
+ * @template TStats - Plugin statistics type
  */
-export interface BasePluginInterface {
+export interface TypeSafePluginInterface<TOptions = Record<string, unknown>, TStats = Record<string, unknown>> {
     name: string;
     version: string;
     enabled: boolean;
 
-    initialize(config?: PluginConfig): Promise<void>;
-    beforeExecution?(tool: string, parameters: ToolParameters): Promise<void>;
-    afterExecution?(tool: string, result: ToolExecutionResult): Promise<void>;
-    onError?(error: Error, context: ErrorContext): Promise<void>;
+    initialize(options?: TOptions): Promise<void>;
     cleanup?(): Promise<void>;
     getData?(): PluginData;
+    getStats?(): TStats;
 }
+
+/**
+ * Base plugin interface (legacy)
+ * @deprecated Use TypeSafePluginInterface instead
+ */
+export interface BasePluginInterface extends TypeSafePluginInterface<PluginConfig, Record<string, unknown>> { }
 
 /**
  * Plugin lifecycle hooks
@@ -185,10 +191,15 @@ export interface PluginHooks {
 }
 
 /**
- * Base abstract class for all plugins
+ * Base abstract class for all plugins with type parameter support
  * Provides plugin lifecycle management and common functionality
+ * 
+ * @template TOptions - Plugin options type (defaults to PluginConfig for backward compatibility)
+ * @template TContext - Plugin context type (defaults to BaseExecutionContext for backward compatibility)
+ * @template TStats - Plugin statistics type (defaults to Record<string, unknown> for backward compatibility)
  */
-export abstract class BasePlugin implements PluginHooks {
+export abstract class BasePlugin<TOptions = PluginConfig, TStats = Record<string, unknown>>
+    implements TypeSafePluginInterface<TOptions, TStats>, PluginHooks {
     /** Plugin name */
     abstract readonly name: string;
 
@@ -196,12 +207,16 @@ export abstract class BasePlugin implements PluginHooks {
     abstract readonly version: string;
 
     /** Plugin enabled state */
-    protected enabled = true;
+    public enabled = true;
+
+    /** Plugin options */
+    protected options: TOptions | undefined;
 
     /**
-     * Initialize the plugin
+     * Initialize the plugin with type-safe options
      */
-    async initialize(): Promise<void> {
+    async initialize(options?: TOptions): Promise<void> {
+        this.options = options;
         // Default implementation - can be overridden
     }
 

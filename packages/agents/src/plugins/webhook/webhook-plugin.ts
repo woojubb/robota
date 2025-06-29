@@ -24,11 +24,11 @@ import type {
  * Webhook Plugin using Facade Pattern
  * Provides a clean interface for webhook functionality
  */
-export class WebhookPlugin extends BasePlugin {
+export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPluginStats> {
     name = 'WebhookPlugin';
     version = '1.0.0';
 
-    private options: Required<WebhookPluginOptions>;
+    private pluginOptions: Required<WebhookPluginOptions>;
     private logger: Logger;
     private httpClient: WebhookHttpClient;
     private requestQueue: WebhookRequest[] = [];
@@ -45,7 +45,7 @@ export class WebhookPlugin extends BasePlugin {
         }
 
         // Set default options
-        this.options = {
+        this.pluginOptions = {
             events: ['execution.complete', 'conversation.complete', 'tool.executed', 'error.occurred'],
             defaultTimeout: 5000,
             defaultRetries: 3,
@@ -65,14 +65,14 @@ export class WebhookPlugin extends BasePlugin {
 
         this.validateEndpoints();
 
-        if (this.options.batching.enabled) {
+        if (this.pluginOptions.batching.enabled) {
             this.setupBatching();
         }
 
         this.logger.info('WebhookPlugin initialized', {
-            endpointCount: this.options.endpoints.length,
-            events: this.options.events,
-            batching: this.options.batching.enabled
+            endpointCount: this.pluginOptions.endpoints.length,
+            events: this.pluginOptions.events,
+            batching: this.pluginOptions.batching.enabled
         });
     }
 
@@ -149,14 +149,14 @@ export class WebhookPlugin extends BasePlugin {
         data: WebhookEventData,
         metadata?: WebhookMetadata
     ): Promise<void> {
-        if (!this.options.events.includes(event)) {
+        if (!this.pluginOptions.events.includes(event)) {
             return;
         }
 
         const payload: WebhookPayload = {
             event,
             timestamp: new Date().toISOString(),
-            data: this.options.payloadTransformer(event, data),
+            data: this.pluginOptions.payloadTransformer(event, data),
             ...(metadata && { metadata })
         };
 
@@ -171,10 +171,10 @@ export class WebhookPlugin extends BasePlugin {
         });
 
         // Batch or send immediately
-        if (this.options.batching.enabled) {
+        if (this.pluginOptions.batching.enabled) {
             this.batchQueue.push(payload);
 
-            if (this.batchQueue.length >= this.options.batching.maxSize) {
+            if (this.batchQueue.length >= this.pluginOptions.batching.maxSize) {
                 await this.flushBatch();
             }
         } else {
@@ -206,7 +206,7 @@ export class WebhookPlugin extends BasePlugin {
             timestamp: new Date()
         }));
 
-        if (this.options.async) {
+        if (this.pluginOptions.async) {
             // Add to queue for async processing
             this.requestQueue.push(...requests);
             this.processQueue();
@@ -220,7 +220,7 @@ export class WebhookPlugin extends BasePlugin {
      * Process webhook request queue
      */
     private async processQueue(): Promise<void> {
-        while (this.requestQueue.length > 0 && this.activeConcurrency < this.options.maxConcurrency) {
+        while (this.requestQueue.length > 0 && this.activeConcurrency < this.pluginOptions.maxConcurrency) {
             const request = this.requestQueue.shift();
             if (!request) break;
 
@@ -241,7 +241,7 @@ export class WebhookPlugin extends BasePlugin {
      * Get endpoints that should receive the event
      */
     private getEndpointsForEvent(event: WebhookEventType): WebhookEndpoint[] {
-        return this.options.endpoints.filter(endpoint => {
+        return this.pluginOptions.endpoints.filter(endpoint => {
             if (!endpoint.events || endpoint.events.length === 0) {
                 return true; // No event filter means all events
             }
@@ -255,7 +255,7 @@ export class WebhookPlugin extends BasePlugin {
     private setupBatching(): void {
         this.batchTimer = setInterval(() => {
             this.flushBatch();
-        }, this.options.batching.flushInterval);
+        }, this.pluginOptions.batching.flushInterval);
     }
 
     /**
@@ -281,7 +281,7 @@ export class WebhookPlugin extends BasePlugin {
      * Validate webhook endpoints
      */
     private validateEndpoints(): void {
-        for (const endpoint of this.options.endpoints) {
+        for (const endpoint of this.pluginOptions.endpoints) {
             if (!endpoint.url) {
                 throw new PluginError(`Webhook endpoint URL is required`, this.name);
             }
@@ -312,11 +312,11 @@ export class WebhookPlugin extends BasePlugin {
      */
     getStats(): WebhookPluginStats {
         return {
-            endpointCount: this.options.endpoints.length,
+            endpointCount: this.pluginOptions.endpoints.length,
             queueLength: this.requestQueue.length,
             batchQueueLength: this.batchQueue.length,
             activeConcurrency: this.activeConcurrency,
-            supportedEvents: this.options.events,
+            supportedEvents: this.pluginOptions.events,
             totalSent: 0, // TODO: Track total sent webhooks
             totalErrors: 0, // TODO: Track total webhook errors
             averageResponseTime: 0 // TODO: Track average response time

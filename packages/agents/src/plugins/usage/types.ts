@@ -100,4 +100,22 @@ export interface UsageStorage {
     clear(): Promise<void>;
     flush(): Promise<void>;
     close(): Promise<void>;
+}
+
+/**
+ * Usage plugin statistics
+ */
+export interface UsagePluginStats {
+    /** Total number of usage entries tracked */
+    entriesTracked: number;
+    /** Total tokens tracked */
+    totalTokens: number;
+    /** Total cost tracked */
+    totalCost: number;
+    /** Current tracking strategy */
+    strategy: UsageTrackingStrategy;
+    /** Last tracking timestamp */
+    lastTrackTime?: Date;
+    /** Number of failed tracking attempts */
+    failedTracking: number;
 } 

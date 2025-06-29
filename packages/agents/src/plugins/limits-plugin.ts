@@ -99,11 +99,11 @@ interface TokenBucket {
  * Plugin for rate limiting and resource control
  * Enforces limits on token usage, request frequency, and costs
  */
-export class LimitsPlugin extends BasePlugin {
+export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsStatusData> {
     name = 'LimitsPlugin';
     version = '1.0.0';
 
-    private options: Required<LimitsPluginOptions>;
+    private pluginOptions: Required<LimitsPluginOptions>;
     private logger: Logger;
     private windows = new Map<string, LimitWindow>();
     private buckets = new Map<string, TokenBucket>();
@@ -114,7 +114,7 @@ export class LimitsPlugin extends BasePlugin {
         this.logger = createLogger('LimitsPlugin');
 
         // Set defaults
-        this.options = {
+        this.pluginOptions = {
             strategy: options.strategy,
             maxTokens: options.maxTokens ?? 100000,
             maxRequests: options.maxRequests ?? 1000,
@@ -127,10 +127,10 @@ export class LimitsPlugin extends BasePlugin {
         };
 
         this.logger.info('LimitsPlugin initialized', {
-            strategy: this.options.strategy,
-            maxTokens: this.options.maxTokens,
-            maxRequests: this.options.maxRequests,
-            timeWindow: this.options.timeWindow
+            strategy: this.pluginOptions.strategy,
+            maxTokens: this.pluginOptions.maxTokens,
+            maxRequests: this.pluginOptions.maxRequests,
+            timeWindow: this.pluginOptions.timeWindow
         });
     }
 
@@ -138,14 +138,14 @@ export class LimitsPlugin extends BasePlugin {
      * Check limits before execution
      */
     override async beforeExecution(context: BaseExecutionContext): Promise<void> {
-        if (this.options.strategy === 'none') {
+        if (this.pluginOptions.strategy === 'none') {
             return;
         }
 
         const key = this.getKey(context);
 
         try {
-            switch (this.options.strategy) {
+            switch (this.pluginOptions.strategy) {
                 case 'token-bucket':
                     await this.checkTokenBucket(key, context);
                     break;
@@ -158,13 +158,13 @@ export class LimitsPlugin extends BasePlugin {
             }
 
             this.logger.debug('Limits check passed', {
-                strategy: this.options.strategy,
+                strategy: this.pluginOptions.strategy,
                 key
             });
 
         } catch (error) {
             this.logger.warn('Limits check failed', {
-                strategy: this.options.strategy,
+                strategy: this.pluginOptions.strategy,
                 key,
                 error: error instanceof Error ? error.message : String(error)
             });
@@ -176,16 +176,16 @@ export class LimitsPlugin extends BasePlugin {
      * Update limits after execution
      */
     override async afterExecution(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> {
-        if (this.options.strategy === 'none') {
+        if (this.pluginOptions.strategy === 'none') {
             return;
         }
 
         const key = this.getKey(context);
         const tokensUsed = result?.tokensUsed || 0;
-        const cost = this.options.costCalculator(tokensUsed, (context.config?.['model'] as string) || 'unknown');
+        const cost = this.pluginOptions.costCalculator(tokensUsed, (context.config?.['model'] as string) || 'unknown');
 
         try {
-            switch (this.options.strategy) {
+            switch (this.pluginOptions.strategy) {
                 case 'token-bucket':
                     this.updateTokenBucket(key, tokensUsed, cost);
                     break;
@@ -196,7 +196,7 @@ export class LimitsPlugin extends BasePlugin {
             }
 
             this.logger.debug('Limits updated after execution', {
-                strategy: this.options.strategy,
+                strategy: this.pluginOptions.strategy,
                 key,
                 tokensUsed,
                 cost
@@ -204,7 +204,7 @@ export class LimitsPlugin extends BasePlugin {
 
         } catch (error) {
             this.logger.error('Failed to update limits', {
-                strategy: this.options.strategy,
+                strategy: this.pluginOptions.strategy,
                 key,
                 error: error instanceof Error ? error.message : String(error)
             });
@@ -220,8 +220,8 @@ export class LimitsPlugin extends BasePlugin {
 
         // Refill bucket
         const timePassed = (now - bucket.lastRefill) / 1000;
-        const tokensToAdd = timePassed * this.options.refillRate;
-        bucket.tokens = Math.min(this.options.bucketSize, bucket.tokens + tokensToAdd);
+        const tokensToAdd = timePassed * this.pluginOptions.refillRate;
+        bucket.tokens = Math.min(this.pluginOptions.bucketSize, bucket.tokens + tokensToAdd);
         bucket.lastRefill = now;
 
         // Check if we can process this request
@@ -235,26 +235,26 @@ export class LimitsPlugin extends BasePlugin {
         }
 
         // Check time window limits for requests and cost
-        if (now - bucket.windowStart >= this.options.timeWindow) {
+        if (now - bucket.windowStart >= this.pluginOptions.timeWindow) {
             bucket.requests = 0;
             bucket.cost = 0;
             bucket.windowStart = now;
         }
 
-        if (bucket.requests >= this.options.maxRequests) {
+        if (bucket.requests >= this.pluginOptions.maxRequests) {
             throw new PluginError(
-                `Request limit exceeded. Max: ${this.options.maxRequests}`,
+                `Request limit exceeded. Max: ${this.pluginOptions.maxRequests}`,
                 this.name,
-                { currentRequests: bucket.requests, maxRequests: this.options.maxRequests }
+                { currentRequests: bucket.requests, maxRequests: this.pluginOptions.maxRequests }
             );
         }
 
-        const estimatedCost = this.options.costCalculator(estimatedTokens, context.config?.model || 'unknown');
-        if (bucket.cost + estimatedCost > this.options.maxCost) {
+        const estimatedCost = this.pluginOptions.costCalculator(estimatedTokens, context.config?.model || 'unknown');
+        if (bucket.cost + estimatedCost > this.pluginOptions.maxCost) {
             throw new PluginError(
-                `Cost limit exceeded. Current: $${bucket.cost.toFixed(4)}, Estimated: $${estimatedCost.toFixed(4)}, Max: $${this.options.maxCost}`,
+                `Cost limit exceeded. Current: $${bucket.cost.toFixed(4)}, Estimated: $${estimatedCost.toFixed(4)}, Max: $${this.pluginOptions.maxCost}`,
                 this.name,
-                { currentCost: bucket.cost, estimatedCost, maxCost: this.options.maxCost }
+                { currentCost: bucket.cost, estimatedCost, maxCost: this.pluginOptions.maxCost }
             );
         }
 
@@ -272,31 +272,31 @@ export class LimitsPlugin extends BasePlugin {
 
         // For sliding window, we track usage more granularly
         // This is a simplified implementation
-        if (now - window.windowStart < this.options.timeWindow) {
+        if (now - window.windowStart < this.pluginOptions.timeWindow) {
             const estimatedTokens = this.estimateTokens(context);
-            const estimatedCost = this.options.costCalculator(estimatedTokens, context.config?.model || 'unknown');
+            const estimatedCost = this.pluginOptions.costCalculator(estimatedTokens, context.config?.model || 'unknown');
 
-            if (window.tokens + estimatedTokens > this.options.maxTokens) {
+            if (window.tokens + estimatedTokens > this.pluginOptions.maxTokens) {
                 throw new PluginError(
-                    `Token limit exceeded in sliding window. Current: ${window.tokens}, Estimated: ${estimatedTokens}, Max: ${this.options.maxTokens}`,
+                    `Token limit exceeded in sliding window. Current: ${window.tokens}, Estimated: ${estimatedTokens}, Max: ${this.pluginOptions.maxTokens}`,
                     this.name,
-                    { currentTokens: window.tokens, estimatedTokens, maxTokens: this.options.maxTokens }
+                    { currentTokens: window.tokens, estimatedTokens, maxTokens: this.pluginOptions.maxTokens }
                 );
             }
 
-            if (window.count >= this.options.maxRequests) {
+            if (window.count >= this.pluginOptions.maxRequests) {
                 throw new PluginError(
-                    `Request limit exceeded in sliding window. Current: ${window.count}, Max: ${this.options.maxRequests}`,
+                    `Request limit exceeded in sliding window. Current: ${window.count}, Max: ${this.pluginOptions.maxRequests}`,
                     this.name,
-                    { currentRequests: window.count, maxRequests: this.options.maxRequests }
+                    { currentRequests: window.count, maxRequests: this.pluginOptions.maxRequests }
                 );
             }
 
-            if (window.cost + estimatedCost > this.options.maxCost) {
+            if (window.cost + estimatedCost > this.pluginOptions.maxCost) {
                 throw new PluginError(
-                    `Cost limit exceeded in sliding window. Current: $${window.cost.toFixed(4)}, Estimated: $${estimatedCost.toFixed(4)}, Max: $${this.options.maxCost}`,
+                    `Cost limit exceeded in sliding window. Current: $${window.cost.toFixed(4)}, Estimated: $${estimatedCost.toFixed(4)}, Max: $${this.pluginOptions.maxCost}`,
                     this.name,
-                    { currentCost: window.cost, estimatedCost, maxCost: this.options.maxCost }
+                    { currentCost: window.cost, estimatedCost, maxCost: this.pluginOptions.maxCost }
                 );
             }
         } else {
@@ -318,7 +318,7 @@ export class LimitsPlugin extends BasePlugin {
         const window = this.getWindow(key);
 
         // Reset window if expired
-        if (now - window.windowStart >= this.options.timeWindow) {
+        if (now - window.windowStart >= this.pluginOptions.timeWindow) {
             window.count = 0;
             window.tokens = 0;
             window.cost = 0;
@@ -326,29 +326,29 @@ export class LimitsPlugin extends BasePlugin {
         }
 
         const estimatedTokens = this.estimateTokens(context);
-        const estimatedCost = this.options.costCalculator(estimatedTokens, context.config?.model || 'unknown');
+        const estimatedCost = this.pluginOptions.costCalculator(estimatedTokens, context.config?.model || 'unknown');
 
-        if (window.tokens + estimatedTokens > this.options.maxTokens) {
+        if (window.tokens + estimatedTokens > this.pluginOptions.maxTokens) {
             throw new PluginError(
-                `Token limit exceeded in fixed window. Current: ${window.tokens}, Estimated: ${estimatedTokens}, Max: ${this.options.maxTokens}`,
+                `Token limit exceeded in fixed window. Current: ${window.tokens}, Estimated: ${estimatedTokens}, Max: ${this.pluginOptions.maxTokens}`,
                 this.name,
-                { currentTokens: window.tokens, estimatedTokens, maxTokens: this.options.maxTokens }
+                { currentTokens: window.tokens, estimatedTokens, maxTokens: this.pluginOptions.maxTokens }
             );
         }
 
-        if (window.count >= this.options.maxRequests) {
+        if (window.count >= this.pluginOptions.maxRequests) {
             throw new PluginError(
-                `Request limit exceeded in fixed window. Current: ${window.count}, Max: ${this.options.maxRequests}`,
+                `Request limit exceeded in fixed window. Current: ${window.count}, Max: ${this.pluginOptions.maxRequests}`,
                 this.name,
-                { currentRequests: window.count, maxRequests: this.options.maxRequests }
+                { currentRequests: window.count, maxRequests: this.pluginOptions.maxRequests }
             );
         }
 
-        if (window.cost + estimatedCost > this.options.maxCost) {
+        if (window.cost + estimatedCost > this.pluginOptions.maxCost) {
             throw new PluginError(
-                `Cost limit exceeded in fixed window. Current: $${window.cost.toFixed(4)}, Estimated: $${estimatedCost.toFixed(4)}, Max: $${this.options.maxCost}`,
+                `Cost limit exceeded in fixed window. Current: $${window.cost.toFixed(4)}, Estimated: $${estimatedCost.toFixed(4)}, Max: $${this.pluginOptions.maxCost}`,
                 this.name,
-                { currentCost: window.cost, estimatedCost, maxCost: this.options.maxCost }
+                { currentCost: window.cost, estimatedCost, maxCost: this.pluginOptions.maxCost }
             );
         }
 
@@ -378,7 +378,7 @@ export class LimitsPlugin extends BasePlugin {
     private getBucket(key: string): TokenBucket {
         if (!this.buckets.has(key)) {
             this.buckets.set(key, {
-                tokens: this.options.bucketSize,
+                tokens: this.pluginOptions.bucketSize,
                 lastRefill: Date.now(),
                 requests: 0,
                 cost: 0,
@@ -436,7 +436,7 @@ export class LimitsPlugin extends BasePlugin {
             'claude-3-haiku': 0.00025
         };
 
-        const costPer1000 = modelCosts[model] || this.options.tokenCostPer1000;
+        const costPer1000 = modelCosts[model] || this.pluginOptions.tokenCostPer1000;
         return (tokens / 1000) * costPer1000;
     }
 
@@ -458,7 +458,7 @@ export class LimitsPlugin extends BasePlugin {
             const window = this.windows.get(key);
 
             return {
-                strategy: this.options.strategy,
+                strategy: this.pluginOptions.strategy,
                 key,
                 bucket: bucket ? {
                     availableTokens: Math.floor(bucket.tokens),
@@ -475,7 +475,7 @@ export class LimitsPlugin extends BasePlugin {
         }
 
         return {
-            strategy: this.options.strategy,
+            strategy: this.pluginOptions.strategy,
             totalKeys: this.buckets.size + this.windows.size,
             bucketKeys: Array.from(this.buckets.keys()),
             windowKeys: Array.from(this.windows.keys())

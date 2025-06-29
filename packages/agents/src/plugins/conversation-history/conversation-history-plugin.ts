@@ -4,6 +4,7 @@ import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import {
     ConversationHistoryPluginOptions,
+    ConversationHistoryPluginStats,
     ConversationHistoryEntry,
     HistoryStorage
 } from './types';
@@ -17,12 +18,12 @@ import {
  * Plugin for managing conversation history
  * Saves and loads conversation history using configurable storage strategies
  */
-export class ConversationHistoryPlugin extends BasePlugin {
+export class ConversationHistoryPlugin extends BasePlugin<ConversationHistoryPluginOptions, ConversationHistoryPluginStats> {
     name = 'ConversationHistoryPlugin';
     version = '1.0.0';
 
     private storage: HistoryStorage;
-    private options: Required<ConversationHistoryPluginOptions>;
+    private pluginOptions: Required<ConversationHistoryPluginOptions>;
     private logger: Logger;
     private currentConversationId?: string;
     private batchSaveTimer?: NodeJS.Timeout;
@@ -36,7 +37,7 @@ export class ConversationHistoryPlugin extends BasePlugin {
         this.validateOptions(options);
 
         // Set defaults
-        this.options = {
+        this.pluginOptions = {
             storage: options.storage,
             maxConversations: options.maxConversations ?? 100,
             maxMessagesPerConversation: options.maxMessagesPerConversation ?? 1000,
@@ -50,14 +51,14 @@ export class ConversationHistoryPlugin extends BasePlugin {
         this.storage = this.createStorage();
 
         // Setup batch saving if not auto-saving
-        if (!this.options.autoSave) {
+        if (!this.pluginOptions.autoSave) {
             this.setupBatchSaving();
         }
 
         this.logger.info('ConversationHistoryPlugin initialized', {
-            storage: this.options.storage,
-            maxConversations: this.options.maxConversations,
-            autoSave: this.options.autoSave
+            storage: this.pluginOptions.storage,
+            maxConversations: this.pluginOptions.maxConversations,
+            autoSave: this.pluginOptions.autoSave
         });
     }
 
@@ -76,7 +77,7 @@ export class ConversationHistoryPlugin extends BasePlugin {
                 metadata: {}
             };
 
-            if (this.options.autoSave) {
+            if (this.pluginOptions.autoSave) {
                 await this.storage.save(conversationId, entry);
             } else {
                 this.pendingSaves.add(conversationId);
@@ -107,12 +108,12 @@ export class ConversationHistoryPlugin extends BasePlugin {
 
             // Add message and trim if necessary
             entry.messages.push(message);
-            if (entry.messages.length > this.options.maxMessagesPerConversation) {
-                entry.messages = entry.messages.slice(-this.options.maxMessagesPerConversation);
+            if (entry.messages.length > this.pluginOptions.maxMessagesPerConversation) {
+                entry.messages = entry.messages.slice(-this.pluginOptions.maxMessagesPerConversation);
             }
             entry.lastUpdated = new Date();
 
-            if (this.options.autoSave) {
+            if (this.pluginOptions.autoSave) {
                 await this.storage.save(this.currentConversationId, entry);
             } else {
                 this.pendingSaves.add(this.currentConversationId);
@@ -272,15 +273,15 @@ export class ConversationHistoryPlugin extends BasePlugin {
      * Create storage instance based on strategy
      */
     private createStorage(): HistoryStorage {
-        switch (this.options.storage) {
+        switch (this.pluginOptions.storage) {
             case 'memory':
-                return new MemoryHistoryStorage(this.options.maxConversations);
+                return new MemoryHistoryStorage(this.pluginOptions.maxConversations);
             case 'file':
-                return new FileHistoryStorage(this.options.filePath);
+                return new FileHistoryStorage(this.pluginOptions.filePath);
             case 'database':
-                return new DatabaseHistoryStorage(this.options.connectionString);
+                return new DatabaseHistoryStorage(this.pluginOptions.connectionString);
             default:
-                throw new ConfigurationError('Unknown storage strategy', { strategy: this.options.storage });
+                throw new ConfigurationError('Unknown storage strategy', { strategy: this.pluginOptions.storage });
         }
     }
 
@@ -296,6 +297,6 @@ export class ConversationHistoryPlugin extends BasePlugin {
                     error: error instanceof Error ? error.message : String(error)
                 });
             }
-        }, this.options.saveInterval);
+        }, this.pluginOptions.saveInterval);
     }
 } 

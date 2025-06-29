@@ -4,93 +4,24 @@ import type { RunOptions } from '../../interfaces/agent';
 import type { UniversalMessage } from '../../managers/conversation-history-manager';
 import { isAssistantMessage } from '../../managers/conversation-history-manager';
 import type { ToolParameters, ToolExecutionResult } from '../../interfaces/tool';
+import type {
+    ExecutionStats,
+    AggregatedExecutionStats,
+    ExecutionAnalyticsOptions,
+    ExecutionAnalyticsPluginStats
+} from './types';
 
-/**
- * Analytics context data for execution tracking
- */
-export interface AnalyticsContextData {
-    executionId?: string;
-    sessionId?: string;
-    userId?: string;
-    operation?: string;
-    toolName?: string;
-    parameterCount?: number;
-    inputLength?: number;
-    responseLength?: number;
-    hasOptions?: boolean;
-    hasError?: boolean;
-    resultType?: string;
-    errorSource?: string;
-    contextType?: string;
-    hasContext?: boolean;
-    modelName?: string;
-}
 
-/**
- * Execution statistics entry
- */
-export interface ExecutionStats {
-    executionId: string;
-    operation: string;
-    startTime: Date;
-    endTime: Date;
-    duration: number;
-    success: boolean;
-    error?: {
-        message: string;
-        stack?: string;
-        type: string;
-    };
-    metadata?: Record<string, string | number | boolean | Date | string[]>;
-}
-
-/**
- * Aggregated execution statistics
- */
-export interface AggregatedExecutionStats {
-    totalExecutions: number;
-    successfulExecutions: number;
-    failedExecutions: number;
-    successRate: number;
-    averageDuration: number;
-    totalDuration: number;
-    operationStats: Record<string, {
-        count: number;
-        successCount: number;
-        failureCount: number;
-        averageDuration: number;
-        totalDuration: number;
-    }>;
-    errorStats: Record<string, number>;
-    timeRange: {
-        start: Date;
-        end: Date;
-    };
-}
-
-/**
- * Plugin options
- */
-export interface ExecutionAnalyticsOptions {
-    /** Maximum number of entries to keep in memory */
-    maxEntries?: number;
-    /** Whether to track error details */
-    trackErrors?: boolean;
-    /** Performance threshold in milliseconds for warnings */
-    performanceThreshold?: number;
-    /** Enable performance warnings */
-    enableWarnings?: boolean;
-}
 
 /**
  * Plugin for tracking execution analytics automatically
  * Integrates with agent lifecycle to track performance without manual intervention
  */
-export class ExecutionAnalyticsPlugin extends BasePlugin {
+export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptions, ExecutionAnalyticsPluginStats> {
     name = 'ExecutionAnalyticsPlugin';
     version = '1.0.0';
 
-    private options: Required<ExecutionAnalyticsOptions>;
+    private pluginOptions: Required<ExecutionAnalyticsOptions>;
     private logger: Logger;
     private activeExecutions: Map<string, { startTime: number; operation: string; input?: string }> = new Map();
     private executionHistory: ExecutionStats[] = [];
@@ -99,14 +30,19 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
 
     constructor(options: ExecutionAnalyticsOptions = {}) {
         super();
-        this.options = {
+        this.pluginOptions = {
             maxEntries: options.maxEntries || 1000,
             trackErrors: options.trackErrors ?? true,
             performanceThreshold: options.performanceThreshold || 5000,
             enableWarnings: options.enableWarnings ?? true
         };
         this.logger = createLogger('ExecutionAnalyticsPlugin');
-        this.logger.info('ExecutionAnalyticsPlugin initialized', this.options);
+        this.logger.info('ExecutionAnalyticsPlugin initialized', {
+            maxEntries: this.pluginOptions.maxEntries,
+            trackErrors: this.pluginOptions.trackErrors,
+            performanceThreshold: this.pluginOptions.performanceThreshold,
+            enableWarnings: this.pluginOptions.enableWarnings
+        });
         this.initialized = true;
     }
 
@@ -164,11 +100,11 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
         this.activeExecutions.delete(executionId);
 
         // Performance warning
-        if (this.options.enableWarnings && duration > this.options.performanceThreshold) {
+        if (this.pluginOptions.enableWarnings && duration > this.pluginOptions.performanceThreshold) {
             this.logger.warn('Slow run execution detected', {
                 executionId,
                 duration,
-                threshold: this.options.performanceThreshold
+                threshold: this.pluginOptions.performanceThreshold
             });
         }
 
@@ -233,11 +169,11 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
         this.activeExecutions.delete(executionId);
 
         // Performance warning
-        if (this.options.enableWarnings && duration > this.options.performanceThreshold) {
+        if (this.pluginOptions.enableWarnings && duration > this.pluginOptions.performanceThreshold) {
             this.logger.warn('Slow provider call detected', {
                 executionId,
                 duration,
-                threshold: this.options.performanceThreshold
+                threshold: this.pluginOptions.performanceThreshold
             });
         }
 
@@ -283,7 +219,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
         const duration = endTime - executionData.startTime;
         const success = !result?.error;
 
-        const errorInfo = result?.error && this.options.trackErrors ? {
+        const errorInfo = result?.error && this.pluginOptions.trackErrors ? {
             message: String(result.error),
             // stack is optional in ExecutionStats interface
             type: 'ToolExecutionError'
@@ -328,7 +264,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
             const endTime = Date.now();
             const duration = endTime - executionData.startTime;
 
-            const errorInfo = this.options.trackErrors ? {
+            const errorInfo = this.pluginOptions.trackErrors ? {
                 message: error.message,
                 ...(error.stack && { stack: error.stack }),
                 type: error.constructor.name
@@ -593,7 +529,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin {
         this.executionHistory.push(stats);
 
         // Maintain max entries limit
-        if (this.executionHistory.length > this.options.maxEntries) {
+        if (this.executionHistory.length > this.pluginOptions.maxEntries) {
             this.executionHistory.shift();
         }
 
