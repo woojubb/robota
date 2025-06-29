@@ -47,7 +47,11 @@ describe('TeamContainer', () => {
                 provider: 'openai',
                 model: 'gpt-4o-mini',
                 aiProviders: {
-                    openai: {} as any
+                    openai: {
+                        chat: () => Promise.resolve('Mock response'),
+                        stream: () => Promise.resolve('Mock stream response'),
+                        validateConfig: () => true
+                    }
                 },
                 currentProvider: 'openai',
                 currentModel: 'gpt-4o-mini',

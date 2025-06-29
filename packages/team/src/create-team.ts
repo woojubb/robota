@@ -80,8 +80,8 @@ export function createTeam(options: TeamOptions): TeamContainer {
         throw new Error('At least one AI provider must be provided in aiProviders');
     }
 
-    const defaultProvider = providers[0];
-    const defaultModel = getDefaultModelForProvider(defaultProvider!) || 'gpt-4o-mini';
+    const defaultProvider = providers[0]!;
+    const defaultModel = getDefaultModelForProvider(defaultProvider) || 'gpt-4o-mini';
 
     // Convert to full TeamContainerOptions
     const fullOptions: TeamContainerOptions = {
@@ -115,6 +115,6 @@ function getDefaultModelForProvider(provider: string): string {
         case 'google':
             return 'gemini-pro';
         default:
-            return 'unknown';
+            return 'not_specified';
     }
 } 
