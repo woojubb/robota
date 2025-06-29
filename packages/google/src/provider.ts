@@ -1,8 +1,20 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { GenerateContentResult, GenerateContentStreamResult } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import type {
+    GenerateContentResult,
+    GenerateContentStreamResult,
+    Tool,
+    Content,
+    Part,
+    EnhancedGenerateContentResponse,
+    FunctionDeclaration,
+    Schema
+} from '@google/generative-ai';
 import { BaseAIProvider } from '@robota-sdk/agents';
 import type { UniversalMessage, ToolSchema, ChatOptions } from '@robota-sdk/agents';
 import type { GoogleProviderOptions } from './types';
+import type {
+    GoogleToolCall
+} from './types/api-types';
 
 /**
  * Google AI provider implementation for Robota
@@ -12,7 +24,11 @@ import type { GoogleProviderOptions } from './types';
  * 
  * @public
  */
-export class GoogleProvider extends BaseAIProvider {
+export class GoogleProvider extends BaseAIProvider<
+    GoogleProviderOptions,
+    UniversalMessage,
+    UniversalMessage
+> {
     readonly name = 'google';
     readonly version = '1.0.0';
 
@@ -40,7 +56,11 @@ export class GoogleProvider extends BaseAIProvider {
             const { contents, systemInstruction } = this.convertToGoogleMessages(messages);
 
             // 2. Configure Google AI model
-            const modelConfig: any = {
+            const modelConfig: {
+                model: string;
+                systemInstruction?: string;
+                tools?: Tool[];
+            } = {
                 model: options?.model || 'gemini-1.5-flash',
                 ...(systemInstruction && { systemInstruction })
             };
@@ -66,8 +86,9 @@ export class GoogleProvider extends BaseAIProvider {
             // 4. Convert Google response → UniversalMessage
             return this.convertFromGoogleResponse(result);
 
-        } catch (error: any) {
-            throw new Error(`Google AI chat failed: ${error.message}`);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            throw new Error(`Google AI chat failed: ${errorMessage}`);
         }
     }
 
@@ -82,7 +103,11 @@ export class GoogleProvider extends BaseAIProvider {
             const { contents, systemInstruction } = this.convertToGoogleMessages(messages);
 
             // 2. Configure Google AI model
-            const modelConfig: any = {
+            const modelConfig: {
+                model: string;
+                systemInstruction?: string;
+                tools?: Tool[];
+            } = {
                 model: options?.model || 'gemini-1.5-flash',
                 ...(systemInstruction && { systemInstruction })
             };
@@ -113,8 +138,9 @@ export class GoogleProvider extends BaseAIProvider {
                 }
             }
 
-        } catch (error: any) {
-            throw new Error(`Google AI stream failed: ${error.message}`);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            throw new Error(`Google AI stream failed: ${errorMessage}`);
         }
     }
 
@@ -133,7 +159,7 @@ export class GoogleProvider extends BaseAIProvider {
     /**
      * Convert UniversalMessage array to Google format
      */
-    private convertToGoogleMessages(messages: UniversalMessage[]): { contents: any[], systemInstruction?: string } {
+    private convertToGoogleMessages(messages: UniversalMessage[]): { contents: Content[], systemInstruction?: string } {
         const systemMessage = messages.find(msg => msg.role === 'system');
         const nonSystemMessages = messages.filter(msg => msg.role !== 'system');
 
@@ -145,15 +171,15 @@ export class GoogleProvider extends BaseAIProvider {
                         parts: [{ text: msg.content || '' }]
                     };
                 case 'assistant': {
-                    const parts: any[] = [];
+                    const parts: Part[] = [];
 
                     if (msg.content) {
                         parts.push({ text: msg.content });
                     }
 
                     // Handle tool calls (Google uses function calls)
-                    if ((msg as any).toolCalls) {
-                        for (const toolCall of (msg as any).toolCalls) {
+                    if ('toolCalls' in msg && msg.toolCalls) {
+                        for (const toolCall of msg.toolCalls) {
                             parts.push({
                                 functionCall: {
                                     name: toolCall.function.name,
@@ -173,13 +199,15 @@ export class GoogleProvider extends BaseAIProvider {
                         role: 'function',
                         parts: [{
                             functionResponse: {
-                                name: (msg as any).name || 'unknown',
+                                name: ('name' in msg && typeof msg.name === 'string') ? msg.name : 'unknown',
                                 response: JSON.parse(msg.content || '{}')
                             }
                         }]
                     };
-                default:
-                    throw new Error(`Unsupported message role: ${(msg as any).role}`);
+                default: {
+                    const unsupportedMsg = msg as UniversalMessage;
+                    throw new Error(`Unsupported message role: ${unsupportedMsg.role}`);
+                }
             }
         });
 
@@ -192,14 +220,54 @@ export class GoogleProvider extends BaseAIProvider {
     /**
      * Convert tool schemas to Google format
      */
-    private convertToGoogleTools(tools: ToolSchema[]): any[] {
+    private convertToGoogleTools(tools: ToolSchema[]): Tool[] {
         return tools.map(tool => ({
             functionDeclarations: [{
                 name: tool.name,
-                description: tool.description,
-                parameters: tool.parameters
-            }]
+                description: tool.description || undefined,
+                parameters: this.convertToGoogleSchema(tool.parameters)
+            } as FunctionDeclaration]
         }));
+    }
+
+    /**
+     * Convert ToolSchema parameters to Google Schema format
+     */
+    private convertToGoogleSchema(parameters: ToolSchema['parameters']): Schema {
+        return {
+            type: SchemaType.OBJECT,
+            properties: Object.fromEntries(
+                Object.entries(parameters.properties || {}).map(([key, value]) => [
+                    key,
+                    {
+                        type: this.convertToSchemaType(value.type || 'string'),
+                        description: value.description
+                    }
+                ])
+            ),
+            required: parameters.required
+        };
+    }
+
+    /**
+     * Convert JSONSchemaType to Google SchemaType
+     */
+    private convertToSchemaType(type: string): SchemaType {
+        switch (type) {
+            case 'string':
+                return SchemaType.STRING;
+            case 'number':
+            case 'integer':
+                return SchemaType.NUMBER;
+            case 'boolean':
+                return SchemaType.BOOLEAN;
+            case 'array':
+                return SchemaType.ARRAY;
+            case 'object':
+                return SchemaType.OBJECT;
+            default:
+                return SchemaType.STRING;
+        }
     }
 
     /**
@@ -214,7 +282,7 @@ export class GoogleProvider extends BaseAIProvider {
         }
 
         let content = '';
-        const toolCalls: any[] = [];
+        const toolCalls: GoogleToolCall[] = [];
 
         // Process parts from the candidate
         for (const part of candidate.content?.parts || []) {
@@ -243,7 +311,7 @@ export class GoogleProvider extends BaseAIProvider {
     /**
      * Convert Google streaming chunk to UniversalMessage
      */
-    private convertFromGoogleChunk(chunk: any): UniversalMessage | null {
+    private convertFromGoogleChunk(chunk: EnhancedGenerateContentResponse): UniversalMessage | null {
         const candidate = chunk.candidates?.[0];
 
         if (!candidate) {
@@ -251,7 +319,7 @@ export class GoogleProvider extends BaseAIProvider {
         }
 
         let content = '';
-        const toolCalls: any[] = [];
+        const toolCalls: GoogleToolCall[] = [];
 
         // Process parts from the candidate
         for (const part of candidate.content?.parts || []) {
