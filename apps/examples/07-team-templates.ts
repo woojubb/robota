@@ -196,9 +196,7 @@ async function main() {
     }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-    main().catch((error) => {
-        console.error('❌ Error:', error);
-        process.exit(1);
-    });
-} 
+main().catch((error) => {
+    console.error('❌ Error:', error);
+    process.exit(1);
+}); 

@@ -90,15 +90,14 @@ async function main() {
     }
 }
 
-// Auto-run if this file is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-    main()
-        .then(() => {
-            console.log('\\n✅ Example completed successfully');
-            process.exit(0);
-        })
-        .catch((error) => {
-            console.error('\\n❌ Example failed:', error);
-            process.exit(1);
-        });
-} 
+// Auto-run when executed directly
+main()
+    .then(() => {
+        console.log('\\n✅ Example completed successfully');
+        console.log('🧹 Cleanup completed. Exiting...');
+        process.exit(0);
+    })
+    .catch((error) => {
+        console.error('\\n❌ Example failed:', error);
+        process.exit(1);
+    }); 

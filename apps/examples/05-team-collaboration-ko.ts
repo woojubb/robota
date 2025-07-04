@@ -194,9 +194,7 @@ async function main() {
     process.exit(0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-    main().catch((error) => {
-        console.error(chalk.red('❌ 오류:'), error);
-        process.exit(1);
-    });
-} 
+main().catch((error) => {
+    console.error(chalk.red('❌ 오류:'), error);
+    process.exit(1);
+}); 

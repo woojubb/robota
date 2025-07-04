@@ -187,12 +187,11 @@ where the task_coordinator template automatically handles team collaboration wit
 // Run example
 async function main() {
     await runTeamExample();
+    console.log(chalk.blue('\n🧹 Cleanup completed. Exiting...'));
     process.exit(0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-    main().catch((error) => {
-        console.error(chalk.red('❌ Error:'), error);
-        process.exit(1);
-    });
-} 
+main().catch((error) => {
+    console.error(chalk.red('❌ Error:'), error);
+    process.exit(1);
+}); 
