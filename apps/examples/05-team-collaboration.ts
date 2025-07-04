@@ -194,4 +194,4 @@ async function main() {
 main().catch((error) => {
     console.error(chalk.red('❌ Error:'), error);
     process.exit(1);
-}); 
+});
