@@ -100,4 +100,4 @@ main()
     .catch((error) => {
         console.error('\\n❌ Example failed:', error);
         process.exit(1);
-    }); 
+    });
