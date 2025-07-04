@@ -153,10 +153,12 @@ export interface WebhookEndpoint {
     secret?: string;
 }
 
+import type { BasePluginOptions } from '../../abstracts/base-plugin';
+
 /**
  * Webhook plugin configuration options
  */
-export interface WebhookPluginOptions {
+export interface WebhookPluginOptions extends BasePluginOptions {
     /** Webhook endpoints */
     endpoints: WebhookEndpoint[];
     /** Events to send webhooks for */

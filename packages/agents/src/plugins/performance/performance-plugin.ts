@@ -34,6 +34,7 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
 
         // Set defaults
         this.pluginOptions = {
+            enabled: options.enabled ?? true,
             strategy: options.strategy,
             filePath: options.filePath ?? './performance-metrics.json',
             remoteEndpoint: options.remoteEndpoint ?? '',

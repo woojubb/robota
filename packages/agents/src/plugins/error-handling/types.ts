@@ -32,10 +32,12 @@ export interface ErrorHandlingContextData {
     [key: string]: string | number | boolean | undefined;
 }
 
+import type { BasePluginOptions } from '../../abstracts/base-plugin';
+
 /**
  * Configuration options for error handling plugin
  */
-export interface ErrorHandlingPluginOptions {
+export interface ErrorHandlingPluginOptions extends BasePluginOptions {
     /** Error handling strategy to use */
     strategy: ErrorHandlingStrategy;
     /** Maximum number of retry attempts */

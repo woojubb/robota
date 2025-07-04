@@ -62,6 +62,7 @@ export class LoggingPlugin extends BasePlugin<LoggingPluginOptions, LoggingPlugi
 
         // Set defaults
         this.pluginOptions = {
+            enabled: options.enabled ?? true,
             strategy: options.strategy,
             level: options.level ?? 'info',
             filePath: options.filePath ?? './agent.log',

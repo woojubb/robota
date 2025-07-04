@@ -46,6 +46,7 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
 
         // Set default options
         this.pluginOptions = {
+            enabled: options.enabled ?? true,
             events: ['execution.complete', 'conversation.complete', 'tool.executed', 'error.occurred'],
             defaultTimeout: 5000,
             defaultRetries: 3,

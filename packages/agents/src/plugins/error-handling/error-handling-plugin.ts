@@ -33,6 +33,7 @@ export class ErrorHandlingPlugin extends BasePlugin<ErrorHandlingPluginOptions, 
 
         // Set defaults
         this.pluginOptions = {
+            enabled: options.enabled ?? true,
             strategy: options.strategy,
             maxRetries: options.maxRetries ?? 3,
             retryDelay: options.retryDelay ?? 1000,

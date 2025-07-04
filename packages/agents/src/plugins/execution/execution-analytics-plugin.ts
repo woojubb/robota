@@ -31,6 +31,7 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
     constructor(options: ExecutionAnalyticsOptions = {}) {
         super();
         this.pluginOptions = {
+            enabled: options.enabled ?? true,
             maxEntries: options.maxEntries || 1000,
             trackErrors: options.trackErrors ?? true,
             performanceThreshold: options.performanceThreshold || 5000,

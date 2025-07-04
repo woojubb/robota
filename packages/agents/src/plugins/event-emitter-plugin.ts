@@ -108,10 +108,12 @@ interface EventHandler {
     filter?: (event: EventData) => boolean;
 }
 
+import type { BasePluginOptions } from '../abstracts/base-plugin';
+
 /**
  * Event emitter configuration
  */
-export interface EventEmitterPluginOptions {
+export interface EventEmitterPluginOptions extends BasePluginOptions {
     /** Events to listen for */
     events?: EventType[];
     /** Maximum number of listeners per event type */
@@ -163,6 +165,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
         this.logger = createLogger('EventEmitterPlugin');
 
         this.pluginOptions = {
+            enabled: options.enabled ?? true,
             events: options.events ?? [
                 'execution.start',
                 'execution.complete',

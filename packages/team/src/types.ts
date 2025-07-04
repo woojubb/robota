@@ -1,4 +1,4 @@
-import type { AgentConfig as RobotaAgentConfig, AgentTemplate, BaseAIProvider } from '@robota-sdk/agents';
+import type { AgentConfig as RobotaAgentConfig, AgentTemplate, AIProvider } from '@robota-sdk/agents';
 
 /**
  * Team creation options for template-based teams
@@ -24,7 +24,7 @@ export interface TeamOptions {
      * AI providers available for templates to use.
      * Each template specifies which provider it prefers.
      */
-    aiProviders: Record<string, BaseAIProvider>;
+    aiProviders: Record<string, AIProvider>;
 
     /** 
      * Maximum number of team members that can be created concurrently.

@@ -1,4 +1,5 @@
 import { Message } from '../../interfaces/agent';
+import type { BasePluginOptions } from '../../abstracts/base-plugin';
 
 /**
  * Storage strategy for conversation history
@@ -8,7 +9,7 @@ export type HistoryStorageStrategy = 'memory' | 'file' | 'database';
 /**
  * Configuration options for conversation history plugin
  */
-export interface ConversationHistoryPluginOptions {
+export interface ConversationHistoryPluginOptions extends BasePluginOptions {
     /** Storage strategy to use */
     storage: HistoryStorageStrategy;
     /** Maximum number of conversations to store */

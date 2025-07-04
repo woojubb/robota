@@ -62,10 +62,12 @@ export interface AggregatedUsageStats {
     };
 }
 
+import type { BasePluginOptions } from '../../abstracts/base-plugin';
+
 /**
  * Configuration options for usage plugin
  */
-export interface UsagePluginOptions {
+export interface UsagePluginOptions extends BasePluginOptions {
     /** Usage tracking strategy to use */
     strategy: UsageTrackingStrategy;
     /** File path for file strategy */
