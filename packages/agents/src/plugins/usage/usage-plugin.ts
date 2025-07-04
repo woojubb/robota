@@ -37,6 +37,7 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
 
         // Set defaults
         this.pluginOptions = {
+            enabled: options.enabled ?? true,
             strategy: options.strategy,
             filePath: options.filePath ?? './usage-stats.json',
             remoteEndpoint: options.remoteEndpoint ?? '',

@@ -26,10 +26,12 @@ export interface LogEntry {
     };
 }
 
+import type { BasePluginOptions } from '../../abstracts/base-plugin';
+
 /**
  * Configuration options for logging plugin
  */
-export interface LoggingPluginOptions {
+export interface LoggingPluginOptions extends BasePluginOptions {
     /** Logging strategy to use */
     strategy: LoggingStrategy;
     /** Minimum log level to capture */

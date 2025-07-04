@@ -9,7 +9,7 @@
  */
 
 import OpenAI from 'openai';
-import { Robota } from '@robota-sdk/agents';
+import { Robota, type AIProvider } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import dotenv from 'dotenv';
 
@@ -53,7 +53,7 @@ async function main() {
             name: 'GPT35Agent',
             model: 'gpt-3.5-turbo',
             provider: 'openai',
-            aiProviders: { openai: openai35Provider },
+            aiProviders: { openai: openai35Provider } as Record<string, AIProvider>,
             currentProvider: 'openai',
             currentModel: 'gpt-3.5-turbo',
             systemMessage: 'You are a helpful assistant powered by OpenAI GPT-3.5. Be concise and mention that you are GPT-3.5.'
@@ -71,7 +71,7 @@ async function main() {
             name: 'GPT4MiniAgent',
             model: 'gpt-4o-mini',
             provider: 'openai',
-            aiProviders: { openai: openai4MiniProvider },
+            aiProviders: { openai: openai4MiniProvider } as Record<string, AIProvider>,
             currentProvider: 'openai',
             currentModel: 'gpt-4o-mini',
             systemMessage: 'You are a helpful assistant powered by OpenAI GPT-4o-mini. Be detailed and mention that you are GPT-4o-mini.'

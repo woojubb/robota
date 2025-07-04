@@ -52,16 +52,23 @@ console.log(response);
 - **OpenAPI/MCP Support**: Basic structure for extensibility
 
 ### 🔌 Plugin System
-Eight core plugins with type-safe configuration:
+Eight core plugins with type-safe configuration and BasePluginOptions integration:
 
-- **ConversationHistoryPlugin**: Conversation storage (memory/file/database)
-- **UsagePlugin**: Usage statistics collection (calls, tokens, costs)
-- **LoggingPlugin**: Operation logging (Console/File/Remote with environment control)
-- **PerformancePlugin**: Performance metrics (response time, memory, CPU)
-- **ErrorHandlingPlugin**: Error logging, recovery, and retry handling
-- **LimitsPlugin**: Token/request limits (Rate limiting, cost control)
-- **EventEmitterPlugin**: Tool event detection and propagation
-- **WebhookPlugin**: Webhook notifications for external systems
+- **ConversationHistoryPlugin**: Comprehensive conversation storage with support for memory, file, and database backends. Features auto-save, batch processing, and configurable limits.
+- **UsagePlugin**: Advanced usage analytics including token counting, cost calculation, aggregated statistics, and multiple storage strategies (memory/file/remote).
+- **LoggingPlugin**: Multi-level logging system with console, file, and remote endpoints. Supports custom formatters, batch processing, and structured logging.
+- **PerformancePlugin**: Real-time performance monitoring including execution time tracking, memory usage, CPU metrics, and customizable performance thresholds.
+- **ErrorHandlingPlugin**: Robust error management with multiple strategies (simple, exponential-backoff, circuit-breaker, silent) and custom error handlers.
+- **LimitsPlugin**: Advanced rate limiting with token bucket, sliding window, and fixed window strategies. Supports cost tracking and custom calculators.
+- **EventEmitterPlugin**: Comprehensive event system with async/sync event handling, filtering, buffering, and lifecycle event tracking.
+- **WebhookPlugin**: HTTP webhook notifications with batch processing, retry logic, custom transformers, and concurrent request management.
+
+#### Plugin Features
+- **Type Safety**: All plugins extend BasePluginOptions for consistent configuration
+- **Lifecycle Integration**: Automatic integration with agent lifecycle events
+- **Resource Management**: Built-in cleanup and resource optimization
+- **Performance Monitoring**: All plugins include built-in statistics and monitoring
+- **Error Resilience**: Graceful error handling across all plugin operations
 
 ### 🔒 Type Safety Features
 - **Generic Type Parameters**: `BaseAgent<TConfig, TContext, TMessage>`

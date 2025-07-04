@@ -1,6 +1,16 @@
 import { BasePlugin, BaseExecutionContext, BaseExecutionResult } from '../abstracts/base-plugin';
 import { Logger, createLogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
+import type {
+    LimitsStrategy,
+    LimitsPluginOptions,
+    PluginLimitsStatusData,
+    LimitWindow,
+    TokenBucket
+} from './limits/types';
+
+// Re-export types for external use
+export type { LimitsStrategy, LimitsPluginOptions, PluginLimitsStatusData };
 
 /**
  * Reusable type definitions for limits plugin
@@ -32,70 +42,6 @@ export type PluginExecutionResult = {
 };
 
 /**
- * Plugin limits status data type - supports nested objects and null values for comprehensive status reporting
- * 
- * REASON: Status data needs to include nested objects for bucket/window details and null values for missing data
- * ALTERNATIVES_CONSIDERED:
- * 1. Strict primitive types (loses nested status information)
- * 2. Union types without null (breaks null handling)
- * 3. Interface definitions (too rigid for dynamic status)
- * 4. Generic constraints (too complex for status data)
- * 5. Type assertions (decreases type safety)
- * TODO: Consider specific status interfaces if patterns emerge
- */
-export type PluginLimitsStatusData = Record<string, string | number | boolean | Array<string | number | boolean> | Record<string, string | number | boolean> | null>;
-
-/**
- * Rate limiting strategies
- */
-export type LimitsStrategy = 'token-bucket' | 'sliding-window' | 'fixed-window' | 'none';
-
-/**
- * Limits plugin configuration
- */
-export interface LimitsPluginOptions {
-    /** Rate limiting strategy */
-    strategy: LimitsStrategy;
-    /** Maximum tokens per time window */
-    maxTokens?: number;
-    /** Maximum requests per time window */
-    maxRequests?: number;
-    /** Time window in milliseconds */
-    timeWindow?: number;
-    /** Maximum cost per time window (in USD) */
-    maxCost?: number;
-    /** Token cost per 1000 tokens (in USD) */
-    tokenCostPer1000?: number;
-    /** Bucket refill rate for token bucket strategy */
-    refillRate?: number;
-    /** Initial bucket size for token bucket strategy */
-    bucketSize?: number;
-    /** Custom cost calculator */
-    costCalculator?: (tokens: number, model: string) => number;
-}
-
-/**
- * Rate limiting window data
- */
-interface LimitWindow {
-    count: number;
-    tokens: number;
-    cost: number;
-    windowStart: number;
-}
-
-/**
- * Token bucket state
- */
-interface TokenBucket {
-    tokens: number;
-    lastRefill: number;
-    requests: number;
-    cost: number;
-    windowStart: number;
-}
-
-/**
  * Plugin for rate limiting and resource control
  * Enforces limits on token usage, request frequency, and costs
  */
@@ -115,6 +61,7 @@ export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsSt
 
         // Set defaults
         this.pluginOptions = {
+            enabled: options.enabled ?? true,
             strategy: options.strategy,
             maxTokens: options.maxTokens ?? 100000,
             maxRequests: options.maxRequests ?? 1000,

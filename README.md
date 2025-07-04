@@ -25,9 +25,11 @@ Robota is a powerful AI agent framework written in JavaScript/TypeScript. This p
 - Memory system that remembers and references conversation history
 - External system integration through tools
 
-### 👥 **Multi-Agent Team Collaboration**
-- **Intelligent Team Coordination**: Task coordinator automatically analyzes requests and delegates to specialized expert agents
-- **Automatic Template Selection**: AI automatically selects appropriate expert templates based on natural language requests
+### 👥 **Intelligent Multi-Agent Teams**
+- **Template-Based Expert Selection**: AI automatically analyzes requests and selects optimal specialist templates (researchers, creative ideators, coordinators, etc.)
+- **Dynamic Task Delegation**: Complex requests are decomposed and delegated to appropriate expert agents
+- **Optimized AI Provider Selection**: Each expert template uses the most suitable AI provider and model for its specialty
+- **Workflow Visualization**: Generate flowcharts and relationship diagrams for team interactions
 - **Dynamic Task Delegation**: Complex requests broken down and distributed to specialized agents automatically
 - **6 Built-in Expert Templates**: Task coordinator, summarizer, ethical reviewer, creative ideator, fast executor, domain researcher
 - **Simplified Configuration**: Just provide AI providers - templates handle all configuration automatically

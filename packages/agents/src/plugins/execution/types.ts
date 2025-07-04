@@ -61,10 +61,12 @@ export interface AggregatedExecutionStats {
     };
 }
 
+import type { BasePluginOptions } from '../../abstracts/base-plugin';
+
 /**
  * Plugin options
  */
-export interface ExecutionAnalyticsOptions {
+export interface ExecutionAnalyticsOptions extends BasePluginOptions {
     /** Maximum number of entries to keep in memory */
     maxEntries?: number;
     /** Whether to track error details */

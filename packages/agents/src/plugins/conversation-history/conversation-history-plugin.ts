@@ -38,6 +38,7 @@ export class ConversationHistoryPlugin extends BasePlugin<ConversationHistoryPlu
 
         // Set defaults
         this.pluginOptions = {
+            enabled: options.enabled ?? true,
             storage: options.storage,
             maxConversations: options.maxConversations ?? 100,
             maxMessagesPerConversation: options.maxMessagesPerConversation ?? 1000,

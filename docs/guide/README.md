@@ -52,6 +52,7 @@ Start here to create your first AI agent and understand basic concepts.
 Learn the fundamental concepts and architecture patterns.
 
 - **[Core Concepts](./core-concepts.md)** - Architecture and design patterns
+- **[Architecture Guide](./architecture.md)** - Complete architecture overview and extension guide
 - **[Building Agents](./building-agents.md)** - Agent development best practices
 
 ### 3. 🛠️ Advanced Features

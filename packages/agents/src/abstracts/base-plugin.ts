@@ -69,9 +69,17 @@ export interface ErrorContext {
 /**
  * Plugin configuration interface
  */
-export interface PluginConfig {
-    enabled?: boolean;
+export interface PluginConfig extends BasePluginOptions {
     options?: Record<string, string | number | boolean>;
+}
+
+/**
+ * Base plugin options that all plugin options should extend
+ * This provides a common structure while allowing specific options
+ */
+export interface BasePluginOptions {
+    /** Whether the plugin is enabled */
+    enabled?: boolean;
 }
 
 /**
@@ -87,10 +95,10 @@ export interface PluginData {
 /**
  * Type-safe plugin interface with specific type parameters
  * 
- * @template TOptions - Plugin options type (defaults to PluginConfig for backward compatibility)
+ * @template TOptions - Plugin options type that extends BasePluginOptions
  * @template TStats - Plugin statistics type (defaults to PluginStats for type safety)
  */
-export interface TypeSafePluginInterface<TOptions = PluginConfig, TStats = PluginStats> {
+export interface TypeSafePluginInterface<TOptions extends BasePluginOptions = BasePluginOptions, TStats = PluginStats> {
     name: string;
     version: string;
     enabled: boolean;
@@ -201,10 +209,10 @@ export interface PluginHooks {
  * Base abstract class for all plugins with type parameter support
  * Provides plugin lifecycle management and common functionality
  * 
- * @template TOptions - Plugin options type (defaults to PluginConfig for backward compatibility)
+ * @template TOptions - Plugin options type that extends BasePluginOptions
  * @template TStats - Plugin statistics type (defaults to PluginStats for type safety)
  */
-export abstract class BasePlugin<TOptions = PluginConfig, TStats = PluginStats>
+export abstract class BasePlugin<TOptions extends BasePluginOptions = BasePluginOptions, TStats = PluginStats>
     implements TypeSafePluginInterface<TOptions, TStats>, PluginHooks {
     /** Plugin name */
     abstract readonly name: string;
@@ -223,6 +231,12 @@ export abstract class BasePlugin<TOptions = PluginConfig, TStats = PluginStats>
      */
     async initialize(options?: TOptions): Promise<void> {
         this.options = options;
+        // Set enabled state from options with default fallback
+        if (options && 'enabled' in options && typeof options.enabled === 'boolean') {
+            this.enabled = options.enabled;
+        } else {
+            this.enabled = true; // Default to enabled
+        }
         // Default implementation - can be overridden
     }
 

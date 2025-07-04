@@ -76,10 +76,12 @@ export interface AggregatedPerformanceStats {
     };
 }
 
+import type { BasePluginOptions } from '../../abstracts/base-plugin';
+
 /**
  * Configuration options for performance plugin
  */
-export interface PerformancePluginOptions {
+export interface PerformancePluginOptions extends BasePluginOptions {
     /** Performance monitoring strategy to use */
     strategy: PerformanceMonitoringStrategy;
     /** File path for file strategy */

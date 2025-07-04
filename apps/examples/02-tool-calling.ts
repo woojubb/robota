@@ -40,7 +40,15 @@ const calculateTool = createFunctionTool(
         required: ['operation', 'a', 'b']
     },
     async (params) => {
-        const { operation, a, b } = params;
+        const operation = params.operation as string;
+        const a = Number(params.a);
+        const b = Number(params.b);
+
+        // Validate parameters
+        if (isNaN(a) || isNaN(b)) {
+            throw new Error('Parameters a and b must be valid numbers');
+        }
+
         console.log(`🧮 Calculating: ${a} ${operation} ${b}`);
 
         let result: number;

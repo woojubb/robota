@@ -1,6 +1,194 @@
 # Examples
 
-This directory contains practical examples demonstrating various features and use cases of the Robota SDK.
+Comprehensive examples demonstrating all aspects of the Robota SDK.
+
+## Basic Examples
+
+### [Basic Conversation](basic-conversation.md)
+Learn the fundamentals of Robota with simple AI conversations.
+
+**Features Demonstrated:**
+- OpenAI Provider setup and configuration
+- Simple message exchange using `robota.run()`
+- Agent statistics and monitoring
+- Proper resource cleanup
+
+### [AI with Tools](ai-with-tools.md) 
+Integrate function calling capabilities with your AI agents.
+
+**Features Demonstrated:**
+- Function tool creation with JSON schemas
+- Automatic tool calling by AI agents
+- Tool execution results handling
+- Tool usage statistics
+
+### [Multi-Provider Support](multi-provider.md)
+Use multiple AI providers and models in a single application.
+
+**Features Demonstrated:**
+- OpenAI with different models (GPT-3.5, GPT-4o-mini)
+- Model comparison and response analysis
+- Independent agent instances
+- Provider-specific configurations
+
+## Advanced Features
+
+### [Team Collaboration](team-collaboration.md)
+Leverage intelligent multi-agent collaboration with template-based expert selection.
+
+**Features Demonstrated:**
+- Automatic expert template selection
+- Task decomposition and delegation
+- Built-in specialist templates (researchers, creative ideators, etc.)
+- Workflow visualization and analytics
+- Multi-provider collaboration
+
+### [Team Templates](team-templates.md)
+Use pre-built expert templates for specialized tasks.
+
+**Features Demonstrated:**
+- Template-based agent creation
+- Expert template registry
+- Custom template development
+- Optimized AI provider selection per template
+
+### [Execution Analytics](execution-analytics.md)
+Monitor and analyze agent performance in real-time.
+
+**Features Demonstrated:**
+- Real-time performance tracking
+- Execution statistics and metrics
+- Error analysis and reporting
+- Memory management and optimization
+
+## Agent System
+
+### [Agents Basic Usage](agents-basic-usage.md)
+Explore the comprehensive capabilities of the unified Robota Agent system.
+
+**Features Demonstrated:**
+- Unified agent architecture with plugins
+- Real-time statistics and monitoring
+- Runtime configuration updates
+- Plugin ecosystem integration
+
+### [Agents Streaming](agents-streaming.md)
+Implement real-time streaming responses for interactive applications.
+
+**Features Demonstrated:**
+- Real-time response streaming
+- Token-by-token processing
+- Performance optimization for streaming
+- Memory-efficient processing
+
+## Specialized Features
+
+### [Session Management](session-management.md)
+Manage complex conversation sessions with advanced features.
+
+**Features Demonstrated:**
+- Multi-session conversation management
+- Session persistence and restoration
+- Context switching between sessions
+
+### [Conversation History](conversation-history.md)
+Implement comprehensive conversation storage and retrieval.
+
+**Features Demonstrated:**
+- Memory, file, and database storage options
+- Conversation search and filtering
+- Message lifecycle management
+- Batch processing and optimization
+
+### [Function Calling with Zod](zod-function-tools.md)
+Create type-safe function tools using Zod schemas.
+
+**Features Demonstrated:**
+- Zod schema integration
+- Runtime type validation
+- Type-safe parameter handling
+- Schema-to-JSON conversion
+
+### [Provider Switching](provider-switching.md)
+Dynamically switch between AI providers during execution.
+
+**Features Demonstrated:**
+- Runtime provider switching
+- Configuration preservation
+- Fallback strategies
+- Provider-specific optimizations
+
+### [Token Limits](token-limits.md)
+Implement intelligent token management and cost control.
+
+**Features Demonstrated:**
+- Token usage tracking
+- Cost calculation and monitoring
+- Limit enforcement strategies
+- Budget management
+
+### [MCP Integration](mcp-integration.md)
+Connect to external tools using the Model Context Protocol.
+
+**Features Demonstrated:**
+- MCP client integration
+- External tool discovery
+- Protocol communication
+- Tool schema handling
+
+## Configuration
+
+### [Setup Guide](setup.md)
+Complete setup instructions for all SDK components.
+
+**Covers:**
+- Environment configuration
+- API key management
+- Package installation
+- Development setup
+
+## Real-World Applications
+
+Each example includes:
+- ✅ **Complete working code** - Ready to run examples
+- ✅ **Type safety** - Full TypeScript support
+- ✅ **Error handling** - Robust error management
+- ✅ **Best practices** - Production-ready patterns
+- ✅ **Performance monitoring** - Built-in analytics
+- ✅ **Resource management** - Proper cleanup
+
+## Running Examples
+
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Configure environment:**
+   ```bash
+   cp .env.example .env
+   # Add your API keys
+   ```
+
+3. **Run an example:**
+   ```bash
+   npx tsx examples/01-basic-conversation.ts
+   ```
+
+## Example Categories
+
+### By Complexity
+- **Beginner**: Basic conversation, Simple tools
+- **Intermediate**: Multi-provider, Team collaboration
+- **Advanced**: Custom plugins, Complex workflows
+
+### By Use Case
+- **Chatbots**: Basic conversation, Session management
+- **Research**: Team collaboration, Analytics
+- **Development**: Function calling, MCP integration
+- **Production**: Error handling, Performance monitoring
+
+All examples are production-ready and demonstrate best practices for building scalable AI applications with Robota SDK.
 
 ## 🚀 Getting Started
 
@@ -25,33 +213,6 @@ cp .env.example .env
 # Run any example
 npx tsx 01-basic-conversation.ts
 ```
-
-## 📋 Example Categories
-
-### Basic Usage
-- **[Basic Conversation](./basic-conversation.md)** - Simple AI conversation setup
-- **[Agents Basic Usage](./agents-basic-usage.md)** - New @robota-sdk/agents package features
-- **[Agents Streaming](./agents-streaming.md)** - Real-time streaming responses with performance monitoring
-- **[AI with Tools](./ai-with-tools.md)** - Function calling and tool usage
-
-### Multi-Provider & Templates
-- **[Multi-Provider](./multi-provider.md)** - Using multiple AI providers (OpenAI, Anthropic, Google)
-- **[Agent Templates](./team-templates.md)** - Specialized agent configurations for optimal performance
-
-### Advanced Features
-- **[Execution Analytics](./execution-analytics.md)** - Performance monitoring and analytics
-- **[Team Collaboration](./team-collaboration.md)** - Multi-agent teamwork and coordination
-
-### Learning Path
-For new users, we recommend following this learning sequence:
-
-1. **Start with Basics**: [Basic Conversation](./basic-conversation.md)
-2. **Add Tools**: [AI with Tools](./ai-with-tools.md)
-3. **Explore Streaming**: [Agents Streaming](./agents-streaming.md)
-4. **Try Multi-Provider**: [Multi-Provider](./multi-provider.md)
-5. **Use Templates**: [Agent Templates](./team-templates.md)
-6. **Monitor Performance**: [Execution Analytics](./execution-analytics.md)
-7. **Scale with Teams**: [Team Collaboration](./team-collaboration.md)
 
 ## 🎯 Quick Feature Overview
 

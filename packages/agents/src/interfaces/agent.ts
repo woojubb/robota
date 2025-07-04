@@ -1,7 +1,6 @@
-import type { ProviderConfigValue } from './provider';
-import type { BasePlugin } from '../abstracts/base-plugin';
+import type { ProviderConfigValue, AIProvider } from './provider';
+import type { BasePlugin, BasePluginOptions, PluginStats } from '../abstracts/base-plugin';
 import type { BaseTool } from '../abstracts/base-tool';
-import type { BaseAIProvider } from '../abstracts/base-ai-provider';
 import type { UtilLogLevel } from '../utils/logger';
 import type { ToolExecutionResult } from './tool';
 import type { Metadata, ConfigValue } from './types';
@@ -105,12 +104,12 @@ export interface AgentConfig {
     provider: string;
     systemMessage?: string;
     tools?: BaseTool[];
-    plugins?: BasePlugin[];
+    plugins?: Array<BasePlugin<BasePluginOptions, PluginStats>>;
     temperature?: number;
     maxTokens?: number;
     metadata?: MessageMetadata;
     // Provider configuration (provider-agnostic with type parameters)
-    aiProviders?: Record<string, BaseAIProvider>;
+    aiProviders?: Record<string, AIProvider>;
     currentProvider?: string;
     currentModel?: string;
     // Conversation management
