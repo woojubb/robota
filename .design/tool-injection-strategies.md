@@ -541,13 +541,15 @@ const agentFactory = new AgentFactory({
 import { AgentFactory } from '@robota-sdk/agents';
 import { CAMELPlanner } from '@robota-sdk/planning-camel';
 import { ReActPlanner } from '@robota-sdk/planning-react';
-import { OpenAIProvider } from '@robota-sdk/openai';
 
 // 1. AgentFactory 설정 (공통 도구 + 그룹 관리)
 const agentFactory = new AgentFactory({
-  providers: {
-    openai: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })
+  // Provider 불가지론적 설정
+  aiProviders: {
+    'primary': primaryProvider,
+    'secondary': secondaryProvider
   },
+  currentProvider: 'primary',
   
   // 공통 도구 설정
   commonTools: ['web_search', 'calculator', 'file_manager', 'text_processor'],
@@ -569,8 +571,7 @@ agentFactory.registerTemplate({
   id: 'senior_researcher',
   name: 'Senior Researcher',
   config: {
-    provider: 'openai',
-    model: 'gpt-4o',
+    // Provider 불가지론: 런타임에 결정
     systemMessage: 'You are a senior research specialist...',
     tools: ['advanced_research_tool', 'methodology_advisor'],
     toolGroups: ['research', 'analysis']
@@ -605,6 +606,7 @@ const exploratoryResult = await reactPlanner.execute("새로운 기술 트렌드
 ## 관련 문서
 
 - [메인 Planning 시스템 문서](./agent-planning.md)
+- [AgentFactory 확장 전략](./agentfactory-expansion-strategy.md)
 - [도구 분배 전략](./tool-distribution-strategies.md)
 - [플래너별 템플릿 전략](./planner-template-strategies.md)
 - [현재 시스템 분석](./current-system-analysis.md)

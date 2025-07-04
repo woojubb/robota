@@ -217,6 +217,7 @@ const result = await camelPlanner.execute("시장 조사 보고서 작성");
 
 ## 관련 문서
 
+- [AgentFactory 확장 전략](./agentfactory-expansion-strategy.md)
 - [템플릿 vs 동적 생성 전략](./template-vs-dynamic-strategies.md)
 - [도구 분배 전략](./tool-distribution-strategies.md)
 - [도구 주입 전략](./tool-injection-strategies.md)

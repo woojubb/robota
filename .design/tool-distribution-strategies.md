@@ -169,6 +169,7 @@ const allocateTools = (agentRole: string, requestedTools: string[]) => {
 
 **관련 문서:**
 - [메인 플래닝 설계](./agent-planning.md)
+- [AgentFactory 확장 전략](./agentfactory-expansion-strategy.md)
 - [템플릿 vs 동적 생성 전략](./template-vs-dynamic-strategies.md)
 - [도구 주입 전략](./tool-injection-strategies.md)
 - [플래너별 템플릿 전략](./planner-template-strategies.md) 

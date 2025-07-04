@@ -9,25 +9,25 @@
 ```typescript
 import { createPlanner } from '@robota-sdk/planning';
 import { SequentialPlanner, CAMELPlanner } from '@robota-sdk/planning';
-import { OpenAIProvider, AnthropicProvider } from '@robota-sdk/openai';
+import { AgentFactory } from '@robota-sdk/agents';
 
-// AI 제공자 설정
-const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
-const anthropicProvider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
+// Provider 불가지론적 설정 (런타임에 주입)
+const agentFactory = new AgentFactory({
+  aiProviders: {
+    'primary': primaryAIProvider,
+    'secondary': secondaryAIProvider
+  },
+  currentProvider: 'primary'
+});
 
-// 플래너들 초기화
-const sequentialPlanner = new SequentialPlanner({
-    aiProviders: { openai: openaiProvider },
+// 플래너들 초기화 (AgentFactory 확장 기능 활용)
+const sequentialPlanner = new SequentialPlanner(agentFactory, {
     maxSteps: 10,
     strategy: 'sequential'
 });
 
 // 기존 Team의 로직을 발전시킨 CAMELPlanner
-const camelPlanner = new CAMELPlanner({
-    aiProviders: { 
-        openai: openaiProvider, 
-        anthropic: anthropicProvider 
-    },
+const camelPlanner = new CAMELPlanner(agentFactory, {
     maxAgents: 5,
     strategy: 'parallel',
     // CAMEL은 템플릿을 직접 사용
@@ -185,10 +185,16 @@ const legacyResult = await team.execute("시장 조사 보고서를 작성해줘
 // 새로운 Planning 코드 (권장)
 import { createPlanner } from '@robota-sdk/planning';
 import { CAMELPlanner } from '@robota-sdk/planning-camel';
+import { AgentFactory } from '@robota-sdk/agents';
+
+// Provider 불가지론적 AgentFactory 설정
+const agentFactory = new AgentFactory({
+    aiProviders: { 'primary': primaryProvider },
+    currentProvider: 'primary'
+});
 
 // 기존 Team의 로직을 발전시킨 CAMELPlanner 사용
-const camelPlanner = new CAMELPlanner({
-    aiProviders: { openai: openaiProvider },
+const camelPlanner = new CAMELPlanner(agentFactory, {
     maxAgents: 3,
     // 기존 Team과 동일한 템플릿 사용으로 호환성 보장
     templates: ['domain_researcher', 'summarizer', 'general'],
@@ -330,6 +336,7 @@ class SwarmPlanner {
 
 **관련 문서:**
 - [메인 플래닝 설계](./agent-planning.md)
+- [AgentFactory 확장 전략](./agentfactory-expansion-strategy.md)
 - [템플릿 vs 동적 생성 전략](./template-vs-dynamic-strategies.md)
 - [도구 분배 전략](./tool-distribution-strategies.md)
 - [도구 주입 전략](./tool-injection-strategies.md)
