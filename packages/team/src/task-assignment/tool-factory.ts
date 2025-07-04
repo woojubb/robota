@@ -1,7 +1,7 @@
 import { createZodFunctionTool, type ToolParameters } from '@robota-sdk/agents';
-import { z, type ZodType, type ZodTypeAny } from 'zod';
+import type { ZodTypeAny } from 'zod';
 import type { AssignTaskParams, AssignTaskResult } from '../types.js';
-import { createDynamicAssignTaskSchema } from './schema.js';
+import { createDynamicAssignTaskSchema, type DynamicAssignTaskSchemaType } from './schema.js';
 
 /**
  * Interface for template information
@@ -18,13 +18,7 @@ export interface AssignTaskExecutor {
     (params: AssignTaskParams): Promise<AssignTaskResult>;
 }
 
-/**
- * Create ToolParameters compatible schema from existing AssignTaskParams schema
- */
-function createToolParametersSchema(availableTemplates: TemplateInfo[]): ZodTypeAny {
-    // Use the existing schema as base and extend it with dynamic template descriptions
-    return createDynamicAssignTaskSchema(availableTemplates);
-}
+
 
 /**
  * Create AssignTask tool with dynamic schema based on available templates
@@ -33,18 +27,18 @@ export function createAssignTaskTool(
     availableTemplates: TemplateInfo[],
     executor: AssignTaskExecutor
 ) {
-    // Create ToolParameters compatible schema
-    const toolParametersSchema = createToolParametersSchema(availableTemplates);
+    // Create dynamic schema with available templates
+    const toolParametersSchema = createDynamicAssignTaskSchema(availableTemplates);
 
     // Create the tool instance with proper schema validation
     const toolInstance = createZodFunctionTool(
         'assignTask',
         createToolDescription(availableTemplates),
-        toolParametersSchema, // Now properly typed as ZodTypeAny
+        toolParametersSchema as ZodTypeAny,
         async (parameters: ToolParameters) => {
-            // Parameters are already validated and converted by Zod
-            // No manual conversion needed - Zod handles everything
-            const result = await executor(parameters as unknown as AssignTaskParams);
+            // Type-safe conversion using Zod's inferred type
+            const validatedParams = toolParametersSchema.parse(parameters);
+            const result = await executor(convertToAssignTaskParams(validatedParams));
 
             // Return formatted string result for LLM consumption
             return formatResultForLLM(result);
@@ -52,6 +46,37 @@ export function createAssignTaskTool(
     );
 
     return toolInstance;
+}
+
+/**
+ * Convert validated Zod output to AssignTaskParams
+ */
+function convertToAssignTaskParams(validated: DynamicAssignTaskSchemaType): AssignTaskParams {
+    const params: AssignTaskParams = {
+        jobDescription: validated.jobDescription
+    };
+
+    if (validated.context !== undefined) {
+        params.context = validated.context;
+    }
+
+    if (validated.requiredTools !== undefined) {
+        params.requiredTools = validated.requiredTools;
+    }
+
+    if (validated.priority !== undefined) {
+        params.priority = validated.priority;
+    }
+
+    if (validated.agentTemplate !== undefined) {
+        params.agentTemplate = validated.agentTemplate;
+    }
+
+    if (validated.allowFurtherDelegation !== undefined) {
+        params.allowFurtherDelegation = validated.allowFurtherDelegation;
+    }
+
+    return params;
 }
 
 /**
@@ -107,31 +132,5 @@ export function validateTaskParams(
 ): AssignTaskParams {
     const schema = createDynamicAssignTaskSchema(availableTemplates);
     const validated = schema.parse(parameters);
-
-    // Convert to AssignTaskParams format
-    const params: AssignTaskParams = {
-        jobDescription: validated.jobDescription
-    };
-
-    if (validated.context !== undefined) {
-        params.context = validated.context;
-    }
-
-    if (validated.requiredTools !== undefined) {
-        params.requiredTools = validated.requiredTools;
-    }
-
-    if (validated.priority !== undefined) {
-        params.priority = validated.priority;
-    }
-
-    if (validated.agentTemplate !== undefined) {
-        params.agentTemplate = validated.agentTemplate;
-    }
-
-    if (validated.allowFurtherDelegation !== undefined) {
-        params.allowFurtherDelegation = validated.allowFurtherDelegation;
-    }
-
-    return params;
+    return convertToAssignTaskParams(validated);
 } 
