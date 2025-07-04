@@ -4,12 +4,13 @@
 
 이 문서는 Robota SDK를 기반으로 한 Agentic AI 시스템에서 플래너(Planner)들을 어떻게 설계하고 조합할 것인지를 설명한다. 시스템은 다양한 플래닝 전략을 개별 패키지로 분리하여 설계하고, 이를 하나의 컨테이너에서 조합해 실행 가능한 구조를 목표로 한다.
 
-**핵심 개념**: 플래닝 시스템은 `@robota-sdk/team`과 같은 레벨의 상위 관리 시스템으로, 여러 Robota 에이전트 인스턴스들을 제어하고 조합하여 복잡한 작업을 수행한다.
+**핵심 개념**: 플래닝 시스템은 AI 에이전트들을 제어하고 조합하여 복잡한 작업을 수행하는 상위 관리 시스템이다.
 
 **현재 상황 분석**: 
-- `@robota-sdk/team` 패키지가 템플릿 기반 태스크 델리게이션으로 구현됨
-- CAMEL 유사 구조이지만 더 단순한 코디네이터-전문가 모델
+- `@robota-sdk/team` 패키지는 CAMEL 기법의 초기 구현체로 개발됨
+- 템플릿 기반 태스크 델리게이션으로 구현된 단순화된 CAMEL 패턴
 - 7개 빌트인 템플릿 보유 (general, summarizer, ethical_reviewer, creative_ideator, fast_executor, task_coordinator, domain_researcher)
+- **Planning 시스템 완성 후 Team 패키지는 deprecated 예정**
 - AgentFactory를 통한 동적 에이전트 생성 시스템 완성
 - BasePlugin 시스템으로 통합된 타입 안전한 아키텍처
 
@@ -20,359 +21,29 @@
 ### ✅ 완성된 부분
 1. **BaseAgent 아키텍처**: 완전한 타입 안전 시스템 구축됨
 2. **AgentFactory**: 동적 에이전트 생성 및 템플릿 시스템 완성
-3. **Team 시스템**: 템플릿 기반 태스크 델리게이션 구현 (CAMEL 유사)
+3. **Team 시스템**: CAMEL 기법의 초기 구현체 (단순화된 버전)
 4. **플러그인 시스템**: BasePlugin 기반 통합 플러그인 아키텍처
 5. **타입 시스템**: Zero any/unknown 정책 달성
 6. **템플릿 생태계**: 7개 빌트인 템플릿 및 확장 가능한 구조
 
-### 🔄 수정 필요한 설계 요소
-1. **PlannerContainer 설계**: Team과의 차별화 명확화 필요
-2. **BasePlanner**: 기존 BaseAgent와의 관계 재정의
-3. **타입 시스템**: 현재 ConfigValue 제약 조건에 맞춘 수정
-4. **플래너 전략**: Team의 델리게이션과 Planning의 전략 구분
+### 🔄 마이그레이션 요소
+1. **Team → CAMELPlanner**: 기존 Team 로직을 CAMELPlanner로 발전
+2. **템플릿 시스템**: Planning 시스템에 통합
+3. **사용자 마이그레이션**: Team 사용자를 Planning으로 순차 이전
+4. **Deprecation 계획**: Planning 시스템 안정화 후 Team 패키지 단계적 제거
 
 ---
 
-## 핵심 구성 요소 (수정됨)
+## Team과 Planning의 관계 (마이그레이션 관점)
 
-### 1. **BasePlanner (수정된 추상 플래너 클래스)**
-
-현재 BaseAgent 패턴을 따르는 플래너 기본 클래스:
-
-```typescript
-// packages/planning/src/abstracts/base-planner.ts
-import type { ConfigValue } from '@robota-sdk/agents';
-import type { Robota, AgentConfig } from '@robota-sdk/agents';
-
-export interface PlannerConfig extends Record<string, ConfigValue> {
-    name?: string;
-    maxSteps?: number;
-    timeout?: number;
-    retryCount?: number;
-    maxAgents?: number;
-    strategy?: 'sequential' | 'parallel' | 'adaptive';
-}
-
-export interface PlanContext extends Record<string, ConfigValue> {
-    sessionId?: string;
-    userId?: string;
-    maxDuration?: number;
-    priority?: 'low' | 'medium' | 'high';
-    agentPool?: Map<string, Robota>;
-}
-
-export abstract class BasePlanner<
-    TConfig extends PlannerConfig = PlannerConfig,
-    TContext extends PlanContext = PlanContext,
-    TPlan = PlanStep[]
-> {
-    protected config?: TConfig;
-    protected isInitialized = false;
-    protected planHistory: TPlan[] = [];
-    protected managedAgents: Map<string, Robota> = new Map();
-    protected agentCounter = 0;
-
-    /**
-     * Initialize the planner
-     */
-    protected abstract initialize(): Promise<void>;
-
-    /**
-     * Get planner name for identification
-     */
-    abstract name(): string;
-
-    /**
-     * Create execution plan from input
-     */
-    abstract plan(input: PlanInput, context?: TContext): Promise<TPlan>;
-
-    /**
-     * Execute a plan with agent coordination
-     */
-    abstract execute(plan: TPlan, context?: TContext): Promise<PlanResult>;
-
-    /**
-     * Configure the planner
-     */
-    async configure(config: TConfig): Promise<void> {
-        this.config = config;
-        await this.ensureInitialized();
-    }
-
-    /**
-     * Create a new agent using AgentFactory pattern
-     */
-    protected async createAgent(config: Partial<AgentConfig>, agentId?: string): Promise<string> {
-        const id = agentId || `agent_${++this.agentCounter}`;
-        
-        // 기존 AgentFactory 패턴 활용
-        const agent = new Robota({
-            name: id,
-            model: 'gpt-4o-mini',
-            provider: 'openai',
-            ...config
-        });
-        
-        this.managedAgents.set(id, agent);
-        return id;
-    }
-
-    /**
-     * Get managed agent by ID
-     */
-    protected getAgent(agentId: string): Robota {
-        const agent = this.managedAgents.get(agentId);
-        if (!agent) {
-            throw new Error(`Agent not found: ${agentId}`);
-        }
-        return agent;
-    }
-
-    /**
-     * Ensure planner is initialized
-     */
-    protected async ensureInitialized(): Promise<void> {
-        if (!this.isInitialized) {
-            await this.initialize();
-            this.isInitialized = true;
-        }
-    }
-
-    /**
-     * Cleanup resources
-     */
-    async dispose(): Promise<void> {
-        this.planHistory = [];
-        
-        // Dispose all managed agents
-        for (const agent of this.managedAgents.values()) {
-            if ('dispose' in agent && typeof agent.dispose === 'function') {
-                await agent.dispose();
-            }
-        }
-        
-        this.managedAgents.clear();
-        this.isInitialized = false;
-    }
-}
-```
-
-### 2. **PlannerContainer (Team과 차별화된 설계)**
-
-```typescript
-// packages/planning/src/planner-container.ts
-import { Logger, createLogger } from '@robota-sdk/agents';
-import { BasePlanner } from './abstracts/base-planner';
-
-export interface PlannerContainerOptions {
-    /** Registered planners to use */
-    planners: BasePlanner[];
-    /** Maximum number of concurrent planning sessions */
-    maxConcurrentSessions?: number;
-    /** Default execution strategy when multiple planners are used */
-    defaultStrategy?: 'sequential' | 'parallel' | 'best-first' | 'fallback';
-    /** Enable debug logging */
-    debug?: boolean;
-    /** Custom logger */
-    logger?: {
-        info: (message: string) => void;
-        warn: (message: string) => void;
-        error: (message: string) => void;
-        debug: (message: string) => void;
-    };
-}
-
-export class PlannerContainer {
-    private registeredPlanners: Map<string, BasePlanner>;
-    private activeSessions: Map<string, PlanningSession>;
-    private logger: Logger;
-    private options: Required<Omit<PlannerContainerOptions, 'logger'>> & { logger?: PlannerContainerOptions['logger'] };
-    private initialized = false;
-
-    constructor(options: PlannerContainerOptions) {
-        this.registeredPlanners = new Map();
-        this.activeSessions = new Map();
-        this.logger = createLogger('PlannerContainer');
-        this.options = {
-            planners: options.planners,
-            maxConcurrentSessions: options.maxConcurrentSessions || 5,
-            defaultStrategy: options.defaultStrategy || 'best-first',
-            debug: options.debug || false,
-            logger: options.logger
-        };
-
-        // Register provided planners
-        for (const planner of options.planners) {
-            this.registeredPlanners.set(planner.name(), planner);
-        }
-
-        if (this.options.logger) {
-            this.logger = this.options.logger as any;
-        }
-    }
-
-    /**
-     * Execute planning task - main difference from Team
-     * Team: Delegates to specialists based on task analysis
-     * Planning: Uses strategic planning algorithms for complex workflows
-     */
-    async execute(
-        input: string,
-        strategy?: 'sequential' | 'parallel' | 'best-first' | 'fallback',
-        plannerNames?: string[]
-    ): Promise<string> {
-        const sessionId = `session_${Date.now()}`;
-        const executionStrategy = strategy || this.options.defaultStrategy;
-        const plannersToUse = plannerNames || Array.from(this.registeredPlanners.keys());
-
-        const session: PlanningSession = {
-            id: sessionId,
-            input,
-            strategy: executionStrategy,
-            planners: plannersToUse,
-            startTime: Date.now(),
-            status: 'planning'
-        };
-
-        this.activeSessions.set(sessionId, session);
-
-        try {
-            let result: string;
-
-            switch (executionStrategy) {
-                case 'best-first':
-                    result = await this.executeBestFirst(plannersToUse, input, session);
-                    break;
-                case 'parallel':
-                    result = await this.executeParallel(plannersToUse, input, session);
-                    break;
-                case 'fallback':
-                    result = await this.executeWithFallback(plannersToUse, input, session);
-                    break;
-                default:
-                    result = await this.executeSequential(plannersToUse, input, session);
-            }
-
-            session.status = 'completed';
-            session.result = result;
-            return result;
-        } catch (error) {
-            session.status = 'failed';
-            session.error = error instanceof Error ? error.message : String(error);
-            throw error;
-        } finally {
-            this.activeSessions.delete(sessionId);
-        }
-    }
-
-    /**
-     * Best-first execution - select most suitable planner
-     */
-    private async executeBestFirst(plannerNames: string[], input: string, session: PlanningSession): Promise<string> {
-        // LLM-based planner selection logic
-        const selectedPlanner = await this.selectBestPlanner(plannerNames, input);
-        const planner = this.getPlanner(selectedPlanner);
-        
-        const planInput: PlanInput = {
-            userInput: input,
-            context: { sessionId: session.id },
-            metadata: { strategy: 'best-first' }
-        };
-
-        const plan = await planner.plan(planInput);
-        const result = await planner.execute(plan);
-        
-        return result.output;
-    }
-
-    /**
-     * Select best planner using LLM analysis
-     */
-    private async selectBestPlanner(plannerNames: string[], input: string): Promise<string> {
-        // Implementation: Use a classifier agent to select the most suitable planner
-        // For now, return first planner as fallback
-        return plannerNames[0] || 'default';
-    }
-
-    // ... other execution strategies
-}
-
-interface PlanningSession {
-    id: string;
-    input: string;
-    strategy: string;
-    planners: string[];
-    startTime: number;
-    status: 'planning' | 'executing' | 'completed' | 'failed';
-    result?: string;
-    error?: string;
-}
-```
-
-### 3. **편의 함수 (Team 패턴 따름)**
-
-```typescript
-// packages/planning/src/create-planner.ts
-import { PlannerContainer, PlannerContainerOptions } from './planner-container';
-
-/**
- * Create a new planner container
- */
-export function createPlanner(options: PlannerContainerOptions): PlannerContainer {
-    const container = new PlannerContainer(options);
-    return container;
-}
-```
-
----
-
-## 수정된 타입 정의 (현재 시스템 호환)
-
-```typescript
-// packages/planning/src/interfaces/plan.ts
-import type { ConfigValue } from '@robota-sdk/agents';
-
-export interface PlanInput {
-    userInput: string;
-    context?: Record<string, ConfigValue>;
-    metadata?: Record<string, ConfigValue>;
-}
-
-export interface PlanStep {
-    id: string;
-    type: 'action' | 'decision' | 'reflection' | 'synthesis' | 'delegation';
-    description: string;
-    agentId?: string;
-    parameters?: Record<string, ConfigValue>;
-    dependencies?: string[];
-    metadata?: Record<string, ConfigValue>;
-}
-
-export interface PlanResult {
-    stepId?: string;
-    agentId?: string;
-    success: boolean;
-    output: string;
-    duration?: number;
-    tokensUsed?: number;
-    metadata?: Record<string, ConfigValue>;
-    error?: string;
-}
-```
-
----
-
-## 수정된 Team vs Planning 비교
-
-| 측면 | Team (현재) | Planning (새로운) |
+| 측면 | Team (현재, 곧 deprecated) | Planning (새로운 표준) |
 |------|-------------|------------------|
-| **목적** | 템플릿 기반 작업 델리게이션 | 전략적 플래닝 알고리즘 |
-| **실행 방식** | 즉시 분석 → 템플릿 선택 → 델리게이션 | 계획 수립 → 전략 적용 → 순차/병렬 실행 |
-| **에이전트 사용** | 템플릿 기반 전문가 (7개 빌트인) | 플래너별 커스텀 에이전트 |
-| **적용 분야** | 일반적인 작업 분배, 전문가 협업 | 복잡한 워크플로우, 알고리즘적 문제 해결 |
-| **학습 곡선** | 낮음 (자동 템플릿 선택) | 중간 (플래너 전략 이해 필요) |
-| **확장성** | 템플릿 추가 | 플래너 전략 추가 |
+| **본질** | CAMEL 기법의 초기 구현체 | 종합적 플래닝 알고리즘 플랫폼 |
+| **실행 방식** | 템플릿 기반 즉시 델리게이션 | 전략별 플래너 선택 → 계획 수립 → 실행 |
+| **에이전트 사용** | 7개 빌트인 템플릿 전문가 | 플래너별 최적화된 에이전트 |
+| **적용 분야** | 일반적인 작업 분배 | 다양한 플래닝 전략 (CAMEL, ReAct, Reflection 등) |
+| **확장성** | 제한적 (템플릿 추가만 가능) | 무제한 (새로운 플래너 알고리즘 추가) |
+| **미래** | Deprecated 예정 | 장기 지원 및 발전 |
 
 ---
 
@@ -398,13 +69,20 @@ const sequentialPlanner = new SequentialPlanner({
     strategy: 'sequential'
 });
 
+// 기존 Team의 로직을 발전시킨 CAMELPlanner
 const camelPlanner = new CAMELPlanner({
     aiProviders: { 
         openai: openaiProvider, 
         anthropic: anthropicProvider 
     },
     maxAgents: 5,
-    strategy: 'parallel'
+    strategy: 'parallel',
+    // 기존 Team의 템플릿들을 활용
+    availableTemplates: [
+        'general', 'summarizer', 'ethical_reviewer', 
+        'creative_ideator', 'fast_executor', 'task_coordinator', 
+        'domain_researcher'
+    ]
 });
 
 // 플래닝 컨테이너 생성
@@ -522,59 +200,47 @@ const strategyResult = await businessPlanner.execute(`
 console.log('비즈니스 전략:', strategyResult);
 ```
 
-### 시나리오 4: Team과 Planning 함께 사용
+### 시나리오 4: Team에서 Planning으로 마이그레이션
 
-**상황**: 즉시 작업과 복잡한 플래닝이 혼재된 프로젝트
+**상황**: 기존 Team 사용자가 Planning 시스템으로 점진적 마이그레이션
 
 ```typescript
+// 기존 Team 코드 (deprecated 예정)
 import { createTeam } from '@robota-sdk/team';
-import { createPlanner } from '@robota-sdk/planning';
 
-// Team: 즉시 작업 처리용
 const team = createTeam({
     aiProviders: { openai: openaiProvider },
     maxMembers: 3,
     debug: true
 });
 
-// Planning: 복잡한 전략 수립용
-const strategicPlanner = createPlanner({
-    planners: [new CAMELPlanner(), new SequentialPlanner()],
+// 기존 방식
+const legacyResult = await team.execute("시장 조사 보고서를 작성해줘");
+
+// ↓ 마이그레이션 ↓
+
+// 새로운 Planning 코드 (권장)
+import { createPlanner } from '@robota-sdk/planning';
+import { CAMELPlanner } from '@robota-sdk/planning';
+
+// 기존 Team의 로직을 발전시킨 CAMELPlanner 사용
+const camelPlanner = new CAMELPlanner({
+    aiProviders: { openai: openaiProvider },
+    maxAgents: 3,
+    // 기존 Team과 동일한 템플릿 사용으로 호환성 보장
+    templates: ['domain_researcher', 'summarizer', 'general'],
+    debug: true
+});
+
+const planner = createPlanner({
+    planners: [camelPlanner],
     defaultStrategy: 'best-first'
 });
 
-// 하이브리드 워크플로우
-async function hybridWorkflow(request: string) {
-    // 1. 먼저 Team으로 요청 분석
-    const analysis = await team.execute(`
-        다음 요청을 분석해서 즉시 처리 가능한 부분과 
-        복잡한 계획이 필요한 부분으로 나누어줘:
-        "${request}"
-    `);
-    
-    console.log('요청 분석 결과:', analysis);
-    
-    // 2. 복잡한 부분은 Planning으로 처리
-    if (analysis.includes('복잡한 계획 필요')) {
-        const strategicPlan = await strategicPlanner.execute(
-            `다음 복잡한 요청에 대한 단계별 실행 계획을 수립해줘: ${request}`,
-            'best-first'
-        );
-        
-        console.log('전략적 계획:', strategicPlan);
-        return strategicPlan;
-    }
-    
-    // 3. 간단한 부분은 Team으로 즉시 처리
-    const immediateResult = await team.execute(request);
-    return immediateResult;
-}
+// 동일한 결과, 향상된 기능
+const modernResult = await planner.execute("시장 조사 보고서를 작성해줘");
 
-// 사용 예시
-const result = await hybridWorkflow(`
-    AI 스타트업의 글로벌 확장 전략을 수립하고,
-    동시에 내일 투자자 미팅을 위한 피치덱도 준비해줘.
-`);
+console.log('마이그레이션 완료 - 동일한 기능, 더 나은 성능:', modernResult);
 ```
 
 ### 시나리오 5: 플래너 조합 및 폴백 전략
@@ -584,10 +250,10 @@ const result = await hybridWorkflow(`
 ```typescript
 import { createPlanner } from '@robota-sdk/planning';
 
-// 여러 플래너 등록
+// 여러 플래너 등록 (Team 기능을 포함한 포괄적 전략)
 const comprehensivePlanner = createPlanner({
     planners: [
-        new CAMELPlanner(),      // 1순위: 다중 에이전트 협업
+        new CAMELPlanner(),      // 1순위: 기존 Team 로직 발전형
         new ReActPlanner(),      // 2순위: 도구 기반 추론
         new SequentialPlanner()  // 3순위: 기본 순차 처리
     ],
@@ -650,34 +316,57 @@ const monitoredResult = await analyticsPlanner.execute(`
 
 console.log('플래닝 세션 완료:', sessionId);
 console.log('결과:', monitoredResult);
-
-// 세션 분석 (가상의 API)
-// const sessionAnalytics = await analyticsPlanner.getSessionAnalytics(sessionId);
-// console.log('성능 분석:', sessionAnalytics);
 ```
 
 ---
 
-## 실제 사용에서의 장점
+## Planning 시스템의 장점
 
-### 1. **복잡성 관리**
-- Team: 단순한 작업 분배
-- Planning: 다단계 복잡한 워크플로우 처리
+### 1. **통합된 플래닝 플랫폼**
+- 기존 Team의 CAMEL 기능을 포함한 종합적 플래닝
+- 다양한 플래닝 알고리즘을 하나의 인터페이스로 사용
 
-### 2. **전략적 접근**
-- 다양한 플래닝 알고리즘을 상황에 맞게 선택
+### 2. **향상된 전략적 접근**
+- 작업별 최적 플래너 자동 선택
 - 실패 시 자동 폴백 및 대안 실행
+- 플래너 조합을 통한 복합적 문제 해결
 
-### 3. **확장성**
-- 새로운 플래너 쉽게 추가
+### 3. **확장성과 미래 보장**
+- 새로운 플래너 알고리즘 쉽게 추가
 - 도메인별 특화 플래너 개발 가능
+- 장기 지원 및 지속적 발전
 
-### 4. **모니터링**
+### 4. **향상된 모니터링**
 - 실시간 플래닝 과정 추적
-- 성능 분석 및 최적화
+- 플래너별 성능 분석 및 최적화
+- 세션 기반 상세 분석
 
-### 5. **유연성**
-- Team과 Planning 동시 사용
-- 상황에 따른 하이브리드 접근
+### 5. **마이그레이션 지원**
+- 기존 Team 사용자의 점진적 전환 지원
+- 하위 호환성 보장
+- 기존 템플릿 시스템 완전 활용
 
-이러한 Planning 시스템은 기존 Team의 즉시성을 보완하면서, 복잡한 프로젝트와 전략적 사고가 필요한 작업에서 강력한 성능을 발휘할 것입니다.
+---
+
+## Team에서 Planning으로의 마이그레이션 계획
+
+### Phase 1: Planning 시스템 구축
+- CAMELPlanner에 기존 Team 로직 완전 이관
+- 기존 7개 템플릿 완전 호환
+- 성능 및 기능 개선
+
+### Phase 2: 마이그레이션 지원
+- Team → Planning 마이그레이션 가이드 제공
+- 호환성 레이어 제공 (필요시)
+- 사용자 피드백 수집 및 개선
+
+### Phase 3: Team 패키지 Deprecation
+- Team 패키지에 deprecation 경고 추가
+- Planning 시스템 안정화 확인
+- 문서에서 Team 사용법 제거
+
+### Phase 4: Team 패키지 제거
+- 충분한 마이그레이션 기간 후 Team 패키지 제거
+- Planning이 유일한 다중 에이전트 솔루션으로 정착
+
+이러한 Planning 시스템은 기존 Team의 모든 기능을 포함하면서도 훨씬 강력하고 확장 가능한 플래닝 플랫폼을 제공할 것입니다.
