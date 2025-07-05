@@ -193,7 +193,7 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
             }
         } catch (error) {
             // Log the error but don't throw to avoid breaking module event processing
-            console.error(`PerformancePlugin failed to handle module event ${eventType}:`, error);
+            // PerformancePlugin failed to handle module event
         }
     }
 

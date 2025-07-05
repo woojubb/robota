@@ -17,7 +17,12 @@ vi.mock('@robota-sdk/agents', () => ({
     ExecutionAnalyticsPlugin: vi.fn().mockImplementation(() => ({})),
     createZodFunctionTool: vi.fn().mockReturnValue({
         schema: { name: 'assignTask', parameters: {} }
-    })
+    }),
+    BaseAIProvider: vi.fn().mockImplementation(() => ({
+        name: 'openai',
+        version: '1.0.0',
+        chat: vi.fn().mockResolvedValue({ content: 'Mock response' })
+    }))
 }));
 
 vi.mock('uuid', () => ({
@@ -44,15 +49,18 @@ describe('TeamContainer', () => {
         // Setup mock options
         mockOptions = {
             baseRobotaOptions: {
+                name: 'test-agent',
                 provider: 'openai',
                 model: 'gpt-4o-mini',
-                aiProviders: {
-                    openai: {
-                        chat: () => Promise.resolve('Mock response'),
-                        stream: () => Promise.resolve('Mock stream response'),
-                        validateConfig: () => true
-                    }
+                defaultModel: {
+                    provider: 'openai',
+                    model: 'gpt-4o-mini'
                 },
+                aiProviders: [{
+                    name: 'openai',
+                    version: '1.0.0',
+                    chat: vi.fn().mockResolvedValue({ content: 'Mock response' })
+                } as any],
                 currentProvider: 'openai',
                 currentModel: 'gpt-4o-mini',
                 maxTokens: 8000

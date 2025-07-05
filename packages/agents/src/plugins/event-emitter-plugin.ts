@@ -1,4 +1,4 @@
-import { BasePlugin, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext } from '../abstracts/base-plugin';
+import { BasePlugin, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext, PluginCategory, PluginPriority } from '../abstracts/base-plugin';
 import { Logger, createLogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 
@@ -192,7 +192,12 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
                 enabled: false,
                 maxSize: 1000,
                 flushInterval: 5000
-            }
+            },
+            // Add BasePluginOptions defaults
+            category: options.category ?? PluginCategory.EVENT_PROCESSING,
+            priority: options.priority ?? PluginPriority.HIGH,
+            moduleEvents: options.moduleEvents ?? [],
+            subscribeToAllModuleEvents: options.subscribeToAllModuleEvents ?? false
         };
 
         if (this.pluginOptions.buffer.enabled) {
@@ -594,7 +599,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
     /**
      * Get event emitter statistics
      */
-    getStats(): EventEmitterPluginStats {
+    override getStats(): EventEmitterPluginStats {
         const listenerCounts: Record<EventType, number> = {} as Record<EventType, number>;
         let totalListeners = 0;
 

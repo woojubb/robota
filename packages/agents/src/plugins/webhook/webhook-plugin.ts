@@ -320,7 +320,7 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
     /**
      * Get webhook plugin statistics
      */
-    getStats(): WebhookPluginStats {
+    override getStats(): WebhookPluginStats {
         return {
             endpointCount: this.pluginOptions.endpoints.length,
             queueLength: this.requestQueue.length,

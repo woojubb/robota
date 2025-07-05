@@ -396,7 +396,7 @@ export abstract class BasePlugin<TOptions extends BasePluginOptions = BasePlugin
                 } catch (error) {
                     this.stats.errors++;
                     // Log error but don't throw to avoid breaking event processing
-                    console.error(`Plugin ${this.name} failed to handle module event ${eventType}:`, error);
+                    // Plugin failed to handle module event
                 }
             });
 
@@ -405,7 +405,7 @@ export abstract class BasePlugin<TOptions extends BasePluginOptions = BasePlugin
         }
 
         if (uniqueEvents.length > 0) {
-            console.log(`Plugin ${this.name} subscribed to ${uniqueEvents.length} module events:`, uniqueEvents);
+            // Plugin subscribed to module events
         }
     }
 
@@ -421,7 +421,7 @@ export abstract class BasePlugin<TOptions extends BasePluginOptions = BasePlugin
         this.subscribedEvents = [];
         this.eventEmitter = undefined;
 
-        console.log(`Plugin ${this.name} unsubscribed from all module events`);
+        // Plugin unsubscribed from all module events
     }
 
     /**

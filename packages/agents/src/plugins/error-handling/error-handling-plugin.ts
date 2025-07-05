@@ -1,4 +1,4 @@
-import { BasePlugin } from '../../abstracts/base-plugin';
+import { BasePlugin, PluginCategory, PluginPriority } from '../../abstracts/base-plugin';
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 
@@ -40,6 +40,11 @@ export class ErrorHandlingPlugin extends BasePlugin<ErrorHandlingPluginOptions, 
             logErrors: options.logErrors ?? true,
             failureThreshold: options.failureThreshold ?? 5,
             circuitBreakerTimeout: options.circuitBreakerTimeout ?? 60000, // 1 minute
+            // Add BasePluginOptions defaults
+            category: options.category ?? PluginCategory.ERROR_HANDLING,
+            priority: options.priority ?? PluginPriority.HIGH,
+            moduleEvents: options.moduleEvents ?? [],
+            subscribeToAllModuleEvents: options.subscribeToAllModuleEvents ?? false,
             ...(options.customErrorHandler && { customErrorHandler: options.customErrorHandler }),
         };
 
@@ -171,7 +176,7 @@ export class ErrorHandlingPlugin extends BasePlugin<ErrorHandlingPluginOptions, 
     /**
      * Get error handling statistics
      */
-    getStats(): ErrorHandlingPluginStats {
+    override getStats(): ErrorHandlingPluginStats {
         return {
             failureCount: this.failureCount,
             circuitBreakerOpen: this.circuitBreakerOpen,
