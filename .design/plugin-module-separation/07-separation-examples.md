@@ -1,8 +1,12 @@
 # 구체적 분리 예시
 
-## 현재 Robota에서 Module이 될 수 있는 것들
+## 현재 Robota에서 실제 Module이 될 수 있는 것들
 
-### 1. 새로운 Module 영역들
+### ⚠️ 중요: Module 조건
+1. **선택적 확장**: 없어도 Robota가 기본 텍스트 대화를 정상적으로 할 수 있어야 함
+2. **LLM 한계**: LLM이 직접 할 수 없는 일이어야 함 (파일 처리, 네트워크 접근, 실시간 데이터 등)
+
+### 1. 실제로 필요한 Module들 (LLM이 할 수 없는 선택적 확장 기능)
 
 #### Vector Search Modules - RAG를 위한 검색 능력 (LLM이 할 수 없는 일)
 
@@ -62,282 +66,239 @@ interface MultiModalModule extends BaseModule {
 }
 ```
 
-#### Tool Execution Modules - 에이전트의 도구 실행 능력
+#### Database Connector Modules - 실시간 DB 연동 (LLM이 할 수 없는 일)
 
 ```typescript
-// 함수 도구 모듈 (현재 도구 시스템 확장)
-interface FunctionToolModule extends BaseModule {
-    registerFunction(schema: ZodSchema, handler: Function): void;
-    executeFunction(name: string, params: any): Promise<any>;
-    validateParameters(name: string, params: any): boolean;
+// 데이터베이스 연동 모듈 (LLM이 실시간 DB 접근 불가)
+interface DatabaseModule extends BaseModule {
+    connect(config: DatabaseConfig): Promise<void>;
+    query(sql: string, params?: any[]): Promise<any[]>;
+    insert(table: string, data: any): Promise<void>;
+    update(table: string, id: string, data: any): Promise<void>;
     
     getModuleType(): ModuleTypeDescriptor {
         return {
-            type: 'function-tool',
+            type: 'database',
             category: ModuleCategory.CAPABILITY,
             layer: ModuleLayer.APPLICATION,
-            dependencies: ['schema-validator'],
-            capabilities: ['function-execution', 'parameter-validation', 'schema-management']
+            dependencies: ['transport'],
+            capabilities: ['realtime-query', 'data-sync', 'transaction-management']
         };
     }
 }
 
-// API 도구 모듈
-interface APIToolModule extends BaseModule {
-    registerAPI(spec: OpenAPISpec): void;
-    callAPI(endpoint: string, params: any): Promise<any>;
-    generateClient(spec: OpenAPISpec): APIClient;
+// API 통합 모듈 (LLM이 외부 API 직접 호출 불가)
+interface APIIntegrationModule extends BaseModule {
+    registerAPI(name: string, spec: OpenAPISpec): void;
+    callAPI(name: string, endpoint: string, params: any): Promise<any>;
+    getAPIStatus(name: string): Promise<APIStatus>;
     
     getModuleType(): ModuleTypeDescriptor {
         return {
-            type: 'api-tool',
+            type: 'api-integration',
             category: ModuleCategory.CAPABILITY,
             layer: ModuleLayer.APPLICATION,
-            dependencies: ['http-client', 'schema-parser'],
-            capabilities: ['api-integration', 'client-generation', 'endpoint-management']
+            dependencies: ['transport'],
+            capabilities: ['external-api-access', 'data-fetching', 'service-integration']
         };
     }
 }
 
-// MCP 도구 모듈
-interface MCPToolModule extends BaseModule {
-    connectToServer(serverUrl: string): Promise<void>;
-    listRemoteTools(): Promise<Tool[]>;
-    executeRemoteTool(toolId: string, params: any): Promise<any>;
+// 웹 스크래핑 모듈 (LLM이 웹페이지 직접 접근 불가)
+interface WebScrapingModule extends BaseModule {
+    scrapeWebpage(url: string): Promise<string>;
+    extractLinks(url: string): Promise<string[]>;
+    monitorChanges(url: string): Promise<void>;
     
     getModuleType(): ModuleTypeDescriptor {
         return {
-            type: 'mcp-tool',
-            category: ModuleCategory.INTEGRATION,
-            layer: ModuleLayer.PLATFORM,
-            dependencies: ['mcp-protocol', 'remote-communication'],
-            capabilities: ['remote-tool-execution', 'mcp-integration', 'distributed-computing']
+            type: 'web-scraping',
+            category: ModuleCategory.CAPABILITY,
+            layer: ModuleLayer.APPLICATION,
+            dependencies: ['transport'],
+            capabilities: ['webpage-parsing', 'content-extraction', 'link-crawling']
         };
     }
 }
 ```
 
-#### Reasoning Modules - 에이전트의 추론 능력
+#### ❌ Module이 될 수 없는 것들 (LLM이 이미 잘 하는 일들)
 
 ```typescript
-// 논리적 추론 모듈
-interface LogicalReasoningModule extends BaseModule {
-    inferFromFacts(facts: string[]): Promise<string[]>;
-    validateLogic(statement: string): Promise<boolean>;
-    explainReasoning(conclusion: string): Promise<string>;
+// ❌ 이런 것들은 Module로 만들면 안됨 - LLM이 이미 잘 하는 일들
+// 
+// interface ReasoningModule - LLM이 이미 추론을 매우 잘 함
+// interface PlanningModule - LLM이 이미 계획을 잘 세움  
+// interface LearningModule - LLM이 이미 맥락에서 학습함
+// interface PerceptionModule - LLM이 이미 텍스트 이해를 잘 함
+// interface MemoryModule - LLM이 이미 대화 맥락을 기억함
+// interface KnowledgeModule - LLM이 이미 광범위한 지식을 가짐
+//
+// 이런 것들을 Module로 만드는 것은:
+// 1. LLM의 기본 능력을 중복 구현
+// 2. 불필요한 복잡성 증가
+// 3. 성능 저하 가능성
+// 4. LLM보다 품질이 떨어질 가능성
+
+// ✅ 대신 이런 것들이 진짜 Module이 되어야 함:
+// - RAG: LLM이 실시간 문서 검색 불가
+// - File Processing: LLM이 파일 파싱 불가  
+// - Database: LLM이 실시간 DB 접근 불가
+// - API Integration: LLM이 외부 API 호출 불가
+// - Speech Processing: LLM이 오디오 처리 불가
+```
+
+#### Storage Modules - 다양한 저장소 구현체 (선택적 확장)
+
+```typescript
+// 벡터 저장소 모듈 (RAG를 위한 선택적 확장)
+interface VectorStorageModule extends BaseModule {
+    connect(config: VectorStorageConfig): Promise<void>;
+    store(id: string, vector: number[], metadata?: any): Promise<void>;
+    search(query: number[], topK: number): Promise<SearchResult[]>;
+    delete(id: string): Promise<boolean>;
     
     getModuleType(): ModuleTypeDescriptor {
         return {
-            type: 'logical-reasoning',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.DOMAIN,
-            dependencies: ['knowledge-base', 'inference-engine'],
-            capabilities: ['logical-inference', 'proof-generation', 'consistency-checking']
+            type: 'vector-storage',
+            category: ModuleCategory.FOUNDATION,
+            layer: ModuleLayer.APPLICATION,
+            dependencies: ['transport'],
+            capabilities: ['vector-indexing', 'similarity-search', 'metadata-filtering']
         };
     }
 }
 
-// 확률적 추론 모듈
-interface ProbabilisticReasoningModule extends BaseModule {
-    estimateProbability(event: string, evidence: any[]): Promise<number>;
-    updateBelief(evidence: any): Promise<void>;
-    getMostLikely(alternatives: string[]): Promise<string>;
+// 파일 저장소 모듈 (로컬/클라우드 파일 시스템 접근)
+interface FileStorageModule extends BaseModule {
+    saveFile(path: string, content: Buffer): Promise<void>;
+    loadFile(path: string): Promise<Buffer>;
+    listFiles(directory: string): Promise<string[]>;
+    deleteFile(path: string): Promise<boolean>;
     
     getModuleType(): ModuleTypeDescriptor {
         return {
-            type: 'probabilistic-reasoning',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.DOMAIN,
-            dependencies: ['bayesian-network', 'statistical-engine'],
-            capabilities: ['probability-estimation', 'belief-updating', 'uncertainty-handling']
+            type: 'file-storage',
+            category: ModuleCategory.FOUNDATION,
+            layer: ModuleLayer.APPLICATION,
+            dependencies: [],
+            capabilities: ['file-persistence', 'directory-management', 'cloud-sync']
         };
     }
 }
 
-// 인과관계 추론 모듈
-interface CausalReasoningModule extends BaseModule {
-    identifyCauses(effect: string, context: any): Promise<string[]>;
-    predictEffect(cause: string, context: any): Promise<string>;
-    buildCausalGraph(observations: any[]): Promise<CausalGraph>;
+// 캐시 저장소 모듈 (Redis, Memcached 등)
+interface CacheStorageModule extends BaseModule {
+    set(key: string, value: any, ttl?: number): Promise<void>;
+    get(key: string): Promise<any>;
+    delete(key: string): Promise<boolean>;
+    clear(): Promise<void>;
     
     getModuleType(): ModuleTypeDescriptor {
         return {
-            type: 'causal-reasoning',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.DOMAIN,
-            dependencies: ['graph-analysis', 'statistical-inference'],
-            capabilities: ['causal-discovery', 'effect-prediction', 'counterfactual-reasoning']
+            type: 'cache-storage',
+            category: ModuleCategory.FOUNDATION,
+            layer: ModuleLayer.APPLICATION,
+            dependencies: ['transport'],
+            capabilities: ['memory-caching', 'ttl-management', 'distributed-cache']
         };
     }
 }
 ```
 
-#### Perception Modules - 에이전트의 감지 능력
+### 2. ❌ Module이 될 수 없는 것들 정리
 
+#### 필수 구성요소들 (내부 핵심 클래스로 유지)
 ```typescript
-// 텍스트 인식 모듈
-interface TextPerceptionModule extends BaseModule {
-    extractEntities(text: string): Promise<Entity[]>;
-    detectSentiment(text: string): Promise<Sentiment>;
-    classifyIntent(text: string): Promise<Intent>;
-    
-    getModuleType(): ModuleTypeDescriptor {
-        return {
-            type: 'text-perception',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.APPLICATION,
-            dependencies: ['nlp-processor', 'entity-recognizer'],
-            capabilities: ['entity-extraction', 'sentiment-analysis', 'intent-classification']
-        };
-    }
-}
+// ❌ 이런 것들은 Module 불가 - 없으면 Robota가 동작하지 않음
 
-// 이미지 인식 모듈
-interface ImagePerceptionModule extends BaseModule {
-    describeImage(image: Buffer): Promise<string>;
-    detectObjects(image: Buffer): Promise<Object[]>;
-    extractText(image: Buffer): Promise<string>;
-    
-    getModuleType(): ModuleTypeDescriptor {
-        return {
-            type: 'image-perception',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.APPLICATION,
-            dependencies: ['vision-processor', 'ocr-engine'],
-            capabilities: ['image-description', 'object-detection', 'text-extraction']
-        };
-    }
-}
-
-// 컨텍스트 인식 모듈
-interface ContextPerceptionModule extends BaseModule {
-    analyzeContext(input: any): Promise<Context>;
-    detectEmotions(input: any): Promise<Emotion[]>;
-    identifyPatterns(data: any[]): Promise<Pattern[]>;
-    
-    getModuleType(): ModuleTypeDescriptor {
-        return {
-            type: 'context-perception',
-            category: ModuleCategory.ENHANCEMENT,
-            layer: ModuleLayer.APPLICATION,
-            dependencies: ['pattern-analyzer', 'emotion-detector'],
-            capabilities: ['context-analysis', 'emotion-detection', 'pattern-recognition']
-        };
-    }
-}
-```
-
-#### Learning Modules - 에이전트의 학습 능력
-
-```typescript
-// 패턴 학습 모듈
-interface PatternLearningModule extends BaseModule {
-    observePattern(input: any, output: any): Promise<void>;
-    suggestOptimization(task: string): Promise<Suggestion[]>;
-    adaptBehavior(feedback: Feedback): Promise<void>;
-    
-    getModuleType(): ModuleTypeDescriptor {
-        return {
-            type: 'pattern-learning',
-            category: ModuleCategory.ENHANCEMENT,
-            layer: ModuleLayer.DOMAIN,
-            dependencies: ['pattern-analyzer', 'feedback-processor'],
-            capabilities: ['pattern-recognition', 'behavior-adaptation', 'optimization-suggestion']
-        };
-    }
-}
-
-// 경험 학습 모듈
-interface ExperienceLearningModule extends BaseModule {
-    recordExperience(experience: Experience): Promise<void>;
-    retrieveSimilarExperiences(situation: any): Promise<Experience[]>;
-    improveFromFeedback(feedback: Feedback): Promise<void>;
-    
-    getModuleType(): ModuleTypeDescriptor {
-        return {
-            type: 'experience-learning',
-            category: ModuleCategory.ENHANCEMENT,
-            layer: ModuleLayer.DOMAIN,
-            dependencies: ['experience-storage', 'similarity-matcher'],
-            capabilities: ['experience-recording', 'case-based-reasoning', 'feedback-learning']
-        };
-    }
-}
-```
-
-### 2. 기존 AI Provider 시스템의 Module 방식 발전
-
-#### 현재 vs 새로운 접근
-
-```typescript
-// 현재는 단순한 Provider 패턴
+// AI Provider - 대화 자체가 불가능
 interface AIProvider {
     generateResponse(messages: Message[]): Promise<string>;
     generateStream(messages: Message[]): AsyncIterable<string>;
 }
 
-// Module 방식으로 발전 - 더 풍부한 능력 제공
-interface ConversationModule extends BaseModule {
-    // 기본 대화 능력
-    generateResponse(messages: Message[]): Promise<string>;
-    generateStream(messages: Message[]): AsyncIterable<string>;
-    
-    // 확장된 대화 능력
-    maintainPersonality(persona: Persona): void;
-    adaptToContext(context: Context): Promise<void>;
-    learnFromFeedback(feedback: Feedback): Promise<void>;
-    
-    // 고급 대화 기능
-    detectEmotions(messages: Message[]): Promise<Emotion[]>;
-    suggestFollowups(conversation: Message[]): Promise<string[]>;
-    evaluateResponseQuality(response: string): Promise<QualityMetrics>;
-    
-    getModuleType(): ModuleTypeDescriptor {
-        return {
-            type: 'conversation',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.APPLICATION,
-            dependencies: ['ai-provider', 'personality-engine', 'emotion-detector'],
-            capabilities: ['advanced-conversation', 'personality-adaptation', 'emotional-intelligence']
-        };
-    }
+// Tool Execution - 함수 호출 로직이 깨짐
+interface ToolExecutor {
+    executeFunction(name: string, params: any): Promise<any>;
+    registerTool(tool: Tool): void;
 }
 
-// 구체적 구현 예시
-export class OpenAIConversationModule extends BaseModule implements ConversationModule {
-    readonly name = 'openai-conversation';
-    readonly version = '2.0.0';
-    readonly dependencies = ['openai-provider', 'personality-engine'];
-    
-    private personality?: Persona;
-    private context?: Context;
-    
-    async generateResponse(messages: Message[]): Promise<string> {
-        // 개성과 컨텍스트를 반영한 응답 생성
-        const enhancedMessages = await this.enhanceMessages(messages);
-        return await this.provider.generateResponse(enhancedMessages);
-    }
-    
-    async maintainPersonality(persona: Persona): void {
-        this.personality = persona;
-        await this.updateSystemPrompt();
-    }
-    
-    async adaptToContext(context: Context): Promise<void> {
-        this.context = context;
-        await this.adjustResponseStyle(context);
-    }
-    
-    async detectEmotions(messages: Message[]): Promise<Emotion[]> {
-        const emotionModule = this.getModule<EmotionDetectionModule>('emotion-detection');
-        return await emotionModule.analyzeConversation(messages);
-    }
+// Message Processing - 메시지 변환이 안됨  
+interface MessageProcessor {
+    formatMessages(messages: Message[]): string;
+    parseResponse(response: string): Message;
+}
+
+// Session Management - 세션 관리가 안됨
+interface SessionManager {
+    createSession(id: string): Session;
+    getSession(id: string): Session | null;
 }
 ```
 
-## Plugin으로 유지되는 항목들 (Cross-cutting Concerns)
+#### LLM이 이미 잘 하는 일들 (불필요한 Module)
+```typescript
+// ❌ 이런 것들은 Module로 만들 필요 없음 - LLM이 이미 잘 함
 
-### 1. Monitoring & Analytics Plugins  
+// Reasoning - LLM이 추론을 매우 잘 함
+// Planning - LLM이 계획 수립을 잘 함  
+// Learning - LLM이 맥락에서 학습함
+// Perception - LLM이 텍스트 이해를 잘 함
+// Memory - LLM이 대화 맥락을 기억함
+// Knowledge - LLM이 광범위한 지식을 가짐
+// Conversation - LLM이 대화를 매우 잘 함
+// Analysis - LLM이 분석을 잘 함
+```
+
+### 3. ❌ 잘못된 설계 예시 (AI Provider를 Module로 만드는 경우)
+
+#### 왜 AI Provider는 Module이 될 수 없는가
+
+```typescript
+// ❌ 잘못된 접근: AI Provider를 Module로 만들기
+// 문제점: AI Provider 없이는 Robota가 기본 대화도 할 수 없음
+
+interface ConversationModule extends BaseModule {
+    // 이런 식으로 만들면 안됨
+    generateResponse(messages: Message[]): Promise<string>;
+    generateStream(messages: Message[]): AsyncIterable<string>;
+    // 이미 LLM이 잘 하는 일들을 중복 구현
+    maintainPersonality(persona: Persona): void;
+    adaptToContext(context: Context): Promise<void>;
+    detectEmotions(messages: Message[]): Promise<Emotion[]>;
+}
+
+// ✅ 올바른 접근: AI Provider는 내부 핵심 클래스로 유지
+interface AIProvider {
+    generateResponse(messages: Message[]): Promise<string>;
+    generateStream(messages: Message[]): AsyncIterable<string>;
+}
+
+// 실제 구현
+export class OpenAIProvider implements AIProvider {
+    constructor(private config: OpenAIConfig) {}
+    
+    async generateResponse(messages: Message[]): Promise<string> {
+        // OpenAI API 호출 로직
+        return await this.client.chat.completions.create({
+            model: this.config.model,
+            messages: messages
+        });
+    }
+}
+
+// Robota에서 사용 (Module이 아닌 내부 클래스로)
+const agent = new RobotaBuilder()
+    .setAIProvider(new OpenAIProvider(config)) // ← 필수 구성요소
+    .addModule(new RAGModule())                // ← 선택적 확장
+    .addPlugin(new LoggingPlugin())            // ← 관찰/보강
+    .build();
+```
+
+## 4. Plugin으로 유지되는 항목들 (Cross-cutting Concerns)
+
+#### ✅ 이미 올바르게 구현된 Plugin들 (선택적이고 관찰/보강 기능)  
 
 ```typescript
 // 사용량 추적 플러그인 - 에이전트 실행 통계 관찰

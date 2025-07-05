@@ -30,16 +30,23 @@
 ```typescript
 // 기본 모듈 타입 (확장 가능)
 export enum CoreModuleType {
-    CORE = 'core',
-    PROVIDER = 'provider',
-    TOOL = 'tool',
-    STORAGE = 'storage',
-    VECTOR_SEARCH = 'vector-search',
-    FILE_PROCESSING = 'file-processing',
-    MULTIMODAL = 'multimodal',
-    REASONING = 'reasoning',
-    PERCEPTION = 'perception',
-    TRANSPORT = 'transport'
+    // ❌ 이런 타입들은 더 이상 사용하지 않음 (필수 구성요소이거나 LLM이 이미 잘 하는 일)
+    // CORE = 'core' → 내부 핵심 클래스
+    // PROVIDER = 'provider' → 내부 핵심 클래스  
+    // TOOL = 'tool' → 내부 핵심 클래스
+    // REASONING = 'reasoning' → LLM이 이미 잘 하는 일
+    // PERCEPTION = 'perception' → LLM이 이미 잘 하는 일
+    
+    // ✅ 실제 Module이 될 수 있는 타입들 (LLM이 할 수 없는 선택적 확장)
+    STORAGE = 'storage',                    // 다양한 저장소 구현체
+    VECTOR_SEARCH = 'vector-search',        // RAG용 벡터 검색
+    FILE_PROCESSING = 'file-processing',    // 파일 파싱/처리
+    MULTIMODAL = 'multimodal',             // 멀티모달 AI 처리
+    DATABASE = 'database',                  // 실시간 DB 연동
+    API_INTEGRATION = 'api-integration',    // 외부 API 연동
+    SPEECH_PROCESSING = 'speech-processing', // 음성 입출력
+    IMAGE_ANALYSIS = 'image-analysis',      // 이미지 분석
+    TRANSPORT = 'transport'                 // 네트워크 전송
 }
 
 // 확장된 모듈 타입 시스템
@@ -73,30 +80,38 @@ export enum ModuleLayer {
 export class ModuleTypeRegistry {
     private static types = new Map<string, ModuleTypeDescriptor>();
     
-    // 기본 타입들 등록
+    // 실제 Module 타입들 등록 (LLM이 할 수 없는 선택적 확장 기능들)
     static {
-        this.registerType('provider', {
-            type: 'provider',
-            category: ModuleCategory.FOUNDATION,
-            layer: ModuleLayer.PLATFORM,
-            dependencies: [],
-            capabilities: ['ai-generation', 'model-inference']
-        });
-        
         this.registerType('vector-search', {
             type: 'vector-search',
             category: ModuleCategory.CAPABILITY,
             layer: ModuleLayer.APPLICATION,
-            dependencies: ['embedding-provider', 'vector-storage'],
+            dependencies: ['storage'],
             capabilities: ['vector-embedding', 'similarity-search', 'rag-retrieval']
         });
         
-        this.registerType('reasoning', {
-            type: 'reasoning',
+        this.registerType('file-processing', {
+            type: 'file-processing',
             category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.DOMAIN,
-            dependencies: ['vector-search', 'provider'],
-            capabilities: ['logical-inference', 'pattern-recognition']
+            layer: ModuleLayer.APPLICATION,
+            dependencies: ['storage'],
+            capabilities: ['pdf-parsing', 'image-ocr', 'audio-transcription']
+        });
+        
+        this.registerType('database', {
+            type: 'database',
+            category: ModuleCategory.CAPABILITY,
+            layer: ModuleLayer.APPLICATION,
+            dependencies: ['transport'],
+            capabilities: ['realtime-query', 'data-sync', 'transaction-management']
+        });
+        
+        this.registerType('speech-processing', {
+            type: 'speech-processing',
+            category: ModuleCategory.CAPABILITY,
+            layer: ModuleLayer.APPLICATION,
+            dependencies: ['transport'],
+            capabilities: ['speech-to-text', 'text-to-speech', 'language-detection']
         });
     }
     
@@ -213,108 +228,107 @@ const learningModule = {
 
 ## 카테고리별 분류 (Category-based Classification)
 
-### Foundation Modules
-**다른 모듈의 기반이 되는 핵심 기술**
+### Foundation Modules  
+**다른 모듈의 기반이 되는 기술 (선택적 확장)**
 
-- **Database**: 데이터 영속성
-- **Network**: 통신 기반
-- **AI Providers**: AI 서비스 기반
-- **Basic Storage**: 파일 시스템 기반
+- **Storage**: 다양한 저장소 구현체 (없어도 메모리 기반 동작)
+- **Transport**: 네트워크 통신 기반 (없어도 로컬 동작)
 
 ### Capability Modules  
-**에이전트의 핵심 능력을 제공**
+**LLM이 할 수 없는 새로운 능력을 제공 (선택적 확장)**
 
-- **Vector Search**: RAG를 위한 벡터 검색 능력
-- **File Processing**: PDF, 이미지, 오디오 처리 능력
-- **MultiModal**: 이미지+텍스트 AI 처리 능력
-- **Reasoning**: 추론 능력
-- **Planning**: 계획 수립 능력
-- **Perception**: 감지 능력
-- **Learning**: 학습 능력
-
-### Enhancement Modules
-**기존 능력을 향상시키는 기능**
-
-- **Context Awareness**: 상황 인식 향상
-- **Performance Optimization**: 성능 최적화
-- **Adaptive Behavior**: 적응적 행동
+- **Vector Search**: RAG를 위한 벡터 검색 능력 (없어도 일반 대화 가능)
+- **File Processing**: PDF, 이미지, 오디오 처리 능력 (없어도 텍스트 대화 가능)
+- **MultiModal**: 이미지+텍스트 AI 처리 능력 (없어도 텍스트만 처리)
+- **Database**: 실시간 DB 연동 능력 (없어도 기본 대화 가능)
+- **Speech Processing**: 음성 입출력 능력 (없어도 텍스트 대화 가능)
+- **Image Analysis**: 이미지 분석 능력 (없어도 텍스트 대화 가능)
 
 ### Integration Modules
-**여러 모듈을 통합하는 기능**
+**여러 기능을 통합하는 확장 (선택적)**
 
-- **Multi-modal Processing**: 다중 모달 처리
-- **Cross-domain Reasoning**: 도메인 간 추론
-- **Unified Interfaces**: 통합 인터페이스
+- **API Integration**: 외부 API 통합 (없어도 기본 기능 동작)
+- **Multi-modal Processing**: 다중 모달 처리 통합
+- **Data Pipeline**: 데이터 파이프라인 통합
+
+### ❌ Module이 될 수 없는 것들 (내부 핵심 클래스)
+**이런 것들은 필수 구성요소이므로 Module 불가:**
+
+- **AI Providers**: 대화 자체가 불가능해짐
+- **Tool Execution**: 함수 호출 로직이 깨짐  
+- **Message Processing**: 메시지 변환이 안됨
+- **Session Management**: 세션 관리가 안됨
+- **Reasoning/Planning/Learning**: LLM이 이미 잘 하는 일
 
 ## 동적 모듈 타입 등록 예시
 
 ### 실시간 타입 등록
 ```typescript
-// 런타임에 새로운 모듈 타입 등록
-ModuleTypeRegistry.registerType('emotion-recognition', {
-    type: 'emotion-recognition',
+// 실제 필요한 모듈 타입 등록 (LLM이 할 수 없는 일들)
+ModuleTypeRegistry.registerType('web-scraping', {
+    type: 'web-scraping',
     category: ModuleCategory.CAPABILITY,
-    layer: ModuleLayer.DOMAIN,
-    dependencies: ['text-perception', 'context-analysis'],
-    capabilities: ['emotion-detection', 'sentiment-analysis', 'mood-tracking']
+    layer: ModuleLayer.APPLICATION,
+    dependencies: ['transport'],
+    capabilities: ['webpage-parsing', 'content-extraction', 'link-crawling']
 });
 
-// 사용자 정의 도메인 모듈
-ModuleTypeRegistry.registerType('financial-analysis', {
-    type: 'financial-analysis',
-    category: ModuleCategory.ENHANCEMENT,
-    layer: ModuleLayer.DOMAIN,
-    dependencies: ['reasoning', 'memory', 'data-provider'],
-    capabilities: ['market-analysis', 'risk-assessment', 'portfolio-optimization']
+// 금융 데이터 연동 모듈 (외부 API 접근)
+ModuleTypeRegistry.registerType('financial-data', {
+    type: 'financial-data',
+    category: ModuleCategory.CAPABILITY,
+    layer: ModuleLayer.APPLICATION,
+    dependencies: ['api-integration', 'database'],
+    capabilities: ['market-data-access', 'price-tracking', 'financial-feeds']
 });
 
-// 특수 통합 모듈
-ModuleTypeRegistry.registerType('agent-collaboration', {
-    type: 'agent-collaboration',
-    category: ModuleCategory.INTEGRATION,
-    layer: ModuleLayer.DOMAIN,
-    dependencies: ['communication', 'planning', 'coordination'],
-    capabilities: ['multi-agent-coordination', 'task-distribution', 'consensus-building']
+// 실시간 통신 모듈 (LLM이 할 수 없는 네트워크 통신)
+ModuleTypeRegistry.registerType('realtime-communication', {
+    type: 'realtime-communication',
+    category: ModuleCategory.CAPABILITY,
+    layer: ModuleLayer.APPLICATION,
+    dependencies: ['transport'],
+    capabilities: ['websocket-connection', 'push-notifications', 'live-streaming']
 });
 ```
 
 ### 도메인별 모듈 세트
 ```typescript
-// 의료 도메인 모듈들
+// 의료 데이터 접근 모듈들 (LLM이 할 수 없는 외부 데이터 연동)
 const medicalModuleTypes = [
-    'medical-knowledge-base',
-    'symptom-analyzer',
-    'diagnosis-assistant',
-    'treatment-recommender',
-    'drug-interaction-checker'
+    'medical-database',      // 의료 DB 실시간 조회
+    'drug-api',             // 약물 정보 API 연동
+    'diagnostic-imaging',   // 의료 영상 처리
+    'patient-records',      // 환자 기록 시스템 연동
+    'lab-results-api'       // 검사 결과 API 연동
 ];
 
 medicalModuleTypes.forEach(type => {
     ModuleTypeRegistry.registerType(type, {
         type: type,
         category: ModuleCategory.CAPABILITY,
-        layer: ModuleLayer.DOMAIN,
-        dependencies: ['reasoning', 'medical-memory', 'knowledge-graph'],
-        capabilities: [`${type}-capability`]
+        layer: ModuleLayer.APPLICATION,
+        dependencies: ['database', 'api-integration'],
+        capabilities: [`${type}-data-access`]
     });
 });
 
-// 게임 AI 도메인 모듈들  
-const gameAIModuleTypes = [
-    'game-state-analyzer',
-    'strategy-planner',
-    'opponent-modeler',
-    'move-generator',
-    'evaluation-function'
+// 실시간 게임 연동 모듈들 (LLM이 할 수 없는 게임 엔진 연동)
+const gameModuleTypes = [
+    'game-engine-api',      // 게임 엔진 연동
+    'player-stats-api',     // 플레이어 통계 API
+    'matchmaking-service',  // 매치메이킹 서비스 연동
+    'leaderboard-api',      // 리더보드 API 연동
+    'tournament-data'       // 토너먼트 데이터 연동
 ];
 
-gameAIModuleTypes.forEach(type => {
+gameModuleTypes.forEach(type => {
     ModuleTypeRegistry.registerType(type, {
         type: type,
         category: ModuleCategory.CAPABILITY,
-        layer: ModuleLayer.DOMAIN,
-        dependencies: ['game-engine', 'search-algorithm', 'pattern-recognition'],
-        capabilities: [`${type}-capability`]
+        layer: ModuleLayer.APPLICATION,
+        dependencies: ['api-integration', 'realtime-communication'],
+        capabilities: [`${type}-integration`]
     });
 });
 ```

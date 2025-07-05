@@ -57,32 +57,44 @@ export abstract class BaseModule<TConfig = ModuleConfig> {
 ### Module 구현 예시
 
 ```typescript
-// AI Provider Module 예시
-export class OpenAIProviderModule extends BaseModule<OpenAIConfig> {
-    readonly name = 'openai-provider';
+// ❌ 잘못된 예시: AI Provider를 Module로 만들기
+// AI Provider는 필수 구성요소이므로 Module이 될 수 없음
+
+// ✅ 올바른 예시: RAG Module (LLM이 할 수 없는 선택적 확장)
+export class RAGModule extends BaseModule<RAGConfig> {
+    readonly name = 'rag-search';
     readonly version = '1.0.0';
-    readonly dependencies = ['http-transport'];
+    readonly dependencies = ['vector-storage', 'transport'];
     
-    private client?: OpenAI;
+    private vectorStorage?: VectorStorageModule;
+    private embedder?: EmbeddingService;
     
     getModuleType(): ModuleTypeDescriptor {
-        return ModuleTypeRegistry.getType('provider')!;
+        return {
+            type: 'rag-search',
+            category: ModuleCategory.CAPABILITY,
+            layer: ModuleLayer.APPLICATION,
+            dependencies: this.dependencies,
+            capabilities: ['document-search', 'context-retrieval', 'rag-generation']
+        };
     }
     
-    async initialize(config: OpenAIConfig): Promise<void> {
-        this.client = new OpenAI({ apiKey: config.apiKey });
+    async initialize(config: RAGConfig): Promise<void> {
+        this.vectorStorage = await this.getModule<VectorStorageModule>('vector-storage');
+        this.embedder = new EmbeddingService(config.embeddingProvider);
     }
     
     async dispose(): Promise<void> {
-        this.client = undefined;
+        await this.vectorStorage?.dispose();
+        this.embedder = undefined;
     }
     
     getCapabilities(): ModuleCapabilities {
         return {
-            textGeneration: true,
-            streaming: true,
-            models: ['gpt-4', 'gpt-3.5-turbo'],
-            maxTokens: 128000
+            documentIndexing: true,
+            semanticSearch: true,
+            contextRetrieval: true,
+            maxDocuments: 10000
         };
     }
     
@@ -92,42 +104,58 @@ export class OpenAIProviderModule extends BaseModule<OpenAIConfig> {
         );
     }
     
-    // AI Provider 특화 메소드들
-    async generateResponse(messages: Message[]): Promise<string> {
-        if (!this.client) throw new Error('Module not initialized');
-        // OpenAI API 호출 로직
+    // RAG 특화 메소드들 (LLM이 할 수 없는 일)
+    async addDocument(id: string, content: string, metadata?: any): Promise<void> {
+        if (!this.vectorStorage) throw new Error('Vector storage not initialized');
+        const embedding = await this.embedder!.embed(content);
+        await this.vectorStorage.store(id, embedding, { content, metadata });
     }
     
-    async generateStream(messages: Message[]): AsyncIterable<string> {
-        if (!this.client) throw new Error('Module not initialized');
-        // OpenAI streaming API 호출 로직
+    async searchRelevant(query: string, topK: number = 5): Promise<string[]> {
+        if (!this.vectorStorage) throw new Error('Vector storage not initialized');
+        const queryEmbedding = await this.embedder!.embed(query);
+        const results = await this.vectorStorage.search(queryEmbedding, topK);
+        return results.map(r => r.metadata.content);
     }
 }
 
-// Memory Module 예시
-export class VectorMemoryModule extends BaseModule<VectorMemoryConfig> {
-    readonly name = 'vector-memory';
+// ✅ 올바른 예시: File Processing Module (LLM이 할 수 없는 선택적 확장)
+export class FileProcessingModule extends BaseModule<FileProcessingConfig> {
+    readonly name = 'file-processing';
     readonly version = '1.0.0';
-    readonly dependencies = ['vector-storage', 'embedding-provider'];
+    readonly dependencies = ['storage'];
+    
+    private ocrService?: OCRService;
+    private pdfParser?: PDFParser;
+    private audioTranscriber?: AudioTranscriber;
     
     getModuleType(): ModuleTypeDescriptor {
-        return ModuleTypeRegistry.getType('memory')!;
+        return {
+            type: 'file-processing',
+            category: ModuleCategory.CAPABILITY,
+            layer: ModuleLayer.APPLICATION,
+            dependencies: this.dependencies,
+            capabilities: ['pdf-parsing', 'image-ocr', 'audio-transcription']
+        };
     }
     
-    async initialize(config: VectorMemoryConfig): Promise<void> {
-        // 벡터 스토리지 및 임베딩 프로바이더 초기화
+    async initialize(config: FileProcessingConfig): Promise<void> {
+        this.ocrService = new OCRService(config.ocrProvider);
+        this.pdfParser = new PDFParser();
+        this.audioTranscriber = new AudioTranscriber(config.speechProvider);
     }
     
     async dispose(): Promise<void> {
-        // 리소스 정리
+        await this.ocrService?.dispose();
+        await this.audioTranscriber?.dispose();
     }
     
     getCapabilities(): ModuleCapabilities {
         return {
-            vectorDimension: 1536,
-            similaritySearch: true,
-            episodicMemory: true,
-            semanticSearch: true
+            supportedFormats: ['pdf', 'png', 'jpg', 'mp3', 'wav'],
+            maxFileSize: '100MB',
+            ocrLanguages: ['en', 'ko', 'ja'],
+            audioFormats: ['mp3', 'wav', 'flac']
         };
     }
     
@@ -137,17 +165,36 @@ export class VectorMemoryModule extends BaseModule<VectorMemoryConfig> {
         );
     }
     
-    // Memory 특화 메소드들
-    async store(key: string, value: any, metadata?: any): Promise<void> {
-        // 벡터 저장 로직
+    // File Processing 특화 메소드들 (LLM이 할 수 없는 일)
+    async processPDF(buffer: Buffer): Promise<string> {
+        if (!this.pdfParser) throw new Error('PDF parser not initialized');
+        return await this.pdfParser.extractText(buffer);
     }
     
-    async retrieve(key: string): Promise<any> {
-        // 벡터 검색 로직
+    async processImage(buffer: Buffer): Promise<string> {
+        if (!this.ocrService) throw new Error('OCR service not initialized');
+        return await this.ocrService.extractText(buffer);
     }
     
-    async search(query: string, topK: number = 5): Promise<any[]> {
-        // 유사도 검색 로직
+    async processAudio(buffer: Buffer): Promise<string> {
+        if (!this.audioTranscriber) throw new Error('Audio transcriber not initialized');
+        return await this.audioTranscriber.transcribe(buffer);
+    }
+    
+    async processFile(buffer: Buffer, type: string): Promise<string> {
+        switch (type.toLowerCase()) {
+            case 'pdf':
+                return await this.processPDF(buffer);
+            case 'png':
+            case 'jpg':
+            case 'jpeg':
+                return await this.processImage(buffer);
+            case 'mp3':
+            case 'wav':
+                return await this.processAudio(buffer);
+            default:
+                throw new Error(`Unsupported file type: ${type}`);
+        }
     }
 }
 ```
@@ -492,4 +539,194 @@ export class ModulePluginBridge {
 }
 ```
 
-이러한 아키텍처 설계를 통해 모듈과 플러그인이 명확히 분리되면서도 효율적으로 상호작용할 수 있는 시스템을 구축할 수 있습니다. 
+## Robota 클래스 아키텍처 (선택적 확장 원칙 적용)
+
+### Robota 클래스에서 Module 활용
+
+```typescript
+export class Robota {
+    // ✅ 필수 구성요소들 (내부 핵심 클래스)
+    private aiProvider: AIProvider;              // 없으면 대화 불가
+    private toolExecutor: ToolExecutor;          // 없으면 함수 호출 불가
+    private messageProcessor: MessageProcessor;  // 없으면 메시지 처리 불가
+    private sessionManager: SessionManager;      // 없으면 세션 관리 불가
+    
+    // ✅ 선택적 확장들 (Module/Plugin들)
+    private moduleManager: ModuleManager;
+    private pluginManager: PluginManager;
+    private modulePluginBridge: ModulePluginBridge;
+    
+    // 선택적 Module들 (없어도 기본 대화 가능)
+    private ragModule?: RAGModule;
+    private fileProcessingModule?: FileProcessingModule;
+    private databaseModule?: DatabaseModule;
+    private apiIntegrationModule?: APIIntegrationModule;
+    
+    constructor(config: RobotaConfig) {
+        // 필수 구성요소들 초기화 (이것들 없으면 Robota 동작 불가)
+        this.aiProvider = config.aiProvider;
+        this.toolExecutor = new ToolExecutor();
+        this.messageProcessor = new MessageProcessor();
+        this.sessionManager = new SessionManager();
+        
+        // 선택적 확장들 초기화
+        this.moduleManager = new ModuleManager();
+        this.pluginManager = new PluginManager();
+        this.modulePluginBridge = new ModulePluginBridge(
+            this.moduleManager, 
+            this.pluginManager
+        );
+    }
+    
+    // ✅ 선택적 Module 등록 (없어도 기본 동작)
+    async addModule<T extends BaseModule>(module: T): Promise<void> {
+        await this.moduleManager.register(module);
+        
+        // 특정 타입 Module에 대한 특별 처리
+        const moduleType = module.getModuleType().type;
+        switch (moduleType) {
+            case 'rag-search':
+                this.ragModule = module as RAGModule;
+                break;
+            case 'file-processing':
+                this.fileProcessingModule = module as FileProcessingModule;
+                break;
+            case 'database':
+                this.databaseModule = module as DatabaseModule;
+                break;
+            case 'api-integration':
+                this.apiIntegrationModule = module as APIIntegrationModule;
+                break;
+        }
+    }
+    
+    // ✅ 선택적 Plugin 등록 (없어도 기본 동작)
+    async addPlugin<T extends BasePlugin>(plugin: T): Promise<void> {
+        await this.pluginManager.register(plugin);
+    }
+    
+    // ✅ 메인 실행 로직 (Module들을 선택적으로 활용)
+    async run(input: string): Promise<string> {
+        // Plugin 훅 실행 (선택적)
+        await this.pluginManager.beforeRun(input);
+        
+        try {
+            // RAG 검색 (RAG Module이 있는 경우만)
+            let ragContext = '';
+            if (this.ragModule) {
+                try {
+                    const relevantDocs = await this.ragModule.searchRelevant(input, 5);
+                    ragContext = relevantDocs.length > 0 ? 
+                        `Context:\n${relevantDocs.join('\n\n')}\n\n` : '';
+                } catch (error) {
+                    console.warn('RAG search failed, continuing without context:', error);
+                }
+            }
+            
+            // 파일 첨부 처리 (File Processing Module이 있는 경우만)
+            let fileContext = '';
+            if (this.fileProcessingModule && this.hasFileAttachment(input)) {
+                try {
+                    const files = this.extractFiles(input);
+                    const processedFiles = await Promise.all(
+                        files.map(file => this.fileProcessingModule!.processFile(file.buffer, file.type))
+                    );
+                    fileContext = `File contents:\n${processedFiles.join('\n\n')}\n\n`;
+                } catch (error) {
+                    console.warn('File processing failed, continuing without file context:', error);
+                }
+            }
+            
+            // 실시간 데이터 조회 (Database/API Module이 있는 경우만)
+            let dataContext = '';
+            if (this.databaseModule && this.needsRealtimeData(input)) {
+                try {
+                    const data = await this.queryRealtimeData(input);
+                    dataContext = data ? `Real-time data:\n${data}\n\n` : '';
+                } catch (error) {
+                    console.warn('Database query failed, continuing without real-time data:', error);
+                }
+            }
+            
+            // 메시지 처리 (필수)
+            const enhancedInput = ragContext + fileContext + dataContext + input;
+            const messages = this.messageProcessor.formatMessages(enhancedInput);
+            
+            // AI 응답 생성 (필수)
+            const response = await this.aiProvider.generateResponse(messages);
+            
+            await this.pluginManager.afterRun(input, response);
+            return response;
+            
+        } catch (error) {
+            await this.pluginManager.onError(error);
+            throw error;
+        }
+    }
+    
+    // ✅ Module 없이도 기본 동작 보장 (핵심 기능)
+    async runBasic(input: string): Promise<string> {
+        // Module 없이도 기본 텍스트 대화는 가능
+        const messages = this.messageProcessor.formatMessages(input);
+        return await this.aiProvider.generateResponse(messages);
+    }
+    
+    // ✅ 도구 실행 (필수 기능, Module 아님)
+    async executeTool(name: string, params: any): Promise<any> {
+        return await this.toolExecutor.execute(name, params);
+    }
+    
+    // Helper 메소드들
+    private hasFileAttachment(input: string): boolean {
+        // 파일 첨부 여부 확인 로직
+        return input.includes('[file:') || input.includes('attachment:');
+    }
+    
+    private extractFiles(input: string): { buffer: Buffer; type: string }[] {
+        // 파일 추출 로직
+        return [];
+    }
+    
+    private needsRealtimeData(input: string): boolean {
+        // 실시간 데이터 필요 여부 확인
+        return input.includes('real-time') || input.includes('current') || input.includes('latest');
+    }
+    
+    private async queryRealtimeData(input: string): Promise<string | null> {
+        // 실시간 데이터 조회 로직
+        if (this.databaseModule) {
+            return await this.databaseModule.query('SELECT * FROM real_time_data WHERE relevant = ?', [input]);
+        }
+        return null;
+    }
+}
+```
+
+### 사용 예시
+
+```typescript
+// ✅ 최소 구성 (기본 대화만 가능)
+const basicAgent = new RobotaBuilder()
+    .setAIProvider(new OpenAIProvider(config))  // 필수
+    .build();
+
+// ✅ 선택적 확장을 추가한 구성
+const enhancedAgent = new RobotaBuilder()
+    .setAIProvider(new OpenAIProvider(config))  // 필수
+    .addModule(new RAGModule())                 // 선택적: 문서 검색 능력
+    .addModule(new FileProcessingModule())      // 선택적: 파일 처리 능력  
+    .addModule(new DatabaseModule())            // 선택적: DB 연동 능력
+    .addPlugin(new LoggingPlugin())             // 선택적: 로깅 기능
+    .addPlugin(new UsagePlugin())               // 선택적: 사용량 추적
+    .build();
+
+// 둘 다 기본 대화는 동일하게 작동
+await basicAgent.run("Hello, how are you?");     // ✅ 작동
+await enhancedAgent.run("Hello, how are you?");  // ✅ 작동
+
+// 확장 기능은 Module이 있을 때만 동작
+await basicAgent.run("Search documents about AI");    // 일반 응답 (RAG 없음)
+await enhancedAgent.run("Search documents about AI"); // RAG 검색 기반 응답
+```
+
+이러한 아키텍처 설계를 통해 모듈과 플러그인이 명확히 분리되면서도 효율적으로 상호작용할 수 있는 시스템을 구축할 수 있습니다. 가장 중요한 것은 **선택적 확장 원칙**을 통해 Robota의 핵심 기능은 유지하면서, 필요에 따라 추가 능력을 확장할 수 있다는 것입니다. 
