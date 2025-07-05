@@ -130,11 +130,11 @@ Robota에서 기존의 plugin 개념을 확장하여 **Plugin**과 **Module**의
 // 최소 구성 - 기본 대화만 가능
 const basicAgent = new Robota({
     name: 'BasicAgent',
-    aiProviders: {
-        openai: new OpenAIProvider({ apiKey: 'sk-...' })
-    },
-    currentProvider: 'openai',
-    currentModel: 'gpt-4'
+    aiProviders: [new OpenAIProvider({ apiKey: 'sk-...' })],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4'
+    }
 });
 
 // 이것만으로도 정상 동작
@@ -153,11 +153,11 @@ const ragModule = new RAGModule({
 
 const ragAgent = new Robota({
     name: 'RAGAgent',
-    aiProviders: {
-        openai: new OpenAIProvider({ apiKey: 'sk-...' })
+    aiProviders: [new OpenAIProvider({ apiKey: 'sk-...' })],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4'
     },
-    currentProvider: 'openai',
-    currentModel: 'gpt-4',
     modules: [ragModule]  // Module 추가
 });
 
@@ -182,11 +182,11 @@ const fileModule = new FileProcessingModule({
 
 const agent = new Robota({
     name: 'DocumentAgent',
-    aiProviders: {
-        openai: new OpenAIProvider({ apiKey: 'sk-...' })
+    aiProviders: [new OpenAIProvider({ apiKey: 'sk-...' })],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4'
     },
-    currentProvider: 'openai',
-    currentModel: 'gpt-4',
     modules: [fileModule],              // 파일 처리 능력 추가
     plugins: [                          // 모니터링 기능 추가
         new LoggingPlugin({ strategy: 'console', level: 'info' }),
@@ -216,11 +216,11 @@ const modules = [
 
 const fullAgent = new Robota({
     name: 'FullCapabilityAgent',
-    aiProviders: {
-        openai: new OpenAIProvider({ apiKey: 'sk-...' })
+    aiProviders: [new OpenAIProvider({ apiKey: 'sk-...' })],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4'
     },
-    currentProvider: 'openai',
-    currentModel: 'gpt-4',
     modules: modules,
     plugins: [
         new UsagePlugin({ strategy: 'file', filePath: './usage.json' }),

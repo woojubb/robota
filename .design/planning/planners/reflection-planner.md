@@ -60,8 +60,11 @@ import { AgentFactory } from '@robota-sdk/agents';
 
 // AgentFactory 설정 (Provider 불가지론 준수)
 const agentFactory = new AgentFactory({
-  aiProviders: { 'primary': primaryProvider },
-  currentProvider: 'primary',
+  aiProviders: [primaryProvider],
+  defaultModel: {
+    provider: 'primary',
+    model: 'gpt-4'
+  },
   // Reflection은 품질 검증 도구가 중요
   commonTools: ['quality_checker', 'fact_validator', 'style_analyzer', 'grammar_checker'],
   autoInjectCommonTools: true,

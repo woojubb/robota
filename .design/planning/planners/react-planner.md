@@ -57,8 +57,11 @@ import { AgentFactory } from '@robota-sdk/agents';
 
 // AgentFactory 설정 (Provider 불가지론 준수)
 const agentFactory = new AgentFactory({
-  aiProviders: { 'primary': primaryProvider },
-  currentProvider: 'primary',
+  aiProviders: [primaryProvider],
+  defaultModel: {
+    provider: 'primary',
+    model: 'gpt-4'
+  },
   // ReAct는 다양한 도구가 핵심
   commonTools: ['web_search', 'calculator', 'file_system', 'api_caller'],
   autoInjectCommonTools: true,
