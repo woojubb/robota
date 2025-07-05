@@ -4,56 +4,59 @@
 
 ### 1. 새로운 Module 영역들
 
-#### Memory Modules - 에이전트의 기억 능력
+#### Vector Search Modules - RAG를 위한 검색 능력 (LLM이 할 수 없는 일)
 
 ```typescript
-// 단기 메모리 모듈
-interface ShortTermMemoryModule extends BaseModule {
-    store(key: string, value: any, ttl?: number): Promise<void>;
-    retrieve(key: string): Promise<any>;
-    clear(): Promise<void>;
-    
-    getModuleType(): ModuleTypeDescriptor {
-        return {
-            type: 'short-term-memory',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.APPLICATION,
-            dependencies: ['storage'],
-            capabilities: ['temporary-storage', 'ttl-management', 'context-buffering']
-        };
-    }
-}
-
-// 장기 메모리 모듈  
-interface LongTermMemoryModule extends BaseModule {
-    persistFact(fact: string, context: any): Promise<void>;
-    retrieveRelevant(query: string): Promise<any[]>;
-    updateBelief(fact: string, confidence: number): Promise<void>;
-    
-    getModuleType(): ModuleTypeDescriptor {
-        return {
-            type: 'long-term-memory',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.APPLICATION,
-            dependencies: ['persistent-storage', 'indexing'],
-            capabilities: ['fact-persistence', 'belief-updating', 'knowledge-retrieval']
-        };
-    }
-}
-
-// 벡터 메모리 모듈
-interface VectorMemoryModule extends BaseModule {
+// 벡터 검색 모듈 (RAG용)
+interface VectorSearchModule extends BaseModule {
+    addDocument(id: string, text: string, metadata?: any): Promise<void>;
+    search(query: string, topK: number): Promise<SearchResult[]>;
     embed(text: string): Promise<number[]>;
-    store(id: string, vector: number[], metadata: any): Promise<void>;
-    search(query: number[], topK: number): Promise<SearchResult[]>;
+    deleteDocument(id: string): Promise<boolean>;
     
     getModuleType(): ModuleTypeDescriptor {
         return {
-            type: 'vector-memory',
+            type: 'vector-search',
             category: ModuleCategory.CAPABILITY,
             layer: ModuleLayer.APPLICATION,
-            dependencies: ['vector-storage', 'embedding-provider'],
-            capabilities: ['vector-embedding', 'similarity-search', 'semantic-retrieval']
+            dependencies: ['embedding-provider', 'vector-storage'],
+            capabilities: ['rag-retrieval', 'semantic-search', 'document-indexing']
+        };
+    }
+}
+
+// 파일 처리 모듈 (LLM이 할 수 없는 일)
+interface FileProcessingModule extends BaseModule {
+    processPDF(buffer: Buffer): Promise<string>;
+    processImage(buffer: Buffer): Promise<string>;
+    processAudio(buffer: Buffer): Promise<string>;
+    extractMetadata(buffer: Buffer, type: string): Promise<any>;
+    
+    getModuleType(): ModuleTypeDescriptor {
+        return {
+            type: 'file-processing',
+            category: ModuleCategory.CAPABILITY,
+            layer: ModuleLayer.APPLICATION,
+            dependencies: ['ocr-engine', 'audio-transcription'],
+            capabilities: ['pdf-extraction', 'image-to-text', 'audio-to-text']
+        };
+    }
+}
+
+// 멀티모달 AI 모듈 (LLM이 할 수 없는 일)
+interface MultiModalModule extends BaseModule {
+    analyzeImageWithText(image: Buffer, prompt: string): Promise<string>;
+    generateImageDescription(image: Buffer): Promise<string>;
+    compareImages(image1: Buffer, image2: Buffer): Promise<number>;
+    extractTextFromImage(image: Buffer): Promise<string>;
+    
+    getModuleType(): ModuleTypeDescriptor {
+        return {
+            type: 'multimodal',
+            category: ModuleCategory.CAPABILITY,
+            layer: ModuleLayer.APPLICATION,
+            dependencies: ['vision-ai-provider', 'file-processing'],
+            capabilities: ['visual-analysis', 'image-text-integration', 'ocr']
         };
     }
 }
@@ -725,7 +728,9 @@ export class ConversationHistoryPlugin extends BasePlugin {
 ### Module이 된 항목들
 | 항목 | 이유 | 카테고리 | 계층 |
 |------|------|----------|------|
-| **Memory Systems** | 기억 능력 제공 | CAPABILITY | APPLICATION |
+| **Vector Search** | RAG용 임베딩 검색 | CAPABILITY | APPLICATION |
+| **File Processing** | PDF/이미지/오디오 처리 | CAPABILITY | APPLICATION |
+| **MultiModal** | 이미지+텍스트 AI | CAPABILITY | APPLICATION |
 | **Tool Execution** | 도구 실행 능력 | CAPABILITY | APPLICATION |
 | **Reasoning** | 추론 능력 제공 | CAPABILITY | DOMAIN |
 | **Perception** | 감지 능력 제공 | CAPABILITY | APPLICATION |

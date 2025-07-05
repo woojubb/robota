@@ -32,29 +32,28 @@ graph TD
     P --> Q[monitoring/logging/security/notification]
 ```
 
-### 핵심 판별 질문들
+### 핵심 판별 질문들 (수정됨)
 
-#### 1차 필터: 핵심 능력 vs 부가 기능
+#### 1차 필터: 필수 vs 선택적
 ```
-❓ "이 기능이 없으면 에이전트가 할 수 있는 일이 줄어드나?"
-   ✅ Yes → Module 후보
-   ❌ No → Plugin 후보
+❓ "이 기능이 없어도 Robota가 기본 대화를 에러 없이 할 수 있나?"
+   ✅ Yes → Module 또는 Plugin 후보 (선택적 확장)
+   ❌ No → 내부 핵심 클래스 (Module/Plugin 불가)
 ```
 
-#### 2차 필터: 능력 제공 vs 동작 관찰
+#### 2차 필터: 새로운 능력 vs 동작 관찰
 ```
-❓ "이 기능이 에이전트의 새로운 능력을 제공하나?"
-   ✅ Yes → Module
+❓ "이 기능이 새로운 능력을 선택적으로 추가하나?"
+   ✅ Yes → Module (예: RAG, 음성처리, 이미지분석)
    ❌ No → "기존 동작을 관찰/보강하나?" 
-           ✅ Yes → Plugin
+           ✅ Yes → Plugin (예: 로깅, 모니터링, 알림)
 ```
 
-#### 3차 필터: 의존성 패턴
+#### ⚠️ 중요: Module/Plugin 불가능한 경우
 ```
-❓ Module 후보인 경우:
-   "다른 시스템들이 이 기능에 의존하나?"
-   ✅ Yes → FOUNDATION/PLATFORM 계층
-   ❌ No → APPLICATION/DOMAIN 계층
+❓ "Robota의 주요 로직에 필수적인가?"
+   ✅ Yes → 내부 핵심 클래스 (AI Provider, Message Processing 등)
+   ❌ No → Module 또는 Plugin으로 구현 가능
 ```
 
 ### 구체적 분류 기준
