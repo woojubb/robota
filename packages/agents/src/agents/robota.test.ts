@@ -38,6 +38,32 @@ class MockAIProvider extends BaseAIProvider {
     }
 }
 
+// Second Mock AI Provider for multi-provider testing
+class MockAIProvider2 extends BaseAIProvider {
+    readonly name = 'mock-provider-2';
+    readonly version = '1.0.0';
+
+    constructor() {
+        super();
+    }
+
+    async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+        return {
+            role: 'assistant',
+            content: 'Mock response from provider 2',
+            timestamp: new Date()
+        };
+    }
+
+    async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+        yield {
+            role: 'assistant',
+            content: 'Mock response from provider 2',
+            timestamp: new Date()
+        };
+    }
+}
+
 // Mock Tool for testing
 class MockTool extends BaseTool {
     name = 'mock-tool';
@@ -86,26 +112,27 @@ class MockPlugin extends BasePlugin {
     }
 }
 
-describe('Robota Class - Core Functionality', () => {
+describe('Robota Class - New Configuration API', () => {
     let mockProvider: MockAIProvider;
+    let mockProvider2: MockAIProvider2;
     let mockTool: MockTool;
     let mockPlugin: MockPlugin;
     let config: AgentConfig;
 
     beforeEach(() => {
         mockProvider = new MockAIProvider();
+        mockProvider2 = new MockAIProvider2();
         mockTool = new MockTool();
         mockPlugin = new MockPlugin();
 
         config = {
             name: 'Test Robota',
-            model: 'mock-model',
-            provider: 'mock-provider',
-            aiProviders: {
-                'mock-provider': mockProvider
+            aiProviders: [mockProvider],
+            defaultModel: {
+                provider: 'mock-provider',
+                model: 'mock-model',
+                temperature: 0.7
             },
-            currentProvider: 'mock-provider',
-            currentModel: 'mock-model',
             tools: [mockTool],
             plugins: [mockPlugin],
             logging: {
@@ -117,6 +144,154 @@ describe('Robota Class - Core Functionality', () => {
 
     afterEach(() => {
         vi.clearAllMocks();
+    });
+
+    describe('New Constructor Format', () => {
+        it('should create instance with new configuration format', () => {
+            const robota = new Robota(config);
+
+            expect(robota).toBeInstanceOf(BaseAgent);
+            expect(robota).toBeInstanceOf(Robota);
+            expect(robota.name).toBe('Test Robota');
+        });
+
+        it('should validate required fields', () => {
+            expect(() => new Robota({} as AgentConfig)).toThrow(ConfigurationError);
+
+            expect(() => new Robota({
+                name: 'Test',
+                aiProviders: [],
+                defaultModel: {
+                    provider: 'test',
+                    model: 'test'
+                }
+            })).toThrow(ConfigurationError);
+        });
+
+        it('should validate AI provider existence', () => {
+            expect(() => new Robota({
+                name: 'Test',
+                aiProviders: [mockProvider],
+                defaultModel: {
+                    provider: 'non-existent-provider',
+                    model: 'test-model'
+                }
+            })).toThrow(ConfigurationError);
+        });
+
+        it('should validate duplicate AI provider names', () => {
+            const duplicateProvider = new MockAIProvider();
+
+            expect(() => new Robota({
+                name: 'Test',
+                aiProviders: [mockProvider, duplicateProvider],
+                defaultModel: {
+                    provider: 'mock-provider',
+                    model: 'test-model'
+                }
+            })).toThrow(ConfigurationError);
+        });
+
+        it('should support multiple AI providers', () => {
+            const multiProviderConfig: AgentConfig = {
+                name: 'Multi Provider Test',
+                aiProviders: [mockProvider, mockProvider2],
+                defaultModel: {
+                    provider: 'mock-provider',
+                    model: 'mock-model'
+                }
+            };
+
+            const robota = new Robota(multiProviderConfig);
+            expect(robota.name).toBe('Multi Provider Test');
+        });
+    });
+
+    describe('Model Management - setModel() and getModel()', () => {
+        it('should set and get model configuration', async () => {
+            const robota = new Robota(config);
+            await robota.run('initialize'); // Initialize the agent
+
+            robota.setModel({
+                provider: 'mock-provider',
+                model: 'new-model',
+                temperature: 0.9,
+                maxTokens: 2000
+            });
+
+            const currentModel = robota.getModel();
+            expect(currentModel.provider).toBe('mock-provider');
+            expect(currentModel.model).toBe('new-model');
+            expect(currentModel.temperature).toBe(0.9);
+            expect(currentModel.maxTokens).toBe(2000);
+        });
+
+        it('should validate provider exists when setting model', async () => {
+            const robota = new Robota(config);
+            await robota.run('initialize'); // Initialize the agent
+
+            expect(() => robota.setModel({
+                provider: 'non-existent-provider',
+                model: 'test-model'
+            })).toThrow(ConfigurationError);
+        });
+
+        it('should switch between multiple providers', async () => {
+            const multiProviderConfig: AgentConfig = {
+                name: 'Multi Provider Test',
+                aiProviders: [mockProvider, mockProvider2],
+                defaultModel: {
+                    provider: 'mock-provider',
+                    model: 'mock-model'
+                }
+            };
+
+            const robota = new Robota(multiProviderConfig);
+            await robota.run('initialize'); // Initialize the agent
+
+            // Initially should be mock-provider
+            expect(robota.getModel().provider).toBe('mock-provider');
+
+            // Switch to mock-provider-2
+            robota.setModel({
+                provider: 'mock-provider-2',
+                model: 'new-model'
+            });
+
+            expect(robota.getModel().provider).toBe('mock-provider-2');
+            expect(robota.getModel().model).toBe('new-model');
+        });
+
+        it('should preserve other model settings when switching providers', async () => {
+            const multiProviderConfig: AgentConfig = {
+                name: 'Multi Provider Test',
+                aiProviders: [mockProvider, mockProvider2],
+                defaultModel: {
+                    provider: 'mock-provider',
+                    model: 'mock-model',
+                    temperature: 0.7,
+                    maxTokens: 1000
+                }
+            };
+
+            const robota = new Robota(multiProviderConfig);
+            await robota.run('initialize'); // Initialize the agent
+
+            robota.setModel({
+                provider: 'mock-provider-2',
+                model: 'new-model',
+                temperature: 0.9,
+                maxTokens: 2000,
+                topP: 0.95
+            });
+
+            const currentModel = robota.getModel();
+            expect(currentModel.provider).toBe('mock-provider-2');
+            expect(currentModel.model).toBe('new-model');
+            expect(currentModel.temperature).toBe(0.9);
+            expect(currentModel.maxTokens).toBe(2000);
+            expect(currentModel.topP).toBe(0.95);
+        });
     });
 
     describe('Basic Architecture', () => {
@@ -149,10 +324,6 @@ describe('Robota Class - Core Functionality', () => {
             const stats1 = robota1.getStats();
             const stats2 = robota2.getStats();
             expect(stats1.conversationId).not.toBe(stats2.conversationId);
-        });
-
-        it('should validate configuration on creation', () => {
-            expect(() => new Robota({} as AgentConfig)).toThrow();
         });
 
         it('should generate unique conversation ID', async () => {
@@ -211,20 +382,24 @@ describe('Robota Class - Core Functionality', () => {
 
             const currentConfig = robota.getConfig();
             expect(currentConfig.name).toBe('Test Robota');
-            expect(currentConfig.model).toBe('mock-model');
+            expect(currentConfig.defaultModel.model).toBe('mock-model');
         });
 
-        it('should update configuration at runtime', async () => {
+        it('should reflect model changes in configuration', async () => {
             const robota = new Robota(config);
+            await robota.run('initialize'); // Initialize the agent
 
-            robota.updateConfig({
+            robota.setModel({
+                provider: 'mock-provider',
+                model: 'new-model',
                 temperature: 0.8,
                 maxTokens: 2000
             });
 
-            const updatedConfig = robota.getConfig();
-            expect(updatedConfig.temperature).toBe(0.8);
-            expect(updatedConfig.maxTokens).toBe(2000);
+            const currentConfig = robota.getConfig();
+            expect(currentConfig.defaultModel.model).toBe('new-model');
+            expect(currentConfig.defaultModel.temperature).toBe(0.8);
+            expect(currentConfig.defaultModel.maxTokens).toBe(2000);
         });
     });
 
@@ -293,6 +468,53 @@ describe('Robota Class - Core Functionality', () => {
             await robota.destroy(); // Should not throw
 
             expect(true).toBe(true); // Test passes if no error thrown
+        });
+    });
+
+    describe('Edge Cases and Error Handling', () => {
+        it('should handle empty AI providers array', () => {
+            expect(() => new Robota({
+                name: 'Test',
+                aiProviders: [],
+                defaultModel: {
+                    provider: 'test',
+                    model: 'test'
+                }
+            })).toThrow(ConfigurationError);
+        });
+
+        it('should handle missing required model fields', () => {
+            expect(() => new Robota({
+                name: 'Test',
+                aiProviders: [mockProvider],
+                defaultModel: {
+                    provider: 'mock-provider'
+                } as any
+            })).toThrow(ConfigurationError);
+        });
+
+        it('should handle setModel with missing required fields', async () => {
+            const robota = new Robota(config);
+            await robota.run('initialize'); // Initialize the agent
+
+            expect(() => robota.setModel({
+                provider: 'mock-provider'
+            } as any)).toThrow(ConfigurationError);
+        });
+
+        it('should preserve original config when setModel fails', async () => {
+            const robota = new Robota(config);
+            await robota.run('initialize'); // Initialize the agent
+            const originalModel = robota.getModel();
+
+            expect(() => robota.setModel({
+                provider: 'non-existent-provider',
+                model: 'test-model'
+            })).toThrow(ConfigurationError);
+
+            // Original model should be preserved
+            const currentModel = robota.getModel();
+            expect(currentModel).toEqual(originalModel);
         });
     });
 }); 

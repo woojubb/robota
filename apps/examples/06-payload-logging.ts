@@ -40,14 +40,12 @@ async function main() {
 
         const basicRobota = new Robota({
             name: 'PayloadLogger',
-            model: 'gpt-4o-mini',
-            provider: 'openai',
-            aiProviders: {
-                'openai': basicProvider
-            },
-            currentProvider: 'openai',
-            currentModel: 'gpt-4o-mini',
-            systemMessage: 'You are a helpful assistant that logs all API calls.'
+            aiProviders: [basicProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-4o-mini',
+                systemMessage: 'You are a helpful assistant that logs all API calls.'
+            }
         });
 
         console.log('\\n📤 Making API call (will be logged)...');
@@ -66,14 +64,12 @@ async function main() {
 
         const noLogRobota = new Robota({
             name: 'NoLogger',
-            model: 'gpt-4o-mini',
-            provider: 'openai',
-            aiProviders: {
-                'openai': noLogProvider
-            },
-            currentProvider: 'openai',
-            currentModel: 'gpt-4o-mini',
-            systemMessage: 'You are a helpful assistant without logging.'
+            aiProviders: [noLogProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-4o-mini',
+                systemMessage: 'You are a helpful assistant without logging.'
+            }
         });
 
         console.log('\\n📤 Making API call (will NOT be logged)...');

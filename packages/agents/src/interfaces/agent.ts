@@ -95,30 +95,78 @@ export interface ProviderConfig {
 }
 
 /**
- * Agent configuration options
+ * Agent configuration options - New design with aiProviders array and defaultModel
  */
 export interface AgentConfig {
     id?: string;
-    name?: string;
-    model: string;
-    provider: string;
-    systemMessage?: string;
+    name: string;
+    aiProviders: AIProvider[];
+    defaultModel: {
+        provider: string;
+        model: string;
+        temperature?: number;
+        maxTokens?: number;
+        topP?: number;
+        systemMessage?: string;
+    };
+
+    // Tools and plugins
     tools?: BaseTool[];
     plugins?: Array<BasePlugin<BasePluginOptions, PluginStats>>;
+
+    // Model configuration (for backward compatibility and runtime overrides)
+    model?: string;
+    provider?: string;
     temperature?: number;
     maxTokens?: number;
-    metadata?: MessageMetadata;
-    // Provider configuration (provider-agnostic with type parameters)
-    aiProviders?: Record<string, AIProvider>;
-    currentProvider?: string;
-    currentModel?: string;
+    topP?: number;
+    topK?: number;
+    frequencyPenalty?: number;
+    presencePenalty?: number;
+    stopSequences?: string[];
+    seed?: number;
+
+    // System configuration
+    systemMessage?: string;
+    systemPrompt?: string;
+
     // Conversation management
     conversationId?: string;
+    sessionId?: string;
+    userId?: string;
+
+    // Metadata and context
+    metadata?: MessageMetadata;
+    context?: Record<string, ConfigValue>;
+
     // Logging configuration
     logging?: {
         level?: UtilLogLevel;
         enabled?: boolean;
+        format?: string;
+        destination?: string;
     };
+
+    // Provider-specific configurations
+    providerConfig?: ProviderConfig;
+
+    // Execution options
+    stream?: boolean;
+    toolChoice?: 'auto' | 'none' | string;
+    responseFormat?: ResponseFormatConfig;
+    safetySettings?: SafetySetting[];
+
+    // Performance and limits
+    timeout?: number;
+    retryAttempts?: number;
+    rateLimiting?: {
+        enabled?: boolean;
+        maxRequests?: number;
+        windowMs?: number;
+    };
+
+
+
     // Index signature for type parameter constraints compatibility
     [key: string]: ConfigValue;
 }

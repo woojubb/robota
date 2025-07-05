@@ -161,8 +161,8 @@ export class AgentFactory {
 
             this.logger.info('Agent created successfully', {
                 agentId,
-                model: fullConfig.model,
-                provider: fullConfig.provider,
+                model: fullConfig.defaultModel.model,
+                provider: fullConfig.defaultModel.provider,
             });
 
             return agent;
@@ -174,8 +174,8 @@ export class AgentFactory {
 
             this.logger.error('Failed to create agent', {
                 error: error instanceof Error ? error.message : String(error),
-                model: config.model,
-                provider: config.provider,
+                model: config.defaultModel?.model,
+                provider: config.defaultModel?.provider,
                 hasTools: !!config.tools?.length
             });
             throw error;
@@ -324,16 +324,36 @@ export class AgentFactory {
      * Apply default configuration values
      */
     private applyDefaults(config: Partial<AgentConfig>): AgentConfig {
+        // Handle new API format with aiProviders and defaultModel
+        if (!config.aiProviders || config.aiProviders.length === 0) {
+            throw new ConfigurationError('At least one AI provider must be specified in aiProviders array');
+        }
+
+        // If no defaultModel specified, use the first provider and factory defaults
+        const defaultModel = config.defaultModel || {
+            provider: config.aiProviders[0]?.name || this.options.defaultProvider,
+            model: this.options.defaultModel,
+            temperature: 0.7,
+            systemMessage: this.options.defaultSystemMessage
+        };
+
         return {
             id: config.id || this.generateAgentId(),
             name: config.name || 'Unnamed Agent',
-            model: config.model || this.options.defaultModel,
-            provider: config.provider || this.options.defaultProvider,
-            systemMessage: config.systemMessage || this.options.defaultSystemMessage,
-            temperature: config.temperature ?? 0.7,
-            ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
+            aiProviders: config.aiProviders,
+            defaultModel: {
+                provider: defaultModel.provider,
+                model: defaultModel.model,
+                temperature: defaultModel.temperature ?? 0.7,
+                ...(defaultModel.maxTokens !== undefined && { maxTokens: defaultModel.maxTokens }),
+                ...(defaultModel.topP !== undefined && { topP: defaultModel.topP }),
+                systemMessage: defaultModel.systemMessage || this.options.defaultSystemMessage
+            },
             tools: config.tools || [],
+            plugins: config.plugins || [],
             metadata: config.metadata || {},
+            ...(config.logging && { logging: config.logging }),
+            ...(config.conversationId && { conversationId: config.conversationId }),
             ...config,
         };
     }

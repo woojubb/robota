@@ -10,7 +10,7 @@
  */
 
 import OpenAI from 'openai';
-import { Robota, type RobotaConfig, LoggingPlugin, UsagePlugin } from '@robota-sdk/agents';
+import { Robota, LoggingPlugin, UsagePlugin } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import dotenv from 'dotenv';
 
@@ -37,13 +37,13 @@ async function main() {
         // ===== AGENT CONFIGURATION =====
         console.log('⚙️ Creating agent with comprehensive configuration...');
 
-        const config: RobotaConfig = {
+        const config = {
             name: 'DemoAgent',
-            aiProviders: {
-                'openai': openaiProvider
+            aiProviders: [openaiProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-3.5-turbo'
             },
-            currentProvider: 'openai',
-            currentModel: 'gpt-3.5-turbo',
             plugins: [
                 new LoggingPlugin({
                     level: 'info',
@@ -51,8 +51,6 @@ async function main() {
                     strategy: 'console'
                 }),
                 new UsagePlugin({
-                    trackTokens: true,
-                    trackCosts: true,
                     strategy: 'memory'
                 })
             ],

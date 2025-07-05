@@ -53,14 +53,12 @@ async function main() {
         // Create Robota instance with basic configuration
         const robota = new Robota({
             name: 'BasicAgent',
-            model: 'gpt-3.5-turbo',
-            provider: 'openai',
-            aiProviders: {
-                'openai': openaiProvider
-            },
-            currentProvider: 'openai',
-            currentModel: 'gpt-3.5-turbo',
-            systemMessage: 'You are a helpful AI assistant. Provide concise and useful responses.'
+            aiProviders: [openaiProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-3.5-turbo',
+                systemMessage: 'You are a helpful AI assistant. Provide concise and useful responses.'
+            }
         });
 
         // === Simple Conversation ===
@@ -135,12 +133,12 @@ const openaiProvider = new OpenAIProvider({
 ```typescript
 const robota = new Robota({
     name: 'BasicAgent',
-    aiProviders: {
-        'openai': openaiProvider
-    },
-    currentProvider: 'openai',
-    currentModel: 'gpt-3.5-turbo',
-    systemMessage: 'You are a helpful AI assistant.'
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You are a helpful AI assistant.'
+    }
 });
 ```
 

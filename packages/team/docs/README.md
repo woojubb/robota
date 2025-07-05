@@ -25,10 +25,7 @@ const anthropicProvider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_
 
 // Create team with template-based expert selection
 const team = createTeam({
-  aiProviders: {
-    openai: openaiProvider,
-    anthropic: anthropicProvider
-  }
+  aiProviders: [openaiProvider, anthropicProvider]
 });
 
 // Execute complex task - automatic expert delegation

@@ -20,19 +20,31 @@ export class Validator {
         const errors: string[] = [];
         const warnings: string[] = [];
 
-        // Required fields validation
-        if (!config.model) {
-            errors.push('model is required');
+        // Required fields validation for new API
+        if (!config.name) {
+            errors.push('name is required');
         }
 
-        if (!config.provider) {
-            errors.push('provider is required');
+        if (!config.aiProviders || config.aiProviders.length === 0) {
+            errors.push('aiProviders array is required and must have at least one provider');
+        }
+
+        if (!config.defaultModel) {
+            errors.push('defaultModel is required');
+        } else {
+            if (!config.defaultModel.provider) {
+                errors.push('defaultModel.provider is required');
+            }
+            if (!config.defaultModel.model) {
+                errors.push('defaultModel.model is required');
+            }
         }
 
         // Provider validation
-        if (config.aiProviders && config.currentProvider) {
-            if (!config.aiProviders[config.currentProvider]) {
-                errors.push(`currentProvider "${config.currentProvider}" is not found in aiProviders`);
+        if (config.aiProviders && config.defaultModel?.provider) {
+            const providerNames = config.aiProviders.map(p => p.name);
+            if (!providerNames.includes(config.defaultModel.provider)) {
+                errors.push(`defaultModel.provider "${config.defaultModel.provider}" is not found in aiProviders list`);
             }
         }
 

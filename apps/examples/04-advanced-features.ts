@@ -44,12 +44,12 @@ async function main() {
         // === Advanced Configuration ===
         const robota = new Robota({
             name: 'AdvancedAgent',
-            model: 'gpt-3.5-turbo',
-            provider: 'openai',
-            aiProviders: { openai: openaiProvider },
-            currentProvider: 'openai',
-            currentModel: 'gpt-3.5-turbo',
-            systemMessage: 'You are an advanced AI assistant with detailed analytical capabilities. Provide comprehensive and well-structured responses.',
+            aiProviders: [openaiProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-3.5-turbo',
+                systemMessage: 'You are an advanced AI assistant with detailed analytical capabilities. Provide comprehensive and well-structured responses.'
+            },
             plugins: [loggingPlugin] // Add plugins for advanced features
         });
 

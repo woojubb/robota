@@ -35,17 +35,15 @@ async function main() {
             model: 'gpt-3.5-turbo'
         });
 
-        // Create Robota instance with basic configuration
+        // Create Robota instance with new configuration format
         const robota = new Robota({
             name: 'BasicAgent',
-            model: 'gpt-3.5-turbo',
-            provider: 'openai',
-            aiProviders: {
-                'openai': openaiProvider
-            },
-            currentProvider: 'openai',
-            currentModel: 'gpt-3.5-turbo',
-            systemMessage: 'You are a helpful AI assistant. Provide concise and useful responses.'
+            aiProviders: [openaiProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-3.5-turbo',
+                systemMessage: 'You are a helpful AI assistant. Provide concise and useful responses.'
+            }
         });
 
         // === Optimized Conversation for Token Efficiency ===

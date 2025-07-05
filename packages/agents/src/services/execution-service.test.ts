@@ -173,10 +173,13 @@ describe('ExecutionService', () => {
             const input = 'Hello, how are you?';
             const messages: Message[] = [];
             const config: AgentConfig = {
-                model: 'gpt-4',
-                provider: 'openai',
                 name: 'test-agent',
-                systemMessage: 'You are a helpful assistant.'
+                aiProviders: [mockProvider],
+                defaultModel: {
+                    provider: 'openai',
+                    model: 'gpt-4',
+                    systemMessage: 'You are a helpful assistant.'
+                }
             };
 
             // Create and set mock session
@@ -212,10 +215,13 @@ describe('ExecutionService', () => {
             const toolInput = 'Use the test tool';
             const toolMessages: Message[] = [];
             const toolConfig: AgentConfig = {
-                model: 'gpt-4',
-                provider: 'openai',
                 name: 'test-agent',
-                systemMessage: 'You are a helpful assistant.'
+                aiProviders: [mockProvider],
+                defaultModel: {
+                    provider: 'openai',
+                    model: 'gpt-4',
+                    systemMessage: 'You are a helpful assistant.'
+                }
             };
 
             // Create and set mock session
@@ -348,9 +354,12 @@ describe('ExecutionService', () => {
             const testInput = 'Use a tool to do something';
             const testMessages: Message[] = [];
             const testConfig: AgentConfig = {
-                model: 'gpt-4',
-                provider: 'openai',
-                name: 'test-agent'
+                name: 'test-agent',
+                aiProviders: [mockProvider],
+                defaultModel: {
+                    provider: 'openai',
+                    model: 'gpt-4'
+                }
             };
 
             const result = await executionService.execute(testInput, testMessages, testConfig, { conversationId: 'test-agent' });

@@ -83,7 +83,7 @@ where the task_coordinator template automatically handles team collaboration wit
         console.log(chalk.green('✅ Creating team for example 1...'));
 
         const team1 = createTeam({
-            aiProviders: { openai: openaiProvider1, anthropic: anthropicProvider1 },
+            aiProviders: [openaiProvider1, anthropicProvider1],
             maxMembers: 5,
             maxTokenLimit: 8000,
             logger: console,
@@ -137,7 +137,7 @@ where the task_coordinator template automatically handles team collaboration wit
 
         // Create team for example 2 (using simplified API, completely new team)
         const team2 = createTeam({
-            aiProviders: { openai: openaiProvider2, anthropic: anthropicProvider2 },
+            aiProviders: [openaiProvider2, anthropicProvider2],
             maxMembers: 5,
             maxTokenLimit: 8000,
             logger: console,

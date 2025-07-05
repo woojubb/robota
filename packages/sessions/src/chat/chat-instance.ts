@@ -91,8 +91,11 @@ export class ChatInstance implements IChatInstance {
     getRobotaConfig(): AgentConfig {
         return this.config.robotaConfig || {
             name: 'default',
-            model: 'gpt-3.5-turbo',
-            provider: 'openai'
+            aiProviders: [], // Empty array as fallback - would need actual providers
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-3.5-turbo'
+            }
         };
     }
 

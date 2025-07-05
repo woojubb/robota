@@ -6,7 +6,7 @@ import { Tools } from '../managers/tool-manager';
 import { AgentFactory } from '../managers/agent-factory';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ExecutionService } from '../services/execution-service';
-import { AIProvider } from '../interfaces/provider';
+
 import { BaseTool } from '../abstracts/base-tool';
 import { Logger, createLogger, setGlobalLogLevel } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
@@ -131,7 +131,7 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
     private startTime: number;
 
     /**
-     * Creates a new Robota agent instance.
+     * Creates a new Robota agent instance with the new aiProviders array design.
      * 
      * The constructor performs synchronous initialization and validation.
      * Async initialization (AI provider setup, tool registration) is deferred
@@ -145,12 +145,15 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
      * ```typescript
      * const robota = new Robota({
      *   name: 'CustomerSupport',
-     *   aiProviders: {
-     *     openai: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
-     *     anthropic: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })
+     *   aiProviders: [
+     *     new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
+     *     new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })
+     *   ],
+     *   defaultModel: {
+     *     provider: 'openai',
+     *     model: 'gpt-4',
+     *     temperature: 0.7
      *   },
-     *   currentProvider: 'openai',
-     *   currentModel: 'gpt-4',
      *   tools: [emailTool, ticketTool],
      *   plugins: [new LoggingPlugin(), new ErrorHandlingPlugin()]
      * });
@@ -159,7 +162,7 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
     constructor(config: AgentConfig) {
         super();
 
-        this.name = config.name || 'Robota';
+        this.name = config.name;
         this.config = config;
         this.conversationId = config.conversationId || `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         this.logger = createLogger('Robota');
@@ -175,8 +178,8 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
             }
         }
 
-        // Validate configuration
-        this.validateConfig(config);
+        // Validate new configuration format
+        this.validateNewConfig(config);
 
         // Create INSTANCE-SPECIFIC managers (NO SINGLETONS)
         this.aiProviders = this.createAIProvidersInstance();
@@ -184,16 +187,19 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
         this.agentFactory = this.createAgentFactoryInstance();
         this.conversationHistory = this.createConversationHistoryInstance();
 
+        // Store config for async initialization
+        this.config = config;
+
         // ExecutionService will be initialized after async setup is complete
 
-        this.logger.debug('Robota created with independent managers (not yet initialized)', {
+        this.logger.debug('Robota created with new aiProviders array design', {
             name: this.name,
             conversationId: this.conversationId,
-            providersCount: Object.keys(config.aiProviders || {}).length,
+            providersCount: config.aiProviders.length,
             toolsCount: config.tools?.length || 0,
             pluginsCount: config.plugins?.length || 0,
-            currentProvider: config.currentProvider,
-            currentModel: config.currentModel || config.model
+            defaultProvider: config.defaultModel.provider,
+            defaultModel: config.defaultModel.model
         });
     }
 
@@ -256,14 +262,14 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
 
             // Register AI providers after manager initialization
             if (this.config.aiProviders) {
-                for (const [name, provider] of Object.entries(this.config.aiProviders)) {
-                    this.aiProviders.addProvider(name, provider);
+                for (const provider of this.config.aiProviders) {
+                    this.aiProviders.addProvider(provider.name, provider);
                 }
             }
 
-            // Set current provider
-            if (this.config.currentProvider && this.config.currentModel) {
-                this.aiProviders.setCurrentProvider(this.config.currentProvider, this.config.currentModel);
+            // Set current provider from defaultModel
+            if (this.config.defaultModel) {
+                this.aiProviders.setCurrentProvider(this.config.defaultModel.provider, this.config.defaultModel.model);
             }
 
             // Register tools
@@ -380,9 +386,7 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
 
             // Prepare execution config with current provider/model settings
             const executionConfig: AgentConfig = {
-                ...this.config,
-                model: this.config.currentModel || this.config.model,
-                provider: this.config.currentProvider || this.config.provider
+                ...this.config
             };
 
             // Execute using execution service
@@ -481,9 +485,7 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
 
             // Prepare execution config with current provider/model settings
             const executionConfig: AgentConfig = {
-                ...this.config,
-                model: this.config.currentModel || this.config.model,
-                provider: this.config.currentProvider || this.config.provider
+                ...this.config
             };
 
             // Execute using execution service
@@ -692,41 +694,137 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
      * robota.switchProvider('anthropic', 'claude-3-opus-20240229');
      * ```
      */
-    registerProvider(name: string, provider: AIProvider): void {
-        this.aiProviders.addProvider(name, provider);
-        this.logger.debug('AI provider registered', { providerName: name });
-    }
-
     /**
-     * Switch to a different AI provider and model.
+     * Set the current model configuration (complete replacement).
      * 
-     * Changes the current active provider and model for subsequent conversations.
-     * The provider must be previously registered via constructor or registerProvider().
+     * Updates the current AI provider, model, and related settings. This completely
+     * replaces the current model configuration with the new values.
      * 
-     * @param providerName - Name of the provider to switch to
-     * @param model - Model identifier supported by the provider
+     * @param modelConfig - New model configuration
      * 
-     * @throws {ConfigurationError} When the provider is not registered
-     * @throws {ValidationError} When the model is not supported by the provider
+     * @throws {ConfigurationError} When the provider is not available
      * 
      * @example
      * ```typescript
-     * // Switch from OpenAI to Anthropic
-     * robota.switchProvider('anthropic', 'claude-3-opus-20240229');
+     * // Switch to a different provider and model
+     * robota.setModel({
+     *   provider: 'anthropic',
+     *   model: 'claude-3-opus',
+     *   temperature: 0.9,
+     *   maxTokens: 4000
+     * });
      * 
-     * // Switch back to OpenAI with a different model
-     * robota.switchProvider('openai', 'gpt-4-turbo-preview');
-     * 
-     * // Verify the switch
-     * const stats = robota.getStats();
-     * console.log('Current provider:', stats.currentProvider);
+     * // Simple model change
+     * robota.setModel({
+     *   provider: 'openai',
+     *   model: 'gpt-4-turbo'
+     * });
      * ```
      */
-    switchProvider(providerName: string, model: string): void {
-        this.aiProviders.setCurrentProvider(providerName, model);
-        this.config.currentProvider = providerName;
-        this.config.currentModel = model;
-        this.logger.debug('Switched AI provider', { provider: providerName, model });
+    setModel(modelConfig: {
+        provider: string;
+        model: string;
+        temperature?: number;
+        maxTokens?: number;
+        topP?: number;
+        systemMessage?: string;
+    }): void {
+        // Validate required fields
+        if (!modelConfig.provider || !modelConfig.model) {
+            throw new ConfigurationError(
+                'Both provider and model are required',
+                { component: 'Robota' }
+            );
+        }
+
+        // Ensure managers are initialized before using them
+        if (!this.isFullyInitialized) {
+            throw new ConfigurationError(
+                'Agent must be fully initialized before changing model configuration',
+                { component: 'Robota' }
+            );
+        }
+
+        const availableProviders = this.aiProviders.getProviderNames();
+        if (!availableProviders.includes(modelConfig.provider)) {
+            throw new ConfigurationError(
+                `AI Provider '${modelConfig.provider}' not found. ` +
+                `Available: ${availableProviders.join(', ')}`,
+                {
+                    component: 'Robota',
+                    provider: modelConfig.provider,
+                    availableProviders
+                }
+            );
+        }
+
+        // Update provider and model
+        this.aiProviders.setCurrentProvider(modelConfig.provider, modelConfig.model);
+
+        // Update config with new defaultModel settings only
+        this.config = {
+            ...this.config,
+            defaultModel: {
+                ...this.config.defaultModel,
+                provider: modelConfig.provider,
+                model: modelConfig.model,
+                ...(modelConfig.temperature !== undefined && { temperature: modelConfig.temperature }),
+                ...(modelConfig.maxTokens !== undefined && { maxTokens: modelConfig.maxTokens }),
+                ...(modelConfig.topP !== undefined && { topP: modelConfig.topP }),
+                ...(modelConfig.systemMessage !== undefined && { systemMessage: modelConfig.systemMessage })
+            }
+        };
+
+        this.logger.debug('Model configuration updated', modelConfig);
+    }
+
+    /**
+     * Get the current model configuration.
+     * 
+     * Returns the current AI provider, model, and related settings.
+     * 
+     * @returns Current model configuration
+     * 
+     * @example
+     * ```typescript
+     * const current = robota.getModel();
+     * console.log(`Current: ${current.provider}/${current.model}`);
+     * console.log(`Temperature: ${current.temperature}`);
+     * console.log(`Max tokens: ${current.maxTokens}`);
+     * ```
+     */
+    getModel(): {
+        provider: string;
+        model: string;
+        temperature?: number;
+        maxTokens?: number;
+        topP?: number;
+        systemMessage?: string;
+    } {
+        // Ensure managers are initialized before using them
+        if (!this.isFullyInitialized) {
+            throw new ConfigurationError(
+                'Agent must be fully initialized before getting model configuration',
+                { component: 'Robota' }
+            );
+        }
+
+        const currentProvider = this.aiProviders.getCurrentProvider();
+        if (!currentProvider) {
+            throw new ConfigurationError(
+                'No provider is currently set',
+                { component: 'Robota' }
+            );
+        }
+
+        return {
+            provider: currentProvider.provider,
+            model: currentProvider.model,
+            ...(this.config.defaultModel.temperature !== undefined && { temperature: this.config.defaultModel.temperature }),
+            ...(this.config.defaultModel.maxTokens !== undefined && { maxTokens: this.config.defaultModel.maxTokens }),
+            ...(this.config.defaultModel.topP !== undefined && { topP: this.config.defaultModel.topP }),
+            ...(this.config.defaultModel.systemMessage !== undefined && { systemMessage: this.config.defaultModel.systemMessage })
+        };
     }
 
     /**
@@ -832,33 +930,7 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
         return { ...this.config };
     }
 
-    /**
-     * Update the agent configuration at runtime.
-     * 
-     * Allows partial updates to the agent configuration. Only specified fields
-     * are updated - other configuration remains unchanged.
-     * 
-     * @param updates - Partial configuration object with fields to update
-     * 
-     * @example
-     * ```typescript
-     * // Update AI parameters
-     * robota.updateConfig({
-     *   temperature: 0.8,
-     *   maxTokens: 2000,
-     *   topP: 0.9
-     * });
-     * 
-     * // Update logging settings
-     * robota.updateConfig({
-     *   logging: { level: 'debug', enabled: true }
-     * });
-     * ```
-     */
-    updateConfig(updates: Partial<AgentConfig>): void {
-        this.config = { ...this.config, ...updates };
-        this.logger.debug('Configuration updated', { updates: Object.keys(updates) });
-    }
+
 
     /**
      * Get comprehensive statistics about the agent.
@@ -911,34 +983,67 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
     }
 
     /**
-     * Validate the agent configuration.
+     * Validate the new agent configuration format.
      * @internal
      */
-    private validateConfig(config: AgentConfig): void {
-        if (!config.model && !config.currentModel) {
+    private validateNewConfig(config: AgentConfig): void {
+        if (!config.name) {
             throw new ConfigurationError(
-                'Model must be specified in config.model or config.currentModel',
+                'Agent name is required',
                 { component: 'Robota' }
             );
         }
 
-        if (!config.provider && !config.currentProvider && !config.aiProviders) {
+        if (!config.aiProviders || config.aiProviders.length === 0) {
             throw new ConfigurationError(
-                'At least one AI provider must be specified',
+                'At least one AI provider is required',
                 { component: 'Robota' }
             );
         }
 
-        // Validate that current provider exists if specified
-        if (config.currentProvider && config.aiProviders) {
-            if (!config.aiProviders[config.currentProvider]) {
-                throw new ConfigurationError(
-                    `Current provider '${config.currentProvider}' not found in aiProviders`,
-                    { component: 'Robota', currentProvider: config.currentProvider }
-                );
-            }
+        if (!config.defaultModel) {
+            throw new ConfigurationError(
+                'Default model configuration is required',
+                { component: 'Robota' }
+            );
+        }
+
+        if (!config.defaultModel.provider || !config.defaultModel.model) {
+            throw new ConfigurationError(
+                'Default model must specify both provider and model',
+                { component: 'Robota' }
+            );
+        }
+
+        // Check for duplicate provider names
+        const providerNames = config.aiProviders.map(p => p.name);
+        const duplicates = providerNames.filter((name, index) =>
+            providerNames.indexOf(name) !== index
+        );
+        if (duplicates.length > 0) {
+            throw new ConfigurationError(
+                `Duplicate AI provider names: ${duplicates.join(', ')}`,
+                { component: 'Robota', duplicates }
+            );
+        }
+
+        // Validate that default provider exists in providers list
+        if (!providerNames.includes(config.defaultModel.provider)) {
+            throw new ConfigurationError(
+                `Default provider '${config.defaultModel.provider}' not found in AI providers list. ` +
+                `Available: ${providerNames.join(', ')}`,
+                {
+                    component: 'Robota',
+                    defaultProvider: config.defaultModel.provider,
+                    availableProviders: providerNames
+                }
+            );
         }
     }
+
+
+
+
 
     /**
      * Cleanup agent resources and prepare for disposal.
