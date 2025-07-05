@@ -65,49 +65,48 @@ class ConversationHistoryPlugin extends BasePlugin {
 - 🎯 **Domain Experts**: 특정 영역의 전문 기능 제공
 
 ### Module의 진짜 의미
-**Module은 "에이전트가 무엇을 할 수 있는가"를 결정하는 기능 제공자**
+**Module은 "LLM이 할 수 없는 일을 선택적으로 추가하는 확장 기능"**
 
 ```typescript
-// AI Provider Modules - "어떤 AI와 대화할 수 있는가"
-interface AIModule {
-    generateResponse(messages: Message[]): Promise<string>;
-    generateStream(messages: Message[]): AsyncIterable<string>;
-    supportedModels(): string[];
-}
+// ❌ 이런 것들은 Module 불가 (LLM이 이미 잘 하는 일 + 필수 기능)
+// - AI Provider: 대화 자체가 불가능해짐 (필수 구성요소)
+// - Tool Execution: 함수 호출 로직이 깨짐 (필수 구성요소)  
+// - Message Processing: 메시지 변환이 안됨 (필수 구성요소)
 
-// Tool System Modules - "어떤 작업을 수행할 수 있는가"  
-interface ToolModule {
-    registerTool(tool: Tool): void;
-    executeTool(name: string, params: any): Promise<any>;
-    getAvailableTools(): Tool[];
-}
-
-// RAG 검색 모듈 - "문서 검색 기반 답변이 필요한가?" (선택적)
+// ✅ Module로 적절한 것들 (LLM이 할 수 없는 일 + 선택적)
+// RAG 검색 모듈 - LLM은 실시간 문서 검색 불가
 interface RAGModule {
     addDocument(id: string, content: string): Promise<void>;
     searchRelevant(query: string): Promise<string[]>;
     generateAnswer(query: string, context: string[]): Promise<string>;
 }
 
-// 음성 처리 모듈 - "음성 입출력이 필요한가?" (선택적)  
+// 음성 처리 모듈 - LLM은 오디오 처리 불가  
 interface SpeechModule {
     speechToText(audio: Buffer): Promise<string>;
     textToSpeech(text: string): Promise<Buffer>;
     detectLanguage(audio: Buffer): Promise<string>;
 }
 
-// Vector Search Modules - "임베딩 기반 검색을 어떻게 하는가" (새로운 기능)
+// Vector Search Modules - LLM은 벡터 연산/저장 불가
 interface VectorSearchModule {
     embed(text: string): Promise<number[]>;
     search(query: string, topK: number): Promise<SearchResult[]>;
     addDocument(id: string, text: string, metadata?: any): Promise<void>;
 }
 
-// File Processing Modules - "파일을 어떻게 처리하는가" (새로운 기능)
+// File Processing Modules - LLM은 파일 파싱 불가
 interface FileProcessingModule {
     processImage(image: Buffer): Promise<string>;
     processPDF(pdf: Buffer): Promise<string>;
     processAudio(audio: Buffer): Promise<string>;
+}
+
+// Database Connector Module - LLM은 실시간 DB 접근 불가
+interface DatabaseModule {
+    query(sql: string): Promise<any[]>;
+    insert(table: string, data: any): Promise<void>;
+    update(table: string, id: string, data: any): Promise<void>;
 }
 ```
 
@@ -120,20 +119,24 @@ interface FileProcessingModule {
 
 ### 실제 구분 기준
 
-#### Module이 되어야 하는 것들 (선택적 확장 기능)
-1. **선택적 능력 확장**: Robota 없이도 기본 동작하지만, 추가하면 새로운 능력 획득
+#### ✅ Module이 되어야 하는 것들 (LLM이 할 수 없는 선택적 확장 기능)
+1. **외부 데이터 접근**: LLM이 직접 할 수 없는 실시간 데이터 처리
    - Vector Search Module: RAG 기반 문서 검색 (없어도 일반 대화 가능)
+   - Database Connector Module: 실시간 DB 연동 (없어도 기본 대화 가능)
+   - API Integration Module: 외부 API 호출 (없어도 기본 대화 가능)
+
+2. **멀티미디어 처리**: LLM이 처리할 수 없는 미디어 형식
    - Speech Processing Module: 음성 입출력 처리 (없어도 텍스트 대화 가능)
    - Image Analysis Module: 이미지 분석 (없어도 텍스트 대화 가능)
    - File Processing Module: PDF/문서 읽기 (없어도 일반 대화 가능)
-   - Database Connector Module: 실시간 DB 연동 (없어도 기본 대화 가능)
 
-2. **저장소 구현체**: 다양한 저장 방식 선택
+3. **저장소 구현체**: 다양한 저장 방식 선택
    - Vector Storage 구현체들 (Pinecone, Weaviate, ChromaDB)
    - Document Storage 구현체들 (Elasticsearch, MongoDB)
    - Cache Storage 구현체들 (Redis, Memcached)
 
 #### ❌ Module이 될 수 없는 것들 (Robota 내부 핵심 클래스)
+**이런 것들은 없으면 에러가 나거나 주요 로직이 깨지므로 내부 클래스로 유지:**
 - **AI Provider**: 필수 구성요소, 없으면 대화 불가 (내부 클래스로 유지)
 - **Tool Execution**: 함수 호출의 핵심 로직 (내부 클래스로 유지)
 - **Message Processing**: 메시지 변환/처리 (내부 클래스로 유지)
@@ -173,17 +176,21 @@ interface FileProcessingModule {
 
 ### 예시 분석
 
-#### 내부 핵심 클래스 예시 (Module/Plugin 불가)
+#### ❌ 내부 핵심 클래스 예시 (Module/Plugin 불가)
+**이런 것들은 제거하면 Robota가 에러나 동작 불가:**
 - **AI Provider 제거** → 대화 자체가 불가능 → **내부 클래스** (필수)
 - **Message Processing 제거** → 메시지 변환 오류 → **내부 클래스** (필수)
 - **Tool Execution Core 제거** → 함수 호출 로직 오류 → **내부 클래스** (필수)
 
-#### Module 예시 (선택적 확장 기능)
+#### ✅ Module 예시 (선택적 확장 기능)
+**이런 것들은 없어도 Robota가 정상 동작하며, 있으면 새로운 능력 추가:**
 - **RAG 모듈 없음** → 일반 대화는 가능, 문서 검색만 불가 → **Module**
 - **음성 처리 모듈 없음** → 텍스트 대화는 가능, 음성만 불가 → **Module**
 - **이미지 분석 모듈 없음** → 텍스트 대화는 가능, 이미지 분석만 불가 → **Module**
+- **DB 연동 모듈 없음** → 일반 대화는 가능, 실시간 DB 조회만 불가 → **Module**
 
-#### Plugin 예시
+#### ✅ Plugin 예시 (기존 동작 관찰/보강)
+**이런 것들은 없어도 Robota가 정상 동작하며, 있으면 관찰/보강 기능 추가:**
 - **로깅 시스템 제거** → 여전히 정상 작동 → **Plugin** (이미 구현됨)
 - **성능 모니터링 제거** → 기능에 영향 없음 → **Plugin** (이미 구현됨)
 - **대화 히스토리 저장 제거** → 기본 대화는 가능 → **Plugin** (이미 구현됨)
@@ -205,20 +212,21 @@ interface FileProcessingModule {
 
 ## 설계 철학
 
-### Module 철학: "What optional capabilities can it do?" (선택적 능력 확장)
-에이전트에 **선택적으로 추가할 수 있는 확장 능력**을 제공합니다. Module이 없어도 Robota는 기본 대화 기능으로 정상 동작해야 하며, Module을 추가하면 새로운 능력이 생기는 구조입니다.
+### Module 철학: "LLM이 할 수 없는 일의 선택적 확장"
+LLM이 직접 할 수 없는 작업을 **선택적으로 추가**하는 확장 기능입니다. Module이 없어도 Robota는 기본 대화 기능으로 정상 동작해야 하며, Module을 추가하면 LLM이 할 수 없었던 새로운 능력이 생기는 구조입니다.
 
 **핵심 원칙**: 
-- ✅ Module 없이도 Robota가 정상 동작
-- ✅ Module 추가 시 새로운 능력 획득
+- ✅ Module 없이도 Robota가 정상 동작 (기본 텍스트 대화)
+- ✅ Module 추가 시 LLM이 할 수 없는 새로운 능력 획득
 - ❌ Module이 없으면 에러나 주요 로직 문제 발생
 
 **예시**: 
-- RAG 모듈 → 없어도 일반 대화 가능, 추가하면 문서 검색 기반 답변
-- 이미지 분석 모듈 → 없어도 텍스트 대화 가능, 추가하면 이미지 분석 가능
-- 음성 처리 모듈 → 없어도 텍스트 대화 가능, 추가하면 음성 입출력 가능
+- RAG 모듈 → LLM은 실시간 문서 검색 불가, 추가하면 문서 검색 기반 답변
+- 이미지 분석 모듈 → LLM은 이미지 직접 처리 불가, 추가하면 이미지 분석 가능
+- 음성 처리 모듈 → LLM은 오디오 처리 불가, 추가하면 음성 입출력 가능
+- DB 연동 모듈 → LLM은 실시간 DB 접근 불가, 추가하면 실시간 데이터 조회
 
-### Plugin 철학: "How to observe/enhance?" (기존 동작 개선)
+### Plugin 철학: "기존 동작을 관찰하고 보강"
 에이전트의 **동작(Behavior)**을 관찰하고 보강합니다. LLM의 기본 기능에는 영향을 주지 않으면서 부가 가치를 제공합니다.
 
 **예시**:
