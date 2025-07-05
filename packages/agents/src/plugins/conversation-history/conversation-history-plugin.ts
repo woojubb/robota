@@ -1,4 +1,4 @@
-import { BasePlugin } from '../../abstracts/base-plugin';
+import { BasePlugin, PluginCategory, PluginPriority } from '../../abstracts/base-plugin';
 import { Message } from '../../interfaces/agent';
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
@@ -33,6 +33,10 @@ export class ConversationHistoryPlugin extends BasePlugin<ConversationHistoryPlu
         super();
         this.logger = createLogger('ConversationHistoryPlugin');
 
+        // Set plugin classification
+        this.category = PluginCategory.STORAGE;
+        this.priority = PluginPriority.HIGH;
+
         // Validate options
         this.validateOptions(options);
 
@@ -46,6 +50,11 @@ export class ConversationHistoryPlugin extends BasePlugin<ConversationHistoryPlu
             connectionString: options.connectionString ?? '',
             autoSave: options.autoSave ?? true,
             saveInterval: options.saveInterval ?? 30000, // 30 seconds
+            // Add BasePluginOptions defaults
+            category: options.category ?? PluginCategory.STORAGE,
+            priority: options.priority ?? PluginPriority.HIGH,
+            moduleEvents: options.moduleEvents ?? [],
+            subscribeToAllModuleEvents: options.subscribeToAllModuleEvents ?? false,
         };
 
         // Initialize storage

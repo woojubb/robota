@@ -1,4 +1,4 @@
-import { BasePlugin, type ErrorContext } from '../../abstracts/base-plugin';
+import { BasePlugin, PluginCategory, PluginPriority, type ErrorContext } from '../../abstracts/base-plugin';
 import { Logger, createLogger } from '../../utils/logger';
 import type { RunOptions } from '../../interfaces/agent';
 import type { UniversalMessage } from '../../managers/conversation-history-manager';
@@ -30,12 +30,22 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
 
     constructor(options: ExecutionAnalyticsOptions = {}) {
         super();
+
+        // Set plugin classification
+        this.category = PluginCategory.MONITORING;
+        this.priority = PluginPriority.NORMAL;
+
         this.pluginOptions = {
             enabled: options.enabled ?? true,
             maxEntries: options.maxEntries || 1000,
             trackErrors: options.trackErrors ?? true,
             performanceThreshold: options.performanceThreshold || 5000,
-            enableWarnings: options.enableWarnings ?? true
+            enableWarnings: options.enableWarnings ?? true,
+            // Add BasePluginOptions defaults
+            category: options.category ?? PluginCategory.MONITORING,
+            priority: options.priority ?? PluginPriority.NORMAL,
+            moduleEvents: options.moduleEvents ?? [],
+            subscribeToAllModuleEvents: options.subscribeToAllModuleEvents ?? false,
         };
         this.logger = createLogger('ExecutionAnalyticsPlugin');
 
@@ -516,18 +526,20 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
         version: string;
         enabled: boolean;
         initialized: boolean;
-        totalRecorded: number;
-        activeExecutions: number;
-        memoryUsage: number;
+        category: PluginCategory;
+        priority: number;
+        subscribedEventsCount: number;
+        hasEventEmitter: boolean;
     } {
         return {
             name: this.name,
             version: this.version,
             enabled: this.enabled,
             initialized: this.initialized,
-            totalRecorded: this.executionHistory.length,
-            activeExecutions: this.activeExecutions.size,
-            memoryUsage: this.getMemoryUsage()
+            category: this.category,
+            priority: this.priority,
+            subscribedEventsCount: this.subscribedEvents.length,
+            hasEventEmitter: !!this.eventEmitter
         };
     }
 

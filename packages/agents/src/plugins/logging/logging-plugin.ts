@@ -1,6 +1,12 @@
-import { BasePlugin } from '../../abstracts/base-plugin';
+import { BasePlugin, PluginCategory, PluginPriority } from '../../abstracts/base-plugin';
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
+import type { EventType, EventData } from '../event-emitter-plugin';
+import type {
+    ModuleInitializationEventData,
+    ModuleExecutionEventData,
+    ModuleDisposalEventData
+} from '../../abstracts/base-module';
 import {
     LogLevel,
     LogEntry,
@@ -57,6 +63,10 @@ export class LoggingPlugin extends BasePlugin<LoggingPluginOptions, LoggingPlugi
         super();
         this.logger = createLogger('LoggingPlugin');
 
+        // Set plugin classification
+        this.category = PluginCategory.LOGGING;
+        this.priority = PluginPriority.HIGH;
+
         // Validate options
         this.validateOptions(options);
 
@@ -73,6 +83,11 @@ export class LoggingPlugin extends BasePlugin<LoggingPluginOptions, LoggingPlugi
             ...(options.formatter && { formatter: options.formatter }),
             batchSize: options.batchSize ?? 100,
             flushInterval: options.flushInterval ?? 30000,
+            // Add BasePluginOptions defaults
+            category: options.category ?? PluginCategory.LOGGING,
+            priority: options.priority ?? PluginPriority.HIGH,
+            moduleEvents: options.moduleEvents ?? [],
+            subscribeToAllModuleEvents: options.subscribeToAllModuleEvents ?? false,
         };
 
         // Initialize storage
@@ -83,6 +98,118 @@ export class LoggingPlugin extends BasePlugin<LoggingPluginOptions, LoggingPlugi
             level: this.pluginOptions.level,
             maxLogs: this.pluginOptions.maxLogs
         });
+    }
+
+    /**
+     * Handle module events for logging
+     */
+    override async onModuleEvent(eventType: EventType, eventData: EventData): Promise<void> {
+        try {
+            // Extract module event data from eventData.data
+            const moduleData = eventData.data as any;
+
+            switch (eventType) {
+                case 'module.initialize.start':
+                    await this.info('Module initialization started', {
+                        moduleName: moduleData?.moduleName || 'unknown',
+                        moduleType: moduleData?.moduleType || 'unknown'
+                    }, {
+                        operation: 'module_initialize_start',
+                        ...(eventData.executionId && { executionId: eventData.executionId })
+                    });
+                    break;
+
+                case 'module.initialize.complete':
+                    await this.info('Module initialization completed', {
+                        moduleName: moduleData?.moduleName || 'unknown',
+                        moduleType: moduleData?.moduleType || 'unknown',
+                        ...(moduleData?.duration && { duration: moduleData.duration })
+                    }, {
+                        operation: 'module_initialize_complete',
+                        ...(eventData.executionId && { executionId: eventData.executionId }),
+                        ...(moduleData?.duration && { duration: moduleData.duration })
+                    });
+                    break;
+
+                case 'module.initialize.error':
+                    await this.error('Module initialization failed', eventData.error, {
+                        moduleName: moduleData?.moduleName || 'unknown',
+                        moduleType: moduleData?.moduleType || 'unknown'
+                    }, {
+                        operation: 'module_initialize_error',
+                        ...(eventData.executionId && { executionId: eventData.executionId })
+                    });
+                    break;
+
+                case 'module.execution.start':
+                    await this.debug('Module execution started', {
+                        moduleName: moduleData?.moduleName || 'unknown',
+                        moduleType: moduleData?.moduleType || 'unknown'
+                    }, {
+                        operation: 'module_execution_start',
+                        ...(eventData.executionId && { executionId: eventData.executionId })
+                    });
+                    break;
+
+                case 'module.execution.complete':
+                    await this.debug('Module execution completed', {
+                        moduleName: moduleData?.moduleName || 'unknown',
+                        moduleType: moduleData?.moduleType || 'unknown',
+                        ...(moduleData?.duration && { duration: moduleData.duration }),
+                        ...(moduleData?.success !== undefined && { success: moduleData.success })
+                    }, {
+                        operation: 'module_execution_complete',
+                        ...(eventData.executionId && { executionId: eventData.executionId }),
+                        ...(moduleData?.duration && { duration: moduleData.duration })
+                    });
+                    break;
+
+                case 'module.execution.error':
+                    await this.error('Module execution failed', eventData.error, {
+                        moduleName: moduleData?.moduleName || 'unknown',
+                        moduleType: moduleData?.moduleType || 'unknown'
+                    }, {
+                        operation: 'module_execution_error',
+                        ...(eventData.executionId && { executionId: eventData.executionId })
+                    });
+                    break;
+
+                case 'module.dispose.start':
+                    await this.debug('Module disposal started', {
+                        moduleName: moduleData?.moduleName || 'unknown',
+                        moduleType: moduleData?.moduleType || 'unknown'
+                    }, {
+                        operation: 'module_dispose_start',
+                        ...(eventData.executionId && { executionId: eventData.executionId })
+                    });
+                    break;
+
+                case 'module.dispose.complete':
+                    await this.info('Module disposal completed', {
+                        moduleName: moduleData?.moduleName || 'unknown',
+                        moduleType: moduleData?.moduleType || 'unknown',
+                        ...(moduleData?.duration && { duration: moduleData.duration })
+                    }, {
+                        operation: 'module_dispose_complete',
+                        ...(eventData.executionId && { executionId: eventData.executionId }),
+                        ...(moduleData?.duration && { duration: moduleData.duration })
+                    });
+                    break;
+
+                case 'module.dispose.error':
+                    await this.error('Module disposal failed', eventData.error, {
+                        moduleName: moduleData?.moduleName || 'unknown',
+                        moduleType: moduleData?.moduleType || 'unknown'
+                    }, {
+                        operation: 'module_dispose_error',
+                        ...(eventData.executionId && { executionId: eventData.executionId })
+                    });
+                    break;
+            }
+        } catch (error) {
+            // Log the error but don't throw to avoid breaking module event processing
+            console.error(`LoggingPlugin failed to handle module event ${eventType}:`, error);
+        }
     }
 
     /**

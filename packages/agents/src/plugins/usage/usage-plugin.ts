@@ -1,6 +1,7 @@
-import { BasePlugin } from '../../abstracts/base-plugin';
+import { BasePlugin, PluginCategory, PluginPriority } from '../../abstracts/base-plugin';
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
+import type { EventType, EventData } from '../event-emitter-plugin';
 import {
     UsageStats,
     AggregatedUsageStats,
@@ -32,6 +33,10 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
         super();
         this.logger = createLogger('UsagePlugin');
 
+        // Set plugin classification
+        this.category = PluginCategory.MONITORING;
+        this.priority = PluginPriority.NORMAL;
+
         // Validate options
         this.validateOptions(options);
 
@@ -49,6 +54,11 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
             flushInterval: options.flushInterval ?? 60000, // 1 minute
             aggregateStats: options.aggregateStats ?? true,
             aggregationInterval: options.aggregationInterval ?? 300000, // 5 minutes
+            // Add BasePluginOptions defaults
+            category: options.category ?? PluginCategory.MONITORING,
+            priority: options.priority ?? PluginPriority.NORMAL,
+            moduleEvents: options.moduleEvents ?? [],
+            subscribeToAllModuleEvents: options.subscribeToAllModuleEvents ?? false,
         };
 
         // Initialize storage
@@ -64,6 +74,78 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
             trackCosts: this.pluginOptions.trackCosts,
             maxEntries: this.pluginOptions.maxEntries
         });
+    }
+
+    /**
+     * Handle module events for usage tracking
+     */
+    override async onModuleEvent(eventType: EventType, eventData: EventData): Promise<void> {
+        try {
+            // Extract module event data from eventData.data
+            const moduleData = eventData.data as any;
+
+            switch (eventType) {
+                case 'module.initialize.complete':
+                case 'module.execution.complete':
+                case 'module.dispose.complete':
+                    // Track module usage statistics
+                    if (moduleData?.duration) {
+                        await this.recordUsage({
+                            provider: 'module',
+                            model: moduleData?.moduleType || 'unknown',
+                            tokensUsed: {
+                                input: 0,
+                                output: 0,
+                                total: 0
+                            },
+                            requestCount: 1,
+                            duration: moduleData.duration,
+                            success: true,
+                            ...(eventData.executionId && { executionId: eventData.executionId }),
+                            ...(eventData.sessionId && { conversationId: eventData.sessionId }),
+                            metadata: {
+                                moduleName: moduleData?.moduleName || 'unknown',
+                                moduleType: moduleData?.moduleType || 'unknown',
+                                operation: eventType.includes('initialize') ? 'initialization' :
+                                    eventType.includes('execution') ? 'execution' : 'disposal'
+                            }
+                        });
+                    }
+                    break;
+
+                case 'module.initialize.error':
+                case 'module.execution.error':
+                case 'module.dispose.error':
+                    // Track module error statistics
+                    if (moduleData?.duration) {
+                        await this.recordUsage({
+                            provider: 'module',
+                            model: moduleData?.moduleType || 'unknown',
+                            tokensUsed: {
+                                input: 0,
+                                output: 0,
+                                total: 0
+                            },
+                            requestCount: 1,
+                            duration: moduleData.duration,
+                            success: false,
+                            ...(eventData.executionId && { executionId: eventData.executionId }),
+                            ...(eventData.sessionId && { conversationId: eventData.sessionId }),
+                            metadata: {
+                                moduleName: moduleData?.moduleName || 'unknown',
+                                moduleType: moduleData?.moduleType || 'unknown',
+                                operation: eventType.includes('initialize') ? 'initialization' :
+                                    eventType.includes('execution') ? 'execution' : 'disposal',
+                                error: eventData.error?.message || 'unknown error'
+                            }
+                        });
+                    }
+                    break;
+            }
+        } catch (error) {
+            // Log the error but don't throw to avoid breaking module event processing
+            console.error(`UsagePlugin failed to handle module event ${eventType}:`, error);
+        }
     }
 
     /**

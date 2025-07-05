@@ -3,7 +3,7 @@
  * Coordinates webhook functionality through clean, separated components
  */
 
-import { BasePlugin, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext } from '../../abstracts/base-plugin';
+import { BasePlugin, PluginCategory, PluginPriority, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext } from '../../abstracts/base-plugin';
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError } from '../../utils/errors';
 
@@ -39,6 +39,10 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
     constructor(options: WebhookPluginOptions) {
         super();
 
+        // Set plugin classification
+        this.category = PluginCategory.NOTIFICATION;
+        this.priority = PluginPriority.LOW;
+
         // Validate required options
         if (!options.endpoints || options.endpoints.length === 0) {
             throw new PluginError('At least one webhook endpoint is required', this.name);
@@ -58,6 +62,11 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
                 flushInterval: 5000
             },
             payloadTransformer: WebhookTransformer.defaultPayloadTransformer,
+            // Add BasePluginOptions defaults
+            category: options.category ?? PluginCategory.NOTIFICATION,
+            priority: options.priority ?? PluginPriority.LOW,
+            moduleEvents: options.moduleEvents ?? [],
+            subscribeToAllModuleEvents: options.subscribeToAllModuleEvents ?? false,
             ...options
         };
 
