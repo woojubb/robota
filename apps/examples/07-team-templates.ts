@@ -55,14 +55,12 @@ async function main() {
 
         const researchAgent = new Robota({
             name: 'ResearchAgent',
-            model: 'claude-3-5-sonnet-20241022',
-            provider: 'anthropic',
-            aiProviders: {
-                'anthropic': anthropicProvider
-            },
-            currentProvider: 'anthropic',
-            currentModel: 'claude-3-5-sonnet-20241022',
-            systemMessage: 'You are a market research and analysis specialist. Focus on data-driven insights, market trends, competitive analysis, and strategic recommendations. Provide detailed, analytical responses.'
+            aiProviders: [anthropicProvider],
+            defaultModel: {
+                provider: 'anthropic',
+                model: 'claude-3-5-sonnet-20241022',
+                systemMessage: 'You are a market research and analysis specialist. Focus on data-driven insights, market trends, competitive analysis, and strategic recommendations. Provide detailed, analytical responses.'
+            }
         });
 
         // Creative Agent Template (OpenAI GPT-4)
@@ -74,14 +72,13 @@ async function main() {
 
         const creativeAgent = new Robota({
             name: 'CreativeAgent',
-            model: 'gpt-4o-mini',
-            provider: 'openai',
-            aiProviders: {
-                'openai': creativeProvider
-            },
-            currentProvider: 'openai',
-            currentModel: 'gpt-4o-mini',
-            systemMessage: 'You are a creative ideation specialist. Focus on innovative solutions, user experience design, and breakthrough thinking. Generate creative, practical ideas with strong user value propositions.'
+            aiProviders: [creativeProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-4o-mini',
+                temperature: 0.8,
+                systemMessage: 'You are a creative ideation specialist. Focus on innovative solutions, user experience design, and breakthrough thinking. Generate creative, practical ideas with strong user value propositions.'
+            }
         });
 
         // Coordinator Agent Template (OpenAI GPT-4o-mini)
@@ -93,14 +90,13 @@ async function main() {
 
         const coordinatorAgent = new Robota({
             name: 'CoordinatorAgent',
-            model: 'gpt-4o-mini',
-            provider: 'openai',
-            aiProviders: {
-                'openai': coordinatorProvider
-            },
-            currentProvider: 'openai',
-            currentModel: 'gpt-4o-mini',
-            systemMessage: 'You are a project coordinator and synthesis specialist. Your role is to combine different perspectives into cohesive, actionable plans. Focus on integration, prioritization, and clear communication.'
+            aiProviders: [coordinatorProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-4o-mini',
+                temperature: 0.4,
+                systemMessage: 'You are a project coordinator and synthesis specialist. Your role is to combine different perspectives into cohesive, actionable plans. Focus on integration, prioritization, and clear communication.'
+            }
         });
 
         console.log('\\n' + '='.repeat(60));

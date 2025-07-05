@@ -20,11 +20,13 @@ import { OpenAIProvider } from '@robota-sdk/openai';
 
 const agent = new Robota({
   name: 'MyAgent',
-  aiProviders: { 
-    openai: new OpenAIProvider({ apiKey: 'sk-...' }) 
-  },
-  currentProvider: 'openai',
-  currentModel: 'gpt-4'
+  aiProviders: [
+    new OpenAIProvider({ apiKey: 'sk-...' })
+  ],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4'
+  }
 });
 
 const response = await agent.run('Hello, world!');

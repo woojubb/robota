@@ -85,17 +85,21 @@ robota/
 ### Basic Conversational AI
 
 ```typescript
-import { Robota, OpenAIProvider } from '@robota-sdk/core';
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 
 const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const openaiProvider = new OpenAIProvider(openaiClient);
+const openaiProvider = new OpenAIProvider({ client: openaiClient });
 
 const robota = new Robota({
-    aiProviders: { 'openai': openaiProvider },
-    currentProvider: 'openai',
-    currentModel: 'gpt-4',
-    systemPrompt: 'You are a helpful AI assistant.'
+    name: 'Assistant',
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4',
+        systemMessage: 'You are a helpful AI assistant.'
+    }
 });
 
 const response = await robota.run('Hello! How can I help you today?');
@@ -119,10 +123,7 @@ const anthropicProvider = new AnthropicProvider({
 
 // Create a team with intelligent delegation capabilities
 const team = createTeam({
-    aiProviders: {
-        openai: openaiProvider,
-        anthropic: anthropicProvider
-    },
+    aiProviders: [openaiProvider, anthropicProvider],
     maxMembers: 5,
     maxTokenLimit: 50000,
     logger: console,
@@ -208,11 +209,14 @@ const toolProvider = createZodFunctionToolProvider({
 });
 
 const robota = new Robota({
-    aiProviders: { 'openai': openaiProvider },
-    currentProvider: 'openai',
-    currentModel: 'gpt-4',
-    toolProviders: [toolProvider],
-    systemPrompt: 'Use the calculator tool to solve mathematical problems.'
+    name: 'Calculator Assistant',
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4',
+        systemMessage: 'Use the calculator tool to solve mathematical problems.'
+    },
+    tools: [calculatorTool]
 });
 
 const response = await robota.run('Please calculate 15 multiplied by 7.');
@@ -224,21 +228,23 @@ const response = await robota.run('Please calculate 15 multiplied by 7.');
 import { GoogleProvider } from '@robota-sdk/google';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 
+const googleProvider = new GoogleProvider({ apiKey: process.env.GOOGLE_AI_API_KEY });
+const anthropicProvider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
+
 const robota = new Robota({
-    aiProviders: {
-        openai: openaiProvider,
-        google: googleProvider,
-        anthropic: anthropicProvider
-    },
-    currentProvider: 'openai',
-    currentModel: 'gpt-4'
+    name: 'Multi-Provider Assistant',
+    aiProviders: [openaiProvider, googleProvider, anthropicProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4'
+    }
 });
 
-// Dynamic provider switching
-robota.setCurrentAI('google', 'gemini-1.5-pro');
+// Dynamic model switching
+robota.setModel({ provider: 'google', model: 'gemini-1.5-pro' });
 const googleResponse = await robota.run('Please respond using Google AI.');
 
-robota.setCurrentAI('anthropic', 'claude-3-5-sonnet-20241022');
+robota.setModel({ provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' });
 const anthropicResponse = await robota.run('Please respond using Claude.');
 ```
 

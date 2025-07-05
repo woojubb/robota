@@ -51,12 +51,12 @@ async function main() {
 
         const robota35 = new Robota({
             name: 'GPT35Agent',
-            model: 'gpt-3.5-turbo',
-            provider: 'openai',
-            aiProviders: { openai: openai35Provider } as Record<string, AIProvider>,
-            currentProvider: 'openai',
-            currentModel: 'gpt-3.5-turbo',
-            systemMessage: 'You are a helpful assistant powered by OpenAI GPT-3.5. Be concise and mention that you are GPT-3.5.'
+            aiProviders: [openai35Provider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-3.5-turbo',
+                systemMessage: 'You are a helpful assistant powered by OpenAI GPT-3.5. Be concise and mention that you are GPT-3.5.'
+            }
         });
 
         await testProvider('OpenAI GPT-3.5', robota35, 'Hello! Please tell me about artificial intelligence in 2-3 sentences.');
@@ -69,12 +69,12 @@ async function main() {
 
         const robota4Mini = new Robota({
             name: 'GPT4MiniAgent',
-            model: 'gpt-4o-mini',
-            provider: 'openai',
-            aiProviders: { openai: openai4MiniProvider } as Record<string, AIProvider>,
-            currentProvider: 'openai',
-            currentModel: 'gpt-4o-mini',
-            systemMessage: 'You are a helpful assistant powered by OpenAI GPT-4o-mini. Be detailed and mention that you are GPT-4o-mini.'
+            aiProviders: [openai4MiniProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-4o-mini',
+                systemMessage: 'You are a helpful assistant powered by OpenAI GPT-4o-mini. Be detailed and mention that you are GPT-4o-mini.'
+            }
         });
 
         await testProvider('OpenAI GPT-4o-mini', robota4Mini, 'Hello! Please tell me about artificial intelligence in 2-3 sentences.');

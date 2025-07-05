@@ -11,10 +11,7 @@ import type { AgentConfig as RobotaAgentConfig, AgentTemplate, AIProvider } from
  * @example
  * ```typescript
  * const team = createTeam({
- *   aiProviders: {
- *     openai: openaiProvider,
- *     anthropic: anthropicProvider
- *   },
+ *   aiProviders: [openaiProvider, anthropicProvider],
  *   debug: true
  * });
  * ```
@@ -24,7 +21,7 @@ export interface TeamOptions {
      * AI providers available for templates to use.
      * Each template specifies which provider it prefers.
      */
-    aiProviders: Record<string, AIProvider>;
+    aiProviders: AIProvider[];
 
     /** 
      * Maximum number of team members that can be created concurrently.
@@ -73,7 +70,7 @@ export interface TeamOptions {
  * @internal
  */
 export interface TeamContainerOptions {
-    baseRobotaOptions: RobotaAgentConfig;
+    baseRobotaOptions: RobotaAgentConfig;  // Uses new AgentConfig format with aiProviders array
     maxMembers?: number;
     debug?: boolean;
     customTemplates?: AgentTemplate[];

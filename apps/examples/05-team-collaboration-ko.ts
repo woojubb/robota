@@ -83,7 +83,7 @@ task_coordinator 템플릿이 최적화된 설정으로 팀 협업을 자동으�
         console.log(chalk.green('✅ 예제 1용 팀을 생성하고 있습니다...'));
 
         const team1 = createTeam({
-            aiProviders: { openai: openaiProvider1, anthropic: anthropicProvider1 },
+            aiProviders: [openaiProvider1, anthropicProvider1],
             maxMembers: 5,
             maxTokenLimit: 8000,
             logger: console,
@@ -139,7 +139,7 @@ task_coordinator 템플릿이 최적화된 설정으로 팀 협업을 자동으�
 
         // 예제 2용 팀 생성 (간소화된 API 사용, 완전히 새로운 팀)
         const team2 = createTeam({
-            aiProviders: { openai: openaiProvider2, anthropic: anthropicProvider2 },
+            aiProviders: [openaiProvider2, anthropicProvider2],
             maxMembers: 5,
             maxTokenLimit: 8000,
             logger: console,

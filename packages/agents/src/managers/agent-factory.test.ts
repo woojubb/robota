@@ -3,6 +3,21 @@ import { AgentFactory, type AgentFactoryOptions, type AgentLifecycleEvents } fro
 import type { AgentInterface, AgentConfig, AgentTemplate } from '../interfaces/agent';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 
+// Mock AI Provider for testing
+class MockAIProvider {
+    readonly name = 'mock-provider';
+    readonly version = '1.0.0';
+    readonly supportsTools = true;
+
+    async chat() {
+        return { content: 'Mock response' };
+    }
+
+    validateConfig() {
+        return { isValid: true, errors: [] };
+    }
+}
+
 // Mock agent class for testing
 class MockAgent implements AgentInterface {
     name: string;
@@ -12,8 +27,8 @@ class MockAgent implements AgentInterface {
 
     constructor(public config: AgentConfig) {
         this.name = config.name;
-        this.model = config.model;
-        this.provider = config.provider;
+        this.model = config.defaultModel?.model || 'gpt-4';
+        this.provider = config.defaultModel?.provider || 'mock-provider';
     }
 
     async initialize(): Promise<void> {
@@ -22,6 +37,21 @@ class MockAgent implements AgentInterface {
 
     async run(input: string): Promise<string> {
         return `Mock response for: ${input}`;
+    }
+
+    async runStream() {
+        // Mock stream implementation
+        return (async function* () {
+            yield { content: 'Mock stream response' };
+        })();
+    }
+
+    async getHistory() {
+        return [];
+    }
+
+    async clearHistory(): Promise<void> {
+        // Mock implementation
     }
 
     async destroy(): Promise<void> {
@@ -56,8 +86,11 @@ describe('AgentFactory', () => {
         tags: ['test'],
         config: {
             name: 'TemplateAgent',
-            model: 'gpt-3.5-turbo',
-            provider: 'openai'
+            aiProviders: [new MockAIProvider()],
+            defaultModel: {
+                provider: 'mock-provider',
+                model: 'gpt-3.5-turbo'
+            }
         }
     };
 
@@ -96,8 +129,11 @@ describe('AgentFactory', () => {
     describe('Agent Creation', () => {
         const basicConfig: Partial<AgentConfig> = {
             name: 'TestAgent',
-            model: 'gpt-3.5-turbo',
-            provider: 'openai'
+            aiProviders: [new MockAIProvider()],
+            defaultModel: {
+                provider: 'mock-provider',
+                model: 'gpt-3.5-turbo'
+            }
         };
 
         it('should create agent successfully', async () => {
@@ -106,14 +142,17 @@ describe('AgentFactory', () => {
             expect(agent).toBeInstanceOf(MockAgent);
             expect(agent.name).toBe('TestAgent');
             expect(agent.model).toBe('gpt-3.5-turbo');
-            expect(agent.provider).toBe('openai');
+            expect(agent.provider).toBe('mock-provider');
         });
 
         it('should apply default configuration', async () => {
-            const agent = await factory.createAgent(MockAgent, { name: 'TestAgent' });
+            const agent = await factory.createAgent(MockAgent, {
+                name: 'TestAgent',
+                aiProviders: [new MockAIProvider()]
+            });
 
             expect(agent.model).toBe('gpt-4'); // Default
-            expect(agent.provider).toBe('openai'); // Default
+            expect(agent.provider).toBe('mock-provider'); // From provider
         });
 
         it('should track active agents', async () => {
@@ -165,7 +204,7 @@ describe('AgentFactory', () => {
 
             expect(agent.name).toBe('TemplateAgent');
             expect(agent.model).toBe('gpt-3.5-turbo');
-            expect(agent.provider).toBe('openai');
+            expect(agent.provider).toBe('mock-provider');
         });
 
         it('should apply overrides to template', async () => {
@@ -174,7 +213,7 @@ describe('AgentFactory', () => {
 
             expect(agent.name).toBe('OverriddenAgent');
             expect(agent.model).toBe('gpt-4');
-            expect(agent.provider).toBe('openai'); // From template
+            expect(agent.provider).toBe('mock-provider'); // From template
         });
 
         it('should throw error for non-existent template', async () => {
@@ -200,8 +239,11 @@ describe('AgentFactory', () => {
         it('should destroy agent successfully', async () => {
             const agent = await factory.createAgent(MockAgent, {
                 name: 'TestAgent',
-                model: 'gpt-3.5-turbo',
-                provider: 'openai'
+                aiProviders: [new MockAIProvider()],
+                defaultModel: {
+                    provider: 'mock-provider',
+                    model: 'gpt-3.5-turbo'
+                }
             });
 
             const activeAgents = factory.getActiveAgents();

@@ -42,13 +42,11 @@ async function main() {
 
         const config = {
             name: 'StreamingAgent',
-            model: 'gpt-3.5-turbo',
-            provider: 'openai',
-            aiProviders: {
-                'openai': openaiProvider
+            aiProviders: [openaiProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-3.5-turbo'
             },
-            currentProvider: 'openai',
-            currentModel: 'gpt-3.5-turbo',
             plugins: [
                 new PerformancePlugin({
                     trackMemory: true,

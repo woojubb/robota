@@ -29,10 +29,7 @@ import type { TeamContainerOptions, TeamOptions } from './types';
  * import { AnthropicProvider } from '@robota-sdk/anthropic';
  * 
  * const team = createTeam({
- *   aiProviders: {
- *     openai: openaiProvider,
- *     anthropic: anthropicProvider
- *   },
+ *   aiProviders: [openaiProvider, anthropicProvider],
  *   debug: true
  * });
  * 
@@ -48,11 +45,7 @@ import type { TeamContainerOptions, TeamOptions } from './types';
  * @example Advanced Team Configuration
  * ```typescript
  * const team = createTeam({
- *   aiProviders: {
- *     openai: openaiProvider,
- *     anthropic: anthropicProvider,
- *     google: googleProvider
- *   },
+ *   aiProviders: [openaiProvider, anthropicProvider, googleProvider],
  *   maxMembers: 10,
  *   maxTokenLimit: 100000,
  *   debug: true,
@@ -74,24 +67,24 @@ import type { TeamContainerOptions, TeamOptions } from './types';
  * @see {@link TeamOptions} - Available configuration options
  */
 export function createTeam(options: TeamOptions): TeamContainer {
-    // Get first available provider as default
-    const providers = Object.keys(options.aiProviders);
-    if (providers.length === 0) {
+    // Validate that AI providers are provided
+    if (!options.aiProviders || options.aiProviders.length === 0) {
         throw new Error('At least one AI provider must be provided in aiProviders');
     }
 
-    const defaultProvider = providers[0]!;
-    const defaultModel = getDefaultModelForProvider(defaultProvider) || 'gpt-4o-mini';
+    const defaultProvider = options.aiProviders[0]!;
+    const defaultModel = getDefaultModelForProvider(defaultProvider.name) || 'gpt-4o-mini';
 
-    // Convert to full TeamContainerOptions
+    // Convert to full TeamContainerOptions using new API format
     const fullOptions: TeamContainerOptions = {
         baseRobotaOptions: {
-            provider: defaultProvider,
-            model: defaultModel,
+            name: 'team-base',
             aiProviders: options.aiProviders,
-            currentProvider: defaultProvider,
-            currentModel: defaultModel,
-            maxTokens: options.maxTokenLimit || 50000
+            defaultModel: {
+                provider: defaultProvider.name,
+                model: defaultModel,
+                maxTokens: options.maxTokenLimit || 50000
+            }
         },
         maxMembers: options.maxMembers || 5,
         debug: options.debug || false,

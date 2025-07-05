@@ -260,21 +260,25 @@ export class ExecutionService {
                     }))
                 });
 
-                // Validate required model configuration
-                if (!config.model) {
-                    throw new Error('Model is required in agent configuration');
+                // Validate required model configuration - use new defaultModel format
+                if (!config.defaultModel?.model) {
+                    throw new Error('Default model is required in agent configuration');
                 }
 
                 // Get available tools as ToolSchema format (provider-agnostic)
                 const availableTools = this.tools.getTools();
 
                 // Delegate entire execution to provider
-                const chatOptions = {
-                    model: config.model,
-                    maxTokens: providerConfig?.maxTokens,
-                    temperature: providerConfig?.temperature,
-                    tools: availableTools.length > 0 ? availableTools : undefined
+                const chatOptions: any = {
+                    model: config.defaultModel.model,
+                    maxTokens: config.defaultModel.maxTokens || providerConfig?.maxTokens,
+                    temperature: config.defaultModel.temperature || providerConfig?.temperature,
+                    topP: config.defaultModel.topP
                 };
+
+                if (availableTools.length > 0) {
+                    chatOptions.tools = availableTools;
+                }
 
                 const response = await provider.chat(conversationMessages, chatOptions);
 

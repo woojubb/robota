@@ -124,18 +124,16 @@ async function main() {
             client: openaiClient
         });
 
-        // Create Robota instance with tools
+        // Create Robota instance with tools using new API
         const robota = new Robota({
             name: 'ToolAgent',
-            model: 'gpt-3.5-turbo',
-            provider: 'openai',
-            aiProviders: {
-                'openai': openaiProvider
+            aiProviders: [openaiProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-3.5-turbo',
+                systemMessage: 'You are a helpful assistant that can perform calculations. When using tools, use the results to provide a complete answer.'
             },
-            currentProvider: 'openai',
-            currentModel: 'gpt-3.5-turbo',
             tools: [calculateTool],
-            systemMessage: 'You are a helpful assistant that can perform calculations. When using tools, use the results to provide a complete answer.',
             logging: {
                 level: 'info', // 자세한 로그를 통해 중복 실행 원인 파악
                 enabled: true

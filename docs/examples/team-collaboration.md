@@ -49,10 +49,7 @@ const anthropicProvider = new AnthropicProvider({
 
 // Create team using simplified template-based API
 const team = createTeam({
-  aiProviders: {
-    openai: openaiProvider,
-    anthropic: anthropicProvider
-  },
+  aiProviders: [openaiProvider, anthropicProvider],
   maxMembers: 5,
   maxTokenLimit: 50000,
   logger: console,
@@ -95,7 +92,7 @@ const anthropicProvider1 = new AnthropicProvider({
 });
 
 const team1 = createTeam({
-  aiProviders: { openai: openaiProvider1, anthropic: anthropicProvider1 },
+  aiProviders: [openaiProvider1, anthropicProvider1],
   maxMembers: 5,
   maxTokenLimit: 50000,
   logger: console,
@@ -126,7 +123,7 @@ const anthropicProvider2 = new AnthropicProvider({
 });
 
 const team2 = createTeam({
-  aiProviders: { openai: openaiProvider2, anthropic: anthropicProvider2 },
+  aiProviders: [openaiProvider2, anthropicProvider2],
   maxMembers: 5,
   maxTokenLimit: 50000,
   logger: console,
@@ -179,10 +176,7 @@ templateManager.addTemplate({
 });
 
 const team = createTeam({
-  aiProviders: {
-    openai: openaiProvider,
-    anthropic: anthropicProvider
-  },
+  aiProviders: [openaiProvider, anthropicProvider],
   templateManager: templateManager,  // Custom template manager
   leaderTemplate: "task_coordinator", // Specify leader template
   maxMembers: 10,

@@ -43,16 +43,15 @@ async function main() {
 
     // Create agent with analytics plugin
     const agent = new Robota({
-        provider: 'openai',
-        model: 'gpt-4o-mini',
-        currentProvider: 'openai',
-        currentModel: 'gpt-4o-mini',
-        systemMessage: 'You are a helpful assistant that provides detailed responses.',
-        aiProviders: {
-            openai: new OpenAIProvider({
-                client: openaiClient,
-                model: 'gpt-4o-mini'
-            })
+        name: 'AnalyticsAgent',
+        aiProviders: [new OpenAIProvider({
+            client: openaiClient,
+            model: 'gpt-4o-mini'
+        })],
+        defaultModel: {
+            provider: 'openai',
+            model: 'gpt-4o-mini',
+            systemMessage: 'You are a helpful assistant that provides detailed responses.'
         },
         plugins: [analyticsPlugin] // Plugin will automatically track all executions
     });
