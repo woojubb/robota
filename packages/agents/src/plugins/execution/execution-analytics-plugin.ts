@@ -543,6 +543,26 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
         };
     }
 
+    /**
+ * Get plugin statistics
+ */
+    override getStats(): ExecutionAnalyticsPluginStats {
+        const oldest = this.executionHistory[0];
+        const newest = this.executionHistory[this.executionHistory.length - 1];
+
+        return {
+            enabled: this.enabled,
+            calls: this.executionHistory.length,
+            errors: this.executionHistory.filter(e => !e.success).length,
+            ...(newest?.endTime && { lastActivity: newest.endTime }),
+            totalRecorded: this.executionHistory.length,
+            activeExecutions: this.activeExecutions.size,
+            memoryUsage: this.getMemoryUsage(),
+            ...(oldest && { oldestRecord: oldest.startTime }),
+            ...(newest && { newestRecord: newest.endTime })
+        };
+    }
+
     // Helper methods
 
     private recordStats(stats: ExecutionStats): void {

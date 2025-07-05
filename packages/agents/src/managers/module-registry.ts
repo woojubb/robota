@@ -2,14 +2,12 @@ import {
     BaseModule,
     BaseModuleOptions,
     ModuleExecutionContext,
-    ModuleExecutionResult,
-    ModuleData,
-    ModuleStats
+    ModuleExecutionResult
 } from '../abstracts/base-module';
 import { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
-import { ModuleTypeRegistry, ModuleDependencyResolution } from './module-type-registry';
+import { ModuleTypeRegistry } from './module-type-registry';
 import { Logger, createLogger } from '../utils/logger';
-import { ConfigurationError, PluginError } from '../utils/errors';
+import { ConfigurationError } from '../utils/errors';
 
 /**
  * Module registration options

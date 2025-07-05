@@ -61,7 +61,7 @@ export interface AggregatedExecutionStats {
     };
 }
 
-import type { BasePluginOptions } from '../../abstracts/base-plugin';
+import type { BasePluginOptions, PluginStats } from '../../abstracts/base-plugin';
 
 /**
  * Plugin options
@@ -80,7 +80,7 @@ export interface ExecutionAnalyticsOptions extends BasePluginOptions {
 /**
  * Execution analytics plugin statistics
  */
-export interface ExecutionAnalyticsPluginStats {
+export interface ExecutionAnalyticsPluginStats extends PluginStats {
     /** Total number of executions recorded */
     totalRecorded: number;
     /** Number of active executions */

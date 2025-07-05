@@ -1,4 +1,4 @@
-import { BasePlugin, BaseExecutionContext, BaseExecutionResult } from '../abstracts/base-plugin';
+import { BasePlugin, BaseExecutionContext, BaseExecutionResult, PluginCategory, PluginPriority } from '../abstracts/base-plugin';
 import { Logger, createLogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 import type {
@@ -70,7 +70,12 @@ export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsSt
             tokenCostPer1000: options.tokenCostPer1000 ?? 0.002, // $0.002 per 1K tokens
             refillRate: options.refillRate ?? 100, // tokens per second
             bucketSize: options.bucketSize ?? 10000,
-            costCalculator: options.costCalculator ?? this.defaultCostCalculator.bind(this)
+            costCalculator: options.costCalculator ?? this.defaultCostCalculator.bind(this),
+            // Add BasePluginOptions defaults
+            category: options.category ?? PluginCategory.LIMITS,
+            priority: options.priority ?? PluginPriority.NORMAL,
+            moduleEvents: options.moduleEvents ?? [],
+            subscribeToAllModuleEvents: options.subscribeToAllModuleEvents ?? false
         };
 
         this.logger.info('LimitsPlugin initialized', {

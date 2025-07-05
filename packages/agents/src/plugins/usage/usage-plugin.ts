@@ -144,7 +144,7 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
             }
         } catch (error) {
             // Log the error but don't throw to avoid breaking module event processing
-            console.error(`UsagePlugin failed to handle module event ${eventType}:`, error);
+            // UsagePlugin failed to handle module event
         }
     }
 

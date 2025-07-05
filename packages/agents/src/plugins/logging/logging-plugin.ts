@@ -2,11 +2,7 @@ import { BasePlugin, PluginCategory, PluginPriority } from '../../abstracts/base
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import type { EventType, EventData } from '../event-emitter-plugin';
-import type {
-    ModuleInitializationEventData,
-    ModuleExecutionEventData,
-    ModuleDisposalEventData
-} from '../../abstracts/base-module';
+
 import {
     LogLevel,
     LogEntry,
