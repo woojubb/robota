@@ -8,138 +8,82 @@
 
 ### 1. 실제로 필요한 Module들 (LLM이 할 수 없는 선택적 확장 기능)
 
-#### Vector Search Modules - RAG를 위한 검색 능력 (LLM이 할 수 없는 일)
+**우선순위 1: 즉시 필요한 핵심 Module들**
 
 ```typescript
-// 벡터 검색 모듈 (RAG용)
-interface VectorSearchModule extends BaseModule {
-    addDocument(id: string, text: string, metadata?: any): Promise<void>;
-    search(query: string, topK: number): Promise<SearchResult[]>;
-    embed(text: string): Promise<number[]>;
-    deleteDocument(id: string): Promise<boolean>;
+// 1. RAG Module - 가장 중요하고 실용적
+interface RAGModule extends BaseModule {
+    addDocument(id: string, content: string, metadata?: any): Promise<void>;
+    searchRelevant(query: string, topK?: number): Promise<string[]>;
+    generateWithContext(query: string): Promise<string>;
     
-    getModuleType(): ModuleTypeDescriptor {
-        return {
-            type: 'vector-search',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.APPLICATION,
-            dependencies: ['embedding-provider', 'vector-storage'],
-            capabilities: ['rag-retrieval', 'semantic-search', 'document-indexing']
-        };
-    }
+    readonly name = 'rag';
+    readonly version = '1.0.0';
 }
 
-// 파일 처리 모듈 (LLM이 할 수 없는 일)
+// 2. File Processing Module - 실용적이고 자주 사용됨
 interface FileProcessingModule extends BaseModule {
     processPDF(buffer: Buffer): Promise<string>;
     processImage(buffer: Buffer): Promise<string>;
-    processAudio(buffer: Buffer): Promise<string>;
-    extractMetadata(buffer: Buffer, type: string): Promise<any>;
+    processText(buffer: Buffer, encoding?: string): Promise<string>;
     
-    getModuleType(): ModuleTypeDescriptor {
-        return {
-            type: 'file-processing',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.APPLICATION,
-            dependencies: ['ocr-engine', 'audio-transcription'],
-            capabilities: ['pdf-extraction', 'image-to-text', 'audio-to-text']
-        };
-    }
+    readonly name = 'file-processing';
+    readonly version = '1.0.0';
 }
 
-// 멀티모달 AI 모듈 (LLM이 할 수 없는 일)
-interface MultiModalModule extends BaseModule {
-    analyzeImageWithText(image: Buffer, prompt: string): Promise<string>;
-    generateImageDescription(image: Buffer): Promise<string>;
-    compareImages(image1: Buffer, image2: Buffer): Promise<number>;
-    extractTextFromImage(image: Buffer): Promise<string>;
+// 3. Speech Processing Module - 멀티모달 지원
+interface SpeechModule extends BaseModule {
+    speechToText(audio: Buffer): Promise<string>;
+    textToSpeech(text: string): Promise<Buffer>;
     
-    getModuleType(): ModuleTypeDescriptor {
-        return {
-            type: 'multimodal',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.APPLICATION,
-            dependencies: ['vision-ai-provider', 'file-processing'],
-            capabilities: ['visual-analysis', 'image-text-integration', 'ocr']
-        };
-    }
+    readonly name = 'speech';
+    readonly version = '1.0.0';
 }
 ```
 
-#### Database Connector Modules - 실시간 DB 연동 (LLM이 할 수 없는 일)
+**우선순위 2: 유용하지만 나중에 구현해도 되는 Module들**
 
 ```typescript
-// 데이터베이스 연동 모듈 (LLM이 실시간 DB 접근 불가)
-interface DatabaseModule extends BaseModule {
-    connect(config: DatabaseConfig): Promise<void>;
-    query(sql: string, params?: any[]): Promise<any[]>;
-    insert(table: string, data: any): Promise<void>;
-    update(table: string, id: string, data: any): Promise<void>;
-    
-    getModuleType(): ModuleTypeDescriptor {
-        return {
-            type: 'database',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.APPLICATION,
-            dependencies: ['transport'],
-            capabilities: ['realtime-query', 'data-sync', 'transaction-management']
-        };
-    }
-}
-
-// API 통합 모듈 (LLM이 외부 API 직접 호출 불가)
-interface APIIntegrationModule extends BaseModule {
-    registerAPI(name: string, spec: OpenAPISpec): void;
-    callAPI(name: string, endpoint: string, params: any): Promise<any>;
-    getAPIStatus(name: string): Promise<APIStatus>;
-    
-    getModuleType(): ModuleTypeDescriptor {
-        return {
-            type: 'api-integration',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.APPLICATION,
-            dependencies: ['transport'],
-            capabilities: ['external-api-access', 'data-fetching', 'service-integration']
-        };
-    }
-}
-
-// 웹 스크래핑 모듈 (LLM이 웹페이지 직접 접근 불가)
+// 4. Web Scraping Module
 interface WebScrapingModule extends BaseModule {
-    scrapeWebpage(url: string): Promise<string>;
+    scrapeURL(url: string): Promise<string>;
     extractLinks(url: string): Promise<string[]>;
-    monitorChanges(url: string): Promise<void>;
     
-    getModuleType(): ModuleTypeDescriptor {
-        return {
-            type: 'web-scraping',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.APPLICATION,
-            dependencies: ['transport'],
-            capabilities: ['webpage-parsing', 'content-extraction', 'link-crawling']
-        };
-    }
+    readonly name = 'web-scraping';
+    readonly version = '1.0.0';
 }
+
+// 5. Database Module
+interface DatabaseModule extends BaseModule {
+    query(sql: string, params?: any[]): Promise<any[]>;
+    execute(sql: string, params?: any[]): Promise<void>;
+    
+    readonly name = 'database';
+    readonly version = '1.0.0';
+}
+```
+
+**❌ 제거할 Module들 (불필요하거나 너무 복잡함)**
+
+```typescript
+// ❌ 제거: 너무 복잡하고 실용성 낮음
+// - MultiModalModule (너무 범용적, 구체적인 용도별로 분리)
+// - APIIntegrationModule (너무 범용적, Tool로 충분)
+// - VectorStorageModule (RAG Module에 포함)
+// - CacheStorageModule (내부 구현으로 충분)
+// - TransportModule (내부 구현으로 충분)
+
+// ❌ 제거: LLM이 이미 잘 하는 일들
+// - ReasoningModule
+// - PlanningModule  
+// - LearningModule
+// - MemoryModule (ConversationHistory Plugin으로 충분)
+// - KnowledgeModule
 ```
 
 #### ❌ Module이 될 수 없는 것들 (LLM이 이미 잘 하는 일들)
 
 ```typescript
-// ❌ 이런 것들은 Module로 만들면 안됨 - LLM이 이미 잘 하는 일들
-// 
-// interface ReasoningModule - LLM이 이미 추론을 매우 잘 함
-// interface PlanningModule - LLM이 이미 계획을 잘 세움  
-// interface LearningModule - LLM이 이미 맥락에서 학습함
-// interface PerceptionModule - LLM이 이미 텍스트 이해를 잘 함
-// interface MemoryModule - LLM이 이미 대화 맥락을 기억함
-// interface KnowledgeModule - LLM이 이미 광범위한 지식을 가짐
-//
-// 이런 것들을 Module로 만드는 것은:
-// 1. LLM의 기본 능력을 중복 구현
-// 2. 불필요한 복잡성 증가
-// 3. 성능 저하 가능성
-// 4. LLM보다 품질이 떨어질 가능성
-
 // ✅ 대신 이런 것들이 진짜 Module이 되어야 함:
 // - RAG: LLM이 실시간 문서 검색 불가
 // - File Processing: LLM이 파일 파싱 불가  

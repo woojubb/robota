@@ -77,62 +77,37 @@ export enum ModuleLayer {
 
 ```typescript
 // 모듈 타입 레지스트리 (런타임 확장 가능)
-export class ModuleTypeRegistry {
-    private static types = new Map<string, ModuleTypeDescriptor>();
+export class ModuleRegistry {
+    private static modules = new Map<string, BaseModule>();
     
-    // 실제 Module 타입들 등록 (LLM이 할 수 없는 선택적 확장 기능들)
-    static {
-        this.registerType('vector-search', {
-            type: 'vector-search',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.APPLICATION,
-            dependencies: ['storage'],
-            capabilities: ['vector-embedding', 'similarity-search', 'rag-retrieval']
-        });
-        
-        this.registerType('file-processing', {
-            type: 'file-processing',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.APPLICATION,
-            dependencies: ['storage'],
-            capabilities: ['pdf-parsing', 'image-ocr', 'audio-transcription']
-        });
-        
-        this.registerType('database', {
-            type: 'database',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.APPLICATION,
-            dependencies: ['transport'],
-            capabilities: ['realtime-query', 'data-sync', 'transaction-management']
-        });
-        
-        this.registerType('speech-processing', {
-            type: 'speech-processing',
-            category: ModuleCategory.CAPABILITY,
-            layer: ModuleLayer.APPLICATION,
-            dependencies: ['transport'],
-            capabilities: ['speech-to-text', 'text-to-speech', 'language-detection']
-        });
+    static register<T extends BaseModule>(module: T): void {
+        this.modules.set(module.name, module);
     }
     
-    static registerType(name: string, descriptor: ModuleTypeDescriptor): void {
-        this.types.set(name, descriptor);
+    static get<T extends BaseModule>(name: string): T | undefined {
+        return this.modules.get(name) as T;
     }
     
-    static getType(name: string): ModuleTypeDescriptor | undefined {
-        return this.types.get(name);
+    static getAvailable(): string[] {
+        return Array.from(this.modules.keys());
     }
     
-    static getTypesByCategory(category: ModuleCategory): ModuleTypeDescriptor[] {
-        return Array.from(this.types.values()).filter(t => t.category === category);
+    static isAvailable(name: string): boolean {
+        return this.modules.has(name);
     }
+}
+
+// 간단한 Module 인터페이스
+export abstract class BaseModule {
+    abstract readonly name: string;
+    abstract readonly version: string;
     
-    static validateDependencies(moduleType: string): boolean {
-        const descriptor = this.getType(moduleType);
-        if (!descriptor) return false;
-        
-        return descriptor.dependencies.every(dep => this.types.has(dep));
-    }
+    abstract initialize(config?: any): Promise<void>;
+    abstract dispose(): Promise<void>;
+    
+    // 선택적 메타데이터 (너무 복잡하지 않게)
+    getCapabilities?(): string[];
+    getDependencies?(): string[];
 }
 ```
 
@@ -265,7 +240,7 @@ const learningModule = {
 ### 실시간 타입 등록
 ```typescript
 // 실제 필요한 모듈 타입 등록 (LLM이 할 수 없는 일들)
-ModuleTypeRegistry.registerType('web-scraping', {
+ModuleRegistry.registerType('web-scraping', {
     type: 'web-scraping',
     category: ModuleCategory.CAPABILITY,
     layer: ModuleLayer.APPLICATION,
@@ -274,7 +249,7 @@ ModuleTypeRegistry.registerType('web-scraping', {
 });
 
 // 금융 데이터 연동 모듈 (외부 API 접근)
-ModuleTypeRegistry.registerType('financial-data', {
+ModuleRegistry.registerType('financial-data', {
     type: 'financial-data',
     category: ModuleCategory.CAPABILITY,
     layer: ModuleLayer.APPLICATION,
@@ -283,7 +258,7 @@ ModuleTypeRegistry.registerType('financial-data', {
 });
 
 // 실시간 통신 모듈 (LLM이 할 수 없는 네트워크 통신)
-ModuleTypeRegistry.registerType('realtime-communication', {
+ModuleRegistry.registerType('realtime-communication', {
     type: 'realtime-communication',
     category: ModuleCategory.CAPABILITY,
     layer: ModuleLayer.APPLICATION,
@@ -304,7 +279,7 @@ const medicalModuleTypes = [
 ];
 
 medicalModuleTypes.forEach(type => {
-    ModuleTypeRegistry.registerType(type, {
+    ModuleRegistry.registerType(type, {
         type: type,
         category: ModuleCategory.CAPABILITY,
         layer: ModuleLayer.APPLICATION,
@@ -323,7 +298,7 @@ const gameModuleTypes = [
 ];
 
 gameModuleTypes.forEach(type => {
-    ModuleTypeRegistry.registerType(type, {
+    ModuleRegistry.registerType(type, {
         type: type,
         category: ModuleCategory.CAPABILITY,
         layer: ModuleLayer.APPLICATION,

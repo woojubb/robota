@@ -129,10 +129,12 @@ Robota에서 기존의 plugin 개념을 확장하여 **Plugin**과 **Module**의
 ```typescript
 // 최소 구성 - 기본 대화만 가능
 const basicAgent = new Robota({
+    name: 'BasicAgent',
     aiProviders: {
         openai: new OpenAIProvider({ apiKey: 'sk-...' })
     },
-    currentProvider: 'openai'
+    currentProvider: 'openai',
+    currentModel: 'gpt-4'
 });
 
 // 이것만으로도 정상 동작
@@ -142,54 +144,92 @@ await basicAgent.run('안녕하세요!'); // ✅ 작동
 ### 선택적 Module 추가로 능력 확장
 ```typescript
 // RAG 능력 추가 (선택적)
+import { RAGModule } from '@robota-sdk/modules-rag';
+
+const ragModule = new RAGModule({
+    vectorStore: 'pinecone',
+    embeddingProvider: 'openai'
+});
+
 const ragAgent = new Robota({
+    name: 'RAGAgent',
     aiProviders: {
         openai: new OpenAIProvider({ apiKey: 'sk-...' })
     },
     currentProvider: 'openai',
-    modules: [
-        new RAGModule({
-            vectorStore: new PineconeStorage(),
-            embeddingProvider: new OpenAIEmbeddings()
-        })
-    ]
+    currentModel: 'gpt-4',
+    modules: [ragModule]  // Module 추가
 });
+
+// 문서 추가
+await ragModule.addDocument('doc1', '회사 정책: 연차는 최대 15일까지 사용 가능합니다.');
 
 // 이제 문서 기반 답변 가능
-await ragAgent.run('회사 정책에 대해 알려주세요'); // 📄 문서 검색 후 답변
+await ragAgent.run('회사 연차 정책에 대해 알려주세요');
+// → RAG Module이 문서를 검색하여 정확한 답변 제공
 ```
 
-### 다중 능력 에이전트 (복합 Module)
+### Plugin과 Module 조합 사용
 ```typescript
-// 멀티미디어 처리 에이전트 (여러 Module 조합)
-const multimediaAgent = new Robota({
+// 실용적인 조합: 필수 기능(Module) + 모니터링(Plugin)
+import { FileProcessingModule } from '@robota-sdk/modules-file';
+import { LoggingPlugin, UsagePlugin } from '@robota-sdk/agents';
+
+const fileModule = new FileProcessingModule({
+    ocrProvider: 'tesseract',
+    pdfParser: 'pdf2pic'
+});
+
+const agent = new Robota({
+    name: 'DocumentAgent',
     aiProviders: {
         openai: new OpenAIProvider({ apiKey: 'sk-...' })
     },
     currentProvider: 'openai',
-    modules: [
-        new SpeechModule({                    // 음성 처리
-            speechToText: new WhisperAPI(),
-            textToSpeech: new ElevenLabsAPI()
-        }),
-        new ImageAnalysisModule({             // 이미지 분석
-            visionModel: 'gpt-4-vision'
-        }),
-        new FileProcessingModule({            // 파일 처리
-            pdfParser: new PDFParser(),
-            imageOCR: new TesseractOCR()
-        })
-    ],
-    plugins: [
-        new UsagePlugin(),                    // 사용량 추적
-        new PerformancePlugin()               // 성능 모니터링
+    currentModel: 'gpt-4',
+    modules: [fileModule],              // 파일 처리 능력 추가
+    plugins: [                          // 모니터링 기능 추가
+        new LoggingPlugin({ strategy: 'console', level: 'info' }),
+        new UsagePlugin({ strategy: 'memory', trackCosts: true })
     ]
 });
 
-// Module이 없어도 기본 동작, 있으면 해당 기능 활용
-await multimediaAgent.run('이 이미지를 분석해주세요', { 
-    image: imageBuffer  // ImageAnalysisModule이 처리
+// 파일 분석 요청
+const fileContent = await fileModule.processPDF(pdfBuffer);
+await agent.run(`다음 문서를 요약해주세요: ${fileContent}`);
+```
+
+### 복합 Module 에이전트 (최고급 설정)
+```typescript
+// 모든 능력을 갖춘 에이전트 (선택적으로 필요한 것만 추가)
+import { 
+    RAGModule, 
+    FileProcessingModule, 
+    SpeechModule 
+} from '@robota-sdk/modules';
+
+const modules = [
+    new RAGModule({ vectorStore: 'pinecone' }),         // 문서 검색
+    new FileProcessingModule({ ocr: true }),            // 파일 처리  
+    new SpeechModule({ provider: 'elevenlabs' })        // 음성 입출력
+];
+
+const fullAgent = new Robota({
+    name: 'FullCapabilityAgent',
+    aiProviders: {
+        openai: new OpenAIProvider({ apiKey: 'sk-...' })
+    },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4',
+    modules: modules,
+    plugins: [
+        new UsagePlugin({ strategy: 'file', filePath: './usage.json' }),
+        new PerformancePlugin({ strategy: 'memory' })
+    ]
 });
+
+// 이제 파일, 음성, 문서 검색 모든 기능 사용 가능
+// Module이 없어도 기본 텍스트 대화는 여전히 정상 작동
 ```
 
 ## 기대 효과
