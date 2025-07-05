@@ -82,18 +82,32 @@ interface ToolModule {
     getAvailableTools(): Tool[];
 }
 
-// Memory Modules - "무엇을 기억할 수 있는가"
-interface MemoryModule {
-    store(key: string, value: any): Promise<void>;
-    retrieve(key: string): Promise<any>;
-    search(query: string): Promise<any[]>;
+// RAG 검색 모듈 - "문서 검색 기반 답변이 필요한가?" (선택적)
+interface RAGModule {
+    addDocument(id: string, content: string): Promise<void>;
+    searchRelevant(query: string): Promise<string[]>;
+    generateAnswer(query: string, context: string[]): Promise<string>;
 }
 
-// Planning Modules - "어떻게 계획을 세울 수 있는가"
-interface PlanningModule {
-    createPlan(task: string): Promise<Plan>;
-    executePlan(plan: Plan): Promise<Result>;
-    adaptPlan(plan: Plan, feedback: string): Promise<Plan>;
+// 음성 처리 모듈 - "음성 입출력이 필요한가?" (선택적)  
+interface SpeechModule {
+    speechToText(audio: Buffer): Promise<string>;
+    textToSpeech(text: string): Promise<Buffer>;
+    detectLanguage(audio: Buffer): Promise<string>;
+}
+
+// Vector Search Modules - "임베딩 기반 검색을 어떻게 하는가" (새로운 기능)
+interface VectorSearchModule {
+    embed(text: string): Promise<number[]>;
+    search(query: string, topK: number): Promise<SearchResult[]>;
+    addDocument(id: string, text: string, metadata?: any): Promise<void>;
+}
+
+// File Processing Modules - "파일을 어떻게 처리하는가" (새로운 기능)
+interface FileProcessingModule {
+    processImage(image: Buffer): Promise<string>;
+    processPDF(pdf: Buffer): Promise<string>;
+    processAudio(audio: Buffer): Promise<string>;
 }
 ```
 
@@ -106,49 +120,74 @@ interface PlanningModule {
 
 ### 실제 구분 기준
 
-#### Module이 되어야 하는 것들
-1. **능력 제공자**: 에이전트의 새로운 능력을 추가
-   - Memory Module: 기억하는 능력
-   - Reasoning Module: 추론하는 능력
-   - Perception Module: 감지하는 능력
+#### Module이 되어야 하는 것들 (선택적 확장 기능)
+1. **선택적 능력 확장**: Robota 없이도 기본 동작하지만, 추가하면 새로운 능력 획득
+   - Vector Search Module: RAG 기반 문서 검색 (없어도 일반 대화 가능)
+   - Speech Processing Module: 음성 입출력 처리 (없어도 텍스트 대화 가능)
+   - Image Analysis Module: 이미지 분석 (없어도 텍스트 대화 가능)
+   - File Processing Module: PDF/문서 읽기 (없어도 일반 대화 가능)
+   - Database Connector Module: 실시간 DB 연동 (없어도 기본 대화 가능)
 
-2. **인터페이스 구현**: 표준 인터페이스의 구체적 구현
-   - AIProvider 구현체들 (OpenAI, Anthropic, Google)
-   - Storage 구현체들 (File, Database, Vector)
+2. **저장소 구현체**: 다양한 저장 방식 선택
+   - Vector Storage 구현체들 (Pinecone, Weaviate, ChromaDB)
+   - Document Storage 구현체들 (Elasticsearch, MongoDB)
+   - Cache Storage 구현체들 (Redis, Memcached)
+
+#### ❌ Module이 될 수 없는 것들 (Robota 내부 핵심 클래스)
+- **AI Provider**: 필수 구성요소, 없으면 대화 불가 (내부 클래스로 유지)
+- **Tool Execution**: 함수 호출의 핵심 로직 (내부 클래스로 유지)
+- **Message Processing**: 메시지 변환/처리 (내부 클래스로 유지)
+- **Session Management**: 세션 관리 (내부 클래스로 유지)
 
 #### Plugin으로 유지되어야 하는 것들  
 1. **관찰 및 보강**: 기존 동작을 관찰하고 부가 기능 제공
-   - Usage 추적, Performance 모니터링
-   - Error 핸들링, Logging, Webhook 알림
+   - Usage 추적, Performance 모니터링 (이미 구현됨)
+   - Error 핸들링, Logging, Webhook 알림 (이미 구현됨)
+   - ConversationHistory 저장 (이미 구현됨)
 
 2. **횡단 관심사**: 여러 모듈에 걸쳐 적용되는 공통 기능
-   - 보안, 제한, 캐싱, 압축 등
+   - 보안, 제한, 캐싱, 압축 등 (일부 구현됨)
 
-### 판단 기준 질문들
-1. "이 기능이 없으면 에이전트가 할 수 있는 일이 줄어드나?" → **Module**
-2. "이 기능이 없어도 에이전트는 기본 동작을 하나?" → **Plugin**  
-3. "이 기능이 에이전트의 새로운 능력을 제공하나?" → **Module**
-4. "이 기능이 기존 동작을 관찰/보강하나?" → **Plugin**
+### 판단 기준 질문들 (수정된 기준)
+1. "이 기능이 없어도 Robota가 에러 없이 정상 동작하나?" 
+   - **Yes** → Module 또는 Plugin 후보
+   - **No** → 내부 핵심 클래스 (Module/Plugin 불가)
 
-## 핵심 판별 기준
+2. "이 기능이 새로운 능력을 선택적으로 추가하나?"
+   - **Yes** → **Module**
+   - **No** → "기존 동작을 관찰/보강하나?" → **Plugin**
 
-**"이걸 제거하면 에이전트가 할 수 있는 일이 줄어드나?"**
-- **Yes** → Module (에이전트의 핵심 능력)
-- **No** → Plugin (부가적인 관찰/개선 기능)
+3. "이 기능이 Robota의 주요 로직에 필수적인가?"
+   - **Yes** → 내부 클래스 (AI Provider, Tool Execution 등)
+   - **No** → Module 또는 Plugin 검토
+
+## 핵심 판별 기준 (수정됨)
+
+**"이 기능 없이도 Robota가 기본 대화를 에러 없이 할 수 있나?"**
+- **Yes, 가능** → Module 또는 Plugin 후보 (선택적 확장 기능)
+- **No, 불가능** → 내부 핵심 클래스 (필수 구성요소)
+
+**선택적 확장 기능의 경우:**
+- **새로운 능력 추가** → Module (예: RAG, 음성처리, 이미지분석)
+- **기존 동작 관찰/보강** → Plugin (예: 로깅, 모니터링, 알림)
 
 ### 예시 분석
 
-#### Module 예시
-- **메모리 시스템 제거** → 기억할 수 없음 → **Module**
-- **도구 실행 시스템 제거** → 도구 사용 불가 → **Module**
-- **AI Provider 제거** → 대화 불가 → **Module**
-- **추론 시스템 제거** → 논리적 사고 불가 → **Module**
+#### 내부 핵심 클래스 예시 (Module/Plugin 불가)
+- **AI Provider 제거** → 대화 자체가 불가능 → **내부 클래스** (필수)
+- **Message Processing 제거** → 메시지 변환 오류 → **내부 클래스** (필수)
+- **Tool Execution Core 제거** → 함수 호출 로직 오류 → **내부 클래스** (필수)
+
+#### Module 예시 (선택적 확장 기능)
+- **RAG 모듈 없음** → 일반 대화는 가능, 문서 검색만 불가 → **Module**
+- **음성 처리 모듈 없음** → 텍스트 대화는 가능, 음성만 불가 → **Module**
+- **이미지 분석 모듈 없음** → 텍스트 대화는 가능, 이미지 분석만 불가 → **Module**
 
 #### Plugin 예시
-- **로깅 시스템 제거** → 여전히 정상 작동 → **Plugin**
-- **성능 모니터링 제거** → 기능에 영향 없음 → **Plugin**
-- **대화 히스토리 저장 제거** → 기본 대화는 가능 → **Plugin**
-- **웹훅 알림 제거** → 에이전트 기능에 영향 없음 → **Plugin**
+- **로깅 시스템 제거** → 여전히 정상 작동 → **Plugin** (이미 구현됨)
+- **성능 모니터링 제거** → 기능에 영향 없음 → **Plugin** (이미 구현됨)
+- **대화 히스토리 저장 제거** → 기본 대화는 가능 → **Plugin** (이미 구현됨)
+- **웹훅 알림 제거** → 에이전트 기능에 영향 없음 → **Plugin** (이미 구현됨)
 
 ## 비유를 통한 이해
 
@@ -157,7 +196,7 @@ interface PlanningModule {
 - **Plugin**: 대시캠, 내비게이션, 오디오 (이것 없어도 자동차는 달림)
 
 ### 스마트폰 비유
-- **Module**: CPU, 메모리, 네트워크 칩 (이것 없으면 스마트폰이 못함)
+- **Module**: CPU, 저장소, 네트워크 칩 (이것 없으면 스마트폰이 못함)
 - **Plugin**: 카메라 필터, 배경화면, 알림음 (이것 없어도 스마트폰은 작동)
 
 ### 개발자 IDE 비유
@@ -166,11 +205,26 @@ interface PlanningModule {
 
 ## 설계 철학
 
-### Module 철학: "What can it do?"
-에이전트의 **능력(Capability)**을 정의합니다. 새로운 Module을 추가한다는 것은 에이전트가 새로운 일을 할 수 있게 된다는 의미입니다.
+### Module 철학: "What optional capabilities can it do?" (선택적 능력 확장)
+에이전트에 **선택적으로 추가할 수 있는 확장 능력**을 제공합니다. Module이 없어도 Robota는 기본 대화 기능으로 정상 동작해야 하며, Module을 추가하면 새로운 능력이 생기는 구조입니다.
 
-### Plugin 철학: "How to observe/enhance?"
-에이전트의 **동작(Behavior)**을 관찰하고 보강합니다. 새로운 Plugin을 추가한다는 것은 에이전트의 실행 과정을 더 잘 관찰하거나 부가 가치를 제공한다는 의미입니다.
+**핵심 원칙**: 
+- ✅ Module 없이도 Robota가 정상 동작
+- ✅ Module 추가 시 새로운 능력 획득
+- ❌ Module이 없으면 에러나 주요 로직 문제 발생
+
+**예시**: 
+- RAG 모듈 → 없어도 일반 대화 가능, 추가하면 문서 검색 기반 답변
+- 이미지 분석 모듈 → 없어도 텍스트 대화 가능, 추가하면 이미지 분석 가능
+- 음성 처리 모듈 → 없어도 텍스트 대화 가능, 추가하면 음성 입출력 가능
+
+### Plugin 철학: "How to observe/enhance?" (기존 동작 개선)
+에이전트의 **동작(Behavior)**을 관찰하고 보강합니다. LLM의 기본 기능에는 영향을 주지 않으면서 부가 가치를 제공합니다.
+
+**예시**:
+- 대화 저장 → LLM의 대화 능력은 그대로, 단지 기록만 보관
+- 성능 모니터링 → LLM 동작에 영향 없이 성능만 측정
+- 사용량 추적 → 에이전트 기능과 무관하게 통계만 수집
 
 ## 개발 시 고려사항
 

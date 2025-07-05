@@ -34,7 +34,9 @@ export enum CoreModuleType {
     PROVIDER = 'provider',
     TOOL = 'tool',
     STORAGE = 'storage',
-    MEMORY = 'memory',
+    VECTOR_SEARCH = 'vector-search',
+    FILE_PROCESSING = 'file-processing',
+    MULTIMODAL = 'multimodal',
     REASONING = 'reasoning',
     PERCEPTION = 'perception',
     TRANSPORT = 'transport'
@@ -81,19 +83,19 @@ export class ModuleTypeRegistry {
             capabilities: ['ai-generation', 'model-inference']
         });
         
-        this.registerType('memory', {
-            type: 'memory',
+        this.registerType('vector-search', {
+            type: 'vector-search',
             category: ModuleCategory.CAPABILITY,
             layer: ModuleLayer.APPLICATION,
-            dependencies: ['storage'],
-            capabilities: ['data-persistence', 'retrieval', 'search']
+            dependencies: ['embedding-provider', 'vector-storage'],
+            capabilities: ['vector-embedding', 'similarity-search', 'rag-retrieval']
         });
         
         this.registerType('reasoning', {
             type: 'reasoning',
             category: ModuleCategory.CAPABILITY,
             layer: ModuleLayer.DOMAIN,
-            dependencies: ['memory', 'provider'],
+            dependencies: ['vector-search', 'provider'],
             capabilities: ['logical-inference', 'pattern-recognition']
         });
     }
@@ -222,7 +224,9 @@ const learningModule = {
 ### Capability Modules  
 **에이전트의 핵심 능력을 제공**
 
-- **Memory**: 기억 능력
+- **Vector Search**: RAG를 위한 벡터 검색 능력
+- **File Processing**: PDF, 이미지, 오디오 처리 능력
+- **MultiModal**: 이미지+텍스트 AI 처리 능력
 - **Reasoning**: 추론 능력
 - **Planning**: 계획 수립 능력
 - **Perception**: 감지 능력

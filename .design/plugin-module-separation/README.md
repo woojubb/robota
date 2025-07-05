@@ -50,37 +50,63 @@ Robota에서 기존의 plugin 개념을 확장하여 **Plugin**과 **Module**의
 
 ## 핵심 설계 원칙
 
+### ⚠️ 기본 전제 조건 (중요!)
+
+**모든 Module과 Plugin은 선택적 확장 기능이어야 합니다:**
+- ✅ Module/Plugin이 없어도 Robota가 에러 없이 정상 동작
+- ✅ Module/Plugin 추가 시 새로운 능력이나 기능 획득  
+- ❌ Module/Plugin이 없으면 주요 로직에 문제 발생 → **내부 클래스로 구현**
+
 ### 🎯 Module vs Plugin 한 줄 요약
 
-- **Module**: "에이전트가 무엇을 할 수 있는가?" (핵심 능력 제공자)
-- **Plugin**: "에이전트 실행을 어떻게 관찰/보강할 것인가?" (횡단 관심사)
+- **Module**: "어떤 선택적 능력을 추가할 것인가?" (없어도 기본 동작 가능한 확장 기능)
+- **Plugin**: "기본 동작을 어떻게 관찰/보강할 것인가?" (횡단 관심사)
 
 ### 🔍 핵심 판별 기준
 
-**"이 기능이 없으면 에이전트가 할 수 있는 일이 줄어드는가?"**
-- **Yes** → Module (에이전트의 핵심 능력)
-- **No** → Plugin (부가적인 관찰/개선 기능)
+**"이 기능 없이도 Robota가 기본 대화를 정상적으로 할 수 있는가?"**
+- **Yes** → Module 또는 Plugin 후보 (선택적 확장)
+- **No** → 내부 핵심 클래스 (Module/Plugin 불가)
+
+### 🔍 현재 Robota 구현 현황
+
+#### ✅ 이미 구현된 기능들 (내부 핵심 클래스)
+- **AI Provider Classes**: OpenAI, Anthropic, Google 연동 (필수 구성요소)
+- **Tool Execution Classes**: Function calling 시스템 (필수 구성요소)
+- **Session Management Classes**: 다중 채팅 세션 관리 (필수 구성요소)
+- **Message Processing Classes**: 메시지 변환/처리 (필수 구성요소)
+
+#### ✅ 이미 구현된 Plugin들
+- **Conversation History Plugin**: 대화 저장/관리 (선택적)
+- **Usage/Performance/Logging Plugins**: 모니터링 시스템 (선택적)
+
+#### 🆕 새로 구현이 필요한 Module들 (선택적 확장 기능)
+- **RAG Module**: 문서 검색 기반 답변 (없어도 일반 대화 가능)
+- **Speech Processing Module**: 음성 입출력 (없어도 텍스트 대화 가능)
+- **Image Analysis Module**: 이미지 분석 (없어도 텍스트 대화 가능)
+- **File Processing Module**: PDF/문서 읽기 (없어도 일반 대화 가능)
+- **Database Connector Module**: 실시간 DB 연동 (없어도 기본 대화 가능)
 
 ### 🏗️ 아키텍처 계층
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        DOMAIN LAYER                         │
-│  Reasoning, Planning, Learning, Multi-modal Integration     │
-├─────────────────────────────────────────────────────────────┤
-│                     APPLICATION LAYER                       │
-│     Memory, Tool Execution, Conversation Management         │
-├─────────────────────────────────────────────────────────────┤
-│                       PLATFORM LAYER                        │
-│        AI Providers, Message Processing, API Gateway        │
-├─────────────────────────────────────────────────────────────┤
-│                    INFRASTRUCTURE LAYER                     │
-│      Database, Network, File System, Basic Storage          │
+│                    ROBOTA CORE (필수)                       │
+│  AI Providers, Message Processing, Tool Execution,         │
+│  Session Management, Conversation History                   │
 └─────────────────────────────────────────────────────────────┘
+           ↑ 이 없으면 Robota가 동작하지 않음
+
+┌─────────────────── OPTIONAL MODULES ───────────────────────┐
+│  RAG │ Speech │ Image Analysis │ File Processing │ DB      │
+│      │        │               │                 │ Connector│
+└─────────────────────────────────────────────────────────────┘
+           ↑ 이 없어도 Robota는 정상 동작 (기본 대화 가능)
 
 ┌─────────────────── CROSS-CUTTING PLUGINS ──────────────────┐
-│  Monitoring │ Logging │ Security │ Notification │ Storage │
+│  Monitoring │ Logging │ Security │ Notification │ Analytics│
 └─────────────────────────────────────────────────────────────┘
+           ↑ 이 없어도 Robota는 정상 동작 (부가 기능)
 ```
 
 ## 주요 혁신사항
@@ -99,44 +125,70 @@ Robota에서 기존의 plugin 개념을 확장하여 **Plugin**과 **Module**의
 
 ## 실무 적용 예시
 
-### 새로운 AI 능력 추가
+### 기본 Robota (Module/Plugin 없음)
 ```typescript
-// 1. 새로운 모듈 타입 등록
-ModuleTypeRegistry.registerType('multimodal-reasoning', {
-    type: 'multimodal-reasoning',
-    category: ModuleCategory.CAPABILITY,
-    layer: ModuleLayer.DOMAIN,
-    dependencies: ['vision-perception', 'text-reasoning', 'memory'],
-    capabilities: ['cross-modal-inference', 'visual-reasoning']
+// 최소 구성 - 기본 대화만 가능
+const basicAgent = new Robota({
+    aiProviders: {
+        openai: new OpenAIProvider({ apiKey: 'sk-...' })
+    },
+    currentProvider: 'openai'
 });
 
-// 2. 에이전트에 통합
-const agent = new Robota({
-    modules: [
-        new VisionPerceptionModule(),
-        new TextReasoningModule(), 
-        new MemoryModule(),
-        new MultimodalReasoningModule() // 자동으로 의존성 순서 해결
-    ]
-});
+// 이것만으로도 정상 동작
+await basicAgent.run('안녕하세요!'); // ✅ 작동
 ```
 
-### 도메인별 특화 에이전트
+### 선택적 Module 추가로 능력 확장
 ```typescript
-// 금융 분석 에이전트
-const financialAgent = new Robota({
+// RAG 능력 추가 (선택적)
+const ragAgent = new Robota({
+    aiProviders: {
+        openai: new OpenAIProvider({ apiKey: 'sk-...' })
+    },
+    currentProvider: 'openai',
     modules: [
-        new OpenAIProviderModule(),           // PLATFORM
-        new DatabaseStorageModule(),          // INFRASTRUCTURE  
-        new FinancialMemoryModule(),         // APPLICATION
-        new MarketAnalysisModule(),          // DOMAIN
-        new RiskAssessmentModule()           // DOMAIN
+        new RAGModule({
+            vectorStore: new PineconeStorage(),
+            embeddingProvider: new OpenAIEmbeddings()
+        })
+    ]
+});
+
+// 이제 문서 기반 답변 가능
+await ragAgent.run('회사 정책에 대해 알려주세요'); // 📄 문서 검색 후 답변
+```
+
+### 다중 능력 에이전트 (복합 Module)
+```typescript
+// 멀티미디어 처리 에이전트 (여러 Module 조합)
+const multimediaAgent = new Robota({
+    aiProviders: {
+        openai: new OpenAIProvider({ apiKey: 'sk-...' })
+    },
+    currentProvider: 'openai',
+    modules: [
+        new SpeechModule({                    // 음성 처리
+            speechToText: new WhisperAPI(),
+            textToSpeech: new ElevenLabsAPI()
+        }),
+        new ImageAnalysisModule({             // 이미지 분석
+            visionModel: 'gpt-4-vision'
+        }),
+        new FileProcessingModule({            // 파일 처리
+            pdfParser: new PDFParser(),
+            imageOCR: new TesseractOCR()
+        })
     ],
     plugins: [
-        new CompliancePlugin(),              // SECURITY
-        new AuditLoggingPlugin(),           // LOGGING
-        new AlertNotificationPlugin()        // NOTIFICATION
+        new UsagePlugin(),                    // 사용량 추적
+        new PerformancePlugin()               // 성능 모니터링
     ]
+});
+
+// Module이 없어도 기본 동작, 있으면 해당 기능 활용
+await multimediaAgent.run('이 이미지를 분석해주세요', { 
+    image: imageBuffer  // ImageAnalysisModule이 처리
 });
 ```
 
