@@ -13,6 +13,35 @@ AgentFactory는 **"독립성을 유지하면서도 확장 가능한 에이전트
 4. **타입 안전성**: 기존의 Zero any/unknown 정책 유지
 5. **호환성 보존**: 기존 사용자의 코드 변경 최소화
 
+### ⚠️ Module 시스템과의 관계 명확화
+
+**AgentFactory는 Module 시스템을 활용하지만 중복 구현하지 않습니다:**
+
+```typescript
+// ✅ 올바른 관계: AgentFactory가 Module 시스템을 활용
+class AgentFactory {
+    async createWithModules(config: AgentConfig, modules: BaseModule[]): Promise<AgentInterface> {
+        const agent = new Robota({
+            ...config,
+            modules: modules  // Module 시스템을 그대로 활용
+        });
+        
+        return agent;
+    }
+    
+    // ❌ 잘못된 관계: AgentFactory가 독자적인 Module 시스템 구현
+    // private moduleRegistry = new Map<string, any>();  // 중복 구현
+}
+
+// Planning 특화 기능만 AgentFactory에 추가
+class AgentFactory {
+    // Planning에 특화된 에이전트 생성 기능
+    async createFromPrompt(prompt: string, context?: PlanningContext): Promise<AgentInterface>;
+    async createWithConditions(conditions: AgentCreationConditions): Promise<AgentInterface>;
+    async createBatch(configs: AgentConfig[]): Promise<AgentInterface[]>;
+}
+```
+
 ## 🏗️ 아키텍처 개요
 
 ### 현재 vs 확장된 AgentFactory 구조
