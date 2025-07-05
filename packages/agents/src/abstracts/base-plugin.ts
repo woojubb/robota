@@ -1,6 +1,49 @@
 import type { Message, RunOptions } from '../interfaces/agent';
 import type { UniversalMessage } from '../managers/conversation-history-manager';
 import type { ToolParameters, ToolExecutionResult, ToolExecutionContext } from '../interfaces/tool';
+import type { EventEmitterPlugin, EventType, EventData } from '../plugins/event-emitter-plugin';
+
+/**
+ * Plugin categories for classification
+ */
+export enum PluginCategory {
+    /** Monitoring and observability */
+    MONITORING = 'monitoring',
+    /** Logging and debugging */
+    LOGGING = 'logging',
+    /** Data storage and persistence */
+    STORAGE = 'storage',
+    /** External notifications and alerts */
+    NOTIFICATION = 'notification',
+    /** Security and access control */
+    SECURITY = 'security',
+    /** Performance optimization */
+    PERFORMANCE = 'performance',
+    /** Error handling and recovery */
+    ERROR_HANDLING = 'error_handling',
+    /** Rate limiting and throttling */
+    LIMITS = 'limits',
+    /** Event processing and coordination */
+    EVENT_PROCESSING = 'event_processing',
+    /** Custom or specialized functionality */
+    CUSTOM = 'custom'
+}
+
+/**
+ * Plugin priority levels
+ */
+export enum PluginPriority {
+    /** Highest priority - executed first */
+    CRITICAL = 1000,
+    /** High priority */
+    HIGH = 800,
+    /** Normal priority (default) */
+    NORMAL = 500,
+    /** Low priority */
+    LOW = 200,
+    /** Lowest priority - executed last */
+    MINIMAL = 100
+}
 
 /**
  * Base execution context for all plugins
@@ -80,6 +123,14 @@ export interface PluginConfig extends BasePluginOptions {
 export interface BasePluginOptions {
     /** Whether the plugin is enabled */
     enabled?: boolean;
+    /** Plugin category for classification */
+    category?: PluginCategory;
+    /** Plugin priority for execution order */
+    priority?: PluginPriority | number;
+    /** Events to subscribe to from modules */
+    moduleEvents?: EventType[];
+    /** Whether to subscribe to all module events */
+    subscribeToAllModuleEvents?: boolean;
 }
 
 /**
@@ -89,6 +140,9 @@ export interface PluginData {
     name: string;
     version: string;
     enabled: boolean;
+    category: PluginCategory;
+    priority: number;
+    subscribedEvents: EventType[];
     metadata?: Record<string, string | number | boolean>;
 }
 
@@ -102,11 +156,18 @@ export interface TypeSafePluginInterface<TOptions extends BasePluginOptions = Ba
     name: string;
     version: string;
     enabled: boolean;
+    category: PluginCategory;
+    priority: number;
 
     initialize(options?: TOptions): Promise<void>;
     cleanup?(): Promise<void>;
     getData?(): PluginData;
     getStats?(): TStats;
+
+    // Event subscription methods
+    subscribeToModuleEvents?(eventEmitter: EventEmitterPlugin): Promise<void>;
+    unsubscribeFromModuleEvents?(eventEmitter: EventEmitterPlugin): Promise<void>;
+    onModuleEvent?(eventType: EventType, eventData: EventData): Promise<void> | void;
 }
 
 /**
@@ -117,6 +178,7 @@ export interface PluginStats {
     calls: number;
     errors: number;
     lastActivity?: Date;
+    moduleEventsReceived?: number;
     [key: string]: string | number | boolean | Date | undefined;
 }
 
@@ -203,11 +265,22 @@ export interface PluginHooks {
      * Called on message added to history
      */
     onMessageAdded?(message: Message): Promise<void> | void;
+
+    /**
+     * Called when module events are received
+     */
+    onModuleEvent?(eventType: EventType, eventData: EventData): Promise<void> | void;
 }
 
 /**
  * Base abstract class for all plugins with type parameter support
  * Provides plugin lifecycle management and common functionality
+ * 
+ * Enhanced with:
+ * - Plugin classification system (categories and priorities)
+ * - EventEmitter integration for module event subscription
+ * - Improved statistics tracking
+ * - Better error handling and recovery
  * 
  * @template TOptions - Plugin options type that extends BasePluginOptions
  * @template TStats - Plugin statistics type (defaults to PluginStats for type safety)
@@ -223,27 +296,143 @@ export abstract class BasePlugin<TOptions extends BasePluginOptions = BasePlugin
     /** Plugin enabled state */
     public enabled = true;
 
+    /** Plugin category for classification */
+    public category: PluginCategory = PluginCategory.CUSTOM;
+
+    /** Plugin priority for execution order */
+    public priority: number = PluginPriority.NORMAL;
+
     /** Plugin options */
     protected options: TOptions | undefined;
+
+    /** EventEmitter for module event subscription */
+    protected eventEmitter: EventEmitterPlugin | undefined;
+
+    /** Subscribed event types */
+    protected subscribedEvents: EventType[] = [];
+
+    /** Event subscription handlers */
+    protected eventHandlers = new Map<EventType, string>();
+
+    /** Plugin statistics */
+    protected stats = {
+        calls: 0,
+        errors: 0,
+        moduleEventsReceived: 0,
+        lastActivity: undefined as Date | undefined
+    };
 
     /**
      * Initialize the plugin with type-safe options
      */
     async initialize(options?: TOptions): Promise<void> {
         this.options = options;
+
         // Set enabled state from options with default fallback
         if (options && 'enabled' in options && typeof options.enabled === 'boolean') {
             this.enabled = options.enabled;
         } else {
             this.enabled = true; // Default to enabled
         }
+
+        // Set category from options
+        if (options?.category) {
+            this.category = options.category;
+        }
+
+        // Set priority from options
+        if (options?.priority !== undefined) {
+            this.priority = typeof options.priority === 'number'
+                ? options.priority
+                : options.priority;
+        }
+
         // Default implementation - can be overridden
+    }
+
+    /**
+     * Subscribe to module events through EventEmitter
+     */
+    async subscribeToModuleEvents(eventEmitter: EventEmitterPlugin): Promise<void> {
+        this.eventEmitter = eventEmitter;
+
+        if (!this.options) {
+            return;
+        }
+
+        const eventsToSubscribe: EventType[] = [];
+
+        // Subscribe to all module events if requested
+        if (this.options.subscribeToAllModuleEvents) {
+            eventsToSubscribe.push(
+                'module.initialize.start',
+                'module.initialize.complete',
+                'module.initialize.error',
+                'module.execution.start',
+                'module.execution.complete',
+                'module.execution.error',
+                'module.dispose.start',
+                'module.dispose.complete',
+                'module.dispose.error'
+            );
+        }
+
+        // Subscribe to specific events if specified
+        if (this.options.moduleEvents) {
+            eventsToSubscribe.push(...this.options.moduleEvents);
+        }
+
+        // Remove duplicates
+        const uniqueEvents = [...new Set(eventsToSubscribe)];
+
+        // Subscribe to events
+        for (const eventType of uniqueEvents) {
+            const handlerId = this.eventEmitter.on(eventType, async (eventData: EventData) => {
+                try {
+                    this.stats.moduleEventsReceived++;
+                    this.stats.lastActivity = new Date();
+
+                    await this.onModuleEvent?.(eventType, eventData);
+                } catch (error) {
+                    this.stats.errors++;
+                    // Log error but don't throw to avoid breaking event processing
+                    console.error(`Plugin ${this.name} failed to handle module event ${eventType}:`, error);
+                }
+            });
+
+            this.eventHandlers.set(eventType, handlerId);
+            this.subscribedEvents.push(eventType);
+        }
+
+        if (uniqueEvents.length > 0) {
+            console.log(`Plugin ${this.name} subscribed to ${uniqueEvents.length} module events:`, uniqueEvents);
+        }
+    }
+
+    /**
+     * Unsubscribe from module events
+     */
+    async unsubscribeFromModuleEvents(eventEmitter: EventEmitterPlugin): Promise<void> {
+        for (const [eventType, handlerId] of this.eventHandlers.entries()) {
+            eventEmitter.off(eventType, handlerId);
+        }
+
+        this.eventHandlers.clear();
+        this.subscribedEvents = [];
+        this.eventEmitter = undefined;
+
+        console.log(`Plugin ${this.name} unsubscribed from all module events`);
     }
 
     /**
      * Cleanup plugin resources
      */
     async dispose(): Promise<void> {
+        // Unsubscribe from events if subscribed
+        if (this.eventEmitter) {
+            await this.unsubscribeFromModuleEvents(this.eventEmitter);
+        }
+
         // Default implementation - can be overridden
     }
 
@@ -283,10 +472,23 @@ export abstract class BasePlugin<TOptions extends BasePluginOptions = BasePlugin
     }
 
     /**
-     * Get plugin data - common interface for all plugins
-     * This method should be implemented by plugins that collect data
+     * Get plugin data - enhanced with classification information
      */
-    getData?(): PluginData;
+    getData(): PluginData {
+        return {
+            name: this.name,
+            version: this.version,
+            enabled: this.enabled,
+            category: this.category,
+            priority: this.priority,
+            subscribedEvents: [...this.subscribedEvents],
+            metadata: {
+                moduleEventsReceived: this.stats.moduleEventsReceived,
+                totalCalls: this.stats.calls,
+                totalErrors: this.stats.errors
+            }
+        };
+    }
 
     /**
      * Clear plugin data - common interface for all plugins
@@ -295,20 +497,59 @@ export abstract class BasePlugin<TOptions extends BasePluginOptions = BasePlugin
     clearData?(): void;
 
     /**
-     * Get plugin status - common interface for all plugins
+     * Get plugin status - enhanced with classification information
      */
     getStatus(): {
         name: string;
         version: string;
         enabled: boolean;
         initialized: boolean;
+        category: PluginCategory;
+        priority: number;
+        subscribedEventsCount: number;
+        hasEventEmitter: boolean;
     } {
         return {
             name: this.name,
             version: this.version,
             enabled: this.enabled,
-            initialized: true // Can be overridden by plugins to track initialization state
+            initialized: true, // Can be overridden by plugins to track initialization state
+            category: this.category,
+            priority: this.priority,
+            subscribedEventsCount: this.subscribedEvents.length,
+            hasEventEmitter: !!this.eventEmitter
         };
+    }
+
+    /**
+     * Get plugin statistics - enhanced with module event tracking
+     */
+    getStats(): TStats {
+        const baseStats: PluginStats = {
+            enabled: this.enabled,
+            calls: this.stats.calls,
+            errors: this.stats.errors,
+            moduleEventsReceived: this.stats.moduleEventsReceived,
+            ...(this.stats.lastActivity && { lastActivity: this.stats.lastActivity })
+        };
+
+        return baseStats as TStats;
+    }
+
+    /**
+     * Update plugin call statistics
+     */
+    protected updateCallStats(): void {
+        this.stats.calls++;
+        this.stats.lastActivity = new Date();
+    }
+
+    /**
+     * Update plugin error statistics
+     */
+    protected updateErrorStats(): void {
+        this.stats.errors++;
+        this.stats.lastActivity = new Date();
     }
 
     // Optional lifecycle hooks - plugins can override these
@@ -327,4 +568,5 @@ export abstract class BasePlugin<TOptions extends BasePluginOptions = BasePlugin
     async onStreamingChunk?(chunk: UniversalMessage): Promise<void>;
     async onError?(error: Error, context?: ErrorContext): Promise<void>;
     async onMessageAdded?(message: Message): Promise<void>;
+    async onModuleEvent?(eventType: EventType, eventData: EventData): Promise<void>;
 } 

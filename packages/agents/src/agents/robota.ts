@@ -1,6 +1,9 @@
 import { BaseAgent } from '../abstracts/base-agent';
 import { Message, AgentConfig, RunOptions, AgentInterface } from '../interfaces/agent';
 import { BasePlugin } from '../abstracts/base-plugin';
+import { BaseModule } from '../abstracts/base-module';
+import { ModuleRegistry } from '../managers/module-registry';
+import { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
 import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { AgentFactory } from '../managers/agent-factory';
@@ -119,6 +122,10 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
     private agentFactory: AgentFactory;
     private conversationHistory: ConversationHistory;
 
+    // Module system integration
+    private moduleRegistry: ModuleRegistry;
+    private eventEmitter: EventEmitterPlugin;
+
     // Core services
     private executionService!: ExecutionService;
 
@@ -126,7 +133,7 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
     protected override config: AgentConfig;
     private conversationId: string;
     private logger: Logger;
-    private initializationPromise?: Promise<void>;
+    private initializationPromise?: Promise<void> | undefined;
     private isFullyInitialized = false;
     private startTime: number;
 
@@ -187,6 +194,10 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
         this.agentFactory = this.createAgentFactoryInstance();
         this.conversationHistory = this.createConversationHistoryInstance();
 
+        // Create module system components
+        this.eventEmitter = this.createEventEmitterInstance();
+        this.moduleRegistry = this.createModuleRegistryInstance();
+
         // Store config for async initialization
         this.config = config;
 
@@ -232,6 +243,36 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
     }
 
     /**
+     * Create instance-specific EventEmitter plugin
+     */
+    private createEventEmitterInstance(): EventEmitterPlugin {
+        return new EventEmitterPlugin({
+            enabled: true,
+            events: [
+                'execution.start',
+                'execution.complete',
+                'execution.error',
+                'module.initialize.start',
+                'module.initialize.complete',
+                'module.initialize.error',
+                'module.execution.start',
+                'module.execution.complete',
+                'module.execution.error',
+                'module.dispose.start',
+                'module.dispose.complete',
+                'module.dispose.error'
+            ]
+        });
+    }
+
+    /**
+     * Create instance-specific ModuleRegistry
+     */
+    private createModuleRegistryInstance(): ModuleRegistry {
+        return new ModuleRegistry(this.eventEmitter);
+    }
+
+    /**
      * Ensure full initialization has occurred
      */
     private async ensureFullyInitialized(): Promise<void> {
@@ -272,6 +313,20 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
                 this.aiProviders.setCurrentProvider(this.config.defaultModel.provider, this.config.defaultModel.model);
             }
 
+            // Register modules if provided
+            if (this.config.modules) {
+                for (const module of this.config.modules) {
+                    await this.moduleRegistry.registerModule(module, {
+                        autoInitialize: true,
+                        validateDependencies: true
+                    });
+                }
+                this.logger.debug('Modules registered and initialized', {
+                    moduleCount: this.config.modules.length,
+                    moduleNames: this.config.modules.map(m => m.name)
+                });
+            }
+
             // Register tools
             if (this.config.tools) {
                 for (const tool of this.config.tools) {
@@ -306,6 +361,14 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
             if (this.config.plugins) {
                 for (const plugin of this.config.plugins) {
                     this.executionService.registerPlugin(plugin);
+
+                    // Subscribe plugin to module events if it supports it
+                    if (plugin.subscribeToModuleEvents) {
+                        await plugin.subscribeToModuleEvents(this.eventEmitter);
+                        this.logger.debug('Plugin subscribed to module events', {
+                            pluginName: plugin.name
+                        });
+                    }
                 }
             }
 
@@ -658,19 +721,145 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
     }
 
     /**
-     * Get all plugin names currently registered.
-     * 
-     * @returns Array of plugin names
-     * 
-     * @example
-     * ```typescript
-     * const pluginNames = robota.getPluginNames();
-     * console.log('Active plugins:', pluginNames.join(', '));
-     * // Output: "Active plugins: logging-plugin, usage-plugin, performance-plugin"
-     * ```
+     * Get all registered plugin names
      */
     getPluginNames(): string[] {
+        if (!this.isFullyInitialized || !this.executionService) {
+            return [];
+        }
         return this.executionService.getPlugins().map(plugin => plugin.name);
+    }
+
+    // ========================================
+    // Module Management Methods
+    // ========================================
+
+    /**
+     * Register a new module with the agent
+     * @param module - The module instance to register
+     * @param options - Registration options
+     */
+    async registerModule(module: BaseModule, options?: { autoInitialize?: boolean; validateDependencies?: boolean }): Promise<void> {
+        await this.ensureFullyInitialized();
+
+        await this.moduleRegistry.registerModule(module, {
+            autoInitialize: options?.autoInitialize ?? true,
+            validateDependencies: options?.validateDependencies ?? true
+        });
+
+        this.logger.info('Module registered', {
+            moduleName: module.name,
+            moduleType: module.getModuleType().type
+        });
+    }
+
+    /**
+     * Unregister a module from the agent
+     * @param moduleName - Name of the module to unregister
+     * @returns True if module was unregistered, false if not found
+     */
+    async unregisterModule(moduleName: string): Promise<boolean> {
+        if (!this.isFullyInitialized) {
+            return false;
+        }
+
+        const result = await this.moduleRegistry.unregisterModule(moduleName);
+
+        if (result) {
+            this.logger.info('Module unregistered', { moduleName });
+        }
+
+        return result;
+    }
+
+    /**
+     * Get a module by name with type safety
+     * @param moduleName - Name of the module to retrieve
+     * @returns The module instance or null if not found
+     */
+    getModule<T extends BaseModule = BaseModule>(moduleName: string): T | null {
+        if (!this.isFullyInitialized) {
+            return null;
+        }
+        return this.moduleRegistry.getModule<T>(moduleName);
+    }
+
+    /**
+     * Get modules by type
+     * @param moduleType - Type of modules to retrieve
+     * @returns Array of modules matching the type
+     */
+    getModulesByType<T extends BaseModule = BaseModule>(moduleType: string): T[] {
+        if (!this.isFullyInitialized) {
+            return [];
+        }
+        return this.moduleRegistry.getModulesByType<T>(moduleType);
+    }
+
+    /**
+     * Get all registered modules
+     * @returns Array of all registered modules
+     */
+    getModules(): BaseModule[] {
+        if (!this.isFullyInitialized) {
+            return [];
+        }
+        return this.moduleRegistry.getAllModules();
+    }
+
+    /**
+     * Get all registered module names
+     * @returns Array of module names
+     */
+    getModuleNames(): string[] {
+        if (!this.isFullyInitialized) {
+            return [];
+        }
+        return this.moduleRegistry.getModuleNames();
+    }
+
+    /**
+     * Check if a module is registered
+     * @param moduleName - Name of the module to check
+     * @returns True if module is registered
+     */
+    hasModule(moduleName: string): boolean {
+        if (!this.isFullyInitialized) {
+            return false;
+        }
+        return this.moduleRegistry.hasModule(moduleName);
+    }
+
+    /**
+     * Execute a module by name
+     * @param moduleName - Name of the module to execute
+     * @param context - Execution context
+     * @returns Module execution result
+     */
+    async executeModule(moduleName: string, context: { executionId?: string; sessionId?: string; userId?: string; metadata?: Record<string, string | number | boolean | Date> }): Promise<{ success: boolean; data?: any; error?: Error; duration?: number }> {
+        await this.ensureFullyInitialized();
+
+        const executionContext: any = {
+            agentName: this.name,
+            ...(context.executionId && { executionId: context.executionId }),
+            ...(context.sessionId && { sessionId: context.sessionId }),
+            ...(context.userId && { userId: context.userId }),
+            ...(context.metadata && { metadata: context.metadata })
+        };
+
+        return await this.moduleRegistry.executeModule(moduleName, executionContext);
+    }
+
+    /**
+     * Get module execution statistics
+     * @param moduleName - Name of the module
+     * @returns Module statistics or null if not found
+     */
+    getModuleStats(moduleName: string): { totalExecutions: number; successfulExecutions: number; failedExecutions: number; averageExecutionTime: number; lastExecutionTime?: Date } | null {
+        if (!this.isFullyInitialized) {
+            return null;
+        }
+        return this.moduleRegistry.getModuleStats(moduleName);
     }
 
     /**
@@ -809,21 +998,28 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
             );
         }
 
-        const currentProvider = this.aiProviders.getCurrentProvider();
-        if (!currentProvider) {
+        const currentProviderInfo = this.aiProviders.getCurrentProvider();
+        if (!currentProviderInfo) {
             throw new ConfigurationError(
                 'No provider is currently set',
                 { component: 'Robota' }
             );
         }
 
+        const currentProvider = currentProviderInfo.provider;
+        const currentModel = currentProviderInfo.model;
+        const currentTemperature = this.config.defaultModel.temperature;
+        const currentMaxTokens = this.config.defaultModel.maxTokens;
+        const currentTopP = this.config.defaultModel.topP;
+        const currentSystemMessage = this.config.defaultModel.systemMessage;
+
         return {
-            provider: currentProvider.provider,
-            model: currentProvider.model,
-            ...(this.config.defaultModel.temperature !== undefined && { temperature: this.config.defaultModel.temperature }),
-            ...(this.config.defaultModel.maxTokens !== undefined && { maxTokens: this.config.defaultModel.maxTokens }),
-            ...(this.config.defaultModel.topP !== undefined && { topP: this.config.defaultModel.topP }),
-            ...(this.config.defaultModel.systemMessage !== undefined && { systemMessage: this.config.defaultModel.systemMessage })
+            provider: currentProvider,
+            model: currentModel,
+            ...(currentTemperature !== undefined && { temperature: currentTemperature }),
+            ...(currentMaxTokens !== undefined && { maxTokens: currentMaxTokens }),
+            ...(currentTopP !== undefined && { topP: currentTopP }),
+            ...(currentSystemMessage !== undefined && { systemMessage: currentSystemMessage })
         };
     }
 
@@ -930,27 +1126,21 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
         return { ...this.config };
     }
 
-
-
     /**
-     * Get comprehensive statistics about the agent.
+     * Get comprehensive agent statistics including providers, tools, plugins, modules, and performance data.
      * 
-     * Returns detailed information about the agent's current state, including
-     * registered providers, tools, plugins, conversation metrics, and uptime.
-     * 
-     * @returns Object containing detailed agent statistics
+     * @returns Object containing all agent statistics and metadata
      * 
      * @example
      * ```typescript
      * const stats = robota.getStats();
-     * 
      * console.log(`Agent: ${stats.name} v${stats.version}`);
-     * console.log(`Uptime: ${Math.round(stats.uptime / 1000)}s`);
-     * console.log(`Current provider: ${stats.currentProvider}`);
-     * console.log(`Available providers: ${stats.providers.join(', ')}`);
-     * console.log(`Registered tools: ${stats.tools.join(', ')}`);
-     * console.log(`Active plugins: ${stats.plugins.join(', ')}`);
-     * console.log(`Messages in history: ${stats.historyLength}`);
+     * console.log(`Uptime: ${stats.uptime}ms`);
+     * console.log(`Providers: ${stats.providers.join(', ')}`);
+     * console.log(`Tools: ${stats.tools.join(', ')}`);
+     * console.log(`Plugins: ${stats.plugins.join(', ')}`);
+     * console.log(`Modules: ${stats.modules.join(', ')}`);
+     * console.log(`Messages: ${stats.historyLength}`);
      * ```
      */
     getStats(): {
@@ -961,24 +1151,37 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
         currentProvider: string | null;
         tools: string[];
         plugins: string[];
+        modules: string[];
         historyLength: number;
         historyStats: AgentStatsMetadata;
         uptime: number;
     } {
-        const conversationSession = this.conversationHistory.getConversationSession(this.conversationId);
-        const currentProviderInfo = this.aiProviders.getCurrentProvider();
+        const providers = this.isFullyInitialized ? this.aiProviders.getProviderNames() : [];
+        const currentProviderInfo = this.isFullyInitialized ? this.aiProviders.getCurrentProvider() : null;
+        const currentProvider = currentProviderInfo ? currentProviderInfo.provider : null;
+        const tools = this.isFullyInitialized ? this.tools.getTools().map(tool => tool.name) : [];
+        const plugins = this.getPluginNames();
+        const modules = this.getModuleNames();
+        const history = this.getHistory();
+        const uptime = Date.now() - this.startTime;
 
         return {
             name: this.name,
             version: this.version,
             conversationId: this.conversationId,
-            providers: this.aiProviders.getProviderNames(),
-            currentProvider: currentProviderInfo ? currentProviderInfo.provider : null,
-            tools: this.tools.getTools().map(tool => tool.name),
-            plugins: this.executionService.getPlugins().map(p => p.name),
-            historyLength: conversationSession.getMessageCount(),
-            historyStats: this.conversationHistory.getStats(),
-            uptime: Date.now() - this.startTime
+            providers,
+            currentProvider,
+            tools,
+            plugins,
+            modules,
+            historyLength: history.length,
+            historyStats: {
+                userMessages: history.filter(m => m.role === 'user').length,
+                assistantMessages: history.filter(m => m.role === 'assistant').length,
+                systemMessages: history.filter(m => m.role === 'system').length,
+                toolMessages: history.filter(m => m.role === 'tool').length
+            },
+            uptime
         };
     }
 
@@ -1041,48 +1244,64 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
         }
     }
 
-
-
-
-
     /**
-     * Cleanup agent resources and prepare for disposal.
+     * Clean up and dispose of the agent instance.
      * 
-     * Properly shuts down the agent by cleaning up plugins, disposing managers,
-     * and releasing resources. The agent should not be used after calling destroy().
-     * Multiple calls to destroy() are safe and will not cause errors.
+     * This method properly cleans up all resources, managers, and services
+     * to prevent memory leaks and ensure graceful shutdown.
      * 
      * @example
      * ```typescript
-     * // Graceful shutdown
+     * // Clean shutdown
      * await robota.destroy();
-     * console.log('Agent shutdown complete');
-     * 
-     * // Agent is no longer usable
-     * // await robota.run('test'); // This would require re-initialization
-     * ```
-     * 
-     * @example In a web server shutdown
-     * ```typescript
-     * process.on('SIGTERM', async () => {
-     *   console.log('Shutting down...');
-     *   await robota.destroy();
-     *   process.exit(0);
-     * });
+     * console.log('Agent destroyed');
      * ```
      */
     async destroy(): Promise<void> {
-        this.logger.debug('Destroying Robota instance');
+        this.logger.debug('Destroying Robota instance', { name: this.name });
 
-        // Clear plugins first
-        if (this.executionService) {
-            this.executionService.clearPlugins();
+        try {
+            // Dispose all modules first (in reverse dependency order)
+            if (this.isFullyInitialized && this.moduleRegistry) {
+                await this.moduleRegistry.disposeAllModules();
+                this.logger.debug('All modules disposed');
+            }
+
+            // Cleanup execution service and plugins
+            if (this.executionService) {
+                // Unsubscribe plugins from module events
+                const plugins = this.executionService.getPlugins();
+                for (const plugin of plugins) {
+                    if (plugin.unsubscribeFromModuleEvents && this.eventEmitter) {
+                        await plugin.unsubscribeFromModuleEvents(this.eventEmitter);
+                    }
+                }
+                this.logger.debug('ExecutionService plugins cleaned up');
+            }
+
+            // Clear module registry
+            if (this.moduleRegistry) {
+                this.moduleRegistry.clearAllModules();
+                this.logger.debug('ModuleRegistry cleared');
+            }
+
+            // Dispose EventEmitter
+            if (this.eventEmitter) {
+                await this.eventEmitter.destroy();
+                this.logger.debug('EventEmitter disposed');
+            }
+
+            // Reset state
+            this.isFullyInitialized = false;
+            this.initializationPromise = undefined as Promise<void> | undefined;
+
+            this.logger.info('Robota instance destroyed successfully', { name: this.name });
+
+        } catch (error) {
+            this.logger.error('Error during Robota destruction', {
+                error: error instanceof Error ? error.message : String(error)
+            });
+            throw error;
         }
-
-        // Dispose instance-specific managers
-        await this.aiProviders.dispose();
-        await this.tools.dispose();
-
-        this.logger.debug('Robota instance destroyed');
     }
 } 

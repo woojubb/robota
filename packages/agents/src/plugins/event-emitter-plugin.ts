@@ -17,6 +17,15 @@ export type EventType =
     | 'tool.success'
     | 'tool.error'
     | 'plugin.error'
+    | 'module.initialize.start'
+    | 'module.initialize.complete'
+    | 'module.initialize.error'
+    | 'module.execution.start'
+    | 'module.execution.complete'
+    | 'module.execution.error'
+    | 'module.dispose.start'
+    | 'module.dispose.complete'
+    | 'module.dispose.error'
     | 'custom';
 
 /**

@@ -1,6 +1,7 @@
 import type { ProviderConfigValue, AIProvider } from './provider';
 import type { BasePlugin, BasePluginOptions, PluginStats } from '../abstracts/base-plugin';
 import type { BaseTool } from '../abstracts/base-tool';
+import type { BaseModule } from '../abstracts/base-module';
 import type { UtilLogLevel } from '../utils/logger';
 import type { ToolExecutionResult } from './tool';
 import type { Metadata, ConfigValue } from './types';
@@ -114,6 +115,9 @@ export interface AgentConfig {
     tools?: BaseTool[];
     plugins?: Array<BasePlugin<BasePluginOptions, PluginStats>>;
 
+    // Modules for extended functionality
+    modules?: BaseModule[];
+
     // Model configuration (for backward compatibility and runtime overrides)
     model?: string;
     provider?: string;
@@ -164,8 +168,6 @@ export interface AgentConfig {
         maxRequests?: number;
         windowMs?: number;
     };
-
-
 
     // Index signature for type parameter constraints compatibility
     [key: string]: ConfigValue;
