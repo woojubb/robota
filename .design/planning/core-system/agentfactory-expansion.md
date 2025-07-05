@@ -189,12 +189,16 @@ class AgentFactory {
     
     // 5. 설정 조합 및 에이전트 생성
     const config: AgentConfig = {
-      provider: provider.name,
-      model: provider.model,
-      systemMessage,
-      tools,
-      temperature: this.calculateOptimalTemperature(intent),
-      maxTokens: this.calculateOptimalTokens(intent, context?.complexity)
+      name: 'dynamic-agent',
+      aiProviders: [provider],
+      defaultModel: {
+        provider: provider.name,
+        model: provider.model,
+        temperature: this.calculateOptimalTemperature(intent),
+        maxTokens: this.calculateOptimalTokens(intent, context?.complexity),
+        systemMessage
+      },
+      tools
     };
 
     return this.createAgent(config);
@@ -390,19 +394,23 @@ class AgentFactory {
   private combineConfigs(configs: AgentConfig[]): AgentConfig {
     // 지능적인 설정 조합 로직
     const combined: AgentConfig = {
-      provider: this.selectBestProvider(configs),
-      model: this.selectBestModel(configs),
-      systemMessage: this.combineSytemMessages(configs),
-      tools: this.combineTools(configs),
-      temperature: this.averageTemperature(configs),
-      maxTokens: Math.max(...configs.map(c => c.maxTokens || 1000))
+      name: 'combined-agent',
+      aiProviders: [this.selectBestProvider(configs)],
+      defaultModel: {
+        provider: this.selectBestProvider(configs).name,
+        model: this.selectBestModel(configs),
+        temperature: this.averageTemperature(configs),
+        maxTokens: Math.max(...configs.map(c => c.defaultModel?.maxTokens || 1000)),
+        systemMessage: this.combineSytemMessages(configs)
+      },
+      tools: this.combineTools(configs)
     };
     
     return combined;
   }
 
   private combineSytemMessages(configs: AgentConfig[]): string {
-    const messages = configs.map(c => c.systemMessage).filter(Boolean);
+    const messages = configs.map(c => c.defaultModel?.systemMessage).filter(Boolean);
     
     // LLM을 사용해 시스템 메시지들을 지능적으로 결합
     return `You are an AI agent combining the expertise of multiple specialists:

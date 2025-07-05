@@ -13,8 +13,11 @@ import { CAMELPlanner } from '@robota-sdk/planning-camel';
 
 // 기본 설정
 const agentFactory = new AgentFactory({
-  aiProviders: { 'primary': primaryProvider },
-  currentProvider: 'primary'
+  aiProviders: [primaryProvider],
+  defaultModel: {
+    provider: 'primary',
+    model: 'gpt-4'
+  }
 });
 
 // CAMEL 플래너 생성
@@ -448,6 +451,11 @@ const enhancedResult = await nativePlanner.execute("고품질 보고서 작성")
 // 고성능 Planning 시스템 구성
 const optimizedPlanner = createPlanner({
   agentFactory: new AgentFactory({
+    aiProviders: [primaryProvider],
+    defaultModel: {
+      provider: 'primary',
+      model: 'gpt-4'
+    },
     // 에이전트 풀링 활성화
     resourcePooling: {
       enabled: true,
@@ -541,6 +549,11 @@ console.log('성능 메트릭:', monitoredResult.performance);
 
 const memoryEfficientPlanner = createPlanner({
   agentFactory: new AgentFactory({
+    aiProviders: [primaryProvider],
+    defaultModel: {
+      provider: 'primary',
+      model: 'gpt-4'
+    },
     memoryManagement: {
       maxMemoryUsage: '2GB',
       garbageCollectionInterval: 60000,

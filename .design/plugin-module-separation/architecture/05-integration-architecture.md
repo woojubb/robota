@@ -8,9 +8,15 @@
 export interface AgentConfig {
     // 기존 설정
     name: string;
-    aiProviders: Record<string, AIProvider>;
-    currentProvider: string;
-    currentModel: string;
+    aiProviders: AIProvider[];
+    defaultModel: {
+        provider: string;
+        model: string;
+        temperature?: number;
+        maxTokens?: number;
+        topP?: number;
+        systemMessage?: string;
+    };
     
     // 모듈 설정 (compile-time) - 인스턴스 배열로 주입
     modules?: BaseModule[];
@@ -391,9 +397,15 @@ export class RobotaBuilder {
     build(): Robota {
         const finalConfig: AdvancedAgentConfig = {
             name: this.config.name || 'robota-agent',
-            aiProviders: {}, // Builder에서 자동 구성
-            currentProvider: 'auto', // 첫 번째 provider 사용
-            currentModel: 'auto', // 기본 모델 사용
+            aiProviders: this.modules.map(module => module as AIProvider),
+            defaultModel: {
+                provider: 'auto',
+                model: 'auto',
+                temperature: undefined,
+                maxTokens: undefined,
+                topP: undefined,
+                systemMessage: undefined
+            },
             modules: this.modules,
             plugins: this.plugins,
             ...this.config

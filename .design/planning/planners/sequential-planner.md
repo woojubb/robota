@@ -61,8 +61,11 @@ import { AgentFactory } from '@robota-sdk/agents';
 
 // AgentFactory 설정 (Provider 불가지론 준수)
 const agentFactory = new AgentFactory({
-  aiProviders: { 'primary': primaryProvider },
-  currentProvider: 'primary',
+  aiProviders: [primaryProvider],
+  defaultModel: {
+    provider: 'primary',
+    model: 'gpt-4'
+  },
   // Sequential은 단계별 전문 도구가 중요
   commonTools: ['project_manager', 'progress_tracker', 'quality_gate'],
   autoInjectCommonTools: true,

@@ -78,8 +78,11 @@ import { CAMELPlanner } from '@robota-sdk/planning-camel';
 import { AgentFactory } from '@robota-sdk/agents';
 
 const agentFactory = new AgentFactory({
-  aiProviders: { 'primary': openaiProvider },
-  currentProvider: 'primary'
+  aiProviders: [openaiProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4'
+  }
 });
 
 const camelPlanner = new CAMELPlanner();

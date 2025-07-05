@@ -33,8 +33,12 @@ import { AgentFactory } from '@robota-sdk/agents';
 
 // AgentFactory 주입
 const agentFactory = new AgentFactory({
-  aiProviders: { 'primary': primaryProvider },
-  currentProvider: 'primary'
+  aiProviders: [primaryProvider],
+  defaultModel: {
+    provider: 'primary',
+    model: 'gpt-4'
+  },
+  commonTools: ['web_search', 'calculator', 'file_manager']
 });
 
 // PlannerContainer 생성
@@ -334,8 +338,11 @@ import { AgentFactory } from '@robota-sdk/agents';
 
 // 1. AgentFactory 설정
 const agentFactory = new AgentFactory({
-  aiProviders: { 'primary': primaryProvider },
-  currentProvider: 'primary',
+  aiProviders: [primaryProvider],
+  defaultModel: {
+    provider: 'primary',
+    model: 'gpt-4'
+  },
   commonTools: ['web_search', 'calculator', 'file_manager']
 });
 

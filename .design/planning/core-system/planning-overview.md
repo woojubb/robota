@@ -73,8 +73,11 @@ import { createPlanner } from '@robota-sdk/planning';
 
 // AgentFactory 설정
 const agentFactory = new AgentFactory({
-  aiProviders: { 'primary': primaryProvider },
-  currentProvider: 'primary',
+  aiProviders: [primaryProvider],
+  defaultModel: {
+    provider: 'primary',
+    model: 'gpt-4'
+  },
   commonTools: ['web_search', 'calculator', 'document_generator'],
   autoInjectCommonTools: true
 });
