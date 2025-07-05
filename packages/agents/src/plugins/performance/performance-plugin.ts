@@ -1,6 +1,7 @@
-import { BasePlugin } from '../../abstracts/base-plugin';
+import { BasePlugin, PluginCategory, PluginPriority } from '../../abstracts/base-plugin';
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
+import type { EventType, EventData } from '../event-emitter-plugin';
 import {
     PerformanceMetrics,
     AggregatedPerformanceStats,
@@ -29,6 +30,10 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
         super();
         this.logger = createLogger('PerformancePlugin');
 
+        // Set plugin classification
+        this.category = PluginCategory.MONITORING;
+        this.priority = PluginPriority.NORMAL;
+
         // Validate options
         this.validateOptions(options);
 
@@ -49,6 +54,11 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
             aggregateStats: options.aggregateStats ?? true,
             aggregationInterval: options.aggregationInterval ?? 60000,
             performanceThreshold: options.performanceThreshold ?? 1000, // 1 second
+            // Add BasePluginOptions defaults
+            category: options.category ?? PluginCategory.MONITORING,
+            priority: options.priority ?? PluginPriority.NORMAL,
+            moduleEvents: options.moduleEvents ?? [],
+            subscribeToAllModuleEvents: options.subscribeToAllModuleEvents ?? false,
         };
 
         // Initialize storage and metrics collector
@@ -61,6 +71,130 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
             monitorCPU: this.pluginOptions.monitorCPU,
             performanceThreshold: this.pluginOptions.performanceThreshold
         });
+    }
+
+    /**
+     * Handle module events for performance monitoring
+     */
+    override async onModuleEvent(eventType: EventType, eventData: EventData): Promise<void> {
+        try {
+            // Extract module event data from eventData.data
+            const moduleData = eventData.data as any;
+
+            switch (eventType) {
+                case 'module.initialize.start':
+                    // Start tracking module initialization performance
+                    break;
+
+                case 'module.initialize.complete':
+                    if (moduleData?.duration) {
+                        await this.recordMetrics({
+                            operation: 'module_initialization',
+                            duration: moduleData.duration,
+                            success: true,
+                            errorCount: 0,
+                            ...(eventData.executionId && { executionId: eventData.executionId }),
+                            metadata: {
+                                moduleName: moduleData?.moduleName || 'unknown',
+                                moduleType: moduleData?.moduleType || 'unknown',
+                                phase: 'initialization'
+                            }
+                        });
+                    }
+                    break;
+
+                case 'module.initialize.error':
+                    if (moduleData?.duration) {
+                        await this.recordMetrics({
+                            operation: 'module_initialization',
+                            duration: moduleData.duration,
+                            success: false,
+                            errorCount: 1,
+                            ...(eventData.executionId && { executionId: eventData.executionId }),
+                            metadata: {
+                                moduleName: moduleData?.moduleName || 'unknown',
+                                moduleType: moduleData?.moduleType || 'unknown',
+                                phase: 'initialization',
+                                error: eventData.error?.message || 'unknown error'
+                            }
+                        });
+                    }
+                    break;
+
+                case 'module.execution.complete':
+                    if (moduleData?.duration) {
+                        await this.recordMetrics({
+                            operation: 'module_execution',
+                            duration: moduleData.duration,
+                            success: moduleData?.success ?? true,
+                            errorCount: moduleData?.success === false ? 1 : 0,
+                            ...(eventData.executionId && { executionId: eventData.executionId }),
+                            metadata: {
+                                moduleName: moduleData?.moduleName || 'unknown',
+                                moduleType: moduleData?.moduleType || 'unknown',
+                                phase: 'execution'
+                            }
+                        });
+                    }
+                    break;
+
+                case 'module.execution.error':
+                    if (moduleData?.duration) {
+                        await this.recordMetrics({
+                            operation: 'module_execution',
+                            duration: moduleData.duration,
+                            success: false,
+                            errorCount: 1,
+                            ...(eventData.executionId && { executionId: eventData.executionId }),
+                            metadata: {
+                                moduleName: moduleData?.moduleName || 'unknown',
+                                moduleType: moduleData?.moduleType || 'unknown',
+                                phase: 'execution',
+                                error: eventData.error?.message || 'unknown error'
+                            }
+                        });
+                    }
+                    break;
+
+                case 'module.dispose.complete':
+                    if (moduleData?.duration) {
+                        await this.recordMetrics({
+                            operation: 'module_disposal',
+                            duration: moduleData.duration,
+                            success: true,
+                            errorCount: 0,
+                            ...(eventData.executionId && { executionId: eventData.executionId }),
+                            metadata: {
+                                moduleName: moduleData?.moduleName || 'unknown',
+                                moduleType: moduleData?.moduleType || 'unknown',
+                                phase: 'disposal'
+                            }
+                        });
+                    }
+                    break;
+
+                case 'module.dispose.error':
+                    if (moduleData?.duration) {
+                        await this.recordMetrics({
+                            operation: 'module_disposal',
+                            duration: moduleData.duration,
+                            success: false,
+                            errorCount: 1,
+                            ...(eventData.executionId && { executionId: eventData.executionId }),
+                            metadata: {
+                                moduleName: moduleData?.moduleName || 'unknown',
+                                moduleType: moduleData?.moduleType || 'unknown',
+                                phase: 'disposal',
+                                error: eventData.error?.message || 'unknown error'
+                            }
+                        });
+                    }
+                    break;
+            }
+        } catch (error) {
+            // Log the error but don't throw to avoid breaking module event processing
+            console.error(`PerformancePlugin failed to handle module event ${eventType}:`, error);
+        }
     }
 
     /**
