@@ -18,7 +18,16 @@ export type EventType =
     | 'plugin.loaded'
     | 'plugin.unloaded'
     | 'error.occurred'
-    | 'warning.occurred';
+    | 'warning.occurred'
+    | 'module.initialize.start'
+    | 'module.initialize.complete'
+    | 'module.initialize.error'
+    | 'module.execution.start'
+    | 'module.execution.complete'
+    | 'module.execution.error'
+    | 'module.dispose.start'
+    | 'module.dispose.complete'
+    | 'module.dispose.error';
 
 /**
  * Event data structure
