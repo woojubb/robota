@@ -63,23 +63,26 @@ export interface AdvancedAgentConfig extends AgentConfig {
 export class Robota extends BaseAgent {
     private moduleRegistry: ModuleRegistry;
     private pluginManager: PluginManager;
-    private modulePluginBridge: ModulePluginBridge;
+    private eventEmitter: EventEmitterPlugin; // ✅ 중앙 이벤트 허브
     private config: AdvancedAgentConfig;
     
     constructor(config: AdvancedAgentConfig) {
         super(config);
         this.config = config;
-        this.moduleRegistry = new ModuleRegistry();
-        this.pluginManager = new PluginManager();
-        this.modulePluginBridge = new ModulePluginBridge(
-            this.moduleRegistry, 
-            this.pluginManager
-        );
         
-        // 모듈 초기화 (compile-time dependencies)
+        // ✅ 중앙 EventEmitter 생성 (모든 컴포넌트가 공유)
+        this.eventEmitter = new EventEmitterPlugin();
+        
+        // ✅ EventEmitter와 함께 매니저들 초기화 (서로 직접 참조 없음)
+        this.moduleRegistry = new ModuleRegistry(this.eventEmitter);
+        this.pluginManager = new PluginManager(this.eventEmitter);
+        
+        // ✅ Bridge 클래스 제거 - EventEmitter가 모든 통신 담당
+        
+        // 모듈 초기화 (EventEmitter와 함께)
         this.initializeModules(config.modules);
         
-        // 플러그인 등록 (runtime extensions)
+        // 플러그인 등록 (EventEmitter와 함께)
         this.registerPlugins(config.plugins);
     }
     
@@ -176,16 +179,17 @@ export class Robota extends BaseAgent {
     }
     
     async runStream(input: string, options?: RunOptions): AsyncIterable<string> {
-        // 스트리밍 처리를 위한 모듈과 플러그인 조합
-        const providerModule = this.getModule<AIProviderModule>('provider');
-        if (!providerModule) {
-            throw new Error('No AI provider module found');
+        // ✅ AI Provider는 Module이 아닌 내부 핵심 클래스
+        // (AI Provider 없으면 대화 자체가 불가능하므로 Module이 될 수 없음)
+        const aiProvider = this.getAIProvider(); // 내부 핵심 클래스에서 가져옴
+        if (!aiProvider) {
+            throw new Error('No AI provider configured');
         }
         
         await this.executePluginHooks('beforeRun', input);
         
         try {
-            for await (const chunk of providerModule.generateStream([{ role: 'user', content: input }])) {
+            for await (const chunk of aiProvider.generateStream([{ role: 'user', content: input }])) {
                 await this.executePluginHooks('onStreamChunk', chunk);
                 yield chunk;
             }

@@ -8,6 +8,7 @@
 ### 🎯 핵심 원칙 재확인
 - ✅ **선택적 확장**: Module/Plugin 없이도 Robota가 기본 대화 가능
 - ✅ **기존 시스템 유지**: 모든 기존 Plugin이 정상 동작해야 함
+- ✅ **Event-Driven**: EventEmitter를 통한 느슨한 결합으로 상호작용
 - ✅ **점진적 확장**: 기반 시스템 구축 후 새 모듈 추가
 
 ---
@@ -22,334 +23,290 @@
 
 **작업 내용**:
 - [ ] 기본 Module 인터페이스 정의
-- [ ] Module 생명주기 메소드 정의
+- [ ] Module 생명주기 메소드 정의 (initialize, dispose, execute)
+- [ ] EventEmitter 의존성 주입 지원
 - [ ] TypeScript 타입 정의 완성
 
 **검증 기준**:
 - [ ] 컴파일 오류 없음
 - [ ] TypeScript 타입 검사 통과
 - [ ] 기본 유닛 테스트 작성
+- [ ] EventEmitter 통합 테스트 성공
 
 #### [ ] ModuleTypeRegistry 시스템 구현
 **위치**: `packages/agents/src/managers/module-type-registry.ts`
 **우선순위**: 🔴 Critical
 
 **작업 내용**:
-- [ ] 동적 타입 등록 시스템 구현
-- [ ] 타입 조회 및 검증 기능
-- [ ] 의존성 검증 로직 구현
-
-**의존성**: BaseModule 인터페이스 완료 후 시작
+- [ ] 동적 타입 시스템 구축
+- [ ] 타입 검증 로직 구현
+- [ ] 의존성 해결 시스템 구현
 
 **검증 기준**:
-- [ ] 타입 등록/조회 정상 동작
-- [ ] 의존성 검증 로직 동작
-- [ ] 100% 테스트 커버리지
+- [ ] 타입 등록/해제 정상 동작
+- [ ] 의존성 순환 참조 검출
+- [ ] 타입 호환성 검증 기능
 
-#### [ ] ModuleRegistry 클래스 구현
+#### [ ] ModuleRegistry 구현
 **위치**: `packages/agents/src/managers/module-registry.ts`
 **우선순위**: 🔴 Critical
 
 **작업 내용**:
-- [ ] 모듈 등록/해제 기능
-- [ ] 의존성 그래프 관리
-- [ ] 토폴로지 정렬 알고리즘
-- [ ] 모듈 이벤트 시스템
-
-**의존성**: ModuleTypeRegistry 완료 후 시작
+- [ ] Module 등록/해제 시스템
+- [ ] 의존성 순서 기반 초기화
+- [ ] Module 생명주기 관리
+- [ ] EventEmitter를 통한 Module 이벤트 발생
 
 **검증 기준**:
-- [ ] 순환 의존성 감지
-- [ ] 초기화 순서 정확성
-- [ ] 성능 테스트 (초기화 < 500ms)
+- [ ] Module 등록/해제 정상 동작
+- [ ] 의존성 순서 정확한 초기화
+- [ ] Module 이벤트 정상 발생
+- [ ] 기존 Plugin과 독립적 동작
 
-### 1.2 Plugin 시스템 개선 🚀 (2-3주)
-
-#### [ ] Enhanced BasePlugin 구현
-**위치**: `packages/agents/src/abstracts/base-plugin.ts` (기존 파일 확장)
+#### [ ] Enhanced BasePlugin 시스템
+**위치**: `packages/agents/src/abstracts/base-plugin.ts`
 **우선순위**: 🔴 Critical
 
 **작업 내용**:
-- [ ] 기존 BasePlugin에 카테고리/우선순위 필드 추가 (선택적)
-- [ ] 모듈 의존성 필드 추가
-- [ ] 새로운 생명주기 메소드 추가 (선택적)
-- [ ] 100% 하위 호환성 보장
+- [ ] Plugin 분류 시스템 추가
+- [ ] EventEmitter 이벤트 구독 지원
+- [ ] Plugin 우선순위 시스템
 
 **검증 기준**:
-- [ ] 기존 Plugin들과 100% 호환성 유지
-- [ ] 새로운 기능 정상 동작
-- [ ] 기존 테스트 모두 통과
-
-#### [ ] PluginManager 개선
-**위치**: `packages/agents/src/managers/plugin-manager.ts` (기존 파일 확장)
-**우선순위**: 🔴 Critical
-
-**작업 내용**:
-- [ ] 카테고리별 플러그인 분류 기능
-- [ ] 우선순위 기반 실행 순서 구현
-- [ ] 모듈 연동 지원 추가
-- [ ] 기존 기능 완전 유지
-
-**검증 기준**:
-- [ ] 기존 플러그인들과 호환성 유지
-- [ ] 카테고리별 조회 기능
-- [ ] 성능 최적화
+- [ ] 기존 모든 Plugin이 새 시스템에서 정상 동작
+- [ ] 새로운 분류 시스템 적용
+- [ ] 이벤트 구독 메커니즘 정상 동작
 
 ---
 
-## 🚀 Phase 2: 기존 시스템 통합 (Essential)
+## 🟡 Phase 2: 기존 시스템 통합 (Essential)
 
-### 2.1 Robota 클래스 Module 시스템 통합 🏗️ (3-4주)
+### 2.1 Robota 클래스 확장 ⚡ (1주)
 
-#### [ ] ModuleManager 구현
-**위치**: `packages/agents/src/managers/module-manager.ts`
-**우선순위**: 🔴 Critical
-
-**작업 내용**:
-- [ ] 모듈 생명주기 관리
-- [ ] 의존성 주입 시스템
-- [ ] 이벤트 전파 메커니즘
-- [ ] 에러 처리 및 복구
-
-**검증 기준**:
-- [ ] 모듈 등록/초기화/해제 정상 동작
-- [ ] 의존성 순서 정확
-- [ ] 에러 발생 시 안전한 처리
-
-#### [ ] Robota 클래스 확장
-**위치**: `packages/agents/src/agents/robota.ts` (기존 파일 확장)
-**우선순위**: 🔴 Critical
-
-**작업 내용**:
-- [ ] 모듈 등록 API 추가
-- [ ] 모듈 조회 API 추가
-- [ ] 기존 API 100% 호환성 유지
-- [ ] 선택적 모듈 활용 로직 (기본 동작에 영향 없음)
-
-**검증 기준**:
-- [ ] 모듈 없이도 기본 동작 정상
-- [ ] 기존 API 완전 호환
-- [ ] 새로운 모듈 API 정상 동작
-
-### 2.2 기존 Plugin 시스템 통합 📋 (병렬 진행)
-
-#### [ ] 기존 Plugin들 카테고리 분류
-**우선순위**: 🟡 High (Phase 2.1과 병렬 진행 가능)
-
-**작업 내용**:
-- [ ] ConversationHistoryPlugin → `PluginCategory.STORAGE`
-- [ ] UsagePlugin → `PluginCategory.MONITORING`  
-- [ ] PerformancePlugin → `PluginCategory.MONITORING`
-- [ ] LoggingPlugin → `PluginCategory.LOGGING`
-- [ ] ErrorHandlingPlugin → `PluginCategory.LOGGING`
-- [ ] LimitsPlugin → `PluginCategory.SECURITY`
-- [ ] EventEmitterPlugin → `PluginCategory.NOTIFICATION`
-- [ ] WebhookPlugin → `PluginCategory.NOTIFICATION`
-
-**검증 기준**:
-- [ ] 기존 기능 100% 유지
-- [ ] 카테고리별 조회 가능
-- [ ] 우선순위 기반 실행
-
-#### [ ] Module-Plugin 연동 시스템
-**위치**: `packages/agents/src/bridges/module-plugin-bridge.ts`
+#### [ ] Robota에 ModuleRegistry 통합
+**위치**: `packages/agents/src/agents/robota.ts`
 **우선순위**: 🟡 High
 
 **작업 내용**:
-- [ ] 모듈 이벤트를 플러그인에 전파
-- [ ] 플러그인의 모듈 의존성 관리
-- [ ] 상호작용 메커니즘 구현
+- [ ] Robota 생성자에 ModuleRegistry 추가
+- [ ] Module 설정 옵션 추가
+- [ ] Module과 Plugin 공통 EventEmitter 공유
+- [ ] 기존 기능과 호환성 유지
 
 **검증 기준**:
-- [ ] 이벤트 전파 정상 동작
-- [ ] 의존성 관리 정확
+- [ ] 기존 테스트 모두 통과
+- [ ] Module 없이도 정상 동작
+- [ ] Module과 Plugin이 EventEmitter 공유
+- [ ] 백워드 호환성 100% 유지
+
+#### [ ] Event-Driven 상호작용 구현
+**위치**: `packages/agents/src/agents/robota.ts`
+**우선순위**: 🟡 High
+
+**작업 내용**:
+- [ ] Module이 EventEmitter를 통해 이벤트 발생
+- [ ] Plugin이 Module 이벤트 구독 가능
+- [ ] Bridge 클래스 없이 직접 통신
+- [ ] 표준 이벤트 타입 정의
+
+**검증 기준**:
+- [ ] Module → Plugin 이벤트 전파 정상
+- [ ] Plugin이 Module 존재를 몰라도 동작
+- [ ] Module이 Plugin 존재를 몰라도 동작
+- [ ] 순환 의존성 없음
+
+### 2.2 기존 Plugin 분류 및 보강 📋 (1주)
+
+#### [ ] 기존 Plugin 새 분류 시스템 적용
+**위치**: 기존 Plugin 파일들
+**우선순위**: 🟡 High
+
+**작업 내용**:
+- [ ] LoggingPlugin → LOGGING 카테고리
+- [ ] UsagePlugin → MONITORING 카테고리  
+- [ ] PerformancePlugin → MONITORING 카테고리
+- [ ] WebhookPlugin → NOTIFICATION 카테고리
+- [ ] ConversationHistoryPlugin → STORAGE 카테고리
+
+**검증 기준**:
+- [ ] 모든 기존 Plugin이 새 분류 시스템 적용
+- [ ] 기능적 변화 없음
+- [ ] 새로운 메타데이터 정보 제공
+
+#### [ ] Module 이벤트 구독 추가
+**위치**: 기존 Plugin 파일들
+**우선순위**: 🟡 High
+
+**작업 내용**:
+- [ ] LoggingPlugin이 Module 활동 로깅
+- [ ] PerformancePlugin이 Module 성능 측정
+- [ ] UsagePlugin이 Module 사용량 추적
+- [ ] EventEmitter 패턴 활용
+
+**검증 기준**:
+- [ ] Module 이벤트 정상 수신
+- [ ] Plugin별 로직 정상 동작
 - [ ] 성능 영향 최소화
 
 ---
 
-## 🔮 Phase 3: 향후 확장 (Future - 낮은 우선순위)
+## 🟢 Phase 3: 실제 Module 구현 (Future)
 
-### 3.1 첫 번째 실제 Module 구현 📦 (5-8주)
+### 3.1 Storage Module (기반) 🗄️ (2주)
 
-#### [ ] 간단한 Storage Module 구현 (시작점)
+#### [ ] 기본 Storage Module 구현
 **위치**: `packages/agents/src/modules/storage-module.ts`
 **우선순위**: 🟢 Medium
 
 **작업 내용**:
-- [ ] 기본 Storage 인터페이스 구현
-- [ ] 메모리/파일 기반 저장소 구현
-- [ ] 기존 시스템과 연동 테스트
+- [ ] 파일 시스템 저장소 구현
+- [ ] 메모리 저장소 구현  
+- [ ] Storage 인터페이스 표준화
+- [ ] EventEmitter 통합
 
-**이유**: 복잡한 RAG보다는 간단한 Storage로 Module 시스템 검증
+**검증 기준**:
+- [ ] Storage 없이도 Robota 정상 동작
+- [ ] 다양한 저장소 백엔드 지원
+- [ ] Storage 이벤트 정상 발생
 
-#### [ ] RAG Module 구현 (본격 구현)
+### 3.2 RAG Module (핵심) 🔍 (3주)
+
+#### [ ] RAG Module 구현
 **위치**: `packages/agents/src/modules/rag-module.ts`
 **우선순위**: 🟢 Medium
 
 **작업 내용**:
-- [ ] RAG 인터페이스 정의
-- [ ] 벡터 저장소 연동
-- [ ] 검색 알고리즘 구현
-- [ ] Robota와 통합
+- [ ] 벡터 임베딩 및 검색 기능
+- [ ] 문서 인덱싱 시스템
+- [ ] 검색 결과 통합
+- [ ] Storage Module 의존성 활용
 
 **검증 기준**:
-- [ ] RAG 없이도 기본 대화 정상 동작
-- [ ] RAG 추가 시 문서 검색 기반 답변
+- [ ] RAG 없이도 기본 대화 가능
+- [ ] 관련 문서 검색 및 활용
+- [ ] Plugin들이 RAG 활동 모니터링
 
-### 3.2 추가 Module 개발 🎯 (8-12주)
+### 3.3 File Processing Module 📁 (2주)
 
 #### [ ] File Processing Module 구현
 **위치**: `packages/agents/src/modules/file-processing-module.ts`
-**우선순위**: 🟢 Low
+**우선순위**: 🟢 Medium
 
 **작업 내용**:
-- [ ] PDF/이미지/오디오 처리 기능
-- [ ] 외부 라이브러리 연동
-- [ ] 처리 결과 통합
+- [ ] PDF, 이미지, 오디오 파싱
+- [ ] 파일 타입 감지 및 처리
+- [ ] 결과 텍스트 추출
+- [ ] Storage Module과 연동
 
-#### [ ] Database Module 구현
-**위치**: `packages/agents/src/modules/database-module.ts`
-**우선순위**: 🟢 Low
-
-**작업 내용**:
-- [ ] 실시간 DB 연동 기능
-- [ ] 쿼리 실행 및 결과 처리
-- [ ] 트랜잭션 관리
-
-#### [ ] API Integration Module 구현
-**위치**: `packages/agents/src/modules/api-integration-module.ts`
-**우선순위**: 🟢 Low
-
-**작업 내용**:
-- [ ] 외부 API 호출 기능
-- [ ] 인증 및 에러 처리
-- [ ] 응답 데이터 처리
+**검증 기준**:
+- [ ] File Processing 없이도 텍스트 대화 가능
+- [ ] 다양한 파일 형식 지원
+- [ ] 파싱 이벤트 Plugin 전파
 
 ---
 
-## 🔧 Phase 4: 고급 기능 (Enhancement)
+## 🔵 Phase 4: 고급 기능 (Enhancement)
 
-### 4.1 개발자 편의 기능 🛠️ (12-16주)
+### 4.1 Builder Pattern 구현 🏗️ (1주)
 
-#### [ ] Builder Pattern 구현
-**위치**: `packages/agents/src/builders/robota-builder.ts`
-**우선순위**: 🟢 Low
-
-**작업 내용**:
-- [ ] 유창한 API로 Robota 구성
-- [ ] 모듈/플러그인 쉬운 추가
-- [ ] 설정 검증 및 최적화
-
-#### [ ] Factory Pattern 구현
-**위치**: `packages/agents/src/factories/robota-factory.ts`
-**우선순위**: 🟢 Low
+#### [ ] ModuleBuilder 클래스
+**위치**: `packages/agents/src/builders/module-builder.ts`
+**우선순위**: 🔵 Low
 
 **작업 내용**:
-- [ ] 사전 정의된 에이전트 구성
-- [ ] 도메인별 특화 에이전트
-- [ ] 템플릿 기반 생성
+- [ ] Fluent API로 Module 구성
+- [ ] 의존성 자동 해결
+- [ ] 설정 검증
 
-#### [ ] 개발자 도구
-**위치**: `packages/agents/src/dev-tools/`
-**우선순위**: 🟢 Low
+### 4.2 Factory Pattern 확장 🏭 (1주)
+
+#### [ ] ModuleFactory 시스템
+**위치**: `packages/agents/src/factories/module-factory.ts`  
+**우선순위**: 🔵 Low
 
 **작업 내용**:
-- [ ] 모듈 의존성 시각화
-- [ ] 디버깅 유틸리티
-- [ ] 성능 분석 도구
+- [ ] Module 동적 생성
+- [ ] 설정 기반 인스턴스화
+- [ ] 런타임 Module 등록
 
----
+### 4.3 개발자 도구 🛠️ (1주)
 
-## 📊 수정된 우선순위 매트릭스
+#### [ ] Module/Plugin 디버깅 도구
+**위치**: `packages/agents/src/tools/debug-tools.ts`
+**우선순위**: 🔵 Low
 
-| 작업 | 우선순위 | 예상 기간 | 의존성 | 비즈니스 가치 |
-|------|----------|-----------|--------|---------------|
-| BaseModule 인터페이스 | 🔴 Critical | 1주 | 없음 | 높음 |
-| ModuleTypeRegistry | 🔴 Critical | 1주 | BaseModule | 높음 |
-| ModuleRegistry | 🔴 Critical | 2주 | ModuleTypeRegistry | 높음 |
-| Enhanced BasePlugin | 🔴 Critical | 1주 | 없음 | 매우 높음 |
-| PluginManager 개선 | 🔴 Critical | 2주 | Enhanced BasePlugin | 매우 높음 |
-| Robota 클래스 확장 | 🔴 Critical | 2주 | ModuleManager | 매우 높음 |
-| Plugin 분류 | 🟡 High | 1주 | Enhanced BasePlugin | 높음 |
-| Module-Plugin 연동 | 🟡 High | 2주 | 모든 Critical 완료 | 높음 |
-| Storage Module | 🟢 Medium | 2주 | 모든 인프라 완료 | 중간 |
-| RAG Module | 🟢 Medium | 3주 | Storage Module | 중간 |
-| File Processing Module | 🟢 Low | 3주 | RAG Module | 낮음 |
-| Builder Pattern | 🟢 Low | 2주 | 주요 Module들 | 낮음 |
-
----
-
-## ✅ 체크포인트 및 검증
-
-### Milestone 1: 기본 인프라 완성 (3주 후)
-- [ ] BaseModule, ModuleTypeRegistry, ModuleRegistry 완성
-- [ ] Enhanced BasePlugin, PluginManager 개선 완료
-- [ ] 모든 기존 Plugin이 새 시스템에서 정상 동작
-- [ ] 기본 유닛 테스트 모두 통과
-
-### Milestone 2: 시스템 통합 완성 (6주 후)  
-- [ ] Robota 클래스에 Module 시스템 통합
-- [ ] 기존 Plugin들 카테고리 분류 완료
-- [ ] Module-Plugin 연동 시스템 동작
-- [ ] 기존 API 100% 호환성 유지
-
-### Milestone 3: 첫 번째 Module 검증 (10주 후)
-- [ ] Storage Module 구현 및 테스트
-- [ ] Module 시스템 실제 동작 검증
-- [ ] 성능 및 안정성 테스트 통과
-
-### Milestone 4: 확장 시스템 구축 (16주 후)
-- [ ] RAG Module 완성
-- [ ] 추가 Module들 구현
-- [ ] Builder/Factory Pattern 완성
-- [ ] 전체 시스템 안정성 검증
-
----
-
-## 🚨 위험 요소 및 대응 방안
-
-### 높은 위험
-- **기존 기능 파괴**: 현재 동작하는 Plugin들의 호환성 문제
-  - **대응**: 모든 단계에서 기존 기능 테스트, 점진적 변경
-- **성능 저하**: 새로운 레이어로 인한 오버헤드  
-  - **대응**: 각 단계마다 성능 벤치마크, 최적화 우선
-
-### 중간 위험  
-- **복잡성 증가**: 시스템이 너무 복잡해질 수 있음
-  - **대응**: 단순한 구조부터 시작, 점진적 복잡성 증가
-- **개발 지연**: 기존 시스템 통합이 예상보다 복잡할 수 있음
-  - **대응**: 주간 체크포인트, 필수 기능 우선
-
-### 낮은 위험
-- **새 Module 개발 지연**: 실제 Module 구현이 늦어질 수 있음
-  - **대응**: 기반 시스템이 완성되면 빠른 개발 가능
-
----
-
-## 📝 즉시 다음 단계
-
-1. **이번 주**: BaseModule 인터페이스 구현 시작
-2. **다음 주**: ModuleTypeRegistry 구현
-3. **3주차**: ModuleRegistry 구현
-4. **4주차**: Enhanced BasePlugin 구현
-5. **매주 금요일**: 진행상황 검토 및 다음 주 계획
+**작업 내용**:
+- [ ] 의존성 그래프 시각화
+- [ ] 이벤트 흐름 추적
+- [ ] 성능 프로파일링
 
 ---
 
 ## 🎯 성공 기준
 
-### 기술적 성공 기준
-- [ ] 모든 기존 Plugin이 새 시스템에서 정상 작동
-- [ ] 새로운 Module 시스템이 안정적으로 동작
-- [ ] 성능 저하 3% 이내 유지
-- [ ] 테스트 커버리지 95% 이상
+### 🔴 **Phase 1 완료 기준**
+- [ ] 모든 기존 Plugin이 새 시스템에서 정상 동작
+- [ ] BaseModule과 ModuleRegistry 구현 완료
+- [ ] Event-Driven 상호작용 메커니즘 구축
+- [ ] 백워드 호환성 100% 유지
 
-### 비즈니스 성공 기준  
-- [ ] 기존 사용자 경험 완전 유지
-- [ ] 개발자가 쉽게 새로운 Module 개발 가능
-- [ ] 확장 가능한 아키텍처 기반 구축
-- [ ] 커뮤니티 피드백 긍정적 (90% 이상)
+### 🟡 **Phase 2 완료 기준**
+- [ ] Robota 클래스가 Module과 Plugin 모두 지원
+- [ ] 기존 Plugin들이 Module 이벤트 활용
+- [ ] Module 없이도 완전한 기능 제공
+- [ ] 성능 영향 5% 이내
+
+### 🟢 **Phase 3 완료 기준**
+- [ ] 실제 사용 가능한 Module 3개 이상 구현
+- [ ] Module-Plugin 상호작용 실제 동작
+- [ ] 개발자 친화적 API 제공
+- [ ] 문서화 및 예시 완료
+
+### 🔵 **Phase 4 완료 기준**
+- [ ] 고급 개발 도구 제공
+- [ ] 확장성 있는 아키텍처 완성
+- [ ] 커뮤니티 기여 가능한 구조
+- [ ] 성능 최적화 완료
 
 ---
 
-*이 체크리스트는 기존 시스템의 안정성을 최우선으로 하며, 새로운 기능은 점진적으로 추가하는 방향으로 설계되었습니다.* 
+## ⚠️ 위험 요소 및 대응
+
+### 🚨 **주요 위험**
+1. **기존 Plugin 호환성**: 기존 시스템 변경으로 인한 호환성 문제
+2. **Event-Driven 복잡성**: 이벤트 기반 디버깅의 어려움
+3. **성능 영향**: Module/Plugin 추가로 인한 성능 저하
+4. **개발자 학습 곡선**: 새로운 아키텍처 이해도
+
+### 🛡️ **대응 방안**
+1. **단계별 점진적 적용**: 한 번에 모든 것을 변경하지 않음
+2. **철저한 테스트**: 각 단계마다 기존 기능 검증
+3. **Event 표준화**: 명확한 이벤트 규칙 및 문서화
+4. **개발 도구**: 디버깅 및 모니터링 도구 제공
+
+---
+
+## 📊 완료 체크리스트
+
+### Phase 1 (Critical)
+- [ ] BaseModule 인터페이스 ✋ **현재 작업 중**
+- [ ] ModuleTypeRegistry 시스템
+- [ ] ModuleRegistry 구현  
+- [ ] Enhanced BasePlugin 시스템
+
+### Phase 2 (Essential)  
+- [ ] Robota 클래스 확장
+- [ ] Event-Driven 상호작용
+- [ ] 기존 Plugin 분류 및 보강
+
+### Phase 3 (Future)
+- [ ] Storage Module
+- [ ] RAG Module  
+- [ ] File Processing Module
+
+### Phase 4 (Enhancement)
+- [ ] Builder Pattern
+- [ ] Factory Pattern 확장
+- [ ] 개발자 도구
+
+**총 진행률**: 0/16 (0%) 

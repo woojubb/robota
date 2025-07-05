@@ -131,16 +131,50 @@ export class DatabaseModule extends BaseModule {
         );
     }
     
-    // 의존 모듈과의 상호작용
+    // ✅ EventEmitter를 통한 의존성 해결 (직접 참조 없음)
     async initialize(config: DatabaseConfig): Promise<void> {
-        this.transport = await this.getRequiredModule<TransportModule>('transport');
-        this.connection = await this.establishConnection(config);
+        // Transport 모듈 요청 이벤트 발생
+        this.emitEvent('transport.request', {
+            requestor: this.name,
+            operation: 'initialize',
+            config: config.transportConfig
+        });
+        
+        // Transport 응답 이벤트 구독
+        this.eventEmitter?.on('transport.ready', (event) => {
+            if (event.data.requestor === this.name) {
+                this.establishConnection(config);
+            }
+        });
     }
 }
 
-// ❌ 순환 의존성
+// ❌ 순환 의존성 - 이런 설계는 금지
 export class ModuleA extends BaseModule {
-    readonly dependencies = ['module-b']; // ModuleB도 ModuleA에 의존
+    readonly dependencies = ['module-b']; // ModuleB도 ModuleA에 의존하면 순환 의존성
+}
+
+// ✅ 올바른 의존성 설계 - Event-Driven으로 해결
+export class ModuleA extends BaseModule {
+    readonly dependencies = []; // 직접 의존성 없음
+    
+    async processData(data: any): Promise<any> {
+        // ModuleB의 기능이 필요할 때 이벤트 발생
+        this.emitEvent('moduleB.request', {
+            requestor: this.name,
+            operation: 'process',
+            data
+        });
+        
+        // 결과를 이벤트로 받음
+        return new Promise((resolve) => {
+            this.eventEmitter?.once('moduleB.response', (event) => {
+                if (event.data.requestor === this.name) {
+                    resolve(event.data.result);
+                }
+            });
+        });
+    }
 }
 ```
 
@@ -285,10 +319,12 @@ const agent = new RobotaBuilder()
 export class RAGModule extends BaseModule<RAGConfig> {
     readonly name = 'rag-search';
     readonly version = '1.0.0';
+    // ✅ 의존성 명시하되 직접 참조하지 않음 (Event-Driven 통신)
     readonly dependencies = ['vector-search', 'storage'];
     
-    private vectorSearch?: VectorSearchModule;
-    private storage?: StorageModule;
+    // ❌ 제거: 직접 참조는 금지
+    // private vectorSearch?: VectorSearchModule;
+    // private storage?: StorageModule;
     
     getModuleType(): ModuleTypeDescriptor {
         return {
@@ -301,14 +337,28 @@ export class RAGModule extends BaseModule<RAGConfig> {
     }
     
     async addDocument(id: string, content: string, metadata?: any): Promise<void> {
-        if (!this.vectorSearch) throw new Error('Vector search not available');
-        await this.vectorSearch.addDocument(id, content, metadata);
+        // ✅ Event-Driven: 벡터 검색 모듈에 이벤트 발생
+        this.emitEvent('vector.addDocument', {
+            requestor: this.name,
+            id, content, metadata
+        });
     }
     
     async searchRelevant(query: string, topK: number = 5): Promise<string[]> {
-        if (!this.vectorSearch) throw new Error('Vector search not available');
-        const results = await this.vectorSearch.search(query, topK);
-        return results.map(r => r.content);
+        // ✅ Event-Driven: 검색 요청 이벤트 발생
+        this.emitEvent('vector.search', {
+            requestor: this.name,
+            query, topK
+        });
+        
+        // 검색 결과를 이벤트로 받음
+        return new Promise((resolve) => {
+            this.eventEmitter?.once('vector.searchResponse', (event) => {
+                if (event.data.requestor === this.name) {
+                    resolve(event.data.results.map((r: any) => r.content));
+                }
+            });
+        });
     }
     
     async generateAnswer(query: string, context: string[]): Promise<string> {

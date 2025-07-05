@@ -498,43 +498,111 @@ export class ConversationHistoryPlugin extends BasePlugin<ConversationHistoryOpt
 }
 ```
 
-## 모듈과 플러그인 연동
+## Event-Driven 상호작용 시스템
 
-### 상호작용 메커니즘
+### 표준 이벤트 타입 정의
 
 ```typescript
-export class ModulePluginBridge {
-    constructor(
-        private moduleRegistry: ModuleRegistry,
-        private pluginManager: PluginManager
-    ) {
-        // 모듈 이벤트를 플러그인에 전파
-        this.moduleRegistry.onModuleEvent('*', (event) => {
-            this.notifyPlugins(event);
+// Module에서 발생하는 표준 이벤트들
+export type ModuleEventType = 
+    | 'module.registered'
+    | 'module.initialized' 
+    | 'module.disposing'
+    | 'module.disposed'
+    | 'module.operation.start'
+    | 'module.operation.complete'
+    | 'module.operation.error'
+    | 'module.capability.changed';
+
+// Plugin에서 발생하는 표준 이벤트들  
+export type PluginEventType =
+    | 'plugin.registered'
+    | 'plugin.initialized'
+    | 'plugin.disposing'
+    | 'plugin.disposed';
+
+// 상호작용 이벤트들
+export type InteractionEventType =
+    | 'storage.request'
+    | 'storage.save'
+    | 'storage.load'
+    | 'search.request'
+    | 'search.result'
+    | 'processing.request'
+    | 'processing.result';
+
+### Event-Driven 상호작용 메커니즘
+
+```typescript
+// ✅ Module이 이벤트 발생 (Plugin 존재 모름)
+export class RAGModule extends BaseModule<RAGModuleConfig> {
+    async searchDocuments(query: string): Promise<SearchResult[]> {
+        // 검색 시작 이벤트 발생
+        this.emitEvent('module.operation.start', {
+            moduleName: this.name,
+            operation: 'search',
+            operationId: this.generateOperationId(),
+            query: query.substring(0, 100) // 로깅용으로 일부만
         });
-    }
-    
-    private async notifyPlugins(moduleEvent: ModuleEvent): Promise<void> {
-        const plugins = this.pluginManager.getActivePlugins();
         
-        for (const plugin of plugins) {
-            if (plugin.onModuleChange && this.isRelevantModule(plugin, moduleEvent.module)) {
-                try {
-                    await plugin.onModuleChange(moduleEvent);
-                } catch (error) {
-                    console.error(`Plugin ${plugin.name} failed to handle module event:`, error);
-                }
-            }
+        try {
+            const results = await this.performSearch(query);
+            
+            // 검색 완료 이벤트 발생
+            this.emitEvent('module.operation.complete', {
+                moduleName: this.name,
+                operation: 'search',
+                operationId: this.currentOperationId,
+                resultCount: results.length,
+                duration: this.getOperationDuration()
+            });
+            
+            return results;
+        } catch (error) {
+            // 에러 이벤트 발생
+            this.emitEvent('module.operation.error', {
+                moduleName: this.name,
+                operation: 'search',
+                operationId: this.currentOperationId,
+                error: error.message
+            });
+            throw error;
         }
     }
-    
-    private isRelevantModule(plugin: BasePlugin, module: BaseModule): boolean {
-        // 플러그인이 해당 모듈에 관심이 있는지 확인
-        const requiredModules = plugin.requiredModules || [];
-        const moduleType = module.getModuleType().type;
+}
+
+// ✅ Plugin이 이벤트 수신 (Module 존재 모름)
+export class LoggingPlugin extends BasePlugin<LoggingPluginOptions, LoggingStats> {
+    protected setupModuleEventListeners(): void {
+        if (!this.eventEmitter) return;
         
-        return requiredModules.includes(module.name) || 
-               requiredModules.includes(moduleType);
+        // Module 작업 시작 이벤트 구독
+        this.eventEmitter.on('module.operation.start', (event) => {
+            this.logger.info(`Module operation started`, {
+                module: event.data.moduleName,
+                operation: event.data.operation,
+                operationId: event.data.operationId
+            });
+        });
+        
+        // Module 작업 완료 이벤트 구독
+        this.eventEmitter.on('module.operation.complete', (event) => {
+            this.logger.info(`Module operation completed`, {
+                module: event.data.moduleName,
+                operation: event.data.operation,
+                duration: event.data.duration,
+                success: true
+            });
+        });
+        
+        // Module 에러 이벤트 구독
+        this.eventEmitter.on('module.operation.error', (event) => {
+            this.logger.error(`Module operation failed`, {
+                module: event.data.moduleName,
+                operation: event.data.operation,
+                error: event.data.error
+            });
+        });
     }
 }
 ```
