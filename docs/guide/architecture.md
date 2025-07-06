@@ -39,15 +39,36 @@ The Robota SDK is built around a unified agent architecture that combines conver
 - **Workflow Visualization**: Team interaction flowcharts and relationship diagrams
 
 ### Comprehensive Plugin Ecosystem
-- **ConversationHistoryPlugin**: Multi-backend storage (memory/file/database) with auto-save
-- **ExecutionAnalyticsPlugin**: Real-time performance monitoring and statistics
-- **LoggingPlugin**: Multi-level logging with console/file/remote backends
-- **ErrorHandlingPlugin**: Multiple error strategies (simple, exponential-backoff, circuit-breaker)
-- **LimitsPlugin**: Advanced rate limiting (token-bucket, sliding-window, fixed-window)
-- **PerformancePlugin**: System metrics and performance optimization
-- **UsagePlugin**: Token tracking, cost calculation, and usage analytics
-- **EventEmitterPlugin**: Event-driven architecture with filtering and buffering
-- **WebhookPlugin**: HTTP notifications with batch processing and retry logic
+
+#### Enhanced Plugin Classification System
+- **Plugin Categories**: LOGGING, MONITORING, STORAGE, NOTIFICATION, LIMITS, ERROR_HANDLING, EVENT
+- **Priority System**: CRITICAL, HIGH, NORMAL, LOW priority levels for execution ordering
+- **Module Event Subscription**: Plugins can subscribe to module lifecycle events
+
+#### Core Plugins
+- **ConversationHistoryPlugin**: Multi-backend storage (memory/file/database) with auto-save [STORAGE/HIGH]
+- **ExecutionAnalyticsPlugin**: Real-time performance monitoring and statistics [MONITORING/NORMAL]
+- **LoggingPlugin**: Multi-level logging with console/file/remote backends [LOGGING/HIGH]
+- **ErrorHandlingPlugin**: Multiple error strategies (simple, exponential-backoff, circuit-breaker) [ERROR_HANDLING/HIGH]
+- **LimitsPlugin**: Advanced rate limiting (token-bucket, sliding-window, fixed-window) [LIMITS/NORMAL]
+- **PerformancePlugin**: System metrics and performance optimization [MONITORING/NORMAL]
+- **UsagePlugin**: Token tracking, cost calculation, and usage analytics [MONITORING/NORMAL]
+- **EventEmitterPlugin**: Event-driven architecture with filtering and buffering [EVENT/CRITICAL]
+- **WebhookPlugin**: HTTP notifications with batch processing and retry logic [NOTIFICATION/LOW]
+
+### Modular Architecture System
+
+#### Module Infrastructure
+- **BaseModule**: Abstract foundation for all module implementations with lifecycle management
+- **ModuleRegistry**: Centralized module registration and dependency-based initialization
+- **ModuleTypeRegistry**: Dynamic type system with validation and compatibility checking
+- **Event-Driven Communication**: Loose coupling between modules and plugins via EventEmitter
+
+#### Module System Features
+- **Dependency Resolution**: Automatic dependency ordering and circular dependency detection
+- **Type Safety**: Complete TypeScript type system with generic parameters
+- **Lifecycle Management**: Standardized initialize, execute, and dispose phases
+- **Event Broadcasting**: Module activities automatically broadcast to subscribed plugins
 
 ## Architecture Overview
 
@@ -55,10 +76,26 @@ The Robota SDK is built around a unified agent architecture that combines conver
 ```
 @robota-sdk/agents (Core Package)
 ├── abstracts/          # Base abstract classes with type parameters
+│   ├── base-agent.ts   # Foundation for all agent implementations
+│   ├── base-plugin.ts  # Enhanced plugin system with classification
+│   └── base-module.ts  # Module foundation with lifecycle management
 ├── agents/             # Main Robota agent implementation
+│   └── robota.ts       # Integrated module and plugin support
 ├── interfaces/         # TypeScript type definitions
 ├── managers/           # Agent factory and resource management
-├── plugins/            # Extensible plugin system
+│   ├── agent-factory.ts      # Agent creation and templates
+│   ├── module-registry.ts    # Module registration and lifecycle
+│   └── module-type-registry.ts # Dynamic type system
+├── plugins/            # Extensible plugin system with categories
+│   ├── logging/        # [LOGGING/HIGH] Structured logging
+│   ├── performance/    # [MONITORING/NORMAL] System metrics
+│   ├── usage/          # [MONITORING/NORMAL] Usage analytics
+│   ├── conversation-history/ # [STORAGE/HIGH] Conversation storage
+│   ├── execution/      # [MONITORING/NORMAL] Execution analytics
+│   ├── error-handling/ # [ERROR_HANDLING/HIGH] Error strategies
+│   ├── limits/         # [LIMITS/NORMAL] Rate limiting
+│   ├── webhook/        # [NOTIFICATION/LOW] HTTP notifications
+│   └── event-emitter/  # [EVENT/CRITICAL] Event system
 ├── services/           # Core business logic services
 ├── tools/              # Tool implementation and registry
 └── utils/              # Utility functions and helpers
@@ -68,8 +105,11 @@ The Robota SDK is built around a unified agent architecture that combines conver
 - **BaseAgent**: Foundation class for all agent implementations
 - **BaseAIProvider**: Unified interface for AI provider integration
 - **BaseTool**: Type-safe tool system with parameter validation
-- **BasePlugin**: Extensible plugin architecture with lifecycle hooks
+- **BasePlugin**: Enhanced plugin architecture with classification, priorities, and module event subscription
+- **BaseModule**: Abstract foundation for modular functionality with lifecycle management
 - **AgentFactory**: Agent creation and template management
+- **ModuleRegistry**: Centralized module registration with dependency resolution
+- **ModuleTypeRegistry**: Dynamic type system with validation and compatibility checking
 - **ExecutionService**: Safe command execution with error handling
 
 ## Package Ecosystem
@@ -107,21 +147,151 @@ class CustomProvider extends BaseAIProvider {
 ```
 
 ### Creating Custom Plugins
-1. **Extend BasePlugin**: Use the plugin foundation with type parameters
-2. **Define Configuration**: Create plugin-specific options interface
-3. **Implement Lifecycle**: Add event handlers for agent lifecycle
-4. **Add Statistics**: Provide plugin-specific metrics
+1. **Extend BasePlugin**: Use the enhanced plugin foundation with type parameters
+2. **Define Configuration**: Create plugin-specific options interface extending BasePluginOptions
+3. **Set Classification**: Assign category and priority for proper execution ordering
+4. **Implement Lifecycle**: Add event handlers for agent lifecycle
+5. **Module Event Handling**: Subscribe to module events for cross-component monitoring
+6. **Add Statistics**: Provide plugin-specific metrics
 
 ```typescript
 class CustomPlugin extends BasePlugin<CustomOptions, CustomStats> {
   name = 'CustomPlugin';
   
+  constructor(options: CustomOptions) {
+    super();
+    
+    // Set plugin classification
+    this.category = PluginCategory.MONITORING;
+    this.priority = PluginPriority.NORMAL;
+    
+    // Configure options with BasePluginOptions
+    this.pluginOptions = {
+      enabled: options.enabled ?? true,
+      category: this.category,
+      priority: this.priority,
+      moduleEvents: ['module.initialize.complete', 'module.execution.complete'],
+      subscribeToAllModuleEvents: false,
+      ...options
+    };
+  }
+  
   async beforeExecution(context: ExecutionContext): Promise<void> {
     // Pre-execution logic
   }
   
+  async onModuleEvent(eventType: EventType, eventData: EventData): Promise<void> {
+    // Handle module events for cross-component monitoring
+    const moduleData = eventData.data as any;
+    console.log(`Module event: ${eventType}`, moduleData);
+  }
+  
+  override getStats(): CustomStats {
+    return {
+      enabled: this.enabled,
+      calls: this.callCount,
+      errors: this.errorCount,
+      lastActivity: this.lastActivity,
+      // Custom plugin-specific stats
+      customMetric: this.customValue
+    };
+  }
+}
+```
+
+### Creating Custom Modules
+1. **Extend BaseModule**: Use the module foundation with type parameters
+2. **Define Module Type**: Specify capabilities and dependencies
+3. **Implement Lifecycle**: Add initialize, execute, and dispose methods
+4. **Event Broadcasting**: Emit events for plugin monitoring
+5. **Dependency Management**: Declare module dependencies
+
+```typescript
+class CustomModule extends BaseModule<CustomOptions, CustomStats> {
+  readonly name = 'CustomModule';
+  readonly version = '1.0.0';
+  readonly moduleType = 'processing';
+  
+  constructor(options: CustomOptions, eventEmitter?: EventEmitter) {
+    super(options, eventEmitter);
+    
+    this.capabilities = ['data-processing', 'transformation'];
+    this.dependencies = ['storage-module']; // Optional dependencies
+  }
+  
+  async initialize(): Promise<void> {
+    // Module initialization logic
+    this.emitModuleEvent('initialize.start', {
+      moduleName: this.name,
+      moduleType: this.moduleType,
+      executionId: this.generateExecutionId()
+    });
+    
+    // Setup module resources
+    await this.setupResources();
+    
+    this.emitModuleEvent('initialize.complete', {
+      moduleName: this.name,
+      moduleType: this.moduleType,
+      executionId: this.lastExecutionId,
+      duration: Date.now() - this.startTime
+    });
+  }
+  
+  async execute<T>(context: ModuleExecutionContext): Promise<ModuleExecutionResult<T>> {
+    this.emitModuleEvent('execution.start', {
+      moduleName: this.name,
+      moduleType: this.moduleType,
+      executionId: this.generateExecutionId(),
+      context
+    });
+    
+    try {
+      const result = await this.processData(context);
+      
+      this.emitModuleEvent('execution.complete', {
+        moduleName: this.name,
+        moduleType: this.moduleType,
+        executionId: this.lastExecutionId,
+        duration: Date.now() - this.startTime,
+        success: true,
+        result
+      });
+      
+      return { success: true, data: result };
+    } catch (error) {
+      this.emitModuleEvent('execution.error', {
+        moduleName: this.name,
+        moduleType: this.moduleType,
+        executionId: this.lastExecutionId,
+        duration: Date.now() - this.startTime,
+        success: false,
+        error: error.message
+      });
+      
+      return { success: false, error: error.message };
+    }
+  }
+  
+  async dispose(): Promise<void> {
+    // Cleanup module resources
+    await this.cleanupResources();
+    
+    this.emitModuleEvent('dispose.complete', {
+      moduleName: this.name,
+      moduleType: this.moduleType,
+      executionId: this.generateExecutionId()
+    });
+  }
+  
   getStats(): CustomStats {
-    // Return plugin statistics
+    return {
+      executionCount: this.executionCount,
+      averageExecutionTime: this.averageExecutionTime,
+      lastExecution: this.lastExecution,
+      // Custom module-specific stats
+      processedItems: this.processedCount
+    };
   }
 }
 ```

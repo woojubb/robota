@@ -353,6 +353,174 @@ const dataAnalysisAgent = new Robota({
 });
 ```
 
+### 4. Module-Enhanced Agent Pattern
+
+Agents that leverage the new modular architecture system for extended functionality:
+
+```typescript
+import { 
+    Robota, 
+    BaseModule, 
+    ModuleRegistry, 
+    LoggingPlugin, 
+    PerformancePlugin, 
+    UsagePlugin 
+} from '@robota-sdk/agents';
+
+// Create a custom module for data processing
+class DataProcessingModule extends BaseModule {
+    readonly name = 'DataProcessingModule';
+    readonly version = '1.0.0';
+    readonly moduleType = 'processing';
+    
+    constructor(options: any, eventEmitter?: EventEmitter) {
+        super(options, eventEmitter);
+        this.capabilities = ['data-transformation', 'validation'];
+    }
+    
+    async initialize(): Promise<void> {
+        this.emitModuleEvent('initialize.start', {
+            moduleName: this.name,
+            moduleType: this.moduleType,
+            executionId: this.generateExecutionId()
+        });
+        
+        // Initialize data processing resources
+        await this.setupDataProcessors();
+        
+        this.emitModuleEvent('initialize.complete', {
+            moduleName: this.name,
+            moduleType: this.moduleType,
+            executionId: this.lastExecutionId,
+            duration: Date.now() - this.startTime
+        });
+    }
+    
+    async execute(context: any): Promise<any> {
+        this.emitModuleEvent('execution.start', {
+            moduleName: this.name,
+            moduleType: this.moduleType,
+            executionId: this.generateExecutionId(),
+            context
+        });
+        
+        try {
+            const result = await this.processData(context.data);
+            
+            this.emitModuleEvent('execution.complete', {
+                moduleName: this.name,
+                moduleType: this.moduleType,
+                executionId: this.lastExecutionId,
+                duration: Date.now() - this.startTime,
+                success: true,
+                result
+            });
+            
+            return { success: true, data: result };
+        } catch (error) {
+            this.emitModuleEvent('execution.error', {
+                moduleName: this.name,
+                moduleType: this.moduleType,
+                executionId: this.lastExecutionId,
+                error: error.message
+            });
+            
+            return { success: false, error: error.message };
+        }
+    }
+    
+    private async setupDataProcessors(): Promise<void> {
+        // Setup data processing logic
+    }
+    
+    private async processData(data: any): Promise<any> {
+        // Data processing implementation
+        return { processed: true, data };
+    }
+}
+
+// Create agent with module support
+class ModularAgent extends Robota {
+    private moduleRegistry: ModuleRegistry;
+    
+    constructor() {
+        // Create plugins that will monitor module activities
+        const loggingPlugin = new LoggingPlugin({
+            level: 'info',
+            moduleEvents: ['module.initialize.complete', 'module.execution.complete']
+        });
+        
+        const performancePlugin = new PerformancePlugin({
+            moduleEvents: ['module.execution.start', 'module.execution.complete']
+        });
+        
+        const usagePlugin = new UsagePlugin({
+            moduleEvents: ['module.execution.complete']
+        });
+        
+        super({
+            name: 'ModularAgent',
+            model: 'gpt-4',
+            provider: 'openai',
+            aiProviders: { openai: openaiProvider },
+            plugins: [loggingPlugin, performancePlugin, usagePlugin],
+            systemMessage: 'You are a modular AI agent with enhanced capabilities.'
+        });
+        
+        // Initialize module registry with shared EventEmitter
+        this.moduleRegistry = new ModuleRegistry(this.eventEmitter);
+        
+        // Register modules
+        this.setupModules();
+    }
+    
+    private async setupModules(): Promise<void> {
+        // Register data processing module
+        const dataModule = new DataProcessingModule({
+            enabled: true,
+            config: { maxDataSize: 10000 }
+        }, this.eventEmitter);
+        
+        await this.moduleRegistry.registerModule(dataModule);
+        
+        // Initialize all modules
+        await this.moduleRegistry.initializeModules();
+    }
+    
+    async processWithModules(input: string, data?: any): Promise<string> {
+        // Execute modules if data is provided
+        if (data) {
+            const moduleResult = await this.moduleRegistry.executeModule(
+                'DataProcessingModule',
+                { data }
+            );
+            
+            if (moduleResult.success) {
+                input += `\n\nProcessed data: ${JSON.stringify(moduleResult.data)}`;
+            }
+        }
+        
+        return this.run(input);
+    }
+    
+    getModuleStats(): any {
+        return this.moduleRegistry.getStats();
+    }
+}
+
+// Usage example
+const modularAgent = new ModularAgent();
+
+// Process input with module enhancement
+const result = await modularAgent.processWithModules(
+    'Analyze the processed data and provide insights',
+    { rawData: [1, 2, 3, 4, 5] }
+);
+
+console.log('Agent result:', result);
+console.log('Module stats:', modularAgent.getModuleStats());
+```
+
 ## Agent Factory Pattern
 
 Create agents from templates for consistency:

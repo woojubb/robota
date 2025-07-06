@@ -23,15 +23,21 @@ BaseTool<TParameters, TResult>
 ├── OpenAPITool (API specification-based)
 └── MCPTool (Model Context Protocol)
 
-BasePlugin<TOptions, TStats>
-├── ConversationHistoryPlugin
-├── UsagePlugin
-├── LoggingPlugin
-├── PerformancePlugin
-├── ErrorHandlingPlugin
-├── LimitsPlugin
-├── EventEmitterPlugin
-└── WebhookPlugin
+BasePlugin<TOptions, TStats> (Enhanced with Classification System)
+├── ConversationHistoryPlugin [STORAGE/HIGH]
+├── ExecutionAnalyticsPlugin [MONITORING/NORMAL]
+├── UsagePlugin [MONITORING/NORMAL]
+├── LoggingPlugin [LOGGING/HIGH]
+├── PerformancePlugin [MONITORING/NORMAL]
+├── ErrorHandlingPlugin [ERROR_HANDLING/HIGH]
+├── LimitsPlugin [LIMITS/NORMAL]
+├── EventEmitterPlugin [EVENT/CRITICAL]
+└── WebhookPlugin [NOTIFICATION/LOW]
+
+BaseModule<TOptions, TStats> (New Modular Architecture)
+├── Storage Module (Future)
+├── RAG Module (Future)
+└── File Processing Module (Future)
 ```
 
 ### 2. Service Layer (Stateless Business Logic)
@@ -44,9 +50,18 @@ BasePlugin<TOptions, TStats>
 - **ToolManager**: Tool registry and schema management
 - **ConversationHistoryManager**: Conversation storage across different backends
 - **PluginManager**: Plugin lifecycle and coordination
+- **ModuleRegistry**: Module registration, dependency resolution, and lifecycle management
+- **ModuleTypeRegistry**: Dynamic module type system with validation and compatibility checking
 
-### 4. Plugin System Architecture
-Eight core plugins with specialized functionality:
+### 4. Enhanced Plugin System Architecture
+
+#### Plugin Classification System
+- **Categories**: LOGGING, MONITORING, STORAGE, NOTIFICATION, LIMITS, ERROR_HANDLING, EVENT
+- **Priority Levels**: CRITICAL, HIGH, NORMAL, LOW (execution ordering)
+- **Module Event Subscription**: Plugins can subscribe to module lifecycle events
+- **Backward Compatibility**: All existing plugins work without modification
+
+#### Core Plugins (Enhanced with Classification)
 
 #### ConversationHistoryPlugin
 - **Storage Options**: Memory, File, Database
@@ -87,6 +102,39 @@ Eight core plugins with specialized functionality:
 - **External Notifications**: HTTP webhook integrations
 - **Event Filtering**: Selective webhook triggering
 - **Retry Logic**: Robust webhook delivery
+
+### 5. Module System Architecture
+
+#### Module Infrastructure
+- **BaseModule**: Abstract foundation for all module implementations
+- **ModuleRegistry**: Centralized module registration and lifecycle management
+- **ModuleTypeRegistry**: Dynamic type system with validation and compatibility checking
+- **Event-Driven Communication**: Loose coupling between modules and plugins
+
+#### Module Lifecycle Management
+1. **Registration**: Modules register with ModuleRegistry
+2. **Dependency Resolution**: Automatic dependency ordering and circular dependency detection
+3. **Initialization**: Modules initialize in dependency order
+4. **Execution**: Modules execute with context and emit events
+5. **Disposal**: Proper cleanup and resource management
+
+#### Module Event System
+- **Event Broadcasting**: Module activities automatically broadcast to EventEmitter
+- **Plugin Subscription**: Plugins can subscribe to specific module events
+- **Event Types**: `module.initialize.start`, `module.initialize.complete`, `module.execution.start`, `module.execution.complete`, `module.execution.error`, `module.dispose.complete`
+- **Event Data**: Standardized event data structure with module name, type, execution ID, and metrics
+
+#### Module Types and Capabilities
+- **Built-in Types**: storage, processing, integration, capability
+- **Layer-Based Architecture**: Modules organized by functional layers
+- **Capability Declaration**: Modules declare their capabilities for discovery
+- **Compatibility Checking**: Type system ensures module compatibility
+
+#### Module-Plugin Integration
+- **Event-Driven**: Modules emit events, plugins subscribe to events
+- **Loose Coupling**: Modules and plugins don't directly depend on each other
+- **Monitoring**: LoggingPlugin, PerformancePlugin, UsagePlugin monitor module activities
+- **Analytics**: ExecutionAnalyticsPlugin tracks module performance and statistics
 
 ## 🔧 Tool System Architecture
 
@@ -271,13 +319,28 @@ src/plugins/error-handling/
 ```
 packages/agents/src/
 ├── abstracts/           # Abstract base classes
+│   ├── base-agent.ts   # Foundation for all agent implementations
+│   ├── base-plugin.ts  # Enhanced plugin system with classification
+│   └── base-module.ts  # Module foundation with lifecycle management
 ├── interfaces/          # Type definitions
 ├── agents/
-│   ├── robota.ts       # Main agent implementation
+│   ├── robota.ts       # Main agent implementation with module support
 │   └── robota.test.ts  # Agent tests
 ├── managers/           # Resource managers
+│   ├── agent-factory.ts         # Agent creation and templates
+│   ├── module-registry.ts       # Module registration and lifecycle
+│   └── module-type-registry.ts  # Dynamic module type system
 ├── services/           # Business logic services
-├── plugins/            # Plugin system
+├── plugins/            # Enhanced plugin system with categories
+│   ├── conversation-history/    # [STORAGE/HIGH] Conversation storage
+│   ├── execution/              # [MONITORING/NORMAL] Execution analytics
+│   ├── logging/                # [LOGGING/HIGH] Structured logging
+│   ├── performance/            # [MONITORING/NORMAL] System metrics
+│   ├── usage/                  # [MONITORING/NORMAL] Usage analytics
+│   ├── error-handling/         # [ERROR_HANDLING/HIGH] Error strategies
+│   ├── limits/                 # [LIMITS/NORMAL] Rate limiting
+│   ├── webhook/                # [NOTIFICATION/LOW] HTTP notifications
+│   └── event-emitter/          # [EVENT/CRITICAL] Event system
 ├── tools/              # Tool system
 ├── utils/              # Utilities
 └── index.ts           # Public exports
