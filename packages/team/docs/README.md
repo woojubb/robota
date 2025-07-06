@@ -2,6 +2,24 @@
 
 Multi-agent collaboration system for the Robota SDK with advanced workflow management.
 
+## 🚀 Why Choose @robota-sdk/team?
+
+### 🎯 Solve Complex Problems 10x Faster
+- **Automatic Task Decomposition**: Break down complex requests into specialist tasks
+- **Parallel Processing**: Multiple agents work simultaneously on different aspects
+- **Intelligent Delegation**: AI automatically assigns tasks to the right specialists
+
+### 💡 Real-World Impact
+- **Marketing Campaign**: Generate complete campaigns with research, creative, and strategy in one request
+- **Software Development**: Design, implement, test, and document features collaboratively
+- **Business Analysis**: Conduct market research, competitive analysis, and strategic planning simultaneously
+
+### 🏆 Key Advantages
+- **Zero Configuration**: Pre-built expert templates work out-of-the-box
+- **Cross-Provider Teams**: Mix OpenAI, Anthropic, and Google AI in one team
+- **Cost Optimization**: Automatically uses the most cost-effective model for each task
+- **Workflow Visualization**: See how your AI team collaborates with Mermaid diagrams
+
 ## Overview
 
 The `@robota-sdk/team` package enables sophisticated multi-agent collaboration with intelligent template-based expert selection. It features automatic task analysis, expert delegation, and comprehensive workflow management for complex multi-step projects.
@@ -62,6 +80,38 @@ console.log(result);
 - **Template Registry**: Centralized management of all available expert templates
 - **Provider Configuration**: Each template specifies optimal AI provider and settings
 - **Version Control**: Template versioning and update management
+
+## 📋 Built-in Expert Templates
+
+### 1. **Task Coordinator** 🎯
+- **Role**: Analyzes complex requests and delegates to specialists
+- **Best For**: Project management, workflow orchestration
+- **Model**: GPT-4 (high reasoning capability)
+
+### 2. **Domain Researcher** 🔍
+- **Role**: Deep research and comprehensive analysis
+- **Best For**: Market research, technical investigation
+- **Model**: Claude 3.5 Sonnet (large context window)
+
+### 3. **Creative Ideator** 💡
+- **Role**: Brainstorming and innovative solutions
+- **Best For**: Product concepts, marketing ideas
+- **Model**: GPT-4 (creative capabilities)
+
+### 4. **Fast Executor** ⚡
+- **Role**: Quick implementation and coding
+- **Best For**: Code generation, rapid prototyping
+- **Model**: GPT-3.5-turbo (fast and efficient)
+
+### 5. **Ethical Reviewer** 🛡️
+- **Role**: Evaluates ethical implications and risks
+- **Best For**: Policy review, compliance checking
+- **Model**: Claude 3 (ethical reasoning)
+
+### 6. **Summarizer** 📝
+- **Role**: Condenses and synthesizes information
+- **Best For**: Report generation, executive summaries
+- **Model**: Gemini 1.5 Flash (fast processing)
 
 ## API Reference
 
