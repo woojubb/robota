@@ -56,7 +56,7 @@ Called before agent run
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:197](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L197)
+[packages/agents/src/abstracts/base-plugin.ts:197](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L197)
 
 ___
 
@@ -80,7 +80,7 @@ Called after agent run
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:202](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L202)
+[packages/agents/src/abstracts/base-plugin.ts:202](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L202)
 
 ___
 
@@ -102,7 +102,7 @@ Called before execution with context
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:207](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L207)
+[packages/agents/src/abstracts/base-plugin.ts:207](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L207)
 
 ___
 
@@ -125,7 +125,7 @@ Called after execution with context and result
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:212](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L212)
+[packages/agents/src/abstracts/base-plugin.ts:212](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L212)
 
 ___
 
@@ -147,7 +147,7 @@ Called before conversation with context
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:217](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L217)
+[packages/agents/src/abstracts/base-plugin.ts:217](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L217)
 
 ___
 
@@ -170,7 +170,7 @@ Called after conversation with context and result
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:222](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L222)
+[packages/agents/src/abstracts/base-plugin.ts:222](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L222)
 
 ___
 
@@ -193,7 +193,7 @@ Called before tool execution
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:227](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L227)
+[packages/agents/src/abstracts/base-plugin.ts:227](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L227)
 
 ___
 
@@ -216,7 +216,7 @@ Called before tool execution with context
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:232](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L232)
+[packages/agents/src/abstracts/base-plugin.ts:232](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L232)
 
 ___
 
@@ -240,7 +240,7 @@ Called after tool execution
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:237](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L237)
+[packages/agents/src/abstracts/base-plugin.ts:237](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L237)
 
 ___
 
@@ -263,7 +263,7 @@ Called after tool execution with context
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:242](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L242)
+[packages/agents/src/abstracts/base-plugin.ts:242](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L242)
 
 ___
 
@@ -285,7 +285,7 @@ Called before AI provider call
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:247](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L247)
+[packages/agents/src/abstracts/base-plugin.ts:247](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L247)
 
 ___
 
@@ -308,7 +308,7 @@ Called after AI provider call
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:252](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L252)
+[packages/agents/src/abstracts/base-plugin.ts:252](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L252)
 
 ___
 
@@ -330,7 +330,7 @@ Called on streaming chunk
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:257](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L257)
+[packages/agents/src/abstracts/base-plugin.ts:257](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L257)
 
 ___
 
@@ -353,7 +353,7 @@ Called on error
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:262](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L262)
+[packages/agents/src/abstracts/base-plugin.ts:262](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L262)
 
 ___
 
@@ -375,7 +375,7 @@ Called on message added to history
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:267](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L267)
+[packages/agents/src/abstracts/base-plugin.ts:267](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L267)
 
 ___
 
@@ -398,4 +398,4 @@ Called when module events are received
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:272](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L272)
+[packages/agents/src/abstracts/base-plugin.ts:272](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L272)

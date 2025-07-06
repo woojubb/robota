@@ -73,4 +73,4 @@ Message content with structured typing
 
 #### Defined in
 
-[sessions/src/types/chat.ts:28](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/types/chat.ts#L28)
+[sessions/src/types/chat.ts:28](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/chat.ts#L28)

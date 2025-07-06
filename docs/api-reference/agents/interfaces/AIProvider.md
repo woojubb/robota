@@ -39,7 +39,7 @@ Provider identifier
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:168](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L168)
+[packages/agents/src/interfaces/provider.ts:168](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L168)
 
 ___
 
@@ -51,7 +51,7 @@ Provider version
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:170](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L170)
+[packages/agents/src/interfaces/provider.ts:170](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L170)
 
 ## Methods
 
@@ -76,7 +76,7 @@ Promise resolving to a UniversalMessage response
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:178](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L178)
+[packages/agents/src/interfaces/provider.ts:178](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L178)
 
 ___
 
@@ -101,7 +101,7 @@ AsyncIterable of UniversalMessage chunks
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:186](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L186)
+[packages/agents/src/interfaces/provider.ts:186](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L186)
 
 ___
 
@@ -125,7 +125,7 @@ Promise resolving to raw provider response
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:193](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L193)
+[packages/agents/src/interfaces/provider.ts:193](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L193)
 
 ___
 
@@ -149,7 +149,7 @@ AsyncIterable of raw provider response chunks
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:200](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L200)
+[packages/agents/src/interfaces/provider.ts:200](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L200)
 
 ___
 
@@ -167,7 +167,7 @@ true if tool calling is supported
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:206](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L206)
+[packages/agents/src/interfaces/provider.ts:206](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L206)
 
 ___
 
@@ -185,7 +185,7 @@ true if configuration is valid
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:212](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L212)
+[packages/agents/src/interfaces/provider.ts:212](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L212)
 
 ___
 
@@ -201,7 +201,7 @@ Clean up resources when provider is no longer needed
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:217](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L217)
+[packages/agents/src/interfaces/provider.ts:217](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L217)
 
 ___
 
@@ -217,4 +217,4 @@ Close provider connections and cleanup resources
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:222](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L222)
+[packages/agents/src/interfaces/provider.ts:222](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L222)

@@ -178,7 +178,7 @@ const robota = new Robota({
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:170](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L170)
+[packages/agents/src/agents/robota.ts:170](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L170)
 
 ## Properties
 
@@ -190,7 +190,7 @@ The name of this agent instance
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:116](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L116)
+[packages/agents/src/agents/robota.ts:116](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L116)
 
 ___
 
@@ -202,7 +202,7 @@ The version of the Robota agent implementation
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:118](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L118)
+[packages/agents/src/agents/robota.ts:118](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L118)
 
 ## Methods
 
@@ -232,7 +232,7 @@ Configure the agent with type-safe configuration
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:28](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-agent.ts#L28)
+[packages/agents/src/abstracts/base-agent.ts:28](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-agent.ts#L28)
 
 ___
 
@@ -252,7 +252,7 @@ Cleanup resources
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:86](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-agent.ts#L86)
+[packages/agents/src/abstracts/base-agent.ts:86](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-agent.ts#L86)
 
 ___
 
@@ -330,7 +330,7 @@ try {
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:436](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L436)
+[packages/agents/src/agents/robota.ts:436](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L436)
 
 ___
 
@@ -411,7 +411,7 @@ try {
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:535](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L535)
+[packages/agents/src/agents/robota.ts:535](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L535)
 
 ___
 
@@ -453,7 +453,7 @@ console.log(history[0].content); // 'What is 2 + 2?'
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:601](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L601)
+[packages/agents/src/agents/robota.ts:601](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L601)
 
 ___
 
@@ -490,7 +490,7 @@ console.log(robota.getHistory().length); // 0
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:630](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L630)
+[packages/agents/src/agents/robota.ts:630](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L630)
 
 ___
 
@@ -527,7 +527,7 @@ robota.addPlugin(new PerformancePlugin({ trackMemory: true }));
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:655](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L655)
+[packages/agents/src/agents/robota.ts:655](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L655)
 
 ___
 
@@ -562,7 +562,7 @@ if (removed) {
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:676](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L676)
+[packages/agents/src/agents/robota.ts:676](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L676)
 
 ___
 
@@ -604,7 +604,7 @@ if (usagePlugin) {
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:702](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L702)
+[packages/agents/src/agents/robota.ts:702](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L702)
 
 ___
 
@@ -632,7 +632,7 @@ plugins.forEach(plugin => {
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:720](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L720)
+[packages/agents/src/agents/robota.ts:720](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L720)
 
 ___
 
@@ -648,7 +648,7 @@ Get all registered plugin names
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:727](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L727)
+[packages/agents/src/agents/robota.ts:727](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L727)
 
 ___
 
@@ -673,7 +673,7 @@ Register a new module with the agent
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:743](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L743)
+[packages/agents/src/agents/robota.ts:743](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L743)
 
 ___
 
@@ -697,7 +697,7 @@ True if module was unregistered, false if not found
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:762](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L762)
+[packages/agents/src/agents/robota.ts:762](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L762)
 
 ___
 
@@ -727,7 +727,7 @@ The module instance or null if not found
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:781](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L781)
+[packages/agents/src/agents/robota.ts:781](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L781)
 
 ___
 
@@ -757,7 +757,7 @@ Array of modules matching the type
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:793](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L793)
+[packages/agents/src/agents/robota.ts:793](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L793)
 
 ___
 
@@ -775,7 +775,7 @@ Array of all registered modules
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:804](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L804)
+[packages/agents/src/agents/robota.ts:804](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L804)
 
 ___
 
@@ -793,7 +793,7 @@ Array of module names
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:815](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L815)
+[packages/agents/src/agents/robota.ts:815](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L815)
 
 ___
 
@@ -817,7 +817,7 @@ True if module is registered
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:827](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L827)
+[packages/agents/src/agents/robota.ts:827](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L827)
 
 ___
 
@@ -846,7 +846,7 @@ Module execution result
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:840](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L840)
+[packages/agents/src/agents/robota.ts:840](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L840)
 
 ___
 
@@ -870,7 +870,7 @@ Module statistics or null if not found
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:859](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L859)
+[packages/agents/src/agents/robota.ts:859](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L859)
 
 ___
 
@@ -923,7 +923,7 @@ robota.setModel({
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:914](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L914)
+[packages/agents/src/agents/robota.ts:914](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L914)
 
 ___
 
@@ -961,7 +961,7 @@ console.log(`Max tokens: ${current.maxTokens}`);
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:986](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L986)
+[packages/agents/src/agents/robota.ts:986](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L986)
 
 ___
 
@@ -1018,7 +1018,7 @@ robota.registerTool(new WeatherTool());
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:1066](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L1066)
+[packages/agents/src/agents/robota.ts:1066](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L1066)
 
 ___
 
@@ -1051,7 +1051,7 @@ console.log('Remaining tools:', stats.tools);
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:1106](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L1106)
+[packages/agents/src/agents/robota.ts:1106](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L1106)
 
 ___
 
@@ -1080,7 +1080,7 @@ console.log('Available providers:', Object.keys(config.aiProviders || {}));
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:1126](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L1126)
+[packages/agents/src/agents/robota.ts:1126](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L1126)
 
 ___
 
@@ -1125,7 +1125,7 @@ console.log(`Messages: ${stats.historyLength}`);
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:1147](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L1147)
+[packages/agents/src/agents/robota.ts:1147](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L1147)
 
 ___
 
@@ -1152,4 +1152,4 @@ console.log('Agent destroyed');
 
 #### Defined in
 
-[packages/agents/src/agents/robota.ts:1261](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/agents/robota.ts#L1261)
+[packages/agents/src/agents/robota.ts:1261](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/agents/robota.ts#L1261)

@@ -49,7 +49,7 @@ Whether the plugin is enabled
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:125](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L125)
+[packages/agents/src/abstracts/base-plugin.ts:125](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L125)
 
 ___
 
@@ -65,7 +65,7 @@ Plugin category for classification
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L127)
+[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L127)
 
 ___
 
@@ -81,7 +81,7 @@ Plugin priority for execution order
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:129](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L129)
+[packages/agents/src/abstracts/base-plugin.ts:129](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L129)
 
 ___
 
@@ -97,7 +97,7 @@ Events to subscribe to from modules
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:131](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L131)
+[packages/agents/src/abstracts/base-plugin.ts:131](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L131)
 
 ___
 
@@ -113,7 +113,7 @@ Whether to subscribe to all module events
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L133)
+[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L133)
 
 ___
 
@@ -125,7 +125,7 @@ Rate limiting strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/limits/types.ts:13](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L13)
+[packages/agents/src/plugins/limits/types.ts:13](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/limits/types.ts#L13)
 
 ___
 
@@ -137,7 +137,7 @@ Maximum tokens per time window
 
 #### Defined in
 
-[packages/agents/src/plugins/limits/types.ts:15](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L15)
+[packages/agents/src/plugins/limits/types.ts:15](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/limits/types.ts#L15)
 
 ___
 
@@ -149,7 +149,7 @@ Maximum requests per time window
 
 #### Defined in
 
-[packages/agents/src/plugins/limits/types.ts:17](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L17)
+[packages/agents/src/plugins/limits/types.ts:17](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/limits/types.ts#L17)
 
 ___
 
@@ -161,7 +161,7 @@ Time window in milliseconds
 
 #### Defined in
 
-[packages/agents/src/plugins/limits/types.ts:19](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L19)
+[packages/agents/src/plugins/limits/types.ts:19](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/limits/types.ts#L19)
 
 ___
 
@@ -173,7 +173,7 @@ Maximum cost per time window (in USD)
 
 #### Defined in
 
-[packages/agents/src/plugins/limits/types.ts:21](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L21)
+[packages/agents/src/plugins/limits/types.ts:21](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/limits/types.ts#L21)
 
 ___
 
@@ -185,7 +185,7 @@ Token cost per 1000 tokens (in USD)
 
 #### Defined in
 
-[packages/agents/src/plugins/limits/types.ts:23](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L23)
+[packages/agents/src/plugins/limits/types.ts:23](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/limits/types.ts#L23)
 
 ___
 
@@ -197,7 +197,7 @@ Bucket refill rate for token bucket strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/limits/types.ts:25](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L25)
+[packages/agents/src/plugins/limits/types.ts:25](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/limits/types.ts#L25)
 
 ___
 
@@ -209,7 +209,7 @@ Initial bucket size for token bucket strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/limits/types.ts:27](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L27)
+[packages/agents/src/plugins/limits/types.ts:27](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/limits/types.ts#L27)
 
 ___
 
@@ -236,4 +236,4 @@ Custom cost calculator
 
 #### Defined in
 
-[packages/agents/src/plugins/limits/types.ts:29](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L29)
+[packages/agents/src/plugins/limits/types.ts:29](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/limits/types.ts#L29)

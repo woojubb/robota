@@ -133,7 +133,7 @@ and prevents type conflicts across the codebase.
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:110](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-ai-provider.ts#L110)
+[packages/agents/src/abstracts/base-ai-provider.ts:110](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L110)
 
 ___
 
@@ -147,7 +147,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:111](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-ai-provider.ts#L111)
+[packages/agents/src/abstracts/base-ai-provider.ts:111](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L111)
 
 ## Methods
 
@@ -173,7 +173,7 @@ Configure the provider with type-safe configuration
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:117](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-ai-provider.ts#L117)
+[packages/agents/src/abstracts/base-ai-provider.ts:117](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L117)
 
 ___
 
@@ -202,7 +202,7 @@ Promise resolving to a response
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:128](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-ai-provider.ts#L128)
+[packages/agents/src/abstracts/base-ai-provider.ts:128](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L128)
 
 ___
 
@@ -231,7 +231,7 @@ AsyncIterable of response chunks
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:136](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-ai-provider.ts#L136)
+[packages/agents/src/abstracts/base-ai-provider.ts:136](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L136)
 
 ___
 
@@ -253,7 +253,7 @@ true if tool calling is supported
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:142](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-ai-provider.ts#L142)
+[packages/agents/src/abstracts/base-ai-provider.ts:142](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L142)
 
 ___
 
@@ -275,7 +275,7 @@ true if configuration is valid
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:150](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-ai-provider.ts#L150)
+[packages/agents/src/abstracts/base-ai-provider.ts:150](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L150)
 
 ___
 
@@ -295,4 +295,4 @@ Default implementation - providers can override for cleanup
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:157](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-ai-provider.ts#L157)
+[packages/agents/src/abstracts/base-ai-provider.ts:157](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-ai-provider.ts#L157)

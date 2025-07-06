@@ -54,7 +54,7 @@ Convert messages to provider-specific format
 
 #### Defined in
 
-[packages/agents/src/utils/message-converter.ts:46](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/message-converter.ts#L46)
+[packages/agents/src/utils/message-converter.ts:46](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/message-converter.ts#L46)
 
 ___
 
@@ -76,7 +76,7 @@ Extract system message from messages
 
 #### Defined in
 
-[packages/agents/src/utils/message-converter.ts:121](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/message-converter.ts#L121)
+[packages/agents/src/utils/message-converter.ts:121](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/message-converter.ts#L121)
 
 ___
 
@@ -98,4 +98,4 @@ Filter non-system messages
 
 #### Defined in
 
-[packages/agents/src/utils/message-converter.ts:129](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/message-converter.ts#L129)
+[packages/agents/src/utils/message-converter.ts:129](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/message-converter.ts#L129)

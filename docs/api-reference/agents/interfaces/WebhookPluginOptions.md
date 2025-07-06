@@ -48,7 +48,7 @@ Whether the plugin is enabled
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:125](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L125)
+[packages/agents/src/abstracts/base-plugin.ts:125](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L125)
 
 ___
 
@@ -64,7 +64,7 @@ Plugin category for classification
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L127)
+[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L127)
 
 ___
 
@@ -80,7 +80,7 @@ Plugin priority for execution order
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:129](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L129)
+[packages/agents/src/abstracts/base-plugin.ts:129](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L129)
 
 ___
 
@@ -96,7 +96,7 @@ Events to subscribe to from modules
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:131](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L131)
+[packages/agents/src/abstracts/base-plugin.ts:131](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L131)
 
 ___
 
@@ -112,7 +112,7 @@ Whether to subscribe to all module events
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L133)
+[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L133)
 
 ___
 
@@ -124,7 +124,7 @@ Webhook endpoints
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook/types.ts:163](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/webhook/types.ts#L163)
+[packages/agents/src/plugins/webhook/types.ts:163](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/webhook/types.ts#L163)
 
 ___
 
@@ -136,7 +136,7 @@ Events to send webhooks for
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook/types.ts:165](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/webhook/types.ts#L165)
+[packages/agents/src/plugins/webhook/types.ts:165](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/webhook/types.ts#L165)
 
 ___
 
@@ -148,7 +148,7 @@ Default timeout for webhook requests
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook/types.ts:167](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/webhook/types.ts#L167)
+[packages/agents/src/plugins/webhook/types.ts:167](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/webhook/types.ts#L167)
 
 ___
 
@@ -160,7 +160,7 @@ Default retry attempts
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook/types.ts:169](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/webhook/types.ts#L169)
+[packages/agents/src/plugins/webhook/types.ts:169](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/webhook/types.ts#L169)
 
 ___
 
@@ -172,7 +172,7 @@ Whether to use async sending
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook/types.ts:171](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/webhook/types.ts#L171)
+[packages/agents/src/plugins/webhook/types.ts:171](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/webhook/types.ts#L171)
 
 ___
 
@@ -184,7 +184,7 @@ Maximum concurrent webhook requests
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook/types.ts:173](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/webhook/types.ts#L173)
+[packages/agents/src/plugins/webhook/types.ts:173](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/webhook/types.ts#L173)
 
 ___
 
@@ -204,7 +204,7 @@ Whether to batch webhook requests
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook/types.ts:175](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/webhook/types.ts#L175)
+[packages/agents/src/plugins/webhook/types.ts:175](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/webhook/types.ts#L175)
 
 ___
 
@@ -231,4 +231,4 @@ Custom payload transformer
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook/types.ts:181](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/webhook/types.ts#L181)
+[packages/agents/src/plugins/webhook/types.ts:181](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/webhook/types.ts#L181)

@@ -60,7 +60,7 @@ ProviderManager.addProvider
 
 #### Defined in
 
-[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:19](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L19)
+[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:19](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L19)
 
 ___
 
@@ -84,7 +84,7 @@ ProviderManager.getProvider
 
 #### Defined in
 
-[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:23](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L23)
+[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:23](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L23)
 
 ___
 
@@ -108,7 +108,7 @@ ProviderManager.removeProvider
 
 #### Defined in
 
-[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:27](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L27)
+[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:27](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L27)
 
 ___
 
@@ -126,7 +126,7 @@ ProviderManager.listProviders
 
 #### Defined in
 
-[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:31](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L31)
+[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:31](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L31)
 
 ___
 
@@ -150,7 +150,7 @@ ProviderManager.setDefaultProvider
 
 #### Defined in
 
-[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:35](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L35)
+[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:35](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L35)
 
 ___
 
@@ -168,4 +168,4 @@ ProviderManager.getDefaultProvider
 
 #### Defined in
 
-[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:41](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L41)
+[sessions/src/provider-adapter/multi-provider-adapter-manager.ts:41](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/provider-adapter/multi-provider-adapter-manager.ts#L41)

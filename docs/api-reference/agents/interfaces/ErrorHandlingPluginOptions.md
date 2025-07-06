@@ -47,7 +47,7 @@ Whether the plugin is enabled
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:125](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L125)
+[packages/agents/src/abstracts/base-plugin.ts:125](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L125)
 
 ___
 
@@ -63,7 +63,7 @@ Plugin category for classification
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L127)
+[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L127)
 
 ___
 
@@ -79,7 +79,7 @@ Plugin priority for execution order
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:129](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L129)
+[packages/agents/src/abstracts/base-plugin.ts:129](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L129)
 
 ___
 
@@ -95,7 +95,7 @@ Events to subscribe to from modules
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:131](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L131)
+[packages/agents/src/abstracts/base-plugin.ts:131](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L131)
 
 ___
 
@@ -111,7 +111,7 @@ Whether to subscribe to all module events
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L133)
+[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L133)
 
 ___
 
@@ -123,7 +123,7 @@ Error handling strategy to use
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/types.ts:42](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/error-handling/types.ts#L42)
+[packages/agents/src/plugins/error-handling/types.ts:42](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/error-handling/types.ts#L42)
 
 ___
 
@@ -135,7 +135,7 @@ Maximum number of retry attempts
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/types.ts:44](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/error-handling/types.ts#L44)
+[packages/agents/src/plugins/error-handling/types.ts:44](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/error-handling/types.ts#L44)
 
 ___
 
@@ -147,7 +147,7 @@ Initial delay between retries in milliseconds
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/types.ts:46](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/error-handling/types.ts#L46)
+[packages/agents/src/plugins/error-handling/types.ts:46](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/error-handling/types.ts#L46)
 
 ___
 
@@ -159,7 +159,7 @@ Whether to log errors
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/types.ts:48](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/error-handling/types.ts#L48)
+[packages/agents/src/plugins/error-handling/types.ts:48](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/error-handling/types.ts#L48)
 
 ___
 
@@ -171,7 +171,7 @@ Circuit breaker failure threshold
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/types.ts:50](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/error-handling/types.ts#L50)
+[packages/agents/src/plugins/error-handling/types.ts:50](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/error-handling/types.ts#L50)
 
 ___
 
@@ -183,7 +183,7 @@ Circuit breaker timeout in milliseconds
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/types.ts:52](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/error-handling/types.ts#L52)
+[packages/agents/src/plugins/error-handling/types.ts:52](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/error-handling/types.ts#L52)
 
 ___
 
@@ -210,4 +210,4 @@ Custom error handler function
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/types.ts:54](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/error-handling/types.ts#L54)
+[packages/agents/src/plugins/error-handling/types.ts:54](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/error-handling/types.ts#L54)

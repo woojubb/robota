@@ -30,7 +30,7 @@
 
 #### Defined in
 
-[sessions/src/interfaces/ai-context.ts:4](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/interfaces/ai-context.ts#L4)
+[sessions/src/interfaces/ai-context.ts:4](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/interfaces/ai-context.ts#L4)
 
 ___
 
@@ -50,7 +50,7 @@ ___
 
 #### Defined in
 
-[sessions/src/interfaces/ai-context.ts:5](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/interfaces/ai-context.ts#L5)
+[sessions/src/interfaces/ai-context.ts:5](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/interfaces/ai-context.ts#L5)
 
 ___
 
@@ -64,7 +64,7 @@ ___
 
 #### Defined in
 
-[sessions/src/interfaces/ai-context.ts:6](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/interfaces/ai-context.ts#L6)
+[sessions/src/interfaces/ai-context.ts:6](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/interfaces/ai-context.ts#L6)
 
 ___
 
@@ -84,7 +84,7 @@ ___
 
 #### Defined in
 
-[sessions/src/interfaces/ai-context.ts:7](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/interfaces/ai-context.ts#L7)
+[sessions/src/interfaces/ai-context.ts:7](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/interfaces/ai-context.ts#L7)
 
 ___
 
@@ -98,4 +98,4 @@ ___
 
 #### Defined in
 
-[sessions/src/interfaces/ai-context.ts:8](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/interfaces/ai-context.ts#L8)
+[sessions/src/interfaces/ai-context.ts:8](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/interfaces/ai-context.ts#L8)

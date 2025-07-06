@@ -41,7 +41,7 @@ Utility class for logging OpenAI API payloads to files
 
 #### Defined in
 
-[openai/src/payload-logger.ts:13](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/payload-logger.ts#L13)
+[openai/src/payload-logger.ts:13](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/payload-logger.ts#L13)
 
 ## Methods
 
@@ -64,7 +64,7 @@ Log API payload to file
 
 #### Defined in
 
-[openai/src/payload-logger.ts:32](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/payload-logger.ts#L32)
+[openai/src/payload-logger.ts:32](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/payload-logger.ts#L32)
 
 ___
 
@@ -80,4 +80,4 @@ Check if logging is enabled
 
 #### Defined in
 
-[openai/src/payload-logger.ts:98](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/payload-logger.ts#L98)
+[openai/src/payload-logger.ts:98](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/payload-logger.ts#L98)

@@ -34,7 +34,7 @@ System metrics collector interface
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:131](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L131)
+[packages/agents/src/plugins/performance/types.ts:131](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/performance/types.ts#L131)
 
 ___
 
@@ -48,7 +48,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:132](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L132)
+[packages/agents/src/plugins/performance/types.ts:132](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/performance/types.ts#L132)
 
 ___
 
@@ -62,4 +62,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:133](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L133)
+[packages/agents/src/plugins/performance/types.ts:133](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/performance/types.ts#L133)

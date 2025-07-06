@@ -24,7 +24,7 @@
 
 #### Defined in
 
-[openai/src/adapter.ts:9](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/adapter.ts#L9)
+[openai/src/adapter.ts:9](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/adapter.ts#L9)
 
 ___
 
@@ -34,7 +34,7 @@ ___
 
 #### Defined in
 
-[openai/src/adapter.ts:10](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/adapter.ts#L10)
+[openai/src/adapter.ts:10](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/adapter.ts#L10)
 
 ___
 
@@ -44,4 +44,4 @@ ___
 
 #### Defined in
 
-[openai/src/adapter.ts:11](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/adapter.ts#L11)
+[openai/src/adapter.ts:11](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/adapter.ts#L11)

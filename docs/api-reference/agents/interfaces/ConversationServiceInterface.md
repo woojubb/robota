@@ -45,7 +45,7 @@ Pure function that transforms inputs to context object
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:169](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/service.ts#L169)
+[packages/agents/src/interfaces/service.ts:169](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/service.ts#L169)
 
 ___
 
@@ -70,7 +70,7 @@ Stateless operation that handles the full request-response cycle
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:181](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/service.ts#L181)
+[packages/agents/src/interfaces/service.ts:181](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/service.ts#L181)
 
 ___
 
@@ -95,7 +95,7 @@ Stateless streaming operation
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:191](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/service.ts#L191)
+[packages/agents/src/interfaces/service.ts:191](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/service.ts#L191)
 
 ___
 
@@ -123,4 +123,4 @@ Pure validation function
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:201](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/service.ts#L201)
+[packages/agents/src/interfaces/service.ts:201](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/service.ts#L201)

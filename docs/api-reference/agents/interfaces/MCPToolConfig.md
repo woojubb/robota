@@ -30,7 +30,7 @@ MCP server endpoint
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:159](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L159)
+[packages/agents/src/interfaces/tool.ts:159](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L159)
 
 ___
 
@@ -42,7 +42,7 @@ Protocol version
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:161](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L161)
+[packages/agents/src/interfaces/tool.ts:161](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L161)
 
 ___
 
@@ -61,7 +61,7 @@ Authentication configuration
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:163](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L163)
+[packages/agents/src/interfaces/tool.ts:163](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L163)
 
 ___
 
@@ -73,7 +73,7 @@ Tool-specific configuration
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:168](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L168)
+[packages/agents/src/interfaces/tool.ts:168](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L168)
 
 ___
 
@@ -85,4 +85,4 @@ Timeout in milliseconds
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:170](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L170)
+[packages/agents/src/interfaces/tool.ts:170](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L170)
