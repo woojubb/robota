@@ -1,6 +1,6 @@
 {
     "name": "@robota-sdk/agents",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "description": "Complete AI agent implementation with unified core and tools functionality - conversation management, plugin system, and advanced agent features",
     "type": "module",
     "main": "dist/index.js",
@@ -68,8 +68,6 @@
     "author": "Robota SDK Team",
     "license": "MIT",
     "dependencies": {
-        "@dqbd/tiktoken": "^1.0.21",
-        "openai": "^4.98.0",
         "zod": "^3.24.4"
     },
     "peerDependencies": {},

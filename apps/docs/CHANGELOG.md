@@ -1,5 +1,11 @@
 # robota-docs
 
+## 1.0.18
+
+### Patch Changes
+
+- Remove unused dependencies from agents and sessions packages
+
 ## 1.0.17
 
 ### Patch Changes

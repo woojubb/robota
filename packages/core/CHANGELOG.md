@@ -1,5 +1,11 @@
 # @robota-sdk/core
 
+## 2.0.1
+
+### Patch Changes
+
+- Remove unused dependencies from agents and sessions packages
+
 ## 2.0.0
 
 ### Major Changes

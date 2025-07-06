@@ -1,5 +1,17 @@
 # robota-examples
 
+## 1.0.1
+
+### Patch Changes
+
+- Remove unused dependencies from agents and sessions packages
+- Updated dependencies
+  - @robota-sdk/agents@2.0.1
+  - @robota-sdk/anthropic@2.0.1
+  - @robota-sdk/google@2.0.1
+  - @robota-sdk/openai@2.0.1
+  - @robota-sdk/team@2.0.1
+
 ## 1.0.0
 
 ### Major Changes
