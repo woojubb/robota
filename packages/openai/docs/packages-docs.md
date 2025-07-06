@@ -166,12 +166,12 @@ const robota = new Robota({
   currentModel: 'gpt-4'
 });
 
-// Dynamic provider switching
-robota.setCurrentAI('openai', 'gpt-4');
-const openaiResponse = await robota.run('Respond using OpenAI GPT-4');
+// Switch between models
+robota.setModel({ provider: 'openai', model: 'gpt-4' });
+const gpt4Response = await robota.run('Solve this complex problem...');
 
-robota.setCurrentAI('openai', 'gpt-3.5-turbo');
-const gpt35Response = await robota.run('Respond using GPT-3.5 Turbo');
+robota.setModel({ provider: 'openai', model: 'gpt-3.5-turbo' });
+const gpt35Response = await robota.run('Quick question...');
 ```
 
 ## Provider Options
