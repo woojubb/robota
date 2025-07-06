@@ -1,5 +1,4 @@
-import { AgentTemplate } from '../interfaces/agent';
-import { ConfigData } from '../interfaces/types';
+import { AgentTemplate, AgentConfig } from '../interfaces/agent';
 import { Logger, createLogger } from '../utils/logger';
 
 /**
@@ -13,9 +12,9 @@ import { Logger, createLogger } from '../utils/logger';
 export type AgentTemplateConfigurationData = Record<string, string | number | boolean | string[] | number[] | boolean[]>;
 
 /**
- * Agent template configuration - uses centralized ConfigData type
+ * Agent template configuration - uses AgentConfig type
  */
-export type AgentTemplateConfig = ConfigData;
+export type AgentTemplateConfig = AgentConfig;
 
 /**
  * Template application result
@@ -134,23 +133,36 @@ export class AgentTemplates {
     /**
      * Apply template to configuration
      */
-    applyTemplate(template: AgentTemplate, overrides: AgentTemplateConfig = {}): TemplateApplicationResult {
+    applyTemplate(template: AgentTemplate, overrides: Partial<AgentTemplateConfig> = {}): TemplateApplicationResult {
         const warnings: string[] = [];
         let modified = false;
 
         // Start with template configuration
         const config: AgentTemplateConfig = { ...template.config };
 
-        // Apply overrides
-        for (const [key, value] of Object.entries(overrides)) {
-            if (config[key] !== value) {
+        // Apply overrides with type-safe approach
+        const mergedConfig = { ...config, ...overrides } as AgentTemplateConfig;
+
+        // Check for modifications by comparing specific known fields
+        const checkField = (fieldName: keyof AgentConfig): void => {
+            if (fieldName in overrides && config[fieldName] !== overrides[fieldName]) {
                 modified = true;
-                if (config[key] !== undefined) {
-                    warnings.push(`Override: ${key} changed from "${config[key]}" to "${value}"`);
+                if (config[fieldName] !== undefined) {
+                    warnings.push(`Override: ${fieldName} changed from "${String(config[fieldName])}" to "${String(overrides[fieldName])}"`);
                 }
-                config[key] = value;
             }
-        }
+        };
+
+        // Check common override fields
+        if (overrides.name !== undefined) checkField('name');
+        if (overrides.model !== undefined) checkField('model');
+        if (overrides.provider !== undefined) checkField('provider');
+        if (overrides.temperature !== undefined) checkField('temperature');
+        if (overrides.maxTokens !== undefined) checkField('maxTokens');
+        if (overrides.systemMessage !== undefined) checkField('systemMessage');
+
+        // Use the merged config
+        const finalConfig = mergedConfig;
 
         this.logger.debug('Template applied', {
             templateId: template.id,
@@ -160,7 +172,7 @@ export class AgentTemplates {
         });
 
         return {
-            config,
+            config: finalConfig,
             template,
             warnings,
             modified

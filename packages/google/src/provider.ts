@@ -289,8 +289,14 @@ export class GoogleProvider implements AIProvider {
                 Object.entries(parameters.properties || {}).map(([key, value]) => [
                     key,
                     {
-                        type: this.convertToSchemaType((value as any).type || 'string'),
-                        description: (value as any).description
+                        type: this.convertToSchemaType(
+                            (value && typeof value === 'object' && 'type' in value && typeof value.type === 'string')
+                                ? value.type
+                                : 'string'
+                        ),
+                        description: (value && typeof value === 'object' && 'description' in value && typeof value.description === 'string')
+                            ? value.description
+                            : undefined
                     }
                 ])
             ),

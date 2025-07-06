@@ -179,7 +179,7 @@ export class WebhookTransformer {
      * TODO: Consider typed property access if patterns emerge
      */
     private static safeGetProperty(obj: LoggerData, key: string): UniversalValue | Date | Error {
-        if (!obj || typeof obj !== 'object') {
+        if (!obj || typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
             return undefined;
         }
         return obj[key];

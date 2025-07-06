@@ -402,9 +402,9 @@ export class TeamContainer {
                 success: true,
                 tokensUsed: this.estimateTokenUsage(taskPrompt, result),
                 executionStats: {
-                    agentExecutions: (executionStats as any)?.['totalExecutions'] || 0,
-                    agentAverageDuration: Number((executionStats as any)?.['averageDuration']) || 0,
-                    agentSuccessRate: Number((executionStats as any)?.['successRate']) || 0
+                    agentExecutions: executionStats && 'totalExecutions' in executionStats ? Number(executionStats.totalExecutions) : 0,
+                    agentAverageDuration: executionStats && 'averageDuration' in executionStats ? Number(executionStats.averageDuration) : 0,
+                    agentSuccessRate: executionStats && 'successRate' in executionStats ? Number(executionStats.successRate) : 0
                 }
             };
             this.delegationHistory.push(delegationRecord);
@@ -415,9 +415,9 @@ export class TeamContainer {
                 metadata: {
                     executionTime: taskDuration,
                     tokensUsed: this.estimateTokenUsage(taskPrompt, result),
-                    agentExecutions: (executionStats as any)?.['totalExecutions'] || 0,
-                    agentAverageDuration: Number((executionStats as any)?.['averageDuration']) || 0,
-                    agentSuccessRate: Number((executionStats as any)?.['successRate']) || 0,
+                    agentExecutions: executionStats && 'totalExecutions' in executionStats ? Number(executionStats.totalExecutions) : 0,
+                    agentAverageDuration: executionStats && 'averageDuration' in executionStats ? Number(executionStats.averageDuration) : 0,
+                    agentSuccessRate: executionStats && 'successRate' in executionStats ? Number(executionStats.successRate) : 0,
                     errors: []
                 }
             };
@@ -572,7 +572,7 @@ export class TeamContainer {
      */
     getTeamExecutionAnalysis(): TeamExecutionAnalysis {
         const analytics = this.getAnalytics();
-        const totalExecutions = Number((analytics as any)?.['totalExecutions']) || 0;
+        const totalExecutions = analytics && 'totalExecutions' in analytics ? Number(analytics['totalExecutions']) : 0;
         const delegatedTasks = this.delegationHistory.length;
         const directlyHandledTasks = Math.max(0, totalExecutions - delegatedTasks);
 
@@ -603,7 +603,7 @@ export class TeamContainer {
             ? delegationTimes.reduce((a, b) => a + b, 0) / delegationTimes.length
             : 0;
 
-        const averageDirectHandlingTime = Number((analytics as any)?.['averageDuration']) || 0;
+        const averageDirectHandlingTime = analytics && 'averageDuration' in analytics ? Number(analytics['averageDuration']) : 0;
         const totalExecutionTime = delegationTimes.reduce((a, b) => a + b, 0);
 
         return {

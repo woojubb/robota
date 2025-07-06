@@ -156,7 +156,8 @@ export class ModuleRegistry {
                 data: {
                     moduleName: module.name,
                     moduleType: moduleType.type
-                } as any
+                },
+                timestamp: new Date()
             });
         }
     }
@@ -208,7 +209,8 @@ export class ModuleRegistry {
             await this.eventEmitter.emit('module.unregistered', {
                 data: {
                     moduleName
-                } as any
+                },
+                timestamp: new Date()
             });
         }
 

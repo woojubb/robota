@@ -1,4 +1,5 @@
 import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
+import type { EventExecutionContextData, EventExecutionValue } from '../plugins/event-emitter-plugin';
 import { Logger, createLogger } from '../utils/logger';
 
 /**
@@ -18,10 +19,17 @@ export interface ModuleExecutionContext {
  */
 export interface ModuleExecutionResult {
     success: boolean;
-    data?: any;
+    data?: ModuleResultData;
     error?: Error;
     duration?: number;
     metadata?: Record<string, string | number | boolean | Date>;
+}
+
+/**
+ * Module result data interface
+ */
+export interface ModuleResultData {
+    [key: string]: string | number | boolean | Record<string, string | number | boolean> | undefined;
 }
 
 /**
@@ -275,7 +283,7 @@ export abstract class BaseModule<TOptions extends BaseModuleOptions = BaseModule
             };
 
             await this.eventEmitter.emit('module.initialize.start', {
-                data: eventData as any,
+                data: this.convertToEventData(eventData),
                 timestamp: new Date()
             });
         }
@@ -297,7 +305,7 @@ export abstract class BaseModule<TOptions extends BaseModuleOptions = BaseModule
                 };
 
                 await this.eventEmitter.emit('module.initialize.complete', {
-                    data: eventData as any,
+                    data: this.convertToEventData(eventData),
                     timestamp: new Date()
                 });
             }
@@ -322,7 +330,7 @@ export abstract class BaseModule<TOptions extends BaseModuleOptions = BaseModule
                 };
 
                 await this.eventEmitter.emit('module.initialize.error', {
-                    data: eventData as any,
+                    data: this.convertToEventData(eventData),
                     error: error instanceof Error ? error : new Error(String(error)),
                     timestamp: new Date()
                 });
@@ -361,10 +369,10 @@ export abstract class BaseModule<TOptions extends BaseModuleOptions = BaseModule
 
         // Emit execution start event
         if (this.eventEmitter) {
-            const contextData: any = {};
-            if (context.sessionId) contextData.sessionId = context.sessionId;
-            if (context.userId) contextData.userId = context.userId;
-            if (context.agentName) contextData.agentName = context.agentName;
+            const contextData: Record<string, string> = {};
+            if (context['sessionId']) contextData['sessionId'] = context['sessionId'];
+            if (context['userId']) contextData['userId'] = context['userId'];
+            if (context['agentName']) contextData['agentName'] = context['agentName'];
 
             const eventData: ModuleExecutionEventData = {
                 moduleName: this.name,
@@ -377,7 +385,7 @@ export abstract class BaseModule<TOptions extends BaseModuleOptions = BaseModule
             };
 
             await this.eventEmitter.emit('module.execution.start', {
-                data: eventData as any,
+                data: this.convertToEventData(eventData),
                 timestamp: new Date()
             });
         }
@@ -406,10 +414,10 @@ export abstract class BaseModule<TOptions extends BaseModuleOptions = BaseModule
 
             // Emit execution complete event
             if (this.eventEmitter) {
-                const contextData: any = {};
-                if (context.sessionId) contextData.sessionId = context.sessionId;
-                if (context.userId) contextData.userId = context.userId;
-                if (context.agentName) contextData.agentName = context.agentName;
+                const contextData: Record<string, string> = {};
+                if (context['sessionId']) contextData['sessionId'] = context['sessionId'];
+                if (context['userId']) contextData['userId'] = context['userId'];
+                if (context['agentName']) contextData['agentName'] = context['agentName'];
 
                 const eventData: ModuleExecutionEventData = {
                     moduleName: this.name,
@@ -424,7 +432,7 @@ export abstract class BaseModule<TOptions extends BaseModuleOptions = BaseModule
                 };
 
                 await this.eventEmitter.emit('module.execution.complete', {
-                    data: eventData as any,
+                    data: this.convertToEventData(eventData),
                     timestamp: new Date()
                 });
             }
@@ -449,10 +457,10 @@ export abstract class BaseModule<TOptions extends BaseModuleOptions = BaseModule
 
             // Emit execution error event
             if (this.eventEmitter) {
-                const contextData: any = {};
-                if (context.sessionId) contextData.sessionId = context.sessionId;
-                if (context.userId) contextData.userId = context.userId;
-                if (context.agentName) contextData.agentName = context.agentName;
+                const contextData: Record<string, string> = {};
+                if (context['sessionId']) contextData['sessionId'] = context['sessionId'];
+                if (context['userId']) contextData['userId'] = context['userId'];
+                if (context['agentName']) contextData['agentName'] = context['agentName'];
 
                 const eventData: ModuleExecutionEventData = {
                     moduleName: this.name,
@@ -467,7 +475,7 @@ export abstract class BaseModule<TOptions extends BaseModuleOptions = BaseModule
                 };
 
                 await this.eventEmitter.emit('module.execution.error', {
-                    data: eventData as any,
+                    data: this.convertToEventData(eventData),
                     error: errorResult.error!,
                     timestamp: new Date()
                 });
@@ -502,7 +510,7 @@ export abstract class BaseModule<TOptions extends BaseModuleOptions = BaseModule
             };
 
             await this.eventEmitter.emit('module.dispose.start', {
-                data: eventData as any,
+                data: this.convertToEventData(eventData),
                 timestamp: new Date()
             });
         }
@@ -528,7 +536,7 @@ export abstract class BaseModule<TOptions extends BaseModuleOptions = BaseModule
                 };
 
                 await this.eventEmitter.emit('module.dispose.complete', {
-                    data: eventData as any,
+                    data: this.convertToEventData(eventData),
                     timestamp: new Date()
                 });
             }
@@ -550,7 +558,7 @@ export abstract class BaseModule<TOptions extends BaseModuleOptions = BaseModule
                 };
 
                 await this.eventEmitter.emit('module.dispose.error', {
-                    data: eventData as any,
+                    data: this.convertToEventData(eventData),
                     error: error instanceof Error ? error : new Error(String(error)),
                     timestamp: new Date()
                 });
@@ -659,6 +667,34 @@ export abstract class BaseModule<TOptions extends BaseModuleOptions = BaseModule
             initialized: this.initialized,
             hasEventEmitter: !!this.eventEmitter
         };
+    }
+
+    /**
+     * Convert module event data to EventExecutionContextData format
+     */
+    private convertToEventData(data: ModuleInitializationEventData | ModuleExecutionEventData | ModuleDisposalEventData): EventExecutionContextData {
+        const result: EventExecutionContextData = {};
+
+        // Convert all properties to EventExecutionContextData compatible format
+        for (const [key, value] of Object.entries(data)) {
+            if (value === undefined) continue;
+
+            if (key === 'timestamp' && value instanceof Date) {
+                result[key] = value.toISOString();
+            } else if (key === 'metadata' && typeof value === 'object' && value !== null) {
+                result[key] = value as Record<string, EventExecutionValue>;
+            } else if (key === 'context' && typeof value === 'object' && value !== null) {
+                result[key] = value as Record<string, EventExecutionValue>;
+            } else if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+                result[key] = value;
+            } else if (Array.isArray(value)) {
+                result[key] = value as string[] | number[] | boolean[];
+            } else if (typeof value === 'object' && value !== null) {
+                result[key] = value as Record<string, EventExecutionValue>;
+            }
+        }
+
+        return result;
     }
 
     // Optional lifecycle hooks - modules can override these

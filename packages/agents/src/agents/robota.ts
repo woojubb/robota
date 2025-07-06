@@ -15,6 +15,7 @@ import { Logger, createLogger, setGlobalLogLevel } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
 import type { BaseToolParameters } from '../abstracts/base-tool';
 import type { ToolExecutionData, ToolParameters, ToolExecutionContext } from '../interfaces/tool';
+import type { ModuleResultData, ModuleExecutionContext } from '../abstracts/base-module';
 
 /**
  * Reusable type definitions for Robota agent
@@ -836,10 +837,10 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
      * @param context - Execution context
      * @returns Module execution result
      */
-    async executeModule(moduleName: string, context: { executionId?: string; sessionId?: string; userId?: string; metadata?: Record<string, string | number | boolean | Date> }): Promise<{ success: boolean; data?: any; error?: Error; duration?: number }> {
+    async executeModule(moduleName: string, context: { executionId?: string; sessionId?: string; userId?: string; metadata?: Record<string, string | number | boolean | Date> }): Promise<{ success: boolean; data?: ModuleResultData; error?: Error; duration?: number }> {
         await this.ensureFullyInitialized();
 
-        const executionContext: any = {
+        const executionContext: ModuleExecutionContext = {
             agentName: this.name,
             ...(context.executionId && { executionId: context.executionId }),
             ...(context.sessionId && { sessionId: context.sessionId }),

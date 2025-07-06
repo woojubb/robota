@@ -30,7 +30,28 @@ export interface ToolCall {
 export interface ToolSchema {
     name: string;
     description: string;
-    parameters: Record<string, unknown>;
+    parameters: ToolParameters;
+}
+
+/**
+ * Tool parameters interface - compatible with Anthropic SDK
+ */
+export interface ToolParameters {
+    type: 'object';
+    properties?: Record<string, ToolParameterProperty>;
+    required?: string[];
+    [key: string]: string | number | boolean | Record<string, ToolParameterProperty> | string[] | undefined;
+}
+
+/**
+ * Tool parameter property interface
+ */
+export interface ToolParameterProperty {
+    type: 'string' | 'number' | 'boolean' | 'array' | 'object';
+    description?: string;
+    enum?: (string | number)[];
+    items?: ToolParameterProperty;
+    properties?: Record<string, ToolParameterProperty>;
 }
 
 /**
@@ -110,7 +131,7 @@ export class AnthropicProvider implements AIProvider {
             return this.convertFromAnthropicResponse(response);
 
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            const errorMessage = error instanceof Error ? error.message : 'Anthropic API request failed';
             throw new Error(`Anthropic chat failed: ${errorMessage}`);
         }
     }
@@ -150,7 +171,7 @@ export class AnthropicProvider implements AIProvider {
             }
 
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            const errorMessage = error instanceof Error ? error.message : 'Anthropic API request failed';
             throw new Error(`Anthropic stream failed: ${errorMessage}`);
         }
     }
@@ -221,7 +242,6 @@ export class AnthropicProvider implements AIProvider {
             name: tool.name,
             description: tool.description,
             input_schema: {
-                type: 'object',
                 ...tool.parameters
             } as Anthropic.Tool.InputSchema
         }));

@@ -88,7 +88,7 @@ export class ModuleTypeRegistry {
                 type: typeDescriptor.type,
                 previousCategory: (existingType?.category || 'unknown') as string,
                 newCategory: typeDescriptor.category as string
-            } as any);
+            });
         }
 
         this.registeredTypes.set(typeDescriptor.type, typeDescriptor);

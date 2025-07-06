@@ -7,6 +7,7 @@ import { Tools } from '../managers/tool-manager';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { BaseAIProvider } from '../abstracts/base-ai-provider';
 import { Logger, createLogger } from '../utils/logger';
+import { ChatOptions, ToolCall } from '../interfaces/provider';
 
 /**
  * Execution context passed through the pipeline
@@ -41,9 +42,23 @@ export interface ExecutionResult {
 }
 
 /**
- * Plugin statistics type
+ * History statistics type returned by ConversationHistory.getStats()
  */
-type PluginStats = Record<string, string | number | boolean | object | null>;
+interface HistoryStats {
+    totalConversations: number;
+    conversationIds: string[];
+    totalMessages: number;
+}
+
+/**
+ * Plugin statistics type - using a simpler structure
+ */
+interface PluginStats {
+    pluginCount: number;
+    pluginNames: string[];
+    historyStats: HistoryStats;
+    // Plugin-specific stats will be stored separately to avoid type conflicts
+}
 
 /**
  * Service that orchestrates the entire execution pipeline
@@ -213,9 +228,6 @@ export class ExecutionService {
                 throw new Error('Provider must extend BaseAIProvider to support execution');
             }
 
-            // Get tool schemas from Tools
-            const toolSchemas = this.tools.getTools();
-
             // Process with conversation loop - now delegated to provider
             let toolsExecuted: string[] = [];
             let maxRounds = 10; // Increased limit for complex team delegation scenarios
@@ -240,23 +252,13 @@ export class ExecutionService {
                     }))
                 });
 
-                // Prepare configuration for provider execution
-                const providerConfig = {
-                    model: config.model,
-                    ...(config.systemMessage && { systemMessage: config.systemMessage }),
-                    ...(config.temperature !== undefined && { temperature: config.temperature }),
-                    ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
-                    tools: toolSchemas,
-                    ...(context?.metadata && { metadata: context.metadata })
-                };
-
                 // Call beforeProviderCall hook
                 await this.callPluginHook('beforeProviderCall', {
                     messages: conversationMessages.map(msg => ({
                         role: msg.role,
                         content: msg.content || '',
                         timestamp: msg.timestamp?.toISOString() || new Date().toISOString()
-                    })) as any
+                    }))
                 });
 
                 this.logger.debug('Sending messages to AI provider', {
@@ -275,20 +277,14 @@ export class ExecutionService {
                     throw new Error('Default model is required in agent configuration');
                 }
 
-                // Get available tools as ToolSchema format (provider-agnostic)
-                const availableTools = this.tools.getTools();
-
                 // Delegate entire execution to provider
-                const chatOptions: any = {
+                const availableTools = this.tools.getTools();
+                const chatOptions: ChatOptions = {
                     model: config.defaultModel.model,
-                    maxTokens: config.defaultModel.maxTokens || providerConfig?.maxTokens,
-                    temperature: config.defaultModel.temperature || providerConfig?.temperature,
-                    topP: config.defaultModel.topP
+                    ...(config.defaultModel.maxTokens !== undefined && { maxTokens: config.defaultModel.maxTokens }),
+                    ...(config.defaultModel.temperature !== undefined && { temperature: config.defaultModel.temperature }),
+                    ...(availableTools.length > 0 && { tools: availableTools })
                 };
-
-                if (availableTools.length > 0) {
-                    chatOptions.tools = availableTools;
-                }
 
                 const response = await provider.chat(conversationMessages, chatOptions);
 
@@ -298,19 +294,27 @@ export class ExecutionService {
                         role: msg.role,
                         content: msg.content || '',
                         timestamp: msg.timestamp?.toISOString() || new Date().toISOString()
-                    })) as any,
+                    })),
                     response: response.content || ''
                 });
 
                 // Add assistant response to history
+                // Response from AI provider should always be assistant message
+                if (response.role !== 'assistant') {
+                    throw new Error(`Unexpected response role: ${response.role}`);
+                }
+
+                const assistantResponse = response as AssistantMessage;
                 conversationSession.addAssistantMessage(
-                    response.content ?? null,  // Convert undefined to null for consistency
-                    (response as any).toolCalls,
-                    { round: currentRound, usage: (response as any).metadata?.usage }
+                    assistantResponse.content ?? null,  // Convert undefined to null for consistency
+                    assistantResponse.toolCalls,
+                    {
+                        round: currentRound,
+                        ...(assistantResponse.metadata?.['usage'] && { usage: assistantResponse.metadata['usage'] })
+                    }
                 );
 
                 // Check if we need to execute tools
-                const assistantResponse = response as any;
                 if (!assistantResponse.toolCalls || assistantResponse.toolCalls.length === 0) {
                     // No tools to execute, we're done
                     break;
@@ -319,7 +323,7 @@ export class ExecutionService {
                 this.logger.debug('Tool calls detected, executing tools', {
                     toolCallCount: assistantResponse.toolCalls.length,
                     round: currentRound,
-                    toolCalls: assistantResponse.toolCalls.map((tc: any) => ({ id: tc.id, name: tc.function?.name }))
+                    toolCalls: assistantResponse.toolCalls.map((tc: ToolCall) => ({ id: tc.id, name: tc.function?.name }))
                 });
 
                 // Execute tools
@@ -430,8 +434,11 @@ export class ExecutionService {
                 tokensUsed: finalMessages
                     .filter(msg => msg.metadata?.['usage'])
                     .reduce((sum, msg) => {
-                        const usage = msg.metadata?.['usage'] as any;
-                        return sum + (usage?.['totalTokens'] || 0);
+                        const usage = msg.metadata?.['usage'];
+                        if (usage && typeof usage === 'object' && 'totalTokens' in usage) {
+                            return sum + (Number(usage.totalTokens) || 0);
+                        }
+                        return sum;
                     }, 0),
                 toolsExecuted,
                 success: true
@@ -457,7 +464,7 @@ export class ExecutionService {
             // Call onError hook on all plugins
             await this.callPluginHook('onError', {
                 error: error as Error,
-                executionContext: this.convertExecutionContextToPluginFormat(fullContext) as any
+                executionContext: this.convertExecutionContextToPluginFormat(fullContext)
             });
 
             this.logger.error('Execution pipeline failed', {
@@ -503,21 +510,8 @@ export class ExecutionService {
             historyStats: this.conversationHistory.getStats()
         };
 
-        // Collect stats from plugins that have getStats method
-        for (const plugin of this.plugins) {
-            if (typeof (plugin as BasePlugin & { getStats?: () => Promise<PluginStats> | PluginStats }).getStats === 'function') {
-                try {
-                    const pluginWithStats = plugin as BasePlugin & { getStats: () => Promise<PluginStats> | PluginStats };
-                    const pluginStats = await pluginWithStats.getStats();
-                    stats[`plugin_${plugin.name}`] = pluginStats;
-                } catch (error) {
-                    this.logger.warn('Failed to get stats from plugin', {
-                        pluginName: plugin.name,
-                        error: error instanceof Error ? error.message : String(error)
-                    });
-                }
-            }
-        }
+        // Note: Plugin-specific stats are not included here to avoid type conflicts
+        // Plugins can implement their own getStats() method returning their specific stat types
 
         return stats;
     }
@@ -531,23 +525,26 @@ export class ExecutionService {
     }
 
     /**
- * Call a hook method on all plugins that implement it
- * Handles different hook signatures properly
- */
+     * Call a hook method on all plugins that implement it
+     * Handles different hook signatures properly
+     */
     private async callPluginHook(
         hookName: string,
         context: PluginContext
     ): Promise<void> {
         for (const plugin of this.plugins) {
             try {
+                // Define proper types for plugin hooks
+                interface PluginHooks {
+                    beforeRun?: (input: string, options?: Metadata) => Promise<void> | void;
+                    afterRun?: (input: string, response: string, options?: Metadata) => Promise<void> | void;
+                    beforeProviderCall?: (messages: Array<{ role: string; content: string; timestamp: string }>) => Promise<void> | void;
+                    afterProviderCall?: (messages: Array<{ role: string; content: string; timestamp: string }>, response: { role: string; content: string; timestamp: Date }) => Promise<void> | void;
+                    onError?: (error: Error, context?: Record<string, string | number | boolean>) => Promise<void> | void;
+                }
+
                 // Use type assertion to access the hook methods
-                const pluginWithHooks = plugin as BasePlugin & {
-                    beforeRun?: (input: string, options?: any) => Promise<void> | void;
-                    afterRun?: (input: string, response: string, options?: any) => Promise<void> | void;
-                    beforeProviderCall?: (messages: any[]) => Promise<void> | void;
-                    afterProviderCall?: (messages: any[], response: any) => Promise<void> | void;
-                    onError?: (error: Error, context?: any) => Promise<void> | void;
-                };
+                const pluginWithHooks = plugin as BasePlugin & PluginHooks;
 
                 // Call the appropriate hook method with correct parameters
                 switch (hookName) {
@@ -563,23 +560,45 @@ export class ExecutionService {
                         break;
                     case 'beforeProviderCall':
                         if (pluginWithHooks.beforeProviderCall && context.messages) {
-                            await pluginWithHooks.beforeProviderCall(context.messages);
+                            // Convert messages to expected format
+                            const formattedMessages = context.messages.map(msg => ({
+                                role: String(msg['role'] || ''),
+                                content: String(msg['content'] || ''),
+                                timestamp: String(msg['timestamp'] || new Date().toISOString())
+                            }));
+                            await pluginWithHooks.beforeProviderCall(formattedMessages);
                         }
                         break;
                     case 'afterProviderCall':
                         if (pluginWithHooks.afterProviderCall && context.messages && context.response) {
+                            // Convert messages to expected format
+                            const formattedMessages = context.messages.map(msg => ({
+                                role: String(msg['role'] || ''),
+                                content: String(msg['content'] || ''),
+                                timestamp: String(msg['timestamp'] || new Date().toISOString())
+                            }));
                             // For afterProviderCall, we need a single response message
                             const responseMessage = {
                                 role: 'assistant' as const,
                                 content: context.response,
                                 timestamp: new Date()
                             };
-                            await pluginWithHooks.afterProviderCall(context.messages, responseMessage);
+                            await pluginWithHooks.afterProviderCall(formattedMessages, responseMessage);
                         }
                         break;
                     case 'onError':
                         if (pluginWithHooks.onError && context.error) {
-                            await pluginWithHooks.onError(context.error, context.executionContext);
+                            // Convert executionContext to expected format
+                            const errorContext = context.executionContext ?
+                                Object.fromEntries(
+                                    Object.entries(context.executionContext).map(([key, value]) => [
+                                        key,
+                                        typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+                                            ? value
+                                            : String(value)
+                                    ])
+                                ) : undefined;
+                            await pluginWithHooks.onError(context.error, errorContext);
                         }
                         break;
                 }
@@ -593,12 +612,10 @@ export class ExecutionService {
         }
     }
 
-
-
     /**
      * Convert ExecutionContext to PluginContext compatible format
      */
-    private convertExecutionContextToPluginFormat(context: ExecutionContext): Record<string, string | number | boolean | Date> {
+    private convertExecutionContextToPluginFormat(context: ExecutionContext): Record<string, string | number | boolean> {
         return {
             conversationId: context.conversationId || '',
             sessionId: context.sessionId || '',

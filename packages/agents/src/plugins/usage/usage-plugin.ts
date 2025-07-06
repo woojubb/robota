@@ -82,17 +82,17 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
     override async onModuleEvent(eventType: EventType, eventData: EventData): Promise<void> {
         try {
             // Extract module event data from eventData.data
-            const moduleData = eventData.data as any;
+            const moduleData = eventData.data;
 
             switch (eventType) {
                 case 'module.initialize.complete':
                 case 'module.execution.complete':
                 case 'module.dispose.complete':
                     // Track module usage statistics
-                    if (moduleData?.duration) {
+                    if (moduleData && 'duration' in moduleData && typeof moduleData.duration === 'number') {
                         await this.recordUsage({
                             provider: 'module',
-                            model: moduleData?.moduleType || 'unknown',
+                            model: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
                             tokensUsed: {
                                 input: 0,
                                 output: 0,
@@ -104,8 +104,8 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
                             ...(eventData.executionId && { executionId: eventData.executionId }),
                             ...(eventData.sessionId && { conversationId: eventData.sessionId }),
                             metadata: {
-                                moduleName: moduleData?.moduleName || 'unknown',
-                                moduleType: moduleData?.moduleType || 'unknown',
+                                moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
+                                moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
                                 operation: eventType.includes('initialize') ? 'initialization' :
                                     eventType.includes('execution') ? 'execution' : 'disposal'
                             }
@@ -117,10 +117,10 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
                 case 'module.execution.error':
                 case 'module.dispose.error':
                     // Track module error statistics
-                    if (moduleData?.duration) {
+                    if (moduleData && 'duration' in moduleData && typeof moduleData.duration === 'number') {
                         await this.recordUsage({
                             provider: 'module',
-                            model: moduleData?.moduleType || 'unknown',
+                            model: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
                             tokensUsed: {
                                 input: 0,
                                 output: 0,
@@ -132,8 +132,8 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
                             ...(eventData.executionId && { executionId: eventData.executionId }),
                             ...(eventData.sessionId && { conversationId: eventData.sessionId }),
                             metadata: {
-                                moduleName: moduleData?.moduleName || 'unknown',
-                                moduleType: moduleData?.moduleType || 'unknown',
+                                moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
+                                moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
                                 operation: eventType.includes('initialize') ? 'initialization' :
                                     eventType.includes('execution') ? 'execution' : 'disposal',
                                 error: eventData.error?.message || 'unknown error'

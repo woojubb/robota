@@ -1,5 +1,5 @@
 import type { UniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage, ConversationMessageMetadata as ConversationContextMetadata } from '../managers/conversation-history-manager';
-import type { ToolSchema, AIProvider, ToolCall } from '../interfaces/provider';
+import type { AIProvider, ToolCall, ProviderRequest as BaseProviderRequest, RawProviderResponse as BaseRawProviderResponse } from '../interfaces/provider';
 import type { ToolExecutionResult } from '../interfaces/tool';
 import { NetworkError, ProviderError } from '../utils/errors';
 import { createLogger, Logger } from '../utils/logger';
@@ -24,33 +24,17 @@ const DEFAULT_OPTIONS: Required<ConversationServiceOptions> = {
 };
 
 /**
- * Provider request configuration
+ * Provider request configuration with stream property
  */
-interface ProviderRequest {
-    messages: UniversalMessage[];
-    model: string;
-    temperature?: number;
-    maxTokens?: number;
-    tools?: ToolSchema[];
+interface ProviderRequest extends BaseProviderRequest {
+    model: string; // Make model required
     stream?: boolean;
-    systemMessage?: string;
-    metadata?: Record<string, string | number | boolean>;
 }
 
 /**
- * Raw provider response structure
+ * Use the base raw provider response from provider interface
  */
-interface RawProviderResponse {
-    content: string | null;
-    toolCalls?: ToolCall[];
-    usage?: {
-        promptTokens?: number;
-        completionTokens?: number;
-        totalTokens?: number;
-    };
-    metadata?: Record<string, string | number | boolean>;
-    finishReason?: string;
-}
+type RawProviderResponse = BaseRawProviderResponse;
 
 /**
  * Raw streaming chunk structure
@@ -494,46 +478,47 @@ export class ConversationService implements ConversationServiceInterface {
     }
 
     private static createProviderRequest(context: ConversationContext, streaming: boolean = false): ProviderRequest {
-        const request: any = {
+        const metadata = ConversationService.convertToProviderMetadata(context.metadata);
+
+        const request: ProviderRequest = {
             messages: context.messages,
             model: context.model,
-            stream: streaming
+            stream: streaming,
+            ...(context.temperature !== undefined && { temperature: context.temperature }),
+            ...(context.maxTokens !== undefined && { maxTokens: context.maxTokens }),
+            ...(context.tools && { tools: context.tools }),
+            ...(context.systemMessage && { systemMessage: context.systemMessage }),
+            ...(metadata && { metadata })
         };
 
-        if (context.temperature !== undefined) request.temperature = context.temperature;
-        if (context.maxTokens !== undefined) request.maxTokens = context.maxTokens;
-        if (context.tools) request.tools = context.tools;
-        if (context.systemMessage) request.systemMessage = context.systemMessage;
-        if (context.metadata) request.metadata = ConversationService.convertToProviderMetadata(context.metadata);
-
-        return request as ProviderRequest;
+        return request;
     }
 
     private static processProviderResponse(response: RawProviderResponse): ConversationResponse {
-        const result: any = {
+        const usage = ConversationService.convertUsage(response.usage);
+
+        const result: ConversationResponse = {
             content: response.content || '',
             toolCalls: response.toolCalls || [],
             metadata: response.metadata || {},
-            finishReason: response.finishReason || 'stop'
+            finishReason: response.finishReason || 'stop',
+            ...(usage && { usage })
         };
 
-        const usage = ConversationService.convertUsage(response.usage);
-        if (usage) result.usage = usage;
-
-        return result as ConversationResponse;
+        return result;
     }
 
     private static processStreamingChunk(chunk: RawStreamingChunk): StreamingChunk {
-        const result: any = {
+        const usage = ConversationService.convertUsage(chunk.usage);
+
+        const result: StreamingChunk = {
             delta: chunk.delta || '',
             done: chunk.done || false,
-            toolCalls: chunk.toolCalls || []
+            toolCalls: chunk.toolCalls || [],
+            ...(usage && { usage })
         };
 
-        const usage = ConversationService.convertUsage(chunk.usage);
-        if (usage) result.usage = usage;
-
-        return result as StreamingChunk;
+        return result;
     }
 
     private static async executeWithRetry<T>(

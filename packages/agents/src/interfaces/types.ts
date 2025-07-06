@@ -54,7 +54,7 @@ export type LoggerData = Record<string, UniversalValue | Date | Error>;
  * TODO: Consider creating specific configuration interfaces if runtime issues occur
  */
 export type ComplexConfigValue = Record<string, PrimitiveValue | ArrayValue | ObjectValue>;
-export type ConfigValue = PrimitiveValue | ArrayValue | ObjectValue | Array<ComplexConfigValue> | Array<Record<string, PrimitiveValue | ArrayValue | ObjectValue>> | Array<object> | object;
+export type ConfigValue = PrimitiveValue | ArrayValue | ObjectValue | Array<ComplexConfigValue> | Array<Record<string, PrimitiveValue | ArrayValue | ObjectValue>> | Array<ComplexConfigValue> | ComplexConfigValue;
 export type ConfigData = Record<string, ConfigValue>;
 
 /**
@@ -99,7 +99,7 @@ export interface PluginContext {
  * TODO: Consider adding more specific type guards if needed
  */
 export const TypeUtils = {
-    isPrimitive: (value: string | number | boolean | null | undefined | object | Array<PrimitiveValue>): value is PrimitiveValue => {
+    isPrimitive: (value: UniversalValue | Date | Record<string, UniversalValue>): value is PrimitiveValue => {
         return value === null ||
             value === undefined ||
             typeof value === 'string' ||
@@ -107,12 +107,12 @@ export const TypeUtils = {
             typeof value === 'boolean';
     },
 
-    isArray: (value: string | number | boolean | null | undefined | object | Array<PrimitiveValue>): value is ArrayValue => {
+    isArray: (value: UniversalValue | Date | Record<string, UniversalValue>): value is ArrayValue => {
         return Array.isArray(value) &&
             value.every(item => TypeUtils.isPrimitive(item) || TypeUtils.isObject(item));
     },
 
-    isObject: (value: string | number | boolean | null | undefined | object | Array<PrimitiveValue>): value is ObjectValue => {
+    isObject: (value: UniversalValue | Date | Record<string, UniversalValue>): value is ObjectValue => {
         return typeof value === 'object' &&
             value !== null &&
             !Array.isArray(value) &&
@@ -121,7 +121,7 @@ export const TypeUtils = {
             );
     },
 
-    isUniversalValue: (value: string | number | boolean | null | undefined | object | Array<PrimitiveValue>): value is UniversalValue => {
+    isUniversalValue: (value: UniversalValue | Date | Record<string, UniversalValue>): value is UniversalValue => {
         return TypeUtils.isPrimitive(value) ||
             TypeUtils.isArray(value) ||
             TypeUtils.isObject(value);

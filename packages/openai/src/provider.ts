@@ -14,7 +14,21 @@ export interface UniversalMessage {
     toolCalls?: ToolCall[];
     toolCallId?: string;
     name?: string;
-    metadata?: Record<string, unknown>;
+    metadata?: MessageMetadata;
+}
+
+/**
+ * Message metadata interface
+ */
+export interface MessageMetadata {
+    usage?: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+    };
+    model?: string;
+    finishReason?: string;
+    [key: string]: string | number | boolean | MessageMetadata['usage'] | undefined;
 }
 
 /**
@@ -35,7 +49,28 @@ export interface ToolCall {
 export interface ToolSchema {
     name: string;
     description: string;
-    parameters: Record<string, unknown>;
+    parameters: ToolParameters;
+}
+
+/**
+ * Tool parameters interface - compatible with OpenAI SDK
+ */
+export interface ToolParameters {
+    type: 'object';
+    properties?: Record<string, ToolParameterProperty>;
+    required?: string[];
+    [key: string]: string | number | boolean | Record<string, ToolParameterProperty> | string[] | undefined;
+}
+
+/**
+ * Tool parameter property interface
+ */
+export interface ToolParameterProperty {
+    type: 'string' | 'number' | 'boolean' | 'array' | 'object';
+    description?: string;
+    enum?: (string | number)[];
+    items?: ToolParameterProperty;
+    properties?: Record<string, ToolParameterProperty>;
 }
 
 /**
@@ -119,7 +154,8 @@ export class OpenAIProvider implements AIProvider {
 
         } catch (error) {
             const openaiError = error as OpenAIError;
-            throw new Error(`OpenAI chat failed: ${openaiError.message || 'Unknown error'}`);
+            const errorMessage = openaiError.message || 'OpenAI API request failed';
+            throw new Error(`OpenAI chat failed: ${errorMessage}`);
         }
     }
 
@@ -158,7 +194,8 @@ export class OpenAIProvider implements AIProvider {
 
         } catch (error) {
             const openaiError = error as OpenAIError;
-            throw new Error(`OpenAI stream failed: ${openaiError.message || 'Unknown error'}`);
+            const errorMessage = openaiError.message || 'OpenAI API request failed';
+            throw new Error(`OpenAI stream failed: ${errorMessage}`);
         }
     }
 
@@ -216,7 +253,9 @@ export class OpenAIProvider implements AIProvider {
                         tool_call_id: msg.toolCallId || ''
                     };
                 default:
-                    throw new Error(`Unsupported message role: ${(msg as any).role}`);
+                    // Use never type to ensure exhaustive checking
+                    const exhaustiveCheck: never = msg.role;
+                    throw new Error(`Unsupported message role: ${exhaustiveCheck}`);
             }
         });
     }

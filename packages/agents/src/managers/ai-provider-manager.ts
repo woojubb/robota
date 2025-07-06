@@ -64,8 +64,8 @@ export class AIProviders extends BaseManager implements AIProviderManagerInterfa
         }
 
         // Validate provider
-        if (!provider || typeof provider !== 'object') {
-            throw new ValidationError('Provider must be a valid object');
+        if (!provider || typeof provider !== 'object' || provider === null || Array.isArray(provider)) {
+            throw new ValidationError('Provider must be a valid object instance');
         }
 
         if (!provider.name || typeof provider.name !== 'string') {
