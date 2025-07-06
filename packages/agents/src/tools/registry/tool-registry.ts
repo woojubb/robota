@@ -123,7 +123,7 @@ export class ToolRegistry implements ToolRegistryInterface {
             throw new ValidationError('Tool schema must have a description');
         }
 
-        if (!schema.parameters || typeof schema.parameters !== 'object') {
+        if (!schema.parameters || typeof schema.parameters !== 'object' || schema.parameters === null || Array.isArray(schema.parameters)) {
             throw new ValidationError('Tool schema must have parameters object');
         }
 

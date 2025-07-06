@@ -136,7 +136,7 @@ export abstract class BaseAIProvider<TConfig = ProviderConfig, TMessage = Univer
             if (!tool.description || typeof tool.description !== 'string') {
                 throw new Error('Tool must have a valid description');
             }
-            if (!tool.parameters || typeof tool.parameters !== 'object') {
+            if (!tool.parameters || typeof tool.parameters !== 'object' || tool.parameters === null || Array.isArray(tool.parameters)) {
                 throw new Error('Tool must have valid parameters');
             }
         }

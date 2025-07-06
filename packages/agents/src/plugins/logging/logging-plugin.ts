@@ -102,13 +102,13 @@ export class LoggingPlugin extends BasePlugin<LoggingPluginOptions, LoggingPlugi
     override async onModuleEvent(eventType: EventType, eventData: EventData): Promise<void> {
         try {
             // Extract module event data from eventData.data
-            const moduleData = eventData.data as any;
+            const moduleData = eventData.data;
 
             switch (eventType) {
                 case 'module.initialize.start':
                     await this.info('Module initialization started', {
-                        moduleName: moduleData?.moduleName || 'unknown',
-                        moduleType: moduleData?.moduleType || 'unknown'
+                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
+                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
                     }, {
                         operation: 'module_initialize_start',
                         ...(eventData.executionId && { executionId: eventData.executionId })
@@ -117,20 +117,20 @@ export class LoggingPlugin extends BasePlugin<LoggingPluginOptions, LoggingPlugi
 
                 case 'module.initialize.complete':
                     await this.info('Module initialization completed', {
-                        moduleName: moduleData?.moduleName || 'unknown',
-                        moduleType: moduleData?.moduleType || 'unknown',
-                        ...(moduleData?.duration && { duration: moduleData.duration })
+                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
+                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
+                        ...(moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number' && { duration: moduleData['duration'] })
                     }, {
                         operation: 'module_initialize_complete',
                         ...(eventData.executionId && { executionId: eventData.executionId }),
-                        ...(moduleData?.duration && { duration: moduleData.duration })
+                        ...(moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number' && { duration: moduleData['duration'] })
                     });
                     break;
 
                 case 'module.initialize.error':
                     await this.error('Module initialization failed', eventData.error, {
-                        moduleName: moduleData?.moduleName || 'unknown',
-                        moduleType: moduleData?.moduleType || 'unknown'
+                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
+                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
                     }, {
                         operation: 'module_initialize_error',
                         ...(eventData.executionId && { executionId: eventData.executionId })
@@ -139,8 +139,8 @@ export class LoggingPlugin extends BasePlugin<LoggingPluginOptions, LoggingPlugi
 
                 case 'module.execution.start':
                     await this.debug('Module execution started', {
-                        moduleName: moduleData?.moduleName || 'unknown',
-                        moduleType: moduleData?.moduleType || 'unknown'
+                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
+                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
                     }, {
                         operation: 'module_execution_start',
                         ...(eventData.executionId && { executionId: eventData.executionId })
@@ -149,21 +149,21 @@ export class LoggingPlugin extends BasePlugin<LoggingPluginOptions, LoggingPlugi
 
                 case 'module.execution.complete':
                     await this.debug('Module execution completed', {
-                        moduleName: moduleData?.moduleName || 'unknown',
-                        moduleType: moduleData?.moduleType || 'unknown',
-                        ...(moduleData?.duration && { duration: moduleData.duration }),
-                        ...(moduleData?.success !== undefined && { success: moduleData.success })
+                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
+                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
+                        ...(moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number' && { duration: moduleData['duration'] }),
+                        ...(moduleData && 'success' in moduleData && typeof moduleData['success'] === 'boolean' && { success: moduleData['success'] })
                     }, {
                         operation: 'module_execution_complete',
                         ...(eventData.executionId && { executionId: eventData.executionId }),
-                        ...(moduleData?.duration && { duration: moduleData.duration })
+                        ...(moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number' && { duration: moduleData['duration'] })
                     });
                     break;
 
                 case 'module.execution.error':
                     await this.error('Module execution failed', eventData.error, {
-                        moduleName: moduleData?.moduleName || 'unknown',
-                        moduleType: moduleData?.moduleType || 'unknown'
+                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
+                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
                     }, {
                         operation: 'module_execution_error',
                         ...(eventData.executionId && { executionId: eventData.executionId })
@@ -172,8 +172,8 @@ export class LoggingPlugin extends BasePlugin<LoggingPluginOptions, LoggingPlugi
 
                 case 'module.dispose.start':
                     await this.debug('Module disposal started', {
-                        moduleName: moduleData?.moduleName || 'unknown',
-                        moduleType: moduleData?.moduleType || 'unknown'
+                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
+                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
                     }, {
                         operation: 'module_dispose_start',
                         ...(eventData.executionId && { executionId: eventData.executionId })
@@ -182,20 +182,20 @@ export class LoggingPlugin extends BasePlugin<LoggingPluginOptions, LoggingPlugi
 
                 case 'module.dispose.complete':
                     await this.info('Module disposal completed', {
-                        moduleName: moduleData?.moduleName || 'unknown',
-                        moduleType: moduleData?.moduleType || 'unknown',
-                        ...(moduleData?.duration && { duration: moduleData.duration })
+                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
+                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
+                        ...(moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number' && { duration: moduleData['duration'] })
                     }, {
                         operation: 'module_dispose_complete',
                         ...(eventData.executionId && { executionId: eventData.executionId }),
-                        ...(moduleData?.duration && { duration: moduleData.duration })
+                        ...(moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number' && { duration: moduleData['duration'] })
                     });
                     break;
 
                 case 'module.dispose.error':
                     await this.error('Module disposal failed', eventData.error, {
-                        moduleName: moduleData?.moduleName || 'unknown',
-                        moduleType: moduleData?.moduleType || 'unknown'
+                        moduleName: (moduleData && 'moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
+                        moduleType: (moduleData && 'moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown'
                     }, {
                         operation: 'module_dispose_error',
                         ...(eventData.executionId && { executionId: eventData.executionId })

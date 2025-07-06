@@ -79,7 +79,7 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
     override async onModuleEvent(eventType: EventType, eventData: EventData): Promise<void> {
         try {
             // Extract module event data from eventData.data
-            const moduleData = eventData.data as any;
+            const moduleData = eventData.data;
 
             switch (eventType) {
                 case 'module.initialize.start':
@@ -87,16 +87,16 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
                     break;
 
                 case 'module.initialize.complete':
-                    if (moduleData?.duration) {
+                    if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_initialization',
-                            duration: moduleData.duration,
+                            duration: moduleData['duration'],
                             success: true,
                             errorCount: 0,
                             ...(eventData.executionId && { executionId: eventData.executionId }),
                             metadata: {
-                                moduleName: moduleData?.moduleName || 'unknown',
-                                moduleType: moduleData?.moduleType || 'unknown',
+                                moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
+                                moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
                                 phase: 'initialization'
                             }
                         });
@@ -104,16 +104,16 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
                     break;
 
                 case 'module.initialize.error':
-                    if (moduleData?.duration) {
+                    if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_initialization',
-                            duration: moduleData.duration,
+                            duration: moduleData['duration'],
                             success: false,
                             errorCount: 1,
                             ...(eventData.executionId && { executionId: eventData.executionId }),
                             metadata: {
-                                moduleName: moduleData?.moduleName || 'unknown',
-                                moduleType: moduleData?.moduleType || 'unknown',
+                                moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
+                                moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
                                 phase: 'initialization',
                                 error: eventData.error?.message || 'unknown error'
                             }
@@ -122,16 +122,16 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
                     break;
 
                 case 'module.execution.complete':
-                    if (moduleData?.duration) {
+                    if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_execution',
-                            duration: moduleData.duration,
-                            success: moduleData?.success ?? true,
-                            errorCount: moduleData?.success === false ? 1 : 0,
+                            duration: moduleData['duration'],
+                            success: ('success' in moduleData && typeof moduleData['success'] === 'boolean') ? moduleData['success'] : true,
+                            errorCount: ('success' in moduleData && moduleData['success'] === false) ? 1 : 0,
                             ...(eventData.executionId && { executionId: eventData.executionId }),
                             metadata: {
-                                moduleName: moduleData?.moduleName || 'unknown',
-                                moduleType: moduleData?.moduleType || 'unknown',
+                                moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
+                                moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
                                 phase: 'execution'
                             }
                         });
@@ -139,16 +139,16 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
                     break;
 
                 case 'module.execution.error':
-                    if (moduleData?.duration) {
+                    if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_execution',
-                            duration: moduleData.duration,
+                            duration: moduleData['duration'],
                             success: false,
                             errorCount: 1,
                             ...(eventData.executionId && { executionId: eventData.executionId }),
                             metadata: {
-                                moduleName: moduleData?.moduleName || 'unknown',
-                                moduleType: moduleData?.moduleType || 'unknown',
+                                moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
+                                moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
                                 phase: 'execution',
                                 error: eventData.error?.message || 'unknown error'
                             }
@@ -157,16 +157,16 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
                     break;
 
                 case 'module.dispose.complete':
-                    if (moduleData?.duration) {
+                    if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_disposal',
-                            duration: moduleData.duration,
+                            duration: moduleData['duration'],
                             success: true,
                             errorCount: 0,
                             ...(eventData.executionId && { executionId: eventData.executionId }),
                             metadata: {
-                                moduleName: moduleData?.moduleName || 'unknown',
-                                moduleType: moduleData?.moduleType || 'unknown',
+                                moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
+                                moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
                                 phase: 'disposal'
                             }
                         });
@@ -174,16 +174,16 @@ export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, Perf
                     break;
 
                 case 'module.dispose.error':
-                    if (moduleData?.duration) {
+                    if (moduleData && 'duration' in moduleData && typeof moduleData['duration'] === 'number') {
                         await this.recordMetrics({
                             operation: 'module_disposal',
-                            duration: moduleData.duration,
+                            duration: moduleData['duration'],
                             success: false,
                             errorCount: 1,
                             ...(eventData.executionId && { executionId: eventData.executionId }),
                             metadata: {
-                                moduleName: moduleData?.moduleName || 'unknown',
-                                moduleType: moduleData?.moduleType || 'unknown',
+                                moduleName: ('moduleName' in moduleData && typeof moduleData['moduleName'] === 'string') ? moduleData['moduleName'] : 'unknown',
+                                moduleType: ('moduleType' in moduleData && typeof moduleData['moduleType'] === 'string') ? moduleData['moduleType'] : 'unknown',
                                 phase: 'disposal',
                                 error: eventData.error?.message || 'unknown error'
                             }

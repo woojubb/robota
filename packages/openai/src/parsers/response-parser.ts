@@ -55,9 +55,9 @@ export class OpenAIResponseParser {
 
             return result;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown parsing error';
-            logger.error('Error parsing OpenAI response:', { message: errorMessage });
-            throw error;
+            const errorMessage = error instanceof Error ? error.message : 'OpenAI response parsing failed';
+            logger.error('Response parsing failed', { error: errorMessage });
+            throw new Error(`OpenAI response parsing failed: ${errorMessage}`);
         }
     }
 
@@ -114,21 +114,28 @@ export class OpenAIResponseParser {
                 }
             };
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown parsing error';
-            logger.error('Error parsing OpenAI streaming chunk:', { message: errorMessage });
-            return null;
+            const errorMessage = error instanceof Error ? error.message : 'OpenAI chunk parsing failed';
+            logger.error('Chunk parsing failed', { error: errorMessage });
+            throw new Error(`OpenAI chunk parsing failed: ${errorMessage}`);
         }
     }
 }
 
 // Simple logger implementation to avoid dependency
 const logger = {
-    debug: (message: string, data?: any) => {
+    debug: (message: string, data?: LogData) => {
         if (process.env['NODE_ENV'] === 'development') {
-            console.debug(`[OpenAI] ${message}`, data || '');
+            console.debug(`[OpenAI Parser] ${message}`, data || '');
         }
     },
-    error: (message: string, data?: any) => {
-        console.error(`[OpenAI] ${message}`, data || '');
+    error: (message: string, data?: LogData) => {
+        console.error(`[OpenAI Parser] ${message}`, data || '');
     }
-}; 
+};
+
+/**
+ * Log data interface
+ */
+interface LogData {
+    [key: string]: string | number | boolean | object | undefined;
+} 

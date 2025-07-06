@@ -120,14 +120,21 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
      * 5. Type assertions (decreases type safety)
      * TODO: Consider standardized tool result interface across tools
      */
-    override async afterToolExecution(context: BaseExecutionContext, toolResults: Record<string, string | number | boolean | object | Array<string | number | boolean> | null | undefined>): Promise<void> {
+    override async afterToolExecution(context: BaseExecutionContext, toolResults: BaseExecutionResult): Promise<void> {
         const webhookContext = WebhookTransformer.contextToWebhook(context);
-        const results = Array.isArray(toolResults?.['results']) ? toolResults['results'] :
-            toolResults ? [toolResults] : [];
-
-        for (const result of results) {
-            const eventData = WebhookTransformer.createToolData(webhookContext, result);
-            await this.sendWebhook('tool.executed', eventData);
+        // Handle tool results from BaseExecutionResult
+        if (toolResults.toolCalls && toolResults.toolCalls.length > 0) {
+            for (const toolCall of toolResults.toolCalls) {
+                const toolData = {
+                    toolName: toolCall.name || '',
+                    toolId: toolCall.id || '',
+                    result: toolCall.result,
+                    success: toolCall.result !== null,
+                    duration: toolResults.duration
+                };
+                const eventData = WebhookTransformer.createToolData(webhookContext, toolData);
+                await this.sendWebhook('tool.executed', eventData);
+            }
         }
     }
 

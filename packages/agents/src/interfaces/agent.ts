@@ -168,9 +168,6 @@ export interface AgentConfig {
         maxRequests?: number;
         windowMs?: number;
     };
-
-    // Index signature for type parameter constraints compatibility
-    [key: string]: ConfigValue;
 }
 
 /**
@@ -200,8 +197,6 @@ export interface RunOptions {
     sessionId?: string;
     userId?: string;
     metadata?: Metadata;
-    // Index signature for type parameter constraints compatibility
-    [key: string]: ConfigValue;
 }
 
 /**

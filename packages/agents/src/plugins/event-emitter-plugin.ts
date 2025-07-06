@@ -1,4 +1,5 @@
 import { BasePlugin, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext, PluginCategory, PluginPriority } from '../abstracts/base-plugin';
+import type { ToolExecutionContext } from '../interfaces/tool';
 import { Logger, createLogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 
@@ -41,7 +42,7 @@ export type EventExecutionValue =
     | string[]
     | number[]
     | boolean[]
-    | object
+    | Record<string, string | number | boolean | null>
     | null
     | undefined;
 
@@ -298,7 +299,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
      * 5. Type assertions (decreases type safety)
      * TODO: Consider standardized tool data interface across providers
      */
-    override async beforeToolExecution(context: BaseExecutionContext, toolData: Record<string, string | number | boolean | object | Array<string | number | boolean> | null | undefined>): Promise<void> {
+    override async beforeToolExecution(context: BaseExecutionContext, toolData: ToolExecutionContext): Promise<void> {
         const toolCalls = Array.isArray(toolData?.['toolCalls']) ? toolData['toolCalls'] :
             toolData ? [toolData] : [];
 
@@ -328,41 +329,39 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
      * 5. Type assertions (decreases type safety)
      * TODO: Consider standardized tool result interface across providers
      */
-    override async afterToolExecution(context: BaseExecutionContext, toolResults: Record<string, string | number | boolean | object | Array<string | number | boolean> | null | undefined>): Promise<void> {
-        const results = Array.isArray(toolResults?.['results']) ? toolResults['results'] :
-            toolResults ? [toolResults] : [];
+    override async afterToolExecution(context: BaseExecutionContext, toolResults: BaseExecutionResult): Promise<void> {
+        // Handle tool results from BaseExecutionResult
+        if (toolResults.toolCalls && toolResults.toolCalls.length > 0) {
+            for (const toolCall of toolResults.toolCalls) {
+                const eventType = toolCall.result === null ? 'tool.error' : 'tool.success';
 
-        for (const result of results) {
-            const eventType = result.error ? 'tool.error' : 'tool.success';
+                await this.emit(eventType, {
+                    executionId: context.executionId,
+                    sessionId: context.sessionId,
+                    userId: context.userId,
+                    data: {
+                        toolName: toolCall.name || '',
+                        toolId: toolCall.id || '',
+                        toolResult: toolCall.result !== null ? String(toolCall.result) : undefined,
+                        duration: toolResults.duration,
+                        success: toolCall.result !== null
+                    }
+                });
 
-            await this.emit(eventType, {
-                executionId: context.executionId,
-                sessionId: context.sessionId,
-                userId: context.userId,
-                data: {
-                    toolName: result.toolName,
-                    toolId: result.toolId || result.executionId,
-                    result: result.error ? undefined : result.result,
-                    duration: result.duration,
-                    success: result.error ? false : true
-                },
-                error: result.error
-            });
-
-            // Also emit generic afterExecute event
-            await this.emit('tool.afterExecute', {
-                executionId: context.executionId,
-                sessionId: context.sessionId,
-                userId: context.userId,
-                data: {
-                    toolName: result.toolName,
-                    toolId: result.toolId || result.executionId,
-                    result: result.result,
-                    duration: result.duration,
-                    success: result.error ? false : true
-                },
-                error: result.error
-            });
+                // Also emit generic afterExecute event
+                await this.emit('tool.afterExecute', {
+                    executionId: context.executionId,
+                    sessionId: context.sessionId,
+                    userId: context.userId,
+                    data: {
+                        toolName: toolCall.name || '',
+                        toolId: toolCall.id || '',
+                        toolResult: String(toolCall.result || ''),
+                        duration: toolResults.duration,
+                        success: toolCall.result !== null
+                    }
+                });
+            }
         }
     }
 
@@ -546,7 +545,8 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
                         error: error instanceof Error ? error : new Error(String(error)),
                         data: {
                             handlerId: handler.id,
-                            originalEvent: event
+                            originalEventType: event.type,
+                            originalEventExecutionId: event.executionId
                         }
                     });
                 } else {

@@ -142,7 +142,7 @@ export class OpenAIConversationAdapter {
         }
 
         // This should never happen but TypeScript requires exhaustive checking
-        throw new Error(`Unsupported message role: ${(msg as any).role}`);
+        throw new Error(`Unsupported message role: ${msg.role}`);
     }
 
     /**

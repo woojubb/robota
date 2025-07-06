@@ -8,15 +8,22 @@ import type {
 
 // Simple logger implementation to avoid dependency
 const logger = {
-    debug: (message: string, data?: any) => {
+    debug: (message: string, data?: LogData) => {
         if (process.env['NODE_ENV'] === 'development') {
-            console.debug(`[OpenAI] ${message}`, data || '');
+            console.debug(`[OpenAI Stream] ${message}`, data || '');
         }
     },
-    error: (message: string, data?: any) => {
-        console.error(`[OpenAI] ${message}`, data || '');
+    error: (message: string, data?: LogData) => {
+        console.error(`[OpenAI Stream] ${message}`, data || '');
     }
 };
+
+/**
+ * Log data interface
+ */
+interface LogData {
+    [key: string]: string | number | boolean | object | undefined;
+}
 
 /**
  * OpenAI streaming response handler
@@ -73,12 +80,9 @@ export class OpenAIStreamHandler {
                 }
             }
         } catch (error) {
-            const errorDetails = error instanceof Error ? error : new Error('Unknown streaming error');
-            logger.error('OpenAI streaming error:', {
-                message: errorDetails.message,
-                name: errorDetails.name
-            });
-            throw error;
+            const errorMessage = error instanceof Error ? error.message : 'OpenAI streaming request failed';
+            logger.error('Stream creation failed', { error: errorMessage });
+            throw new Error(`OpenAI streaming failed: ${errorMessage}`);
         }
     }
 
@@ -174,9 +178,9 @@ export class OpenAIStreamHandler {
                 }
             };
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown parsing error';
-            logger.error('Error parsing OpenAI streaming chunk:', { message: errorMessage });
-            return null;
+            const errorMessage = error instanceof Error ? error.message : 'OpenAI chunk parsing failed';
+            logger.error('Chunk parsing failed', { error: errorMessage });
+            throw new Error(`OpenAI chunk parsing failed: ${errorMessage}`);
         }
     }
 } 

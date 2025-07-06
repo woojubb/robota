@@ -28,7 +28,7 @@ interface MCPRequestParams {
 }
 
 interface MCPResultData {
-    content: string | object;
+    content: string | Record<string, string | number | boolean | null>;
     metadata?: Record<string, string | number | boolean>;
     isError?: boolean;
 }
@@ -49,7 +49,7 @@ type MCPConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'error'
  */
 interface MCPExecutionResult {
     success: boolean;
-    content: string | object;
+    content: string | Record<string, string | number | boolean | null>;
     metadata?: Record<string, string | number | boolean>;
     executionTime?: number;
     connectionStatus?: MCPConnectionStatus;
