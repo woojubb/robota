@@ -1,0 +1,74 @@
+# 📁 Project Structure & Configuration Policies
+
+## Core Configuration Files
+
+### TypeScript Configuration
+- [tsconfig.base.json](mdc:tsconfig.base.json) - Base TypeScript configuration with **IMMUTABLE** strict rules
+- Package-specific configs extend the base configuration
+- **🚨 CRITICAL**: Any/unknown type rules are protected and cannot be modified
+
+### ESLint Configuration  
+- [.eslintrc.json](mdc:.eslintrc.json) - Root ESLint configuration with **IMMUTABLE** type safety rules
+- Strict error-level enforcement for any/unknown types
+- Limited exceptions only for test files
+
+### Package Structure
+```
+packages/
+├── agents/          # Core agent functionality
+├── anthropic/       # Anthropic provider
+├── openai/          # OpenAI provider  
+├── google/          # Google provider
+├── sessions/        # Session management
+└── team/           # Team collaboration
+```
+
+## Protected Configuration Sections
+
+### 🚨 IMMUTABLE SETTINGS
+These sections are protected by policy and **CANNOT BE MODIFIED**:
+
+#### TypeScript Rules (tsconfig.base.json)
+```json
+// ==========================================
+// CRITICAL POLICY: ANY/UNKNOWN TYPE PROHIBITION  
+// ==========================================
+// 🚨 NEVER MODIFY THESE SETTINGS 🚨
+```
+
+#### ESLint Rules (.eslintrc.json)
+```json
+// ==========================================
+// CRITICAL POLICY: ANY/UNKNOWN TYPE PROHIBITION
+// ==========================================  
+// 🚨 NEVER MODIFY THESE SETTINGS 🚨
+```
+
+## Development Workflow
+
+### Type Safety First
+- All code must pass strict TypeScript compilation
+- Zero tolerance for any/unknown types in production code
+- Facade patterns and pure functions preferred for complex type handling
+
+### Build System
+- Individual package builds: `npm run build` in package directory
+- Full workspace build: `npm run build` in root
+- Type checking: `npm run type-check`
+
+### Code Quality
+- ESLint enforcement at error level for type safety
+- Automated type checking in CI/CD pipeline
+- Manual review required for any type assertion usage
+
+## File References
+- Main configuration: [tsconfig.base.json](mdc:tsconfig.base.json)
+- Linting rules: [.eslintrc.json](mdc:.eslintrc.json)
+- Package configs inherit from base settings
+
+---
+**Configuration protection is enforced at build time and code review.**
+description:
+globs:
+alwaysApply: false
+---

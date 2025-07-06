@@ -401,10 +401,7 @@ export class LoggingPlugin extends BasePlugin<LoggingPluginOptions, LoggingPlugi
             case 'remote':
                 return new RemoteLogStorage(
                     this.pluginOptions.remoteEndpoint,
-                    this.pluginOptions.remoteHeaders,
-                    formatter,
-                    this.pluginOptions.batchSize,
-                    this.pluginOptions.flushInterval
+                    { timeout: this.pluginOptions.flushInterval }
                 );
             case 'silent':
                 return new SilentLogStorage();

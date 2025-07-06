@@ -22,6 +22,16 @@
         "noPropertyAccessFromIndexSignature": true,
         "noUnusedLocals": true,
         "noUnusedParameters": true,
+        // ==========================================
+        // CRITICAL POLICY: ANY/UNKNOWN TYPE PROHIBITION
+        // ==========================================
+        // 🚨 NEVER MODIFY THESE SETTINGS 🚨
+        // These rules enforce zero tolerance for any/unknown types
+        // Modification of these settings is STRICTLY PROHIBITED
+        // Contact architecture team before any changes
+        // Note: noImplicitAny is already set above
+        // ESLint rules handle explicit any/unknown prohibition
+        // ==========================================
         "esModuleInterop": true,
         "resolveJsonModule": true,
         "declaration": true,

@@ -27,6 +27,18 @@ export type JSONSchemaType = 'string' | 'number' | 'integer' | 'boolean' | 'arra
 export type JSONSchemaEnum = string[] | number[] | boolean[] | (string | number | boolean)[];
 
 /**
+ * Tool call structure for AI responses
+ */
+export interface ToolCall {
+    id: string;
+    type: 'function';
+    function: {
+        name: string;
+        arguments: string;
+    };
+}
+
+/**
  * Tool schema definition
  */
 export interface ToolSchema {
@@ -53,6 +65,40 @@ export interface ParameterSchema {
     pattern?: string;
     format?: string;
     default?: ParameterDefaultValue;
+}
+
+/**
+ * Token usage statistics
+ */
+export interface TokenUsage {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+}
+
+/**
+ * Raw provider response interface
+ */
+export interface RawProviderResponse {
+    content: string | null;
+    toolCalls?: ToolCall[];
+    usage?: TokenUsage;
+    finishReason?: string;
+    model?: string;
+    metadata?: Record<string, ProviderConfigValue>;
+}
+
+/**
+ * Provider request payload
+ */
+export interface ProviderRequest {
+    messages: UniversalMessage[];
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    tools?: ToolSchema[];
+    systemMessage?: string;
+    metadata?: Record<string, string | number | boolean>;
 }
 
 /**
@@ -140,6 +186,20 @@ export interface AIProvider {
     chatStream?(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
 
     /**
+     * Generate response from AI model (raw provider response)
+     * @param payload - Provider request payload
+     * @returns Promise resolving to raw provider response
+     */
+    generateResponse(payload: ProviderRequest): Promise<RawProviderResponse>;
+
+    /**
+     * Generate streaming response from AI model (raw provider response)
+     * @param payload - Provider request payload
+     * @returns AsyncIterable of raw provider response chunks
+     */
+    generateStreamingResponse?(payload: ProviderRequest): AsyncIterable<RawProviderResponse>;
+
+    /**
      * Check if the provider supports tool calling
      * @returns true if tool calling is supported
      */
@@ -155,6 +215,11 @@ export interface AIProvider {
      * Clean up resources when provider is no longer needed
      */
     dispose?(): Promise<void>;
+
+    /**
+     * Close provider connections and cleanup resources
+     */
+    close?(): Promise<void>;
 }
 
 /**

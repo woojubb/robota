@@ -223,8 +223,6 @@ export class MCPTool extends BaseTool<ToolParameters, ToolResult> implements Too
      * Execute MCP request and return response
      */
     private async executeMCPRequest(request: MCPRequest): Promise<MCPResponse> {
-        const _timeout = this.mcpConfig.timeout || 30000; // 30 seconds default
-
         try {
             // TODO: Implement actual MCP protocol communication
             // This would typically use WebSocket or HTTP POST to the MCP server

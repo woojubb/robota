@@ -8,6 +8,14 @@ import { Logger, createLogger } from '../utils/logger';
 export type UniversalMessageRole = 'user' | 'assistant' | 'system' | 'tool';
 
 /**
+ * Legacy alias for UniversalMessageRole for backward compatibility
+ * 
+ * @public
+ * @deprecated Use UniversalMessageRole instead
+ */
+export type MessageRole = UniversalMessageRole;
+
+/**
  * Message metadata type following semantic naming conventions
  * Supports common message metadata properties
  * 

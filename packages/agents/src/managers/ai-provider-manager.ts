@@ -12,8 +12,8 @@ import { logger } from '../utils/logger';
  */
 export class AIProviders extends BaseManager implements AIProviderManagerInterface {
     private providers = new Map<string, AIProvider>();
-    private currentProvider?: string;
-    private currentModel?: string;
+    private currentProvider: string | undefined;
+    private currentModel: string | undefined;
 
     constructor() {
         super();
@@ -112,9 +112,9 @@ export class AIProviders extends BaseManager implements AIProviderManagerInterfa
         // Close provider if it has close method
         const provider = this.providers.get(name);
         if (provider?.close) {
-            provider.close().catch(error => {
+            provider.close().catch((error: Error) => {
                 logger.warn(`Failed to close provider ${name}`, {
-                    error: error instanceof Error ? error.message : String(error)
+                    error: error.message
                 });
             });
         }
