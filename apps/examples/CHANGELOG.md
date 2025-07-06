@@ -1,5 +1,17 @@
 # robota-examples
 
+## 1.0.2
+
+### Patch Changes
+
+- Fix npm package documentation by ensuring README.md files are included
+- Updated dependencies
+  - @robota-sdk/agents@2.0.2
+  - @robota-sdk/anthropic@2.0.2
+  - @robota-sdk/google@2.0.2
+  - @robota-sdk/openai@2.0.2
+  - @robota-sdk/team@2.0.2
+
 ## 1.0.1
 
 ### Patch Changes

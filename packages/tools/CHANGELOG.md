@@ -1,5 +1,11 @@
 # @robota-sdk/tools
 
+## 2.0.2
+
+### Patch Changes
+
+- Fix npm package documentation by ensuring README.md files are included
+
 ## 2.0.1
 
 ### Patch Changes
