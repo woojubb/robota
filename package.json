@@ -15,6 +15,7 @@
   "scripts": {
     "build": "pnpm --filter @robota-sdk/agents build && pnpm --filter @robota-sdk/openai build && pnpm --filter @robota-sdk/anthropic build && pnpm --filter @robota-sdk/google build && pnpm --filter @robota-sdk/team build && pnpm --filter @robota-sdk/sessions build && pnpm --filter @robota-sdk/tools build && pnpm --filter @robota-sdk/core build && pnpm --filter apps/examples build",
     "build:all": "pnpm run build && pnpm run docs:build",
+    "build:deps": "pnpm run build",
     "test": "pnpm run -r test",
     "typecheck": "pnpm --filter @robota-sdk/agents typecheck && pnpm --filter @robota-sdk/openai typecheck && pnpm --filter @robota-sdk/anthropic typecheck && pnpm --filter @robota-sdk/google typecheck && pnpm --filter @robota-sdk/team typecheck && pnpm --filter @robota-sdk/sessions typecheck && pnpm --filter @robota-sdk/tools typecheck && pnpm --filter @robota-sdk/core typecheck",
     "lint": "pnpm run -r lint",
@@ -77,7 +78,7 @@
     "vitest": "^1.6.1"
   },
   "engines": {
-    "node": ">=22.14.0",
+    "node": ">=18.0.0",
     "pnpm": "8.15.4"
   },
   "packageManager": "pnpm@8.15.4",
