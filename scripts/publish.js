@@ -170,6 +170,10 @@ function cleanupReadmeFiles() {
             console.error(`❌ Error processing ${pkg} README:`, error);
         }
     });
+
+    // IMPORTANT: Do NOT delete packages/*/docs/README.md files
+    // These are permanent documentation files that should be preserved
+    console.log(`ℹ️  Preserved all packages/*/docs/README.md files`);
 }
 
 /**
