@@ -261,9 +261,9 @@ export function workflowHistoryToCSV(workflowHistory: WorkflowHistory): string {
         const userMessages = agentConv.messages.filter(m => m.role === 'user');
         const assistantMessages = agentConv.messages.filter(m => m.role === 'assistant');
 
-        const initialPrompt = userMessages.length > 0 ? userMessages[0].content || '' : '';
+        const initialPrompt = userMessages.length > 0 ? (userMessages[0]?.content || '') : '';
         const finalResponse = assistantMessages.length > 0
-            ? assistantMessages[assistantMessages.length - 1].content || ''
+            ? (assistantMessages[assistantMessages.length - 1]?.content || '')
             : '';
 
         const row = [
@@ -435,7 +435,10 @@ export function renderAgentTree(node: AgentTreeNode, prefix: string, isLast: boo
     if (node.children.length > 0) {
         for (let i = 0; i < node.children.length; i++) {
             const isLastChild = i === node.children.length - 1;
-            lines.push(...renderAgentTree(node.children[i], childPrefix, isLastChild));
+            const childNode = node.children[i];
+            if (childNode) {
+                lines.push(...renderAgentTree(childNode, childPrefix, isLastChild));
+            }
         }
     }
 

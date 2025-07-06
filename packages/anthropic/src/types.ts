@@ -1,5 +1,19 @@
-import type { ProviderOptions } from '@robota-sdk/agents';
 import Anthropic from '@anthropic-ai/sdk';
+
+/**
+ * Base provider options interface
+ */
+export interface ProviderOptions {
+    /**
+     * Model name to use
+     */
+    model?: string;
+
+    /**
+     * Additional provider-specific options
+     */
+    [key: string]: unknown;
+}
 
 /**
  * Anthropic provider options

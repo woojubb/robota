@@ -9,12 +9,66 @@ import type {
     FunctionDeclaration,
     Schema
 } from '@google/generative-ai';
-import { BaseAIProvider } from '@robota-sdk/agents';
-import type { UniversalMessage, ToolSchema, ChatOptions } from '@robota-sdk/agents';
 import type { GoogleProviderOptions } from './types';
 import type {
     GoogleToolCall
 } from './types/api-types';
+
+/**
+ * Universal message interface for provider-agnostic communication
+ */
+export interface UniversalMessage {
+    role: 'user' | 'assistant' | 'system' | 'tool';
+    content: string | null;
+    timestamp?: Date;
+    toolCalls?: ToolCall[];
+    toolCallId?: string;
+}
+
+/**
+ * Tool call interface
+ */
+export interface ToolCall {
+    id: string;
+    type: 'function';
+    function: {
+        name: string;
+        arguments: string;
+    };
+}
+
+/**
+ * Tool schema interface
+ */
+export interface ToolSchema {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+}
+
+/**
+ * Chat options interface
+ */
+export interface ChatOptions {
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    tools?: ToolSchema[];
+}
+
+/**
+ * AI Provider interface
+ */
+export interface AIProvider {
+    readonly name: string;
+    readonly version: string;
+
+    chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
+    chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
+    supportsTools(): boolean;
+    validateConfig(): boolean;
+    dispose(): Promise<void>;
+}
 
 /**
  * Google AI provider implementation for Robota
@@ -24,11 +78,7 @@ import type {
  * 
  * @public
  */
-export class GoogleProvider extends BaseAIProvider<
-    GoogleProviderOptions,
-    UniversalMessage,
-    UniversalMessage
-> {
+export class GoogleProvider implements AIProvider {
     readonly name = 'google';
     readonly version = '1.0.0';
 
@@ -36,7 +86,6 @@ export class GoogleProvider extends BaseAIProvider<
     private readonly options: GoogleProviderOptions;
 
     constructor(options: GoogleProviderOptions) {
-        super();
         this.options = options;
         this.client = options.client;
 
@@ -144,15 +193,15 @@ export class GoogleProvider extends BaseAIProvider<
         }
     }
 
-    override supportsTools(): boolean {
+    supportsTools(): boolean {
         return true;
     }
 
-    override validateConfig(): boolean {
+    validateConfig(): boolean {
         return !!this.client && !!this.options;
     }
 
-    override async dispose(): Promise<void> {
+    async dispose(): Promise<void> {
         // Google AI client doesn't need explicit cleanup
     }
 
@@ -240,12 +289,12 @@ export class GoogleProvider extends BaseAIProvider<
                 Object.entries(parameters.properties || {}).map(([key, value]) => [
                     key,
                     {
-                        type: this.convertToSchemaType(value.type || 'string'),
-                        description: value.description
+                        type: this.convertToSchemaType((value as any).type || 'string'),
+                        description: (value as any).description
                     }
                 ])
             ),
-            required: parameters.required
+            required: Array.isArray(parameters.required) ? parameters.required as string[] : undefined
         };
     }
 
@@ -348,7 +397,7 @@ export class GoogleProvider extends BaseAIProvider<
     /**
      * Validate UniversalMessage array
      */
-    protected override validateMessages(messages: UniversalMessage[]): void {
+    protected validateMessages(messages: UniversalMessage[]): void {
         if (!Array.isArray(messages)) {
             throw new Error('Messages must be an array');
         }

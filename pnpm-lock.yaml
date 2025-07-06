@@ -156,15 +156,6 @@ importers:
         specifier: ^3.24.4
         version: 3.24.4
     devDependencies:
-      '@robota-sdk/anthropic':
-        specifier: workspace:*
-        version: link:../anthropic
-      '@robota-sdk/google':
-        specifier: workspace:*
-        version: link:../google
-      '@robota-sdk/openai':
-        specifier: workspace:*
-        version: link:../openai
       '@types/swagger-schema-official':
         specifier: ^2.0.25
         version: 2.0.25
@@ -201,10 +192,10 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.24.0
         version: 0.24.3
+    devDependencies:
       '@robota-sdk/agents':
         specifier: workspace:*
         version: link:../agents
-    devDependencies:
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.18.0
         version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
@@ -232,10 +223,10 @@ importers:
       '@google/generative-ai':
         specifier: ^0.20.0
         version: 0.20.0
+    devDependencies:
       '@robota-sdk/agents':
         specifier: workspace:*
         version: link:../agents
-    devDependencies:
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.18.0
         version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)
@@ -260,13 +251,13 @@ importers:
 
   packages/openai:
     dependencies:
+      openai:
+        specifier: ^4.98.0
+        version: 4.98.0(zod@3.24.4)
+    devDependencies:
       '@robota-sdk/agents':
         specifier: workspace:*
         version: link:../agents
-      openai:
-        specifier: ^4.97.0
-        version: 4.98.0(zod@3.24.4)
-    devDependencies:
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.18.0
         version: 6.21.0(@typescript-eslint/parser@6.21.0)(eslint@8.57.1)(typescript@5.8.3)

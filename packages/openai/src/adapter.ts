@@ -1,6 +1,35 @@
 import OpenAI from 'openai';
-import type { UniversalMessage } from '@robota-sdk/agents/src/managers/conversation-history-manager';
-import type { UserMessage, AssistantMessage, SystemMessage, ToolMessage } from '@robota-sdk/agents/src/interfaces/agent';
+import type {
+    UniversalMessage,
+    ToolCall
+} from './provider';
+
+// Define message types locally to avoid circular dependency
+export interface UserMessage {
+    role: 'user';
+    content: string | null;
+    timestamp?: Date;
+}
+
+export interface AssistantMessage {
+    role: 'assistant';
+    content: string | null;
+    timestamp?: Date;
+    toolCalls?: ToolCall[];
+}
+
+export interface SystemMessage {
+    role: 'system';
+    content: string | null;
+    timestamp?: Date;
+}
+
+export interface ToolMessage {
+    role: 'tool';
+    content: string | null;
+    timestamp?: Date;
+    toolCallId?: string;
+}
 
 /**
  * OpenAI ConversationHistory adapter
@@ -57,7 +86,7 @@ export class OpenAIConversationAdapter {
             const userMsg = msg as UserMessage;
             return {
                 role: 'user',
-                content: userMsg.content
+                content: userMsg.content || ''
             };
         }
 
@@ -68,7 +97,7 @@ export class OpenAIConversationAdapter {
             if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {
                 const result: OpenAI.Chat.ChatCompletionAssistantMessageParam = {
                     role: 'assistant',
-                    content: assistantMsg.content || null,
+                    content: assistantMsg.content || '',
                     tool_calls: assistantMsg.toolCalls.map(toolCall => ({
                         id: toolCall.id,
                         type: 'function',
@@ -84,7 +113,7 @@ export class OpenAIConversationAdapter {
             // Regular assistant message (without tool calls)
             return {
                 role: 'assistant',
-                content: assistantMsg.content || null  // Allow null for empty content to match tests
+                content: assistantMsg.content || ''
             };
         }
 
@@ -92,7 +121,7 @@ export class OpenAIConversationAdapter {
             const systemMsg = msg as SystemMessage;
             return {
                 role: 'system',
-                content: systemMsg.content
+                content: systemMsg.content || ''
             };
         }
 
@@ -106,15 +135,14 @@ export class OpenAIConversationAdapter {
 
             const result: OpenAI.Chat.ChatCompletionToolMessageParam = {
                 role: 'tool',
-                content: toolMsg.content,
+                content: toolMsg.content || '',
                 tool_call_id: toolMsg.toolCallId
             };
             return result;
         }
 
         // This should never happen but TypeScript requires exhaustive checking
-        const _exhaustiveCheck: never = msg;
-        return _exhaustiveCheck;
+        throw new Error(`Unsupported message role: ${(msg as any).role}`);
     }
 
     /**

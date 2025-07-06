@@ -1,8 +1,61 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { BaseAIProvider } from '@robota-sdk/agents';
-import type { UniversalMessage, ToolSchema, ChatOptions } from '@robota-sdk/agents';
 import { AnthropicProviderOptions } from './types';
 
+/**
+ * Universal message interface for provider-agnostic communication
+ */
+export interface UniversalMessage {
+    role: 'user' | 'assistant' | 'system' | 'tool';
+    content: string | null;
+    timestamp?: Date;
+    toolCalls?: ToolCall[];
+    toolCallId?: string;
+}
+
+/**
+ * Tool call interface
+ */
+export interface ToolCall {
+    id: string;
+    type: 'function';
+    function: {
+        name: string;
+        arguments: string;
+    };
+}
+
+/**
+ * Tool schema interface
+ */
+export interface ToolSchema {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+}
+
+/**
+ * Chat options interface
+ */
+export interface ChatOptions {
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    tools?: ToolSchema[];
+}
+
+/**
+ * AI Provider interface
+ */
+export interface AIProvider {
+    readonly name: string;
+    readonly version: string;
+
+    chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
+    chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
+    supportsTools(): boolean;
+    validateConfig(): boolean;
+    dispose(): Promise<void>;
+}
 
 /**
  * Anthropic AI provider implementation for Robota
@@ -12,11 +65,7 @@ import { AnthropicProviderOptions } from './types';
  * 
  * @public
  */
-export class AnthropicProvider extends BaseAIProvider<
-    AnthropicProviderOptions,
-    UniversalMessage,
-    UniversalMessage
-> {
+export class AnthropicProvider implements AIProvider {
     readonly name = 'anthropic';
     readonly version = '1.0.0';
 
@@ -24,7 +73,6 @@ export class AnthropicProvider extends BaseAIProvider<
     private readonly options: AnthropicProviderOptions;
 
     constructor(options: AnthropicProviderOptions) {
-        super();
         this.options = options;
         this.client = options.client;
 
@@ -107,15 +155,15 @@ export class AnthropicProvider extends BaseAIProvider<
         }
     }
 
-    override supportsTools(): boolean {
+    supportsTools(): boolean {
         return true;
     }
 
-    override validateConfig(): boolean {
+    validateConfig(): boolean {
         return !!this.client && !!this.options;
     }
 
-    override async dispose(): Promise<void> {
+    async dispose(): Promise<void> {
         // Anthropic client doesn't need explicit cleanup
     }
 
@@ -172,7 +220,10 @@ export class AnthropicProvider extends BaseAIProvider<
         return tools.map(tool => ({
             name: tool.name,
             description: tool.description,
-            input_schema: tool.parameters
+            input_schema: {
+                type: 'object',
+                ...tool.parameters
+            } as Anthropic.Tool.InputSchema
         }));
     }
 
@@ -241,7 +292,7 @@ export class AnthropicProvider extends BaseAIProvider<
     /**
      * Validate UniversalMessage array
      */
-    protected override validateMessages(messages: UniversalMessage[]): void {
+    protected validateMessages(messages: UniversalMessage[]): void {
         if (!Array.isArray(messages)) {
             throw new Error('Messages must be an array');
         }

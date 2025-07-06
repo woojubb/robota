@@ -9,8 +9,8 @@
     "exports": {
         ".": {
             "types": "./dist/index.d.ts",
-            "import": "./dist/index.mjs",
-            "require": "./dist/index.js"
+            "import": "./dist/index.js",
+            "require": "./dist/index.cjs"
         }
     },
     "repository": {
@@ -72,15 +72,8 @@
         "openai": "^4.98.0",
         "zod": "^3.24.4"
     },
-    "peerDependencies": {
-        "@robota-sdk/anthropic": "workspace:*",
-        "@robota-sdk/google": "workspace:*",
-        "@robota-sdk/openai": "workspace:*"
-    },
+    "peerDependencies": {},
     "devDependencies": {
-        "@robota-sdk/anthropic": "workspace:*",
-        "@robota-sdk/google": "workspace:*",
-        "@robota-sdk/openai": "workspace:*",
         "@types/swagger-schema-official": "^2.0.25",
         "@typescript-eslint/eslint-plugin": "^6.18.0",
         "@typescript-eslint/parser": "^6.18.0",
