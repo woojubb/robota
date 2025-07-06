@@ -1,5 +1,5 @@
 import { Message, AgentConfig, AssistantMessage, ToolMessage } from '../interfaces/agent';
-import { PluginContext, LoggerData, Metadata } from '../interfaces/types';
+import { PluginContext, Metadata } from '../interfaces/types';
 import { BasePlugin } from '../abstracts/base-plugin';
 import { ToolExecutionService, ToolExecutionBatchContext } from './tool-execution-service';
 import { AIProviders } from '../managers/ai-provider-manager';
@@ -161,10 +161,11 @@ export class ExecutionService {
                     } else if (msg.role === 'system') {
                         conversationSession.addSystemMessage(msg.content, msg.metadata);
                     } else if (msg.role === 'tool') {
+                        const toolName = (msg.metadata?.['toolName'] as string) || 'unknown';
                         conversationSession.addToolMessageWithId(
                             msg.content,
                             (msg as ToolMessage).toolCallId,
-                            (msg as ToolMessage).toolName,
+                            toolName,
                             msg.metadata
                         );
                     }
@@ -196,7 +197,10 @@ export class ExecutionService {
             }
 
             // Call beforeRun hook on all plugins
-            await this.callPluginHook('beforeRun', { input, metadata: context?.metadata as LoggerData });
+            await this.callPluginHook('beforeRun', {
+                input,
+                metadata: (context?.metadata || {}) as Metadata
+            });
 
             // Get AI provider instance
             const provider = this.aiProviders.getCurrentProviderInstance();
@@ -247,7 +251,13 @@ export class ExecutionService {
                 };
 
                 // Call beforeProviderCall hook
-                await this.callPluginHook('beforeProviderCall', { messages: conversationMessages });
+                await this.callPluginHook('beforeProviderCall', {
+                    messages: conversationMessages.map(msg => ({
+                        role: msg.role,
+                        content: msg.content || '',
+                        timestamp: msg.timestamp?.toISOString() || new Date().toISOString()
+                    })) as any
+                });
 
                 this.logger.debug('Sending messages to AI provider', {
                     round: currentRound,
@@ -283,29 +293,37 @@ export class ExecutionService {
                 const response = await provider.chat(conversationMessages, chatOptions);
 
                 // Call afterProviderCall hook
-                await this.callPluginHook('afterProviderCall', { messages: conversationMessages, response: response.content || '' });
+                await this.callPluginHook('afterProviderCall', {
+                    messages: conversationMessages.map(msg => ({
+                        role: msg.role,
+                        content: msg.content || '',
+                        timestamp: msg.timestamp?.toISOString() || new Date().toISOString()
+                    })) as any,
+                    response: response.content || ''
+                });
 
                 // Add assistant response to history
                 conversationSession.addAssistantMessage(
                     response.content ?? null,  // Convert undefined to null for consistency
-                    response.toolCalls,
-                    { round: currentRound, usage: response['usage'] }
+                    (response as any).toolCalls,
+                    { round: currentRound, usage: (response as any).metadata?.usage }
                 );
 
                 // Check if we need to execute tools
-                if (!response.toolCalls || response.toolCalls.length === 0) {
+                const assistantResponse = response as any;
+                if (!assistantResponse.toolCalls || assistantResponse.toolCalls.length === 0) {
                     // No tools to execute, we're done
                     break;
                 }
 
                 this.logger.debug('Tool calls detected, executing tools', {
-                    toolCallCount: response.toolCalls.length,
+                    toolCallCount: assistantResponse.toolCalls.length,
                     round: currentRound,
-                    toolCalls: response.toolCalls.map(tc => ({ id: tc.id, name: tc.function?.name }))
+                    toolCalls: assistantResponse.toolCalls.map((tc: any) => ({ id: tc.id, name: tc.function?.name }))
                 });
 
                 // Execute tools
-                const toolRequests = this.toolExecutionService.createExecutionRequests(response.toolCalls);
+                const toolRequests = this.toolExecutionService.createExecutionRequests(assistantResponse.toolCalls);
                 const toolContext: ToolExecutionBatchContext = {
                     requests: toolRequests,
                     mode: 'parallel',
@@ -318,7 +336,7 @@ export class ExecutionService {
 
                 // Add tool results to history in the order they were called
                 // This ensures proper conversation flow and prevents any duplicate entries
-                for (const toolCall of response.toolCalls) {
+                for (const toolCall of assistantResponse.toolCalls) {
                     if (!toolCall.id) {
                         throw new Error(`Tool call missing ID: ${JSON.stringify(toolCall)}`);
                     }
@@ -336,13 +354,17 @@ export class ExecutionService {
                             ? result.result
                             : JSON.stringify(result.result || 'Tool executed successfully');
                         metadata['success'] = true;
-                        metadata['toolName'] = result.toolName;
+                        if (result.toolName) {
+                            metadata['toolName'] = result.toolName;
+                        }
                     } else if (error) {
                         // Tool execution failed
                         content = `Error: ${error.error.message}`;
                         metadata['success'] = false;
                         metadata['error'] = error.error.message;
-                        metadata['toolName'] = error.toolName;
+                        if (error.toolName) {
+                            metadata['toolName'] = error.toolName;
+                        }
                     } else {
                         // No result found for this tool call
                         throw new Error(`No execution result found for tool call ID: ${toolCall.id}`);
@@ -406,8 +428,11 @@ export class ExecutionService {
                 executionId,
                 duration,
                 tokensUsed: finalMessages
-                    .filter(msg => msg.metadata?.['usage']?.['totalTokens'])
-                    .reduce((sum, msg) => sum + (msg.metadata?.['usage']?.['totalTokens'] || 0), 0),
+                    .filter(msg => msg.metadata?.['usage'])
+                    .reduce((sum, msg) => {
+                        const usage = msg.metadata?.['usage'] as any;
+                        return sum + (usage?.['totalTokens'] || 0);
+                    }, 0),
                 toolsExecuted,
                 success: true
             };
@@ -430,7 +455,10 @@ export class ExecutionService {
             const duration = Date.now() - startTime.getTime();
 
             // Call onError hook on all plugins
-            await this.callPluginHook('onError', { error: error as Error, executionContext: fullContext });
+            await this.callPluginHook('onError', {
+                error: error as Error,
+                executionContext: this.convertExecutionContextToPluginFormat(fullContext) as any
+            });
 
             this.logger.error('Execution pipeline failed', {
                 executionId,
@@ -563,5 +591,21 @@ export class ExecutionService {
                 });
             }
         }
+    }
+
+
+
+    /**
+     * Convert ExecutionContext to PluginContext compatible format
+     */
+    private convertExecutionContextToPluginFormat(context: ExecutionContext): Record<string, string | number | boolean | Date> {
+        return {
+            conversationId: context.conversationId || '',
+            sessionId: context.sessionId || '',
+            userId: context.userId || '',
+            executionId: context.executionId,
+            startTime: context.startTime.toISOString(),
+            messageCount: context.messages.length
+        };
     }
 } 

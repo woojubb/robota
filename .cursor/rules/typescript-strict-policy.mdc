@@ -1,0 +1,107 @@
+# 🚨 CRITICAL POLICY: TypeScript Strict Type Safety
+
+## ABSOLUTE PROHIBITION: any/unknown Types
+
+### ❌ NEVER ALLOWED
+- `any` type usage in production code
+- `unknown` type usage in production code  
+- `{}` empty object type
+- Type assertions with `as any`
+- `@ts-ignore` or `@ts-nocheck` comments
+- Disabling of strict TypeScript rules
+
+### ✅ REQUIRED ALTERNATIVES
+Instead of prohibited types, use:
+- **Specific interfaces**: `interface UserData { name: string; age: number }`
+- **Union types**: `string | number | boolean`
+- **Generic constraints**: `<T extends Record<string, string>>`
+- **Branded types**: `type UserId = string & { __brand: 'UserId' }`
+- **Conditional types**: `T extends U ? X : Y`
+- **Mapped types**: `{ [K in keyof T]: string }`
+
+### 🛡️ ENFORCEMENT MECHANISMS
+
+#### TypeScript Configuration
+- [tsconfig.base.json](mdc:tsconfig.base.json) contains strict rules that are **IMMUTABLE**
+- `noImplicitAny: true` - Zero tolerance for implicit any
+- `strict: true` - Maximum strictness required
+- `exactOptionalPropertyTypes: true` - Precise optional handling
+
+#### ESLint Configuration  
+- [.eslintrc.json](mdc:.eslintrc.json) contains error-level rules that are **IMMUTABLE**
+- `@typescript-eslint/no-explicit-any: "error"` - Any usage is a build failure
+- `@typescript-eslint/no-unsafe-*: "error"` - All unsafe operations prohibited
+- `@typescript-eslint/ban-types` - Comprehensive type prohibition
+
+### 🧪 LIMITED EXCEPTIONS
+
+#### Test Files Only
+- `**/*.test.ts` and `**/*.spec.ts` files have limited exceptions
+- any/unknown allowed ONLY for mocking and testing purposes
+- This exception must NEVER be extended to production code
+
+### 🔒 POLICY PROTECTION
+
+#### Configuration Immutability
+- TypeScript and ESLint configurations contain protection comments
+- Settings marked with 🚨 symbols are **STRICTLY PROHIBITED** from modification
+- Architecture team approval required for any policy changes
+
+#### Code Review Requirements
+- All PRs must pass strict type checking with zero errors
+- Type assertions require explicit justification in PR description
+- Facade patterns and utility functions preferred over type workarounds
+
+### 📋 IMPLEMENTATION PATTERNS
+
+#### Facade Pattern for Complex Types
+```typescript
+// ✅ GOOD: Use facade to hide complexity
+class TypeSafeWrapper {
+  private data: ComplexInternalType;
+  
+  public getValue(): string {
+    return this.processData(this.data);
+  }
+}
+```
+
+#### Pure Functions for Type Conversion
+```typescript
+// ✅ GOOD: Pure function with explicit types
+function convertToUserData(input: RawApiResponse): UserData {
+  return {
+    name: input.user_name,
+    age: Number(input.user_age)
+  };
+}
+```
+
+#### Type Guards for Runtime Safety
+```typescript
+// ✅ GOOD: Type guard with explicit checks
+function isValidUser(data: unknown): data is UserData {
+  return typeof data === 'object' && 
+         data !== null &&
+         'name' in data && 
+         'age' in data;
+}
+```
+
+### 🚫 VIOLATION CONSEQUENCES
+- Build failures for any/unknown usage
+- PR rejection for type safety violations  
+- Code review escalation for policy bypass attempts
+- Architecture review required for configuration changes
+
+### 📞 CONTACT
+- Type safety questions: Architecture team
+- Policy exceptions: Lead developer approval required
+- Configuration changes: Senior architect approval mandatory
+
+---
+**This policy is non-negotiable and applies to all production code.**
+description:
+globs:
+alwaysApply: false
+---

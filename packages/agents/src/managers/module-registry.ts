@@ -298,7 +298,7 @@ export class ModuleRegistry {
                 `Cannot initialize modules: ${errors.join('; ')}`,
                 {
                     missingDependencies: resolution.missingDependencies,
-                    circularDependencies: resolution.circularDependencies
+                    circularDependencies: resolution.circularDependencies.map(cycle => cycle.join(' -> '))
                 }
             );
         }

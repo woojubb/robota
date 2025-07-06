@@ -119,7 +119,10 @@ export class Tools extends BaseManager implements ToolManagerInterface {
                 result.error || 'Tool execution failed',
                 name,
                 undefined,
-                { parameters, result }
+                {
+                    parameters: JSON.stringify(parameters),
+                    result: JSON.stringify(result)
+                }
             );
         }
 

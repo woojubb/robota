@@ -26,6 +26,8 @@ export type EventType =
     | 'module.dispose.start'
     | 'module.dispose.complete'
     | 'module.dispose.error'
+    | 'module.registered'
+    | 'module.unregistered'
     | 'custom';
 
 /**

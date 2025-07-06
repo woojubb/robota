@@ -1,11 +1,18 @@
 {
     "name": "@robota-sdk/google",
-    "version": "1.0.5",
+    "version": "2.0.0-rc.1",
     "description": "Google AI integration for Robota SDK - Gemini Pro, Gemini Flash, function calling, and tool integration with Google's Generative AI",
     "type": "module",
     "main": "dist/index.js",
     "module": "dist/index.mjs",
     "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        }
+    },
     "repository": {
         "type": "git",
         "url": "https://github.com/woojubb/robota.git",

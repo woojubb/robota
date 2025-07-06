@@ -1,11 +1,18 @@
 {
     "name": "@robota-sdk/agents",
-    "version": "1.0.0",
+    "version": "2.0.0-rc.1",
     "description": "Complete AI agent implementation with unified core and tools functionality - conversation management, plugin system, and advanced agent features",
     "type": "module",
     "main": "dist/index.js",
     "module": "dist/index.mjs",
     "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        }
+    },
     "repository": {
         "type": "git",
         "url": "https://github.com/woojubb/robota.git",

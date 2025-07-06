@@ -135,12 +135,10 @@ export class Plugins extends BaseManager implements PluginsManagerInterface {
         this.initializationOrder = [];
     }
 
-
-
     /**
-     * Initialize the plugins manager
+     * Initialize the plugin manager
      */
-    async initialize(): Promise<void> {
+    override async initialize(): Promise<void> {
         if (this.initialized) {
             return;
         }

@@ -1,6 +1,8 @@
-import { UserMessage, AssistantMessage, SystemMessage, ToolMessage } from '../interfaces/agent';
-import { UniversalMessage } from '../managers/conversation-history-manager';
-import { AIProvider, ToolSchema, ToolCall } from '../interfaces/provider';
+import type { UniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage, ConversationMessageMetadata as ConversationContextMetadata } from '../managers/conversation-history-manager';
+import type { ToolSchema, AIProvider, ToolCall } from '../interfaces/provider';
+import type { ToolExecutionResult } from '../interfaces/tool';
+import { NetworkError, ProviderError } from '../utils/errors';
+import { createLogger, Logger } from '../utils/logger';
 import {
     ConversationContext,
     ConversationResponse,
@@ -9,9 +11,6 @@ import {
     ContextOptions,
     ConversationServiceInterface
 } from '../interfaces/service';
-import { Logger, createLogger } from '../utils/logger';
-import { NetworkError, ProviderError } from '../utils/errors';
-import type { ToolExecutionResult } from '../interfaces/tool';
 
 /**
  * Default conversation service options
@@ -23,8 +22,6 @@ const DEFAULT_OPTIONS: Required<ConversationServiceOptions> = {
     retryDelay: 1000,
     timeout: 30000,
 };
-
-
 
 /**
  * Provider request configuration
@@ -44,7 +41,7 @@ interface ProviderRequest {
  * Raw provider response structure
  */
 interface RawProviderResponse {
-    content?: string;
+    content: string | null;
     toolCalls?: ToolCall[];
     usage?: {
         promptTokens?: number;
@@ -170,11 +167,11 @@ export class ConversationService implements ConversationServiceInterface {
             messages: processedMessages,
             model,
             provider,
-            systemMessage: contextOptions.systemMessage,
-            temperature: contextOptions.temperature,
-            maxTokens: contextOptions.maxTokens,
-            tools: contextOptions.tools,
-            metadata: contextOptions.metadata,
+            ...(contextOptions.systemMessage && { systemMessage: contextOptions.systemMessage }),
+            ...(contextOptions.temperature !== undefined && { temperature: contextOptions.temperature }),
+            ...(contextOptions.maxTokens !== undefined && { maxTokens: contextOptions.maxTokens }),
+            ...(contextOptions.tools && { tools: contextOptions.tools }),
+            ...(contextOptions.metadata && { metadata: contextOptions.metadata })
         };
 
         logger.debug('Conversation context prepared', {
@@ -258,10 +255,10 @@ export class ConversationService implements ConversationServiceInterface {
     private static async* performStreamingResponse(
         provider: AIProvider,
         context: ConversationContext,
-        serviceOptions: ConversationServiceOptions,
+        _serviceOptions: ConversationServiceOptions,
         logger: Logger
     ): AsyncGenerator<StreamingChunk, void, undefined> {
-        const _options = { ...DEFAULT_OPTIONS, ...serviceOptions };
+        // Apply defaults for future use - currently not needed but maintains service contract
         const startTime = Date.now();
 
         try {
@@ -400,6 +397,7 @@ export class ConversationService implements ConversationServiceInterface {
         return {
             role: 'user',
             content,
+            timestamp: new Date(),
             metadata: {
                 timestamp: new Date().toISOString(),
                 ...metadata
@@ -411,10 +409,11 @@ export class ConversationService implements ConversationServiceInterface {
         const message: AssistantMessage = {
             role: 'assistant',
             content: response.content,
+            timestamp: new Date(),
             metadata: {
                 timestamp: new Date().toISOString(),
-                usage: response.usage,
-                finishReason: response.finishReason,
+                ...(response.usage && { usage: JSON.stringify(response.usage) }),
+                ...(response.finishReason && { finishReason: response.finishReason }),
                 ...metadata
             }
         };
@@ -430,6 +429,7 @@ export class ConversationService implements ConversationServiceInterface {
         return {
             role: 'system',
             content,
+            timestamp: new Date(),
             metadata: {
                 timestamp: new Date().toISOString(),
                 ...metadata
@@ -442,7 +442,7 @@ export class ConversationService implements ConversationServiceInterface {
             role: 'tool',
             content: typeof result === 'string' ? result : JSON.stringify(result),
             toolCallId,
-            result,
+            timestamp: new Date(),
             metadata: {
                 timestamp: new Date().toISOString(),
                 ...metadata
@@ -454,36 +454,86 @@ export class ConversationService implements ConversationServiceInterface {
     // Pure utility functions
     // ==============================================
 
+    /**
+     * Convert complex metadata to simple provider request format
+     */
+    private static convertToProviderMetadata(metadata?: ConversationContextMetadata): Record<string, string | number | boolean> | undefined {
+        if (!metadata) return undefined;
+
+        const converted: Record<string, string | number | boolean> = {};
+        for (const [key, value] of Object.entries(metadata)) {
+            if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+                converted[key] = value;
+            } else if (value instanceof Date) {
+                converted[key] = value.toISOString();
+            } else if (Array.isArray(value)) {
+                converted[key] = JSON.stringify(value);
+            } else {
+                converted[key] = JSON.stringify(value);
+            }
+        }
+        return converted;
+    }
+
+    /**
+     * Convert optional usage to required format
+     */
+    private static convertUsage(usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number }): { promptTokens: number; completionTokens: number; totalTokens: number } | undefined {
+        if (!usage) return undefined;
+
+        if (typeof usage.promptTokens === 'number' &&
+            typeof usage.completionTokens === 'number' &&
+            typeof usage.totalTokens === 'number') {
+            return {
+                promptTokens: usage.promptTokens,
+                completionTokens: usage.completionTokens,
+                totalTokens: usage.totalTokens
+            };
+        }
+        return undefined;
+    }
+
     private static createProviderRequest(context: ConversationContext, streaming: boolean = false): ProviderRequest {
-        return {
+        const request: any = {
             messages: context.messages,
             model: context.model,
-            temperature: context.temperature,
-            maxTokens: context.maxTokens,
-            tools: context.tools,
-            stream: streaming,
-            systemMessage: context.systemMessage,
-            metadata: context.metadata
+            stream: streaming
         };
+
+        if (context.temperature !== undefined) request.temperature = context.temperature;
+        if (context.maxTokens !== undefined) request.maxTokens = context.maxTokens;
+        if (context.tools) request.tools = context.tools;
+        if (context.systemMessage) request.systemMessage = context.systemMessage;
+        if (context.metadata) request.metadata = ConversationService.convertToProviderMetadata(context.metadata);
+
+        return request as ProviderRequest;
     }
 
     private static processProviderResponse(response: RawProviderResponse): ConversationResponse {
-        return {
+        const result: any = {
             content: response.content || '',
             toolCalls: response.toolCalls || [],
-            usage: response.usage || undefined,
             metadata: response.metadata || {},
             finishReason: response.finishReason || 'stop'
         };
+
+        const usage = ConversationService.convertUsage(response.usage);
+        if (usage) result.usage = usage;
+
+        return result as ConversationResponse;
     }
 
     private static processStreamingChunk(chunk: RawStreamingChunk): StreamingChunk {
-        return {
+        const result: any = {
             delta: chunk.delta || '',
             done: chunk.done || false,
-            toolCalls: chunk.toolCalls || [],
-            usage: chunk.usage || undefined
+            toolCalls: chunk.toolCalls || []
         };
+
+        const usage = ConversationService.convertUsage(chunk.usage);
+        if (usage) result.usage = usage;
+
+        return result as StreamingChunk;
     }
 
     private static async executeWithRetry<T>(

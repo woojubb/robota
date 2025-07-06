@@ -358,11 +358,15 @@ export class ModuleTypeRegistry {
             if (providers.length > 1) {
                 for (let i = 0; i < providers.length; i++) {
                     for (let j = i + 1; j < providers.length; j++) {
-                        conflicts.push({
-                            module1: providers[i],
-                            module2: providers[j],
-                            reason: `Both modules provide capability '${capability}'`
-                        });
+                        const module1 = providers[i];
+                        const module2 = providers[j];
+                        if (module1 && module2) {
+                            conflicts.push({
+                                module1,
+                                module2,
+                                reason: `Both modules provide capability '${capability}'`
+                            });
+                        }
                     }
                 }
             }
