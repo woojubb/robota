@@ -46,8 +46,7 @@ async function main() {
 
         // Create OpenAI Provider
         const openaiProvider = new OpenAIProvider({
-            client: openaiClient,
-            model: 'gpt-3.5-turbo'
+            apiKey: apiKey
         });
 
         // Create Robota instance with basic configuration
@@ -118,13 +117,11 @@ Before running this example, ensure you have:
 
 ### 1. Provider Configuration
 
-The example uses the OpenAI provider with direct client configuration:
+The example uses the OpenAI provider with API key configuration:
 
 ```typescript
-const openaiClient = new OpenAI({ apiKey });
 const openaiProvider = new OpenAIProvider({
-    client: openaiClient,
-    model: 'gpt-3.5-turbo'
+    apiKey: process.env.OPENAI_API_KEY
 });
 ```
 

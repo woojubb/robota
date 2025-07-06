@@ -80,40 +80,47 @@ Learn about monitoring, error handling, and deployment strategies.
 // Zero 'any' types - complete TypeScript safety
 const agent = new Robota({
     name: 'TypeSafeAgent',
-    model: 'gpt-3.5-turbo',
-    provider: 'openai',
-    // Full IntelliSense and compile-time validation
-    systemMessage: 'You are a helpful assistant.'
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You are a helpful assistant.'
+    }
 });
 ```
 
 ### Multi-Provider Support
 ```typescript
 // Switch between providers seamlessly
-await agent.switchProvider('anthropic', 'claude-3-haiku-20240307');
-await agent.switchProvider('openai', 'gpt-4');
-await agent.switchProvider('google', 'gemini-1.5-flash');
+agent.setModel({ provider: 'anthropic', model: 'claude-3-haiku-20240307' });
+agent.setModel({ provider: 'openai', model: 'gpt-4' });
+agent.setModel({ provider: 'google', model: 'gemini-1.5-flash' });
 ```
 
 ### Advanced Plugin System
 ```typescript
 // Extensible plugin architecture
 const agent = new Robota({
+    name: 'PluginAgent',
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo'
+    },
     plugins: [
         new ExecutionAnalyticsPlugin(),
         new ConversationHistoryPlugin(),
         new LoggingPlugin()
     ]
-    // ... other config
 });
 ```
 
 ### Real-time Streaming
 ```typescript
 // Streaming responses with full type safety
-const stream = await agent.stream('Explain quantum computing');
+const stream = agent.runStream('Explain quantum computing');
 for await (const chunk of stream) {
-    console.log(chunk.content); // Type-safe content access
+    process.stdout.write(chunk); // Type-safe streaming
 }
 ```
 
@@ -141,9 +148,12 @@ for await (const chunk of stream) {
 ```typescript
 const assistant = new Robota({
     name: 'Assistant',
-    model: 'gpt-3.5-turbo',
-    provider: 'openai',
-    systemMessage: 'You are a helpful assistant.'
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You are a helpful assistant.'
+    }
 });
 ```
 
@@ -151,8 +161,13 @@ const assistant = new Robota({
 ```typescript
 const toolAgent = new Robota({
     name: 'ToolAgent',
-    tools: [calculatorTool, weatherTool],
-    systemMessage: 'You have access to calculation and weather tools.'
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You have access to calculation and weather tools.'
+    },
+    tools: [calculatorTool, weatherTool]
 });
 ```
 
@@ -160,8 +175,13 @@ const toolAgent = new Robota({
 ```typescript
 const monitoredAgent = new Robota({
     name: 'MonitoredAgent',
-    plugins: [new ExecutionAnalyticsPlugin()],
-    systemMessage: 'You are monitored for performance.'
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You are monitored for performance.'
+    },
+    plugins: [new ExecutionAnalyticsPlugin()]
 });
 ```
 
@@ -169,11 +189,8 @@ const monitoredAgent = new Robota({
 ```typescript
 import { createTeam } from '@robota-sdk/team';
 
-const team = createTeam({
-    aiProviders: {
-        openai: openaiProvider,
-        anthropic: anthropicProvider
-    },
+const team = await createTeam({
+    aiProviders: [openaiProvider, anthropicProvider],
     maxMembers: 5,
     debug: true
 });
