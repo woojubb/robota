@@ -6,356 +6,602 @@ lang: en-US
 
 # Function Calling
 
-Function calling enables AI models to interact with external systems, retrieve data, or perform calculations through predefined functions. Robota provides a powerful and type-safe tool system for implementing function calling.
+Advanced tool integration and function calling with the Robota SDK.
 
 ## Overview
 
-Robota's function calling system consists of:
+The Robota SDK provides a powerful, type-safe function calling system that allows AI agents to interact with external tools, APIs, and services. The system is built around JSON Schema validation and automatic schema conversion.
 
-- **Tool Providers**: Manage collections of tools that AI can use
-- **Tool Definitions**: Type-safe function definitions with Zod schema validation
-- **Automatic Invocation**: AI automatically determines when and how to use tools
-- **Multiple Tool Types**: Support for Zod tools, MCP tools, and OpenAPI tools
+### Key Features
+
+- **Type-Safe Tool Creation**: Built-in TypeScript safety
+- **JSON Schema Validation**: Automatic parameter validation
+- **Cross-Provider Support**: Works with OpenAI, Anthropic, and Google AI
+- **Automatic Schema Conversion**: JSON Schema → Function call schemas
+- **Error Handling**: Robust error handling and recovery
 
 ## Basic Function Calling
 
-Here's how to set up basic function calling with Zod-based tools:
+### Creating Your First Tool
 
 ```typescript
-import { Robota } from '@robota-sdk/core';
-import { OpenAIProvider } from '@robota-sdk/openai';
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
-import OpenAI from 'openai';
-import { z } from 'zod';
-import dotenv from 'dotenv';
+import { Robota, createFunctionTool } from '@robota-sdk/agents';
 
-dotenv.config();
-
-async function main() {
-    // Create OpenAI client
-    const openaiClient = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY
-    });
-
-    // Create OpenAI Provider
-    const openaiProvider = new OpenAIProvider({
-        client: openaiClient,
-        model: 'gpt-4'
-    });
-
-    // Define calculator tool
-    const calculatorTool = {
-        name: 'calculate',
-        description: 'Performs mathematical calculations',
-        parameters: z.object({
-            operation: z.enum(['add', 'subtract', 'multiply', 'divide']).describe('Operation to perform'),
-            a: z.number().describe('First number'),
-            b: z.number().describe('Second number')
-        }),
-        handler: async (params) => {
-            const { operation, a, b } = params;
-            console.log(`[Tool] Calculating: ${a} ${operation} ${b}`);
-            
-            let result;
-            switch (operation) {
-                case 'add': result = { result: a + b }; break;
-                case 'subtract': result = { result: a - b }; break;
-                case 'multiply': result = { result: a * b }; break;
-                case 'divide': result = b !== 0 ? { result: a / b } : { error: 'Cannot divide by zero' }; break;
+// Create a simple calculator tool
+const calculatorTool = createFunctionTool(
+    'calculate',
+    'Performs mathematical calculations',
+    {
+        type: 'object',
+        properties: {
+            operation: {
+                type: 'string',
+                enum: ['add', 'subtract', 'multiply', 'divide'],
+                description: 'Mathematical operation to perform'
+            },
+            a: { 
+                type: 'number', 
+                description: 'First number' 
+            },
+            b: { 
+                type: 'number', 
+                description: 'Second number' 
             }
-            
-            console.log(`[Tool] Result:`, result);
-            return result;
-        }
-    };
-
-    // Create tool provider
-    const toolProvider = createZodFunctionToolProvider({
-        tools: {
-            calculate: calculatorTool
-        }
-    });
-
-    // Create Robota instance with tools
-    const robota = new Robota({
-        aiProviders: {
-            'openai': openaiProvider
         },
-        currentProvider: 'openai',
-        currentModel: 'gpt-4',
-        toolProviders: [toolProvider],
-        systemPrompt: 'You are a helpful AI assistant. Use the calculate tool for mathematical operations.',
-        debug: true  // Enable tool call logging
-    });
-
-    // AI will automatically use the calculator tool
-    const response = await robota.run('Please calculate 15 multiplied by 7 using the calculator tool.');
-    console.log('Response:', response);
-    
-    // Clean up resources
-    await robota.close();
-}
-
-main().catch(console.error);
-```
-
-## Complex Tool Examples
-
-### Weather Tool with Validation
-
-```typescript
-const weatherTool = {
-    name: 'getWeather',
-    description: 'Get current weather information for a location',
-    parameters: z.object({
-        location: z.string().min(1).describe('City name or location'),
-        unit: z.enum(['celsius', 'fahrenheit']).default('celsius').describe('Temperature unit'),
-        includeHumidity: z.boolean().default(false).describe('Include humidity information')
-    }),
-    handler: async ({ location, unit, includeHumidity }) => {
-        console.log(`[Weather Tool] Fetching weather for ${location} in ${unit}`);
-        
-        // Simulate API call
-        const weatherData = {
-            location,
-            temperature: unit === 'celsius' ? 22 : 72,
-            condition: 'sunny',
-            unit: unit === 'celsius' ? 'C' : 'F'
-        };
-
-        if (includeHumidity) {
-            weatherData.humidity = 65;
-        }
-
-        return weatherData;
-    }
-};
-```
-
-### Email Tool with Complex Schema
-
-```typescript
-const emailTool = {
-    name: 'sendEmail',
-    description: 'Send an email to specified recipients',
-    parameters: z.object({
-        to: z.array(z.string().email()).min(1).describe('Email recipients'),
-        subject: z.string().min(1).describe('Email subject'),
-        body: z.string().min(1).describe('Email body content'),
-        cc: z.array(z.string().email()).optional().describe('CC recipients'),
-        bcc: z.array(z.string().email()).optional().describe('BCC recipients'),
-        priority: z.enum(['low', 'normal', 'high']).default('normal').describe('Email priority')
-    }),
-    handler: async ({ to, subject, body, cc, bcc, priority }) => {
-        console.log(`[Email Tool] Sending email: ${subject}`);
-        console.log(`To: ${to.join(', ')}`);
-        if (cc?.length) console.log(`CC: ${cc.join(', ')}`);
-        if (bcc?.length) console.log(`BCC: ${bcc.join(', ')}`);
-        
-        // Simulate email sending
-        return {
-            status: 'sent',
-            messageId: `msg-${Date.now()}`,
-            timestamp: new Date().toISOString()
-        };
-    }
-};
-```
-
-## Multiple Tools Example
-
-Create a comprehensive tool provider with multiple tools:
-
-```typescript
-// Define multiple tools
-const tools = {
-    calculate: {
-        name: 'calculate',
-        description: 'Perform mathematical calculations',
-        parameters: z.object({
-            operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
-            a: z.number(),
-            b: z.number()
-        }),
-        handler: async ({ operation, a, b }) => {
-            const operations = {
-                add: a + b,
-                subtract: a - b,
-                multiply: a * b,
-                divide: b !== 0 ? a / b : null
-            };
-            return { result: operations[operation] };
-        }
+        required: ['operation', 'a', 'b']
     },
-
-    getWeather: {
-        name: 'getWeather',
-        description: 'Get weather information',
-        parameters: z.object({
-            location: z.string().describe('City name'),
-            unit: z.enum(['celsius', 'fahrenheit']).default('celsius')
-        }),
-        handler: async ({ location, unit }) => {
-            // Simulate weather API
-            return {
-                location,
-                temperature: unit === 'celsius' ? 22 : 72,
-                condition: 'sunny',
-                humidity: 65
-            };
-        }
-    },
-
-    getCurrentTime: {
-        name: 'getCurrentTime',
-        description: 'Get current time in specified timezone',
-        parameters: z.object({
-            timezone: z.string().default('UTC').describe('Timezone (e.g., America/New_York)')
-        }),
-        handler: async ({ timezone }) => {
-            return {
-                time: new Date().toLocaleString('en-US', { timeZone: timezone }),
-                timezone,
-                timestamp: Date.now()
-            };
+    async (params) => {
+            const { operation, a, b } = params;
+        
+            switch (operation) {
+            case 'add':
+                return { result: a + b };
+            case 'subtract':
+                return { result: a - b };
+            case 'multiply':
+                return { result: a * b };
+            case 'divide':
+                if (b === 0) {
+                    return { error: 'Cannot divide by zero' };
+                }
+                return { result: a / b };
+            default:
+                return { error: 'Unknown operation' };
         }
     }
-};
+);
 
-// Create tool provider with multiple tools
-const multiToolProvider = createZodFunctionToolProvider({ tools });
-
-const robota = new Robota({
-    aiProviders: { 'openai': openaiProvider },
-    currentProvider: 'openai',
-    currentModel: 'gpt-4',
-    toolProviders: [multiToolProvider],
-    systemPrompt: 'You are a helpful assistant with access to calculator, weather, and time tools.'
+// Create agent with the tool
+const agent = new Robota({
+    name: 'CalculatorAgent',
+    model: 'gpt-3.5-turbo',
+    provider: 'openai',
+    aiProviders: { openai: openaiProvider },
+    tools: [calculatorTool],
+    systemMessage: 'You are a helpful assistant with calculation abilities.'
 });
 
-// AI can use multiple tools in a single conversation
-const response = await robota.run(
-    'What is 25 * 4, what is the weather in Tokyo, and what time is it in Japan?'
+// Use the agent - it will automatically call the tool when needed
+const response = await agent.run('What is 25 multiplied by 7?');
+console.log(response); // The AI will use the calculator tool
+```
+
+## Advanced Tool Patterns
+
+### Weather Information Tool
+
+```typescript
+const weatherTool = createFunctionTool(
+    'getWeather',
+    'Get current weather information for a location',
+    {
+        type: 'object',
+        properties: {
+            location: {
+                type: 'string',
+                description: 'City name or coordinates'
+            },
+            units: {
+                type: 'string',
+                enum: ['celsius', 'fahrenheit', 'kelvin'],
+                default: 'celsius',
+                description: 'Temperature units'
+            }
+        },
+        required: ['location']
+    },
+    async (params) => {
+        // In a real implementation, you'd call a weather API
+        const { location, units = 'celsius' } = params;
+        
+        try {
+        // Simulate API call
+            const weatherData = await fetchWeatherAPI(location, units);
+            
+            return {
+            location,
+                temperature: weatherData.temperature,
+                condition: weatherData.condition,
+                humidity: weatherData.humidity,
+                units
+            };
+        } catch (error) {
+            return {
+                error: `Failed to get weather for ${location}: ${error.message}`
+            };
+    }
+    }
 );
 ```
 
-## Tool Provider Without AI
-
-You can also use tool providers independently without AI:
+### Database Query Tool
 
 ```typescript
-const toolOnlyRobota = new Robota({
-    toolProviders: [toolProvider],
-    systemPrompt: 'You process requests using available tools.'
+const databaseTool = createFunctionTool(
+    'queryDatabase',
+    'Query the database for information',
+    {
+        type: 'object',
+        properties: {
+            query: {
+                type: 'string',
+                description: 'SQL query to execute'
+            },
+            table: {
+                type: 'string',
+                enum: ['users', 'products', 'orders'],
+                description: 'Table to query'
+            },
+            limit: {
+                type: 'number',
+                minimum: 1,
+                maximum: 100,
+                default: 10,
+                description: 'Maximum number of results'
+            }
+        },
+        required: ['query', 'table']
+    },
+    async (params) => {
+        const { query, table, limit = 10 } = params;
+        
+        // Validate query for security
+        if (!isValidQuery(query, table)) {
+        return {
+                error: 'Invalid or unsafe query'
+            };
+        }
+        
+        try {
+            const results = await executeQuery(query, { table, limit });
+            return {
+                results,
+                count: results.length,
+                table
+            };
+        } catch (error) {
+            return {
+                error: `Database query failed: ${error.message}`
+        };
+    }
+    }
+);
+```
+
+### File System Tool
+
+```typescript
+const fileTool = createFunctionTool(
+    'fileOperations',
+    'Perform file system operations',
+    {
+        type: 'object',
+        properties: {
+            operation: {
+                type: 'string',
+                enum: ['read', 'write', 'list', 'delete'],
+                description: 'File operation to perform'
+            },
+            path: {
+                type: 'string',
+                description: 'File or directory path'
+            },
+            content: {
+                type: 'string',
+                description: 'Content to write (for write operation)'
+            },
+            encoding: {
+                type: 'string',
+                enum: ['utf8', 'base64', 'binary'],
+                default: 'utf8',
+                description: 'File encoding'
+            }
+        },
+        required: ['operation', 'path']
+    },
+    async (params) => {
+        const { operation, path, content, encoding = 'utf8' } = params;
+        
+        // Security check - only allow operations in allowed directories
+        if (!isAllowedPath(path)) {
+            return {
+                error: 'Access denied: path not allowed'
+            };
+        }
+        
+        try {
+            switch (operation) {
+                case 'read':
+                    const fileContent = await fs.readFile(path, encoding);
+                    return { content: fileContent, path, encoding };
+                    
+                case 'write':
+                    if (!content) {
+                        return { error: 'Content required for write operation' };
+                    }
+                    await fs.writeFile(path, content, encoding);
+                    return { success: true, path, bytesWritten: content.length };
+                    
+                case 'list':
+                    const files = await fs.readdir(path);
+                    return { files, path, count: files.length };
+                    
+                case 'delete':
+                    await fs.unlink(path);
+                    return { success: true, path, deleted: true };
+                    
+                default:
+                    return { error: `Unknown operation: ${operation}` };
+            }
+        } catch (error) {
+            return {
+                error: `File operation failed: ${error.message}`,
+                operation,
+                path
+            };
+        }
+    }
+);
+```
+
+## Multi-Tool Agents
+
+### Combining Multiple Tools
+
+```typescript
+// Create a comprehensive agent with multiple tools
+const multiToolAgent = new Robota({
+    name: 'MultiToolAgent',
+    model: 'gpt-4',
+    provider: 'openai',
+    aiProviders: { openai: openaiProvider },
+    tools: [
+        calculatorTool,
+        weatherTool,
+        databaseTool,
+        fileTool
+    ],
+    systemMessage: `You are a helpful assistant with access to multiple tools:
+    - Calculator for mathematical operations
+    - Weather information for any location
+    - Database queries for data retrieval
+    - File system operations for file management
+    
+    Use these tools when appropriate to help users with their requests.`
 });
 
-// Direct tool usage without AI provider
-const queries = [
-    'Calculate 10 + 5',
-    'What is the weather in Seoul?',
-    'What time is it in New York?'
-];
+// Complex multi-step task
+const response = await multiToolAgent.run(`
+    Please help me with the following tasks:
+    1. Calculate the average temperature if it's 23°C in London and 18°C in Paris
+    2. Save this result to a file called "temp-analysis.txt"
+    3. Query the database for all users in the "users" table
+`);
+```
 
-for (const query of queries) {
-    console.log(`\nUser: ${query}`);
-    const response = await toolOnlyRobota.run(query);
-    console.log(`Assistant: ${response}`);
+### Tool-Specific Error Handling
+
+```typescript
+const robustTool = createFunctionTool(
+    'robustOperation',
+    'A tool with comprehensive error handling',
+    {
+        type: 'object',
+        properties: {
+            action: { type: 'string', description: 'Action to perform' },
+            data: { type: 'object', description: 'Input data' }
+        },
+        required: ['action']
+    },
+    async (params) => {
+        const { action, data } = params;
+        
+        try {
+            // Validate input
+            if (!isValidAction(action)) {
+                return {
+                    error: 'Invalid action',
+                    code: 'INVALID_ACTION',
+                    details: { validActions: getValidActions() }
+                };
+            }
+            
+            // Perform operation with timeout
+            const result = await Promise.race([
+                performOperation(action, data),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Operation timeout')), 30000)
+                )
+            ]);
+            
+            return {
+                success: true,
+                result,
+                action,
+                timestamp: new Date().toISOString()
+            };
+            
+        } catch (error) {
+            return {
+                error: error.message,
+                code: 'OPERATION_FAILED',
+                action,
+                timestamp: new Date().toISOString(),
+                details: {
+                    stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+                }
+            };
+        }
+    }
+);
+```
+
+## Streaming with Tools
+
+### Real-time Tool Execution
+
+```typescript
+const agent = new Robota({
+    name: 'StreamingToolAgent',
+    model: 'gpt-3.5-turbo',
+    provider: 'openai',
+    aiProviders: { openai: openaiProvider },
+    tools: [calculatorTool, weatherTool],
+    systemMessage: 'You are a helpful assistant. Use tools when needed.'
+});
+
+// Stream responses while tools are being executed
+const stream = await agent.stream('What\'s the weather in Tokyo and what\'s 15 * 8?');
+
+for await (const chunk of stream) {
+    if (chunk.type === 'content') {
+        process.stdout.write(chunk.content);
+    } else if (chunk.type === 'tool_call') {
+        console.log(`\n[Tool Call] ${chunk.toolName}: ${JSON.stringify(chunk.parameters)}`);
+    } else if (chunk.type === 'tool_result') {
+        console.log(`[Tool Result] ${JSON.stringify(chunk.result)}\n`);
+    }
 }
 ```
 
-## Available Tool Information
+## Advanced Patterns
 
-Check what tools are available to your AI:
+### Tool Registry
 
 ```typescript
-// Get available tools
-const availableTools = robota.getAvailableTools();
-console.log('Available tools:', availableTools.map(tool => tool.name));
+import { ToolRegistry } from '@robota-sdk/agents';
 
-// Print tool schemas
-console.log('Tool schemas:', JSON.stringify(availableTools, null, 2));
+// Create a tool registry
+const toolRegistry = new ToolRegistry();
+
+// Register tools
+toolRegistry.register('calculator', calculatorTool);
+toolRegistry.register('weather', weatherTool);
+toolRegistry.register('database', databaseTool);
+
+// Create agent with registry
+const agent = new Robota({
+    name: 'RegistryAgent',
+    model: 'gpt-3.5-turbo',
+    provider: 'openai',
+    aiProviders: { openai: openaiProvider },
+    tools: toolRegistry.getAllTools(),
+    systemMessage: 'You have access to various tools through the registry.'
+});
+
+// Dynamically add tools
+toolRegistry.register('newTool', createNewTool());
 ```
 
-## Error Handling in Tools
-
-Implement proper error handling in your tool handlers:
+### Conditional Tools
 
 ```typescript
-const robustCalculatorTool = {
-    name: 'robustCalculate',
-    description: 'Perform calculations with error handling',
-    parameters: z.object({
-        operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
-        a: z.number(),
-        b: z.number()
-    }),
-    handler: async ({ operation, a, b }) => {
+// Tools that are only available under certain conditions
+const conditionalAgent = new Robota({
+    name: 'ConditionalAgent',
+    model: 'gpt-3.5-turbo',
+    provider: 'openai',
+    aiProviders: { openai: openaiProvider },
+    tools: [
+        // Always available
+        calculatorTool,
+        
+        // Only available if user has permission
+        ...(userHasPermission ? [databaseTool] : []),
+        
+        // Only available in development
+        ...(process.env.NODE_ENV === 'development' ? [debugTool] : [])
+    ],
+    systemMessage: 'You are a helpful assistant with context-specific tools.'
+});
+```
+
+### Tool Composition
+
+```typescript
+// Compose complex tools from simpler ones
+const compositeWorkflowTool = createFunctionTool(
+    'dataAnalysisWorkflow',
+    'Perform complete data analysis workflow',
+    {
+        type: 'object',
+        properties: {
+            dataSource: { type: 'string', description: 'Data source identifier' },
+            analysisType: { 
+                type: 'string', 
+                enum: ['summary', 'trend', 'comparison'],
+                description: 'Type of analysis to perform'
+            }
+        },
+        required: ['dataSource', 'analysisType']
+    },
+    async (params) => {
+        const { dataSource, analysisType } = params;
+        
         try {
-            console.log(`Calculating: ${a} ${operation} ${b}`);
+            // Step 1: Fetch data
+            const data = await fetchData(dataSource);
             
-            if (operation === 'divide' && b === 0) {
-                return { 
-                    error: 'Cannot divide by zero',
-                    code: 'DIVISION_BY_ZERO' 
-                };
-            }
-
-            const operations = {
-                add: a + b,
-                subtract: a - b,
-                multiply: a * b,
-                divide: a / b
-            };
-
-            const result = operations[operation];
+            // Step 2: Process data
+            const processedData = await processData(data, analysisType);
             
-            // Validate result
-            if (!isFinite(result)) {
-                return { 
-                    error: 'Result is not a finite number',
-                    code: 'INVALID_RESULT' 
-                };
-            }
+            // Step 3: Generate insights
+            const insights = await generateInsights(processedData);
+            
+            // Step 4: Create visualization
+            const visualization = await createVisualization(insights);
 
             return { 
-                result,
-                operation: `${a} ${operation} ${b} = ${result}`
+                success: true,
+                dataSource,
+                analysisType,
+                insights,
+                visualization,
+                summary: generateSummary(insights)
             };
 
         } catch (error) {
             return { 
-                error: 'Calculation failed',
-                code: 'CALCULATION_ERROR',
-                details: error.message 
+                error: `Workflow failed: ${error.message}`,
+                dataSource,
+                analysisType,
+                step: error.step || 'unknown'
             };
         }
     }
-};
+);
 ```
 
-## Debugging Tools
+## Best Practices
 
-Enable debugging to see tool execution details:
+### ✅ Do
+
+1. **Use descriptive names**: Tool names should be clear and specific
+2. **Validate inputs**: Always validate parameters before processing
+3. **Handle errors gracefully**: Return error objects instead of throwing
+4. **Provide detailed schemas**: Include descriptions for all parameters
+5. **Use enums for limited options**: Constrain parameter values when possible
+6. **Implement timeouts**: Prevent tools from hanging indefinitely
+7. **Log tool usage**: Track tool calls for debugging and analytics
+
+### ❌ Don't
+
+1. **Expose sensitive operations**: Don't allow dangerous file system operations
+2. **Skip input validation**: Always validate parameters
+3. **Return undefined**: Always return a result object
+4. **Use vague error messages**: Provide specific error information
+5. **Ignore security**: Validate permissions and sanitize inputs
+6. **Create overly complex tools**: Keep tools focused on single tasks
+
+### Security Considerations
 
 ```typescript
-const robota = new Robota({
-    aiProviders: { 'openai': openaiProvider },
-    currentProvider: 'openai',
-    currentModel: 'gpt-4',
-    toolProviders: [toolProvider],
-    debug: true,  // Enable debugging
-    logger: {
-        info: (msg, ...args) => console.log(`ℹ️ ${msg}`, ...args),
-        debug: (msg, ...args) => console.log(`🐛 ${msg}`, ...args),
-        warn: (msg, ...args) => console.warn(`⚠️ ${msg}`, ...args),
-        error: (msg, ...args) => console.error(`❌ ${msg}`, ...args)
+// Example of secure tool implementation
+const secureTool = createFunctionTool(
+    'secureFileRead',
+    'Securely read files with permission checks',
+    {
+        type: 'object',
+        properties: {
+            path: { type: 'string', description: 'File path to read' }
+        },
+        required: ['path']
+    },
+    async (params) => {
+        const { path } = params;
+        
+        // 1. Validate path
+        if (!isValidPath(path)) {
+            return { error: 'Invalid file path' };
+        }
+        
+        // 2. Check permissions
+        if (!hasReadPermission(path)) {
+            return { error: 'Access denied' };
+        }
+        
+        // 3. Sanitize path
+        const safePath = sanitizePath(path);
+        
+        // 4. Perform operation
+        try {
+            const content = await fs.readFile(safePath, 'utf8');
+            return { content, path: safePath };
+        } catch (error) {
+            return { error: `Failed to read file: ${error.message}` };
+        }
     }
-});
+);
+```
+
+## Performance Optimization
+
+### Tool Caching
+
+```typescript
+// Implement caching for expensive operations
+const cache = new Map();
+
+const cachedTool = createFunctionTool(
+    'expensiveOperation',
+    'Perform expensive operation with caching',
+    {
+        type: 'object',
+        properties: {
+            input: { type: 'string', description: 'Input data' }
+        },
+        required: ['input']
+    },
+    async (params) => {
+        const { input } = params;
+        const cacheKey = `expensive-${input}`;
+        
+        // Check cache first
+        if (cache.has(cacheKey)) {
+            return {
+                result: cache.get(cacheKey),
+                cached: true,
+                timestamp: new Date().toISOString()
+            };
+        }
+        
+        // Perform expensive operation
+        const result = await expensiveOperation(input);
+        
+        // Cache result
+        cache.set(cacheKey, result);
+        
+        return {
+            result,
+            cached: false,
+            timestamp: new Date().toISOString()
+        };
+    }
+);
 ```
 
 ## Next Steps
 
-- Learn about [Building Agents](./building-agents.md) for more complex AI workflows
-- Explore [AI Providers](../providers.md) for different AI model integrations
-- Check out the complete examples in the `apps/examples` directory
-- Read about [Core Concepts](./core-concepts.md) to understand Robota's architecture
+- **[Building Agents](./building-agents.md)** - Learn advanced agent patterns
+- **[Examples](../examples/README.md)** - See complete working examples
+- **[Performance Optimization](../development/performance-optimization.md)** - Optimize tool performance

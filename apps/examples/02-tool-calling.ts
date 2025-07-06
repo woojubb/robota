@@ -2,118 +2,108 @@
  * 02-tool-calling.ts
  * 
  * This example demonstrates tool calling functionality:
- * - Define tools using Zod schemas
+ * - Define tools using JSON schemas
  * - AI agent automatically calls appropriate tools
  * - Handle tool execution results
+ * - Show tool usage statistics
  */
 
-import { z } from 'zod';
-import { Robota } from '@robota-sdk/core';
+import { Robota, createFunctionTool } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
-// Load environment variables
+// Load environment variables from examples directory
 dotenv.config();
 
-// Define tool functions using Zod schemas
-const tools = {
-    // Calculator tool
-    calculate: {
-        name: 'calculate',
-        description: 'Performs basic mathematical calculations (add, subtract, multiply, divide)',
-        parameters: z.object({
-            operation: z.enum(['add', 'subtract', 'multiply', 'divide']).describe('Mathematical operation to perform'),
-            a: z.number().describe('First number'),
-            b: z.number().describe('Second number')
-        }),
-        handler: async (params) => {
-            const { operation, a, b } = params;
-            console.log(`🧮 Calculating: ${a} ${operation} ${b}`);
-
-            let result: number;
-            switch (operation) {
-                case 'add':
-                    result = a + b;
-                    break;
-                case 'subtract':
-                    result = a - b;
-                    break;
-                case 'multiply':
-                    result = a * b;
-                    break;
-                case 'divide':
-                    if (b === 0) throw new Error('Division by zero is not allowed');
-                    result = a / b;
-                    break;
-                default:
-                    throw new Error(`Unknown operation: ${operation}`);
+// Define tool functions using createFunctionTool with manual JSON schema
+const calculateTool = createFunctionTool(
+    'calculate',
+    'Performs basic mathematical calculations (add, subtract, multiply, divide)',
+    {
+        type: 'object',
+        properties: {
+            operation: {
+                type: 'string',
+                enum: ['add', 'subtract', 'multiply', 'divide'],
+                description: 'Mathematical operation to perform'
+            },
+            a: {
+                type: 'number',
+                description: 'First number'
+            },
+            b: {
+                type: 'number',
+                description: 'Second number'
             }
-
-            return { result, operation: `${a} ${operation} ${b} = ${result}` };
-        }
+        },
+        required: ['operation', 'a', 'b']
     },
+    async (params) => {
+        const operation = params.operation as string;
+        const a = Number(params.a);
+        const b = Number(params.b);
 
-    // Weather tool (mock data)
-    getWeather: {
-        name: 'getWeather',
-        description: 'Gets current weather information for a city',
-        parameters: z.object({
-            city: z.string().describe('City name to get weather for'),
-            unit: z.enum(['celsius', 'fahrenheit']).optional().default('celsius').describe('Temperature unit')
-        }),
-        handler: async (params) => {
-            const { city, unit } = params;
-            console.log(`🌤️ Getting weather for: ${city} (${unit})`);
-
-            // Mock weather data
-            const weatherData: Record<string, any> = {
-                'seoul': { temp: 22, condition: 'Clear', humidity: 65 },
-                'busan': { temp: 24, condition: 'Partly Cloudy', humidity: 70 },
-                'jeju': { temp: 26, condition: 'Cloudy', humidity: 75 },
-                'tokyo': { temp: 20, condition: 'Rainy', humidity: 80 },
-                'new york': { temp: 18, condition: 'Sunny', humidity: 55 }
-            };
-
-            const cityKey = city.toLowerCase();
-            const data = weatherData[cityKey] || { temp: 15, condition: 'Unknown', humidity: 60 };
-
-            const temperature = unit === 'fahrenheit'
-                ? Math.round(data.temp * 9 / 5 + 32)
-                : data.temp;
-
-            return {
-                city,
-                temperature,
-                unit: unit === 'celsius' ? '°C' : '°F',
-                condition: data.condition,
-                humidity: `${data.humidity}%`
-            };
+        // Validate parameters
+        if (isNaN(a) || isNaN(b)) {
+            throw new Error('Parameters a and b must be valid numbers');
         }
-    },
 
-    // Time tool
-    getCurrentTime: {
-        name: 'getCurrentTime',
-        description: 'Gets the current date and time',
-        parameters: z.object({
-            timezone: z.string().optional().default('UTC').describe('Timezone (e.g., UTC, Asia/Seoul)')
-        }),
-        handler: async (params) => {
-            const { timezone } = params;
-            console.log(`🕐 Getting current time for timezone: ${timezone}`);
+        console.log(`🧮 Calculating: ${a} ${operation} ${b}`);
 
-            const now = new Date();
-            const timeString = timezone === 'UTC'
-                ? now.toISOString()
-                : now.toLocaleString('en-US', { timeZone: timezone });
+        let result: number;
+        switch (operation) {
+            case 'add':
+                result = a + b;
+                break;
+            case 'subtract':
+                result = a - b;
+                break;
+            case 'multiply':
+                result = a * b;
+                break;
+            case 'divide':
+                if (b === 0) throw new Error('Division by zero is not allowed');
+                result = a / b;
+                break;
+            default:
+                throw new Error(`Unknown operation: ${operation}`);
+        }
 
-            return {
-                timezone,
-                currentTime: timeString,
-                timestamp: now.getTime()
-            };
+        return { result, operation: `${a} ${operation} ${b} = ${result}` };
+    }
+);
+
+const _weatherTool = {
+    name: 'get_weather',
+    description: 'Get current weather information for a city',
+    parameters: {
+        type: 'object',
+        properties: {
+            city: {
+                type: 'string',
+                description: 'The city name'
+            },
+            unit: {
+                type: 'string',
+                enum: ['celsius', 'fahrenheit'],
+                description: 'Temperature unit'
+            }
+        },
+        required: ['city']
+    }
+};
+
+const _timeTool = {
+    name: 'get_current_time',
+    description: 'Get the current time',
+    parameters: {
+        type: 'object',
+        properties: {
+            timezone: {
+                type: 'string',
+                description: 'Timezone (optional)'
+            }
         }
     }
 };
@@ -131,53 +121,83 @@ async function main() {
         // Create OpenAI client and provider
         const openaiClient = new OpenAI({ apiKey });
         const openaiProvider = new OpenAIProvider({
-            client: openaiClient,
-            model: 'gpt-3.5-turbo'
+            client: openaiClient
         });
 
-        // Create tool provider
-        const toolProvider = createZodFunctionToolProvider({ tools });
-
-        // Create Robota instance with tools
+        // Create Robota instance with tools using new API
         const robota = new Robota({
-            aiProviders: {
-                'openai': openaiProvider
+            name: 'ToolAgent',
+            aiProviders: [openaiProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-3.5-turbo',
+                systemMessage: 'You are a helpful assistant that can perform calculations. When using tools, use the results to provide a complete answer.'
             },
-            currentProvider: 'openai',
-            currentModel: 'gpt-3.5-turbo',
-            toolProviders: [toolProvider],
-            systemPrompt: 'You are a helpful assistant that can perform calculations, check weather, and tell time. Use the available tools when needed.'
+            tools: [calculateTool],
+            logging: {
+                level: 'info', // 자세한 로그를 통해 중복 실행 원인 파악
+                enabled: true
+            }
         });
 
-        // Test queries that should trigger tool calls
+        // Test queries optimized for minimal token usage
         const queries = [
-            'Hello! What can you help me with?',
-            'What is 15 multiplied by 8?',
-            'What\'s the weather like in Seoul?',
-            'Can you tell me the current time in UTC?',
-            'Calculate 100 divided by 4, and then tell me the weather in Tokyo in Fahrenheit'
+            'Hi', // Minimal greeting to test basic functionality
+            'What is 5 plus 3?' // Single tool demonstration with clear instruction
         ];
 
-        // Process each query
+        console.log(`📝 Executing ${queries.length} minimal queries for efficiency`);
+
+        // Process each query with error handling
         for (let i = 0; i < queries.length; i++) {
             const query = queries[i];
             console.log(`\n${i + 1}. User: ${query}`);
 
-            const response = await robota.run(query);
-            console.log(`   Assistant: ${response}`);
+            try {
+                const response = await robota.run(query);
+                console.log(`   Assistant: ${response}`);
+            } catch (error) {
+                console.error(`   Error: ${error}`);
+                break; // Stop on error to prevent infinite loops
+            }
 
             if (i < queries.length - 1) {
                 console.log('   ' + '─'.repeat(50));
             }
         }
 
+        // === Show Final Statistics ===
+        console.log('\n📊 Final Statistics:');
+        const stats = robota.getStats();
+        console.log(`- Agent name: ${stats.name}`);
+        console.log(`- Tools registered: ${stats.tools.join(', ')}`);
+        console.log(`- History length: ${stats.historyLength}`);
+        console.log(`- Current provider: ${stats.currentProvider}`);
+        console.log(`- Uptime: ${Math.round(stats.uptime)}ms`);
+
+        // Debug: Show conversation history
+        console.log('\n🔍 Final Conversation History:');
+        const history = robota.getHistory();
+        history.forEach((msg, index) => {
+            const content = msg.content?.substring(0, 100) || '';
+            const toolCalls = 'toolCalls' in msg ? (msg as any).toolCalls?.length || 0 : 0;
+            const toolCallId = 'toolCallId' in msg ? (msg as any).toolCallId : '';
+            console.log(`${index + 1}. ${msg.role}: ${content}${toolCalls > 0 ? ` [${toolCalls} tool calls]` : ''}${toolCallId ? ` [toolCallId: ${toolCallId}]` : ''}`);
+        });
+
         console.log('\n✅ Tool Calling Example Completed!');
 
-        // Clean up resources and exit
-        await robota.close();
+        // Clean up resources
+        await robota.destroy();
+
+        // Ensure process exits cleanly
+        console.log('🧹 Cleanup completed. Exiting...');
         process.exit(0);
     } catch (error) {
         console.error('❌ Error occurred:', error);
+        if (error instanceof Error) {
+            console.error('Stack trace:', error.stack);
+        }
         process.exit(1);
     }
 }

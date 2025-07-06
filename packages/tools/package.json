@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/tools",
-  "version": "1.0.5",
-  "description": "Tools and utilities package for Robota SDK - providing AI function calling and tool integration capabilities",
+  "version": "2.0.0",
+  "description": "⚠️ DEPRECATED: This package has been deprecated. Please use @robota-sdk/agents instead.",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -9,8 +9,8 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     }
   },
   "repository": {
@@ -29,53 +29,29 @@
   ],
   "scripts": {
     "build": "tsup",
-    "build:check": "bun run typecheck && bun run build",
-    "dev": "tsup --watch",
     "clean": "rimraf dist && rimraf tsconfig.tsbuildinfo",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "lint": "eslint src --ext .ts,.tsx",
-    "lint:fix": "eslint src --ext .ts,.tsx --fix",
-    "prepublishOnly": "bun run clean && bun run build:check && bun run test"
+    "test": "echo \"Package deprecated - no tests to run\"",
+    "prepublishOnly": "bun run clean && bun run build"
   },
   "keywords": [
+    "deprecated",
     "ai",
     "agent",
-    "llm",
     "tools",
-    "utilities",
-    "function-calling",
-    "typescript",
     "robota",
-    "sdk",
-    "openai",
-    "anthropic",
-    "mcp",
-    "tool-provider",
-    "ai-integration"
+    "sdk"
   ],
   "author": "Robota SDK Team",
   "license": "MIT",
   "engines": {
-    "node": ">=18.0.0",
-    "bun": ">=1.0.0"
+    "node": ">=18.0.0"
   },
-  "dependencies": {
-    "zod": "^3.24.4"
-  },
-  "peerDependencies": {
-    "@robota-sdk/core": "workspace:*"
-  },
+  "deprecated": "This package has been deprecated. Please use @robota-sdk/agents instead.",
   "devDependencies": {
-    "@robota-sdk/core": "workspace:*",
-    "@types/node": "^20.10.6",
     "rimraf": "^5.0.5",
     "tsup": "^8.0.1",
-    "typescript": "^5.3.3",
-    "vitest": "^1.6.1",
-    "eslint": "^8.56.0"
+    "typescript": "^5.3.3"
   },
   "publishConfig": {
     "access": "public",

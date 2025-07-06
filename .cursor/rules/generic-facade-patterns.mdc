@@ -1,0 +1,436 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# 타입 매개변수와 고급 Facade 패턴 가이드
+
+## 🎯 목표
+
+타입 안전성을 유지하면서 코드 재사용성과 유연성을 극대화하기 위한 타입 매개변수와 고급 Facade 패턴 도입 가이드입니다.
+
+## 📋 타입 매개변수 설계 원칙
+
+### 🚨 중요: 명명 규칙 및 설계 철학
+
+1. **명명 원칙**: "제네릭"이라는 용어를 코드나 타입명에 사용하지 않습니다. 제네릭은 구현 방식이지 이름이 아닙니다.
+2. **Provider 불가지론**: agents 라이브러리는 특정 AI Provider(OpenAI, Anthropic 등)를 알지 않습니다.
+3. **동적 구조**: `aiProviders['openai']` 형태로 런타임에 Provider를 등록하고 사용합니다.
+
+### 1. 타입 매개변수 명명 규칙
+
+```typescript
+// ✅ 권장: 명확하고 설명적인 이름
+interface BaseAgent<TConfig, TContext, TResult> {
+  configure(config: TConfig): Promise<void>;
+  execute(context: TContext): Promise<TResult>;
+}
+
+// ✅ Provider 중립적 설계
+interface BaseAIProvider<TConfig, TMessage, TResponse> {
+  configure(config: TConfig): void;
+  sendMessage(message: TMessage): Promise<TResponse>;
+}
+
+// ✅ Tool 타입 매개변수
+interface BaseTool<TParameters, TResult> {
+  execute(parameters: TParameters): Promise<TResult>;
+}
+
+// ✅ Plugin 타입 매개변수
+interface BasePlugin<TOptions, TContext, TStats> {
+  initialize(options: TOptions): Promise<void>;
+  process(context: TContext): Promise<void>;
+  getStats(): TStats;
+}
+```
+
+### 2. 동적 Provider 타입 시스템
+
+```typescript
+// ✅ Provider 불가지론적 설계
+interface BaseAIProvider<TConfig, TMessage, TResponse> {
+  configure(config: TConfig): void;
+  sendMessage(message: TMessage): Promise<TResponse>;
+}
+
+// ✅ 동적 Provider 등록
+interface AgentConfig {
+  aiProviders?: Record<string, BaseAIProvider<any, any, any>>;
+  currentProvider?: string;
+}
+```
+
+### 3. 타입 매개변수 제약 조건 (Constraints)
+
+```typescript
+// ✅ 기본 제약 조건
+interface BaseAgent<
+  TConfig extends Record<string, unknown>,
+  TContext extends ExecutionContext,
+  TResult extends ExecutionResult
+> {
+  // 구현
+}
+
+// ✅ 조건부 타입 활용 (Provider 중립적)
+type ProviderMessage<T extends string> = T extends string 
+  ? UniversalMessage 
+  : never;
+
+// ✅ 키 제약 조건
+interface ToolRegistry<K extends string, T extends BaseTool<any, any>> {
+  register(name: K, tool: T): void;
+  get(name: K): T | undefined;
+}
+```
+
+### 4. 기본 타입 매개변수 (Default Type Parameters)
+
+```typescript
+// ✅ 하위 호환성을 위한 기본 타입 제공
+interface BaseAgent<
+  TConfig = AgentConfig,
+  TContext = ExecutionContext,
+  TResult = ExecutionResult
+> {
+  // 기존 코드와 호환성 유지
+}
+
+// ✅ 점진적 마이그레이션 지원
+interface BaseAIProvider<
+  TConfig = ProviderConfig,
+  TMessage = UniversalMessage,
+  TResponse = ProviderResponse
+> {
+  // 기존 사용법: new CustomProvider()
+  // 새로운 사용법: new CustomProvider<CustomConfig, CustomMessage, CustomResponse>()
+}
+```
+
+## 🏗️ 고급 Facade 패턴
+
+### 1. 폴더 구조 표준
+
+```
+src/
+├── components/
+│   ├── [component-name]/
+│   │   ├── types.ts          # 타입 정의
+│   │   ├── interfaces.ts     # 인터페이스
+│   │   ├── adapters/         # 어댑터 패턴
+│   │   ├── validators/       # 검증 로직
+│   │   ├── transformers/     # 변환 로직
+│   │   ├── [component].ts    # 메인 클래스
+│   │   └── index.ts          # 통합 export
+```
+
+### 2. 타입 정의 분리
+
+```typescript
+// types.ts - 모든 타입 정의
+export interface ComponentConfig<T = unknown> {
+  enabled: boolean;
+  options: T;
+}
+
+export interface ComponentContext<TData = unknown> {
+  executionId: string;
+  data: TData;
+  metadata: Record<string, unknown>;
+}
+
+export interface ComponentResult<TOutput = unknown> {
+  success: boolean;
+  output: TOutput;
+  duration: number;
+}
+
+// interfaces.ts - 인터페이스 정의
+export interface ComponentInterface<TConfig, TContext, TResult> {
+  initialize(config: TConfig): Promise<void>;
+  process(context: TContext): Promise<TResult>;
+  cleanup(): Promise<void>;
+}
+```
+
+### 3. 어댑터 패턴 구현
+
+```typescript
+// adapters/context-adapter.ts
+export class ContextAdapter<TInput, TOutput> {
+  constructor(
+    private transformer: (input: TInput) => TOutput
+  ) {}
+
+  adapt(input: TInput): TOutput {
+    try {
+      return this.transformer(input);
+    } catch (error) {
+      throw new AdapterError('Context adaptation failed', { input, error });
+    }
+  }
+}
+
+// adapters/config-adapter.ts
+export class ConfigAdapter<TSource, TTarget> {
+  static create<S, T>(
+    schema: Schema<T>,
+    transformer: (source: S) => T
+  ): ConfigAdapter<S, T> {
+    return new ConfigAdapter(schema, transformer);
+  }
+
+  private constructor(
+    private schema: Schema<TTarget>,
+    private transformer: (source: TSource) => TTarget
+  ) {}
+
+  adapt(source: TSource): TTarget {
+    const transformed = this.transformer(source);
+    return this.schema.parse(transformed);
+  }
+}
+```
+
+### 4. 검증 시스템
+
+```typescript
+// validators/type-validator.ts
+export class TypeValidator<T> {
+  constructor(
+    private guards: Array<(value: unknown) => value is T>
+  ) {}
+
+  validate(value: unknown): value is T {
+    return this.guards.every(guard => guard(value));
+  }
+
+  assert(value: unknown, context?: string): asserts value is T {
+    if (!this.validate(value)) {
+      throw new ValidationError(`Type validation failed${context ? `: ${context}` : ''}`, {
+        value,
+        expectedType: this.constructor.name
+      });
+    }
+  }
+}
+
+// validators/schema-validator.ts
+export class SchemaValidator<T> {
+  constructor(private schema: Schema<T>) {}
+
+  validate(value: unknown): ValidationResult<T> {
+    try {
+      const parsed = this.schema.parse(value);
+      return { success: true, data: parsed };
+    } catch (error) {
+      return { 
+        success: false, 
+        errors: error instanceof ZodError ? error.errors : [{ message: String(error) }]
+      };
+    }
+  }
+
+  assert(value: unknown): T {
+    const result = this.validate(value);
+    if (!result.success) {
+      throw new ValidationError('Schema validation failed', {
+        errors: result.errors,
+        value
+      });
+    }
+    return result.data;
+  }
+}
+```
+
+## 🔧 구현 단계별 가이드
+
+### Phase 1: 기존 인터페이스 타입 매개변수화
+
+1. **BaseAgent 타입 매개변수화**
+   ```typescript
+   // 기존
+   interface BaseAgent {
+     configure(config: AgentConfig): Promise<void>;
+   }
+
+   // 새로운 타입 매개변수 버전
+   interface BaseAgent<TConfig = AgentConfig> {
+     configure(config: TConfig): Promise<void>;
+   }
+   ```
+
+2. **점진적 마이그레이션**
+   - 기존 코드 호환성 유지
+   - 새로운 타입 매개변수 API 점진적 도입
+   - 타입 안전성 단계별 강화
+
+### Phase 2: 동적 Provider 시스템 타입 매개변수 통합
+
+1. **Provider 중립적 타입 정의**
+   ```typescript
+   // ✅ Provider 불가지론적 설계
+   interface BaseAIProvider<TConfig, TMessage, TResponse> {
+     configure(config: TConfig): void;
+     sendMessage(message: TMessage): Promise<TResponse>;
+   }
+
+   // ✅ 동적 Provider 등록
+   interface AgentConfig {
+     aiProviders?: Record<string, BaseAIProvider<any, any, any>>;
+     currentProvider?: string;
+   }
+   ```
+
+2. **타입 안전한 메시지 변환**
+   ```typescript
+   class MessageTransformer<TSource, TTarget> {
+     transform(message: TSource): TTarget {
+       // 타입 안전한 변환 로직
+     }
+   }
+   ```
+
+### Phase 3: Tool 시스템 타입 매개변수화
+
+1. **타입 안전한 도구 매개변수**
+   ```typescript
+   interface BaseTool<TParams, TResult> {
+     execute(params: TParams): Promise<TResult>;
+     validateParameters(params: unknown): params is TParams;
+   }
+   ```
+
+2. **런타임 검증 통합**
+   ```typescript
+   class TypeSafeTool<TParams, TResult> extends BaseTool<TParams, TResult> {
+     constructor(
+       private schema: Schema<TParams>,
+       private executor: (params: TParams) => Promise<TResult>
+     ) {
+       super();
+     }
+
+     async execute(params: TParams): Promise<TResult> {
+       this.schema.parse(params); // 런타임 검증
+       return this.executor(params);
+     }
+   }
+   ```
+
+## 📏 성능 고려사항
+
+### 1. 타입 컴파일 최적화
+
+```typescript
+// ❌ 피할 것: 과도하게 복잡한 타입 매개변수
+type OverlyComplex<T> = T extends Record<infer K, infer V> 
+  ? K extends string 
+    ? V extends Record<infer K2, infer V2>
+      ? K2 extends string
+        ? Record<K, Record<K2, V2>>
+        : never
+      : never
+    : never
+  : never;
+
+// ✅ 권장: 단순하고 명확한 타입 매개변수
+type SimpleRecord<K extends string, V> = Record<K, V>;
+```
+
+### 2. 조건부 타입 최적화
+
+```typescript
+// ✅ 효율적인 조건부 타입 (Provider 중립적)
+type ProviderType<T extends string> = T extends string ? BaseAIProvider : never;
+
+// ✅ 타입 매핑 활용 (동적 Provider 지원)
+type ProviderMap<T extends Record<string, BaseAIProvider<any, any, any>>> = {
+  [K in keyof T]: T[K];
+};
+```
+
+## 🧪 테스트 전략
+
+### 1. 타입 레벨 테스트
+
+```typescript
+// type-tests.ts
+import { expectType, expectError, expectAssignable } from 'tsd';
+
+// 타입 매개변수 검증
+expectType<BaseAIProvider<any, any, any>>(new CustomProvider());
+
+// 타입 호환성 검증
+expectAssignable<BaseAgent>(new CustomAgent());
+
+// 타입 에러 검증
+expectError(new BaseTool<string, number>().execute(123)); // 잘못된 매개변수 타입
+```
+
+### 2. 런타임 검증 테스트
+
+```typescript
+describe('Type Parameter Safety', () => {
+  it('should validate parameters at runtime', async () => {
+    const tool = new TypeSafeTool(
+      z.object({ name: z.string() }),
+      async (params) => `Hello, ${params.name}!`
+    );
+
+    await expect(tool.execute({ name: 'World' })).resolves.toBe('Hello, World!');
+    await expect(tool.execute({ age: 25 } as any)).rejects.toThrow();
+  });
+});
+```
+
+## 🔄 마이그레이션 가이드
+
+### 1. 기존 코드 호환성 유지
+
+```typescript
+// 기존 사용법 (여전히 작동)
+const agent = new RobotaAgent({
+  model: 'gpt-4',
+  provider: 'openai',
+  aiProviders: {
+    'openai': openaiProvider
+  },
+  currentProvider: 'openai'
+});
+
+// 새로운 타입 매개변수 사용법
+const typedAgent = new RobotaAgent<CustomConfig, CustomContext, CustomResult>({
+  model: 'gpt-4',
+  provider: 'openai',
+  aiProviders: {
+    'openai': openaiProvider
+  },
+  currentProvider: 'openai'
+});
+```
+
+### 2. 단계적 타입 강화
+
+```typescript
+// Step 1: 기본 타입 매개변수 도입
+interface MyTool extends BaseTool<Record<string, unknown>, unknown> {}
+
+// Step 2: 구체적 타입 정의
+interface MyToolParams {
+  query: string;
+  options?: SearchOptions;
+}
+
+interface MyToolResult {
+  results: SearchResult[];
+  metadata: SearchMetadata;
+}
+
+// Step 3: 완전한 타입 안전성
+interface MyTool extends BaseTool<MyToolParams, MyToolResult> {}
+```
+
+이 가이드를 따라 타입 매개변수와 고급 Facade 패턴을 단계적으로 도입하여 타입 안전성과 코드 재사용성을 극대화할 수 있습니다.

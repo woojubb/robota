@@ -29,10 +29,7 @@
   ],
   "references": [
     {
-      "path": "./packages/tools"
-    },
-    {
-      "path": "./packages/core"
+      "path": "./packages/agents"
     },
     {
       "path": "./packages/openai"
@@ -44,7 +41,7 @@
       "path": "./packages/google"
     },
     {
-      "path": "./packages/sessions"
+      "path": "./packages/team"
     }
   ]
 }

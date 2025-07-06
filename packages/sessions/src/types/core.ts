@@ -1,5 +1,8 @@
-// Concise core type definitions
-export * from '@robota-sdk/core';
+// Re-export necessary types from agents
+export type { AgentInterface, AgentConfig, Message, RunOptions } from '@robota-sdk/agents';
+
+// Import AgentConfig type for local use
+import type { AgentConfig } from '@robota-sdk/agents';
 
 export enum SessionState {
     ACTIVE = 'active',
@@ -24,10 +27,10 @@ export interface SessionInfo {
     lastUsedAt: Date;
 }
 
-// Chat related types
+// Chat related types - using AgentConfig from agents package
 export interface ChatConfig {
     name?: string;
-    robotaConfig?: any;
+    robotaConfig?: AgentConfig;
 }
 
 export interface ChatInfo {

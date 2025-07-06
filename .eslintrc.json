@@ -6,40 +6,60 @@
     "node": true
   },
   "extends": [
-    "eslint:recommended",
-    "plugin:@typescript-eslint/recommended"
+    "eslint:recommended"
   ],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
     "ecmaVersion": "latest",
-    "sourceType": "module"
+    "sourceType": "module",
+    "project": [
+      "./tsconfig.json",
+      "./packages/*/tsconfig.json",
+      "./packages/*/tsconfig.test.json"
+    ]
   },
   "plugins": [
     "@typescript-eslint"
   ],
+  "globals": {
+    "NodeJS": "readonly"
+  },
   "rules": {
-    "@typescript-eslint/no-explicit-any": "off",
+    // ==========================================
+    // CRITICAL POLICY: ANY/UNKNOWN TYPE PROHIBITION
+    // ==========================================
+    // 🚨 NEVER MODIFY THESE SETTINGS 🚨
+    // These rules enforce zero tolerance for any/unknown types
+    // Modification of these settings is STRICTLY PROHIBITED
+    // Contact architecture team before any changes
+    "@typescript-eslint/no-explicit-any": "error", // ❌ PROHIBIT explicit any
+    "@typescript-eslint/ban-types": [
+      "error",
+      {
+        "types": {
+          "unknown": "❌ PROHIBITED: Use of 'unknown' type is not allowed. Define specific types instead.",
+          "any": "❌ PROHIBITED: Use of 'any' type is not allowed. Define specific types instead.",
+          "{}": "❌ PROHIBITED: Use of '{}' type is not allowed. Use 'Record<string, unknown>' or define specific interface."
+        },
+        "extendDefaults": true
+      }
+    ],
+    // ==========================================
     "@typescript-eslint/no-unused-vars": [
       "warn",
       {
         "argsIgnorePattern": "^_",
-        "varsIgnorePattern": "^_"
+        "varsIgnorePattern": "^_",
+        "ignoreRestSiblings": true,
+        "destructuredArrayIgnorePattern": "^_"
       }
     ],
+    "no-unused-vars": "off",
     "@typescript-eslint/explicit-module-boundary-types": "off",
     "@typescript-eslint/ban-ts-comment": "warn",
-    "@typescript-eslint/ban-types": "warn",
     "no-useless-catch": "warn",
-    "no-console": [
-      "error",
-      {
-        "allow": [
-          "warn",
-          "error",
-          "info"
-        ]
-      }
-    ]
+    "no-console": "error",
+    "no-redeclare": "error"
   },
   "overrides": [
     {
@@ -53,8 +73,39 @@
     {
       "files": [
         "apps/examples/**/*",
-        "apps/docs/**/*",
-        "apps/services/**/*"
+        "examples/**/*"
+      ],
+      "rules": {
+        "no-console": "off",
+        "@typescript-eslint/no-unused-vars": "off",
+        "no-unused-vars": "off"
+      }
+    },
+    {
+      "files": [
+        "**/*.test.ts",
+        "**/*.test.tsx"
+      ],
+      "rules": {
+        "@typescript-eslint/no-unused-vars": "off",
+        "no-unused-vars": "off",
+        // ==========================================
+        // CRITICAL POLICY: TEST FILES EXCEPTION
+        // ==========================================
+        // 🚨 LIMITED EXCEPTION FOR TEST FILES ONLY 🚨
+        // any/unknown types are allowed ONLY in test files
+        // for mocking and testing purposes
+        // This exception must NOT be extended to production code
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/ban-types": "off"
+        // ==========================================
+      }
+    },
+    {
+      "files": [
+        "**/plugins/logging/**/*",
+        "**/storages/console-storage.ts",
+        "**/utils/logger.ts"
       ],
       "rules": {
         "no-console": "off"
@@ -65,6 +116,8 @@
     "website/**/*",
     "backup/**/*",
     "apps/web/**/*",
+    "docs/**/*",
+    "apps/docs/**/*",
     "dist",
     "node_modules"
   ]

@@ -13,10 +13,11 @@
     "url": "https://github.com/woojubb/robota/issues"
   },
   "scripts": {
-    "build": "pnpm run -r build && pnpm run docs:build",
-    "build:deps": "pnpm --filter @robota-sdk/tools build && pnpm --filter @robota-sdk/core build && pnpm --filter @robota-sdk/openai build && pnpm --filter @robota-sdk/anthropic build && pnpm --filter @robota-sdk/google build && pnpm --filter @robota-sdk/sessions build && pnpm --filter @robota-sdk/team build",
+    "build": "pnpm --filter @robota-sdk/agents build && pnpm --filter @robota-sdk/openai build && pnpm --filter @robota-sdk/anthropic build && pnpm --filter @robota-sdk/google build && pnpm --filter @robota-sdk/team build && pnpm --filter @robota-sdk/sessions build && pnpm --filter @robota-sdk/tools build && pnpm --filter @robota-sdk/core build && pnpm --filter apps/examples build",
+    "build:all": "pnpm run build && pnpm run docs:build",
+    "build:deps": "pnpm run build",
     "test": "pnpm run -r test",
-    "typecheck": "pnpm --filter @robota-sdk/tools typecheck && pnpm --filter @robota-sdk/core typecheck && pnpm --filter @robota-sdk/openai typecheck",
+    "typecheck": "pnpm --filter @robota-sdk/agents typecheck && pnpm --filter @robota-sdk/openai typecheck && pnpm --filter @robota-sdk/anthropic typecheck && pnpm --filter @robota-sdk/google typecheck && pnpm --filter @robota-sdk/team typecheck && pnpm --filter @robota-sdk/sessions typecheck && pnpm --filter @robota-sdk/tools typecheck && pnpm --filter @robota-sdk/core typecheck",
     "lint": "pnpm run -r lint",
     "lint:fix": "pnpm run -r lint:fix",
     "dev": "pnpm run -r dev",
@@ -63,8 +64,8 @@
   "devDependencies": {
     "@changesets/cli": "^2.29.4",
     "@types/node": "^20.10.6",
-    "@typescript-eslint/eslint-plugin": "^6.18.0",
-    "@typescript-eslint/parser": "^6.18.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
     "eslint": "^8.56.0",
     "glob": "^10.3.10",
     "husky": "^8.0.3",
@@ -77,7 +78,7 @@
     "vitest": "^1.6.1"
   },
   "engines": {
-    "node": ">=22.14.0",
+    "node": ">=18.0.0",
     "pnpm": "8.15.4"
   },
   "packageManager": "pnpm@8.15.4",
@@ -86,16 +87,16 @@
     "zod": "^3.24.4"
   },
   "workspaces": [
-    "packages/core",
+    "packages/agents",
     "packages/openai",
     "packages/anthropic",
     "packages/google",
-    "packages/tools",
-    "packages/sessions",
     "packages/team",
+    "packages/sessions",
+    "packages/tools",
+    "packages/core",
     "apps/examples",
-    "apps/docs",
-    "apps/services"
+    "apps/docs"
   ],
   "volta": {
     "node": "22.14.0"

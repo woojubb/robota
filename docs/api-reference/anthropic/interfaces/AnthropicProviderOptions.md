@@ -15,7 +15,7 @@ JSON output can be requested through prompt instructions.
 
 ## Hierarchy
 
-- `ProviderOptions`
+- `Omit`\<[`ProviderOptions`](ProviderOptions), ``"model"``\>
 
   ↳ **`AnthropicProviderOptions`**
 
@@ -23,6 +23,7 @@ JSON output can be requested through prompt instructions.
 
 ### Properties
 
+- [model](AnthropicProviderOptions#model)
 - [apiKey](AnthropicProviderOptions#apikey)
 - [timeout](AnthropicProviderOptions#timeout)
 - [baseURL](AnthropicProviderOptions#baseurl)
@@ -30,13 +31,20 @@ JSON output can be requested through prompt instructions.
 - [enablePayloadLogging](AnthropicProviderOptions#enablepayloadlogging)
 - [payloadLogDir](AnthropicProviderOptions#payloadlogdir)
 - [includeTimestampInLogFiles](AnthropicProviderOptions#includetimestampinlogfiles)
-- [model](AnthropicProviderOptions#model)
-- [temperature](AnthropicProviderOptions#temperature)
-- [maxTokens](AnthropicProviderOptions#maxtokens)
-- [stopSequences](AnthropicProviderOptions#stopsequences)
-- [streamMode](AnthropicProviderOptions#streammode)
 
 ## Properties
+
+### model
+
+• `Optional` **model**: `string`
+
+Default model to use
+
+#### Defined in
+
+[anthropic/src/types.ts:33](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/types.ts#L33)
+
+___
 
 ### apiKey
 
@@ -46,7 +54,7 @@ Anthropic API key (optional: not required when using client)
 
 #### Defined in
 
-[anthropic/src/types.ts:14](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L14)
+[anthropic/src/types.ts:38](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/types.ts#L38)
 
 ___
 
@@ -58,7 +66,7 @@ API request timeout (milliseconds)
 
 #### Defined in
 
-[anthropic/src/types.ts:19](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L19)
+[anthropic/src/types.ts:43](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/types.ts#L43)
 
 ___
 
@@ -70,7 +78,7 @@ API base URL
 
 #### Defined in
 
-[anthropic/src/types.ts:24](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L24)
+[anthropic/src/types.ts:48](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/types.ts#L48)
 
 ___
 
@@ -82,7 +90,7 @@ Anthropic client instance (required)
 
 #### Defined in
 
-[anthropic/src/types.ts:29](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L29)
+[anthropic/src/types.ts:53](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/types.ts#L53)
 
 ___
 
@@ -94,7 +102,7 @@ Enable payload logging to files for debugging
 
 #### Defined in
 
-[anthropic/src/types.ts:34](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L34)
+[anthropic/src/types.ts:58](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/types.ts#L58)
 
 ___
 
@@ -106,7 +114,7 @@ Directory to save payload log files
 
 #### Defined in
 
-[anthropic/src/types.ts:39](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L39)
+[anthropic/src/types.ts:63](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/types.ts#L63)
 
 ___
 
@@ -118,74 +126,4 @@ Include timestamp in log file names
 
 #### Defined in
 
-[anthropic/src/types.ts:44](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/types.ts#L44)
-
-___
-
-### model
-
-• **model**: `string`
-
-#### Inherited from
-
-ProviderOptions.model
-
-#### Defined in
-
-core/dist/index.d.ts:8
-
-___
-
-### temperature
-
-• `Optional` **temperature**: `number`
-
-#### Inherited from
-
-ProviderOptions.temperature
-
-#### Defined in
-
-core/dist/index.d.ts:9
-
-___
-
-### maxTokens
-
-• `Optional` **maxTokens**: `number`
-
-#### Inherited from
-
-ProviderOptions.maxTokens
-
-#### Defined in
-
-core/dist/index.d.ts:10
-
-___
-
-### stopSequences
-
-• `Optional` **stopSequences**: `string`[]
-
-#### Inherited from
-
-ProviderOptions.stopSequences
-
-#### Defined in
-
-core/dist/index.d.ts:11
-
-___
-
-### streamMode
-
-• `Optional` **streamMode**: `boolean`
-
-#### Inherited from
-
-ProviderOptions.streamMode
-
-#### Defined in
-
-core/dist/index.d.ts:12
+[anthropic/src/types.ts:68](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/types.ts#L68)

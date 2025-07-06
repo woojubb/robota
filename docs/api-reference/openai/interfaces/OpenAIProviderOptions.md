@@ -12,7 +12,7 @@ OpenAI provider options
 
 ## Hierarchy
 
-- `ProviderOptions`
+- `Omit`\<[`ProviderOptions`](ProviderOptions), ``"model"``\>
 
   ↳ **`OpenAIProviderOptions`**
 
@@ -20,8 +20,6 @@ OpenAI provider options
 
 ### Properties
 
-- [stopSequences](OpenAIProviderOptions#stopsequences)
-- [streamMode](OpenAIProviderOptions#streammode)
 - [model](OpenAIProviderOptions#model)
 - [temperature](OpenAIProviderOptions#temperature)
 - [maxTokens](OpenAIProviderOptions#maxtokens)
@@ -38,47 +36,15 @@ OpenAI provider options
 
 ## Properties
 
-### stopSequences
-
-• `Optional` **stopSequences**: `string`[]
-
-#### Inherited from
-
-ProviderOptions.stopSequences
-
-#### Defined in
-
-core/dist/index.d.ts:11
-
-___
-
-### streamMode
-
-• `Optional` **streamMode**: `boolean`
-
-#### Inherited from
-
-ProviderOptions.streamMode
-
-#### Defined in
-
-core/dist/index.d.ts:12
-
-___
-
 ### model
 
-• **model**: `string`
+• `Optional` **model**: `string`
 
-Model name to use (default: gpt-3.5-turbo)
-
-#### Overrides
-
-ProviderOptions.model
+Default model name to use (default: gpt-4)
 
 #### Defined in
 
-[openai/src/types.ts:11](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/types.ts#L11)
+[openai/src/types.ts:30](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L30)
 
 ___
 
@@ -88,13 +54,9 @@ ___
 
 Temperature (0~1)
 
-#### Overrides
-
-ProviderOptions.temperature
-
 #### Defined in
 
-[openai/src/types.ts:16](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/types.ts#L16)
+[openai/src/types.ts:35](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L35)
 
 ___
 
@@ -104,13 +66,9 @@ ___
 
 Maximum number of tokens
 
-#### Overrides
-
-ProviderOptions.maxTokens
-
 #### Defined in
 
-[openai/src/types.ts:21](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/types.ts#L21)
+[openai/src/types.ts:40](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L40)
 
 ___
 
@@ -122,7 +80,7 @@ OpenAI API key (optional: not required when using client)
 
 #### Defined in
 
-[openai/src/types.ts:26](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/types.ts#L26)
+[openai/src/types.ts:45](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L45)
 
 ___
 
@@ -134,7 +92,7 @@ OpenAI organization ID (optional)
 
 #### Defined in
 
-[openai/src/types.ts:31](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/types.ts#L31)
+[openai/src/types.ts:50](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L50)
 
 ___
 
@@ -146,7 +104,7 @@ API request timeout (milliseconds)
 
 #### Defined in
 
-[openai/src/types.ts:36](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/types.ts#L36)
+[openai/src/types.ts:55](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L55)
 
 ___
 
@@ -158,7 +116,7 @@ API base URL (default: 'https://api.openai.com/v1')
 
 #### Defined in
 
-[openai/src/types.ts:41](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/types.ts#L41)
+[openai/src/types.ts:60](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L60)
 
 ___
 
@@ -173,7 +131,7 @@ Response format (default: 'text')
 
 #### Defined in
 
-[openai/src/types.ts:49](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/types.ts#L49)
+[openai/src/types.ts:68](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L68)
 
 ___
 
@@ -189,12 +147,12 @@ JSON schema for structured outputs (required when responseFormat is 'json_schema
 | :------ | :------ |
 | `name` | `string` |
 | `description?` | `string` |
-| `schema?` | `Record`\<`string`, `unknown`\> |
+| `schema?` | `Record`\<`string`, [`ProviderOptionValue`](../modules#provideroptionvalue)\> |
 | `strict?` | `boolean` |
 
 #### Defined in
 
-[openai/src/types.ts:54](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/types.ts#L54)
+[openai/src/types.ts:73](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L73)
 
 ___
 
@@ -206,7 +164,7 @@ OpenAI client instance (required)
 
 #### Defined in
 
-[openai/src/types.ts:64](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/types.ts#L64)
+[openai/src/types.ts:83](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L83)
 
 ___
 
@@ -225,7 +183,7 @@ false
 
 #### Defined in
 
-[openai/src/types.ts:72](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/types.ts#L72)
+[openai/src/types.ts:91](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L91)
 
 ___
 
@@ -243,7 +201,7 @@ Directory path for storing API payload log files
 
 #### Defined in
 
-[openai/src/types.ts:79](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/types.ts#L79)
+[openai/src/types.ts:98](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L98)
 
 ___
 
@@ -261,4 +219,4 @@ true
 
 #### Defined in
 
-[openai/src/types.ts:86](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/types.ts#L86)
+[openai/src/types.ts:105](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L105)

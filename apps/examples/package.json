@@ -1,6 +1,6 @@
 {
     "name": "robota-examples",
-    "version": "0.1.26",
+    "version": "1.0.0",
     "private": true,
     "type": "module",
     "scripts": {
@@ -12,21 +12,25 @@
         "start:team-ko": "tsx 05-team-collaboration-ko.ts",
         "start:team-templates": "tsx 07-team-templates.ts",
         "start:payload": "tsx 06-payload-logging.ts",
-        "start:all": "echo '🚀 Running all examples sequentially...' && pnpm start:basic && echo '' && pnpm start:tools && echo '' && pnpm start:multi && echo '' && pnpm start:advanced && echo '' && pnpm start:team",
+        "start:execution-analytics": "tsx 08-execution-analytics.ts",
+        "start:team-analytics": "tsx 09-team-with-analytics.ts",
+        "start:agents-basic": "tsx 10-agents-basic-usage.ts",
+        "start:agents-streaming": "tsx 11-agents-streaming.ts",
+        "start:all": "echo '🚀 Running all examples sequentially...' && pnpm start:basic && echo '' && pnpm start:tools && echo '' && pnpm start:multi && echo '' && pnpm start:advanced && echo '' && pnpm start:agents-basic && echo '' && pnpm start:agents-streaming",
+        "start:agents-all": "echo '🤖 Running all agents examples...' && pnpm start:agents-basic && echo '' && pnpm start:agents-streaming",
         "lint": "eslint . --ext .ts,.tsx",
-        "lint:fix": "eslint . --ext .ts,.tsx --fix"
+        "lint:fix": "eslint . --ext .ts,.tsx --fix",
+        "check-types": "tsc --noEmit"
     },
     "dependencies": {
         "@anthropic-ai/sdk": "^0.24.0",
         "@google/generative-ai": "^0.20.0",
         "@modelcontextprotocol/sdk": "^1.11.2",
+        "@robota-sdk/agents": "workspace:*",
         "@robota-sdk/anthropic": "workspace:*",
-        "@robota-sdk/core": "workspace:*",
         "@robota-sdk/google": "workspace:*",
         "@robota-sdk/openai": "workspace:*",
-        "@robota-sdk/sessions": "workspace:*",
         "@robota-sdk/team": "workspace:*",
-        "@robota-sdk/tools": "workspace:*",
         "axios": "^1.9.0",
         "chalk": "^5.4.1",
         "dotenv": "^16.5.0",

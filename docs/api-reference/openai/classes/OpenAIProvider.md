@@ -8,14 +8,10 @@
 
 # Class: OpenAIProvider
 
-OpenAI AI provider implementation for Robota
+OpenAI provider implementation for Robota
 
-Provides integration with OpenAI's GPT models and other services.
-Extends BaseAIProvider for common functionality and tool calling support.
-
-**`See`**
-
-../../../apps/examples/03-integrations | Provider Integration Examples
+Provides integration with OpenAI's GPT models following BaseAIProvider guidelines.
+Uses OpenAI SDK native types internally for optimal performance and feature support.
 
 ## Hierarchy
 
@@ -32,18 +28,16 @@ Extends BaseAIProvider for common functionality and tool calling support.
 ### Properties
 
 - [name](OpenAIProvider#name)
-- [type](OpenAIProvider#type)
-- [instance](OpenAIProvider#instance)
-- [options](OpenAIProvider#options)
+- [version](OpenAIProvider#version)
 
 ### Methods
 
-- [formatFunctions](OpenAIProvider#formatfunctions)
+- [configure](OpenAIProvider#configure)
 - [chat](OpenAIProvider#chat)
-- [parseResponse](OpenAIProvider#parseresponse)
-- [parseStreamingChunk](OpenAIProvider#parsestreamingchunk)
 - [chatStream](OpenAIProvider#chatstream)
-- [close](OpenAIProvider#close)
+- [supportsTools](OpenAIProvider#supportstools)
+- [validateConfig](OpenAIProvider#validateconfig)
+- [dispose](OpenAIProvider#dispose)
 
 ## Constructors
 
@@ -51,21 +45,15 @@ Extends BaseAIProvider for common functionality and tool calling support.
 
 • **new OpenAIProvider**(`options`): [`OpenAIProvider`](OpenAIProvider)
 
-Create a new OpenAI provider instance
-
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `options` | [`OpenAIProviderOptions`](../interfaces/OpenAIProviderOptions) | Configuration options for the OpenAI provider |
+| Name | Type |
+| :------ | :------ |
+| `options` | [`OpenAIProviderOptions`](../interfaces/OpenAIProviderOptions) |
 
 #### Returns
 
 [`OpenAIProvider`](OpenAIProvider)
-
-**`Throws`**
-
-When client is not provided in options
 
 #### Overrides
 
@@ -73,15 +61,13 @@ BaseAIProvider.constructor
 
 #### Defined in
 
-[openai/src/provider.ts:69](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/provider.ts#L69)
+[openai/src/provider.ts:30](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L30)
 
 ## Properties
 
 ### name
 
-• `Readonly` **name**: `string` = `'openai'`
-
-Provider identifier name
+• `Readonly` **name**: ``"openai"``
 
 #### Overrides
 
@@ -89,119 +75,66 @@ BaseAIProvider.name
 
 #### Defined in
 
-[openai/src/provider.ts:29](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/provider.ts#L29)
+[openai/src/provider.ts:24](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L24)
 
 ___
 
-### type
+### version
 
-• `Readonly` **type**: `string` = `'openai'`
-
-Client type identifier
-
-#### Defined in
-
-[openai/src/provider.ts:41](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/provider.ts#L41)
-
-___
-
-### instance
-
-• `Readonly` **instance**: `OpenAI`
-
-OpenAI client instance (alias for backwards compatibility)
-
-**`Deprecated`**
-
-Use the private client property instead
-
-#### Defined in
-
-[openai/src/provider.ts:48](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/provider.ts#L48)
-
-___
-
-### options
-
-• `Readonly` **options**: [`OpenAIProviderOptions`](../interfaces/OpenAIProviderOptions)
-
-Provider configuration options
+• `Readonly` **version**: ``"1.0.0"``
 
 #### Overrides
 
-BaseAIProvider.options
+BaseAIProvider.version
 
 #### Defined in
 
-[openai/src/provider.ts:54](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/provider.ts#L54)
+[openai/src/provider.ts:25](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L25)
 
 ## Methods
 
-### formatFunctions
+### configure
 
-▸ **formatFunctions**(`functions`): `ChatCompletionTool`[]
+▸ **configure**(`config`): `Promise`\<`void`\>
 
-Convert function definitions to OpenAI tool format
-
-Transforms universal function definitions into OpenAI's specific tool format
-required by the Chat Completions API.
+Configure the provider with type-safe configuration
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `functions` | `FunctionSchema`[] | Array of universal function definitions |
+| Name | Type |
+| :------ | :------ |
+| `config` | `ProviderConfig` |
 
 #### Returns
 
-`ChatCompletionTool`[]
+`Promise`\<`void`\>
 
-Array of OpenAI-formatted tools
+#### Inherited from
+
+BaseAIProvider.configure
 
 #### Defined in
 
-[openai/src/provider.ts:103](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/provider.ts#L103)
+agents/dist/index.d.ts:2580
 
 ___
 
 ### chat
 
-▸ **chat**(`model`, `context`, `options?`): `Promise`\<`ModelResponse`\>
+▸ **chat**(`messages`, `options?`): `Promise`\<`UniversalMessage`\>
 
-Send a chat request to OpenAI and receive a complete response
-
-Processes the provided context and sends it to OpenAI's Chat Completions API.
-Handles message format conversion, error handling, and response parsing.
+Generate response using UniversalMessage
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `model` | `string` | Model name to use (e.g., 'gpt-4', 'gpt-3.5-turbo') |
-| `context` | `Context` | Context object containing messages and system prompt |
-| `options?` | `any` | Optional generation parameters and tools |
+| Name | Type |
+| :------ | :------ |
+| `messages` | `UniversalMessage`[] |
+| `options?` | `ChatOptions` |
 
 #### Returns
 
-`Promise`\<`ModelResponse`\>
-
-Promise resolving to the model's response
-
-**`Throws`**
-
-When context is invalid
-
-**`Throws`**
-
-When messages array is invalid
-
-**`Throws`**
-
-When message format conversion fails
-
-**`Throws`**
-
-When OpenAI API call fails
+`Promise`\<`UniversalMessage`\>
 
 #### Overrides
 
@@ -209,107 +142,26 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[openai/src/provider.ts:161](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/provider.ts#L161)
-
-___
-
-### parseResponse
-
-▸ **parseResponse**(`response`): `ModelResponse`
-
-Convert OpenAI API response to universal ModelResponse format
-
-Transforms the OpenAI-specific response format into the standard format
-used across all providers in Robota.
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `response` | `ChatCompletion` | Raw response from OpenAI Chat Completions API |
-
-#### Returns
-
-`ModelResponse`
-
-Parsed model response in universal format
-
-#### Defined in
-
-[openai/src/provider.ts:221](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/provider.ts#L221)
-
-___
-
-### parseStreamingChunk
-
-▸ **parseStreamingChunk**(`chunk`): `StreamingResponseChunk`
-
-Convert OpenAI streaming response chunk to universal format
-
-Transforms individual chunks from OpenAI's streaming response into the
-standard StreamingResponseChunk format used across all providers.
-
-#### Parameters
-
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `chunk` | `ChatCompletionChunk` | Raw chunk from OpenAI streaming API |
-
-#### Returns
-
-`StreamingResponseChunk`
-
-Parsed streaming response chunk
-
-#### Defined in
-
-[openai/src/provider.ts:264](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/provider.ts#L264)
+[openai/src/provider.ts:47](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L47)
 
 ___
 
 ### chatStream
 
-▸ **chatStream**(`model`, `context`, `options?`): `AsyncGenerator`\<`StreamingResponseChunk`, `void`, `unknown`\>
+▸ **chatStream**(`messages`, `options?`): `AsyncIterable`\<`UniversalMessage`, `any`, `any`\>
 
-Send a streaming chat request to OpenAI and receive response chunks
-
-Similar to chat() but returns an async iterator that yields response chunks
-as they arrive from OpenAI's streaming API. Useful for real-time display
-of responses or handling large responses incrementally.
+Generate streaming response using UniversalMessage
 
 #### Parameters
 
-| Name | Type | Description |
-| :------ | :------ | :------ |
-| `model` | `string` | Model name to use |
-| `context` | `Context` | Context object containing messages and system prompt |
-| `options?` | `any` | Optional generation parameters and tools |
+| Name | Type |
+| :------ | :------ |
+| `messages` | `UniversalMessage`[] |
+| `options?` | `ChatOptions` |
 
 #### Returns
 
-`AsyncGenerator`\<`StreamingResponseChunk`, `void`, `unknown`\>
-
-Async generator yielding response chunks
-
-**`Throws`**
-
-When context is invalid
-
-**`Throws`**
-
-When messages array is invalid
-
-**`Throws`**
-
-When message format conversion fails
-
-**`Throws`**
-
-When OpenAI streaming API call fails
-
-**`See`**
-
-../../../apps/examples/01-basic | Basic Usage Examples
+`AsyncIterable`\<`UniversalMessage`, `any`, `any`\>
 
 #### Overrides
 
@@ -317,29 +169,58 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[openai/src/provider.ts:305](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/provider.ts#L305)
+[openai/src/provider.ts:81](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L81)
 
 ___
 
-### close
+### supportsTools
 
-▸ **close**(): `Promise`\<`void`\>
+▸ **supportsTools**(): `boolean`
 
-Release resources and close connections
+#### Returns
 
-Performs cleanup operations when the provider is no longer needed.
-OpenAI client doesn't require explicit cleanup, so this is a no-op.
+`boolean`
+
+#### Overrides
+
+BaseAIProvider.supportsTools
+
+#### Defined in
+
+[openai/src/provider.ts:118](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L118)
+
+___
+
+### validateConfig
+
+▸ **validateConfig**(): `boolean`
+
+#### Returns
+
+`boolean`
+
+#### Overrides
+
+BaseAIProvider.validateConfig
+
+#### Defined in
+
+[openai/src/provider.ts:122](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L122)
+
+___
+
+### dispose
+
+▸ **dispose**(): `Promise`\<`void`\>
 
 #### Returns
 
 `Promise`\<`void`\>
 
-Promise that resolves when cleanup is complete
-
 #### Overrides
 
-BaseAIProvider.close
+BaseAIProvider.dispose
 
 #### Defined in
 
-[openai/src/provider.ts:378](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/openai/src/provider.ts#L378)
+[openai/src/provider.ts:126](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L126)

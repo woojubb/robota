@@ -1,5 +1,8 @@
 packages:
   - 'packages/*'
+  - '!packages/core'
+  - '!packages/tools'
+  - '!packages/sessions'
   - 'apps/*'
   - '!apps/web'
   - 'src/examples'
