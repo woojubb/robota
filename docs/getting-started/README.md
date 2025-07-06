@@ -8,6 +8,14 @@ lang: en-US
 
 Learn how to build powerful AI agents with the Robota SDK.
 
+## 🎯 What You'll Achieve
+
+In just **5 minutes**, you'll have:
+- ✅ A fully functional AI agent with streaming responses
+- ✅ Type-safe tool integration with automatic parameter validation
+- ✅ Multi-provider support with seamless switching
+- ✅ Built-in performance monitoring and analytics
+
 ## Quick Start
 
 ### Installation
@@ -83,6 +91,57 @@ async function main() {
 
 main().catch(console.error);
 ```
+
+## 🌟 Key Advantages
+
+### ✅ Type-Safe Architecture
+**Why It Matters**: Catch bugs at compile-time, not in production
+- **Zero `any` types**: Complete TypeScript safety
+- **Generic type system**: Fully parameterized components
+- **Compile-time validation**: Catch errors before runtime
+- **IntelliSense everywhere**: Your IDE knows everything
+
+### 🔌 Multi-Provider Support
+**Why It Matters**: Never get locked into one AI vendor
+- **OpenAI**: GPT-3.5, GPT-4, GPT-4o-mini models
+- **Anthropic**: Claude 3 family (Haiku, Sonnet, Opus)
+- **Google AI**: Gemini 1.5 (Flash, Pro) models
+- **Provider switching**: Change providers with one line of code
+
+### 🛠️ Advanced Tool System
+**Why It Matters**: Extend AI capabilities beyond conversation
+- **Function calling**: Type-safe tool integration
+- **Automatic schema conversion**: JSON Schema → Function calls
+- **Built-in error handling**: Robust tool execution
+- **Real-world integrations**: Databases, APIs, file systems
+
+### 🌊 Real-Time Streaming
+**Why It Matters**: Better user experience with instant feedback
+- **Streaming responses**: See AI thinking in real-time
+- **Cross-provider**: Works with all supported providers
+- **Performance monitoring**: Built-in metrics
+- **Token-by-token control**: Fine-grained response handling
+
+### 📊 Built-in Analytics
+**Why It Matters**: Optimize costs and performance
+- **Execution tracking**: Monitor agent performance
+- **Usage analytics**: Track token usage and costs
+- **Error monitoring**: Comprehensive error tracking
+- **Performance insights**: Identify bottlenecks
+
+### 👥 Team Collaboration
+**Why It Matters**: Solve complex problems with AI teamwork
+- **Multi-agent coordination**: Orchestrate multiple agents working together
+- **Role-based assignment**: Assign specific roles to different agents
+- **Task delegation**: Automatically distribute work across team members
+- **Collective intelligence**: Combine strengths of different AI models
+
+### 🗓️ Future-Proof Architecture
+**Why It Matters**: Your code grows with the SDK
+- **Advanced Planning System**: Sophisticated planning strategies (ReAct, Plan-and-Execute, Reflection, CAMEL)
+- **Hierarchical Task Networks**: Complex workflow management
+- **Autonomous Agent Systems**: Self-directed agent behaviors
+- **Plugin ecosystem**: Extend with community plugins
 
 ## Key Features
 
