@@ -1,10 +1,22 @@
 import OpenAI from 'openai';
-import { UniversalMessage, logger } from '@robota-sdk/agents';
+import type { UniversalMessage } from '../provider';
 import type { PayloadLogger } from '../payload-logger';
 import type {
     OpenAIChatRequestParams,
     OpenAIStreamRequestParams
 } from '../types/api-types';
+
+// Simple logger implementation to avoid dependency
+const logger = {
+    debug: (message: string, data?: any) => {
+        if (process.env['NODE_ENV'] === 'development') {
+            console.debug(`[OpenAI] ${message}`, data || '');
+        }
+    },
+    error: (message: string, data?: any) => {
+        console.error(`[OpenAI] ${message}`, data || '');
+    }
+};
 
 /**
  * OpenAI streaming response handler

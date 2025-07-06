@@ -1,6 +1,37 @@
 import { describe, it, expect } from 'vitest';
 import { OpenAIConversationAdapter } from './adapter';
-import type { UniversalMessage, AssistantMessage, UserMessage, SystemMessage, ToolMessage } from '@robota-sdk/agents/src/managers/conversation-history-manager';
+import type {
+    UniversalMessage,
+    ToolCall
+} from './provider';
+
+// Define message types locally for testing
+type UserMessage = {
+    role: 'user';
+    content: string | null;
+    timestamp?: Date;
+};
+
+type AssistantMessage = {
+    role: 'assistant';
+    content: string | null;
+    timestamp?: Date;
+    toolCalls?: ToolCall[];
+};
+
+type SystemMessage = {
+    role: 'system';
+    content: string | null;
+    timestamp?: Date;
+};
+
+type ToolMessage = {
+    role: 'tool';
+    content: string | null;
+    timestamp?: Date;
+    toolCallId?: string;
+    name?: string;
+};
 
 describe('OpenAIConversationAdapter', () => {
     describe('convertMessage', () => {

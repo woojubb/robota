@@ -1,39 +1,76 @@
 import OpenAI from 'openai';
-import type { UniversalMessage, ToolSchema } from '@robota-sdk/agents';
-import { BaseAIProvider } from '@robota-sdk/agents';
-import { OpenAIProviderOptions } from './types';
+import type { OpenAIProviderOptions } from './types';
 import type {
-    OpenAIToolCall,
     OpenAIError
 } from './types/api-types';
 
 /**
- * Chat options for AI provider requests
+ * Universal message interface for provider-agnostic communication
  */
-export interface ChatOptions {
-    /** Tool schemas to provide to the AI provider */
-    tools?: ToolSchema[];
-    /** Maximum number of tokens to generate */
-    maxTokens?: number;
-    /** Temperature for response randomness (0-1) */
-    temperature?: number;
-    /** Model to use for the request */
-    model?: string;
+export interface UniversalMessage {
+    role: 'user' | 'assistant' | 'system' | 'tool';
+    content: string | null;
+    timestamp?: Date;
+    toolCalls?: ToolCall[];
+    toolCallId?: string;
+    name?: string;
+    metadata?: Record<string, unknown>;
 }
 
 /**
- * OpenAI Provider that uses only UniversalMessage (no ModelResponse)
- * 
- * This implementation follows the AI Provider Architecture Separation principles:
- * - Uses OpenAI SDK native types internally
- * - Communicates with agents package using only UniversalMessage
- * - Handles tool execution null content properly
- * 
- * @template TConfig - Provider configuration type (defaults to OpenAIProviderOptions)
- * @template TMessage - Message type (defaults to UniversalMessage)
- * @template TResponse - Response type (defaults to UniversalMessage)
+ * Tool call interface
  */
-export class OpenAIProvider extends BaseAIProvider<OpenAIProviderOptions, UniversalMessage, UniversalMessage> {
+export interface ToolCall {
+    id: string;
+    type: 'function';
+    function: {
+        name: string;
+        arguments: string;
+    };
+}
+
+/**
+ * Tool schema interface
+ */
+export interface ToolSchema {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+}
+
+/**
+ * Chat options interface
+ */
+export interface ChatOptions {
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    tools?: ToolSchema[];
+}
+
+/**
+ * AI Provider interface
+ */
+export interface AIProvider {
+    readonly name: string;
+    readonly version: string;
+
+    chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
+    chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
+    supportsTools(): boolean;
+    validateConfig(): boolean;
+    dispose(): Promise<void>;
+}
+
+/**
+ * OpenAI provider implementation for Robota
+ * 
+ * Provides integration with OpenAI's GPT models using provider-agnostic UniversalMessage.
+ * Uses OpenAI SDK native types internally for optimal performance and feature support.
+ * 
+ * @public
+ */
+export class OpenAIProvider implements AIProvider {
     readonly name = 'openai';
     readonly version = '1.0.0';
 
@@ -41,8 +78,6 @@ export class OpenAIProvider extends BaseAIProvider<OpenAIProviderOptions, Univer
     private readonly options: OpenAIProviderOptions;
 
     constructor(options: OpenAIProviderOptions) {
-        super();
-
         this.options = {
             temperature: 0.7,
             ...options
@@ -127,15 +162,15 @@ export class OpenAIProvider extends BaseAIProvider<OpenAIProviderOptions, Univer
         }
     }
 
-    override supportsTools(): boolean {
+    supportsTools(): boolean {
         return true;
     }
 
-    override validateConfig(): boolean {
+    validateConfig(): boolean {
         return !!this.client && !!this.options;
     }
 
-    override async dispose(): Promise<void> {
+    async dispose(): Promise<void> {
         // OpenAI client doesn't need explicit cleanup
     }
 
@@ -145,37 +180,43 @@ export class OpenAIProvider extends BaseAIProvider<OpenAIProviderOptions, Univer
     private convertToOpenAIMessages(messages: UniversalMessage[]): OpenAI.Chat.ChatCompletionMessageParam[] {
         return messages.map(msg => {
             switch (msg.role) {
-                case 'system':
-                    return { role: 'system', content: msg.content };
                 case 'user':
-                    return { role: 'user', content: msg.content };
-                case 'assistant': {
-                    const assistantMsg = msg as UniversalMessage & { toolCalls?: OpenAIToolCall[] };
                     return {
-                        role: 'assistant',
-                        content: msg.content, // Keep null for tool calls - this is crucial!
-                        ...(assistantMsg.toolCalls && {
-                            tool_calls: assistantMsg.toolCalls.map((tc) => ({
-                                id: tc.id,
+                        role: 'user' as const,
+                        content: msg.content || ''
+                    };
+                case 'assistant':
+                    if (msg.toolCalls && msg.toolCalls.length > 0) {
+                        return {
+                            role: 'assistant' as const,
+                            content: msg.content || '',
+                            tool_calls: msg.toolCalls.map((toolCall: ToolCall) => ({
+                                id: toolCall.id,
                                 type: 'function' as const,
                                 function: {
-                                    name: tc.function.name,
-                                    arguments: tc.function.arguments
+                                    name: toolCall.function.name,
+                                    arguments: toolCall.function.arguments
                                 }
                             }))
-                        })
-                    };
-                }
-                case 'tool': {
-                    const toolMsg = msg as UniversalMessage & { toolCallId: string };
+                        };
+                    }
                     return {
-                        role: 'tool',
-                        content: msg.content,
-                        tool_call_id: toolMsg.toolCallId
+                        role: 'assistant' as const,
+                        content: msg.content || ''
                     };
-                }
+                case 'system':
+                    return {
+                        role: 'system' as const,
+                        content: msg.content || ''
+                    };
+                case 'tool':
+                    return {
+                        role: 'tool' as const,
+                        content: msg.content || '',
+                        tool_call_id: msg.toolCallId || ''
+                    };
                 default:
-                    throw new Error(`Unsupported message role: ${(msg as UniversalMessage).role}`);
+                    throw new Error(`Unsupported message role: ${(msg as any).role}`);
             }
         });
     }
@@ -252,7 +293,7 @@ export class OpenAIProvider extends BaseAIProvider<OpenAIProviderOptions, Univer
     /**
        * Validate UniversalMessage array
        */
-    protected override validateMessages(messages: UniversalMessage[]): void {
+    protected validateMessages(messages: UniversalMessage[]): void {
         if (!Array.isArray(messages)) {
             throw new Error('Messages must be an array');
         }

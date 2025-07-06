@@ -64,10 +64,11 @@
   "author": "Robota SDK Team",
   "license": "MIT",
   "dependencies": {
-    "openai": "^4.97.0",
+    "openai": "^4.98.0"
+  },
+  "peerDependencies": {
     "@robota-sdk/agents": "workspace:*"
   },
-  "peerDependencies": {},
   "devDependencies": {
     "@robota-sdk/agents": "workspace:*",
     "@typescript-eslint/eslint-plugin": "^6.18.0",

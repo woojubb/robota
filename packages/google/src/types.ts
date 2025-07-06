@@ -1,5 +1,19 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { ProviderOptions } from '@robota-sdk/agents';
+
+/**
+ * Base provider options interface
+ */
+export interface ProviderOptions {
+    /**
+     * Model name to use
+     */
+    model?: string;
+
+    /**
+     * Additional provider-specific options
+     */
+    [key: string]: unknown;
+}
 
 /**
  * Google AI Provider options

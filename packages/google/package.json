@@ -66,10 +66,11 @@
     "author": "Robota SDK Team",
     "license": "MIT",
     "dependencies": {
-        "@google/generative-ai": "^0.20.0",
+        "@google/generative-ai": "^0.20.0"
+    },
+    "peerDependencies": {
         "@robota-sdk/agents": "workspace:*"
     },
-    "peerDependencies": {},
     "devDependencies": {
         "@robota-sdk/agents": "workspace:*",
         "@typescript-eslint/eslint-plugin": "^6.18.0",

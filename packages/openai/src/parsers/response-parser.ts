@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { UniversalMessage, logger } from '@robota-sdk/agents';
+import type { UniversalMessage } from '../provider';
 
 /**
  * OpenAI response parser utility
@@ -119,4 +119,16 @@ export class OpenAIResponseParser {
             return null;
         }
     }
-} 
+}
+
+// Simple logger implementation to avoid dependency
+const logger = {
+    debug: (message: string, data?: any) => {
+        if (process.env['NODE_ENV'] === 'development') {
+            console.debug(`[OpenAI] ${message}`, data || '');
+        }
+    },
+    error: (message: string, data?: any) => {
+        console.error(`[OpenAI] ${message}`, data || '');
+    }
+}; 
