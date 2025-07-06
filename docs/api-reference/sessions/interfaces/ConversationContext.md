@@ -33,7 +33,7 @@ All messages in the conversation
 
 #### Defined in
 
-agents/dist/index.d.ts:1610
+agents/dist/index.d.ts:2227
 
 ___
 
@@ -45,7 +45,7 @@ System message for the conversation
 
 #### Defined in
 
-agents/dist/index.d.ts:1612
+agents/dist/index.d.ts:2229
 
 ___
 
@@ -57,7 +57,7 @@ Model to use for generation
 
 #### Defined in
 
-agents/dist/index.d.ts:1614
+agents/dist/index.d.ts:2231
 
 ___
 
@@ -69,7 +69,7 @@ Provider to use for generation
 
 #### Defined in
 
-agents/dist/index.d.ts:1616
+agents/dist/index.d.ts:2233
 
 ___
 
@@ -81,7 +81,7 @@ Temperature for generation
 
 #### Defined in
 
-agents/dist/index.d.ts:1618
+agents/dist/index.d.ts:2235
 
 ___
 
@@ -93,7 +93,7 @@ Maximum tokens to generate
 
 #### Defined in
 
-agents/dist/index.d.ts:1620
+agents/dist/index.d.ts:2237
 
 ___
 
@@ -105,7 +105,7 @@ Available tools
 
 #### Defined in
 
-agents/dist/index.d.ts:1622
+agents/dist/index.d.ts:2239
 
 ___
 
@@ -117,4 +117,4 @@ Additional metadata
 
 #### Defined in
 
-agents/dist/index.d.ts:1624
+agents/dist/index.d.ts:2241

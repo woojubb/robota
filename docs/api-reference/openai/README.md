@@ -18,5 +18,24 @@
 
 ### Interfaces
 
-- [ChatOptions](interfaces/ChatOptions)
+- [UserMessage](interfaces/UserMessage)
+- [SystemMessage](interfaces/SystemMessage)
+- [ToolMessage](interfaces/ToolMessage)
+- [ProviderOptions](interfaces/ProviderOptions)
 - [OpenAIProviderOptions](interfaces/OpenAIProviderOptions)
+
+### Type Aliases
+
+- [ProviderOptionValue](#provideroptionvalue)
+
+## Type Aliases
+
+### ProviderOptionValue
+
+Ƭ **ProviderOptionValue**: `string` \| `number` \| `boolean` \| `undefined` \| ``null`` \| `OpenAI` \| [`ProviderOptionValue`](#provideroptionvalue)[] \| \{ `[key: string]`: [`ProviderOptionValue`](#provideroptionvalue);  }
+
+Valid provider option value types
+
+#### Defined in
+
+[openai/src/types.ts:6](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/types.ts#L6)

@@ -16,11 +16,28 @@
 
 ### Interfaces
 
+- [ProviderOptions](interfaces/ProviderOptions)
 - [AnthropicProviderOptions](interfaces/AnthropicProviderOptions)
+
+### Type Aliases
+
+- [ProviderOptionValue](#provideroptionvalue)
 
 ### Functions
 
 - [createAnthropicProvider](#createanthropicprovider)
+
+## Type Aliases
+
+### ProviderOptionValue
+
+Ƭ **ProviderOptionValue**: `string` \| `number` \| `boolean` \| `undefined` \| ``null`` \| `Anthropic` \| [`ProviderOptionValue`](#provideroptionvalue)[] \| \{ `[key: string]`: [`ProviderOptionValue`](#provideroptionvalue);  }
+
+Valid provider option value types
+
+#### Defined in
+
+[anthropic/src/types.ts:6](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/anthropic/src/types.ts#L6)
 
 ## Functions
 
@@ -40,4 +57,4 @@
 
 #### Defined in
 
-[anthropic/src/index.ts:13](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/anthropic/src/index.ts#L13)
+[anthropic/src/index.ts:13](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/anthropic/src/index.ts#L13)

@@ -1,6 +1,11 @@
 import OpenAI from 'openai';
 
 /**
+ * Valid provider option value types
+ */
+export type ProviderOptionValue = string | number | boolean | undefined | null | OpenAI | ProviderOptionValue[] | { [key: string]: ProviderOptionValue };
+
+/**
  * Base provider options interface
  */
 export interface ProviderOptions {
@@ -12,7 +17,7 @@ export interface ProviderOptions {
   /**
    * Additional provider-specific options
    */
-  [key: string]: unknown;
+  [key: string]: ProviderOptionValue;
 }
 
 /**
@@ -68,7 +73,7 @@ export interface OpenAIProviderOptions extends Omit<ProviderOptions, 'model'> {
   jsonSchema?: {
     name: string;
     description?: string;
-    schema?: Record<string, string | number | boolean | object>;
+    schema?: Record<string, ProviderOptionValue>;
     strict?: boolean;
   };
 

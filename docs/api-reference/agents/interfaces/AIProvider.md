@@ -22,9 +22,12 @@ This interface uses only UniversalMessage types and avoids provider-specific typ
 
 - [chat](AIProvider#chat)
 - [chatStream](AIProvider#chatstream)
+- [generateResponse](AIProvider#generateresponse)
+- [generateStreamingResponse](AIProvider#generatestreamingresponse)
 - [supportsTools](AIProvider#supportstools)
 - [validateConfig](AIProvider#validateconfig)
 - [dispose](AIProvider#dispose)
+- [close](AIProvider#close)
 
 ## Properties
 
@@ -36,7 +39,7 @@ Provider identifier
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:122](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L122)
+[packages/agents/src/interfaces/provider.ts:168](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L168)
 
 ___
 
@@ -48,7 +51,7 @@ Provider version
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:124](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L124)
+[packages/agents/src/interfaces/provider.ts:170](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L170)
 
 ## Methods
 
@@ -73,7 +76,7 @@ Promise resolving to a UniversalMessage response
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:132](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L132)
+[packages/agents/src/interfaces/provider.ts:178](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L178)
 
 ___
 
@@ -98,7 +101,55 @@ AsyncIterable of UniversalMessage chunks
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:140](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L140)
+[packages/agents/src/interfaces/provider.ts:186](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L186)
+
+___
+
+### generateResponse
+
+▸ **generateResponse**(`payload`): `Promise`\<`RawProviderResponse`\>
+
+Generate response from AI model (raw provider response)
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `payload` | `ProviderRequest` | Provider request payload |
+
+#### Returns
+
+`Promise`\<`RawProviderResponse`\>
+
+Promise resolving to raw provider response
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:193](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L193)
+
+___
+
+### generateStreamingResponse
+
+▸ **generateStreamingResponse**(`payload`): `AsyncIterable`\<`RawProviderResponse`, `any`, `any`\>
+
+Generate streaming response from AI model (raw provider response)
+
+#### Parameters
+
+| Name | Type | Description |
+| :------ | :------ | :------ |
+| `payload` | `ProviderRequest` | Provider request payload |
+
+#### Returns
+
+`AsyncIterable`\<`RawProviderResponse`, `any`, `any`\>
+
+AsyncIterable of raw provider response chunks
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:200](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L200)
 
 ___
 
@@ -116,7 +167,7 @@ true if tool calling is supported
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:146](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L146)
+[packages/agents/src/interfaces/provider.ts:206](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L206)
 
 ___
 
@@ -134,7 +185,7 @@ true if configuration is valid
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:152](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L152)
+[packages/agents/src/interfaces/provider.ts:212](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L212)
 
 ___
 
@@ -150,4 +201,20 @@ Clean up resources when provider is no longer needed
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:157](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L157)
+[packages/agents/src/interfaces/provider.ts:217](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L217)
+
+___
+
+### close
+
+▸ **close**(): `Promise`\<`void`\>
+
+Close provider connections and cleanup resources
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Defined in
+
+[packages/agents/src/interfaces/provider.ts:222](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L222)

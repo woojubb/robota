@@ -10,10 +10,21 @@
 
 Execution analytics plugin statistics
 
+## Hierarchy
+
+- [`PluginStats`](PluginStats)
+
+  ↳ **`ExecutionAnalyticsPluginStats`**
+
 ## Table of contents
 
 ### Properties
 
+- [enabled](ExecutionAnalyticsPluginStats#enabled)
+- [calls](ExecutionAnalyticsPluginStats#calls)
+- [errors](ExecutionAnalyticsPluginStats#errors)
+- [lastActivity](ExecutionAnalyticsPluginStats#lastactivity)
+- [moduleEventsReceived](ExecutionAnalyticsPluginStats#moduleeventsreceived)
 - [totalRecorded](ExecutionAnalyticsPluginStats#totalrecorded)
 - [activeExecutions](ExecutionAnalyticsPluginStats#activeexecutions)
 - [memoryUsage](ExecutionAnalyticsPluginStats#memoryusage)
@@ -21,6 +32,76 @@ Execution analytics plugin statistics
 - [newestRecord](ExecutionAnalyticsPluginStats#newestrecord)
 
 ## Properties
+
+### enabled
+
+• **enabled**: `boolean`
+
+#### Inherited from
+
+[PluginStats](PluginStats).[enabled](PluginStats#enabled)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:177](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L177)
+
+___
+
+### calls
+
+• **calls**: `number`
+
+#### Inherited from
+
+[PluginStats](PluginStats).[calls](PluginStats#calls)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:178](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L178)
+
+___
+
+### errors
+
+• **errors**: `number`
+
+#### Inherited from
+
+[PluginStats](PluginStats).[errors](PluginStats#errors)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:179](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L179)
+
+___
+
+### lastActivity
+
+• `Optional` **lastActivity**: `Date`
+
+#### Inherited from
+
+[PluginStats](PluginStats).[lastActivity](PluginStats#lastactivity)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:180](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L180)
+
+___
+
+### moduleEventsReceived
+
+• `Optional` **moduleEventsReceived**: `number`
+
+#### Inherited from
+
+[PluginStats](PluginStats).[moduleEventsReceived](PluginStats#moduleeventsreceived)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:181](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L181)
+
+___
 
 ### totalRecorded
 
@@ -30,7 +111,7 @@ Total number of executions recorded
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/types.ts:83](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/execution/types.ts#L83)
+[packages/agents/src/plugins/execution/types.ts:85](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/types.ts#L85)
 
 ___
 
@@ -42,7 +123,7 @@ Number of active executions
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/types.ts:85](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/execution/types.ts#L85)
+[packages/agents/src/plugins/execution/types.ts:87](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/types.ts#L87)
 
 ___
 
@@ -54,7 +135,7 @@ Memory usage in KB
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/types.ts:87](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/execution/types.ts#L87)
+[packages/agents/src/plugins/execution/types.ts:89](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/types.ts#L89)
 
 ___
 
@@ -66,7 +147,7 @@ Oldest record timestamp
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/types.ts:89](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/execution/types.ts#L89)
+[packages/agents/src/plugins/execution/types.ts:91](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/types.ts#L91)
 
 ___
 
@@ -78,4 +159,4 @@ Newest record timestamp
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/types.ts:91](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/execution/types.ts#L91)
+[packages/agents/src/plugins/execution/types.ts:93](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/types.ts#L93)

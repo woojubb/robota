@@ -61,6 +61,11 @@ console.log(response);
 
 - [FunctionSchema](#functionschema)
 
+### Enumerations
+
+- [PluginCategory](enums/PluginCategory)
+- [PluginPriority](enums/PluginPriority)
+
 ### Classes
 
 - [BaseAgent](classes/BaseAgent)
@@ -117,6 +122,7 @@ console.log(response);
 - [BaseExecutionResult](interfaces/BaseExecutionResult)
 - [ErrorContext](interfaces/ErrorContext)
 - [PluginConfig](interfaces/PluginConfig)
+- [BasePluginOptions](interfaces/BasePluginOptions)
 - [PluginData](interfaces/PluginData)
 - [TypeSafePluginInterface](interfaces/TypeSafePluginInterface)
 - [PluginStats](interfaces/PluginStats)
@@ -271,7 +277,7 @@ Used for storing logging information in provider operations
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:9](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-ai-provider.ts#L9)
+[packages/agents/src/abstracts/base-ai-provider.ts:9](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-ai-provider.ts#L9)
 
 ___
 
@@ -293,7 +299,7 @@ TODO: Monitor usage patterns and consider narrowing if complex types cause runti
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:17](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-tool.ts#L17)
+[packages/agents/src/abstracts/base-tool.ts:17](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-tool.ts#L17)
 
 ___
 
@@ -326,7 +332,7 @@ Tool execution function type with proper parameter constraints
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-tool.ts:33](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-tool.ts#L33)
+[packages/agents/src/abstracts/base-tool.ts:33](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-tool.ts#L33)
 
 ___
 
@@ -338,7 +344,7 @@ Universal message type
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:58](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L58)
+[packages/agents/src/interfaces/agent.ts:58](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L58)
 
 ___
 
@@ -351,7 +357,7 @@ Used for storing additional information about agent creation and configuration
 
 #### Defined in
 
-[packages/agents/src/interfaces/manager.ts:14](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/manager.ts#L14)
+[packages/agents/src/interfaces/manager.ts:14](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/manager.ts#L14)
 
 ___
 
@@ -364,7 +370,7 @@ Used for default values in parameter schemas
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:17](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L17)
+[packages/agents/src/interfaces/provider.ts:17](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L17)
 
 ___
 
@@ -376,7 +382,7 @@ JSON Schema primitive types
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:22](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L22)
+[packages/agents/src/interfaces/provider.ts:22](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L22)
 
 ___
 
@@ -388,7 +394,7 @@ JSON Schema enum values
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:27](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/provider.ts#L27)
+[packages/agents/src/interfaces/provider.ts:27](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L27)
 
 ___
 
@@ -401,7 +407,7 @@ Used for storing additional information about conversations, responses, and exec
 
 #### Defined in
 
-[packages/agents/src/interfaces/service.ts:18](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/service.ts#L18)
+[packages/agents/src/interfaces/service.ts:18](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/service.ts#L18)
 
 ___
 
@@ -413,7 +419,7 @@ Tool metadata structure - specific type definition
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:26](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L26)
+[packages/agents/src/interfaces/tool.ts:26](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L26)
 
 ___
 
@@ -433,7 +439,7 @@ TODO: Consider creating stricter variants if broad typing causes issues
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:39](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L39)
+[packages/agents/src/interfaces/tool.ts:39](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L39)
 
 ___
 
@@ -467,7 +473,7 @@ Generic tool executor function
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:117](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L117)
+[packages/agents/src/interfaces/tool.ts:117](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L117)
 
 ___
 
@@ -479,7 +485,7 @@ Primitive value types - foundation for all other types
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:9](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L9)
+[packages/agents/src/interfaces/types.ts:9](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L9)
 
 ___
 
@@ -491,7 +497,7 @@ Array value types - well-defined array structures (includes object arrays for co
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:14](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L14)
+[packages/agents/src/interfaces/types.ts:14](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L14)
 
 ___
 
@@ -503,7 +509,7 @@ Object value types - structured object definitions (includes Date for compatibil
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:19](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L19)
+[packages/agents/src/interfaces/types.ts:19](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L19)
 
 ___
 
@@ -515,7 +521,7 @@ Universal value type - covers all valid data types
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:24](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L24)
+[packages/agents/src/interfaces/types.ts:24](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L24)
 
 ___
 
@@ -527,7 +533,7 @@ Metadata type - consistent across all components (includes Date for compatibilit
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:29](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L29)
+[packages/agents/src/interfaces/types.ts:29](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L29)
 
 ___
 
@@ -537,7 +543,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:30](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L30)
+[packages/agents/src/interfaces/types.ts:30](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L30)
 
 ___
 
@@ -549,7 +555,7 @@ Context data type - for execution contexts
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:35](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L35)
+[packages/agents/src/interfaces/types.ts:35](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L35)
 
 ___
 
@@ -561,7 +567,7 @@ Logger data type - for logging contexts (includes Date for timestamps)
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:40](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L40)
+[packages/agents/src/interfaces/types.ts:40](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L40)
 
 ___
 
@@ -584,17 +590,17 @@ TODO: Consider creating specific configuration interfaces if runtime issues occu
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:56](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L56)
+[packages/agents/src/interfaces/types.ts:56](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L56)
 
 ___
 
 ### ConfigValue
 
-Ƭ **ConfigValue**: [`PrimitiveValue`](#primitivevalue) \| [`ArrayValue`](#arrayvalue) \| [`ObjectValue`](#objectvalue) \| [`ComplexConfigValue`](#complexconfigvalue)[] \| `Record`\<`string`, [`PrimitiveValue`](#primitivevalue) \| [`ArrayValue`](#arrayvalue) \| [`ObjectValue`](#objectvalue)\>[] \| `object`[] \| `object`
+Ƭ **ConfigValue**: [`PrimitiveValue`](#primitivevalue) \| [`ArrayValue`](#arrayvalue) \| [`ObjectValue`](#objectvalue) \| [`ComplexConfigValue`](#complexconfigvalue)[] \| `Record`\<`string`, [`PrimitiveValue`](#primitivevalue) \| [`ArrayValue`](#arrayvalue) \| [`ObjectValue`](#objectvalue)\>[] \| [`ComplexConfigValue`](#complexconfigvalue)[] \| [`ComplexConfigValue`](#complexconfigvalue)
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:57](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L57)
+[packages/agents/src/interfaces/types.ts:57](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L57)
 
 ___
 
@@ -604,7 +610,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:58](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L58)
+[packages/agents/src/interfaces/types.ts:58](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L58)
 
 ___
 
@@ -616,7 +622,7 @@ Tool parameter value type - specific for tool parameters
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:63](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L63)
+[packages/agents/src/interfaces/types.ts:63](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L63)
 
 ___
 
@@ -626,7 +632,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:64](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L64)
+[packages/agents/src/interfaces/types.ts:64](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L64)
 
 ___
 
@@ -638,7 +644,7 @@ Tool result data type - for tool execution results
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:69](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L69)
+[packages/agents/src/interfaces/types.ts:69](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L69)
 
 ___
 
@@ -651,7 +657,7 @@ Note: ProviderConfig is defined in agent.ts to avoid export conflicts
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:75](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L75)
+[packages/agents/src/interfaces/types.ts:75](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L75)
 
 ___
 
@@ -666,7 +672,7 @@ based on the message role, preventing invalid combinations.
 
 #### Defined in
 
-[packages/agents/src/managers/conversation-history-manager.ts:103](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/managers/conversation-history-manager.ts#L103)
+[packages/agents/src/managers/conversation-history-manager.ts:111](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/managers/conversation-history-manager.ts#L111)
 
 ___
 
@@ -678,7 +684,7 @@ Storage strategy for conversation history
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:6](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/conversation-history/types.ts#L6)
+[packages/agents/src/plugins/conversation-history/types.ts:7](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/conversation-history/types.ts#L7)
 
 ___
 
@@ -690,19 +696,19 @@ Error handling strategy types
 
 #### Defined in
 
-[packages/agents/src/plugins/error-handling/types.ts:17](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/error-handling/types.ts#L17)
+[packages/agents/src/plugins/error-handling/types.ts:17](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/error-handling/types.ts#L17)
 
 ___
 
 ### EventType
 
-Ƭ **EventType**: ``"execution.start"`` \| ``"execution.complete"`` \| ``"execution.error"`` \| ``"conversation.start"`` \| ``"conversation.complete"`` \| ``"conversation.error"`` \| ``"tool.beforeExecute"`` \| ``"tool.afterExecute"`` \| ``"tool.success"`` \| ``"tool.error"`` \| ``"plugin.error"`` \| ``"custom"``
+Ƭ **EventType**: ``"execution.start"`` \| ``"execution.complete"`` \| ``"execution.error"`` \| ``"conversation.start"`` \| ``"conversation.complete"`` \| ``"conversation.error"`` \| ``"tool.beforeExecute"`` \| ``"tool.afterExecute"`` \| ``"tool.success"`` \| ``"tool.error"`` \| ``"plugin.error"`` \| ``"module.initialize.start"`` \| ``"module.initialize.complete"`` \| ``"module.initialize.error"`` \| ``"module.execution.start"`` \| ``"module.execution.complete"`` \| ``"module.execution.error"`` \| ``"module.dispose.start"`` \| ``"module.dispose.complete"`` \| ``"module.dispose.error"`` \| ``"module.registered"`` \| ``"module.unregistered"`` \| ``"custom"``
 
 Event types that can be emitted
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:8](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L8)
+[packages/agents/src/plugins/event-emitter-plugin.ts:9](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/event-emitter-plugin.ts#L9)
 
 ___
 
@@ -728,7 +734,7 @@ Event listener function
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:99](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/event-emitter-plugin.ts#L99)
+[packages/agents/src/plugins/event-emitter-plugin.ts:111](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/event-emitter-plugin.ts#L111)
 
 ___
 
@@ -740,7 +746,7 @@ Rate limiting strategies
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:51](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/limits-plugin.ts#L51)
+[packages/agents/src/plugins/limits/types.ts:6](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L6)
 
 ___
 
@@ -752,7 +758,7 @@ Logging strategy types
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:4](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/logging/types.ts#L4)
+[packages/agents/src/plugins/logging/types.ts:4](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/logging/types.ts#L4)
 
 ___
 
@@ -764,7 +770,7 @@ Log levels
 
 #### Defined in
 
-[packages/agents/src/plugins/logging/types.ts:9](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/logging/types.ts#L9)
+[packages/agents/src/plugins/logging/types.ts:9](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/logging/types.ts#L9)
 
 ___
 
@@ -776,7 +782,7 @@ Performance monitoring strategy types
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:4](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/performance/types.ts#L4)
+[packages/agents/src/plugins/performance/types.ts:4](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L4)
 
 ___
 
@@ -788,7 +794,7 @@ Usage tracking strategy types
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:4](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/usage/types.ts#L4)
+[packages/agents/src/plugins/usage/types.ts:4](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/usage/types.ts#L4)
 
 ___
 
@@ -800,7 +806,7 @@ Webhook event types for different lifecycle events
 
 #### Defined in
 
-[packages/agents/src/plugins/webhook/types.ts:9](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/webhook/types.ts#L9)
+[packages/agents/src/plugins/webhook/types.ts:9](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/webhook/types.ts#L9)
 
 ___
 
@@ -813,7 +819,7 @@ Used for storing contextual information in error instances
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:9](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L9)
+[packages/agents/src/utils/errors.ts:9](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/errors.ts#L9)
 
 ___
 
@@ -826,7 +832,7 @@ Used for handling external errors from unknown sources
 
 #### Defined in
 
-[packages/agents/src/utils/errors.ts:15](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/errors.ts#L15)
+[packages/agents/src/utils/errors.ts:15](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/errors.ts#L15)
 
 ___
 
@@ -838,7 +844,7 @@ Logger context data type - uses centralized type definition
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:10](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L10)
+[packages/agents/src/utils/logger.ts:10](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/logger.ts#L10)
 
 ___
 
@@ -850,7 +856,7 @@ Log levels for the logger
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:15](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L15)
+[packages/agents/src/utils/logger.ts:15](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/logger.ts#L15)
 
 ## Variables
 
@@ -873,14 +879,14 @@ TODO: Consider adding more specific type guards if needed
 
 | Name | Type |
 | :------ | :------ |
-| `isPrimitive` | (`value`: `undefined` \| ``null`` \| `string` \| `number` \| `boolean` \| `object` \| [`PrimitiveValue`](#primitivevalue)[]) => value is PrimitiveValue |
-| `isArray` | (`value`: `undefined` \| ``null`` \| `string` \| `number` \| `boolean` \| `object` \| [`PrimitiveValue`](#primitivevalue)[]) => value is ArrayValue |
-| `isObject` | (`value`: `undefined` \| ``null`` \| `string` \| `number` \| `boolean` \| `object` \| [`PrimitiveValue`](#primitivevalue)[]) => value is ObjectValue |
-| `isUniversalValue` | (`value`: `undefined` \| ``null`` \| `string` \| `number` \| `boolean` \| `object` \| [`PrimitiveValue`](#primitivevalue)[]) => value is UniversalValue |
+| `isPrimitive` | (`value`: `Date` \| [`UniversalValue`](#universalvalue) \| `Record`\<`string`, [`UniversalValue`](#universalvalue)\>) => value is PrimitiveValue |
+| `isArray` | (`value`: `Date` \| [`UniversalValue`](#universalvalue) \| `Record`\<`string`, [`UniversalValue`](#universalvalue)\>) => value is ArrayValue |
+| `isObject` | (`value`: `Date` \| [`UniversalValue`](#universalvalue) \| `Record`\<`string`, [`UniversalValue`](#universalvalue)\>) => value is ObjectValue |
+| `isUniversalValue` | (`value`: `Date` \| [`UniversalValue`](#universalvalue) \| `Record`\<`string`, [`UniversalValue`](#universalvalue)\>) => value is UniversalValue |
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:101](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L101)
+[packages/agents/src/interfaces/types.ts:101](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L101)
 
 ___
 
@@ -892,7 +898,7 @@ Default logger for the agents package
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:173](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L173)
+[packages/agents/src/utils/logger.ts:173](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/logger.ts#L173)
 
 ## Functions
 
@@ -920,7 +926,7 @@ Helper function to create a function tool from a simple function
 
 #### Defined in
 
-[packages/agents/src/tools/implementations/function-tool.ts:228](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/tools/implementations/function-tool.ts#L228)
+[packages/agents/src/tools/implementations/function-tool.ts:228](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/tools/implementations/function-tool.ts#L228)
 
 ___
 
@@ -945,7 +951,7 @@ Helper function to create a function tool from Zod schema
 
 #### Defined in
 
-[packages/agents/src/tools/implementations/function-tool.ts:246](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/tools/implementations/function-tool.ts#L246)
+[packages/agents/src/tools/implementations/function-tool.ts:246](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/tools/implementations/function-tool.ts#L246)
 
 ___
 
@@ -967,7 +973,7 @@ Create a logger instance for a package
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:152](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L152)
+[packages/agents/src/utils/logger.ts:152](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/logger.ts#L152)
 
 ___
 
@@ -989,7 +995,7 @@ Set global log level for all loggers
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:159](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L159)
+[packages/agents/src/utils/logger.ts:159](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/logger.ts#L159)
 
 ___
 
@@ -1005,7 +1011,7 @@ Get global log level
 
 #### Defined in
 
-[packages/agents/src/utils/logger.ts:166](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/logger.ts#L166)
+[packages/agents/src/utils/logger.ts:166](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/logger.ts#L166)
 
 ___
 
@@ -1027,7 +1033,7 @@ Validate agent configuration
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:178](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/validation.ts#L178)
+[packages/agents/src/utils/validation.ts:190](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/validation.ts#L190)
 
 ___
 
@@ -1049,7 +1055,7 @@ Validate user input string
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:179](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/validation.ts#L179)
+[packages/agents/src/utils/validation.ts:191](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/validation.ts#L191)
 
 ___
 
@@ -1071,7 +1077,7 @@ Validate provider name
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:180](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/validation.ts#L180)
+[packages/agents/src/utils/validation.ts:192](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/validation.ts#L192)
 
 ___
 
@@ -1093,7 +1099,7 @@ Validate model name
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:181](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/validation.ts#L181)
+[packages/agents/src/utils/validation.ts:193](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/validation.ts#L193)
 
 ___
 
@@ -1116,4 +1122,4 @@ Validate API key format (basic check)
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:182](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/utils/validation.ts#L182)
+[packages/agents/src/utils/validation.ts:194](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/validation.ts#L194)

@@ -143,6 +143,7 @@ export class OpenAIConversationAdapter {
         }
 
         // This should never happen but TypeScript requires exhaustive checking
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         throw new Error(`Unsupported message role: ${(msg as any).role}`);
     }
 

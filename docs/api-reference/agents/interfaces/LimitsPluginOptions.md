@@ -10,10 +10,21 @@
 
 Limits plugin configuration
 
+## Hierarchy
+
+- [`BasePluginOptions`](BasePluginOptions)
+
+  ↳ **`LimitsPluginOptions`**
+
 ## Table of contents
 
 ### Properties
 
+- [enabled](LimitsPluginOptions#enabled)
+- [category](LimitsPluginOptions#category)
+- [priority](LimitsPluginOptions#priority)
+- [moduleEvents](LimitsPluginOptions#moduleevents)
+- [subscribeToAllModuleEvents](LimitsPluginOptions#subscribetoallmoduleevents)
 - [strategy](LimitsPluginOptions#strategy)
 - [maxTokens](LimitsPluginOptions#maxtokens)
 - [maxRequests](LimitsPluginOptions#maxrequests)
@@ -26,6 +37,86 @@ Limits plugin configuration
 
 ## Properties
 
+### enabled
+
+• `Optional` **enabled**: `boolean`
+
+Whether the plugin is enabled
+
+#### Inherited from
+
+[BasePluginOptions](BasePluginOptions).[enabled](BasePluginOptions#enabled)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:125](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L125)
+
+___
+
+### category
+
+• `Optional` **category**: [`PluginCategory`](../enums/PluginCategory)
+
+Plugin category for classification
+
+#### Inherited from
+
+[BasePluginOptions](BasePluginOptions).[category](BasePluginOptions#category)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L127)
+
+___
+
+### priority
+
+• `Optional` **priority**: `number`
+
+Plugin priority for execution order
+
+#### Inherited from
+
+[BasePluginOptions](BasePluginOptions).[priority](BasePluginOptions#priority)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:129](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L129)
+
+___
+
+### moduleEvents
+
+• `Optional` **moduleEvents**: [`EventType`](../modules#eventtype)[]
+
+Events to subscribe to from modules
+
+#### Inherited from
+
+[BasePluginOptions](BasePluginOptions).[moduleEvents](BasePluginOptions#moduleevents)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:131](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L131)
+
+___
+
+### subscribeToAllModuleEvents
+
+• `Optional` **subscribeToAllModuleEvents**: `boolean`
+
+Whether to subscribe to all module events
+
+#### Inherited from
+
+[BasePluginOptions](BasePluginOptions).[subscribeToAllModuleEvents](BasePluginOptions#subscribetoallmoduleevents)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L133)
+
+___
+
 ### strategy
 
 • **strategy**: [`LimitsStrategy`](../modules#limitsstrategy)
@@ -34,7 +125,7 @@ Rate limiting strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:58](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/limits-plugin.ts#L58)
+[packages/agents/src/plugins/limits/types.ts:13](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L13)
 
 ___
 
@@ -46,7 +137,7 @@ Maximum tokens per time window
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:60](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/limits-plugin.ts#L60)
+[packages/agents/src/plugins/limits/types.ts:15](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L15)
 
 ___
 
@@ -58,7 +149,7 @@ Maximum requests per time window
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:62](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/limits-plugin.ts#L62)
+[packages/agents/src/plugins/limits/types.ts:17](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L17)
 
 ___
 
@@ -70,7 +161,7 @@ Time window in milliseconds
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:64](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/limits-plugin.ts#L64)
+[packages/agents/src/plugins/limits/types.ts:19](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L19)
 
 ___
 
@@ -82,7 +173,7 @@ Maximum cost per time window (in USD)
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:66](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/limits-plugin.ts#L66)
+[packages/agents/src/plugins/limits/types.ts:21](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L21)
 
 ___
 
@@ -94,7 +185,7 @@ Token cost per 1000 tokens (in USD)
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:68](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/limits-plugin.ts#L68)
+[packages/agents/src/plugins/limits/types.ts:23](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L23)
 
 ___
 
@@ -106,7 +197,7 @@ Bucket refill rate for token bucket strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:70](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/limits-plugin.ts#L70)
+[packages/agents/src/plugins/limits/types.ts:25](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L25)
 
 ___
 
@@ -118,7 +209,7 @@ Initial bucket size for token bucket strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:72](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/limits-plugin.ts#L72)
+[packages/agents/src/plugins/limits/types.ts:27](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L27)
 
 ___
 
@@ -145,4 +236,4 @@ Custom cost calculator
 
 #### Defined in
 
-[packages/agents/src/plugins/limits-plugin.ts:74](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/limits-plugin.ts#L74)
+[packages/agents/src/plugins/limits/types.ts:29](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/limits/types.ts#L29)

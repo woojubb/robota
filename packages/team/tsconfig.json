@@ -2,27 +2,16 @@
     "extends": "../../tsconfig.base.json",
     "compilerOptions": {
         "outDir": "dist",
-        "declaration": true,
-        "declarationMap": true,
-        "sourceMap": true,
+        "rootDir": "src",
         "composite": true,
-        "skipLibCheck": true,
-        "moduleResolution": "node",
-        "allowImportingTsExtensions": false,
-        "noEmit": false
+        "declaration": true,
+        "declarationMap": true
     },
     "include": [
-        "src/**/*.ts",
-        "src/**/*.tsx"
+        "src/**/*"
     ],
     "exclude": [
         "dist",
-        "**/*.test.ts",
-        "**/*.spec.ts"
-    ],
-    "references": [
-        {
-            "path": "../agents"
-        }
+        "node_modules"
     ]
 }

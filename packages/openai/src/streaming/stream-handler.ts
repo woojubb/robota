@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { UniversalMessage } from '../provider';
+import type { UniversalMessage } from '@robota-sdk/agents';
 import type { PayloadLogger } from '../payload-logger';
 import type {
     OpenAIChatRequestParams,
@@ -10,10 +10,12 @@ import type {
 const logger = {
     debug: (message: string, data?: LogData) => {
         if (process.env['NODE_ENV'] === 'development') {
+            // eslint-disable-next-line no-console
             console.debug(`[OpenAI Stream] ${message}`, data || '');
         }
     },
     error: (message: string, data?: LogData) => {
+        // eslint-disable-next-line no-console
         console.error(`[OpenAI Stream] ${message}`, data || '');
     }
 };

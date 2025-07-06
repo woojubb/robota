@@ -10,10 +10,21 @@
 
 Configuration options for performance plugin
 
+## Hierarchy
+
+- [`BasePluginOptions`](BasePluginOptions)
+
+  ↳ **`PerformancePluginOptions`**
+
 ## Table of contents
 
 ### Properties
 
+- [enabled](PerformancePluginOptions#enabled)
+- [category](PerformancePluginOptions#category)
+- [priority](PerformancePluginOptions#priority)
+- [moduleEvents](PerformancePluginOptions#moduleevents)
+- [subscribeToAllModuleEvents](PerformancePluginOptions#subscribetoallmoduleevents)
 - [strategy](PerformancePluginOptions#strategy)
 - [filePath](PerformancePluginOptions#filepath)
 - [remoteEndpoint](PerformancePluginOptions#remoteendpoint)
@@ -31,6 +42,86 @@ Configuration options for performance plugin
 
 ## Properties
 
+### enabled
+
+• `Optional` **enabled**: `boolean`
+
+Whether the plugin is enabled
+
+#### Inherited from
+
+[BasePluginOptions](BasePluginOptions).[enabled](BasePluginOptions#enabled)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:125](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L125)
+
+___
+
+### category
+
+• `Optional` **category**: [`PluginCategory`](../enums/PluginCategory)
+
+Plugin category for classification
+
+#### Inherited from
+
+[BasePluginOptions](BasePluginOptions).[category](BasePluginOptions#category)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L127)
+
+___
+
+### priority
+
+• `Optional` **priority**: `number`
+
+Plugin priority for execution order
+
+#### Inherited from
+
+[BasePluginOptions](BasePluginOptions).[priority](BasePluginOptions#priority)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:129](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L129)
+
+___
+
+### moduleEvents
+
+• `Optional` **moduleEvents**: [`EventType`](../modules#eventtype)[]
+
+Events to subscribe to from modules
+
+#### Inherited from
+
+[BasePluginOptions](BasePluginOptions).[moduleEvents](BasePluginOptions#moduleevents)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:131](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L131)
+
+___
+
+### subscribeToAllModuleEvents
+
+• `Optional` **subscribeToAllModuleEvents**: `boolean`
+
+Whether to subscribe to all module events
+
+#### Inherited from
+
+[BasePluginOptions](BasePluginOptions).[subscribeToAllModuleEvents](BasePluginOptions#subscribetoallmoduleevents)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L133)
+
+___
+
 ### strategy
 
 • **strategy**: [`PerformanceMonitoringStrategy`](../modules#performancemonitoringstrategy)
@@ -39,7 +130,7 @@ Performance monitoring strategy to use
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:84](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/performance/types.ts#L84)
+[packages/agents/src/plugins/performance/types.ts:86](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L86)
 
 ___
 
@@ -51,7 +142,7 @@ File path for file strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:86](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/performance/types.ts#L86)
+[packages/agents/src/plugins/performance/types.ts:88](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L88)
 
 ___
 
@@ -63,7 +154,7 @@ Remote endpoint for remote strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:88](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/performance/types.ts#L88)
+[packages/agents/src/plugins/performance/types.ts:90](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L90)
 
 ___
 
@@ -75,7 +166,7 @@ Prometheus endpoint for prometheus strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:90](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/performance/types.ts#L90)
+[packages/agents/src/plugins/performance/types.ts:92](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L92)
 
 ___
 
@@ -87,7 +178,7 @@ Headers for remote monitoring
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:92](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/performance/types.ts#L92)
+[packages/agents/src/plugins/performance/types.ts:94](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L94)
 
 ___
 
@@ -99,7 +190,7 @@ Maximum number of performance entries to keep in memory
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:94](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/performance/types.ts#L94)
+[packages/agents/src/plugins/performance/types.ts:96](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L96)
 
 ___
 
@@ -111,7 +202,7 @@ Whether to monitor memory usage
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:96](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/performance/types.ts#L96)
+[packages/agents/src/plugins/performance/types.ts:98](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L98)
 
 ___
 
@@ -123,7 +214,7 @@ Whether to monitor CPU usage
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:98](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/performance/types.ts#L98)
+[packages/agents/src/plugins/performance/types.ts:100](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L100)
 
 ___
 
@@ -135,7 +226,7 @@ Whether to monitor network stats
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:100](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/performance/types.ts#L100)
+[packages/agents/src/plugins/performance/types.ts:102](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L102)
 
 ___
 
@@ -147,7 +238,7 @@ Batch size for remote reporting
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:102](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/performance/types.ts#L102)
+[packages/agents/src/plugins/performance/types.ts:104](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L104)
 
 ___
 
@@ -159,7 +250,7 @@ Flush interval for batched reporting in milliseconds
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:104](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/performance/types.ts#L104)
+[packages/agents/src/plugins/performance/types.ts:106](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L106)
 
 ___
 
@@ -171,7 +262,7 @@ Whether to aggregate statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:106](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/performance/types.ts#L106)
+[packages/agents/src/plugins/performance/types.ts:108](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L108)
 
 ___
 
@@ -183,7 +274,7 @@ Aggregation interval in milliseconds
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:108](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/performance/types.ts#L108)
+[packages/agents/src/plugins/performance/types.ts:110](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L110)
 
 ___
 
@@ -195,4 +286,4 @@ Performance threshold in milliseconds to log warnings
 
 #### Defined in
 
-[packages/agents/src/plugins/performance/types.ts:110](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/performance/types.ts#L110)
+[packages/agents/src/plugins/performance/types.ts:112](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/performance/types.ts#L112)

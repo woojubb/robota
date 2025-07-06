@@ -10,6 +10,12 @@
 
 Plugin statistics base interface with common metrics
 
+## Hierarchy
+
+- **`PluginStats`**
+
+  ↳ [`ExecutionAnalyticsPluginStats`](ExecutionAnalyticsPluginStats)
+
 ## Indexable
 
 ▪ [key: `string`]: `string` \| `number` \| `boolean` \| `Date` \| `undefined`
@@ -22,6 +28,7 @@ Plugin statistics base interface with common metrics
 - [calls](PluginStats#calls)
 - [errors](PluginStats#errors)
 - [lastActivity](PluginStats#lastactivity)
+- [moduleEventsReceived](PluginStats#moduleeventsreceived)
 
 ## Properties
 
@@ -31,7 +38,7 @@ Plugin statistics base interface with common metrics
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:108](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L108)
+[packages/agents/src/abstracts/base-plugin.ts:177](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L177)
 
 ___
 
@@ -41,7 +48,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:109](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L109)
+[packages/agents/src/abstracts/base-plugin.ts:178](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L178)
 
 ___
 
@@ -51,7 +58,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:110](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L110)
+[packages/agents/src/abstracts/base-plugin.ts:179](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L179)
 
 ___
 
@@ -61,4 +68,14 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:111](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L111)
+[packages/agents/src/abstracts/base-plugin.ts:180](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L180)
+
+___
+
+### moduleEventsReceived
+
+• `Optional` **moduleEventsReceived**: `number`
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:181](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L181)

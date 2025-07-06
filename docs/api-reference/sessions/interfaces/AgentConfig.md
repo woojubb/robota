@@ -8,11 +8,7 @@
 
 # Interface: AgentConfig
 
-Agent configuration options
-
-## Indexable
-
-▪ [key: `string`]: `ConfigValue`
+Agent configuration options - New design with aiProviders array and defaultModel
 
 ## Table of contents
 
@@ -20,19 +16,37 @@ Agent configuration options
 
 - [id](AgentConfig#id)
 - [name](AgentConfig#name)
-- [model](AgentConfig#model)
-- [provider](AgentConfig#provider)
-- [systemMessage](AgentConfig#systemmessage)
+- [aiProviders](AgentConfig#aiproviders)
+- [defaultModel](AgentConfig#defaultmodel)
 - [tools](AgentConfig#tools)
 - [plugins](AgentConfig#plugins)
+- [modules](AgentConfig#modules)
+- [model](AgentConfig#model)
+- [provider](AgentConfig#provider)
 - [temperature](AgentConfig#temperature)
 - [maxTokens](AgentConfig#maxtokens)
-- [metadata](AgentConfig#metadata)
-- [aiProviders](AgentConfig#aiproviders)
-- [currentProvider](AgentConfig#currentprovider)
-- [currentModel](AgentConfig#currentmodel)
+- [topP](AgentConfig#topp)
+- [topK](AgentConfig#topk)
+- [frequencyPenalty](AgentConfig#frequencypenalty)
+- [presencePenalty](AgentConfig#presencepenalty)
+- [stopSequences](AgentConfig#stopsequences)
+- [seed](AgentConfig#seed)
+- [systemMessage](AgentConfig#systemmessage)
+- [systemPrompt](AgentConfig#systemprompt)
 - [conversationId](AgentConfig#conversationid)
+- [sessionId](AgentConfig#sessionid)
+- [userId](AgentConfig#userid)
+- [metadata](AgentConfig#metadata)
+- [context](AgentConfig#context)
 - [logging](AgentConfig#logging)
+- [providerConfig](AgentConfig#providerconfig)
+- [stream](AgentConfig#stream)
+- [toolChoice](AgentConfig#toolchoice)
+- [responseFormat](AgentConfig#responseformat)
+- [safetySettings](AgentConfig#safetysettings)
+- [timeout](AgentConfig#timeout)
+- [retryAttempts](AgentConfig#retryattempts)
+- [rateLimiting](AgentConfig#ratelimiting)
 
 ## Properties
 
@@ -42,47 +56,48 @@ Agent configuration options
 
 #### Defined in
 
-agents/dist/index.d.ts:1336
+agents/dist/index.d.ts:1909
 
 ___
 
 ### name
 
-• `Optional` **name**: `string`
+• **name**: `string`
 
 #### Defined in
 
-agents/dist/index.d.ts:1337
+agents/dist/index.d.ts:1910
 
 ___
 
-### model
+### aiProviders
 
-• **model**: `string`
+• **aiProviders**: `AIProvider`[]
 
 #### Defined in
 
-agents/dist/index.d.ts:1338
+agents/dist/index.d.ts:1911
 
 ___
 
-### provider
+### defaultModel
 
-• **provider**: `string`
+• **defaultModel**: `Object`
+
+#### Type declaration
+
+| Name | Type |
+| :------ | :------ |
+| `provider` | `string` |
+| `model` | `string` |
+| `temperature?` | `number` |
+| `maxTokens?` | `number` |
+| `topP?` | `number` |
+| `systemMessage?` | `string` |
 
 #### Defined in
 
-agents/dist/index.d.ts:1339
-
-___
-
-### systemMessage
-
-• `Optional` **systemMessage**: `string`
-
-#### Defined in
-
-agents/dist/index.d.ts:1340
+agents/dist/index.d.ts:1912
 
 ___
 
@@ -92,17 +107,47 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:1341
+agents/dist/index.d.ts:1920
 
 ___
 
 ### plugins
 
-• `Optional` **plugins**: `BasePlugin`\<`PluginConfig`, `PluginStats`\>[]
+• `Optional` **plugins**: `BasePlugin`\<`BasePluginOptions`, `PluginStats`\>[]
 
 #### Defined in
 
-agents/dist/index.d.ts:1342
+agents/dist/index.d.ts:1921
+
+___
+
+### modules
+
+• `Optional` **modules**: `BaseModule`\<`BaseModuleOptions`, `ModuleStats`\>[]
+
+#### Defined in
+
+agents/dist/index.d.ts:1922
+
+___
+
+### model
+
+• `Optional` **model**: `string`
+
+#### Defined in
+
+agents/dist/index.d.ts:1923
+
+___
+
+### provider
+
+• `Optional` **provider**: `string`
+
+#### Defined in
+
+agents/dist/index.d.ts:1924
 
 ___
 
@@ -112,7 +157,7 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:1343
+agents/dist/index.d.ts:1925
 
 ___
 
@@ -122,47 +167,87 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:1344
+agents/dist/index.d.ts:1926
 
 ___
 
-### metadata
+### topP
 
-• `Optional` **metadata**: `MessageMetadata`
+• `Optional` **topP**: `number`
 
 #### Defined in
 
-agents/dist/index.d.ts:1345
+agents/dist/index.d.ts:1927
 
 ___
 
-### aiProviders
+### topK
 
-• `Optional` **aiProviders**: `Record`\<`string`, `BaseAIProvider`\<`ProviderConfig`, `UniversalMessage`, `UniversalMessage`\>\>
+• `Optional` **topK**: `number`
 
 #### Defined in
 
-agents/dist/index.d.ts:1346
+agents/dist/index.d.ts:1928
 
 ___
 
-### currentProvider
+### frequencyPenalty
 
-• `Optional` **currentProvider**: `string`
+• `Optional` **frequencyPenalty**: `number`
 
 #### Defined in
 
-agents/dist/index.d.ts:1347
+agents/dist/index.d.ts:1929
 
 ___
 
-### currentModel
+### presencePenalty
 
-• `Optional` **currentModel**: `string`
+• `Optional` **presencePenalty**: `number`
 
 #### Defined in
 
-agents/dist/index.d.ts:1348
+agents/dist/index.d.ts:1930
+
+___
+
+### stopSequences
+
+• `Optional` **stopSequences**: `string`[]
+
+#### Defined in
+
+agents/dist/index.d.ts:1931
+
+___
+
+### seed
+
+• `Optional` **seed**: `number`
+
+#### Defined in
+
+agents/dist/index.d.ts:1932
+
+___
+
+### systemMessage
+
+• `Optional` **systemMessage**: `string`
+
+#### Defined in
+
+agents/dist/index.d.ts:1933
+
+___
+
+### systemPrompt
+
+• `Optional` **systemPrompt**: `string`
+
+#### Defined in
+
+agents/dist/index.d.ts:1934
 
 ___
 
@@ -172,7 +257,47 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:1349
+agents/dist/index.d.ts:1935
+
+___
+
+### sessionId
+
+• `Optional` **sessionId**: `string`
+
+#### Defined in
+
+agents/dist/index.d.ts:1936
+
+___
+
+### userId
+
+• `Optional` **userId**: `string`
+
+#### Defined in
+
+agents/dist/index.d.ts:1937
+
+___
+
+### metadata
+
+• `Optional` **metadata**: `MessageMetadata`
+
+#### Defined in
+
+agents/dist/index.d.ts:1938
+
+___
+
+### context
+
+• `Optional` **context**: `Record`\<`string`, `ConfigValue`\>
+
+#### Defined in
+
+agents/dist/index.d.ts:1939
 
 ___
 
@@ -186,7 +311,97 @@ ___
 | :------ | :------ |
 | `level?` | `UtilLogLevel` |
 | `enabled?` | `boolean` |
+| `format?` | `string` |
+| `destination?` | `string` |
 
 #### Defined in
 
-agents/dist/index.d.ts:1350
+agents/dist/index.d.ts:1940
+
+___
+
+### providerConfig
+
+• `Optional` **providerConfig**: `ProviderConfig$1`
+
+#### Defined in
+
+agents/dist/index.d.ts:1946
+
+___
+
+### stream
+
+• `Optional` **stream**: `boolean`
+
+#### Defined in
+
+agents/dist/index.d.ts:1947
+
+___
+
+### toolChoice
+
+• `Optional` **toolChoice**: `string`
+
+#### Defined in
+
+agents/dist/index.d.ts:1948
+
+___
+
+### responseFormat
+
+• `Optional` **responseFormat**: `ResponseFormatConfig`
+
+#### Defined in
+
+agents/dist/index.d.ts:1949
+
+___
+
+### safetySettings
+
+• `Optional` **safetySettings**: `SafetySetting`[]
+
+#### Defined in
+
+agents/dist/index.d.ts:1950
+
+___
+
+### timeout
+
+• `Optional` **timeout**: `number`
+
+#### Defined in
+
+agents/dist/index.d.ts:1951
+
+___
+
+### retryAttempts
+
+• `Optional` **retryAttempts**: `number`
+
+#### Defined in
+
+agents/dist/index.d.ts:1952
+
+___
+
+### rateLimiting
+
+• `Optional` **rateLimiting**: `Object`
+
+#### Type declaration
+
+| Name | Type |
+| :------ | :------ |
+| `enabled?` | `boolean` |
+| `maxRequests?` | `number` |
+| `windowMs?` | `number` |
+
+#### Defined in
+
+agents/dist/index.d.ts:1953

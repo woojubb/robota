@@ -10,10 +10,6 @@
 
 Agent run options - type-safe interface for all agent execution options
 
-## Indexable
-
-▪ [key: `string`]: `ConfigValue`
-
 ## Table of contents
 
 ### Properties
@@ -34,7 +30,7 @@ Agent run options - type-safe interface for all agent execution options
 
 #### Defined in
 
-agents/dist/index.d.ts:1375
+agents/dist/index.d.ts:1978
 
 ___
 
@@ -44,7 +40,7 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:1376
+agents/dist/index.d.ts:1979
 
 ___
 
@@ -54,7 +50,7 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:1377
+agents/dist/index.d.ts:1980
 
 ___
 
@@ -64,7 +60,7 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:1378
+agents/dist/index.d.ts:1981
 
 ___
 
@@ -74,7 +70,7 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:1379
+agents/dist/index.d.ts:1982
 
 ___
 
@@ -84,7 +80,7 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:1380
+agents/dist/index.d.ts:1983
 
 ___
 
@@ -94,4 +90,4 @@ ___
 
 #### Defined in
 
-agents/dist/index.d.ts:1381
+agents/dist/index.d.ts:1984

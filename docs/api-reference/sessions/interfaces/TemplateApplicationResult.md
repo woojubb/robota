@@ -23,13 +23,13 @@ Template application result
 
 ### config
 
-• **config**: `ConfigData`
+• **config**: [`AgentConfig`](AgentConfig)
 
 Applied configuration
 
 #### Defined in
 
-agents/dist/index.d.ts:4344
+agents/dist/index.d.ts:5010
 
 ___
 
@@ -41,7 +41,7 @@ Template that was applied
 
 #### Defined in
 
-agents/dist/index.d.ts:4346
+agents/dist/index.d.ts:5012
 
 ___
 
@@ -53,7 +53,7 @@ Any warnings during application
 
 #### Defined in
 
-agents/dist/index.d.ts:4348
+agents/dist/index.d.ts:5014
 
 ___
 
@@ -65,4 +65,4 @@ Whether config was modified during application
 
 #### Defined in
 
-agents/dist/index.d.ts:4350
+agents/dist/index.d.ts:5016

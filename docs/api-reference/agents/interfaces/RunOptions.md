@@ -10,10 +10,6 @@
 
 Agent run options - type-safe interface for all agent execution options
 
-## Indexable
-
-▪ [key: `string`]: [`ConfigValue`](../modules#configvalue)
-
 ## Table of contents
 
 ### Properties
@@ -34,7 +30,7 @@ Agent run options - type-safe interface for all agent execution options
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:147](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L147)
+[packages/agents/src/interfaces/agent.ts:193](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L193)
 
 ___
 
@@ -44,7 +40,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:148](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L148)
+[packages/agents/src/interfaces/agent.ts:194](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L194)
 
 ___
 
@@ -54,7 +50,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:149](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L149)
+[packages/agents/src/interfaces/agent.ts:195](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L195)
 
 ___
 
@@ -64,7 +60,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:150](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L150)
+[packages/agents/src/interfaces/agent.ts:196](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L196)
 
 ___
 
@@ -74,7 +70,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:151](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L151)
+[packages/agents/src/interfaces/agent.ts:197](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L197)
 
 ___
 
@@ -84,7 +80,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:152](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L152)
+[packages/agents/src/interfaces/agent.ts:198](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L198)
 
 ___
 
@@ -94,4 +90,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:153](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L153)
+[packages/agents/src/interfaces/agent.ts:199](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L199)

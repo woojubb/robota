@@ -10,10 +10,21 @@
 
 Configuration options for conversation history plugin
 
+## Hierarchy
+
+- [`BasePluginOptions`](BasePluginOptions)
+
+  ↳ **`ConversationHistoryPluginOptions`**
+
 ## Table of contents
 
 ### Properties
 
+- [enabled](ConversationHistoryPluginOptions#enabled)
+- [category](ConversationHistoryPluginOptions#category)
+- [priority](ConversationHistoryPluginOptions#priority)
+- [moduleEvents](ConversationHistoryPluginOptions#moduleevents)
+- [subscribeToAllModuleEvents](ConversationHistoryPluginOptions#subscribetoallmoduleevents)
 - [storage](ConversationHistoryPluginOptions#storage)
 - [maxConversations](ConversationHistoryPluginOptions#maxconversations)
 - [maxMessagesPerConversation](ConversationHistoryPluginOptions#maxmessagesperconversation)
@@ -24,6 +35,86 @@ Configuration options for conversation history plugin
 
 ## Properties
 
+### enabled
+
+• `Optional` **enabled**: `boolean`
+
+Whether the plugin is enabled
+
+#### Inherited from
+
+[BasePluginOptions](BasePluginOptions).[enabled](BasePluginOptions#enabled)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:125](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L125)
+
+___
+
+### category
+
+• `Optional` **category**: [`PluginCategory`](../enums/PluginCategory)
+
+Plugin category for classification
+
+#### Inherited from
+
+[BasePluginOptions](BasePluginOptions).[category](BasePluginOptions#category)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L127)
+
+___
+
+### priority
+
+• `Optional` **priority**: `number`
+
+Plugin priority for execution order
+
+#### Inherited from
+
+[BasePluginOptions](BasePluginOptions).[priority](BasePluginOptions#priority)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:129](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L129)
+
+___
+
+### moduleEvents
+
+• `Optional` **moduleEvents**: [`EventType`](../modules#eventtype)[]
+
+Events to subscribe to from modules
+
+#### Inherited from
+
+[BasePluginOptions](BasePluginOptions).[moduleEvents](BasePluginOptions#moduleevents)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:131](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L131)
+
+___
+
+### subscribeToAllModuleEvents
+
+• `Optional` **subscribeToAllModuleEvents**: `boolean`
+
+Whether to subscribe to all module events
+
+#### Inherited from
+
+[BasePluginOptions](BasePluginOptions).[subscribeToAllModuleEvents](BasePluginOptions#subscribetoallmoduleevents)
+
+#### Defined in
+
+[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L133)
+
+___
+
 ### storage
 
 • **storage**: [`HistoryStorageStrategy`](../modules#historystoragestrategy)
@@ -32,7 +123,7 @@ Storage strategy to use
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:13](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/conversation-history/types.ts#L13)
+[packages/agents/src/plugins/conversation-history/types.ts:14](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/conversation-history/types.ts#L14)
 
 ___
 
@@ -44,7 +135,7 @@ Maximum number of conversations to store
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:15](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/conversation-history/types.ts#L15)
+[packages/agents/src/plugins/conversation-history/types.ts:16](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/conversation-history/types.ts#L16)
 
 ___
 
@@ -56,7 +147,7 @@ Maximum messages per conversation
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:17](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/conversation-history/types.ts#L17)
+[packages/agents/src/plugins/conversation-history/types.ts:18](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/conversation-history/types.ts#L18)
 
 ___
 
@@ -68,7 +159,7 @@ File path for file storage strategy
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:19](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/conversation-history/types.ts#L19)
+[packages/agents/src/plugins/conversation-history/types.ts:20](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/conversation-history/types.ts#L20)
 
 ___
 
@@ -80,7 +171,7 @@ Database connection string for database storage
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:21](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/conversation-history/types.ts#L21)
+[packages/agents/src/plugins/conversation-history/types.ts:22](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/conversation-history/types.ts#L22)
 
 ___
 
@@ -92,7 +183,7 @@ Whether to auto-save after each message
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:23](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/conversation-history/types.ts#L23)
+[packages/agents/src/plugins/conversation-history/types.ts:24](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/conversation-history/types.ts#L24)
 
 ___
 
@@ -104,4 +195,4 @@ Save interval in milliseconds for batch saving
 
 #### Defined in
 
-[packages/agents/src/plugins/conversation-history/types.ts:25](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/conversation-history/types.ts#L25)
+[packages/agents/src/plugins/conversation-history/types.ts:26](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/conversation-history/types.ts#L26)

@@ -15,8 +15,8 @@ Provides common structure and lifecycle management
 
 | Name | Type | Description |
 | :------ | :------ | :------ |
-| `TConfig` | extends `Record`\<`string`, [`ConfigValue`](../modules#configvalue)\> = [`AgentConfig`](../interfaces/AgentConfig) | Agent configuration type (defaults to AgentConfig for backward compatibility) |
-| `TContext` | extends `Record`\<`string`, [`ConfigValue`](../modules#configvalue)\> = [`RunOptions`](../interfaces/RunOptions) | Execution context type (defaults to RunOptions for backward compatibility) |
+| `TConfig` | [`AgentConfig`](../interfaces/AgentConfig) | Agent configuration type (defaults to AgentConfig for backward compatibility) |
+| `TContext` | [`RunOptions`](../interfaces/RunOptions) | Execution context type (defaults to RunOptions for backward compatibility) |
 | `TMessage` | [`Message`](../modules#message) | Message type (defaults to Message for backward compatibility) |
 
 ## Hierarchy
@@ -54,8 +54,8 @@ Provides common structure and lifecycle management
 
 | Name | Type |
 | :------ | :------ |
-| `TConfig` | extends `Record`\<`string`, [`ConfigValue`](../modules#configvalue)\> = [`AgentConfig`](../interfaces/AgentConfig) |
-| `TContext` | extends `Record`\<`string`, [`ConfigValue`](../modules#configvalue)\> = [`RunOptions`](../interfaces/RunOptions) |
+| `TConfig` | [`AgentConfig`](../interfaces/AgentConfig) |
+| `TContext` | [`RunOptions`](../interfaces/RunOptions) |
 | `TMessage` | [`Message`](../modules#message) |
 
 #### Returns
@@ -86,7 +86,7 @@ BaseAgentInterface.configure
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:29](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-agent.ts#L29)
+[packages/agents/src/abstracts/base-agent.ts:28](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-agent.ts#L28)
 
 ___
 
@@ -113,7 +113,7 @@ BaseAgentInterface.run
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:37](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-agent.ts#L37)
+[packages/agents/src/abstracts/base-agent.ts:36](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-agent.ts#L36)
 
 ___
 
@@ -140,7 +140,7 @@ BaseAgentInterface.runStream
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:42](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-agent.ts#L42)
+[packages/agents/src/abstracts/base-agent.ts:41](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-agent.ts#L41)
 
 ___
 
@@ -160,7 +160,7 @@ BaseAgentInterface.getHistory
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:47](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-agent.ts#L47)
+[packages/agents/src/abstracts/base-agent.ts:46](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-agent.ts#L46)
 
 ___
 
@@ -180,7 +180,7 @@ BaseAgentInterface.clearHistory
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:54](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-agent.ts#L54)
+[packages/agents/src/abstracts/base-agent.ts:53](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-agent.ts#L53)
 
 ___
 
@@ -196,4 +196,4 @@ Cleanup resources
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-agent.ts:87](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-agent.ts#L87)
+[packages/agents/src/abstracts/base-agent.ts:86](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-agent.ts#L86)

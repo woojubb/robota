@@ -8,14 +8,19 @@
 
 # Class: GoogleProvider
 
-Google AI provider implementation for Robota
+Google Gemini provider implementation for Robota
 
-Provides integration with Google's Generative AI services using provider-agnostic UniversalMessage.
-Uses Google SDK native types internally for optimal performance and feature support.
+IMPORTANT PROVIDER-SPECIFIC RULES:
+1. This provider MUST extend BaseAIProvider from @robota-sdk/agents
+2. Content handling for Google Gemini API:
+   - Function calls can have content (text) along with function calls
+   - Content can be empty string or actual text, NOT null
+3. Use override keyword for all methods inherited from BaseAIProvider
+4. Provider-specific API behavior should be documented here
 
 ## Hierarchy
 
-- `BaseAIProvider`\<[`GoogleProviderOptions`](../interfaces/GoogleProviderOptions), `UniversalMessage`, `UniversalMessage`\>
+- `BaseAIProvider`
 
   ↳ **`GoogleProvider`**
 
@@ -57,15 +62,11 @@ Uses Google SDK native types internally for optimal performance and feature supp
 
 #### Overrides
 
-BaseAIProvider\&lt;
-    GoogleProviderOptions,
-    UniversalMessage,
-    UniversalMessage
-\&gt;.constructor
+BaseAIProvider.constructor
 
 #### Defined in
 
-[google/src/provider.ts:38](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/provider.ts#L38)
+[google/src/provider.ts:33](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/provider.ts#L33)
 
 ## Properties
 
@@ -79,7 +80,7 @@ BaseAIProvider.name
 
 #### Defined in
 
-[google/src/provider.ts:32](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/provider.ts#L32)
+[google/src/provider.ts:27](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/provider.ts#L27)
 
 ___
 
@@ -93,7 +94,7 @@ BaseAIProvider.version
 
 #### Defined in
 
-[google/src/provider.ts:33](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/provider.ts#L33)
+[google/src/provider.ts:28](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/provider.ts#L28)
 
 ## Methods
 
@@ -107,7 +108,7 @@ Configure the provider with type-safe configuration
 
 | Name | Type |
 | :------ | :------ |
-| `config` | [`GoogleProviderOptions`](../interfaces/GoogleProviderOptions) |
+| `config` | `ProviderConfig` |
 
 #### Returns
 
@@ -119,7 +120,7 @@ BaseAIProvider.configure
 
 #### Defined in
 
-agents/dist/index.d.ts:1163
+agents/dist/index.d.ts:2580
 
 ___
 
@@ -146,7 +147,7 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[google/src/provider.ts:51](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/provider.ts#L51)
+[google/src/provider.ts:42](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/provider.ts#L42)
 
 ___
 
@@ -173,7 +174,7 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[google/src/provider.ts:98](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/provider.ts#L98)
+[google/src/provider.ts:72](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/provider.ts#L72)
 
 ___
 
@@ -191,7 +192,7 @@ BaseAIProvider.supportsTools
 
 #### Defined in
 
-[google/src/provider.ts:147](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/provider.ts#L147)
+[google/src/provider.ts:108](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/provider.ts#L108)
 
 ___
 
@@ -209,7 +210,7 @@ BaseAIProvider.validateConfig
 
 #### Defined in
 
-[google/src/provider.ts:151](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/provider.ts#L151)
+[google/src/provider.ts:112](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/provider.ts#L112)
 
 ___
 
@@ -227,4 +228,4 @@ BaseAIProvider.dispose
 
 #### Defined in
 
-[google/src/provider.ts:155](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/provider.ts#L155)
+[google/src/provider.ts:116](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/provider.ts#L116)
