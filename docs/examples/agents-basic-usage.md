@@ -109,12 +109,9 @@ async function main() {
         console.log();
 
         // ===== RUNTIME CONFIGURATION UPDATE =====
-        console.log('⚙️ Updating configuration at runtime...');
-        robota.updateConfig({
-            temperature: 0.8,
-            maxTokens: 500
-        });
-        console.log('✅ Configuration updated\n');
+        console.log('⚙️ Demonstrating configuration access...');
+        const currentConfig = robota.getConfig();
+        console.log(`✅ Current model: ${currentConfig.defaultModel.provider}/${currentConfig.defaultModel.model}\n`);
 
         // ===== PLUGIN INTERACTION =====
         console.log('🔌 Plugin Information:');
@@ -219,13 +216,11 @@ history.forEach((msg, index) => {
 
 ### 5. Runtime Configuration Updates
 
-Update agent configuration during execution:
+Access current agent configuration:
 
 ```typescript
-robota.updateConfig({
-    temperature: 0.8,
-    maxTokens: 500
-});
+const currentConfig = robota.getConfig();
+console.log(`Current model: ${currentConfig.defaultModel.provider}/${currentConfig.defaultModel.model}`);
 ```
 
 ### 6. Plugin Interaction
@@ -307,8 +302,8 @@ Assistant: An AI agent is a software program that uses artificial intelligence t
 1. [user]: What is an AI agent?
 2. [assistant]: An AI agent is a software program that uses artificial intelligence to perform tasks...
 
-⚙️ Updating configuration at runtime...
-✅ Configuration updated
+⚙️ Demonstrating configuration access...
+✅ Current model: openai/gpt-3.5-turbo
 
 🔌 Plugin Information:
 - Plugin: logging-plugin (version: 1.0.0)
