@@ -91,12 +91,9 @@ async function main() {
         console.log();
 
         // ===== RUNTIME CONFIGURATION UPDATE =====
-        console.log('⚙️ Updating configuration at runtime...');
-        robota.updateConfig({
-            temperature: 0.8,
-            maxTokens: 500
-        });
-        console.log('✅ Configuration updated\n');
+        console.log('⚙️ Demonstrating configuration access...');
+        const currentConfig = robota.getConfig();
+        console.log(`✅ Current model: ${currentConfig.defaultModel.provider}/${currentConfig.defaultModel.model}\n`);
 
         // ===== ANOTHER CONVERSATION WITH NEW CONFIG =====
         console.log('💬 Skipping second conversation for token efficiency\n');
