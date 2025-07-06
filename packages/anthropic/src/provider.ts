@@ -1,318 +1,240 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { AnthropicProviderOptions } from './types';
+import type { AnthropicProviderOptions } from './types';
+import { BaseAIProvider } from '@robota-sdk/agents';
+import type {
+    UniversalMessage as RobotaUniversalMessage,
+    ChatOptions as RobotaChatOptions,
+    ToolSchema as RobotaToolSchema,
+    AssistantMessage as RobotaAssistantMessage
+} from '@robota-sdk/agents';
+
+// Re-export with cleaner names for internal use
+type UniversalMessage = RobotaUniversalMessage;
+type ChatOptions = RobotaChatOptions;
+type ToolSchema = RobotaToolSchema;
+type AssistantMessage = RobotaAssistantMessage;
 
 /**
- * Universal message interface for provider-agnostic communication
- */
-export interface UniversalMessage {
-    role: 'user' | 'assistant' | 'system' | 'tool';
-    content: string | null;
-    timestamp?: Date;
-    toolCalls?: ToolCall[];
-    toolCallId?: string;
-}
-
-/**
- * Tool call interface
- */
-export interface ToolCall {
-    id: string;
-    type: 'function';
-    function: {
-        name: string;
-        arguments: string;
-    };
-}
-
-/**
- * Tool schema interface
- */
-export interface ToolSchema {
-    name: string;
-    description: string;
-    parameters: ToolParameters;
-}
-
-/**
- * Tool parameters interface - compatible with Anthropic SDK
- */
-export interface ToolParameters {
-    type: 'object';
-    properties?: Record<string, ToolParameterProperty>;
-    required?: string[];
-    [key: string]: string | number | boolean | Record<string, ToolParameterProperty> | string[] | undefined;
-}
-
-/**
- * Tool parameter property interface
- */
-export interface ToolParameterProperty {
-    type: 'string' | 'number' | 'boolean' | 'array' | 'object';
-    description?: string;
-    enum?: (string | number)[];
-    items?: ToolParameterProperty;
-    properties?: Record<string, ToolParameterProperty>;
-}
-
-/**
- * Chat options interface
- */
-export interface ChatOptions {
-    model?: string;
-    temperature?: number;
-    maxTokens?: number;
-    tools?: ToolSchema[];
-}
-
-/**
- * AI Provider interface
- */
-export interface AIProvider {
-    readonly name: string;
-    readonly version: string;
-
-    chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
-    chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
-    supportsTools(): boolean;
-    validateConfig(): boolean;
-    dispose(): Promise<void>;
-}
-
-/**
- * Anthropic AI provider implementation for Robota
+ * Anthropic provider implementation for Robota
  * 
- * Provides integration with Anthropic's Claude models using provider-agnostic UniversalMessage.
- * Uses Anthropic SDK native types internally for optimal performance and feature support.
+ * IMPORTANT PROVIDER-SPECIFIC RULES:
+ * 1. This provider MUST extend BaseAIProvider from @robota-sdk/agents
+ * 2. Content handling for Anthropic API:
+ *    - When tool_calls are present: content MUST be null (not empty string)
+ *    - For regular assistant messages: content should be a string
+ * 3. Use override keyword for all methods inherited from BaseAIProvider
+ * 4. Provider-specific API behavior should be documented here
  * 
  * @public
  */
-export class AnthropicProvider implements AIProvider {
-    readonly name = 'anthropic';
-    readonly version = '1.0.0';
+export class AnthropicProvider extends BaseAIProvider {
+    override readonly name = 'anthropic';
+    override readonly version = '1.0.0';
 
     private readonly client: Anthropic;
     private readonly options: AnthropicProviderOptions;
 
     constructor(options: AnthropicProviderOptions) {
+        super();
         this.options = options;
-        this.client = options.client;
-
-        if (!this.client) {
-            throw new Error('Anthropic client is required');
-        }
+        this.client = new Anthropic({
+            apiKey: options.apiKey
+        });
     }
 
     /**
      * Generate response using UniversalMessage
      */
-    async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+    override async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
         this.validateMessages(messages);
 
-        try {
-            // 1. Convert UniversalMessage → Anthropic format
-            const anthropicMessages = this.convertToAnthropicMessages(messages);
-            const systemMessage = this.extractSystemMessage(messages);
+        const anthropicMessages = this.convertToAnthropicFormat(messages);
 
-            // 2. Call Anthropic API (native SDK types)
-            const requestParams: Anthropic.MessageCreateParams = {
-                model: options?.model || 'claude-3-haiku-20240307',
-                max_tokens: options?.maxTokens || 1000,
-                messages: anthropicMessages,
-                ...(options?.temperature !== undefined && { temperature: options.temperature }),
-                ...(systemMessage && { system: systemMessage }),
-                ...(options?.tools && {
-                    tools: this.convertToAnthropicTools(options.tools)
-                })
-            };
+        const requestParams: Anthropic.MessageCreateParams = {
+            model: this.options.model || 'claude-3-5-sonnet-20241022',
+            messages: anthropicMessages,
+            max_tokens: options?.maxTokens || 4096
+        };
 
-            const response: Anthropic.Message = await this.client.messages.create(requestParams);
-
-            // 3. Convert Anthropic response → UniversalMessage
-            return this.convertFromAnthropicResponse(response);
-
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Anthropic API request failed';
-            throw new Error(`Anthropic chat failed: ${errorMessage}`);
+        if (options?.temperature !== undefined) {
+            requestParams.temperature = options.temperature;
         }
+
+        if (options?.tools) {
+            requestParams.tools = this.convertToolsToAnthropicFormat(options.tools);
+        }
+
+        const response = await this.client.messages.create(requestParams);
+
+        return this.convertFromAnthropicResponse(response);
     }
 
     /**
      * Generate streaming response using UniversalMessage
      */
-    async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+    override async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
         this.validateMessages(messages);
 
-        try {
-            // 1. Convert UniversalMessage → Anthropic format
-            const anthropicMessages = this.convertToAnthropicMessages(messages);
-            const systemMessage = this.extractSystemMessage(messages);
+        const anthropicMessages = this.convertToAnthropicFormat(messages);
 
-            // 2. Call Anthropic streaming API
-            const requestParams: Anthropic.MessageCreateParams = {
-                model: options?.model || 'claude-3-haiku-20240307',
-                max_tokens: options?.maxTokens || 1000,
-                messages: anthropicMessages,
-                stream: true,
-                ...(options?.temperature !== undefined && { temperature: options.temperature }),
-                ...(systemMessage && { system: systemMessage }),
-                ...(options?.tools && {
-                    tools: this.convertToAnthropicTools(options.tools)
-                })
-            };
+        const requestParams: Anthropic.MessageCreateParamsStreaming = {
+            model: this.options.model || 'claude-3-5-sonnet-20241022',
+            messages: anthropicMessages,
+            max_tokens: options?.maxTokens || 4096,
+            stream: true
+        };
 
-            const stream = await this.client.messages.create(requestParams as Anthropic.MessageCreateParamsStreaming);
+        if (options?.temperature !== undefined) {
+            requestParams.temperature = options.temperature;
+        }
 
-            // 3. Stream conversion: Anthropic chunks → UniversalMessage
-            for await (const chunk of stream) {
-                const universalMessage = this.convertFromAnthropicChunk(chunk);
-                if (universalMessage) {
-                    yield universalMessage;
-                }
+        if (options?.tools) {
+            requestParams.tools = this.convertToolsToAnthropicFormat(options.tools);
+        }
+
+        const stream = await this.client.messages.create(requestParams);
+
+        for await (const chunk of stream) {
+            if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+                yield {
+                    role: 'assistant',
+                    content: chunk.delta.text,
+                    timestamp: new Date()
+                };
             }
-
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Anthropic API request failed';
-            throw new Error(`Anthropic stream failed: ${errorMessage}`);
         }
     }
 
-    supportsTools(): boolean {
+    override supportsTools(): boolean {
         return true;
     }
 
-    validateConfig(): boolean {
-        return !!this.client && !!this.options;
+    override validateConfig(): boolean {
+        return !!this.client && !!this.options && !!this.options.apiKey;
     }
 
-    async dispose(): Promise<void> {
+    override async dispose(): Promise<void> {
         // Anthropic client doesn't need explicit cleanup
     }
 
     /**
-     * Convert UniversalMessage array to Anthropic format
+     * Convert UniversalMessage to Anthropic format
+     * 
+     * CRITICAL: Anthropic API requires specific content handling:
+     * - tool_use messages: content MUST be null
+     * - regular messages: content should be a string
      */
-    private convertToAnthropicMessages(messages: UniversalMessage[]): Anthropic.MessageParam[] {
-        // Filter out system messages (handled separately)
-        const nonSystemMessages = messages.filter(msg => msg.role !== 'system');
+    private convertToAnthropicFormat(messages: UniversalMessage[]): Anthropic.MessageParam[] {
+        return messages.map(msg => {
+            if (msg.role === 'user') {
+                return {
+                    role: 'user',
+                    content: msg.content || ''
+                };
+            } else if (msg.role === 'assistant') {
+                const assistantMsg = msg as AssistantMessage;
 
-        return nonSystemMessages.map(msg => {
-            switch (msg.role) {
-                case 'user':
-                    return { role: 'user', content: msg.content || '' };
-                case 'assistant':
+                // IMPORTANT: Anthropic requires null content for tool calls
+                if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {
                     return {
                         role: 'assistant',
-                        content: msg.content || '',
-                        ...(msg.toolCalls && {
-                            tool_calls: msg.toolCalls.map(tc => ({
-                                id: tc.id,
-                                type: 'function' as const,
-                                function: {
-                                    name: tc.function.name,
-                                    arguments: tc.function.arguments
-                                }
-                            }))
-                        })
-                    };
-                case 'tool':
-                    return {
-                        role: 'user',
-                        content: msg.content || '',
-                        // Note: Anthropic handles tool results differently
-                    };
-                default:
-                    throw new Error(`Unsupported message role: ${(msg as UniversalMessage).role}`);
+                        content: null, // MUST be null for tool calls in Anthropic
+                        tool_calls: assistantMsg.toolCalls.map(tc => ({
+                            id: tc.id,
+                            type: 'function',
+                            function: {
+                                name: tc.function.name,
+                                arguments: JSON.stringify(tc.function.arguments)
+                            }
+                        }))
+                    } as any;
+                }
+
+                // Regular assistant message
+                return {
+                    role: 'assistant',
+                    content: assistantMsg.content || ''
+                };
+            } else {
+                // System messages
+                return {
+                    role: 'user', // Anthropic doesn't have system role, use user
+                    content: msg.content || ''
+                };
             }
         });
-    }
-
-    /**
-     * Extract system message from UniversalMessage array
-     */
-    private extractSystemMessage(messages: UniversalMessage[]): string | undefined {
-        const systemMessage = messages.find(msg => msg.role === 'system');
-        return systemMessage?.content || undefined;
-    }
-
-    /**
-     * Convert tool schemas to Anthropic format
-     */
-    private convertToAnthropicTools(tools: ToolSchema[]): Anthropic.Tool[] {
-        return tools.map(tool => ({
-            name: tool.name,
-            description: tool.description,
-            input_schema: {
-                ...tool.parameters
-            } as Anthropic.Tool.InputSchema
-        }));
     }
 
     /**
      * Convert Anthropic response to UniversalMessage
      */
     private convertFromAnthropicResponse(response: Anthropic.Message): UniversalMessage {
-        const content = response.content
-            .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-            .map(block => block.text)
-            .join('\n');
-
-        // Check for tool use blocks
-        const toolUseBlocks = response.content.filter(
-            (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
-        );
-
-        return {
-            role: 'assistant',
-            content: content || null,
-            timestamp: new Date(),
-            ...(toolUseBlocks.length > 0 && {
-                toolCalls: toolUseBlocks.map(block => ({
-                    id: block.id,
-                    type: 'function' as const,
-                    function: {
-                        name: block.name,
-                        arguments: JSON.stringify(block.input)
-                    }
-                }))
-            })
-        };
-    }
-
-    /**
-     * Convert Anthropic streaming chunk to UniversalMessage
-     */
-    private convertFromAnthropicChunk(chunk: Anthropic.MessageStreamEvent): UniversalMessage | null {
-        if (chunk.type === 'content_block_delta' && chunk.delta && 'text' in chunk.delta) {
-            return {
-                role: 'assistant',
-                content: chunk.delta.text,
-                timestamp: new Date()
-            };
+        if (!response.content || response.content.length === 0) {
+            throw new Error('No content in Anthropic response');
         }
 
-        if (chunk.type === 'content_block_start' && chunk.content_block?.type === 'tool_use') {
-            return {
+        const content = response.content[0];
+
+        if (content && content.type === 'text') {
+            const textContent = content as Anthropic.TextBlock;
+            const result: UniversalMessage = {
                 role: 'assistant',
-                content: null,
+                content: textContent.text,
+                timestamp: new Date()
+            };
+
+            // Add metadata if available
+            if (response.usage) {
+                (result as any).metadata = {
+                    inputTokens: response.usage.input_tokens,
+                    outputTokens: response.usage.output_tokens,
+                    model: response.model
+                };
+
+                // Only add stopReason if it's not null
+                if (response.stop_reason) {
+                    (result as any).metadata['stopReason'] = response.stop_reason;
+                }
+            }
+
+            return result;
+        } else if (content && content.type === 'tool_use') {
+            const toolContent = content as Anthropic.ToolUseBlock;
+            const result: UniversalMessage = {
+                role: 'assistant',
+                content: '', // Empty string for type compatibility
                 timestamp: new Date(),
                 toolCalls: [{
-                    id: chunk.content_block.id,
+                    id: toolContent.id,
                     type: 'function' as const,
                     function: {
-                        name: chunk.content_block.name,
-                        arguments: JSON.stringify(chunk.content_block.input || {})
+                        name: toolContent.name,
+                        arguments: JSON.stringify(toolContent.input)
                     }
                 }]
             };
+
+            return result;
         }
 
-        return null;
+        throw new Error(`Unsupported content type: ${(content as any).type}`);
+    }
+
+    /**
+     * Convert tools to Anthropic format
+     */
+    private convertToolsToAnthropicFormat(tools: ToolSchema[]): Anthropic.Tool[] {
+        return tools.map(tool => ({
+            name: tool.name,
+            description: tool.description,
+            input_schema: tool.parameters as Anthropic.Tool.InputSchema
+        }));
     }
 
     /**
      * Validate UniversalMessage array
      */
-    protected validateMessages(messages: UniversalMessage[]): void {
+    protected override validateMessages(messages: UniversalMessage[]): void {
         if (!Array.isArray(messages)) {
             throw new Error('Messages must be an array');
         }

@@ -5,7 +5,7 @@
  */
 
 // Export main provider (new architecture)
-export { OpenAIProvider, ChatOptions } from './provider';
+export { OpenAIProvider } from './provider';
 
 // Export types and utilities
 export * from './types';

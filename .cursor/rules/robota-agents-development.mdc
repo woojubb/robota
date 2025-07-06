@@ -1,41 +1,27 @@
----
-description:
-globs:
-alwaysApply: false
----
-# Robota Agents Development Rules
+# Robota SDK Development Rules
 
-## Project Structure Rules
-
-### Package Organization
-- **[packages/agents/src/interfaces/](mdc:packages/agents/src/interfaces/)** - Type definitions and contracts
-- **[packages/agents/src/abstracts/](mdc:packages/agents/src/abstracts/)** - Base classes and abstract implementations
-- **[packages/agents/src/managers/](mdc:packages/agents/src/managers/)** - Resource and lifecycle management
-- **[packages/agents/src/plugins/](mdc:packages/agents/src/plugins/)** - Modular functionality extensions
-- **[packages/agents/src/tools/](mdc:packages/agents/src/tools/)** - Tool implementations and registry
-- **[packages/agents/src/services/](mdc:packages/agents/src/services/)** - Core business logic services
-
-### Import/Export Rules
+## Import/Export Rules
 ```typescript
-// ✅ CORRECT: Use proper relative imports
-import { BasePlugin } from '../../abstracts/base-plugin';
-import type { ToolParameters } from '../../interfaces/tool';
+// ✅ CORRECT: Use proper relative imports within packages
+import { BaseClass } from '../../abstracts/base-class';
+import type { InterfaceType } from '../../interfaces/types';
 
 // ❌ FORBIDDEN: Cross-package direct imports
-import { SomeType } from '../../../openai/src/types'; // VIOLATION
+import { SomeType } from '../../../other-package/src/types'; // VIOLATION
+// Use package imports instead: import { SomeType } from '@robota-sdk/other-package';
 ```
 
 ## Plugin Development Rules
 
 ### Plugin Interface Compliance
-All plugins must extend [BasePlugin](mdc:packages/agents/src/abstracts/base-plugin.ts):
+All plugins must follow consistent patterns:
 
 ```typescript
 export class MyPlugin extends BasePlugin {
   name = 'MyPlugin';
   version = '1.0.0';
   
-  // Override specific lifecycle methods as needed
+  // Override lifecycle methods as needed
   override async beforeRun(input: string, options?: RunOptions): Promise<void> {
     // Implementation
   }
@@ -47,17 +33,13 @@ Each plugin must define its own statistics interface:
 
 ```typescript
 export interface MyPluginStats {
-  totalOperations: number;
-  successRate: number;
-  averageProcessingTime: number;
+  // Define meaningful metrics for the plugin
 }
 
 // Implement getStats method
 getStats(): MyPluginStats {
   return {
-    totalOperations: this.operationCount,
-    successRate: this.calculateSuccessRate(),
-    averageProcessingTime: this.calculateAverageTime()
+    // Return actual statistics
   };
 }
 ```
@@ -65,10 +47,10 @@ getStats(): MyPluginStats {
 ## Tool Development Rules
 
 ### Tool Interface Compliance
-All tools must implement [ToolInterface](mdc:packages/agents/src/interfaces/tool.ts):
+Tools must implement consistent interfaces:
 
 ```typescript
-export class MyTool extends BaseTool implements ToolInterface {
+export class MyTool implements ToolInterface {
   readonly schema: ToolSchema;
   
   async execute(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
@@ -77,21 +59,13 @@ export class MyTool extends BaseTool implements ToolInterface {
 }
 ```
 
-### Tool Registry Integration
-Tools must be registered through [ToolRegistry](mdc:packages/agents/src/tools/registry/tool-registry.ts):
-
-```typescript
-// Register tool with proper schema
-toolRegistry.registerTool('myTool', myToolInstance, myToolSchema);
-```
-
 ## Manager Development Rules
 
 ### Resource Management
 Managers must implement proper lifecycle management:
 
 ```typescript
-export class MyManager extends BaseManager {
+export class MyManager {
   async initialize(): Promise<void> {
     // Initialize resources
   }
@@ -122,13 +96,14 @@ public getState(): ReadonlyMap<string, any> {
 ## Error Handling Rules
 
 ### Error Types
-Use specific error types from [errors.ts](mdc:packages/agents/src/utils/errors.ts):
+Use specific error types:
 
 ```typescript
-import { ToolExecutionError, ConfigurationError, NetworkError } from '../utils/errors';
-
-// Throw appropriate error types
-throw new ToolExecutionError('Tool execution failed', toolName, originalError);
+// Throw appropriate error types with context
+throw new SpecificError('Descriptive message', {
+  context: relevantData,
+  originalError: error
+});
 ```
 
 ### Error Context
@@ -137,7 +112,7 @@ Provide meaningful error context:
 ```typescript
 throw new ConfigurationError('Invalid configuration provided', {
   providedConfig: config,
-  expectedProperties: ['apiKey', 'endpoint'],
+  expectedProperties: ['required', 'properties'],
   validation: validationErrors
 });
 ```
@@ -145,13 +120,9 @@ throw new ConfigurationError('Invalid configuration provided', {
 ## Logging Rules
 
 ### Logger Usage
-Use structured logging from [logger.ts](mdc:packages/agents/src/utils/logger.ts):
+Use structured logging:
 
 ```typescript
-import { createLogger } from '../utils/logger';
-
-const logger = createLogger('MyClass');
-
 logger.info('Operation completed', {
   operationId: 'op-123',
   duration: 150,
@@ -171,8 +142,8 @@ Follow log level conventions:
 ### Test File Organization
 ```typescript
 // Test files should mirror source structure
-// packages/agents/src/plugins/my-plugin.ts
-// packages/agents/src/plugins/my-plugin.test.ts
+// src/features/my-feature.ts
+// src/features/my-feature.test.ts
 ```
 
 ### Test Coverage Requirements
@@ -185,12 +156,12 @@ Use proper mocking for external dependencies:
 
 ```typescript
 // Mock external services
-const mockProvider = {
-  chat: vi.fn().mockResolvedValue(mockResponse)
+const mockService = {
+  method: vi.fn().mockResolvedValue(mockResponse)
 };
 
 // Test with mocked dependencies
-await agent.run('test input', { provider: mockProvider });
+await testSubject.execute({ service: mockService });
 ```
 
 ## Code Quality Rules
@@ -232,17 +203,7 @@ pnpm type-check
 - Changelog must be updated for each release
 - All tests must pass before publishing
 
-## Compatibility Rules
-
-### Provider Package Compatibility
-Agents package must maintain compatibility with:
-- **[packages/openai/](mdc:packages/openai/)** - OpenAI provider integration
-- **[packages/anthropic/](mdc:packages/anthropic/)** - Anthropic provider integration
-- **[packages/google/](mdc:packages/google/)** - Google provider integration
-- **[packages/team/](mdc:packages/team/)** - Team collaboration features
-- **[packages/sessions/](mdc:packages/sessions/)** - Session management
-
-### Breaking Changes
+## Breaking Changes
 Breaking changes require:
 - Major version bump
 - Migration guide documentation

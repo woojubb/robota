@@ -1,421 +1,225 @@
-import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
-import type {
-    GenerateContentResult,
-    GenerateContentStreamResult,
-    Tool,
-    Content,
-    Part,
-    EnhancedGenerateContentResponse,
-    FunctionDeclaration,
-    Schema
-} from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { GoogleProviderOptions } from './types';
+import { BaseAIProvider } from '@robota-sdk/agents';
 import type {
-    GoogleToolCall
-} from './types/api-types';
+    UniversalMessage,
+    ChatOptions,
+    ToolCall,
+    ToolSchema,
+    AssistantMessage
+} from '@robota-sdk/agents';
 
 /**
- * Universal message interface for provider-agnostic communication
- */
-export interface UniversalMessage {
-    role: 'user' | 'assistant' | 'system' | 'tool';
-    content: string | null;
-    timestamp?: Date;
-    toolCalls?: ToolCall[];
-    toolCallId?: string;
-}
-
-/**
- * Tool call interface
- */
-export interface ToolCall {
-    id: string;
-    type: 'function';
-    function: {
-        name: string;
-        arguments: string;
-    };
-}
-
-/**
- * Tool schema interface
- */
-export interface ToolSchema {
-    name: string;
-    description: string;
-    parameters: Record<string, unknown>;
-}
-
-/**
- * Chat options interface
- */
-export interface ChatOptions {
-    model?: string;
-    temperature?: number;
-    maxTokens?: number;
-    tools?: ToolSchema[];
-}
-
-/**
- * AI Provider interface
- */
-export interface AIProvider {
-    readonly name: string;
-    readonly version: string;
-
-    chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
-    chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
-    supportsTools(): boolean;
-    validateConfig(): boolean;
-    dispose(): Promise<void>;
-}
-
-/**
- * Google AI provider implementation for Robota
+ * Google Gemini provider implementation for Robota
  * 
- * Provides integration with Google's Generative AI services using provider-agnostic UniversalMessage.
- * Uses Google SDK native types internally for optimal performance and feature support.
+ * IMPORTANT PROVIDER-SPECIFIC RULES:
+ * 1. This provider MUST extend BaseAIProvider from @robota-sdk/agents
+ * 2. Content handling for Google Gemini API:
+ *    - Function calls can have content (text) along with function calls
+ *    - Content can be empty string or actual text, NOT null
+ * 3. Use override keyword for all methods inherited from BaseAIProvider
+ * 4. Provider-specific API behavior should be documented here
  * 
  * @public
  */
-export class GoogleProvider implements AIProvider {
-    readonly name = 'google';
-    readonly version = '1.0.0';
+export class GoogleProvider extends BaseAIProvider {
+    override readonly name = 'google';
+    override readonly version = '1.0.0';
 
     private readonly client: GoogleGenerativeAI;
     private readonly options: GoogleProviderOptions;
 
     constructor(options: GoogleProviderOptions) {
+        super();
         this.options = options;
-        this.client = options.client;
-
-        if (!this.client) {
-            throw new Error('Google AI client is required');
-        }
+        this.client = new GoogleGenerativeAI(options.apiKey);
     }
 
     /**
      * Generate response using UniversalMessage
      */
-    async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+    override async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
         this.validateMessages(messages);
 
-        try {
-            // 1. Convert UniversalMessage → Google format
-            const { contents, systemInstruction } = this.convertToGoogleMessages(messages);
+        const model = this.client.getGenerativeModel({
+            model: this.options.model || 'gemini-1.5-flash'
+        });
 
-            // 2. Configure Google AI model
-            const modelConfig: {
-                model: string;
-                systemInstruction?: string;
-                tools?: Tool[];
-            } = {
-                model: options?.model || 'gemini-1.5-flash',
-                ...(systemInstruction && { systemInstruction })
-            };
+        const geminiMessages = this.convertToGeminiFormat(messages);
 
-            // Add tools if provided
-            if (options?.tools && options.tools.length > 0) {
-                modelConfig.tools = this.convertToGoogleTools(options.tools);
-            }
-
-            const model = this.client.getGenerativeModel(modelConfig);
-
-            // 3. Call Google AI API (native SDK types)
-            const generationConfig = {
+        const result = await model.generateContent({
+            contents: geminiMessages,
+            generationConfig: {
                 temperature: options?.temperature,
                 maxOutputTokens: options?.maxTokens
-            };
+            },
+            ...(options?.tools && {
+                tools: [{
+                    functionDeclarations: this.convertToolsToGeminiFormat(options.tools)
+                }]
+            })
+        });
 
-            const result: GenerateContentResult = await model.generateContent({
-                contents,
-                generationConfig
-            });
-
-            // 4. Convert Google response → UniversalMessage
-            return this.convertFromGoogleResponse(result);
-
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            throw new Error(`Google AI chat failed: ${errorMessage}`);
-        }
+        return this.convertFromGeminiResponse(result.response);
     }
 
     /**
      * Generate streaming response using UniversalMessage
      */
-    async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+    override async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
         this.validateMessages(messages);
 
-        try {
-            // 1. Convert UniversalMessage → Google format
-            const { contents, systemInstruction } = this.convertToGoogleMessages(messages);
+        const model = this.client.getGenerativeModel({
+            model: this.options.model || 'gemini-1.5-flash'
+        });
 
-            // 2. Configure Google AI model
-            const modelConfig: {
-                model: string;
-                systemInstruction?: string;
-                tools?: Tool[];
-            } = {
-                model: options?.model || 'gemini-1.5-flash',
-                ...(systemInstruction && { systemInstruction })
-            };
+        const geminiMessages = this.convertToGeminiFormat(messages);
 
-            // Add tools if provided
-            if (options?.tools && options.tools.length > 0) {
-                modelConfig.tools = this.convertToGoogleTools(options.tools);
-            }
-
-            const model = this.client.getGenerativeModel(modelConfig);
-
-            // 3. Call Google AI streaming API
-            const generationConfig = {
+        const result = await model.generateContentStream({
+            contents: geminiMessages,
+            generationConfig: {
                 temperature: options?.temperature,
                 maxOutputTokens: options?.maxTokens
-            };
+            },
+            ...(options?.tools && {
+                tools: [{
+                    functionDeclarations: this.convertToolsToGeminiFormat(options.tools)
+                }]
+            })
+        });
 
-            const result: GenerateContentStreamResult = await model.generateContentStream({
-                contents,
-                generationConfig
-            });
-
-            // 4. Stream conversion: Google chunks → UniversalMessage
-            for await (const chunk of result.stream) {
-                const universalMessage = this.convertFromGoogleChunk(chunk);
-                if (universalMessage) {
-                    yield universalMessage;
-                }
+        for await (const chunk of result.stream) {
+            const text = chunk.text();
+            if (text) {
+                yield {
+                    role: 'assistant',
+                    content: text,
+                    timestamp: new Date()
+                };
             }
-
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            throw new Error(`Google AI stream failed: ${errorMessage}`);
         }
     }
 
-    supportsTools(): boolean {
+    override supportsTools(): boolean {
         return true;
     }
 
-    validateConfig(): boolean {
-        return !!this.client && !!this.options;
+    override validateConfig(): boolean {
+        return !!this.client && !!this.options && !!this.options.apiKey;
     }
 
-    async dispose(): Promise<void> {
-        // Google AI client doesn't need explicit cleanup
+    override async dispose(): Promise<void> {
+        // Google client doesn't need explicit cleanup
     }
 
     /**
-     * Convert UniversalMessage array to Google format
+     * Convert UniversalMessage to Gemini format
+     * 
+     * IMPORTANT: Google Gemini allows content with function calls
+     * - Content can be empty string or text, but NOT null
      */
-    private convertToGoogleMessages(messages: UniversalMessage[]): { contents: Content[], systemInstruction?: string } {
-        const systemMessage = messages.find(msg => msg.role === 'system');
-        const nonSystemMessages = messages.filter(msg => msg.role !== 'system');
+    private convertToGeminiFormat(messages: UniversalMessage[]): any[] {
+        return messages.map(msg => {
+            if (msg.role === 'user') {
+                return {
+                    role: 'user',
+                    parts: [{ text: msg.content || '' }]
+                };
+            } else if (msg.role === 'assistant') {
+                const assistantMsg = msg as AssistantMessage;
+                const parts: any[] = [];
 
-        const contents = nonSystemMessages.map(msg => {
-            switch (msg.role) {
-                case 'user':
-                    return {
-                        role: 'user',
-                        parts: [{ text: msg.content || '' }]
-                    };
-                case 'assistant': {
-                    const parts: Part[] = [];
-
-                    if (msg.content) {
-                        parts.push({ text: msg.content });
-                    }
-
-                    // Handle tool calls (Google uses function calls)
-                    if ('toolCalls' in msg && msg.toolCalls) {
-                        for (const toolCall of msg.toolCalls) {
-                            parts.push({
-                                functionCall: {
-                                    name: toolCall.function.name,
-                                    args: JSON.parse(toolCall.function.arguments || '{}')
-                                }
-                            });
-                        }
-                    }
-
-                    return {
-                        role: 'model',
-                        parts
-                    };
+                // Google allows content with function calls
+                if (assistantMsg.content) {
+                    parts.push({ text: assistantMsg.content });
                 }
-                case 'tool':
-                    return {
-                        role: 'function',
-                        parts: [{
-                            functionResponse: {
-                                name: ('name' in msg && typeof msg.name === 'string') ? msg.name : 'unknown',
-                                response: JSON.parse(msg.content || '{}')
+
+                if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {
+                    assistantMsg.toolCalls.forEach(tc => {
+                        parts.push({
+                            functionCall: {
+                                name: tc.function.name,
+                                args: JSON.parse(tc.function.arguments)
                             }
-                        }]
-                    };
-                default: {
-                    const unsupportedMsg = msg as UniversalMessage;
-                    throw new Error(`Unsupported message role: ${unsupportedMsg.role}`);
+                        });
+                    });
                 }
+
+                return {
+                    role: 'model',
+                    parts
+                };
+            } else {
+                // System messages
+                return {
+                    role: 'user',
+                    parts: [{ text: `System: ${msg.content || ''}` }]
+                };
             }
         });
-
-        return {
-            contents,
-            systemInstruction: systemMessage?.content || undefined
-        };
     }
 
     /**
-     * Convert tool schemas to Google format
+     * Convert Gemini response to UniversalMessage
      */
-    private convertToGoogleTools(tools: ToolSchema[]): Tool[] {
+    private convertFromGeminiResponse(response: any): UniversalMessage {
+        const candidate = response.candidates?.[0];
+        if (!candidate) {
+            throw new Error('No candidate in Gemini response');
+        }
+
+        const content = candidate.content;
+        if (!content || !content.parts || content.parts.length === 0) {
+            throw new Error('No content in Gemini response');
+        }
+
+        const textParts = content.parts.filter((p: any) => p.text).map((p: any) => p.text);
+        const functionCalls = content.parts.filter((p: any) => p.functionCall);
+
+        const result: UniversalMessage = {
+            role: 'assistant',
+            content: textParts.join('') || '',
+            timestamp: new Date()
+        };
+
+        if (functionCalls.length > 0) {
+            (result as AssistantMessage).toolCalls = functionCalls.map((fc: any) => ({
+                id: this.generateId(),
+                type: 'function' as const,
+                function: {
+                    name: fc.functionCall.name,
+                    arguments: JSON.stringify(fc.functionCall.args)
+                }
+            }));
+        }
+
+        // Add metadata if available
+        if (response.usageMetadata) {
+            (result as any).metadata = {
+                promptTokens: response.usageMetadata.promptTokenCount,
+                completionTokens: response.usageMetadata.candidatesTokenCount,
+                totalTokens: response.usageMetadata.totalTokenCount
+            };
+        }
+
+        return result;
+    }
+
+    /**
+     * Convert tools to Gemini format
+     */
+    private convertToolsToGeminiFormat(tools: ToolSchema[]): any[] {
         return tools.map(tool => ({
-            functionDeclarations: [{
-                name: tool.name,
-                description: tool.description || undefined,
-                parameters: this.convertToGoogleSchema(tool.parameters)
-            } as FunctionDeclaration]
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.parameters
         }));
     }
 
     /**
-     * Convert ToolSchema parameters to Google Schema format
+     * Generate a unique ID
      */
-    private convertToGoogleSchema(parameters: ToolSchema['parameters']): Schema {
-        return {
-            type: SchemaType.OBJECT,
-            properties: Object.fromEntries(
-                Object.entries(parameters.properties || {}).map(([key, value]) => [
-                    key,
-                    {
-                        type: this.convertToSchemaType(
-                            (value && typeof value === 'object' && 'type' in value && typeof value.type === 'string')
-                                ? value.type
-                                : 'string'
-                        ),
-                        description: (value && typeof value === 'object' && 'description' in value && typeof value.description === 'string')
-                            ? value.description
-                            : undefined
-                    }
-                ])
-            ),
-            required: Array.isArray(parameters.required) ? parameters.required as string[] : undefined
-        };
-    }
-
-    /**
-     * Convert JSONSchemaType to Google SchemaType
-     */
-    private convertToSchemaType(type: string): SchemaType {
-        switch (type) {
-            case 'string':
-                return SchemaType.STRING;
-            case 'number':
-            case 'integer':
-                return SchemaType.NUMBER;
-            case 'boolean':
-                return SchemaType.BOOLEAN;
-            case 'array':
-                return SchemaType.ARRAY;
-            case 'object':
-                return SchemaType.OBJECT;
-            default:
-                return SchemaType.STRING;
-        }
-    }
-
-    /**
-     * Convert Google response to UniversalMessage
-     */
-    private convertFromGoogleResponse(result: GenerateContentResult): UniversalMessage {
-        const response = result.response;
-        const candidate = response.candidates?.[0];
-
-        if (!candidate) {
-            throw new Error('No candidate in Google AI response');
-        }
-
-        let content = '';
-        const toolCalls: GoogleToolCall[] = [];
-
-        // Process parts from the candidate
-        for (const part of candidate.content?.parts || []) {
-            if (part.text) {
-                content += part.text;
-            } else if (part.functionCall) {
-                toolCalls.push({
-                    id: `call_${Math.random().toString(36).substr(2, 9)}`,
-                    type: 'function' as const,
-                    function: {
-                        name: part.functionCall.name,
-                        arguments: JSON.stringify(part.functionCall.args || {})
-                    }
-                });
-            }
-        }
-
-        return {
-            role: 'assistant',
-            content: content || null,
-            timestamp: new Date(),
-            ...(toolCalls.length > 0 && { toolCalls })
-        };
-    }
-
-    /**
-     * Convert Google streaming chunk to UniversalMessage
-     */
-    private convertFromGoogleChunk(chunk: EnhancedGenerateContentResponse): UniversalMessage | null {
-        const candidate = chunk.candidates?.[0];
-
-        if (!candidate) {
-            return null;
-        }
-
-        let content = '';
-        const toolCalls: GoogleToolCall[] = [];
-
-        // Process parts from the candidate
-        for (const part of candidate.content?.parts || []) {
-            if (part.text) {
-                content += part.text;
-            } else if (part.functionCall) {
-                toolCalls.push({
-                    id: `call_${Math.random().toString(36).substr(2, 9)}`,
-                    type: 'function' as const,
-                    function: {
-                        name: part.functionCall.name,
-                        arguments: JSON.stringify(part.functionCall.args || {})
-                    }
-                });
-            }
-        }
-
-        return {
-            role: 'assistant',
-            content: content || null,
-            timestamp: new Date(),
-            ...(toolCalls.length > 0 && { toolCalls })
-        };
-    }
-
-    /**
-     * Validate UniversalMessage array
-     */
-    protected validateMessages(messages: UniversalMessage[]): void {
-        if (!Array.isArray(messages)) {
-            throw new Error('Messages must be an array');
-        }
-
-        if (messages.length === 0) {
-            throw new Error('Messages array cannot be empty');
-        }
-
-        for (const message of messages) {
-            if (!message.role || !['user', 'assistant', 'system', 'tool'].includes(message.role)) {
-                throw new Error(`Invalid message role: ${message.role}`);
-            }
-        }
+    private generateId(): string {
+        return `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
 } 

@@ -41,6 +41,66 @@ export interface ProviderConfig {
  * Base AI provider implementation with proper type constraints
  * All AI providers should extend this class
  * 
+ * ========================================
+ * CRITICAL IMPLEMENTATION GUIDELINES
+ * ========================================
+ * 
+ * ALL AI PROVIDER IMPLEMENTATIONS (OpenAI, Anthropic, Google, etc.) MUST:
+ * 
+ * 1. EXTEND THIS CLASS:
+ *    ```typescript
+ *    export class OpenAIProvider extends BaseAIProvider {
+ *        override readonly name = 'openai';
+ *        override readonly version = '1.0.0';
+ *    ```
+ * 
+ * 2. USE IMPORTS FROM @robota-sdk/agents:
+ *    ```typescript
+ *    import { BaseAIProvider } from '@robota-sdk/agents';
+ *    import type {
+ *        UniversalMessage,
+ *        ChatOptions,
+ *        ToolCall,
+ *        ToolSchema,
+ *        AssistantMessage
+ *    } from '@robota-sdk/agents';
+ *    ```
+ * 
+ * 3. USE OVERRIDE KEYWORD FOR ALL INHERITED METHODS:
+ *    - override async chat(...)
+ *    - override async *chatStream(...)
+ *    - override supportsTools()
+ *    - override validateConfig()
+ *    - override async dispose()
+ * 
+ * 4. DO NOT REDEFINE TYPES THAT EXIST IN @robota-sdk/agents:
+ *    - UniversalMessage
+ *    - ChatOptions
+ *    - ToolCall
+ *    - ToolSchema
+ *    - AssistantMessage
+ *    - SystemMessage
+ *    - UserMessage
+ *    - ToolMessage
+ * 
+ * 5. HANDLE MESSAGE CONTENT PROPERLY:
+ *    - For tool calls: content should be null (not empty string)
+ *    - For regular messages: content can be string or null
+ *    - Always preserve null values from API responses
+ * 
+ * 6. CALL SUPER() IN CONSTRUCTOR:
+ *    ```typescript
+ *    constructor(options: ProviderOptions) {
+ *        super();
+ *        // provider-specific initialization
+ *    }
+ *    ```
+ * 
+ * This ensures ExecutionService can properly identify providers
+ * and prevents type conflicts across the codebase.
+ * 
+ * ========================================
+ * 
  * @template TConfig - Provider configuration type (defaults to ProviderConfig for type safety)
  * @template TMessage - Message type (defaults to UniversalMessage for backward compatibility)
  * @template TResponse - Response type (defaults to UniversalMessage for backward compatibility)
