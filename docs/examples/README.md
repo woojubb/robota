@@ -136,6 +136,16 @@ Connect to external tools using the Model Context Protocol.
 - Protocol communication
 - Tool schema handling
 
+### [Module System Integration](module-system.md)
+Leverage the new Plugin-Module-Separation architecture for enhanced functionality.
+
+**Features Demonstrated:**
+- Enhanced plugin classification system
+- Custom module development
+- Event-driven module-plugin communication
+- Module registry and lifecycle management
+- Performance monitoring across modules and plugins
+
 ## Configuration
 
 ### [Setup Guide](setup.md)
