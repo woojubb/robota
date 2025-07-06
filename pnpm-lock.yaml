@@ -146,12 +146,6 @@ importers:
 
   packages/agents:
     dependencies:
-      '@dqbd/tiktoken':
-        specifier: ^1.0.21
-        version: 1.0.21
-      openai:
-        specifier: ^4.98.0
-        version: 4.98.0(zod@3.24.4)
       zod:
         specifier: ^3.24.4
         version: 3.24.4
@@ -749,10 +743,6 @@ packages:
     transitivePeerDependencies:
       - '@algolia/client-search'
     dev: true
-
-  /@dqbd/tiktoken@1.0.21:
-    resolution: {integrity: sha512-grBxRSY9+/iBM205EWjbMm5ySeXQrhJyXWMP38VJd+pO2DRGraDAbi4n8J8T9M4XY1M/FHgonMcmu3J+KjcX0Q==}
-    dev: false
 
   /@esbuild/aix-ppc64@0.21.5:
     resolution: {integrity: sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==}
