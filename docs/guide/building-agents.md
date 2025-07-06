@@ -6,406 +6,906 @@ lang: en-US
 
 # Building Agents
 
-Agents are one of the core features of the Robota library, enabling AI models to reason and use tools to achieve specific goals. This document explains how to build powerful AI agents using Robota.
+Advanced patterns and best practices for building AI agents with the Robota SDK.
 
-## Creating Basic Agents
+## Overview
 
-The most basic agent can be created as follows:
+Building effective AI agents requires understanding patterns, architecture, and best practices. This guide covers advanced techniques for creating sophisticated agents that can handle complex tasks, collaborate with other agents, and adapt to different scenarios.
+
+## Agent Architecture Patterns
+
+### 1. Basic Agent Pattern
+
+The simplest agent for single-purpose tasks:
 
 ```typescript
-import { Robota } from '@robota-sdk/core';
+import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
-import OpenAI from 'openai';
 
-// OpenAI client creation
-const openaiClient = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
-// Default provider setup
-const provider = new OpenAIProvider({
-  client: openaiClient,
-  model: 'gpt-4'
-});
-
-// Agent creation
-const agent = new Robota({
-  aiProviders: {
-    openai: provider
-  },
+// Create a focused agent for a specific task
+const translationAgent = new Robota({
+    name: 'TranslationAgent',
+    model: 'gpt-3.5-turbo',
+    provider: 'openai',
+    aiProviders: { openai: openaiProvider },
   currentProvider: 'openai',
-  currentModel: 'gpt-4',
-  systemPrompt: 'You are a helpful AI assistant. Please answer user questions accurately and concisely.'
+    currentModel: 'gpt-3.5-turbo',
+    systemMessage: `You are a professional translator specializing in accurate, 
+    contextual translations between languages. Always preserve meaning and tone.`
 });
 
-// Agent execution
-const result = await agent.run('What are the main differences between TypeScript and JavaScript?');
-console.log(result);
+// Use the agent
+const translation = await translationAgent.run(
+    'Translate to French: "The weather is beautiful today."'
+);
 ```
 
-## Using Tools with Agents
+### 2. Tool-Enhanced Agent Pattern
 
-Agents can be enhanced with tools to interact with external systems:
+Agents with specialized capabilities through tools:
 
 ```typescript
-import { Robota } from '@robota-sdk/core';
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
-import { OpenAIProvider } from '@robota-sdk/openai';
-import { z } from 'zod';
-import OpenAI from 'openai';
+import { Robota, createFunctionTool } from '@robota-sdk/agents';
 
-// OpenAI client creation
-const openaiClient = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
-// Create tool provider with weather and time tools
-const toolProvider = createZodFunctionToolProvider({
-  tools: {
-    getWeather: {
-      name: 'getWeather',
-      description: 'Get current weather information for a specific location',
-      parameters: z.object({
-        location: z.string().describe('City name to check weather for'),
-        unit: z.enum(['celsius', 'fahrenheit']).optional().describe('Temperature unit')
-      }),
-      handler: async ({ location, unit = 'celsius' }) => {
-        console.log(`Checking weather for ${location} in ${unit} units...`);
-        // Actual implementation would call the weather API here
-        return { 
-          temperature: 22, 
-          condition: 'Clear', 
-          humidity: 65,
-          unit
-        };
-      }
+// Create specialized tools
+const codeAnalysisTool = createFunctionTool(
+    'analyzeCode',
+    'Analyze code for issues and improvements',
+    {
+        type: 'object',
+        properties: {
+            code: { type: 'string', description: 'Code to analyze' },
+            language: { 
+                type: 'string', 
+                enum: ['typescript', 'javascript', 'python', 'java'],
+                description: 'Programming language'
+            }
+        },
+        required: ['code', 'language']
     },
-    getCurrentTime: {
-      name: 'getCurrentTime',
-      description: 'Get current time for a specific timezone',
-      parameters: z.object({
-        timezone: z.string().default('Asia/Seoul').describe('Timezone (e.g., "Asia/Seoul", "America/New_York")')
-      }),
-      handler: async ({ timezone }) => {
-        console.log(`Checking current time for ${timezone}...`);
+    async (params) => {
+        const { code, language } = params;
+        
+        // Simulate code analysis
         return {
-          time: new Date().toLocaleString('en-US', { timeZone: timezone }),
-          timezone
+            issues: [
+                'Missing type annotations',
+                'Unused variable on line 5'
+            ],
+            suggestions: [
+                'Add strict TypeScript configuration',
+                'Use const instead of let for immutable values'
+            ],
+            complexity: 'Medium',
+            language
         };
-      }
     }
-  }
-});
+);
 
-// Agent creation
-const agent = new Robota({
-  aiProviders: {
-    openai: new OpenAIProvider({
-      client: openaiClient,
-      model: 'gpt-4'
-    })
-  },
-  currentProvider: 'openai',
-  currentModel: 'gpt-4',
-  toolProviders: [toolProvider],
-  systemPrompt: `You are an information helper agent. 
-Use tools to provide accurate weather and time information.
-When users request information, always fetch the latest data.`
+// Create agent with tools
+const codeReviewAgent = new Robota({
+    name: 'CodeReviewAgent',
+    model: 'gpt-4',
+    provider: 'openai',
+    aiProviders: { openai: openaiProvider },
+    tools: [codeAnalysisTool],
+    systemMessage: `You are a senior software engineer specializing in code reviews.
+    Use the code analysis tool to identify issues and provide constructive feedback.`
 });
-
-// Agent execution
-const result = await agent.run('Tell me the current weather in Seoul and the current time in New York.');
-console.log(result);
 ```
 
-## Agents with Memory
+### 3. Multi-Provider Agent Pattern
 
-Agents can store conversation history and reference previous conversations:
+Agents that leverage different AI providers for different tasks:
 
 ```typescript
-import { Robota, SimpleConversationHistory } from '@robota-sdk/core';
-import { OpenAIProvider } from '@robota-sdk/openai';
-import OpenAI from 'openai';
-
-// Conversation history with memory limit
-const conversationHistory = new SimpleConversationHistory({
-  maxMessages: 10 // Maximum number of messages to store
-});
-
-// Agent creation
-const agent = new Robota({
-  aiProviders: {
-    openai: new OpenAIProvider({
-      client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
-      model: 'gpt-4'
-    })
-  },
+class SmartAgent extends Robota {
+    constructor(providers: Record<string, BaseAIProvider>) {
+        super({
+            name: 'SmartAgent',
+            model: 'gpt-3.5-turbo',
+            provider: 'openai',
+            aiProviders: providers,
   currentProvider: 'openai',
-  currentModel: 'gpt-4',
-  conversationHistory,
-  systemPrompt: `You are a friendly conversational agent.
-Remember and reference previous conversations to maintain natural dialogue flow.
-Remember user preferences and interests to provide personalized responses.`
-});
-
-// Conversation progression
-await agent.run('Hello! My name is John Smith.');
-await agent.run('I enjoy programming and music.');
-const result = await agent.run('What was my name again?');
-console.log(result); // "Your name is John Smith. You mentioned that you're interested in programming and music."
-```
-
-## Planning Agents
-
-Agents that plan and execute complex tasks step-by-step:
-
-```typescript
-import { Robota } from '@robota-sdk/core';
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
-import { OpenAIProvider } from '@robota-sdk/openai';
-import { z } from 'zod';
-import OpenAI from 'openai';
-
-// Create tool provider with planning tools
-const planningToolProvider = createZodFunctionToolProvider({
-  tools: {
-    searchWeb: {
-      name: 'searchWeb',
-      description: 'Search for information on the web',
-      parameters: z.object({
-        query: z.string().describe('Search query')
-      }),
-      handler: async ({ query }) => {
-        console.log(`Searching: ${query}`);
-        // Search logic implementation
-        return { results: [`Search result 1 for ${query}`, `Search result 2 for ${query}`] };
-      }
-    },
-    summarizeText: {
-      name: 'summarizeText',
-      description: 'Summarize long text',
-      parameters: z.object({
-        text: z.string().describe('Text to summarize')
-      }),
-      handler: async ({ text }) => {
-        console.log(`Summarizing text...`);
-        // Summarization logic implementation
-        return { summary: `${text.substring(0, 50)}... (summarized)` };
-      }
-    },
-    translateText: {
-      name: 'translateText',
-      description: 'Translate text to another language',
-      parameters: z.object({
-        text: z.string().describe('Text to translate'),
-        targetLanguage: z.string().describe('Target language (e.g., "ko", "en", "ja")')
-      }),
-      handler: async ({ text, targetLanguage }) => {
-        console.log(`Translating to: ${targetLanguage}`);
-        // Translation logic implementation
-        return { translatedText: `${text} (translated to ${targetLanguage})` };
-      }
+            currentModel: 'gpt-3.5-turbo',
+            systemMessage: 'You are a versatile AI assistant.'
+        });
     }
-  }
-});
 
-// Planning agent creation
-const planningAgent = new Robota({
-  aiProviders: {
-    openai: new OpenAIProvider({
-      client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
-      model: 'gpt-4'
-    })
-  },
-  currentProvider: 'openai',
-  currentModel: 'gpt-4',
-  toolProviders: [planningToolProvider],
-  systemPrompt: `You are an information research agent.
-Please handle user research requests following these steps:
-1. Search for information using appropriate search terms.
-2. Summarize the search results.
-3. Translate the summary if necessary.
-Clearly explain all steps and decision-making processes.`
-});
+    async run(input: string): Promise<string> {
+        // Use different providers based on task type
+        if (this.isCreativeTask(input)) {
+            await this.switchProvider('anthropic', 'claude-3-sonnet');
+        } else if (this.isComplexReasoning(input)) {
+            await this.switchProvider('openai', 'gpt-4');
+        } else if (this.isFactualQuery(input)) {
+            await this.switchProvider('google', 'gemini-1.5-flash');
+        }
+        
+        return super.run(input);
+    }
 
-// Planning agent execution
-const result = await planningAgent.run('Research the history of artificial intelligence, summarize it, and translate it to English');
-console.log(result);
-```
+    private isCreativeTask(input: string): boolean {
+        return /write|story|creative|poem|song/.test(input.toLowerCase());
+    }
 
-## Collaborative Agents
+    private isComplexReasoning(input: string): boolean {
+        return /analyze|solve|explain|calculate|complex/.test(input.toLowerCase());
+    }
 
-Multiple agents collaborate to perform complex tasks:
-
-```typescript
-import { Robota } from '@robota-sdk/core';
-import { OpenAIProvider } from '@robota-sdk/openai';
-import OpenAI from 'openai';
-
-// OpenAI client
-const openaiClient = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
-// Create shared provider
-const openaiProvider = new OpenAIProvider({
-  client: openaiClient,
-  model: 'gpt-4'
-});
-
-// Researcher agent
-const researcherAgent = new Robota({
-  aiProviders: { openai: openaiProvider },
-  currentProvider: 'openai',
-  currentModel: 'gpt-4',
-  systemPrompt: 'You are an information gathering specialist. Collect facts and data about the topic.'
-});
-
-// Writer agent
-const writerAgent = new Robota({
-  aiProviders: { openai: openaiProvider },
-  currentProvider: 'openai',
-  currentModel: 'gpt-4',
-  systemPrompt: 'You are a writing expert. Create clear and engaging text based on provided information.'
-});
-
-// Editor agent
-const editorAgent = new Robota({
-  aiProviders: { openai: openaiProvider },
-  currentProvider: 'openai',
-  currentModel: 'gpt-4',
-  systemPrompt: 'You are an editing expert. Review and improve text for grammar, clarity, and consistency.'
-});
-
-// Multi-agent workflow function
-async function runContentCreationWorkflow(topic: string) {
-  // 1. Researcher collects information
-  const researchResult = await researcherAgent.run(
-    `Collect information about the following topic: ${topic}`
-  );
-  
-  // 2. Writer writes a draft
-  const draftResult = await writerAgent.run(
-    `Write content based on the following information: ${researchResult}`
-  );
-  
-  // 3. Editor finalizes
-  const editedResult = await editorAgent.run(
-    `Proofread and improve the following content: ${draftResult}`
-  );
-  
-  return editedResult;
+    private isFactualQuery(input: string): boolean {
+        return /what is|who is|when|where|how many/.test(input.toLowerCase());
+    }
 }
-
-// Team execution
-const result = await runContentCreationWorkflow('The future of artificial intelligence and its social impact');
-console.log(result);
 ```
 
 ## Advanced Agent Patterns
 
-### ReAct Pattern (Reasoning and Action)
+### 1. Agent with Memory and Context
 
-ReAct pattern-based agents alternate between reasoning and action:
+Agents that maintain conversation context and learn from interactions:
 
 ```typescript
-import { Robota } from '@robota-sdk/core';
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
-import { OpenAIProvider } from '@robota-sdk/openai';
-import { z } from 'zod';
-import OpenAI from 'openai';
+import { ConversationHistoryPlugin, ExecutionAnalyticsPlugin } from '@robota-sdk/agents';
 
-// Create calculator tool provider
-const calculatorToolProvider = createZodFunctionToolProvider({
-  tools: {
-    calculator: {
-      name: 'calculator',
-      description: 'Performs mathematical calculations',
-      parameters: z.object({
-        expression: z.string().describe('Mathematical expression to calculate')
-      }),
-      handler: async ({ expression }) => {
-        return { result: eval(expression) };
-      }
+class MemoryAgent extends Robota {
+    constructor() {
+        const conversationPlugin = new ConversationHistoryPlugin({
+            maxMessages: 50,
+            persistToFile: true,
+            filePath: './agent-memory.json'
+        });
+
+        const analyticsPlugin = new ExecutionAnalyticsPlugin({
+            trackErrors: true,
+            maxEntries: 1000
+        });
+
+        super({
+            name: 'MemoryAgent',
+            model: 'gpt-4',
+            provider: 'openai',
+            aiProviders: { openai: openaiProvider },
+            plugins: [conversationPlugin, analyticsPlugin],
+            systemMessage: `You are a personal assistant with excellent memory.
+            Remember user preferences, past conversations, and context.
+            Provide personalized responses based on conversation history.`
+        });
     }
-  }
-});
 
-// ReAct-style agent creation
-const reactAgent = new Robota({
-  aiProviders: {
-    openai: new OpenAIProvider({
-      client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
-      model: 'gpt-4'
-    })
-  },
-  currentProvider: 'openai',
-  currentModel: 'gpt-4',
-  toolProviders: [calculatorToolProvider],
-  systemPrompt: `You are an agent that solves mathematical problems.
-Follow these steps to solve problems:
-1. Analyze the problem. (Reasoning)
-2. Use necessary calculation tools. (Action)
-3. Interpret the results. (Reasoning)
-4. Provide the final answer.
-Clearly explain your thoughts and decisions at each step.`
-});
+    async getConversationSummary(): Promise<string> {
+        const plugin = this.getPlugin('ConversationHistoryPlugin');
+        if (plugin) {
+            const stats = plugin.getStats();
+            return `Conversation summary: ${stats.messageCount} messages exchanged.`;
+        }
+        return 'No conversation history available.';
+    }
 
-// ReAct agent execution
-const result = await reactAgent.run('What is 3^4 plus 2^5? And please check if the result is greater than 100.');
-console.log(result);
+    async getPerformanceStats(): Promise<any> {
+        const plugin = this.getPlugin('ExecutionAnalyticsPlugin');
+        if (plugin && 'getAggregatedStats' in plugin) {
+            return (plugin as any).getAggregatedStats();
+        }
+        return null;
+    }
+}
 ```
 
-#### ReAct Agent Detailed Description
+### 2. Workflow Agent Pattern
 
-ReAct agents have the following characteristics:
+Agents that execute multi-step workflows:
 
-1. **Sequential Reasoning and Action**: The agent first "thinks" about the given problem and analyzes it before performing the necessary "action" (tool usage).
+```typescript
+interface WorkflowStep {
+    name: string;
+    description: string;
+    execute: (context: any) => Promise<any>;
+}
 
-2. **Iterative Approach**: The `maxIterations` parameter allows you to define the maximum number of iterations, and each iteration determines the next action based on the result of the previous step.
+class WorkflowAgent extends Robota {
+    private workflows: Map<string, WorkflowStep[]> = new Map();
 
-3. **Chain-of-Thought Expression**: When `chainOfThought` is enabled, the agent explicitly shows its thought process at each step. The final response is only shown to the user.
+    constructor() {
+        super({
+            name: 'WorkflowAgent',
+            model: 'gpt-4',
+            provider: 'openai',
+            aiProviders: { openai: openaiProvider },
+            systemMessage: 'You are a workflow automation agent.'
+        });
 
-4. **Tool Integration**: Various tools can be registered to allow the agent to perform complex tasks.
+        this.setupWorkflows();
+    }
 
-#### Key Parameters
+    private setupWorkflows() {
+        // Research workflow
+        this.workflows.set('research', [
+            {
+                name: 'search',
+                description: 'Search for information',
+                execute: async (context) => {
+                    // Search implementation
+                    return { searchResults: ['result1', 'result2'] };
+                }
+            },
+            {
+                name: 'analyze',
+                description: 'Analyze search results',
+                execute: async (context) => {
+                    // Analysis implementation
+                    return { analysis: 'Detailed analysis...' };
+                }
+            },
+            {
+                name: 'summarize',
+                description: 'Create summary',
+                execute: async (context) => {
+                    // Summarization implementation
+                    return { summary: 'Executive summary...' };
+                }
+            }
+        ]);
+    }
 
-- **name, description**: The agent's name and description
-- **provider**: The AI provider to use (OpenAI, Anthropic, etc.)
-- **tools**: An array of tools the agent can use
-- **systemPrompt**: The system prompt that defines the agent's behavior
-- **maxIterations**: Maximum number of iterations (default: 5)
-- **chainOfThought**: Whether to enable Chain-of-Thought (default: true)
+    async executeWorkflow(workflowName: string, initialContext: any = {}): Promise<any> {
+        const workflow = this.workflows.get(workflowName);
+        if (!workflow) {
+            throw new Error(`Workflow ${workflowName} not found`);
+        }
 
-ReAct pattern is particularly useful for the following use cases:
+        let context = { ...initialContext };
+        const results = [];
 
-- Solving complex math problems
-- Multi-step information search and analysis
-- Deep investigation of user questions
-- Tasks that require combining multiple tools
+        for (const step of workflow) {
+            console.log(`Executing step: ${step.name}`);
+            
+            try {
+                const stepResult = await step.execute(context);
+                context = { ...context, ...stepResult };
+                results.push({
+                    step: step.name,
+                    result: stepResult,
+                    timestamp: new Date().toISOString()
+                });
+            } catch (error) {
+                console.error(`Step ${step.name} failed:`, error);
+                throw error;
+            }
+        }
 
-## Agent Use Cases
+        return {
+            workflow: workflowName,
+            results,
+            finalContext: context
+        };
+    }
+}
+```
 
-Robota agents can be applied to various real-world use cases:
+### 3. Specialized Agent Roles
 
-1. **Customer Support Agent** - Product information lookup, FAQ answering, problem solving
-2. **Personal Assistant Agent** - Schedule management, email writing, information lookup
-3. **Data Analysis Agent** - Data collection, processing, visualization, insight extraction
-4. **Content Creation Agent** - Writing, marketing material creation, content summarization
-5. **Code Writing Agent** - Code generation, debugging, refactoring, documentation
+#### Research Agent
 
-## Agent Design Best Practices
+```typescript
+const researchAgent = new Robota({
+    name: 'ResearchAgent',
+    model: 'gpt-4',
+    provider: 'openai',
+  aiProviders: { openai: openaiProvider },
+    tools: [
+        webSearchTool,
+        documentAnalysisTool,
+        citationTool
+    ],
+    systemMessage: `You are a research specialist focused on thorough, accurate research.
+    Always:
+    - Verify information from multiple sources
+    - Provide citations and references
+    - Distinguish between facts and opinions
+    - Flag uncertain or contradictory information`
+});
+```
 
-Several best practices for designing effective agents:
+#### Code Generation Agent
 
-1. **Clear System Prompt**: Define the agent's role and scope of work clearly
-2. **Appropriate Tool Selection**: Provide only the necessary features to manage complexity
-3. **Step-by-Step Approach**: Break down complex tasks into manageable steps
-4. **Failure Handling**: Implement robust handling for errors and exceptions
-5. **User Feedback Integration**: Improve the agent based on user input
+```typescript
+const codeGeneratorAgent = new Robota({
+    name: 'CodeGeneratorAgent',
+    model: 'gpt-4',
+    provider: 'openai',
+  aiProviders: { openai: openaiProvider },
+    tools: [
+        codeAnalysisTool,
+        testGenerationTool,
+        documentationTool
+    ],
+    systemMessage: `You are a software engineering expert specializing in code generation.
+    Always:
+    - Write clean, maintainable code
+    - Include comprehensive error handling
+    - Add appropriate comments and documentation
+    - Follow language-specific best practices
+    - Generate corresponding unit tests`
+});
+```
+
+#### Data Analysis Agent
+
+```typescript
+const dataAnalysisAgent = new Robota({
+    name: 'DataAnalysisAgent',
+    model: 'gpt-4',
+    provider: 'openai',
+  aiProviders: { openai: openaiProvider },
+    tools: [
+        dataProcessingTool,
+        visualizationTool,
+        statisticalAnalysisTool
+    ],
+    systemMessage: `You are a data scientist specializing in data analysis and insights.
+    Always:
+    - Validate data quality and completeness
+    - Apply appropriate statistical methods
+    - Provide clear, actionable insights
+    - Create meaningful visualizations
+    - Explain methodology and limitations`
+});
+```
+
+### 4. Module-Enhanced Agent Pattern
+
+Agents that leverage the new modular architecture system for extended functionality:
+
+```typescript
+import { 
+    Robota, 
+    BaseModule, 
+    ModuleRegistry, 
+    LoggingPlugin, 
+    PerformancePlugin, 
+    UsagePlugin 
+} from '@robota-sdk/agents';
+
+// Create a custom module for data processing
+class DataProcessingModule extends BaseModule {
+    readonly name = 'DataProcessingModule';
+    readonly version = '1.0.0';
+    readonly moduleType = 'processing';
+    
+    constructor(options: any, eventEmitter?: EventEmitter) {
+        super(options, eventEmitter);
+        this.capabilities = ['data-transformation', 'validation'];
+    }
+    
+    async initialize(): Promise<void> {
+        this.emitModuleEvent('initialize.start', {
+            moduleName: this.name,
+            moduleType: this.moduleType,
+            executionId: this.generateExecutionId()
+        });
+        
+        // Initialize data processing resources
+        await this.setupDataProcessors();
+        
+        this.emitModuleEvent('initialize.complete', {
+            moduleName: this.name,
+            moduleType: this.moduleType,
+            executionId: this.lastExecutionId,
+            duration: Date.now() - this.startTime
+        });
+    }
+    
+    async execute(context: any): Promise<any> {
+        this.emitModuleEvent('execution.start', {
+            moduleName: this.name,
+            moduleType: this.moduleType,
+            executionId: this.generateExecutionId(),
+            context
+        });
+        
+        try {
+            const result = await this.processData(context.data);
+            
+            this.emitModuleEvent('execution.complete', {
+                moduleName: this.name,
+                moduleType: this.moduleType,
+                executionId: this.lastExecutionId,
+                duration: Date.now() - this.startTime,
+                success: true,
+                result
+            });
+            
+            return { success: true, data: result };
+        } catch (error) {
+            this.emitModuleEvent('execution.error', {
+                moduleName: this.name,
+                moduleType: this.moduleType,
+                executionId: this.lastExecutionId,
+                error: error.message
+            });
+            
+            return { success: false, error: error.message };
+        }
+    }
+    
+    private async setupDataProcessors(): Promise<void> {
+        // Setup data processing logic
+    }
+    
+    private async processData(data: any): Promise<any> {
+        // Data processing implementation
+        return { processed: true, data };
+    }
+}
+
+// Create agent with module support
+class ModularAgent extends Robota {
+    private moduleRegistry: ModuleRegistry;
+    
+    constructor() {
+        // Create plugins that will monitor module activities
+        const loggingPlugin = new LoggingPlugin({
+            level: 'info',
+            moduleEvents: ['module.initialize.complete', 'module.execution.complete']
+        });
+        
+        const performancePlugin = new PerformancePlugin({
+            moduleEvents: ['module.execution.start', 'module.execution.complete']
+        });
+        
+        const usagePlugin = new UsagePlugin({
+            moduleEvents: ['module.execution.complete']
+        });
+        
+        super({
+            name: 'ModularAgent',
+            model: 'gpt-4',
+            provider: 'openai',
+            aiProviders: { openai: openaiProvider },
+            plugins: [loggingPlugin, performancePlugin, usagePlugin],
+            systemMessage: 'You are a modular AI agent with enhanced capabilities.'
+        });
+        
+        // Initialize module registry with shared EventEmitter
+        this.moduleRegistry = new ModuleRegistry(this.eventEmitter);
+        
+        // Register modules
+        this.setupModules();
+    }
+    
+    private async setupModules(): Promise<void> {
+        // Register data processing module
+        const dataModule = new DataProcessingModule({
+            enabled: true,
+            config: { maxDataSize: 10000 }
+        }, this.eventEmitter);
+        
+        await this.moduleRegistry.registerModule(dataModule);
+        
+        // Initialize all modules
+        await this.moduleRegistry.initializeModules();
+    }
+    
+    async processWithModules(input: string, data?: any): Promise<string> {
+        // Execute modules if data is provided
+        if (data) {
+            const moduleResult = await this.moduleRegistry.executeModule(
+                'DataProcessingModule',
+                { data }
+            );
+            
+            if (moduleResult.success) {
+                input += `\n\nProcessed data: ${JSON.stringify(moduleResult.data)}`;
+            }
+        }
+        
+        return this.run(input);
+    }
+    
+    getModuleStats(): any {
+        return this.moduleRegistry.getStats();
+    }
+}
+
+// Usage example
+const modularAgent = new ModularAgent();
+
+// Process input with module enhancement
+const result = await modularAgent.processWithModules(
+    'Analyze the processed data and provide insights',
+    { rawData: [1, 2, 3, 4, 5] }
+);
+
+console.log('Agent result:', result);
+console.log('Module stats:', modularAgent.getModuleStats());
+```
+
+## Agent Factory Pattern
+
+Create agents from templates for consistency:
+
+```typescript
+import { AgentFactory } from '@robota-sdk/agents';
+
+class CustomAgentFactory extends AgentFactory {
+    constructor(providers: Record<string, BaseAIProvider>) {
+        super({
+            providers,
+            defaultProvider: 'openai',
+            templates: {
+                'research-assistant': {
+                    name: 'ResearchAssistant',
+                    model: 'gpt-4',
+                    systemMessage: 'You are a research assistant...',
+                    tools: ['webSearch', 'documentAnalysis'],
+                    plugins: ['conversationHistory', 'analytics']
+                },
+                'code-reviewer': {
+                    name: 'CodeReviewer',
+                    model: 'gpt-4',
+                    systemMessage: 'You are a senior code reviewer...',
+                    tools: ['codeAnalysis', 'testGeneration'],
+                    plugins: ['logging', 'analytics']
+                }
+            }
+        });
+    }
+
+    async createResearchAgent(customizations?: any): Promise<Robota> {
+        return this.createFromTemplate('research-assistant', {
+            ...customizations,
+            plugins: [
+                new ConversationHistoryPlugin(),
+                new ExecutionAnalyticsPlugin()
+            ]
+        });
+    }
+
+    async createCodeReviewAgent(customizations?: any): Promise<Robota> {
+        return this.createFromTemplate('code-reviewer', {
+            ...customizations,
+            plugins: [
+                new LoggingPlugin({ level: 'debug' }),
+                new ExecutionAnalyticsPlugin()
+            ]
+        });
+    }
+}
+```
+
+## Agent Collaboration Patterns
+
+### Sequential Agent Chain
+
+```typescript
+class AgentChain {
+    private agents: Robota[] = [];
+
+    constructor(agents: Robota[]) {
+        this.agents = agents;
+    }
+
+    async execute(input: string): Promise<string> {
+        let currentInput = input;
+        
+        for (const agent of this.agents) {
+            console.log(`Processing with ${agent.getStats().name}`);
+            currentInput = await agent.run(currentInput);
+        }
+        
+        return currentInput;
+    }
+}
+
+// Usage
+const researchChain = new AgentChain([
+    researchAgent,      // Gather information
+    analysisAgent,      // Analyze findings
+    summaryAgent        // Create final summary
+]);
+
+const result = await researchChain.execute('Research the impact of AI on education');
+```
+
+### Team-Based Collaboration
+
+Use the `@robota-sdk/team` package for sophisticated multi-agent workflows:
+
+```typescript
+import { createTeam } from '@robota-sdk/team';
+
+// Create a team optimized for research tasks
+const researchTeam = createTeam({
+    aiProviders: {
+        openai: openaiProvider,
+        anthropic: anthropicProvider
+    },
+    maxMembers: 5,
+    debug: true
+});
+
+// Team automatically coordinates complex research workflow
+const result = await researchTeam.execute(
+    'Research the environmental impact of electric vehicles vs gasoline cars, including lifecycle analysis, manufacturing impact, and long-term sustainability'
+);
+
+console.log('Team research result:', result);
+```
+
+### Development Team Simulation
+
+```typescript
+// Create a development-focused team
+const devTeam = createTeam({
+  aiProviders: {
+        openai: openaiProvider,
+        anthropic: anthropicProvider
+    },
+    maxMembers: 8,
+    maxTokenLimit: 100000,
+    debug: true
+});
+
+// Team handles complex development tasks intelligently
+const developmentResult = await devTeam.execute(
+    'Design and implement a REST API for user authentication with JWT tokens, password hashing, rate limiting, and comprehensive test coverage'
+);
+
+console.log('Development result:', developmentResult);
+
+// Get team performance metrics
+const devStats = devTeam.getStats();
+console.log(`Development team created ${devStats.totalAgentsCreated} specialist agents`);
+console.log(`Total development time: ${devStats.totalExecutionTime}ms`);
+```
+
+### Parallel Agent Processing
+
+```typescript
+class ParallelAgentProcessor {
+    private agents: Robota[] = [];
+
+    constructor(agents: Robota[]) {
+        this.agents = agents;
+    }
+
+    async processInParallel(input: string): Promise<string[]> {
+        const promises = this.agents.map(agent => agent.run(input));
+        return Promise.all(promises);
+    }
+
+    async processWithConsensus(input: string): Promise<string> {
+        const results = await this.processInParallel(input);
+        
+        // Create consensus agent to combine results
+        const consensusAgent = new Robota({
+            name: 'ConsensusAgent',
+            model: 'gpt-4',
+            provider: 'openai',
+            aiProviders: { openai: openaiProvider },
+            systemMessage: 'Combine multiple perspectives into a coherent response.'
+        });
+
+        const combinedInput = `
+        Multiple agents provided these responses to: "${input}"
+        
+        ${results.map((result, i) => `Agent ${i + 1}: ${result}`).join('\n\n')}
+        
+        Please provide a unified, comprehensive response that incorporates the best insights from each perspective.
+        `;
+
+        return consensusAgent.run(combinedInput);
+    }
+}
+```
+
+## Error Handling and Resilience
+
+### Robust Agent with Retry Logic
+
+```typescript
+class ResilientAgent extends Robota {
+    constructor(config: any) {
+        super({
+            ...config,
+            plugins: [
+                ...(config.plugins || []),
+                new ErrorHandlingPlugin({
+                    retryAttempts: 3,
+                    retryDelay: 1000,
+                    exponentialBackoff: true
+                })
+            ]
+        });
+    }
+
+    async runWithRetry(input: string, maxRetries: number = 3): Promise<string> {
+        let lastError: Error | null = null;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                return await this.run(input);
+            } catch (error) {
+                lastError = error as Error;
+                console.warn(`Attempt ${attempt} failed:`, error.message);
+                
+                if (attempt < maxRetries) {
+                    const delay = Math.pow(2, attempt - 1) * 1000; // Exponential backoff
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+        
+        throw new Error(`Agent failed after ${maxRetries} attempts. Last error: ${lastError?.message}`);
+    }
+}
+```
+
+## Performance Optimization
+
+### Agent with Caching
+
+```typescript
+class CachedAgent extends Robota {
+    private cache = new Map<string, { result: string; timestamp: number }>();
+    private cacheTTL = 5 * 60 * 1000; // 5 minutes
+
+    async run(input: string): Promise<string> {
+        const cacheKey = this.createCacheKey(input);
+        const cached = this.cache.get(cacheKey);
+        
+        if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
+            console.log('Cache hit');
+            return cached.result;
+        }
+        
+        const result = await super.run(input);
+        
+        this.cache.set(cacheKey, {
+            result,
+            timestamp: Date.now()
+        });
+        
+        return result;
+    }
+
+    private createCacheKey(input: string): string {
+        return Buffer.from(input).toString('base64');
+    }
+
+    clearCache(): void {
+        this.cache.clear();
+    }
+}
+```
+
+## Best Practices
+
+### ✅ Do
+
+1. **Design for specific purposes**: Create focused agents for specific tasks
+2. **Use appropriate models**: Match model capabilities to task complexity
+3. **Implement proper error handling**: Always handle failures gracefully
+4. **Monitor performance**: Use analytics plugins to track agent performance
+5. **Clean up resources**: Always call `destroy()` when done with agents
+6. **Use type safety**: Leverage TypeScript for better development experience
+7. **Document agent behavior**: Clearly document what each agent is designed to do
+
+### ❌ Don't
+
+1. **Create overly complex agents**: Keep agents focused and maintainable
+2. **Ignore error handling**: Don't let errors crash your application
+3. **Skip resource cleanup**: Always clean up agents to prevent memory leaks
+4. **Use inappropriate models**: Don't use expensive models for simple tasks
+5. **Ignore security**: Validate inputs and sanitize outputs
+6. **Skip testing**: Always test agent behavior thoroughly
+
+## Testing Agents
+
+### Unit Testing
+
+```typescript
+describe('ResearchAgent', () => {
+    let agent: Robota;
+    
+    beforeEach(() => {
+        agent = new ResearchAgent();
+    });
+    
+    afterEach(async () => {
+        await agent.destroy();
+    });
+    
+    it('should provide research results', async () => {
+        const response = await agent.run('Research renewable energy trends');
+        
+        expect(response).toBeDefined();
+        expect(response.length).toBeGreaterThan(0);
+        expect(response).toContain('renewable energy');
+    });
+    
+    it('should handle invalid queries gracefully', async () => {
+        const response = await agent.run('');
+        
+        expect(response).toBeDefined();
+        // Should provide helpful error message
+    });
+});
+```
+
+### Integration Testing
+
+```typescript
+describe('Agent Integration', () => {
+    it('should work with real providers', async () => {
+        const agent = new Robota({
+            name: 'TestAgent',
+            aiProviders: { openai: realOpenAIProvider },
+            currentProvider: 'openai'
+        });
+        
+        const response = await agent.run('Hello');
+        expect(typeof response).toBe('string');
+        
+        await agent.destroy();
+    });
+});
+```
+
+## Future: Advanced Planning Systems
+
+The Robota SDK roadmap includes sophisticated autonomous planning capabilities:
+
+```typescript
+// Future roadmap - Advanced Planning System
+import { createPlanner } from '@robota-sdk/planning';
+import { ReActPlanner, CAMELPlanner, ReflectionPlanner } from '@robota-sdk/planner-strategies';
+
+// This is planned for future releases
+const autonomousPlanner = createPlanner({
+    baseAgentConfig: {
+        aiProviders: { openai: openaiProvider, anthropic: anthropicProvider },
+        currentProvider: 'openai'
+    },
+    maxAgents: 10,
+    maxConcurrentPlanners: 3
+});
+
+// Register different planning strategies
+autonomousPlanner.registerPlanner(new ReActPlanner({
+    maxIterations: 10,
+    toolTimeout: 5000
+}));
+
+autonomousPlanner.registerPlanner(new CAMELPlanner({
+    maxAgents: 5,
+    collaborationMode: 'debate'
+}));
+
+autonomousPlanner.registerPlanner(new ReflectionPlanner({
+    maxReflectionCycles: 3,
+    qualityThreshold: 0.8
+}));
+
+// Execute complex autonomous workflows
+const plannerResult = await autonomousPlanner.execute(
+    'Design and implement a complete microservices architecture for an e-commerce platform',
+    ['camel', 'react', 'reflection'],
+    'sequential'
+);
+```
+
+### Planned Agent Capabilities
+
+- **ReAct Planning**: Iterative Reason → Act → Observe cycles
+- **CAMEL Communication**: Multi-agent role-based collaboration  
+- **Reflection Loops**: Self-evaluation and improvement cycles
+- **Hierarchical Planning**: Complex task decomposition
+- **Autonomous Execution**: Long-running goal-oriented workflows
 
 ## Next Steps
 
-- Learn more about [Function Calling](function-calling.md)
-- Check out the API reference for [Tool Creation](api-reference/tools/)
-- Learn how to configure [Providers](providers.md) 
+- **[Team Collaboration](../examples/team-collaboration.md)** - Multi-agent workflows
+- **[Performance Monitoring](../examples/execution-analytics.md)** - Agent analytics
+- **[Examples](../examples/README.md)** - Complete working examples 

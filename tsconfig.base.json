@@ -1,27 +1,61 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "lib": [
-      "ESNext",
-      "DOM"
-    ],
-    "moduleResolution": "Node",
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "useDefineForClassFields": true
-  },
-  "exclude": [
-    "**/node_modules",
-    "**/dist",
-    "**/build"
-  ]
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "ESNext",
+        "lib": [
+            "ESNext",
+            "DOM"
+        ],
+        "moduleResolution": "Node",
+        "strict": true,
+        "noImplicitAny": true,
+        "noImplicitReturns": true,
+        "noImplicitThis": true,
+        "noFallthroughCasesInSwitch": true,
+        "noUncheckedIndexedAccess": true,
+        "strictNullChecks": true,
+        "strictFunctionTypes": true,
+        "strictBindCallApply": true,
+        "strictPropertyInitialization": true,
+        "exactOptionalPropertyTypes": true,
+        "noImplicitOverride": true,
+        "noPropertyAccessFromIndexSignature": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        // ==========================================
+        // CRITICAL POLICY: ANY/UNKNOWN TYPE PROHIBITION
+        // ==========================================
+        // 🚨 NEVER MODIFY THESE SETTINGS 🚨
+        // These rules enforce zero tolerance for any/unknown types
+        // Modification of these settings is STRICTLY PROHIBITED
+        // Contact architecture team before any changes
+        // Note: noImplicitAny is already set above
+        // ESLint rules handle explicit any/unknown prohibition
+        // ==========================================
+        "esModuleInterop": true,
+        "resolveJsonModule": true,
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "useDefineForClassFields": true,
+        "baseUrl": ".",
+        "paths": {
+            "@/*": [
+                "./*"
+            ],
+            "@examples/*": [
+                "./apps/examples/*"
+            ],
+            "@docs/*": [
+                "./docs/*"
+            ]
+        }
+    },
+    "exclude": [
+        "**/node_modules",
+        "**/dist",
+        "**/build"
+    ]
 }

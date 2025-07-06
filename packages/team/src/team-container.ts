@@ -1,59 +1,78 @@
 /* eslint-disable no-console */
+import { Robota, AgentConfig, ExecutionAnalyticsPlugin, BasePlugin } from '@robota-sdk/agents';
 import { v4 as uuidv4 } from 'uuid';
-import { Robota, AgentTemplateManager, AgentFactory } from '@robota-sdk/core';
-import type { RobotaOptions } from '@robota-sdk/core';
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
-import { z } from 'zod';
-import type {
+import { createTaskAssignmentFacade } from './task-assignment/index.js';
+
+import {
     TeamContainerOptions,
-    AgentConfig,
-    DelegateWorkParams,
-    DelegateWorkResult,
-    TeamStats,
-    TeamExecutionStructure,
-    AgentNode
-} from './types';
-import { ZodFunctionTool } from '@robota-sdk/tools';
-import type { UniversalMessage } from '@robota-sdk/core';
+    AssignTaskParams,
+    AssignTaskResult
+} from './types.js';
 
 /**
- * Raw conversation data for a single agent
+ * Task delegation record
  */
-export interface AgentConversationData {
-    agentId: string;
-    taskDescription?: string;
-    parentAgentId?: string;
-    messages: UniversalMessage[];
-    createdAt: Date;
-    childAgentIds: string[];
-    aiProvider?: string;
-    aiModel?: string;
+interface TaskDelegationRecord {
+    id: string;
+    originalTask: string;
+    delegatedTask: string;
     agentTemplate?: string;
-}
-
-/**
- * Complete workflow history with all agent conversations
- */
-export interface WorkflowHistory {
-    executionId: string;
-    userRequest: string;
-    finalResult: string;
+    agentId: string;
+    priority: string;
     startTime: Date;
     endTime?: Date;
-    success?: boolean;
-    error?: string;
-    agentConversations: AgentConversationData[];
-    agentTree: AgentTreeNode[];
+    duration?: number;
+    result: string;
+    success: boolean;
+    tokensUsed?: number;
+    executionStats?: {
+        agentExecutions: number;
+        agentAverageDuration: number;
+        agentSuccessRate: number;
+    };
 }
 
 /**
- * Tree structure for representing agent hierarchy
+ * Team execution analysis
  */
-export interface AgentTreeNode {
-    agentId: string;
-    taskDescription?: string;
-    messageCount: number;
-    children: AgentTreeNode[];
+interface TeamExecutionAnalysis {
+    totalTasks: number;
+    directlyHandledTasks: number;
+    delegatedTasks: number;
+    delegationRate: number;
+    delegationBreakdown: {
+        template: string;
+        count: number;
+        averageDuration: number;
+        successRate: number;
+    }[];
+    taskComplexityAnalysis: {
+        simple: number;
+        complex: number;
+    };
+    performanceMetrics: {
+        averageDirectHandlingTime: number;
+        averageDelegationTime: number;
+        totalExecutionTime: number;
+    };
+}
+
+/**
+ * Built-in agent template interface
+ */
+interface AgentTemplate {
+    id: string;
+    name: string;
+    description: string;
+    category: string;
+    tags: string[];
+    config: {
+        model: string;
+        provider: string;
+        systemMessage: string;
+        temperature: number;
+        maxTokens?: number;
+    };
 }
 
 /**
@@ -71,7 +90,7 @@ export interface AgentTreeNode {
  * - **Collaborative Workflows**: Coordinates multiple agents to solve multi-faceted problems
  * - **Result Integration**: Synthesizes outputs from multiple agents into cohesive responses
  * - **Resource Management**: Automatic cleanup and resource management for temporary agents
- * - **Performance Monitoring**: Comprehensive statistics and performance tracking
+ * - **Performance Monitoring**: Comprehensive statistics and performance tracking via ExecutionAnalyticsPlugin
  * 
  * @example Basic Usage
  * ```typescript
@@ -113,184 +132,129 @@ export interface AgentTreeNode {
  *   'Design a complete mobile app including UI/UX design, backend architecture, and deployment strategy'
  * );
  * 
- * // View team performance statistics
- * const stats = team.getStats();
- * console.log(`Created ${stats.totalAgentsCreated} specialized agents`);
- * console.log(`Completed ${stats.tasksCompleted} tasks in ${stats.totalExecutionTime}ms`);
+ * // View team performance statistics from ExecutionAnalyticsPlugin
+ * const analyticsStats = team.getAnalytics();
+ * console.log(`Success rate: ${(analyticsStats.successRate * 100).toFixed(1)}%`);
+ * console.log(`Average execution time: ${analyticsStats.averageDuration.toFixed(0)}ms`);
  * ```
  * 
  * @see {@link createTeam} - Convenience function for creating teams
- * @see {@link DelegateWorkParams} - Parameters for task delegation
- * @see {@link TeamStats} - Team performance statistics
+ * @see {@link AssignTaskParams} - Parameters for task assignment
  */
 export class TeamContainer {
-    private teamAgent: Robota;
-    private agentFactory: AgentFactory;
-    private templateManager: AgentTemplateManager;
+    private teamAgent!: Robota;
     private options: TeamContainerOptions;
-    private stats: TeamStats;
-    private logger?: any;
-    private toolCallCount: number = 0;
-    private executionStructure: TeamExecutionStructure | null = null;
-    private lastCompletedExecution: TeamExecutionStructure | null = null;
+    private logger: {
+        info: (message: string) => void;
+        warn: (message: string) => void;
+        error: (message: string) => void;
+        debug: (message: string) => void;
+    } | undefined;
+    private availableTemplates: AgentTemplate[];
+    private delegationHistory: TaskDelegationRecord[] = [];
+    private activeAgentsCount: number = 0; // Track currently active agents
+    private totalAgentsCreated: number = 0; // Track total agents created
+    private tasksCompleted: number = 0; // Track completed tasks
+    private totalExecutionTime: number = 0; // Track total execution time in ms
 
-    /**
-     * Create a TeamContainer instance
-     * 
-     * @param options - Configuration options for the team
-     * 
-     * @example
-     * ```ts
-     * const team = new TeamContainer({
-     *   baseRobotaOptions: {
-     *     aiProviders: { openai: openaiProvider },
-     *     currentProvider: 'openai',
-     *     currentModel: 'gpt-4'
-     *   },
-     *   maxMembers: 5,
-     *   debug: true
-     * });
-     * ```
-     */
     constructor(options: TeamContainerOptions) {
         this.options = options;
-        this.stats = {
-            totalAgentsCreated: 0,
-            totalExecutionTime: 0,
-            totalTokensUsed: 0,
-            tasksCompleted: 0,
-            tasksFailed: 0,
-            templateUsage: {},
-            templateVsDynamicAgents: {
-                template: 0,
-                dynamic: 0
-            }
-        };
+        this.logger = options.logger;
 
-        // Initialize template manager (use provided one or create default)
-        this.templateManager = options.templateManager || new AgentTemplateManager();
+        // Initialize built-in templates
+        this.availableTemplates = this.getBuiltinTemplates();
 
-        // Validate leader template exists if specified
-        const leaderTemplate = options.leaderTemplate || 'task_coordinator';
-        const availableTemplates = this.templateManager.getAvailableTemplates();
-        const leaderExists = availableTemplates.some(t => t.name === leaderTemplate);
+        // Create dedicated analytics plugin for team agent (instance-specific)
+        const teamAnalyticsPlugin = new ExecutionAnalyticsPlugin({
+            maxEntries: 1000,
+            trackErrors: true,
+            performanceThreshold: 5000, // 5 seconds
+            enableWarnings: true
+        });
 
-        if (!leaderExists) {
-            throw new Error(`Leader template "${leaderTemplate}" not found. Available templates: ${availableTemplates.map(t => t.name).join(', ')}`);
+        // Create AssignTaskTool with dynamic Zod schema based on available templates
+        const assignTaskTool = this.createAssignTaskTool();
+
+        // Get leader template (default: task_coordinator)
+        const leaderTemplateName = this.options.leaderTemplate || 'task_coordinator';
+        const leaderTemplate = this.getTemplate(leaderTemplateName);
+
+        if (!leaderTemplate) {
+            throw new Error(`Leader template '${leaderTemplateName}' not found. Available templates: ${this.availableTemplates.map(t => t.id).join(', ')}`);
         }
 
-        // Create AgentFactory for creating temporary agents with template manager
-        this.agentFactory = new AgentFactory(options.baseRobotaOptions, this.templateManager, options.debug);
+        // Validate template provider is available
+        const availableProviders = this.options.baseRobotaOptions.aiProviders.map(p => p.name);
+        if (!availableProviders.includes(leaderTemplate.config.provider)) {
+            throw new Error(`Leader template requires provider '${leaderTemplate.config.provider}' but it's not available. Available providers: ${availableProviders.join(', ')}`);
+        }
 
-        this.logger = options.baseRobotaOptions.logger;
+        // Create team agent using leader template configuration with new API
+        const teamConfig: AgentConfig = {
+            name: 'team-leader',
+            aiProviders: this.options.baseRobotaOptions.aiProviders,
+            defaultModel: {
+                provider: leaderTemplate.config.provider,
+                model: leaderTemplate.config.model,
+                temperature: leaderTemplate.config.temperature,
+                systemMessage: leaderTemplate.config.systemMessage,
+                ...(leaderTemplate.config.maxTokens && { maxTokens: leaderTemplate.config.maxTokens })
+            },
+            plugins: [
+                ...(this.options.baseRobotaOptions.plugins || []),
+                teamAnalyticsPlugin as BasePlugin
+            ],
+            tools: [
+                ...(this.options.baseRobotaOptions.tools || []),
+                assignTaskTool
+            ]
+        };
 
-        // Create delegate work tool
-        const delegateWorkTool = this.createDelegateWorkTool();
+        this.teamAgent = new Robota(teamConfig);
 
-        // Create team coordinator with enhanced system prompt based on template
-        this.teamAgent = this.createTeamCoordinator(leaderTemplate, delegateWorkTool);
-
-        this.setupToolCallTracking();
+        this.logger?.info(`Team created with leader template: ${leaderTemplateName} (${leaderTemplate.config.provider}/${leaderTemplate.config.model})`);
     }
 
     /**
-     * Execute a user prompt through the team
-     * 
-     * @param userPrompt - The user's request to be processed by the team
-     * @returns Promise resolving to the final result
-     * 
-     * @example
-     * ```ts
-     * const result = await team.execute(
-     *   'Create a comprehensive marketing strategy for our new SaaS product'
-     * );
-     * ```
+     * Execute a task using the team approach
+     * @param userPrompt - The task to execute
+     * @returns Promise<string> - The result of the task execution
      */
     async execute(userPrompt: string): Promise<string> {
         const startTime = Date.now();
-        const executionId = uuidv4();
-
-        // Initialize execution structure
-        this.executionStructure = {
-            executionId,
-            userRequest: userPrompt,
-            finalResult: '',
-            startTime: new Date(startTime),
-            agents: new Map(),
-            rootAgentId: 'team-coordinator'
-        };
-
-        // Add the team coordinator as root agent
-        const coordinatorAI = this.teamAgent.ai.getCurrentAI();
-        this.executionStructure.agents.set('team-coordinator', {
-            agentId: 'team-coordinator',
-            agent: this.teamAgent,
-            createdAt: new Date(startTime),
-            childAgentIds: [],
-            aiProvider: coordinatorAI.provider,
-            aiModel: coordinatorAI.model
-        });
 
         try {
-            if (this.options.debug) {
-                console.log(`[TeamContainer] Executing user prompt: ${userPrompt}`);
-            }
+            this.logger?.info(`🚀 Starting team execution`);
 
-            // Let the team agent decide everything through prompts
-            const prompt = this.buildTeamPrompt(userPrompt);
-            const result = await this.teamAgent.run(prompt);
+            const result = await this.teamAgent.run(userPrompt);
 
             const executionTime = Date.now() - startTime;
-            this.stats.totalExecutionTime += executionTime;
-            this.stats.tasksCompleted++;
+            this.tasksCompleted++;
+            this.totalExecutionTime += executionTime;
 
-            // Complete execution structure
-            this.executionStructure.finalResult = result;
-            this.executionStructure.endTime = new Date();
-            this.executionStructure.success = true;
-
-            // Store completed execution before clearing
-            this.lastCompletedExecution = { ...this.executionStructure };
-
-            if (this.options.debug) {
-                console.log(`[TeamContainer] Task completed in ${executionTime}ms`);
-            }
-
+            this.logger?.info(`✅ Team execution completed in ${executionTime}ms`);
             return result;
+
         } catch (error) {
-            this.stats.tasksFailed++;
+            const executionTime = Date.now() - startTime;
+            this.totalExecutionTime += executionTime;
+
             const errorMessage = error instanceof Error ? error.message : String(error);
-
-            // Mark execution as failed
-            if (this.executionStructure) {
-                this.executionStructure.endTime = new Date();
-                this.executionStructure.success = false;
-                this.executionStructure.error = errorMessage;
-
-                // Store failed execution before clearing
-                this.lastCompletedExecution = { ...this.executionStructure };
-            }
-
-            if (this.options.debug) {
-                console.error(`[TeamContainer] Task failed: ${errorMessage}`);
-            }
-
-            throw new Error(`Team execution failed: ${errorMessage}`);
-        } finally {
-            this.executionStructure = null;
+            this.logger?.error(`❌ Team execution failed after ${executionTime}ms: ${errorMessage}`);
+            throw error;
         }
     }
 
     /**
-     * Delegate specialized work to a temporary expert agent
+     * Assign specialized tasks to a temporary expert agent
      * 
      * @description
      * This method creates a temporary specialized agent to handle a specific task.
      * The agent is configured with appropriate tools and context for the task,
      * executes the work, and is automatically cleaned up after completion.
      * 
-     * @param params - Work delegation parameters
-     * @param params.jobDescription - Clear description of the specific job to delegate
+     * @param params - Task assignment parameters
+     * @param params.jobDescription - Clear description of the specific job to assign
      * @param params.context - Additional context or constraints for the job
      * @param params.requiredTools - List of tools the member might need
      * @param params.priority - Priority level for the task ('low' | 'medium' | 'high' | 'urgent')
@@ -299,595 +263,606 @@ export class TeamContainer {
      * 
      * @throws {Error} When maximum number of team members is reached
      * @throws {Error} When task execution fails
-     * 
-     * @example
-     * ```typescript
-     * const result = await team.delegateWork({
-     *   jobDescription: 'Analyze market trends for electric vehicles',
-     *   context: 'Focus on the North American market for the next 5 years',
-     *   requiredTools: ['market-data-api', 'trend-analysis'],
-     *   priority: 'high'
-     * });
-     * 
-     * console.log(result.result); // Market analysis report
-     * console.log(result.metadata.executionTime); // Time taken in ms
-     * console.log(result.agentId); // ID of the temporary agent used
-     * ```
      */
-    async delegateWork(params: DelegateWorkParams): Promise<DelegateWorkResult> {
-        const startTime = Date.now();
+    private async assignTask(params: AssignTaskParams): Promise<AssignTaskResult> {
         let temporaryAgent: Robota | null = null;
-        let agentId = 'unknown';
+        let counterIncremented = false; // Track if we incremented the counter
+        const agentId = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const startTime = Date.now();
+
+        // Log received parameters
+        console.log('assignTask params:', JSON.stringify(params, null, 2));
 
         try {
-            if (this.options.debug) {
-                console.log(`[TeamContainer] Delegating work: ${params.jobDescription}`);
+
+
+
+            // Atomic check and increment for maxMembers (prevents race condition)
+            // Check against totalAgentsCreated to prevent too many agents overall
+            if (this.options.maxMembers && this.totalAgentsCreated >= this.options.maxMembers) {
+                const errorMessage = `Maximum number of team members (${this.options.maxMembers}) reached. Total created: ${this.totalAgentsCreated}, Currently active: ${this.activeAgentsCount}`;
+
+                this.logger?.warn(errorMessage);
+
+                return {
+                    result: `Task assignment failed: ${errorMessage}`,
+                    agentId: agentId,
+                    metadata: {
+                        executionTime: 0,
+                        errors: [errorMessage]
+                    }
+                };
             }
 
-            // Check if we've reached the maximum number of members
-            if (this.options.maxMembers && this.stats.totalAgentsCreated >= this.options.maxMembers) {
-                throw new Error(`Maximum number of team members (${this.options.maxMembers}) reached`);
-            }
+            // Atomically increment counter BEFORE agent creation to prevent race conditions
+            this.activeAgentsCount++;
+            this.totalAgentsCreated++;
+            counterIncremented = true; // Mark that we incremented the counter
 
-            // Update agent creation attempt counter
-            this.stats.totalAgentsCreated++;
+            this.logger?.info(`📊 Agent slot reserved - Active: ${this.activeAgentsCount}, Total: ${this.totalAgentsCreated}, Max: ${this.options.maxMembers || 'unlimited'}`);
 
-            // Update template usage statistics (even if agent creation fails)
-            if (params.agentTemplate) {
-                this.stats.templateVsDynamicAgents.template++;
-                this.stats.templateUsage[params.agentTemplate] =
-                    (this.stats.templateUsage[params.agentTemplate] || 0) + 1;
-
-                if (this.options.debug) {
-                    console.log(`[TeamContainer] Using template: ${params.agentTemplate}`);
-                }
-            } else {
-                this.stats.templateVsDynamicAgents.dynamic++;
-
-                if (this.options.debug) {
-                    console.log(`[TeamContainer] Creating dynamic agent`);
-                }
-            }
-
-            // Create a temporary agent for this specific task
-            temporaryAgent = await this.agentFactory.createRobotaForTask({
-                taskDescription: params.jobDescription,
-                requiredTools: params.requiredTools || [],
-                agentTemplate: params.agentTemplate
+            // Create dedicated analytics plugin instance for this temporary agent (instance-specific)
+            const taskAnalyticsPlugin = new ExecutionAnalyticsPlugin({
+                maxEntries: 100,
+                trackErrors: true,
+                performanceThreshold: 10000, // 10 seconds for specialized tasks
+                enableWarnings: true
             });
 
-            // Generate unique ID for this agent
-            agentId = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            // Create a temporary agent for this specific task
+            // Determine if this agent should have delegation capabilities
+            const shouldAllowDelegation = params.allowFurtherDelegation === true; // Default to false
+            const delegationTools = shouldAllowDelegation ? [this.createAssignTaskTool()] : [];
 
-            // Add agent to execution structure if tracking
-            if (this.executionStructure) {
-                // Get current AI provider and model info from the agent
-                const currentAI = temporaryAgent.ai.getCurrentAI();
 
-                const agentNode: AgentNode = {
-                    agentId: agentId,
-                    agent: temporaryAgent,
-                    parentAgentId: 'team-coordinator', // For now, all delegated agents are children of coordinator
-                    taskDescription: params.jobDescription,
-                    createdAt: new Date(),
-                    childAgentIds: [],
-                    // Store AI metadata for later display
-                    aiProvider: currentAI.provider,
-                    aiModel: currentAI.model,
-                    agentTemplate: params.agentTemplate
-                };
 
-                this.executionStructure.agents.set(agentId, agentNode);
-
-                // Add to parent's children list
-                const parentAgent = this.executionStructure.agents.get('team-coordinator');
-                if (parentAgent) {
-                    parentAgent.childAgentIds.push(agentId);
+            if (params.agentTemplate) {
+                // Create from template
+                const template = this.getTemplate(params.agentTemplate);
+                if (!template) {
+                    throw new Error(`Template '${params.agentTemplate}' not found. Available templates: ${this.availableTemplates.map(t => t.id).join(', ')}`);
                 }
+
+                // Validate template provider is available
+                const availableProviders = this.options.baseRobotaOptions.aiProviders.map(p => p.name);
+                if (!availableProviders.includes(template.config.provider)) {
+                    throw new Error(`Template requires provider '${template.config.provider}' but it's not available. Available providers: ${availableProviders.join(', ')}`);
+                }
+
+                // Build system message with delegation guidance
+                let systemMessage = template.config.systemMessage;
+                if (shouldAllowDelegation) {
+                    systemMessage += '\n\nDELEGATION GUIDANCE: You can use assignTask to delegate parts of this work to other specialists if the task would benefit from specialized expertise outside your primary domain. Focus on your expertise but delegate when it would significantly improve quality.';
+                } else {
+                    systemMessage += '\n\nDIRECT EXECUTION: Handle this task directly using your specialized knowledge and skills. Do not delegate - focus on completing the work within your expertise.';
+                }
+
+                temporaryAgent = new Robota({
+                    name: `temp-agent-${agentId}`,
+                    aiProviders: this.options.baseRobotaOptions.aiProviders,
+                    defaultModel: {
+                        provider: template.config.provider,
+                        model: template.config.model,
+                        temperature: template.config.temperature,
+                        systemMessage: systemMessage,
+                        ...(template.config.maxTokens && { maxTokens: template.config.maxTokens })
+                    },
+                    plugins: [taskAnalyticsPlugin as BasePlugin], // Add analytics to temporary agent
+                    tools: [...delegationTools, ...(this.options.baseRobotaOptions.tools || [])]
+                });
+            } else {
+                // Create dynamic agent
+                let systemMessage = `You are a specialist agent created to handle this specific task: ${params.jobDescription}. ${params.context || ''}`;
+                if (shouldAllowDelegation) {
+                    systemMessage += '\n\nDELEGATION GUIDANCE: You can use assignTask to delegate parts of this work to other specialists if the task would benefit from specialized expertise outside your capabilities.';
+                } else {
+                    systemMessage += '\n\nDIRECT EXECUTION: Handle this task directly using your knowledge and skills. Do not delegate - focus on completing the work yourself.';
+                }
+
+                temporaryAgent = new Robota({
+                    name: `temp-agent-${agentId}`,
+                    aiProviders: this.options.baseRobotaOptions.aiProviders,
+                    defaultModel: {
+                        provider: this.options.baseRobotaOptions.aiProviders[0]?.name || 'openai',
+                        model: 'gpt-4o-mini',
+                        systemMessage: systemMessage
+                    },
+                    plugins: [taskAnalyticsPlugin as BasePlugin], // Add analytics to temporary agent
+                    tools: [...delegationTools, ...(this.options.baseRobotaOptions.tools || [])]
+                });
             }
+
+            // Agent created successfully, execute the task
+            this.logger?.info(`📊 Agent created - Active: ${this.activeAgentsCount}, Total: ${this.totalAgentsCreated}`);
 
             // Execute the task with the temporary agent
             const taskPrompt = this.buildTaskPrompt(params);
             const result = await temporaryAgent.run(taskPrompt);
 
-            const executionTime = Date.now() - startTime;
+            // Get execution stats from the temporary agent's analytics plugin
+            const agentAnalyticsPlugin = temporaryAgent.getPlugin('ExecutionAnalyticsPlugin') as ExecutionAnalyticsPlugin | null;
+            const executionStats = agentAnalyticsPlugin?.getAggregatedStats();
+            const taskDuration = Date.now() - startTime;
 
-            // Build result with metadata
-            const delegateResult: DelegateWorkResult = {
+
+
+            this.logger?.info(`✅ Task completed by agent ${agentId} (${taskDuration}ms)`);
+
+            const delegationRecord: TaskDelegationRecord = {
+                id: uuidv4(),
+                originalTask: params.jobDescription,
+                delegatedTask: taskPrompt,
+                ...(params.agentTemplate && { agentTemplate: params.agentTemplate }),
+                agentId: agentId,
+                priority: params.priority || 'medium',
+                startTime: new Date(startTime),
+                endTime: new Date(Date.now()),
+                duration: taskDuration,
+                result: result,
+                success: true,
+                tokensUsed: this.estimateTokenUsage(taskPrompt, result),
+                executionStats: {
+                    agentExecutions: executionStats && 'totalExecutions' in executionStats ? Number(executionStats.totalExecutions) : 0,
+                    agentAverageDuration: executionStats && 'averageDuration' in executionStats ? Number(executionStats.averageDuration) : 0,
+                    agentSuccessRate: executionStats && 'successRate' in executionStats ? Number(executionStats.successRate) : 0
+                }
+            };
+            this.delegationHistory.push(delegationRecord);
+
+            return {
                 result,
                 agentId: agentId,
                 metadata: {
-                    executionTime,
+                    executionTime: taskDuration,
                     tokensUsed: this.estimateTokenUsage(taskPrompt, result),
+                    agentExecutions: executionStats && 'totalExecutions' in executionStats ? Number(executionStats.totalExecutions) : 0,
+                    agentAverageDuration: executionStats && 'averageDuration' in executionStats ? Number(executionStats.averageDuration) : 0,
+                    agentSuccessRate: executionStats && 'successRate' in executionStats ? Number(executionStats.successRate) : 0,
                     errors: []
                 }
             };
 
-            // Update stats
-            this.stats.totalExecutionTime += executionTime;
-            this.stats.totalTokensUsed += delegateResult.metadata.tokensUsed || 0;
-            this.stats.tasksCompleted++; // 성공한 작업 카운트
-
-            if (this.options.debug) {
-                console.log(`[TeamContainer] Work delegated successfully to agent ${agentId}`);
-            }
-
-            return delegateResult;
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            const executionTime = Date.now() - startTime;
+            const taskDuration = Date.now() - startTime;
 
-            if (this.options.debug) {
-                console.error(`[TeamContainer] Work delegation failed: ${errorMessage}`);
+
+
+            // Decrement counter if agent creation or execution failed (but only if we incremented it)
+            if (counterIncremented && this.activeAgentsCount > 0) {
+                this.activeAgentsCount--;
+                counterIncremented = false; // Prevent double decrement
+
+                this.logger?.info(`📊 Agent failed, slot released - Active: ${this.activeAgentsCount}`);
             }
 
-            // Update failure stats
-            this.stats.tasksFailed++; // 실패한 작업 카운트
-            this.stats.totalExecutionTime += executionTime;
+            this.logger?.error(`❌ Task failed for agent ${agentId} (${taskDuration}ms): ${errorMessage}`);
 
-            // Return error result
+            const delegationRecord: TaskDelegationRecord = {
+                id: uuidv4(),
+                originalTask: params.jobDescription,
+                delegatedTask: params.jobDescription,
+                ...(params.agentTemplate && { agentTemplate: params.agentTemplate }),
+                agentId: agentId,
+                priority: params.priority || 'medium',
+                startTime: new Date(startTime),
+                endTime: new Date(Date.now()),
+                duration: taskDuration,
+                result: `Task failed: ${errorMessage}`,
+                success: false,
+                tokensUsed: this.estimateTokenUsage(params.jobDescription, `Task failed: ${errorMessage}`),
+                executionStats: {
+                    agentExecutions: 0,
+                    agentAverageDuration: 0,
+                    agentSuccessRate: 0
+                }
+            };
+            this.delegationHistory.push(delegationRecord);
+
             return {
                 result: `Task failed: ${errorMessage}`,
                 agentId: agentId,
                 metadata: {
-                    executionTime,
+                    executionTime: taskDuration,
                     errors: [errorMessage]
                 }
             };
         } finally {
-            // Always cleanup the temporary agent
-            if (temporaryAgent) {
-                temporaryAgent.close();
+            // Decrement active agent counter when agent completes successfully
+            // (For failed cases, it's already decremented in catch block)
+            if (counterIncremented && temporaryAgent && this.activeAgentsCount > 0) {
+                this.activeAgentsCount--;
+
+                this.logger?.info(`📊 Agent completed successfully - Active agents now: ${this.activeAgentsCount}`);
             }
+
+
+
+            // Cleanup handled automatically by garbage collection
+            temporaryAgent = null;
         }
     }
 
     /**
-     * Get comprehensive team execution statistics
-     * 
-     * @description
-     * Returns detailed statistics about team performance including agent creation,
-     * task completion rates, execution times, and resource utilization.
-     * 
-     * @returns Current team statistics
-     * @returns {number} returns.totalAgentsCreated - Total number of specialized agents created
-     * @returns {number} returns.totalExecutionTime - Cumulative execution time in milliseconds
-     * @returns {number} returns.totalTokensUsed - Total tokens consumed by all agents
-     * @returns {number} returns.tasksCompleted - Number of successfully completed tasks
-     * @returns {number} returns.tasksFailed - Number of failed tasks
-     * 
-     * @example
-     * ```typescript
-     * const stats = team.getStats();
-     * 
-     * console.log(`Team Performance:`);
-     * console.log(`- Created ${stats.totalAgentsCreated} specialized agents`);
-     * console.log(`- Completed ${stats.tasksCompleted} tasks (${stats.tasksFailed} failed)`);
-     * console.log(`- Total execution time: ${stats.totalExecutionTime}ms`);
-     * console.log(`- Tokens used: ${stats.totalTokensUsed}`);
-     * 
-     * const successRate = stats.tasksCompleted / (stats.tasksCompleted + stats.tasksFailed);
-     * console.log(`- Success rate: ${(successRate * 100).toFixed(1)}%`);
-     * ```
+     * Get team analytics from ExecutionAnalyticsPlugin
      */
-    getStats(): TeamStats {
-        return { ...this.stats };
+    getAnalytics() {
+        const analyticsPlugin = this.teamAgent.getPlugin('ExecutionAnalyticsPlugin');
+        if (analyticsPlugin && 'getStats' in analyticsPlugin && typeof analyticsPlugin.getStats === 'function') {
+            return analyticsPlugin.getStats();
+        }
+        return undefined;
     }
 
     /**
-     * Reset team statistics to initial values
-     * 
-     * @description
-     * Clears all performance statistics and counters, resetting the team
-     * to its initial state. Useful for benchmarking or starting fresh
-     * after a series of operations.
-     * 
-     * @example
-     * ```typescript
-     * // Run some operations
-     * await team.execute('Analyze market data');
-     * await team.execute('Create financial report');
-     * 
-     * console.log(team.getStats()); // Shows accumulated statistics
-     * 
-     * // Reset for new benchmark
-     * team.resetStats();
-     * console.log(team.getStats()); // All counters back to zero
-     * ```
+     * Get execution statistics by operation type
      */
-    resetStats(): void {
-        this.stats = {
-            totalAgentsCreated: 0,
-            totalExecutionTime: 0,
-            totalTokensUsed: 0,
-            tasksCompleted: 0,
-            tasksFailed: 0,
-            templateUsage: {},
-            templateVsDynamicAgents: {
-                template: 0,
-                dynamic: 0
+    getExecutionStats(operation?: string) {
+        const analyticsPlugin = this.teamAgent.getPlugin('ExecutionAnalyticsPlugin') as ExecutionAnalyticsPlugin | null;
+        if (analyticsPlugin && typeof analyticsPlugin.getExecutionStats === 'function') {
+            return analyticsPlugin.getExecutionStats(operation);
+        }
+        return [];
+    }
+
+    /**
+     * Get detailed plugin status and memory usage
+     */
+    getStatus() {
+        const analyticsPlugin = this.teamAgent.getPlugin('ExecutionAnalyticsPlugin');
+        if (analyticsPlugin && 'getStatus' in analyticsPlugin && typeof analyticsPlugin.getStatus === 'function') {
+            return analyticsPlugin.getStatus();
+        }
+        return undefined;
+    }
+
+    /**
+     * Clear analytics data
+     */
+    clearAnalytics(): void {
+        const analyticsPlugin = this.teamAgent.getPlugin('ExecutionAnalyticsPlugin');
+        if (analyticsPlugin && 'clearData' in analyticsPlugin && typeof analyticsPlugin.clearData === 'function') {
+            analyticsPlugin.clearData();
+        }
+    }
+
+    /**
+     * Get raw analytics data
+     */
+    getAnalyticsData() {
+        const analyticsPlugin = this.teamAgent.getPlugin('ExecutionAnalyticsPlugin');
+        if (analyticsPlugin && 'getData' in analyticsPlugin && typeof analyticsPlugin.getData === 'function') {
+            return analyticsPlugin.getData();
+        }
+        return undefined;
+    }
+
+    /**
+     * Get all plugin statuses
+     */
+    getPluginStatuses() {
+        const plugins = this.teamAgent.getPlugins();
+        return plugins.map(plugin => {
+            if ('getStatus' in plugin && typeof plugin.getStatus === 'function') {
+                return plugin.getStatus();
+            }
+            return {
+                name: plugin.name,
+                version: plugin.version,
+                enabled: plugin.isEnabled(),
+                initialized: true
+            };
+        });
+    }
+
+    /**
+     * Get delegation history
+     * 
+     * Returns raw delegation records for detailed analysis
+     */
+    getDelegationHistory(): TaskDelegationRecord[] {
+        return [...this.delegationHistory];
+    }
+
+    /**
+     * Get team execution analysis
+     * 
+     * Provides comprehensive analysis of how the team handled tasks,
+     * including delegation patterns and performance metrics
+     */
+    getTeamExecutionAnalysis(): TeamExecutionAnalysis {
+        const analytics = this.getAnalytics();
+        const totalExecutions = analytics && 'totalExecutions' in analytics ? Number(analytics['totalExecutions']) : 0;
+        const delegatedTasks = this.delegationHistory.length;
+        const directlyHandledTasks = Math.max(0, totalExecutions - delegatedTasks);
+
+        // Calculate delegation breakdown by template
+        const templateStats = new Map<string, { count: number; totalDuration: number; successes: number }>();
+
+        this.delegationHistory.forEach(record => {
+            const template = record.agentTemplate || 'dynamic';
+            const stats = templateStats.get(template) || { count: 0, totalDuration: 0, successes: 0 };
+
+            stats.count++;
+            stats.totalDuration += record.duration || 0;
+            if (record.success) stats.successes++;
+
+            templateStats.set(template, stats);
+        });
+
+        const delegationBreakdown = Array.from(templateStats.entries()).map(([template, stats]) => ({
+            template,
+            count: stats.count,
+            averageDuration: stats.count > 0 ? stats.totalDuration / stats.count : 0,
+            successRate: stats.count > 0 ? stats.successes / stats.count : 0
+        }));
+
+        // Calculate performance metrics
+        const delegationTimes = this.delegationHistory.map(r => r.duration || 0);
+        const averageDelegationTime = delegationTimes.length > 0
+            ? delegationTimes.reduce((a, b) => a + b, 0) / delegationTimes.length
+            : 0;
+
+        const averageDirectHandlingTime = analytics && 'averageDuration' in analytics ? Number(analytics['averageDuration']) : 0;
+        const totalExecutionTime = delegationTimes.reduce((a, b) => a + b, 0);
+
+        return {
+            totalTasks: totalExecutions,
+            directlyHandledTasks,
+            delegatedTasks,
+            delegationRate: totalExecutions > 0 ? delegatedTasks / totalExecutions : 0,
+            delegationBreakdown,
+            taskComplexityAnalysis: {
+                simple: directlyHandledTasks,
+                complex: delegatedTasks
+            },
+            performanceMetrics: {
+                averageDirectHandlingTime,
+                averageDelegationTime,
+                totalExecutionTime
             }
         };
     }
 
     /**
-     * Get the current execution structure with agent relationships
-     * 
-     * @returns Current execution structure or null if no execution is running
+     * Clear delegation history
      */
-    getExecutionStructure(): TeamExecutionStructure | null {
-        return this.executionStructure;
+    clearDelegationHistory(): void {
+        this.delegationHistory = [];
+        this.logger?.debug('Delegation history cleared');
     }
 
     /**
-     * Get the last completed execution structure
-     * 
-     * @returns Last completed execution structure or null if no execution has been completed
+     * Get current team statistics
      */
-    getLastCompletedExecution(): TeamExecutionStructure | null {
-        return this.lastCompletedExecution;
+    /**
+     * Get statistics for team performance (alias for getTeamStats)
+     * 
+     * @description
+     * Returns statistics about team performance including task completion,
+     * agent creation, and execution time. This method is used by examples
+     * to show team performance metrics.
+     * 
+     * @returns Object containing team performance statistics
+     */
+    getStats() {
+        return {
+            tasksCompleted: this.tasksCompleted,
+            totalAgentsCreated: this.totalAgentsCreated,
+            totalExecutionTime: this.totalExecutionTime
+        };
+    }
+
+    getTeamStats() {
+        return {
+            activeAgentsCount: this.activeAgentsCount,
+            totalAgentsCreated: this.totalAgentsCreated,
+            maxMembers: this.options.maxMembers || 'unlimited',
+            delegationHistoryLength: this.delegationHistory.length,
+            successfulTasks: this.delegationHistory.filter(d => d.success).length,
+            failedTasks: this.delegationHistory.filter(d => !d.success).length,
+            tasksCompleted: this.tasksCompleted,
+            totalExecutionTime: this.totalExecutionTime
+        };
     }
 
     /**
-     * Check if there is an active execution
-     * 
-     * @returns True if an execution is currently running
+     * Reset team statistics
      */
-    hasActiveExecution(): boolean {
-        return this.executionStructure !== null;
+    resetTeamStats(): void {
+        this.activeAgentsCount = 0;
+        this.totalAgentsCreated = 0;
+        this.tasksCompleted = 0;
+        this.totalExecutionTime = 0;
+        this.delegationHistory = [];
     }
 
     /**
-     * Get the template manager for advanced template operations
-     * 
-     * @returns The AgentTemplateManager instance used by this team
-     * 
-     * @example
-     * ```typescript
-     * const templateManager = team.getTemplateManager();
-     * const templates = templateManager.getAvailableTemplates();
-     * console.log('Available templates:', templates.map(t => t.name));
-     * 
-     * // Add custom template
-     * templateManager.addTemplate({
-     *   name: 'my_specialist',
-     *   description: 'My custom specialist agent',
-     *   llm_provider: 'openai',
-     *   model: 'gpt-4',
-     *   temperature: 0.5,
-     *   system_prompt: 'You are a specialized expert...',
-     *   tags: ['custom', 'specialist']
-     * });
-     * ```
+     * Get available templates
      */
-    getTemplateManager() {
-        return this.templateManager;
+    getTemplates(): AgentTemplate[] {
+        return [...this.availableTemplates];
     }
 
     /**
-     * Get workflow history from last completed execution
-     * 
-     * @returns Complete workflow history or null if no execution completed
-     * 
-     * @example
-     * ```ts
-     * await team.execute('Create marketing strategy');
-     * const history = team.getWorkflowHistory();
-     * if (history) {
-     *   console.log(`Execution took ${history.endTime - history.startTime}ms`);
-     *   console.log(`Used ${history.agentConversations.length} agents`);
-     * }
-     * ```
+     * Get template by ID
      */
-    getWorkflowHistory(): WorkflowHistory | null {
-        const execution = this.getLastCompletedExecution();
-        if (!execution) {
-            return null;
-        }
-
-        try {
-            return this.extractWorkflowHistory(execution);
-        } catch (error) {
-            this.logger?.error('Error extracting workflow history:', error);
-            return null;
-        }
+    getTemplate(templateId: string): AgentTemplate | undefined {
+        return this.availableTemplates.find(template => template.id === templateId);
     }
 
     /**
-     * Create team coordinator agent using specified template
+     * Build task prompt for delegation
      */
-    private createTeamCoordinator(templateName: string, delegateWorkTool: any): Robota {
-        try {
-            // Get template to use its system prompt
-            const template = this.templateManager.getTemplate(templateName);
-            if (!template) {
-                throw new Error(`Template not found: ${templateName}`);
-            }
-
-            // Use template's system prompt and provider settings
-            const robotaOptions: RobotaOptions = {
-                ...this.options.baseRobotaOptions,
-                systemPrompt: template.system_prompt,
-                temperature: template.temperature,
-                toolProviders: [delegateWorkTool]
-            };
-
-            // Override provider and model if different from base
-            if (template.llm_provider !== this.options.baseRobotaOptions.currentProvider) {
-                robotaOptions.currentProvider = template.llm_provider as any;
-            }
-            if (template.model !== this.options.baseRobotaOptions.currentModel) {
-                robotaOptions.currentModel = template.model;
-            }
-            if (template.maxTokens) {
-                robotaOptions.maxTokens = template.maxTokens;
-            }
-
-            if (this.options.debug) {
-                console.log(`[TeamContainer] Created team coordinator using template: ${templateName} (${template.llm_provider}/${template.model})`);
-            }
-
-            return new Robota(robotaOptions);
-        } catch (error) {
-            if (this.options.debug) {
-                console.warn(`[TeamContainer] Failed to create coordinator with template ${templateName}, falling back to default:`, error);
-            }
-
-            // Fallback to default Robota instance
-            return new Robota({
-                ...this.options.baseRobotaOptions,
-                systemPrompt: this.generateTeamSystemPrompt(),
-                toolProviders: [delegateWorkTool]
-            });
-        }
-    }
-
-    /**
-     * Generate system prompt for the Team agent (fallback)
-     */
-    private generateTeamSystemPrompt(): string {
-        return `You are a Team Coordinator that manages collaborative work through delegation.
-
-CORE PRINCIPLES:
-- Respond in the same language as the user's input
-- For complex tasks, delegate to specialized team members
-- For simple tasks, handle directly
-- Each delegated task must be self-contained and understandable without context
-- Synthesize results from multiple specialists into your final response
-
-DELEGATION RULES:
-1. Create complete, standalone instructions for each specialist
-2. Avoid overlapping tasks between different specialists  
-3. Use appropriate agent templates when specified
-4. Handle final synthesis and comparison yourself
-
-Use delegateWork tool for specialized tasks. Synthesize results to provide complete responses.`;
-    }
-
-    /**
-     * Build the prompt for the Team agent
-     */
-    private buildTeamPrompt(userPrompt: string): string {
-        return userPrompt;
-    }
-
-    /**
-     * Build the prompt for task agents
-     */
-    private buildTaskPrompt(params: DelegateWorkParams): string {
-        let prompt = params.jobDescription;
+    private buildTaskPrompt(params: AssignTaskParams): string {
+        let prompt = `Task: ${params.jobDescription}\n\n`;
 
         if (params.context) {
-            prompt += `\n\nAdditional Context: ${params.context}`;
+            prompt += `Context: ${params.context}\n\n`;
         }
 
-        if (params.priority) {
-            prompt += `\n\nPriority Level: ${params.priority}`;
+        if (params.requiredTools && params.requiredTools.length > 0) {
+            prompt += `Available tools: ${params.requiredTools.join(', ')}\n\n`;
         }
+
+        prompt += `Priority: ${params.priority || 'medium'}\n\nPlease complete this task thoroughly and provide a comprehensive response.`;
 
         return prompt;
     }
 
     /**
-     * Estimate token usage for logging purposes
+     * Estimate token usage for a prompt and response
      */
     private estimateTokenUsage(prompt: string, response: string): number {
-        // Rough estimation: ~4 characters per token
+        // Rough estimation: 4 characters per token
         return Math.ceil((prompt.length + response.length) / 4);
     }
 
     /**
-     * Create the delegateWork tool with dynamic template schema
+     * Create AssignTask tool using facade pattern with dynamic schema based on available templates
      */
-    private createDelegateWorkTool() {
-        // Get available templates dynamically
-        const availableTemplates = this.agentFactory.getTemplateManager().getAvailableTemplates();
+    private createAssignTaskTool() {
+        // Convert templates to the format expected by the facade
+        const templateInfo = this.availableTemplates.map(template => ({
+            id: template.id,
+            description: template.description
+        }));
 
-        // Build template enum and descriptions
-        const templateNames = availableTemplates.map(t => t.name);
-        const templateDescriptions = availableTemplates.map(t =>
-            `"${t.name}" - ${t.description} (${t.llm_provider}/${t.model}, temp: ${t.temperature})`
-        ).join('\n');
-
-        // Create template schema with individual descriptions
-        let agentTemplateSchema;
-        if (templateNames.length > 0) {
-            // Use enum with detailed template descriptions for better AI selection
-            const templateInfo = availableTemplates.map(template =>
-                `"${template.name}": ${template.description}`
-            ).join('\n');
-
-            agentTemplateSchema = z.enum(templateNames as [string, ...string[]])
-                .optional()
-                .describe(`Agent template to use for specialized expertise. Available templates:\n\n${templateInfo}\n\nIf not specified, a dynamic agent will be created based on the job description.`);
-
-            // Debug: log the schema to see what's generated
-            if (this.options.debug) {
-                console.log('[DEBUG] Template schema generated:', {
-                    templateNames,
-                    templateInfo,
-                    schemaDescription: agentTemplateSchema._def.description
-                });
+        // Create the task assignment facade
+        const taskAssignment = createTaskAssignmentFacade(
+            templateInfo,
+            async (params: AssignTaskParams) => {
+                return await this.assignTask(params);
             }
-        } else {
-            agentTemplateSchema = z.string().optional().describe('Name of agent template to use. No templates currently available - dynamic agent will be created.');
-        }
+        );
 
-        // Create dynamic schema based on available templates
-        const delegateWorkSchema = z.object({
-            jobDescription: z.string().describe('Clear description of the specific job to delegate'),
-            context: z.string().describe('Additional context or constraints for the job'),
-            requiredTools: z.array(z.string()).optional().describe('List of tools the member might need'),
-            priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium').describe('Priority level for the task'),
-            agentTemplate: agentTemplateSchema
-        });
+        // Log the schema for debugging
+        console.log('assignTask schema:', JSON.stringify(taskAssignment.tool.schema, null, 2));
 
-        const tools = {
-            delegateWork: {
-                name: 'delegateWork',
-                description: 'Delegate work to a specialized team member. Use this when the task requires specific expertise, complex analysis, or when breaking down work into specialized components would be beneficial.',
-                parameters: delegateWorkSchema,
-                handler: async (params: { [x: string]: any }) => {
-                    this.toolCallCount++;
-                    this.logger?.info(`🎯 Tool call #${this.toolCallCount} received: delegateWork`);
-                    this.logger?.info(`📋 Job: ${params.jobDescription}`);
+        return taskAssignment.tool;
+    }
 
-                    // Type-safe conversion to DelegateWorkParams
-                    const delegateParams: DelegateWorkParams = {
-                        jobDescription: params.jobDescription,
-                        context: params.context,
-                        requiredTools: params.requiredTools || [],
-                        priority: params.priority || 'medium',
-                        agentTemplate: params.agentTemplate
-                    };
+    /**
+     * Get built-in agent templates
+     */
+    private getBuiltinTemplates(): AgentTemplate[] {
+        const defaultModel = this.options.baseRobotaOptions.defaultModel.model || 'gpt-4o-mini';
+        const defaultProvider = this.options.baseRobotaOptions.defaultModel.provider || 'openai';
 
-                    return await this.delegateWork(delegateParams);
+        return [
+            {
+                id: 'general',
+                name: 'General Purpose Agent',
+                description: 'Basic general-purpose agent with no specific specialization. Use only when no other specialized template fits the task requirements or when task scope is too broad and unclear for specialist agents. This is the fallback option when specialized expertise is not needed.',
+                category: 'general',
+                tags: ['general', 'default', 'versatile', 'specialist'],
+                config: {
+                    model: defaultModel,
+                    provider: defaultProvider,
+                    systemMessage: 'You are a helpful and capable AI assistant with broad knowledge and skills. You can adapt to various tasks and requirements while maintaining high quality and accuracy. Your strengths include:\n\n• General problem-solving and analysis\n• Clear communication and explanation\n• Flexible task adaptation\n• Balanced approach to different types of work\n• Reliable execution of varied requests\n\nWhen handling tasks:\n1. Analyze the request to understand requirements\n2. Apply appropriate methods and knowledge\n3. Provide clear, useful, and accurate responses\n4. Ask for clarification when needed\n5. Adapt your approach to the specific context\n6. Ensure completeness and quality in your work\n\nProvide helpful, accurate, and well-structured responses that meet the user\'s needs effectively.',
+                    temperature: 0.5
+                }
+            },
+            {
+                id: 'summarizer',
+                name: 'Content Summarizer',
+                description: 'Analysis specialist expert in document summarization, data extraction, and distilling complex information. Use for: summarizing documents, extracting key insights, creating executive summaries, condensing reports, highlighting main points, creating meeting notes, and comprehensive content analysis.',
+                category: 'analysis',
+                tags: ['analysis', 'summarization', 'extraction', 'specialist'],
+                config: {
+                    model: defaultModel,
+                    provider: defaultProvider,
+                    systemMessage: 'You are an expert summarization specialist with advanced capabilities in analyzing and distilling complex information. Your expertise includes:\n\n• Extracting key points and main ideas from lengthy documents\n• Creating concise summaries while preserving essential information\n• Identifying critical insights and actionable items\n• Structuring information in clear, digestible formats\n• Adapting summary length and style to audience needs\n\nWhen summarizing, focus on:\n1. Main themes and central arguments\n2. Supporting evidence and key data points\n3. Conclusions and recommendations\n4. Action items and next steps\n5. Critical dependencies and risks\n\nDELEGATION GUIDELINES:\n- Handle summarization and analysis tasks directly within your expertise\n- Consider delegating if the task requires specialized domain research, creative ideation, or ethical review beyond summarization\n- Only delegate when it would significantly improve quality or when the task clearly falls outside summarization expertise\n- For pure summarization requests, always handle directly\n\nProvide summaries that are accurate, comprehensive, and immediately useful for decision-making.',
+                    temperature: 0.3
+                }
+            },
+            {
+                id: 'ethical_reviewer',
+                name: 'Ethical Reviewer',
+                description: 'Ethics and compliance specialist expert in comprehensive review processes. Use for: ethical evaluation, compliance checking, bias detection, privacy assessment, content moderation, legal review, risk analysis, safety evaluation, and responsible AI practices.',
+                category: 'analysis',
+                tags: ['ethics', 'review', 'compliance', 'specialist'],
+                config: {
+                    model: defaultModel,
+                    provider: defaultProvider,
+                    systemMessage: 'You are an ethical review specialist focused on responsible AI practices and content compliance. Your expertise covers:\n\n• AI ethics and responsible technology development\n• Privacy protection and data governance\n• Bias detection and fairness assessment\n• Legal compliance and regulatory requirements\n• Content moderation and safety guidelines\n• Transparency and accountability standards\n\nWhen reviewing content or proposals, evaluate:\n1. Potential ethical implications and risks\n2. Privacy and data protection concerns\n3. Bias, fairness, and inclusivity issues\n4. Legal and regulatory compliance\n5. Transparency and explainability requirements\n6. Potential unintended consequences\n\nProvide balanced assessments with specific recommendations for addressing identified concerns while supporting innovation and progress.',
+                    temperature: 0.2
+                }
+            },
+            {
+                id: 'creative_ideator',
+                name: 'Creative Ideator',
+                description: 'Creativity and innovation specialist expert in brainstorming and imaginative problem solving. Use for: brainstorming sessions, innovative product concepts, creative problem solving, design thinking, artistic projects, marketing campaigns, breakthrough ideas, imaginative solutions, and out-of-the-box thinking.',
+                category: 'creative',
+                tags: ['creativity', 'brainstorming', 'innovation', 'specialist'],
+                config: {
+                    model: defaultModel,
+                    provider: defaultProvider,
+                    systemMessage: 'You are a creative ideation expert specializing in innovative thinking and breakthrough idea generation. Your strengths include:\n\n• Divergent thinking and brainstorming techniques\n• Cross-industry innovation and pattern recognition\n• Creative problem-solving methodologies\n• Design thinking and user-centered innovation\n• Future-oriented scenario planning\n• Connecting disparate concepts and ideas\n\nWhen generating ideas, apply:\n1. Multiple perspective-taking and reframing\n2. "What if" scenarios and possibility thinking\n3. Combination and recombination of existing concepts\n4. Challenge assumptions and conventional wisdom\n5. Explore edge cases and unconventional approaches\n6. Consider both incremental and radical innovations\n\nDeliver creative solutions that are imaginative yet practical, pushing boundaries while remaining grounded in feasibility.',
+                    temperature: 0.8
+                }
+            },
+            {
+                id: 'fast_executor',
+                name: 'Fast Executor',
+                description: 'Speed and accuracy specialist expert in rapid task execution. Use for: quick tasks, urgent requests, simple implementations, straightforward analysis, routine operations, time-sensitive work, efficient problem solving, rapid prototyping, and immediate action items requiring fast, accurate execution.',
+                category: 'execution',
+                tags: ['execution', 'speed', 'accuracy', 'specialist'],
+                config: {
+                    model: defaultModel,
+                    provider: defaultProvider,
+                    systemMessage: 'You are a fast and accurate task executor focused on efficiency and precision. Your core competencies include:\n\n• Rapid task analysis and prioritization\n• Efficient workflow optimization\n• Quick decision-making with available information\n• Streamlined communication and reporting\n• Resource optimization and time management\n• Quality control under time constraints\n\nWhen executing tasks, prioritize:\n1. Speed without compromising accuracy\n2. Clear, concise deliverables\n3. Essential information over comprehensive detail\n4. Actionable outputs and next steps\n5. Efficient use of available resources\n6. Quick validation and error checking\n\nDeliver results that meet requirements efficiently, focusing on what matters most for immediate progress and decision-making.',
+                    temperature: 0.1,
+                    maxTokens: 1000
+                }
+            },
+            {
+                id: 'domain_researcher',
+                name: 'Domain Researcher',
+                description: 'Research and analysis specialist with deep domain-expertise. Use for: market research, competitive analysis, technical investigation, academic research, industry analysis, trend studies, data analysis, expert insights, comprehensive reports, and evidence-based conclusions requiring specialized research skills.',
+                category: 'research',
+                tags: ['research', 'analysis', 'domain-expertise', 'specialist'],
+                config: {
+                    model: defaultModel,
+                    provider: defaultProvider,
+                    systemMessage: 'You are a domain research specialist with expertise in conducting thorough investigations across various fields. Your research capabilities include:\n\n• Systematic literature review and analysis\n• Primary and secondary source evaluation\n• Cross-disciplinary knowledge synthesis\n• Trend analysis and pattern recognition\n• Expert opinion and perspective gathering\n• Evidence-based conclusion development\n\nWhen conducting research, focus on:\n1. Comprehensive coverage of relevant sources\n2. Critical evaluation of information quality\n3. Identification of knowledge gaps and limitations\n4. Synthesis of findings into coherent insights\n5. Recognition of competing perspectives and debates\n6. Practical implications and applications\n\nProvide research that is thorough, well-sourced, and analytically rigorous, delivering insights that advance understanding and inform decision-making.',
+                    temperature: 0.4
+                }
+            },
+            {
+                id: 'task_coordinator',
+                name: 'Task Coordinator',
+                description: 'Management and coordination specialist expert in task-management workflows. Use for: managing team workload, assigning tasks, monitoring progress, coordinating resources, ensuring timely completion of tasks, and complex project coordination requiring management expertise.',
+                category: 'management',
+                tags: ['management', 'coordination', 'task-management'],
+                config: {
+                    model: defaultModel,
+                    provider: defaultProvider,
+                    systemMessage: `You are a Team Coordinator that manages collaborative work through intelligent task delegation.
+
+CORE PRINCIPLES:
+- Respond in the same language as the user's input
+- For simple, single-component tasks, handle them directly yourself
+- For complex or multi-faceted tasks, delegate to specialized team members
+- Each delegated task must be self-contained and understandable without context
+- Always synthesize and integrate results from team members into your final response
+
+AVAILABLE ROLES:
+- Coordinators: Can break down complex tasks and manage workflows
+- Specialists: Focus on specific domains and can handle targeted tasks efficiently
+
+DELEGATION BEST PRACTICES:
+- Create clear, standalone instructions for each specialist
+- Avoid overlapping tasks between different team members
+- Select appropriate specialist templates based on task requirements
+- Ensure each delegated task is complete and actionable
+- Handle final synthesis and coordination yourself
+
+Your goal is to coordinate effectively while leveraging specialist expertise for optimal results.`,
+                    temperature: 0.6
                 }
             }
-        };
-
-        return createZodFunctionToolProvider({ tools });
+        ];
     }
-
-    /**
-     * Setup tool call tracking
-     */
-    private setupToolCallTracking(): void {
-        const originalRun = this.teamAgent.run.bind(this.teamAgent);
-        this.teamAgent.run = async (input: string, options?: any) => {
-            this.logger?.info('🚀 Team agent starting work...');
-            this.toolCallCount = 0;
-
-            const result = await originalRun(input, options);
-
-            if (this.toolCallCount > 0) {
-                this.logger?.info(`📊 Total tool calls made: ${this.toolCallCount}`);
-            } else {
-                this.logger?.info('ℹ️  No tool calls made - handling directly');
-            }
-
-            return result;
-        };
-    }
-
-    /**
-     * Initialize the team agent with the delegateWork tool
-     */
-    private initializeTeamAgent(): void {
-        // This method is no longer needed as tool is added in constructor
-    }
-
-    /**
-     * Extract complete workflow history from team execution structure
-     */
-    private extractWorkflowHistory(executionStructure: TeamExecutionStructure): WorkflowHistory {
-        const agentConversations: AgentConversationData[] = [];
-        const agentTree: AgentTreeNode[] = [];
-
-        // Extract conversation data from each agent
-        for (const [agentId, agentNode] of executionStructure.agents) {
-            let messages = [];
-
-            // Handle different agent types (team coordinator vs task agents)
-            if (agentNode.agentId === 'team-coordinator') {
-                // Team coordinator is a direct Robota instance
-                messages = (agentNode.agent as any).conversation.getMessages();
-            } else {
-                // Task agents need to use getRobotaInstance() method
-                const taskAgent = agentNode.agent as any;
-                if (taskAgent.getRobotaInstance) {
-                    messages = taskAgent.getRobotaInstance().conversation.getMessages();
-                }
-            }
-
-            const conversationData: AgentConversationData = {
-                agentId: agentNode.agentId,
-                taskDescription: agentNode.taskDescription,
-                parentAgentId: agentNode.parentAgentId,
-                messages: messages,
-                createdAt: agentNode.createdAt,
-                childAgentIds: agentNode.childAgentIds,
-                aiProvider: agentNode.aiProvider,
-                aiModel: agentNode.aiModel,
-                agentTemplate: agentNode.agentTemplate
-            };
-
-            agentConversations.push(conversationData);
-        }
-
-        // Build agent tree starting from root
-        const rootAgent = executionStructure.agents.get(executionStructure.rootAgentId);
-        if (rootAgent) {
-            agentTree.push(this.buildAgentTree(rootAgent, executionStructure.agents));
-        }
-
-        return {
-            executionId: executionStructure.executionId,
-            userRequest: executionStructure.userRequest,
-            finalResult: executionStructure.finalResult,
-            startTime: executionStructure.startTime,
-            endTime: executionStructure.endTime,
-            success: executionStructure.success,
-            error: executionStructure.error,
-            agentConversations,
-            agentTree
-        };
-    }
-
-    /**
-     * Build agent tree recursively
-     */
-    private buildAgentTree(agentNode: AgentNode, allAgents: Map<string, AgentNode>): AgentTreeNode {
-        const children: AgentTreeNode[] = [];
-
-        for (const childId of agentNode.childAgentIds) {
-            const childAgent = allAgents.get(childId);
-            if (childAgent) {
-                children.push(this.buildAgentTree(childAgent, allAgents));
-            }
-        }
-
-        // Get message count based on agent type
-        let messageCount = 0;
-        if (agentNode.agentId === 'team-coordinator') {
-            // Team coordinator is a direct Robota instance
-            messageCount = (agentNode.agent as any).conversation.getMessageCount();
-        } else {
-            // Task agents need to use getRobotaInstance() method
-            const taskAgent = agentNode.agent as any;
-            if (taskAgent.getRobotaInstance) {
-                messageCount = taskAgent.getRobotaInstance().conversation.getMessageCount();
-            }
-        }
-
-        return {
-            agentId: agentNode.agentId,
-            taskDescription: agentNode.taskDescription,
-            messageCount: messageCount,
-            children
-        };
-    }
-
-
 }
 

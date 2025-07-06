@@ -12,9 +12,25 @@
 
 ### Classes
 
-- [GoogleConversationAdapter](classes/GoogleConversationAdapter)
 - [GoogleProvider](classes/GoogleProvider)
 
 ### Interfaces
 
+- [ProviderOptions](interfaces/ProviderOptions)
 - [GoogleProviderOptions](interfaces/GoogleProviderOptions)
+
+### Type Aliases
+
+- [ProviderOptionValue](#provideroptionvalue)
+
+## Type Aliases
+
+### ProviderOptionValue
+
+Ƭ **ProviderOptionValue**: `string` \| `number` \| `boolean` \| `undefined` \| ``null`` \| [`ProviderOptionValue`](#provideroptionvalue)[] \| \{ `[key: string]`: [`ProviderOptionValue`](#provideroptionvalue);  }
+
+Valid provider option value types
+
+#### Defined in
+
+[google/src/types.ts:4](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/google/src/types.ts#L4)

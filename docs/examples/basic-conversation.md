@@ -7,7 +7,7 @@ This guide demonstrates the most fundamental usage of Robota for basic AI conver
 The basic conversation example shows how to:
 - Set up Robota with an AI provider
 - Send simple messages and receive responses
-- Handle streaming responses
+- Monitor agent statistics
 - Proper resource cleanup
 
 ## Code Example
@@ -18,16 +18,17 @@ The basic conversation example shows how to:
  * 
  * This example demonstrates the most basic usage of Robota:
  * - Simple conversation using OpenAI
- * - Message sending and streaming responses
+ * - Message sending and responses
  * - Proper error handling
+ * - Basic statistics and resource management
  */
 
-import { Robota } from '@robota-sdk/core';
-import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import dotenv from 'dotenv';
 
-// Load environment variables
+// Load environment variables from examples directory
 dotenv.config();
 
 async function main() {
@@ -49,42 +50,48 @@ async function main() {
             model: 'gpt-3.5-turbo'
         });
 
-        // Create Robota instance
+        // Create Robota instance with basic configuration
         const robota = new Robota({
-            aiProviders: {
-                'openai': openaiProvider
-            },
-            currentProvider: 'openai',
-            currentModel: 'gpt-3.5-turbo',
-            systemPrompt: 'You are a helpful AI assistant. Provide concise and useful responses.'
+            name: 'BasicAgent',
+            aiProviders: [openaiProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-3.5-turbo',
+                systemMessage: 'You are a helpful AI assistant. Provide concise and useful responses.'
+            }
         });
 
         // === Simple Conversation ===
-        console.log('📝 Simple Conversation:');
-        const query = 'Hello! Please tell me about TypeScript in 2-3 sentences.';
+        console.log('📝 Simple Question:');
+        const query = 'Hi, what is TypeScript?';
         console.log(`User: ${query}`);
 
         const response = await robota.run(query);
         console.log(`Assistant: ${response}\n`);
 
-        // === Streaming Response ===
-        console.log('🌊 Streaming Response:');
-        const streamQuery = 'What are the main benefits of using TypeScript?';
-        console.log(`User: ${streamQuery}`);
-        console.log('Assistant: ');
-
-        const stream = await robota.runStream(streamQuery);
-        for await (const chunk of stream) {
-            process.stdout.write(chunk.content || '');
-        }
-        console.log('\n');
+        // === Show Statistics ===
+        console.log('📊 Session Statistics:');
+        const stats = robota.getStats();
+        console.log(`- Agent name: ${stats.name}`);
+        console.log(`- Current provider: ${stats.currentProvider}`);
+        console.log(`- History length: ${stats.historyLength}`);
+        console.log(`- Available tools: ${stats.tools.length}`);
+        console.log(`- Plugins: ${stats.plugins.length}`);
+        console.log(`- Uptime: ${Math.round(stats.uptime)}ms\n`);
 
         console.log('✅ Basic Conversation Example Completed!');
 
         // Clean up resources
-        await robota.close();
+        await robota.destroy();
+
+        // Ensure process exits cleanly
+        console.log('🧹 Cleanup completed. Exiting...');
+        process.exit(0);
     } catch (error) {
         console.error('❌ Error occurred:', error);
+        if (error instanceof Error) {
+            console.error('Stack trace:', error.stack);
+        }
         process.exit(1);
     }
 }
@@ -104,34 +111,34 @@ Before running this example, ensure you have:
 
 2. **Dependencies**: Install required packages:
    ```bash
-   npm install @robota-sdk/core @robota-sdk/openai openai dotenv
+   npm install @robota-sdk/agents @robota-sdk/openai openai dotenv
    ```
 
 ## Key Concepts
 
 ### 1. Provider Configuration
 
-The example uses the OpenAI provider, which extends the new `BaseAIProvider` class:
+The example uses the OpenAI provider with direct client configuration:
 
 ```typescript
+const openaiClient = new OpenAI({ apiKey });
 const openaiProvider = new OpenAIProvider({
     client: openaiClient,
     model: 'gpt-3.5-turbo'
 });
 ```
 
-All providers now inherit common functionality from `BaseAIProvider`, ensuring consistent behavior across different AI services.
-
 ### 2. Robota Instance Creation
 
 ```typescript
 const robota = new Robota({
-    aiProviders: {
-        'openai': openaiProvider
-    },
-    currentProvider: 'openai',
-    currentModel: 'gpt-3.5-turbo',
-    systemPrompt: 'You are a helpful AI assistant.'
+    name: 'BasicAgent',
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You are a helpful AI assistant.'
+    }
 });
 ```
 
@@ -143,24 +150,21 @@ const response = await robota.run(query);
 
 The `run()` method sends a message and returns the complete response.
 
-### 4. Streaming Responses
+### 4. Agent Statistics
 
 ```typescript
-const stream = await robota.runStream(streamQuery);
-for await (const chunk of stream) {
-    process.stdout.write(chunk.content || '');
-}
+const stats = robota.getStats();
 ```
 
-The `runStream()` method provides real-time streaming of the AI response.
+Get comprehensive statistics about the agent's current state and usage.
 
 ### 5. Resource Cleanup
 
 ```typescript
-await robota.close();
+await robota.destroy();
 ```
 
-Always call `close()` to properly clean up resources and prevent memory leaks.
+Always call `destroy()` to properly clean up resources and prevent memory leaks.
 
 ## Running the Example
 
@@ -177,15 +181,20 @@ npx tsx 01-basic-conversation.ts
 ```
 🤖 Basic Conversation Example Started...
 
-📝 Simple Conversation:
-User: Hello! Please tell me about TypeScript in 2-3 sentences.
-Assistant: TypeScript is a strongly typed programming language developed by Microsoft that builds on JavaScript by adding static type definitions. It helps catch errors during development time rather than runtime, making code more reliable and maintainable. TypeScript compiles to plain JavaScript and can run anywhere JavaScript runs.
+📝 Simple Question:
+User: Hi, what is TypeScript?
+Assistant: TypeScript is a strongly typed programming language developed by Microsoft that builds on JavaScript by adding static type definitions. It helps catch errors during development time rather than runtime, making code more reliable and maintainable.
 
-🌊 Streaming Response:
-User: What are the main benefits of using TypeScript?
-Assistant: TypeScript offers several key benefits: static typing helps catch errors early in development, improved IDE support with better autocomplete and refactoring capabilities, enhanced code documentation through type annotations, better team collaboration with clear interfaces, easier refactoring of large codebases, and seamless integration with existing JavaScript projects.
+📊 Session Statistics:
+- Agent name: BasicAgent
+- Current provider: openai
+- History length: 2
+- Available tools: 0
+- Plugins: 0
+- Uptime: 1234ms
 
 ✅ Basic Conversation Example Completed!
+🧹 Cleanup completed. Exiting...
 ```
 
 ## Next Steps

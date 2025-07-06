@@ -1,326 +1,258 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { BaseAIProvider } from '@robota-sdk/core';
-import type {
-    Context,
-    ModelResponse,
-    StreamingResponseChunk,
-    UniversalMessage
-} from '@robota-sdk/core';
-import type { FunctionSchema } from '@robota-sdk/tools';
 import type { GoogleProviderOptions } from './types';
-import { GoogleConversationAdapter } from './adapter';
+import { BaseAIProvider } from '@robota-sdk/agents';
+import type {
+    UniversalMessage,
+    ChatOptions,
+    ToolSchema,
+    AssistantMessage
+} from '@robota-sdk/agents';
+
+
 
 /**
- * Google AI provider implementation for Robota
+ * Google Gemini provider implementation for Robota
  * 
- * Provides integration with Google's Generative AI services including Gemini models.
- * Extends BaseAIProvider for common functionality and tool calling support.
- * 
- * @see {@link ../../../apps/examples/03-integrations | Provider Integration Examples}
+ * IMPORTANT PROVIDER-SPECIFIC RULES:
+ * 1. This provider MUST extend BaseAIProvider from @robota-sdk/agents
+ * 2. Content handling for Google Gemini API:
+ *    - Function calls can have content (text) along with function calls
+ *    - Content can be empty string or actual text, NOT null
+ * 3. Use override keyword for all methods inherited from BaseAIProvider
+ * 4. Provider-specific API behavior should be documented here
  * 
  * @public
  */
 export class GoogleProvider extends BaseAIProvider {
-    /**
-     * Provider identifier name
-     * @readonly
-     */
-    public readonly name: string = 'google';
+    override readonly name = 'google';
+    override readonly version = '1.0.0';
 
-    /**
-     * Google AI client instance
-     * @internal
-     */
     private readonly client: GoogleGenerativeAI;
+    private readonly options: GoogleProviderOptions;
 
-    /**
-     * Provider configuration options
-     * @readonly
-     */
-    public readonly options: GoogleProviderOptions;
-
-    /**
-     * Create a new Google AI provider instance
-     * 
-     * @param options - Configuration options for the Google provider
-     * 
-     * @throws {Error} When client is not provided in options
-     */
     constructor(options: GoogleProviderOptions) {
         super();
-
-        this.options = {
-            temperature: 0.7,
-            maxTokens: undefined,
-            ...options
-        };
-
-        // Validate required client injection
-        if (!options.client) {
-            throw new Error('Google AI client is not injected. The client option is required.');
-        }
-
-        this.client = options.client;
+        this.options = options;
+        this.client = new GoogleGenerativeAI(options.apiKey);
     }
 
     /**
-     * Send a chat request to Google AI and receive a complete response
-     * 
-     * @param model - Model name to use (e.g., 'gemini-1.5-pro', 'gemini-1.5-flash')
-     * @param context - Context object containing messages and system prompt
-     * @param options - Optional generation parameters and tools
-     * @returns Promise resolving to the model's response
-     * 
-     * @throws {Error} When context is invalid
-     * @throws {Error} When messages array is invalid
-     * @throws {Error} When Google AI API call fails
+     * Generate response using UniversalMessage
      */
-    async chat(model: string, context: Context, options?: any): Promise<ModelResponse> {
-        // Use base class validation
-        this.validateContext(context);
+    override async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+        this.validateMessages(messages);
 
-        const { messages, systemPrompt } = context;
+        const model = this.client.getGenerativeModel({
+            model: this.options.model || 'gemini-1.5-flash'
+        });
 
-        try {
-            // Convert UniversalMessage[] to Google AI format
-            const { contents, systemInstruction } = GoogleConversationAdapter.processMessages(
-                messages as UniversalMessage[],
-                systemPrompt
-            );
+        const geminiMessages = this.convertToGeminiFormat(messages);
 
-            // Configure tools if provided
-            const toolConfig = this.configureTools(options?.tools);
-            const modelConfig: any = {
-                model: model || this.options.model || 'gemini-1.5-flash',
-                systemInstruction: systemInstruction
-            };
+        const result = await model.generateContent({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            contents: geminiMessages as any, // Google SDK types are complex, using any here
+            generationConfig: {
+                temperature: options?.temperature,
+                maxOutputTokens: options?.maxTokens
+            },
+            ...(options?.tools && {
+                tools: [{
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    functionDeclarations: this.convertToolsToGeminiFormat(options.tools) as any
+                }]
+            })
+        });
 
-            // Add tools to model configuration if available
-            if (toolConfig) {
-                modelConfig.tools = toolConfig.tools;
+        return this.convertFromGeminiResponse(result.response);
+    }
+
+    /**
+     * Generate streaming response using UniversalMessage
+     */
+    override async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+        this.validateMessages(messages);
+
+        const model = this.client.getGenerativeModel({
+            model: this.options.model || 'gemini-1.5-flash'
+        });
+
+        const geminiMessages = this.convertToGeminiFormat(messages);
+
+        const result = await model.generateContentStream({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            contents: geminiMessages as any, // Google SDK types are complex, using any here
+            generationConfig: {
+                temperature: options?.temperature,
+                maxOutputTokens: options?.maxTokens
+            },
+            ...(options?.tools && {
+                tools: [{
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    functionDeclarations: this.convertToolsToGeminiFormat(options.tools) as any
+                }]
+            })
+        });
+
+        for await (const chunk of result.stream) {
+            const text = chunk.text();
+            if (text) {
+                yield {
+                    role: 'assistant',
+                    content: text,
+                    timestamp: new Date()
+                };
             }
-
-            // Get Google AI model instance
-            const generativeModel = this.client.getGenerativeModel(modelConfig);
-
-            // Configure generation parameters
-            const generationConfig = {
-                temperature: options?.temperature ?? this.options.temperature,
-                maxOutputTokens: options?.maxTokens ?? this.options.maxTokens,
-                ...(this.options.responseMimeType && {
-                    responseMimeType: this.options.responseMimeType
-                }),
-                ...(this.options.responseSchema && {
-                    responseSchema: this.options.responseSchema
-                })
-            };
-
-            // Generate content
-            const result = await generativeModel.generateContent({
-                contents,
-                generationConfig
-            });
-
-            return this.parseResponse(result);
-        } catch (error) {
-            this.handleApiError(error, 'chat');
         }
     }
 
-    /**
-     * Send a streaming chat request to Google AI and receive response chunks
-     * 
-     * Generates an async iterator that yields response chunks as they arrive.
-     * Useful for real-time display of responses or handling large responses incrementally.
-     * 
-     * @param model - Model name to use
-     * @param context - Context object containing messages and system prompt
-     * @param options - Optional generation parameters and tools
-     * @returns Async generator yielding response chunks
-     * 
-     * @throws {Error} When context is invalid
-     * @throws {Error} When messages array is invalid
-     * @throws {Error} When Google AI API streaming call fails
-     */
-    async *chatStream(model: string, context: Context, options?: any): AsyncGenerator<StreamingResponseChunk, void, unknown> {
-        // Use base class validation
-        this.validateContext(context);
+    override supportsTools(): boolean {
+        return true;
+    }
 
-        const { messages, systemPrompt } = context;
+    override validateConfig(): boolean {
+        return !!this.client && !!this.options && !!this.options.apiKey;
+    }
 
-        try {
-            // Convert UniversalMessage[] to Google AI format
-            const { contents, systemInstruction } = GoogleConversationAdapter.processMessages(
-                messages as UniversalMessage[],
-                systemPrompt
-            );
-
-            // Configure tools if provided
-            const toolConfig = this.configureTools(options?.tools);
-            const modelConfig: any = {
-                model: model || this.options.model || 'gemini-1.5-flash',
-                systemInstruction: systemInstruction
-            };
-
-            // Add tools to model configuration if available
-            if (toolConfig) {
-                modelConfig.tools = toolConfig.tools;
-            }
-
-            // Get Google AI model instance
-            const generativeModel = this.client.getGenerativeModel(modelConfig);
-
-            // Configure generation parameters
-            const generationConfig = {
-                temperature: options?.temperature ?? this.options.temperature,
-                maxOutputTokens: options?.maxTokens ?? this.options.maxTokens,
-                ...(this.options.responseMimeType && {
-                    responseMimeType: this.options.responseMimeType
-                }),
-                ...(this.options.responseSchema && {
-                    responseSchema: this.options.responseSchema
-                })
-            };
-
-            // Generate streaming content
-            const result = await generativeModel.generateContentStream({
-                contents,
-                generationConfig
-            });
-
-            for await (const chunk of result.stream) {
-                yield this.parseStreamingChunk(chunk);
-            }
-        } catch (error) {
-            this.handleApiError(error, 'chatStream');
-        }
+    override async dispose(): Promise<void> {
+        // Google client doesn't need explicit cleanup
     }
 
     /**
-     * Configure tools for Google AI API request
+     * Convert UniversalMessage to Gemini format
      * 
-     * Google AI supports function calling with Gemini models.
-     * Transforms function schemas into Google AI tool format.
-     * 
-     * @param tools - Array of function schemas
-     * @returns Google AI tool configuration object or undefined
+     * IMPORTANT: Google Gemini allows content with function calls
+     * - Content can be empty string or text, but NOT null
      */
-    protected configureTools(tools?: FunctionSchema[]): { tools: any[] } | undefined {
-        if (!tools || !Array.isArray(tools)) {
-            return undefined;
-        }
+    private convertToGeminiFormat(messages: UniversalMessage[]): Array<{
+        role: 'user' | 'model';
+        parts: Array<{
+            text?: string;
+            functionCall?: {
+                name: string;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                args: Record<string, any>;
+            };
+        }>;
+    }> {
+        return messages.map(msg => {
+            if (msg.role === 'user') {
+                return {
+                    role: 'user' as const,
+                    parts: [{ text: msg.content || '' }]
+                };
+            } else if (msg.role === 'assistant') {
+                const assistantMsg = msg as AssistantMessage;
+                const parts: Array<{
+                    text?: string;
+                    functionCall?: {
+                        name: string;
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        args: Record<string, any>;
+                    };
+                }> = [];
 
-        return {
-            tools: [{
-                functionDeclarations: tools.map(fn => ({
-                    name: fn.name,
-                    description: fn.description || '',
-                    parameters: fn.parameters
-                }))
-            }]
-        };
-    }
+                // Google allows content with function calls
+                if (assistantMsg.content) {
+                    parts.push({ text: assistantMsg.content });
+                }
 
-    /**
-     * Parse Google AI response into universal ModelResponse format
-     * 
-     * Extracts content, usage information, and metadata from the Google AI response
-     * and converts it to the standard format used across all providers.
-     * Supports function calling with Gemini models.
-     * 
-     * @param response - Raw response from Google AI API
-     * @returns Parsed model response in universal format
-     * 
-     * @internal
-     */
-    parseResponse(response: any): ModelResponse {
-        let content = '';
-        const toolCalls: any[] = [];
-
-        // Extract content and function calls from response
-        const candidate = response.response?.candidates?.[0];
-        if (candidate?.content?.parts) {
-            for (const part of candidate.content.parts) {
-                if (part.text) {
-                    content += part.text;
-                } else if (part.functionCall) {
-                    // Convert Google AI function call to OpenAI format for consistency
-                    toolCalls.push({
-                        id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                        type: 'function' as const,
-                        function: {
-                            name: part.functionCall.name,
-                            arguments: JSON.stringify(part.functionCall.args || {})
-                        }
+                if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {
+                    assistantMsg.toolCalls.forEach(tc => {
+                        parts.push({
+                            functionCall: {
+                                name: tc.function.name,
+                                args: JSON.parse(tc.function.arguments)
+                            }
+                        });
                     });
                 }
+
+                return {
+                    role: 'model' as const,
+                    parts
+                };
+            } else {
+                // System messages
+                return {
+                    role: 'user' as const,
+                    parts: [{ text: `System: ${msg.content || ''}` }]
+                };
             }
+        });
+    }
+
+    /**
+     * Convert Gemini response to UniversalMessage
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private convertFromGeminiResponse(response: any): UniversalMessage {
+        const candidate = response.candidates?.[0];
+        if (!candidate) {
+            throw new Error('No candidate in Gemini response');
         }
 
-        // Extract usage information from response if available
-        const usageMetadata = response.response?.usageMetadata;
-        const usage = usageMetadata ? {
-            promptTokens: usageMetadata.promptTokenCount || 0,
-            completionTokens: usageMetadata.candidatesTokenCount || 0,
-            totalTokens: usageMetadata.totalTokenCount || 0
-        } : {
-            promptTokens: 0,
-            completionTokens: 0,
-            totalTokens: 0
+        const content = candidate.content;
+        if (!content || !content.parts || content.parts.length === 0) {
+            throw new Error('No content in Gemini response');
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const textParts = content.parts.filter((p: any) => p.text).map((p: any) => p.text);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const functionCalls = content.parts.filter((p: any) => p.functionCall);
+
+        const result: UniversalMessage = {
+            role: 'assistant',
+            content: textParts.join('') || '',
+            timestamp: new Date()
         };
 
-        const result: ModelResponse = {
-            content: content || undefined,
-            usage,
-            metadata: {
-                model: response.response?.model,
-                finishReason: candidate?.finishReason,
-                safetyRatings: candidate?.safetyRatings
-            }
-        };
+        if (functionCalls.length > 0) {
+            const assistantResult = result as AssistantMessage;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            assistantResult.toolCalls = functionCalls.map((fc: any) => ({
+                id: this.generateId(),
+                type: 'function' as const,
+                function: {
+                    name: fc.functionCall.name,
+                    arguments: JSON.stringify(fc.functionCall.args)
+                }
+            }));
+        }
 
-        // Add tool calls if present
-        if (toolCalls.length > 0) {
-            result.toolCalls = toolCalls;
+        // Add metadata if available
+        if (response.usageMetadata) {
+            result.metadata = {
+                promptTokens: response.usageMetadata.promptTokenCount,
+                completionTokens: response.usageMetadata.candidatesTokenCount,
+                totalTokens: response.usageMetadata.totalTokenCount
+            };
         }
 
         return result;
     }
 
     /**
-     * Parse Google AI streaming response chunk into universal format
-     * 
-     * Converts individual chunks from the streaming response into the standard
-     * StreamingResponseChunk format used across all providers.
-     * 
-     * @param chunk - Raw chunk from Google AI streaming API
-     * @returns Parsed streaming response chunk
-     * 
-     * @internal
+     * Convert tools to Gemini format
      */
-    parseStreamingChunk(chunk: any): StreamingResponseChunk {
-        const text = chunk.text() || '';
-
-        // Determine if this is the final chunk
-        const candidate = chunk.candidates?.[0];
-        const isComplete = candidate?.finishReason !== undefined && candidate.finishReason !== null;
-
-        return {
-            content: text,
-            isComplete
-        };
+    private convertToolsToGeminiFormat(tools: ToolSchema[]): Array<{
+        name: string;
+        description: string;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        parameters: Record<string, any>;
+    }> {
+        return tools.map(tool => ({
+            name: tool.name,
+            description: tool.description,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            parameters: tool.parameters as Record<string, any>
+        }));
     }
 
     /**
-     * Release resources and close connections
-     * 
-     * Performs cleanup operations when the provider is no longer needed.
-     * Google AI client doesn't require explicit cleanup, so this is a no-op.
-     * 
-     * @returns Promise that resolves when cleanup is complete
+     * Generate a unique ID
      */
-    async close(): Promise<void> {
-        // Google AI client doesn't have explicit close method
-        // This is implemented as no-op for interface compliance
+    private generateId(): string {
+        return `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
 } 

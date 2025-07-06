@@ -1,40 +1,43 @@
-// Facade for conversation service - leverages core package
-import type { UniversalMessage } from '@robota-sdk/core';
-import { SimpleConversationHistory } from '../conversation-history/simple-conversation-history';
+// Facade for conversation service - uses agents unified implementation
+import { ConversationSession } from '@robota-sdk/agents';
+
+// Import the UniversalMessage type from agents managers
+type UniversalMessage = Parameters<ConversationSession['addMessage']>[0];
+type Message = UniversalMessage;
 
 export interface ConversationService {
-    addMessage(message: UniversalMessage): void;
-    getMessages(): UniversalMessage[];
+    addMessage(message: Message): void;
+    getMessages(): Message[];
     getConversationSummary(): string;
     clearConversation(): void;
 }
 
 // Lightweight implementation focusing on session-specific conversation management
 export class ConversationServiceImpl implements ConversationService {
-    private conversationHistory: SimpleConversationHistory;
+    private conversationSession: ConversationSession;
 
     constructor(maxMessages?: number) {
-        this.conversationHistory = new SimpleConversationHistory(maxMessages);
+        this.conversationSession = new ConversationSession(maxMessages);
     }
 
-    addMessage(message: UniversalMessage): void {
-        this.conversationHistory.addMessage(message);
+    addMessage(message: Message): void {
+        this.conversationSession.addMessage(message);
     }
 
-    getMessages(): UniversalMessage[] {
-        return this.conversationHistory.getMessages();
+    getMessages(): Message[] {
+        return this.conversationSession.getMessages();
     }
 
     getConversationSummary(): string {
-        const messages = this.conversationHistory.getMessages();
+        const messages = this.conversationSession.getMessages();
         const messageCount = messages.length;
-        const lastMessage = this.conversationHistory.getLastMessage();
+        const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
 
         return `Conversation with ${messageCount} messages. Last message: ${lastMessage ? `${lastMessage.role} - ${lastMessage.content?.slice(0, 50) || 'No content'}...` : 'None'
             }`;
     }
 
     clearConversation(): void {
-        this.conversationHistory.clear();
+        this.conversationSession.clear();
     }
 } 

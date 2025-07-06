@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import type { OpenAILogData } from './types/api-types';
 
 /**
  * Utility class for logging OpenAI API payloads to files
@@ -28,7 +29,7 @@ export class PayloadLogger {
      * @param payload - The API request payload
      * @param type - Type of request ('chat' or 'stream')
      */
-    async logPayload(payload: any, type: 'chat' | 'stream' = 'chat'): Promise<void> {
+    async logPayload(payload: OpenAILogData, type: 'chat' | 'stream' = 'chat'): Promise<void> {
         if (!this.enabled) {
             return;
         }
@@ -82,9 +83,9 @@ export class PayloadLogger {
      * @param payload - Raw payload object
      * @returns Sanitized payload
      */
-    private sanitizePayload(payload: any): any {
+    private sanitizePayload(payload: OpenAILogData): OpenAILogData {
         // Create a deep copy to avoid modifying original
-        const sanitized = JSON.parse(JSON.stringify(payload));
+        const sanitized = JSON.parse(JSON.stringify(payload)) as OpenAILogData;
 
         // Remove or mask sensitive data if needed
         // For now, we keep everything as OpenAI payloads don't contain API keys

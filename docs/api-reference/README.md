@@ -1,145 +1,143 @@
-Core API / [Exports](modules.md)
+agents / [Exports](modules.md)
 
-# Robota - AI Agent Framework
+# @robota-sdk/agents
 
-Robota is an AI agent framework written in JavaScript/TypeScript. This project is structured as a pnpm monorepo, with the option to run examples using bun.
+The comprehensive AI agent framework with type-safe architecture and advanced plugin system.
 
-## Project Structure
+## Overview
 
-```
-robota/
-├── packages/           # Core packages
-│   ├── core/           # Core functionality
-│   ├── openai/         # OpenAI integration
-│   ├── anthropic/      # Anthropic integration
-│   ├── mcp/            # MCP implementation
-│   ├── tools/          # Tool system
-│   └── ...
-└── apps/               # Applications
-    ├── docs/           # Documentation app
-    └── examples/       # Example code
-```
+The `@robota-sdk/agents` package is the unified core of the Robota SDK, providing a complete AI agent system with advanced capabilities for conversation management, tool execution, and extensible plugin architecture.
 
 ## Installation
 
-### Requirements
-
-- Node.js 18 or higher
-- pnpm 8 or higher
-- bun 1 or higher (optional)
-
-### Setup
-
 ```bash
-# Install pnpm (if not already installed)
-npm install -g pnpm
-
-# Install bun (if not already installed)
-curl -fsSL https://bun.sh/install | bash
-
-# Install dependencies
-pnpm install
+npm install @robota-sdk/agents
 ```
 
-## Running Examples
+## Quick Start
 
-All examples are located in the `apps/examples` directory. Navigate there first:
+```typescript
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 
-```bash
-cd apps/examples
-```
+const agent = new Robota({
+  name: 'MyAgent',
+  aiProviders: { 
+    openai: new OpenAIProvider({ apiKey: 'sk-...' }) 
+  },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4'
+});
 
-### Method 1: Using Package Scripts
-
-```bash
-# Individual examples
-pnpm start:simple-conversation
-pnpm start:using-ai-client
-pnpm start:multi-ai-providers
-pnpm start:provider-switching
-pnpm start:zod-function-provider
-pnpm start:using-tool-providers
-
-# Example groups
-pnpm start:all-basic          # All basic examples
-pnpm start:all-tool-providers # All tool provider examples
-pnpm start:all-examples       # All examples sequentially
-pnpm start:all                # Quick demo
-```
-
-### Method 2: Direct File Execution
-
-```bash
-# With bun (fastest)
-bun run 01-basic/01-simple-conversation.ts
-bun run 01-basic/02-ai-with-tools.ts
-bun run 01-basic/03-multi-ai-providers.ts
-
-# With pnpm + tsx
-pnpm tsx 01-basic/01-simple-conversation.ts
-pnpm tsx 02-functions/01-zod-function-tools.ts
-pnpm tsx 03-integrations/01-mcp-client.ts
-```
-
-## Development
-
-### Building Packages
-
-```bash
-# Build all packages
-pnpm build
-
-# Build core dependencies first
-pnpm build:deps
-```
-
-### Type Checking
-
-```bash
-pnpm typecheck
-```
-
-## Environment Variables
-
-To run examples, create a `.env` file in the project root and set the necessary environment variables:
-
-```
-# OpenAI API key (required)
-OPENAI_API_KEY=your_api_key_here
-
-# Weather API key (optional)
-WEATHER_API_KEY=your_weather_api_key_here
-
-# MCP API key (needed for MCP examples)
-MCP_API_KEY=your_mcp_api_key_here
+const response = await agent.run('Hello, world!');
+console.log(response);
 ```
 
 ## Key Features
 
-### Model Context Protocol (MCP) Support
+### 🤖 Agent System
+- **Type-Safe Architecture**: Full TypeScript support with generic type parameters
+- **Robota Class**: Complete AI agent implementation with conversation + tool system + plugin integration
+- **Stateless Service Layer**: ConversationService, ToolExecutionService, ExecutionService for business logic
+- **Manager Layer**: AIProviders, Tools, AgentFactory, Plugins, ConversationHistory for resource management
+- **Parallel Tool Execution**: Concurrent multi-tool calling support
 
-Robota now supports the Model Context Protocol. With MCP, you can communicate with various AI model providers in a standardized way:
+### 🌊 Streaming Response System
+- **Real-time Streaming**: Full streaming support across all AI providers
+- **Modular Architecture**: Separate streaming/parsing logic for each provider
+- **Provider Support**: OpenAI, Anthropic, Google with dedicated stream handlers
 
-```typescript
-import { Robota, createMcpToolProvider } from 'robota';
-import { Client, StdioClientTransport } from '@modelcontextprotocol/sdk';
+### 🔧 Tool System
+- **Type-Safe Tools**: `BaseTool<TParameters, TResult>` with compile-time type checking
+- **ToolRegistry**: Schema storage and validation system
+- **Function Tools**: Zod schema-based function tool implementation
+- **OpenAPI/MCP Support**: Basic structure for extensibility
 
-// Create MCP client
-const transport = new StdioClientTransport(/* config */);
-const mcpClient = new Client(transport);
+### 🔌 Plugin System
+Eight core plugins with type-safe configuration:
 
-// Initialize MCP provider
-const provider = createMcpToolProvider(mcpClient, {
-  model: 'model-name', // Model name to use
-  temperature: 0.7
-});
+- **ConversationHistoryPlugin**: Conversation storage (memory/file/database)
+- **UsagePlugin**: Usage statistics collection (calls, tokens, costs)
+- **LoggingPlugin**: Operation logging (Console/File/Remote with environment control)
+- **PerformancePlugin**: Performance metrics (response time, memory, CPU)
+- **ErrorHandlingPlugin**: Error logging, recovery, and retry handling
+- **LimitsPlugin**: Token/request limits (Rate limiting, cost control)
+- **EventEmitterPlugin**: Tool event detection and propagation
+- **WebhookPlugin**: Webhook notifications for external systems
 
-// Connect provider to Robota instance
-const robota = new Robota({ provider });
+### 🔒 Type Safety Features
+- **Generic Type Parameters**: `BaseAgent<TConfig, TContext, TMessage>`
+- **Provider Agnostic**: Dynamic provider registration with type safety
+- **Extended RunContext**: Provider-specific options with type preservation
+- **Plugin Type Parameters**: `BasePlugin<TOptions, TStats>` for specialized configurations
 
-// Execute
-const result = await robota.run('Hello! I am chatting with an AI model connected through MCP.');
+## Architecture
+
+### Core Abstraction Layers
+
 ```
+BaseAgent<TConfig, TContext, TMessage> (Abstract Class)
+└── Robota (Implementation - AI conversation + tool system + plugins)
+
+BaseAIProvider<TConfig, TMessage, TResponse>
+├── OpenAIProvider (via @robota-sdk/openai)
+├── AnthropicProvider (via @robota-sdk/anthropic)
+└── GoogleProvider (via @robota-sdk/google)
+
+BaseTool<TParameters, TResult>
+├── FunctionTool (Zod schema-based)
+├── OpenAPITool (API specification-based)
+└── MCPTool (Model Context Protocol)
+
+BasePlugin<TOptions, TStats>
+├── Core Plugins (8 essential plugins)
+└── Custom Plugins (User-defined extensions)
+```
+
+### Module Structure
+
+```
+packages/agents/src/
+├── abstracts/           # Abstract base classes with type parameters
+├── interfaces/          # Type-safe interface definitions
+├── agents/             # Main agent system
+│   ├── managers/       # Resource managers
+│   ├── services/       # Stateless business logic
+│   └── tools/          # Tool system
+├── plugins/            # Plugin system with Facade pattern
+└── utils/              # Core utilities
+```
+
+## Development
+
+See [development.md](development.md) for detailed development guidelines.
+
+## API Reference
+
+See [api.md](api.md) for complete API documentation.
+
+## Architecture Guide
+
+See [architecture.md](architecture.md) for detailed architecture information.
+
+## Examples
+
+- [Basic Usage](../../../docs/examples/basic-usage.md)
+- [Tool Integration](../../../docs/examples/tool-integration.md)
+- [Plugin Development](../../../docs/examples/plugin-development.md)
+- [Streaming Responses](../../../docs/examples/streaming.md)
+
+## Package Compatibility
+
+### Integrated Packages
+- **@robota-sdk/openai**: Complete agents standard migration
+- **@robota-sdk/anthropic**: Complete agents standard migration  
+- **@robota-sdk/google**: Complete agents standard migration
+- **@robota-sdk/team**: Full integration with team collaboration features
+
+### Deprecated Packages
+- **@robota-sdk/core**: Deprecated - functionality moved to agents
+- **@robota-sdk/tools**: Deprecated - functionality moved to agents
 
 ## License
 

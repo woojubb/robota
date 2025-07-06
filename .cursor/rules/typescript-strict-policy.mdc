@@ -1,0 +1,279 @@
+# 🚨 CRITICAL POLICY: TypeScript Strict Type Safety
+
+## ABSOLUTE PROHIBITION: any/unknown Types
+
+### ❌ NEVER ALLOWED WITHOUT EXPLICIT USER CONSENT
+- `any` type usage in ANY code
+- `unknown` type usage in ANY code  
+- `{}` empty object type
+- Type assertions with `as any`
+- `@ts-ignore` or `@ts-nocheck` comments
+- Disabling of strict TypeScript rules
+- `Record<string, any>` or `Record<string, unknown>`
+
+### 🚨 MANDATORY USER CONSENT PROTOCOL
+**BEFORE using any/unknown types:**
+1. **STOP** and ask user explicitly: "I need to use 'any/unknown' type for [specific reason]. This violates our strict typing rules. Do you explicitly approve this specific usage?"
+2. **WAIT** for explicit user approval ("Yes, I approve" or similar)
+3. **DOCUMENT** the approval in code comments
+4. **PROPOSE** type-safe alternatives first
+
+### ✅ REQUIRED ALTERNATIVES
+Instead of prohibited types, use:
+- **Specific interfaces**: `interface UserData { name: string; age: number }`
+- **Union types**: `string | number | boolean`
+- **Generic constraints**: `<T extends Record<string, string>>`
+- **Branded types**: `type UserId = string & { __brand: 'UserId' }`
+- **Conditional types**: `T extends U ? X : Y`
+- **Mapped types**: `{ [K in keyof T]: string }`
+
+### 🛡️ ENFORCEMENT MECHANISMS
+
+#### TypeScript Configuration
+- [tsconfig.base.json](mdc:tsconfig.base.json) contains strict rules that are **IMMUTABLE**
+- `noImplicitAny: true` - Zero tolerance for implicit any
+- `strict: true` - Maximum strictness required
+- `exactOptionalPropertyTypes: true` - Precise optional handling
+
+#### ESLint Configuration  
+- [.eslintrc.json](mdc:.eslintrc.json) contains error-level rules that are **IMMUTABLE**
+- `@typescript-eslint/no-explicit-any: "error"` - Any usage is a build failure
+- `@typescript-eslint/no-unsafe-*: "error"` - All unsafe operations prohibited
+- `@typescript-eslint/ban-types` - Comprehensive type prohibition
+
+### 🚫 ZERO EXCEPTIONS POLICY
+- **NO JUSTIFICATIONS** for any/unknown usage are acceptable
+- **NO RATIONALIZATIONS** about "appropriate usage" are permitted
+- **NO EXCEPTIONS** without explicit user consent
+- **EVEN TEST FILES** require user approval for any/unknown usage
+
+### 🔒 POLICY PROTECTION
+
+#### Configuration Immutability
+- TypeScript and ESLint configurations contain protection comments
+- Settings marked with 🚨 symbols are **STRICTLY PROHIBITED** from modification
+- Architecture team approval required for any policy changes
+
+#### Code Review Requirements
+- All PRs must pass strict type checking with zero errors
+- Type assertions require explicit justification in PR description
+- Facade patterns and utility functions preferred over type workarounds
+
+### 📋 IMPLEMENTATION PATTERNS
+
+#### Facade Pattern for Complex Types
+```typescript
+// ✅ GOOD: Use facade to hide complexity
+class TypeSafeWrapper {
+  private data: ComplexInternalType;
+  
+  public getValue(): string {
+    return this.processData(this.data);
+  }
+}
+```
+
+#### Pure Functions for Type Conversion
+```typescript
+// ✅ GOOD: Pure function with explicit types
+function convertToUserData(input: RawApiResponse): UserData {
+  return {
+    name: input.user_name,
+    age: Number(input.user_age)
+  };
+}
+```
+
+#### Type Guards for Runtime Safety
+```typescript
+// ✅ GOOD: Type guard with explicit checks
+function isValidUser(data: unknown): data is UserData {
+  return typeof data === 'object' && 
+         data !== null &&
+         'name' in data && 
+         'age' in data;
+}
+```
+
+### 🚫 VIOLATION CONSEQUENCES
+- Build failures for any/unknown usage
+- PR rejection for type safety violations  
+- Code review escalation for policy bypass attempts
+- Architecture review required for configuration changes
+
+### 📞 CONTACT
+- Type safety questions: Architecture team
+- Policy exceptions: Lead developer approval required
+- Configuration changes: Senior architect approval mandatory
+
+---
+**This policy is non-negotiable and applies to ALL code. NO EXCEPTIONS without explicit user consent.**
+
+# TypeScript Strict Policy
+
+This project enforces ZERO tolerance for `any`, `unknown`, and `object` types. Every piece of code must have precise typing.
+
+## Core Rules
+
+### 1. Type Safety Requirements
+- **NO `any` types** - Use specific types, generics, or union types
+- **NO `unknown` types** - Define exact types or use type guards
+- **NO `object` types** - Use specific interfaces, type aliases, or Record<K, V>
+- **NO implicit `any`** - All parameters and variables must have explicit types
+- **ALWAYS use explicit type declarations** - Never rely on type inference for:
+  - Function parameters
+  - Function return types
+  - Class properties
+  - Exported constants and variables
+  - Complex data structures
+
+### 2. Explicit Type Declaration Examples
+
+```typescript
+// ❌ BAD - Implicit types
+const config = { name: 'app', port: 3000 };
+function process(data) { return data; }
+class Service {
+  private cache = new Map();
+}
+
+// ✅ GOOD - Explicit types
+const config: AppConfig = { name: 'app', port: 3000 };
+function process(data: ProcessData): ProcessResult { return data; }
+class Service {
+  private cache: Map<string, CacheEntry> = new Map();
+}
+```
+
+### 3. Replacing Loose Types
+
+Instead of `any`:
+```typescript
+// ❌ BAD
+function process(data: any): any { }
+
+// ✅ GOOD
+function process<T extends BaseData>(data: T): ProcessResult<T> { }
+```
+
+Instead of `unknown`:
+```typescript
+// ❌ BAD
+function handle(error: unknown) { }
+
+// ✅ GOOD
+function handle(error: Error | CustomError) { }
+```
+
+Instead of `object`:
+```typescript
+// ❌ BAD
+function configure(options: object) { }
+
+// ✅ GOOD
+function configure(options: ConfigOptions) { }
+// OR
+function configure(options: Record<string, string | number | boolean>) { }
+```
+
+### 4. Type Definition Patterns
+
+#### For Complex Objects
+```typescript
+// Define specific interfaces
+interface UserData {
+  id: string;
+  name: string;
+  metadata: UserMetadata;
+}
+
+// Use Record for dynamic keys with known value types
+type ConfigData = Record<string, string | number | boolean>;
+
+// Use mapped types for transformations
+type Nullable<T> = { [K in keyof T]: T[K] | null };
+```
+
+#### For Function Types
+```typescript
+// Always specify parameter and return types
+type Handler = (event: Event) => Promise<void>;
+type Transformer<T, U> = (input: T) => U;
+```
+
+#### For Union Types
+```typescript
+// Be explicit about all possible types
+type ResponseData = SuccessResponse | ErrorResponse | PendingResponse;
+type ConfigValue = string | number | boolean | string[] | ConfigObject;
+```
+
+### 5. Type Guards and Assertions
+
+When type narrowing is needed:
+```typescript
+// Define type guards
+function isErrorResponse(response: ResponseData): response is ErrorResponse {
+  return 'error' in response && response.error !== undefined;
+}
+
+// Use discriminated unions
+type Message = 
+  | { type: 'text'; content: string }
+  | { type: 'image'; url: string; alt?: string }
+  | { type: 'video'; url: string; duration: number };
+```
+
+### 6. Generic Constraints
+
+Use generics with proper constraints:
+```typescript
+// ❌ BAD
+function merge<T>(a: T, b: T): T { }
+
+// ✅ GOOD
+function merge<T extends Record<string, unknown>>(a: T, b: T): T { }
+```
+
+### 7. Configuration Protection
+
+The following configuration files enforce these rules and MUST NOT be modified:
+- `tsconfig.base.json` - TypeScript strict mode settings
+- `.eslintrc.json` - ESLint rules prohibiting any/unknown/object
+
+### 8. Code Review Checklist
+
+Before committing code, ensure:
+- [ ] No `any` types used anywhere
+- [ ] No `unknown` types without type guards
+- [ ] No `object` types - use specific interfaces or Record types
+- [ ] All functions have explicit parameter and return types
+- [ ] All class properties have explicit types
+- [ ] All exported values have explicit types
+- [ ] Complex objects use interfaces or type aliases
+- [ ] Type assertions are minimal and well-documented
+
+### 9. Acceptable Exceptions
+
+The ONLY acceptable uses require:
+1. Clear documentation explaining why
+2. Type assertions to ensure safety at boundaries
+3. Approval in code review
+
+Example:
+```typescript
+// EXCEPTION: External library integration
+// REASON: Library types are incomplete
+// SAFETY: Result is immediately validated with type guard
+const result = externalLib.process(data) as unknown;
+if (!isValidResult(result)) {
+  throw new Error('Invalid result from external library');
+}
+return result; // Now properly typed through type guard
+```
+
+## References
+
+- [TypeScript Configuration](mdc:tsconfig.base.json)
+- [ESLint Configuration](mdc:.eslintrc.json)
+- [Type Definitions](mdc:packages/agents/src/interfaces/types.ts)

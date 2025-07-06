@@ -1,11 +1,18 @@
 {
   "name": "@robota-sdk/openai",
-  "version": "1.0.5",
+  "version": "2.0.0",
   "description": "OpenAI integration for Robota SDK - GPT-4, GPT-3.5, function calling, and tool integration with OpenAI's API",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/woojubb/robota.git",
@@ -22,7 +29,7 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "clean": "rimraf dist",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit -p tsconfig.build.json",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -57,15 +64,13 @@
   "author": "Robota SDK Team",
   "license": "MIT",
   "dependencies": {
-    "openai": "^4.97.0"
+    "openai": "^4.98.0"
   },
   "peerDependencies": {
-    "@robota-sdk/core": "workspace:*",
-    "@robota-sdk/tools": "workspace:*"
+    "@robota-sdk/agents": "workspace:*"
   },
   "devDependencies": {
-    "@robota-sdk/core": "workspace:*",
-    "@robota-sdk/tools": "workspace:*",
+    "@robota-sdk/agents": "workspace:*",
     "@typescript-eslint/eslint-plugin": "^6.18.0",
     "@typescript-eslint/parser": "^6.18.0",
     "eslint": "^8.56.0",

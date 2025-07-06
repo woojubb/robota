@@ -1,6 +1,6 @@
 {
     "name": "@robota-sdk/sessions",
-    "version": "1.0.5",
+    "version": "2.0.0",
     "description": "Session and chat management for Robota SDK - multi-session support with independent workspaces",
     "type": "module",
     "main": "dist/index.js",
@@ -9,8 +9,8 @@
     "exports": {
         ".": {
             "types": "./dist/index.d.ts",
-            "import": "./dist/index.mjs",
-            "require": "./dist/index.js"
+            "import": "./dist/index.js",
+            "require": "./dist/index.cjs"
         }
     },
     "repository": {
@@ -70,12 +70,10 @@
         "uuid": "^9.0.1"
     },
     "peerDependencies": {
-        "@robota-sdk/core": "workspace:*",
-        "@robota-sdk/tools": "workspace:*"
+        "@robota-sdk/agents": "workspace:*"
     },
     "devDependencies": {
-        "@robota-sdk/core": "workspace:*",
-        "@robota-sdk/tools": "workspace:*",
+        "@robota-sdk/agents": "workspace:*",
         "@types/uuid": "^9.0.7",
         "rimraf": "^5.0.5",
         "tsup": "^8.0.1",

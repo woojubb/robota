@@ -1,14 +1,15 @@
-# Build and Deployment Guidelines
+# Build and Deployment Process
 
-This document provides guidelines for build configuration and deployment processes.
+This document outlines the build configuration and deployment processes for the Robota project.
 
-## Build System Rules
+## Build System
 
-### Test File Separation
+### TypeScript Configuration
 
-- **Production Build**: Test files should be excluded from production builds
-- **TypeScript Configuration**: Include test files in `exclude` in `tsconfig.json`
-- **Test Configuration**: Use separate `tsconfig.test.json` to include test files only during test execution
+The project uses separate TypeScript configurations for production builds and testing:
+
+- `tsconfig.json` - Excludes test files for production builds
+- `tsconfig.test.json` - Includes all files for testing
 
 ```json
 // tsconfig.json - For production build
@@ -33,125 +34,74 @@ This document provides guidelines for build configuration and deployment process
 }
 ```
 
-### Type System Management
+### Build Tools
 
-- **Type Location**: Define types in the most appropriate location to prevent circular dependencies
-- **Type Reuse**: Export common types from appropriate modules for reuse
-- **Naming Conflict Prevention**: Avoid naming conflicts between `.d.ts` and `.ts` files
+- **Runtime**: Use bun for TypeScript execution and script running
+- **Testing**: vitest with TypeScript configuration support
+- **Type Checking**: Use `tsc --noEmit` for type validation
+- **Caching**: Clear build cache when encountering issues
 
-### Build Tool Configuration
+## Deployment Process
 
-- **vitest Configuration**: Specify TypeScript configuration file for testing
-- **Build Cache**: Clear cache and retry when build issues occur
-- **Type Check**: Pre-validate type errors with `tsc --noEmit`
+### Package Publishing Workflow
 
-## Runtime and Execution Environment
-
-### TypeScript Execution
-
-- **Use bun**: Use bun instead of ts-node for TypeScript code execution
-- **Example**: Execute scripts in `bun run script.ts` format
-- Use the same runtime throughout the project for performance and consistency
-
-### Development Environment Setup
-
-- Manage development dependencies using bun
-- Use bun for script execution and testing
-- Recommend using bun for production builds as well
-
-## Deployment and Release Rules
-
-### Package Publishing Requirements
-
-- **Mandatory Deployment Script**: Always use the `publish-packages` script for npm deployments
-  ```bash
-  pnpm publish-packages
-  ```
-- **Never use direct changeset publish**: Do not use `pnpm changeset publish` directly
-- **Required Pre-deployment Steps**: The `publish-packages` script ensures:
-  - Documentation generation (`docs:generate`)
-  - README file copying (`copy-readme`) 
-  - Proper npm publishing (`changeset publish`)
-  - Git tag pushing (`push-tags`)
-  - Cleanup of temporary files (`cleanup-readme`)
-
-### Deployment Workflow
+The deployment process follows these steps:
 
 ```bash
-# ✅ Correct deployment process
-pnpm changeset                    # Create changeset
-pnpm publish-packages            # Complete deployment
+# 1. Create changeset describing changes
+pnpm changeset
 
-# ❌ Incorrect - missing steps
-pnpm changeset publish           # Direct publish (missing README, docs, etc.)
+# 2. Use the complete publishing script (includes all necessary steps)
+pnpm publish-packages
 ```
+
+The `publish-packages` script handles:
+- Documentation generation
+- README file copying from docs to packages
+- Version updates and dependency resolution
+- npm publishing with workspace dependency conversion
+- Git tag creation and pushing
+- Cleanup of temporary files
 
 ### Version Management
 
-- Use semantic versioning (semver) principles
-- Breaking changes require minor version bumps for pre-1.0 releases
-- Patch releases for bug fixes and non-breaking improvements
-- Always create changesets with clear, concise descriptions
+- **Semantic Versioning**: Follow semver principles
+- **Pre-1.0 Releases**: Breaking changes bump minor version
+- **Changesets**: Create clear, concise changeset descriptions
+- **Release Notes**: Update CHANGELOG.md for user-facing changes
 
-## Commit and Changeset Message Guidelines
+## Message Guidelines
 
-### Message Length Requirements
+### Commit Messages
 
-- **Maximum 80 characters**: All commit messages and changeset descriptions must be 80 characters or less
-- **Concise and clear**: Focus on essential information only
-- **No detailed explanations**: Save detailed explanations for PR descriptions or documentation
-
-### Good Examples
-
+Use conventional commit format:
 ```bash
-# ✅ Good commit messages (under 80 chars)
-"Remove tools re-exports from core package"
-"Add README files to packages for npm"
-"Fix circular dependency in tools"
-"Update build scripts for proper deployment"
-
-# ✅ Good changeset descriptions
-"Remove tools re-exports from core. Import from @robota-sdk/tools instead."
-"Add README.md files to packages for better npm documentation."
-"Fix circular dependency between core and tools packages."
+git commit -m "feat: add new feature"
+git commit -m "fix: resolve bug in component"
+git commit -m "docs: update API documentation"
 ```
 
-### Bad Examples
+### Changeset Descriptions
 
-```bash
-# ❌ Too long and verbose
-"Remove re-export functionality from @robota-sdk/core package because it was creating confusion and circular dependencies with @robota-sdk/tools package, which violates our architectural principles"
+- Keep under 80 characters
+- Use imperative mood ("Add", "Fix", "Update")
+- Focus on user impact
+- Be specific but concise
 
-# ❌ Too detailed for changeset
-"This commit fixes the architectural issue where @robota-sdk/core was incorrectly re-exporting functionality from @robota-sdk/tools, creating confusion and circular dependencies. The change improves module separation and follows development guidelines."
-```
+Good examples:
+- "Add README files to packages for better npm documentation"
+- "Fix circular dependency between core and tools packages"
+- "Update TypeScript to v5.3 for better performance"
 
-### Changeset Creation Guidelines
+## Development Environment
 
-1. **Be specific but brief**: Mention what changed, not why
-2. **Use imperative mood**: "Add", "Remove", "Fix", "Update"
-3. **Focus on user impact**: What users need to know or do
-4. **One line preferred**: Avoid multi-line descriptions unless absolutely necessary
-5. **80-character limit**: Changeset descriptions must be 80 characters or less
+### Dependencies and Tools
 
-### Changeset Message Examples
+- **Package Manager**: pnpm with workspace configuration
+- **Runtime**: bun for development and script execution
+- **Build System**: TypeScript with strict configuration
+- **Testing**: vitest with comprehensive coverage
 
-```bash
-# ✅ Good changeset messages (under 80 chars)
-"Enhance SEO and update URLs to robota.io domain"
-"Add function calling support for all providers"
-"Fix memory leak in conversation history"
-"Update TypeScript to v5.3 for better performance"
+### Workspace Dependencies
 
-# ❌ Bad changeset messages (too long)
-"This changeset enhances the SEO capabilities of the documentation site and updates all package URLs from the old GitHub Pages domain to the new custom domain robota.io"
-```
-
-### Commit Message Format
-
-```bash
-# Format: <action>: <brief description>
-git commit -m "feat: add README files to npm packages"
-git commit -m "fix: remove circular dependency in tools"
-git commit -m "refactor: simplify deployment workflow"
-``` 
+Internal packages use `workspace:*` in peerDependencies, which are automatically converted to actual version numbers during publishing. 

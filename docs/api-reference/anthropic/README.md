@@ -12,17 +12,32 @@
 
 ### Classes
 
-- [AnthropicConversationAdapter](classes/AnthropicConversationAdapter)
-- [PayloadLogger](classes/PayloadLogger)
 - [AnthropicProvider](classes/AnthropicProvider)
 
 ### Interfaces
 
+- [ProviderOptions](interfaces/ProviderOptions)
 - [AnthropicProviderOptions](interfaces/AnthropicProviderOptions)
+
+### Type Aliases
+
+- [ProviderOptionValue](#provideroptionvalue)
 
 ### Functions
 
 - [createAnthropicProvider](#createanthropicprovider)
+
+## Type Aliases
+
+### ProviderOptionValue
+
+Ƭ **ProviderOptionValue**: `string` \| `number` \| `boolean` \| `undefined` \| ``null`` \| `Anthropic` \| [`ProviderOptionValue`](#provideroptionvalue)[] \| \{ `[key: string]`: [`ProviderOptionValue`](#provideroptionvalue);  }
+
+Valid provider option value types
+
+#### Defined in
+
+[anthropic/src/types.ts:6](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/types.ts#L6)
 
 ## Functions
 
@@ -42,4 +57,4 @@
 
 #### Defined in
 
-[anthropic/src/index.ts:17](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/anthropic/src/index.ts#L17)
+[anthropic/src/index.ts:13](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/anthropic/src/index.ts#L13)

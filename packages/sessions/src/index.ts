@@ -1,57 +1,51 @@
-// Core types
-export * from './types/core';
+// Chat Instance
+export { ChatInstance } from './chat/chat-instance';
 
-// Additional interfaces (only those not in core)
-export * from './interfaces/conversation-history';
-export * from './interfaces/ai-provider';
-export * from './interfaces/ai-context';
+// Interfaces
+export type { ContextManager, ConversationContext } from './interfaces/ai-context';
+export type { ProviderManager, ProviderConfig } from './interfaces/ai-provider';
 
-// Simplified implementations
-export { SimpleConversationHistory } from './conversation-history/simple-conversation-history';
-export { SimpleLoggerImpl } from './utils/simple-logger';
-export { SimpleMetricsCollector } from './utils/simple-metrics';
-export { SimplePromptTemplate } from './utils/simple-prompt-template';
-export { SessionManagerImpl } from './session-manager/session-manager-impl';
-export { BasicSessionStore } from './session-manager/basic-session-store';
-export { SystemMessageManagerImpl } from './system-message/system-message-manager-impl';
-export { MultiProviderAdapterManager } from './provider-adapter/multi-provider-adapter-manager';
+// Conversation Service
 export { ConversationServiceImpl } from './conversation/conversation-service-impl';
 
-// Utilities
-export { LoggerFactory } from './utils/logger-factory';
-export { MetricsCollectorFactory } from './utils/metrics-collector-factory';
+// System Message Manager
+export { SystemMessageManagerImpl } from './system-message/system-message-manager-impl';
 
-// Conversation History (kept for backward compatibility)
-export { ConversationHistory } from './conversation-history/conversation-history';
+// Provider Adapter
+export { MultiProviderAdapterManager } from './provider-adapter/multi-provider-adapter-manager';
 
-// Core types
-export * from './types/core';
+// Type-only exports
+export type {
+    AgentInterface,
+    AgentConfig,
+    Message,
+    RunOptions,
+    SessionState,
+    SessionConfig,
+    SessionInfo,
+    ChatConfig,
+    ChatInfo,
+    SessionManagerConfig
+} from './types/core';
 
-// Additional interfaces (only those not in core)
-export type { Session, SessionMetadata, SessionStats } from './types/session';
-export type { SessionManager, SessionManagerStats } from './types/session-manager';
-export type { ChatInstance, ChatMetadata, ChatStats, MessageContent } from './types/chat';
+export type {
+    ChatInstance as IChatInstance,
+    ChatMetadata,
+    ChatStats,
+    MessageContent,
+    ConfigurationChange,
+    EnhancedConversationHistory,
+    TemplateManager
+} from './types/chat';
 
-// Simplified implementations
-export { SessionImpl } from './session/session-impl';
-export { ChatInstanceImpl } from './chat/chat-instance';
+// Re-export ConversationHistory from agents (unified implementation)
+export { ConversationHistory, ConversationSession } from '@robota-sdk/agents';
 
-// Re-export agent factory and template functionality from core
-export { AgentFactory, AgentTemplateManager } from '@robota-sdk/core';
-export type { AgentTemplate, AgentConfig, AgentCreationConfig } from '@robota-sdk/core';
-
-// State Machine
-export * from './state/session-state-machine';
-
-// Error handling
-export * from './constants/error-messages';
-
-// Utilities
-export { generateId } from './utils/id';
-export * from './utils/session-utils';
-
-// Conversation History (kept for backward compatibility)
-export { EnhancedConversationHistoryImpl } from './conversation-history/index';
+// Re-export AgentFactory from agents
+export { AgentFactory } from '@robota-sdk/agents';
+export type {
+    TemplateApplicationResult
+} from '@robota-sdk/agents';
 
 // Storage interfaces will be added later
 // SessionManager implementation will be added later 

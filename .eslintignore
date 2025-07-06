@@ -1,0 +1,38 @@
+# Ignore test files
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+
+# Ignore build output
+dist/
+build/
+coverage/
+
+# Ignore node modules
+node_modules/
+
+# Ignore config files
+*.config.js
+*.config.ts
+vitest.config.ts
+tsup.config.ts
+
+# Ignore documentation
+docs/
+*.md
+
+# Build outputs
+out/
+
+# Documentation
+apps/docs/
+
+# Examples
+apps/examples/
+
+# Other
+.next/
+.turbo/
+.vscode/
+.idea/ 

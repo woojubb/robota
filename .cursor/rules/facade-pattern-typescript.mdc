@@ -1,0 +1,207 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Facade Pattern for TypeScript Type Safety - Zero Any Policy
+
+## Overview
+This rule enforces Facade Pattern application to resolve complex TypeScript type issues WITHOUT resorting to any/unknown types. Complex types MUST be managed through architectural patterns, not type compromises.
+
+## 🚨 ZERO ANY POLICY
+**Type complexity is NEVER a valid reason for any/unknown usage.**
+
+All complex typing challenges MUST be resolved through:
+- **Facade Pattern Architecture**: Break complex types into manageable modules
+- **Generic Type Parameters**: Use type parameters with constraints
+- **Type Ownership System**: Centralized type authorities
+- **Provider-Agnostic Design**: Universal interfaces with internal type conversion
+
+## Mandatory Facade Structure
+```
+src/[component-name]/
+├── types.ts          # All type definitions (NO any types)
+├── interfaces.ts     # Public contracts with generics
+├── adapters/         # Type conversion (internal ↔ universal)
+├── validators/       # Type guards and validation
+├── transformers/     # Type transformation logic
+├── [main-class].ts   # Facade with explicit generics
+└── index.ts          # Clean exports only
+```
+
+## Implementation Requirements
+
+### Priority 1: Generic Type Parameter Application
+ALL base classes MUST use explicit generic type parameters:
+
+```typescript
+// ✅ REQUIRED: Explicit generics with constraints
+export class ComponentClass<
+  TConfig extends Record<string, ConfigValue>,
+  TContext extends ExecutionContext,
+  TResult extends ComponentResult
+> extends BaseComponent<TConfig, TContext, TResult> {
+  // Implementation MUST use type parameters
+}
+
+// ❌ FORBIDDEN: Raw classes without generics
+export class ComponentClass extends BaseComponent {
+  // VIOLATION: Missing type parameters
+}
+```
+
+### Priority 2: Type Conversion Architecture
+Complex external types MUST be converted through adapters:
+
+```typescript
+// ✅ REQUIRED: Type-safe conversion pattern
+// adapters/provider-adapter.ts
+export class ProviderAdapter {
+  convertToUniversal(nativeResponse: NativeProviderType): UniversalMessage {
+    // Type-safe conversion logic
+    // NO any types allowed
+  }
+  
+  convertFromUniversal(universal: UniversalMessage): NativeProviderType {
+    // Type-safe conversion logic
+    // NO any types allowed
+  }
+}
+```
+
+### Priority 3: Type Ownership Enforcement
+Each type MUST have a single authoritative source:
+
+```typescript
+// ✅ CORRECT: Import from type authority
+import type { ToolParameters, ToolResult } from '../interfaces/tool';
+
+// ❌ FORBIDDEN: Local type redefinition
+type ToolParameters = any; // VIOLATION
+```
+
+## Type Safety Guidelines
+
+### Constraint-Based Type Extensions
+ALL type extensions MUST use proper constraints:
+
+```typescript
+/**
+ * Component with type-safe generic constraints
+ * 
+ * @template TConfig - Configuration extending ConfigValue record
+ * @template TInput - Input extending known interface
+ * @template TOutput - Output extending result interface
+ */
+interface TypeSafeComponent<
+  TConfig extends Record<string, ConfigValue>,
+  TInput extends ComponentInput,
+  TOutput extends ComponentOutput
+> {
+  configure(config: TConfig): Promise<void>;
+  process(input: TInput): Promise<TOutput>;
+}
+```
+
+### Provider Integration Pattern
+ALL providers MUST follow the established generic pattern:
+
+```typescript
+// ✅ REQUIRED: Provider with explicit generics
+export class CustomProvider extends BaseAIProvider<
+  CustomProviderConfig,
+  UniversalMessage,
+  UniversalMessage
+> {
+  // Internal: Use provider's native types
+  private async callNativeAPI(params: NativeRequestType): Promise<NativeResponseType> {
+    // Provider-specific implementation
+  }
+  
+  // External: Always expose UniversalMessage
+  async chat(messages: UniversalMessage[]): Promise<UniversalMessage> {
+    const nativeParams = this.convertToNative(messages);
+    const nativeResponse = await this.callNativeAPI(nativeParams);
+    return this.convertToUniversal(nativeResponse);
+  }
+}
+```
+
+## Architectural Enforcement Rules
+
+### File Organization Requirements
+1. **types.ts**: All type definitions with generic parameters
+2. **interfaces.ts**: Public contracts with type constraints  
+3. **adapters/**: Type conversion without any usage
+4. **Main class**: Facade role with explicit generics
+
+### Type Conversion Standards
+```typescript
+// ✅ REQUIRED: Type-safe conversion
+private convertRequest(input: UniversalInput): ProviderSpecificInput {
+  return {
+    model: input.model,
+    messages: input.messages.map(this.convertMessage),
+    // All conversions type-safe
+  };
+}
+
+// ❌ FORBIDDEN: Any-based conversion  
+private convertRequest(input: any): any {
+  return input; // VIOLATION
+}
+```
+
+### Generic Constraint Patterns
+```typescript
+// ✅ REQUIRED: Proper constraint hierarchy
+interface BaseManager<TConfig, TContext, TResult> 
+  where TConfig extends Record<string, ConfigValue>
+  where TContext extends ExecutionContext
+  where TResult extends ExecutionResult
+{
+  // Type-safe interface
+}
+```
+
+## Success Criteria
+
+### Code Quality Metrics
+- TypeScript errors: **0** (absolute requirement)
+- ESLint any/unknown warnings: **0** (absolute requirement)
+- Test pass rate: **100%** (no regressions allowed)
+- Generic type usage: **100%** for all base classes
+
+### Architecture Compliance
+- All providers use explicit generic parameters
+- All tools implement type-safe parameter/result handling
+- All plugins follow facade pattern structure
+- Zero any/unknown types in new code
+
+## Implementation Process
+
+### Phase 1: Generic Type Application
+1. Add explicit type parameters to all base classes
+2. Apply type constraints to all generics
+3. Update concrete implementations with specific types
+
+### Phase 2: Facade Pattern Deployment
+1. Extract complex types to separate files
+2. Create type conversion adapters
+3. Implement type validation modules
+
+### Phase 3: Provider Architecture Standardization  
+1. Apply BaseAIProvider generic pattern to all providers
+2. Implement UniversalMessage conversion for all
+3. Ensure provider-agnostic design compliance
+
+### Phase 4: Validation and Testing
+1. Verify zero TypeScript errors
+2. Confirm zero any/unknown usage
+3. Validate all tests pass
+4. Performance and compatibility testing
+
+## Related Architecture Rules
+- [TypeScript Type Safety - Zero Any/Unknown Policy](mdc:.cursor/rules/typescript-type-safety.mdc)
+- [Generic Facade Patterns](mdc:.cursor/rules/generic-facade-patterns.mdc)
+- [Agents Development Guidelines](mdc:.cursor/rules/robota-agents-development.mdc)

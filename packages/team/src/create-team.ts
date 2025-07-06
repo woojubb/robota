@@ -29,10 +29,7 @@ import type { TeamContainerOptions, TeamOptions } from './types';
  * import { AnthropicProvider } from '@robota-sdk/anthropic';
  * 
  * const team = createTeam({
- *   aiProviders: {
- *     openai: openaiProvider,
- *     anthropic: anthropicProvider
- *   },
+ *   aiProviders: [openaiProvider, anthropicProvider],
  *   debug: true
  * });
  * 
@@ -48,11 +45,7 @@ import type { TeamContainerOptions, TeamOptions } from './types';
  * @example Advanced Team Configuration
  * ```typescript
  * const team = createTeam({
- *   aiProviders: {
- *     openai: openaiProvider,
- *     anthropic: anthropicProvider,
- *     google: googleProvider
- *   },
+ *   aiProviders: [openaiProvider, anthropicProvider, googleProvider],
  *   maxMembers: 10,
  *   maxTokenLimit: 100000,
  *   debug: true,
@@ -73,32 +66,31 @@ import type { TeamContainerOptions, TeamOptions } from './types';
  * @see {@link TeamContainer} - The underlying team container class
  * @see {@link TeamOptions} - Available configuration options
  */
-export function createTeam(options: TeamOptions): TeamContainer;
-
-// Implementation
 export function createTeam(options: TeamOptions): TeamContainer {
-    // Get first available provider as default
-    const providers = Object.keys(options.aiProviders);
-    if (providers.length === 0) {
+    // Validate that AI providers are provided
+    if (!options.aiProviders || options.aiProviders.length === 0) {
         throw new Error('At least one AI provider must be provided in aiProviders');
     }
 
-    const defaultProvider = providers[0];
-    const defaultModel = getDefaultModelForProvider(defaultProvider);
+    const defaultProvider = options.aiProviders[0]!;
+    const defaultModel = getDefaultModelForProvider(defaultProvider.name) || 'gpt-4o-mini';
 
-    // Convert to full TeamContainerOptions
+    // Convert to full TeamContainerOptions using new API format
     const fullOptions: TeamContainerOptions = {
         baseRobotaOptions: {
+            name: 'team-base',
             aiProviders: options.aiProviders,
-            currentProvider: defaultProvider,
-            currentModel: defaultModel,
-            maxTokenLimit: options.maxTokenLimit || 50000,
-            logger: options.logger
+            defaultModel: {
+                provider: defaultProvider.name,
+                model: defaultModel,
+                maxTokens: options.maxTokenLimit || 50000
+            }
         },
         maxMembers: options.maxMembers || 5,
         debug: options.debug || false,
-        templateManager: options.templateManager,
-        leaderTemplate: options.leaderTemplate
+        ...(options.customTemplates && { customTemplates: options.customTemplates }),
+        ...(options.leaderTemplate && { leaderTemplate: options.leaderTemplate }),
+        ...(options.logger && { logger: options.logger })
     };
 
     return new TeamContainer(fullOptions);
@@ -116,6 +108,6 @@ function getDefaultModelForProvider(provider: string): string {
         case 'google':
             return 'gemini-pro';
         default:
-            return 'unknown';
+            return 'not_specified';
     }
 } 

@@ -1,24 +1,22 @@
 /**
- * Team Collaboration Example
+ * Team Collaboration Example (English)
  * 
- * Demonstrates multi-agent teamwork with @robota-sdk/team
- * This example shows how a Team agent coordinates temporary agents
- * for complex tasks using the delegateWork tool and provides
- * workflow visualization for analysis.
+ * Multi-agent team collaboration demo using @robota-sdk/team
+ * Shows how team agents handle complex tasks through intelligent delegation
  */
 
 import chalk from 'chalk';
-import { createTeam, generateWorkflowFlowchart, generateAgentRelationshipDiagram } from '@robota-sdk/team';
+import { createTeam } from '@robota-sdk/team';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
 import Anthropic from '@anthropic-ai/sdk';
-import { AnthropicProvider } from '@robota-sdk/anthropic/dist';
+import { AnthropicProvider } from '@robota-sdk/anthropic';
 
 // Load environment variables
 dotenv.config();
 
-// Utility functions for demo output
+// Utility functions
 function logSection(title: string) {
     console.log('\n' + chalk.blue('='.repeat(60)));
     console.log(chalk.blue.bold(`📋 ${title}`));
@@ -30,22 +28,22 @@ function logResult(label: string, content: string) {
     console.log(chalk.white(content));
 }
 
-async function runTeamCollaborationExample() {
+async function runTeamExample() {
     try {
-        logSection('Team Collaboration Demo');
+        logSection('Team Collaboration Demo (English)');
 
         console.log(chalk.cyan(`
 🎯 Architecture:
-User Command → Team Agent → (delegateWork if needed) → Team Members → Final Response
+User Command → Team Agent → (Delegate when needed) → Team Members → Final Response
 
-📋 This demo shows:
-• Simple tasks handled directly by the team agent
-• Complex tasks delegated to specialized team members  
-• Workflow history and agent relationship visualization
+📋 What this demo shows:
+• Simple tasks are handled directly by the team agent
+• Complex tasks are delegated to specialized team members
+• Performance statistics and analysis
 
 🚀 Simplified API:
-This example uses the new simplified createTeam API where the task_coordinator
-template automatically handles team coordination with optimized settings.
+This example uses the new simplified createTeam API,
+where the task_coordinator template automatically handles team collaboration with optimized settings.
         `));
 
         const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
@@ -53,22 +51,13 @@ template automatically handles team coordination with optimized settings.
             throw new Error('ANTHROPIC_API_KEY environment variable is required');
         }
 
-        // Validate API key
+        // API key validation
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
             throw new Error('OPENAI_API_KEY environment variable is required');
         }
 
-        const anthropicClient1 = new Anthropic({ apiKey: anthropicApiKey });
-        const anthropicProvider1 = new AnthropicProvider({
-            client: anthropicClient1,
-            model: 'claude-3-5-sonnet-20241022',
-            enablePayloadLogging: true,
-            payloadLogDir: './logs/team-collaboration/example1',
-            includeTimestampInLogFiles: true
-        });
-
-        // Example 1: Simple task (handled directly)
+        // Example 1: Simple task (direct handling)
         logSection('Example 1: Simple Task (Direct Handling)');
 
         // Create OpenAI client and provider for example 1
@@ -76,57 +65,64 @@ template automatically handles team coordination with optimized settings.
         const openaiProvider1 = new OpenAIProvider({
             client: openaiClient1,
             model: 'gpt-4o-mini',
-            enablePayloadLogging: true,  // Enable payload logging
-            payloadLogDir: './logs/team-collaboration/example1',
+            enablePayloadLogging: true,
+            payloadLogDir: './logs/team-collaboration-en/example1',
             includeTimestampInLogFiles: true
         });
 
-        // Create team for example 1 using simplified API
+        const anthropicClient1 = new Anthropic({ apiKey: anthropicApiKey });
+        const anthropicProvider1 = new AnthropicProvider({
+            client: anthropicClient1,
+            model: 'claude-3-5-sonnet-20241022',
+            enablePayloadLogging: true,
+            payloadLogDir: './logs/team-collaboration-en/example1',
+            includeTimestampInLogFiles: true
+        });
+
+        // Create team for example 1 (using simplified API)
         console.log(chalk.green('✅ Creating team for example 1...'));
 
         const team1 = createTeam({
-            aiProviders: { openai: openaiProvider1, anthropic: anthropicProvider1 },
+            aiProviders: [openaiProvider1, anthropicProvider1],
             maxMembers: 5,
-            maxTokenLimit: 50000,
+            maxTokenLimit: 8000,
             logger: console,
             debug: false
         });
 
-        const simpleTask = 'What are the main differences between React and Vue.js? Please provide 3 key points briefly.';
+        const simpleTask = 'Please explain 3 key differences between React and Vue.js in simple terms.';
 
         console.log(chalk.yellow(`User: ${simpleTask}`));
-        console.log(chalk.blue('🤖 Team processing...'));
+        console.log(chalk.blue('🤖 Team is processing...'));
 
         const simpleResult = await team1.execute(simpleTask);
         logResult('Team Response', simpleResult);
 
-        // Show workflow analysis for example 1
-        logSection('Example 1: Workflow Analysis');
+        // Example 1 performance analysis
+        logSection('Example 1: Performance Analysis');
 
-        const workflowHistory1 = team1.getWorkflowHistory();
-        if (workflowHistory1) {
-            console.log(chalk.magenta('🔗 Agent relationship diagram:'));
-            console.log(generateAgentRelationshipDiagram(workflowHistory1));
-            console.log('');
+        const stats1 = team1.getStats();
 
-            console.log(chalk.magenta('📊 Workflow flowchart:'));
-            console.log(generateWorkflowFlowchart(workflowHistory1));
-        } else {
-            console.log(chalk.gray('No workflow history available for analysis.'));
-        }
+        console.log(chalk.blue(`
+📈 Example 1 Results:
+• Tasks completed: ${stats1.tasksCompleted}
+• Total agents created: ${stats1.totalAgentsCreated}
+• Total execution time: ${stats1.totalExecutionTime}ms
+        `));
 
         console.log('✅ Example 1 completed!\n');
 
-        // Example 2: Complex task (team coordination)
-        logSection('Example 2: Complex Task (Team Coordination)');
+        // Example 2: Complex task (team collaboration)
+        logSection('Example 2: Complex Task (Team Collaboration)');
+        console.log('✅ Creating new team for example 2...');
 
-        // Create OpenAI client and provider for example 2 (completely new instance)
+        // Create OpenAI client and provider for example 2 (completely new instances)
         const openaiClient2 = new OpenAI({ apiKey });
         const openaiProvider2 = new OpenAIProvider({
             client: openaiClient2,
             model: 'gpt-4o-mini',
-            enablePayloadLogging: true,  // Enable payload logging
-            payloadLogDir: './logs/team-collaboration/example2',
+            enablePayloadLogging: true,
+            payloadLogDir: './logs/team-collaboration-en/example2',
             includeTimestampInLogFiles: true
         });
 
@@ -135,61 +131,43 @@ template automatically handles team coordination with optimized settings.
             client: anthropicClient2,
             model: 'claude-3-5-sonnet-20241022',
             enablePayloadLogging: true,
-            payloadLogDir: './logs/team-collaboration/example2',
+            payloadLogDir: './logs/team-collaboration-en/example2',
             includeTimestampInLogFiles: true
         });
 
-        // Create team for example 2 using simplified API (completely new team)
-        console.log(chalk.green('✅ Creating new team for example 2...'));
-
+        // Create team for example 2 (using simplified API, completely new team)
         const team2 = createTeam({
-            aiProviders: { openai: openaiProvider2, anthropic: anthropicProvider2 },
+            aiProviders: [openaiProvider2, anthropicProvider2],
             maxMembers: 5,
-            maxTokenLimit: 50000,
+            maxTokenLimit: 8000,
             logger: console,
             debug: false
         });
 
-        const complexTask = 'Create a cafe business plan. It must include both: 1) Market analysis, 2) Menu composition. Please write each section separately.';
+        const complexTask = `Create a comprehensive coffee shop business plan. Please include both of the following sections: market analysis and menu development. Write each section separately.`;
 
         console.log(chalk.yellow(`User: ${complexTask}`));
-        console.log(chalk.blue('🤖 Team coordinating with specialists...'));
+        console.log(chalk.blue('🤖 Team is collaborating with specialists...'));
 
         const complexResult = await team2.execute(complexTask);
         logResult('Team Response', complexResult);
 
-        // Show workflow analysis for example 2
-        logSection('Example 2: Workflow Analysis');
+        // Example 2 performance analysis
+        logSection('Example 2: Performance Analysis');
 
-        const workflowHistory2 = team2.getWorkflowHistory();
-        if (workflowHistory2) {
-            console.log(chalk.magenta('🔗 Agent relationship diagram:'));
-            console.log(generateAgentRelationshipDiagram(workflowHistory2));
-            console.log('');
-
-            console.log(chalk.magenta('📊 Workflow flowchart:'));
-            console.log(generateWorkflowFlowchart(workflowHistory2));
-        } else {
-            console.log(chalk.gray('No workflow history available for analysis.'));
-        }
-
-        // Show final stats (combining both teams)
-        logSection('Team Performance Summary');
-
-        const stats1 = team1.getStats();
         const stats2 = team2.getStats();
 
         console.log(chalk.blue(`
-📈 Example 1 Results:
-• Tasks completed: ${stats1.tasksCompleted}
-• Total agents created: ${stats1.totalAgentsCreated}
-• Execution time: ${stats1.totalExecutionTime}ms
-
 📈 Example 2 Results:
 • Tasks completed: ${stats2.tasksCompleted}
 • Total agents created: ${stats2.totalAgentsCreated}
-• Execution time: ${stats2.totalExecutionTime}ms
+• Total execution time: ${stats2.totalExecutionTime}ms
+        `));
 
+        // Final statistics display (combined teams)
+        logSection('Overall Team Performance Summary');
+
+        console.log(chalk.blue(`
 📊 Overall Summary:
 • Total tasks completed: ${stats1.tasksCompleted + stats2.tasksCompleted}
 • Total agents created: ${stats1.totalAgentsCreated + stats2.totalAgentsCreated}
@@ -197,8 +175,8 @@ template automatically handles team coordination with optimized settings.
         `));
 
         console.log(chalk.green('\n✅ Team collaboration demo completed successfully!'));
-        console.log(chalk.cyan('The team agent intelligently decides when to handle directly vs when to delegate.'));
-        console.log(chalk.cyan('Use workflow history to analyze how agents collaborate on complex tasks.'));
+        console.log(chalk.cyan('The team agent intelligently decides whether to handle tasks directly or delegate them.'));
+        console.log(chalk.cyan('For complex tasks, you can analyze how agents collaborate with each other.'));
 
     } catch (error) {
         console.error(chalk.red('\n❌ Demo failed:'), error);
@@ -206,15 +184,14 @@ template automatically handles team coordination with optimized settings.
     }
 }
 
-// Run the example
+// Run example
 async function main() {
-    await runTeamCollaborationExample();
+    await runTeamExample();
+    console.log(chalk.blue('\n🧹 Cleanup completed. Exiting...'));
     process.exit(0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-    main().catch((error) => {
-        console.error(chalk.red('❌ Error:'), error);
-        process.exit(1);
-    });
-} 
+main().catch((error) => {
+    console.error(chalk.red('❌ Error:'), error);
+    process.exit(1);
+});

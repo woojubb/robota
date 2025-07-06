@@ -1,14 +1,33 @@
-import { ProviderOptions } from '@robota-sdk/core';
 import OpenAI from 'openai';
+
+/**
+ * Valid provider option value types
+ */
+export type ProviderOptionValue = string | number | boolean | undefined | null | OpenAI | ProviderOptionValue[] | { [key: string]: ProviderOptionValue };
+
+/**
+ * Base provider options interface
+ */
+export interface ProviderOptions {
+  /**
+   * Model name to use
+   */
+  model?: string;
+
+  /**
+   * Additional provider-specific options
+   */
+  [key: string]: ProviderOptionValue;
+}
 
 /**
  * OpenAI provider options
  */
-export interface OpenAIProviderOptions extends ProviderOptions {
+export interface OpenAIProviderOptions extends Omit<ProviderOptions, 'model'> {
   /**
-   * Model name to use (default: gpt-3.5-turbo)
+   * Default model name to use (default: gpt-4)
    */
-  model: string;
+  model?: string;
 
   /**
    * Temperature (0~1)
@@ -54,7 +73,7 @@ export interface OpenAIProviderOptions extends ProviderOptions {
   jsonSchema?: {
     name: string;
     description?: string;
-    schema?: Record<string, unknown>;
+    schema?: Record<string, ProviderOptionValue>;
     strict?: boolean;
   };
 

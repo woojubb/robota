@@ -1,0 +1,210 @@
+# Robota SDK Development Rules
+
+## Import/Export Rules
+```typescript
+// ✅ CORRECT: Use proper relative imports within packages
+import { BaseClass } from '../../abstracts/base-class';
+import type { InterfaceType } from '../../interfaces/types';
+
+// ❌ FORBIDDEN: Cross-package direct imports
+import { SomeType } from '../../../other-package/src/types'; // VIOLATION
+// Use package imports instead: import { SomeType } from '@robota-sdk/other-package';
+```
+
+## Plugin Development Rules
+
+### Plugin Interface Compliance
+All plugins must follow consistent patterns:
+
+```typescript
+export class MyPlugin extends BasePlugin {
+  name = 'MyPlugin';
+  version = '1.0.0';
+  
+  // Override lifecycle methods as needed
+  override async beforeRun(input: string, options?: RunOptions): Promise<void> {
+    // Implementation
+  }
+}
+```
+
+### Plugin Statistics
+Each plugin must define its own statistics interface:
+
+```typescript
+export interface MyPluginStats {
+  // Define meaningful metrics for the plugin
+}
+
+// Implement getStats method
+getStats(): MyPluginStats {
+  return {
+    // Return actual statistics
+  };
+}
+```
+
+## Tool Development Rules
+
+### Tool Interface Compliance
+Tools must implement consistent interfaces:
+
+```typescript
+export class MyTool implements ToolInterface {
+  readonly schema: ToolSchema;
+  
+  async execute(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
+    // Implementation must return ToolResult
+  }
+}
+```
+
+## Manager Development Rules
+
+### Resource Management
+Managers must implement proper lifecycle management:
+
+```typescript
+export class MyManager {
+  async initialize(): Promise<void> {
+    // Initialize resources
+  }
+  
+  async cleanup(): Promise<void> {
+    // Clean up resources
+  }
+  
+  async destroy(): Promise<void> {
+    // Destroy manager instance
+  }
+}
+```
+
+### State Management
+Managers must maintain consistent state:
+
+```typescript
+// Use private properties for internal state
+private readonly internalState: Map<string, any> = new Map();
+
+// Provide public read-only access
+public getState(): ReadonlyMap<string, any> {
+  return this.internalState;
+}
+```
+
+## Error Handling Rules
+
+### Error Types
+Use specific error types:
+
+```typescript
+// Throw appropriate error types with context
+throw new SpecificError('Descriptive message', {
+  context: relevantData,
+  originalError: error
+});
+```
+
+### Error Context
+Provide meaningful error context:
+
+```typescript
+throw new ConfigurationError('Invalid configuration provided', {
+  providedConfig: config,
+  expectedProperties: ['required', 'properties'],
+  validation: validationErrors
+});
+```
+
+## Logging Rules
+
+### Logger Usage
+Use structured logging:
+
+```typescript
+logger.info('Operation completed', {
+  operationId: 'op-123',
+  duration: 150,
+  status: 'success'
+});
+```
+
+### Log Levels
+Follow log level conventions:
+- `debug`: Detailed diagnostic information
+- `info`: General operational information
+- `warn`: Warning conditions that should be addressed
+- `error`: Error conditions that need immediate attention
+
+## Testing Rules
+
+### Test File Organization
+```typescript
+// Test files should mirror source structure
+// src/features/my-feature.ts
+// src/features/my-feature.test.ts
+```
+
+### Test Coverage Requirements
+- All public methods must have tests
+- Error conditions must be tested
+- Integration points must have integration tests
+
+### Mock Usage
+Use proper mocking for external dependencies:
+
+```typescript
+// Mock external services
+const mockService = {
+  method: vi.fn().mockResolvedValue(mockResponse)
+};
+
+// Test with mocked dependencies
+await testSubject.execute({ service: mockService });
+```
+
+## Code Quality Rules
+
+### ESLint Compliance
+All code must pass ESLint validation:
+
+```bash
+pnpm lint
+```
+
+### TypeScript Strict Mode
+Code must compile with strict TypeScript settings:
+- `strict: true`
+- `exactOptionalPropertyTypes: true`
+- `noImplicitReturns: true`
+
+### Documentation Requirements
+- All public classes must have JSDoc comments
+- All public methods must document parameters and return values
+- Complex algorithms must include inline comments
+
+## Build and Deployment Rules
+
+### Build Process
+```bash
+# Development build
+pnpm build:dev
+
+# Production build  
+pnpm build
+
+# Type checking
+pnpm type-check
+```
+
+### Package Publishing
+- Version numbers must follow semver
+- Changelog must be updated for each release
+- All tests must pass before publishing
+
+## Breaking Changes
+Breaking changes require:
+- Major version bump
+- Migration guide documentation
+- Deprecation notices in previous version

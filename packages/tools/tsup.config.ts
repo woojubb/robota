@@ -17,8 +17,7 @@ export default defineConfig({
     target: 'node18',
     external: [
         // External dependencies that should not be bundled
-        /^@robota-sdk\/.*/,  // All @robota-sdk packages
-        'zod'
+        /^@robota-sdk\/.*/  // All @robota-sdk packages
     ],
     skipNodeModulesBundle: true,
     outExtension({ format }) {

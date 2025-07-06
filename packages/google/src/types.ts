@@ -1,11 +1,29 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+/**
+ * Valid provider option value types
+ */
+export type ProviderOptionValue = string | number | boolean | undefined | null | ProviderOptionValue[] | { [key: string]: ProviderOptionValue };
+
+/**
+ * Base provider options interface
+ */
+export interface ProviderOptions {
+    /**
+     * Model name to use
+     */
+    model?: string;
+
+    /**
+     * Additional provider-specific options
+     */
+    [key: string]: ProviderOptionValue;
+}
 
 /**
  * Google AI Provider options
  */
-export interface GoogleProviderOptions {
-    /** Google AI client instance */
-    client: GoogleGenerativeAI;
+export interface GoogleProviderOptions extends Omit<ProviderOptions, 'model'> {
+    /** Google AI API key */
+    apiKey: string;
 
     /** Default model to use */
     model?: string;
@@ -26,5 +44,5 @@ export interface GoogleProviderOptions {
     /** 
      * Response schema for JSON output (only used when responseMimeType is 'application/json')
      */
-    responseSchema?: Record<string, unknown>;
+    responseSchema?: Record<string, ProviderOptionValue>;
 } 

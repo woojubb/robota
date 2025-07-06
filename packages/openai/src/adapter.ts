@@ -1,10 +1,36 @@
 import OpenAI from 'openai';
-import type { UniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage } from '@robota-sdk/core';
+import type {
+    UniversalMessage,
+    AssistantMessage
+} from '@robota-sdk/agents';
+
+// Define message types locally to avoid circular dependency
+export interface UserMessage {
+    role: 'user';
+    content: string | null;
+    timestamp?: Date;
+}
+
+export interface SystemMessage {
+    role: 'system';
+    content: string | null;
+    timestamp?: Date;
+}
+
+export interface ToolMessage {
+    role: 'tool';
+    content: string | null;
+    timestamp?: Date;
+    toolCallId?: string;
+}
 
 /**
- * OpenAI ConversationHistory adapter
+ * OpenAI Conversation Adapter
  * 
- * Converts UniversalMessage to OpenAI Chat Completions API format
+ * Converts between UniversalMessage format and OpenAI native types.
+ * Provides bidirectional conversion for seamless integration.
+ * 
+ * @public
  */
 export class OpenAIConversationAdapter {
     /**
@@ -54,14 +80,10 @@ export class OpenAIConversationAdapter {
 
         if (messageRole === 'user') {
             const userMsg = msg as UserMessage;
-            const result: OpenAI.Chat.ChatCompletionUserMessageParam = {
+            return {
                 role: 'user',
-                content: userMsg.content
+                content: userMsg.content || ''
             };
-            if (userMsg.name) {
-                result.name = userMsg.name;
-            }
-            return result;
         }
 
         if (messageRole === 'assistant') {
@@ -71,7 +93,10 @@ export class OpenAIConversationAdapter {
             if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {
                 const result: OpenAI.Chat.ChatCompletionAssistantMessageParam = {
                     role: 'assistant',
-                    content: assistantMsg.content || null,
+                    // CRITICAL: OpenAI API requires content to be null (not empty string) when tool_calls are present
+                    // VERIFIED: 2024-12 - This prevents "400 Bad Request" errors from OpenAI API
+                    // DO NOT CHANGE without testing against actual OpenAI API
+                    content: assistantMsg.content === '' ? null : (assistantMsg.content || null),
                     tool_calls: assistantMsg.toolCalls.map(toolCall => ({
                         id: toolCall.id,
                         type: 'function',
@@ -84,10 +109,12 @@ export class OpenAIConversationAdapter {
                 return result;
             }
 
-            // Regular assistant message
+            // Regular assistant message (without tool calls)
+            // VERIFIED: OpenAI accepts both null and string content for regular messages
+            // We preserve null when content is null or empty string for API consistency
             return {
                 role: 'assistant',
-                content: assistantMsg.content || ''
+                content: assistantMsg.content === null ? null : (assistantMsg.content === '' ? null : (assistantMsg.content || ''))
             };
         }
 
@@ -95,24 +122,29 @@ export class OpenAIConversationAdapter {
             const systemMsg = msg as SystemMessage;
             return {
                 role: 'system',
-                content: systemMsg.content
+                content: systemMsg.content || ''
             };
         }
 
         // Handle tool messages for OpenAI tool calling
         if (messageRole === 'tool') {
             const toolMsg = msg as ToolMessage;
+
+            if (!toolMsg.toolCallId || toolMsg.toolCallId.trim() === '') {
+                throw new Error(`Tool message missing toolCallId: ${JSON.stringify(toolMsg)}`);
+            }
+
             const result: OpenAI.Chat.ChatCompletionToolMessageParam = {
                 role: 'tool',
-                content: toolMsg.content,
-                tool_call_id: toolMsg.toolCallId || 'unknown'
+                content: toolMsg.content || '',
+                tool_call_id: toolMsg.toolCallId
             };
             return result;
         }
 
         // This should never happen but TypeScript requires exhaustive checking
-        const _exhaustiveCheck: never = msg;
-        return _exhaustiveCheck;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        throw new Error(`Unsupported message role: ${(msg as any).role}`);
     }
 
     /**

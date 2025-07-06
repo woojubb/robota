@@ -10,11 +10,17 @@
 
 Google AI Provider options
 
+## Hierarchy
+
+- `Omit`\<[`ProviderOptions`](ProviderOptions), ``"model"``\>
+
+  ↳ **`GoogleProviderOptions`**
+
 ## Table of contents
 
 ### Properties
 
-- [client](GoogleProviderOptions#client)
+- [apiKey](GoogleProviderOptions#apikey)
 - [model](GoogleProviderOptions#model)
 - [temperature](GoogleProviderOptions#temperature)
 - [maxTokens](GoogleProviderOptions#maxtokens)
@@ -23,15 +29,15 @@ Google AI Provider options
 
 ## Properties
 
-### client
+### apiKey
 
-• **client**: `GoogleGenerativeAI`
+• **apiKey**: `string`
 
-Google AI client instance
+Google AI API key
 
 #### Defined in
 
-[google/src/types.ts:8](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/google/src/types.ts#L8)
+[google/src/types.ts:26](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/google/src/types.ts#L26)
 
 ___
 
@@ -43,7 +49,7 @@ Default model to use
 
 #### Defined in
 
-[google/src/types.ts:11](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/google/src/types.ts#L11)
+[google/src/types.ts:29](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/google/src/types.ts#L29)
 
 ___
 
@@ -55,7 +61,7 @@ Temperature setting (0.0 ~ 1.0)
 
 #### Defined in
 
-[google/src/types.ts:14](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/google/src/types.ts#L14)
+[google/src/types.ts:32](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/google/src/types.ts#L32)
 
 ___
 
@@ -67,7 +73,7 @@ Maximum number of tokens
 
 #### Defined in
 
-[google/src/types.ts:17](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/google/src/types.ts#L17)
+[google/src/types.ts:35](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/google/src/types.ts#L35)
 
 ___
 
@@ -81,16 +87,16 @@ Response MIME type
 
 #### Defined in
 
-[google/src/types.ts:24](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/google/src/types.ts#L24)
+[google/src/types.ts:42](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/google/src/types.ts#L42)
 
 ___
 
 ### responseSchema
 
-• `Optional` **responseSchema**: `Record`\<`string`, `unknown`\>
+• `Optional` **responseSchema**: `Record`\<`string`, [`ProviderOptionValue`](../modules#provideroptionvalue)\>
 
 Response schema for JSON output (only used when responseMimeType is 'application/json')
 
 #### Defined in
 
-[google/src/types.ts:29](https://github.com/woojubb/robota/blob/cb1bdf4e9982efe5a4622cbb23e0f1ae10892662/packages/google/src/types.ts#L29)
+[google/src/types.ts:47](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/google/src/types.ts#L47)

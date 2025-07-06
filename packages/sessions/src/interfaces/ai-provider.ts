@@ -1,5 +1,6 @@
-export type { AIProvider, Context, ModelResponse, StreamingResponseChunk } from '@robota-sdk/core';
+import type { BaseAIProvider } from '@robota-sdk/agents';
 
+// Provider configuration and management interfaces
 export interface ProviderConfig {
     name: string;
     apiKey?: string;
@@ -9,8 +10,8 @@ export interface ProviderConfig {
 }
 
 export interface ProviderManager {
-    addProvider(name: string, provider: any): void;
-    getProvider(name: string): any | null;
+    addProvider(name: string, provider: BaseAIProvider): void;
+    getProvider(name: string): BaseAIProvider | null;
     removeProvider(name: string): boolean;
     listProviders(): string[];
     setDefaultProvider(name: string): void;

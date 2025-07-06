@@ -20,8 +20,7 @@ export default defineConfig({
     },
     resolve: {
         alias: {
-            '@robota-sdk/core': '../core/src',
-            '@robota-sdk/tools': '../tools/src'
+            '@robota-sdk/agents': '../agents/src'
         }
     }
 }); 

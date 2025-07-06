@@ -9,6 +9,9 @@
         "esModuleInterop": true,
         "allowSyntheticDefaultImports": true,
         "moduleResolution": "Node",
+        "types": [
+            "node"
+        ],
         "typeRoots": [
             "./node_modules/@types",
             "../../node_modules/@types"
