@@ -60,8 +60,7 @@ async function main() {
 
         // === OpenAI GPT-3.5-turbo Provider Test ===
         const openai35Provider = new OpenAIProvider({
-            client: openaiClient,
-            model: 'gpt-3.5-turbo'
+            apiKey: openaiKey
         });
 
         const robota35 = new Robota({
@@ -78,8 +77,7 @@ async function main() {
 
         // === OpenAI GPT-4o-mini Provider Test ===
         const openai4MiniProvider = new OpenAIProvider({
-            client: openaiClient,
-            model: 'gpt-4o-mini'
+            apiKey: openaiKey
         });
 
         const robota4Mini = new Robota({
@@ -213,19 +211,23 @@ Each provider has its own Robota instance with separate configuration:
 // GPT-3.5 instance
 const robota35 = new Robota({
     name: 'GPT35Agent',
-    model: 'gpt-3.5-turbo',
-    provider: 'openai',
-    aiProviders: { openai: openai35Provider },
-    systemMessage: 'You are a helpful assistant powered by OpenAI GPT-3.5.'
+    aiProviders: [openai35Provider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You are a helpful assistant powered by OpenAI GPT-3.5.'
+    }
 });
 
 // GPT-4o-mini instance  
 const robota4Mini = new Robota({
     name: 'GPT4MiniAgent',
-    model: 'gpt-4o-mini',
-    provider: 'openai',
-    aiProviders: { openai: openai4MiniProvider },
-    systemMessage: 'You are a helpful assistant powered by OpenAI GPT-4o-mini.'
+    aiProviders: [openai4MiniProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4o-mini',
+        systemMessage: 'You are a helpful assistant powered by OpenAI GPT-4o-mini.'
+    }
 });
 ```
 
@@ -278,18 +280,17 @@ console.log(`GPT-4o-mini Agent: ${stats4.historyLength} messages, ${stats4.uptim
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 
 const anthropicProvider = new AnthropicProvider({
-    apiKey: process.env.ANTHROPIC_API_KEY!,
-    model: 'claude-3-haiku-20240307'
+    apiKey: process.env.ANTHROPIC_API_KEY!
 });
 
 const robotaClaude = new Robota({
     name: 'ClaudeAgent',
-    model: 'claude-3-haiku-20240307',
-    provider: 'anthropic',
-    aiProviders: { anthropic: anthropicProvider },
-    currentProvider: 'anthropic',
-    currentModel: 'claude-3-haiku-20240307',
-    systemMessage: 'You are Claude, an AI assistant by Anthropic.'
+    aiProviders: [anthropicProvider],
+    defaultModel: {
+        provider: 'anthropic',
+        model: 'claude-3-haiku-20240307',
+        systemMessage: 'You are Claude, an AI assistant by Anthropic.'
+    }
 });
 ```
 
@@ -299,18 +300,17 @@ const robotaClaude = new Robota({
 import { GoogleProvider } from '@robota-sdk/google';
 
 const googleProvider = new GoogleProvider({
-    apiKey: process.env.GOOGLE_AI_API_KEY!,
-    model: 'gemini-1.5-flash'
+    apiKey: process.env.GOOGLE_AI_API_KEY!
 });
 
 const robotaGemini = new Robota({
     name: 'GeminiAgent',
-    model: 'gemini-1.5-flash',
-    provider: 'google',
-    aiProviders: { google: googleProvider },
-    currentProvider: 'google',
-    currentModel: 'gemini-1.5-flash',
-    systemMessage: 'You are Gemini, an AI model by Google.'
+    aiProviders: [googleProvider],
+    defaultModel: {
+        provider: 'google',
+        model: 'gemini-1.5-flash',
+        systemMessage: 'You are Gemini, an AI model by Google.'
+    }
 });
 ```
 

@@ -87,10 +87,8 @@ robota/
 ```typescript
 import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
-import OpenAI from 'openai';
 
-const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const openaiProvider = new OpenAIProvider({ client: openaiClient });
+const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
 
 const robota = new Robota({
     name: 'Assistant',
@@ -113,16 +111,11 @@ import { createTeam } from '@robota-sdk/team';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 
-const openaiProvider = new OpenAIProvider({
-    client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-});
-
-const anthropicProvider = new AnthropicProvider({
-    client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-});
+const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
+const anthropicProvider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // Create a team with intelligent delegation capabilities
-const team = createTeam({
+const team = await createTeam({
     aiProviders: [openaiProvider, anthropicProvider],
     maxMembers: 5,
     maxTokenLimit: 50000,
@@ -181,19 +174,19 @@ await codeSession.sendMessage('How do I implement a binary search?');
 ### AI Agent with Tools
 
 ```typescript
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
+import { createFunctionTool } from '@robota-sdk/agents';
 import { z } from 'zod';
 
 // Define calculator tool
-const calculatorTool = {
-    name: 'calculate',
-    description: 'Performs mathematical calculations',
-    parameters: z.object({
+const calculatorTool = createFunctionTool(
+    'calculate',
+    'Performs mathematical calculations',
+    z.object({
         operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
         a: z.number(),
         b: z.number()
     }),
-    handler: async (params) => {
+    async (params) => {
         const { operation, a, b } = params;
         switch (operation) {
             case 'add': return { result: a + b };
@@ -202,11 +195,7 @@ const calculatorTool = {
             case 'divide': return { result: a / b };
         }
     }
-};
-
-const toolProvider = createZodFunctionToolProvider({
-    tools: { calculate: calculatorTool }
-});
+);
 
 const robota = new Robota({
     name: 'Calculator Assistant',
@@ -228,6 +217,7 @@ const response = await robota.run('Please calculate 15 multiplied by 7.');
 import { GoogleProvider } from '@robota-sdk/google';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 
+const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
 const googleProvider = new GoogleProvider({ apiKey: process.env.GOOGLE_AI_API_KEY });
 const anthropicProvider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -236,7 +226,8 @@ const robota = new Robota({
     aiProviders: [openaiProvider, googleProvider, anthropicProvider],
     defaultModel: {
         provider: 'openai',
-        model: 'gpt-4'
+        model: 'gpt-4',
+        systemMessage: 'You are a helpful AI assistant.'
     }
 });
 

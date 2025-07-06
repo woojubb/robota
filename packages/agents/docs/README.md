@@ -18,14 +18,15 @@ npm install @robota-sdk/agents
 import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 
+const openaiProvider = new OpenAIProvider({ apiKey: 'sk-...' });
+
 const agent = new Robota({
   name: 'MyAgent',
-  aiProviders: [
-    new OpenAIProvider({ apiKey: 'sk-...' })
-  ],
+  aiProviders: [openaiProvider],
   defaultModel: {
     provider: 'openai',
-    model: 'gpt-4'
+    model: 'gpt-4',
+    systemMessage: 'You are a helpful assistant.'
   }
 });
 

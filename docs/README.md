@@ -48,16 +48,17 @@ A powerful TypeScript library for building AI agents with multi-provider support
 ```typescript
 import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
-import OpenAI from 'openai';
 
-const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const openaiProvider = new OpenAIProvider(openaiClient);
+const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
 
 const robota = new Robota({
-    aiProviders: { 'openai': openaiProvider },
-    currentProvider: 'openai',
-    currentModel: 'gpt-4',
-    systemPrompt: 'You are a helpful AI assistant.'
+    name: 'MyAssistant',
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4',
+        systemMessage: 'You are a helpful AI assistant.'
+    }
 });
 
 const response = await robota.run('Hello! How can I help you today?');
@@ -70,11 +71,11 @@ import { createTeam } from '@robota-sdk/team';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 
+const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
+const anthropicProvider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
+
 const team = await createTeam({
-    aiProviders: {
-        openai: openaiProvider,
-        anthropic: anthropicProvider
-    }
+    aiProviders: [openaiProvider, anthropicProvider]
 });
 
 const result = await team.execute(
