@@ -32,7 +32,7 @@
         "build:check": "pnpm run typecheck && pnpm run build",
         "dev": "tsup --watch",
         "clean": "rimraf dist && rimraf tsconfig.tsbuildinfo",
-        "typecheck": "tsc --noEmit",
+        "typecheck": "tsc --noEmit -p tsconfig.build.json",
         "test": "vitest run --passWithNoTests",
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",
