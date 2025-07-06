@@ -1,0 +1,27 @@
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+
+# Build outputs
+dist/
+build/
+out/
+
+# Dependencies
+node_modules/
+
+# Documentation
+docs/
+apps/docs/
+
+# Examples
+apps/examples/
+
+# Other
+coverage/
+.next/
+.turbo/
+.vscode/
+.idea/ 
