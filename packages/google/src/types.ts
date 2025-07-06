@@ -19,8 +19,8 @@ export interface ProviderOptions {
  * Google AI Provider options
  */
 export interface GoogleProviderOptions extends Omit<ProviderOptions, 'model'> {
-    /** Google AI client instance */
-    client: GoogleGenerativeAI;
+    /** Google AI API key */
+    apiKey: string;
 
     /** Default model to use */
     model?: string;

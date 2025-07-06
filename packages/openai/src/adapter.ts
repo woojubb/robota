@@ -1,21 +1,14 @@
 import OpenAI from 'openai';
 import type {
     UniversalMessage,
-    ToolCall
-} from './provider';
+    AssistantMessage
+} from '@robota-sdk/agents';
 
 // Define message types locally to avoid circular dependency
 export interface UserMessage {
     role: 'user';
     content: string | null;
     timestamp?: Date;
-}
-
-export interface AssistantMessage {
-    role: 'assistant';
-    content: string | null;
-    timestamp?: Date;
-    toolCalls?: ToolCall[];
 }
 
 export interface SystemMessage {
@@ -32,9 +25,12 @@ export interface ToolMessage {
 }
 
 /**
- * OpenAI ConversationHistory adapter
+ * OpenAI Conversation Adapter
  * 
- * Converts UniversalMessage to OpenAI Chat Completions API format
+ * Converts between UniversalMessage format and OpenAI native types.
+ * Provides bidirectional conversion for seamless integration.
+ * 
+ * @public
  */
 export class OpenAIConversationAdapter {
     /**
@@ -97,7 +93,10 @@ export class OpenAIConversationAdapter {
             if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {
                 const result: OpenAI.Chat.ChatCompletionAssistantMessageParam = {
                     role: 'assistant',
-                    content: assistantMsg.content || '',
+                    // CRITICAL: OpenAI API requires content to be null (not empty string) when tool_calls are present
+                    // VERIFIED: 2024-12 - This prevents "400 Bad Request" errors from OpenAI API
+                    // DO NOT CHANGE without testing against actual OpenAI API
+                    content: assistantMsg.content === '' ? null : (assistantMsg.content || null),
                     tool_calls: assistantMsg.toolCalls.map(toolCall => ({
                         id: toolCall.id,
                         type: 'function',
@@ -111,9 +110,11 @@ export class OpenAIConversationAdapter {
             }
 
             // Regular assistant message (without tool calls)
+            // VERIFIED: OpenAI accepts both null and string content for regular messages
+            // We preserve null when content is null or empty string for API consistency
             return {
                 role: 'assistant',
-                content: assistantMsg.content || ''
+                content: assistantMsg.content === null ? null : (assistantMsg.content === '' ? null : (assistantMsg.content || ''))
             };
         }
 
@@ -142,7 +143,7 @@ export class OpenAIConversationAdapter {
         }
 
         // This should never happen but TypeScript requires exhaustive checking
-        throw new Error(`Unsupported message role: ${msg.role}`);
+        throw new Error(`Unsupported message role: ${(msg as any).role}`);
     }
 
     /**

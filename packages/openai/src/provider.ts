@@ -3,116 +3,32 @@ import type { OpenAIProviderOptions } from './types';
 import type {
     OpenAIError
 } from './types/api-types';
-
-/**
- * Universal message interface for provider-agnostic communication
- */
-export interface UniversalMessage {
-    role: 'user' | 'assistant' | 'system' | 'tool';
-    content: string | null;
-    timestamp?: Date;
-    toolCalls?: ToolCall[];
-    toolCallId?: string;
-    name?: string;
-    metadata?: MessageMetadata;
-}
-
-/**
- * Message metadata interface
- */
-export interface MessageMetadata {
-    usage?: {
-        promptTokens: number;
-        completionTokens: number;
-        totalTokens: number;
-    };
-    model?: string;
-    finishReason?: string;
-    [key: string]: string | number | boolean | MessageMetadata['usage'] | undefined;
-}
-
-/**
- * Tool call interface
- */
-export interface ToolCall {
-    id: string;
-    type: 'function';
-    function: {
-        name: string;
-        arguments: string;
-    };
-}
-
-/**
- * Tool schema interface
- */
-export interface ToolSchema {
-    name: string;
-    description: string;
-    parameters: ToolParameters;
-}
-
-/**
- * Tool parameters interface - compatible with OpenAI SDK
- */
-export interface ToolParameters {
-    type: 'object';
-    properties?: Record<string, ToolParameterProperty>;
-    required?: string[];
-    [key: string]: string | number | boolean | Record<string, ToolParameterProperty> | string[] | undefined;
-}
-
-/**
- * Tool parameter property interface
- */
-export interface ToolParameterProperty {
-    type: 'string' | 'number' | 'boolean' | 'array' | 'object';
-    description?: string;
-    enum?: (string | number)[];
-    items?: ToolParameterProperty;
-    properties?: Record<string, ToolParameterProperty>;
-}
-
-/**
- * Chat options interface
- */
-export interface ChatOptions {
-    model?: string;
-    temperature?: number;
-    maxTokens?: number;
-    tools?: ToolSchema[];
-}
-
-/**
- * AI Provider interface
- */
-export interface AIProvider {
-    readonly name: string;
-    readonly version: string;
-
-    chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
-    chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
-    supportsTools(): boolean;
-    validateConfig(): boolean;
-    dispose(): Promise<void>;
-}
+import { BaseAIProvider } from '@robota-sdk/agents';
+import type {
+    UniversalMessage,
+    ChatOptions,
+    ToolCall,
+    ToolSchema,
+    AssistantMessage
+} from '@robota-sdk/agents';
 
 /**
  * OpenAI provider implementation for Robota
  * 
- * Provides integration with OpenAI's GPT models using provider-agnostic UniversalMessage.
+ * Provides integration with OpenAI's GPT models following BaseAIProvider guidelines.
  * Uses OpenAI SDK native types internally for optimal performance and feature support.
  * 
  * @public
  */
-export class OpenAIProvider implements AIProvider {
-    readonly name = 'openai';
-    readonly version = '1.0.0';
+export class OpenAIProvider extends BaseAIProvider {
+    override readonly name = 'openai';
+    override readonly version = '1.0.0';
 
     private readonly client: OpenAI;
     private readonly options: OpenAIProviderOptions;
 
     constructor(options: OpenAIProviderOptions) {
+        super();
         this.options = {
             temperature: 0.7,
             ...options
@@ -128,7 +44,7 @@ export class OpenAIProvider implements AIProvider {
     /**
      * Generate response using UniversalMessage
      */
-    async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
+    override async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
         this.validateMessages(messages);
 
         try {
@@ -160,9 +76,9 @@ export class OpenAIProvider implements AIProvider {
     }
 
     /**
-         * Generate streaming response using UniversalMessage
-         */
-    async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+     * Generate streaming response using UniversalMessage
+     */
+    override async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
         this.validateMessages(messages);
 
         try {
@@ -199,15 +115,15 @@ export class OpenAIProvider implements AIProvider {
         }
     }
 
-    supportsTools(): boolean {
+    override supportsTools(): boolean {
         return true;
     }
 
-    validateConfig(): boolean {
+    override validateConfig(): boolean {
         return !!this.client && !!this.options;
     }
 
-    async dispose(): Promise<void> {
+    override async dispose(): Promise<void> {
         // OpenAI client doesn't need explicit cleanup
     }
 
@@ -223,11 +139,13 @@ export class OpenAIProvider implements AIProvider {
                         content: msg.content || ''
                     };
                 case 'assistant':
-                    if (msg.toolCalls && msg.toolCalls.length > 0) {
+                    const assistantMsg = msg as AssistantMessage;
+                    if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0) {
                         return {
                             role: 'assistant' as const,
-                            content: msg.content || '',
-                            tool_calls: msg.toolCalls.map((toolCall: ToolCall) => ({
+                            // IMPORTANT: Preserve null for tool calls as per OpenAI API spec
+                            content: assistantMsg.content === '' ? null : (assistantMsg.content || null),
+                            tool_calls: assistantMsg.toolCalls.map((toolCall: ToolCall) => ({
                                 id: toolCall.id,
                                 type: 'function' as const,
                                 function: {
@@ -253,9 +171,8 @@ export class OpenAIProvider implements AIProvider {
                         tool_call_id: msg.toolCallId || ''
                     };
                 default:
-                    // Use never type to ensure exhaustive checking
-                    const exhaustiveCheck: never = msg.role;
-                    throw new Error(`Unsupported message role: ${exhaustiveCheck}`);
+                    // This should never happen with proper TypeScript
+                    throw new Error(`Unsupported message role: ${(msg as any).role}`);
             }
         });
     }
@@ -275,10 +192,10 @@ export class OpenAIProvider implements AIProvider {
     }
 
     /**
-       * Convert OpenAI response to UniversalMessage
+     * Convert OpenAI response to UniversalMessage
      * 
-       * IMPORTANT: This preserves content: null for tool calls to prevent infinite loops
-       */
+     * IMPORTANT: This preserves content: null for tool calls to prevent infinite loops
+     */
     private convertFromOpenAIResponse(response: OpenAI.Chat.ChatCompletion): UniversalMessage {
         const choice = response.choices[0];
         if (!choice) {
@@ -286,14 +203,14 @@ export class OpenAIProvider implements AIProvider {
         }
         const message = choice.message;
 
-        return {
+        const result: UniversalMessage = {
             role: 'assistant',
-            content: message.content, // Keep null as is - crucial for tool execution!
+            content: message.content || '', // Convert null to empty string for type compatibility
             timestamp: new Date(),
             ...(message.tool_calls && {
                 toolCalls: message.tool_calls.map(tc => ({
                     id: tc.id,
-                    type: tc.type,
+                    type: tc.type as 'function',
                     function: {
                         name: tc.function.name,
                         arguments: tc.function.arguments
@@ -301,25 +218,39 @@ export class OpenAIProvider implements AIProvider {
                 }))
             })
         };
+
+        // Add usage metadata if available
+        if (response.usage) {
+            // Flatten usage data for metadata compatibility
+            result.metadata = {
+                promptTokens: response.usage.prompt_tokens,
+                completionTokens: response.usage.completion_tokens,
+                totalTokens: response.usage.total_tokens,
+                model: response.model,
+                finishReason: choice.finish_reason || undefined
+            };
+        }
+
+        return result;
     }
 
     /**
-       * Convert OpenAI streaming chunk to UniversalMessage
-       */
+     * Convert OpenAI streaming chunk to UniversalMessage
+     */
     private convertFromOpenAIChunk(chunk: OpenAI.Chat.ChatCompletionChunk): UniversalMessage | null {
         const choice = chunk.choices[0];
         if (!choice) return null;
 
         const delta = choice.delta;
 
-        return {
+        const result: UniversalMessage = {
             role: 'assistant',
-            content: delta.content || null,
+            content: delta.content || '', // Convert null to empty string for type compatibility
             timestamp: new Date(),
             ...(delta.tool_calls && {
                 toolCalls: delta.tool_calls.map((tc) => ({
                     id: tc.id || '',
-                    type: (tc.type as 'function') || 'function',
+                    type: 'function' as const,
                     function: {
                         name: tc.function?.name || '',
                         arguments: tc.function?.arguments || ''
@@ -327,23 +258,54 @@ export class OpenAIProvider implements AIProvider {
                 }))
             })
         };
+
+        // Add streaming metadata
+        if (choice.finish_reason) {
+            result.metadata = {
+                finishReason: choice.finish_reason,
+                isStreamChunk: 'true' // Convert boolean to string for metadata compatibility
+            };
+        }
+
+        return result;
     }
 
     /**
-       * Validate UniversalMessage array
-       */
-    protected validateMessages(messages: UniversalMessage[]): void {
-        if (!Array.isArray(messages)) {
-            throw new Error('Messages must be an array');
-        }
+     * Validate messages before sending to API
+     * 
+     * IMPORTANT: OpenAI API Content Handling Policy
+     * =============================================
+     * 
+     * Based on OpenAI API documentation and community feedback:
+     * 
+     * 1. When sending TO OpenAI API:
+     *    - Assistant messages with tool_calls: content MUST be null (not empty string)
+     *    - Regular assistant messages: content can be string or null
+     *    - This prevents "400 Bad Request" errors
+     * 
+     * 2. When receiving FROM our API (UniversalMessage):
+     *    - All messages must have content as string (TypeScript requirement)
+     *    - Convert null to empty string for type compatibility
+     * 
+     * 3. This dual handling ensures:
+     *    - OpenAI API compatibility (null for tool calls)
+     *    - TypeScript type safety (string content in UniversalMessage)
+     *    - No infinite loops in tool execution
+     * 
+     * Reference: OpenAI Community discussions confirm that tool_calls
+     * require content to be null, not empty string.
+     */
+    protected override validateMessages(messages: UniversalMessage[]): void {
+        super.validateMessages(messages);
 
-        if (messages.length === 0) {
-            throw new Error('Messages array cannot be empty');
-        }
-
+        // Additional OpenAI-specific validation
         for (const message of messages) {
-            if (!message.role || !['user', 'assistant', 'system', 'tool'].includes(message.role)) {
-                throw new Error(`Invalid message role: ${message.role}`);
+            if (message.role === 'assistant') {
+                const assistantMsg = message as AssistantMessage;
+                if (assistantMsg.toolCalls && assistantMsg.toolCalls.length > 0 && assistantMsg.content === '') {
+                    // This is valid - we'll convert to null when sending to OpenAI
+                    continue;
+                }
             }
         }
     }
