@@ -61,7 +61,6 @@ async function main() {
     const agent = new Robota({
         provider: 'openai',
         model: 'gpt-4o-mini',
-        currentProvider: 'openai',
         currentModel: 'gpt-4o-mini',
         systemMessage: 'You are a helpful assistant that provides detailed responses.',
         aiProviders: {

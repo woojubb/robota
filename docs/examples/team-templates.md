@@ -75,7 +75,6 @@ async function main() {
             aiProviders: {
                 'anthropic': anthropicProvider
             },
-            currentProvider: 'anthropic',
             currentModel: 'claude-3-5-sonnet-20241022',
             systemMessage: 'You are a market research and analysis specialist. Focus on data-driven insights, market trends, competitive analysis, and strategic recommendations.'
         });
@@ -94,7 +93,6 @@ async function main() {
             aiProviders: {
                 'openai': creativeProvider
             },
-            currentProvider: 'openai',
             currentModel: 'gpt-4o-mini',
             systemMessage: 'You are a creative ideation specialist. Focus on innovative solutions, user experience design, and breakthrough thinking.'
         });
@@ -113,7 +111,6 @@ async function main() {
             aiProviders: {
                 'openai': coordinatorProvider
             },
-            currentProvider: 'openai',
             currentModel: 'gpt-4o-mini',
             systemMessage: 'You are a project coordinator and synthesis specialist. Focus on integration, prioritization, and clear communication.'
         });

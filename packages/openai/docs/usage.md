@@ -39,7 +39,6 @@ const agent = new Robota({
   aiProviders: {
     openai: provider
   },
-  currentProvider: 'openai',
   systemPrompt: 'You are a helpful AI assistant.'
 });
 
@@ -144,7 +143,6 @@ import { ConversationHistory } from '@robota-sdk/agents';
 // Enable conversation memory
 const agent = new Robota({
   aiProviders: { openai: provider },
-  currentProvider: 'openai',
   plugins: [
     new ConversationHistory({
       maxMessages: 20,
@@ -336,33 +334,42 @@ const analysis = await agent.run(`
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { GoogleProvider } from '@robota-sdk/google';
 
+const openaiProvider = new OpenAIProvider({
+  apiKey: process.env.OPENAI_API_KEY!
+});
+
+const anthropicProvider = new AnthropicProvider({
+  apiKey: process.env.ANTHROPIC_API_KEY!
+});
+
+const googleProvider = new GoogleProvider({
+  apiKey: process.env.GOOGLE_AI_API_KEY!
+});
+
 const agent = new Robota({
-  aiProviders: {
-    openai: new OpenAIProvider({
-      client: openaiClient,
-      model: 'gpt-4'
-    }),
-    claude: new AnthropicProvider({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      model: 'claude-3-sonnet-20240229'
-    }),
-    gemini: new GoogleProvider({
-      apiKey: process.env.GOOGLE_AI_API_KEY,
-      model: 'gemini-pro'
-    })
-  },
-  currentProvider: 'openai'
+  name: 'MultiProviderAgent',
+  aiProviders: [openaiProvider, anthropicProvider, googleProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4'
+  }
 });
 
 // Compare responses from different models
 async function compareModels(question: string) {
   const results = {};
   
-  for (const provider of ['openai', 'claude', 'gemini']) {
-    await agent.setCurrentProvider(provider);
-    const response = await agent.run(question);
-    results[provider] = response.content;
-  }
+  // OpenAI
+  agent.setModel({ provider: 'openai', model: 'gpt-4' });
+  results.openai = await agent.run(question);
+  
+  // Anthropic
+  agent.setModel({ provider: 'anthropic', model: 'claude-3-sonnet-20240229' });
+  results.claude = await agent.run(question);
+  
+  // Google
+  agent.setModel({ provider: 'google', model: 'gemini-pro' });
+  results.gemini = await agent.run(question);
   
   return results;
 }
@@ -374,43 +381,62 @@ const comparison = await compareModels('What are the pros and cons of TypeScript
 
 ```typescript
 // Specialized configurations for different tasks
-const agent = new Robota({
-  aiProviders: {
-    // Creative writing
-    creative: new OpenAIProvider({
-      client: openaiClient,
-      model: 'gpt-4',
-      temperature: 0.9,
-      maxTokens: 3000
-    }),
-    
-    // Code analysis
-    coder: new OpenAIProvider({
-      client: openaiClient,
-      model: 'gpt-4',
-      temperature: 0.1,
-      maxTokens: 2000
-    }),
-    
-    // Quick responses
-    quick: new OpenAIProvider({
-      client: openaiClient,
-      model: 'gpt-3.5-turbo',
-      temperature: 0.5,
-      maxTokens: 500
-    })
+const creativeProvider = new OpenAIProvider({
+  apiKey: process.env.OPENAI_API_KEY!,
+  model: 'gpt-4',
+  temperature: 0.9,
+  maxTokens: 3000
+});
+
+const coderProvider = new OpenAIProvider({
+  apiKey: process.env.OPENAI_API_KEY!,
+  model: 'gpt-4',
+  temperature: 0.1,
+  maxTokens: 2000
+});
+
+const quickProvider = new OpenAIProvider({
+  apiKey: process.env.OPENAI_API_KEY!,
+  model: 'gpt-3.5-turbo',
+  temperature: 0.5,
+  maxTokens: 500
+});
+
+// Create separate agents for different tasks
+const creativeAgent = new Robota({
+  name: 'CreativeAgent',
+  aiProviders: [creativeProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4',
+    systemMessage: 'You are a creative writing assistant.'
   }
 });
 
-// Use appropriate provider for task
-await agent.setCurrentProvider('creative');
-const story = await agent.run('Write a short story about time travel');
+const coderAgent = new Robota({
+  name: 'CoderAgent',
+  aiProviders: [coderProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4',
+    systemMessage: 'You are an expert code reviewer.'
+  }
+});
 
-await agent.setCurrentProvider('coder');
-const codeReview = await agent.run('Review this JavaScript function for bugs');
+const quickAgent = new Robota({
+  name: 'QuickAgent',
+  aiProviders: [quickProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-3.5-turbo',
+    systemMessage: 'You provide quick, concise answers.'
+  }
+});
 
-await agent.setCurrentProvider('quick');
-const summary = await agent.run('Summarize this text in 2 sentences');
+// Use appropriate agent for task
+const story = await creativeAgent.run('Write a short story about time travel');
+const codeReview = await coderAgent.run('Review this JavaScript function for bugs');
+const summary = await quickAgent.run('Summarize this text in 2 sentences');
 ```
 
 ## Advanced Features
@@ -468,8 +494,12 @@ const analysis = await agent.run('Analyze the task of building a React web appli
 import { RetryPlugin, ErrorHandlingPlugin } from '@robota-sdk/agents';
 
 const agent = new Robota({
-  aiProviders: { openai: provider },
-  currentProvider: 'openai',
+  name: 'RobustAgent',
+  aiProviders: [provider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4'
+  },
   plugins: [
     new RetryPlugin({
       maxRetries: 3,
@@ -501,8 +531,12 @@ try {
 import { PerformancePlugin, UsagePlugin } from '@robota-sdk/agents';
 
 const agent = new Robota({
-  aiProviders: { openai: provider },
-  currentProvider: 'openai',
+  name: 'MonitoredAgent',
+  aiProviders: [provider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4'
+  },
   plugins: [
     new PerformancePlugin({
       trackTokenUsage: true,
@@ -680,13 +714,17 @@ import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 
 const provider = new OpenAIProvider({
-  client: new OpenAI({ apiKey: 'sk-...' }),
+  apiKey: process.env.OPENAI_API_KEY!,
   model: 'gpt-4'
 });
 
 const agent = new Robota({
-  aiProviders: { openai: provider },
-  currentProvider: 'openai'
+  name: 'MyAgent',
+  aiProviders: [provider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4'
+  }
 });
 
 const response = await agent.run('Hello');

@@ -153,9 +153,9 @@ const agent = new Robota({
 
 ```typescript
 // Seamless provider switching
-await agent.switchProvider('openai', 'gpt-4');
-await agent.switchProvider('anthropic', 'claude-3-sonnet');
-await agent.switchProvider('google', 'gemini-1.5-flash');
+agent.setModel({ provider: 'openai', model: 'gpt-4' });
+agent.setModel({ provider: 'anthropic', model: 'claude-3-sonnet' });
+agent.setModel({ provider: 'google', model: 'gemini-1.5-flash' });
 ```
 
 ## Contribution Guidelines
@@ -217,10 +217,14 @@ describe('Robota Agent', () => {
 // Test real provider integration
 describe('Provider Integration', () => {
     it('should work with OpenAI provider', async () => {
-        const provider = new OpenAIProvider({ client: mockClient });
+        const provider = new OpenAIProvider({ apiKey: 'test-key' });
         const agent = new Robota({
-            aiProviders: { openai: provider },
-            currentProvider: 'openai'
+            name: 'TestAgent',
+            aiProviders: [provider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-3.5-turbo'
+            }
         });
         
         const response = await agent.run('Test message');

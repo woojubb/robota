@@ -61,7 +61,6 @@ const robota = new Robota({
   aiProviders: {
     openai: provider
   },
-  currentProvider: 'openai',
   currentModel: 'gpt-4',
   systemPrompt: 'You are a helpful AI assistant.'
 });
@@ -143,7 +142,6 @@ const robota = new Robota({
   aiProviders: {
     openai: provider
   },
-  currentProvider: 'openai',
   currentModel: 'gpt-4',
   toolProviders: [toolProvider]
 });
@@ -165,7 +163,6 @@ const robota = new Robota({
     anthropic: anthropicProvider,
     google: googleProvider
   },
-  currentProvider: 'openai',
   currentModel: 'gpt-4'
 });
 

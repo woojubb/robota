@@ -50,7 +50,6 @@ const robota = new Robota({
     aiProviders: {
         'openai': openaiProvider
     },
-    currentProvider: 'openai',
     currentModel: 'gpt-3.5-turbo',
     toolProviders: [mcpProvider],
     systemPrompt: 'You are an assistant with access to MCP tools and services.'
@@ -444,7 +443,6 @@ async function setupMultiServerMCP() {
     // Create Robota with all MCP providers
     const robota = new Robota({
         aiProviders: { 'openai': openaiProvider },
-        currentProvider: 'openai',
         currentModel: 'gpt-3.5-turbo',
         toolProviders: mcpManager.getAllProviders(),
         systemPrompt: 'You have access to calculator and weather services via MCP.'

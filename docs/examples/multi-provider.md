@@ -127,13 +127,11 @@ async function main() {
         const stats35 = robota35.getStats();
         console.log(`\nGPT-3.5 Agent (${stats35.name}):`);
         console.log(`- History length: ${stats35.historyLength}`);
-        console.log(`- Current provider: ${stats35.currentProvider}`);
         console.log(`- Uptime: ${Math.round(stats35.uptime)}ms`);
 
         const stats4 = robota4Mini.getStats();
         console.log(`\nGPT-4o-mini Agent (${stats4.name}):`);
         console.log(`- History length: ${stats4.historyLength}`);
-        console.log(`- Current provider: ${stats4.currentProvider}`);
         console.log(`- Uptime: ${Math.round(stats4.uptime)}ms`);
 
         console.log('\n✅ Multi-Provider Example Completed!');
@@ -191,12 +189,10 @@ AI (Artificial Intelligence) is a comprehensive field of computer science that f
 
 GPT-3.5 Agent (GPT35Agent):
 - History length: 4
-- Current provider: openai
 - Uptime: 2156ms
 
 GPT-4o-mini Agent (GPT4MiniAgent):
 - History length: 4  
-- Current provider: openai
 - Uptime: 2287ms
 
 ✅ Multi-Provider Example Completed!

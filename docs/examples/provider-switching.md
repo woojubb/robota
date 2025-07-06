@@ -32,7 +32,6 @@ const robota = new Robota({
         'anthropic': anthropicProvider,
         'google': googleProvider
     },
-    currentProvider: 'openai',
     currentModel: 'gpt-3.5-turbo'
 });
 
