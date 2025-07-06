@@ -419,3 +419,318 @@ pnpm publish
 - **Performance Optimizations**: Further performance improvements
 - **Plugin Ecosystem**: Expand plugin capabilities
 - **Developer Tools**: Enhanced development tooling 
+
+## Module Type System
+
+The Robota SDK features a flexible module type system that allows for dynamic classification and extension of module capabilities.
+
+### Classification Criteria
+
+#### 1. Functional Layer
+- `CORE`: Essential functionality for basic agent operation
+- `CAPABILITY`: Specific abilities provided to the agent
+- `ENHANCEMENT`: Features that improve existing capabilities
+
+#### 2. Domain Area
+- `PROVIDER`: AI service providers (OpenAI, Anthropic, Google, etc.)
+- `TOOL`: External task execution capabilities
+- `STORAGE`: Data storage and retrieval
+- `COMMUNICATION`: Input/output and communication
+- `COGNITION`: Cognitive and reasoning abilities
+
+#### 3. Dependency Level
+- `FOUNDATION`: Modules that serve as foundation for other modules
+- `COMPOSITE`: Modules that combine multiple modules
+- `SPECIALIZED`: Modules specialized for specific purposes
+
+### Dynamic Module Type System
+
+#### Core Module Types
+
+```typescript
+// Module types for optional extensions (what LLMs cannot do)
+export enum CoreModuleType {
+    STORAGE = 'storage',                    // Various storage implementations
+    VECTOR_SEARCH = 'vector-search',        // Vector search for RAG
+    FILE_PROCESSING = 'file-processing',    // File parsing/processing
+    MULTIMODAL = 'multimodal',             // Multimodal AI processing
+    DATABASE = 'database',                  // Real-time DB integration
+    API_INTEGRATION = 'api-integration',    // External API integration
+    SPEECH_PROCESSING = 'speech-processing', // Speech input/output
+    IMAGE_ANALYSIS = 'image-analysis',      // Image analysis
+    TRANSPORT = 'transport'                 // Network transport
+}
+
+// Extended module type system
+export interface ModuleTypeDescriptor {
+    readonly type: string;
+    readonly category: ModuleCategory;
+    readonly layer: ModuleLayer;
+    readonly dependencies: string[];
+    readonly capabilities: string[];
+}
+
+export enum ModuleCategory {
+    FOUNDATION = 'foundation',     // Foundation technology
+    CAPABILITY = 'capability',     // Core abilities
+    ENHANCEMENT = 'enhancement',   // Enhancement features
+    INTEGRATION = 'integration'    // Integration functionality
+}
+
+export enum ModuleLayer {
+    INFRASTRUCTURE = 'infrastructure', // Infrastructure layer
+    PLATFORM = 'platform',            // Platform layer
+    APPLICATION = 'application',      // Application layer
+    DOMAIN = 'domain'                 // Domain layer
+}
+```
+
+#### ModuleRegistry Implementation
+
+```typescript
+// Module registry with runtime extension capability
+export class ModuleRegistry {
+    private static modules = new Map<string, BaseModule>();
+    
+    static register<T extends BaseModule>(module: T): void {
+        this.modules.set(module.name, module);
+    }
+    
+    static get<T extends BaseModule>(name: string): T | undefined {
+        return this.modules.get(name) as T;
+    }
+    
+    static getAvailable(): string[] {
+        return Array.from(this.modules.keys());
+    }
+    
+    static isAvailable(name: string): boolean {
+        return this.modules.has(name);
+    }
+}
+
+// Simple Module interface
+export abstract class BaseModule {
+    abstract readonly name: string;
+    abstract readonly version: string;
+    
+    abstract initialize(config?: any): Promise<void>;
+    abstract dispose(): Promise<void>;
+    
+    // Optional metadata
+    getCapabilities?(): string[];
+    getDependencies?(): string[];
+}
+```
+
+### Layer-based Classification
+
+#### Infrastructure Layer
+**Modules providing basic infrastructure services**
+
+```typescript
+// Database connections, network communication, basic storage
+const databaseModule = {
+    type: 'database',
+    category: ModuleCategory.FOUNDATION,
+    layer: ModuleLayer.INFRASTRUCTURE,
+    dependencies: [],
+    capabilities: ['data-persistence', 'transaction', 'query']
+};
+
+const networkModule = {
+    type: 'network',
+    category: ModuleCategory.FOUNDATION,
+    layer: ModuleLayer.INFRASTRUCTURE,
+    dependencies: [],
+    capabilities: ['http-client', 'websocket', 'tcp-connection']
+};
+```
+
+#### Platform Layer
+**Modules providing platform services**
+
+```typescript
+// AI providers, basic tool execution, message transmission
+const openaiModule = {
+    type: 'openai-provider',
+    category: ModuleCategory.FOUNDATION,
+    layer: ModuleLayer.PLATFORM,
+    dependencies: ['http-transport'],
+    capabilities: ['text-generation', 'model-inference', 'streaming']
+};
+
+const apiGatewayModule = {
+    type: 'api-gateway',
+    category: ModuleCategory.FOUNDATION,
+    layer: ModuleLayer.PLATFORM,
+    dependencies: ['network', 'security'],
+    capabilities: ['request-routing', 'rate-limiting', 'authentication']
+};
+```
+
+#### Application Layer
+**Modules handling application logic**
+
+```typescript
+// Memory management, tool orchestration, conversation management
+const memoryModule = {
+    type: 'episodic-memory',
+    category: ModuleCategory.CAPABILITY,
+    layer: ModuleLayer.APPLICATION,
+    dependencies: ['vector-storage', 'embedding-provider'],
+    capabilities: ['episode-storage', 'similarity-search', 'context-retrieval']
+};
+
+const toolOrchestratorModule = {
+    type: 'tool-orchestrator',
+    category: ModuleCategory.CAPABILITY,
+    layer: ModuleLayer.APPLICATION,
+    dependencies: ['tool-registry', 'execution-engine'],
+    capabilities: ['tool-composition', 'workflow-execution', 'result-aggregation']
+};
+```
+
+#### Domain Layer
+**Modules providing domain expertise**
+
+```typescript
+// Reasoning, planning, learning, sentiment analysis
+const planningModule = {
+    type: 'hierarchical-planning',
+    category: ModuleCategory.CAPABILITY,
+    layer: ModuleLayer.DOMAIN,
+    dependencies: ['reasoning', 'memory', 'tool-executor'],
+    capabilities: ['goal-decomposition', 'plan-generation', 'execution-monitoring']
+};
+
+const learningModule = {
+    type: 'reinforcement-learning',
+    category: ModuleCategory.ENHANCEMENT,
+    layer: ModuleLayer.DOMAIN,
+    dependencies: ['experience-memory', 'reward-function', 'policy-network'],
+    capabilities: ['experience-learning', 'policy-optimization', 'behavior-adaptation']
+};
+```
+
+### Category-based Classification
+
+#### Foundation Modules
+**Technology that serves as foundation for other modules (optional extensions)**
+
+- **Storage**: Various storage implementations (works with memory-based operation without them)
+- **Transport**: Network communication foundation (works locally without them)
+
+#### Capability Modules
+**Provide new capabilities that LLMs cannot do (optional extensions)**
+
+- **Vector Search**: Vector search capability for RAG (general conversation possible without it)
+- **File Processing**: PDF, image, audio processing capability (text conversation possible without it)
+- **MultiModal**: Image+text AI processing capability (text-only processing without it)
+- **Database**: Real-time DB integration capability (basic conversation possible without it)
+- **Speech Processing**: Speech input/output capability (text conversation possible without it)
+- **Image Analysis**: Image analysis capability (text conversation possible without it)
+
+#### Integration Modules
+**Extensions that integrate multiple functionalities (optional)**
+
+- **API Integration**: External API integration (basic functionality works without it)
+- **Multi-modal Processing**: Multi-modal processing integration
+- **Data Pipeline**: Data pipeline integration
+
+### Dynamic Module Type Registration
+
+#### Real-time Type Registration
+```typescript
+// Register actual needed module types (things LLMs cannot do)
+ModuleRegistry.registerType('web-scraping', {
+    type: 'web-scraping',
+    category: ModuleCategory.CAPABILITY,
+    layer: ModuleLayer.APPLICATION,
+    dependencies: ['transport'],
+    capabilities: ['webpage-parsing', 'content-extraction', 'link-crawling']
+});
+
+// Financial data integration module (external API access)
+ModuleRegistry.registerType('financial-data', {
+    type: 'financial-data',
+    category: ModuleCategory.CAPABILITY,
+    layer: ModuleLayer.APPLICATION,
+    dependencies: ['api-integration', 'database'],
+    capabilities: ['market-data-access', 'price-tracking', 'financial-feeds']
+});
+
+// Real-time communication module (network communication LLMs cannot do)
+ModuleRegistry.registerType('realtime-communication', {
+    type: 'realtime-communication',
+    category: ModuleCategory.CAPABILITY,
+    layer: ModuleLayer.APPLICATION,
+    dependencies: ['transport'],
+    capabilities: ['websocket-connection', 'push-notifications', 'live-streaming']
+});
+```
+
+#### Domain-specific Module Sets
+```typescript
+// Medical data access modules (external data integration LLMs cannot do)
+const medicalModuleTypes = [
+    'medical-database',      // Real-time medical DB queries
+    'drug-api',             // Drug information API integration
+    'diagnostic-imaging',   // Medical imaging processing
+    'patient-records',      // Patient record system integration
+    'lab-results-api'       // Lab results API integration
+];
+
+medicalModuleTypes.forEach(type => {
+    ModuleRegistry.registerType(type, {
+        type: type,
+        category: ModuleCategory.CAPABILITY,
+        layer: ModuleLayer.APPLICATION,
+        dependencies: ['database', 'api-integration'],
+        capabilities: [`${type}-data-access`]
+    });
+});
+
+// Real-time game integration modules (game engine integration LLMs cannot do)
+const gameModuleTypes = [
+    'game-engine-api',      // Game engine integration
+    'player-stats-api',     // Player statistics API
+    'matchmaking-service',  // Matchmaking service integration
+    'leaderboard-api',      // Leaderboard API integration
+    'tournament-data'       // Tournament data integration
+];
+
+gameModuleTypes.forEach(type => {
+    ModuleRegistry.registerType(type, {
+        type: type,
+        category: ModuleCategory.CAPABILITY,
+        layer: ModuleLayer.APPLICATION,
+        dependencies: ['api-integration', 'realtime-communication'],
+        capabilities: [`${type}-integration`]
+    });
+});
+```
+
+### Type System Advantages
+
+#### 1. Extensibility
+- **Infinite Extension**: New domain modules can be added anytime
+- **Hierarchical Structure**: Clear hierarchical relationships for dependency management
+- **Category Organization**: Systematic classification by module nature
+
+#### 2. Flexibility
+- **Runtime Registration**: Register new types during application execution
+- **Dynamic Validation**: Validate dependencies and compatibility at runtime
+- **Metadata Utilization**: Automated management through type information
+
+#### 3. Safety
+- **Dependency Validation**: Detect circular dependencies and missing dependencies
+- **Layer Compatibility**: Automatic verification of inter-layer compatibility
+- **Type Safety**: Compile-time and runtime type checking
+
+#### 4. Visibility
+- **Clear Classification**: Module roles and positions clearly specified in types
+- **Capability Specification**: Provided capabilities clearly defined
+- **Relationship Understanding**: Track dependencies and interaction relationships between modules
+
+This flexible module type system enables Robota to become an extensible platform capable of building agents suitable for various domains and purposes. 

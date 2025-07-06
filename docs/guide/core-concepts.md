@@ -6,7 +6,440 @@ lang: en-US
 
 # Core Concepts
 
-Understanding the architecture and design patterns of the Robota SDK.
+Understanding the fundamental concepts and architecture of the Robota SDK.
+
+## Overview
+
+The Robota SDK is built around a unified agent architecture that provides type-safe, extensible AI agent development. This guide covers the core concepts you need to understand to effectively use the SDK.
+
+## Agent Architecture
+
+### BaseAgent Foundation
+
+All agents in Robota extend from the `BaseAgent` class, which provides:
+
+- **Type Safety**: Generic type parameters for configuration and context
+- **Provider Abstraction**: Unified interface across different AI providers
+- **Plugin System**: Extensible architecture for additional functionality
+- **Tool Integration**: Built-in support for function calling and external tools
+
+```typescript
+// Basic agent creation
+const agent = new Robota({
+    name: 'MyAgent',
+    model: 'gpt-4',
+    provider: 'openai',
+    aiProviders: { openai: openaiProvider },
+    systemMessage: 'You are a helpful assistant.'
+});
+```
+
+## Plugin vs Module Architecture
+
+The Robota SDK features a clear separation between **Plugins** and **Modules** to provide maximum flexibility and clarity.
+
+### 🔌 Plugin Definition
+
+**Plugins extend agent lifecycle and behavior with optional functionality**
+
+#### Characteristics:
+- **Runtime Control**: Dynamic activation/deactivation
+- **Optional Extensions**: Add/remove without affecting core agent operations
+- **Lifecycle Hooks**: Intervene in agent execution process
+- **Observation & Enhancement**: Monitor and augment basic operations
+- **Cross-cutting Concerns**: Logging, monitoring, notifications, validation
+
+#### Plugin Categories:
+- **LOGGING**: Structured logging and audit trails
+- **MONITORING**: Performance, usage, and analytics tracking
+- **STORAGE**: Data persistence and retrieval
+- **NOTIFICATION**: Alerts and external communications
+- **LIMITS**: Rate limiting and resource management
+- **ERROR_HANDLING**: Error recovery and resilience
+- **EVENT**: Event management and propagation
+
+#### Plugin Examples:
+```typescript
+// Usage tracking plugin - collects agent execution statistics
+class UsagePlugin extends BasePlugin {
+    category = PluginCategory.MONITORING;
+    priority = PluginPriority.NORMAL;
+    
+    async beforeRun(input: string): Promise<void> {
+        this.startTime = Date.now();
+    }
+    
+    async afterRun(input: string, output: string): Promise<void> {
+        this.recordUsage({
+            duration: Date.now() - this.startTime,
+            inputTokens: this.countTokens(input),
+            outputTokens: this.countTokens(output)
+        });
+    }
+}
+
+// Performance monitoring plugin - tracks execution time and memory usage
+class PerformancePlugin extends BasePlugin {
+    category = PluginCategory.MONITORING;
+    priority = PluginPriority.NORMAL;
+    
+    async beforeExecution(): Promise<void> {
+        this.metrics.memoryBefore = process.memoryUsage();
+    }
+    
+    async afterExecution(): Promise<void> {
+        this.metrics.memoryAfter = process.memoryUsage();
+        this.recordPerformance(this.metrics);
+    }
+}
+```
+
+### 🧩 Module Definition
+
+**Modules provide optional capabilities that extend what agents can do**
+
+#### True Meaning of Modules:
+**Modules are "optional extensions that add capabilities LLMs cannot do natively"**
+
+#### Characteristics:
+- **Capability Providers**: Add specific domain functionality
+- **Optional Extensions**: Agent works without them (basic conversation remains possible)
+- **LLM Limitations**: Handle tasks LLMs cannot perform directly
+- **Interface Implementation**: Concrete implementations of standard interfaces
+- **Domain Expertise**: Specialized functionality for specific areas
+
+#### What Should Be Modules (LLM cannot do + optional):
+```typescript
+// RAG Search Module - LLMs cannot do real-time document search
+interface RAGModule {
+    addDocument(id: string, content: string): Promise<void>;
+    searchRelevant(query: string): Promise<string[]>;
+    generateAnswer(query: string, context: string[]): Promise<string>;
+}
+
+// Speech Processing Module - LLMs cannot process audio
+interface SpeechModule {
+    speechToText(audio: Buffer): Promise<string>;
+    textToSpeech(text: string): Promise<Buffer>;
+    detectLanguage(audio: Buffer): Promise<string>;
+}
+
+// File Processing Module - LLMs cannot parse files directly
+interface FileProcessingModule {
+    processImage(image: Buffer): Promise<string>;
+    processPDF(pdf: Buffer): Promise<string>;
+    processAudio(audio: Buffer): Promise<string>;
+}
+
+// Database Connector Module - LLMs cannot access databases directly
+interface DatabaseModule {
+    query(sql: string): Promise<any[]>;
+    insert(table: string, data: any): Promise<void>;
+    update(table: string, id: string, data: any): Promise<void>;
+}
+```
+
+#### What Should NOT Be Modules (Core internal classes):
+**These are essential components - removing them breaks Robota:**
+- **AI Providers**: Essential for conversation (internal classes)
+- **Tool Execution**: Core function calling logic (internal classes)
+- **Message Processing**: Message conversion/processing (internal classes)
+- **Session Management**: Session handling (internal classes)
+
+### Key Distinction
+
+#### One-Line Summary:
+- **Plugin**: "What should we observe and enhance when the agent runs?" (cross-cutting concerns)
+- **Module**: "What capabilities should the agent have?" (core abilities)
+
+#### Decision Criteria:
+1. **"Can Robota work normally without this feature?"**
+   - **Yes** → Module or Plugin candidate
+   - **No** → Internal core class (not Module/Plugin)
+
+2. **"Does this add new optional capabilities?"**
+   - **Yes** → **Module**
+   - **No** → "Does it observe/enhance existing behavior?" → **Plugin**
+
+3. **"Is this essential to Robota's main logic?"**
+   - **Yes** → Internal class (AI Provider, Tool Execution, etc.)
+   - **No** → Consider Module or Plugin
+
+### Architecture Layers
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    ROBOTA CORE (Required)                   │
+│  AI Providers, Message Processing, Tool Execution,         │
+│  Session Management, Conversation History                   │
+└─────────────────────────────────────────────────────────────┘
+           ↑ Without these, Robota cannot function
+
+┌─────────────────── OPTIONAL MODULES ───────────────────────┐
+│  RAG │ Speech │ Image Analysis │ File Processing │ DB      │
+│      │        │               │                 │ Connector│
+└─────────────────────────────────────────────────────────────┘
+           ↑ Without these, Robota still works (basic conversation)
+
+┌─────────────────── CROSS-CUTTING PLUGINS ──────────────────┐
+│  Monitoring │ Logging │ Security │ Notification │ Analytics│
+└─────────────────────────────────────────────────────────────┘
+           ↑ Without these, Robota still works (additional features)
+```
+
+## Universal Message System
+
+All AI providers in Robota use a standardized message format for consistency:
+
+```typescript
+interface UniversalMessage {
+    role: 'system' | 'user' | 'assistant' | 'tool';
+    content: string;
+    toolCalls?: ToolCall[];
+    metadata?: Record<string, unknown>;
+}
+```
+
+This allows seamless switching between providers while maintaining conversation context.
+
+## Provider System
+
+### Multi-Provider Support
+
+Robota supports multiple AI providers with a unified interface:
+
+```typescript
+// Configure multiple providers
+const config = {
+    aiProviders: {
+        openai: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
+        anthropic: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
+        google: new GoogleProvider({ apiKey: process.env.GOOGLE_AI_API_KEY })
+    },
+    currentProvider: 'openai',
+    currentModel: 'gpt-4'
+};
+
+// Switch providers dynamically
+await agent.switchProvider('anthropic', 'claude-3-sonnet');
+```
+
+### Provider Abstraction
+
+All providers implement the `BaseAIProvider` interface:
+
+```typescript
+abstract class BaseAIProvider {
+    abstract chat(messages: UniversalMessage[]): Promise<UniversalMessage>;
+    abstract chatStream(messages: UniversalMessage[]): AsyncIterable<UniversalMessage>;
+}
+```
+
+## Tool System
+
+### Function Tools
+
+Create type-safe tools with automatic parameter validation:
+
+```typescript
+import { createFunctionTool } from '@robota-sdk/agents';
+
+const weatherTool = createFunctionTool(
+    'getWeather',
+    'Get current weather for a location',
+    {
+        type: 'object',
+        properties: {
+            location: { type: 'string', description: 'City name' },
+            unit: { type: 'string', enum: ['celsius', 'fahrenheit'] }
+        },
+        required: ['location']
+    },
+    async (params) => {
+        const { location, unit = 'celsius' } = params;
+        // Implementation
+        return { temperature: 22, unit, location };
+    }
+);
+```
+
+### Tool Registry
+
+Tools are automatically registered and available to the AI:
+
+```typescript
+const agent = new Robota({
+    // ... other config
+    tools: [weatherTool, calculatorTool, searchTool]
+});
+
+// AI can now call these tools automatically
+await agent.run('What\'s the weather like in Paris?');
+```
+
+## Configuration System
+
+### Agent Configuration
+
+```typescript
+interface AgentConfig {
+    name: string;
+    model: string;
+    provider: string;
+    aiProviders: Record<string, BaseAIProvider>;
+    currentProvider: string;
+    currentModel: string;
+    systemMessage?: string;
+    tools?: BaseTool[];
+    plugins?: BasePlugin[];
+    modules?: BaseModule[];  // New: Module support
+    maxTokens?: number;
+    temperature?: number;
+}
+```
+
+### Runtime Updates
+
+Configuration can be updated at runtime:
+
+```typescript
+// Update system message
+agent.updateConfig({ systemMessage: 'You are now a coding assistant.' });
+
+// Add plugins dynamically
+agent.addPlugin(new LoggingPlugin({ level: 'debug' }));
+
+// Switch models
+await agent.switchProvider('openai', 'gpt-4-turbo');
+```
+
+## Event System
+
+### EventEmitter Integration
+
+Robota uses EventEmitter for loose coupling between components:
+
+```typescript
+// Plugins can subscribe to module events
+class LoggingPlugin extends BasePlugin {
+    constructor(options) {
+        super();
+        this.moduleEvents = [
+            'module.initialize.complete',
+            'module.execution.complete'
+        ];
+    }
+    
+    async onModuleEvent(eventType: string, eventData: any): Promise<void> {
+        console.log(`Module event: ${eventType}`, eventData);
+    }
+}
+```
+
+### Event Types
+
+Standard events include:
+- **Agent Events**: `agent.start`, `agent.stop`, `agent.error`
+- **Execution Events**: `execution.start`, `execution.complete`, `execution.error`
+- **Tool Events**: `tool.call`, `tool.complete`, `tool.error`
+- **Module Events**: `module.initialize.start`, `module.execution.complete`
+
+## Type Safety
+
+### Generic Type Parameters
+
+Robota maintains complete type safety throughout:
+
+```typescript
+// Type-safe agent configuration
+interface MyAgentConfig extends AgentConfig {
+    customOption: string;
+}
+
+// Type-safe plugin options
+interface MyPluginOptions extends BasePluginOptions {
+    setting: number;
+}
+
+class MyPlugin extends BasePlugin<MyPluginOptions, MyPluginStats> {
+    // Fully typed implementation
+}
+```
+
+### Runtime Validation
+
+Type safety is enforced at runtime through:
+- JSON Schema validation for tool parameters
+- Configuration validation at startup
+- Provider response validation
+
+## Performance Considerations
+
+### Lazy Loading
+
+Components are loaded only when needed:
+
+```typescript
+// Modules are initialized only when first used
+const ragModule = new RAGModule({
+    vectorStore: 'pinecone',
+    lazyInit: true  // Initialize on first use
+});
+```
+
+### Streaming Support
+
+Real-time response streaming for better user experience:
+
+```typescript
+// Stream responses for immediate feedback
+for await (const chunk of agent.runStream('Tell me a story')) {
+    process.stdout.write(chunk);
+}
+```
+
+### Resource Management
+
+Automatic cleanup and resource management:
+
+```typescript
+// Plugins and modules are properly disposed
+await agent.dispose(); // Cleans up all resources
+```
+
+## Best Practices
+
+### 1. Configuration Management
+
+- Use environment variables for API keys
+- Validate configuration at startup
+- Provide sensible defaults
+
+### 2. Error Handling
+
+- Implement comprehensive error handling
+- Use appropriate error types
+- Provide meaningful error messages
+
+### 3. Performance Optimization
+
+- Use streaming for long responses
+- Implement caching where appropriate
+- Monitor resource usage
+
+### 4. Type Safety
+
+- Define clear interfaces
+- Use generic type parameters
+- Validate inputs at runtime
+
+### 5. Modularity
+
+- Keep plugins focused on single concerns
+- Design modules for specific capabilities
+- Maintain loose coupling between components
+
+This architecture provides a solid foundation for building sophisticated AI agents while maintaining flexibility, type safety, and performance.
 
 ## Unified Architecture
 
