@@ -169,12 +169,12 @@ const robota = new Robota({
   currentModel: 'claude-3-5-sonnet-20241022'
 });
 
-// Dynamic provider switching
-robota.setCurrentAI('anthropic', 'claude-3-5-sonnet-20241022');
-const claudeResponse = await robota.run('Provide detailed analysis using Claude');
+// Switch between models
+robota.setModel({ provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' });
+const detailedResponse = await robota.run('Explain the theory of relativity');
 
-robota.setCurrentAI('anthropic', 'claude-3-haiku-20240307');
-const haikuResponse = await robota.run('Quick response using Claude Haiku');
+robota.setModel({ provider: 'anthropic', model: 'claude-3-haiku-20240307' });
+const quickResponse = await robota.run('What is 2+2?');
 ```
 
 ## Provider Options

@@ -52,7 +52,7 @@ Handles registration, management, and selection of AI providers:
 ```typescript
 export class AIProviderManager {
     addProvider(name: string, aiProvider: AIProvider): void;
-    setCurrentAI(providerName: string, model: string): void;
+    setModel(config: { provider: string; model: string }): void;
     getAvailableAIs(): Record<string, string[]>;
     getCurrentAI(): { provider?: string; model?: string };
     isConfigured(): boolean;
@@ -230,7 +230,7 @@ class Robota {
   // AI Provider Management (delegation)
   // ============================================================
   addAIProvider() { /* ... */ }
-  setCurrentAI() { /* ... */ }
+  setModel() { /* ... */ }
   getAvailableAIs() { /* ... */ }
   
   // ============================================================
@@ -268,7 +268,7 @@ Error handling has been improved to provide more specific and useful feedback in
 ```typescript
 async generateResponse(context: any, options: RunOptions = {}): Promise<ModelResponse> {
     if (!this.aiProviderManager.isConfigured()) {
-        throw new Error('Current AI provider and model are not configured. Use setCurrentAI() method to configure.');
+        throw new Error('Current AI provider and model are not configured. Use setModel() method to configure.');
     }
 
     try {
