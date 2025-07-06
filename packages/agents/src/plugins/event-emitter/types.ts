@@ -30,19 +30,24 @@ export type EventType =
     | 'module.dispose.error';
 
 /**
+ * Valid event data value types
+ */
+export type EventDataValue = string | number | boolean | Date | null | undefined | EventDataValue[] | { [key: string]: EventDataValue };
+
+/**
  * Event data structure
  */
 export interface EventData {
     type: EventType;
     timestamp: Date;
     source: string;
-    data?: Record<string, unknown>;
+    data?: Record<string, EventDataValue>;
     metadata?: {
         executionId?: string;
         conversationId?: string;
         agentId?: string;
         toolName?: string;
-        [key: string]: unknown;
+        [key: string]: EventDataValue;
     };
 }
 

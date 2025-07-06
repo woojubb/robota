@@ -39,7 +39,7 @@ TODO: Consider creating a stricter ToolResult variant if index signature causes 
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:62](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L62)
+[packages/agents/src/interfaces/tool.ts:62](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L62)
 
 ___
 
@@ -49,7 +49,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:63](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L63)
+[packages/agents/src/interfaces/tool.ts:63](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L63)
 
 ___
 
@@ -59,7 +59,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:64](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L64)
+[packages/agents/src/interfaces/tool.ts:64](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L64)
 
 ___
 
@@ -69,4 +69,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:65](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L65)
+[packages/agents/src/interfaces/tool.ts:65](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L65)

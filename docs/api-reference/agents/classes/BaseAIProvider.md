@@ -11,6 +11,66 @@
 Base AI provider implementation with proper type constraints
 All AI providers should extend this class
 
+========================================
+CRITICAL IMPLEMENTATION GUIDELINES
+========================================
+
+ALL AI PROVIDER IMPLEMENTATIONS (OpenAI, Anthropic, Google, etc.) MUST:
+
+1. EXTEND THIS CLASS:
+   ```typescript
+   export class OpenAIProvider extends BaseAIProvider {
+       override readonly name = 'openai';
+       override readonly version = '1.0.0';
+   ```
+
+2. USE IMPORTS FROM @robota-sdk/agents:
+   ```typescript
+   import { BaseAIProvider } from '@robota-sdk/agents';
+   import type {
+       UniversalMessage,
+       ChatOptions,
+       ToolCall,
+       ToolSchema,
+       AssistantMessage
+   } from '@robota-sdk/agents';
+   ```
+
+3. USE OVERRIDE KEYWORD FOR ALL INHERITED METHODS:
+   - override async chat(...)
+   - override async *chatStream(...)
+   - override supportsTools()
+   - override validateConfig()
+   - override async dispose()
+
+4. DO NOT REDEFINE TYPES THAT EXIST IN @robota-sdk/agents:
+   - UniversalMessage
+   - ChatOptions
+   - ToolCall
+   - ToolSchema
+   - AssistantMessage
+   - SystemMessage
+   - UserMessage
+   - ToolMessage
+
+5. HANDLE MESSAGE CONTENT PROPERLY:
+   - For tool calls: content should be null (not empty string)
+   - For regular messages: content can be string or null
+   - Always preserve null values from API responses
+
+6. CALL SUPER() IN CONSTRUCTOR:
+   ```typescript
+   constructor(options: ProviderOptions) {
+       super();
+       // provider-specific initialization
+   }
+   ```
+
+This ensures ExecutionService can properly identify providers
+and prevents type conflicts across the codebase.
+
+========================================
+
 ## Type parameters
 
 | Name | Type | Description |
@@ -73,7 +133,7 @@ All AI providers should extend this class
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:50](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-ai-provider.ts#L50)
+[packages/agents/src/abstracts/base-ai-provider.ts:110](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-ai-provider.ts#L110)
 
 ___
 
@@ -87,7 +147,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:51](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-ai-provider.ts#L51)
+[packages/agents/src/abstracts/base-ai-provider.ts:111](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-ai-provider.ts#L111)
 
 ## Methods
 
@@ -113,7 +173,7 @@ Configure the provider with type-safe configuration
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:57](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-ai-provider.ts#L57)
+[packages/agents/src/abstracts/base-ai-provider.ts:117](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-ai-provider.ts#L117)
 
 ___
 
@@ -142,7 +202,7 @@ Promise resolving to a response
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:68](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-ai-provider.ts#L68)
+[packages/agents/src/abstracts/base-ai-provider.ts:128](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-ai-provider.ts#L128)
 
 ___
 
@@ -171,7 +231,7 @@ AsyncIterable of response chunks
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:76](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-ai-provider.ts#L76)
+[packages/agents/src/abstracts/base-ai-provider.ts:136](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-ai-provider.ts#L136)
 
 ___
 
@@ -193,7 +253,7 @@ true if tool calling is supported
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:82](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-ai-provider.ts#L82)
+[packages/agents/src/abstracts/base-ai-provider.ts:142](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-ai-provider.ts#L142)
 
 ___
 
@@ -215,7 +275,7 @@ true if configuration is valid
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:90](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-ai-provider.ts#L90)
+[packages/agents/src/abstracts/base-ai-provider.ts:150](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-ai-provider.ts#L150)
 
 ___
 
@@ -235,4 +295,4 @@ Default implementation - providers can override for cleanup
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-ai-provider.ts:97](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-ai-provider.ts#L97)
+[packages/agents/src/abstracts/base-ai-provider.ts:157](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-ai-provider.ts#L157)

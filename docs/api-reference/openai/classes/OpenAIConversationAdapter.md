@@ -8,9 +8,10 @@
 
 # Class: OpenAIConversationAdapter
 
-OpenAI ConversationHistory adapter
+OpenAI Conversation Adapter
 
-Converts UniversalMessage to OpenAI Chat Completions API format
+Converts between UniversalMessage format and OpenAI native types.
+Provides bidirectional conversion for seamless integration.
 
 ## Table of contents
 
@@ -60,7 +61,7 @@ OpenAI has specific requirements:
 
 #### Defined in
 
-[openai/src/adapter.ts:19](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/adapter.ts#L19)
+[openai/src/adapter.ts:44](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/adapter.ts#L44)
 
 ___
 
@@ -83,7 +84,7 @@ Now properly handles tool messages for OpenAI's tool calling feature
 
 #### Defined in
 
-[openai/src/adapter.ts:43](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/adapter.ts#L43)
+[openai/src/adapter.ts:68](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/adapter.ts#L68)
 
 ___
 
@@ -106,7 +107,7 @@ Handles all message types including tool messages
 
 #### Defined in
 
-[openai/src/adapter.ts:53](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/adapter.ts#L53)
+[openai/src/adapter.ts:78](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/adapter.ts#L78)
 
 ___
 
@@ -129,4 +130,4 @@ Add system prompt to message array if needed
 
 #### Defined in
 
-[openai/src/adapter.ts:123](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/adapter.ts#L123)
+[openai/src/adapter.ts:153](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/adapter.ts#L153)

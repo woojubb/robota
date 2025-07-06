@@ -1,6 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 /**
+ * Valid provider option value types
+ */
+export type ProviderOptionValue = string | number | boolean | undefined | null | Anthropic | ProviderOptionValue[] | { [key: string]: ProviderOptionValue };
+
+/**
  * Base provider options interface
  */
 export interface ProviderOptions {
@@ -12,7 +17,7 @@ export interface ProviderOptions {
     /**
      * Additional provider-specific options
      */
-    [key: string]: unknown;
+    [key: string]: ProviderOptionValue;
 }
 
 /**

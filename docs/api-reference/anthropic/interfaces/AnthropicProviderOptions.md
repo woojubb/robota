@@ -15,7 +15,7 @@ JSON output can be requested through prompt instructions.
 
 ## Hierarchy
 
-- `Omit`\<`ProviderOptions`, ``"model"``\>
+- `Omit`\<[`ProviderOptions`](ProviderOptions), ``"model"``\>
 
   ↳ **`AnthropicProviderOptions`**
 
@@ -23,12 +23,6 @@ JSON output can be requested through prompt instructions.
 
 ### Properties
 
-- [retries](AnthropicProviderOptions#retries)
-- [maxConcurrentRequests](AnthropicProviderOptions#maxconcurrentrequests)
-- [defaultModel](AnthropicProviderOptions#defaultmodel)
-- [organization](AnthropicProviderOptions#organization)
-- [project](AnthropicProviderOptions#project)
-- [extra](AnthropicProviderOptions#extra)
 - [model](AnthropicProviderOptions#model)
 - [apiKey](AnthropicProviderOptions#apikey)
 - [timeout](AnthropicProviderOptions#timeout)
@@ -40,92 +34,6 @@ JSON output can be requested through prompt instructions.
 
 ## Properties
 
-### retries
-
-• `Optional` **retries**: `number`
-
-#### Inherited from
-
-Omit.retries
-
-#### Defined in
-
-agents/dist/index.d.ts:572
-
-___
-
-### maxConcurrentRequests
-
-• `Optional` **maxConcurrentRequests**: `number`
-
-#### Inherited from
-
-Omit.maxConcurrentRequests
-
-#### Defined in
-
-agents/dist/index.d.ts:573
-
-___
-
-### defaultModel
-
-• `Optional` **defaultModel**: `string`
-
-#### Inherited from
-
-Omit.defaultModel
-
-#### Defined in
-
-agents/dist/index.d.ts:574
-
-___
-
-### organization
-
-• `Optional` **organization**: `string`
-
-#### Inherited from
-
-Omit.organization
-
-#### Defined in
-
-agents/dist/index.d.ts:575
-
-___
-
-### project
-
-• `Optional` **project**: `string`
-
-#### Inherited from
-
-Omit.project
-
-#### Defined in
-
-agents/dist/index.d.ts:576
-
-___
-
-### extra
-
-• `Optional` **extra**: `Record`\<`string`, `ProviderConfigValue`\>
-
-Additional provider-specific configuration
-
-#### Inherited from
-
-Omit.extra
-
-#### Defined in
-
-agents/dist/index.d.ts:578
-
-___
-
 ### model
 
 • `Optional` **model**: `string`
@@ -134,7 +42,7 @@ Default model to use
 
 #### Defined in
 
-[anthropic/src/types.ts:14](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/anthropic/src/types.ts#L14)
+[anthropic/src/types.ts:33](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/anthropic/src/types.ts#L33)
 
 ___
 
@@ -144,13 +52,9 @@ ___
 
 Anthropic API key (optional: not required when using client)
 
-#### Overrides
-
-Omit.apiKey
-
 #### Defined in
 
-[anthropic/src/types.ts:19](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/anthropic/src/types.ts#L19)
+[anthropic/src/types.ts:38](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/anthropic/src/types.ts#L38)
 
 ___
 
@@ -160,13 +64,9 @@ ___
 
 API request timeout (milliseconds)
 
-#### Overrides
-
-Omit.timeout
-
 #### Defined in
 
-[anthropic/src/types.ts:24](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/anthropic/src/types.ts#L24)
+[anthropic/src/types.ts:43](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/anthropic/src/types.ts#L43)
 
 ___
 
@@ -176,13 +76,9 @@ ___
 
 API base URL
 
-#### Overrides
-
-Omit.baseURL
-
 #### Defined in
 
-[anthropic/src/types.ts:29](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/anthropic/src/types.ts#L29)
+[anthropic/src/types.ts:48](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/anthropic/src/types.ts#L48)
 
 ___
 
@@ -194,7 +90,7 @@ Anthropic client instance (required)
 
 #### Defined in
 
-[anthropic/src/types.ts:34](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/anthropic/src/types.ts#L34)
+[anthropic/src/types.ts:53](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/anthropic/src/types.ts#L53)
 
 ___
 
@@ -206,7 +102,7 @@ Enable payload logging to files for debugging
 
 #### Defined in
 
-[anthropic/src/types.ts:39](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/anthropic/src/types.ts#L39)
+[anthropic/src/types.ts:58](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/anthropic/src/types.ts#L58)
 
 ___
 
@@ -218,7 +114,7 @@ Directory to save payload log files
 
 #### Defined in
 
-[anthropic/src/types.ts:44](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/anthropic/src/types.ts#L44)
+[anthropic/src/types.ts:63](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/anthropic/src/types.ts#L63)
 
 ___
 
@@ -230,4 +126,4 @@ Include timestamp in log file names
 
 #### Defined in
 
-[anthropic/src/types.ts:49](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/anthropic/src/types.ts#L49)
+[anthropic/src/types.ts:68](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/anthropic/src/types.ts#L68)

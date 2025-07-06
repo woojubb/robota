@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { UniversalMessage } from '../provider';
+import type { UniversalMessage } from '@robota-sdk/agents';
 
 /**
  * OpenAI response parser utility
@@ -125,10 +125,12 @@ export class OpenAIResponseParser {
 const logger = {
     debug: (message: string, data?: LogData) => {
         if (process.env['NODE_ENV'] === 'development') {
+            // eslint-disable-next-line no-console
             console.debug(`[OpenAI Parser] ${message}`, data || '');
         }
     },
     error: (message: string, data?: LogData) => {
+        // eslint-disable-next-line no-console
         console.error(`[OpenAI Parser] ${message}`, data || '');
     }
 };

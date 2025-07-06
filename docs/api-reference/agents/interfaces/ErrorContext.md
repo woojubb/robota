@@ -35,7 +35,7 @@ Error context for plugin error handling
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:54](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L54)
+[packages/agents/src/abstracts/base-plugin.ts:97](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L97)
 
 ___
 
@@ -45,7 +45,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:55](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L55)
+[packages/agents/src/abstracts/base-plugin.ts:98](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L98)
 
 ___
 
@@ -55,7 +55,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:56](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L56)
+[packages/agents/src/abstracts/base-plugin.ts:99](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L99)
 
 ___
 
@@ -65,7 +65,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:57](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L57)
+[packages/agents/src/abstracts/base-plugin.ts:100](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L100)
 
 ___
 
@@ -75,7 +75,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:58](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L58)
+[packages/agents/src/abstracts/base-plugin.ts:101](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L101)
 
 ___
 
@@ -85,7 +85,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:60](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L60)
+[packages/agents/src/abstracts/base-plugin.ts:103](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L103)
 
 ___
 
@@ -95,7 +95,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:61](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L61)
+[packages/agents/src/abstracts/base-plugin.ts:104](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L104)
 
 ___
 
@@ -105,7 +105,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:62](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L62)
+[packages/agents/src/abstracts/base-plugin.ts:105](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L105)
 
 ___
 
@@ -115,7 +115,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:63](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L63)
+[packages/agents/src/abstracts/base-plugin.ts:106](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L106)
 
 ___
 
@@ -125,7 +125,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:64](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L64)
+[packages/agents/src/abstracts/base-plugin.ts:107](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L107)
 
 ___
 
@@ -135,7 +135,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:65](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L65)
+[packages/agents/src/abstracts/base-plugin.ts:108](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L108)
 
 ___
 
@@ -145,4 +145,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:66](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L66)
+[packages/agents/src/abstracts/base-plugin.ts:109](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L109)

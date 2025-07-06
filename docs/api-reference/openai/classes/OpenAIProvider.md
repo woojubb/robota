@@ -8,28 +8,14 @@
 
 # Class: OpenAIProvider
 
-OpenAI Provider that uses only UniversalMessage (no ModelResponse)
+OpenAI provider implementation for Robota
 
-This implementation follows the AI Provider Architecture Separation principles:
-- Uses OpenAI SDK native types internally
-- Communicates with agents package using only UniversalMessage
-- Handles tool execution null content properly
-
-**`Template`**
-
-Provider configuration type (defaults to OpenAIProviderOptions)
-
-**`Template`**
-
-Message type (defaults to UniversalMessage)
-
-**`Template`**
-
-Response type (defaults to UniversalMessage)
+Provides integration with OpenAI's GPT models following BaseAIProvider guidelines.
+Uses OpenAI SDK native types internally for optimal performance and feature support.
 
 ## Hierarchy
 
-- `BaseAIProvider`\<[`OpenAIProviderOptions`](../interfaces/OpenAIProviderOptions), `UniversalMessage`, `UniversalMessage`\>
+- `BaseAIProvider`
 
   ↳ **`OpenAIProvider`**
 
@@ -71,11 +57,11 @@ Response type (defaults to UniversalMessage)
 
 #### Overrides
 
-BaseAIProvider\&lt;OpenAIProviderOptions, UniversalMessage, UniversalMessage\&gt;.constructor
+BaseAIProvider.constructor
 
 #### Defined in
 
-[openai/src/provider.ts:43](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L43)
+[openai/src/provider.ts:30](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/provider.ts#L30)
 
 ## Properties
 
@@ -89,7 +75,7 @@ BaseAIProvider.name
 
 #### Defined in
 
-[openai/src/provider.ts:37](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L37)
+[openai/src/provider.ts:24](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/provider.ts#L24)
 
 ___
 
@@ -103,7 +89,7 @@ BaseAIProvider.version
 
 #### Defined in
 
-[openai/src/provider.ts:38](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L38)
+[openai/src/provider.ts:25](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/provider.ts#L25)
 
 ## Methods
 
@@ -117,7 +103,7 @@ Configure the provider with type-safe configuration
 
 | Name | Type |
 | :------ | :------ |
-| `config` | [`OpenAIProviderOptions`](../interfaces/OpenAIProviderOptions) |
+| `config` | `ProviderConfig` |
 
 #### Returns
 
@@ -129,7 +115,7 @@ BaseAIProvider.configure
 
 #### Defined in
 
-agents/dist/index.d.ts:1163
+agents/dist/index.d.ts:2580
 
 ___
 
@@ -144,7 +130,7 @@ Generate response using UniversalMessage
 | Name | Type |
 | :------ | :------ |
 | `messages` | `UniversalMessage`[] |
-| `options?` | [`ChatOptions`](../interfaces/ChatOptions) |
+| `options?` | `ChatOptions` |
 
 #### Returns
 
@@ -156,7 +142,7 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[openai/src/provider.ts:61](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L61)
+[openai/src/provider.ts:47](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/provider.ts#L47)
 
 ___
 
@@ -171,7 +157,7 @@ Generate streaming response using UniversalMessage
 | Name | Type |
 | :------ | :------ |
 | `messages` | `UniversalMessage`[] |
-| `options?` | [`ChatOptions`](../interfaces/ChatOptions) |
+| `options?` | `ChatOptions` |
 
 #### Returns
 
@@ -183,7 +169,7 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[openai/src/provider.ts:94](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L94)
+[openai/src/provider.ts:81](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/provider.ts#L81)
 
 ___
 
@@ -201,7 +187,7 @@ BaseAIProvider.supportsTools
 
 #### Defined in
 
-[openai/src/provider.ts:130](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L130)
+[openai/src/provider.ts:118](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/provider.ts#L118)
 
 ___
 
@@ -219,7 +205,7 @@ BaseAIProvider.validateConfig
 
 #### Defined in
 
-[openai/src/provider.ts:134](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L134)
+[openai/src/provider.ts:122](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/provider.ts#L122)
 
 ___
 
@@ -237,4 +223,4 @@ BaseAIProvider.dispose
 
 #### Defined in
 
-[openai/src/provider.ts:138](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/openai/src/provider.ts#L138)
+[openai/src/provider.ts:126](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/provider.ts#L126)

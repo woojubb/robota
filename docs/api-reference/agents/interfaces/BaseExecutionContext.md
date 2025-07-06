@@ -33,7 +33,7 @@ Base execution context for all plugins
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:9](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L9)
+[packages/agents/src/abstracts/base-plugin.ts:52](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L52)
 
 ___
 
@@ -43,7 +43,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:10](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L10)
+[packages/agents/src/abstracts/base-plugin.ts:53](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L53)
 
 ___
 
@@ -53,7 +53,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:11](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L11)
+[packages/agents/src/abstracts/base-plugin.ts:54](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L54)
 
 ___
 
@@ -63,7 +63,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:13](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L13)
+[packages/agents/src/abstracts/base-plugin.ts:56](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L56)
 
 ___
 
@@ -73,7 +73,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:14](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L14)
+[packages/agents/src/abstracts/base-plugin.ts:57](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L57)
 
 ___
 
@@ -83,4 +83,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:15](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/abstracts/base-plugin.ts#L15)
+[packages/agents/src/abstracts/base-plugin.ts:58](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L58)

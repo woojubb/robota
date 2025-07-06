@@ -42,7 +42,7 @@ OpenAPI 3.0 specification
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:125](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L125)
+[packages/agents/src/interfaces/tool.ts:125](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L125)
 
 ___
 
@@ -54,7 +54,7 @@ Operation ID from the OpenAPI spec
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:140](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L140)
+[packages/agents/src/interfaces/tool.ts:140](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L140)
 
 ___
 
@@ -66,7 +66,7 @@ Base URL for API calls
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:142](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L142)
+[packages/agents/src/interfaces/tool.ts:142](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L142)
 
 ___
 
@@ -89,4 +89,4 @@ Authentication configuration
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:144](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/tool.ts#L144)
+[packages/agents/src/interfaces/tool.ts:144](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L144)

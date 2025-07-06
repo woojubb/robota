@@ -29,7 +29,7 @@ Plugin context type - for plugin execution contexts
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:81](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L81)
+[packages/agents/src/interfaces/types.ts:81](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L81)
 
 ___
 
@@ -39,7 +39,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:82](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L82)
+[packages/agents/src/interfaces/types.ts:82](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L82)
 
 ___
 
@@ -49,7 +49,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:83](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L83)
+[packages/agents/src/interfaces/types.ts:83](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L83)
 
 ___
 
@@ -59,7 +59,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:84](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L84)
+[packages/agents/src/interfaces/types.ts:84](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L84)
 
 ___
 
@@ -69,7 +69,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:85](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L85)
+[packages/agents/src/interfaces/types.ts:85](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L85)
 
 ___
 
@@ -79,4 +79,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/types.ts:86](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/types.ts#L86)
+[packages/agents/src/interfaces/types.ts:86](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/types.ts#L86)

@@ -58,7 +58,7 @@ BaseAgentInterface.configure
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:173](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L173)
+[packages/agents/src/interfaces/agent.ts:217](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L217)
 
 ___
 
@@ -85,7 +85,7 @@ BaseAgentInterface.run
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:178](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L178)
+[packages/agents/src/interfaces/agent.ts:222](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L222)
 
 ___
 
@@ -112,7 +112,7 @@ BaseAgentInterface.runStream
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:183](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L183)
+[packages/agents/src/interfaces/agent.ts:227](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L227)
 
 ___
 
@@ -132,7 +132,7 @@ BaseAgentInterface.getHistory
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:188](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L188)
+[packages/agents/src/interfaces/agent.ts:232](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L232)
 
 ___
 
@@ -152,4 +152,4 @@ BaseAgentInterface.clearHistory
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:193](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/interfaces/agent.ts#L193)
+[packages/agents/src/interfaces/agent.ts:237](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L237)

@@ -4,10 +4,11 @@ import { BaseAIProvider } from '@robota-sdk/agents';
 import type {
     UniversalMessage,
     ChatOptions,
-    ToolCall,
     ToolSchema,
     AssistantMessage
 } from '@robota-sdk/agents';
+
+
 
 /**
  * Google Gemini provider implementation for Robota
@@ -48,14 +49,16 @@ export class GoogleProvider extends BaseAIProvider {
         const geminiMessages = this.convertToGeminiFormat(messages);
 
         const result = await model.generateContent({
-            contents: geminiMessages,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            contents: geminiMessages as any, // Google SDK types are complex, using any here
             generationConfig: {
                 temperature: options?.temperature,
                 maxOutputTokens: options?.maxTokens
             },
             ...(options?.tools && {
                 tools: [{
-                    functionDeclarations: this.convertToolsToGeminiFormat(options.tools)
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    functionDeclarations: this.convertToolsToGeminiFormat(options.tools) as any
                 }]
             })
         });
@@ -76,14 +79,16 @@ export class GoogleProvider extends BaseAIProvider {
         const geminiMessages = this.convertToGeminiFormat(messages);
 
         const result = await model.generateContentStream({
-            contents: geminiMessages,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            contents: geminiMessages as any, // Google SDK types are complex, using any here
             generationConfig: {
                 temperature: options?.temperature,
                 maxOutputTokens: options?.maxTokens
             },
             ...(options?.tools && {
                 tools: [{
-                    functionDeclarations: this.convertToolsToGeminiFormat(options.tools)
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    functionDeclarations: this.convertToolsToGeminiFormat(options.tools) as any
                 }]
             })
         });
@@ -118,16 +123,33 @@ export class GoogleProvider extends BaseAIProvider {
      * IMPORTANT: Google Gemini allows content with function calls
      * - Content can be empty string or text, but NOT null
      */
-    private convertToGeminiFormat(messages: UniversalMessage[]): any[] {
+    private convertToGeminiFormat(messages: UniversalMessage[]): Array<{
+        role: 'user' | 'model';
+        parts: Array<{
+            text?: string;
+            functionCall?: {
+                name: string;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                args: Record<string, any>;
+            };
+        }>;
+    }> {
         return messages.map(msg => {
             if (msg.role === 'user') {
                 return {
-                    role: 'user',
+                    role: 'user' as const,
                     parts: [{ text: msg.content || '' }]
                 };
             } else if (msg.role === 'assistant') {
                 const assistantMsg = msg as AssistantMessage;
-                const parts: any[] = [];
+                const parts: Array<{
+                    text?: string;
+                    functionCall?: {
+                        name: string;
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        args: Record<string, any>;
+                    };
+                }> = [];
 
                 // Google allows content with function calls
                 if (assistantMsg.content) {
@@ -146,13 +168,13 @@ export class GoogleProvider extends BaseAIProvider {
                 }
 
                 return {
-                    role: 'model',
+                    role: 'model' as const,
                     parts
                 };
             } else {
                 // System messages
                 return {
-                    role: 'user',
+                    role: 'user' as const,
                     parts: [{ text: `System: ${msg.content || ''}` }]
                 };
             }
@@ -162,6 +184,7 @@ export class GoogleProvider extends BaseAIProvider {
     /**
      * Convert Gemini response to UniversalMessage
      */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private convertFromGeminiResponse(response: any): UniversalMessage {
         const candidate = response.candidates?.[0];
         if (!candidate) {
@@ -173,7 +196,9 @@ export class GoogleProvider extends BaseAIProvider {
             throw new Error('No content in Gemini response');
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const textParts = content.parts.filter((p: any) => p.text).map((p: any) => p.text);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const functionCalls = content.parts.filter((p: any) => p.functionCall);
 
         const result: UniversalMessage = {
@@ -183,7 +208,9 @@ export class GoogleProvider extends BaseAIProvider {
         };
 
         if (functionCalls.length > 0) {
-            (result as AssistantMessage).toolCalls = functionCalls.map((fc: any) => ({
+            const assistantResult = result as AssistantMessage;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            assistantResult.toolCalls = functionCalls.map((fc: any) => ({
                 id: this.generateId(),
                 type: 'function' as const,
                 function: {
@@ -195,7 +222,7 @@ export class GoogleProvider extends BaseAIProvider {
 
         // Add metadata if available
         if (response.usageMetadata) {
-            (result as any).metadata = {
+            result.metadata = {
                 promptTokens: response.usageMetadata.promptTokenCount,
                 completionTokens: response.usageMetadata.candidatesTokenCount,
                 totalTokens: response.usageMetadata.totalTokenCount
@@ -208,11 +235,17 @@ export class GoogleProvider extends BaseAIProvider {
     /**
      * Convert tools to Gemini format
      */
-    private convertToolsToGeminiFormat(tools: ToolSchema[]): any[] {
+    private convertToolsToGeminiFormat(tools: ToolSchema[]): Array<{
+        name: string;
+        description: string;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        parameters: Record<string, any>;
+    }> {
         return tools.map(tool => ({
             name: tool.name,
             description: tool.description,
-            parameters: tool.parameters
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            parameters: tool.parameters as Record<string, any>
         }));
     }
 

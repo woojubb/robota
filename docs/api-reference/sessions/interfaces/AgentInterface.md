@@ -54,7 +54,7 @@ BaseAgentInterface.configure
 
 #### Defined in
 
-agents/dist/index.d.ts:1395
+agents/dist/index.d.ts:1997
 
 ___
 
@@ -81,7 +81,7 @@ BaseAgentInterface.run
 
 #### Defined in
 
-agents/dist/index.d.ts:1399
+agents/dist/index.d.ts:2001
 
 ___
 
@@ -108,7 +108,7 @@ BaseAgentInterface.runStream
 
 #### Defined in
 
-agents/dist/index.d.ts:1403
+agents/dist/index.d.ts:2005
 
 ___
 
@@ -128,7 +128,7 @@ BaseAgentInterface.getHistory
 
 #### Defined in
 
-agents/dist/index.d.ts:1407
+agents/dist/index.d.ts:2009
 
 ___
 
@@ -148,4 +148,4 @@ BaseAgentInterface.clearHistory
 
 #### Defined in
 
-agents/dist/index.d.ts:1411
+agents/dist/index.d.ts:2013

@@ -46,7 +46,7 @@ Usage storage interface
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:97](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/usage/types.ts#L97)
+[packages/agents/src/plugins/usage/types.ts:99](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/usage/types.ts#L99)
 
 ___
 
@@ -69,7 +69,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:98](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/usage/types.ts#L98)
+[packages/agents/src/plugins/usage/types.ts:100](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/usage/types.ts#L100)
 
 ___
 
@@ -91,7 +91,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:99](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/usage/types.ts#L99)
+[packages/agents/src/plugins/usage/types.ts:101](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/usage/types.ts#L101)
 
 ___
 
@@ -105,7 +105,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:100](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/usage/types.ts#L100)
+[packages/agents/src/plugins/usage/types.ts:102](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/usage/types.ts#L102)
 
 ___
 
@@ -119,7 +119,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:101](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/usage/types.ts#L101)
+[packages/agents/src/plugins/usage/types.ts:103](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/usage/types.ts#L103)
 
 ___
 
@@ -133,4 +133,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/plugins/usage/types.ts:102](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/agents/src/plugins/usage/types.ts#L102)
+[packages/agents/src/plugins/usage/types.ts:104](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/usage/types.ts#L104)

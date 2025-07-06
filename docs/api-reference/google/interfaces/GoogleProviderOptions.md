@@ -12,7 +12,7 @@ Google AI Provider options
 
 ## Hierarchy
 
-- `Omit`\<`ProviderOptions`, ``"model"``\>
+- `Omit`\<[`ProviderOptions`](ProviderOptions), ``"model"``\>
 
   ↳ **`GoogleProviderOptions`**
 
@@ -21,15 +21,6 @@ Google AI Provider options
 ### Properties
 
 - [apiKey](GoogleProviderOptions#apikey)
-- [baseURL](GoogleProviderOptions#baseurl)
-- [timeout](GoogleProviderOptions#timeout)
-- [retries](GoogleProviderOptions#retries)
-- [maxConcurrentRequests](GoogleProviderOptions#maxconcurrentrequests)
-- [defaultModel](GoogleProviderOptions#defaultmodel)
-- [organization](GoogleProviderOptions#organization)
-- [project](GoogleProviderOptions#project)
-- [extra](GoogleProviderOptions#extra)
-- [client](GoogleProviderOptions#client)
 - [model](GoogleProviderOptions#model)
 - [temperature](GoogleProviderOptions#temperature)
 - [maxTokens](GoogleProviderOptions#maxtokens)
@@ -40,141 +31,13 @@ Google AI Provider options
 
 ### apiKey
 
-• `Optional` **apiKey**: `string`
+• **apiKey**: `string`
 
-#### Inherited from
-
-Omit.apiKey
+Google AI API key
 
 #### Defined in
 
-agents/dist/index.d.ts:569
-
-___
-
-### baseURL
-
-• `Optional` **baseURL**: `string`
-
-#### Inherited from
-
-Omit.baseURL
-
-#### Defined in
-
-agents/dist/index.d.ts:570
-
-___
-
-### timeout
-
-• `Optional` **timeout**: `number`
-
-#### Inherited from
-
-Omit.timeout
-
-#### Defined in
-
-agents/dist/index.d.ts:571
-
-___
-
-### retries
-
-• `Optional` **retries**: `number`
-
-#### Inherited from
-
-Omit.retries
-
-#### Defined in
-
-agents/dist/index.d.ts:572
-
-___
-
-### maxConcurrentRequests
-
-• `Optional` **maxConcurrentRequests**: `number`
-
-#### Inherited from
-
-Omit.maxConcurrentRequests
-
-#### Defined in
-
-agents/dist/index.d.ts:573
-
-___
-
-### defaultModel
-
-• `Optional` **defaultModel**: `string`
-
-#### Inherited from
-
-Omit.defaultModel
-
-#### Defined in
-
-agents/dist/index.d.ts:574
-
-___
-
-### organization
-
-• `Optional` **organization**: `string`
-
-#### Inherited from
-
-Omit.organization
-
-#### Defined in
-
-agents/dist/index.d.ts:575
-
-___
-
-### project
-
-• `Optional` **project**: `string`
-
-#### Inherited from
-
-Omit.project
-
-#### Defined in
-
-agents/dist/index.d.ts:576
-
-___
-
-### extra
-
-• `Optional` **extra**: `Record`\<`string`, `ProviderConfigValue`\>
-
-Additional provider-specific configuration
-
-#### Inherited from
-
-Omit.extra
-
-#### Defined in
-
-agents/dist/index.d.ts:578
-
-___
-
-### client
-
-• **client**: `GoogleGenerativeAI`
-
-Google AI client instance
-
-#### Defined in
-
-[google/src/types.ts:9](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/types.ts#L9)
+[google/src/types.ts:26](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/types.ts#L26)
 
 ___
 
@@ -186,7 +49,7 @@ Default model to use
 
 #### Defined in
 
-[google/src/types.ts:12](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/types.ts#L12)
+[google/src/types.ts:29](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/types.ts#L29)
 
 ___
 
@@ -198,7 +61,7 @@ Temperature setting (0.0 ~ 1.0)
 
 #### Defined in
 
-[google/src/types.ts:15](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/types.ts#L15)
+[google/src/types.ts:32](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/types.ts#L32)
 
 ___
 
@@ -210,7 +73,7 @@ Maximum number of tokens
 
 #### Defined in
 
-[google/src/types.ts:18](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/types.ts#L18)
+[google/src/types.ts:35](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/types.ts#L35)
 
 ___
 
@@ -224,16 +87,16 @@ Response MIME type
 
 #### Defined in
 
-[google/src/types.ts:25](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/types.ts#L25)
+[google/src/types.ts:42](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/types.ts#L42)
 
 ___
 
 ### responseSchema
 
-• `Optional` **responseSchema**: `Record`\<`string`, `string` \| `number` \| `boolean` \| `object`\>
+• `Optional` **responseSchema**: `Record`\<`string`, [`ProviderOptionValue`](../modules#provideroptionvalue)\>
 
 Response schema for JSON output (only used when responseMimeType is 'application/json')
 
 #### Defined in
 
-[google/src/types.ts:30](https://github.com/woojubb/robota/blob/d84cd2e1e6915e9f7e9aff8f9b06df02e55c139b/packages/google/src/types.ts#L30)
+[google/src/types.ts:47](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/types.ts#L47)
