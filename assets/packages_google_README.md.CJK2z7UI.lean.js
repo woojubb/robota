@@ -1,0 +1,1 @@
+import{_ as e,c as a,o as t}from"./chunks/framework.BDwTZuFy.js";const i=JSON.parse('{"title":"","description":"","frontmatter":{},"headers":[],"relativePath":"packages/google/README.md","filePath":"packages/google/README.md"}'),o={name:"packages/google/README.md"};function s(c,r,n,p,_,d){return t(),a("div")}const l=e(o,[["render",s]]);export{i as __pageData,l as default};
