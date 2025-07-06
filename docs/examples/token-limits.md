@@ -26,7 +26,6 @@ import { Robota, OpenAIProvider } from '@robota-sdk/core';
 // Create Robota with usage tracking enabled
 const robota = new Robota({
     aiProviders: { 'openai': openaiProvider },
-    currentProvider: 'openai',
     currentModel: 'gpt-3.5-turbo',
     trackUsage: true,                    // Enable usage tracking
     maxTokensPerRequest: 1000,           // Limit per request

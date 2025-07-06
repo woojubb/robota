@@ -23,7 +23,6 @@ import { Robota, OpenAIProvider } from '@robota-sdk/core';
 
 const robota = new Robota({
     aiProviders: { 'openai': openaiProvider },
-    currentProvider: 'openai',
     currentModel: 'gpt-3.5-turbo',
     maxHistoryLength: 10,  // Keep last 10 messages
     systemPrompt: 'You are a helpful assistant with memory of our conversation.'
@@ -73,7 +72,6 @@ async function testHistoryLimits() {
     // Create instance with small history limit
     const limitedRobota = new Robota({
         aiProviders: { 'openai': openaiProvider },
-        currentProvider: 'openai',
         currentModel: 'gpt-3.5-turbo',
         maxHistoryLength: 3,  // Very small limit for testing
         systemPrompt: 'Remember our conversation within your memory limits.'
@@ -245,7 +243,6 @@ const historyManager = new SmartHistoryManager(
 
 const robota = new Robota({
     aiProviders: { 'openai': openaiProvider },
-    currentProvider: 'openai',
     currentModel: 'gpt-3.5-turbo',
     historyManager: historyManager,
     systemPrompt: 'You are an assistant with smart memory management.'
@@ -640,7 +637,6 @@ class PaginatedHistoryManager {
 // Configure appropriate history limits
 const robota = new Robota({
     aiProviders: { 'openai': openaiProvider },
-    currentProvider: 'openai',
     currentModel: 'gpt-3.5-turbo',
     maxHistoryLength: 20,          // Keep reasonable history
     maxHistoryTokens: 4000,        // Respect token limits

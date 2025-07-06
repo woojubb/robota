@@ -105,7 +105,6 @@ async function main() {
             aiProviders: {
                 'openai': openaiProvider
             },
-            currentProvider: 'openai',
             currentModel: 'gpt-3.5-turbo',
             tools: [calculateTool],
             systemMessage: 'You are a helpful assistant that can perform calculations.',
@@ -147,7 +146,6 @@ async function main() {
         console.log(`- Agent name: ${stats.name}`);
         console.log(`- Tools registered: ${stats.tools.join(', ')}`);
         console.log(`- History length: ${stats.historyLength}`);
-        console.log(`- Current provider: ${stats.currentProvider}`);
         console.log(`- Uptime: ${Math.round(stats.uptime)}ms`);
 
         console.log('\n✅ Tool Calling Example Completed!');

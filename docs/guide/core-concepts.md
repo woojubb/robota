@@ -34,12 +34,16 @@ Instead of learning different APIs for each AI provider, Robota provides a singl
 ```typescript
 // Same code works with OpenAI, Anthropic, and Google
 const agent = new Robota({
-    aiProviders: { openai, anthropic, google },
-    currentProvider: 'openai',  // Switch anytime
+    name: 'UnifiedAgent',
+    aiProviders: [openaiProvider, anthropicProvider, googleProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4'
+    }
 });
 
 // Provider switching is seamless
-await agent.switchProvider('anthropic', 'claude-3-sonnet');
+agent.setModel({ provider: 'anthropic', model: 'claude-3-sonnet' });
 ```
 
 ### 2. **Type Safety as a First-Class Citizen**
@@ -90,10 +94,12 @@ All agents in Robota extend from the `BaseAgent` class, which provides:
 // Basic agent creation
 const agent = new Robota({
     name: 'MyAgent',
-    model: 'gpt-4',
-    provider: 'openai',
-    aiProviders: { openai: openaiProvider },
-    systemMessage: 'You are a helpful assistant.'
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4',
+        systemMessage: 'You are a helpful assistant.'
+    }
 });
 ```
 
@@ -273,18 +279,21 @@ Robota supports multiple AI providers with a unified interface:
 
 ```typescript
 // Configure multiple providers
-const config = {
-    aiProviders: {
-        openai: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
-        anthropic: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
-        google: new GoogleProvider({ apiKey: process.env.GOOGLE_AI_API_KEY })
-    },
-    currentProvider: 'openai',
-    currentModel: 'gpt-4'
-};
+const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
+const anthropicProvider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
+const googleProvider = new GoogleProvider({ apiKey: process.env.GOOGLE_AI_API_KEY });
+
+const agent = new Robota({
+    name: 'MultiProviderAgent',
+    aiProviders: [openaiProvider, anthropicProvider, googleProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4'
+    }
+});
 
 // Switch providers dynamically
-await agent.switchProvider('anthropic', 'claude-3-sonnet');
+agent.setModel({ provider: 'anthropic', model: 'claude-3-sonnet' });
 ```
 
 ### Provider Abstraction
@@ -332,8 +341,13 @@ Tools are automatically registered and available to the AI:
 
 ```typescript
 const agent = new Robota({
-    // ... other config
-    tools: [weatherTool, calculatorTool, searchTool]
+    name: 'ToolAgent',
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4'
+    },
+    tools: [weatherTool]
 });
 
 // AI can now call these tools automatically
@@ -347,17 +361,18 @@ await agent.run('What\'s the weather like in Paris?');
 ```typescript
 interface AgentConfig {
     name: string;
-    model: string;
-    provider: string;
-    aiProviders: Record<string, BaseAIProvider>;
-    currentProvider: string;
-    currentModel: string;
-    systemMessage?: string;
+    aiProviders: AIProvider[];
+    defaultModel: {
+        provider: string;
+        model: string;
+        temperature?: number;
+        maxTokens?: number;
+        topP?: number;
+        systemMessage?: string;
+    };
     tools?: BaseTool[];
     plugins?: BasePlugin[];
     modules?: BaseModule[];  // New: Module support
-    maxTokens?: number;
-    temperature?: number;
 }
 ```
 
@@ -366,14 +381,18 @@ interface AgentConfig {
 Configuration can be updated at runtime:
 
 ```typescript
-// Update system message
-agent.updateConfig({ systemMessage: 'You are now a coding assistant.' });
+// Update model settings
+agent.setModel({ 
+    provider: 'openai',
+    model: 'gpt-4-turbo',
+    systemMessage: 'You are now a coding assistant.'
+});
 
 // Add plugins dynamically
 agent.addPlugin(new LoggingPlugin({ level: 'debug' }));
 
-// Switch models
-await agent.switchProvider('openai', 'gpt-4-turbo');
+// Switch to different provider
+agent.setModel({ provider: 'anthropic', model: 'claude-3-opus' });
 ```
 
 ## Event System
@@ -527,15 +546,13 @@ import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 
 const agent = new Robota({
-    name: 'MyAgent',                    // Agent identifier
-    model: 'gpt-3.5-turbo',            // AI model
-    provider: 'openai',                // Provider identifier
-    aiProviders: {                     // Provider instances
-        openai: new OpenAIProvider({ client: openaiClient })
-    },
-    currentProvider: 'openai',         // Active provider
-    currentModel: 'gpt-3.5-turbo',    // Active model
-    systemMessage: 'You are helpful.' // System prompt
+    name: 'MyAgent',
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4',
+        systemMessage: 'You are helpful.'
+    }
 });
 ```
 
@@ -608,6 +625,12 @@ import {
 } from '@robota-sdk/agents';
 
 const agent = new Robota({
+    name: 'PluginAgent',
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4'
+    },
     plugins: [
         new ExecutionAnalyticsPlugin({
             maxEntries: 1000,
@@ -620,7 +643,6 @@ const agent = new Robota({
             level: 'info'
         })
     ]
-    // ... other config
 });
 ```
 
@@ -662,8 +684,13 @@ const weatherTool = createFunctionTool(
 
 // Add to agent
 const agent = new Robota({
-    tools: [weatherTool],
-    // ... other config
+    name: 'ToolAgent',
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4'
+    },
+    tools: [weatherTool]
 });
 ```
 
@@ -688,12 +715,8 @@ The Robota SDK supports intelligent multi-agent collaboration through the `@robo
 import { createTeam } from '@robota-sdk/team';
 
 // Create a team with AI providers
-const team = createTeam({
-    aiProviders: {
-        openai: openaiProvider,
-        anthropic: anthropicProvider,
-        google: googleProvider
-    },
+const team = await createTeam({
+    aiProviders: [openaiProvider, anthropicProvider, googleProvider],
     maxMembers: 5,
     maxTokenLimit: 50000,
     debug: true
@@ -737,8 +760,11 @@ import {
 // This is planned for future releases
 const planner = createPlanner({
     baseAgentConfig: {
-        aiProviders: { openai: openaiProvider },
-        currentProvider: 'openai'
+        aiProviders: [openaiProvider],
+        defaultModel: {
+            provider: 'openai',
+            model: 'gpt-4'
+        }
     },
     maxAgents: 10,
     strategies: ['react', 'camel', 'reflection']
@@ -776,14 +802,18 @@ Use `AgentFactory` for template-based agent creation:
 ```typescript
 import { AgentFactory } from '@robota-sdk/agents';
 
-const factory = new AgentFactory({
-    providers: { openai: openaiProvider },
-    defaultProvider: 'openai'
-});
+const factory = new AgentFactory();
+
+// Register providers
+factory.registerProvider('openai', openaiProvider);
 
 // Create from template
-const assistant = await factory.createFromTemplate('helpful-assistant', {
-    model: 'gpt-4',
+const assistant = await factory.createFromTemplate(Robota, 'helpful-assistant', {
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4'
+    },
     customizations: {
         personality: 'friendly and professional'
     }
@@ -799,11 +829,11 @@ class SmartAgent extends Robota {
     async run(input: string): Promise<string> {
         // Use different providers for different tasks
         if (this.isComplexReasoning(input)) {
-            await this.switchProvider('openai', 'gpt-4');
+            this.setModel({ provider: 'openai', model: 'gpt-4' });
         } else if (this.isCreativeTask(input)) {
-            await this.switchProvider('anthropic', 'claude-3-sonnet');
+            this.setModel({ provider: 'anthropic', model: 'claude-3-sonnet' });
         } else {
-            await this.switchProvider('openai', 'gpt-3.5-turbo');
+            this.setModel({ provider: 'openai', model: 'gpt-3.5-turbo' });
         }
         
         return super.run(input);
@@ -818,19 +848,12 @@ Robust streaming implementation:
 ```typescript
 async function processStreamWithErrorHandling(agent: Robota, input: string) {
     try {
-        const stream = await agent.stream(input);
+        const stream = agent.runStream(input);
         let fullResponse = '';
         
         for await (const chunk of stream) {
-            if (chunk.error) {
-                console.error('Stream error:', chunk.error);
-                break;
-            }
-            
-            if (chunk.content) {
-                process.stdout.write(chunk.content);
-                fullResponse += chunk.content;
-            }
+            process.stdout.write(chunk);
+            fullResponse += chunk;
         }
         
         return fullResponse;
@@ -856,16 +879,14 @@ interface AgentConfig {
 }
 
 function createProductionAgent(): Robota {
-    const config: AgentConfig = {
-        name: process.env.AGENT_NAME || 'DefaultAgent',
-        model: process.env.AI_MODEL || 'gpt-3.5-turbo',
-        provider: process.env.AI_PROVIDER || 'openai',
-        systemMessage: process.env.SYSTEM_MESSAGE
-    };
-    
     return new Robota({
-        ...config,
+        name: process.env.AGENT_NAME || 'DefaultAgent',
         aiProviders: getProviders(),
+        defaultModel: {
+            provider: process.env.AI_PROVIDER || 'openai',
+            model: process.env.AI_MODEL || 'gpt-3.5-turbo',
+            systemMessage: process.env.SYSTEM_MESSAGE
+        },
         plugins: getProductionPlugins()
     });
 }
@@ -951,9 +972,12 @@ class CustomAgent extends BaseAgent<CustomAgentStats> {
 // No 'any' types allowed - everything is strictly typed
 const agent = new Robota({
     name: 'TypeSafeAgent',
-    model: 'gpt-3.5-turbo', // Autocomplete available
-    provider: 'openai',     // Type-checked against available providers
-    // TypeScript will catch any configuration errors
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You are a helpful assistant.'
+    }
 });
 ```
 

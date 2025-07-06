@@ -308,7 +308,6 @@ const provider = new OpenAIProvider({
 
 const agent = new Robota({
   aiProviders: { openai: provider },
-  currentProvider: 'openai'
 });
 ```
 
