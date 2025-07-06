@@ -58,7 +58,6 @@ async function main() {
             aiProviders: {
                 'openai': openaiProvider
             },
-            currentProvider: 'openai',
             currentModel: 'gpt-3.5-turbo',
             systemMessage: 'You are a helpful assistant that provides detailed explanations.',
             logging: {
@@ -129,7 +128,6 @@ async function main() {
         const stats = robota.getStats();
         console.log(`- Agent name: ${stats.name}`);
         console.log(`- Total interactions: ${stats.historyLength / 2}`);
-        console.log(`- Current provider: ${stats.currentProvider}`);
         console.log(`- Uptime: ${Math.round(stats.uptime)}ms`);
 
         console.log('\n✅ Streaming Example Completed!');

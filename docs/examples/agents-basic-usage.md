@@ -58,7 +58,6 @@ async function main() {
             aiProviders: {
                 'openai': openaiProvider
             },
-            currentProvider: 'openai',
             currentModel: 'gpt-3.5-turbo',
             plugins: [
                 new LoggingPlugin({
@@ -95,7 +94,6 @@ async function main() {
         console.log(`- Agent Name: ${stats.name}`);
         console.log(`- Version: ${stats.version}`);
         console.log(`- Uptime: ${Math.round(stats.uptime / 1000)}s`);
-        console.log(`- Current Provider: ${stats.currentProvider}`);
         console.log(`- Available Providers: ${stats.providers.join(', ')}`);
         console.log(`- Active Plugins: ${stats.plugins.join(', ')}`);
         console.log(`- Messages in History: ${stats.historyLength}\n`);
@@ -172,7 +170,6 @@ The example shows how to configure a Robota agent with all the new features:
 const config: RobotaConfig = {
     name: 'DemoAgent',
     aiProviders: { 'openai': openaiProvider },
-    currentProvider: 'openai',
     currentModel: 'gpt-3.5-turbo',
     plugins: [
         new LoggingPlugin({ level: 'info', enabled: true }),
@@ -199,7 +196,6 @@ Get comprehensive agent statistics:
 const stats = robota.getStats();
 console.log(`Agent Name: ${stats.name}`);
 console.log(`Uptime: ${Math.round(stats.uptime / 1000)}s`);
-console.log(`Current Provider: ${stats.currentProvider}`);
 console.log(`Active Plugins: ${stats.plugins.join(', ')}`);
 ```
 

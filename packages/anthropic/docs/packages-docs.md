@@ -66,7 +66,6 @@ const robota = new Robota({
   aiProviders: {
     anthropic: provider
   },
-  currentProvider: 'anthropic',
   currentModel: 'claude-3-5-sonnet-20241022',
   systemPrompt: 'You are Claude, a helpful AI assistant created by Anthropic.'
 });
@@ -146,7 +145,6 @@ const robota = new Robota({
   aiProviders: {
     anthropic: provider
   },
-  currentProvider: 'anthropic',
   currentModel: 'claude-3-5-sonnet-20241022',
   toolProviders: [toolProvider]
 });
@@ -168,7 +166,6 @@ const robota = new Robota({
     openai: openaiProvider,
     google: googleProvider
   },
-  currentProvider: 'anthropic',
   currentModel: 'claude-3-5-sonnet-20241022'
 });
 

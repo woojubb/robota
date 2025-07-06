@@ -72,7 +72,6 @@ async function main() {
         console.log('📊 Session Statistics:');
         const stats = robota.getStats();
         console.log(`- Agent name: ${stats.name}`);
-        console.log(`- Current provider: ${stats.currentProvider}`);
         console.log(`- History length: ${stats.historyLength}`);
         console.log(`- Available tools: ${stats.tools.length}`);
         console.log(`- Plugins: ${stats.plugins.length}`);
@@ -184,7 +183,6 @@ Assistant: TypeScript is a strongly typed programming language developed by Micr
 
 📊 Session Statistics:
 - Agent name: BasicAgent
-- Current provider: openai
 - History length: 2
 - Available tools: 0
 - Plugins: 0
