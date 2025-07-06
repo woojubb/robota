@@ -39,17 +39,17 @@ const robota = new Robota({
 async function testProviderSwitching() {
     // Test OpenAI
     console.log('Testing OpenAI...');
-    robota.setCurrentAI('openai', 'gpt-3.5-turbo');
+    robota.setModel({ provider: 'openai', model: 'gpt-3.5-turbo' });
     const openaiResponse = await robota.run('Explain quantum computing in simple terms');
     
     // Switch to Anthropic
     console.log('Testing Anthropic...');
-    robota.setCurrentAI('anthropic', 'claude-3-5-sonnet-20241022');
+    robota.setModel({ provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' });
     const anthropicResponse = await robota.run('Explain quantum computing in simple terms');
     
     // Switch to Google
     console.log('Testing Google...');
-    robota.setCurrentAI('google', 'gemini-1.5-pro');
+    robota.setModel({ provider: 'google', model: 'gemini-1.5-pro' });
     const googleResponse = await robota.run('Explain quantum computing in simple terms');
     
     return { openaiResponse, anthropicResponse, googleResponse };
@@ -67,7 +67,7 @@ async function testModelSwitching() {
     
     for (const model of openaiModels) {
         console.log(`Testing ${model}...`);
-        robota.setCurrentAI('openai', model);
+        robota.setModel({ provider: 'openai', model });
         
         const startTime = Date.now();
         const response = await robota.run(question);
@@ -88,11 +88,11 @@ async function testModelSwitching() {
 ```typescript
 async function testHistoryPreservation() {
     // Start conversation with one provider
-    robota.setCurrentAI('openai', 'gpt-3.5-turbo');
+    robota.setModel({ provider: 'openai', model: 'gpt-3.5-turbo' });
     await robota.run('Hello, my name is Alice and I love cooking');
     
     // Switch provider and test memory
-    robota.setCurrentAI('anthropic', 'claude-3-5-sonnet-20241022');
+    robota.setModel({ provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' });
     const response = await robota.run('What did I tell you about myself?');
     
     // Verify history is preserved
@@ -202,7 +202,7 @@ class IntelligentProviderSelector {
         const best = this.rankProviders(candidates, criteria);
         
         if (best.provider !== this.robota.getCurrentAI().provider) {
-            this.robota.setCurrentAI(best.provider, best.model);
+            this.robota.setModel({ provider: best.provider, model: best.model });
             console.log(`Switched to optimal provider: ${best.provider}/${best.model}`);
         }
         
@@ -282,7 +282,7 @@ class ProviderFallbackChain {
                 try {
                     console.log(`Attempting ${provider}/${model} (attempt ${attempt + 1})`);
                     
-                    this.robota.setCurrentAI(provider, model);
+                    this.robota.setModel({ provider, model });
                     const response = await this.robota.run(prompt);
                     
                     console.log(`✓ Success with ${provider}/${model}`);
@@ -343,7 +343,7 @@ class ProviderABTester {
                 const startTime = Date.now();
                 
                 try {
-                    this.robota.setCurrentAI(config.provider, config.model);
+                    this.robota.setModel({ provider: config.provider, model: config.model });
                     const response = await this.robota.run(prompt);
                     const responseTime = Date.now() - startTime;
                     
@@ -560,12 +560,12 @@ async function safeProviderSwitch(robota: Robota, targetProvider: string, target
         }
         
         // Attempt switch
-        robota.setCurrentAI(targetProvider, targetModel);
+        robota.setModel({ provider: targetProvider, model: targetModel });
         
         // Test with a simple request
         await robota.run('Test').catch(() => {
             // Revert on failure
-            robota.setCurrentAI(currentAI.provider, currentAI.model);
+            robota.setModel({ provider: currentAI.provider, model: currentAI.model });
             throw new Error('Provider test failed');
         });
         
