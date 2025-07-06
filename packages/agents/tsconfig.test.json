@@ -1,12 +1,11 @@
 {
     "extends": "./tsconfig.json",
     "compilerOptions": {
-        "composite": false
+        "noEmit": true
     },
     "include": [
-        "src/**/*",
         "src/**/*.test.ts",
-        "src/**/*.test.tsx"
+        "src/**/*.spec.ts"
     ],
     "exclude": []
 }
