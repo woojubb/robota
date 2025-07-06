@@ -1,5 +1,13 @@
 # @robota-sdk/team
 
+## 2.0.2
+
+### Patch Changes
+
+- Fix npm package documentation by ensuring README.md files are included
+- Updated dependencies
+  - @robota-sdk/agents@2.0.2
+
 ## 2.0.1
 
 ### Patch Changes

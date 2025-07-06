@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/tools",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "⚠️ DEPRECATED: This package has been deprecated. Please use @robota-sdk/agents instead.",
   "type": "module",
   "main": "dist/index.js",
