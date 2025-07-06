@@ -60,7 +60,7 @@ ProviderSpecificOptions.openai
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:109](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L109)
+[packages/agents/src/interfaces/provider.ts:109](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L109)
 
 ___
 
@@ -86,7 +86,7 @@ ProviderSpecificOptions.anthropic
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:126](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L126)
+[packages/agents/src/interfaces/provider.ts:126](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L126)
 
 ___
 
@@ -112,7 +112,7 @@ ProviderSpecificOptions.google
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:136](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L136)
+[packages/agents/src/interfaces/provider.ts:136](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L136)
 
 ___
 
@@ -124,7 +124,7 @@ Tool schemas to provide to the AI provider
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:153](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L153)
+[packages/agents/src/interfaces/provider.ts:153](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L153)
 
 ___
 
@@ -136,7 +136,7 @@ Maximum number of tokens to generate
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:155](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L155)
+[packages/agents/src/interfaces/provider.ts:155](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L155)
 
 ___
 
@@ -148,7 +148,7 @@ Temperature for response randomness (0-1)
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:157](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L157)
+[packages/agents/src/interfaces/provider.ts:157](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L157)
 
 ___
 
@@ -160,4 +160,4 @@ Model to use for the request
 
 #### Defined in
 
-[packages/agents/src/interfaces/provider.ts:159](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/provider.ts#L159)
+[packages/agents/src/interfaces/provider.ts:159](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/provider.ts#L159)

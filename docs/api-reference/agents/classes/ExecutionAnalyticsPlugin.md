@@ -94,7 +94,7 @@ Integrates with agent lifecycle to track performance without manual intervention
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:31](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L31)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:31](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L31)
 
 ## Properties
 
@@ -110,7 +110,7 @@ Plugin enabled state
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:297](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L297)
+[packages/agents/src/abstracts/base-plugin.ts:297](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L297)
 
 ___
 
@@ -126,7 +126,7 @@ Plugin category for classification
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:300](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L300)
+[packages/agents/src/abstracts/base-plugin.ts:300](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L300)
 
 ___
 
@@ -142,7 +142,7 @@ Plugin priority for execution order
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:303](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L303)
+[packages/agents/src/abstracts/base-plugin.ts:303](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L303)
 
 ___
 
@@ -158,7 +158,7 @@ Plugin name
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:21](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L21)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:21](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L21)
 
 ___
 
@@ -174,7 +174,7 @@ Plugin version
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:22](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L22)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:22](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L22)
 
 ## Methods
 
@@ -200,7 +200,7 @@ Initialize the plugin with type-safe options
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:328](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L328)
+[packages/agents/src/abstracts/base-plugin.ts:328](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L328)
 
 ___
 
@@ -226,7 +226,7 @@ Subscribe to module events through EventEmitter
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:356](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L356)
+[packages/agents/src/abstracts/base-plugin.ts:356](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L356)
 
 ___
 
@@ -252,7 +252,7 @@ Unsubscribe from module events
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:415](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L415)
+[packages/agents/src/abstracts/base-plugin.ts:415](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L415)
 
 ___
 
@@ -272,7 +272,7 @@ Cleanup plugin resources
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:430](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L430)
+[packages/agents/src/abstracts/base-plugin.ts:430](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L430)
 
 ___
 
@@ -292,7 +292,7 @@ Enable the plugin
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:442](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L442)
+[packages/agents/src/abstracts/base-plugin.ts:442](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L442)
 
 ___
 
@@ -312,7 +312,7 @@ Disable the plugin
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:449](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L449)
+[packages/agents/src/abstracts/base-plugin.ts:449](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L449)
 
 ___
 
@@ -332,7 +332,7 @@ Check if plugin is enabled
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:456](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L456)
+[packages/agents/src/abstracts/base-plugin.ts:456](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L456)
 
 ___
 
@@ -352,7 +352,7 @@ Get plugin configuration
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:463](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L463)
+[packages/agents/src/abstracts/base-plugin.ts:463](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L463)
 
 ___
 
@@ -378,7 +378,7 @@ Update plugin configuration
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:470](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L470)
+[packages/agents/src/abstracts/base-plugin.ts:470](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L470)
 
 ___
 
@@ -398,7 +398,7 @@ Get plugin data - enhanced with classification information
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:477](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L477)
+[packages/agents/src/abstracts/base-plugin.ts:477](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L477)
 
 ___
 
@@ -419,7 +419,7 @@ This method should be implemented by plugins that store data
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:497](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L497)
+[packages/agents/src/abstracts/base-plugin.ts:497](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L497)
 
 ___
 
@@ -445,7 +445,7 @@ Called before execution with context
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:558](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L558)
+[packages/agents/src/abstracts/base-plugin.ts:558](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L558)
 
 ___
 
@@ -472,7 +472,7 @@ Called after execution with context and result
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:559](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L559)
+[packages/agents/src/abstracts/base-plugin.ts:559](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L559)
 
 ___
 
@@ -498,7 +498,7 @@ Called before conversation with context
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:560](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L560)
+[packages/agents/src/abstracts/base-plugin.ts:560](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L560)
 
 ___
 
@@ -525,7 +525,7 @@ Called after conversation with context and result
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:561](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L561)
+[packages/agents/src/abstracts/base-plugin.ts:561](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L561)
 
 ___
 
@@ -552,7 +552,7 @@ Called before tool execution with context
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:563](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L563)
+[packages/agents/src/abstracts/base-plugin.ts:563](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L563)
 
 ___
 
@@ -579,7 +579,7 @@ Called after tool execution with context
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:565](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L565)
+[packages/agents/src/abstracts/base-plugin.ts:565](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L565)
 
 ___
 
@@ -605,7 +605,7 @@ Called on streaming chunk
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:568](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L568)
+[packages/agents/src/abstracts/base-plugin.ts:568](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L568)
 
 ___
 
@@ -631,7 +631,7 @@ Called on message added to history
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:570](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L570)
+[packages/agents/src/abstracts/base-plugin.ts:570](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L570)
 
 ___
 
@@ -658,7 +658,7 @@ Called when module events are received
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:571](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L571)
+[packages/agents/src/abstracts/base-plugin.ts:571](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L571)
 
 ___
 
@@ -685,7 +685,7 @@ Called before agent run - start tracking
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:70](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L70)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:70](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L70)
 
 ___
 
@@ -713,7 +713,7 @@ Called after agent run - end tracking
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:89](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L89)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:89](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L89)
 
 ___
 
@@ -739,7 +739,7 @@ Called before provider call - start tracking
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:140](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L140)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:140](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L140)
 
 ___
 
@@ -766,7 +766,7 @@ Called after provider call - end tracking
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:158](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L158)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:158](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L158)
 
 ___
 
@@ -793,7 +793,7 @@ Called before tool call - start tracking
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:207](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L207)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:207](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L207)
 
 ___
 
@@ -821,7 +821,7 @@ Called after tool call - end tracking
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:226](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L226)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:226](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L226)
 
 ___
 
@@ -848,7 +848,7 @@ Called on error - end tracking with error
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:276](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L276)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:276](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L276)
 
 ___
 
@@ -873,7 +873,7 @@ Get execution statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:325](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L325)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:325](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L325)
 
 ___
 
@@ -897,7 +897,7 @@ Get aggregated execution statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:344](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L344)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:344](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L344)
 
 ___
 
@@ -913,7 +913,7 @@ Clear all statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:437](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L437)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:437](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L437)
 
 ___
 
@@ -929,7 +929,7 @@ Get currently active executions
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:447](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L447)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:447](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L447)
 
 ___
 
@@ -953,7 +953,7 @@ Get plugin performance statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:459](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L459)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:459](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L459)
 
 ___
 
@@ -969,7 +969,7 @@ Clean up resources
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:495](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L495)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:495](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L495)
 
 ___
 
@@ -985,7 +985,7 @@ Get execution data for export
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:503](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L503)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:503](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L503)
 
 ___
 
@@ -1001,7 +1001,7 @@ Get analytics statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:510](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L510)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:510](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L510)
 
 ___
 
@@ -1017,7 +1017,7 @@ Clear execution data
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:517](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L517)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:517](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L517)
 
 ___
 
@@ -1048,7 +1048,7 @@ Get plugin status
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:524](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L524)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:524](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L524)
 
 ___
 
@@ -1068,4 +1068,4 @@ Get plugin statistics
 
 #### Defined in
 
-[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:549](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L549)
+[packages/agents/src/plugins/execution/execution-analytics-plugin.ts:549](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/execution/execution-analytics-plugin.ts#L549)

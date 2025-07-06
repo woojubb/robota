@@ -44,7 +44,7 @@ Default model name to use (default: gpt-4)
 
 #### Defined in
 
-[openai/src/types.ts:30](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/types.ts#L30)
+[openai/src/types.ts:30](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L30)
 
 ___
 
@@ -56,7 +56,7 @@ Temperature (0~1)
 
 #### Defined in
 
-[openai/src/types.ts:35](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/types.ts#L35)
+[openai/src/types.ts:35](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L35)
 
 ___
 
@@ -68,7 +68,7 @@ Maximum number of tokens
 
 #### Defined in
 
-[openai/src/types.ts:40](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/types.ts#L40)
+[openai/src/types.ts:40](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L40)
 
 ___
 
@@ -80,7 +80,7 @@ OpenAI API key (optional: not required when using client)
 
 #### Defined in
 
-[openai/src/types.ts:45](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/types.ts#L45)
+[openai/src/types.ts:45](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L45)
 
 ___
 
@@ -92,7 +92,7 @@ OpenAI organization ID (optional)
 
 #### Defined in
 
-[openai/src/types.ts:50](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/types.ts#L50)
+[openai/src/types.ts:50](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L50)
 
 ___
 
@@ -104,7 +104,7 @@ API request timeout (milliseconds)
 
 #### Defined in
 
-[openai/src/types.ts:55](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/types.ts#L55)
+[openai/src/types.ts:55](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L55)
 
 ___
 
@@ -116,7 +116,7 @@ API base URL (default: 'https://api.openai.com/v1')
 
 #### Defined in
 
-[openai/src/types.ts:60](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/types.ts#L60)
+[openai/src/types.ts:60](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L60)
 
 ___
 
@@ -131,7 +131,7 @@ Response format (default: 'text')
 
 #### Defined in
 
-[openai/src/types.ts:68](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/types.ts#L68)
+[openai/src/types.ts:68](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L68)
 
 ___
 
@@ -152,7 +152,7 @@ JSON schema for structured outputs (required when responseFormat is 'json_schema
 
 #### Defined in
 
-[openai/src/types.ts:73](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/types.ts#L73)
+[openai/src/types.ts:73](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L73)
 
 ___
 
@@ -164,7 +164,7 @@ OpenAI client instance (required)
 
 #### Defined in
 
-[openai/src/types.ts:83](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/types.ts#L83)
+[openai/src/types.ts:83](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L83)
 
 ___
 
@@ -183,7 +183,7 @@ false
 
 #### Defined in
 
-[openai/src/types.ts:91](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/types.ts#L91)
+[openai/src/types.ts:91](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L91)
 
 ___
 
@@ -201,7 +201,7 @@ Directory path for storing API payload log files
 
 #### Defined in
 
-[openai/src/types.ts:98](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/types.ts#L98)
+[openai/src/types.ts:98](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L98)
 
 ___
 
@@ -219,4 +219,4 @@ true
 
 #### Defined in
 
-[openai/src/types.ts:105](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/types.ts#L105)
+[openai/src/types.ts:105](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/types.ts#L105)

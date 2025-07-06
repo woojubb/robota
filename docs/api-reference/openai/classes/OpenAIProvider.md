@@ -61,7 +61,7 @@ BaseAIProvider.constructor
 
 #### Defined in
 
-[openai/src/provider.ts:30](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/provider.ts#L30)
+[openai/src/provider.ts:30](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L30)
 
 ## Properties
 
@@ -75,7 +75,7 @@ BaseAIProvider.name
 
 #### Defined in
 
-[openai/src/provider.ts:24](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/provider.ts#L24)
+[openai/src/provider.ts:24](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L24)
 
 ___
 
@@ -89,7 +89,7 @@ BaseAIProvider.version
 
 #### Defined in
 
-[openai/src/provider.ts:25](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/provider.ts#L25)
+[openai/src/provider.ts:25](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L25)
 
 ## Methods
 
@@ -142,7 +142,7 @@ BaseAIProvider.chat
 
 #### Defined in
 
-[openai/src/provider.ts:47](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/provider.ts#L47)
+[openai/src/provider.ts:47](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L47)
 
 ___
 
@@ -169,7 +169,7 @@ BaseAIProvider.chatStream
 
 #### Defined in
 
-[openai/src/provider.ts:81](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/provider.ts#L81)
+[openai/src/provider.ts:81](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L81)
 
 ___
 
@@ -187,7 +187,7 @@ BaseAIProvider.supportsTools
 
 #### Defined in
 
-[openai/src/provider.ts:118](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/provider.ts#L118)
+[openai/src/provider.ts:118](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L118)
 
 ___
 
@@ -205,7 +205,7 @@ BaseAIProvider.validateConfig
 
 #### Defined in
 
-[openai/src/provider.ts:122](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/provider.ts#L122)
+[openai/src/provider.ts:122](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L122)
 
 ___
 
@@ -223,4 +223,4 @@ BaseAIProvider.dispose
 
 #### Defined in
 
-[openai/src/provider.ts:126](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/openai/src/provider.ts#L126)
+[openai/src/provider.ts:126](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/openai/src/provider.ts#L126)

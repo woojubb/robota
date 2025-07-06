@@ -37,7 +37,7 @@ Google AI API key
 
 #### Defined in
 
-[google/src/types.ts:26](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/types.ts#L26)
+[google/src/types.ts:26](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/google/src/types.ts#L26)
 
 ___
 
@@ -49,7 +49,7 @@ Default model to use
 
 #### Defined in
 
-[google/src/types.ts:29](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/types.ts#L29)
+[google/src/types.ts:29](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/google/src/types.ts#L29)
 
 ___
 
@@ -61,7 +61,7 @@ Temperature setting (0.0 ~ 1.0)
 
 #### Defined in
 
-[google/src/types.ts:32](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/types.ts#L32)
+[google/src/types.ts:32](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/google/src/types.ts#L32)
 
 ___
 
@@ -73,7 +73,7 @@ Maximum number of tokens
 
 #### Defined in
 
-[google/src/types.ts:35](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/types.ts#L35)
+[google/src/types.ts:35](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/google/src/types.ts#L35)
 
 ___
 
@@ -87,7 +87,7 @@ Response MIME type
 
 #### Defined in
 
-[google/src/types.ts:42](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/types.ts#L42)
+[google/src/types.ts:42](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/google/src/types.ts#L42)
 
 ___
 
@@ -99,4 +99,4 @@ Response schema for JSON output (only used when responseMimeType is 'application
 
 #### Defined in
 
-[google/src/types.ts:47](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/google/src/types.ts#L47)
+[google/src/types.ts:47](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/google/src/types.ts#L47)

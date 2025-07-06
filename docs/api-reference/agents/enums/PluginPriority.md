@@ -30,7 +30,7 @@ Highest priority - executed first
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:37](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L37)
+[packages/agents/src/abstracts/base-plugin.ts:37](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L37)
 
 ___
 
@@ -42,7 +42,7 @@ High priority
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:39](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L39)
+[packages/agents/src/abstracts/base-plugin.ts:39](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L39)
 
 ___
 
@@ -54,7 +54,7 @@ Normal priority (default)
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:41](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L41)
+[packages/agents/src/abstracts/base-plugin.ts:41](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L41)
 
 ___
 
@@ -66,7 +66,7 @@ Low priority
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:43](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L43)
+[packages/agents/src/abstracts/base-plugin.ts:43](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L43)
 
 ___
 
@@ -78,4 +78,4 @@ Lowest priority - executed last
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:45](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L45)
+[packages/agents/src/abstracts/base-plugin.ts:45](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L45)

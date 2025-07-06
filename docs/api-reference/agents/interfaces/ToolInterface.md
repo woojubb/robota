@@ -37,7 +37,7 @@ Tool schema
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:178](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L178)
+[packages/agents/src/interfaces/tool.ts:178](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L178)
 
 ## Methods
 
@@ -60,7 +60,7 @@ Execute the tool with given parameters
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:183](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L183)
+[packages/agents/src/interfaces/tool.ts:183](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L183)
 
 ___
 
@@ -82,7 +82,7 @@ Validate tool parameters
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:188](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L188)
+[packages/agents/src/interfaces/tool.ts:188](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L188)
 
 ___
 
@@ -104,7 +104,7 @@ Validate tool parameters with detailed result
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:193](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L193)
+[packages/agents/src/interfaces/tool.ts:193](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L193)
 
 ___
 
@@ -120,4 +120,4 @@ Get tool description
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:198](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L198)
+[packages/agents/src/interfaces/tool.ts:198](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L198)

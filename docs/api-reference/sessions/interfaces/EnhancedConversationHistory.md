@@ -47,7 +47,7 @@ Enhanced conversation history with configuration tracking
 
 #### Defined in
 
-[sessions/src/types/chat.ts:67](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/types/chat.ts#L67)
+[sessions/src/types/chat.ts:67](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/chat.ts#L67)
 
 ## Methods
 
@@ -199,7 +199,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/chat.ts:68](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/types/chat.ts#L68)
+[sessions/src/types/chat.ts:68](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/chat.ts#L68)
 
 ___
 
@@ -213,7 +213,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/chat.ts:69](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/types/chat.ts#L69)
+[sessions/src/types/chat.ts:69](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/chat.ts#L69)
 
 ___
 
@@ -227,7 +227,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/chat.ts:70](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/types/chat.ts#L70)
+[sessions/src/types/chat.ts:70](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/chat.ts#L70)
 
 ___
 
@@ -248,7 +248,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/chat.ts:73](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/types/chat.ts#L73)
+[sessions/src/types/chat.ts:73](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/chat.ts#L73)
 
 ___
 
@@ -268,7 +268,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/chat.ts:74](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/types/chat.ts#L74)
+[sessions/src/types/chat.ts:74](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/chat.ts#L74)
 
 ___
 
@@ -282,7 +282,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/chat.ts:75](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/types/chat.ts#L75)
+[sessions/src/types/chat.ts:75](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/chat.ts#L75)
 
 ___
 
@@ -296,7 +296,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/chat.ts:78](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/types/chat.ts#L78)
+[sessions/src/types/chat.ts:78](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/chat.ts#L78)
 
 ___
 
@@ -316,7 +316,7 @@ ___
 
 #### Defined in
 
-[sessions/src/types/chat.ts:79](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/types/chat.ts#L79)
+[sessions/src/types/chat.ts:79](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/chat.ts#L79)
 
 ___
 
@@ -330,4 +330,4 @@ ___
 
 #### Defined in
 
-[sessions/src/types/chat.ts:82](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/sessions/src/types/chat.ts#L82)
+[sessions/src/types/chat.ts:82](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/sessions/src/types/chat.ts#L82)

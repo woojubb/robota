@@ -30,7 +30,7 @@ Default model to use if not specified in config
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:13](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/managers/agent-factory.ts#L13)
+[packages/agents/src/managers/agent-factory.ts:13](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L13)
 
 ___
 
@@ -42,7 +42,7 @@ Default provider to use if not specified in config
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:15](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/managers/agent-factory.ts#L15)
+[packages/agents/src/managers/agent-factory.ts:15](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L15)
 
 ___
 
@@ -54,7 +54,7 @@ Maximum number of concurrent agents
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:17](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/managers/agent-factory.ts#L17)
+[packages/agents/src/managers/agent-factory.ts:17](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L17)
 
 ___
 
@@ -66,7 +66,7 @@ Default system message for agents
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:19](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/managers/agent-factory.ts#L19)
+[packages/agents/src/managers/agent-factory.ts:19](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L19)
 
 ___
 
@@ -78,4 +78,4 @@ Enable strict configuration validation
 
 #### Defined in
 
-[packages/agents/src/managers/agent-factory.ts:21](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/managers/agent-factory.ts#L21)
+[packages/agents/src/managers/agent-factory.ts:21](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/managers/agent-factory.ts#L21)

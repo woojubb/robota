@@ -32,7 +32,7 @@ Whether execution was successful
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:74](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L74)
+[packages/agents/src/interfaces/tool.ts:74](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L74)
 
 ___
 
@@ -44,7 +44,7 @@ Tool name that was executed
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:76](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L76)
+[packages/agents/src/interfaces/tool.ts:76](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L76)
 
 ___
 
@@ -56,7 +56,7 @@ Execution result or data
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:78](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L78)
+[packages/agents/src/interfaces/tool.ts:78](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L78)
 
 ___
 
@@ -68,7 +68,7 @@ Error message if execution failed
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:80](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L80)
+[packages/agents/src/interfaces/tool.ts:80](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L80)
 
 ___
 
@@ -80,7 +80,7 @@ Execution duration in milliseconds
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:82](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L82)
+[packages/agents/src/interfaces/tool.ts:82](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L82)
 
 ___
 
@@ -92,7 +92,7 @@ Unique execution ID
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:84](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L84)
+[packages/agents/src/interfaces/tool.ts:84](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L84)
 
 ___
 
@@ -104,4 +104,4 @@ Additional metadata
 
 #### Defined in
 
-[packages/agents/src/interfaces/tool.ts:86](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/tool.ts#L86)
+[packages/agents/src/interfaces/tool.ts:86](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/tool.ts#L86)

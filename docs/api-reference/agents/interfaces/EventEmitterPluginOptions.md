@@ -46,7 +46,7 @@ Whether the plugin is enabled
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:125](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L125)
+[packages/agents/src/abstracts/base-plugin.ts:125](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L125)
 
 ___
 
@@ -62,7 +62,7 @@ Plugin category for classification
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L127)
+[packages/agents/src/abstracts/base-plugin.ts:127](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L127)
 
 ___
 
@@ -78,7 +78,7 @@ Plugin priority for execution order
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:129](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L129)
+[packages/agents/src/abstracts/base-plugin.ts:129](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L129)
 
 ___
 
@@ -94,7 +94,7 @@ Events to subscribe to from modules
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:131](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L131)
+[packages/agents/src/abstracts/base-plugin.ts:131](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L131)
 
 ___
 
@@ -110,7 +110,7 @@ Whether to subscribe to all module events
 
 #### Defined in
 
-[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/abstracts/base-plugin.ts#L133)
+[packages/agents/src/abstracts/base-plugin.ts:133](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/abstracts/base-plugin.ts#L133)
 
 ___
 
@@ -122,7 +122,7 @@ Events to listen for
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:130](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/event-emitter-plugin.ts#L130)
+[packages/agents/src/plugins/event-emitter-plugin.ts:130](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/event-emitter-plugin.ts#L130)
 
 ___
 
@@ -134,7 +134,7 @@ Maximum number of listeners per event type
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:132](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/event-emitter-plugin.ts#L132)
+[packages/agents/src/plugins/event-emitter-plugin.ts:132](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/event-emitter-plugin.ts#L132)
 
 ___
 
@@ -146,7 +146,7 @@ Whether to emit events asynchronously
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:134](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/event-emitter-plugin.ts#L134)
+[packages/agents/src/plugins/event-emitter-plugin.ts:134](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/event-emitter-plugin.ts#L134)
 
 ___
 
@@ -158,7 +158,7 @@ Whether to catch and log listener errors
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:136](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/event-emitter-plugin.ts#L136)
+[packages/agents/src/plugins/event-emitter-plugin.ts:136](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/event-emitter-plugin.ts#L136)
 
 ___
 
@@ -170,7 +170,7 @@ Custom event filters
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:138](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/event-emitter-plugin.ts#L138)
+[packages/agents/src/plugins/event-emitter-plugin.ts:138](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/event-emitter-plugin.ts#L138)
 
 ___
 
@@ -190,4 +190,4 @@ Event buffering options
 
 #### Defined in
 
-[packages/agents/src/plugins/event-emitter-plugin.ts:140](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/plugins/event-emitter-plugin.ts#L140)
+[packages/agents/src/plugins/event-emitter-plugin.ts:140](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/plugins/event-emitter-plugin.ts#L140)

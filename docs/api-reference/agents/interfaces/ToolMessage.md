@@ -39,7 +39,7 @@ BaseMessage.content
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:19](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L19)
+[packages/agents/src/interfaces/agent.ts:19](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/agent.ts#L19)
 
 ___
 
@@ -53,7 +53,7 @@ BaseMessage.timestamp
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:20](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L20)
+[packages/agents/src/interfaces/agent.ts:20](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/agent.ts#L20)
 
 ___
 
@@ -67,7 +67,7 @@ BaseMessage.metadata
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:21](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L21)
+[packages/agents/src/interfaces/agent.ts:21](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/agent.ts#L21)
 
 ___
 
@@ -81,7 +81,7 @@ BaseMessage.role
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:50](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L50)
+[packages/agents/src/interfaces/agent.ts:50](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/agent.ts#L50)
 
 ___
 
@@ -91,7 +91,7 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:51](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L51)
+[packages/agents/src/interfaces/agent.ts:51](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/agent.ts#L51)
 
 ___
 
@@ -101,4 +101,4 @@ ___
 
 #### Defined in
 
-[packages/agents/src/interfaces/agent.ts:52](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/interfaces/agent.ts#L52)
+[packages/agents/src/interfaces/agent.ts:52](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/interfaces/agent.ts#L52)

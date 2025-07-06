@@ -54,7 +54,7 @@ Validate agent configuration
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:19](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/validation.ts#L19)
+[packages/agents/src/utils/validation.ts:19](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/validation.ts#L19)
 
 ___
 
@@ -76,7 +76,7 @@ Validate user input string
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:83](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/validation.ts#L83)
+[packages/agents/src/utils/validation.ts:83](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/validation.ts#L83)
 
 ___
 
@@ -98,7 +98,7 @@ Validate provider name
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:109](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/validation.ts#L109)
+[packages/agents/src/utils/validation.ts:109](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/validation.ts#L109)
 
 ___
 
@@ -120,7 +120,7 @@ Validate model name
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:129](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/validation.ts#L129)
+[packages/agents/src/utils/validation.ts:129](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/validation.ts#L129)
 
 ___
 
@@ -143,4 +143,4 @@ Validate API key format (basic check)
 
 #### Defined in
 
-[packages/agents/src/utils/validation.ts:149](https://github.com/woojubb/robota/blob/a69b4da7c5c53be6f90be7c6508928a6d39cf60b/packages/agents/src/utils/validation.ts#L149)
+[packages/agents/src/utils/validation.ts:149](https://github.com/woojubb/robota/blob/87419dbb26faf50d7f1d60ae717fbe215743d1f6/packages/agents/src/utils/validation.ts#L149)
