@@ -46,8 +46,7 @@ async function main() {
 
         // Create OpenAI Provider
         const openaiProvider = new OpenAIProvider({
-            client: openaiClient,
-            model: 'gpt-3.5-turbo'
+            apiKey: apiKey
         });
 
         // Create Robota instance with basic configuration
@@ -73,7 +72,6 @@ async function main() {
         console.log('📊 Session Statistics:');
         const stats = robota.getStats();
         console.log(`- Agent name: ${stats.name}`);
-        console.log(`- Current provider: ${stats.currentProvider}`);
         console.log(`- History length: ${stats.historyLength}`);
         console.log(`- Available tools: ${stats.tools.length}`);
         console.log(`- Plugins: ${stats.plugins.length}`);
@@ -118,13 +116,11 @@ Before running this example, ensure you have:
 
 ### 1. Provider Configuration
 
-The example uses the OpenAI provider with direct client configuration:
+The example uses the OpenAI provider with API key configuration:
 
 ```typescript
-const openaiClient = new OpenAI({ apiKey });
 const openaiProvider = new OpenAIProvider({
-    client: openaiClient,
-    model: 'gpt-3.5-turbo'
+    apiKey: process.env.OPENAI_API_KEY
 });
 ```
 
@@ -187,7 +183,6 @@ Assistant: TypeScript is a strongly typed programming language developed by Micr
 
 📊 Session Statistics:
 - Agent name: BasicAgent
-- Current provider: openai
 - History length: 2
 - Available tools: 0
 - Plugins: 0

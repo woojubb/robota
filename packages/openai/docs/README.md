@@ -31,35 +31,30 @@ npm install @robota-sdk/openai @robota-sdk/agents openai
 ```typescript
 import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
-import OpenAI from 'openai';
-
-// Initialize OpenAI client
-const openaiClient = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
 
 // Create type-safe OpenAI provider
 const provider = new OpenAIProvider({
-  client: openaiClient,
-  model: 'gpt-4',
-  temperature: 0.7
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 // Create Robota agent with OpenAI provider
 const agent = new Robota({
-  aiProviders: {
-    openai: provider
-  },
-  currentProvider: 'openai',
-  systemPrompt: 'You are a helpful AI assistant specialized in technical topics.'
+  name: 'MyAgent',
+  aiProviders: [provider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4',
+    temperature: 0.7,
+    systemMessage: 'You are a helpful AI assistant specialized in technical topics.'
+  }
 });
 
 // Execute conversation
 const response = await agent.run('Explain the benefits of TypeScript over JavaScript');
-console.log(response.content);
+console.log(response);
 
 // Clean up
-await agent.dispose();
+await agent.destroy();
 ```
 
 ### Streaming Responses
@@ -145,29 +140,31 @@ Seamlessly integrate with other providers:
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { GoogleProvider } from '@robota-sdk/google';
 
+const openaiProvider = new OpenAIProvider({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
+const anthropicProvider = new AnthropicProvider({
+  apiKey: process.env.ANTHROPIC_API_KEY
+});
+
+const googleProvider = new GoogleProvider({
+  apiKey: process.env.GOOGLE_AI_API_KEY
+});
+
 const agent = new Robota({
-  aiProviders: {
-    openai: new OpenAIProvider({
-      client: openaiClient,
-      model: 'gpt-4'
-    }),
-    anthropic: new AnthropicProvider({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      model: 'claude-3-sonnet-20240229'
-    }),
-    google: new GoogleProvider({
-      apiKey: process.env.GOOGLE_AI_API_KEY,
-      model: 'gemini-pro'
-    })
-  },
-  currentProvider: 'openai'
+  name: 'MultiProviderAgent',
+  aiProviders: [openaiProvider, anthropicProvider, googleProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4'
+  }
 });
 
 // Dynamic provider switching
-await agent.setCurrentProvider('openai');
 const openaiResponse = await agent.run('Respond using GPT-4');
 
-await agent.setCurrentProvider('anthropic');
+agent.setModel({ provider: 'anthropic', model: 'claude-3-sonnet-20240229' });
 const claudeResponse = await agent.run('Respond using Claude');
 ```
 

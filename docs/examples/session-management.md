@@ -52,7 +52,6 @@ const chat1 = await session.createNewChat({
     robotaConfig: {
         // AI provider configuration for this specific chat
         aiProviders: { 'openai': openaiProvider },
-        currentProvider: 'openai',
         currentModel: 'gpt-3.5-turbo',
         systemPrompt: 'You are a helpful assistant for general questions.'
     }
@@ -63,7 +62,6 @@ const chat2 = await session.createNewChat({
     chatName: 'Code Review',
     robotaConfig: {
         aiProviders: { 'openai': openaiProvider },
-        currentProvider: 'openai',
         currentModel: 'gpt-4',
         systemPrompt: 'You are a senior developer helping with code reviews.'
     }
@@ -169,7 +167,6 @@ async function createCompleteSessionExample() {
         chatName: 'Main Conversation',
         robotaConfig: {
             aiProviders: { 'openai': openaiProvider },
-            currentProvider: 'openai',
             currentModel: 'gpt-3.5-turbo',
             systemPrompt: 'You are a helpful AI assistant. Maintain context across our conversation.',
             debug: false
@@ -382,7 +379,6 @@ const chat = await session.createNewChat({
     chatName: 'Technical Support',
     robotaConfig: {
         aiProviders: { 'openai': openaiProvider },
-        currentProvider: 'openai',
         currentModel: 'gpt-4',
         toolProviders: [technicalSupportTools],
         debug: true
@@ -521,7 +517,6 @@ async function robustSessionUsage() {
             chatName: 'Main Chat',
             robotaConfig: {
                 aiProviders: { 'openai': openaiProvider },
-                currentProvider: 'openai',
                 currentModel: 'gpt-3.5-turbo'
             }
         }).catch(async (error) => {

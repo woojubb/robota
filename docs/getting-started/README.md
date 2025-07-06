@@ -53,32 +53,25 @@ Create a simple AI agent in under 5 minutes:
 ```typescript
 import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
-import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 async function main() {
-    // Create OpenAI client and provider
-    const openaiClient = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY!
-    });
-
+    // Create OpenAI provider
     const openaiProvider = new OpenAIProvider({
-        client: openaiClient
+        apiKey: process.env.OPENAI_API_KEY!
     });
 
     // Create your first agent
     const agent = new Robota({
         name: 'MyFirstAgent',
-        model: 'gpt-3.5-turbo',
-        provider: 'openai',
-        aiProviders: {
-            openai: openaiProvider
-        },
-        currentProvider: 'openai',
-        currentModel: 'gpt-3.5-turbo',
-        systemMessage: 'You are a helpful AI assistant.'
+        aiProviders: [openaiProvider],
+        defaultModel: {
+            provider: 'openai',
+            model: 'gpt-3.5-turbo',
+            systemMessage: 'You are a helpful AI assistant.'
+        }
     });
 
     // Have a conversation
@@ -191,21 +184,19 @@ Get real-time responses as they're generated:
 ```typescript
 const agent = new Robota({
     name: 'StreamingAgent',
-    model: 'gpt-3.5-turbo',
-    provider: 'openai',
-    aiProviders: { openai: openaiProvider },
-    currentProvider: 'openai',
-    currentModel: 'gpt-3.5-turbo',
-    systemMessage: 'You are a helpful assistant.'
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You are a helpful assistant.'
+    }
 });
 
 // Stream the response
-const stream = await agent.stream('Explain quantum computing in simple terms.');
+const stream = await agent.runStream('Explain quantum computing in simple terms.');
 
 for await (const chunk of stream) {
-    if (chunk.content) {
-        process.stdout.write(chunk.content);
-    }
+    process.stdout.write(chunk);
 }
 ```
 
@@ -215,33 +206,30 @@ Use different AI providers for different tasks:
 
 ```typescript
 import { AnthropicProvider } from '@robota-sdk/anthropic';
-import Anthropic from '@anthropic-ai/sdk';
 
 // Create multiple providers
-const openaiProvider = new OpenAIProvider({ client: openaiClient });
-const anthropicProvider = new AnthropicProvider({
-    client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
-});
+const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY! });
+const anthropicProvider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 // Agent with multiple providers
 const agent = new Robota({
     name: 'MultiProviderAgent',
-    model: 'gpt-3.5-turbo',
-    provider: 'openai',
-    aiProviders: {
-        openai: openaiProvider,
-        anthropic: anthropicProvider
-    },
-    currentProvider: 'openai',
-    currentModel: 'gpt-3.5-turbo',
-    systemMessage: 'You are a helpful assistant.'
+    aiProviders: [openaiProvider, anthropicProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You are a helpful assistant.'
+    }
 });
 
 // Use OpenAI
 const openaiResponse = await agent.run('Quick summary please.');
 
 // Switch to Anthropic for detailed analysis
-await agent.switchProvider('anthropic', 'claude-3-haiku-20240307');
+agent.setModel({
+    provider: 'anthropic',
+    model: 'claude-3-haiku-20240307'
+});
 const claudeResponse = await agent.run('Detailed analysis please.');
 ```
 
@@ -278,20 +266,20 @@ const calculatorTool = createFunctionTool(
             case 'multiply': return { result: a * b };
             case 'divide': return { result: b !== 0 ? a / b : 'Error: Division by zero' };
             default: return { error: 'Unknown operation' };
-    }
+        }
     }
 );
 
 // Agent with tools
 const agent = new Robota({
     name: 'CalculatorAgent',
-    model: 'gpt-3.5-turbo',
-    provider: 'openai',
-    aiProviders: { openai: openaiProvider },
-    currentProvider: 'openai',
-    currentModel: 'gpt-3.5-turbo',
-    tools: [calculatorTool],
-    systemMessage: 'You are a helpful assistant with calculation abilities.'
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You are a helpful assistant with calculation abilities.'
+    },
+    tools: [calculatorTool]
 });
 
 // Agent will automatically use the calculator tool
@@ -306,11 +294,8 @@ Create a team that intelligently delegates complex tasks:
 import { createTeam } from '@robota-sdk/team';
 
 // Create a team with AI providers
-const team = createTeam({
-    aiProviders: {
-        openai: openaiProvider,
-        anthropic: anthropicProvider
-    },
+const team = await createTeam({
+    aiProviders: [openaiProvider, anthropicProvider],
     maxMembers: 5,
     debug: true
 });
@@ -340,13 +325,13 @@ const analyticsPlugin = new ExecutionAnalyticsPlugin({
 // Agent with analytics
 const agent = new Robota({
     name: 'MonitoredAgent',
-    model: 'gpt-3.5-turbo',
-    provider: 'openai',
-    aiProviders: { openai: openaiProvider },
-    currentProvider: 'openai',
-    currentModel: 'gpt-3.5-turbo',
-    plugins: [analyticsPlugin],
-    systemMessage: 'You are a helpful assistant.'
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You are a helpful assistant.'
+    },
+    plugins: [analyticsPlugin]
 });
 
 // Use the agent

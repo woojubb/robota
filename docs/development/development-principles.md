@@ -53,9 +53,9 @@ interface BadConfig {
 
 ```typescript
 // Switch providers at runtime
-await agent.switchProvider('openai', 'gpt-4');
-await agent.switchProvider('anthropic', 'claude-3-sonnet');
-await agent.switchProvider('google', 'gemini-1.5-flash');
+agent.setModel({ provider: 'openai', model: 'gpt-4' });
+agent.setModel({ provider: 'anthropic', model: 'claude-3-sonnet' });
+agent.setModel({ provider: 'google', model: 'gemini-1.5-flash' });
 ```
 
 ### 4. Plugin-First Extensibility
@@ -116,8 +116,13 @@ const advancedAgent = new Robota({
 ```typescript
 // TypeScript catches provider mismatches
 const agent = new Robota({
-    aiProviders: { openai: openaiProvider },
-    currentProvider: 'anthropic' // ❌ TypeScript error!
+    name: 'MyAgent',
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4'
+    }
+    // TypeScript ensures provider exists in aiProviders array
 });
 ```
 
@@ -310,13 +315,19 @@ try {
 // v1.x (deprecated)
 const robota = new Robota({
     systemPrompt: 'You are helpful',
-    aiProviders: { openai: provider }
+    aiProviders: { openai: provider },
+    currentProvider: 'openai'
 });
 
 // v2.0 (current)
 const robota = new Robota({
-    systemMessage: 'You are helpful', // Updated API
-    aiProviders: { openai: provider }
+    name: 'MyAgent',
+    aiProviders: [provider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4',
+        systemMessage: 'You are helpful'
+    }
 });
 ```
 

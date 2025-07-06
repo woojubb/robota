@@ -31,35 +31,31 @@ npm install @robota-sdk/anthropic @robota-sdk/agents @anthropic-ai/sdk
 ```typescript
 import { Robota } from '@robota-sdk/agents';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
-import Anthropic from '@anthropic-ai/sdk';
-
-// Initialize Anthropic client
-const anthropicClient = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY
-});
 
 // Create type-safe Anthropic provider
 const provider = new AnthropicProvider({
-  client: anthropicClient,
+  apiKey: process.env.ANTHROPIC_API_KEY!,
   model: 'claude-3-sonnet-20240229',
   maxTokens: 1000
 });
 
 // Create Robota agent with Anthropic provider
 const agent = new Robota({
-  aiProviders: {
-    claude: provider
-  },
-  currentProvider: 'claude',
-  systemPrompt: 'You are Claude, an AI assistant created by Anthropic to be helpful, harmless, and honest.'
+  name: 'ClaudeAgent',
+  aiProviders: [provider],
+  defaultModel: {
+    provider: 'anthropic',
+    model: 'claude-3-sonnet-20240229',
+    systemMessage: 'You are Claude, an AI assistant created by Anthropic to be helpful, harmless, and honest.'
+  }
 });
 
 // Execute conversation
 const response = await agent.run('Explain the concept of artificial consciousness');
-console.log(response.content);
+console.log(response);
 
 // Clean up
-await agent.dispose();
+await agent.destroy();
 ```
 
 ### Streaming Responses
@@ -158,22 +154,26 @@ Seamlessly integrate with other providers:
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { GoogleProvider } from '@robota-sdk/google';
 
+const claudeProvider = new AnthropicProvider({
+  apiKey: process.env.ANTHROPIC_API_KEY!,
+  model: 'claude-3-opus-20240229'
+});
+
+const openaiProvider = new OpenAIProvider({
+  apiKey: process.env.OPENAI_API_KEY!
+});
+
+const googleProvider = new GoogleProvider({
+  apiKey: process.env.GOOGLE_AI_API_KEY!
+});
+
 const agent = new Robota({
-  aiProviders: {
-    claude: new AnthropicProvider({
-      client: anthropicClient,
-      model: 'claude-3-opus-20240229'
-    }),
-    gpt4: new OpenAIProvider({
-      client: openaiClient,
-      model: 'gpt-4'
-    }),
-    gemini: new GoogleProvider({
-      apiKey: process.env.GOOGLE_AI_API_KEY,
-      model: 'gemini-pro'
-    })
-  },
-  currentProvider: 'claude'
+  name: 'MultiProviderAgent',
+  aiProviders: [claudeProvider, openaiProvider, googleProvider],
+  defaultModel: {
+    provider: 'anthropic',
+    model: 'claude-3-opus-20240229'
+  }
 });
 
 // Compare reasoning approaches
@@ -181,15 +181,15 @@ async function compareReasoningApproaches(problem: string) {
   const results = {};
   
   // Claude's analytical approach
-  await agent.setCurrentProvider('claude');
+  agent.setModel({ provider: 'anthropic', model: 'claude-3-opus-20240229' });
   results.claude = await agent.run(`Analyze this problem step-by-step: ${problem}`);
   
   // GPT-4's approach
-  await agent.setCurrentProvider('gpt4');
+  agent.setModel({ provider: 'openai', model: 'gpt-4' });
   results.gpt4 = await agent.run(`Solve this problem methodically: ${problem}`);
   
   // Gemini's approach
-  await agent.setCurrentProvider('gemini');
+  agent.setModel({ provider: 'google', model: 'gemini-pro' });
   results.gemini = await agent.run(`Approach this problem systematically: ${problem}`);
   
   return results;
@@ -297,19 +297,27 @@ interface AnthropicUsage {
 ```typescript
 // Specialized system prompts for different tasks
 const researchAgent = new Robota({
-  aiProviders: { claude: provider },
-  currentProvider: 'claude',
-  systemPrompt: `You are a research assistant specializing in scientific analysis. 
-                 Always cite sources and provide evidence for your claims.
-                 Break down complex topics into understandable components.`
+  name: 'ResearchAgent',
+  aiProviders: [provider],
+  defaultModel: {
+    provider: 'anthropic',
+    model: 'claude-3-opus-20240229',
+    systemMessage: `You are a research assistant specializing in scientific analysis. 
+                    Always cite sources and provide evidence for your claims.
+                    Break down complex topics into understandable components.`
+  }
 });
 
 const codeReviewAgent = new Robota({
-  aiProviders: { claude: provider },
-  currentProvider: 'claude',
-  systemPrompt: `You are a senior software engineer reviewing code.
-                 Focus on security, performance, maintainability, and best practices.
-                 Provide specific, actionable feedback with code examples.`
+  name: 'CodeReviewAgent',
+  aiProviders: [provider],
+  defaultModel: {
+    provider: 'anthropic',
+    model: 'claude-3-sonnet-20240229',
+    systemMessage: `You are a senior software engineer reviewing code.
+                    Focus on security, performance, maintainability, and best practices.
+                    Provide specific, actionable feedback with code examples.`
+  }
 });
 ```
 
@@ -319,8 +327,12 @@ const codeReviewAgent = new Robota({
 import { RetryPlugin, ErrorHandlingPlugin } from '@robota-sdk/agents';
 
 const agent = new Robota({
-  aiProviders: { claude: provider },
-  currentProvider: 'claude',
+  name: 'RobustAgent',
+  aiProviders: [provider],
+  defaultModel: {
+    provider: 'anthropic',
+    model: 'claude-3-haiku-20240307'
+  },
   plugins: [
     new RetryPlugin({
       maxRetries: 3,
@@ -345,8 +357,12 @@ const agent = new Robota({
 import { UsagePlugin, PerformancePlugin } from '@robota-sdk/agents';
 
 const agent = new Robota({
-  aiProviders: { claude: provider },
-  currentProvider: 'claude',
+  name: 'MonitoredAgent',
+  aiProviders: [provider],
+  defaultModel: {
+    provider: 'anthropic',
+    model: 'claude-3-sonnet-20240229'
+  },
   plugins: [
     new UsagePlugin({
       trackTokenUsage: true,

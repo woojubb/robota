@@ -74,11 +74,13 @@ const calculatorTool = createFunctionTool(
 // Create agent with the tool
 const agent = new Robota({
     name: 'CalculatorAgent',
-    model: 'gpt-3.5-turbo',
-    provider: 'openai',
-    aiProviders: { openai: openaiProvider },
-    tools: [calculatorTool],
-    systemMessage: 'You are a helpful assistant with calculation abilities.'
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You are a helpful assistant with calculation abilities.'
+    },
+    tools: [calculatorTool]
 });
 
 // Use the agent - it will automatically call the tool when needed
@@ -272,22 +274,24 @@ const fileTool = createFunctionTool(
 // Create a comprehensive agent with multiple tools
 const multiToolAgent = new Robota({
     name: 'MultiToolAgent',
-    model: 'gpt-4',
-    provider: 'openai',
-    aiProviders: { openai: openaiProvider },
-    tools: [
-        calculatorTool,
-        weatherTool,
-        databaseTool,
-        fileTool
-    ],
-    systemMessage: `You are a helpful assistant with access to multiple tools:
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4',
+        systemMessage: `You are a helpful assistant with access to multiple tools:
     - Calculator for mathematical operations
     - Weather information for any location
     - Database queries for data retrieval
     - File system operations for file management
     
     Use these tools when appropriate to help users with their requests.`
+    },
+    tools: [
+        calculatorTool,
+        weatherTool,
+        databaseTool,
+        fileTool
+    ]
 });
 
 // Complex multi-step task
@@ -363,24 +367,20 @@ const robustTool = createFunctionTool(
 ```typescript
 const agent = new Robota({
     name: 'StreamingToolAgent',
-    model: 'gpt-3.5-turbo',
-    provider: 'openai',
-    aiProviders: { openai: openaiProvider },
-    tools: [calculatorTool, weatherTool],
-    systemMessage: 'You are a helpful assistant. Use tools when needed.'
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You are a helpful assistant. Use tools when needed.'
+    },
+    tools: [calculatorTool, weatherTool]
 });
 
 // Stream responses while tools are being executed
-const stream = await agent.stream('What\'s the weather in Tokyo and what\'s 15 * 8?');
+const stream = agent.runStream('What\'s the weather in Tokyo and what\'s 15 * 8?');
 
 for await (const chunk of stream) {
-    if (chunk.type === 'content') {
-        process.stdout.write(chunk.content);
-    } else if (chunk.type === 'tool_call') {
-        console.log(`\n[Tool Call] ${chunk.toolName}: ${JSON.stringify(chunk.parameters)}`);
-    } else if (chunk.type === 'tool_result') {
-        console.log(`[Tool Result] ${JSON.stringify(chunk.result)}\n`);
-    }
+    process.stdout.write(chunk);
 }
 ```
 
@@ -402,11 +402,13 @@ toolRegistry.register('database', databaseTool);
 // Create agent with registry
 const agent = new Robota({
     name: 'RegistryAgent',
-    model: 'gpt-3.5-turbo',
-    provider: 'openai',
-    aiProviders: { openai: openaiProvider },
-    tools: toolRegistry.getAllTools(),
-    systemMessage: 'You have access to various tools through the registry.'
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You have access to various tools through the registry.'
+    },
+    tools: toolRegistry.getAllTools()
 });
 
 // Dynamically add tools
@@ -419,9 +421,12 @@ toolRegistry.register('newTool', createNewTool());
 // Tools that are only available under certain conditions
 const conditionalAgent = new Robota({
     name: 'ConditionalAgent',
-    model: 'gpt-3.5-turbo',
-    provider: 'openai',
-    aiProviders: { openai: openaiProvider },
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You are a helpful assistant with context-specific tools.'
+    },
     tools: [
         // Always available
         calculatorTool,
@@ -431,8 +436,7 @@ const conditionalAgent = new Robota({
         
         // Only available in development
         ...(process.env.NODE_ENV === 'development' ? [debugTool] : [])
-    ],
-    systemMessage: 'You are a helpful assistant with context-specific tools.'
+    ]
 });
 ```
 

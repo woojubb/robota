@@ -25,13 +25,13 @@ import { OpenAIProvider } from '@robota-sdk/openai';
 // Create a focused agent for a specific task
 const translationAgent = new Robota({
     name: 'TranslationAgent',
-    model: 'gpt-3.5-turbo',
-    provider: 'openai',
-    aiProviders: { openai: openaiProvider },
-  currentProvider: 'openai',
-    currentModel: 'gpt-3.5-turbo',
-    systemMessage: `You are a professional translator specializing in accurate, 
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: `You are a professional translator specializing in accurate, 
     contextual translations between languages. Always preserve meaning and tone.`
+    }
 });
 
 // Use the agent
@@ -85,12 +85,14 @@ const codeAnalysisTool = createFunctionTool(
 // Create agent with tools
 const codeReviewAgent = new Robota({
     name: 'CodeReviewAgent',
-    model: 'gpt-4',
-    provider: 'openai',
-    aiProviders: { openai: openaiProvider },
-    tools: [codeAnalysisTool],
-    systemMessage: `You are a senior software engineer specializing in code reviews.
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4',
+        systemMessage: `You are a senior software engineer specializing in code reviews.
     Use the code analysis tool to identify issues and provide constructive feedback.`
+    },
+    tools: [codeAnalysisTool]
 });
 ```
 
@@ -100,26 +102,26 @@ Agents that leverage different AI providers for different tasks:
 
 ```typescript
 class SmartAgent extends Robota {
-    constructor(providers: Record<string, BaseAIProvider>) {
+    constructor(providers: AIProvider[]) {
         super({
             name: 'SmartAgent',
-            model: 'gpt-3.5-turbo',
-            provider: 'openai',
             aiProviders: providers,
-  currentProvider: 'openai',
-            currentModel: 'gpt-3.5-turbo',
-            systemMessage: 'You are a versatile AI assistant.'
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-3.5-turbo',
+                systemMessage: 'You are a versatile AI assistant.'
+            }
         });
     }
 
     async run(input: string): Promise<string> {
         // Use different providers based on task type
         if (this.isCreativeTask(input)) {
-            await this.switchProvider('anthropic', 'claude-3-sonnet');
+            this.setModel({ provider: 'anthropic', model: 'claude-3-sonnet' });
         } else if (this.isComplexReasoning(input)) {
-            await this.switchProvider('openai', 'gpt-4');
+            this.setModel({ provider: 'openai', model: 'gpt-4' });
         } else if (this.isFactualQuery(input)) {
-            await this.switchProvider('google', 'gemini-1.5-flash');
+            this.setModel({ provider: 'google', model: 'gemini-1.5-flash' });
         }
         
         return super.run(input);
@@ -163,13 +165,15 @@ class MemoryAgent extends Robota {
 
         super({
             name: 'MemoryAgent',
-            model: 'gpt-4',
-            provider: 'openai',
-            aiProviders: { openai: openaiProvider },
-            plugins: [conversationPlugin, analyticsPlugin],
-            systemMessage: `You are a personal assistant with excellent memory.
+            aiProviders: [openaiProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-4',
+                systemMessage: `You are a personal assistant with excellent memory.
             Remember user preferences, past conversations, and context.
             Provide personalized responses based on conversation history.`
+            },
+            plugins: [conversationPlugin, analyticsPlugin]
         });
     }
 
@@ -209,10 +213,12 @@ class WorkflowAgent extends Robota {
     constructor() {
         super({
             name: 'WorkflowAgent',
-            model: 'gpt-4',
-            provider: 'openai',
-            aiProviders: { openai: openaiProvider },
-            systemMessage: 'You are a workflow automation agent.'
+            aiProviders: [openaiProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-4',
+                systemMessage: 'You are a workflow automation agent.'
+            }
         });
 
         this.setupWorkflows();
@@ -290,20 +296,22 @@ class WorkflowAgent extends Robota {
 ```typescript
 const researchAgent = new Robota({
     name: 'ResearchAgent',
-    model: 'gpt-4',
-    provider: 'openai',
-  aiProviders: { openai: openaiProvider },
-    tools: [
-        webSearchTool,
-        documentAnalysisTool,
-        citationTool
-    ],
-    systemMessage: `You are a research specialist focused on thorough, accurate research.
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4',
+        systemMessage: `You are a research specialist focused on thorough, accurate research.
     Always:
     - Verify information from multiple sources
     - Provide citations and references
     - Distinguish between facts and opinions
     - Flag uncertain or contradictory information`
+    },
+    tools: [
+        webSearchTool,
+        documentAnalysisTool,
+        citationTool
+    ]
 });
 ```
 
@@ -312,21 +320,23 @@ const researchAgent = new Robota({
 ```typescript
 const codeGeneratorAgent = new Robota({
     name: 'CodeGeneratorAgent',
-    model: 'gpt-4',
-    provider: 'openai',
-  aiProviders: { openai: openaiProvider },
-    tools: [
-        codeAnalysisTool,
-        testGenerationTool,
-        documentationTool
-    ],
-    systemMessage: `You are a software engineering expert specializing in code generation.
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4',
+        systemMessage: `You are a software engineering expert specializing in code generation.
     Always:
     - Write clean, maintainable code
     - Include comprehensive error handling
     - Add appropriate comments and documentation
     - Follow language-specific best practices
     - Generate corresponding unit tests`
+    },
+    tools: [
+        codeAnalysisTool,
+        testGenerationTool,
+        documentationTool
+    ]
 });
 ```
 
@@ -335,21 +345,23 @@ const codeGeneratorAgent = new Robota({
 ```typescript
 const dataAnalysisAgent = new Robota({
     name: 'DataAnalysisAgent',
-    model: 'gpt-4',
-    provider: 'openai',
-  aiProviders: { openai: openaiProvider },
-    tools: [
-        dataProcessingTool,
-        visualizationTool,
-        statisticalAnalysisTool
-    ],
-    systemMessage: `You are a data scientist specializing in data analysis and insights.
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4',
+        systemMessage: `You are a data scientist specializing in data analysis and insights.
     Always:
     - Validate data quality and completeness
     - Apply appropriate statistical methods
     - Provide clear, actionable insights
     - Create meaningful visualizations
     - Explain methodology and limitations`
+    },
+    tools: [
+        dataProcessingTool,
+        visualizationTool,
+        statisticalAnalysisTool
+    ]
 });
 ```
 
@@ -460,11 +472,13 @@ class ModularAgent extends Robota {
         
         super({
             name: 'ModularAgent',
-            model: 'gpt-4',
-            provider: 'openai',
-            aiProviders: { openai: openaiProvider },
-            plugins: [loggingPlugin, performancePlugin, usagePlugin],
-            systemMessage: 'You are a modular AI agent with enhanced capabilities.'
+            aiProviders: [openaiProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-4',
+                systemMessage: 'You are a modular AI agent with enhanced capabilities.'
+            },
+            plugins: [loggingPlugin, performancePlugin, usagePlugin]
         });
         
         // Initialize module registry with shared EventEmitter
@@ -681,10 +695,12 @@ class ParallelAgentProcessor {
         // Create consensus agent to combine results
         const consensusAgent = new Robota({
             name: 'ConsensusAgent',
-            model: 'gpt-4',
-            provider: 'openai',
-            aiProviders: { openai: openaiProvider },
-            systemMessage: 'Combine multiple perspectives into a coherent response.'
+            aiProviders: [openaiProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-4',
+                systemMessage: 'Combine multiple perspectives into a coherent response.'
+            }
         });
 
         const combinedInput = `
@@ -841,8 +857,11 @@ describe('Agent Integration', () => {
     it('should work with real providers', async () => {
         const agent = new Robota({
             name: 'TestAgent',
-            aiProviders: { openai: realOpenAIProvider },
-            currentProvider: 'openai'
+            aiProviders: [realOpenAIProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-3.5-turbo'
+            }
         });
         
         const response = await agent.run('Hello');
@@ -865,8 +884,11 @@ import { ReActPlanner, CAMELPlanner, ReflectionPlanner } from '@robota-sdk/plann
 // This is planned for future releases
 const autonomousPlanner = createPlanner({
     baseAgentConfig: {
-        aiProviders: { openai: openaiProvider, anthropic: anthropicProvider },
-        currentProvider: 'openai'
+        aiProviders: [openaiProvider, anthropicProvider],
+        defaultModel: {
+            provider: 'openai',
+            model: 'gpt-4'
+        }
     },
     maxAgents: 10,
     maxConcurrentPlanners: 3
