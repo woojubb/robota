@@ -4,8 +4,9 @@ export default defineConfig({
     test: {
         globals: true,
         environment: 'node',
-        include: ['**/*.{test,spec}.{ts,tsx}'],
+        include: ['src/**/*.{test,spec}.{ts,tsx}'],
         exclude: ['node_modules', 'dist'],
+        testTimeout: 10000,
         coverage: {
             provider: 'v8',
             reporter: ['text', 'json', 'html'],
@@ -16,11 +17,6 @@ export default defineConfig({
                 '**/*.config.ts',
                 '**/index.ts'
             ]
-        }
-    },
-    resolve: {
-        alias: {
-            '@robota-sdk/agents': '../agents/src'
         }
     }
 }); 

@@ -1,613 +1,366 @@
-# Session Management
+# Session Management with @robota-sdk/sessions
 
-This example demonstrates how to use the Robota Sessions package to manage user sessions, multiple chats, and conversation state across different contexts.
+The `@robota-sdk/sessions` package provides a clean way to manage multiple independent AI agents across different workspaces. Think of it as a container that lets you run multiple AI conversations simultaneously while keeping them completely isolated from each other.
 
-## Overview
+## 🎯 Core Purpose
 
-The session management example shows how to:
-- Create and manage user sessions with SessionManager
-- Handle multiple chats within a single session
-- Switch between different chat contexts
-- Manage session lifecycle (pause, resume, cleanup)
-- Configure session limits and auto-cleanup
+The sessions package is designed for **managing multiple independent AI agents** in isolated workspaces:
 
-## Source Code
+- **SessionManager**: Manages multiple sessions (workspaces)
+- **ChatInstance**: Simple wrapper around individual Robota agents
+- **Workspace Isolation**: Each session operates in its own memory space
+- **Agent Switching**: Easy switching between different AI agents
+- **Template Integration**: Uses AgentFactory and AgentTemplates from the agents package
 
-**Location**: `apps/examples/04-sessions/basic-session-usage.ts`
+## 🚀 Quick Start
 
-## Key Concepts
+### Installation
 
-### 1. Session Manager Creation
-```typescript
-import { SessionManagerImpl } from '@robota-sdk/sessions';
-
-const sessionManager = new SessionManagerImpl({
-    maxActiveSessions: 3,        // Maximum concurrent sessions per user
-    autoCleanup: true,           // Automatic cleanup of expired sessions
-    sessionTimeout: 30 * 60 * 1000,  // 30 minutes timeout
-    maxChatsPerSession: 10       // Maximum chats per session
-});
+```bash
+pnpm add @robota-sdk/sessions @robota-sdk/agents @robota-sdk/openai
 ```
 
-### 2. Creating User Sessions
+### Basic Usage
+
 ```typescript
-// Create a new session for a user
-const session = await sessionManager.createSession('user123', {
-    sessionName: 'My Work Session',
-    metadata: {
-        userAgent: 'Browser/1.0',
-        ipAddress: '192.168.1.100',
-        tags: ['work', 'productivity']
-    }
+import { SessionManager } from '@robota-sdk/sessions';
+import { OpenAIProvider } from '@robota-sdk/openai';
+
+// Create a session manager
+const sessionManager = new SessionManager({
+    maxSessions: 10,
+    maxChatsPerSession: 5,
+    enableWorkspaceIsolation: true,
 });
 
-console.log(`Session created: ${session.metadata.sessionName}`);
-```
-
-### 3. Managing Multiple Chats
-```typescript
-// Create first chat within the session
-const chat1 = await session.createNewChat({
-    chatName: 'General Chat',
-    robotaConfig: {
-        // AI provider configuration for this specific chat
-        aiProviders: [openaiProvider],
-        defaultModel: {
-            provider: 'openai',
-            model: 'gpt-3.5-turbo',
-            systemMessage: 'You are a helpful assistant for general questions.'
-        }
-    }
+// Create a session (workspace)
+const sessionId = sessionManager.createSession({
+    name: 'Development Workspace',
+    userId: 'developer-123',
+    workspaceId: 'workspace-dev',
 });
 
-// Create second chat with different configuration
-const chat2 = await session.createNewChat({
-    chatName: 'Code Review',
-    robotaConfig: {
-        aiProviders: [openaiProvider],
+// Create an AI agent in the session
+const chatId = await sessionManager.createChat(sessionId, {
+    name: 'Coding Assistant',
+    agentConfig: {
+        name: 'Coding Assistant',
+        aiProviders: [new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })],
         defaultModel: {
             provider: 'openai',
             model: 'gpt-4',
-            systemMessage: 'You are a senior developer helping with code reviews.'
-        }
-    }
-});
-```
-
-### 4. Chat Context Switching
-```typescript
-// Switch between chats
-await session.switchToChat(chat1.metadata.chatId);
-console.log('Switched to general chat');
-
-// Send message in current chat context
-await session.sendMessage('Hello! How can you help me today?');
-
-// Switch to different chat
-await session.switchToChat(chat2.metadata.chatId);
-console.log('Switched to code review chat');
-
-// Message will be sent in code review context
-await session.sendMessage('Please review this TypeScript function...');
-```
-
-## Running the Example
-
-1. **Ensure setup is complete** (see [Setup Guide](./setup.md))
-
-2. **Install sessions package**:
-   ```bash
-   pnpm add @robota-sdk/sessions
-   ```
-
-3. **Navigate to examples directory**:
-   ```bash
-   cd apps/examples
-   ```
-
-4. **Run the example**:
-   ```bash
-   # Using bun (recommended)
-   bun run 04-sessions/basic-session-usage.ts
-   
-   # Using pnpm + tsx
-   pnpm tsx 04-sessions/basic-session-usage.ts
-   ```
-
-## Expected Output
-
-```
-📝 Basic Session Management Usage Example
-
-✅ Session created: My Work Session
-💬 First chat created: General Chat
-💡 Message sending feature ready (AI provider configuration required)
-⚠️  Skipping message sending due to unconfigured AI provider
-💬 Second chat created: Code Review
-🔄 Switched to first chat
-
-📊 Session statistics: {
-  'Chat count': 2,
-  'Total messages': 0,
-  'Created at': '12/1/2024, 3:45:30 PM'
-}
-
-⏸️  Session paused
-▶️  Session resumed
-👤 User session count: 2
-🧹 Session manager cleanup completed
-```
-
-## Advanced Session Patterns
-
-### 1. Complete Session with AI Integration
-```typescript
-import { SessionManagerImpl } from '@robota-sdk/sessions';
-import { Robota } from '@robota-sdk/agents';
-import { OpenAIProvider } from '@robota-sdk/openai';
-import OpenAI from 'openai';
-
-async function createCompleteSessionExample() {
-    // Setup AI provider
-    const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const openaiProvider = new OpenAIProvider(openaiClient);
-    
-    // Create session manager
-    const sessionManager = new SessionManagerImpl({
-        maxActiveSessions: 5,
-        autoCleanup: true,
-        sessionTimeout: 60 * 60 * 1000 // 1 hour
-    });
-    
-    // Create user session
-    const session = await sessionManager.createSession('user456', {
-        sessionName: 'AI Assistant Session',
-        preferences: {
-            language: 'en',
-            timezone: 'UTC',
-            theme: 'dark'
-        }
-    });
-    
-    // Create chat with full AI configuration
-    const chat = await session.createNewChat({
-        chatName: 'Main Conversation',
-        robotaConfig: {
-            aiProviders: [openaiProvider],
-            defaultModel: {
-                provider: 'openai',
-                model: 'gpt-3.5-turbo',
-                systemMessage: 'You are a helpful AI assistant. Maintain context across our conversation.'
-            },
-            debug: false
-        }
-    });
-    
-    // Send messages and maintain conversation
-    await chat.sendMessage('Hello! What can you help me with?');
-    const response1 = await chat.getLastResponse();
-    console.log('AI:', response1);
-    
-    await chat.sendMessage('Can you remember what we talked about?');
-    const response2 = await chat.getLastResponse();
-    console.log('AI:', response2);
-    
-    return { sessionManager, session, chat };
-}
-```
-
-### 2. Multi-User Session Management
-```typescript
-class MultiUserSessionManager {
-    private sessionManager: SessionManagerImpl;
-    private userSessions: Map<string, string[]> = new Map();
-    
-    constructor() {
-        this.sessionManager = new SessionManagerImpl({
-            maxActiveSessions: 50,        // Total across all users
-            maxSessionsPerUser: 5,        // Per user limit
-            autoCleanup: true,
-            cleanupInterval: 5 * 60 * 1000 // 5 minutes
-        });
-    }
-    
-    async createUserSession(userId: string, sessionConfig: any) {
-        // Check user session limit
-        const userSessionIds = this.userSessions.get(userId) || [];
-        if (userSessionIds.length >= 5) {
-            throw new Error(`User ${userId} has reached maximum session limit`);
-        }
-        
-        // Create session
-        const session = await this.sessionManager.createSession(userId, sessionConfig);
-        
-        // Track user sessions
-        userSessionIds.push(session.metadata.sessionId);
-        this.userSessions.set(userId, userSessionIds);
-        
-        return session;
-    }
-    
-    async getUserSessions(userId: string) {
-        return this.sessionManager.getUserSessions(userId);
-    }
-    
-    async cleanupUserSessions(userId: string) {
-        const sessions = await this.getUserSessions(userId);
-        
-        for (const session of sessions) {
-            await session.close();
-        }
-        
-        this.userSessions.delete(userId);
-    }
-    
-    async getActiveUserCount(): Promise<number> {
-        return this.userSessions.size;
-    }
-    
-    async getTotalActiveChats(): Promise<number> {
-        let totalChats = 0;
-        
-        for (const userId of this.userSessions.keys()) {
-            const sessions = await this.getUserSessions(userId);
-            for (const session of sessions) {
-                const stats = session.getStats();
-                totalChats += stats.chatCount;
-            }
-        }
-        
-        return totalChats;
-    }
-}
-```
-
-### 3. Session Persistence and Recovery
-```typescript
-class PersistentSessionManager {
-    private sessionManager: SessionManagerImpl;
-    private persistenceAdapter: SessionPersistenceAdapter;
-    
-    constructor(persistenceAdapter: SessionPersistenceAdapter) {
-        this.sessionManager = new SessionManagerImpl({
-            maxActiveSessions: 10,
-            autoCleanup: true,
-            persistenceAdapter: persistenceAdapter
-        });
-        this.persistenceAdapter = persistenceAdapter;
-    }
-    
-    async saveSession(sessionId: string) {
-        const session = await this.sessionManager.getSession(sessionId);
-        if (session) {
-            const sessionData = await session.serialize();
-            await this.persistenceAdapter.save(sessionId, sessionData);
-        }
-    }
-    
-    async loadSession(sessionId: string, userId: string) {
-        try {
-            const sessionData = await this.persistenceAdapter.load(sessionId);
-            return await this.sessionManager.deserializeSession(userId, sessionData);
-        } catch (error) {
-            console.error(`Failed to load session ${sessionId}:`, error);
-            return null;
-        }
-    }
-    
-    async recoverUserSessions(userId: string) {
-        const sessionIds = await this.persistenceAdapter.getUserSessionIds(userId);
-        const recoveredSessions = [];
-        
-        for (const sessionId of sessionIds) {
-            const session = await this.loadSession(sessionId, userId);
-            if (session) {
-                recoveredSessions.push(session);
-            }
-        }
-        
-        return recoveredSessions;
-    }
-}
-
-// Example persistence adapter interface
-interface SessionPersistenceAdapter {
-    save(sessionId: string, data: any): Promise<void>;
-    load(sessionId: string): Promise<any>;
-    delete(sessionId: string): Promise<void>;
-    getUserSessionIds(userId: string): Promise<string[]>;
-}
-```
-
-## Configuration Options
-
-### 1. Session Manager Configuration
-```typescript
-interface SessionManagerConfig {
-    maxActiveSessions?: number;        // Maximum concurrent sessions
-    maxSessionsPerUser?: number;       // Per-user session limit
-    autoCleanup?: boolean;             // Enable automatic cleanup
-    cleanupInterval?: number;          // Cleanup interval in ms
-    sessionTimeout?: number;           // Session timeout in ms
-    maxChatsPerSession?: number;       // Maximum chats per session
-    persistenceAdapter?: SessionPersistenceAdapter;  // Persistence layer
-    logger?: Logger;                   // Custom logger
-}
-
-const sessionManager = new SessionManagerImpl({
-    maxActiveSessions: 100,
-    maxSessionsPerUser: 10,
-    autoCleanup: true,
-    cleanupInterval: 10 * 60 * 1000,   // 10 minutes
-    sessionTimeout: 2 * 60 * 60 * 1000, // 2 hours
-    maxChatsPerSession: 20,
-    logger: customLogger
-});
-```
-
-### 2. Session Creation Options
-```typescript
-interface SessionCreateOptions {
-    sessionName?: string;
-    metadata?: Record<string, any>;
-    preferences?: Record<string, any>;
-    tags?: string[];
-    expiresAt?: Date;
-    autoSave?: boolean;
-}
-
-const session = await sessionManager.createSession('user123', {
-    sessionName: 'Customer Support Session',
-    metadata: {
-        department: 'support',
-        priority: 'high',
-        customerTier: 'premium'
+            systemMessage: 'You are a helpful coding assistant.',
+        },
     },
-    preferences: {
-        language: 'en-US',
-        timezone: 'America/New_York',
-        responseStyle: 'formal'
+});
+
+// Switch to the agent and start chatting
+sessionManager.switchChat(sessionId, chatId);
+const chat = sessionManager.getChat(chatId);
+const response = await chat.sendMessage('Hello! Can you help me with TypeScript?');
+```
+
+## 📋 Key Features
+
+### 1. **Multiple Sessions (Workspaces)**
+Each session is an isolated workspace that can contain multiple AI agents:
+
+```typescript
+// Create different workspaces for different purposes
+const devSession = sessionManager.createSession({
+    name: 'Development',
+    workspaceId: 'workspace-dev',
+});
+
+const researchSession = sessionManager.createSession({
+    name: 'Research',
+    workspaceId: 'workspace-research',
+});
+```
+
+### 2. **Multiple AI Agents per Session**
+Each session can have multiple specialized AI agents:
+
+```typescript
+// Create specialized agents in the same session
+const codingAssistant = await sessionManager.createChat(devSession, {
+    name: 'Coding Assistant',
+    agentConfig: {
+        name: 'Coding Assistant',
+        aiProviders: [new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })],
+        defaultModel: {
+            provider: 'openai',
+            model: 'gpt-4',
+            temperature: 0.1,
+            systemMessage: 'You are an expert programmer.',
+        },
     },
-    tags: ['support', 'urgent', 'premium'],
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-    autoSave: true
 });
-```
 
-### 3. Chat Configuration Options
-```typescript
-interface ChatCreateOptions {
-    chatName?: string;
-    robotaConfig?: RobotaConfig;
-    metadata?: Record<string, any>;
-    systemPrompt?: string;
-    tags?: string[];
-    maxMessages?: number;
-}
-
-const chat = await session.createNewChat({
-    chatName: 'Technical Support',
-            robotaConfig: {
-            aiProviders: [openaiProvider],
-            defaultModel: {
-                provider: 'openai',
-                model: 'gpt-4'
-            },
-        toolProviders: [technicalSupportTools],
-        debug: true
+const reviewAssistant = await sessionManager.createChat(devSession, {
+    name: 'Code Review Assistant',
+    agentConfig: {
+        name: 'Code Review Assistant',
+        aiProviders: [new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })],
+        defaultModel: {
+            provider: 'openai',
+            model: 'gpt-4',
+            temperature: 0.3,
+            systemMessage: 'You are a thorough code reviewer.',
+        },
     },
-    metadata: {
-        category: 'technical',
-        difficulty: 'advanced'
+});
+```
+
+### 3. **Agent Switching**
+Easily switch between different agents within a session:
+
+```typescript
+// Switch to coding assistant
+sessionManager.switchChat(devSession, codingAssistant);
+const codingChat = sessionManager.getChat(codingAssistant);
+await codingChat.sendMessage('Help me implement a function');
+
+// Switch to review assistant
+sessionManager.switchChat(devSession, reviewAssistant);
+const reviewChat = sessionManager.getChat(reviewAssistant);
+await reviewChat.sendMessage('Please review this code');
+```
+
+### 4. **Workspace Isolation**
+Each session operates independently with its own memory space:
+
+```typescript
+// Agents in different sessions don't interfere with each other
+const session1 = sessionManager.createSession({ workspaceId: 'workspace-1' });
+const session2 = sessionManager.createSession({ workspaceId: 'workspace-2' });
+
+// These agents are completely isolated
+const agent1 = await sessionManager.createChat(session1, config);
+const agent2 = await sessionManager.createChat(session2, config);
+```
+
+## 🏗️ Architecture
+
+The sessions package follows a clean, simplified architecture:
+
+```
+SessionManager
+├── Session 1 (Workspace)
+│   ├── ChatInstance 1 (Robota Agent)
+│   ├── ChatInstance 2 (Robota Agent)
+│   └── ChatInstance 3 (Robota Agent)
+├── Session 2 (Workspace)
+│   ├── ChatInstance 1 (Robota Agent)
+│   └── ChatInstance 2 (Robota Agent)
+└── Session 3 (Workspace)
+    └── ChatInstance 1 (Robota Agent)
+```
+
+### Key Components
+
+- **SessionManager**: Container for multiple sessions
+- **ChatInstance**: Simple wrapper around Robota agents
+- **TemplateManagerAdapter**: Integrates with agents package templates
+- **Workspace Isolation**: Each session has independent memory
+
+## 🎨 Advanced Use Cases
+
+### 1. **Multi-Purpose Development Environment**
+```typescript
+const devSession = sessionManager.createSession({ name: 'Development' });
+
+// Create specialized agents
+const coder = await sessionManager.createChat(devSession, {
+    name: 'Coder',
+    agentConfig: {
+        name: 'Coding Assistant',
+        aiProviders: [provider],
+        defaultModel: {
+            provider: 'openai',
+            model: 'gpt-4',
+            temperature: 0.1,
+            systemMessage: 'You are an expert programmer.',
+        },
     },
-    systemPrompt: 'You are a technical support specialist...',
-    tags: ['technical', 'support'],
-    maxMessages: 100
+});
+
+const reviewer = await sessionManager.createChat(devSession, {
+    name: 'Reviewer',
+    agentConfig: {
+        name: 'Code Reviewer',
+        aiProviders: [provider],
+        defaultModel: {
+            provider: 'openai',
+            model: 'gpt-4',
+            temperature: 0.3,
+            systemMessage: 'You are a thorough code reviewer.',
+        },
+    },
+});
+
+const documenter = await sessionManager.createChat(devSession, {
+    name: 'Documenter',
+    agentConfig: {
+        name: 'Documentation Assistant',
+        aiProviders: [provider],
+        defaultModel: {
+            provider: 'openai',
+            model: 'gpt-4',
+            temperature: 0.5,
+            systemMessage: 'You are a technical documentation expert.',
+        },
+    },
+});
+
+// Switch between them as needed
+sessionManager.switchChat(devSession, coder);     // For coding
+sessionManager.switchChat(devSession, reviewer);  // For code review
+sessionManager.switchChat(devSession, documenter); // For documentation
+```
+
+### 2. **Multi-User Support**
+```typescript
+// Create isolated workspaces for different users
+const userASession = sessionManager.createSession({ 
+    userId: 'user-a', 
+    workspaceId: 'workspace-a' 
+});
+
+const userBSession = sessionManager.createSession({ 
+    userId: 'user-b', 
+    workspaceId: 'workspace-b' 
+});
+
+// Each user has their own isolated agents
+const userAAssistant = await sessionManager.createChat(userASession, config);
+const userBAssistant = await sessionManager.createChat(userBSession, config);
+```
+
+### 3. **Project-Based Organization**
+```typescript
+// Create sessions for different projects
+const project1 = sessionManager.createSession({ 
+    name: 'Project Alpha',
+    workspaceId: 'project-alpha',
+});
+
+const project2 = sessionManager.createSession({ 
+    name: 'Project Beta',
+    workspaceId: 'project-beta',
+});
+
+// Each project has its own set of specialized agents
+const alphaBackend = await sessionManager.createChat(project1, backendConfig);
+const alphaFrontend = await sessionManager.createChat(project1, frontendConfig);
+
+const betaBackend = await sessionManager.createChat(project2, backendConfig);
+const betaFrontend = await sessionManager.createChat(project2, frontendConfig);
+```
+
+## 🔧 API Reference
+
+### SessionManager
+
+#### `createSession(options)`
+Creates a new session (workspace):
+
+```typescript
+const sessionId = sessionManager.createSession({
+    name: 'My Workspace',
+    userId: 'user-123',
+    workspaceId: 'workspace-abc',
 });
 ```
 
-## Session Analytics and Monitoring
+#### `createChat(sessionId, options)`
+Creates a new AI agent in a session:
 
-### 1. Session Statistics
 ```typescript
-// Get session statistics
-const stats = session.getStats();
-console.log('Session Statistics:', {
-    sessionId: stats.sessionId,
-    userId: stats.userId,
-    chatCount: stats.chatCount,
-    totalMessages: stats.totalMessages,
-    createdAt: stats.createdAt,
-    lastActivity: stats.lastActivity,
-    isActive: stats.isActive,
-    isPaused: stats.isPaused
-});
-
-// Get chat-specific statistics
-const chatStats = await chat.getStats();
-console.log('Chat Statistics:', {
-    chatId: chatStats.chatId,
-    messageCount: chatStats.messageCount,
-    createdAt: chatStats.createdAt,
-    lastMessage: chatStats.lastMessage,
-    averageResponseTime: chatStats.averageResponseTime
+const chatId = await sessionManager.createChat(sessionId, {
+    name: 'Assistant',
+    agentConfig: {
+        name: 'Assistant',
+        aiProviders: [provider],
+        defaultModel: { provider: 'openai', model: 'gpt-4' },
+    },
 });
 ```
 
-### 2. System-Wide Analytics
+#### `switchChat(sessionId, chatId)`
+Switches to a different agent in the session:
+
 ```typescript
-class SessionAnalytics {
-    private sessionManager: SessionManagerImpl;
-    
-    constructor(sessionManager: SessionManagerImpl) {
-        this.sessionManager = sessionManager;
-    }
-    
-    async getSystemStats() {
-        const allSessions = await this.sessionManager.getAllActiveSessions();
-        
-        return {
-            totalActiveSessions: allSessions.length,
-            totalActiveUsers: new Set(allSessions.map(s => s.metadata.userId)).size,
-            totalActiveChats: allSessions.reduce((sum, s) => sum + s.getStats().chatCount, 0),
-            averageChatsPerSession: allSessions.length > 0 
-                ? allSessions.reduce((sum, s) => sum + s.getStats().chatCount, 0) / allSessions.length 
-                : 0,
-            oldestSession: Math.min(...allSessions.map(s => s.getStats().createdAt.getTime())),
-            newestSession: Math.max(...allSessions.map(s => s.getStats().createdAt.getTime()))
-        };
-    }
-    
-    async getUserActivityReport(userId: string) {
-        const userSessions = await this.sessionManager.getUserSessions(userId);
-        
-        return {
-            userId,
-            totalSessions: userSessions.length,
-            activeSessions: userSessions.filter(s => s.getStats().isActive).length,
-            totalChats: userSessions.reduce((sum, s) => sum + s.getStats().chatCount, 0),
-            totalMessages: userSessions.reduce((sum, s) => sum + s.getStats().totalMessages, 0),
-            lastActivity: Math.max(...userSessions.map(s => s.getStats().lastActivity?.getTime() || 0))
-        };
-    }
-}
+sessionManager.switchChat(sessionId, chatId);
 ```
 
-## Best Practices
+#### `getChat(chatId)`
+Gets a chat instance for direct interaction:
 
-### 1. Session Lifecycle Management
 ```typescript
-// Proper session cleanup
-async function sessionLifecycleExample() {
-    const sessionManager = new SessionManagerImpl({ autoCleanup: true });
-    
-    try {
-        // Create session
-        const session = await sessionManager.createSession('user123', {
-            sessionName: 'Temporary Session'
-        });
-        
-        // Use session
-        const chat = await session.createNewChat({
-            chatName: 'Quick Chat',
-            robotaConfig: { /* config */ }
-        });
-        
-        // Graceful pause when user is inactive
-        await session.pause();
-        
-        // Resume when user returns
-        await session.resume();
-        
-        // Explicit cleanup when done
-        await session.close();
-        
-    } catch (error) {
-        console.error('Session error:', error);
-    } finally {
-        // Ensure cleanup
-        await sessionManager.shutdown();
-    }
-}
+const chat = sessionManager.getChat(chatId);
+const response = await chat.sendMessage('Hello!');
 ```
 
-### 2. Error Handling and Recovery
+### ChatInstance
+
+#### `sendMessage(content)`
+Sends a message to the AI agent:
+
 ```typescript
-async function robustSessionUsage() {
-    const sessionManager = new SessionManagerImpl({ 
-        maxActiveSessions: 10,
-        autoCleanup: true 
-    });
-    
-    try {
-        // Attempt to create session
-        const session = await sessionManager.createSession('user123', {
-            sessionName: 'Robust Session'
-        });
-        
-        // Create chat with error handling
-        const chat = await session.createNewChat({
-            chatName: 'Main Chat',
-            robotaConfig: {
-                aiProviders: { 'openai': openaiProvider },
-                currentModel: 'gpt-3.5-turbo'
-            }
-        }).catch(async (error) => {
-            console.error('Chat creation failed:', error);
-            // Fallback to simpler configuration
-            return await session.createNewChat({
-                chatName: 'Fallback Chat',
-                robotaConfig: { /* minimal config */ }
-            });
-        });
-        
-        // Robust message sending
-        await chat.sendMessage('Hello').catch(error => {
-            console.error('Message failed:', error);
-            // Could implement retry logic here
-        });
-        
-    } catch (error) {
-        console.error('Session operation failed:', error);
-        // Handle session creation failure
-    }
-}
+const response = await chat.sendMessage('Help me with TypeScript');
 ```
 
-### 3. Performance Optimization
+#### `getHistory()`
+Gets the conversation history:
+
 ```typescript
-// Batch operations for better performance
-async function optimizedSessionOperations() {
-    const sessionManager = new SessionManagerImpl({ autoCleanup: true });
-    
-    // Create multiple sessions efficiently
-    const sessionPromises = ['user1', 'user2', 'user3'].map(userId =>
-        sessionManager.createSession(userId, { sessionName: `Session for ${userId}` })
-    );
-    
-    const sessions = await Promise.all(sessionPromises);
-    
-    // Batch chat creation
-    const chatPromises = sessions.map(session =>
-        session.createNewChat({
-            chatName: 'Default Chat',
-            robotaConfig: { /* shared config */ }
-        })
-    );
-    
-    const chats = await Promise.all(chatPromises);
-    
-    // Efficient cleanup
-    await Promise.all(sessions.map(session => session.close()));
-}
+const messages = chat.getHistory();
 ```
 
-## Next Steps
+#### `clearHistory()`
+Clears the conversation history:
 
-After mastering session management, explore:
+```typescript
+chat.clearHistory();
+```
 
-1. [**Advanced Session Patterns**](./advanced-sessions.md) - Complex session architectures
-2. [**Session Persistence**](./session-persistence.md) - Saving and restoring sessions
-3. [**Multi-Tenant Sessions**](./multi-tenant-sessions.md) - Enterprise session management
+## 🔗 Integration with Agents Package
 
-## Troubleshooting
+The sessions package is built on top of the agents package:
 
-### Session Creation Issues
-- Verify session manager is properly initialized
-- Check user session limits and quotas
-- Ensure proper cleanup of expired sessions
+- **Robota**: Each ChatInstance wraps a Robota agent
+- **AgentFactory**: Used for creating agents with proper configuration
+- **AgentTemplates**: Template system for creating specialized agents
+- **ConversationHistory**: Leverages the agents package history management
 
-### Chat Context Problems
-- Confirm chat switching is successful before sending messages
-- Verify Robota configuration is valid for each chat
-- Check AI provider availability and credentials
+## 🎯 What's NOT Included
 
-### Performance Issues
-- Monitor session and chat counts
-- Implement proper cleanup strategies
-- Consider session timeout and auto-cleanup settings
+The sessions package focuses on session management and does NOT include:
 
-### Memory Management
-- Enable auto-cleanup for production environments
-- Set appropriate session timeouts
-- Monitor and limit maximum sessions per user 
+- ❌ Message editing/deletion (use agents package directly)
+- ❌ Complex conversation history manipulation
+- ❌ Advanced configuration tracking
+- ❌ Built-in persistence (use agents ConversationHistoryPlugin)
+
+## 🚀 Running Examples
+
+```bash
+# Navigate to sessions examples
+cd packages/sessions/examples
+
+# Run basic usage example
+bun run basic-session-usage.ts
+```
+
+## 📦 Installation
+
+```bash
+npm install @robota-sdk/sessions @robota-sdk/agents
+# or
+pnpm add @robota-sdk/sessions @robota-sdk/agents
+```
+
+## 🤝 Contributing
+
+This package is part of the Robota SDK monorepo. See the main repository for contribution guidelines. 

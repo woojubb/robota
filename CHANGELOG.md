@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2025-01-XX
+
+### ✨ Added
+
+#### Sessions Package Production-Ready
+- **@robota-sdk/sessions**: Complete transformation from experimental to production-ready state
+- **SessionManager**: Full implementation for managing multiple independent AI agents across isolated workspaces
+- **Multi-Agent Support**: Each session can contain multiple specialized AI agents
+- **Workspace Isolation**: Independent memory spaces for each session
+- **Template Integration**: Seamless integration with AgentFactory and AgentTemplates from agents package
+- **Comprehensive Testing**: Full test coverage with working examples
+
+### 🔧 Changed
+
+#### Sessions Architecture Overhaul
+- **Purpose Redefinition**: Focused on managing multiple independent AI agents in isolated workspaces
+- **Simplified ChatInstance**: Now a clean wrapper around Robota agents with proper delegation
+- **Type System Simplification**: Streamlined interfaces, removed complex EnhancedConversationHistory
+- **File Cleanup**: Removed duplicate implementations that existed in agents package
+- **Documentation Overhaul**: Complete README rewrite with architecture diagrams and API reference
+
+### 🗑️ Removed
+
+#### Sessions Package Cleanup
+- **Message Editing**: Removed message editing/deletion functionality to focus on core purpose
+- **EnhancedConversationHistory**: Eliminated complex interface in favor of simple delegation
+- **Duplicate Files**: Removed provider-adapter, system-message, and conversation service implementations
+- **Complex Configuration**: Simplified configuration tracking and change management
+
+### 📦 Dependencies
+
+#### Updated
+- `@robota-sdk/sessions`: Now depends on `@robota-sdk/agents` for runtime functionality
+- Removed peer dependencies to avoid conflicts in monorepo setup
+
 ## [2.0.0-rc.1] - 2025-01-06
 
 ### 🚨 Breaking Changes

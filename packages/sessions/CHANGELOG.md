@@ -1,5 +1,25 @@
 # @robota-sdk/sessions
 
+## 2.1.0
+
+### Minor Changes
+
+- **Production-Ready Architecture**: Complete refactoring from experimental to production-ready state
+  - **Purpose Redefinition**: Focused on managing multiple independent AI agents in isolated workspaces
+  - **Removed Message Editing**: Eliminated message editing/deletion functionality to focus on core purpose
+  - **Simplified Architecture**: ChatInstance now wraps Robota agents with clean delegation
+  - **SessionManager Implementation**: Complete multi-session management with workspace isolation
+  - **Template Integration**: Integrated with agents package AgentFactory and AgentTemplates
+  - **File Cleanup**: Removed duplicate implementations that existed in agents package
+  - **Type System Simplification**: Streamlined interfaces and removed complex EnhancedConversationHistory
+  - **Comprehensive Testing**: Added full test coverage and working examples
+  - **Documentation Overhaul**: Complete README rewrite with architecture diagrams and API reference
+
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agents@2.1.0
+
 ## 2.0.3
 
 ### Patch Changes

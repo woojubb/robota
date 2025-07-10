@@ -14,6 +14,8 @@ export enum SessionState {
 export interface SessionConfig {
     name?: string;
     maxChats?: number;
+    userId?: string;
+    workspaceId?: string;
 }
 
 export interface SessionInfo {
@@ -25,12 +27,7 @@ export interface SessionInfo {
     activeChatId?: string;
     createdAt: Date;
     lastUsedAt: Date;
-}
-
-// Chat related types - using AgentConfig from agents package
-export interface ChatConfig {
-    name?: string;
-    robotaConfig?: AgentConfig;
+    workspaceId?: string;
 }
 
 export interface ChatInfo {
@@ -41,10 +38,27 @@ export interface ChatInfo {
     messageCount: number;
     createdAt: Date;
     lastUsedAt: Date;
+    agentTemplate?: string;
 }
 
-// Manager configuration
+// Manager configuration - simplified to core features only
 export interface SessionManagerConfig {
     maxSessions?: number;
-    autoCleanupDays?: number;
+    maxChatsPerSession?: number;
+}
+
+// Session creation options
+export interface CreateSessionOptions {
+    name?: string;
+    userId?: string;
+    workspaceId?: string;
+    maxChats?: number;
+}
+
+// Chat creation options
+export interface CreateChatOptions {
+    name?: string;
+    agentConfig: AgentConfig;
+    agentTemplate?: string;
+    description?: string;
 } 

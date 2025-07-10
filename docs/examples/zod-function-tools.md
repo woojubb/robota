@@ -93,7 +93,7 @@ const weatherTool = createZodFunctionTool(
     weatherSchema,
     async (params) => {
         console.log(`getWeather function called: ${params.city}, ${params.unit}`);
-        
+
         // Mock weather data
         const weatherData = {
             Seoul: { temp: 22, condition: 'Clear', humidity: 65 },

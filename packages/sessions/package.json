@@ -66,10 +66,10 @@
     "engines": {
         "node": ">=18.0.0"
     },
-    "dependencies": {},
-    "peerDependencies": {
+    "dependencies": {
         "@robota-sdk/agents": "workspace:*"
     },
+    "peerDependencies": {},
     "devDependencies": {
         "@robota-sdk/agents": "workspace:*",
         "rimraf": "^5.0.5",

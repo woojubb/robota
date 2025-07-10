@@ -16,35 +16,21 @@
 
 ### Classes
 
-- [ConversationSession](classes/ConversationSession)
-- [ConversationHistory](classes/ConversationHistory)
-- [AgentFactory](classes/AgentFactory)
+- [SessionManager](classes/SessionManager)
 - [ChatInstance](classes/ChatInstance)
-- [ConversationServiceImpl](classes/ConversationServiceImpl)
-- [MultiProviderAdapterManager](classes/MultiProviderAdapterManager)
-- [SystemMessageManagerImpl](classes/SystemMessageManagerImpl)
+- [TemplateManagerAdapter](classes/TemplateManagerAdapter)
 
 ### Interfaces
 
-- [AgentConfig](interfaces/AgentConfig)
-- [RunOptions](interfaces/RunOptions)
-- [AgentInterface](interfaces/AgentInterface)
-- [ConversationContext](interfaces/ConversationContext)
-- [TemplateApplicationResult](interfaces/TemplateApplicationResult)
-- [ContextManager](interfaces/ContextManager)
-- [ProviderConfig](interfaces/ProviderConfig)
-- [ProviderManager](interfaces/ProviderManager)
-- [ConfigurationChange](interfaces/ConfigurationChange)
-- [ChatMetadata](interfaces/ChatMetadata)
-- [EnhancedConversationHistory](interfaces/EnhancedConversationHistory)
-- [TemplateManager](interfaces/TemplateManager)
-- [IChatInstance](interfaces/IChatInstance)
-- [ChatStats](interfaces/ChatStats)
+- [SessionManagerConfig](interfaces/SessionManagerConfig)
 - [SessionConfig](interfaces/SessionConfig)
 - [SessionInfo](interfaces/SessionInfo)
 - [ChatConfig](interfaces/ChatConfig)
 - [ChatInfo](interfaces/ChatInfo)
-- [SessionManagerConfig](interfaces/SessionManagerConfig)
+- [ChatMetadata](interfaces/ChatMetadata)
+- [ChatStats](interfaces/ChatStats)
+- [IChatInstance](interfaces/IChatInstance)
+- [TemplateManager](interfaces/TemplateManager)
 
 ### Type Aliases
 
@@ -57,7 +43,7 @@
 
 Ƭ **Message**: `UserMessage` \| `AssistantMessage` \| `SystemMessage` \| `ToolMessage`
 
-Universal message type
+Universal message type from the agents package
 
 #### Defined in
 
@@ -67,9 +53,9 @@ ___
 
 ### MessageContent
 
-Ƭ **MessageContent**: `string` \| \{ `[key: string]`: `ChatConfigValue`; `text?`: `string` ; `image?`: `string` ; `file?`: `string`  }
+Ƭ **MessageContent**: `string`
 
-Message content with structured typing
+Simple message content type for clean API
 
 #### Defined in
 
