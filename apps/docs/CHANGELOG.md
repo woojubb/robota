@@ -1,5 +1,11 @@
 # robota-docs
 
+## 1.0.20
+
+### Patch Changes
+
+- 9f17ac6: Restore README.md files and prevent deletion during build process
+
 ## 1.0.19
 
 ### Patch Changes

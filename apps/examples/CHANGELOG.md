@@ -1,5 +1,17 @@
 # robota-examples
 
+## 1.0.4
+
+### Patch Changes
+
+- 9f17ac6: Restore README.md files and prevent deletion during build process
+- Updated dependencies [9f17ac6]
+  - @robota-sdk/anthropic@2.0.4
+  - @robota-sdk/agents@2.0.4
+  - @robota-sdk/google@2.0.4
+  - @robota-sdk/openai@2.0.4
+  - @robota-sdk/team@2.0.4
+
 ## 1.0.3
 
 ### Patch Changes
