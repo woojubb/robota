@@ -92,14 +92,28 @@ OpenAI provider supports advanced function calling capabilities through tool pro
 ```typescript
 import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
+import { createZodFunctionTool } from '@robota-sdk/agents';
 import OpenAI from 'openai';
 import { z } from 'zod';
 
-// Create tool provider with functions
-const toolProvider = createZodFunctionToolProvider({
-  tools: {
-    getWeather: {
+// Create weather tool using Zod schema
+const weatherTool = createZodFunctionTool(
+  'getWeather',
+  'Get current weather for a city',
+  z.object({
+    city: z.string().describe('The city name'),
+    unit: z.enum(['celsius', 'fahrenheit']).optional().default('celsius')
+  }),
+  async (params) => {
+    // Mock weather data
+    return {
+      city: params.city,
+      temperature: 22,
+      condition: 'sunny',
+      unit: params.unit
+    };
+  }
+);
       name: 'getWeather',
       description: 'Get weather information for a location',
       parameters: z.object({

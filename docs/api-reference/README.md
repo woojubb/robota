@@ -137,7 +137,7 @@ See [architecture.md](architecture.md) for detailed architecture information.
 
 ### Deprecated Packages
 - **@robota-sdk/core**: Deprecated - functionality moved to agents
-- **@robota-sdk/tools**: Deprecated - functionality moved to agents
+- **@robota-sdk/agents**: Comprehensive AI agent framework with tools and plugins
 
 ## License
 

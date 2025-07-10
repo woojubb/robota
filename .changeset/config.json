@@ -4,11 +4,10 @@
   "commit": false,
   "fixed": [
     [
-      "@robota-sdk/core",
+      "@robota-sdk/agents",
       "@robota-sdk/openai",
       "@robota-sdk/anthropic",
       "@robota-sdk/google",
-      "@robota-sdk/tools",
       "@robota-sdk/sessions",
       "@robota-sdk/team"
     ]

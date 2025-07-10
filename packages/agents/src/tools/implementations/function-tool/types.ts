@@ -8,7 +8,7 @@
  * 3. Remove Zod support entirely (breaks existing functionality)
  * 4. Create complex conditional types (adds cognitive overhead)
  * 5. Use type assertions everywhere (increases runtime risk)
- * TODO: Consider moving to @robota-sdk/tools package for better isolation
+ * NOTE: Tool functionality is now integrated into @robota-sdk/agents package
  */
 
 import type { ToolParameters, ToolExecutionContext, ToolExecutionData, ParameterValidationResult } from '../../../interfaces/tool';

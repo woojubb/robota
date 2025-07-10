@@ -237,7 +237,7 @@ export default defineConfig({
                 'price': '0',
                 'priceCurrency': 'USD'
             },
-            'downloadUrl': 'https://www.npmjs.com/package/@robota-sdk/core',
+            'downloadUrl': 'https://www.npmjs.com/package/@robota-sdk/agents',
             'codeRepository': 'https://github.com/woojubb/robota'
         })],
 
@@ -266,7 +266,7 @@ export default defineConfig({
         // Social links
         socialLinks: [
             { icon: 'github', link: 'https://github.com/woojubb/robota' },
-            { icon: 'npm', link: 'https://www.npmjs.com/package/@robota-sdk/core' }
+            { icon: 'npm', link: 'https://www.npmjs.com/package/@robota-sdk/agents' }
         ]
     },
 

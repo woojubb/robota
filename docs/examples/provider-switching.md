@@ -21,7 +21,8 @@ The provider switching examples show how to:
 
 ### 1. Dynamic Provider Switching
 ```typescript
-import { Robota, OpenAIProvider } from '@robota-sdk/core';
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { GoogleProvider } from '@robota-sdk/google';
 

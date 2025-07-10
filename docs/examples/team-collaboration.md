@@ -159,7 +159,7 @@ Overall Summary:
 ### Advanced Configuration with Custom Templates
 
 ```typescript
-import { AgentTemplateManager } from '@robota-sdk/core';
+import { AgentTemplateManager } from '@robota-sdk/agents';
 
 // Create custom template manager
 const templateManager = new AgentTemplateManager();

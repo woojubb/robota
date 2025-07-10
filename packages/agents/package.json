@@ -1,6 +1,6 @@
 {
     "name": "@robota-sdk/agents",
-    "version": "2.0.2",
+    "version": "2.0.3",
     "description": "Complete AI agent implementation with unified core and tools functionality - conversation management, plugin system, and advanced agent features",
     "type": "module",
     "main": "dist/index.js",

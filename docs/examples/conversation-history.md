@@ -19,7 +19,8 @@ The conversation history management example shows how to:
 
 ### 1. Basic History Management
 ```typescript
-import { Robota, OpenAIProvider } from '@robota-sdk/core';
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 
 const robota = new Robota({
     aiProviders: { 'openai': openaiProvider },

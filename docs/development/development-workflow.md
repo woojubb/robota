@@ -40,7 +40,7 @@ pnpm run lint:fix
 
 # Package-specific linting
 pnpm --filter @robota-sdk/agents run lint:fix
-pnpm --filter @robota-sdk/core run lint:fix
+pnpm --filter @robota-sdk/agents run lint:fix
 pnpm --filter @robota-sdk/openai run lint:fix
 
 # Examples and apps
@@ -130,7 +130,7 @@ function processData(data: any): any { // Should define proper types
 
 ### @robota-sdk/agents Package
 
-- Must not depend on @robota-sdk/core or @robota-sdk/tools
+- Must not depend on deprecated packages
 - Should be the primary entry point for new users
 - Implement all functionality independently
 - Maintain compatibility with existing provider packages
