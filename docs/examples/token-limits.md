@@ -21,7 +21,8 @@ The token and request limits example shows how to:
 
 ### 1. Basic Usage Tracking
 ```typescript
-import { Robota, OpenAIProvider } from '@robota-sdk/core';
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 
 // Create Robota with usage tracking enabled
 const robota = new Robota({

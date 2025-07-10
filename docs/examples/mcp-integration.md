@@ -21,8 +21,9 @@ The MCP integration example shows how to:
 ```typescript
 import { Client } from "@modelcontextprotocol/sdk/dist/esm/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/dist/esm/client/stdio.js";
-import { createMcpToolProvider } from "@robota-sdk/tools";
-import { Robota, OpenAIProvider } from "@robota-sdk/core";
+import { createMcpToolProvider } from "@robota-sdk/agents";
+import { Robota } from "@robota-sdk/agents";
+import { OpenAIProvider } from "@robota-sdk/openai";
 
 // Create MCP transport to communicate with server
 const transport = new StdioClientTransport({

@@ -1,6 +1,6 @@
 # Performance Optimization Guide
 
-This guide covers the performance optimization features and best practices for Robota SDK, particularly focusing on the `@robota-sdk/tools` package.
+This guide covers the performance optimization features and best practices for Robota SDK, particularly focusing on the `@robota-sdk/agents` package.
 
 ## Overview
 
@@ -20,13 +20,18 @@ The caching system prevents redundant computations and transformations, signific
 #### Function Schema Caching
 
 ```typescript
-import { createZodFunctionToolProvider, CacheManager } from '@robota-sdk/tools';
+import { createZodFunctionTool, CacheManager } from '@robota-sdk/agents';
 
 // Default caching (recommended)
-const provider = createZodFunctionToolProvider({
-  tools: myTools,
-  enableCache: true // Default: true
-});
+const weatherTool = createZodFunctionTool(
+  'getWeather',
+  'Get weather information',
+  weatherSchema,
+  async (params) => {
+    // Tool implementation with caching
+    return getWeatherData(params.city);
+  }
+);
 
 // Custom cache configuration
 const customCache = new CacheManager({
@@ -34,7 +39,7 @@ const customCache = new CacheManager({
   defaultTTL: 30 * 60 * 1000  // 30 minutes expiration
 });
 
-const optimizedProvider = createZodFunctionToolProvider({
+const optimizedTool = createZodFunctionTool(
   tools: myTools,
   cacheManager: customCache
 });
@@ -62,7 +67,7 @@ Lazy loading delays resource initialization until they're actually needed, reduc
 #### Tool Lazy Loading
 
 ```typescript
-import { LazyLoader, globalToolLazyLoader } from '@robota-sdk/tools';
+import { LazyLoader, globalToolLazyLoader } from '@robota-sdk/agents';
 
 // Register tools with priorities
 globalToolLazyLoader.registerTool('criticalTool', criticalToolDef, 1);    // High priority
@@ -109,7 +114,7 @@ Automatic resource cleanup prevents memory leaks and manages system resources ef
 #### Automatic Resource Management
 
 ```typescript
-import { globalResourceManager } from '@robota-sdk/tools';
+import { globalResourceManager } from '@robota-sdk/agents';
 
 // Resources are automatically tracked and cleaned up
 // Manual operations if needed:
@@ -131,7 +136,7 @@ console.log(`Average age: ${(stats.averageResourceAge / 1000 / 60).toFixed(1)} m
 #### Custom Resource Management
 
 ```typescript
-import { ResourceManager } from '@robota-sdk/tools';
+import { ResourceManager } from '@robota-sdk/agents';
 
 const customResourceManager = new ResourceManager({
   maxAge: 20 * 60 * 1000,           // 20 minutes max age
@@ -160,7 +165,7 @@ Real-time performance tracking helps identify bottlenecks and optimize performan
 #### Basic Monitoring
 
 ```typescript
-import { globalPerformanceMonitor } from '@robota-sdk/tools';
+import { globalPerformanceMonitor } from '@robota-sdk/agents';
 
 // Performance monitoring is automatic for all tool calls
 // Access current metrics
@@ -220,14 +225,15 @@ globalPerformanceMonitor.startMonitoring(5000); // Every 5 seconds
 
 ```typescript
 // Optimal configuration for production
-const provider = createZodFunctionToolProvider({
-  tools: myTools,
-  enableCache: true,                    // Enable caching
-  cacheManager: customCache,            // Use optimized cache settings
-  logger: (msg, ctx) => {              // Use structured logging
-    console.log(`[Tools] ${msg}`, ctx);
+const performanceTool = createZodFunctionTool(
+  'performanceTask',
+  'Execute performance-optimized task',
+  performanceSchema,
+  async (params) => {
+    // Tool implementation with performance optimization
+    return await executeOptimizedTask(params);
   }
-});
+);
 ```
 
 ### 2. Memory Management

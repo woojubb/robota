@@ -32,9 +32,7 @@ const packages = [
     'anthropic',   // @robota-sdk/anthropic
     'google',      // @robota-sdk/google
     'team',        // @robota-sdk/team
-    'sessions',    // @robota-sdk/sessions
-    'tools',       // @robota-sdk/tools
-    'core'         // @robota-sdk/core (legacy)
+    'sessions'     // @robota-sdk/sessions
 ];
 
 // ANSI color codes for console output

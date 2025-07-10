@@ -72,18 +72,58 @@ const tools = {
 
 ### 2. Function-Only Provider Setup
 ```typescript
-import { createZodFunctionToolProvider } from "@robota-sdk/tools";
-import { Robota } from "@robota-sdk/core";
+import { createZodFunctionTool } from "@robota-sdk/agents";
+import { Robota } from "@robota-sdk/agents";
 
-// Create provider with tools only (no AI provider needed)
-const provider = createZodFunctionToolProvider({
-    tools
-});
+// Create tools using createZodFunctionTool
+const addTool = createZodFunctionTool(
+    'add',
+    'Add two numbers together',
+    addSchema,
+    async (params) => {
+        const result = params.a + params.b;
+        console.log(`add function called: ${params.a} + ${params.b}`);
+        return { result };
+    }
+);
 
-// Create Robota instance using only function provider
+const weatherTool = createZodFunctionTool(
+    'getWeather',
+    'Get weather information for a city',
+    weatherSchema,
+    async (params) => {
+        console.log(`getWeather function called: ${params.city}, ${params.unit}`);
+        
+        // Mock weather data
+        const weatherData = {
+            Seoul: { temp: 22, condition: 'Clear', humidity: 65 },
+            Busan: { temp: 25, condition: 'Sunny', humidity: 70 },
+            Jeju: { temp: 26, condition: 'Cloudy', humidity: 75 }
+        };
+        
+        const data = weatherData[params.city] || { temp: 20, condition: 'Unknown', humidity: 60 };
+        const temp = params.unit === 'fahrenheit' ? (data.temp * 9/5) + 32 : data.temp;
+        const unit = params.unit === 'fahrenheit' ? '°F' : '°C';
+        
+        return {
+            city: params.city,
+            temperature: `${temp}${unit}`,
+            condition: data.condition,
+            humidity: `${data.humidity}%`
+        };
+    }
+);
+
+// Create Robota instance with tools
 const robota = new Robota({
-    provider,
-    systemPrompt: "You are an AI assistant that processes user requests using tools."
+    name: 'ToolAgent',
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4',
+        systemMessage: 'You are an AI assistant that processes user requests using tools.'
+    },
+    tools: [addTool, weatherTool]
 });
 ```
 
@@ -306,7 +346,7 @@ const fileProcessorTool = {
 ```typescript
 // Can run without any AI provider setup
 const functionOnlyRobota = new Robota({
-    provider: createZodFunctionToolProvider({ tools }),
+    tools: [addTool, weatherTool],
     systemPrompt: "Function-only mode"
 });
 

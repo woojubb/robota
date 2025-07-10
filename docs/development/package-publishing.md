@@ -12,11 +12,11 @@ This guide explains how to build and publish Robota SDK packages to npm.
 
 Robota SDK uses a monorepo structure with multiple packages:
 
-- `@robota-sdk/core`: Core functionality
+- `@robota-sdk/agents`: Comprehensive AI agent framework
 - `@robota-sdk/openai`: OpenAI provider
 - `@robota-sdk/anthropic`: Anthropic provider
 - `@robota-sdk/google`: Google AI provider  
-- `@robota-sdk/tools`: Utility tools and function calling
+- `@robota-sdk/agents`: Comprehensive AI agent framework with tools and plugins
 - `@robota-sdk/sessions`: Session and chat management
 
 All packages are published under the `@robota-sdk` scope on npm.
@@ -136,8 +136,8 @@ The project uses `workspace:*` dependencies which are automatically resolved:
 ```json
 {
   "peerDependencies": {
-    "@robota-sdk/core": "workspace:*",
-    "@robota-sdk/tools": "workspace:*"
+    "@robota-sdk/agents": "workspace:*",
+    "@robota-sdk/agents": "workspace:*"
   }
 }
 ```

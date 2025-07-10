@@ -1,5 +1,29 @@
 # @robota-sdk/core
 
+## 2.0.3
+
+### Patch Changes
+
+- Final deprecated release with clear migration guidance
+
+  This is the final release of the deprecated packages @robota-sdk/core and @robota-sdk/tools. These packages are now officially deprecated and will no longer receive updates.
+
+  **Key Changes:**
+
+  - Added comprehensive README.md with migration guidance
+  - Updated package.json with deprecated flag
+  - Version bumped to 1.0.6 for final release
+  - Clear instructions for migrating to @robota-sdk/agents
+
+  **Migration Path:**
+
+  - @robota-sdk/core → @robota-sdk/agents
+  - @robota-sdk/tools → @robota-sdk/agents (tools integrated)
+
+  **After this release, these packages will be removed from the build process and will not receive any further updates.**
+
+  Users should migrate to @robota-sdk/agents for continued support and new features.
+
 ## 2.0.2
 
 ### Patch Changes

@@ -1,5 +1,15 @@
 # robota-examples
 
+## 1.0.3
+
+### Patch Changes
+
+- @robota-sdk/agents@2.0.3
+- @robota-sdk/openai@2.0.3
+- @robota-sdk/anthropic@2.0.3
+- @robota-sdk/google@2.0.3
+- @robota-sdk/team@2.0.3
+
 ## 1.0.2
 
 ### Patch Changes

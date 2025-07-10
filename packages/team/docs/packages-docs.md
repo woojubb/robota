@@ -218,7 +218,7 @@ Works seamlessly with other Robota SDK packages:
 
 ```typescript
 import { createTeam } from '@robota-sdk/team';
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
+import { createZodFunctionTool } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 
 // Team with custom tools
@@ -232,7 +232,7 @@ const team = createTeam({
     model: 'gpt-4'
   },
   // Custom tools will be available to all team members
-  sharedToolProviders: [webSearchProvider, fileSystemProvider]
+  sharedTools: [webSearchTool, fileSystemTool]
 });
 ```
 

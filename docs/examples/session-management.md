@@ -137,7 +137,8 @@ await session.sendMessage('Please review this TypeScript function...');
 ### 1. Complete Session with AI Integration
 ```typescript
 import { SessionManagerImpl } from '@robota-sdk/sessions';
-import { Robota, OpenAIProvider } from '@robota-sdk/core';
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 import OpenAI from 'openai';
 
 async function createCompleteSessionExample() {

@@ -97,14 +97,30 @@ Anthropic provider supports Claude's advanced tool use capabilities through tool
 ```typescript
 import { Robota } from '@robota-sdk/agents';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
+import { createZodFunctionTool } from '@robota-sdk/agents';
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 
-// Create tool provider with functions
-const toolProvider = createZodFunctionToolProvider({
-  tools: {
-    calculate: {
+// Create calculator tool using Zod schema
+const calculatorTool = createZodFunctionTool(
+  'calculate',
+  'Perform mathematical calculations',
+  z.object({
+    operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
+    a: z.number().describe('First number'),
+    b: z.number().describe('Second number')
+  }),
+  async (params) => {
+    let result: number;
+    switch (params.operation) {
+      case 'add': result = params.a + params.b; break;
+      case 'subtract': result = params.a - params.b; break;
+      case 'multiply': result = params.a * params.b; break;
+      case 'divide': result = params.a / params.b; break;
+    }
+    return { result };
+  }
+);
       name: 'calculate',
       description: 'Perform mathematical calculations',
       parameters: z.object({
