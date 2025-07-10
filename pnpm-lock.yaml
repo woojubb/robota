@@ -274,6 +274,28 @@ importers:
         specifier: ^1.1.0
         version: 1.6.1(@types/node@20.17.46)
 
+  packages/sessions:
+    dependencies:
+      '@robota-sdk/agents':
+        specifier: workspace:*
+        version: link:../agents
+    devDependencies:
+      eslint:
+        specifier: ^8.56.0
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsup:
+        specifier: ^8.0.1
+        version: 8.4.0(typescript@5.8.3)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.17.46)
+
   packages/team:
     dependencies:
       '@robota-sdk/agents':
