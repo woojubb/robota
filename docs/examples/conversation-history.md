@@ -23,10 +23,13 @@ import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 
 const robota = new Robota({
-    aiProviders: { 'openai': openaiProvider },
-    currentModel: 'gpt-3.5-turbo',
-    maxHistoryLength: 10,  // Keep last 10 messages
-    systemPrompt: 'You are a helpful assistant with memory of our conversation.'
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You are a helpful assistant with memory of our conversation.'
+    },
+    maxHistoryLength: 10  // Keep last 10 messages
 });
 
 // Sequential conversation with memory
@@ -72,10 +75,13 @@ async function testHistoryLimits() {
     
     // Create instance with small history limit
     const limitedRobota = new Robota({
-        aiProviders: { 'openai': openaiProvider },
-        currentModel: 'gpt-3.5-turbo',
-        maxHistoryLength: 3,  // Very small limit for testing
-        systemPrompt: 'Remember our conversation within your memory limits.'
+        aiProviders: [openaiProvider],
+        defaultModel: {
+            provider: 'openai',
+            model: 'gpt-3.5-turbo',
+            systemMessage: 'Remember our conversation within your memory limits.'
+        },
+        maxHistoryLength: 3  // Very small limit for testing
     });
     
     // Add many messages to exceed limit
@@ -637,12 +643,15 @@ class PaginatedHistoryManager {
 ```typescript
 // Configure appropriate history limits
 const robota = new Robota({
-    aiProviders: { 'openai': openaiProvider },
-    currentModel: 'gpt-3.5-turbo',
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo',
+        systemMessage: 'You are a helpful assistant with good memory management.'
+    },
     maxHistoryLength: 20,          // Keep reasonable history
     maxHistoryTokens: 4000,        // Respect token limits
-    historyPruningStrategy: 'smart', // Use intelligent pruning
-    systemPrompt: 'You are a helpful assistant with good memory management.'
+    historyPruningStrategy: 'smart' // Use intelligent pruning
 });
 ```
 

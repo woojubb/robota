@@ -55,10 +55,11 @@ async function main() {
 
         const config: RobotaConfig = {
             name: 'DemoAgent',
-            aiProviders: {
-                'openai': openaiProvider
+            aiProviders: [openaiProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-3.5-turbo'
             },
-            currentModel: 'gpt-3.5-turbo',
             plugins: [
                 new LoggingPlugin({
                     level: 'info',

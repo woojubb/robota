@@ -279,8 +279,11 @@ export class SchemaValidator<T> {
 
    // ✅ 동적 Provider 등록
    interface AgentConfig {
-     aiProviders?: Record<string, BaseAIProvider<any, any, any>>;
-     currentProvider?: string;
+     aiProviders: BaseAIProvider<any, any, any>[];
+     defaultModel: {
+       provider: string;
+       model: string;
+     };
    }
    ```
 
@@ -391,24 +394,25 @@ describe('Type Parameter Safety', () => {
 ### 1. 기존 코드 호환성 유지
 
 ```typescript
-// 기존 사용법 (여전히 작동)
+// 기존 사용법 (DEPRECATED - 호환성 유지용)
 const agent = new RobotaAgent({
   model: 'gpt-4',
   provider: 'openai',
-  aiProviders: {
-    'openai': openaiProvider
-  },
-  currentProvider: 'openai'
+  aiProviders: [openaiProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4'
+  }
 });
 
 // 새로운 타입 매개변수 사용법
 const typedAgent = new RobotaAgent<CustomConfig, CustomContext, CustomResult>({
-  model: 'gpt-4',
-  provider: 'openai',
-  aiProviders: {
-    'openai': openaiProvider
-  },
-  currentProvider: 'openai'
+  name: 'TypedAgent',
+  aiProviders: [openaiProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4'
+  }
 });
 ```
 

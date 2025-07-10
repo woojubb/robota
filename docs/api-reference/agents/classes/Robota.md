@@ -34,9 +34,11 @@ import { OpenAIProvider } from '@robota-sdk/openai';
 
 const robota = new Robota({
   name: 'MyAgent',
-  aiProviders: { openai: new OpenAIProvider({ apiKey: 'sk-...' }) },
-  currentProvider: 'openai',
-  currentModel: 'gpt-4'
+  aiProviders: [new OpenAIProvider({ apiKey: 'sk-...' })],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4'
+  }
 });
 
 const response = await robota.run('Hello, how are you?');
@@ -51,9 +53,11 @@ import { weatherTool, calculatorTool } from './my-tools';
 
 const robota = new Robota({
   name: 'AdvancedAgent',
-  aiProviders: { openai: openaiProvider },
-  currentProvider: 'openai',
-  currentModel: 'gpt-4',
+  aiProviders: [openaiProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4'
+  },
   tools: [weatherTool, calculatorTool],
   plugins: [
     new LoggingPlugin({ level: 'info' }),

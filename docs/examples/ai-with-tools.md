@@ -100,14 +100,13 @@ async function main() {
         // Create Robota instance with tools
         const robota = new Robota({
             name: 'ToolAgent',
-            model: 'gpt-3.5-turbo',
-            provider: 'openai',
-            aiProviders: {
-                'openai': openaiProvider
+            aiProviders: [openaiProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-3.5-turbo',
+                systemMessage: 'You are a helpful assistant that can perform calculations.'
             },
-            currentModel: 'gpt-3.5-turbo',
             tools: [calculateTool],
-            systemMessage: 'You are a helpful assistant that can perform calculations.',
             logging: {
                 level: 'info',
                 enabled: true

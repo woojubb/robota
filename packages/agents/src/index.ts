@@ -172,9 +172,11 @@ export { WebhookPlugin, WebhookEventType, WebhookPayload, WebhookEndpoint, Webho
  * 
  * const config: AgentConfig = {
  *   name: 'Assistant',
- *   aiProviders: { openai: provider },
- *   currentProvider: 'openai',
- *   currentModel: 'gpt-4'
+ *   aiProviders: [provider],
+ *   defaultModel: {
+ *     provider: 'openai',
+ *     model: 'gpt-4'
+ *   }
  * };
  * 
  * const agent = new Robota(config);

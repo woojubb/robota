@@ -37,9 +37,11 @@ export type AgentStatsMetadata = Record<string, string | number | boolean | Date
  * ```typescript
  * const config: AgentConfig = {
  *   name: 'MyAgent',
- *   aiProviders: { openai: new OpenAIProvider() },
- *   currentProvider: 'openai',
- *   currentModel: 'gpt-4',
+ *   aiProviders: [new OpenAIProvider()],
+ *   defaultModel: {
+ *     provider: 'openai',
+ *     model: 'gpt-4'
+ *   },
  *   tools: [weatherTool, calculatorTool],
  *   plugins: [new LoggingPlugin(), new UsagePlugin()],
  *   logging: { level: 'info', enabled: true }
@@ -75,9 +77,11 @@ export type AgentStatsMetadata = Record<string, string | number | boolean | Date
  * 
  * const robota = new Robota({
  *   name: 'MyAgent',
- *   aiProviders: { openai: new OpenAIProvider({ apiKey: 'sk-...' }) },
- *   currentProvider: 'openai',
- *   currentModel: 'gpt-4'
+ *   aiProviders: [new OpenAIProvider({ apiKey: 'sk-...' })],
+ *   defaultModel: {
+ *     provider: 'openai',
+ *     model: 'gpt-4'
+ *   }
  * });
  * 
  * const response = await robota.run('Hello, how are you?');
@@ -91,9 +95,11 @@ export type AgentStatsMetadata = Record<string, string | number | boolean | Date
  * 
  * const robota = new Robota({
  *   name: 'AdvancedAgent',
- *   aiProviders: { openai: openaiProvider },
- *   currentProvider: 'openai',
- *   currentModel: 'gpt-4',
+ *   aiProviders: [openaiProvider],
+ *   defaultModel: {
+ *     provider: 'openai',
+ *     model: 'gpt-4'
+ *   },
  *   tools: [weatherTool, calculatorTool],
  *   plugins: [
  *     new LoggingPlugin({ level: 'info' }),
