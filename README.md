@@ -144,31 +144,65 @@ console.log(response);
 import { SessionManager } from '@robota-sdk/sessions';
 import { OpenAIProvider } from '@robota-sdk/openai';
 
-// Create multiple independent AI sessions
-const sessionManager = new SessionManager();
-
-// Create specialized sessions for different purposes
-const chatSession = sessionManager.createSession({
-    name: 'General Chat',
-    provider: new OpenAIProvider({
-        apiKey: process.env.OPENAI_API_KEY,
-        model: 'gpt-4'
-    }),
-    systemPrompt: 'You are a helpful AI assistant.'
+// Create a session manager for multiple independent AI agents
+const sessionManager = new SessionManager({
+    maxSessions: 10,
+    maxChatsPerSession: 5,
+    enableWorkspaceIsolation: true,
 });
 
-const codeSession = sessionManager.createSession({
-    name: 'Code Helper',
-    provider: new OpenAIProvider({
-        apiKey: process.env.OPENAI_API_KEY,
-        model: 'gpt-4'
-    }),
-    systemPrompt: 'You are an expert programmer.'
+// Create isolated workspaces for different purposes
+const devWorkspace = sessionManager.createSession({
+    name: 'Development Workspace',
+    userId: 'developer-123',
+    workspaceId: 'workspace-dev',
 });
 
-// Each session maintains independent conversation history
-await chatSession.sendMessage('What is the weather like today?');
-await codeSession.sendMessage('How do I implement a binary search?');
+const researchWorkspace = sessionManager.createSession({
+    name: 'Research Workspace',
+    userId: 'researcher-456',
+    workspaceId: 'workspace-research',
+});
+
+// Create specialized AI agents in each workspace
+const codingAssistant = await sessionManager.createChat(devWorkspace, {
+    name: 'Coding Assistant',
+    agentConfig: {
+        name: 'Coding Assistant',
+        aiProviders: [new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })],
+        defaultModel: {
+            provider: 'openai',
+            model: 'gpt-4',
+            temperature: 0.1,
+            systemMessage: 'You are an expert programmer and coding assistant.',
+        },
+    },
+});
+
+const researchAssistant = await sessionManager.createChat(researchWorkspace, {
+    name: 'Research Assistant',
+    agentConfig: {
+        name: 'Research Assistant',
+        aiProviders: [new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY })],
+        defaultModel: {
+            provider: 'openai',
+            model: 'gpt-4',
+            temperature: 0.7,
+            systemMessage: 'You are a knowledgeable research assistant.',
+        },
+    },
+});
+
+// Switch between agents and interact with them
+sessionManager.switchChat(devWorkspace, codingAssistant);
+const codingChat = sessionManager.getChat(codingAssistant);
+await codingChat.sendMessage('Help me implement a binary search algorithm');
+
+sessionManager.switchChat(researchWorkspace, researchAssistant);
+const researchChat = sessionManager.getChat(researchAssistant);
+await researchChat.sendMessage('What are the latest developments in AI?');
+
+// Each workspace maintains completely isolated conversation history
 ```
 
 ### AI Agent with Tools

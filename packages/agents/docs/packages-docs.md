@@ -97,7 +97,7 @@ packages/agents/src/
 - **@robota-sdk/anthropic**: Complete agents standard migration  
 - **@robota-sdk/google**: Complete agents standard migration
 - **@robota-sdk/team**: Full integration with team collaboration features
-- **@robota-sdk/sessions**: Basic structure migration with ConversationHistory integration
+- **@robota-sdk/sessions**: Complete v2.0.0 redesign with ChatInstance, ConversationServiceImpl, and individual service classes
 
 ### Deprecated Packages
 - **@robota-sdk/core**: Deprecated - functionality moved to agents

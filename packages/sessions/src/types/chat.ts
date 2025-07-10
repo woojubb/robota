@@ -1,52 +1,26 @@
 import type {
     Robota,
-    ConversationHistory,
-    AgentConfig
+    AgentConfig,
+    Message
 } from '@robota-sdk/agents';
 
 /**
- * Configuration value type for chat settings
+ * Simple message content type
  */
-export type ChatConfigValue = string | number | boolean | string[] | number[] | boolean[] | Date | null | undefined;
+export type MessageContent = string;
 
 /**
- * Configuration change tracking
- */
-export interface ConfigurationChange {
-    id: string;
-    timestamp: Date;
-    type: 'provider' | 'model' | 'system' | 'function' | 'other';
-    description: string;
-    oldValue?: ChatConfigValue;
-    newValue: ChatConfigValue;
-    userId?: string;
-}
-
-/**
- * Message content with structured typing
- */
-export type MessageContent = string | {
-    text?: string;
-    image?: string;
-    file?: string;
-    [key: string]: ChatConfigValue;
-};
-
-/**
- * Chat configuration interface
+ * Chat configuration interface - simplified
  */
 export interface ChatConfig {
     chatName?: string;
     description?: string;
-    robotaConfig?: AgentConfig; // Using AgentConfig instead of any
-    autoSave?: boolean;
-    maxHistorySize?: number;
-    agentTemplate?: string; // Agent template name to use for creating specialized agents
-    taskDescription?: string; // Task description for dynamic agent creation
+    robotaConfig: AgentConfig; // Required for creating the agent
+    agentTemplate?: string; // Agent template name for specialized agents
 }
 
 /**
- * Chat metadata interface
+ * Chat metadata interface - simplified
  */
 export interface ChatMetadata {
     chatId: string;
@@ -61,28 +35,6 @@ export interface ChatMetadata {
 }
 
 /**
- * Enhanced conversation history with configuration tracking
- */
-export interface EnhancedConversationHistory extends ConversationHistory {
-    configurations: ConfigurationChange[];
-    addConfigurationChange(change: ConfigurationChange): void;
-    getConfigurationHistory(): ConfigurationChange[];
-    clearConfigurationHistory(): void;
-
-    // Additional utility methods
-    updateMessage(index: number, content: string): boolean;
-    removeMessage(index: number): boolean;
-    getConfigurationChangeCount(): number;
-
-    // Export/Import functionality
-    export(): string;
-    import(data: string): void;
-
-    // Memory management
-    getMemoryUsage(): number;
-}
-
-/**
  * Template manager interface for agent templates
  */
 export interface TemplateManager {
@@ -92,36 +44,32 @@ export interface TemplateManager {
 }
 
 /**
- * Chat instance interface with proper typing
+ * Simplified chat instance interface - just a wrapper around Robota
  */
 export interface ChatInstance {
     readonly metadata: ChatMetadata;
     readonly config: ChatConfig;
     readonly robota: Robota;
-    readonly history: EnhancedConversationHistory;
 
-    // Chat Operations
+    // Core Chat Operations
     sendMessage(content: MessageContent): Promise<string>;
     regenerateResponse(): Promise<string>;
-    editMessage(messageId: string, newContent: MessageContent): Promise<void>;
-    deleteMessage(messageId: string): Promise<void>;
 
     // Configuration
     updateRobotaConfig(config: AgentConfig): Promise<void>;
     getRobotaConfig(): AgentConfig;
 
     // Agent Template Support
-    upgradeToTemplate?(templateName: string, taskDescription?: string): Promise<void>;
+    upgradeToTemplate?(templateName: string): Promise<void>;
     getTemplateManager?(): TemplateManager;
 
     // State Management  
     activate(): void;
     deactivate(): void;
 
-    // History Management
+    // History Management - delegate to Robota
+    getHistory(): Message[];
     clearHistory(): void;
-    exportHistory(): Promise<string>;
-    importHistory(data: string): Promise<void>;
 
     // Lifecycle
     save(): Promise<void>;
@@ -133,12 +81,10 @@ export interface ChatInstance {
 }
 
 /**
- * Chat statistics interface
+ * Chat statistics interface - simplified
  */
 export interface ChatStats {
     messageCount: number;
-    configurationChanges: number;
-    memoryUsage: number; // MB
     createdAt: Date;
     lastActivity: Date;
     totalTokens?: number;

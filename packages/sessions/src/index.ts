@@ -1,51 +1,32 @@
-// Chat Instance
+// Main components
 export { ChatInstance } from './chat/chat-instance';
+export { SessionManager } from './session/session-manager';
 
-// Interfaces
-export type { ContextManager, ConversationContext } from './interfaces/ai-context';
-export type { ProviderManager, ProviderConfig } from './interfaces/ai-provider';
+// Adapters
+export { TemplateManagerAdapter } from './adapters/template-manager-adapter';
 
-// Conversation Service
-export { ConversationServiceImpl } from './conversation/conversation-service-impl';
-
-// System Message Manager
-export { SystemMessageManagerImpl } from './system-message/system-message-manager-impl';
-
-// Provider Adapter
-export { MultiProviderAdapterManager } from './provider-adapter/multi-provider-adapter-manager';
-
-// Type-only exports
+// Interfaces and types
+export type { TemplateManager } from './types/chat';
 export type {
-    AgentInterface,
-    AgentConfig,
-    Message,
-    RunOptions,
+    ChatConfig,
+    ChatMetadata,
+    ChatStats,
+    MessageContent
+} from './types/chat';
+
+export type {
     SessionState,
     SessionConfig,
     SessionInfo,
-    ChatConfig,
     ChatInfo,
-    SessionManagerConfig
+    SessionManagerConfig,
+    CreateSessionOptions,
+    CreateChatOptions,
+    AgentInterface,
+    AgentConfig,
+    Message,
+    RunOptions
 } from './types/core';
 
-export type {
-    ChatInstance as IChatInstance,
-    ChatMetadata,
-    ChatStats,
-    MessageContent,
-    ConfigurationChange,
-    EnhancedConversationHistory,
-    TemplateManager
-} from './types/chat';
-
 // Re-export ConversationHistory from agents (unified implementation)
-export { ConversationHistory, ConversationSession } from '@robota-sdk/agents';
-
-// Re-export AgentFactory from agents
-export { AgentFactory } from '@robota-sdk/agents';
-export type {
-    TemplateApplicationResult
-} from '@robota-sdk/agents';
-
-// Storage interfaces will be added later
-// SessionManager implementation will be added later 
+export { ConversationHistory, ConversationSession } from '@robota-sdk/agents'; 
