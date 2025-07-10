@@ -73,6 +73,33 @@ Eight core plugins with type-safe configuration and BasePluginOptions integratio
 - **Performance Monitoring**: All plugins include built-in statistics and monitoring
 - **Error Resilience**: Graceful error handling across all plugin operations
 
+#### Plugin Control and Configuration
+- **Clear Disable Options**: Every plugin provides multiple ways to disable functionality
+- **No Arbitrary Decisions**: Plugins avoid making policy decisions without explicit configuration
+- **Explicit Configuration**: All automatic behaviors can be controlled through configuration
+- **Silent Modes**: Most plugins support 'silent' strategies for performance-critical scenarios
+
+```typescript
+// Complete plugin disable
+const agent = new Robota({
+  plugins: [] // No plugins
+});
+
+// Selective plugin disable
+const agent = new Robota({
+  plugins: [
+    new LoggingPlugin({ strategy: 'silent', enabled: false }),
+    new LimitsPlugin({ strategy: 'none' }),
+    new UsagePlugin({ strategy: 'silent' })
+  ]
+});
+```
+
+#### Plugin Documentation
+- **[Plugin Behaviors](plugin-automatic-behaviors.md)**: Detailed documentation of all automatic behaviors and default policies
+- **[Configuration Examples](plugin-configuration-examples.md)**: Comprehensive examples for each plugin including disable options
+- **[Best Practices](plugin-best-practices.md)**: Guidelines for plugin configuration and performance optimization
+
 ### 🔒 Type Safety Features
 - **Generic Type Parameters**: `BaseAgent<TConfig, TContext, TMessage>`
 - **Provider Agnostic**: Dynamic provider registration with type safety
