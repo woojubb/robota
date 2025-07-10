@@ -1,0 +1,43 @@
+---
+globs: packages/agents/src/plugins/**/*.ts
+---
+
+# Plugin Development Guidelines
+
+## Required Plugin Structure
+All plugins must extend `BasePlugin<TOptions, TStats>` with these requirements:
+- Implement `name` and `version` properties
+- Add `validateOptions()` method in constructor
+- Provide proper error handling with context
+
+## Mandatory Plugin Features
+
+### 1. Disable Options
+Every plugin MUST provide these disable mechanisms:
+- `enabled: false` - Complete disable
+- `strategy: 'silent'` or `strategy: 'none'` - Silent mode
+- Selective disabling through specific options
+
+### 2. Validation
+- Add `validateOptions()` method in constructor
+- Provide actionable error messages with context
+- Validate all strategy options and required dependencies
+
+### 3. Error Handling
+- Use `PluginError` with descriptive messages
+- Include context information in error details
+- Never make arbitrary decisions - throw clear errors instead
+
+### 4. Documentation
+Reference the comprehensive plugin documentation:
+- [Plugin Behaviors](mdc:packages/agents/docs/plugin-automatic-behaviors.md)
+- [Configuration Examples](mdc:packages/agents/docs/plugin-configuration-examples.md)
+
+## Plugin Categories
+- **EVENT_PROCESSING**: Event detection and propagation
+- **MONITORING**: Performance tracking, analytics, usage stats
+- **LOGGING**: Operation logging
+- **STORAGE**: Data persistence
+- **ERROR_HANDLING**: Error recovery and retry mechanisms
+- **LIMITS**: Rate limiting and resource control
+- **NOTIFICATION**: External notifications

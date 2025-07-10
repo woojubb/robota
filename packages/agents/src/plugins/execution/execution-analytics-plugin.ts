@@ -35,6 +35,9 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
         this.category = PluginCategory.MONITORING;
         this.priority = PluginPriority.NORMAL;
 
+        // Validate options
+        this.validateOptions(options);
+
         this.pluginOptions = {
             enabled: options.enabled ?? true,
             maxEntries: options.maxEntries || 1000,
@@ -603,5 +606,27 @@ export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptio
      */
     private getMemoryUsage(): number {
         return this.executionHistory.length + this.activeExecutions.size;
+    }
+
+    /**
+     * Validate plugin options
+     */
+    private validateOptions(options: ExecutionAnalyticsOptions): void {
+        if (options.maxEntries !== undefined && options.maxEntries < 1) {
+            this.logger.warn('maxEntries must be at least 1. Setting to 1000.');
+            this.pluginOptions.maxEntries = 1000;
+        }
+        if (options.performanceThreshold !== undefined && options.performanceThreshold < 0) {
+            this.logger.warn('performanceThreshold cannot be negative. Setting to 5000.');
+            this.pluginOptions.performanceThreshold = 5000;
+        }
+        if (options.trackErrors !== undefined && typeof options.trackErrors !== 'boolean') {
+            this.logger.warn('trackErrors must be a boolean. Setting to true.');
+            this.pluginOptions.trackErrors = true;
+        }
+        if (options.enableWarnings !== undefined && typeof options.enableWarnings !== 'boolean') {
+            this.logger.warn('enableWarnings must be a boolean. Setting to true.');
+            this.pluginOptions.enableWarnings = true;
+        }
     }
 } 

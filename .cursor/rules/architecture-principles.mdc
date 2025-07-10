@@ -1,0 +1,38 @@
+---
+alwaysApply: true
+---
+
+# Robota SDK Architecture Principles
+
+## 🚫 Avoid Ambiguous Features
+- **No Arbitrary Decisions**: Libraries should never make policy decisions without explicit configuration
+- **Clear Error Messages**: When limits are reached, throw descriptive errors instead of automatic cleanup
+- **External Policy Control**: Provide clean APIs for external code to implement policies
+- **Predictable Behavior**: Library never makes assumptions about user intent
+
+## 🔌 Plugin System Guidelines
+- **Explicit Configuration**: All automatic behaviors must be controllable through configuration
+- **Clear Disable Options**: Every plugin must provide multiple ways to disable functionality
+  - `enabled: false` for complete disable
+  - `strategy: 'silent'` or `strategy: 'none'` for silent modes
+  - Selective disabling through configuration options
+- **No Policy Decisions**: Plugins avoid making arbitrary decisions without explicit configuration
+- **Validation**: All plugins must have comprehensive validation with actionable error messages
+
+## 🏗️ Code Organization
+- **Facade Pattern**: Keep core classes simple with only essential methods (run, runStream, close)
+- **Interface Segregation**: Separate interfaces so clients depend only on necessary functions
+- **Single Responsibility**: Each class/module should have one clear purpose
+- **Avoid Duplication**: Extract common logic to base classes instead of duplicating code
+
+## 📝 Documentation Standards
+- **English Only**: All code comments, logs, and documentation must be in English
+- **Clear Examples**: Provide comprehensive configuration examples for all features
+- **No Legacy Support**: Remove deprecated features instead of maintaining backward compatibility
+- **Actionable Errors**: Error messages should tell users exactly what to do to fix the problem
+
+## 🧪 Testing Requirements
+- **Comprehensive Coverage**: All features must have corresponding tests
+- **Error Scenarios**: Test both success and failure cases
+- **Integration Tests**: Test how components work together
+- **No Arbitrary Behavior**: If behavior can't be tested predictably, it's probably too ambiguous

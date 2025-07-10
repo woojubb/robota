@@ -176,6 +176,9 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
         super();
         this.logger = createLogger('EventEmitterPlugin');
 
+        // Validate options
+        this.validateOptions(options);
+
         this.pluginOptions = {
             enabled: options.enabled ?? true,
             events: options.events ?? [
@@ -211,6 +214,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
             events: this.pluginOptions.events,
             maxListeners: this.pluginOptions.maxListeners,
             async: this.pluginOptions.async,
+            catchErrors: this.pluginOptions.catchErrors,
             bufferEnabled: this.pluginOptions.buffer.enabled
         });
     }
@@ -640,5 +644,36 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
         this.clearAllListeners();
 
         this.logger.info('EventEmitterPlugin destroyed');
+    }
+
+    /**
+     * Validates the plugin options.
+     * @param options The options to validate.
+     * @throws PluginError if options are invalid.
+     */
+    private validateOptions(options: EventEmitterPluginOptions): void {
+        if (options.maxListeners !== undefined && options.maxListeners < 0) {
+            throw new PluginError(
+                `Invalid maxListeners option: ${options.maxListeners}. Must be a non-negative number.`,
+                this.name,
+                { maxListeners: options.maxListeners }
+            );
+        }
+
+        if (options.buffer !== undefined && options.buffer.maxSize !== undefined && options.buffer.maxSize < 0) {
+            throw new PluginError(
+                `Invalid buffer.maxSize option: ${options.buffer.maxSize}. Must be a non-negative number.`,
+                this.name,
+                { bufferMaxSize: options.buffer.maxSize }
+            );
+        }
+
+        if (options.buffer !== undefined && options.buffer.flushInterval !== undefined && options.buffer.flushInterval < 0) {
+            throw new PluginError(
+                `Invalid buffer.flushInterval option: ${options.buffer.flushInterval}. Must be a non-negative number.`,
+                this.name,
+                { bufferFlushInterval: options.buffer.flushInterval }
+            );
+        }
     }
 } 

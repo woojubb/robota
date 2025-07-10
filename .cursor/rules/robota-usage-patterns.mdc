@@ -1,13 +1,10 @@
 # Robota SDK Usage Patterns
 
-This rule ensures correct usage of Robota SDK packages and prevents common mistakes.
+## Correct Robota Constructor Pattern
 
-## Correct Robota Constructor Usage
-
-### ✅ Correct Pattern
+### ✅ Current Pattern (v2.0+)
 ```typescript
 import { Robota } from '@robota-sdk/agents';
-import { OpenAIProvider } from '@robota-sdk/openai';
 
 const robota = new Robota({
   name: 'MyAgent',
@@ -15,194 +12,48 @@ const robota = new Robota({
   defaultModel: {
     provider: 'openai',
     model: 'gpt-4',
-    systemMessage: 'You are a helpful assistant.' // systemMessage here
+    systemMessage: 'You are helpful.' // systemMessage here
   },
   tools: [tool1, tool2] // Array of tools
 });
 ```
 
 ### ❌ Incorrect Patterns
-```typescript
-// WRONG - Object format for aiProviders
-const robota = new Robota({
-  aiProviders: { openai: provider }, // Don't use object format
-  currentProvider: 'openai', // Don't use currentProvider
-  currentModel: 'gpt-4' // Don't use currentModel
-});
+- `aiProviders: { openai: provider }` - Don't use object format
+- `currentProvider: 'openai'` - Don't use currentProvider
+- `systemPrompt: 'message'` - Use defaultModel.systemMessage
+- `toolProviders: [provider]` - Use tools array
 
-// WRONG - Old property names
-const robota = new Robota({
-  systemPrompt: 'message', // Use defaultModel.systemMessage instead
-  toolProviders: [provider] // Use tools instead
-});
-```
+## Package Migration
 
-## Sessions Package Usage (v2.0.0)
+### Deprecated Packages
+- `@robota-sdk/core` → `@robota-sdk/agents`
+- `@robota-sdk/tools` → `@robota-sdk/agents`
 
-> **🚨 Critical Warning**: Sessions package is **experimental and incomplete**. Most methods throw "not implemented" errors. **NOT recommended for production use**. Use `@robota-sdk/agents` directly instead.
+### Sessions Package Warning
+> **🚨 Sessions package is experimental and incomplete**. Many methods throw "not implemented" errors. Use `@robota-sdk/agents` directly instead.
 
-### ✅ Correct Sessions Pattern
-```typescript
-import { 
-  ChatInstance, 
-  ConversationServiceImpl, 
-  SystemMessageManagerImpl,
-  MultiProviderAdapterManager 
-} from '@robota-sdk/sessions';
-import { Robota } from '@robota-sdk/agents';
+## Tool Creation Pattern
 
-// Create individual services
-const conversationService = new ConversationServiceImpl(50);
-const systemManager = new SystemMessageManagerImpl();
-const providerManager = new MultiProviderAdapterManager();
-
-// Create proper metadata (must match ChatMetadata interface)
-const chatMetadata = {
-  chatId: 'chat_123',
-  sessionId: 'session_456',
-  chatName: 'My Chat',
-  description: 'Chat description',
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  lastAccessedAt: new Date(),
-  messageCount: 0,
-  isActive: true
-};
-
-// Create enhanced history object (required interface)
-const enhancedHistory = {
-  ...conversationService,
-  configurations: [],
-  addConfigurationChange: (change: any) => { /* implementation needed */ },
-  getConfigurationHistory: () => [],
-  clearConfigurationHistory: () => { /* implementation needed */ },
-  updateMessage: (index: number, content: string) => false,
-  removeMessage: (index: number) => false,
-  getConfigurationChangeCount: () => 0,
-  export: () => JSON.stringify([]),
-  import: (data: string) => { /* implementation needed */ },
-  getMemoryUsage: () => 0
-};
-
-// Create chat instance
-const chat = new ChatInstance(
-  chatMetadata,
-  config,
-  robota,
-  enhancedHistory
-);
-```
-
-### ❌ Incorrect Sessions Pattern
-```typescript
-// WRONG - SessionManagerImpl no longer exists in v2.0.0
-import { SessionManagerImpl } from '@robota-sdk/sessions';
-
-const sessionManager = new SessionManagerImpl({
-  maxActiveSessions: 10
-});
-
-const session = await sessionManager.createSession('user123');
-
-// WRONG - Don't cast to 'any'
-const chat = new ChatInstance(metadata, config, robota, conversationService as any);
-
-// WRONG - These methods throw errors
-chat.clearHistory(); // Use conversationService.clearConversation() instead
-await chat.save(); // Not implemented
-await chat.load(); // Not implemented
-```
-
-## Tool Creation Patterns
-
-### ✅ Correct Tool Pattern
+### ✅ Current Pattern
 ```typescript
 import { createZodFunctionTool } from '@robota-sdk/agents';
 
-const weatherTool = createZodFunctionTool(
-  'getWeather',
-  'Get current weather for a location',
-  z.object({
-    location: z.string().describe('The location to get weather for')
-  }),
-  async ({ location }) => {
-    // Implementation
-    return `Weather in ${location}: Sunny, 25°C`;
-  }
+const tool = createZodFunctionTool(
+  'toolName',
+  'Description',
+  zodSchema,
+  async (params) => { /* implementation */ }
 );
-
-// Use in Robota
-const robota = new Robota({
-  name: 'WeatherAgent',
-  aiProviders: [provider],
-  defaultModel: { provider: 'openai', model: 'gpt-4' },
-  tools: [weatherTool] // Array of tools
-});
 ```
 
-### ❌ Incorrect Tool Pattern
-```typescript
-// WRONG - Old tool provider pattern
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
-
-const provider = createZodFunctionToolProvider({ tools: [weatherTool] });
-const robota = new Robota({ provider }); // Don't use provider pattern
-```
-
-## Migration Guide
-
-### From @robota-sdk/core and @robota-sdk/tools
-```typescript
-// OLD (deprecated)
-import { Robota } from '@robota-sdk/core';
-import { createZodFunctionToolProvider } from '@robota-sdk/tools';
-
-// NEW (current)
-import { Robota, createZodFunctionTool } from '@robota-sdk/agents';
-```
-
-### From Sessions v1.x to v2.0.0
-```typescript
-// OLD (v1.x)
-import { SessionManagerImpl } from '@robota-sdk/sessions';
-const sessionManager = new SessionManagerImpl(config);
-const session = await sessionManager.createSession('user123');
-
-// NEW (v2.0.0)
-import { ChatInstance, ConversationServiceImpl } from '@robota-sdk/sessions';
-const chat = new ChatInstance(metadata, config, robota, conversationService);
-```
+### ❌ Deprecated Pattern
+- `createZodFunctionToolProvider` - Use createZodFunctionTool instead
 
 ## Code Review Checklist
 
-When reviewing Robota SDK code, check for:
-
-1. **Constructor Format**: Ensure `aiProviders` is an array, not object
-2. **Model Configuration**: Use `defaultModel` with nested `systemMessage`
-3. **Tool Arrays**: Use `tools` array instead of `toolProviders`
-4. **Package Imports**: Import from `@robota-sdk/agents` instead of deprecated packages
-5. **Sessions API**: Avoid `@robota-sdk/sessions` - use `@robota-sdk/agents` directly
-6. **System Messages**: Use `defaultModel.systemMessage` instead of `systemPrompt`
-
-## Common Mistakes to Avoid
-
-1. **Provider Object Format**: Don't use `aiProviders: { openai: provider }`
-2. **Separate Provider/Model**: Don't use `currentProvider` and `currentModel` separately
-3. **Old Property Names**: Don't use `systemPrompt`, `toolProviders`, etc.
-4. **Deprecated Packages**: Don't import from `@robota-sdk/core` or `@robota-sdk/tools`
-5. **Sessions Package**: Don't use `@robota-sdk/sessions` - it's incomplete and experimental
-6. **Tool Providers**: Don't use `createZodFunctionToolProvider` pattern
-
-## Quick Reference
-
-### Current Package Structure
-- `@robota-sdk/agents` - Main unified package
-- `@robota-sdk/openai` - OpenAI provider
-- `@robota-sdk/anthropic` - Anthropic provider  
-- `@robota-sdk/google` - Google provider
-- `@robota-sdk/sessions` - Session management (v2.0.0)
-- `@robota-sdk/team` - Team collaboration
-
-### Deprecated Packages
-- `@robota-sdk/core` - Moved to agents
-- `@robota-sdk/tools` - Moved to agents
+1. **Constructor Format**: aiProviders is array, not object
+2. **Model Configuration**: Use defaultModel with nested systemMessage
+3. **Tool Arrays**: Use tools array instead of toolProviders
+4. **Package Imports**: Import from @robota-sdk/agents
+5. **Property Names**: Use current property names, not deprecated ones

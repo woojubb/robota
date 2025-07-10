@@ -2,155 +2,43 @@
 
 ## Language Requirements
 - **ALL commit messages MUST be written in English only**
-- No Korean or other languages allowed in commit titles or body
-- Use clear, concise English for both summary and detailed descriptions
-
-## Commit Message Format
-Follow conventional commit format:
-```
-<type>(<scope>): <description>
-
-[optional body]
-
-[optional footer]
-```
-
-## Examples of CORRECT commit messages:
-```
-fix: resolve TypeScript build errors in provider packages
-
-- Fix type compatibility issues in openai provider
-- Update anthropic provider type definitions
-- Ensure strict mode compliance across all packages
-- Add proper override modifiers and type assertions
-
-feat: add tool execution result handling checklist
-
-- Add comprehensive checklist for debugging tool result issues
-- Include verification steps for ConversationService
-- Add provider-specific response parsing validation
-- Cover tool result message propagation testing
-```
-
-## Examples of INCORRECT commit messages:
-```
-❌ fix: 빌드 오류 수정 및 도구 실행 결과 처리 문제 체크리스트 추가
-❌ feat: 한국어 설명이 포함된 커밋
-❌ refactor: 코드 리팩토링 작업 완료
-```
-
-## Common English Phrases for Korean Developers:
-- 수정 → fix, resolve, update, correct
-- 추가 → add, implement, introduce
-- 제거 → remove, delete, eliminate
-- 개선 → improve, enhance, optimize
-- 문제 → issue, problem, bug
-- 기능 → feature, functionality
-- 테스트 → test, testing, verification
-- 문서화 → documentation, docs
-- 구현 → implement, implementation
-- 업데이트 → update, upgrade
-
-## Commit Types:
-- `feat`: new feature
-- `fix`: bug fix
-- `docs`: documentation changes
-- `style`: formatting changes
-- `refactor`: code refactoring
-- `test`: adding tests
-- `chore`: maintenance tasks
-- `perf`: performance improvements
-- `ci`: CI/CD changes
-- `build`: build system changes
-
-## Before Committing:
-1. Review commit message for any Korean characters
-2. Ensure message clearly describes the change in English
-3. Use imperative mood ("Add feature" not "Added feature")
-4. Keep title under 50 characters
-5. Separate title and body with blank line
-6. Wrap body at 72 characters
+- No Korean or other languages allowed
 
 ## Format Requirements
-
-All commit messages MUST follow conventional commit format and be under 80 characters:
-
+Follow conventional commit format with 80 character limit:
 ```
-type: brief description (max 80 chars total)
+<type>: <description> (max 80 chars total)
 ```
 
 ## Valid Types
-
 - `feat`: New feature
 - `fix`: Bug fix  
 - `docs`: Documentation changes
-- `style`: Code formatting (no functional changes)
+- `style`: Code formatting
 - `refactor`: Code restructuring
 - `test`: Test-related changes
 - `chore`: Build/tooling changes
+- `perf`: Performance improvements
 
-## Character Limit Enforcement
+## Examples
+### ✅ Good (under 80 chars)
+- `feat: add OpenAI streaming support` (33 chars)
+- `fix: resolve memory leak in cache` (32 chars)
+- `refactor: split provider into modules` (36 chars)
 
-**CRITICAL**: Total commit message length must be ≤ 80 characters including type and colon.
+### ❌ Bad (over 80 chars)
+- `feat: implement streaming response with modular architecture` (59 chars)
 
-### Good Examples (under 80 chars):
-- `feat: add OpenAI streaming support` (33 chars) ✅
-- `fix: resolve memory leak in cache` (32 chars) ✅
-- `refactor: split provider into modules` (36 chars) ✅
+## Commit Rules
+- Use imperative mood ("Add feature" not "Added feature")
+- Use single `-m` flag only, no commit body
+- Keep title under 80 characters total
+- Write clear, concise English descriptions
 
-### Bad Examples (over 80 chars):
-- `feat: implement streaming response with modular architecture` (59 chars) ❌
-- `feat: add comprehensive streaming support for all AI providers` (62 chars) ❌
-
-## Multi-line Format (if needed)
-
-For complex changes requiring more detail:
-
-```
-feat: add streaming support
-
-- Implement OpenAI, Anthropic, Google streaming
-- Apply modular architecture patterns
-- Optimize file sizes and TypeScript compatibility
-```
-
-First line MUST be ≤ 80 characters. Additional details go in body after blank line.
-
-## Commit Description Policy
-
-**IMPORTANT**: When committing via git command line:
-- Use ONLY the `-m` flag with a single message
-- DO NOT add commit description/body
-- Keep commits simple with title only
-
-### Correct Usage:
-```bash
-git commit -m "fix: resolve TypeScript build errors"
-```
-
-### Incorrect Usage:
-```bash
-# ❌ Do not use multiple -m flags
-git commit -m "fix: resolve build errors" -m "Additional description here"
-
-# ❌ Do not use editor for multi-line commits
-git commit  # Opens editor - avoid this
-```
-
-**Note**: If detailed explanation is needed, document it in:
-- Pull request description
-- Code comments
-- Related issue comments
-- Project documentation
-
-## Implementation Rule
-
-When generating commit messages:
-1. Start with type + colon + space (e.g., "feat: ")
-2. Count remaining characters available (80 - type length)
-3. Write concise description within remaining limit
-4. Use single -m flag only, no commit body/description
-
-## Reference
-
-See [CONTRIBUTING.md](mdc:CONTRIBUTING.md) for full guidelines.
+## Common English Translations
+- 수정 → fix, resolve, update
+- 추가 → add, implement
+- 제거 → remove, delete
+- 개선 → improve, enhance
+- 문제 → issue, bug
+- 기능 → feature

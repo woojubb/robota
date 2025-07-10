@@ -1,16 +1,11 @@
-# 🚨 CRITICAL RULE: Dependency Architecture & Circular Dependency Prevention
+# Dependency Architecture Rules
 
-## ABSOLUTE PROHIBITION: Circular Dependencies
-
-### ❌ NEVER ALLOWED
-- **Circular dependencies** between packages are **STRICTLY PROHIBITED**
+## Strict Prohibition: Circular Dependencies
+- **NO circular dependencies** between packages
 - Provider packages **MUST NOT** depend on agents package
 - Core packages **MUST NOT** depend on higher-level packages
-- **Zero tolerance** for any circular dependency warnings
 
-### 🏗️ CORRECT DEPENDENCY ARCHITECTURE
-
-#### Package Hierarchy (Dependency Direction)
+## Package Hierarchy (Dependency Direction)
 ```
 External Dependencies (npm packages)
          ↑
@@ -19,169 +14,32 @@ Provider Packages (@robota-sdk/openai, @robota-sdk/anthropic, @robota-sdk/google
 Core Package (@robota-sdk/agents)
          ↑
 Higher-Level Packages (@robota-sdk/sessions, @robota-sdk/team)
-         ↑
-Application Layer
 ```
 
-#### Dependency Rules by Package Type
+## Dependency Rules by Package Type
 
-##### 1. Provider Packages (openai, anthropic, google)
-- **CAN depend on**: External npm packages only (openai, @anthropic-ai/sdk, @google/generative-ai)
-- **CANNOT depend on**: @robota-sdk/agents, @robota-sdk/sessions, @robota-sdk/team
-- **Purpose**: Provide AI provider implementations
-- **Isolation**: Must be completely isolated from agents package
+### Provider Packages (openai, anthropic, google)
+- **CAN depend on**: External npm packages only
+- **CANNOT depend on**: Any @robota-sdk/* packages
+- **Purpose**: Isolated AI provider implementations
 
-##### 2. Core Package (agents)
+### Core Package (agents)
 - **CAN depend on**: Provider packages (as peerDependencies), external npm packages
 - **CANNOT depend on**: @robota-sdk/sessions, @robota-sdk/team
-- **Purpose**: Core agent functionality, plugin system, managers
-- **Integration**: Uses providers through dependency injection
+- **Purpose**: Core agent functionality, plugin system
 
-##### 3. Higher-Level Packages (sessions, team)
+### Higher-Level Packages (sessions, team)
 - **CAN depend on**: @robota-sdk/agents, provider packages, external npm packages
-- **CANNOT depend on**: Each other (sessions ↔ team)
-- **Purpose**: Advanced features built on top of core agents
+- **CANNOT depend on**: Each other
+- **Purpose**: Advanced features built on core agents
 
-##### 4. Deprecated Packages (core, tools)
-- **Status**: Deprecated, redirect users to @robota-sdk/agents
-- **Dependencies**: Minimal, no new dependencies allowed
-
-### 🔒 ENFORCEMENT MECHANISMS
-
-#### Package.json Validation
-- **dependencies**: Only allowed dependencies for each package type
-- **peerDependencies**: Used for optional integrations (agents → providers)
-- **devDependencies**: No circular references in development
-
-#### Build-Time Checks
-- PNPM workspace validation catches circular dependencies
-- TypeScript compilation fails with circular imports
-- CI/CD pipeline must validate dependency graph
-
-### 📋 ALLOWED DEPENDENCY PATTERNS
-
-#### ✅ CORRECT: Provider Package Structure
-```json
-// packages/openai/package.json
-{
-  "dependencies": {
-    "openai": "^4.98.0"  // ✅ External dependency only
-  },
-  "peerDependencies": {}, // ✅ No internal dependencies
-  "devDependencies": {
-    // ✅ No @robota-sdk/* packages
-  }
-}
-```
-
-#### ✅ CORRECT: Agents Package Structure
-```json
-// packages/agents/package.json
-{
-  "dependencies": {
-    "zod": "^3.24.4"  // ✅ External dependencies
-  },
-  "peerDependencies": {
-    "@robota-sdk/openai": "workspace:*",     // ✅ Optional provider
-    "@robota-sdk/anthropic": "workspace:*",  // ✅ Optional provider
-    "@robota-sdk/google": "workspace:*"      // ✅ Optional provider
-  }
-}
-```
-
-#### ✅ CORRECT: Higher-Level Package Structure
-```json
-// packages/team/package.json
-{
-  "dependencies": {
-    "@robota-sdk/agents": "workspace:*"  // ✅ Depends on core
-  }
-}
-```
-
-### ❌ PROHIBITED DEPENDENCY PATTERNS
-
-#### ❌ WRONG: Provider Depending on Agents
-```json
-// packages/anthropic/package.json - PROHIBITED
-{
-  "dependencies": {
-    "@robota-sdk/agents": "workspace:*"  // ❌ Creates circular dependency
-  }
-}
-```
-
-#### ❌ WRONG: Agents Depending on Higher-Level
-```json
-// packages/agents/package.json - PROHIBITED
-{
-  "dependencies": {
-    "@robota-sdk/team": "workspace:*"  // ❌ Wrong direction
-  }
-}
-```
-
-### 🛡️ INTEGRATION PATTERNS
-
-#### Dependency Injection (Correct)
-```typescript
-// In agents package
-export class AgentFactory {
-  constructor(private provider: AIProvider) {} // ✅ Interface-based
-}
-
-// In application code
-import { AgentFactory } from '@robota-sdk/agents';
-import { OpenAIProvider } from '@robota-sdk/openai';
-
-const provider = new OpenAIProvider();
-const factory = new AgentFactory(provider); // ✅ Injected at runtime
-```
-
-#### Plugin System (Correct)
-```typescript
-// Provider packages implement interfaces defined in agents
-export class OpenAIProvider implements AIProvider {
-  // ✅ Implements interface without importing agents
-}
-```
-
-### 🚫 VIOLATION CONSEQUENCES
-
-#### Immediate Actions Required
-- **Build Failure**: Circular dependencies cause immediate build failure
-- **PR Rejection**: Any circular dependency detected results in PR rejection
-- **Code Review Escalation**: Architecture team review required
-
-#### Prevention Measures
-- **Pre-commit Hooks**: Validate dependency graph before commits
-- **CI/CD Checks**: Automated circular dependency detection
-- **Package Audit**: Regular dependency graph validation
-
-### 📞 ESCALATION PROCESS
-
-#### For Dependency Questions
-1. **Check this rule first**: Verify against dependency hierarchy
-2. **Architecture Review**: Contact lead architect for complex cases
-3. **Team Discussion**: Discuss alternative patterns if needed
-
-#### For Violations Found
-1. **Immediate Fix**: Remove circular dependency immediately
-2. **Root Cause Analysis**: Identify why it was introduced
-3. **Prevention Update**: Update tooling to prevent recurrence
-
-### 🔄 ALTERNATIVE PATTERNS
-
-#### Instead of Circular Dependencies
-- **Interface Segregation**: Define interfaces in core, implement in providers
+## Integration Patterns
+- **Dependency Injection**: Inject providers at runtime, not build time
+- **Interface-based**: Providers implement interfaces defined in agents
+- **Plugin System**: Register providers as plugins
 - **Event System**: Use events for loose coupling
-- **Dependency Injection**: Inject dependencies at runtime
-- **Plugin Architecture**: Register providers as plugins
 
----
-
-**⚠️ WARNING: This rule is non-negotiable. Any circular dependency must be resolved immediately. The agents package is the core and cannot know about provider implementations at build time.**
-description:
-globs:
-alwaysApply: false
----
+## Enforcement
+- Build failures for circular dependencies
+- CI/CD validation of dependency graph
+- PR rejection for violations
