@@ -86,5 +86,5 @@ apps/docs/.vitepress/dist/
 # Markdown files in apps directory
 apps/**/README.md
 
-# Package README files (managed in docs directory)
-packages/*/README.md
+# Package README files are now preserved and committed to git
+# packages/*/README.md  # REMOVED - README.md files should be included in packages

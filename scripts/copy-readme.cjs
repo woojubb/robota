@@ -62,10 +62,10 @@ function copyReadmeFiles() {
 }
 
 /**
- * Clean up all README.md files in packages directory
+ * Clean up all README.md files in packages directory - DISABLED to preserve README.md files
  */
 function cleanupReadmeFiles() {
-    console.log('🧹 Cleaning up all README.md files in packages...');
+    console.log('🧹 Cleaning up all README.md files in packages - DISABLED...');
 
     if (!fs.existsSync(PACKAGES_DIR)) {
         console.log('❌ packages directory not found');
@@ -79,23 +79,29 @@ function cleanupReadmeFiles() {
 
     console.log(`📂 Found ${packages.length} package(s): ${packages.join(', ')}`);
 
-    let cleanedCount = 0;
-
+    // DISABLED: Do not remove README.md files
     for (const packageName of packages) {
         const readmePath = path.join(PACKAGES_DIR, packageName, 'README.md');
-
-        try {
-            if (fs.existsSync(readmePath)) {
-                fs.unlinkSync(readmePath);
-                console.log(`🗑️  Removed README.md from packages/${packageName}`);
-                cleanedCount++;
-            }
-        } catch (error) {
-            console.error(`❌ Failed to remove README.md from packages/${packageName}:`, error.message);
-        }
+        console.log(`ℹ️  Preserved README.md in packages/${packageName}`);
     }
 
-    console.log(`🧹 Successfully cleaned up ${cleanedCount} README.md files`);
+    console.log(`ℹ️  All README.md files preserved (cleanup disabled)`);
+
+    // Original cleanup code commented out:
+    // let cleanedCount = 0;
+    // for (const packageName of packages) {
+    //     const readmePath = path.join(PACKAGES_DIR, packageName, 'README.md');
+    //     try {
+    //         if (fs.existsSync(readmePath)) {
+    //             fs.unlinkSync(readmePath);
+    //             console.log(`🗑️  Removed README.md from packages/${packageName}`);
+    //             cleanedCount++;
+    //         }
+    //     } catch (error) {
+    //         console.error(`❌ Failed to remove README.md from packages/${packageName}:`, error.message);
+    //     }
+    // }
+    // console.log(`🧹 Successfully cleaned up ${cleanedCount} README.md files`);
 }
 
 // Parse command line arguments
