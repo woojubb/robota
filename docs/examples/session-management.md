@@ -51,9 +51,12 @@ const chat1 = await session.createNewChat({
     chatName: 'General Chat',
     robotaConfig: {
         // AI provider configuration for this specific chat
-        aiProviders: { 'openai': openaiProvider },
-        currentModel: 'gpt-3.5-turbo',
-        systemPrompt: 'You are a helpful assistant for general questions.'
+        aiProviders: [openaiProvider],
+        defaultModel: {
+            provider: 'openai',
+            model: 'gpt-3.5-turbo',
+            systemMessage: 'You are a helpful assistant for general questions.'
+        }
     }
 });
 
@@ -61,9 +64,12 @@ const chat1 = await session.createNewChat({
 const chat2 = await session.createNewChat({
     chatName: 'Code Review',
     robotaConfig: {
-        aiProviders: { 'openai': openaiProvider },
-        currentModel: 'gpt-4',
-        systemPrompt: 'You are a senior developer helping with code reviews.'
+        aiProviders: [openaiProvider],
+        defaultModel: {
+            provider: 'openai',
+            model: 'gpt-4',
+            systemMessage: 'You are a senior developer helping with code reviews.'
+        }
     }
 });
 ```
@@ -167,9 +173,12 @@ async function createCompleteSessionExample() {
     const chat = await session.createNewChat({
         chatName: 'Main Conversation',
         robotaConfig: {
-            aiProviders: { 'openai': openaiProvider },
-            currentModel: 'gpt-3.5-turbo',
-            systemPrompt: 'You are a helpful AI assistant. Maintain context across our conversation.',
+            aiProviders: [openaiProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-3.5-turbo',
+                systemMessage: 'You are a helpful AI assistant. Maintain context across our conversation.'
+            },
             debug: false
         }
     });
@@ -378,9 +387,12 @@ interface ChatCreateOptions {
 
 const chat = await session.createNewChat({
     chatName: 'Technical Support',
-    robotaConfig: {
-        aiProviders: { 'openai': openaiProvider },
-        currentModel: 'gpt-4',
+            robotaConfig: {
+            aiProviders: [openaiProvider],
+            defaultModel: {
+                provider: 'openai',
+                model: 'gpt-4'
+            },
         toolProviders: [technicalSupportTools],
         debug: true
     },

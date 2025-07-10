@@ -63,11 +63,12 @@ const provider = new AnthropicProvider({
 
 // Create Robota instance with Anthropic provider
 const robota = new Robota({
-  aiProviders: {
-    anthropic: provider
-  },
-  currentModel: 'claude-3-5-sonnet-20241022',
-  systemPrompt: 'You are Claude, a helpful AI assistant created by Anthropic.'
+  aiProviders: [provider],
+  defaultModel: {
+    provider: 'anthropic',
+    model: 'claude-3-5-sonnet-20241022',
+    systemMessage: 'You are Claude, a helpful AI assistant created by Anthropic.'
+  }
 });
 
 // Run a simple conversation
@@ -158,11 +159,12 @@ const provider = new AnthropicProvider({
 });
 
 const robota = new Robota({
-  aiProviders: {
-    anthropic: provider
+  aiProviders: [provider],
+  defaultModel: {
+    provider: 'anthropic',
+    model: 'claude-3-5-sonnet-20241022'
   },
-  currentModel: 'claude-3-5-sonnet-20241022',
-  toolProviders: [toolProvider]
+  tools: [calculatorTool]
 });
 
 const response = await robota.run('Calculate 15 * 27 + 42 and analyze the sentiment of "I love AI technology"');
@@ -177,12 +179,11 @@ import { OpenAIProvider } from '@robota-sdk/openai';
 import { GoogleProvider } from '@robota-sdk/google';
 
 const robota = new Robota({
-  aiProviders: {
-    anthropic: anthropicProvider,
-    openai: openaiProvider,
-    google: googleProvider
-  },
-  currentModel: 'claude-3-5-sonnet-20241022'
+  aiProviders: [anthropicProvider, openaiProvider, googleProvider],
+  defaultModel: {
+    provider: 'anthropic',
+    model: 'claude-3-5-sonnet-20241022'
+  }
 });
 
 // Switch between models

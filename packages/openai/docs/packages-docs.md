@@ -153,11 +153,12 @@ const provider = new OpenAIProvider({
 });
 
 const robota = new Robota({
-  aiProviders: {
-    openai: provider
+  aiProviders: [provider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4'
   },
-  currentModel: 'gpt-4',
-  toolProviders: [toolProvider]
+  tools: [toolProvider]
 });
 
 const response = await robota.run('What\'s the weather like in Seoul and calculate 15 * 7?');
@@ -172,12 +173,11 @@ import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { GoogleProvider } from '@robota-sdk/google';
 
 const robota = new Robota({
-  aiProviders: {
-    openai: openaiProvider,
-    anthropic: anthropicProvider,
-    google: googleProvider
-  },
-  currentModel: 'gpt-4'
+  aiProviders: [openaiProvider, anthropicProvider, googleProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4'
+  }
 });
 
 // Switch between models

@@ -1,0 +1,176 @@
+# Robota SDK Usage Patterns
+
+## Correct Robota Constructor Usage
+
+### ✅ CORRECT - New API Format
+```typescript
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
+
+const robota = new Robota({
+  name: 'MyAgent',
+  aiProviders: [new OpenAIProvider({ apiKey: 'sk-...' })],  // Array format
+  defaultModel: {                                           // Unified model config
+    provider: 'openai',
+    model: 'gpt-4',
+    temperature: 0.7,
+    systemMessage: 'You are a helpful assistant.'
+  },
+  tools: [weatherTool, calculatorTool],
+  plugins: [new LoggingPlugin()]
+});
+```
+
+### ❌ INCORRECT - Deprecated API Format
+```typescript
+// DO NOT USE - This is the old deprecated format
+const robota = new Robota({
+  name: 'MyAgent',
+  aiProviders: { openai: new OpenAIProvider() },  // Object format - DEPRECATED
+  currentProvider: 'openai',                      // Separate option - DEPRECATED
+  currentModel: 'gpt-4',                         // Separate option - DEPRECATED
+  systemPrompt: 'You are a helpful assistant.'   // Old property name - DEPRECATED
+});
+```
+
+## API Migration Rules
+
+### Provider Configuration
+- **Use `aiProviders: [provider1, provider2]`** (array format)
+- **NOT `aiProviders: { name: provider }`** (object format)
+
+### Model Configuration
+- **Use `defaultModel: { provider: 'openai', model: 'gpt-4' }`** (unified config)
+- **NOT `currentProvider: 'openai'` + `currentModel: 'gpt-4'`** (separate options)
+
+### System Message
+- **Use `defaultModel.systemMessage`** (part of model config)
+- **NOT `systemPrompt`** (deprecated property)
+
+### Tools
+- **Use `tools: [tool1, tool2]`** (direct tool array)
+- **NOT `toolProviders: [provider]`** (deprecated tool providers)
+
+## Multi-Provider Setup
+
+### ✅ CORRECT
+```typescript
+const robota = new Robota({
+  name: 'MultiAgent',
+  aiProviders: [
+    new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
+    new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
+    new GoogleProvider({ apiKey: process.env.GOOGLE_API_KEY })
+  ],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-4'
+  }
+});
+
+// Switch models dynamically
+robota.setModel({ provider: 'anthropic', model: 'claude-3-sonnet' });
+```
+
+### ❌ INCORRECT
+```typescript
+// DO NOT USE - Old object-based provider setup
+const robota = new Robota({
+  aiProviders: {
+    openai: openaiProvider,
+    anthropic: anthropicProvider
+  },
+  currentProvider: 'openai',
+  currentModel: 'gpt-4'
+});
+```
+
+## Tool Integration
+
+### ✅ CORRECT - Direct Tool Array
+```typescript
+import { createZodFunctionTool } from '@robota-sdk/agents';
+
+const weatherTool = createZodFunctionTool(
+  'getWeather',
+  'Get weather information',
+  z.object({ city: z.string() }),
+  async ({ city }) => ({ weather: 'sunny' })
+);
+
+const robota = new Robota({
+  name: 'ToolAgent',
+  aiProviders: [openaiProvider],
+  defaultModel: { provider: 'openai', model: 'gpt-4' },
+  tools: [weatherTool]  // Direct tool array
+});
+```
+
+### ❌ INCORRECT - Deprecated Tool Providers
+```typescript
+// DO NOT USE - Old tool provider pattern
+const toolProvider = createZodFunctionToolProvider({ tools: { weather: weatherTool } });
+
+const robota = new Robota({
+  toolProviders: [toolProvider]  // DEPRECATED
+});
+```
+
+## Documentation Standards
+
+When writing documentation or examples:
+
+1. **Always use the new API format** with `aiProviders` array and `defaultModel` object
+2. **Never use deprecated properties** like `currentProvider`, `currentModel`, `systemPrompt`
+3. **Use direct tool arrays** instead of tool providers
+4. **Include proper imports** from the correct packages
+5. **Show complete, working examples** that can be copy-pasted
+
+## Code Review Checklist
+
+Before submitting code or documentation:
+
+- [ ] Uses `aiProviders: [provider]` array format
+- [ ] Uses `defaultModel: { provider, model }` unified config
+- [ ] Uses `defaultModel.systemMessage` instead of `systemPrompt`
+- [ ] Uses `tools: [tool]` instead of `toolProviders`
+- [ ] Imports from correct packages (`@robota-sdk/agents`, `@robota-sdk/openai`, etc.)
+- [ ] No deprecated API usage patterns
+- [ ] Complete, testable examples
+
+## Common Mistakes to Avoid
+
+1. **Mixing old and new API patterns** - Be consistent with the new format
+2. **Using object-style aiProviders** - Always use array format
+3. **Forgetting to update imports** - Use package-specific imports
+4. **Using deprecated property names** - Follow the new naming conventions
+5. **Incomplete examples** - Provide full, working code snippets
+
+## Provider-Specific Notes
+
+### OpenAI Provider
+```typescript
+import { OpenAIProvider } from '@robota-sdk/openai';
+// Provider name is automatically 'openai'
+```
+
+### Anthropic Provider
+```typescript
+import { AnthropicProvider } from '@robota-sdk/anthropic';
+// Provider name is automatically 'anthropic'
+```
+
+### Google Provider
+```typescript
+import { GoogleProvider } from '@robota-sdk/google';
+// Provider name is automatically 'google'
+```
+
+## Error Prevention
+
+Common configuration errors and how to avoid them:
+
+1. **Provider not found errors** - Ensure provider names match in `defaultModel.provider`
+2. **Duplicate provider names** - Each provider in the array must have a unique name
+3. **Missing required fields** - Always include `name`, `aiProviders`, and `defaultModel`
+ 4. **Type mismatches** - Use proper TypeScript types for all configuration options
