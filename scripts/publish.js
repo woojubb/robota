@@ -145,28 +145,32 @@ MIT
 }
 
 /**
- * Clean up temporary README files
+ * Clean up temporary README files - DISABLED to preserve README.md files
  */
 function cleanupReadmeFiles() {
-    console.log(`\n${colors.magenta}🧹 Cleaning up temporary README files${colors.reset}`);
+    console.log(`\n${colors.magenta}🧹 Cleaning up temporary README files - DISABLED${colors.reset}`);
 
     packages.forEach(pkg => {
         const readmePath = path.join(packagesPath, pkg, 'README.md');
 
-        try {
-            if (fs.existsSync(readmePath)) {
-                // Check if this was a generated README by looking for our marker
-                const content = fs.readFileSync(readmePath, 'utf8');
-                if (content.includes('For complete documentation, visit [https://robota.io/](https://robota.io/)')) {
-                    fs.unlinkSync(readmePath);
-                    console.log(`✅ Removed generated README: ${readmePath}`);
-                } else {
-                    console.log(`ℹ️  Kept existing README: ${readmePath}`);
-                }
-            }
-        } catch (error) {
-            console.error(`❌ Error processing ${pkg} README:`, error);
-        }
+        // DISABLED: Do not remove README.md files
+        console.log(`ℹ️  Preserved README.md: ${readmePath}`);
+
+        // Original cleanup code commented out:
+        // try {
+        //     if (fs.existsSync(readmePath)) {
+        //         // Check if this was a generated README by looking for our marker
+        //         const content = fs.readFileSync(readmePath, 'utf8');
+        //         if (content.includes('For complete documentation, visit [https://robota.io/](https://robota.io/)')) {
+        //             fs.unlinkSync(readmePath);
+        //             console.log(`✅ Removed generated README: ${readmePath}`);
+        //         } else {
+        //             console.log(`ℹ️  Kept existing README: ${readmePath}`);
+        //         }
+        //     }
+        // } catch (error) {
+        //     console.error(`❌ Error processing ${pkg} README:`, error);
+        // }
     });
 
     // IMPORTANT: Do NOT delete packages/*/docs/README.md files

@@ -34,18 +34,22 @@ const colors = {
 
 console.log(`\n${colors.magenta}🧹 Cleaning up temporary README files${colors.reset}`);
 
-// Clean up README files
+// Clean up README files - DISABLED to preserve README.md files
 packages.forEach(pkg => {
     const readmePath = path.join(packagesPath, pkg, 'README.md');
 
-    try {
-        if (fs.existsSync(readmePath)) {
-            fs.unlinkSync(readmePath);
-            console.log(`✅ Removed: ${readmePath}`);
-        }
-    } catch (error) {
-        console.error(`❌ Error removing ${pkg} README:`, error);
-    }
+    // DISABLED: Do not remove README.md files
+    console.log(`ℹ️  Preserved README.md: ${readmePath}`);
+
+    // Original deletion code commented out:
+    // try {
+    //     if (fs.existsSync(readmePath)) {
+    //         fs.unlinkSync(readmePath);
+    //         console.log(`✅ Removed: ${readmePath}`);
+    //     }
+    // } catch (error) {
+    //     console.error(`❌ Error removing ${pkg} README:`, error);
+    // }
 });
 
 // Output completion message
