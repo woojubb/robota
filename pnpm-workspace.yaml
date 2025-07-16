@@ -3,5 +3,4 @@ packages:
   - '!packages/core'
   - '!packages/tools'
   - 'apps/*'
-  - '!apps/web'
   - 'src/examples'
