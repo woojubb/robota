@@ -3,18 +3,40 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu } from 'lucide-react'
+import { Menu, LogOut, User } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/ui/logo'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { NAVIGATION } from '@/config/brand'
+import { useAuth } from '@/contexts/auth-context'
 
 export function Header() {
     const pathname = usePathname()
     const [open, setOpen] = React.useState(false)
+    const { user, signOut, loading } = useAuth()
+
+    const getInitials = (name: string | null) => {
+        if (!name) return 'U';
+        return name
+            .split(' ')
+            .map(word => word[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+    }
+
+    const handleSignOut = async () => {
+        try {
+            await signOut();
+        } catch (error) {
+            console.error('Sign out error:', error);
+        }
+    }
 
     const NavItems = () => (
         <>
@@ -51,14 +73,60 @@ export function Header() {
 
                 {/* Right side */}
                 <div className="flex flex-1 items-center justify-end space-x-2">
-                    {/* Desktop CTA Buttons */}
+                    {/* Desktop Auth Buttons */}
                     <div className="hidden md:flex items-center space-x-2">
-                        <Button variant="ghost" size="sm" asChild>
-                            <Link href="/login">Sign In</Link>
-                        </Button>
-                        <Button size="sm" asChild>
-                            <Link href="/signup">Get Started</Link>
-                        </Button>
+                        {user ? (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="h-8 w-8 rounded-full">
+                                        <Avatar className="h-8 w-8">
+                                            <AvatarImage src={user.photoURL || ''} />
+                                            <AvatarFallback>
+                                                {getInitials(user.displayName)}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <div className="flex items-center justify-start gap-2 p-2">
+                                        <div className="flex flex-col space-y-1">
+                                            <p className="text-sm font-medium leading-none">
+                                                {user.displayName || 'Anonymous'}
+                                            </p>
+                                            <p className="text-xs leading-none text-muted-foreground">
+                                                {user.email}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/dashboard">
+                                            <User className="mr-2 h-4 w-4" />
+                                            대시보드
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/playground">
+                                            Playground
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={handleSignOut}>
+                                        <LogOut className="mr-2 h-4 w-4" />
+                                        로그아웃
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        ) : (
+                            <>
+                                <Button variant="ghost" size="sm" asChild>
+                                    <Link href="/auth/login">로그인</Link>
+                                </Button>
+                                <Button size="sm" asChild>
+                                    <Link href="/auth/register">시작하기</Link>
+                                </Button>
+                            </>
+                        )}
                     </div>
 
                     {/* Theme Toggle */}
@@ -92,18 +160,55 @@ export function Header() {
                                     <NavItems />
                                 </nav>
 
-                                {/* Mobile CTA Buttons */}
+                                {/* Mobile Auth Buttons */}
                                 <div className="grid gap-2">
-                                    <Button variant="ghost" asChild>
-                                        <Link href="/login" onClick={() => setOpen(false)}>
-                                            Sign In
-                                        </Link>
-                                    </Button>
-                                    <Button asChild>
-                                        <Link href="/signup" onClick={() => setOpen(false)}>
-                                            Get Started
-                                        </Link>
-                                    </Button>
+                                    {user ? (
+                                        <>
+                                            <div className="flex items-center gap-3 p-2 border rounded-lg">
+                                                <Avatar className="h-10 w-10">
+                                                    <AvatarImage src={user.photoURL || ''} />
+                                                    <AvatarFallback>
+                                                        {getInitials(user.displayName)}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div className="flex flex-col">
+                                                    <p className="text-sm font-medium">
+                                                        {user.displayName || 'Anonymous'}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {user.email}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <Button variant="ghost" asChild>
+                                                <Link href="/dashboard" onClick={() => setOpen(false)}>
+                                                    대시보드
+                                                </Link>
+                                            </Button>
+                                            <Button variant="ghost" asChild>
+                                                <Link href="/playground" onClick={() => setOpen(false)}>
+                                                    Playground
+                                                </Link>
+                                            </Button>
+                                            <Button variant="outline" onClick={() => { handleSignOut(); setOpen(false); }}>
+                                                <LogOut className="mr-2 h-4 w-4" />
+                                                로그아웃
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Button variant="ghost" asChild>
+                                                <Link href="/auth/login" onClick={() => setOpen(false)}>
+                                                    로그인
+                                                </Link>
+                                            </Button>
+                                            <Button asChild>
+                                                <Link href="/auth/register" onClick={() => setOpen(false)}>
+                                                    시작하기
+                                                </Link>
+                                            </Button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </SheetContent>
