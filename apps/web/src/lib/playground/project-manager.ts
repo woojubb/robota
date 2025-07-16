@@ -19,6 +19,9 @@ export interface PlaygroundProject {
     version: string
 }
 
+// Export type alias for compatibility
+export type Project = PlaygroundProject
+
 export interface ProjectMetadata {
     id: string
     name: string
@@ -27,6 +30,13 @@ export interface ProjectMetadata {
     updatedAt: Date
     provider: string
     linesOfCode: number
+}
+
+interface ProjectSettings {
+    provider: 'openai' | 'anthropic' | 'google'
+    model?: string
+    temperature?: string
+    [key: string]: any
 }
 
 const STORAGE_KEY = 'robota-playground-projects'
@@ -75,6 +85,83 @@ export class ProjectManager {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
         } catch (error) {
             console.error('Failed to save projects to storage:', error)
+        }
+    }
+
+    // New method: getAllProjects - returns all projects as an array
+    getAllProjects(): PlaygroundProject[] {
+        return Array.from(this.projects.values())
+            .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+    }
+
+    // New method: createProject - creates a new project with given settings
+    createProject(name: string, description: string = '', settings: ProjectSettings): PlaygroundProject {
+        const now = new Date()
+        const id = this.generateId()
+
+        const project: PlaygroundProject = {
+            id,
+            name,
+            description,
+            code: this.getDefaultCodeForProvider(settings.provider),
+            provider: settings.provider,
+            config: {
+                model: settings.model || this.getDefaultModelForProvider(settings.provider),
+                temperature: settings.temperature || '0.7',
+                ...settings
+            },
+            createdAt: now,
+            updatedAt: now,
+            version: CURRENT_VERSION
+        }
+
+        this.projects.set(id, project)
+        this.saveToStorage()
+
+        return project
+    }
+
+    // New method: importProject - imports a project from JSON data
+    importProject(projectData: any): PlaygroundProject {
+        // Validate required fields
+        if (!projectData.name || !projectData.code) {
+            throw new Error('Invalid project data: missing required fields')
+        }
+
+        // Generate new ID and timestamps for imported project
+        const id = this.generateId()
+        const now = new Date()
+
+        const project: PlaygroundProject = {
+            id,
+            name: `${projectData.name} (Imported)`,
+            description: projectData.description || '',
+            code: projectData.code,
+            provider: projectData.provider || 'openai',
+            config: projectData.config || { model: 'gpt-4', temperature: '0.7' },
+            createdAt: now,
+            updatedAt: now,
+            version: CURRENT_VERSION
+        }
+
+        this.projects.set(id, project)
+        this.saveToStorage()
+
+        return project
+    }
+
+    private getDefaultCodeForProvider(provider: string): string {
+        const templates = this.getBuiltinTemplates()
+        const template = templates.find(t => t.provider === provider) || templates[0]
+        return template.code
+    }
+
+    private getDefaultModelForProvider(provider: string): string {
+        switch (provider) {
+            case 'openai': return 'gpt-4'
+            case 'anthropic': return 'claude-3-opus'
+            case 'google': return 'gemini-pro'
+            default: return 'gpt-4'
         }
     }
 
@@ -143,41 +230,6 @@ export class ProjectManager {
         if (!project) return null
 
         return JSON.stringify(project, null, 2)
-    }
-
-    importProject(jsonData: string): string | null {
-        try {
-            const projectData = JSON.parse(jsonData)
-
-            // Validate required fields
-            if (!projectData.name || !projectData.code || !projectData.provider) {
-                throw new Error('Invalid project data: missing required fields')
-            }
-
-            // Generate new ID and timestamps for imported project
-            const id = this.generateId()
-            const now = new Date()
-
-            const project: PlaygroundProject = {
-                id,
-                name: `${projectData.name} (Imported)`,
-                description: projectData.description,
-                code: projectData.code,
-                provider: projectData.provider,
-                config: projectData.config || { model: 'gpt-4', temperature: '0.7' },
-                createdAt: now,
-                updatedAt: now,
-                version: CURRENT_VERSION
-            }
-
-            this.projects.set(id, project)
-            this.saveToStorage()
-
-            return id
-        } catch (error) {
-            console.error('Failed to import project:', error)
-            return null
-        }
     }
 
     duplicateProject(id: string): string | null {

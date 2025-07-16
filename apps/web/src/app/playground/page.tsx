@@ -1,331 +1,552 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Header } from '@/components/layout/header'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { CodeEditor } from '@/components/playground/code-editor'
-import { ChatInterface } from '@/components/playground/chat-interface'
-import { ExecutionOutput } from '@/components/playground/execution-output'
-import { CodeExecutor, type ExecutionResult } from '@/lib/playground/code-executor'
-import { ProjectManager } from '@/lib/playground/project-manager'
-import {
-    Play,
-    Save,
-    Upload,
-    Download,
-    Settings,
-    Code2,
-    RefreshCw,
-    Terminal
-} from 'lucide-react'
+import React, { useState, useCallback, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Play, Save, Download, Upload, FolderOpen, Sparkles, Keyboard } from 'lucide-react';
 
-// Playground page component
+import { CodeEditor } from '@/components/playground/code-editor';
+import { ChatInterface } from '@/components/playground/chat-interface';
+import { ExecutionOutput } from '@/components/playground/execution-output';
+import { ProjectBrowser } from '@/components/playground/project-browser';
+import { TemplateGallery } from '@/components/playground/template-gallery';
+import { ErrorPanel } from '@/components/playground/error-panel';
+import { ShortcutsHelp } from '@/components/playground/shortcuts-help';
+import { ProjectManager, type Project } from '@/lib/playground/project-manager';
+import { CodeExecutor, type ExecutionResult } from '@/lib/playground/code-executor';
+import { useToast } from '../../hooks/use-toast';
+import { useKeyboardShortcuts, createShortcuts } from '../../hooks/use-keyboard-shortcuts';
+
+type Provider = 'openai' | 'anthropic' | 'google';
+
+interface PlaygroundState {
+    code: string;
+    provider: Provider;
+    model: string;
+    temperature: number;
+}
+
+const models = {
+    openai: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+    anthropic: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
+    google: ['gemini-pro', 'gemini-pro-vision'],
+};
+
 export default function PlaygroundPage() {
-    const [selectedProvider, setSelectedProvider] = useState('openai')
-    const [isRunning, setIsRunning] = useState(false)
-    const [code, setCode] = useState('')
-    const [isAgentReady, setIsAgentReady] = useState(false)
-    const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null)
-    const [codeExecutor] = useState(() => new CodeExecutor())
-    const [projectManager] = useState(() => ProjectManager.getInstance())
-    const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
+    const [activeTab, setActiveTab] = useState<'editor' | 'projects' | 'templates'>('editor');
+    const [currentProject, setCurrentProject] = useState<Project | null>(null);
+    const [state, setState] = useState<PlaygroundState>({
+        code: `import { Agent } from '@robota/agents'
+import { OpenAIProvider } from '@robota/openai'
 
-    const providers = [
-        { id: 'openai', name: 'OpenAI GPT-4', icon: '🤖' },
-        { id: 'anthropic', name: 'Anthropic Claude', icon: '🧠' },
-        { id: 'google', name: 'Google Gemini', icon: '✨' }
-    ]
+const agent = new Agent({
+  provider: new OpenAIProvider({
+    apiKey: process.env.OPENAI_API_KEY,
+    model: 'gpt-4'
+  })
+})
 
+agent.setSystemMessage(\`
+You are a helpful AI assistant. Always be polite and professional.
+\`)
+
+export default agent`,
+        provider: 'openai',
+        model: 'gpt-4',
+        temperature: 0.7
+    });
+
+    const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
+    const [isExecuting, setIsExecuting] = useState(false);
+
+    const { toast } = useToast();
+
+    // Load current project on mount
     useEffect(() => {
-        // Load a default template on first visit
-        if (!code) {
-            const templates = projectManager.getBuiltinTemplates()
-            if (templates.length > 0) {
-                setCode(templates[0].code)
+        const savedProjectId = localStorage.getItem('robota-current-project');
+        if (savedProjectId) {
+            const project = ProjectManager.getInstance().loadProject(savedProjectId);
+            if (project) {
+                setCurrentProject(project);
+                setState(prev => ({
+                    ...prev,
+                    code: project.code,
+                    provider: project.provider as Provider,
+                    model: project.config.model,
+                    temperature: parseFloat(project.config.temperature) || 0.7
+                }));
             }
         }
-    }, [code, projectManager])
+    }, []);
 
-    const handleRun = async () => {
-        if (!code.trim()) return
+    const handleSelectProject = useCallback((project: Project) => {
+        setCurrentProject(project);
+        setState(prev => ({
+            ...prev,
+            code: project.code,
+            provider: project.provider as Provider,
+            model: project.config.model,
+            temperature: parseFloat(project.config.temperature) || 0.7
+        }));
 
-        setIsRunning(true)
-        setIsAgentReady(false)
-        setExecutionResult(null)
+        // Save current project ID
+        localStorage.setItem('robota-current-project', project.id);
 
+        // Switch to editor tab
+        setActiveTab('editor');
+
+        toast({
+            title: "Project Loaded",
+            description: `"${project.name}" has been loaded successfully`
+        });
+    }, [toast]);
+
+    const handleCreateNewProject = useCallback(() => {
+        // Switch to editor tab and reset state
+        setActiveTab('editor');
+        setCurrentProject(null);
+        setState({
+            code: `import { Agent } from '@robota/agents'
+import { OpenAIProvider } from '@robota/openai'
+
+const agent = new Agent({
+  provider: new OpenAIProvider({
+    apiKey: process.env.OPENAI_API_KEY,
+    model: 'gpt-4'
+  })
+})
+
+agent.setSystemMessage(\`
+You are a helpful AI assistant. Always be polite and professional.
+\`)
+
+export default agent`,
+            provider: 'openai',
+            model: 'gpt-4',
+            temperature: 0.7
+        });
+
+        localStorage.removeItem('robota-current-project');
+
+        toast({
+            title: "New Project",
+            description: "Started with a clean slate"
+        });
+    }, [toast]);
+
+    const handleCodeChange = useCallback((newCode: string | undefined) => {
+        const code = newCode || '';
+        setState(prev => ({ ...prev, code }));
+
+        // Auto-save current project if it exists
+        if (currentProject) {
+            ProjectManager.getInstance().updateProject(currentProject.id, {
+                code,
+                config: {
+                    model: state.model,
+                    temperature: state.temperature.toString(),
+                    provider: state.provider
+                }
+            });
+        }
+    }, [currentProject, state.model, state.temperature, state.provider]);
+
+    const handleProviderChange = useCallback((provider: Provider) => {
+        setState(prev => ({
+            ...prev,
+            provider,
+            model: models[provider][0]
+        }));
+    }, []);
+
+    const handleModelChange = useCallback((model: string) => {
+        setState(prev => ({ ...prev, model }));
+    }, []);
+
+    const handleTemperatureChange = useCallback((temperature: number) => {
+        setState(prev => ({ ...prev, temperature }));
+    }, []);
+
+    const handleExecute = useCallback(async () => {
+        setIsExecuting(true);
         try {
-            const result = await codeExecutor.executeCode(code, selectedProvider)
-            setExecutionResult(result)
-            setIsAgentReady(result.agentReady)
+            const executor = new CodeExecutor();
+            const result = await executor.executeCode(state.code, state.provider);
+            setExecutionResult(result);
         } catch (error) {
             setExecutionResult({
                 success: false,
-                error: error instanceof Error ? error.message : 'Unknown error',
-                logs: ['❌ Execution failed'],
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+                logs: [`Error: ${error instanceof Error ? error.message : 'Unknown error'}`],
                 duration: 0,
                 agentReady: false
-            })
+            });
         } finally {
-            setIsRunning(false)
+            setIsExecuting(false);
         }
-    }
+    }, [state]);
 
-    const handleCodeChange = (value: string | undefined) => {
-        setCode(value || '')
-        setIsAgentReady(false) // Reset agent when code changes
-        if (executionResult) {
-            setExecutionResult(null) // Clear previous results
+    const handleSaveProject = useCallback(() => {
+        if (currentProject) {
+            // Update existing project
+            ProjectManager.getInstance().updateProject(currentProject.id, {
+                code: state.code,
+                config: {
+                    model: state.model,
+                    temperature: state.temperature.toString(),
+                    provider: state.provider
+                }
+            });
+
+            toast({
+                title: "Project Saved",
+                description: `"${currentProject.name}" has been updated`
+            });
+        } else {
+            // Save as new project
+            const projectName = `Project ${new Date().toLocaleDateString()}`;
+            const project = ProjectManager.getInstance().createProject(
+                projectName,
+                'Created from playground',
+                {
+                    provider: state.provider,
+                    model: state.model,
+                    temperature: state.temperature.toString()
+                }
+            );
+
+            // Update with current code
+            ProjectManager.getInstance().updateProject(project.id, {
+                code: state.code
+            });
+
+            setCurrentProject(project);
+            localStorage.setItem('robota-current-project', project.id);
+
+            toast({
+                title: "Project Saved",
+                description: `New project "${projectName}" has been created`
+            });
         }
-    }
+    }, [currentProject, state, toast]);
 
-    const handleSendMessage = async (message: string): Promise<string> => {
-        if (!isAgentReady) {
-            throw new Error('Agent not ready. Please run your code first.')
-        }
-
-        try {
-            return await codeExecutor.sendMessage(message)
-        } catch (error) {
-            throw new Error('Failed to send message to agent')
-        }
-    }
-
-    const handleSave = async () => {
-        if (!code.trim()) return
-
-        const projectName = prompt('Enter project name:')
-        if (!projectName) return
-
-        try {
-            const projectId = projectManager.saveProject({
-                name: projectName,
-                description: 'Created in Robota Playground',
-                code,
-                provider: selectedProvider,
-                config: { model: 'gpt-4', temperature: '0.7' }
-            })
-            setCurrentProjectId(projectId)
-            alert('Project saved successfully!')
-        } catch (error) {
-            alert('Failed to save project')
-        }
-    }
-
-    const handleLoad = () => {
-        const projects = projectManager.listProjects()
-        if (projects.length === 0) {
-            alert('No saved projects found')
-            return
-        }
-
-        const projectList = projects
-            .map((p, i) => `${i + 1}. ${p.name} (${p.provider})`)
-            .join('\n')
-
-        const choice = prompt(`Select project to load:\n\n${projectList}\n\nEnter number:`)
-        if (!choice) return
-
-        const index = parseInt(choice) - 1
-        if (index >= 0 && index < projects.length) {
-            const project = projectManager.loadProject(projects[index].id)
-            if (project) {
-                setCode(project.code)
-                setSelectedProvider(project.provider)
-                setCurrentProjectId(project.id)
-                setIsAgentReady(false)
-                setExecutionResult(null)
+    const handleExportProject = useCallback(() => {
+        const projectData = {
+            name: currentProject?.name || 'Playground Export',
+            description: currentProject?.description || 'Exported from playground',
+            code: state.code,
+            provider: state.provider,
+            config: {
+                model: state.model,
+                temperature: state.temperature.toString()
             }
-        }
-    }
+        };
 
-    const handleExport = () => {
-        if (!currentProjectId) {
-            alert('Please save the project first')
-            return
-        }
+        const dataStr = JSON.stringify(projectData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${projectData.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
 
-        const exportData = projectManager.exportProject(currentProjectId)
-        if (exportData) {
-            const blob = new Blob([exportData], { type: 'application/json' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `robota-project-${Date.now()}.json`
-            document.body.appendChild(a)
-            a.click()
-            document.body.removeChild(a)
-            URL.revokeObjectURL(url)
+        toast({
+            title: "Project Exported",
+            description: "Project has been downloaded as JSON"
+        });
+    }, [currentProject, state, toast]);
+
+    const handleSendMessage = useCallback(async (message: string): Promise<string> => {
+        // Simulate AI response based on execution result
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                let assistantResponse = "I understand your message. ";
+
+                if (executionResult?.success && executionResult.agentReady) {
+                    assistantResponse += "Your agent is configured and ready to help! ";
+                    assistantResponse += "I'm running on " + state.provider + " with model " + state.model + ". ";
+                    assistantResponse += "How can I assist you today?";
+                } else if (executionResult?.error) {
+                    assistantResponse += `There's an issue with your code: ${executionResult.error}. `;
+                    assistantResponse += "Please fix the code and run it again.";
+                } else {
+                    assistantResponse += "Please run your code first to initialize the agent.";
+                }
+
+                resolve(assistantResponse);
+            }, 1000);
+        });
+    }, [executionResult, state.provider, state.model]);
+
+    const handleFixSuggestion = useCallback((suggestion: string) => {
+        // For now, just show a toast with the suggestion
+        // In a more advanced implementation, this could automatically apply the fix
+        toast({
+            title: "Fix Suggestion",
+            description: suggestion
+        });
+    }, [toast]);
+
+    const handleSelectTemplate = useCallback((template: any) => {
+        // Update state with template
+        setState(prev => ({
+            ...prev,
+            code: template.code,
+            provider: template.provider as Provider,
+            model: template.config.model,
+            temperature: parseFloat(template.config.temperature) || 0.7
+        }));
+
+        // Clear current project since we're starting from template
+        setCurrentProject(null);
+        localStorage.removeItem('robota-current-project');
+
+        // Switch to editor tab
+        setActiveTab('editor');
+
+        toast({
+            title: "Template Loaded",
+            description: `"${template.name}" template has been applied`
+        });
+    }, [toast]);
+
+    const handleSwitchTab = useCallback((direction: 'next' | 'prev') => {
+        const tabs: Array<'editor' | 'projects' | 'templates'> = ['editor', 'projects', 'templates'];
+        const currentIndex = tabs.indexOf(activeTab);
+
+        if (direction === 'next') {
+            const nextIndex = (currentIndex + 1) % tabs.length;
+            setActiveTab(tabs[nextIndex]);
+        } else {
+            const prevIndex = currentIndex === 0 ? tabs.length - 1 : currentIndex - 1;
+            setActiveTab(tabs[prevIndex]);
         }
-    }
+    }, [activeTab]);
+
+    const handleTabShortcut = useCallback((tabNumber: number) => {
+        const tabs: Array<'editor' | 'projects' | 'templates'> = ['editor', 'projects', 'templates'];
+        if (tabNumber >= 1 && tabNumber <= tabs.length) {
+            setActiveTab(tabs[tabNumber - 1]);
+        }
+    }, []);
+
+    // Setup keyboard shortcuts
+    const shortcuts = [
+        createShortcuts.save(handleSaveProject),
+        createShortcuts.run(handleExecute),
+        createShortcuts.new(handleCreateNewProject),
+        createShortcuts.open(() => setActiveTab('projects')),
+        createShortcuts.export(handleExportProject),
+        createShortcuts.templates(() => setActiveTab('templates')),
+        createShortcuts.quickRun(handleExecute),
+        ...createShortcuts.switchTab(handleSwitchTab),
+        {
+            key: 'F1',
+            handler: () => {
+                // F1 will be handled by the ShortcutsHelp component
+                const helpButton = document.querySelector('[data-shortcuts-help]') as HTMLElement;
+                helpButton?.click();
+            },
+            description: 'Show keyboard shortcuts'
+        },
+        {
+            key: '1',
+            alt: true,
+            handler: () => handleTabShortcut(1),
+            description: 'Switch to Editor tab'
+        },
+        {
+            key: '2',
+            alt: true,
+            handler: () => handleTabShortcut(2),
+            description: 'Switch to Projects tab'
+        },
+        {
+            key: '3',
+            alt: true,
+            handler: () => handleTabShortcut(3),
+            description: 'Switch to Templates tab'
+        }
+    ];
+
+    useKeyboardShortcuts({
+        shortcuts,
+        enabled: true
+    });
 
     return (
-        <div className="min-h-screen flex flex-col bg-background">
-            <Header />
-
-            {/* Playground Header */}
-            <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <div className="container py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                            <div className="flex items-center space-x-2">
-                                <Code2 className="h-6 w-6 text-primary" />
-                                <h1 className="text-2xl font-bold">Playground</h1>
-                                <Badge variant="secondary">Beta</Badge>
-                            </div>
-
-                            {/* Provider Selection */}
-                            <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-                                <SelectTrigger className="w-48">
-                                    <SelectValue placeholder="Select AI Provider" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {providers.map((provider) => (
-                                        <SelectItem key={provider.id} value={provider.id}>
-                                            <div className="flex items-center space-x-2">
-                                                <span>{provider.icon}</span>
-                                                <span>{provider.name}</span>
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex items-center space-x-2">
-                            <Button variant="outline" size="sm" onClick={handleLoad}>
-                                <Upload className="h-4 w-4 mr-2" />
-                                Load
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={handleSave}>
-                                <Save className="h-4 w-4 mr-2" />
-                                Save
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={handleExport}>
-                                <Download className="h-4 w-4 mr-2" />
-                                Export
-                            </Button>
-                            <Button
-                                onClick={handleRun}
-                                disabled={isRunning || !code.trim()}
-                                className="bg-primary hover:bg-primary/90"
-                            >
-                                {isRunning ? (
-                                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                                ) : (
-                                    <Play className="h-4 w-4 mr-2" />
-                                )}
-                                {isRunning ? 'Running...' : 'Run'}
-                            </Button>
-                        </div>
+        <div className="container mx-auto py-8 px-4">
+            <div className="mb-6">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold mb-2">Robota Playground</h1>
+                        <p className="text-muted-foreground">
+                            Build and test your Robota agents in an interactive environment
+                        </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <ShortcutsHelp
+                            trigger={
+                                <Button variant="outline" size="sm" data-shortcuts-help>
+                                    <Keyboard className="w-4 h-4 mr-2" />
+                                    Shortcuts
+                                </Button>
+                            }
+                        />
                     </div>
                 </div>
             </div>
 
-            {/* Main Playground Content */}
-            <div className="flex-1 flex">
-                {/* Left Panel - Code Editor */}
-                <div className="flex-1 border-r">
-                    <Tabs defaultValue="code" className="h-full flex flex-col">
-                        <div className="border-b px-4">
-                            <TabsList className="h-12">
-                                <TabsTrigger value="code" className="flex items-center space-x-2">
-                                    <Code2 className="h-4 w-4" />
-                                    <span>Code Editor</span>
-                                </TabsTrigger>
-                                <TabsTrigger value="output" className="flex items-center space-x-2">
-                                    <Terminal className="h-4 w-4" />
-                                    <span>Output</span>
-                                    {executionResult && (
-                                        <Badge variant={executionResult.success ? "default" : "destructive"} className="ml-2 h-4">
-                                            {executionResult.success ? '✓' : '✗'}
-                                        </Badge>
-                                    )}
-                                </TabsTrigger>
-                                <TabsTrigger value="config" className="flex items-center space-x-2">
-                                    <Settings className="h-4 w-4" />
-                                    <span>Configuration</span>
-                                </TabsTrigger>
-                            </TabsList>
-                        </div>
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'editor' | 'projects' | 'templates')}>
+                <TabsList className="mb-6">
+                    <TabsTrigger value="editor" className="flex items-center space-x-2">
+                        <span>Code Editor</span>
+                        {currentProject && (
+                            <Badge variant="secondary" className="ml-2 text-xs">
+                                {currentProject.name}
+                            </Badge>
+                        )}
+                    </TabsTrigger>
+                    <TabsTrigger value="projects" className="flex items-center space-x-2">
+                        <FolderOpen className="w-4 h-4" />
+                        <span>Projects</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="templates" className="flex items-center space-x-2">
+                        <Sparkles className="w-4 h-4" />
+                        <span>Templates</span>
+                    </TabsTrigger>
+                </TabsList>
 
-                        <TabsContent value="code" className="flex-1 p-0 m-0">
-                            <div className="h-full p-4">
+                <TabsContent value="editor" className="space-y-6">
+                    {/* Settings Panel */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center justify-between">
+                                <span>Agent Configuration</span>
+                                <div className="flex space-x-2">
+                                    <Button variant="outline" size="sm" onClick={handleSaveProject}>
+                                        <Save className="w-4 h-4 mr-2" />
+                                        {currentProject ? 'Save' : 'Save As New'}
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={handleExportProject}>
+                                        <Download className="w-4 h-4 mr-2" />
+                                        Export
+                                    </Button>
+                                    <Button size="sm" onClick={handleExecute} disabled={isExecuting}>
+                                        <Play className="w-4 h-4 mr-2" />
+                                        {isExecuting ? 'Running...' : 'Run Code'}
+                                    </Button>
+                                </div>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <Label htmlFor="provider">AI Provider</Label>
+                                    <Select value={state.provider} onValueChange={handleProviderChange}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="openai">OpenAI</SelectItem>
+                                            <SelectItem value="anthropic">Anthropic</SelectItem>
+                                            <SelectItem value="google">Google</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label htmlFor="model">Model</Label>
+                                    <Select value={state.model} onValueChange={handleModelChange}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {models[state.provider].map((model) => (
+                                                <SelectItem key={model} value={model}>
+                                                    {model}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label htmlFor="temperature">Temperature</Label>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        max="2"
+                                        step="0.1"
+                                        value={state.temperature}
+                                        onChange={(e) => handleTemperatureChange(parseFloat(e.target.value))}
+                                    />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Main Content */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Code Editor */}
+                        <Card className="lg:col-span-1">
+                            <CardHeader>
+                                <CardTitle>Code Editor</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-0">
                                 <CodeEditor
-                                    value={code}
+                                    value={state.code}
                                     onChange={handleCodeChange}
-                                    height="calc(100vh - 200px)"
+                                    language="typescript"
+                                    height="500px"
                                 />
-                            </div>
-                        </TabsContent>
+                            </CardContent>
+                        </Card>
 
-                        <TabsContent value="output" className="flex-1 p-0 m-0">
-                            <div className="h-full p-4">
-                                <ExecutionOutput
-                                    result={executionResult}
-                                    isRunning={isRunning}
-                                />
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="config" className="flex-1 p-4">
+                        {/* Chat & Output */}
+                        <div className="space-y-6">
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>Agent Configuration</CardTitle>
-                                    <CardDescription>
-                                        Configure your agent settings and parameters
-                                    </CardDescription>
+                                    <CardTitle>Chat Interface</CardTitle>
                                 </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="grid gap-4 md:grid-cols-2">
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Model</label>
-                                            <Select defaultValue="gpt-4">
-                                                <SelectTrigger>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="gpt-4">GPT-4</SelectItem>
-                                                    <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                                                    <SelectItem value="claude-3">Claude 3</SelectItem>
-                                                    <SelectItem value="gemini-pro">Gemini Pro</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Temperature</label>
-                                            <Select defaultValue="0.7">
-                                                <SelectTrigger>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="0">0.0 (Deterministic)</SelectItem>
-                                                    <SelectItem value="0.3">0.3 (Focused)</SelectItem>
-                                                    <SelectItem value="0.7">0.7 (Balanced)</SelectItem>
-                                                    <SelectItem value="1.0">1.0 (Creative)</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </div>
+                                <CardContent>
+                                    <ChatInterface
+                                        isAgentReady={Boolean(executionResult?.success && executionResult?.agentReady)}
+                                        onSendMessage={handleSendMessage}
+                                    />
                                 </CardContent>
                             </Card>
-                        </TabsContent>
-                    </Tabs>
-                </div>
 
-                {/* Right Panel - Chat Interface */}
-                <div className="w-96">
-                    <ChatInterface
-                        isAgentReady={isAgentReady}
-                        onSendMessage={handleSendMessage}
+                            {executionResult && (
+                                <ExecutionOutput
+                                    result={executionResult}
+                                    isRunning={isExecuting}
+                                    onFixSuggestion={handleFixSuggestion}
+                                />
+                            )}
+                        </div>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="projects">
+                    <ProjectBrowser
+                        onSelectProject={handleSelectProject}
+                        onCreateNew={handleCreateNewProject}
+                        currentProjectId={currentProject?.id}
                     />
-                </div>
-            </div>
+                </TabsContent>
+
+                <TabsContent value="templates">
+                    <TemplateGallery
+                        onSelectTemplate={handleSelectTemplate}
+                        onClose={() => setActiveTab('editor')}
+                    />
+                </TabsContent>
+            </Tabs>
         </div>
-    )
+    );
 } 
