@@ -40,18 +40,7 @@ export type ContextData = Record<string, UniversalValue>;
 export type LoggerData = Record<string, UniversalValue | Date | Error>;
 
 /**
- * Configuration value type - for all configuration objects
- * 
- * REASON: Configuration needs to support complex objects like BaseTool[], BasePlugin[], and nested configurations
- * ALTERNATIVES_CONSIDERED:
- * 1. Strict primitive types (breaks existing configuration functionality)
- * 2. Union types with all possible objects (becomes unwieldy and incomplete)
- * 3. Generic constraints (too complex for configuration scenarios)
- * 4. Interface definitions (too rigid for varied configuration objects)
- * 5. Type assertions at usage sites (decreases type safety)
- * 6. Separate configuration types (breaks existing functionality)
- * 7. Using 'any' type (violates type safety requirements)
- * TODO: Consider creating specific configuration interfaces if runtime issues occur
+ * Configuration value type - supports complex objects like tools, plugins, and nested configurations
  */
 export type ComplexConfigValue = Record<string, PrimitiveValue | ArrayValue | ObjectValue>;
 export type ConfigValue = PrimitiveValue | ArrayValue | ObjectValue | Array<ComplexConfigValue> | Array<Record<string, PrimitiveValue | ArrayValue | ObjectValue>> | Array<ComplexConfigValue> | ComplexConfigValue;
@@ -87,16 +76,8 @@ export interface PluginContext {
 }
 
 /**
- * Type utility functions for safe type checking
- * 
- * REASON: Type guards need to accept any input for runtime validation. Using specific input type for type-safe validation.
- * ALTERNATIVES_CONSIDERED:
- * 1. Using 'any' type (violates type safety requirements)
- * 2. Multiple overloaded signatures (creates maintenance burden)
- * 3. Generic constraints (too complex for simple type checking)
- * 4. Separate validation functions (unnecessary complexity)
- * 5. Interface-based approach (overkill for simple type guards)
- * TODO: Consider adding more specific type guards if needed
+ * Type utility functions for safe type checking and validation
+ * @internal
  */
 export const TypeUtils = {
     isPrimitive: (value: UniversalValue | Date | Record<string, UniversalValue>): value is PrimitiveValue => {

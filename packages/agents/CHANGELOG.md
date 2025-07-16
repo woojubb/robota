@@ -1,5 +1,11 @@
 # @robota-sdk/agents
 
+## 2.0.5
+
+### Patch Changes
+
+- ## 🎯 TypeScript Declaration File Optimization
+
 ## 2.0.4
 
 ### Patch Changes

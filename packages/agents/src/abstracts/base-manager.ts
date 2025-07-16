@@ -1,6 +1,7 @@
 /**
  * Base abstract class for all managers
  * Provides common manager functionality and lifecycle
+ * @internal
  */
 export abstract class BaseManager {
     protected initialized = false;

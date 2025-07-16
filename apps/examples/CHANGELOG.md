@@ -1,5 +1,17 @@
 # robota-examples
 
+## 1.0.5
+
+### Patch Changes
+
+- ## 🎯 TypeScript Declaration File Optimization
+- Updated dependencies
+  - @robota-sdk/anthropic@2.0.5
+  - @robota-sdk/agents@2.0.5
+  - @robota-sdk/google@2.0.5
+  - @robota-sdk/openai@2.0.5
+  - @robota-sdk/team@2.0.5
+
 ## 1.0.4
 
 ### Patch Changes
