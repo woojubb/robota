@@ -100,8 +100,9 @@ export interface PluginsManagerInterface {
 }
 
 /**
- * Plugins class for managing plugin lifecycle and dependencies
+ * Plugin Manager - manages plugin lifecycle and dependencies
  * Instance-based for isolation
+ * @internal
  */
 export class Plugins extends BaseManager implements PluginsManagerInterface {
     private plugins = new Map<string, BasePlugin>();

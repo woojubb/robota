@@ -27,14 +27,6 @@ export type ToolMetadata = Record<string, string | number | boolean | string[] |
 
 /**
  * Generic tool execution data - supports complex nested structures including ToolResult
- * 
- * REASON: Extended to include ToolResult and Record types for tool adapter compatibility
- * ALTERNATIVES_CONSIDERED:
- * 1. Create separate adapter functions (increases complexity without benefit)
- * 2. Use type assertions at tool registration (decreases type safety)
- * 3. Modify tool return types throughout codebase (massive breaking change)
- * 4. Use intersection types (unnecessary complexity)
- * TODO: Consider creating stricter variants if broad typing causes issues
  */
 export type ToolExecutionData =
     | string
@@ -49,14 +41,6 @@ export type ToolExecutionData =
 
 /**
  * Tool execution result - extended for ToolExecutionData compatibility
- * 
- * REASON: Added index signature for compatibility with Record-based ToolExecutionData types
- * ALTERNATIVES_CONSIDERED:
- * 1. Create separate conversion functions (adds unnecessary complexity)
- * 2. Use union types with type guards (increases runtime overhead)
- * 3. Modify ToolExecutionData to exclude Record types (breaks existing functionality)
- * 4. Use type assertions at every usage site (decreases type safety)
- * TODO: Consider creating a stricter ToolResult variant if index signature causes issues
  */
 export interface ToolResult {
     success: boolean;

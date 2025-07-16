@@ -292,16 +292,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
     }
 
     /**
-     * Before tool execution
-     * 
-     * REASON: Tool data structure varies by provider and tool type, needs flexible handling for event processing
-     * ALTERNATIVES_CONSIDERED:
-     * 1. Strict tool interfaces (breaks provider compatibility)
-     * 2. Union types (insufficient for dynamic tool data)
-     * 3. Generic constraints (too complex for event handling)
-     * 4. Interface definitions (too rigid for varied tool structures)
-     * 5. Type assertions (decreases type safety)
-     * TODO: Consider standardized tool data interface across providers
+     * Before tool execution - emits tool.beforeExecute event
      */
     override async beforeToolExecution(context: BaseExecutionContext, toolData: ToolExecutionContext): Promise<void> {
         const toolCalls = Array.isArray(toolData?.['toolCalls']) ? toolData['toolCalls'] :
@@ -322,16 +313,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
     }
 
     /**
-     * After tool execution
-     * 
-     * REASON: Tool results structure varies by provider and tool type, needs flexible handling for event processing
-     * ALTERNATIVES_CONSIDERED:
-     * 1. Strict result interfaces (breaks provider compatibility)
-     * 2. Union types (insufficient for dynamic result data)
-     * 3. Generic constraints (too complex for event handling)
-     * 4. Interface definitions (too rigid for varied result structures)
-     * 5. Type assertions (decreases type safety)
-     * TODO: Consider standardized tool result interface across providers
+     * After tool execution - emits tool.success or tool.error events
      */
     override async afterToolExecution(context: BaseExecutionContext, toolResults: BaseExecutionResult): Promise<void> {
         // Handle tool results from BaseExecutionResult

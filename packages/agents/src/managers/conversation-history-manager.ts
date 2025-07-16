@@ -159,11 +159,12 @@ export function isToolMessage(message: UniversalMessage): message is ToolMessage
  */
 
 /**
- * Create a user message
+ * Create a user message with proper typing and validation
  * 
- * @param content - Message content
+ * @param content - User message content
  * @param options - Optional message properties
  * @returns Type-safe user message
+ * @internal
  */
 export function createUserMessage(
     content: string,
@@ -187,11 +188,12 @@ export function createUserMessage(
 }
 
 /**
- * Create an assistant message
+ * Create an assistant message with proper typing and validation
  * 
- * @param content - Message content (can be null for tool-only messages)
- * @param options - Optional message properties
+ * @param content - Assistant response content (can be null when making tool calls)
+ * @param options - Optional tool calls and metadata
  * @returns Type-safe assistant message
+ * @internal
  */
 export function createAssistantMessage(
     content: string | null,
@@ -225,11 +227,12 @@ export function createAssistantMessage(
 }
 
 /**
- * Create a system message
+ * Create a system message with proper typing and validation
  * 
- * @param content - Message content
+ * @param content - System instruction content
  * @param options - Optional message properties
  * @returns Type-safe system message
+ * @internal
  */
 export function createSystemMessage(
     content: string,
@@ -253,11 +256,12 @@ export function createSystemMessage(
 }
 
 /**
- * Create a tool message
+ * Create a tool message with proper typing and validation
  * 
- * @param content - Message content
- * @param options - Optional message properties
+ * @param content - Tool execution result summary
+ * @param options - Tool call ID and optional properties
  * @returns Type-safe tool message
+ * @internal
  */
 export function createToolMessage(
     content: string,

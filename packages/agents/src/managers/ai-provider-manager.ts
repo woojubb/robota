@@ -6,9 +6,10 @@ import { Validator } from '../utils/validation';
 import { logger } from '../utils/logger';
 
 /**
- * AI Providers implementation
+ * AI Provider Manager - manages AI provider instances
  * Manages registration, selection, and state of AI providers
  * Instance-based for isolated provider management
+ * @internal
  */
 export class AIProviders extends BaseManager implements AIProviderManagerInterface {
     private providers = new Map<string, AIProvider>();

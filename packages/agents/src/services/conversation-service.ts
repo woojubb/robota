@@ -51,9 +51,10 @@ interface RawStreamingChunk {
 }
 
 /**
- * Service for handling conversation logic
+ * Conversation Service - handles AI provider interactions and response processing
  * Stateless service that manages conversation context, AI provider calls, and response processing
  * All methods are pure functions without instance state
+ * @internal
  */
 export class ConversationService implements ConversationServiceInterface {
 

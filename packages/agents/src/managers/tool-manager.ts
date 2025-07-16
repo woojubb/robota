@@ -8,9 +8,10 @@ import { ToolExecutionError } from '../utils/errors';
 import { logger } from '../utils/logger';
 
 /**
- * Tools implementation
+ * Tool Manager - manages tool registration and execution
  * Manages tool registration and execution using Tool Registry
  * Instance-based for isolated tool management
+ * @internal
  */
 export class Tools extends BaseManager implements ToolManagerInterface {
     private registry: ToolRegistry;

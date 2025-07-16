@@ -10,7 +10,7 @@ export default defineConfig({
         }
     },
     splitting: false,
-    sourcemap: true,
+    sourcemap: false, // Disable sourcemap for smaller bundle size
     clean: true,
     treeshake: true,
     external: [
