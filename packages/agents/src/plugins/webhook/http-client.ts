@@ -3,7 +3,7 @@
  * Handles retries, timeouts, and error scenarios
  */
 
-import { createHmac } from 'crypto';
+import jsSHA from 'jssha';
 import type { WebhookRequest } from './types';
 import { Logger } from '../../utils/logger';
 
@@ -89,12 +89,14 @@ export class WebhookHttpClient {
     }
 
     /**
-     * Generate HMAC signature for webhook security
+     * Generate HMAC signature for webhook security using jsSHA (browser compatible)
      */
     private generateSignature(body: string, secret: string): string {
-        return createHmac('sha256', secret)
-            .update(body)
-            .digest('hex');
+        const shaObj = new jsSHA("SHA-256", "TEXT", {
+            hmacKey: { value: secret, format: "TEXT" }
+        });
+        shaObj.update(body);
+        return shaObj.getHash("HEX").toLowerCase();
     }
 
     /**

@@ -2,6 +2,7 @@ import { BasePlugin, type BaseExecutionContext, type BaseExecutionResult, type E
 import type { ToolExecutionContext } from '../interfaces/tool';
 import { Logger, createLogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
+import type { TimerId } from '../utils';
 
 /**
  * Event types that can be emitted
@@ -170,7 +171,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
     private handlers = new Map<EventType, EventHandler[]>();
     private eventBuffer: EventData[] = [];
     private nextHandlerId = 1;
-    private bufferTimer?: NodeJS.Timeout;
+    private bufferTimer?: TimerId;
 
     constructor(options: EventEmitterPluginOptions = {}) {
         super();

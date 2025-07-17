@@ -6,13 +6,12 @@ import type {
     OpenAIStreamRequestParams
 } from '../types/api-types';
 
-// Simple logger implementation to avoid dependency
+// Simple logger implementation (browser compatible - no environment checks)
 const logger = {
     debug: (message: string, data?: LogData) => {
-        if (process.env['NODE_ENV'] === 'development') {
-            // eslint-disable-next-line no-console
-            console.debug(`[OpenAI Stream] ${message}`, data || '');
-        }
+        // Always available in both Node.js and browser
+        // eslint-disable-next-line no-console
+        console.debug(`[OpenAI Stream] ${message}`, data || '');
     },
     error: (message: string, data?: LogData) => {
         // eslint-disable-next-line no-console

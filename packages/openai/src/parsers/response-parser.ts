@@ -121,13 +121,12 @@ export class OpenAIResponseParser {
     }
 }
 
-// Simple logger implementation to avoid dependency
+// Simple logger implementation (browser compatible - no environment checks)
 const logger = {
     debug: (message: string, data?: LogData) => {
-        if (process.env['NODE_ENV'] === 'development') {
-            // eslint-disable-next-line no-console
-            console.debug(`[OpenAI Parser] ${message}`, data || '');
-        }
+        // Always available in both Node.js and browser
+        // eslint-disable-next-line no-console
+        console.debug(`[OpenAI Parser] ${message}`, data || '');
     },
     error: (message: string, data?: LogData) => {
         // eslint-disable-next-line no-console
