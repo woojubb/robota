@@ -1,5 +1,22 @@
 # @robota-sdk/team
 
+## 2.0.6
+
+### Patch Changes
+
+- Add browser compatibility by removing Node.js dependencies
+
+  - Replace NodeJS.Timeout with cross-platform TimerId type
+  - Remove process.env dependency from logger configuration
+  - Replace Node.js crypto module with jsSHA library for webhook signatures
+  - Update OpenAI stream handlers to work in browser environments
+  - Maintain 100% backward compatibility with existing Node.js applications
+
+  This update enables Robota SDK to run seamlessly in both Node.js and browser environments without breaking changes.
+
+- Updated dependencies
+  - @robota-sdk/agents@2.0.6
+
 ## 2.0.5
 
 ### Patch Changes
