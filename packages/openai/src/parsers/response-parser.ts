@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import type { UniversalMessage } from '@robota-sdk/agents';
+import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
 
 /**
  * OpenAI response parser utility
@@ -8,6 +9,11 @@ import type { UniversalMessage } from '@robota-sdk/agents';
  * Extracts parsing logic from the main provider for better modularity.
  */
 export class OpenAIResponseParser {
+    private readonly logger: SimpleLogger;
+
+    constructor(logger?: SimpleLogger) {
+        this.logger = logger || SilentLogger;
+    }
 
     /**
      * Parse complete OpenAI chat completion response
@@ -15,7 +21,7 @@ export class OpenAIResponseParser {
      * @param response - Raw OpenAI API response
      * @returns Standardized universal message
      */
-    static parseResponse(response: OpenAI.Chat.ChatCompletion): UniversalMessage {
+    parseResponse(response: OpenAI.Chat.ChatCompletion): UniversalMessage {
         try {
             const choice = response.choices?.[0];
             if (!choice) {
@@ -56,7 +62,7 @@ export class OpenAIResponseParser {
             return result;
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'OpenAI response parsing failed';
-            logger.error('Response parsing failed', { error: errorMessage });
+            this.logger.error('Response parsing failed', { error: errorMessage });
             throw new Error(`OpenAI response parsing failed: ${errorMessage}`);
         }
     }
@@ -67,7 +73,7 @@ export class OpenAIResponseParser {
      * @param chunk - Raw streaming chunk from OpenAI API
      * @returns Parsed universal message or null if no content
      */
-    static parseStreamingChunk(chunk: OpenAI.Chat.ChatCompletionChunk): UniversalMessage | null {
+    parseStreamingChunk(chunk: OpenAI.Chat.ChatCompletionChunk): UniversalMessage | null {
         try {
             const choice = chunk.choices?.[0];
             if (!choice) {
@@ -115,28 +121,9 @@ export class OpenAIResponseParser {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'OpenAI chunk parsing failed';
-            logger.error('Chunk parsing failed', { error: errorMessage });
+            this.logger.error('Chunk parsing failed', { error: errorMessage });
             throw new Error(`OpenAI chunk parsing failed: ${errorMessage}`);
         }
     }
 }
 
-// Simple logger implementation (browser compatible - no environment checks)
-const logger = {
-    debug: (message: string, data?: LogData) => {
-        // Always available in both Node.js and browser
-        // eslint-disable-next-line no-console
-        console.debug(`[OpenAI Parser] ${message}`, data || '');
-    },
-    error: (message: string, data?: LogData) => {
-        // eslint-disable-next-line no-console
-        console.error(`[OpenAI Parser] ${message}`, data || '');
-    }
-};
-
-/**
- * Log data interface
- */
-interface LogData {
-    [key: string]: string | number | boolean | object | undefined;
-} 

@@ -1,14 +1,17 @@
 import { LogEntry, LogStorage, LogFormatter } from '../types';
 import { ConsoleLogFormatter } from '../formatters';
+import { SimpleLogger, DefaultConsoleLogger } from '../../../utils/simple-logger';
 
 /**
  * Console log storage
  */
 export class ConsoleLogStorage implements LogStorage {
     private formatter: LogFormatter;
+    private logger: SimpleLogger;
 
-    constructor(formatter?: LogFormatter) {
+    constructor(formatter?: LogFormatter, logger?: SimpleLogger) {
         this.formatter = formatter || new ConsoleLogFormatter();
+        this.logger = logger || DefaultConsoleLogger;
     }
 
     async write(entry: LogEntry): Promise<void> {
@@ -16,16 +19,16 @@ export class ConsoleLogStorage implements LogStorage {
 
         switch (entry.level) {
             case 'debug':
-                console.debug(formatted);
+                this.logger.debug(formatted);
                 break;
             case 'info':
-                console.info(formatted);
+                this.logger.info(formatted);
                 break;
             case 'warn':
-                console.warn(formatted);
+                this.logger.warn(formatted);
                 break;
             case 'error':
-                console.error(formatted);
+                this.logger.error(formatted);
                 break;
         }
     }

@@ -51,19 +51,4 @@ export interface AnthropicProviderOptions extends Omit<ProviderOptions, 'model'>
      * Anthropic client instance (required)
      */
     client: Anthropic;
-
-    /**
-     * Enable payload logging to files for debugging
-     */
-    enablePayloadLogging?: boolean;
-
-    /**
-     * Directory to save payload log files
-     */
-    payloadLogDir?: string;
-
-    /**
-     * Include timestamp in log file names
-     */
-    includeTimestampInLogFiles?: boolean;
 } 

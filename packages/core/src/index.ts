@@ -13,6 +13,7 @@
  * @deprecated Use @robota-sdk/agents instead
  */
 
+// eslint-disable-next-line no-console
 console.warn(
     '⚠️  @robota-sdk/core is deprecated. Please migrate to @robota-sdk/agents for the latest features and improvements.'
 );

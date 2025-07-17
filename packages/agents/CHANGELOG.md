@@ -1,5 +1,20 @@
 # @robota-sdk/agents
 
+## 2.0.7
+
+### Patch Changes
+
+- Browser compatibility improvements
+
+  - feat: Implement SimpleLogger system to replace direct console usage for better browser compatibility
+  - feat: Centralize SimpleLogger in @robota-sdk/agents package and export for other packages
+  - feat: Add support for silent and stderr-only logging modes via SilentLogger and StderrLogger
+  - refactor: Update all packages (@robota-sdk/openai, @robota-sdk/anthropic, etc.) to use centralized SimpleLogger
+  - chore: Add ESLint rules to prevent direct console usage while allowing legitimate cases
+  - fix: Remove unused AIProvider import from examples to clean up warnings
+
+  These changes ensure the SDK works properly in browser environments by removing Node.js-specific console behavior while maintaining full backward compatibility.
+
 ## 2.0.6
 
 ### Patch Changes

@@ -196,9 +196,12 @@ interface OpenAIProviderOptions {
   };
   
   // Debugging & Logging
-  enablePayloadLogging?: boolean;   // Enable API payload logging
-  payloadLogDir?: string;          // Log directory path
-  includeTimestampInLogFiles?: boolean; // Include timestamps in log files
+  payloadLogger?: PayloadLogger;   // Environment-specific payload logger
+  
+  // Interface-based logger implementations:
+  // - FilePayloadLogger: Node.js file-based logging
+  // - ConsolePayloadLogger: Browser console-based logging
+  // - Custom: Implement PayloadLogger interface
 }
 ```
 
@@ -270,19 +273,75 @@ interface OpenAILogData {
 
 ## 🐛 Debugging & Logging
 
-Enable comprehensive logging for debugging:
+### Environment-Specific Payload Logging
 
+The OpenAI Provider supports environment-specific payload logging through interface-based dependency injection:
+
+#### Node.js Environment (File-Based Logging)
 ```typescript
+import { OpenAIProvider } from '@robota-sdk/openai';
+import { FilePayloadLogger } from '@robota-sdk/openai/loggers/file';
+
 const provider = new OpenAIProvider({
   client: openaiClient,
   model: 'gpt-4',
-  enablePayloadLogging: true,
-  payloadLogDir: './logs/openai-api',
-  includeTimestampInLogFiles: true
+  payloadLogger: new FilePayloadLogger({
+    logDir: './logs/openai-api',
+    enabled: true,
+    includeTimestamp: true
+  })
 });
 ```
 
-This creates detailed logs of all API requests and responses in the specified directory.
+#### Browser Environment (Console-Based Logging)
+```typescript
+import { OpenAIProvider } from '@robota-sdk/openai';
+import { ConsolePayloadLogger } from '@robota-sdk/openai/loggers/console';
+
+const provider = new OpenAIProvider({
+  client: openaiClient,
+  model: 'gpt-4',
+  payloadLogger: new ConsolePayloadLogger({
+    enabled: true,
+    includeTimestamp: true
+  })
+});
+```
+
+#### No Logging (Both Environments)
+```typescript
+const provider = new OpenAIProvider({
+  client: openaiClient,
+  model: 'gpt-4'
+  // payloadLogger: undefined (default - no logging)
+});
+```
+
+### Custom Logger Implementation
+
+You can create custom logger implementations by implementing the PayloadLogger interface:
+
+```typescript
+import type { PayloadLogger, OpenAILogData } from '@robota-sdk/openai';
+
+class CustomPayloadLogger implements PayloadLogger {
+  isEnabled(): boolean {
+    return true;
+  }
+
+  async logPayload(payload: OpenAILogData, type: 'chat' | 'stream'): Promise<void> {
+    // Custom logging implementation
+    console.log(`[Custom Logger] ${type}:`, payload);
+  }
+}
+
+const provider = new OpenAIProvider({
+  client: openaiClient,
+  payloadLogger: new CustomPayloadLogger()
+});
+```
+
+This creates detailed logs of all API requests and responses for debugging purposes.
 
 ## 🔒 Security Best Practices
 

@@ -270,19 +270,38 @@ interface OpenAILogData {
 
 ## 🐛 Debugging & Logging
 
-Enable comprehensive logging for debugging:
+Enable environment-specific payload logging:
 
+#### Node.js Environment (File-Based Logging)
 ```typescript
+import { FilePayloadLogger } from '@robota-sdk/openai/loggers/file';
+
 const provider = new OpenAIProvider({
   client: openaiClient,
   model: 'gpt-4',
-  enablePayloadLogging: true,
-  payloadLogDir: './logs/openai-api',
-  includeTimestampInLogFiles: true
+  payloadLogger: new FilePayloadLogger({
+    logDir: './logs/openai-api',
+    enabled: true,
+    includeTimestamp: true
+  })
 });
 ```
 
-This creates detailed logs of all API requests and responses in the specified directory.
+#### Browser Environment (Console-Based Logging)
+```typescript
+import { ConsolePayloadLogger } from '@robota-sdk/openai/loggers/console';
+
+const provider = new OpenAIProvider({
+  client: openaiClient,
+  model: 'gpt-4',
+  payloadLogger: new ConsolePayloadLogger({
+    enabled: true,
+    includeTimestamp: true
+  })
+});
+```
+
+This creates detailed logs of all API requests and responses for debugging purposes.
 
 ## 🔒 Security Best Practices
 

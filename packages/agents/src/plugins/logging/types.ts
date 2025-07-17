@@ -27,6 +27,7 @@ export interface LogEntry {
 }
 
 import type { BasePluginOptions } from '../../abstracts/base-plugin';
+import type { SimpleLogger } from '../../utils/simple-logger';
 
 /**
  * Configuration options for logging plugin
@@ -48,6 +49,8 @@ export interface LoggingPluginOptions extends BasePluginOptions {
     includeStackTrace?: boolean;
     /** Custom log formatter */
     formatter?: LogFormatter;
+    /** Logger instance for internal plugin logging */
+    logger?: SimpleLogger;
     /** Batch size for remote logging */
     batchSize?: number;
     /** Flush interval for batched logging in milliseconds */
