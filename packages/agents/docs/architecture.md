@@ -2,7 +2,21 @@
 
 ## 🏗️ Architecture Overview
 
-The `@robota-sdk/agents` package is built with a comprehensive multi-layered architecture designed for modularity, type safety, and extensibility.
+The `@robota-sdk/agents` package is built with a comprehensive multi-layered architecture designed for modularity, type safety, extensibility, and cross-platform compatibility.
+
+## 🌐 Cross-Platform Design Principles
+
+### Universal Compatibility
+- **Runtime Agnostic**: Works identically in Node.js, browsers, and WebWorkers
+- **Pure JavaScript Core**: No environment-specific dependencies in core logic
+- **Zero Breaking Changes**: Existing Node.js applications work unchanged
+- **Progressive Enhancement**: Environment-specific features are optional optimizations
+
+### Browser Compatibility Implementation
+- **Timer System**: Uses universal `TimerId` type (`ReturnType<typeof setTimeout>`)
+- **Cryptography**: Pure JavaScript implementations (jsSHA for HMAC signatures)
+- **Storage Abstraction**: Memory/IndexedDB for browsers, filesystem for Node.js
+- **Configuration Injection**: No `process.env` dependencies in core library code
 
 ## 📦 Core Architecture Layers
 

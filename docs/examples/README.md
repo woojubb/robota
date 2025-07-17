@@ -31,6 +31,17 @@ Use multiple AI providers and models in a single application.
 - Independent agent instances
 - Provider-specific configurations
 
+### [Browser Usage](browser-usage.md) 🌐
+Use Robota SDK in browsers, WebWorkers, and modern JavaScript frameworks.
+
+**Features Demonstrated:**
+- Cross-platform compatibility (Node.js, browsers, WebWorkers)
+- React and Vue integration examples
+- Secure API key management with proxy servers
+- Memory-based storage strategies
+- Browser-specific configuration and optimization
+- Zero breaking changes for existing Node.js code
+
 ## Advanced Features
 
 ### [Team Collaboration](team-collaboration.md)

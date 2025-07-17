@@ -8,6 +8,12 @@ The `@robota-sdk/agents` package is the unified core of the Robota SDK, providin
 
 ## Key Features
 
+### 🌐 Cross-Platform Compatibility
+- **Universal Runtime**: Works seamlessly in Node.js, browsers, and WebWorkers
+- **Zero Breaking Changes**: Existing Node.js code runs unchanged in browsers
+- **Pure Implementation**: Environment-agnostic core with browser-specific optimizations
+- **Memory Storage**: Browser-compatible alternatives for file-based operations
+
 ### 🤖 Agent System
 - **Robota Class**: Complete AI agent implementation with conversation + tool system + plugin integration
 - **Stateless Service Layer**: ConversationService, ToolExecutionService, ExecutionService for business logic

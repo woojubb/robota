@@ -9,8 +9,51 @@ The Robota SDK is built around a unified agent architecture that combines conver
 1. **Type Safety First**: Complete TypeScript safety with zero `any`/`unknown` types
 2. **Modular Design**: Plugin-based extensible architecture with clear separation of concerns
 3. **Provider Agnostic**: Seamless integration with multiple AI providers (OpenAI, Anthropic, Google)
-4. **Performance Focused**: Built-in analytics, monitoring, and optimization
-5. **Developer Experience**: Intuitive APIs with comprehensive IntelliSense support
+4. **Cross-Platform Compatibility**: Universal support for Node.js, browsers, and WebWorkers
+5. **Performance Focused**: Built-in analytics, monitoring, and optimization
+6. **Developer Experience**: Intuitive APIs with comprehensive IntelliSense support
+
+### Cross-Platform Compatibility
+
+The Robota SDK is designed to work seamlessly across all JavaScript runtime environments with zero breaking changes for existing users.
+
+#### Environment Support Matrix
+| Feature | Node.js | Browser | WebWorker | Notes |
+|---------|---------|---------|-----------|--------|
+| Core AI Conversations | ✅ | ✅ | ✅ | Full compatibility |
+| Tool Execution | ✅ | ✅ | ✅ | Function tools with Zod validation |
+| Streaming Responses | ✅ | ✅ | ✅ | Fetch API based |
+| Plugin System | ✅ | ✅ | ✅ | All plugins compatible |
+| Memory Storage | ✅ | ✅ | ✅ | In-memory data structures |
+| File Storage | ✅ | ❌ | ❌ | Use memory storage in browsers |
+| System Metrics | ✅ | ⚠️ | ⚠️ | Limited browser metrics available |
+| WebHook Signatures | ✅ | ✅ | ✅ | Pure JavaScript crypto implementation |
+
+#### Browser-Specific Implementation
+
+**Pure JavaScript Implementation**: All core functionality uses browser-compatible JavaScript without Node.js-specific APIs:
+
+- **Timer System**: Uses standard `setTimeout`/`clearTimeout` with `TimerId` type for cross-platform compatibility
+- **Cryptography**: WebHook signatures use `jsSHA` library instead of Node.js crypto module
+- **HTTP Requests**: Fetch API for universal HTTP client support
+- **Configuration**: All settings injected through constructors, no `process.env` dependencies
+
+**Recommended Browser Configuration**:
+```typescript
+const robota = new Robota({
+  name: 'BrowserAgent',
+  aiProviders: [openaiProvider],
+  plugins: [
+    new LoggingPlugin({ strategy: 'console' }),    // Console logging
+    new UsagePlugin({ strategy: 'memory' }),       // Memory storage
+    new ConversationHistoryPlugin({ 
+      storage: { strategy: 'memory' }              // Memory storage
+    })
+  ]
+});
+```
+
+**Zero Breaking Changes**: All browser compatibility improvements are internal implementation changes that maintain 100% API compatibility with existing Node.js applications.
 
 ## Core Features
 

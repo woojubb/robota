@@ -31,9 +31,16 @@ A powerful TypeScript library for building AI agents with multi-provider support
 - **Unified Interface**: Same code works with all providers
 - **Cross-Provider Teams**: Mix different AI models in one team
 
+### 🌍 Universal Platform Support
+- **Cross-Platform**: Works in Node.js, browsers, and WebWorkers
+- **Zero Breaking Changes**: Existing code runs everywhere unchanged
+- **Framework Agnostic**: React, Vue, Svelte, or vanilla JavaScript
+- **Security First**: Proxy server patterns for secure browser deployment
+
 ## Features
 
 - **Multi-Provider Support**: OpenAI, Anthropic, Google AI with seamless switching
+- **Cross-Platform Compatibility**: Node.js, browsers, WebWorkers support
 - **Multi-Agent Teams**: Create collaborative AI teams with specialized roles
 - **Built-in Agent Templates**: 6 pre-configured templates for common use cases
 - **Type-Safe Function Calling**: Zod schemas and tool integration
@@ -82,6 +89,27 @@ const result = await team.execute(
     "Develop a marketing strategy for a new AI-powered fitness app"
 );
 console.log(result);
+```
+
+### Browser Usage
+```typescript
+// Works the same way in browsers!
+import { Robota, LoggingPlugin } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
+
+const robota = new Robota({
+    name: 'BrowserAgent',
+    aiProviders: [
+        new OpenAIProvider({
+            apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY // or use proxy
+        })
+    ],
+    plugins: [
+        new LoggingPlugin({ strategy: 'console' }) // browser-friendly
+    ]
+});
+
+const response = await robota.run('Hello from browser!');
 ```
 
 ## Installation
