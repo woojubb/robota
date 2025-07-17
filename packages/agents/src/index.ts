@@ -127,6 +127,19 @@ export { BaseAIProvider } from './abstracts/base-ai-provider';
  */
 export { logger } from './utils/logger';
 
+/**
+ * Simple logger interface and implementations for browser compatibility.
+ * Used across all packages for consistent logging behavior.
+ * 
+ * @public
+ */
+export {
+    SimpleLogger,
+    SilentLogger,
+    DefaultConsoleLogger,
+    StderrLogger
+} from './utils/simple-logger';
+
 // ===== PLUGIN SYSTEM EXPORTS =====
 /**
  * Core plugins providing essential functionality through lifecycle hooks.

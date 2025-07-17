@@ -1,30 +1,14 @@
 import OpenAI from 'openai';
 import type { UniversalMessage } from '@robota-sdk/agents';
-import type { PayloadLogger } from '../payload-logger';
+import type { PayloadLogger } from '../interfaces/payload-logger';
 import type {
     OpenAIChatRequestParams,
     OpenAIStreamRequestParams
 } from '../types/api-types';
+import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
+import { OpenAIResponseParser } from '../parsers/response-parser';
 
-// Simple logger implementation (browser compatible - no environment checks)
-const logger = {
-    debug: (message: string, data?: LogData) => {
-        // Always available in both Node.js and browser
-        // eslint-disable-next-line no-console
-        console.debug(`[OpenAI Stream] ${message}`, data || '');
-    },
-    error: (message: string, data?: LogData) => {
-        // eslint-disable-next-line no-console
-        console.error(`[OpenAI Stream] ${message}`, data || '');
-    }
-};
 
-/**
- * Log data interface
- */
-interface LogData {
-    [key: string]: string | number | boolean | object | undefined;
-}
 
 /**
  * OpenAI streaming response handler
@@ -33,10 +17,17 @@ interface LogData {
  * Extracts streaming logic from the main provider for better modularity.
  */
 export class OpenAIStreamHandler {
+    private readonly logger: SimpleLogger;
+    private readonly parser: OpenAIResponseParser;
+
     constructor(
         private readonly client: OpenAI,
-        private readonly payloadLogger?: PayloadLogger
-    ) { }
+        private readonly payloadLogger?: PayloadLogger,
+        logger?: SimpleLogger
+    ) {
+        this.logger = logger || SilentLogger;
+        this.parser = new OpenAIResponseParser(logger);
+    }
 
     /**
      * Handle streaming response for OpenAI chat completions
@@ -75,14 +66,14 @@ export class OpenAIStreamHandler {
 
             // Process each chunk in the stream
             for await (const chunk of response) {
-                const parsed = this.parseStreamingChunk(chunk);
+                const parsed = this.parser.parseStreamingChunk(chunk);
                 if (parsed) {
                     yield parsed;
                 }
             }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'OpenAI streaming request failed';
-            logger.error('Stream creation failed', { error: errorMessage });
+            this.logger.error('Stream creation failed', { error: errorMessage });
             throw new Error(`OpenAI streaming failed: ${errorMessage}`);
         }
     }
@@ -121,67 +112,10 @@ export class OpenAIStreamHandler {
             yield* this.handleStream(requestParams);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            logger.error('OpenAI generateStreamingResponse error:', { message: errorMessage });
+            this.logger.error('OpenAI generateStreamingResponse error:', { message: errorMessage });
             throw error;
         }
     }
 
-    /**
-     * Parse individual streaming chunk from OpenAI
-     * 
-     * @param chunk - Raw streaming chunk from OpenAI API
-     * @returns Parsed universal message or null if no content
-     */
-    private parseStreamingChunk(chunk: OpenAI.Chat.ChatCompletionChunk): UniversalMessage | null {
-        try {
-            const choice = chunk.choices?.[0];
-            if (!choice) {
-                return null;
-            }
 
-            const delta = choice.delta;
-            const finishReason = choice.finish_reason;
-
-            // Handle tool calls in streaming
-            if (delta.tool_calls && delta.tool_calls.length > 0) {
-                const toolCall = delta.tool_calls[0];
-                if (toolCall && toolCall.function) {
-                    return {
-                        role: 'assistant',
-                        content: '',
-                        timestamp: new Date(),
-                        toolCalls: [{
-                            id: toolCall.id || '',
-                            type: 'function' as const,
-                            function: {
-                                name: toolCall.function?.name || '',
-                                arguments: toolCall.function?.arguments || ''
-                            }
-                        }],
-                        metadata: {
-                            isStreamChunk: true,
-                            isComplete: finishReason === 'stop' || finishReason === 'tool_calls'
-                        }
-                    };
-                }
-            }
-
-            // Handle regular content
-            const content = delta.content || '';
-
-            return {
-                role: 'assistant',
-                content,
-                timestamp: new Date(),
-                metadata: {
-                    isStreamChunk: true,
-                    isComplete: finishReason === 'stop' || finishReason === 'tool_calls'
-                }
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'OpenAI chunk parsing failed';
-            logger.error('Chunk parsing failed', { error: errorMessage });
-            throw new Error(`OpenAI chunk parsing failed: ${errorMessage}`);
-        }
-    }
 } 

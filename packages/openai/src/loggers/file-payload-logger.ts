@@ -1,27 +1,54 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { OpenAILogData } from './types/api-types';
+import type { PayloadLogger } from '../interfaces/payload-logger';
+import type { OpenAILogData } from '../types/api-types';
 
 /**
- * Utility class for logging OpenAI API payloads to files
+ * File-based payload logger for Node.js environments
+ * 
+ * This logger saves API request/response payloads to JSON files on disk.
+ * It's designed specifically for Node.js environments with filesystem access.
+ * 
+ * @example
+ * ```typescript
+ * import { FilePayloadLogger } from '@robota-sdk/openai/loggers/file';
+ * 
+ * const logger = new FilePayloadLogger({
+ *   logDir: './logs/api-payloads',
+ *   enabled: true,
+ *   includeTimestamp: true
+ * });
+ * 
+ * const provider = new OpenAIProvider({
+ *   client: openaiClient,
+ *   payloadLogger: logger
+ * });
+ * ```
  */
-export class PayloadLogger {
+export class FilePayloadLogger implements PayloadLogger {
     private readonly enabled: boolean;
     private readonly logDir: string;
     private readonly includeTimestamp: boolean;
 
-    constructor(
-        enabled: boolean = false,
-        logDir: string = './logs/api-payloads',
-        includeTimestamp: boolean = true
-    ) {
-        this.enabled = enabled;
-        this.logDir = logDir;
-        this.includeTimestamp = includeTimestamp;
+    constructor(options: {
+        logDir: string;
+        enabled?: boolean;
+        includeTimestamp?: boolean;
+    }) {
+        this.enabled = options.enabled ?? true;
+        this.logDir = options.logDir;
+        this.includeTimestamp = options.includeTimestamp ?? true;
 
         if (this.enabled) {
             this.ensureLogDirectoryExists();
         }
+    }
+
+    /**
+     * Check if logging is enabled
+     */
+    isEnabled(): boolean {
+        return this.enabled;
     }
 
     /**
@@ -55,10 +82,12 @@ export class PayloadLogger {
                 'utf8'
             );
 
-            // Payload saved successfully
+            // Payload saved successfully (silent operation)
         } catch (error) {
             // Don't throw errors - just log them and continue
-            // Failed to save payload log file - silently continue
+            // This ensures that API logging failures don't break the main functionality
+            // eslint-disable-next-line no-console
+            console.error('[FilePayloadLogger] Failed to save payload log:', error instanceof Error ? error.message : 'Unknown error');
         }
     }
 
@@ -66,15 +95,13 @@ export class PayloadLogger {
      * Ensure log directory exists
      */
     private ensureLogDirectoryExists(): void {
-        if (!fs.existsSync(this.logDir)) {
-            try {
+        try {
+            if (!fs.existsSync(this.logDir)) {
                 fs.mkdirSync(this.logDir, { recursive: true });
-                // Log directory created successfully
-            } catch (error) {
-                // Don't throw errors - just log them and disable logging
-                // Failed to create log directory - payload logging will be disabled
-                // Note: We don't disable this.enabled here as it's readonly, but errors will be caught in logPayload
             }
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error('[FilePayloadLogger] Failed to create log directory:', error instanceof Error ? error.message : 'Unknown error');
         }
     }
 
@@ -90,12 +117,5 @@ export class PayloadLogger {
         // Remove or mask sensitive data if needed
         // For now, we keep everything as OpenAI payloads don't contain API keys
         return sanitized;
-    }
-
-    /**
-     * Check if logging is enabled
-     */
-    isEnabled(): boolean {
-        return this.enabled;
     }
 } 

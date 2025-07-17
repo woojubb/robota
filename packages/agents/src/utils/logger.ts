@@ -1,4 +1,5 @@
 import type { LoggerData } from '../interfaces/types';
+import { SimpleLogger, DefaultConsoleLogger } from './simple-logger';
 
 /**
  * Reusable type definitions for logger utility
@@ -73,9 +74,11 @@ class LoggerConfig {
 export class ConsoleLogger implements Logger {
     private level: UtilLogLevel | null = null; // null means use global level
     private packageName: string;
+    private simpleLogger: SimpleLogger;
 
-    constructor(packageName: string) {
+    constructor(packageName: string, logger?: SimpleLogger) {
         this.packageName = packageName;
+        this.simpleLogger = logger || DefaultConsoleLogger;
     }
 
     debug(message: string, context?: LoggerContextData): void {
@@ -135,9 +138,9 @@ export class ConsoleLogger implements Logger {
 
         if (context && Object.keys(context).length > 0) {
             const contextStr = JSON.stringify(context, null, 2);
-            console.log(formattedMessage, '\n', contextStr);
+            this.simpleLogger.log(formattedMessage, '\n', contextStr);
         } else {
-            console.log(formattedMessage);
+            this.simpleLogger.log(formattedMessage);
         }
     }
 }
@@ -146,8 +149,8 @@ export class ConsoleLogger implements Logger {
  * Create a logger instance for a package
  * @internal
  */
-export function createLogger(packageName: string): Logger {
-    return new ConsoleLogger(packageName);
+export function createLogger(packageName: string, logger?: SimpleLogger): Logger {
+    return new ConsoleLogger(packageName, logger);
 }
 
 /**

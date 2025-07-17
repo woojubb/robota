@@ -11,6 +11,9 @@ import type {
     ToolSchema,
     AssistantMessage
 } from '@robota-sdk/agents';
+import type { PayloadLogger } from './interfaces/payload-logger';
+import { OpenAIResponseParser } from './parsers/response-parser';
+import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
 
 /**
  * OpenAI provider implementation for Robota
@@ -26,6 +29,9 @@ export class OpenAIProvider extends BaseAIProvider {
 
     private readonly client: OpenAI;
     private readonly options: OpenAIProviderOptions;
+    private readonly payloadLogger: PayloadLogger | undefined;
+    private readonly responseParser: OpenAIResponseParser;
+    private readonly logger: SimpleLogger;
 
     constructor(options: OpenAIProviderOptions) {
         super();
@@ -39,6 +45,18 @@ export class OpenAIProvider extends BaseAIProvider {
         }
 
         this.client = options.client;
+        this.logger = options.logger || SilentLogger;
+        this.responseParser = new OpenAIResponseParser(this.logger);
+
+        // Initialize payload logger with backward compatibility
+        this.payloadLogger = this.initializePayloadLogger(options) ?? undefined;
+    }
+
+    /**
+     * Initialize payload logger
+     */
+    private initializePayloadLogger(options: OpenAIProviderOptions): PayloadLogger | undefined {
+        return options.payloadLogger;
     }
 
     /**
@@ -63,10 +81,23 @@ export class OpenAIProvider extends BaseAIProvider {
                 })
             };
 
+            // Log payload for debugging if logger is available
+            if (this.payloadLogger?.isEnabled()) {
+                const logData = {
+                    model: requestParams.model,
+                    messagesCount: openaiMessages.length,
+                    hasTools: !!requestParams.tools,
+                    temperature: requestParams.temperature ?? undefined,
+                    maxTokens: requestParams.max_tokens ?? undefined,
+                    timestamp: new Date().toISOString()
+                };
+                await this.payloadLogger.logPayload(logData, 'chat');
+            }
+
             const response = await this.client.chat.completions.create(requestParams);
 
             // 3. Convert OpenAI response → UniversalMessage  
-            return this.convertFromOpenAIResponse(response);
+            return this.responseParser.parseResponse(response);
 
         } catch (error) {
             const openaiError = error as OpenAIError;
@@ -98,11 +129,24 @@ export class OpenAIProvider extends BaseAIProvider {
                 })
             };
 
+            // Log payload for debugging if logger is available
+            if (this.payloadLogger?.isEnabled()) {
+                const logData = {
+                    model: requestParams.model,
+                    messagesCount: openaiMessages.length,
+                    hasTools: !!requestParams.tools,
+                    temperature: requestParams.temperature ?? undefined,
+                    maxTokens: requestParams.max_tokens ?? undefined,
+                    timestamp: new Date().toISOString()
+                };
+                await this.payloadLogger.logPayload(logData, 'stream');
+            }
+
             const stream = await this.client.chat.completions.create(requestParams);
 
             // 3. Stream conversion: OpenAI chunks → UniversalMessage
             for await (const chunk of stream) {
-                const universalMessage = this.convertFromOpenAIChunk(chunk);
+                const universalMessage = this.responseParser.parseStreamingChunk(chunk);
                 if (universalMessage) {
                     yield universalMessage;
                 }
@@ -193,84 +237,7 @@ export class OpenAIProvider extends BaseAIProvider {
         }));
     }
 
-    /**
-     * Convert OpenAI response to UniversalMessage
-     * 
-     * IMPORTANT: This preserves content: null for tool calls to prevent infinite loops
-     */
-    private convertFromOpenAIResponse(response: OpenAI.Chat.ChatCompletion): UniversalMessage {
-        const choice = response.choices[0];
-        if (!choice) {
-            throw new Error('No choice in OpenAI response');
-        }
-        const message = choice.message;
 
-        const result: UniversalMessage = {
-            role: 'assistant',
-            content: message.content || '', // Convert null to empty string for type compatibility
-            timestamp: new Date(),
-            ...(message.tool_calls && {
-                toolCalls: message.tool_calls.map(tc => ({
-                    id: tc.id,
-                    type: tc.type as 'function',
-                    function: {
-                        name: tc.function.name,
-                        arguments: tc.function.arguments
-                    }
-                }))
-            })
-        };
-
-        // Add usage metadata if available
-        if (response.usage) {
-            // Flatten usage data for metadata compatibility
-            result.metadata = {
-                promptTokens: response.usage.prompt_tokens,
-                completionTokens: response.usage.completion_tokens,
-                totalTokens: response.usage.total_tokens,
-                model: response.model,
-                finishReason: choice.finish_reason || undefined
-            };
-        }
-
-        return result;
-    }
-
-    /**
-     * Convert OpenAI streaming chunk to UniversalMessage
-     */
-    private convertFromOpenAIChunk(chunk: OpenAI.Chat.ChatCompletionChunk): UniversalMessage | null {
-        const choice = chunk.choices[0];
-        if (!choice) return null;
-
-        const delta = choice.delta;
-
-        const result: UniversalMessage = {
-            role: 'assistant',
-            content: delta.content || '', // Convert null to empty string for type compatibility
-            timestamp: new Date(),
-            ...(delta.tool_calls && {
-                toolCalls: delta.tool_calls.map((tc) => ({
-                    id: tc.id || '',
-                    type: 'function' as const,
-                    function: {
-                        name: tc.function?.name || '',
-                        arguments: tc.function?.arguments || ''
-                    }
-                }))
-            })
-        };
-
-        // Add streaming metadata
-        if (choice.finish_reason) {
-            result.metadata = {
-                finishReason: choice.finish_reason,
-                isStreamChunk: 'true' // Convert boolean to string for metadata compatibility
-            };
-        }
-
-        return result;
-    }
 
     /**
      * Validate messages before sending to API

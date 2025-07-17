@@ -1,9 +1,12 @@
 import OpenAI from 'openai';
 
+import type { PayloadLogger } from './interfaces/payload-logger';
+import type { SimpleLogger } from '@robota-sdk/agents';
+
 /**
  * Valid provider option value types
  */
-export type ProviderOptionValue = string | number | boolean | undefined | null | OpenAI | ProviderOptionValue[] | { [key: string]: ProviderOptionValue };
+export type ProviderOptionValue = string | number | boolean | undefined | null | OpenAI | PayloadLogger | SimpleLogger | ProviderOptionValue[] | { [key: string]: ProviderOptionValue };
 
 /**
  * Base provider options interface
@@ -83,24 +86,35 @@ export interface OpenAIProviderOptions extends Omit<ProviderOptions, 'model'> {
   client: OpenAI;
 
   /**
-   * Enable API payload logging to files
-   * When enabled, saves API request payloads to log files
+   * Payload logger instance for debugging API requests/responses
    * 
-   * @defaultValue false
+   * Use different implementations based on your environment:
+   * - FilePayloadLogger: Node.js file-based logging
+   * - ConsolePayloadLogger: Browser console-based logging
+   * - Custom: Implement PayloadLogger interface
+   * 
+   * @example
+   * ```typescript
+   * // Node.js
+   * import { FilePayloadLogger } from '@robota-sdk/openai/loggers/file';
+   * const provider = new OpenAIProvider({
+   *   client: openaiClient,
+   *   payloadLogger: new FilePayloadLogger({ logDir: './logs/openai' })
+   * });
+   * 
+   * // Browser
+   * import { ConsolePayloadLogger } from '@robota-sdk/openai/loggers/console';
+   * const provider = new OpenAIProvider({
+   *   client: openaiClient,
+   *   payloadLogger: new ConsolePayloadLogger()
+   * });
+   * ```
    */
-  enablePayloadLogging?: boolean;
+  payloadLogger?: PayloadLogger;
 
   /**
-   * Directory path for storing API payload log files
-   * 
-   * @defaultValue './logs/api-payloads'
+   * Logger instance for internal OpenAI provider logging
+   * @defaultValue SilentLogger
    */
-  payloadLogDir?: string;
-
-  /**
-   * Include timestamp in payload log filenames
-   * 
-   * @defaultValue true
-   */
-  includeTimestampInLogFiles?: boolean;
+  logger?: SimpleLogger;
 } 

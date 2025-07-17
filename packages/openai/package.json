@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/openai",
-  "version": "2.0.6",
+  "version": "2.0.7",
   "description": "OpenAI integration for Robota SDK - GPT-4, GPT-3.5, function calling, and tool integration with OpenAI's API",
   "type": "module",
   "main": "dist/index.js",
@@ -11,6 +11,16 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./loggers/file": {
+      "types": "./dist/loggers/file.d.ts",
+      "import": "./dist/loggers/file.js",
+      "require": "./dist/loggers/file.cjs"
+    },
+    "./loggers/console": {
+      "types": "./dist/loggers/console.d.ts",
+      "import": "./dist/loggers/console.js",
+      "require": "./dist/loggers/console.cjs"
     }
   },
   "repository": {

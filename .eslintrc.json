@@ -64,14 +64,6 @@
   "overrides": [
     {
       "files": [
-        "packages/core/src/utils.ts"
-      ],
-      "rules": {
-        "no-console": "off"
-      }
-    },
-    {
-      "files": [
         "apps/examples/**/*",
         "examples/**/*"
       ],
@@ -99,16 +91,6 @@
         "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/ban-types": "off"
         // ==========================================
-      }
-    },
-    {
-      "files": [
-        "**/plugins/logging/**/*",
-        "**/storages/console-storage.ts",
-        "**/utils/logger.ts"
-      ],
-      "rules": {
-        "no-console": "off"
       }
     }
   ],

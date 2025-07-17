@@ -1,5 +1,6 @@
 import { BasePlugin, PluginCategory, PluginPriority } from '../../abstracts/base-plugin';
 import { Logger, createLogger } from '../../utils/logger';
+import { SimpleLogger, SilentLogger } from '../../utils/simple-logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import type { EventType, EventData } from '../event-emitter-plugin';
 
@@ -51,13 +52,15 @@ export class LoggingPlugin extends BasePlugin<LoggingPluginOptions, LoggingPlugi
     version = '1.0.0';
 
     private storage: LogStorage;
-    private pluginOptions: Required<Omit<LoggingPluginOptions, 'formatter'>> & { formatter?: LogFormatter };
+    private pluginOptions: Required<Omit<LoggingPluginOptions, 'formatter' | 'logger'>> & { formatter?: LogFormatter; logger?: SimpleLogger };
     private logger: Logger;
+    private simpleLogger: SimpleLogger;
     private logLevels: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 
     constructor(options: LoggingPluginOptions) {
         super();
         this.logger = createLogger('LoggingPlugin');
+        this.simpleLogger = options.logger || SilentLogger;
 
         // Set plugin classification
         this.category = PluginCategory.LOGGING;
@@ -204,7 +207,7 @@ export class LoggingPlugin extends BasePlugin<LoggingPluginOptions, LoggingPlugi
             }
         } catch (error) {
             // Log the error but don't throw to avoid breaking module event processing
-            console.error(`LoggingPlugin failed to handle module event ${eventType}:`, error);
+            this.simpleLogger.error(`LoggingPlugin failed to handle module event ${eventType}:`, error);
         }
     }
 
@@ -228,7 +231,7 @@ export class LoggingPlugin extends BasePlugin<LoggingPluginOptions, LoggingPlugi
             await this.storage.write(entry);
         } catch (error) {
             // Don't throw errors from logging to avoid infinite loops
-            console.error('Logging failed:', error);
+            this.simpleLogger.error('Logging failed:', error);
         }
     }
 
