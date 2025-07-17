@@ -38,12 +38,54 @@ npm install dotenv              # For environment variables
 
 ### Environment Setup
 
+#### For Node.js Applications
+
 Create a `.env` file in your project root:
 
 ```env
 OPENAI_API_KEY=your_openai_api_key
 ANTHROPIC_API_KEY=your_anthropic_api_key  # Optional
 GOOGLE_AI_API_KEY=your_google_api_key     # Optional
+```
+
+#### For Browser Applications
+
+**Cross-Platform Compatibility**: Robota SDK works seamlessly in browsers, WebWorkers, and Node.js with **zero breaking changes** for existing code.
+
+**Browser-Specific Considerations**:
+- **API Keys**: Use environment variables (Vite: `VITE_`, Next.js: `NEXT_PUBLIC_`) or proxy servers for security
+- **Storage**: Use memory storage instead of file storage
+- **CORS**: Set up proxy endpoints for AI provider APIs
+
+**Browser Environment Variables** (Next.js example):
+```env
+NEXT_PUBLIC_OPENAI_API_KEY=your_openai_api_key
+NEXT_PUBLIC_ANTHROPIC_API_KEY=your_anthropic_api_key
+```
+
+**Recommended Browser Setup**:
+```typescript
+// Browser-optimized configuration
+const agent = new Robota({
+    name: 'BrowserAgent',
+    aiProviders: [
+        new OpenAIProvider({
+            apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY!,
+            // Or use proxy: apiKey: undefined, baseURL: '/api/openai'
+        })
+    ],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo'
+    },
+    plugins: [
+        new LoggingPlugin({ strategy: 'console' }),     // Console logging
+        new UsagePlugin({ strategy: 'memory' }),        // Memory storage
+        new ConversationHistoryPlugin({ 
+            storage: { strategy: 'memory' }             // Memory storage
+        })
+    ]
+});
 ```
 
 ### Your First Agent

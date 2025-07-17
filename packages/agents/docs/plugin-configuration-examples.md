@@ -2,6 +2,70 @@
 
 This document provides practical examples of how to configure each plugin in the `@robota-sdk/agents` package, including how to disable them when needed.
 
+## 🌐 Browser-Specific Configuration
+
+### Recommended Browser Setup
+```typescript
+import { 
+  Robota, 
+  LoggingPlugin, 
+  UsagePlugin, 
+  ConversationHistoryPlugin,
+  EventEmitterPlugin 
+} from '@robota-sdk/agents';
+
+// Browser-optimized configuration
+const agent = new Robota({
+  name: 'BrowserAgent',
+  plugins: [
+    // Use console logging (no file system)
+    new LoggingPlugin({ 
+      strategy: 'console',
+      level: 'info'
+    }),
+    
+    // Use memory storage (no file system)
+    new UsagePlugin({ 
+      strategy: 'memory',
+      aggregationInterval: 60000 // 1 minute
+    }),
+    
+    // Memory-based conversation history
+    new ConversationHistoryPlugin({
+      storage: { 
+        strategy: 'memory',
+        maxSize: 1000 // Limit memory usage
+      },
+      autoSave: true,
+      batchSize: 10
+    }),
+    
+    // Event system works universally
+    new EventEmitterPlugin({
+      enabled: true,
+      events: ['execution.start', 'execution.complete', 'tool.execute']
+    })
+  ]
+});
+```
+
+### What to Avoid in Browsers
+```typescript
+// ❌ Don't use file storage in browsers
+new LoggingPlugin({ strategy: 'file' });        // Will fail
+new UsagePlugin({ strategy: 'file' });          // Will fail
+new ConversationHistoryPlugin({ 
+  storage: { strategy: 'file' }                 // Will fail
+});
+
+// ✅ Use browser-compatible alternatives
+new LoggingPlugin({ strategy: 'console' });     // Works everywhere
+new UsagePlugin({ strategy: 'memory' });        // Works everywhere
+new ConversationHistoryPlugin({ 
+  storage: { strategy: 'memory' }               // Works everywhere
+});
+```
+
 ## Quick Reference
 
 ### Complete Plugin Disable Examples

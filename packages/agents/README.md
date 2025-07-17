@@ -34,7 +34,42 @@ const response = await agent.run('Hello, world!');
 console.log(response);
 ```
 
+### Browser Quick Start
+
+```typescript
+import { Robota, LoggingPlugin, UsagePlugin } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
+
+const openaiProvider = new OpenAIProvider({ 
+  apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY // or proxy endpoint
+});
+
+// Browser-optimized configuration
+const agent = new Robota({
+  name: 'BrowserAgent',
+  aiProviders: [openaiProvider],
+  defaultModel: {
+    provider: 'openai',
+    model: 'gpt-3.5-turbo'
+  },
+  plugins: [
+    new LoggingPlugin({ strategy: 'console' }),    // Console logging
+    new UsagePlugin({ strategy: 'memory' })        // Memory storage
+  ]
+});
+
+const response = await agent.run('Hello from browser!');
+console.log(response);
+```
+
 ## Key Features
+
+### 🌐 Cross-Platform Compatibility
+- **Universal Runtime Support**: Works seamlessly in Node.js, browsers, and WebWorkers
+- **Zero Breaking Changes**: Existing Node.js code runs unchanged in browsers
+- **Pure JavaScript Implementation**: No Node.js-specific dependencies in core functionality
+- **Browser-Optimized Storage**: Memory-based alternatives for file system operations
+- **Secure API Patterns**: Proxy server support for secure browser deployments
 
 ### 🤖 Agent System
 - **Type-Safe Architecture**: Full TypeScript support with generic type parameters
@@ -158,6 +193,7 @@ See [architecture.md](architecture.md) for detailed architecture information.
 ## Examples
 
 - [Basic Usage](../../../docs/examples/basic-usage.md)
+- [Browser Usage](../../../docs/examples/browser-usage.md) 🌐
 - [Tool Integration](../../../docs/examples/tool-integration.md)
 - [Plugin Development](../../../docs/examples/plugin-development.md)
 - [Streaming Responses](../../../docs/examples/streaming.md)
