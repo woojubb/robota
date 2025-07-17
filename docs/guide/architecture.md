@@ -10,8 +10,9 @@ The Robota SDK is built around a unified agent architecture that combines conver
 2. **Modular Design**: Plugin-based extensible architecture with clear separation of concerns
 3. **Provider Agnostic**: Seamless integration with multiple AI providers (OpenAI, Anthropic, Google)
 4. **Cross-Platform Compatibility**: Universal support for Node.js, browsers, and WebWorkers
-5. **Performance Focused**: Built-in analytics, monitoring, and optimization
-6. **Developer Experience**: Intuitive APIs with comprehensive IntelliSense support
+5. **Universal Logging**: Environment-agnostic logging system with constructor injection
+6. **Performance Focused**: Built-in analytics, monitoring, and optimization
+7. **Developer Experience**: Intuitive APIs with comprehensive IntelliSense support
 
 ### Cross-Platform Compatibility
 
@@ -376,3 +377,79 @@ const customTool = createFunctionTool(
 - **Expert Usage Statistics**: Track which templates are used most frequently
 - **Performance Optimization**: Identify bottlenecks in multi-agent workflows
 - **Cost Distribution**: Analyze costs across different AI providers and models
+
+## Universal Logging System
+
+The Robota SDK implements a sophisticated logging system that works consistently across all environments while providing maximum flexibility and performance.
+
+### Design Principles
+
+1. **Environment Agnostic**: Same logging API works in Node.js, browsers, and WebWorkers
+2. **Constructor Injection**: Clean dependency injection without global state
+3. **Console Compatible**: Drop-in replacement for console.* methods
+4. **Zero Configuration**: Silent by default, explicit when needed
+5. **Type Safe**: Full TypeScript support with proper IntelliSense
+
+### SimpleLogger Interface
+
+```typescript
+interface SimpleLogger {
+  debug(...args: any[]): void;
+  info(...args: any[]): void;
+  warn(...args: any[]): void;
+  error(...args: any[]): void;
+  log(...args: any[]): void;
+  group?(label?: string): void;
+  groupEnd?(): void;
+}
+```
+
+### Built-in Implementations
+
+**SilentLogger (Default)**
+- Perfect for production environments
+- Zero performance overhead
+- No unwanted output
+
+**DefaultConsoleLogger**
+- Full console.* compatibility
+- Ideal for development environments
+- Supports grouping and formatting
+
+**StderrLogger**
+- stderr-only output for constrained environments
+- Only error and warn messages
+- Perfect for logging pipelines
+
+### Usage Patterns
+
+**Provider Configuration**
+```typescript
+import { DefaultConsoleLogger } from '@robota-sdk/agents';
+import { ConsolePayloadLogger } from '@robota-sdk/openai/loggers/console';
+
+const provider = new OpenAIProvider({
+  client: openaiClient,
+  payloadLogger: new ConsolePayloadLogger({ 
+    logger: DefaultConsoleLogger 
+  })
+});
+```
+
+**Custom Logger Implementation**
+```typescript
+const customLogger: SimpleLogger = {
+  debug: () => {},
+  info: (msg) => writeToMetrics('info', msg),
+  warn: (msg) => writeToMetrics('warn', msg),
+  error: (msg) => writeToMetrics('error', msg),
+  log: (msg) => writeToMetrics('log', msg)
+};
+```
+
+### Benefits
+
+- **Predictable Behavior**: No environment-specific surprises
+- **Performance**: Silent by default prevents unnecessary work
+- **Debugging**: Explicit logging when you need it
+- **Production Ready**: Safe for production with zero output by default
