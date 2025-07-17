@@ -2,6 +2,7 @@ import { BasePlugin, PluginCategory, PluginPriority } from '../../abstracts/base
 import { Message } from '../../interfaces/agent';
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
+import type { TimerId } from '../../utils';
 import {
     ConversationHistoryPluginOptions,
     ConversationHistoryPluginStats,
@@ -26,7 +27,7 @@ export class ConversationHistoryPlugin extends BasePlugin<ConversationHistoryPlu
     private pluginOptions: Required<ConversationHistoryPluginOptions>;
     private logger: Logger;
     private currentConversationId?: string;
-    private batchSaveTimer?: NodeJS.Timeout;
+    private batchSaveTimer?: TimerId;
     private pendingSaves = new Set<string>();
 
     constructor(options: ConversationHistoryPluginOptions) {

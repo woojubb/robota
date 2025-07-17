@@ -2,6 +2,7 @@ import { LogEntry, LogStorage, LogFormatter } from '../types';
 import { JsonLogFormatter } from '../formatters';
 import { Logger, createLogger } from '../../../utils/logger';
 import { PluginError } from '../../../utils/errors';
+import type { TimerId } from '../../../utils';
 
 /**
  * Remote log storage with batching
@@ -12,7 +13,7 @@ export class RemoteLogStorage implements LogStorage {
     private batchSize: number;
     private flushInterval: number;
     private pendingLogs: LogEntry[] = [];
-    private flushTimer: NodeJS.Timeout | undefined;
+    private flushTimer: TimerId | undefined;
     private logger: Logger;
 
     constructor(url: string, _options: { timeout?: number } = {}) {

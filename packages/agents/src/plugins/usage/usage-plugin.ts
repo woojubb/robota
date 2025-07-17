@@ -2,6 +2,7 @@ import { BasePlugin, PluginCategory, PluginPriority } from '../../abstracts/base
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import type { EventType, EventData } from '../event-emitter-plugin';
+import type { TimerId } from '../../utils';
 import {
     UsageStats,
     AggregatedUsageStats,
@@ -27,7 +28,7 @@ export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats
     private storage: UsageStorage;
     private pluginOptions: Required<Omit<UsagePluginOptions, 'costRates'>> & { costRates?: Record<string, { input: number; output: number }> };
     private logger: Logger;
-    private aggregationTimer?: NodeJS.Timeout;
+    private aggregationTimer?: TimerId;
 
     constructor(options: UsagePluginOptions) {
         super();

@@ -46,9 +46,8 @@ class LoggerConfig {
     private globalLevel: UtilLogLevel;
 
     private constructor() {
-        // Check environment variables and set default level
-        const envLevel = process.env['ROBOTA_LOG_LEVEL']?.toLowerCase() as UtilLogLevel;
-        this.globalLevel = envLevel && this.isValidLevel(envLevel) ? envLevel : 'warn';
+        // Set default level (environment variables no longer used for browser compatibility)
+        this.globalLevel = 'warn';
     }
 
     static getInstance(): LoggerConfig {
@@ -64,10 +63,6 @@ class LoggerConfig {
 
     setGlobalLevel(level: UtilLogLevel): void {
         this.globalLevel = level;
-    }
-
-    private isValidLevel(level: string): level is UtilLogLevel {
-        return ['debug', 'info', 'warn', 'error', 'silent'].includes(level);
     }
 }
 

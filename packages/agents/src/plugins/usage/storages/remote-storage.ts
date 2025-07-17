@@ -1,6 +1,7 @@
 import { UsageStorage, UsageStats, AggregatedUsageStats } from '../types';
 import { Logger, createLogger } from '../../../utils/logger';
 import { StorageError } from '../../../utils/errors';
+import type { TimerId } from '../../../utils';
 
 /**
  * Remote storage implementation for usage statistics with batching
@@ -10,7 +11,7 @@ export class RemoteUsageStorage implements UsageStorage {
     private batchSize: number;
     private flushInterval: number;
     private batch: UsageStats[] = [];
-    private timer: NodeJS.Timeout | null = null;
+    private timer: TimerId | null = null;
     private logger: Logger;
 
     constructor(

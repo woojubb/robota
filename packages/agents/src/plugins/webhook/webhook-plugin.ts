@@ -6,6 +6,7 @@
 import { BasePlugin, PluginCategory, PluginPriority, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext } from '../../abstracts/base-plugin';
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError } from '../../utils/errors';
+import type { TimerId } from '../../utils';
 
 import { WebhookTransformer } from './transformer';
 import { WebhookHttpClient } from './http-client';
@@ -34,7 +35,7 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
     private requestQueue: WebhookRequest[] = [];
     private batchQueue: WebhookPayload[] = [];
     private activeConcurrency = 0;
-    private batchTimer?: NodeJS.Timeout;
+    private batchTimer?: TimerId;
 
     constructor(options: WebhookPluginOptions) {
         super();

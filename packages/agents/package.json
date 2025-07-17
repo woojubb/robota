@@ -70,9 +70,9 @@
     "author": "Robota SDK Team",
     "license": "MIT",
     "dependencies": {
+        "jssha": "^3.3.1",
         "zod": "^3.24.4"
     },
-    "peerDependencies": {},
     "devDependencies": {
         "@types/swagger-schema-official": "^2.0.25",
         "@typescript-eslint/eslint-plugin": "^6.18.0",
