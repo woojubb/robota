@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
@@ -15,7 +15,7 @@ import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function RegisterPage() {
-    const { signUp } = useAuth();
+    const { signUp, user, loading } = useAuth();
     const router = useRouter();
     const [formData, setFormData] = useState({
         displayName: '',
@@ -25,6 +25,14 @@ export default function RegisterPage() {
     });
     const [errors, setErrors] = useState<string>('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Redirect authenticated users
+    useEffect(() => {
+        if (!loading && user) {
+            console.log('User registered and authenticated, redirecting to dashboard');
+            router.replace('/dashboard');
+        }
+    }, [user, loading, router]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -54,13 +62,11 @@ export default function RegisterPage() {
 
         try {
             await signUp(formData.email, formData.password, formData.displayName);
-            // Use replace instead of push to prevent back navigation issues
-            router.replace('/dashboard');
+            // Don't redirect here - let the useEffect handle it after auth state updates
         } catch (error: any) {
             setErrors(error.message);
             setIsSubmitting(false);
         }
-        // Don't set isSubmitting to false on success to prevent UI flicker during redirect
     };
 
     const handleSocialLoginError = (error: string) => {

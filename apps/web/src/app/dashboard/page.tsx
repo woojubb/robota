@@ -45,13 +45,28 @@ function DashboardContent() {
             .slice(0, 2);
     };
 
-    const formatDate = (date: Date | undefined) => {
+    const formatDate = (date: Date | string | undefined) => {
         if (!date) return '정보 없음';
+
+        let dateObj: Date;
+
+        // Handle both Date objects and date strings
+        if (typeof date === 'string') {
+            dateObj = new Date(date);
+        } else {
+            dateObj = date;
+        }
+
+        // Check if the date is valid
+        if (isNaN(dateObj.getTime())) {
+            return '정보 없음';
+        }
+
         return new Intl.DateTimeFormat('ko-KR', {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
-        }).format(date);
+        }).format(dateObj);
     };
 
     return (

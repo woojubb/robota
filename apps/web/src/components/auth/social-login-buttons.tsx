@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -21,7 +20,6 @@ export function SocialLoginButtons({
     disabled = false
 }: SocialLoginButtonsProps) {
     const { signInWithGoogle, signInWithGitHub, loading } = useAuth();
-    const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
 
     // Check if social login is enabled
@@ -39,7 +37,7 @@ export function SocialLoginButtons({
         setIsLoading(true);
         try {
             await signInWithGoogle();
-            router.push(redirectTo);
+            // Don't redirect here - let the parent component handle it after auth state updates
         } catch (error: any) {
             onError?.(error.message);
         } finally {
@@ -53,7 +51,7 @@ export function SocialLoginButtons({
         setIsLoading(true);
         try {
             await signInWithGitHub();
-            router.push(redirectTo);
+            // Don't redirect here - let the parent component handle it after auth state updates
         } catch (error: any) {
             onError?.(error.message);
         } finally {
@@ -93,16 +91,18 @@ export function SocialLoginButtons({
             </div>
 
             {/* Separator */}
-            <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                    <Separator className="w-full" />
+            {(googleEnabled || githubEnabled) && (
+                <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                        <Separator className="w-full" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">
+                            또는
+                        </span>
+                    </div>
                 </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">
-                        또는 이메일로 계속
-                    </span>
-                </div>
-            </div>
+            )}
         </>
     );
 } 

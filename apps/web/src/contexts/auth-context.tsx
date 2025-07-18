@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useRouter, usePathname } from 'next/navigation';
 import { auth } from '@/lib/firebase/config';
 import {
     signIn as authSignIn,
@@ -17,7 +18,8 @@ import { User, UserProfile, AuthContextType } from '@/types/auth';
 import { UserExtended, UserCreditSummary } from '@/types/user-credit';
 import { useToast } from '@/hooks/use-toast';
 import { trackEvents } from '@/lib/analytics/google-analytics';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, setAuthRedirectCallback, setToastCallback } from '@/lib/api-client';
+import { debugStorageInfo, isLocalStorageAvailable } from '@/lib/storage-check';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -31,28 +33,132 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [userExtended, setUserExtended] = useState<UserExtended | null>(null);
     const [creditSummary, setCreditSummary] = useState<UserCreditSummary | null>(null);
     const [loading, setLoading] = useState(true);
+    const [authInitialized, setAuthInitialized] = useState(false);
     const { toast } = useToast();
+    const router = useRouter();
+    const pathname = usePathname();
 
     // Track if we've already loaded data for the current user
     const loadedUserRef = useRef<string | null>(null);
 
+    // Debug storage on mount
+    useEffect(() => {
+        debugStorageInfo();
+
+        // Check if localStorage is available
+        if (!isLocalStorageAvailable()) {
+            toast({
+                title: "Storage Warning",
+                description: "Browser storage is not available. You may be logged out on page refresh.",
+                variant: "destructive",
+            });
+        }
+    }, [toast]);
+
+    // Setup auth redirect callback and toast callback
+    useEffect(() => {
+        const handleAuthRedirect = () => {
+            // Don't redirect if already on auth pages or if auth is not initialized
+            if (pathname?.startsWith('/auth/') || !authInitialized) {
+                return;
+            }
+
+            // Show toast notification
+            toast({
+                title: "Authentication Required",
+                description: "Your session has expired. Please log in again.",
+                variant: "destructive",
+            });
+
+            // Sign out user
+            setUser(null);
+            setUserProfile(null);
+            setUserExtended(null);
+            setCreditSummary(null);
+            loadedUserRef.current = null;
+
+            // Redirect to login with current path as redirect parameter
+            const currentPath = pathname || '/dashboard';
+            const redirectUrl = currentPath !== '/auth/login' && currentPath !== '/'
+                ? `?redirect=${encodeURIComponent(currentPath)}`
+                : '';
+
+            router.push(`/auth/login${redirectUrl}`);
+        };
+
+        const handleToast = (message: { title: string; description: string; variant?: 'default' | 'destructive' }) => {
+            toast(message);
+        };
+
+        setAuthRedirectCallback(handleAuthRedirect);
+        setToastCallback(handleToast);
+
+        // Cleanup
+        return () => {
+            setAuthRedirectCallback(null);
+            setToastCallback(null);
+        };
+    }, [pathname, router, toast, authInitialized]);
+
     // Listen to auth state changes
     useEffect(() => {
+        console.log('Setting up auth state listener');
+
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            console.log('Auth state changed:', {
+                user: firebaseUser ? {
+                    uid: firebaseUser.uid,
+                    email: firebaseUser.email,
+                    displayName: firebaseUser.displayName
+                } : null,
+                authInitialized,
+                loading
+            });
+
             if (firebaseUser) {
                 const user = convertFirebaseUser(firebaseUser);
                 setUser(user);
 
-                // Only load user data if we haven't already loaded it for this user
-                if (loadedUserRef.current !== firebaseUser.uid) {
+                // Only load user data if we haven't already loaded it for this user AND auth is initialized
+                if (loadedUserRef.current !== firebaseUser.uid && authInitialized) {
+                    console.log('Loading user data for new user:', firebaseUser.uid);
                     loadedUserRef.current = firebaseUser.uid;
 
                     try {
+                        // Wait a bit to ensure token is ready
+                        await new Promise(resolve => setTimeout(resolve, 100));
+
+                        // Get fresh token for API call
+                        const token = await firebaseUser.getIdToken(false);
+                        console.log('Got token for API call:', {
+                            tokenLength: token.length,
+                            uid: firebaseUser.uid
+                        });
+
                         // Load user profile only once per session
+                        console.log('Calling profile API...');
                         const profileResponse = await apiClient.user.getProfile();
+                        console.log('Profile API response:', {
+                            success: profileResponse.success,
+                            hasData: !!profileResponse.data,
+                            error: profileResponse.error
+                        });
+
                         if (profileResponse.success && profileResponse.data) {
-                            setUserProfile(profileResponse.data);
-                            setUserExtended(profileResponse.data as any);
+                            // Convert string dates to Date objects
+                            const profileData = { ...profileResponse.data };
+                            if (profileData.createdAt && typeof profileData.createdAt === 'string') {
+                                profileData.createdAt = new Date(profileData.createdAt);
+                            }
+                            if (profileData.updatedAt && typeof profileData.updatedAt === 'string') {
+                                profileData.updatedAt = new Date(profileData.updatedAt);
+                            }
+
+                            setUserProfile(profileData);
+                            setUserExtended(profileData as any);
+                            console.log('User profile loaded successfully');
+                        } else {
+                            console.error('Profile API failed:', profileResponse.error);
                         }
 
                         // Don't load credit summary on initial load - let components request it when needed
@@ -61,19 +167,61 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                         console.error('Error loading user data:', error);
                         // Don't show error toast on initial load failures
                     }
+                } else if (firebaseUser.uid === loadedUserRef.current) {
+                    console.log('User data already loaded for:', firebaseUser.uid);
                 }
             } else {
+                console.log('User signed out, clearing auth state');
                 setUser(null);
                 setUserProfile(null);
                 setUserExtended(null);
                 setCreditSummary(null);
                 loadedUserRef.current = null;
             }
+
+            // Mark auth as initialized after first state change
+            if (!authInitialized) {
+                setAuthInitialized(true);
+            }
             setLoading(false);
         });
 
-        return () => unsubscribe();
-    }, []);
+        return () => {
+            console.log('Cleaning up auth state listener');
+            unsubscribe();
+        };
+    }, [authInitialized]);
+
+    // Check localStorage for debugging (only after auth is initialized)
+    useEffect(() => {
+        if (typeof window !== 'undefined' && authInitialized) {
+            const checkStorage = () => {
+                const firebaseKeys = Object.keys(localStorage).filter(key =>
+                    key.includes('firebase') || key.includes('auth')
+                );
+                console.log('Firebase/Auth localStorage keys:', firebaseKeys);
+
+                // Check for specific Firebase auth keys
+                const authKeys = [
+                    `firebase:authUser:${process.env.NEXT_PUBLIC_FIREBASE_API_KEY}:[DEFAULT]`,
+                    'firebase:host:auth.firebase.com'
+                ];
+
+                authKeys.forEach(key => {
+                    const value = localStorage.getItem(key);
+                    if (value) {
+                        console.log(`Found auth data in localStorage for ${key}:`, !!value);
+                    }
+                });
+            };
+
+            checkStorage();
+
+            // Check storage less frequently and only when needed
+            const interval = setInterval(checkStorage, 10000); // Every 10 seconds instead of 5
+            return () => clearInterval(interval);
+        }
+    }, [authInitialized]);
 
     // Load credit summary on demand
     const loadCreditSummary = async () => {
@@ -272,8 +420,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
             const profileResponse = await apiClient.user.getProfile();
             if (profileResponse.success && profileResponse.data) {
-                setUserProfile(profileResponse.data);
-                setUserExtended(profileResponse.data as any);
+                // Convert string dates to Date objects
+                const profileData = { ...profileResponse.data };
+                if (profileData.createdAt && typeof profileData.createdAt === 'string') {
+                    profileData.createdAt = new Date(profileData.createdAt);
+                }
+                if (profileData.updatedAt && typeof profileData.updatedAt === 'string') {
+                    profileData.updatedAt = new Date(profileData.updatedAt);
+                }
+
+                setUserProfile(profileData);
+                setUserExtended(profileData as any);
             }
 
             const creditsResponse = await apiClient.user.getCredits();
@@ -296,6 +453,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         userExtended,
         creditSummary,
         loading,
+        authInitialized,
         signIn,
         signUp,
         signInWithGoogle,

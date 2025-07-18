@@ -1,6 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from './firebase/config';
 import { ApiResponse } from './api-client';
+
+/**
+ * Decode JWT token without verification (for development/testing)
+ * In production, this should be replaced with Firebase Admin SDK
+ */
+function decodeJWTPayload(token: string): any {
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) {
+            throw new Error('Invalid JWT format');
+        }
+
+        const payload = parts[1];
+        const decoded = Buffer.from(payload, 'base64url').toString('utf-8');
+        return JSON.parse(decoded);
+    } catch (error) {
+        console.error('JWT decode error:', error);
+        return null;
+    }
+}
+
+/**
+ * Basic JWT token validation (for development)
+ * In production, use Firebase Admin SDK for proper verification
+ */
+function validateJWTToken(token: string): { valid: boolean; uid?: string; error?: string } {
+    const payload = decodeJWTPayload(token);
+
+    if (!payload) {
+        return { valid: false, error: 'Invalid token format' };
+    }
+
+    // Check expiration
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.exp && payload.exp < now) {
+        return { valid: false, error: 'Token expired' };
+    }
+
+    // Check if it's a Firebase token
+    if (!payload.iss || !payload.iss.includes('securetoken.google.com')) {
+        return { valid: false, error: 'Invalid token issuer' };
+    }
+
+    // Check if user_id exists
+    if (!payload.user_id && !payload.sub) {
+        return { valid: false, error: 'No user ID in token' };
+    }
+
+    return {
+        valid: true,
+        uid: payload.user_id || payload.sub
+    };
+}
 
 /**
  * Verify Firebase Auth token from request
@@ -13,29 +65,37 @@ export async function verifyAuthToken(request: NextRequest): Promise<{
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split('Bearer ')[1];
 
+    console.log('Token verification started:', {
+        hasAuthHeader: !!authHeader,
+        hasToken: !!token,
+        tokenLength: token?.length,
+        requestUrl: request.url
+    });
+
     if (!token) {
+        console.log('No token provided');
         return { error: 'No authentication token provided', status: 401 };
     }
 
     try {
-        // In a production environment, you would verify the token with Firebase Admin SDK
-        // For now, we'll use a simple client-side verification
-        // This should be replaced with proper server-side verification
+        // Use basic JWT validation for now
+        const validation = validateJWTToken(token);
 
-        // TODO: Implement proper server-side token verification with Firebase Admin SDK
-        // const decodedToken = await adminAuth.verifyIdToken(token);
-        // return { uid: decodedToken.uid };
+        console.log('Token validation result:', {
+            valid: validation.valid,
+            uid: validation.uid ? `${validation.uid.substring(0, 8)}...` : undefined,
+            error: validation.error
+        });
 
-        // Temporary client-side verification (not secure for production)
-        const currentUser = auth.currentUser;
-        if (currentUser) {
-            const userToken = await currentUser.getIdToken();
-            if (userToken === token) {
-                return { uid: currentUser.uid };
-            }
+        if (!validation.valid || !validation.uid) {
+            return {
+                error: validation.error || 'Invalid authentication token',
+                status: 401
+            };
         }
 
-        return { error: 'Invalid authentication token', status: 401 };
+        console.log('Token verification successful for user:', validation.uid);
+        return { uid: validation.uid };
     } catch (error) {
         console.error('Token verification error:', error);
         return { error: 'Token verification failed', status: 401 };
@@ -105,16 +165,22 @@ export function withAuth(
     handler: (request: NextRequest, context: { uid: string }) => Promise<NextResponse>
 ) {
     return async (request: NextRequest): Promise<NextResponse> => {
+        console.log(`withAuth: Processing ${request.method} ${request.url}`);
+
         const { uid, error, status } = await verifyAuthToken(request);
 
         if (error || !uid) {
+            console.log('withAuth: Authentication failed:', { error, status, uid });
             return createErrorResponse(error || 'Unauthorized', status || 401, 'AUTH_ERROR');
         }
 
         try {
-            return await handler(request, { uid });
+            console.log(`withAuth: Authentication successful, calling handler for user: ${uid}`);
+            const response = await handler(request, { uid });
+            console.log(`withAuth: Handler completed successfully for ${request.url}`);
+            return response;
         } catch (error) {
-            console.error('API handler error:', error);
+            console.error('withAuth: API handler error:', error);
             return createErrorResponse(
                 error instanceof Error ? error.message : 'Internal server error',
                 500,
