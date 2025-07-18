@@ -61,12 +61,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
 
         return () => unsubscribe();
-    }, [toast]);
+    }, []);
 
     // Authentication methods
     const signIn = async (email: string, password: string): Promise<void> => {
         try {
-            setLoading(true);
             await authSignIn(email, password);
             trackEvents.signIn('email');
             toast({
@@ -80,14 +79,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 variant: "destructive",
             });
             throw error;
-        } finally {
-            setLoading(false);
         }
     };
 
     const signUp = async (email: string, password: string, displayName: string): Promise<void> => {
         try {
-            setLoading(true);
             await authSignUp(email, password, displayName);
             trackEvents.signUp('email');
             toast({
@@ -101,14 +97,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 variant: "destructive",
             });
             throw error;
-        } finally {
-            setLoading(false);
         }
     };
 
     const signInWithGoogle = async (): Promise<void> => {
         try {
-            setLoading(true);
             await authSignInWithGoogle();
             trackEvents.signIn('google');
             toast({
@@ -122,14 +115,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 variant: "destructive",
             });
             throw error;
-        } finally {
-            setLoading(false);
         }
     };
 
     const signInWithGitHub = async (): Promise<void> => {
         try {
-            setLoading(true);
             await authSignInWithGitHub();
             trackEvents.signIn('github');
             toast({
@@ -143,8 +133,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 variant: "destructive",
             });
             throw error;
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -153,8 +141,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             await authSignOut();
             trackEvents.signOut();
             toast({
-                title: "로그아웃",
-                description: "성공적으로 로그아웃되었습니다.",
+                title: "로그아웃 성공",
+                description: "안녕히 가세요!",
             });
         } catch (error: any) {
             toast({
@@ -170,33 +158,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
             await authResetPassword(email);
             toast({
-                title: "비밀번호 재설정",
-                description: "비밀번호 재설정 이메일이 발송되었습니다.",
+                title: "비밀번호 재설정 이메일 전송",
+                description: "이메일을 확인해주세요.",
             });
         } catch (error: any) {
             toast({
                 title: "비밀번호 재설정 실패",
-                description: error.message,
-                variant: "destructive",
-            });
-            throw error;
-        }
-    };
-
-    const updateProfile = async (updates: Partial<UserProfile>): Promise<void> => {
-        if (!user) throw new Error('User not authenticated');
-
-        try {
-            await updateUserProfile(user.uid, updates);
-            setUserProfile(prev => prev ? { ...prev, ...updates } : null);
-            trackEvents.updateProfile();
-            toast({
-                title: "프로필 업데이트",
-                description: "프로필이 성공적으로 업데이트되었습니다.",
-            });
-        } catch (error: any) {
-            toast({
-                title: "프로필 업데이트 실패",
                 description: error.message,
                 variant: "destructive",
             });
@@ -209,12 +176,52 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             await authChangePassword(currentPassword, newPassword);
             trackEvents.changePassword();
             toast({
-                title: "비밀번호 변경 완료",
+                title: "비밀번호 변경 성공",
                 description: "비밀번호가 성공적으로 변경되었습니다.",
             });
         } catch (error: any) {
             toast({
                 title: "비밀번호 변경 실패",
+                description: error.message,
+                variant: "destructive",
+            });
+            throw error;
+        }
+    };
+
+    const updateProfile = async (data: Partial<UserProfile>): Promise<void> => {
+        if (!user) throw new Error('User not authenticated');
+
+        try {
+            await updateUserProfile(user.uid, data);
+
+            // Reload user profile
+            const updatedProfile = await getUserProfile(user.uid);
+            setUserProfile(updatedProfile);
+
+            trackEvents.updateProfile();
+            toast({
+                title: "프로필 업데이트 성공",
+                description: "프로필이 성공적으로 업데이트되었습니다.",
+            });
+        } catch (error: any) {
+            toast({
+                title: "프로필 업데이트 실패",
+                description: error.message,
+                variant: "destructive",
+            });
+            throw error;
+        }
+    };
+
+    const refreshProfile = async (): Promise<void> => {
+        if (!user) throw new Error('User not authenticated');
+
+        try {
+            await loadUserProfile(user);
+        } catch (error: any) {
+            toast({
+                title: "프로필 새로고침 실패",
                 description: error.message,
                 variant: "destructive",
             });
@@ -232,15 +239,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         signInWithGitHub,
         signOut,
         resetPassword,
-        updateProfile,
         changePassword,
+        updateProfile,
+        refreshProfile,
     };
 
-    return (
-        <AuthContext.Provider value={value}>
-            {children}
-        </AuthContext.Provider>
-    );
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = (): AuthContextType => {

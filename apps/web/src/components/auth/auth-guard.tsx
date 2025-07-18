@@ -30,33 +30,48 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
     const { user, loading } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
-    const [shouldRender, setShouldRender] = useState(false);
+    const [isInitialized, setIsInitialized] = useState(false);
+    const [isRedirecting, setIsRedirecting] = useState(false);
 
     useEffect(() => {
         if (loading) {
-            setShouldRender(false);
             return;
         }
 
-        if (requireAuth && !user) {
+        setIsInitialized(true);
+
+        if (requireAuth && !user && !isRedirecting) {
             // User needs to be authenticated but isn't
+            setIsRedirecting(true);
             const loginUrl = `/auth/login?redirect=${encodeURIComponent(pathname)}`;
             router.replace(redirectTo || loginUrl);
-            setShouldRender(false);
-        } else if (!requireAuth && user) {
+        } else if (!requireAuth && user && !isRedirecting) {
             // User shouldn't be authenticated but is (e.g., on login page)
+            setIsRedirecting(true);
             router.replace(redirectTo || '/dashboard');
-            setShouldRender(false);
-        } else {
-            // Everything is fine, render the children
-            setShouldRender(true);
         }
-    }, [user, loading, requireAuth, redirectTo, pathname, router]);
+    }, [user, loading, requireAuth, redirectTo, pathname, router, isRedirecting]);
 
-    if (loading || !shouldRender) {
-        return fallback;
+    // Show loading state while auth is being checked
+    if (loading || !isInitialized) {
+        return <>{fallback}</>;
     }
 
+    // Show loading while redirecting
+    if (isRedirecting) {
+        return <>{fallback}</>;
+    }
+
+    // Check auth requirements
+    if (requireAuth && !user) {
+        return <>{fallback}</>;
+    }
+
+    if (!requireAuth && user) {
+        return <>{fallback}</>;
+    }
+
+    // Everything is fine, render the children
     return <>{children}</>;
 };
 
