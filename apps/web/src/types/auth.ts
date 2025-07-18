@@ -34,6 +34,7 @@ export interface AuthContextType {
     userExtended: UserExtended | null;
     creditSummary: UserCreditSummary | null;
     loading: boolean;
+    authInitialized: boolean;
     signIn: (email: string, password: string) => Promise<void>;
     signUp: (email: string, password: string, displayName: string) => Promise<void>;
     signInWithGoogle: () => Promise<void>;

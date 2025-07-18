@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
@@ -15,7 +15,7 @@ import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 function LoginPageContent() {
-    const { signIn } = useAuth();
+    const { signIn, user, loading } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
     const [formData, setFormData] = useState({
@@ -26,6 +26,14 @@ function LoginPageContent() {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const redirectTo = searchParams.get('redirect') || '/dashboard';
+
+    // Redirect authenticated users
+    useEffect(() => {
+        if (!loading && user) {
+            console.log('User authenticated, redirecting to:', redirectTo);
+            router.replace(redirectTo);
+        }
+    }, [user, loading, redirectTo, router]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -40,7 +48,7 @@ function LoginPageContent() {
 
         try {
             await signIn(formData.email, formData.password);
-            router.replace(redirectTo);
+            // Don't redirect here - let the useEffect handle it after auth state updates
         } catch (error: any) {
             setErrors(error.message);
             setIsSubmitting(false);

@@ -31,19 +31,84 @@ export class ApiClientError extends Error {
     }
 }
 
+// Auth redirect callback - can be set by AuthContext
+let authRedirectCallback: (() => void) | null = null;
+
+// Toast callback for showing notifications
+let toastCallback: ((message: { title: string; description: string; variant?: 'default' | 'destructive' }) => void) | null = null;
+
+export function setAuthRedirectCallback(callback: (() => void) | null) {
+    authRedirectCallback = callback;
+}
+
+export function setToastCallback(callback: ((message: { title: string; description: string; variant?: 'default' | 'destructive' }) => void) | null) {
+    toastCallback = callback;
+}
+
 /**
  * Get Firebase Auth token for API calls
  */
-async function getAuthToken(): Promise<string | null> {
+async function getAuthToken(forceRefresh = false): Promise<string | null> {
     const user = auth.currentUser;
     if (!user) return null;
 
     try {
-        return await user.getIdToken(true); // Force refresh
+        // Wait a bit for auth to settle if we're forcing refresh
+        if (forceRefresh) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+
+        return await user.getIdToken(forceRefresh);
     } catch (error) {
         console.error('Error getting auth token:', error);
         return null;
     }
+}
+
+/**
+ * Handle authentication errors
+ */
+function handleAuthError(status: number, error: ApiClientError) {
+    if (status === 401 || status === 403) {
+        console.warn('Authentication failed, handling auth error:', error.message);
+
+        // Call auth redirect callback if available
+        if (authRedirectCallback) {
+            authRedirectCallback();
+        } else {
+            // Fallback: redirect to login page
+            if (typeof window !== 'undefined') {
+                const currentPath = window.location.pathname;
+                const redirectUrl = currentPath !== '/auth/login' && currentPath !== '/'
+                    ? `?redirect=${encodeURIComponent(currentPath)}`
+                    : '';
+                window.location.href = `/auth/login${redirectUrl}`;
+            }
+        }
+    }
+    throw error;
+}
+
+/**
+ * Check if we should attempt token refresh
+ */
+function shouldAttemptTokenRefresh(error: ApiClientError, hasTriedTokenRefresh: boolean): boolean {
+    // Don't attempt refresh if we already tried
+    if (hasTriedTokenRefresh) {
+        return false;
+    }
+
+    // Don't attempt refresh if there's no current user
+    if (!auth.currentUser) {
+        return false;
+    }
+
+    // Only attempt refresh for 401/403 errors
+    if (error.status !== 401 && error.status !== 403) {
+        return false;
+    }
+
+    return true;
 }
 
 /**
@@ -62,10 +127,13 @@ async function apiRequest<T = any>(
 ): Promise<ApiResponse<T>> {
     const { retry } = API_CONFIG;
     let lastError: Error | null = null;
+    let hasTriedTokenRefresh = false;
 
     for (let attempt = 0; attempt <= retry.count; attempt++) {
         try {
-            const token = await getAuthToken();
+            // Try to get token (force refresh on auth errors after first attempt)
+            const shouldForceRefresh = hasTriedTokenRefresh || (attempt > 0 && lastError instanceof ApiClientError && (lastError.status === 401 || lastError.status === 403));
+            const token = await getAuthToken(shouldForceRefresh);
 
             const url = `${API_BASE_URL}${endpoint}`;
             const headers: Record<string, string> = {
@@ -98,9 +166,35 @@ async function apiRequest<T = any>(
                         response.status
                     );
 
-                    // Don't retry on 4xx errors (except 401/403 which might be token issues)
-                    if (response.status >= 400 && response.status < 500 &&
-                        response.status !== 401 && response.status !== 403) {
+                    // Handle authentication errors
+                    if (response.status === 401 || response.status === 403) {
+                        // Check if we should attempt token refresh
+                        if (shouldAttemptTokenRefresh(error, hasTriedTokenRefresh)) {
+                            hasTriedTokenRefresh = true;
+                            lastError = error;
+                            console.log('Authentication failed, attempting token refresh...');
+
+                            // Show toast for token refresh attempt
+                            if (toastCallback) {
+                                toastCallback({
+                                    title: "Refreshing session",
+                                    description: "Your session expired. Attempting to refresh...",
+                                    variant: "default"
+                                });
+                            }
+
+                            // Wait a bit before retrying
+                            await sleep(1000);
+                            continue;
+                        } else {
+                            // Token refresh didn't work or can't be attempted, handle auth error
+                            console.log('Token refresh failed or not possible, redirecting to login');
+                            handleAuthError(response.status, error);
+                        }
+                    }
+
+                    // Don't retry on other 4xx errors
+                    if (response.status >= 400 && response.status < 500) {
                         throw error;
                     }
 
@@ -117,6 +211,7 @@ async function apiRequest<T = any>(
                     continue;
                 }
 
+                // Success - clear any previous auth error toasts
                 return data;
             } catch (fetchError) {
                 clearTimeout(timeoutId);
@@ -125,13 +220,22 @@ async function apiRequest<T = any>(
                     throw fetchError;
                 }
 
-                lastError = fetchError instanceof Error ? fetchError : new Error('Network error');
+                // Handle network errors
+                if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+                    lastError = new Error('Request timeout');
+                } else {
+                    lastError = fetchError instanceof Error ? fetchError : new Error('Network error');
+                }
 
                 // If this is the last attempt, throw the error
                 if (attempt === retry.count) {
+                    const errorMessage = lastError.message === 'Request timeout'
+                        ? 'Request timed out. Please check your connection and try again.'
+                        : 'Network error. Please check your connection and try again.';
+
                     throw new ApiClientError(
-                        lastError.message,
-                        'NETWORK_ERROR'
+                        errorMessage,
+                        lastError.message === 'Request timeout' ? 'TIMEOUT_ERROR' : 'NETWORK_ERROR'
                     );
                 }
 

@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { GoogleAnalytics } from "@/components/analytics/google-analytics";
 import { SkipToContent } from "@/components/ui/accessibility";
 import { AccessibilityProvider } from "@/providers/accessibility-provider";
+import { AuthDebug } from "@/components/debug/auth-debug";
 import { SITE } from "@/config/brand";
 
 const geistSans = Geist({
@@ -92,6 +93,7 @@ export default function RootLayout({
               </main>
               <GoogleAnalytics />
               <Toaster />
+              <AuthDebug />
             </AuthProvider>
           </AccessibilityProvider>
         </ThemeProvider>
