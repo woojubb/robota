@@ -7,6 +7,9 @@ import {
     signOut as firebaseSignOut,
     sendPasswordResetEmail,
     updateProfile as firebaseUpdateProfile,
+    updatePassword,
+    reauthenticateWithCredential,
+    EmailAuthProvider,
     User as FirebaseUser,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -177,6 +180,34 @@ export const signInWithGitHub = async (): Promise<User> => {
 
         return user;
     } catch (error) {
+        throw handleAuthError(error);
+    }
+};
+
+export const changePassword = async (currentPassword: string, newPassword: string): Promise<void> => {
+    const user = auth.currentUser;
+    if (!user || !user.email) {
+        throw new Error('User not authenticated');
+    }
+
+    try {
+        // Create credential for reauthentication
+        const credential = EmailAuthProvider.credential(user.email, currentPassword);
+
+        // Reauthenticate user
+        await reauthenticateWithCredential(user, credential);
+
+        // Update password
+        await updatePassword(user, newPassword);
+    } catch (error: any) {
+        // Handle specific error cases
+        if (error.code === 'auth/wrong-password') {
+            throw new Error('Current password is incorrect');
+        } else if (error.code === 'auth/weak-password') {
+            throw new Error('New password is too weak. Please choose a stronger password.');
+        } else if (error.code === 'auth/requires-recent-login') {
+            throw new Error('For security reasons, please log out and log back in before changing your password.');
+        }
         throw handleAuthError(error);
     }
 };

@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, LogOut, User } from 'lucide-react'
+import { Menu, LogOut, User, Settings } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/ui/logo'
@@ -108,6 +108,19 @@ export function Header() {
                                     <DropdownMenuItem asChild>
                                         <Link href="/playground">
                                             Playground
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/profile">
+                                            <User className="mr-2 h-4 w-4" />
+                                            프로필
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/settings">
+                                            <Settings className="mr-2 h-4 w-4" />
+                                            설정
                                         </Link>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />

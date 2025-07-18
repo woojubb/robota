@@ -10,12 +10,14 @@ import {
     signInWithGitHub as authSignInWithGitHub,
     signOut as authSignOut,
     resetPassword as authResetPassword,
+    changePassword as authChangePassword,
     convertFirebaseUser,
     getUserProfile,
     updateUserProfile,
 } from '@/lib/firebase/auth-service';
 import { User, UserProfile, AuthContextType } from '@/types/auth';
 import { useToast } from '@/hooks/use-toast';
+import { trackEvents } from '@/lib/analytics/google-analytics';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -66,6 +68,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
             setLoading(true);
             await authSignIn(email, password);
+            trackEvents.signIn('email');
             toast({
                 title: "로그인 성공",
                 description: "환영합니다!",
@@ -86,6 +89,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
             setLoading(true);
             await authSignUp(email, password, displayName);
+            trackEvents.signUp('email');
             toast({
                 title: "회원가입 성공",
                 description: "계정이 성공적으로 생성되었습니다.",
@@ -106,6 +110,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
             setLoading(true);
             await authSignInWithGoogle();
+            trackEvents.signIn('google');
             toast({
                 title: "Google 로그인 성공",
                 description: "환영합니다!",
@@ -126,6 +131,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
             setLoading(true);
             await authSignInWithGitHub();
+            trackEvents.signIn('github');
             toast({
                 title: "GitHub 로그인 성공",
                 description: "환영합니다!",
@@ -145,6 +151,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const signOut = async (): Promise<void> => {
         try {
             await authSignOut();
+            trackEvents.signOut();
             toast({
                 title: "로그아웃",
                 description: "성공적으로 로그아웃되었습니다.",
@@ -182,6 +189,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
             await updateUserProfile(user.uid, updates);
             setUserProfile(prev => prev ? { ...prev, ...updates } : null);
+            trackEvents.updateProfile();
             toast({
                 title: "프로필 업데이트",
                 description: "프로필이 성공적으로 업데이트되었습니다.",
@@ -189,6 +197,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } catch (error: any) {
             toast({
                 title: "프로필 업데이트 실패",
+                description: error.message,
+                variant: "destructive",
+            });
+            throw error;
+        }
+    };
+
+    const changePassword = async (currentPassword: string, newPassword: string): Promise<void> => {
+        try {
+            await authChangePassword(currentPassword, newPassword);
+            trackEvents.changePassword();
+            toast({
+                title: "비밀번호 변경 완료",
+                description: "비밀번호가 성공적으로 변경되었습니다.",
+            });
+        } catch (error: any) {
+            toast({
+                title: "비밀번호 변경 실패",
                 description: error.message,
                 variant: "destructive",
             });
@@ -207,6 +233,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         signOut,
         resetPassword,
         updateProfile,
+        changePassword,
     };
 
     return (

@@ -17,7 +17,7 @@
 3. "Firebase Hosting 설정" 체크박스는 나중에 설정할 수 있으므로 건너뛸 수 있습니다.
 4. "앱 등록"을 클릭합니다.
 
-## 3. Firebase 구성 정보 복사
+## 3. Firebase 구성 정보 복사 및 환경 변수 설정
 
 Firebase SDK 구성 정보가 표시됩니다. 다음과 같은 형태입니다:
 
@@ -31,6 +31,39 @@ const firebaseConfig = {
   appId: "1:123456789:web:abcdefghijk"
 };
 ```
+
+### 환경 변수 파일 설정
+
+1. `apps/web` 디렉터리에서 `.env.local` 파일을 생성하거나 수정합니다:
+
+```bash
+# 예제 파일을 복사하여 시작
+cp .env.example .env.local
+```
+
+2. `.env.local` 파일을 열고 Firebase 구성 정보를 입력합니다:
+
+```env
+# Firebase Configuration
+NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project-id.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
+NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdefghijk
+
+# Google Analytics (선택사항)
+NEXT_PUBLIC_GA_TRACKING_ID=G-XXXXXXXXXX
+
+# App Configuration
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_NAME=Robota SDK
+```
+
+⚠️ **주의사항**: 
+- `.env.local` 파일은 gitignore에 포함되어 있어 Git에 커밋되지 않습니다
+- 실제 API 키와 비밀 정보를 입력하세요
+- 프로덕션 환경에서는 별도의 환경 변수 설정이 필요합니다
 
 ## 4. Authentication 설정
 

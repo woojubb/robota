@@ -37,6 +37,7 @@ export interface AuthContextType {
     signOut: () => Promise<void>;
     resetPassword: (email: string) => Promise<void>;
     updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
+    changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 export interface AuthError {
