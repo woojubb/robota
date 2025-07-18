@@ -31,6 +31,10 @@ function DashboardContent() {
         }
     };
 
+    const getUserDisplayName = () => {
+        return userProfile?.displayName || user?.displayName || 'Anonymous';
+    };
+
     const getInitials = (name: string | null) => {
         if (!name) return 'U';
         return name
@@ -87,12 +91,12 @@ function DashboardContent() {
                             <Avatar>
                                 <AvatarImage src={user?.photoURL || ''} />
                                 <AvatarFallback>
-                                    {getInitials(user?.displayName)}
+                                    {getInitials(getUserDisplayName())}
                                 </AvatarFallback>
                             </Avatar>
 
                             <div className="hidden md:block">
-                                <p className="text-sm font-medium">{user?.displayName || 'Anonymous'}</p>
+                                <p className="text-sm font-medium">{getUserDisplayName()}</p>
                                 <p className="text-xs text-muted-foreground">{user?.email}</p>
                             </div>
 
@@ -115,7 +119,7 @@ function DashboardContent() {
                     {/* Welcome Section */}
                     <div className="space-y-2">
                         <h1 className="text-3xl font-bold tracking-tight">
-                            안녕하세요, {user?.displayName || 'Anonymous'}님! 👋
+                            안녕하세요, {getUserDisplayName()}님! 👋
                         </h1>
                         <p className="text-muted-foreground">
                             Robota 대시보드에 오신 것을 환영합니다. 여기서 프로젝트를 관리하고 AI 에이전트를 구축할 수 있습니다.
@@ -135,12 +139,12 @@ function DashboardContent() {
                                 <Avatar className="h-16 w-16">
                                     <AvatarImage src={user?.photoURL || ''} />
                                     <AvatarFallback className="text-lg">
-                                        {getInitials(user?.displayName)}
+                                        {getInitials(getUserDisplayName())}
                                     </AvatarFallback>
                                 </Avatar>
 
                                 <div className="space-y-1">
-                                    <h3 className="text-lg font-medium">{user?.displayName || 'Anonymous'}</h3>
+                                    <h3 className="text-lg font-medium">{getUserDisplayName()}</h3>
                                     <p className="text-sm text-muted-foreground">{user?.email}</p>
                                     <div className="flex items-center gap-2">
                                         <Badge variant="secondary" className="flex items-center gap-1">

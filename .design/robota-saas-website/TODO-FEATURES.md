@@ -1,7 +1,7 @@
 # 📋 미완료 기능 및 향후 개발 계획
 
 ## 📊 미완료 상태 개요
-- **Phase 1**: 완료된 부분 제외하고 일부 SEO/성능 최적화 미완료
+- **Phase 1**: ✅ 100% 완료 (SEO/성능 최적화, 사용자 프로필/설정 모두 완료)
 - **Phase 3**: API 서비스 구현 (0% 완료)
 - **Phase 4**: 고급 기능 및 최적화 (0% 완료)
 
@@ -11,26 +11,26 @@
 
 ### 3주차: SEO 최적화 및 사용자 경험 개선 (부분 완료)
 
-#### SEO 및 성능 최적화 🚧
-- [ ] Google Analytics 및 Search Console 연동
-- [ ] 이미지 최적화 및 lazy loading
-  - **필요 작업**: Next.js Image 컴포넌트 활용 최적화
+#### SEO 및 성능 최적화 ✅
+- [x] Google Analytics 및 Search Console 연동
+- [x] 이미지 최적화 및 lazy loading
+  - **완료**: Next.js Image 컴포넌트 활용 최적화
 
-#### 사용자 경험 개선 🚧
-- [ ] 접근성 (a11y) 기본 설정
-  - **필요 작업**: ARIA 라벨, 키보드 네비게이션, 스크린 리더 지원
-- [ ] 다국어 지원 준비 (i18n 기본 구조)
-  - **필요 작업**: next-i18next 설정, 번역 파일 구조
+#### 사용자 경험 개선 ✅
+- [x] 접근성 (a11y) 기본 설정
+  - **완료**: ARIA 라벨, 키보드 네비게이션, 스크린 리더 지원
+- [x] 다국어 지원 준비 (i18n 기본 구조)
+  - **완료**: next-i18next 설정, 번역 파일 구조
 
-### 5주차: 사용자 프로필 및 설정 (부분 완료)
-- [ ] `/profile` - 프로필 조회/수정 페이지
-  - **필요 파일**: `apps/web/src/app/profile/page.tsx`
-- [ ] `/settings` - 계정 설정 페이지
-  - **필요 파일**: `apps/web/src/app/settings/page.tsx`
-- [ ] 프로필 이미지 업로드 기능
-  - **필요 작업**: Firebase Storage 연동
-- [ ] 비밀번호 변경 및 계정 관리
-  - **필요 작업**: 비밀번호 변경 폼, 계정 삭제 기능
+### 5주차: 사용자 프로필 및 설정 ✅
+- [x] `/profile` - 프로필 조회/수정 페이지
+  - **완료**: `apps/web/src/app/profile/page.tsx`
+- [x] `/settings` - 계정 설정 페이지
+  - **완료**: `apps/web/src/app/settings/page.tsx`
+- [x] 프로필 이미지 업로드 기능
+  - **완료**: Firebase Storage 연동
+- [x] 비밀번호 변경 및 계정 관리
+  - **완료**: 비밀번호 변경 폼, 계정 삭제 기능
 
 ### 6주차: 배포 준비 및 품질 보증
 - [ ] 배포 인프라 구축

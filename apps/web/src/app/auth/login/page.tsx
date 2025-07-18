@@ -15,7 +15,7 @@ import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 function LoginPageContent() {
-    const { signIn, loading } = useAuth();
+    const { signIn } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
     const [formData, setFormData] = useState({
@@ -40,10 +40,9 @@ function LoginPageContent() {
 
         try {
             await signIn(formData.email, formData.password);
-            router.push(redirectTo);
+            router.replace(redirectTo);
         } catch (error: any) {
             setErrors(error.message);
-        } finally {
             setIsSubmitting(false);
         }
     };
@@ -129,7 +128,7 @@ function LoginPageContent() {
                             <Button
                                 type="submit"
                                 className="w-full"
-                                disabled={isSubmitting || loading}
+                                disabled={isSubmitting}
                             >
                                 {isSubmitting ? (
                                     <>

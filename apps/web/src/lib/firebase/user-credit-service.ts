@@ -42,6 +42,14 @@ export async function createUserExtendedRecord(
     timezone: string = 'UTC',
     preferredLanguage: string = 'ko'
 ): Promise<UserExtended> {
+    const userRef = doc(db, USERS_COLLECTION, uid);
+
+    // Check if document already exists
+    const existingDoc = await getDoc(userRef);
+    if (existingDoc.exists()) {
+        return getUserExtended(uid) as Promise<UserExtended>;
+    }
+
     const now = new Date();
 
     const userExtended: UserExtended = {
@@ -74,73 +82,66 @@ export async function createUserExtendedRecord(
         preferred_language: preferredLanguage
     };
 
-    const userRef = doc(db, USERS_COLLECTION, uid);
-    await setDoc(userRef, {
-        ...userExtended,
-        created_at: serverTimestamp(),
-        updated_at: serverTimestamp(),
-        credits: {
-            ...userExtended.credits,
-            last_updated: serverTimestamp()
-        },
-        subscription: {
-            ...userExtended.subscription,
-            started_at: serverTimestamp()
-        },
-        usage_stats: {
-            ...userExtended.usage_stats,
-            last_activity: serverTimestamp()
-        }
-    });
+    try {
+        await setDoc(userRef, {
+            ...userExtended,
+            created_at: serverTimestamp(),
+            updated_at: serverTimestamp(),
+            'credits.last_updated': serverTimestamp(),
+            'subscription.started_at': serverTimestamp(),
+            'usage_stats.last_activity': serverTimestamp()
+        });
 
-    // Create initial credit transaction for free credits
-    await createCreditTransaction(
-        uid,
-        'bonus',
-        FREE_TIER_LIMITS.initial_credits,
-        FREE_TIER_LIMITS.initial_credits,
-        'Welcome bonus credits'
-    );
+        // Create initial credit transaction for free credits
+        await createCreditTransaction(
+            uid,
+            'bonus',
+            FREE_TIER_LIMITS.initial_credits,
+            FREE_TIER_LIMITS.initial_credits,
+            'Welcome bonus credits'
+        );
 
-    return userExtended;
+        return userExtended;
+    } catch (error) {
+        console.error('Error creating user extended record:', error);
+        throw error;
+    }
 }
 
 /**
- * Get user extended information
+ * Get user extended record
  */
 export async function getUserExtended(uid: string): Promise<UserExtended | null> {
     try {
         const userRef = doc(db, USERS_COLLECTION, uid);
-        const userSnap = await getDoc(userRef);
+        const userDoc = await getDoc(userRef);
 
-        if (!userSnap.exists()) {
+        if (!userDoc.exists()) {
             return null;
         }
 
-        const data = userSnap.data();
-
-        // Convert Firestore timestamps to Date objects
+        const data = userDoc.data();
         return {
             ...data,
-            created_at: data.created_at?.toDate() || new Date(),
-            updated_at: data.updated_at?.toDate() || new Date(),
             credits: {
                 ...data.credits,
-                last_updated: data.credits?.last_updated?.toDate() || new Date()
+                last_updated: data.credits.last_updated?.toDate() || new Date()
             },
             subscription: {
                 ...data.subscription,
-                started_at: data.subscription?.started_at?.toDate() || new Date(),
-                expires_at: data.subscription?.expires_at?.toDate() || null
+                started_at: data.subscription.started_at?.toDate() || new Date(),
+                expires_at: data.subscription.expires_at?.toDate() || null
             },
             usage_stats: {
                 ...data.usage_stats,
-                last_activity: data.usage_stats?.last_activity?.toDate() || new Date()
-            }
+                last_activity: data.usage_stats.last_activity?.toDate() || new Date()
+            },
+            created_at: data.created_at?.toDate() || new Date(),
+            updated_at: data.updated_at?.toDate() || new Date()
         } as UserExtended;
     } catch (error) {
-        console.error('Error getting user extended info:', error);
-        throw error;
+        console.error('Error getting user extended record:', error);
+        return null;
     }
 }
 
@@ -185,7 +186,7 @@ export async function getUserCreditSummary(uid: string): Promise<UserCreditSumma
         };
     } catch (error) {
         console.error('Error getting user credit summary:', error);
-        throw error;
+        return null; // Return null instead of throwing to prevent error propagation
     }
 }
 
@@ -373,7 +374,7 @@ export async function getCreditTransactionHistory(
         })) as CreditTransaction[];
     } catch (error) {
         console.error('Error getting transaction history:', error);
-        throw error;
+        return []; // Return empty array instead of throwing
     }
 }
 

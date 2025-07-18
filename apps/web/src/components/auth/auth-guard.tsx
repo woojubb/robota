@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Icons } from '@/components/ui/icons';
@@ -30,43 +30,43 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
     const { user, loading } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
-    const [isInitialized, setIsInitialized] = useState(false);
-    const [isRedirecting, setIsRedirecting] = useState(false);
+    const hasRedirected = useRef(false);
 
     useEffect(() => {
-        if (loading) {
+        // Reset redirect flag when pathname changes
+        hasRedirected.current = false;
+    }, [pathname]);
+
+    useEffect(() => {
+        // Don't do anything while auth is loading or if we've already redirected
+        if (loading || hasRedirected.current) {
             return;
         }
 
-        setIsInitialized(true);
-
-        if (requireAuth && !user && !isRedirecting) {
+        // Handle redirects after auth check is complete
+        if (requireAuth && !user) {
             // User needs to be authenticated but isn't
-            setIsRedirecting(true);
+            hasRedirected.current = true;
             const loginUrl = `/auth/login?redirect=${encodeURIComponent(pathname)}`;
             router.replace(redirectTo || loginUrl);
-        } else if (!requireAuth && user && !isRedirecting) {
-            // User shouldn't be authenticated but is (e.g., on login page)
-            setIsRedirecting(true);
+        } else if (!requireAuth && user) {
+            // User shouldn't be authenticated but is (e.g., on login/register page)
+            hasRedirected.current = true;
             router.replace(redirectTo || '/dashboard');
         }
-    }, [user, loading, requireAuth, redirectTo, pathname, router, isRedirecting]);
+    }, [user, loading, requireAuth, redirectTo, pathname, router]);
 
     // Show loading state while auth is being checked
-    if (loading || !isInitialized) {
+    if (loading) {
         return <>{fallback}</>;
     }
 
-    // Show loading while redirecting
-    if (isRedirecting) {
-        return <>{fallback}</>;
-    }
-
-    // Check auth requirements
+    // If we need auth and don't have it, show fallback while redirecting
     if (requireAuth && !user) {
         return <>{fallback}</>;
     }
 
+    // If we shouldn't have auth but do, show fallback while redirecting
     if (!requireAuth && user) {
         return <>{fallback}</>;
     }
