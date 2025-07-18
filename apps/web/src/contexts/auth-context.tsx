@@ -16,8 +16,14 @@ import {
     updateUserProfile,
 } from '@/lib/firebase/auth-service';
 import { User, UserProfile, AuthContextType } from '@/types/auth';
+import { UserExtended, UserCreditSummary } from '@/types/user-credit';
 import { useToast } from '@/hooks/use-toast';
 import { trackEvents } from '@/lib/analytics/google-analytics';
+import {
+    createUserExtendedRecord,
+    getUserExtended,
+    getUserCreditSummary
+} from '@/lib/firebase/user-credit-service';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -28,19 +34,42 @@ export interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const [userExtended, setUserExtended] = useState<UserExtended | null>(null);
+    const [creditSummary, setCreditSummary] = useState<UserCreditSummary | null>(null);
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
 
-    // Load user profile when user changes
-    const loadUserProfile = async (user: User) => {
+    // Load user profile and extended info when user changes
+    const loadUserData = async (user: User) => {
         try {
+            // Load basic profile
             const profile = await getUserProfile(user.uid);
             setUserProfile(profile);
+
+            // Load extended user info (including credits)
+            let extended = await getUserExtended(user.uid);
+
+            // Create extended record if it doesn't exist (for existing users)
+            if (!extended) {
+                extended = await createUserExtendedRecord(
+                    user.uid,
+                    user.email || '',
+                    user.displayName || '',
+                    Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    navigator.language.startsWith('ko') ? 'ko' : 'en'
+                );
+            }
+            setUserExtended(extended);
+
+            // Load credit summary
+            const summary = await getUserCreditSummary(user.uid);
+            setCreditSummary(summary);
+
         } catch (error) {
-            console.error('Error loading user profile:', error);
+            console.error('Error loading user data:', error);
             toast({
-                title: "프로필 로드 실패",
-                description: "사용자 프로필을 불러오는데 실패했습니다.",
+                title: "사용자 정보 로드 실패",
+                description: "사용자 정보를 불러오는데 실패했습니다.",
                 variant: "destructive",
             });
         }
@@ -52,10 +81,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             if (firebaseUser) {
                 const user = convertFirebaseUser(firebaseUser);
                 setUser(user);
-                await loadUserProfile(user);
+                await loadUserData(user);
             } else {
                 setUser(null);
                 setUserProfile(null);
+                setUserExtended(null);
+                setCreditSummary(null);
             }
             setLoading(false);
         });
@@ -218,7 +249,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (!user) throw new Error('User not authenticated');
 
         try {
-            await loadUserProfile(user);
+            await loadUserData(user);
         } catch (error: any) {
             toast({
                 title: "프로필 새로고침 실패",
@@ -232,6 +263,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const value: AuthContextType = {
         user,
         userProfile,
+        userExtended,
+        creditSummary,
         loading,
         signIn,
         signUp,

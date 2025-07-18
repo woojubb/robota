@@ -1,0 +1,23 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ========================================
+    // DEVELOPMENT RULES - TEMPORARILY OPEN
+    // ========================================
+    // WARNING: These rules allow anyone to read/write all documents.
+    // This is for development/testing only. 
+    // Update before deploying to production!
+    
+    match /{document=**} {
+      allow read, write: if true;
+    }
+    
+    // ========================================
+    // TODO: Replace with production rules
+    // ========================================
+    // See firestore.rules.example for production-ready rules
+    // covering user authentication, data validation, and security.
+  }
+} 
