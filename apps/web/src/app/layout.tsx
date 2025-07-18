@@ -4,6 +4,9 @@ import "./globals.css";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { AuthProvider } from "@/contexts/auth-context";
 import { Toaster } from "@/components/ui/sonner";
+import { GoogleAnalytics } from "@/components/analytics/google-analytics";
+import { SkipToContent } from "@/components/ui/accessibility";
+import { AccessibilityProvider } from "@/providers/accessibility-provider";
 import { SITE } from "@/config/brand";
 
 const geistSans = Geist({
@@ -81,10 +84,16 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>
-            {children}
-            <Toaster />
-          </AuthProvider>
+          <AccessibilityProvider>
+            <AuthProvider>
+              <SkipToContent />
+              <main id="main-content">
+                {children}
+              </main>
+              <GoogleAnalytics />
+              <Toaster />
+            </AuthProvider>
+          </AccessibilityProvider>
         </ThemeProvider>
       </body>
     </html>

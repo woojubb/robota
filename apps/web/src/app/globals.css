@@ -165,6 +165,25 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
+  /* High Contrast Mode */
+  .high-contrast {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+    --primary: 0 0% 0%;
+    --primary-foreground: 0 0% 100%;
+    --border: 0 0% 0%;
+    --ring: 0 0% 0%;
+  }
+
+  .dark.high-contrast {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 0%;
+    --border: 0 0% 100%;
+    --ring: 0 0% 100%;
+  }
+
   /* Container centering for proper layout */
   .container {
     @apply mx-auto px-4 sm:px-6 lg:px-8;
@@ -211,6 +230,54 @@
 
 ::-webkit-scrollbar-track {
   background: oklch(var(--muted));
+}
+
+/* Accessibility Utilities */
+@layer utilities {
+
+  /* Screen Reader Only */
+  .sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+
+  /* Focus Visible */
+  .focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  /* Reduced Motion */
+  @media (prefers-reduced-motion: reduce) {
+
+    .reduce-motion *,
+    .reduce-motion *::before,
+    .reduce-motion *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* High Contrast Improvements */
+  .high-contrast button,
+  .high-contrast a,
+  .high-contrast input,
+  .high-contrast select,
+  .high-contrast textarea {
+    border: 2px solid !important;
+  }
+
+  .high-contrast img {
+    filter: contrast(1.2) brightness(1.1);
+  }
 }
 
 ::-webkit-scrollbar-thumb {
