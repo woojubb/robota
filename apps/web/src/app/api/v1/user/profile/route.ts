@@ -4,6 +4,7 @@ import { db } from '@/lib/firebase/config';
 import { doc, getDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { UserProfile } from '@/types/auth';
 import { UserExtended } from '@/types/user-credit';
+import { userCache, cacheKeys } from '@/lib/cache';
 
 /**
  * Get user profile
@@ -11,12 +12,17 @@ import { UserExtended } from '@/types/user-credit';
  */
 export const GET = withAuth(async (request: NextRequest, { uid }) => {
     try {
+        // Check cache first
+        const cacheKey = cacheKeys.userProfile(uid);
+        const cachedProfile = userCache.get(cacheKey);
+        if (cachedProfile) {
+            return createSuccessResponse(cachedProfile);
+        }
+
         // Get user profile from Firestore
         const userDoc = await getDoc(doc(db, 'users', uid));
 
         if (!userDoc.exists()) {
-            // For new users, we should create their profile
-            // This happens when a user signs up but their profile wasn't created yet
             return createErrorResponse('User profile not found', 404, 'USER_NOT_FOUND');
         }
 
@@ -48,6 +54,9 @@ export const GET = withAuth(async (request: NextRequest, { uid }) => {
             purchased_credits: extendedData?.purchased_credits || 0,
         };
 
+        // Cache the result for 5 minutes
+        userCache.set(cacheKey, profile, 5 * 60 * 1000);
+
         return createSuccessResponse(profile);
     } catch (error) {
         console.error('Error fetching user profile:', error);
@@ -78,6 +87,10 @@ export const PUT = withAuth(async (request: NextRequest, { uid }) => {
         // Update user profile in Firestore
         await updateDoc(doc(db, 'users', uid), updates);
 
+        // Invalidate cache
+        const cacheKey = cacheKeys.userProfile(uid);
+        userCache.delete(cacheKey);
+
         // Fetch updated profile
         const userDoc = await getDoc(doc(db, 'users', uid));
         const userData = userDoc.data();
@@ -106,6 +119,9 @@ export const PUT = withAuth(async (request: NextRequest, { uid }) => {
             subscription_credits: extendedData?.subscription_credits || 0,
             purchased_credits: extendedData?.purchased_credits || 0,
         };
+
+        // Cache the updated profile
+        userCache.set(cacheKey, profile, 5 * 60 * 1000);
 
         return createSuccessResponse(profile, 'Profile updated successfully');
     } catch (error) {

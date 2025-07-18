@@ -56,25 +56,45 @@ export function createErrorResponse(
             error,
             code,
         },
-        { status }
+        {
+            status,
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+            }
+        }
     );
 }
 
 /**
- * Create a success response
+ * Create a success response with optional caching
  */
 export function createSuccessResponse<T = any>(
     data: T,
     message?: string,
-    status: number = 200
+    status: number = 200,
+    cacheControl?: string
 ): NextResponse<ApiResponse<T>> {
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+    };
+
+    // Add cache control if specified
+    if (cacheControl) {
+        headers['Cache-Control'] = cacheControl;
+    } else {
+        // Default to private cache for 60 seconds
+        headers['Cache-Control'] = 'private, max-age=60';
+    }
+
     return NextResponse.json(
         {
             success: true,
             data,
             message,
         },
-        { status }
+        { status, headers }
     );
 }
 

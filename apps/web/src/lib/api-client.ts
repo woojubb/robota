@@ -39,7 +39,7 @@ async function getAuthToken(): Promise<string | null> {
     if (!user) return null;
 
     try {
-        return await user.getIdToken();
+        return await user.getIdToken(true); // Force refresh
     } catch (error) {
         console.error('Error getting auth token:', error);
         return null;
@@ -47,51 +47,124 @@ async function getAuthToken(): Promise<string | null> {
 }
 
 /**
- * Make authenticated API request
+ * Sleep for specified milliseconds
+ */
+function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Make authenticated API request with retry logic
  */
 async function apiRequest<T = any>(
     endpoint: string,
     options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-    const token = await getAuthToken();
+    const { retry } = API_CONFIG;
+    let lastError: Error | null = null;
 
-    const url = `${API_BASE_URL}${endpoint}`;
-    const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...(options.headers as Record<string, string> || {}),
-    };
+    for (let attempt = 0; attempt <= retry.count; attempt++) {
+        try {
+            const token = await getAuthToken();
 
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+            const url = `${API_BASE_URL}${endpoint}`;
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                ...(options.headers as Record<string, string> || {}),
+            };
+
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.timeout);
+
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    headers,
+                    signal: controller.signal,
+                });
+
+                clearTimeout(timeoutId);
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    const error = new ApiClientError(
+                        data.error || data.message || 'API request failed',
+                        data.code,
+                        response.status
+                    );
+
+                    // Don't retry on 4xx errors (except 401/403 which might be token issues)
+                    if (response.status >= 400 && response.status < 500 &&
+                        response.status !== 401 && response.status !== 403) {
+                        throw error;
+                    }
+
+                    lastError = error;
+
+                    // If this is the last attempt, throw the error
+                    if (attempt === retry.count) {
+                        throw error;
+                    }
+
+                    // Wait before retrying with exponential backoff
+                    const delay = retry.delay * Math.pow(retry.backoff, attempt);
+                    await sleep(delay);
+                    continue;
+                }
+
+                return data;
+            } catch (fetchError) {
+                clearTimeout(timeoutId);
+
+                if (fetchError instanceof ApiClientError) {
+                    throw fetchError;
+                }
+
+                lastError = fetchError instanceof Error ? fetchError : new Error('Network error');
+
+                // If this is the last attempt, throw the error
+                if (attempt === retry.count) {
+                    throw new ApiClientError(
+                        lastError.message,
+                        'NETWORK_ERROR'
+                    );
+                }
+
+                // Wait before retrying
+                const delay = retry.delay * Math.pow(retry.backoff, attempt);
+                await sleep(delay);
+            }
+        } catch (error) {
+            if (error instanceof ApiClientError) {
+                throw error;
+            }
+
+            lastError = error instanceof Error ? error : new Error('Unknown error');
+
+            // If this is the last attempt, throw the error
+            if (attempt === retry.count) {
+                throw new ApiClientError(
+                    lastError.message,
+                    'UNKNOWN_ERROR'
+                );
+            }
+
+            // Wait before retrying
+            const delay = retry.delay * Math.pow(retry.backoff, attempt);
+            await sleep(delay);
+        }
     }
 
-    try {
-        const response = await fetch(url, {
-            ...options,
-            headers,
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new ApiClientError(
-                data.error || data.message || 'API request failed',
-                data.code,
-                response.status
-            );
-        }
-
-        return data;
-    } catch (error) {
-        if (error instanceof ApiClientError) {
-            throw error;
-        }
-
-        throw new ApiClientError(
-            error instanceof Error ? error.message : 'Network error',
-            'NETWORK_ERROR'
-        );
-    }
+    // This should never be reached, but just in case
+    throw new ApiClientError(
+        lastError?.message || 'Max retries exceeded',
+        'MAX_RETRIES_EXCEEDED'
+    );
 }
 
 /**
