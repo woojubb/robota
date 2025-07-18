@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Play, Save, Download, Upload, FolderOpen, Sparkles, Keyboard } from 'lucide-react';
 
-import { CodeEditor } from '@/components/playground/code-editor';
+import { CodeEditor, exampleTemplates } from '@/components/playground/code-editor';
 import { ChatInterface } from '@/components/playground/chat-interface';
 import { ExecutionOutput } from '@/components/playground/execution-output';
 import { ProjectBrowser } from '@/components/playground/project-browser';
@@ -41,23 +41,9 @@ export default function PlaygroundPage() {
     const [activeTab, setActiveTab] = useState<'editor' | 'projects' | 'templates'>('editor');
     const [currentProject, setCurrentProject] = useState<Project | null>(null);
     const [state, setState] = useState<PlaygroundState>({
-        code: `import { Agent } from '@robota/agents'
-import { OpenAIProvider } from '@robota/openai'
-
-const agent = new Agent({
-  provider: new OpenAIProvider({
-    apiKey: process.env.OPENAI_API_KEY,
-    model: 'gpt-4'
-  })
-})
-
-agent.setSystemMessage(\`
-You are a helpful AI assistant. Always be polite and professional.
-\`)
-
-export default agent`,
+        code: exampleTemplates.basic.code,
         provider: 'openai',
-        model: 'gpt-4',
+        model: 'gpt-3.5-turbo',
         temperature: 0.7
     });
 
@@ -446,45 +432,76 @@ export default agent`,
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-4">
+                                {/* Example Template Selector */}
                                 <div>
-                                    <Label htmlFor="provider">AI Provider</Label>
-                                    <Select value={state.provider} onValueChange={handleProviderChange}>
+                                    <Label htmlFor="template">Example Template</Label>
+                                    <Select onValueChange={(templateKey) => {
+                                        const template = exampleTemplates[templateKey as keyof typeof exampleTemplates];
+                                        if (template) {
+                                            setState(prev => ({ ...prev, code: template.code }));
+                                            toast({
+                                                title: "Template Loaded",
+                                                description: `${template.name} example has been loaded`
+                                            });
+                                        }
+                                    }}>
                                         <SelectTrigger>
-                                            <SelectValue />
+                                            <SelectValue placeholder="Choose an example template" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="openai">OpenAI</SelectItem>
-                                            <SelectItem value="anthropic">Anthropic</SelectItem>
-                                            <SelectItem value="google">Google</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div>
-                                    <Label htmlFor="model">Model</Label>
-                                    <Select value={state.model} onValueChange={handleModelChange}>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {models[state.provider].map((model) => (
-                                                <SelectItem key={model} value={model}>
-                                                    {model}
+                                            {Object.entries(exampleTemplates).map(([key, template]) => (
+                                                <SelectItem key={key} value={key}>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium">{template.name}</span>
+                                                        <span className="text-xs text-muted-foreground">{template.description}</span>
+                                                    </div>
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <div>
-                                    <Label htmlFor="temperature">Temperature</Label>
-                                    <Input
-                                        type="number"
-                                        min="0"
-                                        max="2"
-                                        step="0.1"
-                                        value={state.temperature}
-                                        onChange={(e) => handleTemperatureChange(parseFloat(e.target.value))}
-                                    />
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <Label htmlFor="provider">AI Provider</Label>
+                                        <Select value={state.provider} onValueChange={handleProviderChange}>
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="openai">OpenAI</SelectItem>
+                                                <SelectItem value="anthropic">Anthropic</SelectItem>
+                                                <SelectItem value="google">Google</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="model">Model</Label>
+                                        <Select value={state.model} onValueChange={handleModelChange}>
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {models[state.provider].map((model) => (
+                                                    <SelectItem key={model} value={model}>
+                                                        {model}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="temperature">Temperature</Label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            max="2"
+                                            step="0.1"
+                                            value={state.temperature}
+                                            onChange={(e) => handleTemperatureChange(parseFloat(e.target.value))}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </CardContent>
