@@ -25,7 +25,7 @@ export const NAVIGATION = {
     main: [
         { title: 'Home', href: '/' },
         { title: 'Playground', href: '/playground' },
-        { title: 'API', href: '/api' },
+        { title: 'API', href: '/api/v1' },
         { title: 'Docs', href: '/docs' },
         { title: 'Pricing', href: '/pricing' }
     ],
@@ -34,7 +34,7 @@ export const NAVIGATION = {
             title: 'Product',
             items: [
                 { title: 'Playground', href: '/playground' },
-                { title: 'API Service', href: '/api' },
+                { title: 'API Service', href: '/api/v1' },
                 { title: 'Templates', href: '/templates' },
                 { title: 'Integrations', href: '/integrations' }
             ]

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
 import {
@@ -12,18 +12,12 @@ import {
     resetPassword as authResetPassword,
     changePassword as authChangePassword,
     convertFirebaseUser,
-    getUserProfile,
-    updateUserProfile,
 } from '@/lib/firebase/auth-service';
 import { User, UserProfile, AuthContextType } from '@/types/auth';
 import { UserExtended, UserCreditSummary } from '@/types/user-credit';
 import { useToast } from '@/hooks/use-toast';
 import { trackEvents } from '@/lib/analytics/google-analytics';
-import {
-    createUserExtendedRecord,
-    getUserExtended,
-    getUserCreditSummary
-} from '@/lib/firebase/user-credit-service';
+import { apiClient } from '@/lib/api-client';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -39,60 +33,68 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
 
-    // Load user profile and extended info when user changes
-    const loadUserData = async (user: User) => {
-        try {
-            // Load basic profile
-            const profile = await getUserProfile(user.uid);
-            setUserProfile(profile);
+    // Track if we've already loaded data for the current user
+    const loadedUserRef = useRef<string | null>(null);
 
-            // Load extended user info (including credits)
-            let extended = await getUserExtended(user.uid);
-
-            // Create extended record if it doesn't exist (for existing users)
-            if (!extended) {
-                extended = await createUserExtendedRecord(
-                    user.uid,
-                    user.email || '',
-                    user.displayName || '',
-                    Intl.DateTimeFormat().resolvedOptions().timeZone,
-                    navigator.language.startsWith('ko') ? 'ko' : 'en'
-                );
-            }
-            setUserExtended(extended);
-
-            // Load credit summary
-            const summary = await getUserCreditSummary(user.uid);
-            setCreditSummary(summary);
-
-        } catch (error) {
-            console.error('Error loading user data:', error);
-            toast({
-                title: "사용자 정보 로드 실패",
-                description: "사용자 정보를 불러오는데 실패했습니다.",
-                variant: "destructive",
-            });
-        }
-    };
-
-    // Authentication state listener
+    // Listen to auth state changes
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
                 const user = convertFirebaseUser(firebaseUser);
                 setUser(user);
-                await loadUserData(user);
+
+                // Only load user data if we haven't already loaded it for this user
+                if (loadedUserRef.current !== firebaseUser.uid) {
+                    loadedUserRef.current = firebaseUser.uid;
+
+                    try {
+                        // Load user profile only once per session
+                        const profileResponse = await apiClient.user.getProfile();
+                        if (profileResponse.success && profileResponse.data) {
+                            setUserProfile(profileResponse.data);
+                            setUserExtended(profileResponse.data as any);
+                        }
+
+                        // Don't load credit summary on initial load - let components request it when needed
+                        // This reduces unnecessary API calls
+                    } catch (error) {
+                        console.error('Error loading user data:', error);
+                        // Don't show error toast on initial load failures
+                    }
+                }
             } else {
                 setUser(null);
                 setUserProfile(null);
                 setUserExtended(null);
                 setCreditSummary(null);
+                loadedUserRef.current = null;
             }
             setLoading(false);
         });
 
         return () => unsubscribe();
     }, []);
+
+    // Load credit summary on demand
+    const loadCreditSummary = async () => {
+        if (!user) return;
+
+        try {
+            const creditsResponse = await apiClient.user.getCredits();
+            if (creditsResponse.success && creditsResponse.data) {
+                setCreditSummary(creditsResponse.data);
+            }
+        } catch (error) {
+            console.error('Error loading credit summary:', error);
+        }
+    };
+
+    // Load credit summary when userExtended is set
+    useEffect(() => {
+        if (userExtended && !creditSummary) {
+            loadCreditSummary();
+        }
+    }, [userExtended]);
 
     // Authentication methods
     const signIn = async (email: string, password: string): Promise<void> => {
@@ -116,6 +118,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const signUp = async (email: string, password: string, displayName: string): Promise<void> => {
         try {
             await authSignUp(email, password, displayName);
+
+            // Wait a bit for auth state to update
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Create user profile via API
+            try {
+                await fetch('/api/v1/user/profile', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`,
+                    },
+                    body: JSON.stringify({ email, displayName }),
+                });
+            } catch (profileError) {
+                console.error('Error creating user profile:', profileError);
+                // Don't throw here, as the user is already created
+            }
+
             trackEvents.signUp('email');
             toast({
                 title: "회원가입 성공",
@@ -172,7 +193,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             await authSignOut();
             trackEvents.signOut();
             toast({
-                title: "로그아웃 성공",
+                title: "로그아웃 완료",
                 description: "안녕히 가세요!",
             });
         } catch (error: any) {
@@ -224,17 +245,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (!user) throw new Error('User not authenticated');
 
         try {
-            await updateUserProfile(user.uid, data);
-
-            // Reload user profile
-            const updatedProfile = await getUserProfile(user.uid);
-            setUserProfile(updatedProfile);
-
-            trackEvents.updateProfile();
-            toast({
-                title: "프로필 업데이트 성공",
-                description: "프로필이 성공적으로 업데이트되었습니다.",
-            });
+            const response = await apiClient.user.updateProfile(data);
+            if (response.success && response.data) {
+                setUserProfile(response.data);
+                trackEvents.updateProfile();
+                toast({
+                    title: "프로필 업데이트 성공",
+                    description: "프로필이 성공적으로 업데이트되었습니다.",
+                });
+            } else {
+                throw new Error(response.error || 'Update failed');
+            }
         } catch (error: any) {
             toast({
                 title: "프로필 업데이트 실패",
@@ -249,7 +270,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (!user) throw new Error('User not authenticated');
 
         try {
-            await loadUserData(user);
+            const profileResponse = await apiClient.user.getProfile();
+            if (profileResponse.success && profileResponse.data) {
+                setUserProfile(profileResponse.data);
+                setUserExtended(profileResponse.data as any);
+            }
+
+            const creditsResponse = await apiClient.user.getCredits();
+            if (creditsResponse.success && creditsResponse.data) {
+                setCreditSummary(creditsResponse.data);
+            }
         } catch (error: any) {
             toast({
                 title: "프로필 새로고침 실패",
