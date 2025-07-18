@@ -242,103 +242,169 @@ export class CodeExecutor {
 
     private checkImports(code: string, lines: string[], errors: ErrorInfo[], warnings: ErrorInfo[]) {
         const requiredImports = [
-            { package: '@robota/agents', export: 'Agent' },
-            { package: '@robota/openai', export: 'OpenAIProvider' },
-            { package: '@robota/anthropic', export: 'AnthropicProvider' },
-            { package: '@robota/google', export: 'GoogleProvider' }
+            { package: '@robota-sdk/agents', export: 'Robota' },
+            { package: '@robota-sdk/openai', export: 'OpenAIProvider' },
+            { package: '@robota-sdk/anthropic', export: 'AnthropicProvider' },
+            { package: '@robota-sdk/google', export: 'GoogleProvider' }
         ]
 
-        // Check if Agent is imported
-        if (!code.includes('Agent')) {
+        // Check if Robota is imported
+        if (!code.includes('Robota') && !code.includes('from \'@robota-sdk/agents\'')) {
             errors.push({
                 type: 'import',
                 severity: 'error',
-                message: 'Missing Agent import from @robota/agents',
+                message: 'Missing Robota import from @robota-sdk/agents',
                 line: 1,
                 suggestions: [
-                    'Add: import { Agent } from \'@robota/agents\'',
-                    'Install package: npm install @robota/agents'
+                    'Add: import { Robota } from \'@robota-sdk/agents\'',
+                    'Install package: npm install @robota-sdk/agents'
                 ],
                 documentation: 'https://robota.dev/docs/agents'
             })
         }
 
+        // Check for OpenAI client import
+        if (code.includes('new OpenAI(') && !code.includes('import OpenAI from \'openai\'')) {
+            errors.push({
+                type: 'import',
+                severity: 'error',
+                message: 'Missing OpenAI client import',
+                suggestions: [
+                    'Add: import OpenAI from \'openai\'',
+                    'Install package: npm install openai'
+                ]
+            })
+        }
+
         // Check provider imports based on usage
-        if (code.includes('OpenAIProvider') && !code.includes('from \'@robota/openai\'')) {
+        if (code.includes('OpenAIProvider') && !code.includes('from \'@robota-sdk/openai\'')) {
             errors.push({
                 type: 'import',
                 severity: 'error',
                 message: 'Missing OpenAIProvider import',
                 suggestions: [
-                    'Add: import { OpenAIProvider } from \'@robota/openai\'',
-                    'Install package: npm install @robota/openai'
+                    'Add: import { OpenAIProvider } from \'@robota-sdk/openai\'',
+                    'Install package: npm install @robota-sdk/openai'
                 ]
             })
         }
 
-        if (code.includes('AnthropicProvider') && !code.includes('from \'@robota/anthropic\'')) {
+        if (code.includes('AnthropicProvider') && !code.includes('from \'@robota-sdk/anthropic\'')) {
             errors.push({
                 type: 'import',
                 severity: 'error',
                 message: 'Missing AnthropicProvider import',
                 suggestions: [
-                    'Add: import { AnthropicProvider } from \'@robota/anthropic\'',
-                    'Install package: npm install @robota/anthropic'
+                    'Add: import { AnthropicProvider } from \'@robota-sdk/anthropic\'',
+                    'Install package: npm install @robota-sdk/anthropic'
                 ]
             })
         }
 
-        if (code.includes('GoogleProvider') && !code.includes('from \'@robota/google\'')) {
+        if (code.includes('GoogleProvider') && !code.includes('from \'@robota-sdk/google\'')) {
             errors.push({
                 type: 'import',
                 severity: 'error',
                 message: 'Missing GoogleProvider import',
                 suggestions: [
-                    'Add: import { GoogleProvider } from \'@robota/google\'',
-                    'Install package: npm install @robota/google'
+                    'Add: import { GoogleProvider } from \'@robota-sdk/google\'',
+                    'Install package: npm install @robota-sdk/google'
                 ]
             })
         }
+
+        // Check for tool function imports
+        if (code.includes('createFunctionTool') && !code.includes('createFunctionTool') && !code.includes('from \'@robota-sdk/agents\'')) {
+            warnings.push({
+                type: 'import',
+                severity: 'warning',
+                message: 'createFunctionTool should be imported from @robota-sdk/agents',
+                suggestions: [
+                    'Add createFunctionTool to import: import { Robota, createFunctionTool } from \'@robota-sdk/agents\''
+                ]
+            })
+        }
+
+        // Check for plugin imports
+        const pluginNames = ['LoggingPlugin', 'UsagePlugin', 'PerformancePlugin']
+        pluginNames.forEach(pluginName => {
+            if (code.includes(pluginName) && !code.includes(`${pluginName}`) && !code.includes('from \'@robota-sdk/agents\'')) {
+                warnings.push({
+                    type: 'import',
+                    severity: 'warning',
+                    message: `${pluginName} should be imported from @robota-sdk/agents`,
+                    suggestions: [
+                        `Add ${pluginName} to import: import { Robota, ${pluginName} } from '@robota-sdk/agents'`
+                    ]
+                })
+            }
+        })
     }
 
     private checkAgentConfig(code: string, lines: string[], errors: ErrorInfo[], warnings: ErrorInfo[]) {
-        // Check if Agent is instantiated
-        if (!code.includes('new Agent(')) {
+        // Check if Robota is instantiated
+        if (!code.includes('new Robota(')) {
             errors.push({
                 type: 'configuration',
                 severity: 'error',
-                message: 'No Agent instance found',
+                message: 'No Robota instance found',
                 suggestions: [
-                    'Create agent: const agent = new Agent({ provider: ... })',
-                    'Check agent configuration syntax'
+                    'Create agent: const robota = new Robota({ name: "MyAgent", aiProviders: [...], defaultModel: {...} })',
+                    'Check Robota configuration syntax'
                 ],
                 documentation: 'https://robota.dev/docs/agents/configuration'
             })
             return
         }
 
-        // Check if provider is configured
-        if (!code.includes('provider:')) {
+        // Check if aiProviders is configured
+        if (!code.includes('aiProviders:')) {
             errors.push({
                 type: 'configuration',
                 severity: 'error',
-                message: 'Missing provider configuration',
+                message: 'Missing aiProviders configuration',
                 suggestions: [
-                    'Add provider to agent config',
-                    'Example: provider: new OpenAIProvider({ apiKey: ... })'
+                    'Add aiProviders to Robota config',
+                    'Example: aiProviders: [new OpenAIProvider({ client: openaiClient, model: "gpt-3.5-turbo" })]'
                 ]
             })
         }
 
-        // Check for export default
-        if (!code.includes('export default')) {
+        // Check if defaultModel is configured
+        if (!code.includes('defaultModel:')) {
+            errors.push({
+                type: 'configuration',
+                severity: 'error',
+                message: 'Missing defaultModel configuration',
+                suggestions: [
+                    'Add defaultModel to Robota config',
+                    'Example: defaultModel: { provider: "openai", model: "gpt-3.5-turbo" }'
+                ]
+            })
+        }
+
+        // Check for agent name
+        if (!code.includes('name:')) {
             warnings.push({
                 type: 'configuration',
                 severity: 'warning',
-                message: 'Missing export default statement',
+                message: 'Missing agent name',
                 suggestions: [
-                    'Add: export default agent',
-                    'Export your agent for use in other modules'
+                    'Add name to Robota config',
+                    'Example: name: "MyAgent"'
+                ]
+            })
+        }
+
+        // Check for proper cleanup
+        if (!code.includes('destroy()') && !code.includes('await robota.destroy()')) {
+            warnings.push({
+                type: 'configuration',
+                severity: 'warning',
+                message: 'Missing cleanup call',
+                suggestions: [
+                    'Add cleanup: await robota.destroy()',
+                    'Call destroy() to properly clean up resources'
                 ]
             })
         }
@@ -404,8 +470,8 @@ export class CodeExecutor {
             return { valid: false, error: 'Code cannot be empty' }
         }
 
-        if (!code.includes('Agent')) {
-            return { valid: false, error: 'Code must include an Agent instance' }
+        if (!code.includes('Robota')) {
+            return { valid: false, error: 'Code must include a Robota instance' }
         }
 
         if (!code.includes('Provider')) {
@@ -435,48 +501,80 @@ export class CodeExecutor {
     }
 
     private parseAgentConfig(code: string): {
+        name: string
         model: string
         tools: Array<{ name: string; description: string }>
         systemMessage?: string
+        plugins: string[]
     } {
         const tools: Array<{ name: string; description: string }> = []
 
-        // Extract tools from addTool calls
-        const toolMatches = code.match(/addTool\s*\(\s*{[^}]+}/g) || []
+        // Extract tools from createFunctionTool calls
+        const toolMatches = code.match(/createFunctionTool\s*\(\s*['"`]([^'"`]+)['"`]\s*,\s*['"`]([^'"`]+)['"`]/g) || []
         for (const match of toolMatches) {
-            const nameMatch = match.match(/name:\s*['"`]([^'"`]+)['"`]/)
-            const descMatch = match.match(/description:\s*['"`]([^'"`]+)['"`]/)
-
-            if (nameMatch && descMatch) {
+            const parts = match.match(/createFunctionTool\s*\(\s*['"`]([^'"`]+)['"`]\s*,\s*['"`]([^'"`]+)['"`]/)
+            if (parts) {
                 tools.push({
-                    name: nameMatch[1],
-                    description: descMatch[1]
+                    name: parts[1],
+                    description: parts[2]
                 })
             }
         }
 
-        // Extract model
-        const modelMatch = code.match(/model:\s*['"`]([^'"`]+)['"`]/)
-        const model = modelMatch ? modelMatch[1] : 'gpt-4'
+        // Also extract tools from tools array in config
+        const toolsArrayMatch = code.match(/tools:\s*\[([^\]]+)\]/)
+        if (toolsArrayMatch) {
+            const toolVariables = toolsArrayMatch[1].match(/\w+Tool/g) || []
+            toolVariables.forEach(varName => {
+                if (!tools.find(t => t.name === varName.replace('Tool', ''))) {
+                    tools.push({
+                        name: varName.replace('Tool', ''),
+                        description: 'Custom tool function'
+                    })
+                }
+            })
+        }
 
-        // Extract system message
-        const systemMatch = code.match(/setSystemMessage\s*\(\s*[`'"]([^`'"]+)[`'"]\s*\)/)
+        // Extract agent name
+        const nameMatch = code.match(/name:\s*['"`]([^'"`]+)['"`]/)
+        const name = nameMatch ? nameMatch[1] : 'UnnamedAgent'
+
+        // Extract model from defaultModel
+        const modelMatch = code.match(/model:\s*['"`]([^'"`]+)['"`]/)
+        const model = modelMatch ? modelMatch[1] : 'gpt-3.5-turbo'
+
+        // Extract system message from defaultModel
+        const systemMatch = code.match(/systemMessage:\s*['"`]([^'"`]+)['"`]/)
         const systemMessage = systemMatch ? systemMatch[1] : undefined
 
-        return { model, tools, systemMessage }
+        // Extract plugins
+        const plugins: string[] = []
+        const pluginMatches = code.match(/new\s+(\w+Plugin)/g) || []
+        pluginMatches.forEach(match => {
+            const pluginName = match.replace('new ', '')
+            if (!plugins.includes(pluginName)) {
+                plugins.push(pluginName)
+            }
+        })
+
+        return { name, model, tools, systemMessage, plugins }
     }
 
     private generateExecutionOutput(config: any): string {
-        return `🤖 Agent Execution Summary
-━━━━━━━━━━━━━━━━━━━━━━━━━━
+        return `🤖 Robota Agent Execution Summary
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-✅ Agent initialized successfully
+✅ Robota agent "${config.name}" initialized successfully
 🎯 Model: ${config.model}
 🔧 Tools: ${config.tools.length} available
+🔌 Plugins: ${config.plugins.length} active
 ${config.systemMessage ? '💬 System message configured' : ''}
 
-Available Tools:
-${config.tools.map((tool: any, i: number) => `  ${i + 1}. ${tool.name} - ${tool.description}`).join('\n')}
+${config.tools.length > 0 ? `Available Tools:
+${config.tools.map((tool: any, i: number) => `  ${i + 1}. ${tool.name} - ${tool.description}`).join('\n')}` : ''}
+
+${config.plugins.length > 0 ? `\nActive Plugins:
+${config.plugins.map((plugin: string, i: number) => `  ${i + 1}. ${plugin}`).join('\n')}` : ''}
 
 🚀 Agent is ready for conversation!
 Type a message in the chat to start interacting.`
