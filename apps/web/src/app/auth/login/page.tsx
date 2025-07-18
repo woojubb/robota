@@ -5,17 +5,17 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { PublicOnlyRoute } from '@/components/auth/auth-guard';
+import { SocialLoginButtons } from '@/components/auth/social-login-buttons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Icons } from '@/components/ui/icons';
-import { AlertCircle, Github } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 function LoginPageContent() {
-    const { signIn, signInWithGoogle, signInWithGitHub, loading } = useAuth();
+    const { signIn, loading } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
     const [formData, setFormData] = useState({
@@ -48,22 +48,8 @@ function LoginPageContent() {
         }
     };
 
-    const handleGoogleSignIn = async () => {
-        try {
-            await signInWithGoogle();
-            router.push(redirectTo);
-        } catch (error: any) {
-            setErrors(error.message);
-        }
-    };
-
-    const handleGitHubSignIn = async () => {
-        try {
-            await signInWithGitHub();
-            router.push(redirectTo);
-        } catch (error: any) {
-            setErrors(error.message);
-        }
+    const handleSocialLoginError = (error: string) => {
+        setErrors(error);
     };
 
     return (
@@ -73,7 +59,7 @@ function LoginPageContent() {
                 <div className="text-center">
                     <h1 className="text-3xl font-bold tracking-tight">로그인</h1>
                     <p className="text-muted-foreground mt-2">
-                        계정에 로그인하여 Robota를 시작하세요
+                        계정에 로그인하여 Robota를 사용하세요
                     </p>
                 </div>
 
@@ -81,43 +67,17 @@ function LoginPageContent() {
                     <CardHeader className="space-y-1">
                         <CardTitle className="text-2xl text-center">환영합니다</CardTitle>
                         <CardDescription className="text-center">
-                            이메일과 비밀번호로 로그인하거나 소셜 계정을 사용하세요
+                            이메일과 비밀번호로 로그인하세요
                         </CardDescription>
                     </CardHeader>
 
                     <CardContent className="space-y-4">
                         {/* Social Login Buttons */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <Button
-                                variant="outline"
-                                onClick={handleGoogleSignIn}
-                                disabled={loading || isSubmitting}
-                                className="w-full"
-                            >
-                                <Icons.google className="mr-2 h-4 w-4" />
-                                Google
-                            </Button>
-                            <Button
-                                variant="outline"
-                                onClick={handleGitHubSignIn}
-                                disabled={loading || isSubmitting}
-                                className="w-full"
-                            >
-                                <Github className="mr-2 h-4 w-4" />
-                                GitHub
-                            </Button>
-                        </div>
-
-                        <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                                <Separator className="w-full" />
-                            </div>
-                            <div className="relative flex justify-center text-xs uppercase">
-                                <span className="bg-background px-2 text-muted-foreground">
-                                    또는 이메일로 계속
-                                </span>
-                            </div>
-                        </div>
+                        <SocialLoginButtons
+                            onError={handleSocialLoginError}
+                            redirectTo={redirectTo}
+                            disabled={isSubmitting}
+                        />
 
                         {/* Error Alert */}
                         {errors && (

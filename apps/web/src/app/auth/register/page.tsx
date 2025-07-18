@@ -4,17 +4,17 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
+import { SocialLoginButtons } from '@/components/auth/social-login-buttons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Icons } from '@/components/ui/icons';
-import { AlertCircle, Github } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function RegisterPage() {
-    const { signUp, signInWithGoogle, signInWithGitHub, loading } = useAuth();
+    const { signUp, loading } = useAuth();
     const router = useRouter();
     const [formData, setFormData] = useState({
         displayName: '',
@@ -61,22 +61,8 @@ export default function RegisterPage() {
         }
     };
 
-    const handleGoogleSignIn = async () => {
-        try {
-            await signInWithGoogle();
-            router.push('/dashboard');
-        } catch (error: any) {
-            setErrors(error.message);
-        }
-    };
-
-    const handleGitHubSignIn = async () => {
-        try {
-            await signInWithGitHub();
-            router.push('/dashboard');
-        } catch (error: any) {
-            setErrors(error.message);
-        }
+    const handleSocialLoginError = (error: string) => {
+        setErrors(error);
     };
 
     return (
@@ -94,43 +80,17 @@ export default function RegisterPage() {
                     <CardHeader className="space-y-1">
                         <CardTitle className="text-2xl text-center">계정 생성</CardTitle>
                         <CardDescription className="text-center">
-                            이메일과 비밀번호로 계정을 생성하거나 소셜 계정을 사용하세요
+                            이메일과 비밀번호로 계정을 생성하세요
                         </CardDescription>
                     </CardHeader>
 
                     <CardContent className="space-y-4">
                         {/* Social Login Buttons */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <Button
-                                variant="outline"
-                                onClick={handleGoogleSignIn}
-                                disabled={loading || isSubmitting}
-                                className="w-full"
-                            >
-                                <Icons.google className="mr-2 h-4 w-4" />
-                                Google
-                            </Button>
-                            <Button
-                                variant="outline"
-                                onClick={handleGitHubSignIn}
-                                disabled={loading || isSubmitting}
-                                className="w-full"
-                            >
-                                <Github className="mr-2 h-4 w-4" />
-                                GitHub
-                            </Button>
-                        </div>
-
-                        <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                                <Separator className="w-full" />
-                            </div>
-                            <div className="relative flex justify-center text-xs uppercase">
-                                <span className="bg-background px-2 text-muted-foreground">
-                                    또는 이메일로 계속
-                                </span>
-                            </div>
-                        </div>
+                        <SocialLoginButtons
+                            onError={handleSocialLoginError}
+                            redirectTo="/dashboard"
+                            disabled={isSubmitting}
+                        />
 
                         {/* Error Alert */}
                         {errors && (
@@ -214,20 +174,7 @@ export default function RegisterPage() {
                             </Button>
                         </form>
 
-                        {/* Terms and conditions */}
-                        <p className="text-xs text-muted-foreground text-center">
-                            계정을 생성하면{' '}
-                            <Link href="/terms" className="text-primary hover:underline">
-                                서비스 약관
-                            </Link>
-                            과{' '}
-                            <Link href="/privacy" className="text-primary hover:underline">
-                                개인정보 처리방침
-                            </Link>
-                            에 동의하는 것으로 간주됩니다.
-                        </p>
-
-                        {/* Sign in link */}
+                        {/* Login link */}
                         <div className="text-center text-sm">
                             이미 계정이 있으신가요?{' '}
                             <Link href="/auth/login" className="text-primary hover:underline">
