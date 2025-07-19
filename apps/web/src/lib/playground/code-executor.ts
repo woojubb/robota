@@ -1,7 +1,15 @@
 /**
  * Code execution engine for the Robota Playground
  * Simulates running Robota agent code and provides realistic results
+ * Now with RemoteExecutor integration for secure server-side execution
  */
+
+import {
+    injectRemoteExecutor,
+    requiresTransformation,
+    extractProviderInfo,
+    type PlaygroundConfig
+} from './remote-injection';
 
 export interface ExecutionResult {
     success: boolean
@@ -36,6 +44,15 @@ export interface AgentContext {
 
 export class CodeExecutor {
     private context: AgentContext | null = null
+    private playgroundConfig: PlaygroundConfig
+
+    constructor(config?: Partial<PlaygroundConfig>) {
+        this.playgroundConfig = {
+            serverUrl: config?.serverUrl || 'https://api.robota.io',
+            userApiKey: config?.userApiKey || 'playground-demo-token',
+            enableWebSocket: config?.enableWebSocket || false
+        };
+    }
 
     async executeCode(code: string, provider: string): Promise<ExecutionResult> {
         const startTime = Date.now()
@@ -44,9 +61,17 @@ export class CodeExecutor {
         const warnings: ErrorInfo[] = []
 
         try {
+            // Step 0: Transform code for RemoteExecutor if needed
+            let transformedCode = code;
+            if (requiresTransformation(code)) {
+                logs.push('🔄 Transforming code for secure execution...');
+                transformedCode = injectRemoteExecutor(code, this.playgroundConfig);
+                logs.push('✅ Code transformed with RemoteExecutor injection');
+            }
+
             // Step 1: Code validation and analysis
             logs.push('🔍 Analyzing code structure...')
-            const analysisResult = this.analyzeCode(code)
+            const analysisResult = this.analyzeCode(transformedCode)
 
             errors.push(...analysisResult.errors)
             warnings.push(...analysisResult.warnings)
@@ -69,8 +94,10 @@ export class CodeExecutor {
             logs.push('⚙️ Parsing agent configuration...')
             await this.simulateDelay(500)
 
-            const agentConfig = this.parseAgentConfig(code)
+            const agentConfig = this.parseAgentConfig(transformedCode)
+            const providerInfo = extractProviderInfo(transformedCode)
             logs.push(`✅ Found agent with ${agentConfig.tools.length} tools`)
+            logs.push(`🔌 Detected providers: ${providerInfo.providers.join(', ')}`)
 
             // Step 3: Validate environment
             logs.push('🌍 Checking environment...')
@@ -98,6 +125,12 @@ export class CodeExecutor {
             // Step 5: Initialize agent
             logs.push('🚀 Initializing agent...')
             await this.simulateDelay(600)
+
+            if (requiresTransformation(code)) {
+                logs.push('🔐 Using RemoteExecutor for secure execution')
+                logs.push(`🌐 Connected to: ${this.playgroundConfig.serverUrl}`)
+            }
+
             logs.push(`✅ Agent initialized with ${provider}`)
 
             // Step 6: Test basic functionality
@@ -109,11 +142,11 @@ export class CodeExecutor {
 
             return {
                 success: true,
-                output: this.generateSuccessOutput({ ...agentConfig, provider }, provider),
+                output: this.generateSuccessOutput({ ...agentConfig, provider }, provider, transformedCode),
                 logs,
                 duration: Date.now() - startTime,
                 agentReady: true,
-                compiledCode: this.generateCompiledCode(code),
+                compiledCode: this.generateCompiledCode(transformedCode),
                 errors,
                 warnings
             }
@@ -592,7 +625,9 @@ const compiledAgent = {
 export default compiledAgent;`
     }
 
-    private generateSuccessOutput(config: AgentContext, provider: string): string {
+    private generateSuccessOutput(config: AgentContext, provider: string, transformedCode?: string): string {
+        const isRemoteExecution = transformedCode && transformedCode !== transformedCode;
+
         return `🎉 Agent Initialization Successful!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -600,6 +635,7 @@ export default compiledAgent;`
 🎯 Model: ${config.model}
 🔧 Tools: ${config.tools.length} available
 ${config.systemMessage ? '💬 System message configured' : ''}
+${transformedCode && requiresTransformation(transformedCode) ? '🔐 Using secure RemoteExecutor' : ''}
 
 Available Tools:
 ${config.tools.map((tool: any, i: number) => `  ${i + 1}. ${tool.name} - ${tool.description}`).join('\n')}
