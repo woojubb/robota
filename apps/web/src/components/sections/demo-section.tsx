@@ -2,6 +2,8 @@
 
 import * as React from 'react'
 import { Play, Copy, Check } from 'lucide-react'
+import Editor from '@monaco-editor/react'
+import { useTheme } from 'next-themes'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -66,6 +68,7 @@ for await (const chunk of stream) {
 export function DemoSection() {
     const [copied, setCopied] = React.useState('')
     const [activeTab, setActiveTab] = React.useState('basic')
+    const { theme } = useTheme()
 
     const copyToClipboard = async (text: string, id: string) => {
         try {
@@ -137,9 +140,31 @@ export function DemoSection() {
                                 {Object.entries(codeExamples).map(([key, code]) => (
                                     <TabsContent key={key} value={key} className="mt-0">
                                         <div className="relative">
-                                            <pre className="p-6 text-sm overflow-x-auto bg-background">
-                                                <code className="text-foreground">{code}</code>
-                                            </pre>
+                                            <Editor
+                                                height="300px"
+                                                defaultLanguage="typescript"
+                                                value={code}
+                                                theme={theme === 'dark' ? 'vs-dark' : 'light'}
+                                                options={{
+                                                    readOnly: true,
+                                                    minimap: { enabled: false },
+                                                    fontSize: 13,
+                                                    lineHeight: 20,
+                                                    padding: { top: 16, bottom: 16 },
+                                                    scrollBeyondLastLine: false,
+                                                    wordWrap: 'on',
+                                                    lineNumbers: 'on',
+                                                    renderLineHighlight: 'none',
+                                                    contextmenu: false,
+                                                    selectOnLineNumbers: false,
+                                                    hideCursorInOverviewRuler: true,
+                                                    overviewRulerBorder: false,
+                                                    overviewRulerLanes: 0,
+                                                    folding: false,
+                                                    links: false,
+                                                    fontFamily: '"Geist Mono", "SF Mono", Monaco, Inconsolata, "Roboto Mono", Consolas, "Courier New", monospace'
+                                                }}
+                                            />
                                         </div>
                                     </TabsContent>
                                 ))}

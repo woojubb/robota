@@ -8,14 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Play, Save, Download, Upload, FolderOpen, Sparkles, Keyboard } from 'lucide-react';
+import { Play, Save, Download, FolderOpen, Sparkles, Keyboard } from 'lucide-react';
 
 import { CodeEditor, exampleTemplates } from '@/components/playground/code-editor';
 import { ChatInterface } from '@/components/playground/chat-interface';
 import { ExecutionOutput } from '@/components/playground/execution-output';
 import { ProjectBrowser } from '@/components/playground/project-browser';
 import { TemplateGallery } from '@/components/playground/template-gallery';
-import { ErrorPanel } from '@/components/playground/error-panel';
 import { ShortcutsHelp } from '@/components/playground/shortcuts-help';
 import { ProjectManager, type Project } from '@/lib/playground/project-manager';
 import { CodeExecutor, type ExecutionResult } from '@/lib/playground/code-executor';

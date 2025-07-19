@@ -36,16 +36,7 @@ export function ChatInterface({ isAgentReady, onSendMessage }: ChatInterfaceProp
     const [input, setInput] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [copiedId, setCopiedId] = useState<string | null>(null)
-    const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLInputElement>(null)
-
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
-
-    useEffect(() => {
-        scrollToBottom()
-    }, [messages])
 
     const handleSend = async () => {
         if (!input.trim() || !isAgentReady || isLoading) return
@@ -202,8 +193,8 @@ export function ChatInterface({ isAgentReady, onSendMessage }: ChatInterfaceProp
                         messages.map((message) => (
                             <div key={message.id} className="group">
                                 <Card className={`max-w-[85%] ${message.role === 'user'
-                                        ? 'ml-auto bg-primary text-primary-foreground'
-                                        : 'mr-auto'
+                                    ? 'ml-auto bg-primary text-primary-foreground'
+                                    : 'mr-auto'
                                     }`}>
                                     <CardContent className="p-3">
                                         <div className="flex items-start space-x-2">
@@ -267,7 +258,6 @@ export function ChatInterface({ isAgentReady, onSendMessage }: ChatInterfaceProp
                         </div>
                     )}
                 </div>
-                <div ref={messagesEndRef} />
             </ScrollArea>
 
             {/* Input Area */}
