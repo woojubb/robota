@@ -3,14 +3,23 @@
     "version": "2.0.8",
     "description": "Google AI integration for Robota SDK - Gemini Pro, Gemini Flash, function calling, and tool integration with Google's Generative AI",
     "type": "module",
-    "main": "dist/index.js",
-    "module": "dist/index.mjs",
-    "types": "dist/index.d.ts",
+    "main": "dist/node/index.js",
+    "module": "dist/node/index.mjs",
+    "types": "dist/node/index.d.ts",
     "exports": {
         ".": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js",
-            "require": "./dist/index.cjs"
+            "types": "./dist/node/index.d.ts",
+            "node": {
+                "import": "./dist/node/index.js",
+                "require": "./dist/node/index.cjs"
+            },
+            "browser": {
+                "import": "./dist/browser/index.js"
+            },
+            "default": {
+                "import": "./dist/node/index.js",
+                "require": "./dist/node/index.cjs"
+            }
         }
     },
     "repository": {
