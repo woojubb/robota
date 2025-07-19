@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth';
 import { db } from '../../lib/firebase-admin';
-import { FieldValue } from 'firebase-admin/firestore';
+// import { FieldValue } from 'firebase-admin/firestore'; // Removed unused import
 
 const router = Router();
 
@@ -168,7 +168,7 @@ router.post('/check-limits', authenticateToken, async (req, res): Promise<void> 
             return;
         }
 
-        const { operation, provider, tokensRequested = 0 } = req.body;
+        const { tokensRequested = 0 } = req.body;
 
         // Get user subscription
         const subscriptionDoc = await db.collection('subscriptions').doc(userId).get();

@@ -123,18 +123,23 @@
   - [x] 비용 추적 및 최적화 제안
   - **완료 파일**: `apps/web/functions/src/api/usage/index.ts`
 
-### 21-22주차: 결제 및 구독 시스템 ✅ (기존 계획 유지)
-- [ ] **Stripe 통합**
+### 21-22주차: 결제 및 구독 시스템 ✅ (Stripe 제외 완료)
+- [ ] **Stripe 통합** (향후 구현 예정)
   - [ ] 결제 처리 시스템
   - [ ] 구독 관리
   - [ ] 청구서 생성
-  - **필요 파일**: `apps/web/src/lib/stripe/` 디렉터리
+  - **보류**: Stripe 도입 가능 시점까지 연기
 
-- [ ] **요금제 및 제한 관리**
-  - [ ] 플랜별 기능 제한
-  - [ ] 사용량 기반 과금
-  - [ ] 오버리지 처리
-  - **필요 파일**: `apps/web/src/app/billing/page.tsx`
+- [x] **요금제 및 제한 관리**
+  - [x] 플랜별 기능 제한
+  - [x] 사용량 기반 과금
+  - [x] 오버리지 처리
+  - **완료 파일**: 
+    - `apps/web/src/app/billing/page.tsx`
+    - `apps/web/src/app/pricing/page.tsx`
+    - `apps/web/functions/src/api/subscription/index.ts`
+    - `apps/web/src/lib/billing/plans.ts`
+    - `apps/web/src/types/billing.ts`
 
 ---
 
