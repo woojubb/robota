@@ -65,8 +65,6 @@ const providers = {
 router.post('/', authenticateToken, async (req, res): Promise<void> => {
     const startTime = Date.now();
     let tokensUsed = 0;
-    let success = false;
-    let errorType: string | undefined;
 
     // Extract request data at the top level for error handling
     const {
@@ -191,7 +189,6 @@ router.post('/', authenticateToken, async (req, res): Promise<void> => {
 
             // Update token count with actual response
             tokensUsed = estimatedTokens + Math.ceil((response.content?.length || 0) / 4);
-            success = true;
 
             // Track usage asynchronously
             if (userId) {
@@ -238,18 +235,14 @@ router.post('/', authenticateToken, async (req, res): Promise<void> => {
             if (error.message.includes('Model is required')) {
                 status = 400;
                 message = error.message;
-                errorType = 'validation';
             } else if (error.message.includes('API key')) {
                 status = 401;
                 message = 'Invalid API credentials';
-                errorType = 'authentication';
             } else if (error.message.includes('Rate limit')) {
                 status = 429;
                 message = 'Rate limit exceeded';
-                errorType = 'rate_limit';
             } else {
                 message = error.message;
-                errorType = 'runtime';
             }
         }
 
