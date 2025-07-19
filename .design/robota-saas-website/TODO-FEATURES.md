@@ -145,12 +145,12 @@
 
 ## 🔄 아키텍처 변경사항 요약
 
-### **제거될 기능** 🗑️
-- ❌ OpenAI 호환 API (`/api/v1/chat/completions`)
-- ❌ 기존 채팅 API 구조 (`functions/src/api/chat/index.ts`)
-- ❌ 모델 목록 API (`/api/v1/chat/models`)
-- ❌ OpenAI 클라이언트 라이브러리 호환성
-- **제거 예정 파일**: `functions/src/api/chat/`, `functions/src/api/agents/`
+### **제거된 기능** ✅
+- ✅ OpenAI 호환 API (`/api/v1/chat/completions`) - 제거됨
+- ✅ 기존 채팅 API 구조 (`functions/src/api/chat/index.ts`) - Agent 기반으로 변경됨
+- ✅ 모델 목록 API (`/api/v1/chat/models`) - 제거됨
+- ✅ OpenAI 클라이언트 라이브러리 호환성 - Agent API로 대체
+- **변경된 파일**: `functions/src/api/chat/` → DEPRECATED로 표시
 
 ### **새로 추가될 핵심 기능**
 - ✅ **ExecutorInterface** - 의존성 주입 기반 실행 추상화

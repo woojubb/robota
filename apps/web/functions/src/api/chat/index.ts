@@ -59,8 +59,8 @@ const providers = {
 /**
  * POST /api/v1/chat
  * 
- * Unified chat completion endpoint for all AI providers
- * Supports OpenAI, Anthropic, and Google providers transparently
+ * DEPRECATED: This endpoint has been replaced with agent-based execution
+ * Use /api/v1/agents/run instead
  */
 router.post('/', authenticateToken, async (req, res): Promise<void> => {
     const startTime = Date.now();
@@ -138,37 +138,37 @@ router.post('/', authenticateToken, async (req, res): Promise<void> => {
                 for await (const chunk of providerInstance.chatStream(messages, chatOptions)) {
                     const data = JSON.stringify({
                         id: `chatcmpl-${Date.now()}`,
-                        object: 'chat.completion.chunk',
+                        object: 'agent.stream.chunk',
                         created: Math.floor(Date.now() / 1000),
                         model,
                         provider,
                         choices: [{
                             index: 0,
                             delta: {
-                                role: chunk.role,
-                                content: chunk.content
+                                content: chunk.content || '',
                             },
-                            finish_reason: null
-                        }]
+                            finish_reason: null,
+                        }],
                     });
 
                     res.write(`data: ${data}\n\n`);
                 }
 
                 // Send final chunk
-                res.write(`data: ${JSON.stringify({
+                const finalData = JSON.stringify({
                     id: `chatcmpl-${Date.now()}`,
-                    object: 'chat.completion.chunk',
+                    object: 'agent.stream.chunk',
                     created: Math.floor(Date.now() / 1000),
                     model,
                     provider,
                     choices: [{
                         index: 0,
                         delta: {},
-                        finish_reason: 'stop'
-                    }]
-                })}\n\n`);
+                        finish_reason: 'stop',
+                    }],
+                });
 
+                res.write(`data: ${finalData}\n\n`);
                 res.write('data: [DONE]\n\n');
                 res.end();
 
@@ -195,26 +195,27 @@ router.post('/', authenticateToken, async (req, res): Promise<void> => {
                 trackUsageAsync(userId, provider, model, 'chat', tokensUsed, Date.now() - startTime, true);
             }
 
-            res.json({
+            const responseData = {
                 id: `chatcmpl-${Date.now()}`,
-                object: 'chat.completion',
+                object: 'agent.response',
                 created: Math.floor(Date.now() / 1000),
                 model,
                 provider,
-                choices: [{
-                    index: 0,
-                    message: {
-                        role: response.role,
-                        content: response.content
-                    },
-                    finish_reason: 'stop'
-                }],
+                choices: [
+                    {
+                        index: 0,
+                        message: response,
+                        finish_reason: 'stop',
+                    }
+                ],
                 usage: {
                     prompt_tokens: estimatedTokens,
                     completion_tokens: tokensUsed - estimatedTokens,
                     total_tokens: tokensUsed
                 }
-            });
+            };
+
+            res.json(responseData);
         }
 
     } catch (error) {
