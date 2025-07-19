@@ -34,9 +34,7 @@ import { AnthropicProvider } from '@robota-sdk/anthropic';
 
 // Create type-safe Anthropic provider
 const provider = new AnthropicProvider({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-  model: 'claude-3-sonnet-20240229',
-  maxTokens: 1000
+  apiKey: process.env.ANTHROPIC_API_KEY!
 });
 
 // Create Robota agent with Anthropic provider

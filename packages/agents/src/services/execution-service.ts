@@ -274,7 +274,11 @@ export class ExecutionService {
 
                 // Validate required model configuration - use new defaultModel format
                 if (!config.defaultModel?.model) {
-                    throw new Error('Default model is required in agent configuration');
+                    throw new Error('Model is required in defaultModel configuration. Please specify a model.');
+                }
+
+                if (typeof config.defaultModel.model !== 'string' || config.defaultModel.model.trim() === '') {
+                    throw new Error('Model must be a non-empty string in defaultModel configuration.');
                 }
 
                 // Delegate entire execution to provider

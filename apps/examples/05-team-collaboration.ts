@@ -8,9 +8,7 @@
 import chalk from 'chalk';
 import { createTeam } from '@robota-sdk/team';
 import { OpenAIProvider } from '@robota-sdk/openai';
-import OpenAI from 'openai';
 import dotenv from 'dotenv';
-import Anthropic from '@anthropic-ai/sdk';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 
 // Load environment variables
@@ -60,23 +58,16 @@ where the task_coordinator template automatically handles team collaboration wit
         // Example 1: Simple task (direct handling)
         logSection('Example 1: Simple Task (Direct Handling)');
 
-        // Create OpenAI client and provider for example 1
-        const openaiClient1 = new OpenAI({ apiKey });
+        // Create providers for example 1
         const openaiProvider1 = new OpenAIProvider({
-            client: openaiClient1,
-            model: 'gpt-4o-mini',
+            apiKey,
             enablePayloadLogging: true,
             payloadLogDir: './logs/team-collaboration-en/example1',
             includeTimestampInLogFiles: true
         });
 
-        const anthropicClient1 = new Anthropic({ apiKey: anthropicApiKey });
         const anthropicProvider1 = new AnthropicProvider({
-            client: anthropicClient1,
-            model: 'claude-3-5-sonnet-20241022',
-            enablePayloadLogging: true,
-            payloadLogDir: './logs/team-collaboration-en/example1',
-            includeTimestampInLogFiles: true
+            apiKey: anthropicApiKey
         });
 
         // Create team for example 1 (using simplified API)
@@ -116,23 +107,13 @@ where the task_coordinator template automatically handles team collaboration wit
         logSection('Example 2: Complex Task (Team Collaboration)');
         console.log('✅ Creating new team for example 2...');
 
-        // Create OpenAI client and provider for example 2 (completely new instances)
-        const openaiClient2 = new OpenAI({ apiKey });
+        // Create providers for example 2 (completely new instances)
         const openaiProvider2 = new OpenAIProvider({
-            client: openaiClient2,
-            model: 'gpt-4o-mini',
-            enablePayloadLogging: true,
-            payloadLogDir: './logs/team-collaboration-en/example2',
-            includeTimestampInLogFiles: true
+            apiKey
         });
 
-        const anthropicClient2 = new Anthropic({ apiKey: anthropicApiKey });
         const anthropicProvider2 = new AnthropicProvider({
-            client: anthropicClient2,
-            model: 'claude-3-5-sonnet-20241022',
-            enablePayloadLogging: true,
-            payloadLogDir: './logs/team-collaboration-en/example2',
-            includeTimestampInLogFiles: true
+            apiKey: anthropicApiKey
         });
 
         // Create team for example 2 (using simplified API, completely new team)

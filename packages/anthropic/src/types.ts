@@ -10,11 +10,6 @@ export type ProviderOptionValue = string | number | boolean | undefined | null |
  */
 export interface ProviderOptions {
     /**
-     * Model name to use
-     */
-    model?: string;
-
-    /**
      * Additional provider-specific options
      */
     [key: string]: ProviderOptionValue;
@@ -26,14 +21,9 @@ export interface ProviderOptions {
  * Note: Anthropic API doesn't support response format configuration.
  * JSON output can be requested through prompt instructions.
  */
-export interface AnthropicProviderOptions extends Omit<ProviderOptions, 'model'> {
+export interface AnthropicProviderOptions extends ProviderOptions {
     /**
-     * Default model to use
-     */
-    model?: string;
-
-    /**
-     * Anthropic API key (optional: not required when using client)
+     * Anthropic API key (required when client is not provided)
      */
     apiKey?: string;
 
@@ -48,7 +38,7 @@ export interface AnthropicProviderOptions extends Omit<ProviderOptions, 'model'>
     baseURL?: string;
 
     /**
-     * Anthropic client instance (required)
+     * Anthropic client instance (optional: will be created from apiKey if not provided)
      */
-    client: Anthropic;
+    client?: Anthropic;
 } 

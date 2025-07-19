@@ -1,5 +1,69 @@
 # @robota-sdk/agents
 
+## 2.0.8
+
+### Patch Changes
+
+- # Model Configuration Refactoring
+
+  ## 🚀 **Breaking Changes**
+
+  ### **Provider Interface Simplification**
+
+  - **OpenAI Provider**: Removed `model`, `temperature`, `maxTokens`, `topP` from provider options
+  - **Anthropic Provider**: Removed `model`, `temperature`, `maxTokens` from provider options
+  - **Google Provider**: Removed `model`, `temperature`, `maxTokens` from provider options
+  - **All Providers**: `client` is now optional, automatically created from `apiKey`
+
+  ### **Centralized Model Configuration**
+
+  - Model configuration is now exclusively handled through `defaultModel` in Robota constructor
+  - Providers are simplified to handle only connection-related settings
+  - Runtime model switching via `setModel()` method is now the recommended approach
+
+  ## ✨ **Improvements**
+
+  ### **Simplified Provider Creation**
+
+  ```typescript
+  // Before
+  const provider = new OpenAIProvider({
+    client: openaiClient,
+    model: "gpt-3.5-turbo",
+  });
+
+  // After
+  const provider = new OpenAIProvider({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+  ```
+
+  ### **Enhanced Validation**
+
+  - Added strict validation for required model configuration
+  - Removed default model fallbacks to prevent ambiguous behavior
+  - Clear error messages when model is not specified
+
+  ### **Documentation Updates**
+
+  - Updated all README files with new usage patterns
+  - Regenerated API documentation
+  - Updated all example files (11 examples)
+
+  ## 🔧 **Migration Guide**
+
+  1. **Remove model settings from Provider constructors**
+  2. **Use `apiKey` instead of `client` injection (recommended)**
+  3. **Ensure `defaultModel` is properly configured in Robota constructor**
+  4. **Update any hardcoded model references to use runtime switching**
+
+  ## 🎯 **Benefits**
+
+  - **Eliminates configuration confusion** - Single source of truth for models
+  - **Simplifies provider setup** - Just provide API credentials
+  - **Enables better runtime control** - Centralized model management
+  - **Improves consistency** - All providers follow same pattern
+
 ## 2.0.7
 
 ### Patch Changes

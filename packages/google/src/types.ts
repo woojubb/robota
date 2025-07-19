@@ -8,11 +8,6 @@ export type ProviderOptionValue = string | number | boolean | undefined | null |
  */
 export interface ProviderOptions {
     /**
-     * Model name to use
-     */
-    model?: string;
-
-    /**
      * Additional provider-specific options
      */
     [key: string]: ProviderOptionValue;
@@ -21,18 +16,9 @@ export interface ProviderOptions {
 /**
  * Google AI Provider options
  */
-export interface GoogleProviderOptions extends Omit<ProviderOptions, 'model'> {
+export interface GoogleProviderOptions extends ProviderOptions {
     /** Google AI API key */
     apiKey: string;
-
-    /** Default model to use */
-    model?: string;
-
-    /** Temperature setting (0.0 ~ 1.0) */
-    temperature?: number;
-
-    /** Maximum number of tokens */
-    maxTokens?: number;
 
     /** 
      * Response MIME type

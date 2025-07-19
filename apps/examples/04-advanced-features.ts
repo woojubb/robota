@@ -7,7 +7,6 @@
  * - Multiple queries with history
  */
 
-import OpenAI from 'openai';
 import {
     Robota,
     LoggingPlugin
@@ -28,11 +27,9 @@ async function main() {
             throw new Error('OPENAI_API_KEY environment variable is required');
         }
 
-        // Create OpenAI client and provider
-        const openaiClient = new OpenAI({ apiKey });
+        // Create OpenAI provider (simplified)
         const openaiProvider = new OpenAIProvider({
-            client: openaiClient,
-            model: 'gpt-3.5-turbo'
+            apiKey
         });
 
         // Create advanced plugins
