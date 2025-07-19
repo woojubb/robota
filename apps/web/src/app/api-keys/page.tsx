@@ -70,7 +70,7 @@ export default function ApiKeysPage() {
                 {
                     id: "robota_123...abc",
                     name: "Development Key",
-                    permissions: ["chat.completions"],
+                    permissions: ["agents.run", "tools.execute"],
                     isActive: true,
                     usageCount: 150,
                     rateLimit: {
@@ -112,7 +112,7 @@ export default function ApiKeysPage() {
                 id: `robota_${Math.random().toString(36).substring(2)}`,
                 name: newKeyName,
                 key: `robota_${Math.random().toString(36).substring(2)}${Math.random().toString(36).substring(2)}`,
-                permissions: ["chat.completions"],
+                permissions: ["agents.run", "tools.execute"],
                 isActive: true,
                 usageCount: 0,
                 rateLimit: {
@@ -425,15 +425,16 @@ export default function ApiKeysPage() {
                         </p>
                         <code className="block p-3 bg-muted rounded text-sm">
                             curl -H &quot;Authorization: Bearer YOUR_API_KEY&quot; \<br />
-                            &nbsp;&nbsp;&nbsp;&nbsp;https://api.robota.dev/v1/chat/completions
+                            &nbsp;&nbsp;&nbsp;&nbsp;https://api.robota.dev/v1/agents/run
                         </code>
                     </div>
 
                     <div>
-                        <h4 className="font-semibold mb-2">OpenAI Compatibility</h4>
+                        <h4 className="font-semibold mb-2">API Endpoints</h4>
                         <p className="text-sm text-muted-foreground">
-                            Our API is compatible with OpenAI&apos;s API format. You can use existing OpenAI client libraries
-                            by changing the base URL to <code className="px-1 py-0.5 bg-muted rounded">https://api.robota.dev/v1</code>
+                            Use the API to run AI agents and execute tools. Visit our{" "}
+                            <a href="/docs/api" className="text-primary hover:underline">API documentation</a>{" "}
+                            for complete endpoint reference.
                         </p>
                     </div>
                 </CardContent>
