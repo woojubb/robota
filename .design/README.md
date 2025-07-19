@@ -54,6 +54,11 @@ Robota SaaS 웹사이트 관련 설계
 ### 🌐 **remote-system/**
 원격 실행 시스템 설계 문서
 - Remote AI Provider 아키텍처
+- Provider 의존성 주입 아키텍처 (ExecutorInterface)
+- 아키텍처 방식 비교 분석 (Executor vs RemoteProviders)
+- 플레이그라운드 실행 전략 (투명한 원격 실행)
+- 플레이그라운드 Provider 교체 전략 (방안 1 상세 구현)
+- 간소화된 플레이그라운드 전략 (BaseAIProvider executor 주입)
 - 서버-클라이언트 통신 설계
 - API Key 보안 및 권한 관리
 - 사용량 추적 및 비용 제어
