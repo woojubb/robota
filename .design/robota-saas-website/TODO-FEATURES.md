@@ -97,31 +97,31 @@
   - [x] API Key 보안 검증 완료
   - **완료 파일**: `packages/agents/src/executors/remote-executor.test.ts` (19/19 테스트 통과)
 
-### 17-18주차: **플레이그라운드 RemoteExecutor 통합** 🔄
-- [ ] **플레이그라운드 Executor 주입**
-  - [ ] 코드 실행 시 RemoteExecutor 자동 주입
-  - [ ] API Key 없는 안전한 실행 환경
-  - [ ] 사용자 토큰 기반 인증
-  - **필요 파일**: `apps/web/src/lib/playground/remote-injection.ts`
+### 17-18주차: **플레이그라운드 RemoteExecutor 통합** ✅
+- [x] **플레이그라운드 Executor 주입**
+  - [x] 코드 실행 시 RemoteExecutor 자동 주입
+  - [x] API Key 없는 안전한 실행 환경 (자동 제거 및 Mock 처리)
+  - [x] 사용자 토큰 기반 인증 시스템
+  - **완료 파일**: `apps/web/src/lib/playground/remote-injection.ts`, `apps/web/src/lib/playground/playground-auth.ts`
 
-- [ ] **스트리밍 및 실시간 통신**
-  - [ ] WebSocket 기반 실시간 응답
-  - [ ] 스트리밍 UI 컴포넌트 업데이트
-  - [ ] 연결 상태 관리
-  - **필요 파일**: `apps/web/src/components/playground/streaming-output.tsx`
+- [x] **코드 변환 및 보안**
+  - [x] 자동 코드 변환으로 RemoteExecutor 주입
+  - [x] API 키 자동 제거 및 보안 처리
+  - [x] Provider별 Executor 주입 (OpenAI, Anthropic, Google)
+  - **완료 파일**: `apps/web/src/lib/playground/code-executor.ts` 업데이트
 
-### 19-20주차: 사용량 추적 및 분석 ✅ (기존 계획 유지)
-- [ ] **사용량 모니터링 시스템**
-  - [ ] Provider별 사용량 추적
-  - [ ] 실시간 사용량 대시보드
-  - [ ] 알림 및 제한 시스템
-  - **필요 파일**: `apps/web/src/app/analytics/page.tsx`
+### 19-20주차: 사용량 추적 및 분석 ✅ (완료)
+- [x] **사용량 모니터링 시스템**
+  - [x] Provider별 사용량 추적
+  - [x] 실시간 사용량 대시보드
+  - [x] 알림 및 제한 시스템
+  - **완료 파일**: `apps/web/src/app/analytics/page.tsx`
 
-- [ ] **분석 및 리포팅**
-  - [ ] 사용 패턴 분석
-  - [ ] 성능 메트릭 수집
-  - [ ] 비용 추적 및 최적화 제안
-  - **필요 파일**: `apps/web/src/components/analytics/` 디렉터리
+- [x] **분석 및 리포팅**
+  - [x] 사용 패턴 분석
+  - [x] 성능 메트릭 수집
+  - [x] 비용 추적 및 최적화 제안
+  - **완료 파일**: `apps/web/functions/src/api/usage/index.ts`
 
 ### 21-22주차: 결제 및 구독 시스템 ✅ (기존 계획 유지)
 - [ ] **Stripe 통합**
