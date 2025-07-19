@@ -5,11 +5,11 @@ This example demonstrates how to monitor token usage, implement rate limiting, a
 ## Overview
 
 The token and request limits example shows how to:
-- Monitor token usage and API costs in real-time
-- Implement request rate limiting and throttling
-- Track usage statistics and analytics
-- Set up cost controls and budget alerts
-- Optimize token efficiency and reduce costs
+- Monitor token usage through the LimitsPlugin
+- Implement request rate limiting and throttling with plugin strategies
+- Track usage statistics using ExecutionAnalyticsPlugin  
+- Handle rate limit errors and implement retry logic
+- Example patterns for token optimization (reference implementations)
 
 ## Source Code
 

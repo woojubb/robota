@@ -1,11 +1,11 @@
 # Provider Switching
 
-This example demonstrates advanced provider switching patterns, including dynamic model switching, conversation history preservation, and performance comparison across different AI providers.
+This example demonstrates manual provider switching patterns using the `setModel()` method, including dynamic model switching, conversation history preservation, and response comparison across different AI providers.
 
 ## Overview
 
 The provider switching examples show how to:
-- Switch between different AI providers dynamically during conversations
+- Switch between different AI providers manually using `setModel()` during conversations
 - Compare responses across multiple providers
 - Maintain conversation history when switching providers
 - Test different models within the same provider
@@ -28,12 +28,12 @@ import { GoogleProvider } from '@robota-sdk/google';
 
 // Setup multiple providers
 const robota = new Robota({
-    aiProviders: {
-        'openai': openaiProvider,
-        'anthropic': anthropicProvider,
-        'google': googleProvider
-    },
-    currentModel: 'gpt-3.5-turbo'
+    name: 'MultiProviderAgent',
+    aiProviders: [openaiProvider, anthropicProvider, googleProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-3.5-turbo'
+    }
 });
 
 // Switch providers dynamically

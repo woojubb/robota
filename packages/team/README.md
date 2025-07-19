@@ -4,25 +4,25 @@ Multi-agent collaboration system for the Robota SDK with advanced workflow manag
 
 ## 🚀 Why Choose @robota-sdk/team?
 
-### 🎯 Solve Complex Problems 10x Faster
-- **Automatic Task Decomposition**: Break down complex requests into specialist tasks
-- **Parallel Processing**: Multiple agents work simultaneously on different aspects
-- **Intelligent Delegation**: AI automatically assigns tasks to the right specialists
+### 🎯 Multi-Agent Collaboration
+- **Task Coordination**: Primary agent coordinates with temporary specialist agents for complex tasks
+- **Specialist Templates**: Pre-configured templates for different types of work (research, creative, analysis, etc.)
+- **Dynamic Agent Creation**: Creates temporary expert agents tailored for specific subtasks
 
-### 💡 Real-World Impact
-- **Marketing Campaign**: Generate complete campaigns with research, creative, and strategy in one request
-- **Software Development**: Design, implement, test, and document features collaboratively
-- **Business Analysis**: Conduct market research, competitive analysis, and strategic planning simultaneously
+### 💡 Use Cases
+- **Complex Analysis**: Break down multi-faceted analysis tasks across specialist agents
+- **Content Creation**: Coordinate research, writing, and review phases
+- **Multi-Step Workflows**: Handle workflows that benefit from different types of expertise
 
-### 🏆 Key Advantages
-- **Zero Configuration**: Pre-built expert templates work out-of-the-box
-- **Cross-Provider Teams**: Mix OpenAI, Anthropic, and Google AI in one team
-- **Cost Optimization**: Automatically uses the most cost-effective model for each task
-- **Workflow Visualization**: See how your AI team collaborates with Mermaid diagrams
+### 🏆 Key Features
+- **Template-Based Specialists**: 7 pre-configured specialist templates ready to use
+- **Cross-Provider Teams**: Mix OpenAI, Anthropic, and Google AI providers within teams
+- **Resource Management**: Automatic cleanup and lifecycle management of temporary agents
+- **Team Analytics**: Performance monitoring through ExecutionAnalyticsPlugin
 
 ## Overview
 
-The `@robota-sdk/team` package enables sophisticated multi-agent collaboration with intelligent template-based expert selection. It features automatic task analysis, expert delegation, and comprehensive workflow management for complex multi-step projects.
+The `@robota-sdk/team` package enables multi-agent collaboration with template-based specialist coordination. It provides a system where a primary agent can delegate subtasks to temporary specialist agents, using pre-configured templates for different types of work.
 
 ## Installation
 

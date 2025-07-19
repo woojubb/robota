@@ -25,15 +25,13 @@ Robota is a powerful AI agent framework written in JavaScript/TypeScript. This p
 - Memory system that remembers and references conversation history
 - External system integration through tools
 
-### 👥 **Intelligent Multi-Agent Teams**
-- **Template-Based Expert Selection**: AI automatically analyzes requests and selects optimal specialist templates (researchers, creative ideators, coordinators, etc.)
-- **Dynamic Task Delegation**: Complex requests are decomposed and delegated to appropriate expert agents
-- **Optimized AI Provider Selection**: Each expert template uses the most suitable AI provider and model for its specialty
-- **Workflow Visualization**: Generate flowcharts and relationship diagrams for team interactions
-- **Dynamic Task Delegation**: Complex requests broken down and distributed to specialized agents automatically
-- **6 Built-in Expert Templates**: Task coordinator, summarizer, ethical reviewer, creative ideator, fast executor, domain researcher
-- **Simplified Configuration**: Just provide AI providers - templates handle all configuration automatically
-- **Seamless Result Integration**: Automatic synthesis of multiple agent outputs into cohesive responses
+### 👥 **Multi-Agent Team System**
+- **Task Coordination**: Primary agent coordinates with temporary specialist agents for complex tasks
+- **Dynamic Agent Creation**: Creates temporary expert agents tailored for specific subtasks
+- **Template-Based Specialists**: 7 pre-configured specialist templates (coordinator, researcher, creative, ethical reviewer, executor, summarizer, general)
+- **Resource Management**: Automatic cleanup and lifecycle management of temporary agents
+- **Team Analytics**: Performance monitoring and statistics through ExecutionAnalyticsPlugin
+- **Cross-Provider Teams**: Mix different AI providers within the same team workflow
 
 ### 🏢 **Session Management**
 - **Multiple AI Sessions**: Create and manage multiple independent AI conversation sessions
@@ -52,14 +50,15 @@ Robota is a powerful AI agent framework written in JavaScript/TypeScript. This p
 - Consistent development experience through unified interface
 
 ### 📊 **Analytics & Monitoring**
-- Detailed usage statistics including request count and token usage
-- Real-time limit management (token and request limits)
-- Comprehensive logging system for debugging
+- Usage statistics through ExecutionAnalyticsPlugin and UsagePlugin
+- Rate limiting and resource control through LimitsPlugin  
+- Comprehensive logging system for debugging through LoggingPlugin
+- Plugin-based monitoring with configurable strategies
 
-### 🔧 **OpenAPI Integration**
-- Automatic tool generation from Swagger/OpenAPI specifications
-- Quick AI agent integration with existing REST APIs
-- Type-safe API client generation
+### 🔧 **Tool System**
+- Type-safe function calling with Zod schema validation
+- Extensible tool architecture for external integrations
+- Built-in tool registry and management system
 
 ## Project Structure
 

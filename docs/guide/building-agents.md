@@ -98,7 +98,7 @@ const codeReviewAgent = new Robota({
 
 ### 3. Multi-Provider Agent Pattern
 
-Agents that leverage different AI providers for different tasks:
+Agents that manually switch between different AI providers based on task analysis:
 
 ```typescript
 class SmartAgent extends Robota {

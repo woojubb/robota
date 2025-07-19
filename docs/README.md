@@ -11,10 +11,9 @@ A powerful TypeScript library for building AI agents with multi-provider support
 
 ## 🚀 Why Choose Robota SDK?
 
-### 🎯 Zero-Configuration Intelligence
-- **Pre-built Agent Templates**: 6 specialized agents ready to use out-of-the-box
-- **Automatic Provider Selection**: Intelligently chooses the best AI model for each task
-- **Smart Defaults**: Optimized settings for immediate productivity
+### 🎯 Streamlined Configuration
+- **Runtime Model Switching**: Switch between AI providers and models dynamically using `setModel()`
+- **Centralized Model Configuration**: Single source of truth for model settings through `defaultModel`
 
 ### 🔒 Enterprise-Grade Type Safety
 - **100% TypeScript**: Complete type coverage with zero `any` types
@@ -22,9 +21,9 @@ A powerful TypeScript library for building AI agents with multi-provider support
 - **IntelliSense Everything**: Full IDE support for all APIs
 
 ### ⚡ Performance & Efficiency
-- **Token Optimization**: Automatic context management to minimize costs
-- **Streaming First**: Real-time responses for better user experience
-- **Built-in Analytics**: Monitor performance, costs, and usage patterns
+- **Streaming Support**: Real-time responses from all providers with `runStream()`
+- **Built-in Analytics**: Monitor performance, costs, and usage patterns through plugins
+- **Conversation Management**: Built-in history tracking and context preservation
 
 ### 🌐 True Multi-Provider Freedom
 - **Provider Agnostic**: Switch between OpenAI, Anthropic, and Google seamlessly
@@ -41,9 +40,9 @@ A powerful TypeScript library for building AI agents with multi-provider support
 
 - **Multi-Provider Support**: OpenAI, Anthropic, Google AI with seamless switching
 - **Cross-Platform Compatibility**: Node.js, browsers, WebWorkers support
-- **Multi-Agent Teams**: Create collaborative AI teams with specialized roles
-- **Built-in Agent Templates**: 6 pre-configured templates for common use cases
+- **Multi-Agent Teams**: Create collaborative AI teams with specialized roles using `@robota-sdk/team`
 - **Type-Safe Function Calling**: Zod schemas and tool integration
+- **Plugin System**: Extensible architecture with conversation history, analytics, and error handling plugins
 - **Streaming Support**: Real-time responses from all providers
 - **Conversation Management**: Built-in history and context management
 - **Team Workflow Analysis**: Generate flowcharts and relationship diagrams
@@ -164,16 +163,18 @@ npm install @robota-sdk/team
 - 📊 Team performance analytics
 - 🔄 Cross-provider collaboration
 
-## Built-in Agent Templates
+## Team Collaboration Templates
 
-Robota comes with 6 pre-configured agent templates:
+The `@robota-sdk/team` package includes pre-configured agent templates for team collaboration:
 
-- **Task Coordinator** - Analyzes and delegates complex tasks
-- **Domain Researcher** - Deep research and analysis specialist
-- **Creative Ideator** - Brainstorming and creative solutions
-- **Ethical Reviewer** - Evaluates ethical implications
-- **Fast Executor** - Quick task execution and implementation
+- **Task Coordinator** - Analyzes and delegates complex tasks to specialist agents
+- **Domain Researcher** - Deep research and analysis using Anthropic models
+- **Creative Ideator** - Brainstorming and creative solutions with higher temperature settings
+- **Ethical Reviewer** - Evaluates ethical implications with focus on responsible AI
+- **Fast Executor** - Quick task execution using efficient models
 - **Summarizer** - Content summarization and synthesis
+
+*Note: These templates are specifically designed for the team collaboration system and are not standalone agent configurations.*
 
 ## Documentation
 
@@ -206,12 +207,12 @@ Robota comes with 6 pre-configured agent templates:
 - **Performance Analytics** - Track team efficiency and token usage
 - **Cross-Provider Teams** - Mix different AI providers in one team
 
-## 🏆 Success Stories
+## 🎯 Key Benefits
 
-- **10x Faster Development**: Build AI agents in minutes, not days
-- **90% Less Boilerplate**: Focus on business logic, not infrastructure
-- **100% Type Safety**: Eliminate runtime errors with complete TypeScript coverage
-- **3x Cost Reduction**: Automatic provider selection optimizes for cost/performance
+- **Rapid Development**: Build AI agents with minimal boilerplate code
+- **Type Safety**: Complete TypeScript coverage with zero `any` types
+- **Provider Flexibility**: Easy switching between OpenAI, Anthropic, and Google AI
+- **Extensible Architecture**: Plugin system for custom functionality
 
 ## License
 
