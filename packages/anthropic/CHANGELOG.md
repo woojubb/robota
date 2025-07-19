@@ -1,5 +1,52 @@
 # @robota-sdk/anthropic
 
+## 2.0.9
+
+### Patch Changes
+
+- Add environment-specific builds and conditional exports for optimal browser compatibility
+
+  This update introduces major build optimizations for better browser performance:
+
+  ## 🚀 Environment-Specific Builds
+
+  - **Node.js builds**: `dist/node/` with full ESM and CJS support
+  - **Browser builds**: `dist/browser/` with optimized ESM bundles
+  - **Automatic selection**: Bundlers automatically choose the right build
+
+  ## 📦 Bundle Size Optimizations
+
+  - **team package**: 36% smaller browser bundles (37.52KB → 24.12KB)
+  - **sessions package**: 48% smaller browser bundles (10.64KB → 5.55KB)
+  - **Tree-shaking**: Eliminates Node.js-specific code from browser builds
+  - **Production optimizations**: Removes console logs and debug code in browser builds
+
+  ## 🔧 Conditional Exports
+
+  All packages now support conditional exports for seamless environment detection:
+
+  ```json
+  {
+    "exports": {
+      "node": "./dist/node/index.js",
+      "browser": "./dist/browser/index.js",
+      "default": "./dist/node/index.js"
+    }
+  }
+  ```
+
+  ## 🌐 Enhanced Browser Support
+
+  - **Zero breaking changes**: Existing code continues to work unchanged
+  - **Better performance**: Optimized bundles for faster loading
+  - **Smaller footprint**: Reduced JavaScript bundle sizes for web applications
+  - **Universal API**: Same API works across all environments
+
+  This update completes the browser compatibility optimization phase, making Robota SDK production-ready for web applications with optimal performance characteristics.
+
+- Updated dependencies
+  - @robota-sdk/agents@2.0.9
+
 ## 2.0.8
 
 ### Patch Changes
