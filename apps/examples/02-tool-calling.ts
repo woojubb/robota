@@ -10,7 +10,6 @@
 
 import { Robota, createFunctionTool } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
-import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
 // Load environment variables from examples directory
@@ -118,10 +117,9 @@ async function main() {
             throw new Error('OPENAI_API_KEY environment variable is required');
         }
 
-        // Create OpenAI client and provider
-        const openaiClient = new OpenAI({ apiKey });
+        // Create OpenAI provider (simplified)
         const openaiProvider = new OpenAIProvider({
-            client: openaiClient
+            apiKey
         });
 
         // Create Robota instance with tools using new API

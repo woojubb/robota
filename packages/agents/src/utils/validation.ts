@@ -48,16 +48,16 @@ export class Validator {
             }
         }
 
-        // Optional field validation
-        if (config.temperature !== undefined) {
-            if (typeof config.temperature !== 'number' || config.temperature < 0 || config.temperature > 2) {
-                errors.push('temperature must be a number between 0 and 2');
+        // Optional field validation for defaultModel
+        if (config.defaultModel?.temperature !== undefined) {
+            if (typeof config.defaultModel.temperature !== 'number' || config.defaultModel.temperature < 0 || config.defaultModel.temperature > 2) {
+                errors.push('defaultModel.temperature must be a number between 0 and 2');
             }
         }
 
-        if (config.maxTokens !== undefined) {
-            if (typeof config.maxTokens !== 'number' || config.maxTokens <= 0) {
-                errors.push('maxTokens must be a positive number');
+        if (config.defaultModel?.maxTokens !== undefined) {
+            if (typeof config.defaultModel.maxTokens !== 'number' || config.defaultModel.maxTokens <= 0) {
+                errors.push('defaultModel.maxTokens must be a positive number');
             }
         }
 

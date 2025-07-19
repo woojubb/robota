@@ -13,11 +13,6 @@ export type ProviderOptionValue = string | number | boolean | undefined | null |
  */
 export interface ProviderOptions {
   /**
-   * Model name to use
-   */
-  model?: string;
-
-  /**
    * Additional provider-specific options
    */
   [key: string]: ProviderOptionValue;
@@ -26,24 +21,9 @@ export interface ProviderOptions {
 /**
  * OpenAI provider options
  */
-export interface OpenAIProviderOptions extends Omit<ProviderOptions, 'model'> {
+export interface OpenAIProviderOptions extends ProviderOptions {
   /**
-   * Default model name to use (default: gpt-4)
-   */
-  model?: string;
-
-  /**
-   * Temperature (0~1)
-   */
-  temperature?: number;
-
-  /**
-   * Maximum number of tokens
-   */
-  maxTokens?: number;
-
-  /**
-   * OpenAI API key (optional: not required when using client)
+   * OpenAI API key (required when client is not provided)
    */
   apiKey?: string;
 
@@ -81,9 +61,9 @@ export interface OpenAIProviderOptions extends Omit<ProviderOptions, 'model'> {
   };
 
   /**
-   * OpenAI client instance (required)
+   * OpenAI client instance (optional: will be created from apiKey if not provided)
    */
-  client: OpenAI;
+  client?: OpenAI;
 
   /**
    * Payload logger instance for debugging API requests/responses

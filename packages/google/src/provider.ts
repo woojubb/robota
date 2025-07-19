@@ -42,8 +42,12 @@ export class GoogleProvider extends BaseAIProvider {
     override async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
         this.validateMessages(messages);
 
+        if (!options?.model) {
+            throw new Error('Model is required in ChatOptions. Please specify a model in defaultModel configuration.');
+        }
+
         const model = this.client.getGenerativeModel({
-            model: this.options.model || 'gemini-1.5-flash'
+            model: options.model as string
         });
 
         const geminiMessages = this.convertToGeminiFormat(messages);
@@ -72,8 +76,12 @@ export class GoogleProvider extends BaseAIProvider {
     override async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
         this.validateMessages(messages);
 
+        if (!options?.model) {
+            throw new Error('Model is required in ChatOptions. Please specify a model in defaultModel configuration.');
+        }
+
         const model = this.client.getGenerativeModel({
-            model: this.options.model || 'gemini-1.5-flash'
+            model: options.model as string
         });
 
         const geminiMessages = this.convertToGeminiFormat(messages);

@@ -24,14 +24,18 @@ import { Robota } from '@robota-sdk/agents';
 
 // Initialize the Google provider
 const provider = new GoogleProvider({
-  apiKey: process.env.GOOGLE_AI_API_KEY,
-  model: 'gemini-1.5-pro'
+  apiKey: process.env.GOOGLE_AI_API_KEY
 });
 
 // Create a Robota instance
 const robota = new Robota({
-  provider,
-  systemMessage: 'You are a helpful AI assistant.'
+  name: 'GoogleAgent',
+  aiProviders: [provider],
+  defaultModel: {
+    provider: 'google',
+    model: 'gemini-1.5-pro',
+    systemMessage: 'You are a helpful AI assistant.'
+  }
 });
 
 // Start chatting
@@ -43,10 +47,19 @@ console.log(response);
 
 ```typescript
 const provider = new GoogleProvider({
-  apiKey: 'your-google-ai-api-key',
-  model: 'gemini-1.5-pro', // or 'gemini-1.5-flash'
-  temperature: 0.7,
-  maxTokens: 1000
+  apiKey: 'your-google-ai-api-key'
+});
+
+// Model configuration is set in Robota's defaultModel
+const robota = new Robota({
+  name: 'GoogleAgent',
+  aiProviders: [provider],
+  defaultModel: {
+    provider: 'google',
+    model: 'gemini-1.5-pro', // or 'gemini-1.5-flash'
+    temperature: 0.7,
+    maxTokens: 1000
+  }
 });
 ```
 

@@ -117,12 +117,12 @@ export class AgentTemplates {
             }
 
             // Check provider
-            if (criteria.provider && template.config.provider !== criteria.provider) {
+            if (criteria.provider && template.config.defaultModel?.provider !== criteria.provider) {
                 return false;
             }
 
             // Check model
-            if (criteria.model && template.config.model !== criteria.model) {
+            if (criteria.model && template.config.defaultModel?.model !== criteria.model) {
                 return false;
             }
 
@@ -155,10 +155,6 @@ export class AgentTemplates {
 
         // Check common override fields
         if (overrides.name !== undefined) checkField('name');
-        if (overrides.model !== undefined) checkField('model');
-        if (overrides.provider !== undefined) checkField('provider');
-        if (overrides.temperature !== undefined) checkField('temperature');
-        if (overrides.maxTokens !== undefined) checkField('maxTokens');
         if (overrides.systemMessage !== undefined) checkField('systemMessage');
 
         // Use the merged config
@@ -214,8 +210,8 @@ export class AgentTemplates {
         const templates = this.getTemplates();
         const categories = [...new Set(templates.map(t => t.category).filter(Boolean))] as string[];
         const tags = [...new Set(templates.flatMap(t => t.tags || []))];
-        const providers = [...new Set(templates.map(t => t.config.provider).filter(Boolean))] as string[];
-        const models = [...new Set(templates.map(t => t.config.model).filter(Boolean))] as string[];
+        const providers = [...new Set(templates.map(t => t.config.defaultModel?.provider).filter(Boolean))] as string[];
+        const models = [...new Set(templates.map(t => t.config.defaultModel?.model).filter(Boolean))] as string[];
 
         return {
             totalTemplates: templates.length,

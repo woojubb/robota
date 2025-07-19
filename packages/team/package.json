@@ -1,6 +1,6 @@
 {
     "name": "@robota-sdk/team",
-    "version": "2.0.7",
+    "version": "2.0.8",
     "description": "Multi-agent teamwork functionality for Robota SDK - dynamic agent coordination and task delegation",
     "type": "module",
     "main": "dist/index.js",

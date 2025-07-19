@@ -35,16 +35,22 @@ export class OpenAIProvider extends BaseAIProvider {
 
     constructor(options: OpenAIProviderOptions) {
         super();
-        this.options = {
-            temperature: 0.7,
-            ...options
-        };
+        this.options = options;
 
-        if (!options.client) {
-            throw new Error('OpenAI client is required');
+        // Create client from apiKey if not provided
+        if (options.client) {
+            this.client = options.client;
+        } else if (options.apiKey) {
+            this.client = new OpenAI({
+                apiKey: options.apiKey,
+                ...(options.organization && { organization: options.organization }),
+                ...(options.timeout && { timeout: options.timeout }),
+                ...(options.baseURL && { baseURL: options.baseURL })
+            });
+        } else {
+            throw new Error('Either OpenAI client or apiKey is required');
         }
 
-        this.client = options.client;
         this.logger = options.logger || SilentLogger;
         this.responseParser = new OpenAIResponseParser(this.logger);
 
@@ -69,9 +75,14 @@ export class OpenAIProvider extends BaseAIProvider {
             // 1. Convert UniversalMessage → OpenAI format
             const openaiMessages = this.convertToOpenAIMessages(messages);
 
-            // 2. Call OpenAI API (native SDK types)
+            // 2. Validate required model parameter
+            if (!options?.model) {
+                throw new Error('Model is required in ChatOptions. Please specify a model in defaultModel configuration.');
+            }
+
+            // 3. Call OpenAI API (native SDK types)
             const requestParams: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
-                model: options?.model || 'gpt-4',
+                model: options.model,
                 messages: openaiMessages,
                 ...(options?.temperature !== undefined && { temperature: options.temperature }),
                 ...(options?.maxTokens && { max_tokens: options.maxTokens }),
@@ -116,9 +127,14 @@ export class OpenAIProvider extends BaseAIProvider {
             // 1. Convert UniversalMessage → OpenAI format
             const openaiMessages = this.convertToOpenAIMessages(messages);
 
-            // 2. Call OpenAI streaming API
+            // 2. Validate required model parameter
+            if (!options?.model) {
+                throw new Error('Model is required in ChatOptions. Please specify a model in defaultModel configuration.');
+            }
+
+            // 3. Call OpenAI streaming API
             const requestParams: OpenAI.Chat.ChatCompletionCreateParamsStreaming = {
-                model: options?.model || 'gpt-4',
+                model: options.model,
                 messages: openaiMessages,
                 stream: true,
                 ...(options?.temperature !== undefined && { temperature: options.temperature }),

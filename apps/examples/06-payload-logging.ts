@@ -9,7 +9,6 @@
 import 'dotenv/config';
 import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
-import OpenAI from 'openai';
 
 async function main() {
     try {
@@ -21,18 +20,12 @@ async function main() {
             throw new Error('OPENAI_API_KEY environment variable is required');
         }
 
-        // Create OpenAI client
-        const openaiClient = new OpenAI({ apiKey });
-
         // === Test 1: Basic payload logging ===
         console.log('🔍 Test 1: Basic Payload Logging');
         console.log('='.repeat(50));
 
         const basicProvider = new OpenAIProvider({
-            client: openaiClient,
-            model: 'gpt-4o-mini',
-            temperature: 0.7,
-            maxTokens: 1000,
+            apiKey,
             enablePayloadLogging: true,  // Enable payload logging
             payloadLogDir: './logs/basic-payloads',
             includeTimestampInLogFiles: true
@@ -57,8 +50,7 @@ async function main() {
         console.log('='.repeat(50));
 
         const noLogProvider = new OpenAIProvider({
-            client: openaiClient,
-            model: 'gpt-4o-mini',
+            apiKey,
             enablePayloadLogging: false  // Logging disabled
         });
 

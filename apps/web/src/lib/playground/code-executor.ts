@@ -365,7 +365,7 @@ export class CodeExecutor {
                 message: 'Missing aiProviders configuration',
                 suggestions: [
                     'Add aiProviders to Robota config',
-                    'Example: aiProviders: [new OpenAIProvider({ client: openaiClient, model: "gpt-3.5-turbo" })]'
+                    'Example: aiProviders: [new OpenAIProvider({ apiKey: "your-api-key" })]'
                 ]
             })
         }

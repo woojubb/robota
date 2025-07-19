@@ -37,9 +37,19 @@ export class AnthropicProvider extends BaseAIProvider {
     constructor(options: AnthropicProviderOptions) {
         super();
         this.options = options;
-        this.client = new Anthropic({
-            apiKey: options.apiKey
-        });
+
+        // Create client from apiKey if not provided
+        if (options.client) {
+            this.client = options.client;
+        } else if (options.apiKey) {
+            this.client = new Anthropic({
+                apiKey: options.apiKey,
+                ...(options.timeout && { timeout: options.timeout }),
+                ...(options.baseURL && { baseURL: options.baseURL })
+            });
+        } else {
+            throw new Error('Either Anthropic client or apiKey is required');
+        }
     }
 
     /**
@@ -50,8 +60,12 @@ export class AnthropicProvider extends BaseAIProvider {
 
         const anthropicMessages = this.convertToAnthropicFormat(messages);
 
+        if (!options?.model) {
+            throw new Error('Model is required in ChatOptions. Please specify a model in defaultModel configuration.');
+        }
+
         const requestParams: Anthropic.MessageCreateParams = {
-            model: this.options.model || 'claude-3-5-sonnet-20241022',
+            model: options.model as string,
             messages: anthropicMessages,
             max_tokens: options?.maxTokens || 4096
         };
@@ -77,8 +91,12 @@ export class AnthropicProvider extends BaseAIProvider {
 
         const anthropicMessages = this.convertToAnthropicFormat(messages);
 
+        if (!options?.model) {
+            throw new Error('Model is required in ChatOptions. Please specify a model in defaultModel configuration.');
+        }
+
         const requestParams: Anthropic.MessageCreateParamsStreaming = {
-            model: this.options.model || 'claude-3-5-sonnet-20241022',
+            model: options.model as string,
             messages: anthropicMessages,
             max_tokens: options?.maxTokens || 4096,
             stream: true

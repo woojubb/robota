@@ -118,18 +118,6 @@ export interface AgentConfig {
     // Modules for extended functionality
     modules?: BaseModule[];
 
-    // Model configuration (for backward compatibility and runtime overrides)
-    model?: string;
-    provider?: string;
-    temperature?: number;
-    maxTokens?: number;
-    topP?: number;
-    topK?: number;
-    frequencyPenalty?: number;
-    presencePenalty?: number;
-    stopSequences?: string[];
-    seed?: number;
-
     // System configuration
     systemMessage?: string;
     systemPrompt?: string;

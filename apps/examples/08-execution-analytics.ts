@@ -1,6 +1,5 @@
 import { Robota, ExecutionAnalyticsPlugin } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
-import OpenAI from 'openai';
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -38,15 +37,11 @@ async function main() {
         enableWarnings: true
     });
 
-    // Create OpenAI client
-    const openaiClient = new OpenAI({ apiKey });
-
     // Create agent with analytics plugin
     const agent = new Robota({
         name: 'AnalyticsAgent',
         aiProviders: [new OpenAIProvider({
-            client: openaiClient,
-            model: 'gpt-4o-mini'
+            apiKey
         })],
         defaultModel: {
             provider: 'openai',

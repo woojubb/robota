@@ -8,7 +8,6 @@
  * - Independent agent instances
  */
 
-import OpenAI from 'openai';
 import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import dotenv from 'dotenv';
@@ -40,13 +39,9 @@ async function main() {
             throw new Error('OPENAI_API_KEY environment variable is required for this example');
         }
 
-        // Create OpenAI client
-        const openaiClient = new OpenAI({ apiKey: openaiKey });
-
         // === OpenAI GPT-3.5-turbo Provider Test ===
         const openai35Provider = new OpenAIProvider({
-            client: openaiClient,
-            model: 'gpt-3.5-turbo'
+            apiKey: openaiKey
         });
 
         const robota35 = new Robota({
@@ -63,8 +58,7 @@ async function main() {
 
         // === OpenAI GPT-4o-mini Provider Test ===
         const openai4MiniProvider = new OpenAIProvider({
-            client: openaiClient,
-            model: 'gpt-4o-mini'
+            apiKey: openaiKey
         });
 
         const robota4Mini = new Robota({
