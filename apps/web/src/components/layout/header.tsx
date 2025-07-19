@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, LogOut, User, Settings } from 'lucide-react'
+import { Menu, LogOut, User, Settings, Key } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/ui/logo'
@@ -108,6 +108,12 @@ export function Header() {
                                     <DropdownMenuItem asChild>
                                         <Link href="/playground">
                                             Playground
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/api-keys">
+                                            <Key className="mr-2 h-4 w-4" />
+                                            API Keys
                                         </Link>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
