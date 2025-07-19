@@ -8,5 +8,6 @@ export default defineConfig({
     ],
     environment: 'node',
     testTimeout: 10000,
+    globals: true,
   },
 });
