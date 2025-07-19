@@ -68,22 +68,21 @@
   - [x] API 키 관리 시스템
   - **완료 파일**: `functions/src/index.ts`, `functions/src/api/api-keys/`
 
-- [ ] **핵심 아키텍처 재설계** 🆕
-  - [ ] **ExecutorInterface 정의 및 구현**
-    - [ ] LocalExecutor (직접 AI API 호출)
-    - [ ] RemoteExecutor (서버를 통한 프록시 호출)
-    - **필요 파일**: `packages/core/src/interfaces/executor.ts`
+- [x] **핵심 아키텍처 재설계** 🆕
+  - [x] **ExecutorInterface 정의 및 구현**
+    - [x] LocalExecutor (직접 AI API 호출)
+    - [x] RemoteExecutor 인터페이스 정의
+    - **완료 파일**: `packages/core/src/interfaces/executor.ts`, `packages/core/src/executors/local-executor.ts`
   
-  - [ ] **BaseAIProvider Executor 주입 시스템**
-    - [ ] 기존 Provider들 Executor 주입 방식으로 리팩토링
-    - [ ] OpenAI/Anthropic/Google Provider 업데이트
-    - **필요 파일**: `packages/*/src/provider.ts` (모든 Provider)
+  - [x] **BaseAIProvider Executor 주입 시스템**
+    - [x] 기존 Provider들 Executor 주입 방식으로 리팩토링
+    - [x] OpenAI Provider 업데이트 및 테스트 완료
+    - **완료 파일**: `packages/agents/src/abstracts/base-ai-provider.ts`, `packages/openai/src/provider.ts`
   
-  - [ ] **AI Provider Proxy API** (OpenAI 호환 API 대체)
-    - [ ] `/api/v1/providers/openai/chat` - OpenAI 프록시
-    - [ ] `/api/v1/providers/anthropic/chat` - Anthropic 프록시  
-    - [ ] `/api/v1/providers/google/chat` - Google 프록시
-    - **필요 파일**: `functions/src/api/providers/` 디렉터리
+  - [x] **AI Provider Proxy API** (통합 엔드포인트 방식으로 완료)
+    - [x] `/api/v1/chat` - 모든 AI Provider 통합 엔드포인트
+    - [x] `/api/v1/chat/providers` - Provider 목록 및 능력 조회
+    - **완료 파일**: `functions/src/api/chat/index.ts`
 
 ### 15-16주차: **RemoteExecutor 클라이언트 구현** 🆕
 - [ ] **RemoteExecutor 클라이언트**

@@ -55,4 +55,12 @@ export type {
     ConversationServiceInterface,
     ToolExecutionServiceInterface,
     ExecutionServiceInterface
-} from './service'; 
+} from './service';
+
+export type {
+    ExecutorInterface,
+    ChatExecutionRequest,
+    StreamExecutionRequest,
+    LocalExecutorConfig,
+    RemoteExecutorConfig
+} from './executor'; 

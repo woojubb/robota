@@ -117,6 +117,15 @@ export type {
  */
 export { BaseAIProvider } from './abstracts/base-ai-provider';
 
+/**
+ * Executor implementations for local and remote AI provider execution
+ * 
+ * @public
+ */
+export { LocalExecutor } from './executors/local-executor';
+export { RemoteExecutor } from './executors/remote-executor';
+export type { AIProviderInstance } from './executors/local-executor';
+
 
 
 /**

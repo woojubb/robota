@@ -19,6 +19,7 @@ import rateLimit from "express-rate-limit";
 import { authRoutes } from "./api/auth";
 import { usageRoutes } from "./api/usage";
 import { apiKeysRoutes } from "./api/api-keys";
+import { chatRoutes } from "./api/chat";
 
 // Set global options for all functions
 setGlobalOptions({
@@ -94,6 +95,7 @@ app.get("/health", (req, res) => {
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/usage", usageRoutes);
 app.use("/api/v1/api-keys", apiKeysRoutes);
+app.use("/api/v1/chat", chatRoutes);
 
 // Error handling middleware
 app.use((error: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
