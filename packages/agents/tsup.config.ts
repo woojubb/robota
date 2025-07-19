@@ -1,14 +1,12 @@
 import { defineConfig } from 'tsup';
 
-export default defineConfig({
-    entry: ['src/index.ts'],
-    format: ['esm', 'cjs'],
+// Shared configuration
+const baseConfig = {
     dts: {
         resolve: true,
         compilerOptions: {
             composite: false,
             stripInternal: true, // Remove @internal declarations and their comments
-            // Keep JSDoc comments for IDE support, but optimize source comments
         }
     },
     splitting: false,
@@ -17,10 +15,44 @@ export default defineConfig({
     treeshake: true,
     minify: true, // Enable minification for smaller bundle size
     publicDir: 'src/templates', // Copy templates directory to dist
-    external: [
-        // External dependencies that should not be bundled
-        /^@robota-sdk\/.*/,  // All @robota-sdk packages (for peer dependencies)
-        'zod',
-        '@dqbd/tiktoken'
-    ],
-}); 
+};
+
+export default defineConfig([
+    // Node.js build
+    {
+        ...baseConfig,
+        entry: ['src/index.ts'],
+        outDir: 'dist/node',
+        format: ['esm', 'cjs'],
+        platform: 'node',
+        external: [
+            // External dependencies that should not be bundled
+            /^@robota-sdk\/.*/,  // All @robota-sdk packages (for peer dependencies)
+            'zod',
+            '@dqbd/tiktoken'
+        ],
+    },
+    // Browser build
+    {
+        ...baseConfig,
+        entry: ['src/index.ts'],
+        outDir: 'dist/browser',
+        format: ['esm'],
+        platform: 'browser',
+        external: [
+            // External dependencies that should not be bundled
+            /^@robota-sdk\/.*/,  // All @robota-sdk packages (for peer dependencies)
+            'zod'
+            // Note: @dqbd/tiktoken removed for browser build as it's Node.js specific
+        ],
+        define: {
+            // Define browser-specific globals if needed
+            'process.env.NODE_ENV': '"production"',
+        },
+        esbuildOptions(options) {
+            // Additional browser optimizations
+            options.drop = ['console', 'debugger'];
+            options.dropLabels = ['DEV'];
+        },
+    }
+]); 
