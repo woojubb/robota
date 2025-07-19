@@ -292,13 +292,8 @@ export const apiClient = {
         },
     },
 
-    // Chat endpoints
-    chat: {
-        completions: (data: any) => apiRequest('/chat/completions', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        }),
-    },
+    // Agent endpoints (moved from separate section)
+    // Note: agents section below contains the same endpoints
 
     // Agent endpoints
     agents: {

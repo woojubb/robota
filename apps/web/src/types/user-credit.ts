@@ -160,12 +160,6 @@ export const DEFAULT_CREDIT_PACKAGES: CreditPackage[] = [
  */
 export const DEFAULT_API_COSTS: ApiCost[] = [
     {
-        endpoint: '/api/v1/chat/completions',
-        cost_per_request: 1,
-        cost_per_token: 0.001,
-        description: 'Chat completion requests'
-    },
-    {
         endpoint: '/api/v1/agents/create',
         cost_per_request: 5,
         description: 'Agent creation'

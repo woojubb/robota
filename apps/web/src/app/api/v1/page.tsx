@@ -57,13 +57,20 @@ const endpoints = [
         ]
     },
     {
-        category: 'AI Chat',
+        category: 'AI Agents',
         icon: Zap,
         endpoints: [
             {
                 method: 'POST',
-                path: '/api/v1/chat/completions',
-                description: 'Create chat completion',
+                path: '/api/v1/agents/run',
+                description: 'Execute AI agent with input',
+                auth: true,
+                cost: 2,
+            },
+            {
+                method: 'POST',
+                path: '/api/v1/tools/execute',
+                description: 'Execute specific tool',
                 auth: true,
                 cost: 1,
             }
