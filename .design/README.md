@@ -59,9 +59,17 @@ Robota SaaS 웹사이트 관련 설계
 - 플레이그라운드 실행 전략 (투명한 원격 실행)
 - 플레이그라운드 Provider 교체 전략 (방안 1 상세 구현)
 - 간소화된 플레이그라운드 전략 (BaseAIProvider executor 주입)
+- 현재 vs 제안된 Provider 설계 비교 (Client vs Executor 주입)
+- 모델 설정 중복 문제 분석 및 해결 방안
+- 런타임 모델 전환 기능 분석: Provider 설계 재검토
 - 서버-클라이언트 통신 설계
 - API Key 보안 및 권한 관리
 - 사용량 추적 및 비용 제어
+
+### 🔧 **model-configuration-refactoring/**
+모델 설정 리팩토링 프로젝트 문서
+- 프로젝트 체크리스트 및 실행 계획
+- 사용자 마이그레이션 가이드
 
 ## 📝 문서 작성 규칙
 
