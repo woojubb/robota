@@ -27,7 +27,7 @@ export class OpenAIProvider extends BaseAIProvider {
     override readonly name = 'openai';
     override readonly version = '1.0.0';
 
-    private readonly client: OpenAI;
+    private readonly client?: OpenAI;
     private readonly options: OpenAIProviderOptions;
     private readonly payloadLogger: PayloadLogger | undefined;
     private readonly responseParser: OpenAIResponseParser;
@@ -37,18 +37,26 @@ export class OpenAIProvider extends BaseAIProvider {
         super();
         this.options = options;
 
-        // Create client from apiKey if not provided
-        if (options.client) {
-            this.client = options.client;
-        } else if (options.apiKey) {
-            this.client = new OpenAI({
-                apiKey: options.apiKey,
-                ...(options.organization && { organization: options.organization }),
-                ...(options.timeout && { timeout: options.timeout }),
-                ...(options.baseURL && { baseURL: options.baseURL })
-            });
-        } else {
-            throw new Error('Either OpenAI client or apiKey is required');
+        // Set executor if provided
+        if (options.executor) {
+            this.executor = options.executor;
+        }
+
+        // Only create client if not using executor
+        if (!this.executor) {
+            // Create client from apiKey if not provided
+            if (options.client) {
+                this.client = options.client;
+            } else if (options.apiKey) {
+                this.client = new OpenAI({
+                    apiKey: options.apiKey,
+                    ...(options.organization && { organization: options.organization }),
+                    ...(options.timeout && { timeout: options.timeout }),
+                    ...(options.baseURL && { baseURL: options.baseURL })
+                });
+            } else {
+                throw new Error('Either OpenAI client, apiKey, or executor is required');
+            }
         }
 
         this.logger = options.logger || SilentLogger;
@@ -70,6 +78,21 @@ export class OpenAIProvider extends BaseAIProvider {
      */
     override async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
         this.validateMessages(messages);
+
+        // Try executor first, then fallback to direct execution
+        if (this.executor) {
+            try {
+                return await this.executeViaExecutorOrDirect(messages, options);
+            } catch (error) {
+                this.logger.error('OpenAI Provider executor chat error:', error instanceof Error ? error.message : String(error));
+                throw error;
+            }
+        }
+
+        // Direct execution with OpenAI client
+        if (!this.client) {
+            throw new Error('OpenAI client not available. Either provide a client/apiKey or use an executor.');
+        }
 
         try {
             // 1. Convert UniversalMessage → OpenAI format
@@ -122,6 +145,22 @@ export class OpenAIProvider extends BaseAIProvider {
      */
     override async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
         this.validateMessages(messages);
+
+        // Try executor first, then fallback to direct execution
+        if (this.executor) {
+            try {
+                yield* this.executeStreamViaExecutorOrDirect(messages, options);
+                return;
+            } catch (error) {
+                this.logger.error('OpenAI Provider executor stream error:', error instanceof Error ? error.message : String(error));
+                throw error;
+            }
+        }
+
+        // Direct execution with OpenAI client
+        if (!this.client) {
+            throw new Error('OpenAI client not available. Either provide a client/apiKey or use an executor.');
+        }
 
         try {
             // 1. Convert UniversalMessage → OpenAI format

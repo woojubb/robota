@@ -1,4 +1,5 @@
 import type { ToolSchema, ChatOptions } from '../interfaces/provider';
+import type { ExecutorInterface } from '../interfaces/executor';
 import type { UniversalMessage } from '../managers/conversation-history-manager';
 import { logger } from '../utils/logger';
 
@@ -35,6 +36,22 @@ export interface ProviderConfig {
     baseUrl?: string;
     timeout?: number;
     [key: string]: string | number | boolean | undefined;
+}
+
+/**
+ * Enhanced provider configuration that supports executor injection
+ */
+export interface ExecutorAwareProviderConfig {
+    apiKey?: string;
+    baseUrl?: string;
+    timeout?: number;
+    /**
+     * Optional executor for handling AI requests
+     * When provided, the provider will delegate all chat operations to this executor
+     * instead of making direct API calls. This enables remote execution capabilities.
+     */
+    executor?: ExecutorInterface;
+    [key: string]: string | number | boolean | ExecutorInterface | undefined;
 }
 
 /**
@@ -110,12 +127,19 @@ export abstract class BaseAIProvider<TConfig = ProviderConfig, TMessage = Univer
     abstract readonly name: string;
     abstract readonly version: string;
     protected config?: TConfig;
+    protected executor?: ExecutorInterface;
 
     /**
-     * Configure the provider with type-safe configuration
-     */
+ * Configure the provider with type-safe configuration
+ */
     async configure(config: TConfig): Promise<void> {
         this.config = config;
+
+        // Check if config includes executor and set it
+        if (config && typeof config === 'object' && 'executor' in config && (config as any).executor) {
+            this.executor = (config as any).executor as ExecutorInterface;
+        }
+
         // Subclasses can override for additional setup
     }
 
@@ -151,12 +175,7 @@ export abstract class BaseAIProvider<TConfig = ProviderConfig, TMessage = Univer
         return true;
     }
 
-    /**
-     * Default implementation - providers can override for cleanup
-     */
-    async dispose(): Promise<void> {
-        // Default: no cleanup needed
-    }
+
 
     /**
      * Utility method for validating UniversalMessage array
@@ -209,5 +228,80 @@ export abstract class BaseAIProvider<TConfig = ProviderConfig, TMessage = Univer
      */
     protected log(operation: string, data?: ProviderLoggingData): void {
         logger.debug(`${this.name} Provider: ${operation}`, data);
+    }
+
+    /**
+     * Check if this provider is using an executor for execution
+     * @returns true if executor is configured
+     */
+    protected isUsingExecutor(): boolean {
+        return this.executor !== undefined;
+    }
+
+    /**
+ * Execute chat via executor if available, otherwise fallback to direct implementation
+ * This method should be called by subclasses in their chat() implementation
+ */
+    protected async executeViaExecutorOrDirect(
+        messages: TMessage[],
+        options?: ChatOptions
+    ): Promise<TResponse> {
+        if (this.executor && options?.model) {
+            // Use executor for remote/proxied execution
+            const result = await this.executor.executeChat({
+                messages: messages as UniversalMessage[],
+                options,
+                provider: this.name,
+                model: options.model,
+                ...(options.tools && { tools: options.tools })
+            });
+
+            return result as TResponse;
+        }
+
+        // Fallback to direct execution - subclasses must implement this
+        throw new Error(`Direct execution not implemented for ${this.name} provider. Either provide an executor or implement direct execution.`);
+    }
+
+    /**
+ * Execute streaming chat via executor if available, otherwise fallback to direct implementation
+ * This method should be called by subclasses in their chatStream() implementation
+ */
+    protected async *executeStreamViaExecutorOrDirect(
+        messages: TMessage[],
+        options?: ChatOptions
+    ): AsyncIterable<TResponse> {
+        if (this.executor && this.executor.executeChatStream && options?.model) {
+            // Use executor for remote/proxied streaming execution
+            const stream = this.executor.executeChatStream({
+                messages: messages as UniversalMessage[],
+                options,
+                provider: this.name,
+                model: options.model,
+                stream: true,
+                ...(options.tools && { tools: options.tools })
+            });
+
+            for await (const chunk of stream) {
+                yield chunk as TResponse;
+            }
+            return;
+        }
+
+        // Fallback to direct execution - subclasses must implement this
+        throw new Error(`Direct streaming execution not implemented for ${this.name} provider. Either provide an executor or implement direct streaming execution.`);
+    }
+
+    /**
+     * Clean up resources when provider is no longer needed
+     * Override this method in subclasses for additional cleanup
+     */
+    async dispose(): Promise<void> {
+        // Clean up executor if present
+        if (this.executor?.dispose) {
+            await this.executor.dispose();
+        }
+
+        // Subclasses can override for additional cleanup
     }
 } 

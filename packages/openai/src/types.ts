@@ -1,12 +1,12 @@
 import OpenAI from 'openai';
 
 import type { PayloadLogger } from './interfaces/payload-logger';
-import type { SimpleLogger } from '@robota-sdk/agents';
+import type { SimpleLogger, ExecutorInterface } from '@robota-sdk/agents';
 
 /**
  * Valid provider option value types
  */
-export type ProviderOptionValue = string | number | boolean | undefined | null | OpenAI | PayloadLogger | SimpleLogger | ProviderOptionValue[] | { [key: string]: ProviderOptionValue };
+export type ProviderOptionValue = string | number | boolean | undefined | null | OpenAI | PayloadLogger | SimpleLogger | ExecutorInterface | ProviderOptionValue[] | { [key: string]: ProviderOptionValue };
 
 /**
  * Base provider options interface
@@ -91,6 +91,33 @@ export interface OpenAIProviderOptions extends ProviderOptions {
    * ```
    */
   payloadLogger?: PayloadLogger;
+
+  /**
+   * Optional executor for handling AI requests
+   * 
+   * When provided, the provider will delegate all chat operations to this executor
+   * instead of making direct API calls. This enables remote execution capabilities.
+   * 
+   * @example
+   * ```typescript
+   * import { LocalExecutor, RemoteExecutor } from '@robota-sdk/agents';
+   * 
+   * // Local execution (registers this provider)
+   * const localExecutor = new LocalExecutor();
+   * localExecutor.registerProvider('openai', new OpenAIProvider({ apiKey: 'sk-...' }));
+   * 
+   * // Remote execution
+   * const remoteExecutor = new RemoteExecutor({
+   *   serverUrl: 'https://api.robota.io',
+   *   userApiKey: 'user-token-123'
+   * });
+   * 
+   * const provider = new OpenAIProvider({
+   *   executor: remoteExecutor // No direct API key needed
+   * });
+   * ```
+   */
+  executor?: ExecutorInterface;
 
   /**
    * Logger instance for internal OpenAI provider logging
