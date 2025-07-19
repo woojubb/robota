@@ -3,14 +3,23 @@
     "version": "2.0.8",
     "description": "Multi-agent teamwork functionality for Robota SDK - dynamic agent coordination and task delegation",
     "type": "module",
-    "main": "dist/index.js",
-    "module": "dist/index.mjs",
-    "types": "dist/index.d.ts",
+    "main": "dist/node/index.js",
+    "module": "dist/node/index.mjs",
+    "types": "dist/node/index.d.ts",
     "exports": {
         ".": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.mjs",
-            "require": "./dist/index.js"
+            "types": "./dist/node/index.d.ts",
+            "node": {
+                "import": "./dist/node/index.mjs",
+                "require": "./dist/node/index.js"
+            },
+            "browser": {
+                "import": "./dist/browser/index.js"
+            },
+            "default": {
+                "import": "./dist/node/index.mjs",
+                "require": "./dist/node/index.js"
+            }
         }
     },
     "repository": {
