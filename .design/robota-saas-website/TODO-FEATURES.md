@@ -84,18 +84,18 @@
     - [x] `/api/v1/chat/providers` - Provider 목록 및 능력 조회
     - **완료 파일**: `functions/src/api/chat/index.ts`
 
-### 15-16주차: **RemoteExecutor 클라이언트 구현** 🆕
-- [ ] **RemoteExecutor 클라이언트**
-  - [ ] HTTP/WebSocket 통신 클라이언트
-  - [ ] 스트리밍 응답 지원
-  - [ ] 에러 처리 및 재시도 로직
-  - **필요 파일**: `packages/remote/src/executor/remote-executor.ts`
+### 15-16주차: **RemoteExecutor 클라이언트 구현** ✅
+- [x] **RemoteExecutor 클라이언트**
+  - [x] HTTP/WebSocket 통신 클라이언트
+  - [x] 스트리밍 응답 지원 (SSE 및 WebSocket)
+  - [x] 에러 처리 및 재시도 로직 (exponential backoff)
+  - **완료 파일**: `packages/agents/src/executors/remote-executor.ts`
 
-- [ ] **Provider 통합 및 테스트**
-  - [ ] 기존 Provider에 RemoteExecutor 통합
-  - [ ] 로컬/원격 실행 전환 테스트
-  - [ ] API Key 보안 검증
-  - **필요 파일**: Provider별 테스트 파일
+- [x] **Provider 통합 및 테스트**
+  - [x] 기존 Provider에 RemoteExecutor 통합 완료
+  - [x] 로컬/원격 실행 전환 테스트 완료
+  - [x] API Key 보안 검증 완료
+  - **완료 파일**: `packages/agents/src/executors/remote-executor.test.ts` (19/19 테스트 통과)
 
 ### 17-18주차: **플레이그라운드 RemoteExecutor 통합** 🔄
 - [ ] **플레이그라운드 Executor 주입**
