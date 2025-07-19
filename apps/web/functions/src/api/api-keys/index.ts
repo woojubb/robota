@@ -44,7 +44,7 @@ router.post("/", authenticateToken, async (req, res): Promise<void> => {
             return;
         }
 
-        const { name, permissions = ["chat.completions"] } = req.body;
+        const { name, permissions = ["agents.run", "tools.execute"] } = req.body;
 
         if (!name) {
             res.status(400).json({ error: "Name is required" });
