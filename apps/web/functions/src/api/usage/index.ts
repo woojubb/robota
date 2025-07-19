@@ -9,7 +9,7 @@ interface UsageRecord {
     userId: string;
     provider: string;
     model: string;
-    operation: 'chat' | 'stream' | 'completion';
+    operation: 'agent_run' | 'tool_execute' | 'stream';
     tokensUsed: number;
     cost: number;
     timestamp: Date;

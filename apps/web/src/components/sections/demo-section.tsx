@@ -19,11 +19,9 @@ const agent = new Robota({
   apiKey: process.env.OPENAI_API_KEY
 })
 
-const response = await agent.chat([
-  { role: 'user', content: 'Hello, world!' }
-])
+const response = await agent.run('Hello, world!')
 
-console.log(response.content)`,
+console.log(response)`,
 
     tools: `import { Robota } from '@robota/sdk'
 
@@ -45,9 +43,7 @@ const agent = new Robota({
   }]
 })
 
-const response = await agent.chat([
-  { role: 'user', content: 'What\\'s the weather in Seoul?' }
-])`,
+const response = await agent.run('What\\'s the weather in Seoul?')`,
 
     streaming: `import { Robota } from '@robota/sdk'
 
@@ -56,9 +52,7 @@ const agent = new Robota({
   model: 'gpt-4'
 })
 
-const stream = agent.chatStream([
-  { role: 'user', content: 'Write a story about robots' }
-])
+const stream = agent.runStream('Write a story about robots')
 
 for await (const chunk of stream) {
   process.stdout.write(chunk.content)
