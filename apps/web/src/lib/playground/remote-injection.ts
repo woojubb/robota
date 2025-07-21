@@ -5,8 +5,9 @@
  * for secure server-side execution without exposing actual API keys.
  */
 
-// Type-only import for web environment
-interface RemoteExecutor {
+// Import RemoteExecutor dynamically for web environment
+// Dynamic import to avoid build issues with SSR
+interface RemoteExecutorInterface {
     readonly name: string;
     readonly version: string;
     executeChat(request: any): Promise<any>;
@@ -28,7 +29,7 @@ export interface PlaygroundConfig {
  */
 declare global {
     interface Window {
-        __ROBOTA_PLAYGROUND_EXECUTOR__?: RemoteExecutor;
+        __ROBOTA_PLAYGROUND_EXECUTOR__?: RemoteExecutorInterface;
         __ROBOTA_PLAYGROUND_CONFIG__?: PlaygroundConfig;
     }
 }
@@ -214,7 +215,7 @@ export function createPlaygroundSandbox(config: PlaygroundConfig): {
         Promise,
         // Playground-specific globals
         __ROBOTA_PLAYGROUND_CONFIG__: config,
-        __ROBOTA_PLAYGROUND_EXECUTOR__: null as RemoteExecutor | null
+        __ROBOTA_PLAYGROUND_EXECUTOR__: null as RemoteExecutorInterface | null
     };
 
     return {
@@ -230,7 +231,7 @@ export function createPlaygroundSandbox(config: PlaygroundConfig): {
                     supportsTools: () => true,
                     validateConfig: () => true,
                     dispose: async () => { }
-                } as RemoteExecutor;
+                } as RemoteExecutorInterface;
 
                 // Transform code for playground execution
                 const transformedCode = injectRemoteExecutor(code, config);
