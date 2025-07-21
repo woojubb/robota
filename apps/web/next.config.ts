@@ -58,6 +58,9 @@ const nextConfig: NextConfig = {
     // Remove console.log in production
     removeConsole: process.env.NODE_ENV === 'production',
   },
+
+  // Remove complex webpack configuration
+  // Next.js should handle server/client separation automatically
 };
 
 export default withBundleAnalyzer(nextConfig);
