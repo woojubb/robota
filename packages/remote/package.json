@@ -19,17 +19,28 @@
     },
     "exports": {
         ".": {
-            "types": "./dist/node/index.d.ts",
-            "node": {
-                "import": "./dist/node/index.mjs",
-                "require": "./dist/node/index.js"
-            },
+            "types": "./dist/browser/browser.d.mts",
             "browser": {
-                "import": "./dist/browser/index.mjs"
+                "import": "./dist/browser/browser.mjs"
+            },
+            "default": "./dist/browser/browser.mjs"
+        },
+        "./browser": {
+            "types": "./dist/browser/browser.d.mts",
+            "browser": {
+                "import": "./dist/browser/browser.mjs"
+            },
+            "default": "./dist/browser/browser.mjs"
+        },
+        "./server": {
+            "types": "./dist/node/server.d.ts",
+            "node": {
+                "import": "./dist/node/server.mjs",
+                "require": "./dist/node/server.js"
             },
             "default": {
-                "import": "./dist/node/index.mjs",
-                "require": "./dist/node/index.js"
+                "import": "./dist/node/server.mjs",
+                "require": "./dist/node/server.js"
             }
         }
     },

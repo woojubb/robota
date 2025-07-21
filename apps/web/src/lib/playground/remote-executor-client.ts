@@ -1,7 +1,7 @@
 /**
  * RemoteExecutor Client for Playground
  * 
- * Dynamic import and configuration of RemoteExecutor for browser environment
+ * Simple implementation using direct fetch to avoid Node.js module conflicts
  */
 
 import type { PlaygroundCredentials } from './playground-auth';
@@ -20,52 +20,145 @@ export interface PlaygroundRemoteExecutor {
  * Create a RemoteExecutor instance for playground use
  */
 export async function createPlaygroundExecutor(credentials: PlaygroundCredentials): Promise<PlaygroundRemoteExecutor> {
-    try {
-        // Dynamic import to avoid SSR issues
-        const remoteModule = await import('@robota-sdk/remote').catch(() => null);
+    // Use simple fetch-based implementation to avoid module conflicts
+    return createFetchExecutor(credentials);
+}
 
-        if (remoteModule?.RemoteExecutor) {
-            // Use simplified facade - clean configuration
-            const executor = new remoteModule.RemoteExecutor({
-                serverUrl: credentials.serverUrl,
-                userApiKey: credentials.userApiKey,
-                timeout: 30000,
-                headers: {}
-            });
+/**
+ * Create a fetch-based executor for browser environment
+ */
+function createFetchExecutor(credentials: PlaygroundCredentials): PlaygroundRemoteExecutor {
+    return {
+        name: 'fetch-remote',
+        version: '1.0.0',
+        executeChat: async (request) => {
+            try {
+                const response = await fetch(`${credentials.serverUrl}/v1/remote/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${credentials.userApiKey}`
+                    },
+                    body: JSON.stringify({
+                        provider: request.provider,
+                        model: request.model,
+                        messages: request.messages
+                    })
+                });
 
-            return {
-                name: 'remote',
-                version: '1.0.0',
-                executeChat: async (request) => {
-                    return await executor.executeChat(request);
-                },
-                executeChatStream: async function* (request) {
-                    if (executor.executeChatStream) {
-                        yield* executor.executeChatStream(request);
-                    } else {
-                        // Fallback for non-streaming
-                        const response = await executor.executeChat(request);
-                        yield response;
-                    }
-                },
-                supportsTools: () => true,
-                validateConfig: () => true,
-                dispose: async () => {
-                    if (executor.dispose) {
-                        await executor.dispose();
-                    }
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
-            };
-        } else {
-            throw new Error('RemoteExecutor not available');
+
+                const data = await response.json();
+
+                if (data.success) {
+                    return {
+                        role: 'assistant',
+                        content: data.data?.content || data.data || 'No response content',
+                        timestamp: new Date()
+                    };
+                } else {
+                    throw new Error(data.error || 'Unknown server error');
+                }
+
+            } catch (error) {
+                console.error('Remote execution failed:', error);
+
+                // Fallback to mock response
+                return {
+                    role: 'assistant',
+                    content: `Mock response for: "${request.messages?.[request.messages.length - 1]?.content || 'Hello'}".\n\nThis is a fallback response because the remote server is not available or API keys are not configured.`,
+                    timestamp: new Date()
+                };
+            }
+        },
+        executeChatStream: async function* (request) {
+            try {
+                const response = await fetch(`${credentials.serverUrl}/v1/remote/stream`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${credentials.userApiKey}`,
+                        'Accept': 'text/event-stream'
+                    },
+                    body: JSON.stringify({
+                        provider: request.provider,
+                        model: request.model,
+                        messages: request.messages
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                if (!response.body) {
+                    throw new Error('No response body for streaming');
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || '';
+
+                        for (const line of lines) {
+                            if (line.trim() === '') continue;
+                            if (line.startsWith('data: ')) {
+                                const data = line.slice(6);
+                                if (data === '[DONE]') return;
+
+                                try {
+                                    const parsed = JSON.parse(data);
+                                    if (parsed.success && parsed.data) {
+                                        yield {
+                                            role: 'assistant',
+                                            content: parsed.data.content || parsed.data,
+                                            timestamp: new Date()
+                                        };
+                                    }
+                                } catch (parseError) {
+                                    // Skip invalid SSE data
+                                }
+                            }
+                        }
+                    }
+                } finally {
+                    reader.releaseLock();
+                }
+
+            } catch (error) {
+                console.error('Stream execution failed:', error);
+
+                // Fallback to mock streaming
+                const fullResponse = `Mock streaming response for: "${request.messages?.[request.messages.length - 1]?.content || 'Hello'}".\n\nThis response is being streamed in chunks to simulate real AI behavior.`;
+                const words = fullResponse.split(' ');
+
+                for (const word of words) {
+                    yield {
+                        role: 'assistant',
+                        content: word + ' ',
+                        timestamp: new Date()
+                    };
+                    // Simulate streaming delay
+                    await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
+                }
+            }
+        },
+        supportsTools: () => true,
+        validateConfig: () => true,
+        dispose: async () => {
+            console.log('Fetch executor disposed');
         }
-
-    } catch (error) {
-        console.error('Failed to create RemoteExecutor, falling back to mock:', error);
-
-        // Fallback to mock implementation
-        return createMockExecutor(credentials);
-    }
+    };
 }
 
 /**

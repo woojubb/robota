@@ -16,10 +16,10 @@ const baseConfig = {
 };
 
 export default defineConfig([
-    // Node.js build
+    // Node.js build (includes RemoteServer)
     {
         ...baseConfig,
-        entry: ['src/index.ts'],
+        entry: ['src/server.ts'],
         outDir: 'dist/node',
         format: ['esm', 'cjs'],
         platform: 'node',
@@ -31,10 +31,10 @@ export default defineConfig([
             'helmet'
         ],
     },
-    // Browser build
+    // Browser build (no Node.js dependencies)
     {
         ...baseConfig,
-        entry: ['src/index.ts'],
+        entry: ['src/browser.ts'],
         outDir: 'dist/browser',
         format: ['esm'],
         platform: 'browser',
