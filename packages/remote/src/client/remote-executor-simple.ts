@@ -5,8 +5,8 @@
  */
 
 import type { BasicMessage, ResponseMessage } from '../types/message-types';
-import { HttpClientFacade, type HttpClientConfig } from './http-client-facade';
-import { isString } from '../utils/type-guards';
+import { HttpClient, type HttpClientConfig } from './http-client';
+// Simple inline type checking instead of external type guards
 
 export interface SimpleRemoteConfig {
     serverUrl: string;
@@ -28,7 +28,7 @@ export class SimpleRemoteExecutor {
     readonly name = 'simple-remote';
     readonly version = '1.0.0';
 
-    private httpClient: HttpClientFacade;
+    private httpClient: HttpClient;
     private config: SimpleRemoteConfig;
 
     constructor(config: SimpleRemoteConfig) {
@@ -47,7 +47,7 @@ export class SimpleRemoteExecutor {
             }
         };
 
-        this.httpClient = new HttpClientFacade(httpConfig);
+        this.httpClient = new HttpClient(httpConfig);
     }
 
     /**
@@ -86,9 +86,9 @@ export class SimpleRemoteExecutor {
         const configToValidate = config || this.config;
 
         return (
-            isString(configToValidate.serverUrl) &&
+            typeof configToValidate.serverUrl === 'string' &&
             configToValidate.serverUrl.length > 0 &&
-            isString(configToValidate.userApiKey) &&
+            typeof configToValidate.userApiKey === 'string' &&
             configToValidate.userApiKey.length > 0
         );
     }
@@ -101,18 +101,18 @@ export class SimpleRemoteExecutor {
             throw new Error('Messages array is required and cannot be empty');
         }
 
-        if (!isString(request.provider) || request.provider.length === 0) {
+        if (typeof request.provider !== 'string' || request.provider.length === 0) {
             throw new Error('Provider is required');
         }
 
-        if (!isString(request.model) || request.model.length === 0) {
+        if (typeof request.model !== 'string' || request.model.length === 0) {
             throw new Error('Model is required');
         }
 
         // Validate each message
         for (let i = 0; i < request.messages.length; i++) {
             const message = request.messages[i];
-            if (!isString(message.role) || !isString(message.content)) {
+            if (!message || typeof message.role !== 'string' || typeof message.content !== 'string') {
                 throw new Error(`Invalid message at index ${i}: role and content must be strings`);
             }
         }

@@ -4,41 +4,84 @@
 - **ALL commit messages MUST be written in English only**
 - No Korean or other languages allowed
 
+## Core Principle: Focus on WHAT, not HOW
+✅ **Good**: Describe WHAT feature/capability was added
+❌ **Bad**: Describe HOW it was implemented (technical details)
+
 ## Format Requirements
 Follow conventional commit format with 80 character limit:
 ```
-<type>: <description> (max 80 chars total)
+<type>: <what-was-accomplished> (max 80 chars total)
 ```
 
 ## Valid Types
-- `feat`: New feature
-- `fix`: Bug fix  
-- `docs`: Documentation changes
-- `style`: Code formatting
-- `refactor`: Code restructuring
-- `test`: Test-related changes
-- `chore`: Build/tooling changes
+- `feat`: New user-facing feature or capability
+- `fix`: Bug fix that affects user experience  
+- `docs`: Documentation updates
+- `style`: Code formatting (no functional changes)
+- `refactor`: Code restructuring (no new features)
+- `test`: Test additions/improvements
+- `chore`: Build/tooling/dependency updates
 - `perf`: Performance improvements
 
-## Examples
-### ✅ Good (under 80 chars)
-- `feat: add OpenAI streaming support` (33 chars)
-- `fix: resolve memory leak in cache` (32 chars)
-- `refactor: split provider into modules` (36 chars)
+## Message Content Guidelines
 
-### ❌ Bad (over 80 chars)
-- `feat: implement streaming response with modular architecture` (59 chars)
+### ✅ Focus on Business Value (WHAT)
+- `feat: add remote AI provider execution`
+- `feat: add playground authentication system`
+- `fix: resolve connection timeout in chat`
+- `feat: add usage monitoring dashboard`
+
+### ❌ Avoid Implementation Details (HOW)
+- `feat: implement Facade pattern with atomic types` ← Too technical
+- `refactor: split code into pure functions` ← Focuses on method
+- `feat: add TypeScript interfaces and validation` ← How, not what
+- `fix: resolve unknown type casting issues` ← Technical detail
+
+## Examples by Category
+
+### New Features (feat:)
+- `feat: add streaming chat responses`
+- `feat: add multi-provider support`
+- `feat: add rate limiting for API calls`
+- `feat: add playground code execution`
+
+### Bug Fixes (fix:)
+- `fix: prevent memory leaks in chat sessions`
+- `fix: resolve authentication failures`
+- `fix: handle network disconnections gracefully`
+
+### Refactoring (refactor:)
+- `refactor: simplify provider configuration`
+- `refactor: improve code organization`
+- `refactor: optimize bundle size`
 
 ## Commit Rules
 - Use imperative mood ("Add feature" not "Added feature")
 - Use single `-m` flag only, no commit body
 - Keep title under 80 characters total
+- Focus on user/developer value, not implementation
 - Write clear, concise English descriptions
+
+## Questions to Ask Yourself
+Before writing a commit message, ask:
+1. **What new capability does this give users?**
+2. **What problem does this solve?**
+3. **What can someone do now that they couldn't before?**
+
+NOT:
+- How did you implement it?
+- What technical patterns did you use?
+- What code structure changes were made?
 
 ## Common English Translations
 - 수정 → fix, resolve, update
-- 추가 → add, implement
+- 추가 → add, implement  
 - 제거 → remove, delete
 - 개선 → improve, enhance
 - 문제 → issue, bug
 - 기능 → feature
+- 인증 → authentication
+- 연결 → connection
+- 모니터링 → monitoring
+- 실행 → execution
