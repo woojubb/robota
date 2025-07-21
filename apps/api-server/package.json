@@ -1,0 +1,66 @@
+{
+    "name": "@robota-sdk/api-server",
+    "version": "1.0.0",
+    "description": "Robota SDK API Server - Hybrid Express.js app for standalone and Firebase Functions deployment",
+    "keywords": [
+        "robota",
+        "ai",
+        "api",
+        "express",
+        "firebase",
+        "functions",
+        "proxy",
+        "remote",
+        "streaming"
+    ],
+    "author": "Robota Team",
+    "license": "MIT",
+    "main": "dist/index.js",
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "scripts": {
+        "dev": "tsx watch src/server.ts",
+        "start": "node dist/server.js",
+        "build": "tsc",
+        "build:functions": "tsc -p tsconfig.functions.json",
+        "serve:functions": "npm run build:functions && firebase emulators:start --only functions",
+        "deploy:functions": "npm run build:functions && firebase deploy --only functions",
+        "test": "vitest",
+        "lint": "eslint src --ext .ts",
+        "clean": "rm -rf dist lib"
+    },
+    "dependencies": {
+        "express": "^4.18.2",
+        "cors": "^2.8.5",
+        "helmet": "^7.1.0",
+        "express-rate-limit": "^7.1.5",
+        "express-winston": "^4.2.0",
+        "winston": "^3.11.0",
+        "dotenv": "^16.3.1",
+        "firebase-admin": "^12.0.0",
+        "firebase-functions": "^4.8.0",
+        "@robota-sdk/agents": "workspace:*",
+        "@robota-sdk/remote": "workspace:*",
+        "@robota-sdk/openai": "workspace:*",
+        "@robota-sdk/anthropic": "workspace:*",
+        "@robota-sdk/google": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/express": "^4.17.21",
+        "@types/cors": "^2.8.17",
+        "@types/node": "^20.10.0",
+        "tsx": "^4.6.0",
+        "typescript": "^5.3.0",
+        "vitest": "^1.0.0",
+        "eslint": "^8.55.0",
+        "@typescript-eslint/eslint-plugin": "^6.14.0",
+        "@typescript-eslint/parser": "^6.14.0"
+    },
+    "files": [
+        "dist",
+        "lib",
+        "README.md",
+        "CHANGELOG.md"
+    ]
+}
