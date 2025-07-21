@@ -3,6 +3,7 @@ import { auth } from '@/lib/firebase/admin';
 
 export async function POST(request: NextRequest) {
     try {
+
         // Get Firebase ID token from Authorization header
         const authHeader = request.headers.get('Authorization');
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -43,14 +44,6 @@ export async function POST(request: NextRequest) {
 
     } catch (error) {
         console.error('Error generating playground token:', error);
-
-        if (error instanceof Error && error.message.includes('Firebase ID token')) {
-            return NextResponse.json(
-                { error: 'Invalid Firebase token' },
-                { status: 401 }
-            );
-        }
-
         return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }

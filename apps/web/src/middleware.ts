@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/firebase/admin';
+// Firebase Admin removed to prevent browser bundling issues
+// import { auth } from '@/lib/firebase/admin';
 
 /**
  * Next.js Middleware for Rate Limiting and Security
@@ -37,13 +38,15 @@ async function handlePlaygroundRateLimit(request: NextRequest): Promise<NextResp
 
         if (authHeader && authHeader.startsWith('Bearer ')) {
             try {
-                const idToken = authHeader.substring(7);
-                const decodedToken = await auth.verifyIdToken(idToken);
-                userId = decodedToken.uid;
-
-                // Get user tier from custom claims
-                const customClaims = decodedToken || {};
-                userTier = (customClaims as any).subscription || 'free';
+                // For development, skip Firebase verification and use mock data
+                if (process.env.NODE_ENV === 'development') {
+                    userId = 'dev-user-id';
+                    userTier = 'pro';
+                } else {
+                    // In production, you would verify the token here
+                    // For now, continue with anonymous limits
+                    console.warn('Firebase Admin not available in middleware, using anonymous limits');
+                }
             } catch (error) {
                 // Continue with anonymous limits if token is invalid
                 console.warn('Invalid token in rate limiting:', error);

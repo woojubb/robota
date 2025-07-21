@@ -1,7 +1,7 @@
 /**
- * Remote System - Clean Atomic Architecture
+ * Remote System - Browser Build
  * 
- * Exports using atomic components and pure functions
+ * Browser-safe exports without Node.js dependencies
  */
 
 // Main RemoteExecutor - Simple & Type Safe
@@ -25,8 +25,6 @@ export {
     normalizeHeaders,
     safeJsonParse
 } from './utils/transformers';
-
-// Type guards removed - use proper TypeScript types instead
 
 // WebSocket Transport for real-time features
 export { SimpleWebSocketTransport as WebSocketTransport } from './transport/websocket-transport-simple';
