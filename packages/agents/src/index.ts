@@ -122,9 +122,17 @@ export { BaseAIProvider } from './abstracts/base-ai-provider';
  * 
  * @public
  */
-export { LocalExecutor } from './executors/local-executor';
-export { RemoteExecutor } from './executors/remote-executor';
-export type { AIProviderInstance } from './executors/local-executor';
+export { LocalExecutor, type AIProviderInstance } from './executors/local-executor';
+export { BaseExecutor } from './abstracts/base-executor';
+
+// Export executor interfaces
+export type {
+    ExecutorInterface,
+    ChatExecutionRequest,
+    StreamExecutionRequest,
+    LocalExecutorConfig,
+    RemoteExecutorConfig
+} from './interfaces/executor';
 
 
 

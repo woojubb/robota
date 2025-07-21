@@ -1,0 +1,66 @@
+{
+    "name": "@robota-sdk/remote",
+    "version": "1.0.0",
+    "description": "Remote execution system for Robota SDK - enables secure server-side AI provider execution",
+    "keywords": [
+        "robota",
+        "ai",
+        "remote",
+        "executor",
+        "proxy",
+        "security"
+    ],
+    "author": "Robota Team",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/robota-ai/robota-sdk",
+        "directory": "packages/remote"
+    },
+    "main": "dist/index.js",
+    "module": "dist/index.mjs",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        }
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "CHANGELOG.md"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "build:watch": "tsup --watch",
+        "clean": "rm -rf dist",
+        "dev": "tsup --watch",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage",
+        "type-check": "tsc --noEmit",
+        "lint": "eslint src --ext .ts,.tsx",
+        "lint:fix": "eslint src --ext .ts,.tsx --fix"
+    },
+    "dependencies": {
+        "@robota-sdk/agents": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "typescript": "^5.0.0",
+        "tsup": "^8.0.0",
+        "vitest": "^1.0.0",
+        "eslint": "^8.0.0"
+    },
+    "peerDependencies": {
+        "@robota-sdk/agents": ">=1.0.0"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "engines": {
+        "node": ">=18"
+    }
+}
