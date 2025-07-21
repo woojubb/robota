@@ -21,15 +21,15 @@
         ".": {
             "types": "./dist/node/index.d.ts",
             "node": {
-                "import": "./dist/node/index.js",
-                "require": "./dist/node/index.cjs"
+                "import": "./dist/node/index.mjs",
+                "require": "./dist/node/index.js"
             },
             "browser": {
-                "import": "./dist/browser/index.js"
+                "import": "./dist/browser/index.mjs"
             },
             "default": {
-                "import": "./dist/node/index.js",
-                "require": "./dist/node/index.cjs"
+                "import": "./dist/node/index.mjs",
+                "require": "./dist/node/index.js"
             }
         }
     },

@@ -10,6 +10,9 @@ export { SimpleRemoteExecutor as RemoteExecutor } from './client/remote-executor
 // HTTP Client for advanced users
 export { HttpClient } from './client/http-client';
 
+// Remote Server for API applications
+export { RemoteServer } from './server/remote-server';
+
 // Atomic Types
 export type { BasicMessage, ResponseMessage, RequestMessage, TokenUsage } from './types/message-types';
 export type { HttpRequest, HttpResponse, HttpError, HttpMethod } from './types/http-types';

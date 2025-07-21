@@ -559,9 +559,10 @@ npm start
 
 ### **다음 우선순위**
 1. [x] **테스트 코드 작성** (Pure Functions & Facade Pattern 테스트) ✅
-2. **프로덕션 배포 설정** (Docker, Firebase Functions)
-3. **성능 최적화 및 모니터링**
-4. **문서화 및 예제 추가**
+2. [x] **Web Playground ↔ API Server 연동** (진행중)
+3. **프로덕션 배포 설정** (Docker, Firebase Functions)
+4. **성능 최적화 및 모니터링**
+5. **문서화 및 예제 추가**
 
 ### **Architecture Improvements ✅**
 - [x] **Facade Pattern 적용**: 복잡한 RemoteExecutor를 단순한 Facade로 분리 ✅
@@ -754,6 +755,104 @@ npm start
 3. **Error Scenarios**: 실패 케이스 우선 테스트
 4. **Type Safety**: 타입 가드 및 검증 로직 철저히 테스트
 5. **Real-world Scenarios**: 실제 사용 패턴 반영
+
+---
+
+## 🌐 **Phase 9: Web Playground ↔ API Server 연동** (1주) **[현재 진행중]**
+
+### **9.1 환경 설정 및 구성** 🔧 ✅
+- [x] **API Server 환경변수 설정**: 
+  - `apps/api-server/.env.example` 파일 생성
+  - OpenAI, Anthropic, Google API Keys 예시 설정
+  - CORS 설정 (`CORS_ORIGINS` 환경변수)
+  - Rate Limiting 설정 (`RATE_LIMIT_MAX`)
+- [x] **Web App 환경변수 업데이트**:
+  - `NEXT_PUBLIC_PLAYGROUND_SERVER_URL=http://localhost:3001`
+  - `NEXT_PUBLIC_API_URL=http://localhost:3001`
+  - Playground 기능 활성화 확인
+
+### **9.2 API Server 기동 및 연결 테스트** 🚀 ✅
+- [x] **API Server 단독 실행**:
+  - `cd apps/api-server && npx tsx src/server.ts` 실행
+  - `http://localhost:3001/health` 엔드포인트 확인 ✅
+  - `http://localhost:3001/v1/remote/providers` 확인 ✅
+  - Provider 등록 상태 검증 (openai, anthropic, google) ✅
+- [x] **Web App과 API Server 동시 실행**:
+  - Terminal 1: `cd apps/api-server && npx tsx src/server.ts` (Port 3001)
+  - Terminal 2: `cd apps/web && npm run dev` (Port 3000)
+  - Cross-origin 요청 테스트 ✅
+
+### **9.3 Playground 연동 기능 완성** 🎮
+- [ ] **RemoteExecutor 설정 검증**:
+  - `apps/web/src/lib/playground/remote-executor-client.ts` 점검
+  - `createPlaygroundExecutor` 함수 API Server URL 연결 확인
+  - Playground 인증 토큰 생성 및 검증
+- [ ] **Provider 연동 테스트**:
+  - OpenAI Provider 원격 실행 테스트
+  - Anthropic Provider 원격 실행 테스트
+  - Google Provider 원격 실행 테스트
+  - 각 Provider별 모델 선택 기능 테스트
+
+### **9.4 실제 AI 응답 테스트** 🤖
+- [ ] **기본 채팅 기능**:
+  - Playground에서 "Hello World" 메시지 전송
+  - API Server → AI Provider → 응답 확인
+  - 응답 시간 및 정확성 검증
+- [ ] **스트리밍 응답 테스트**:
+  - 실시간 스트리밍 응답 확인
+  - 청크 단위 응답 처리 검증
+  - 연결 안정성 테스트
+- [ ] **도구(Tools) 기능 테스트**:
+  - 함수 호출 기능 테스트
+  - 복잡한 도구 체인 실행 확인
+
+### **9.5 사용자 경험 개선** ✨
+- [ ] **연결 상태 표시**:
+  - API Server 연결 상태 실시간 표시
+  - 연결 실패 시 자동 재연결 기능
+  - 네트워크 오류 처리 및 사용자 알림
+- [ ] **사용량 모니터링**:
+  - 실시간 토큰 사용량 표시
+  - API 호출 횟수 추적
+  - 비용 추정 기능
+- [ ] **오류 처리 강화**:
+  - 명확한 오류 메시지 표시
+  - 재시도 로직 구현
+  - 개발자를 위한 디버그 정보 제공
+
+### **9.6 보안 및 인증 강화** 🔐
+- [ ] **토큰 관리 개선**:
+  - Firebase Auth → Playground Token 교환 검증
+  - 토큰 만료 처리 및 자동 갱신
+  - 세션 관리 및 보안 강화
+- [ ] **Rate Limiting 적용**:
+  - 사용자별 요청 제한 확인
+  - API Server Rate Limiting 동작 검증
+  - 제한 초과 시 적절한 메시지 표시
+
+### **9.7 성능 최적화** ⚡
+- [ ] **응답 시간 개선**:
+  - API Server 응답 시간 측정 및 최적화
+  - Connection Pooling 설정
+  - 캐싱 전략 구현 검토
+- [ ] **메모리 및 리소스 관리**:
+  - API Server 메모리 사용량 모니터링
+  - Connection 정리 및 리소스 해제
+  - 장시간 실행 안정성 테스트
+
+### **9.8 통합 테스트 및 검증** 🧪
+- [ ] **End-to-End 시나리오 테스트**:
+  - 사용자 로그인 → 코드 작성 → 실행 → 응답 확인
+  - 다양한 Provider 및 모델 조합 테스트
+  - 복잡한 대화 시나리오 테스트
+- [ ] **부하 테스트**:
+  - 동시 사용자 처리 능력 테스트
+  - 장시간 연결 안정성 확인
+  - 메모리 누수 및 성능 저하 점검
+- [ ] **호환성 테스트**:
+  - 다양한 브라우저에서 동작 확인
+  - 모바일 환경 테스트
+  - 네트워크 환경별 안정성 확인
 
 ---
 
