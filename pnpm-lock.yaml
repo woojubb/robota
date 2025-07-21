@@ -285,6 +285,9 @@ importers:
       firebase:
         specifier: ^11.10.0
         version: 11.10.0
+      firebase-admin:
+        specifier: ^12.7.0
+        version: 12.7.0
       framer-motion:
         specifier: ^12.23.6
         version: 12.23.6(react-dom@19.1.0)(react@19.1.0)

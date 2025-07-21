@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { RemoteServer } from '@robota-sdk/remote/server';
+import { RemoteServer } from '@robota-sdk/remote';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { GoogleProvider } from '@robota-sdk/google';
