@@ -30,6 +30,7 @@ export class HttpTransport implements Transport {
             const healthRequest: TransportRequest = {
                 id: 'health-check',
                 url: `${this.config.baseUrl}/health`,
+                endpoint: '/health',
                 method: 'GET',
                 headers: { ...this.config.headers }
             };
@@ -38,11 +39,15 @@ export class HttpTransport implements Transport {
             this.connected = true;
         } catch (error) {
             this.connected = false;
+            const errorDetails = error instanceof Error
+                ? { message: error.message, name: error.name }
+                : { message: 'Unknown connection error', name: 'ConnectionError' };
+
             throw new TransportError(
                 'Failed to connect to HTTP endpoint',
                 'CONNECTION_FAILED',
                 undefined,
-                error
+                errorDetails
             );
         }
     }
@@ -65,7 +70,7 @@ export class HttpTransport implements Transport {
         };
     }
 
-    async send<T>(request: TransportRequest): Promise<TransportResponse<T>> {
+    async send<TData>(request: TransportRequest): Promise<TransportResponse<TData>> {
         const url = this.buildUrl(request.url);
         const requestInit: RequestInit = {
             method: request.method,
@@ -85,11 +90,16 @@ export class HttpTransport implements Transport {
             const response = await fetch(url, requestInit);
 
             if (!response.ok) {
+                const errorText = await response.text();
                 throw new TransportError(
                     `HTTP ${response.status}: ${response.statusText}`,
                     'HTTP_ERROR',
                     response.status,
-                    await response.text()
+                    {
+                        statusText: response.statusText,
+                        responseBody: errorText,
+                        status: response.status
+                    }
                 );
             }
 
@@ -107,11 +117,15 @@ export class HttpTransport implements Transport {
                 throw error;
             }
 
+            const errorDetails = error instanceof Error
+                ? { message: error.message, name: error.name }
+                : { message: 'Unknown network error', name: 'NetworkError' };
+
             throw new TransportError(
-                `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                `Network error: ${errorDetails.message}`,
                 'NETWORK_ERROR',
                 undefined,
-                error
+                errorDetails
             );
         }
     }
@@ -173,7 +187,7 @@ export class HttpTransport implements Transport {
                             try {
                                 yield JSON.parse(data) as T;
                             } catch (parseError) {
-                                console.warn('Failed to parse SSE data:', data);
+                                // Skip invalid SSE data
                             }
                         }
                     }
@@ -186,11 +200,15 @@ export class HttpTransport implements Transport {
                 throw error;
             }
 
+            const errorDetails = error instanceof Error
+                ? { message: error.message, name: error.name }
+                : { message: 'Unknown streaming error', name: 'StreamError' };
+
             throw new TransportError(
-                `Streaming error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                `Streaming error: ${errorDetails.message}`,
                 'STREAM_ERROR',
                 undefined,
-                error
+                errorDetails
             );
         }
     }
