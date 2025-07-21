@@ -16,7 +16,7 @@ interface PlaygroundSession {
     permissions: string[];
 }
 
-interface PlaygroundCredentials {
+export interface PlaygroundCredentials {
     serverUrl: string;
     userApiKey: string;
     sessionId: string;
@@ -30,9 +30,9 @@ export async function generatePlaygroundToken(user: User): Promise<string> {
         // Get Firebase ID token for authentication
         const idToken = await user.getIdToken();
 
-        // In production, this would call your API to exchange
-        // the Firebase token for a playground-specific token
-        const response = await fetch('/api/v1/auth/playground-token', {
+        // Call API to exchange Firebase token for playground-specific token
+        const apiUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+        const response = await fetch(`${apiUrl}/api/v1/auth/playground-token`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -62,10 +62,20 @@ export async function generatePlaygroundToken(user: User): Promise<string> {
  * Create playground credentials for RemoteExecutor
  */
 export async function createPlaygroundCredentials(user: User | null): Promise<PlaygroundCredentials> {
+    // Validate required environment variables
+    const serverUrl = process.env.NEXT_PUBLIC_PLAYGROUND_SERVER_URL || process.env.NEXT_PUBLIC_API_URL;
+
+    if (!serverUrl) {
+        throw new Error(
+            'Missing required environment variable: NEXT_PUBLIC_PLAYGROUND_SERVER_URL or NEXT_PUBLIC_API_URL. ' +
+            'Please check your .env.local file.'
+        );
+    }
+
     if (!user) {
         // Anonymous/demo mode
         return {
-            serverUrl: process.env.NEXT_PUBLIC_API_URL || 'https://api.robota.io',
+            serverUrl,
             userApiKey: 'demo-token-anonymous',
             sessionId: `demo-${Date.now()}`
         };
@@ -75,7 +85,7 @@ export async function createPlaygroundCredentials(user: User | null): Promise<Pl
         const userToken = await generatePlaygroundToken(user);
 
         return {
-            serverUrl: process.env.NEXT_PUBLIC_API_URL || 'https://api.robota.io',
+            serverUrl,
             userApiKey: userToken,
             sessionId: `session-${user.uid}-${Date.now()}`
         };
@@ -85,7 +95,7 @@ export async function createPlaygroundCredentials(user: User | null): Promise<Pl
 
         // Fallback credentials
         return {
-            serverUrl: process.env.NEXT_PUBLIC_API_URL || 'https://api.robota.io',
+            serverUrl,
             userApiKey: `fallback-${user.uid}`,
             sessionId: `fallback-${Date.now()}`
         };
@@ -235,7 +245,8 @@ export async function getPlaygroundLimits(user: User | null): Promise<{
     try {
         const idToken = await user.getIdToken();
 
-        const response = await fetch('/api/v1/auth/playground-limits', {
+        const apiUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+        const response = await fetch(`${apiUrl}/api/v1/auth/playground-limits`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${idToken}`

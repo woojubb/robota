@@ -6,8 +6,8 @@
         "declaration": true,
         "declarationMap": true,
         "sourceMap": true,
-        "composite": true,
-        "incremental": true
+        "composite": false,
+        "incremental": false
     },
     "include": [
         "src/**/*"

@@ -12,7 +12,28 @@ export type {
     RemoteExecutorConfig
 } from '@robota-sdk/agents';
 
+// Import for extension
+import type {
+    ChatExecutionRequest as BaseChatExecutionRequest,
+    StreamExecutionRequest as BaseStreamExecutionRequest
+} from '@robota-sdk/agents';
+
 export type { UniversalMessage, AssistantMessage } from '@robota-sdk/agents';
+
+// Import for extension
+import type { AssistantMessage as BaseAssistantMessage } from '@robota-sdk/agents';
+
+// Extended AssistantMessage with provider info
+export interface ExtendedAssistantMessage extends BaseAssistantMessage {
+    provider?: string;
+    model?: string;
+    usage?: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+    };
+    tools?: Array<Record<string, string>>;
+}
 
 /**
  * Communication protocols supported by the remote system
@@ -26,23 +47,58 @@ export enum CommunicationProtocol {
 /**
  * Transport layer request format
  */
-export interface TransportRequest {
+export interface ChatRequestBody {
+    messages: Array<{ role: string; content: string }>;
+    provider: string;
+    model: string;
+    temperature?: number;
+    maxTokens?: number;
+    tools?: Array<Record<string, string>>;
+    stream?: boolean;
+}
+
+// Extend the base execution requests with additional fields
+export interface ExtendedChatExecutionRequest extends BaseChatExecutionRequest {
+    temperature?: number;
+    maxTokens?: number;
+}
+
+export interface ExtendedStreamExecutionRequest extends BaseStreamExecutionRequest {
+    temperature?: number;
+    maxTokens?: number;
+}
+
+export interface TransportRequest<TBody = ChatRequestBody> {
     id: string;
     url: string;
+    endpoint: string;
     method: 'GET' | 'POST' | 'PUT' | 'DELETE';
     headers: Record<string, string>;
-    body?: any;
+    body?: TBody;
+    data?: TBody;
     timeout?: number;
 }
 
 /**
  * Transport layer response format
  */
-export interface TransportResponse<T = any> {
+export interface ChatResponseData {
+    content: string;
+    provider?: string;
+    model?: string;
+    usage?: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+    };
+    tools?: Array<Record<string, string>>;
+}
+
+export interface TransportResponse<TData = ChatResponseData> {
     id: string;
     status: number;
     headers: Record<string, string>;
-    data: T;
+    data: TData;
     timestamp: Date;
 }
 
@@ -57,6 +113,8 @@ export interface RemoteConfig {
     retryCount?: number;
     enableWebSocket?: boolean;
 }
+
+
 
 /**
  * Health check response

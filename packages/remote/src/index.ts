@@ -1,35 +1,51 @@
 /**
- * @robota-sdk/remote
+ * Remote System - Clean Atomic Architecture
  * 
- * Remote execution system for Robota SDK - enables secure server-side AI provider execution
+ * Exports using atomic components and pure functions
  */
 
-// Core interfaces and types
+// Main RemoteExecutor - Simple & Type Safe
+export { SimpleRemoteExecutor as RemoteExecutor } from './client/remote-executor-simple';
+
+// HTTP Client Facade for advanced users
+export { HttpClientFacade } from './client/http-client-facade';
+
+// Atomic Types
+export type { BasicMessage, ResponseMessage, RequestMessage, TokenUsage } from './types/message-types';
+export type { HttpRequest, HttpResponse, HttpError, HttpMethod } from './types/http-types';
+
+// Pure Utility Functions
+export {
+    toRequestMessage,
+    toResponseMessage,
+    createHttpRequest,
+    createHttpResponse,
+    extractContent,
+    generateId,
+    normalizeHeaders,
+    safeJsonParse
+} from './utils/transformers';
+
+// Type Guards
+export {
+    isBasicMessage,
+    isResponseMessage,
+    isHttpResponse,
+    isHttpError,
+    isString,
+    isNumber,
+    isObject
+} from './utils/type-guards';
+
+// WebSocket Transport for real-time features
+export { SimpleWebSocketTransport as WebSocketTransport } from './transport/websocket-transport-simple';
+
+// Legacy compatibility exports
 export type {
     ExecutorInterface,
     ChatExecutionRequest,
     StreamExecutionRequest,
-    LocalExecutorConfig,
-    RemoteExecutorConfig,
-    CommunicationProtocol,
-    RemoteConfig,
-    HealthStatus,
-    UserContext,
-    ProviderStatus
-} from './shared/types';
-
-// Client components
-export { RemoteExecutor } from './client/remote-executor';
-
-// Server components
-export { RemoteServer } from './server/remote-server';
-
-// Core components
-export { AIProviderEngine } from './core/ai-provider-engine';
-
-// Transport components
-export { HttpTransport } from './transport/http-transport';
-export type { Transport, TransportCapabilities, TransportConfig } from './transport/transport-interface';
-
-// Re-export types from agents for convenience
-export type { UniversalMessage, AssistantMessage, ChatOptions, ToolSchema } from '@robota-sdk/agents'; 
+    UniversalMessage,
+    AssistantMessage,
+    RemoteExecutorConfig
+} from './shared/types'; 

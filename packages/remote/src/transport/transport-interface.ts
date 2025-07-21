@@ -8,12 +8,12 @@ export interface Transport {
     /**
      * Send a single request and wait for response
      */
-    send<T>(request: TransportRequest): Promise<TransportResponse<T>>;
+    send<TData>(request: TransportRequest): Promise<TransportResponse<TData>>;
 
     /**
      * Send a streaming request and get async iterator
      */
-    sendStream<T>(request: TransportRequest): AsyncIterable<T>;
+    sendStream<TData>(request: TransportRequest): AsyncIterable<TData>;
 
     /**
      * Connect to the transport (for connection-based protocols)
@@ -66,7 +66,7 @@ export class TransportError extends Error {
         message: string,
         public readonly code: string,
         public readonly status?: number,
-        public readonly details?: any
+        public readonly details?: Record<string, string | number | boolean>
     ) {
         super(message);
         this.name = 'TransportError';

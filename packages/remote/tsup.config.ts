@@ -8,7 +8,7 @@ export default defineConfig({
     sourcemap: true,
     minify: false,
     target: 'node18',
-    external: ['@robota-sdk/agents'],
+    external: ['@robota-sdk/agents', 'express', 'cors', 'helmet'],
     treeshake: true,
     splitting: false,
     bundle: true,
