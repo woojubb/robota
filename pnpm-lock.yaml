@@ -425,6 +425,28 @@ importers:
         specifier: ^1.1.0
         version: 1.6.1(@types/node@20.17.46)
 
+  packages/remote:
+    dependencies:
+      '@robota-sdk/agents':
+        specifier: workspace:*
+        version: link:../agents
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.17.46
+      eslint:
+        specifier: ^8.0.0
+        version: 8.57.1
+      tsup:
+        specifier: ^8.0.0
+        version: 8.4.0(typescript@5.8.3)
+      typescript:
+        specifier: ^5.0.0
+        version: 5.8.3
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@20.17.46)
+
   packages/sessions:
     dependencies:
       '@robota-sdk/agents':

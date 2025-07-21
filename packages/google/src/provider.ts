@@ -27,13 +27,22 @@ export class GoogleProvider extends BaseAIProvider {
     override readonly name = 'google';
     override readonly version = '1.0.0';
 
-    private readonly client: GoogleGenerativeAI;
+    private readonly client?: GoogleGenerativeAI;
     private readonly options: GoogleProviderOptions;
 
     constructor(options: GoogleProviderOptions) {
         super();
         this.options = options;
-        this.client = new GoogleGenerativeAI(options.apiKey);
+
+        // Set executor if provided
+        if (options.executor) {
+            this.executor = options.executor;
+        }
+
+        // Only create client if not using executor
+        if (!this.executor) {
+            this.client = new GoogleGenerativeAI(options.apiKey);
+        }
     }
 
     /**
@@ -41,6 +50,20 @@ export class GoogleProvider extends BaseAIProvider {
      */
     override async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
         this.validateMessages(messages);
+
+        // Try executor first, then fallback to direct execution
+        if (this.executor) {
+            try {
+                return await this.executeViaExecutorOrDirect(messages, options);
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        // Direct execution with Google client
+        if (!this.client) {
+            throw new Error('Google client not available. Either provide apiKey or use an executor.');
+        }
 
         if (!options?.model) {
             throw new Error('Model is required in ChatOptions. Please specify a model in defaultModel configuration.');
@@ -75,6 +98,21 @@ export class GoogleProvider extends BaseAIProvider {
      */
     override async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
         this.validateMessages(messages);
+
+        // Try executor first, then fallback to direct execution
+        if (this.executor) {
+            try {
+                yield* this.executeStreamViaExecutorOrDirect(messages, options);
+                return;
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        // Direct execution with Google client
+        if (!this.client) {
+            throw new Error('Google client not available. Either provide apiKey or use an executor.');
+        }
 
         if (!options?.model) {
             throw new Error('Model is required in ChatOptions. Please specify a model in defaultModel configuration.');
