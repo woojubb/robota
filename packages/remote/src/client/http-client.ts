@@ -1,7 +1,7 @@
 /**
- * HTTP Client Facade - Simple & Type Safe
+ * HTTP Client - Simple & Type Safe
  * 
- * Facade pattern using atomic components for maximum type safety
+ * Clean HTTP client using atomic components for maximum type safety
  */
 
 import type { HttpRequest, HttpResponse, DefaultRequestData } from '../types/http-types';
@@ -13,7 +13,7 @@ import {
     generateId,
     toResponseMessage
 } from '../utils/transformers';
-import { isObject, isString } from '../utils/type-guards';
+// Simple inline type checking instead of external type guards
 
 export interface HttpClientConfig {
     baseUrl: string;
@@ -22,9 +22,9 @@ export interface HttpClientConfig {
 }
 
 /**
- * Simple HTTP Client using Facade Pattern
+ * Simple HTTP Client for Remote Communication
  */
-export class HttpClientFacade {
+export class HttpClient {
     private config: HttpClientConfig;
 
     constructor(config: HttpClientConfig) {
@@ -97,7 +97,7 @@ export class HttpClientFacade {
             const fetchResponse = await fetch(request.url, {
                 method: request.method,
                 headers: request.headers as HeadersInit,
-                body: request.data ? JSON.stringify(request.data) : undefined
+                body: request.data ? JSON.stringify(request.data) : null
             });
 
             if (!fetchResponse.ok) {
@@ -136,11 +136,12 @@ export class HttpClientFacade {
      */
     validateConfig(): boolean {
         return (
-            isString(this.config.baseUrl) &&
+            typeof this.config.baseUrl === 'string' &&
             this.config.baseUrl.length > 0 &&
             typeof this.config.timeout === 'number' &&
             this.config.timeout > 0 &&
-            isObject(this.config.headers)
+            typeof this.config.headers === 'object' &&
+            this.config.headers !== null
         );
     }
 } 

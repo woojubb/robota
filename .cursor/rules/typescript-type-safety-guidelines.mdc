@@ -1,0 +1,134 @@
+# TypeScript Type Safety Guidelines
+
+## 🚫 **PROHIBITED: Runtime Type Guards**
+
+**Never create dedicated type guard files or functions that exist solely for runtime type checking.**
+
+### ❌ **Anti-Pattern Examples:**
+```typescript
+// WRONG: Creating .ts files just for type checking
+// Files like: type-guards.ts, validators.ts, type-checkers.ts
+
+export function isUser(obj: unknown): obj is User {
+    return typeof obj === 'object' && obj !== null && 'name' in obj;
+}
+
+export function isValidRequest(data: unknown): data is RequestData {
+    return /* runtime validation logic */;
+}
+```
+
+### ✅ **Correct Approaches:**
+
+#### **1. Use Proper TypeScript Types**
+```typescript
+// Define interfaces and use TypeScript's compile-time checking
+interface User {
+    name: string;
+    email: string;
+}
+
+// TypeScript will enforce this at compile time
+function processUser(user: User) {
+    // user.name and user.email are guaranteed to exist
+}
+```
+
+#### **2. Use Schema Validation Libraries**
+```typescript
+// Use existing libraries like Zod, Yup, or Joi for runtime validation
+import { z } from 'zod';
+
+const UserSchema = z.object({
+    name: z.string(),
+    email: z.string().email()
+});
+
+// This validates AND provides types
+type User = z.infer<typeof UserSchema>;
+```
+
+#### **3. Proper Error Handling**
+```typescript
+// Instead of type guards, handle potential errors gracefully
+function safeParse<T>(jsonString: string): T | null {
+    try {
+        return JSON.parse(jsonString);
+    } catch {
+        return null;
+    }
+}
+```
+
+## 🎯 **Core Principles**
+
+### **1. Types Are Compile-Time Only**
+- TypeScript types should disappear completely after compilation
+- Runtime code should not contain logic that exists solely for type checking
+- If it compiles to JavaScript, it should serve a real business purpose
+
+### **2. Trust TypeScript's Type System**
+- Use proper interfaces and type annotations
+- Let TypeScript catch errors at compile time
+- Don't duplicate type safety with runtime checks
+
+### **3. External Data Validation**
+- For data from external sources (APIs, user input), use proper validation libraries
+- Schema validation serves business logic, not just type safety
+- Validation should provide meaningful error messages to users
+
+### **4. Avoid `unknown` and `any`**
+- Use specific types whenever possible
+- If you need `unknown`, it indicates a design problem
+- `any` defeats the purpose of TypeScript
+
+## 📋 **Implementation Guidelines**
+
+### **Valid Use Cases for Runtime Checking:**
+1. **API Response Validation** - Validating external data
+2. **User Input Sanitization** - Security and UX concerns
+3. **Configuration Parsing** - Environment setup
+4. **Error Boundary Logic** - Application stability
+
+### **Invalid Use Cases:**
+1. **Internal Type Safety** - Use TypeScript types
+2. **Function Parameter Validation** - Use proper typing
+3. **Object Property Checking** - Use interfaces
+4. **Array Element Validation** - Use generic types
+
+## 🔧 **Refactoring Type Guards**
+
+When encountering type guard patterns:
+
+1. **Analyze the Purpose**: Is this for external data or internal type safety?
+2. **Replace with Proper Types**: Use interfaces and compile-time checking
+3. **Use Schema Libraries**: For legitimate runtime validation needs
+4. **Simplify Logic**: Remove unnecessary runtime type checks
+
+## 📁 **File Organization**
+
+### **❌ Prohibited File Names:**
+- `type-guards.ts`
+- `type-checkers.ts` 
+- `validators.ts` (unless for business logic validation)
+- `type-utils.ts` (for runtime checking)
+
+### **✅ Acceptable Alternatives:**
+- `schemas.ts` (using Zod/Yup)
+- `api-validation.ts` (for external data)
+- `input-sanitization.ts` (for user input)
+- `types.ts` (for type definitions only)
+
+## 🎖️ **Best Practices**
+
+1. **Design APIs with proper types from the start**
+2. **Use TypeScript's strict mode**
+3. **Leverage union types and discriminated unions**
+4. **Implement proper error handling without type guards**
+5. **Use established validation libraries for external data**
+
+Remember: If your TypeScript code requires runtime type checking for internal logic, it indicates a fundamental design flaw in your type system.
+description:
+globs:
+alwaysApply: false
+---

@@ -6,7 +6,7 @@
 
 import type { BasicMessage, ResponseMessage, RequestMessage } from '../types/message-types';
 import type { HttpRequest, HttpResponse, DefaultRequestData } from '../types/http-types';
-import { isObject, isString, type ValidatedInput } from './type-guards';
+// Simple utility functions for basic type checking
 
 /**
  * Transform basic message to request message
@@ -32,13 +32,21 @@ export function toResponseMessage<TMessage extends BasicMessage>(
     provider?: string,
     model?: string
 ): ResponseMessage {
-    return {
+    const response: ResponseMessage = {
         role: message.role,
         content: message.content,
-        timestamp: new Date(),
-        provider,
-        model
+        timestamp: new Date()
     };
+
+    if (provider !== undefined) {
+        response.provider = provider;
+    }
+
+    if (model !== undefined) {
+        response.model = model;
+    }
+
+    return response;
 }
 
 /**
@@ -51,16 +59,21 @@ export function createHttpRequest<TData>(
     data?: TData,
     headers: Record<string, string> = {}
 ): HttpRequest<TData> {
-    return {
+    const request: HttpRequest<TData> = {
         id,
         url,
         method,
         headers: {
             'Content-Type': 'application/json',
             ...headers
-        },
-        data
+        }
     };
+
+    if (data !== undefined) {
+        request.data = data;
+    }
+
+    return request;
 }
 
 /**
@@ -85,8 +98,9 @@ export function createHttpResponse<TData>(
  * Extract content from response safely
  */
 export function extractContent(response: HttpResponse<DefaultRequestData>): string {
-    if (isObject(response.data) && 'content' in response.data && isString(response.data.content)) {
-        return response.data.content;
+    if (response.data && typeof response.data === 'object' && 'content' in response.data) {
+        const content = response.data['content'];
+        return typeof content === 'string' ? content : '';
     }
     return '';
 }
@@ -105,9 +119,7 @@ export function normalizeHeaders(headers: Record<string, string | number | boole
     const normalized: Record<string, string> = {};
 
     for (const [key, value] of Object.entries(headers)) {
-        if (isString(value)) {
-            normalized[key] = value;
-        } else if (value !== null && value !== undefined) {
+        if (value !== null && value !== undefined) {
             normalized[key] = String(value);
         }
     }
@@ -116,12 +128,11 @@ export function normalizeHeaders(headers: Record<string, string | number | boole
 }
 
 /**
- * Safe JSON parse with type checking - Project Compliant
+ * Safe JSON parse with basic error handling
  */
-export function safeJsonParse<T extends ValidatedInput>(jsonString: string, typeGuard: (value: ValidatedInput) => value is T): T | null {
+export function safeJsonParse<T>(jsonString: string): T | null {
     try {
-        const parsed = JSON.parse(jsonString) as ValidatedInput;
-        return typeGuard(parsed) ? parsed : null;
+        return JSON.parse(jsonString) as T;
     } catch {
         return null;
     }
