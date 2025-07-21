@@ -17,14 +17,20 @@
         "url": "https://github.com/robota-ai/robota-sdk",
         "directory": "packages/remote"
     },
-    "main": "dist/index.js",
-    "module": "dist/index.mjs",
-    "types": "dist/index.d.ts",
     "exports": {
         ".": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.mjs",
-            "require": "./dist/index.js"
+            "types": "./dist/node/index.d.ts",
+            "node": {
+                "import": "./dist/node/index.js",
+                "require": "./dist/node/index.cjs"
+            },
+            "browser": {
+                "import": "./dist/browser/index.js"
+            },
+            "default": {
+                "import": "./dist/node/index.js",
+                "require": "./dist/node/index.cjs"
+            }
         }
     },
     "files": [

@@ -7,8 +7,8 @@
 // Main RemoteExecutor - Simple & Type Safe
 export { SimpleRemoteExecutor as RemoteExecutor } from './client/remote-executor-simple';
 
-// HTTP Client Facade for advanced users
-export { HttpClientFacade } from './client/http-client-facade';
+// HTTP Client for advanced users
+export { HttpClient } from './client/http-client';
 
 // Atomic Types
 export type { BasicMessage, ResponseMessage, RequestMessage, TokenUsage } from './types/message-types';
@@ -26,16 +26,7 @@ export {
     safeJsonParse
 } from './utils/transformers';
 
-// Type Guards
-export {
-    isBasicMessage,
-    isResponseMessage,
-    isHttpResponse,
-    isHttpError,
-    isString,
-    isNumber,
-    isObject
-} from './utils/type-guards';
+// Type guards removed - use proper TypeScript types instead
 
 // WebSocket Transport for real-time features
 export { SimpleWebSocketTransport as WebSocketTransport } from './transport/websocket-transport-simple';
