@@ -265,3 +265,91 @@ const agent = new Robota({
 4. **타입 안전성**: 완전한 TypeScript 지원
 
 **다음 단계**: Mock 응답을 실제 RemoteExecutor 호출로 교체하면 완전한 Playground 완성! 🚀 
+
+---
+
+## 📋 남은 작업 체크박스 정리
+
+### **🚀 우선순위 1: Playground 완성**
+- [ ] Import 변환 시스템 개선 (일부 케이스 실패 해결)
+- [ ] Mock SDK와 실제 RemoteExecutor 완전 연동
+- [ ] API Server ↔ Playground 연결 테스트
+- [ ] 실제 AI Provider를 통한 응답 확인
+- [ ] 실시간 스트리밍 동작 검증
+
+### **🔧 우선순위 2: Remote System 고도화**
+- [ ] AI Provider 처리 엔진 통합
+- [ ] 고급 인증/권한 관리 시스템
+- [ ] 요청/응답 검증 및 변환 로직
+- [ ] Transport Interface 공통화
+- [ ] WebSocket 통신 구현
+- [ ] Protocol 선택 로직 구현
+- [ ] JWT 기반 사용자 인증 (Firebase Auth + Playground Token)
+- [ ] 사용자별 권한 제어 (구독 레벨별 제한)
+- [ ] Rate Limiting 구현
+- [ ] WebSocket 기반 실시간 통신
+- [ ] 연결 안정성 및 재연결 로직
+- [ ] API 문서화 (OpenAPI/Swagger)
+
+### **⚡ 우선순위 3: Zero-Config 및 고급 기능**
+- [ ] RemoteExecutor.create(serverUrl) 정적 팩토리 메서드
+- [ ] 자동 프로토콜 감지 및 업그레이드
+- [ ] 자동 타임아웃 및 재시도 로직
+- [ ] 환경별 최적화 (브라우저/Node.js)
+- [ ] HTTP/2 자동 업그레이드
+- [ ] gRPC-Web 지원 (고성능 모드)
+- [ ] WebSocket fallback 로직
+- [ ] Progressive Enhancement Strategy
+
+### **📊 우선순위 4: 모니터링 및 관찰성**
+- [ ] 요청/응답 메트릭스 수집
+- [ ] 분산 추적 (OpenTelemetry)
+- [ ] 상세 로깅 및 디버깅 도구
+- [ ] 성능 프로파일링
+
+### **📱 SaaS 웹사이트 기능**
+- [ ] 소셜 로그인 (Google, GitHub, Discord) 추가
+- [ ] 이메일 인증 프로세스
+- [ ] 비밀번호 재설정 시스템
+- [ ] Stripe 통합 구독 결제 시스템
+- [ ] 구독 플랜 (Free, Pro, Enterprise) 구현
+- [ ] 사용량 기반 과금 시스템
+- [ ] 결제 관리 (구독 변경, 취소, 환불)
+- [ ] 사용량 대시보드 (API 호출 통계, 비용 분석)
+- [ ] 프로젝트 관리 (사용자별 프로젝트 저장/관리)
+- [ ] API Key 관리 (사용자별 API Key 생성/관리)
+- [ ] 팀 협업 기능
+- [ ] 제품 소개 페이지 상세화
+- [ ] 가격 정책 페이지
+- [ ] 사용 사례 및 고객 후기
+- [ ] API 문서 완성
+- [ ] 튜토리얼 및 단계별 가이드
+- [ ] FAQ 페이지
+- [ ] 고객 지원 헬프데스크 시스템
+
+### **📝 미래 Planning 시스템 작업**
+- [ ] Storage Module 구현
+- [ ] RAG Module 구현  
+- [ ] File Processing Module 구현
+- [ ] Builder Pattern 도입
+- [ ] Factory Pattern 확장
+- [ ] 개발자 도구 및 가이드
+
+---
+
+## 🎯 즉시 시작 가능한 작업
+
+### **오늘 해결 가능:**
+1. **Import 변환 시스템 디버깅**: 실패하는 케이스 분석 및 수정
+2. **Mock-Remote 연동 완성**: Mock 응답을 실제 RemoteExecutor 호출로 교체
+3. **API Server 연결 테스트**: 로컬 환경에서 전체 연결 확인
+
+### **이번 주 완성 목표:**
+1. **Playground 실제 AI 연동 100% 완성**
+2. **JWT 기반 인증 시스템 구현**
+3. **기본 사용량 제한 및 모니터링**
+
+### **다음 주 목표:**
+1. **WebSocket 실시간 통신 구현**
+2. **Zero-Config RemoteExecutor 구현**
+3. **API 문서화 시작** 
