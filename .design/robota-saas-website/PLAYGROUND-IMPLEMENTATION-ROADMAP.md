@@ -9,10 +9,10 @@ Robota SDK의 기존 Plugin System과 RemoteExecutor를 활용하여 브라우�
 ## 📋 **Phase 1: Core Infrastructure (1주)**
 
 ### **1.1 PlaygroundHistoryPlugin 개발**
-- [ ] `PlaygroundHistoryPlugin` 클래스 생성 (`apps/web/src/lib/playground/plugins/`)
-  - [ ] `BasePlugin` 상속 및 기본 구조 구현
-  - [ ] Plugin 메타데이터 정의 (`name`, `version`, `category`, `priority`)
-  - [ ] 데이터 저장 구조 설계 (`ConversationNode[]`, `TeamHistory`, `AgentDelegation`)
+- [x] `PlaygroundHistoryPlugin` 클래스 생성 (`apps/web/src/lib/playground/plugins/`)
+  - [x] `BasePlugin` 상속 및 기본 구조 구현
+  - [x] Plugin 메타데이터 정의 (`name`, `version`, `category`, `priority`)
+  - [x] 데이터 저장 구조 설계 (`ConversationNode[]`, `TeamHistory`, `AgentDelegation`)
 - [ ] Robota Lifecycle Hook 구현
   - [ ] `override async beforeExecution(context: BaseExecutionContext)`
   - [ ] `override async afterExecution(context: BaseExecutionContext, result: BaseExecutionResult)`
@@ -31,27 +31,32 @@ Robota SDK의 기존 Plugin System과 RemoteExecutor를 활용하여 브라우�
   - [ ] 실시간 이벤트 수집 및 버퍼링
 
 ### **1.2 WebSocket Integration**
-- [ ] `apps/api-server`에 WebSocket 서버 추가
-  - [ ] `ws` 또는 `socket.io` 의존성 추가
-  - [ ] WebSocket connection 관리 (`/ws/playground` endpoint)
-  - [ ] User authentication via JWT token 검증
-  - [ ] Connection pool 관리 (user별 connection tracking)
-- [ ] `PlaygroundHistoryPlugin`에 WebSocket 클라이언트 연결
-  - [ ] `syncToUI(data: PlaygroundVisualizationData)` 메서드 구현
-  - [ ] 실시간 이벤트 전송 (message, tool_call, delegation 등)
-  - [ ] Connection 재연결 로직
-  - [ ] Error handling 및 fallback
+- [x] `apps/api-server`에 WebSocket 서버 추가
+  - [x] `ws` 의존성 추가 (`npm install ws @types/ws`)
+  - [x] WebSocket connection 관리 (`/ws/playground` endpoint)
+  - [x] User authentication via JWT token 검증
+  - [x] Connection pool 관리 (user별 connection tracking)
+- [x] `PlaygroundHistoryPlugin`에 WebSocket 클라이언트 연결
+  - [x] `syncToUI(data: PlaygroundVisualizationData)` 메서드 구현
+  - [x] 실시간 이벤트 전송 (message, tool_call, delegation 등)
+  - [x] Connection 재연결 로직
+  - [x] Error handling 및 fallback
 
 ### **1.3 Remote Executor 강화**
-- [ ] `SimpleRemoteExecutor` WebSocket 지원 추가
-  - [ ] WebSocket transport option (`protocol: 'websocket'`)
-  - [ ] HTTP fallback 유지 (기존 기능 보존)
-  - [ ] Real-time streaming via WebSocket
-- [ ] Playground 전용 인증 시스템
-  - [ ] `apps/api-server`에 Playground token 검증 미들웨어
-  - [ ] Firebase Auth JWT → API Server JWT 교환
-  - [ ] Rate limiting (Playground 사용자별)
-  - [ ] Session 관리 및 cleanup
+- [x] Playground 전용 WebSocket 클라이언트 생성
+  - [x] `PlaygroundWebSocketClient` 클래스 구현
+  - [x] Authentication, reconnection, message routing
+  - [x] Real-time event handling 및 ping/pong
+- [x] Playground 전용 실행자 구현
+  - [x] `PlaygroundExecutor` 클래스 구현
+  - [x] Mock Robota Agent 및 Team 관리
+  - [x] RemoteExecutor 통합 (HTTP/SSE)
+  - [x] PlaygroundHistoryPlugin 연동
+- [x] Playground 전용 인증 시스템
+  - [x] `apps/api-server`에 WebSocket `/ws/playground` 엔드포인트
+  - [x] JWT token 검증 (Firebase Auth 호환)
+  - [x] User session 관리 및 connection pool
+  - [x] Connection cleanup 및 health check
 
 ---
 
@@ -83,6 +88,33 @@ Robota SDK의 기존 Plugin System과 RemoteExecutor를 활용하여 브라우�
   - [ ] `useRobotaExecution()` - Agent 실행 상태
   - [ ] `useWebSocketConnection()` - 연결 상태 관리
   - [ ] `useChatInput()` - 실시간 채팅 입력 및 전송 관리
+
+---
+
+## **🚨 CRITICAL: Rule Compliance Phase** 
+
+### **C.1 Robota SDK Integration Compliance** 
+- [ ] **Type Safety Enhancement** - Replace Mock interfaces with real Robota SDK types
+  - [ ] Import `UniversalMessage`, `ChatOptions` from `@robota-sdk/agents`
+  - [ ] Replace `MockAIProvider` with actual Robota provider interfaces
+  - [ ] Replace `MockTool` with `@robota-sdk/agents` tool interfaces
+  - [ ] Replace `MockPlugin` with `BasePlugin<TOptions, TStats>` extensions
+  - [ ] Define proper execution request/response types
+- [ ] **Plugin Architecture Compliance**
+  - [ ] `PlaygroundHistoryPlugin` must extend `BasePlugin<TOptions, TStats>`
+  - [ ] Add `enabled: false` and `strategy: 'silent'` disable options
+  - [ ] Add proper validation with actionable error messages
+  - [ ] Implement category and priority system
+- [ ] **Facade Pattern Compliance**
+  - [ ] Keep `PlaygroundExecutor` interface simple (run, runStream, dispose)
+  - [ ] Extract complex logic to specialized services
+  - [ ] Ensure single responsibility per class
+
+### **C.2 Real Robota SDK Integration**
+- [ ] Replace Mock implementations with actual Robota Agent/Team
+- [ ] Integrate real `@robota-sdk/remote` for server communication
+- [ ] Use actual plugin system instead of mock plugins
+- [ ] Validate dependency injection patterns
 
 ---
 

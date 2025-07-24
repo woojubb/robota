@@ -1,5 +1,7 @@
 import dotenv from 'dotenv';
-import { createApp } from './app';
+import { createApp, setPlaygroundWebSocketServer } from './app';
+import { PlaygroundWebSocketServer } from './websocket-server';
+import { createServer } from 'http';
 
 // Load environment variables
 dotenv.config();
@@ -13,15 +15,22 @@ async function startServer() {
         // Create Express app
         const app = createApp();
 
-        // Start server
+        // Create HTTP server
         const port = parseInt(process.env.PORT || '3001', 10);
+        const server = createServer(app);
 
-        app.listen(port, () => {
+        // Initialize WebSocket server
+        const wsServer = new PlaygroundWebSocketServer(server);
+        setPlaygroundWebSocketServer(wsServer);
+
+        // Start server
+        server.listen(port, () => {
             console.log(`🚀 Robota API Server started on port ${port}`);
             console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
             console.log(`🔗 Server URL: http://localhost:${port}`);
             console.log(`💚 Health Check: http://localhost:${port}/health`);
             console.log(`🤖 API Docs: http://localhost:${port}/v1/remote`);
+            console.log(`🔌 WebSocket: ws://localhost:${port}/ws/playground`);
         });
 
         // Graceful shutdown

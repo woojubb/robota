@@ -6,6 +6,14 @@ import { RemoteServer } from '@robota-sdk/remote/server';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { GoogleProvider } from '@robota-sdk/google';
+import { PlaygroundWebSocketServer } from './websocket-server';
+
+// Global WebSocket server instance (will be initialized in server.ts)
+export let playgroundWebSocketServer: PlaygroundWebSocketServer | null = null;
+
+export function setPlaygroundWebSocketServer(server: PlaygroundWebSocketServer): void {
+    playgroundWebSocketServer = server;
+}
 
 /**
  * Create Express application with RemoteServer
@@ -94,6 +102,27 @@ export function createApp(): express.Application {
             },
             status: remoteServer.getStatus()
         });
+    });
+
+    // WebSocket status endpoint
+    app.get('/v1/remote/ws/status', (req, res) => {
+        if (playgroundWebSocketServer) {
+            const stats = playgroundWebSocketServer.getStats();
+            res.json({
+                websocket: {
+                    enabled: true,
+                    endpoint: '/ws/playground',
+                    ...stats
+                }
+            });
+        } else {
+            res.json({
+                websocket: {
+                    enabled: false,
+                    message: 'WebSocket server not initialized'
+                }
+            });
+        }
     });
 
     // Global health endpoint
