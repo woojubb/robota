@@ -64,13 +64,7 @@ function createFetchExecutor(credentials: PlaygroundCredentials): PlaygroundRemo
 
             } catch (error) {
                 console.error('Remote execution failed:', error);
-
-                // Fallback to mock response
-                return {
-                    role: 'assistant',
-                    content: `Mock response for: "${request.messages?.[request.messages.length - 1]?.content || 'Hello'}".\n\nThis is a fallback response because the remote server is not available or API keys are not configured.`,
-                    timestamp: new Date()
-                };
+                throw new Error(`Remote execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
         },
         executeChatStream: async function* (request) {
@@ -137,20 +131,7 @@ function createFetchExecutor(credentials: PlaygroundCredentials): PlaygroundRemo
 
             } catch (error) {
                 console.error('Stream execution failed:', error);
-
-                // Fallback to mock streaming
-                const fullResponse = `Mock streaming response for: "${request.messages?.[request.messages.length - 1]?.content || 'Hello'}".\n\nThis response is being streamed in chunks to simulate real AI behavior.`;
-                const words = fullResponse.split(' ');
-
-                for (const word of words) {
-                    yield {
-                        role: 'assistant',
-                        content: word + ' ',
-                        timestamp: new Date()
-                    };
-                    // Simulate streaming delay
-                    await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
-                }
+                throw new Error(`Remote streaming failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
         },
         supportsTools: () => true,
@@ -161,44 +142,7 @@ function createFetchExecutor(credentials: PlaygroundCredentials): PlaygroundRemo
     };
 }
 
-/**
- * Create a mock executor for development/fallback
- */
-function createMockExecutor(credentials: PlaygroundCredentials): PlaygroundRemoteExecutor {
-    return {
-        name: 'mock-remote',
-        version: '1.0.0',
-        executeChat: async (request) => {
-            // Simulate processing time
-            await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
 
-            return {
-                role: 'assistant',
-                content: `Mock response for: "${request.messages?.[request.messages.length - 1]?.content || 'Hello'}".\n\nThis is a simulated response from the playground using credentials for server: ${credentials.serverUrl}`,
-                timestamp: new Date()
-            };
-        },
-        executeChatStream: async function* (request) {
-            const fullResponse = `Mock streaming response for: "${request.messages?.[request.messages.length - 1]?.content || 'Hello'}".\n\nThis response is being streamed in chunks to simulate real AI behavior.`;
-
-            const words = fullResponse.split(' ');
-            for (const word of words) {
-                yield {
-                    role: 'assistant',
-                    content: word + ' ',
-                    timestamp: new Date()
-                };
-                // Simulate streaming delay
-                await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
-            }
-        },
-        supportsTools: () => true,
-        validateConfig: () => true,
-        dispose: async () => {
-            console.log('Mock executor disposed');
-        }
-    };
-}
 
 /**
  * Test RemoteExecutor connection

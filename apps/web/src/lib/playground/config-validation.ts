@@ -22,66 +22,40 @@ export interface PlaygroundConfig {
 export function validatePlaygroundConfig(): PlaygroundConfig {
     const errors: string[] = [];
 
-    // Check if playground is enabled
-    const enabled = process.env.NEXT_PUBLIC_PLAYGROUND_ENABLED === 'true';
+    // Playground is always enabled - no environment variable check needed
+    const enabled = true;
 
-    if (!enabled) {
-        return {
-            enabled: false,
-            serverUrl: '',
-            apiUrl: '',
-            features: {
-                remoteExecution: false,
-                streaming: false,
-                tools: false
-            }
-        };
-    }
+    // Validate required URLs with sensible defaults
+    const serverUrl = process.env.NEXT_PUBLIC_PLAYGROUND_SERVER_URL ||
+        process.env.NEXT_PUBLIC_API_URL ||
+        'http://localhost:3001';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-    // Validate required URLs
-    const serverUrl = process.env.NEXT_PUBLIC_PLAYGROUND_SERVER_URL || process.env.NEXT_PUBLIC_API_URL;
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-
-    if (!serverUrl) {
-        errors.push('NEXT_PUBLIC_PLAYGROUND_SERVER_URL or NEXT_PUBLIC_API_URL is required when playground is enabled');
-    }
-
-    if (!apiUrl) {
-        errors.push('NEXT_PUBLIC_API_URL is required when playground is enabled');
-    }
-
-    // Validate URL format
-    if (serverUrl) {
+    // Validate URL format if provided
+    if (serverUrl && serverUrl !== 'http://localhost:3001') {
         try {
             new URL(serverUrl);
         } catch {
-            errors.push('NEXT_PUBLIC_PLAYGROUND_SERVER_URL must be a valid URL');
+            console.warn('Invalid serverUrl provided, using default localhost:3001');
         }
     }
 
-    if (apiUrl) {
+    if (apiUrl && apiUrl !== 'http://localhost:3001') {
         try {
             new URL(apiUrl);
         } catch {
-            errors.push('NEXT_PUBLIC_API_URL must be a valid URL');
+            console.warn('Invalid apiUrl provided, using default localhost:3001');
         }
-    }
-
-    if (errors.length > 0) {
-        throw new Error(
-            `Playground configuration validation failed:\n${errors.map(e => `- ${e}`).join('\n')}\n\n` +
-            'Please check your .env.local file and ensure all required environment variables are set correctly.'
-        );
     }
 
     return {
         enabled,
-        serverUrl: serverUrl!,
-        apiUrl: apiUrl!,
+        serverUrl,
+        apiUrl,
         features: {
-            remoteExecution: process.env.NEXT_PUBLIC_FEATURES_REMOTE_EXECUTION === 'true',
-            streaming: process.env.NEXT_PUBLIC_FEATURES_STREAMING === 'true',
-            tools: process.env.NEXT_PUBLIC_FEATURES_TOOLS === 'true'
+            remoteExecution: true,  // Always enabled
+            streaming: true,        // Always enabled
+            tools: true            // Always enabled
         }
     };
 }
@@ -90,35 +64,15 @@ export function validatePlaygroundConfig(): PlaygroundConfig {
  * Get playground configuration with validation
  */
 export function getPlaygroundConfig(): PlaygroundConfig {
-    try {
-        return validatePlaygroundConfig();
-    } catch (error) {
-        console.error('Playground configuration error:', error);
-
-        // Return disabled configuration on validation failure
-        return {
-            enabled: false,
-            serverUrl: '',
-            apiUrl: '',
-            features: {
-                remoteExecution: false,
-                streaming: false,
-                tools: false
-            }
-        };
-    }
+    return validatePlaygroundConfig();
 }
 
 /**
  * Check if playground feature is enabled
  */
 export function isFeatureEnabled(feature: keyof PlaygroundConfig['features']): boolean {
-    try {
-        const config = validatePlaygroundConfig();
-        return config.enabled && config.features[feature];
-    } catch {
-        return false;
-    }
+    const config = validatePlaygroundConfig();
+    return config.enabled && config.features[feature];
 }
 
 /**
