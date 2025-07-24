@@ -408,25 +408,48 @@ export class PlaygroundExecutor {
              */
             async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
                 try {
-                    const response = await fetch(`${serverUrl}/api/remote/chat`, {
+                    // Convert WebSocket URL to HTTP URL for API calls
+                    const apiUrl = serverUrl.replace(/^ws/, 'http').replace(/\/ws\/playground$/, '');
+
+                    // Helper function to get provider from model
+                    const getProviderFromModel = (model: string): string => {
+                        if (model.startsWith('gpt-') || model.includes('openai')) {
+                            return 'openai';
+                        } else if (model.startsWith('claude-') || model.includes('anthropic')) {
+                            return 'anthropic';
+                        } else if (model.startsWith('gemini-') || model.includes('google')) {
+                            return 'google';
+                        } else if (model.includes('/')) {
+                            return model.split('/')[0]; // Format like "openai/gpt-4"
+                        } else {
+                            return 'openai'; // Default fallback
+                        }
+                    };
+
+                    const modelName = options?.model || 'gpt-4';
+                    const providerName = getProviderFromModel(modelName);
+
+                    const requestBody = {
+                        messages: messages.map(msg => ({
+                            role: msg.role,
+                            content: msg.content,
+                            ...(msg.toolCalls && { toolCalls: msg.toolCalls })
+                        })),
+                        provider: providerName,
+                        model: modelName,
+                        temperature: options?.temperature,
+                        maxTokens: options?.maxTokens,
+                        tools: options?.tools
+                    };
+
+                    const response = await fetch(`${apiUrl}/api/v1/remote/chat`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${authToken}`,
                             'User-Agent': 'robota-playground/1.0.0'
                         },
-                        body: JSON.stringify({
-                            messages: messages.map(msg => ({
-                                role: msg.role,
-                                content: msg.content,
-                                ...(msg.toolCalls && { toolCalls: msg.toolCalls })
-                            })),
-                            provider: options?.model?.split('/')[0] || 'openai',
-                            model: options?.model || 'gpt-4',
-                            temperature: options?.temperature,
-                            maxTokens: options?.maxTokens,
-                            tools: options?.tools
-                        })
+                        body: JSON.stringify(requestBody)
                     });
 
                     if (!response.ok) {
@@ -436,16 +459,19 @@ export class PlaygroundExecutor {
 
                     const data = await response.json();
 
+                    // Handle the actual response structure: { success, data: { content, ... }, ... }
+                    const responseData = data.data || data;
+
                     return {
                         role: 'assistant',
-                        content: data.content || data.message || '',
+                        content: responseData.content || responseData.message || data.content || data.message || '',
                         timestamp: new Date(),
-                        ...(data.toolCalls && { toolCalls: data.toolCalls }),
+                        ...(responseData.toolCalls && { toolCalls: responseData.toolCalls }),
                         metadata: {
-                            provider: data.provider,
-                            model: data.model,
-                            tokensUsed: data.tokensUsed,
-                            duration: data.duration
+                            provider: data.provider || responseData.provider,
+                            model: data.model || responseData.model,
+                            tokensUsed: data.tokensUsed || responseData.tokensUsed,
+                            duration: data.duration || responseData.duration
                         }
                     };
                 } catch (error) {
@@ -458,7 +484,42 @@ export class PlaygroundExecutor {
              */
             async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
                 try {
-                    const response = await fetch(`${serverUrl}/api/remote/stream`, {
+                    // Convert WebSocket URL to HTTP URL for API calls
+                    const apiUrl = serverUrl.replace(/^ws/, 'http').replace(/\/ws\/playground$/, '');
+
+                    // Helper function to get provider from model
+                    const getProviderFromModel = (model: string): string => {
+                        if (model.startsWith('gpt-') || model.includes('openai')) {
+                            return 'openai';
+                        } else if (model.startsWith('claude-') || model.includes('anthropic')) {
+                            return 'anthropic';
+                        } else if (model.startsWith('gemini-') || model.includes('google')) {
+                            return 'google';
+                        } else if (model.includes('/')) {
+                            return model.split('/')[0]; // Format like "openai/gpt-4"
+                        } else {
+                            return 'openai'; // Default fallback
+                        }
+                    };
+
+                    const modelName = options?.model || 'gpt-4';
+                    const providerName = getProviderFromModel(modelName);
+
+                    const requestBody = {
+                        messages: messages.map(msg => ({
+                            role: msg.role,
+                            content: msg.content,
+                            ...(msg.toolCalls && { toolCalls: msg.toolCalls })
+                        })),
+                        provider: providerName,
+                        model: modelName,
+                        temperature: options?.temperature,
+                        maxTokens: options?.maxTokens,
+                        tools: options?.tools,
+                        stream: true
+                    };
+
+                    const response = await fetch(`${apiUrl}/api/v1/remote/stream`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -466,23 +527,17 @@ export class PlaygroundExecutor {
                             'Accept': 'text/event-stream',
                             'User-Agent': 'robota-playground/1.0.0'
                         },
-                        body: JSON.stringify({
-                            messages: messages.map(msg => ({
-                                role: msg.role,
-                                content: msg.content,
-                                ...(msg.toolCalls && { toolCalls: msg.toolCalls })
-                            })),
-                            provider: options?.model?.split('/')[0] || 'openai',
-                            model: options?.model || 'gpt-4',
-                            temperature: options?.temperature,
-                            maxTokens: options?.maxTokens,
-                            tools: options?.tools,
-                            stream: true
-                        })
+                        body: JSON.stringify(requestBody)
                     });
 
                     if (!response.ok) {
                         const errorText = await response.text();
+                        console.error('Streaming request failed:', {
+                            status: response.status,
+                            statusText: response.statusText,
+                            errorText,
+                            url: `${apiUrl}/api/v1/remote/stream`
+                        });
                         throw new Error(`Remote streaming failed (${response.status}): ${errorText}`);
                     }
 
@@ -511,23 +566,34 @@ export class PlaygroundExecutor {
 
                                 if (line.startsWith('data: ')) {
                                     const data = line.slice(6).trim();
-                                    if (data === '[DONE]') return;
+
+                                    if (data === '[DONE]') {
+                                        return;
+                                    }
 
                                     try {
                                         const parsed = JSON.parse(data);
-                                        if (parsed.content) {
-                                            yield {
-                                                role: 'assistant',
-                                                content: parsed.content,
+
+                                        // Handle the actual response structure: { success, data: { content, ... }, ... }
+                                        const responseData = parsed.data || parsed;
+                                        const content = responseData.content;
+
+                                        if (content !== undefined && content !== null) {
+                                            const message: UniversalMessage = {
+                                                role: 'assistant' as const,
+                                                content: content,
                                                 timestamp: new Date(),
                                                 metadata: {
-                                                    provider: parsed.provider,
-                                                    model: parsed.model,
-                                                    chunk: true
+                                                    provider: parsed.provider || responseData.provider,
+                                                    model: parsed.model || responseData.model,
+                                                    chunk: true,
+                                                    isComplete: responseData.metadata?.isComplete || false
                                                 }
                                             };
+                                            yield message;
                                         }
                                     } catch (e) {
+                                        console.warn('Failed to parse SSE data:', data, e);
                                         // Skip invalid JSON chunks
                                         continue;
                                     }
@@ -602,6 +668,12 @@ class PlaygroundRobotaInstance {
         }
 
         try {
+            // Record user message through plugins
+            this.recordEvent({
+                type: 'user_message',
+                content: prompt
+            });
+
             // Add user message to conversation history
             const userMessage: UniversalMessage = {
                 role: 'user',
@@ -624,12 +696,24 @@ class PlaygroundRobotaInstance {
 
             this.conversationHistory.push(aiResponse);
 
+            // Record assistant response through plugins
+            this.recordEvent({
+                type: 'assistant_response',
+                content: aiResponse.content || 'No response generated'
+            });
+
             return {
                 response: aiResponse.content || 'No response generated',
                 toolsExecuted: this.config.tools?.map(t => t.name) || []
             };
 
         } catch (error) {
+            // Record error through plugins
+            this.recordEvent({
+                type: 'error',
+                content: `Agent execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+            });
+
             throw new Error(`Agent execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
@@ -640,6 +724,12 @@ class PlaygroundRobotaInstance {
         }
 
         try {
+            // Record user message through plugins
+            this.recordEvent({
+                type: 'user_message',
+                content: prompt
+            });
+
             const userMessage: UniversalMessage = {
                 role: 'user',
                 content: prompt,
@@ -656,28 +746,40 @@ class PlaygroundRobotaInstance {
 
             if (provider.chatStream) {
                 // Use real streaming from AI provider
+                console.log('Starting streaming with provider:', provider.name);
                 for await (const chunk of provider.chatStream(this.conversationHistory, {
                     model: this.config.defaultModel.model,
                     temperature: this.config.defaultModel.temperature,
                     maxTokens: this.config.defaultModel.maxTokens
                 })) {
+                    console.log('Received chunk from provider:', chunk);
                     const content = chunk.content || '';
+                    console.log('Extracted content:', content);
                     fullResponse += content;
                     yield content;
                 }
+                console.log('Streaming completed, full response:', fullResponse);
+
+                // Record complete assistant response through plugins
+                this.recordEvent({
+                    type: 'assistant_response',
+                    content: fullResponse
+                });
             } else {
                 // Fallback for providers without streaming
                 const response = await provider.chat(this.conversationHistory);
-                fullResponse = response.content || '';
-                const words = fullResponse.split(' ');
+                const content = response.content || '';
+                fullResponse = content;
 
-                for (const word of words) {
-                    yield word + ' ';
-                    await new Promise(resolve => setTimeout(resolve, 50));
-                }
+                // Record assistant response through plugins
+                this.recordEvent({
+                    type: 'assistant_response',
+                    content: content
+                });
+
+                yield content;
             }
 
-            // Add complete response to history
             this.conversationHistory.push({
                 role: 'assistant',
                 content: fullResponse,
@@ -685,7 +787,13 @@ class PlaygroundRobotaInstance {
             });
 
         } catch (error) {
-            throw new Error(`Agent stream execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            // Record error through plugins
+            this.recordEvent({
+                type: 'error',
+                content: `Agent execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+            });
+
+            throw new Error(`Agent execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
 
@@ -706,6 +814,18 @@ class PlaygroundRobotaInstance {
             this.isInitialized = false;
         } catch (error) {
             throw new Error(`Agent disposal failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    // Helper method to record events through plugins
+    private recordEvent(event: { type: 'user_message' | 'assistant_response' | 'error'; content: string }) {
+        if (this.config.plugins) {
+            for (const plugin of this.config.plugins) {
+                if (plugin instanceof PlaygroundHistoryPlugin) {
+                    plugin.recordEvent(event);
+                    break; // Only record once
+                }
+            }
         }
     }
 }

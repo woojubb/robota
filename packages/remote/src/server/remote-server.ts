@@ -174,6 +174,10 @@ export class RemoteServer {
 
                 try {
                     // Execute streaming chat
+                    if (!providerInstance.chatStream) {
+                        throw new Error(`Provider ${provider} does not support streaming`);
+                    }
+
                     const stream = providerInstance.chatStream(messages, { model });
 
                     for await (const chunk of stream) {
@@ -228,7 +232,7 @@ export class RemoteServer {
                 capabilities: {
                     chat: typeof providerInstance.chat === 'function',
                     stream: typeof providerInstance.chatStream === 'function',
-                    tools: typeof providerInstance.supportsTools === 'function' ? providerInstance.supportsTools() : false
+                    tools: 'supportsTools' in providerInstance && typeof (providerInstance as any).supportsTools === 'function' ? (providerInstance as any).supportsTools() : false
                 }
             });
         });

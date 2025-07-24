@@ -1,28 +1,14 @@
 {
+    "extends": "../../tsconfig.base.json",
     "compilerOptions": {
-        "outDir": "./dist",
-        "rootDir": "./src",
-        "declaration": false,
-        "declarationMap": false,
-        "sourceMap": true,
-        "module": "CommonJS",
-        "target": "ES2020",
-        "moduleResolution": "node",
-        "esModuleInterop": true,
-        "allowSyntheticDefaultImports": true,
-        "strict": true,
-        "skipLibCheck": true,
-        "forceConsistentCasingInFileNames": true,
-        "resolveJsonModule": true,
-        "noImplicitAny": false,
-        "verbatimModuleSyntax": false
+        "outDir": "dist",
+        "rootDir": "src"
     },
     "include": [
         "src/**/*"
     ],
     "exclude": [
         "dist",
-        "lib",
         "node_modules",
         "**/*.test.ts",
         "**/*.spec.ts"

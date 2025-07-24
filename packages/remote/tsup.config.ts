@@ -1,4 +1,6 @@
 import { defineConfig } from 'tsup';
+import { writeFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
 
 // Shared configuration
 const baseConfig = {
@@ -21,7 +23,7 @@ export default defineConfig([
         ...baseConfig,
         entry: ['src/server.ts'],
         outDir: 'dist/node',
-        format: ['esm', 'cjs'],
+        format: ['cjs'],
         platform: 'node',
         external: [
             // External dependencies that should not be bundled
@@ -30,6 +32,19 @@ export default defineConfig([
             'cors',
             'helmet'
         ],
+        outExtension() {
+            return {
+                js: '.js',
+            };
+        },
+        onSuccess: async () => {
+            // Create package.json for CommonJS
+            mkdirSync('dist/node', { recursive: true });
+            writeFileSync(
+                join('dist/node/package.json'),
+                JSON.stringify({ type: 'commonjs' }, null, 2)
+            );
+        },
     },
     // Browser build (no Node.js dependencies)
     {
@@ -43,6 +58,19 @@ export default defineConfig([
             /^@robota-sdk\/.*/,  // All @robota-sdk packages
             // Note: express, cors, helmet removed for browser build as they're Node.js specific
         ],
+        outExtension() {
+            return {
+                js: '.js',
+            };
+        },
+        onSuccess: async () => {
+            // Create package.json for ESM
+            mkdirSync('dist/browser', { recursive: true });
+            writeFileSync(
+                join('dist/browser/package.json'),
+                JSON.stringify({ type: 'module' }, null, 2)
+            );
+        },
         define: {
             'process.env.NODE_ENV': '"production"',
         },
