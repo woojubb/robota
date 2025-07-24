@@ -1,14 +1,36 @@
 import express from 'express';
+import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
+import type { UniversalMessage, ChatOptions } from '@robota-sdk/agents';
+
+/**
+ * Server status interface
+ */
+interface ServerStatus {
+    initialized: boolean;
+    providers: string[];
+    providerCount: number;
+    timestamp: string;
+}
+
+/**
+ * AI Provider interface
+ */
+interface AIProvider {
+    chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
+    chatStream?(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
+}
 
 /**
  * RemoteServer - Express.js integration for AI Provider proxying
  */
 export class RemoteServer {
-    private providers: Map<string, any> = new Map();
+    private providers: Map<string, AIProvider> = new Map();
     private router: express.Router;
     private initialized = false;
+    private logger: SimpleLogger;
 
-    constructor() {
+    constructor(logger?: SimpleLogger) {
+        this.logger = logger || SilentLogger;
         this.router = express.Router();
         this.setupRoutes();
     }
@@ -16,18 +38,18 @@ export class RemoteServer {
     /**
      * Initialize server with AI providers
      */
-    async initialize(providers: Record<string, any>): Promise<void> {
+    async initialize(providers: Record<string, AIProvider>): Promise<void> {
         try {
             // Register providers
             for (const [name, provider] of Object.entries(providers)) {
                 this.providers.set(name, provider);
-                console.log(`✅ Registered provider: ${name}`);
+                this.logger.info(`✅ Registered provider: ${name}`);
             }
 
             this.initialized = true;
-            console.log(`🚀 RemoteServer initialized with ${this.providers.size} providers`);
+            this.logger.info(`🚀 RemoteServer initialized with ${this.providers.size} providers`);
         } catch (error) {
-            console.error('❌ Failed to initialize RemoteServer:', error);
+            this.logger.error('❌ Failed to initialize RemoteServer:', error);
             throw error;
         }
     }
@@ -42,7 +64,7 @@ export class RemoteServer {
     /**
      * Get server status
      */
-    getStatus(): any {
+    getStatus(): ServerStatus {
         return {
             initialized: this.initialized,
             providers: Array.from(this.providers.keys()),
@@ -112,7 +134,7 @@ export class RemoteServer {
                 });
 
             } catch (error) {
-                console.error('Chat execution error:', error);
+                this.logger.error('Chat execution error:', error);
                 res.status(500).json({
                     error: 'Chat execution failed',
                     message: error instanceof Error ? error.message : 'Unknown error'
@@ -179,7 +201,7 @@ export class RemoteServer {
                 }
 
             } catch (error) {
-                console.error('Stream setup error:', error);
+                this.logger.error('Stream setup error:', error);
                 res.status(500).json({
                     error: 'Stream setup failed',
                     message: error instanceof Error ? error.message : 'Unknown error'

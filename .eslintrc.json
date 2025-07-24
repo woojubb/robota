@@ -32,14 +32,14 @@
     // These rules enforce zero tolerance for any/unknown types
     // Modification of these settings is STRICTLY PROHIBITED
     // Contact architecture team before any changes
-    "@typescript-eslint/no-explicit-any": "error", // ❌ PROHIBIT explicit any
+    "@typescript-eslint/no-explicit-any": "error", // ❌ PROHIBITED: 'any' type violates Zero Any Policy. Use UniversalMessage, ChatOptions from '@robota-sdk/agents'. See .cursor/rules/logging-guidelines.mdc
     "@typescript-eslint/ban-types": [
       "error",
       {
         "types": {
-          "unknown": "❌ PROHIBITED: Use of 'unknown' type is not allowed. Define specific types instead.",
-          "any": "❌ PROHIBITED: Use of 'any' type is not allowed. Define specific types instead.",
-          "{}": "❌ PROHIBITED: Use of '{}' type is not allowed. Use 'Record<string, unknown>' or define specific interface."
+          "unknown": "❌ PROHIBITED: Use of 'unknown' type is not allowed. Import specific types from '@robota-sdk/agents' (e.g., UniversalMessage, ChatOptions) or define explicit interfaces. Refer to .cursor/rules/logging-guidelines.mdc for examples.",
+          "any": "❌ PROHIBITED: Use of 'any' type violates Zero Any Policy. Import specific types from '@robota-sdk/agents' or create typed interfaces. Follow patterns in packages/openai/src/provider.ts for reference.",
+          "{}": "❌ PROHIBITED: Use of '{}' type is not allowed. Use 'Record<string, specific-type>' or define explicit interface. See .cursor/rules/typescript-type-safety-guidelines.mdc for alternatives."
         },
         "extendDefaults": true
       }
@@ -58,7 +58,7 @@
     "@typescript-eslint/explicit-module-boundary-types": "off",
     "@typescript-eslint/ban-ts-comment": "warn",
     "no-useless-catch": "warn",
-    "no-console": "error",
+    "no-console": "error", // ❌ PROHIBITED: Use SimpleLogger injection: constructor(logger = SilentLogger) {}. See .cursor/rules/logging-guidelines.mdc
     "no-redeclare": "error"
   },
   "overrides": [
@@ -78,6 +78,19 @@
         "**/*.test.ts",
         "**/*.test.tsx"
       ],
+      "env": {
+        "jest": true
+      },
+      "globals": {
+        "describe": "readonly",
+        "it": "readonly",
+        "expect": "readonly",
+        "beforeEach": "readonly",
+        "afterEach": "readonly",
+        "beforeAll": "readonly",
+        "afterAll": "readonly",
+        "vi": "readonly"
+      },
       "rules": {
         "@typescript-eslint/no-unused-vars": "off",
         "no-unused-vars": "off",
@@ -89,7 +102,8 @@
         // for mocking and testing purposes
         // This exception must NOT be extended to production code
         "@typescript-eslint/no-explicit-any": "off",
-        "@typescript-eslint/ban-types": "off"
+        "@typescript-eslint/ban-types": "off",
+        "no-console": "warn" // ⚠️ WARNING: Console usage in test files should be minimal. Use test framework assertions or mockable loggers for better isolation
         // ==========================================
       }
     }
