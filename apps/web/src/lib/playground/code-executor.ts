@@ -8,6 +8,7 @@ import {
     injectRemoteExecutor,
     requiresTransformation,
     extractProviderInfo,
+    createPlaygroundSandbox,
     type PlaygroundConfig
 } from './remote-injection';
 
@@ -133,7 +134,51 @@ export class CodeExecutor {
 
             logs.push(`✅ Agent initialized with ${provider}`)
 
-            // Step 6: Test basic functionality
+            // Step 6: Execute the actual code
+            logs.push('🚀 Executing code...')
+
+            let executionOutput = '';
+            let executionError = null;
+
+            try {
+                // Create sandbox environment for safe execution
+                const sandbox = createPlaygroundSandbox(this.playgroundConfig);
+
+                // Execute code in sandbox
+                logs.push('🔒 Running in sandbox environment...');
+                const { result, logs: consoleLogs } = await sandbox.execute(transformedCode);
+
+                // Combine execution result and console logs
+                const outputParts = [];
+
+                if (consoleLogs.length > 0) {
+                    outputParts.push('Console Output:');
+                    outputParts.push(...consoleLogs);
+                }
+
+                if (result !== undefined) {
+                    outputParts.push('');
+                    outputParts.push('Return Value:');
+                    outputParts.push(typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result));
+                }
+
+                executionOutput = outputParts.length > 0 ?
+                    outputParts.join('\n') :
+                    'Code executed successfully (no output)';
+
+                logs.push('✅ Code executed successfully in sandbox');
+                if (consoleLogs.length > 0) {
+                    logs.push(`📝 Captured ${consoleLogs.length} console output(s)`);
+                }
+
+                // Cleanup sandbox
+                sandbox.cleanup();
+
+            } catch (error) {
+                executionError = error;
+                logs.push(`❌ Execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+
             logs.push('🧪 Running health checks...')
             await this.simulateDelay(400)
             logs.push('✅ All systems operational')
@@ -141,13 +186,20 @@ export class CodeExecutor {
             this.context = { ...agentConfig, provider }
 
             return {
-                success: true,
-                output: this.generateSuccessOutput({ ...agentConfig, provider }, provider, transformedCode),
+                success: !executionError,
+                output: executionError ? undefined : executionOutput,
+                error: executionError ? (executionError instanceof Error ? executionError.message : 'Unknown error') : undefined,
                 logs,
                 duration: Date.now() - startTime,
-                agentReady: true,
+                agentReady: !executionError,
                 compiledCode: this.generateCompiledCode(transformedCode),
-                errors,
+                errors: executionError ? [...errors, {
+                    type: 'runtime',
+                    severity: 'error',
+                    message: executionError instanceof Error ? executionError.message : 'Unknown runtime error',
+                    stack: executionError instanceof Error ? executionError.stack : undefined,
+                    suggestions: ['Check your code syntax', 'Verify all imports are correct']
+                }] : errors,
                 warnings
             }
 

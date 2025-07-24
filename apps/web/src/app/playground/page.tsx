@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Play, Save, Download, FolderOpen, Sparkles, Keyboard, Cloud, Wifi, WifiOff, Activity } from 'lucide-react';
+import { Play, Save, Download, FolderOpen, Sparkles, Keyboard, Cloud, Wifi, WifiOff, Activity, Mail } from 'lucide-react';
 
 import { CodeEditor, exampleTemplates } from '@/components/playground/code-editor';
 import { ChatInterface } from '@/components/playground/chat-interface';
@@ -27,6 +27,10 @@ import { initializePlaygroundExecutor, testPlaygroundConnection } from '@/lib/pl
 import { getPlaygroundConfig, logConfigurationStatus } from '@/lib/playground/config-validation';
 import { UsageMonitor } from '@/components/playground/usage-monitor';
 
+// Firebase auth for email verification
+import { auth } from '@/lib/firebase/config';
+import { sendEmailVerification } from 'firebase/auth';
+
 type Provider = 'openai' | 'anthropic' | 'google';
 
 interface PlaygroundState {
@@ -42,6 +46,13 @@ interface RemoteConnectionState {
     serverUrl?: string;
     error?: string;
     credentials?: PlaygroundCredentials;
+    needsEmailVerification?: boolean;
+    accessInfo?: {
+        hasAccess: boolean;
+        reason?: string;
+        subscription?: string;
+        needsEmailVerification?: boolean;
+    };
 }
 
 const models = {
@@ -77,13 +88,7 @@ export default function PlaygroundPage() {
         // Log configuration status in development
         logConfigurationStatus();
 
-        // Check if playground is enabled
-        const config = getPlaygroundConfig();
-        if (!config.enabled) {
-            console.warn('Playground is disabled. Check NEXT_PUBLIC_PLAYGROUND_ENABLED environment variable.');
-            return;
-        }
-
+        // Initialize remote connection (playground is always enabled)
         initializeRemoteConnection();
     }, []);
 
@@ -92,47 +97,72 @@ export default function PlaygroundPage() {
 
         try {
             // Initialize playground authentication
-            const credentials = await initializePlaygroundAuth();
+            const authResult = await initializePlaygroundAuth();
 
-            if (credentials) {
+            if (authResult.credentials) {
                 // Test connection and initialize executor
-                const connectionTest = await testPlaygroundConnection(credentials);
+                const connectionTest = await testPlaygroundConnection(authResult.credentials);
 
                 if (connectionTest.success && connectionTest.executor) {
                     // Initialize global executor
-                    await initializePlaygroundExecutor(credentials);
+                    await initializePlaygroundExecutor(authResult.credentials);
 
                     setRemoteState({
                         isConnected: true,
                         isConnecting: false,
-                        serverUrl: credentials.serverUrl,
-                        credentials
+                        serverUrl: authResult.credentials.serverUrl,
+                        credentials: authResult.credentials
                     });
 
                     toast({
                         title: "Remote Connection Established",
-                        description: `Connected to ${credentials.serverUrl}`,
+                        description: `Connected to ${authResult.credentials.serverUrl}`,
                     });
                 } else {
                     throw new Error(connectionTest.error || 'Connection test failed');
                 }
             } else {
-                throw new Error('Failed to initialize playground authentication');
+                // Handle authentication failure with specific error messages
+                const accessInfo = authResult.accessInfo;
+                let errorTitle = "Authentication Required";
+                let errorDescription = "Cannot access playground without authentication.";
+
+                if (accessInfo?.needsEmailVerification) {
+                    errorTitle = "Email Verification Required";
+                    errorDescription = "Please verify your email address to access the playground.";
+                } else if (accessInfo?.reason) {
+                    errorTitle = "Access Denied";
+                    errorDescription = accessInfo.reason;
+                }
+
+                throw new Error(`${errorTitle}: ${errorDescription}`);
             }
 
         } catch (error) {
             console.error('Remote connection failed:', error);
 
+            // Get access info from auth result if available
+            let accessInfo = undefined;
+            if (error instanceof Error && error.message.includes('Email Verification Required')) {
+                accessInfo = {
+                    hasAccess: false,
+                    reason: 'Email not verified',
+                    needsEmailVerification: true
+                };
+            }
+
             setRemoteState({
                 isConnected: false,
                 isConnecting: false,
-                error: error instanceof Error ? error.message : 'Unknown connection error'
+                error: error instanceof Error ? error.message : 'Unknown connection error',
+                needsEmailVerification: accessInfo?.needsEmailVerification,
+                accessInfo
             });
 
-            // Show warning but allow playground to work in mock mode
+            // Show error and prevent playground usage
             toast({
-                title: "Remote Connection Failed",
-                description: "Playground will use mock responses. Check your connection.",
+                title: "Remote Connection Required",
+                description: error instanceof Error ? error.message : "Cannot use playground without remote connection.",
                 variant: "destructive"
             });
         }
@@ -141,6 +171,26 @@ export default function PlaygroundPage() {
     const reconnectRemote = useCallback(async () => {
         await initializeRemoteConnection();
     }, []);
+
+    const resendEmailVerification = useCallback(async () => {
+        try {
+            const user = auth.currentUser;
+            if (user && !user.emailVerified) {
+                await sendEmailVerification(user);
+                toast({
+                    title: "Verification Email Sent",
+                    description: "Please check your email and click the verification link.",
+                });
+            }
+        } catch (error) {
+            console.error('Failed to send verification email:', error);
+            toast({
+                title: "Failed to Send Email",
+                description: "Could not send verification email. Please try again.",
+                variant: "destructive"
+            });
+        }
+    }, [toast]);
 
     // Load current project on mount
     useEffect(() => {
@@ -249,20 +299,28 @@ export default agent`,
     }, []);
 
     const handleExecute = useCallback(async () => {
+        // Require remote connection for code execution
+        if (!remoteState.isConnected || !remoteState.credentials) {
+            toast({
+                title: "Remote Connection Required",
+                description: "Code execution requires an active remote connection.",
+                variant: "destructive"
+            });
+            return;
+        }
+
         setIsExecuting(true);
         try {
-            // Pass remote connection state to executor
-            const executor = new CodeExecutor(remoteState.credentials ? {
+            const executor = new CodeExecutor({
                 serverUrl: remoteState.credentials.serverUrl,
                 userApiKey: remoteState.credentials.userApiKey,
                 enableWebSocket: false
-            } : undefined);
+            });
 
             const result = await executor.executeCode(state.code, state.provider);
             setExecutionResult(result);
 
-            // Show remote execution status
-            if (remoteState.isConnected && result.success) {
+            if (result.success) {
                 toast({
                     title: "Code Executed Successfully",
                     description: "Your agent is now running on the remote server",
@@ -279,7 +337,7 @@ export default agent`,
         } finally {
             setIsExecuting(false);
         }
-    }, [state, remoteState]);
+    }, [state, remoteState, toast]);
 
     const handleSaveProject = useCallback(() => {
         if (currentProject) {
@@ -353,44 +411,30 @@ export default agent`,
     }, [currentProject, state, toast]);
 
     const handleSendMessage = useCallback(async (message: string): Promise<string> => {
-        // Use RemoteExecutor if available, otherwise simulate
-        if (remoteState.isConnected && window.__ROBOTA_PLAYGROUND_EXECUTOR__) {
-            try {
-                const executor = window.__ROBOTA_PLAYGROUND_EXECUTOR__;
-                const response = await executor.executeChat({
-                    messages: [{ role: 'user', content: message }],
-                    provider: state.provider,
-                    model: state.model,
-                    temperature: state.temperature,
-                    sessionId: remoteState.credentials?.sessionId
-                });
-
-                return response.content || 'No response from remote server';
-            } catch (error) {
-                console.error('Remote execution failed:', error);
-                return `Remote execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
-            }
+        // Require remote connection - no local fallback
+        if (!remoteState.isConnected) {
+            return "❌ Remote connection required. Please ensure the API server is running and accessible.";
         }
 
-        // Fallback to simulation
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                let assistantResponse = "I understand your message. ";
+        if (!window.__ROBOTA_PLAYGROUND_EXECUTOR__) {
+            return "❌ Remote executor not initialized. Please try refreshing the page.";
+        }
 
-                if (executionResult?.success && executionResult.agentReady) {
-                    assistantResponse += "Your agent is configured and ready to help! ";
-                    assistantResponse += "I'm running on " + state.provider + " with model " + state.model + ". ";
-                    assistantResponse += "How can I assist you today?";
-                } else if (executionResult?.error) {
-                    assistantResponse += `There's an issue with your code: ${executionResult.error}. `;
-                    assistantResponse += "Please fix the code and run it again.";
-                } else {
-                    assistantResponse += "Please run your code first to initialize the agent.";
-                }
+        try {
+            const executor = window.__ROBOTA_PLAYGROUND_EXECUTOR__;
+            const response = await executor.executeChat({
+                messages: [{ role: 'user', content: message }],
+                provider: state.provider,
+                model: state.model,
+                temperature: state.temperature,
+                sessionId: remoteState.credentials?.sessionId
+            });
 
-                resolve(assistantResponse);
-            }, 1000);
-        });
+            return response.content || 'No response from remote server';
+        } catch (error) {
+            console.error('Remote execution failed:', error);
+            return `❌ Remote execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        }
     }, [executionResult, state, remoteState]);
 
     const handleFixSuggestion = useCallback((suggestion: string) => {
@@ -515,7 +559,7 @@ export default agent`,
                             ) : (
                                 <>
                                     <WifiOff className="w-4 h-4 text-red-500" />
-                                    <span className="text-sm text-red-600">Local</span>
+                                    <span className="text-sm text-red-600">Disconnected</span>
                                 </>
                             )}
                             {remoteState.error && (
@@ -574,7 +618,83 @@ export default agent`,
                 </TabsList>
 
                 <TabsContent value="editor" className="space-y-6">
-                    {/* Settings Panel */}
+                    {/* Remote Connection Status */}
+                    {remoteState.isConnected && (
+                        <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+                            <div className="flex items-center space-x-2">
+                                <Cloud className="w-4 h-4 text-green-500" />
+                                <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                                    Connected to Remote Server
+                                </span>
+                            </div>
+                            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                Your code will execute securely on {remoteState.serverUrl}
+                            </p>
+                        </div>
+                    )}
+
+                    {remoteState.error && !remoteState.isConnected && (
+                        <div className={`p-3 border rounded-lg ${remoteState.needsEmailVerification
+                            ? 'bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800'
+                            : 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800'
+                            }`}>
+                            <div className="flex items-center space-x-2">
+                                {remoteState.needsEmailVerification ? (
+                                    <Mail className="w-4 h-4 text-amber-500" />
+                                ) : (
+                                    <WifiOff className="w-4 h-4 text-red-500" />
+                                )}
+                                <span className={`text-sm font-medium ${remoteState.needsEmailVerification
+                                    ? 'text-amber-700 dark:text-amber-300'
+                                    : 'text-red-700 dark:text-red-300'
+                                    }`}>
+                                    {remoteState.needsEmailVerification
+                                        ? 'Email Verification Required'
+                                        : 'Remote Connection Failed'}
+                                </span>
+                            </div>
+                            <p className={`text-xs mt-1 ${remoteState.needsEmailVerification
+                                ? 'text-amber-600 dark:text-amber-400'
+                                : 'text-red-600 dark:text-red-400'
+                                }`}>
+                                {remoteState.needsEmailVerification
+                                    ? 'Please check your email and verify your account to access the playground.'
+                                    : remoteState.error}
+                            </p>
+                            <div className="flex gap-2 mt-2">
+                                {remoteState.needsEmailVerification ? (
+                                    <>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 text-xs"
+                                            onClick={resendEmailVerification}
+                                        >
+                                            Resend Email
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 text-xs"
+                                            onClick={() => window.open('/profile', '_blank')}
+                                        >
+                                            Go to Profile
+                                        </Button>
+                                    </>
+                                ) : null}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    onClick={reconnectRemote}
+                                >
+                                    Retry Connection
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Agent Configuration Panel */}
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center justify-between">
@@ -588,43 +708,11 @@ export default agent`,
                                         <Download className="w-4 h-4 mr-2" />
                                         Export
                                     </Button>
-                                    <Button size="sm" onClick={handleExecute} disabled={isExecuting}>
-                                        <Play className="w-4 h-4 mr-2" />
-                                        {isExecuting ? 'Running...' : 'Run Code'}
-                                    </Button>
                                 </div>
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
-                                {/* Remote execution status */}
-                                {remoteState.isConnected && (
-                                    <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
-                                        <div className="flex items-center space-x-2">
-                                            <Cloud className="w-4 h-4 text-green-500" />
-                                            <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                                                Connected to Remote Server
-                                            </span>
-                                        </div>
-                                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                                            Your code will execute securely on {remoteState.serverUrl}
-                                        </p>
-                                    </div>
-                                )}
-
-                                {remoteState.error && !remoteState.isConnected && (
-                                    <div className="p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                                        <div className="flex items-center space-x-2">
-                                            <WifiOff className="w-4 h-4 text-yellow-500" />
-                                            <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
-                                                Using Local Mode
-                                            </span>
-                                        </div>
-                                        <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-                                            Remote connection failed. Using mock responses for testing.
-                                        </p>
-                                    </div>
-                                )}
 
                                 {/* Example Template Selector */}
                                 <div>
@@ -702,31 +790,29 @@ export default agent`,
 
                     {/* Main Content */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Code Editor */}
-                        <Card className="lg:col-span-1">
-                            <CardHeader>
-                                <CardTitle>Code Editor</CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                <CodeEditor
-                                    value={state.code}
-                                    onChange={handleCodeChange}
-                                    language="typescript"
-                                    height="500px"
-                                />
-                            </CardContent>
-                        </Card>
-
-                        {/* Chat & Output */}
+                        {/* Code Editor & Execution Output */}
                         <div className="space-y-6">
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>Chat Interface</CardTitle>
+                                    <CardTitle className="flex items-center justify-between">
+                                        <span>Code Editor</span>
+                                        <Button
+                                            size="sm"
+                                            onClick={handleExecute}
+                                            disabled={isExecuting || !remoteState.isConnected}
+                                            className="gap-1.5"
+                                        >
+                                            <Play className="w-4 h-4" />
+                                            {isExecuting ? 'Running...' : !remoteState.isConnected ? 'Remote Required' : 'Run Code'}
+                                        </Button>
+                                    </CardTitle>
                                 </CardHeader>
-                                <CardContent>
-                                    <ChatInterface
-                                        isAgentReady={Boolean(executionResult?.success && executionResult?.agentReady)}
-                                        onSendMessage={handleSendMessage}
+                                <CardContent className="p-0">
+                                    <CodeEditor
+                                        value={state.code}
+                                        onChange={handleCodeChange}
+                                        language="typescript"
+                                        height="400px"
                                     />
                                 </CardContent>
                             </Card>
@@ -739,6 +825,19 @@ export default agent`,
                                 />
                             )}
                         </div>
+
+                        {/* Chat Interface */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Chat Interface</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <ChatInterface
+                                    isAgentReady={Boolean(remoteState.isConnected && executionResult?.success && executionResult?.agentReady)}
+                                    onSendMessage={handleSendMessage}
+                                />
+                            </CardContent>
+                        </Card>
                     </div>
                 </TabsContent>
 
