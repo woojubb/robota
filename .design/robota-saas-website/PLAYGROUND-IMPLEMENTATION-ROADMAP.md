@@ -82,6 +82,7 @@ Robota SDK의 기존 Plugin System과 RemoteExecutor를 활용하여 브라우�
   - [ ] `usePlaygroundData()` - Plugin 데이터 접근
   - [ ] `useRobotaExecution()` - Agent 실행 상태
   - [ ] `useWebSocketConnection()` - 연결 상태 관리
+  - [ ] `useChatInput()` - 실시간 채팅 입력 및 전송 관리
 
 ---
 
@@ -151,14 +152,28 @@ Robota SDK의 기존 Plugin System과 RemoteExecutor를 활용하여 브라우�
   - [ ] Agent 간 직접 통신 내역
   - [ ] Communication type (delegation, coordination, result sharing)
 
-### **4.3 Interactive Elements**
-- [ ] Real-time updates
-  - [ ] WebSocket으로 실시간 대화 추가
-  - [ ] 진행 중인 tool call 표시
-  - [ ] Streaming response 실시간 업데이트
-- [ ] History navigation
+### **4.3 Interactive Chat & Real-time Execution** ⭐ **핵심 기능**
+- [ ] **Live Chat Interface**
+  - [ ] 프롬프트 입력 UI (Agent/Team 모드 구분)
+  - [ ] "Send Message" 버튼 및 Enter 키 지원
+  - [ ] Chat input validation 및 전송 상태 표시
+- [ ] **Real-time Block Updates**
+  - [ ] 사용자 메시지 → 즉시 Timeline에 추가
+  - [ ] Agent 응답 → 실시간 스트리밍으로 Block 업데이트
+  - [ ] Tool 호출 → 진행 상태 및 결과를 실시간 Block으로 표시
+  - [ ] Team delegation → Agent 간 작업 위임 Block 실시간 생성
+- [ ] **WebSocket Real-time Sync**
+  - [ ] PlaygroundHistoryPlugin → WebSocket → UI 실시간 동기화
+  - [ ] 메시지, Tool call, Team communication 모든 이벤트 실시간 반영
+  - [ ] Streaming response의 각 chunk를 실시간으로 UI에 표시
+- [ ] **Interactive Controls**
+  - [ ] 대화 중 Stop/Cancel 버튼
+  - [ ] 진행 중인 tool call 상태 표시
+  - [ ] Agent/Team 전환 without 대화 내역 손실
+- [ ] **History Navigation & Management**
   - [ ] Timeline scrubber (특정 시점으로 이동)
   - [ ] Message filtering (tool calls only, errors only 등)
+  - [ ] Clear history / New conversation
   - [ ] Export functionality (JSON, 텍스트 형태)
 
 ---
@@ -197,8 +212,9 @@ Robota SDK의 기존 Plugin System과 RemoteExecutor를 활용하여 브라우�
 ### **6.1 Three-Panel Layout Implementation**
 - [ ] Layout restructuring
   - [ ] Left Panel: Agent Structure Display
-  - [ ] Center Panel: Chat History Visualization
+  - [ ] Center Panel: Chat History Visualization + **Live Chat Input** ⭐
   - [ ] Right Panel: Code Generation & Export
+  - [ ] Chat Input Bar: 하단 고정 위치 (Agent/Team 모드별 스타일링)
   - [ ] Responsive design (모바일 대응)
 - [ ] Panel interactions
   - [ ] Panel 크기 조정 (drag to resize)
