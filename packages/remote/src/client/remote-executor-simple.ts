@@ -31,15 +31,11 @@ export interface SimpleExecutionRequest {
  * Simple RemoteExecutor using atomic components
  */
 export class SimpleRemoteExecutor {
-    readonly name = 'simple-remote';
+    readonly name = 'SimpleRemoteExecutor';
     readonly version = '1.0.0';
 
     private httpClient: HttpClient;
     private config: SimpleRemoteConfig;
-    private websocket: WebSocket | null = null;
-    private websocketReady = false;
-    private reconnectAttempts = 0;
-    private maxReconnectAttempts = 5;
 
     constructor(config: SimpleRemoteConfig) {
         if (!this.validateConfig(config)) {

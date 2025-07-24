@@ -13,7 +13,7 @@
  * - Real-time synchronization with backend
  */
 
-import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { PlaygroundExecutor, type PlaygroundExecutionResult, type PlaygroundAgentConfig, type PlaygroundTeamConfig, type PlaygroundMode, type ConversationEvent, type PlaygroundVisualizationData } from '@/lib/playground/robota-executor';
 
 // ===== State Types =====
@@ -48,6 +48,7 @@ export interface PlaygroundState {
 
 export type PlaygroundAction =
     | { type: 'INITIALIZE_EXECUTOR'; payload: { serverUrl: string; userId?: string; sessionId?: string; authToken?: string } }
+    | { type: 'SET_EXECUTOR'; payload: PlaygroundExecutor | null }
     | { type: 'SET_INITIALIZED'; payload: boolean }
     | { type: 'SET_EXECUTING'; payload: boolean }
     | { type: 'SET_MODE'; payload: PlaygroundMode }
@@ -98,6 +99,12 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
                 authToken: action.payload.authToken || null,
                 isLoading: true,
                 error: null
+            };
+
+        case 'SET_EXECUTOR':
+            return {
+                ...state,
+                executor: action.payload
             };
 
         case 'SET_INITIALIZED':
@@ -238,6 +245,9 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
         serverUrl: defaultServerUrl
     });
 
+    // Use ref to track executor for cleanup without causing re-renders
+    const executorRef = useRef<PlaygroundExecutor | null>(null);
+
     // ===== Executor Management =====
 
     const initializeExecutor = useCallback(async (config: { serverUrl: string; userId?: string; sessionId?: string; authToken?: string }) => {
@@ -245,8 +255,9 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'INITIALIZE_EXECUTOR', payload: config });
 
             // Dispose existing executor if any
-            if (state.executor) {
-                await state.executor.dispose();
+            if (executorRef.current) {
+                await executorRef.current.dispose();
+                executorRef.current = null;
             }
 
             // Create new executor
@@ -260,16 +271,15 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             // Initialize executor
             await executor.initialize();
 
-            // Update state
+            // Update state and ref
             dispatch({ type: 'SET_INITIALIZED', payload: true });
-
-            // Store executor reference (Note: not in state to avoid re-renders)
-            (state as any).executor = executor;
+            dispatch({ type: 'SET_EXECUTOR', payload: executor });
+            executorRef.current = executor;
 
         } catch (error) {
             dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to initialize executor' });
         }
-    }, [state.executor]);
+    }, []);
 
     const createAgent = useCallback(async (config: PlaygroundAgentConfig) => {
         if (!state.executor || !state.isInitialized) {
@@ -405,22 +415,23 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
     const setAuth = useCallback((userId: string, sessionId: string, authToken: string) => {
         dispatch({ type: 'SET_AUTH', payload: { userId, sessionId, authToken } });
 
-        if (state.executor) {
+        if (executorRef.current) {
             // Update executor auth (if method exists)
-            (state.executor as any).updateAuth?.(userId, sessionId, authToken);
+            (executorRef.current as any).updateAuth?.(userId, sessionId, authToken);
         }
-    }, [state.executor]);
+    }, []);
 
     const disposeExecutor = useCallback(async () => {
-        if (state.executor) {
+        if (executorRef.current) {
             try {
-                await state.executor.dispose();
+                await executorRef.current.dispose();
+                executorRef.current = null;
             } catch (error) {
                 console.error('Error disposing executor:', error);
             }
         }
         dispatch({ type: 'DISPOSE_EXECUTOR' });
-    }, [state.executor]);
+    }, []);
 
     // ===== Getters =====
 
@@ -455,11 +466,12 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
     // Cleanup on unmount
     useEffect(() => {
         return () => {
-            if (state.executor) {
-                state.executor.dispose().catch(console.error);
+            // Clean up executor on unmount using ref
+            if (executorRef.current) {
+                executorRef.current.dispose().catch(console.error);
             }
         };
-    }, [state.executor]);
+    }, []); // Empty dependency array - only cleanup on unmount
 
     // ===== Context Value =====
 

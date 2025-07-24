@@ -1,867 +1,572 @@
-'use client'
+'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
+/**
+ * Playground Page - Complete Robota SDK Testing Environment
+ * 
+ * This is the main Playground interface that integrates all the components:
+ * - PlaygroundContext for state management
+ * - Visual configuration blocks for Agents and Teams
+ * - Real-time chat interface with execution display
+ * - WebSocket integration for live updates
+ * - Tool and Plugin management
+ */
+
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Play, Save, Download, FolderOpen, Sparkles, Keyboard, Cloud, Wifi, WifiOff, Activity, Mail } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import {
+    Play,
+    Pause,
+    Square,
+    Settings,
+    Plus,
+    Bot,
+    Users,
+    Zap,
+    Puzzle,
+    MessageCircle,
+    Activity,
+    Wifi,
+    WifiOff,
+    AlertCircle,
+    CheckCircle,
+    Loader2
+} from 'lucide-react';
 
-import { CodeEditor, exampleTemplates } from '@/components/playground/code-editor';
-import { ChatInterface } from '@/components/playground/chat-interface';
-import { ExecutionOutput } from '@/components/playground/execution-output';
-import { ProjectBrowser } from '@/components/playground/project-browser';
-import { TemplateGallery } from '@/components/playground/template-gallery';
-import { ShortcutsHelp } from '@/components/playground/shortcuts-help';
-import { ProjectManager, type Project } from '@/lib/playground/project-manager';
-import { CodeExecutor, type ExecutionResult } from '@/lib/playground/code-executor';
-import { useToast } from '../../hooks/use-toast';
-import { useKeyboardShortcuts, createShortcuts } from '../../hooks/use-keyboard-shortcuts';
+// Context and Hooks
+import { PlaygroundProvider, usePlayground } from '@/contexts/playground-context';
+import { usePlaygroundData } from '@/hooks/use-playground-data';
+import { useRobotaExecution } from '@/hooks/use-robota-execution';
+import { useWebSocketConnection } from '@/hooks/use-websocket-connection';
+import { useChatInput } from '@/hooks/use-chat-input';
 
-// Remote system integration
-import { initializePlaygroundAuth, type PlaygroundCredentials } from '@/lib/playground/playground-auth';
-import { initializePlaygroundExecutor, testPlaygroundConnection } from '@/lib/playground/remote-executor-client';
-import { getPlaygroundConfig, logConfigurationStatus } from '@/lib/playground/config-validation';
-import { UsageMonitor } from '@/components/playground/usage-monitor';
+// Visual Components
+import { AgentConfigurationBlock } from '@/components/playground/agent-configuration-block';
+import { TeamConfigurationBlock } from '@/components/playground/team-configuration-block';
+import { ToolContainerBlock } from '@/components/playground/tool-container-block';
+import { PluginContainerBlock } from '@/components/playground/plugin-container-block';
 
-// Firebase auth for email verification
-import { auth } from '@/lib/firebase/config';
-import { sendEmailVerification } from 'firebase/auth';
+// Types
+import type {
+    PlaygroundAgentConfig,
+    PlaygroundTeamConfig,
+    PlaygroundExecutionResult
+} from '@/lib/playground/robota-executor';
 
-type Provider = 'openai' | 'anthropic' | 'google';
+// Configuration Panel Component
+function ConfigurationPanel() {
+    const { state } = usePlayground();
+    const {
+        createAgent,
+        createTeam,
+        currentMode,
+        currentAgentConfig,
+        currentTeamConfig,
+        getDefaultAgentConfig,
+        getDefaultTeamConfig,
+        validateConfiguration,
+        cancelExecution
+    } = useRobotaExecution();
 
-interface PlaygroundState {
-    code: string;
-    provider: Provider;
-    model: string;
-    temperature: number;
-}
+    const [activeConfigTab, setActiveConfigTab] = useState<'agent' | 'team'>('agent');
+    const [isAgentRunning, setIsAgentRunning] = useState(false);
 
-interface RemoteConnectionState {
-    isConnected: boolean;
-    isConnecting: boolean;
-    serverUrl?: string;
-    error?: string;
-    credentials?: PlaygroundCredentials;
-    needsEmailVerification?: boolean;
-    accessInfo?: {
-        hasAccess: boolean;
-        reason?: string;
-        subscription?: string;
-        needsEmailVerification?: boolean;
-    };
-}
+    // Create default configurations
+    const handleCreateAgent = useCallback(async () => {
+        const defaultConfig = getDefaultAgentConfig();
+        await createAgent(defaultConfig);
+    }, [createAgent, getDefaultAgentConfig]);
 
-const models = {
-    openai: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-    anthropic: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
-    google: ['gemini-pro', 'gemini-pro-vision'],
-};
+    const handleCreateTeam = useCallback(async () => {
+        const defaultConfig = getDefaultTeamConfig();
+        await createTeam(defaultConfig);
+    }, [createTeam, getDefaultTeamConfig]);
 
-export default function PlaygroundPage() {
-    const [activeTab, setActiveTab] = useState<'editor' | 'projects' | 'templates'>('editor');
-    const [currentProject, setCurrentProject] = useState<Project | null>(null);
-    const [state, setState] = useState<PlaygroundState>({
-        code: exampleTemplates.basic.code,
-        provider: 'openai',
-        model: 'gpt-3.5-turbo',
-        temperature: 0.7
-    });
+    // Execution handlers
+    const handleExecuteAgent = useCallback(async (config: PlaygroundAgentConfig) => {
+        try {
+            console.log('Activating agent for execution...');
+            // First ensure the agent is created/updated
+            await createAgent(config);
 
-    const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
-    const [isExecuting, setIsExecuting] = useState(false);
+            // Set agent to running state
+            setIsAgentRunning(true);
+            console.log('Agent is now ready for execution');
+        } catch (error) {
+            console.error('Failed to activate agent:', error);
+        }
+    }, [createAgent]);
 
-    // Remote connection state
-    const [remoteState, setRemoteState] = useState<RemoteConnectionState>({
-        isConnected: false,
-        isConnecting: false
-    });
-    const [showUsageMonitor, setShowUsageMonitor] = useState(false);
+    const handleStopExecution = useCallback(() => {
+        console.log('Stopping agent execution...');
+        cancelExecution();
+        setIsAgentRunning(false);
+    }, [cancelExecution]);
 
-    const { toast } = useToast();
+    // Sync global execution state with local agent running state
+    const effectiveIsExecuting = state.isExecuting || isAgentRunning;
 
-    // Initialize remote connection on mount
+    // Reset local running state when global execution starts
     useEffect(() => {
-        // Log configuration status in development
-        logConfigurationStatus();
-
-        // Initialize remote connection (playground is always enabled)
-        initializeRemoteConnection();
-    }, []);
-
-    const initializeRemoteConnection = async () => {
-        setRemoteState(prev => ({ ...prev, isConnecting: true }));
-
-        try {
-            // Initialize playground authentication
-            const authResult = await initializePlaygroundAuth();
-
-            if (authResult.credentials) {
-                // Test connection and initialize executor
-                const connectionTest = await testPlaygroundConnection(authResult.credentials);
-
-                if (connectionTest.success && connectionTest.executor) {
-                    // Initialize global executor
-                    await initializePlaygroundExecutor(authResult.credentials);
-
-                    setRemoteState({
-                        isConnected: true,
-                        isConnecting: false,
-                        serverUrl: authResult.credentials.serverUrl,
-                        credentials: authResult.credentials
-                    });
-
-                    toast({
-                        title: "Remote Connection Established",
-                        description: `Connected to ${authResult.credentials.serverUrl}`,
-                    });
-                } else {
-                    throw new Error(connectionTest.error || 'Connection test failed');
-                }
-            } else {
-                // Handle authentication failure with specific error messages
-                const accessInfo = authResult.accessInfo;
-                let errorTitle = "Authentication Required";
-                let errorDescription = "Cannot access playground without authentication.";
-
-                if (accessInfo?.needsEmailVerification) {
-                    errorTitle = "Email Verification Required";
-                    errorDescription = "Please verify your email address to access the playground.";
-                } else if (accessInfo?.reason) {
-                    errorTitle = "Access Denied";
-                    errorDescription = accessInfo.reason;
-                }
-
-                throw new Error(`${errorTitle}: ${errorDescription}`);
-            }
-
-        } catch (error) {
-            console.error('Remote connection failed:', error);
-
-            // Get access info from auth result if available
-            let accessInfo = undefined;
-            if (error instanceof Error && error.message.includes('Email Verification Required')) {
-                accessInfo = {
-                    hasAccess: false,
-                    reason: 'Email not verified',
-                    needsEmailVerification: true
-                };
-            }
-
-            setRemoteState({
-                isConnected: false,
-                isConnecting: false,
-                error: error instanceof Error ? error.message : 'Unknown connection error',
-                needsEmailVerification: accessInfo?.needsEmailVerification,
-                accessInfo
-            });
-
-            // Show error and prevent playground usage
-            toast({
-                title: "Remote Connection Required",
-                description: error instanceof Error ? error.message : "Cannot use playground without remote connection.",
-                variant: "destructive"
-            });
+        if (state.isExecuting && isAgentRunning) {
+            console.log('Global execution started, transitioning from local to global state');
+            setIsAgentRunning(false);
         }
-    };
-
-    const reconnectRemote = useCallback(async () => {
-        await initializeRemoteConnection();
-    }, []);
-
-    const resendEmailVerification = useCallback(async () => {
-        try {
-            const user = auth.currentUser;
-            if (user && !user.emailVerified) {
-                await sendEmailVerification(user);
-                toast({
-                    title: "Verification Email Sent",
-                    description: "Please check your email and click the verification link.",
-                });
-            }
-        } catch (error) {
-            console.error('Failed to send verification email:', error);
-            toast({
-                title: "Failed to Send Email",
-                description: "Could not send verification email. Please try again.",
-                variant: "destructive"
-            });
-        }
-    }, [toast]);
-
-    // Load current project on mount
-    useEffect(() => {
-        const savedProjectId = localStorage.getItem('robota-current-project');
-        if (savedProjectId) {
-            const project = ProjectManager.getInstance().loadProject(savedProjectId);
-            if (project) {
-                setCurrentProject(project);
-                setState(prev => ({
-                    ...prev,
-                    code: project.code,
-                    provider: project.provider as Provider,
-                    model: project.config.model,
-                    temperature: parseFloat(project.config.temperature) || 0.7
-                }));
-            }
-        }
-    }, []);
-
-    const handleSelectProject = useCallback((project: Project) => {
-        setCurrentProject(project);
-        setState(prev => ({
-            ...prev,
-            code: project.code,
-            provider: project.provider as Provider,
-            model: project.config.model,
-            temperature: parseFloat(project.config.temperature) || 0.7
-        }));
-
-        // Save current project ID
-        localStorage.setItem('robota-current-project', project.id);
-
-        // Switch to editor tab
-        setActiveTab('editor');
-
-        toast({
-            title: "Project Loaded",
-            description: `"${project.name}" has been loaded successfully`
-        });
-    }, [toast]);
-
-    const handleCreateNewProject = useCallback(() => {
-        // Switch to editor tab and reset state
-        setActiveTab('editor');
-        setCurrentProject(null);
-        setState({
-            code: `import { Agent } from '@robota/agents'
-import { OpenAIProvider } from '@robota/openai'
-
-const agent = new Agent({
-  provider: new OpenAIProvider({
-    apiKey: process.env.OPENAI_API_KEY,
-    model: 'gpt-4'
-  })
-})
-
-agent.setSystemMessage(\`
-You are a helpful AI assistant. Always be polite and professional.
-\`)
-
-export default agent`,
-            provider: 'openai',
-            model: 'gpt-4',
-            temperature: 0.7
-        });
-
-        localStorage.removeItem('robota-current-project');
-
-        toast({
-            title: "New Project",
-            description: "Started with a clean slate"
-        });
-    }, [toast]);
-
-    const handleCodeChange = useCallback((newCode: string | undefined) => {
-        const code = newCode || '';
-        setState(prev => ({ ...prev, code }));
-
-        // Auto-save current project if it exists
-        if (currentProject) {
-            ProjectManager.getInstance().updateProject(currentProject.id, {
-                code,
-                config: {
-                    model: state.model,
-                    temperature: state.temperature.toString(),
-                    provider: state.provider
-                }
-            });
-        }
-    }, [currentProject, state.model, state.temperature, state.provider]);
-
-    const handleProviderChange = useCallback((provider: Provider) => {
-        setState(prev => ({
-            ...prev,
-            provider,
-            model: models[provider][0]
-        }));
-    }, []);
-
-    const handleModelChange = useCallback((model: string) => {
-        setState(prev => ({ ...prev, model }));
-    }, []);
-
-    const handleTemperatureChange = useCallback((temperature: number) => {
-        setState(prev => ({ ...prev, temperature }));
-    }, []);
-
-    const handleExecute = useCallback(async () => {
-        // Require remote connection for code execution
-        if (!remoteState.isConnected || !remoteState.credentials) {
-            toast({
-                title: "Remote Connection Required",
-                description: "Code execution requires an active remote connection.",
-                variant: "destructive"
-            });
-            return;
-        }
-
-        setIsExecuting(true);
-        try {
-            const executor = new CodeExecutor({
-                serverUrl: remoteState.credentials.serverUrl,
-                userApiKey: remoteState.credentials.userApiKey,
-                enableWebSocket: false
-            });
-
-            const result = await executor.executeCode(state.code, state.provider);
-            setExecutionResult(result);
-
-            if (result.success) {
-                toast({
-                    title: "Code Executed Successfully",
-                    description: "Your agent is now running on the remote server",
-                });
-            }
-        } catch (error) {
-            setExecutionResult({
-                success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred',
-                logs: [`Error: ${error instanceof Error ? error.message : 'Unknown error'}`],
-                duration: 0,
-                agentReady: false
-            });
-        } finally {
-            setIsExecuting(false);
-        }
-    }, [state, remoteState, toast]);
-
-    const handleSaveProject = useCallback(() => {
-        if (currentProject) {
-            // Update existing project
-            ProjectManager.getInstance().updateProject(currentProject.id, {
-                code: state.code,
-                config: {
-                    model: state.model,
-                    temperature: state.temperature.toString(),
-                    provider: state.provider
-                }
-            });
-
-            toast({
-                title: "Project Saved",
-                description: `"${currentProject.name}" has been updated`
-            });
-        } else {
-            // Save as new project
-            const projectName = `Project ${new Date().toLocaleDateString()}`;
-            const project = ProjectManager.getInstance().createProject(
-                projectName,
-                'Created from playground',
-                {
-                    provider: state.provider,
-                    model: state.model,
-                    temperature: state.temperature.toString()
-                }
-            );
-
-            // Update with current code
-            ProjectManager.getInstance().updateProject(project.id, {
-                code: state.code
-            });
-
-            setCurrentProject(project);
-            localStorage.setItem('robota-current-project', project.id);
-
-            toast({
-                title: "Project Saved",
-                description: `New project "${projectName}" has been created`
-            });
-        }
-    }, [currentProject, state, toast]);
-
-    const handleExportProject = useCallback(() => {
-        const projectData = {
-            name: currentProject?.name || 'Playground Export',
-            description: currentProject?.description || 'Exported from playground',
-            code: state.code,
-            provider: state.provider,
-            config: {
-                model: state.model,
-                temperature: state.temperature.toString()
-            }
-        };
-
-        const dataStr = JSON.stringify(projectData, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${projectData.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.json`;
-        link.click();
-        URL.revokeObjectURL(url);
-
-        toast({
-            title: "Project Exported",
-            description: "Project has been downloaded as JSON"
-        });
-    }, [currentProject, state, toast]);
-
-    const handleSendMessage = useCallback(async (message: string): Promise<string> => {
-        // Require remote connection - no local fallback
-        if (!remoteState.isConnected) {
-            return "❌ Remote connection required. Please ensure the API server is running and accessible.";
-        }
-
-        if (!window.__ROBOTA_PLAYGROUND_EXECUTOR__) {
-            return "❌ Remote executor not initialized. Please try refreshing the page.";
-        }
-
-        try {
-            const executor = window.__ROBOTA_PLAYGROUND_EXECUTOR__;
-            const response = await executor.executeChat({
-                messages: [{ role: 'user', content: message }],
-                provider: state.provider,
-                model: state.model,
-                temperature: state.temperature,
-                sessionId: remoteState.credentials?.sessionId
-            });
-
-            return response.content || 'No response from remote server';
-        } catch (error) {
-            console.error('Remote execution failed:', error);
-            return `❌ Remote execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
-        }
-    }, [executionResult, state, remoteState]);
-
-    const handleFixSuggestion = useCallback((suggestion: string) => {
-        // For now, just show a toast with the suggestion
-        // In a more advanced implementation, this could automatically apply the fix
-        toast({
-            title: "Fix Suggestion",
-            description: suggestion
-        });
-    }, [toast]);
-
-    const handleSelectTemplate = useCallback((template: any) => {
-        // Update state with template
-        setState(prev => ({
-            ...prev,
-            code: template.code,
-            provider: template.provider as Provider,
-            model: template.config.model,
-            temperature: parseFloat(template.config.temperature) || 0.7
-        }));
-
-        // Clear current project since we're starting from template
-        setCurrentProject(null);
-        localStorage.removeItem('robota-current-project');
-
-        // Switch to editor tab
-        setActiveTab('editor');
-
-        toast({
-            title: "Template Loaded",
-            description: `"${template.name}" template has been applied`
-        });
-    }, [toast]);
-
-    const handleSwitchTab = useCallback((direction: 'next' | 'prev') => {
-        const tabs: Array<'editor' | 'projects' | 'templates'> = ['editor', 'projects', 'templates'];
-        const currentIndex = tabs.indexOf(activeTab);
-
-        if (direction === 'next') {
-            const nextIndex = (currentIndex + 1) % tabs.length;
-            setActiveTab(tabs[nextIndex]);
-        } else {
-            const prevIndex = currentIndex === 0 ? tabs.length - 1 : currentIndex - 1;
-            setActiveTab(tabs[prevIndex]);
-        }
-    }, [activeTab]);
-
-    const handleTabShortcut = useCallback((tabNumber: number) => {
-        const tabs: Array<'editor' | 'projects' | 'templates'> = ['editor', 'projects', 'templates'];
-        if (tabNumber >= 1 && tabNumber <= tabs.length) {
-            setActiveTab(tabs[tabNumber - 1]);
-        }
-    }, []);
-
-    // Setup keyboard shortcuts
-    const shortcuts = [
-        createShortcuts.save(handleSaveProject),
-        createShortcuts.run(handleExecute),
-        createShortcuts.new(handleCreateNewProject),
-        createShortcuts.open(() => setActiveTab('projects')),
-        createShortcuts.export(handleExportProject),
-        createShortcuts.templates(() => setActiveTab('templates')),
-        createShortcuts.quickRun(handleExecute),
-        ...createShortcuts.switchTab(handleSwitchTab),
-        {
-            key: 'F1',
-            handler: () => {
-                // F1 will be handled by the ShortcutsHelp component
-                const helpButton = document.querySelector('[data-shortcuts-help]') as HTMLElement;
-                helpButton?.click();
-            },
-            description: 'Show keyboard shortcuts'
-        },
-        {
-            key: '1',
-            alt: true,
-            handler: () => handleTabShortcut(1),
-            description: 'Switch to Editor tab'
-        },
-        {
-            key: '2',
-            alt: true,
-            handler: () => handleTabShortcut(2),
-            description: 'Switch to Projects tab'
-        },
-        {
-            key: '3',
-            alt: true,
-            handler: () => handleTabShortcut(3),
-            description: 'Switch to Templates tab'
-        }
-    ];
-
-    useKeyboardShortcuts({
-        shortcuts,
-        enabled: true
-    });
+    }, [state.isExecuting, isAgentRunning]);
 
     return (
-        <div className="container mx-auto py-8 px-4">
-            <div className="mb-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold mb-2">Robota Playground</h1>
-                        <p className="text-muted-foreground">
-                            Build and test your Robota agents in an interactive environment
-                        </p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        {/* Remote connection status */}
-                        <div className="flex items-center space-x-2 px-3 py-1 rounded-full bg-background border">
-                            {remoteState.isConnecting ? (
-                                <>
-                                    <Wifi className="w-4 h-4 animate-pulse text-yellow-500" />
-                                    <span className="text-sm text-yellow-600">Connecting...</span>
-                                </>
-                            ) : remoteState.isConnected ? (
-                                <>
-                                    <Cloud className="w-4 h-4 text-green-500" />
-                                    <span className="text-sm text-green-600">Remote</span>
-                                </>
-                            ) : (
-                                <>
-                                    <WifiOff className="w-4 h-4 text-red-500" />
-                                    <span className="text-sm text-red-600">Disconnected</span>
-                                </>
-                            )}
-                            {remoteState.error && (
+        <Card className="h-full">
+            <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    Configuration
+                </CardTitle>
+
+                <Tabs value={activeConfigTab} onValueChange={(value) => setActiveConfigTab(value as 'agent' | 'team')}>
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="agent" className="flex items-center gap-1 text-xs">
+                            <Bot className="h-3 w-3" />
+                            Agent
+                        </TabsTrigger>
+                        <TabsTrigger value="team" className="flex items-center gap-1 text-xs">
+                            <Users className="h-3 w-3" />
+                            Team
+                        </TabsTrigger>
+                    </TabsList>
+                </Tabs>
+            </CardHeader>
+
+            <CardContent className="pt-0">
+                <Tabs value={activeConfigTab}>
+                    {/* Agent Configuration */}
+                    <TabsContent value="agent" className="space-y-3 mt-0">
+                        {currentAgentConfig ? (
+                            <AgentConfigurationBlock
+                                config={currentAgentConfig}
+                                isActive={currentMode === 'agent'}
+                                isExecuting={effectiveIsExecuting}
+                                onConfigChange={createAgent}
+                                onExecute={handleExecuteAgent}
+                                onStop={handleStopExecution}
+                                className="w-full"
+                            />
+                        ) : (
+                            <div className="text-center py-6">
+                                <Bot className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                <p className="text-sm text-gray-500 mb-3">No agent configured</p>
                                 <Button
-                                    variant="ghost"
                                     size="sm"
-                                    onClick={reconnectRemote}
-                                    className="text-xs"
+                                    onClick={handleCreateAgent}
+                                    className="flex items-center gap-2"
                                 >
-                                    Retry
+                                    <Plus className="h-3 w-3" />
+                                    Create Agent
                                 </Button>
-                            )}
-                        </div>
+                            </div>
+                        )}
+                    </TabsContent>
 
-                        {/* Usage Monitor Button */}
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowUsageMonitor(!showUsageMonitor)}
-                            className="flex items-center gap-2"
-                        >
-                            <Activity className="w-4 h-4" />
-                            <span className="text-sm">Usage</span>
-                        </Button>
-
-                        <ShortcutsHelp
-                            trigger={
-                                <Button variant="outline" size="sm" data-shortcuts-help>
-                                    <Keyboard className="w-4 h-4 mr-2" />
-                                    Shortcuts
+                    {/* Team Configuration */}
+                    <TabsContent value="team" className="space-y-3 mt-0">
+                        {currentTeamConfig ? (
+                            <TeamConfigurationBlock
+                                config={currentTeamConfig}
+                                isActive={currentMode === 'team'}
+                                isExecuting={effectiveIsExecuting}
+                                onConfigChange={createTeam}
+                                className="w-full"
+                            />
+                        ) : (
+                            <div className="text-center py-6">
+                                <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                <p className="text-sm text-gray-500 mb-3">No team configured</p>
+                                <Button
+                                    size="sm"
+                                    onClick={handleCreateTeam}
+                                    className="flex items-center gap-2"
+                                >
+                                    <Plus className="h-3 w-3" />
+                                    Create Team
                                 </Button>
-                            }
-                        />
-                    </div>
-                </div>
-            </div>
+                            </div>
+                        )}
+                    </TabsContent>
+                </Tabs>
+            </CardContent>
+        </Card>
+    );
+}
 
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'editor' | 'projects' | 'templates')}>
-                <TabsList className="mb-6">
-                    <TabsTrigger value="editor" className="flex items-center space-x-2">
-                        <span>Code Editor</span>
-                        {currentProject && (
-                            <Badge variant="secondary" className="ml-2 text-xs">
-                                {currentProject.name}
+// Chat Interface Component
+function ChatInterfacePanel() {
+    const { state } = usePlayground();
+    const { executePrompt, executeStreamPrompt, isExecuting, lastResult } = useRobotaExecution();
+    const { conversationEvents } = usePlaygroundData();
+    const {
+        inputState,
+        setValue,
+        sendMessage,
+        sendStreamingMessage,
+        streamingResponse,
+        isReceivingStream,
+        inputRef,
+        canSend
+    } = useChatInput();
+
+    const [useStreaming, setUseStreaming] = useState(true);
+
+    const handleSendMessage = useCallback(async () => {
+        if (!canSend) return;
+
+        try {
+            if (useStreaming) {
+                await sendStreamingMessage();
+            } else {
+                await sendMessage();
+            }
+        } catch (error) {
+            console.error('Failed to send message:', error);
+        }
+    }, [canSend, useStreaming, sendStreamingMessage, sendMessage]);
+
+    const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
+        }
+    }, [handleSendMessage]);
+
+    return (
+        <Card className="h-full flex flex-col">
+            <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <MessageCircle className="h-4 w-4" />
+                        Chat Interface
+                    </CardTitle>
+
+                    <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                            {state.mode === 'agent' ? 'Agent Mode' : 'Team Mode'}
+                        </Badge>
+                        {isExecuting && (
+                            <Badge variant="secondary" className="text-xs animate-pulse">
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                Executing
                             </Badge>
                         )}
-                    </TabsTrigger>
-                    <TabsTrigger value="projects" className="flex items-center space-x-2">
-                        <FolderOpen className="w-4 h-4" />
-                        <span>Projects</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="templates" className="flex items-center space-x-2">
-                        <Sparkles className="w-4 h-4" />
-                        <span>Templates</span>
-                    </TabsTrigger>
-                </TabsList>
+                    </div>
+                </div>
+            </CardHeader>
 
-                <TabsContent value="editor" className="space-y-6">
-                    {/* Remote Connection Status */}
-                    {remoteState.isConnected && (
-                        <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
-                            <div className="flex items-center space-x-2">
-                                <Cloud className="w-4 h-4 text-green-500" />
-                                <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                                    Connected to Remote Server
-                                </span>
+            <CardContent className="pt-0 flex-1 flex flex-col">
+                {/* Chat History */}
+                <div className="flex-1 mb-4">
+                    <ScrollArea className="h-80 border rounded p-3">
+                        {conversationEvents.length === 0 ? (
+                            <div className="text-center py-6 text-sm text-gray-500">
+                                <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                <p>No conversation yet</p>
+                                <p className="text-xs">Send a message to start</p>
                             </div>
-                            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                                Your code will execute securely on {remoteState.serverUrl}
-                            </p>
-                        </div>
-                    )}
+                        ) : (
+                            <div className="space-y-3">
+                                {conversationEvents.map((event) => (
+                                    <div key={event.id} className="space-y-2">
+                                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                                            <Badge variant="outline" className="text-xs">
+                                                {event.type.replace('_', ' ')}
+                                            </Badge>
+                                            <span>{event.timestamp.toLocaleTimeString()}</span>
+                                        </div>
+                                        <div className={`
+                      p-3 rounded-lg text-sm
+                      ${event.type === 'user_message' ? 'bg-blue-50 border-l-4 border-blue-500' : ''}
+                      ${event.type === 'assistant_response' ? 'bg-green-50 border-l-4 border-green-500' : ''}
+                      ${event.type === 'error' ? 'bg-red-50 border-l-4 border-red-500' : ''}
+                      ${event.type === 'tool_call' ? 'bg-orange-50 border-l-4 border-orange-500' : ''}
+                    `}>
+                                            {event.content}
+                                        </div>
+                                    </div>
+                                ))}
 
-                    {remoteState.error && !remoteState.isConnected && (
-                        <div className={`p-3 border rounded-lg ${remoteState.needsEmailVerification
-                            ? 'bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800'
-                            : 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800'
-                            }`}>
-                            <div className="flex items-center space-x-2">
-                                {remoteState.needsEmailVerification ? (
-                                    <Mail className="w-4 h-4 text-amber-500" />
-                                ) : (
-                                    <WifiOff className="w-4 h-4 text-red-500" />
+                                {/* Streaming Response */}
+                                {isReceivingStream && streamingResponse && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                                            <Badge variant="secondary" className="text-xs animate-pulse">
+                                                Streaming
+                                            </Badge>
+                                            <span>{new Date().toLocaleTimeString()}</span>
+                                        </div>
+                                        <div className="p-3 rounded-lg text-sm bg-green-50 border-l-4 border-green-500">
+                                            {streamingResponse}
+                                            <span className="inline-block w-2 h-4 bg-green-500 ml-1 animate-pulse" />
+                                        </div>
+                                    </div>
                                 )}
-                                <span className={`text-sm font-medium ${remoteState.needsEmailVerification
-                                    ? 'text-amber-700 dark:text-amber-300'
-                                    : 'text-red-700 dark:text-red-300'
-                                    }`}>
-                                    {remoteState.needsEmailVerification
-                                        ? 'Email Verification Required'
-                                        : 'Remote Connection Failed'}
-                                </span>
                             </div>
-                            <p className={`text-xs mt-1 ${remoteState.needsEmailVerification
-                                ? 'text-amber-600 dark:text-amber-400'
-                                : 'text-red-600 dark:text-red-400'
-                                }`}>
-                                {remoteState.needsEmailVerification
-                                    ? 'Please check your email and verify your account to access the playground.'
-                                    : remoteState.error}
-                            </p>
-                            <div className="flex gap-2 mt-2">
-                                {remoteState.needsEmailVerification ? (
-                                    <>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-7 text-xs"
-                                            onClick={resendEmailVerification}
-                                        >
-                                            Resend Email
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-7 text-xs"
-                                            onClick={() => window.open('/profile', '_blank')}
-                                        >
-                                            Go to Profile
-                                        </Button>
-                                    </>
-                                ) : null}
+                        )}
+                    </ScrollArea>
+                </div>
+
+                {/* Input Area */}
+                <div className="space-y-3">
+                    {/* Input Controls */}
+                    <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                            <label className="flex items-center gap-1">
+                                <input
+                                    type="checkbox"
+                                    checked={useStreaming}
+                                    onChange={(e) => setUseStreaming(e.target.checked)}
+                                    className="rounded"
+                                />
+                                <span>Streaming</span>
+                            </label>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-gray-500">
+                            <span>{inputState.characterCount}/4000</span>
+                            <span>•</span>
+                            <span>{inputState.wordCount} words</span>
+                            <span>•</span>
+                            <span>{inputState.estimatedTokens} tokens</span>
+                        </div>
+                    </div>
+
+                    {/* Input Field */}
+                    <div className="flex gap-2">
+                        <Textarea
+                            ref={inputRef}
+                            value={inputState.value}
+                            onChange={(e) => setValue(e.target.value)}
+                            onKeyPress={handleKeyPress}
+                            placeholder="Type your message here... (Press Enter to send, Shift+Enter for new line)"
+                            className="flex-1 min-h-[80px] resize-none"
+                            disabled={isExecuting}
+                        />
+
+                        <div className="flex flex-col gap-2">
+                            <Button
+                                onClick={handleSendMessage}
+                                disabled={!canSend || isExecuting}
+                                size="sm"
+                                className="px-3"
+                            >
+                                {isExecuting ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Play className="h-4 w-4" />
+                                )}
+                            </Button>
+
+                            {isExecuting && (
                                 <Button
+                                    onClick={() => { }} // TODO: Implement stop execution
                                     variant="outline"
                                     size="sm"
-                                    className="h-7 text-xs"
-                                    onClick={reconnectRemote}
+                                    className="px-3"
                                 >
-                                    Retry Connection
+                                    <Square className="h-4 w-4" />
                                 </Button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Agent Configuration Panel */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center justify-between">
-                                <span>Agent Configuration</span>
-                                <div className="flex space-x-2">
-                                    <Button variant="outline" size="sm" onClick={handleSaveProject}>
-                                        <Save className="w-4 h-4 mr-2" />
-                                        {currentProject ? 'Save' : 'Save As New'}
-                                    </Button>
-                                    <Button variant="outline" size="sm" onClick={handleExportProject}>
-                                        <Download className="w-4 h-4 mr-2" />
-                                        Export
-                                    </Button>
-                                </div>
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-4">
-
-                                {/* Example Template Selector */}
-                                <div>
-                                    <Label htmlFor="template">Example Template</Label>
-                                    <Select onValueChange={(templateKey) => {
-                                        const template = exampleTemplates[templateKey as keyof typeof exampleTemplates];
-                                        if (template) {
-                                            setState(prev => ({ ...prev, code: template.code }));
-                                            toast({
-                                                title: "Template Loaded",
-                                                description: `${template.name} example has been loaded`
-                                            });
-                                        }
-                                    }}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Choose an example template" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {Object.entries(exampleTemplates).map(([key, template]) => (
-                                                <SelectItem key={key} value={key}>
-                                                    <div className="flex flex-col">
-                                                        <span className="font-medium">{template.name}</span>
-                                                        <span className="text-xs text-muted-foreground">{template.description}</span>
-                                                    </div>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div>
-                                        <Label htmlFor="provider">AI Provider</Label>
-                                        <Select value={state.provider} onValueChange={handleProviderChange}>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="openai">OpenAI</SelectItem>
-                                                <SelectItem value="anthropic">Anthropic</SelectItem>
-                                                <SelectItem value="google">Google</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="model">Model</Label>
-                                        <Select value={state.model} onValueChange={handleModelChange}>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {models[state.provider].map((model) => (
-                                                    <SelectItem key={model} value={model}>
-                                                        {model}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="temperature">Temperature</Label>
-                                        <Input
-                                            type="number"
-                                            min="0"
-                                            max="2"
-                                            step="0.1"
-                                            value={state.temperature}
-                                            onChange={(e) => handleTemperatureChange(parseFloat(e.target.value))}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Main Content */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Code Editor & Execution Output */}
-                        <div className="space-y-6">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center justify-between">
-                                        <span>Code Editor</span>
-                                        <Button
-                                            size="sm"
-                                            onClick={handleExecute}
-                                            disabled={isExecuting || !remoteState.isConnected}
-                                            className="gap-1.5"
-                                        >
-                                            <Play className="w-4 h-4" />
-                                            {isExecuting ? 'Running...' : !remoteState.isConnected ? 'Remote Required' : 'Run Code'}
-                                        </Button>
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-0">
-                                    <CodeEditor
-                                        value={state.code}
-                                        onChange={handleCodeChange}
-                                        language="typescript"
-                                        height="400px"
-                                    />
-                                </CardContent>
-                            </Card>
-
-                            {executionResult && (
-                                <ExecutionOutput
-                                    result={executionResult}
-                                    isRunning={isExecuting}
-                                    onFixSuggestion={handleFixSuggestion}
-                                />
                             )}
                         </div>
+                    </div>
 
-                        {/* Chat Interface */}
+                    {/* Validation Errors */}
+                    {inputState.errors.length > 0 && (
+                        <div className="text-xs text-red-600">
+                            {inputState.errors.map((error, index) => (
+                                <div key={index} className="flex items-center gap-1">
+                                    <AlertCircle className="h-3 w-3" />
+                                    {error}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+// Connection Status Component
+function ConnectionStatusPanel() {
+    const { state } = usePlayground();
+    const { connectionState, connectionInfo, statistics } = useWebSocketConnection();
+
+    return (
+        <Card>
+            <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Activity className="h-4 w-4" />
+                    System Status
+                </CardTitle>
+            </CardHeader>
+
+            <CardContent className="pt-0 space-y-3">
+                {/* Connection Status */}
+                <div className="flex items-center justify-between">
+                    <Label className="text-xs">Connection</Label>
+                    <div className="flex items-center gap-1">
+                        {state.isWebSocketConnected ? (
+                            <>
+                                <Wifi className="h-3 w-3 text-green-500" />
+                                <span className="text-xs text-green-600">Connected</span>
+                            </>
+                        ) : (
+                            <>
+                                <WifiOff className="h-3 w-3 text-red-500" />
+                                <span className="text-xs text-red-600">Disconnected</span>
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {/* Executor Status */}
+                <div className="flex items-center justify-between">
+                    <Label className="text-xs">Executor</Label>
+                    <div className="flex items-center gap-1">
+                        {state.isInitialized ? (
+                            <>
+                                <CheckCircle className="h-3 w-3 text-green-500" />
+                                <span className="text-xs text-green-600">Ready</span>
+                            </>
+                        ) : (
+                            <>
+                                <AlertCircle className="h-3 w-3 text-orange-500" />
+                                <span className="text-xs text-orange-600">Initializing</span>
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {/* Server URL */}
+                {state.serverUrl && (
+                    <div className="space-y-1">
+                        <Label className="text-xs">Server</Label>
+                        <div className="text-xs text-gray-600 font-mono bg-gray-50 p-1 rounded">
+                            {state.serverUrl}
+                        </div>
+                    </div>
+                )}
+
+                {/* Statistics */}
+                <Separator />
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <Label className="text-xs text-gray-500">Messages Sent</Label>
+                        <div className="font-semibold">{statistics.messagesSent}</div>
+                    </div>
+                    <div>
+                        <Label className="text-xs text-gray-500">Messages Received</Label>
+                        <div className="font-semibold">{statistics.messagesReceived}</div>
+                    </div>
+                </div>
+
+                {/* Error Display */}
+                {state.error && (
+                    <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                        <div className="flex items-center gap-1 font-medium">
+                            <AlertCircle className="h-3 w-3" />
+                            Error
+                        </div>
+                        <div className="mt-1">{state.error}</div>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+// Main Playground Component (without Provider)
+function PlaygroundContent() {
+    const { initializeExecutor } = usePlayground();
+
+    // Memoize sessionId to prevent re-initialization
+    const sessionId = useMemo(() => `session-${Date.now()}`, []);
+
+    // Initialize on mount
+    useEffect(() => {
+        initializeExecutor({
+            serverUrl: 'ws://localhost:3001', // Default server URL
+            userId: 'playground-user',
+            sessionId,
+            authToken: 'playground-token'
+        });
+    }, [initializeExecutor, sessionId]);
+
+    return (
+        <div className="min-h-screen bg-gray-50 p-4">
+            <div className="max-w-7xl mx-auto space-y-4">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Robota Playground</h1>
+                        <p className="text-sm text-gray-600">Visual Agent and Team Configuration Interface</p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                            <Zap className="h-3 w-3 mr-1" />
+                            Real-time
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                            <Puzzle className="h-3 w-3 mr-1" />
+                            Block Coding
+                        </Badge>
+                    </div>
+                </div>
+
+                {/* Main Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-200px)]">
+                    {/* Left Panel - Configuration */}
+                    <div className="lg:col-span-1">
+                        <ConfigurationPanel />
+                    </div>
+
+                    {/* Middle Panel - Chat Interface */}
+                    <div className="lg:col-span-1">
+                        <ChatInterfacePanel />
+                    </div>
+
+                    {/* Right Panel - Status and Monitoring */}
+                    <div className="lg:col-span-1 space-y-4">
+                        <ConnectionStatusPanel />
+
+                        {/* Additional panels can be added here */}
                         <Card>
-                            <CardHeader>
-                                <CardTitle>Chat Interface</CardTitle>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-sm font-semibold">Coming Soon</CardTitle>
                             </CardHeader>
-                            <CardContent>
-                                <ChatInterface
-                                    isAgentReady={Boolean(remoteState.isConnected && executionResult?.success && executionResult?.agentReady)}
-                                    onSendMessage={handleSendMessage}
-                                />
+                            <CardContent className="pt-0">
+                                <div className="text-center py-4 text-xs text-gray-500">
+                                    <Activity className="h-6 w-6 mx-auto mb-2 opacity-50" />
+                                    <p>Advanced analytics and monitoring</p>
+                                </div>
                             </CardContent>
                         </Card>
                     </div>
-                </TabsContent>
-
-                <TabsContent value="projects">
-                    <ProjectBrowser
-                        onSelectProject={handleSelectProject}
-                        onCreateNew={handleCreateNewProject}
-                        currentProjectId={currentProject?.id}
-                    />
-                </TabsContent>
-
-                <TabsContent value="templates">
-                    <TemplateGallery
-                        onSelectTemplate={handleSelectTemplate}
-                        onClose={() => setActiveTab('editor')}
-                    />
-                </TabsContent>
-            </Tabs>
-
-            {/* Usage Monitor Overlay */}
-            <UsageMonitor
-                isVisible={showUsageMonitor}
-                onClose={() => setShowUsageMonitor(false)}
-            />
+                </div>
+            </div>
         </div>
+    );
+}
+
+// Main Playground Page with Provider
+export default function PlaygroundPage() {
+    return (
+        <PlaygroundProvider defaultServerUrl="ws://localhost:3001">
+            <PlaygroundContent />
+        </PlaygroundProvider>
     );
 } 

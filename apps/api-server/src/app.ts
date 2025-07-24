@@ -84,7 +84,7 @@ export function createApp(): express.Application {
     remoteServer.initialize(providers).catch(console.error);
 
     // Mount remote API routes
-    app.use('/v1/remote', remoteServer.getExpressRouter());
+    app.use('/api/v1/remote', remoteServer.getExpressRouter());
 
     // Root endpoint
     app.get('/', (req, res) => {
@@ -95,17 +95,17 @@ export function createApp(): express.Application {
             environment: process.env.NODE_ENV || 'development',
             timestamp: new Date().toISOString(),
             endpoints: {
-                health: '/v1/remote/health',
-                chat: '/v1/remote/chat',
-                stream: '/v1/remote/stream',
-                capabilities: '/v1/remote/providers/:provider/capabilities'
+                health: '/api/v1/remote/health',
+                chat: '/api/v1/remote/chat',
+                stream: '/api/v1/remote/stream',
+                capabilities: '/api/v1/remote/providers/:provider/capabilities'
             },
             status: remoteServer.getStatus()
         });
     });
 
     // WebSocket status endpoint
-    app.get('/v1/remote/ws/status', (req, res) => {
+    app.get('/api/v1/remote/ws/status', (req, res) => {
         if (playgroundWebSocketServer) {
             const stats = playgroundWebSocketServer.getStats();
             res.json({
