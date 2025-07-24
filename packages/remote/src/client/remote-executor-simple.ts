@@ -13,6 +13,12 @@ export interface SimpleRemoteConfig {
     userApiKey: string;
     timeout?: number;
     headers?: Record<string, string>;
+    /** Enable WebSocket for real-time communication */
+    enableWebSocket?: boolean;
+    /** WebSocket endpoint path (defaults to /ws/playground) */
+    websocketPath?: string;
+    /** Auto-reconnect WebSocket on disconnect */
+    autoReconnect?: boolean;
 }
 
 export interface SimpleExecutionRequest {
@@ -30,6 +36,10 @@ export class SimpleRemoteExecutor {
 
     private httpClient: HttpClient;
     private config: SimpleRemoteConfig;
+    private websocket: WebSocket | null = null;
+    private websocketReady = false;
+    private reconnectAttempts = 0;
+    private maxReconnectAttempts = 5;
 
     constructor(config: SimpleRemoteConfig) {
         if (!this.validateConfig(config)) {
