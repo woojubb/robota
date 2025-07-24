@@ -1,354 +1,257 @@
-# 📋 미완료 기능 및 향후 개발 계획
+# Robota SaaS 웹사이트 - 남은 구현 작업
 
-## 📊 미완료 상태 개요
-- **Phase 1**: ✅ 100% 완료 (SEO/성능 최적화, 사용자 프로필/설정 모두 완료)
-- **Phase 3**: API 서비스 구현 (0% 완료)
-- **Phase 4**: 고급 기능 및 최적화 (0% 완료)
+## 📊 현재 상태 분석
 
----
+### 🚀 **최근 작업 완료**
 
-## Phase 1: 남은 작업들 🚧
+#### **Playground 코드 실행 시스템 구현** ✅
+1. **템플릿 시스템 개선**:
+   - 모든 예제 템플릿에서 함수 래퍼 제거 (`async function basicExample()` → 직접 실행)
+   - Top-level await 지원을 위한 async IIFE 래퍼 구현
+   - 브라우저 환경에 최적화 (`process.stdout.write` → `console.log`)
 
-### 3주차: SEO 최적화 및 사용자 경험 개선 (부분 완료)
+2. **Import 변환 시스템 구축**:
+   - ES6 import statements를 global variable assignments로 변환
+   - `@robota-sdk/*` 패키지들의 완전한 Mock 구현
+   - `openai`, `@anthropic-ai/sdk`, `@google/generative-ai` 외부 패키지 지원
+   - `process.env` Mock 객체 제공
 
-#### SEO 및 성능 최적화 ✅
-- [x] Google Analytics 및 Search Console 연동
-- [x] 이미지 최적화 및 lazy loading
-  - **완료**: Next.js Image 컴포넌트 활용 최적화
+3. **Sandbox 실행 환경**:
+   - `new Function()` 기반 안전한 코드 실행
+   - `console.log` 출력 캡처 및 UI 표시
+   - 에러 처리 및 스택 트레이스 제공
 
-#### 사용자 경험 개선 ✅
-- [x] 접근성 (a11y) 기본 설정
-  - **완료**: ARIA 라벨, 키보드 네비게이션, 스크린 리더 지원
-- [x] 다국어 지원 준비 (i18n 기본 구조)
-  - **완료**: next-i18next 설정, 번역 파일 구조
+4. **UI/UX 개선**:
+   - Remote 연결 상태를 Agent Configuration 박스 외부로 이동
+   - Run Code 버튼을 Code Editor 헤더로 이동
+   - Execution Output을 Code Editor 근처로 배치
+   - Email 인증 상태 표시 및 처리 로직 추가
 
-### 5주차: 사용자 프로필 및 설정 ✅
-- [x] `/profile` - 프로필 조회/수정 페이지
-  - **완료**: `apps/web/src/app/profile/page.tsx`
-- [x] `/settings` - 계정 설정 페이지
-  - **완료**: `apps/web/src/app/settings/page.tsx`
-- [x] 프로필 이미지 업로드 기능
-  - **완료**: Firebase Storage 연동
-- [x] 비밀번호 변경 및 계정 관리
-  - **완료**: 비밀번호 변경 폼, 계정 삭제 기능
+#### **로컬 모드 제거** ✅
+- Playground에서 로컬 모드 로직 완전 제거
+- Remote 연결 실패 시 Mock fallback 대신 명확한 에러 표시
+- 무조건 Remote 연결을 요구하는 정책 적용
 
-### 6주차: 배포 준비 및 품질 보증 ✅
-- [x] 배포 인프라 구축
-  - [x] Vercel 프로덕션 배포 설정
-  - [x] 도메인 연결 및 SSL 인증서 (설정 가이드 완료)
-  - [x] 환경별 설정 (개발/스테이징/프로덕션)
-  - [x] 모니터링 및 에러 추적 (Sentry) 설정
-  - **완료 파일**: `vercel.json`, `DEPLOYMENT.md`, `sentry.client.config.ts`, `sentry.server.config.ts`
+### ✅ 완료된 Remote System 기능 (약 75% 완료)
+- **패키지 구조**: `@robota-sdk/remote` 완전 구현
+- **Executor 주입**: 모든 Provider (OpenAI, Anthropic, Google)에서 지원
+- **API Server**: ExpressJS 기반 `/chat`, `/stream` 엔드포인트
+- **클라이언트**: `SimpleRemoteExecutor`, HTTP 통신 레이어
+- **테스트**: 단위 테스트 및 통합 테스트 완료
 
-- [x] 테스트 및 품질 관리
-  - [x] Jest 및 React Testing Library 설정
-  - [x] 핵심 기능 단위 테스트 작성
-  - [x] E2E 테스트 기본 설정 (Lighthouse CI)
-  - [x] 코드 품질 검사 (ESLint, Prettier)
-  - **완료 파일**: `jest.config.js`, `jest.setup.js`, `src/components/ui/__tests__/`
+### ✅ Playground 기반 구조 (약 85% 완료)
+- **코드 에디터**: Monaco Editor 통합 ✅
+- **프로젝트 관리**: ProjectManager, 템플릿 시스템 ✅
+- **Remote 통합**: RemoteExecutor 주입 시스템 ✅
+- **인증**: Firebase Auth → Playground Token 교환 ✅
+- **UI 컴포넌트**: 모든 기본 UI 컴포넌트 완성 ✅
+- **템플릿 정리**: 함수 래퍼 제거, top-level await 지원 ✅
+- **Import 변환**: ES6 imports → global variables 변환 시스템 ✅
+- **코드 실행**: 브라우저 sandbox 환경에서 실제 코드 실행 ✅
+- **Mock SDK**: `@robota-sdk/*`, `openai`, `anthropic` 등 Mock 라이브러리 ✅
 
-- [x] 성능 및 접근성 최적화
-  - [x] Lighthouse 성능 최적화
-  - [x] 웹 접근성 (WCAG) 준수
-  - [x] Progressive Web App (PWA) 기본 설정 (준비 완료)
-  - [x] 캐싱 전략 구현
-  - **완료 파일**: `.github/workflows/deploy.yml`, `.github/lighthouse/lighthouserc.json`
+## 🎯 최우선 작업: Playground 실제 동작 연결
 
----
+### **1. API Server와 Playground 연동 완성** 🚀 **[긴급]**
 
-## Phase 3: API 서비스 구현 (30% 완료) 🔄 **아키텍처 변경**
+현재 Remote System이 75% 완료되어 있어 Playground 연동이 **즉시 가능**합니다.
 
-> **⚠️ 중요한 아키텍처 변경사항**
-> OpenAI 호환 API 제거 → **RemoteExecutor 기반 Robota 네이티브 API**로 전환
-> 더 안전하고 효율적인 Provider 의존성 주입 아키텍처 채택
+#### **1.1 환경 변수 설정 검증**
+```bash
+# apps/web/.env.local 필수 설정
+NEXT_PUBLIC_PLAYGROUND_ENABLED=true
+NEXT_PUBLIC_PLAYGROUND_SERVER_URL=http://localhost:3001
+NEXT_PUBLIC_API_URL=http://localhost:3001
 
-### 13-14주차: **RemoteExecutor 아키텍처 구현** 🔄
-- [x] **Firebase Functions API 기본 인프라** (재사용)
-  - [x] Express.js 서버, 보안 미들웨어, 인증 시스템
-  - [x] API 키 관리 시스템
-  - **완료 파일**: `functions/src/index.ts`, `functions/src/api/api-keys/`
-
-- [x] **핵심 아키텍처 재설계** 🆕
-  - [x] **ExecutorInterface 정의 및 구현**
-    - [x] LocalExecutor (직접 AI API 호출)
-    - [x] RemoteExecutor 인터페이스 정의
-    - **완료 파일**: `packages/core/src/interfaces/executor.ts`, `packages/core/src/executors/local-executor.ts`
-  
-  - [x] **BaseAIProvider Executor 주입 시스템**
-    - [x] 기존 Provider들 Executor 주입 방식으로 리팩토링
-    - [x] OpenAI Provider 업데이트 및 테스트 완료
-    - **완료 파일**: `packages/agents/src/abstracts/base-ai-provider.ts`, `packages/openai/src/provider.ts`
-  
-  - [x] **AI Provider Proxy API** (통합 엔드포인트 방식으로 완료)
-    - [x] `/api/v1/chat` - 모든 AI Provider 통합 엔드포인트
-    - [x] `/api/v1/chat/providers` - Provider 목록 및 능력 조회
-    - **완료 파일**: `functions/src/api/chat/index.ts`
-
-### 15-16주차: **RemoteExecutor 클라이언트 구현** ✅
-- [x] **RemoteExecutor 클라이언트**
-  - [x] HTTP/WebSocket 통신 클라이언트
-  - [x] 스트리밍 응답 지원 (SSE 및 WebSocket)
-  - [x] 에러 처리 및 재시도 로직 (exponential backoff)
-  - **완료 파일**: `packages/agents/src/executors/remote-executor.ts`
-
-- [x] **Provider 통합 및 테스트**
-  - [x] 기존 Provider에 RemoteExecutor 통합 완료
-  - [x] 로컬/원격 실행 전환 테스트 완료
-  - [x] API Key 보안 검증 완료
-  - **완료 파일**: `packages/agents/src/executors/remote-executor.test.ts` (19/19 테스트 통과)
-
-### 17-18주차: **플레이그라운드 RemoteExecutor 통합** ✅
-- [x] **플레이그라운드 Executor 주입**
-  - [x] 코드 실행 시 RemoteExecutor 자동 주입
-  - [x] API Key 없는 안전한 실행 환경 (자동 제거 및 Mock 처리)
-  - [x] 사용자 토큰 기반 인증 시스템
-  - **완료 파일**: `apps/web/src/lib/playground/remote-injection.ts`, `apps/web/src/lib/playground/playground-auth.ts`
-
-- [x] **코드 변환 및 보안**
-  - [x] 자동 코드 변환으로 RemoteExecutor 주입
-  - [x] API 키 자동 제거 및 보안 처리
-  - [x] Provider별 Executor 주입 (OpenAI, Anthropic, Google)
-  - **완료 파일**: `apps/web/src/lib/playground/code-executor.ts` 업데이트
-
-### 19-20주차: 사용량 추적 및 분석 ✅ (완료)
-- [x] **사용량 모니터링 시스템**
-  - [x] Provider별 사용량 추적
-  - [x] 실시간 사용량 대시보드
-  - [x] 알림 및 제한 시스템
-  - **완료 파일**: `apps/web/src/app/analytics/page.tsx`
-
-- [x] **분석 및 리포팅**
-  - [x] 사용 패턴 분석
-  - [x] 성능 메트릭 수집
-  - [x] 비용 추적 및 최적화 제안
-  - **완료 파일**: `apps/web/functions/src/api/usage/index.ts`
-
-### 21-22주차: 결제 및 구독 시스템 ✅ (Stripe 제외 완료)
-- [ ] **Stripe 통합** (향후 구현 예정)
-  - [ ] 결제 처리 시스템
-  - [ ] 구독 관리
-  - [ ] 청구서 생성
-  - **보류**: Stripe 도입 가능 시점까지 연기
-
-- [x] **요금제 및 제한 관리**
-  - [x] 플랜별 기능 제한
-  - [x] 사용량 기반 과금
-  - [x] 오버리지 처리
-  - **완료 파일**: 
-    - `apps/web/src/app/billing/page.tsx`
-    - `apps/web/src/app/pricing/page.tsx`
-    - `apps/web/functions/src/api/subscription/index.ts`
-    - `apps/web/src/lib/billing/plans.ts`
-    - `apps/web/src/types/billing.ts`
-
----
-
-## 🔄 아키텍처 변경사항 요약
-
-### **제거된 기능** ✅
-- ✅ OpenAI 호환 API (`/api/v1/chat/completions`) - 제거됨
-- ✅ 기존 채팅 API 구조 (`functions/src/api/chat/index.ts`) - Agent 기반으로 변경됨
-- ✅ 모델 목록 API (`/api/v1/chat/models`) - 제거됨
-- ✅ OpenAI 클라이언트 라이브러리 호환성 - Agent API로 대체
-- **변경된 파일**: `functions/src/api/chat/` → DEPRECATED로 표시
-
-### **새로 추가될 핵심 기능**
-- ✅ **ExecutorInterface** - 의존성 주입 기반 실행 추상화
-- ✅ **RemoteExecutor** - 서버 프록시 실행기
-- ✅ **Provider Proxy API** - 각 AI Provider별 전용 엔드포인트
-- ✅ **API Key 완전 격리** - 클라이언트에서 실제 API Key 제거
-
-### **보안 및 아키텍처 이점**
-- 🔒 **API Key 보안**: 서버에서만 실제 AI API Key 관리
-- 🎯 **타겟팅**: Robota 생태계에 최적화된 네이티브 API
-- 🔄 **투명성**: 로컬/원격 실행 완전 투명 전환
-- 📊 **제어**: 사용량, 비용, 권한의 완전한 중앙 관리
-
-### **개발 우선순위**
-1. **Core Executor 시스템** (13-14주차) ⏰ **다음 단계**
-2. **RemoteExecutor 클라이언트** (15-16주차)  
-3. **플레이그라운드 통합** (17-18주차)
-4. **분석 및 결제** (19-22주차)
-
-### **🚀 즉시 시작할 작업들**
-1. **ExecutorInterface 정의** (`packages/core/src/interfaces/executor.ts`)
-2. **LocalExecutor 구현** (`packages/core/src/executors/local-executor.ts`)
-3. **기존 OpenAI Provider Executor 주입 리팩토링**
-4. **제거 작업**: 기존 OpenAI 호환 API 파일들 삭제
-5. **Provider Proxy API 기본 구조** 구현
-
----
-
-## Phase 3 추가: 공유 및 협업 기능
-
-### 13-14주차: 공유 및 협업 기능
-- [ ] **프로젝트 공유 시스템**
-  - [ ] 공유 링크 생성
-  - [ ] 공개/비공개 설정
-  - [ ] Fork 기능 구현
-  - **필요 파일**: `apps/web/src/components/playground/share-project.tsx`
-
-- [ ] **커뮤니티 기능**
-  - [ ] 공개 프로젝트 갤러리
-  - [ ] 검색 및 필터링
-  - [ ] 별점 및 댓글 시스템
-  - **필요 파일**: `apps/web/src/app/community/page.tsx`
-
----
-
-## Phase 4: 고급 기능 및 최적화 (0% 완료)
-
-### 23-24주차: 고급 기능 구현
-- [ ] **팀 협업 기능**
-  - [ ] 팀 생성 및 관리
-  - [ ] 권한 기반 협업
-  - [ ] 팀 대시보드
-  - **필요 파일**: `apps/web/src/app/teams/page.tsx`
-
-- [ ] **고급 템플릿 시스템**
-  - [ ] 커스텀 템플릿 생성
-  - [ ] 템플릿 마켓플레이스
-  - [ ] 버전 관리 시스템
-  - **필요 파일**: `apps/web/src/components/templates/` 디렉터리
-
-### 25-26주차: 성능 최적화 및 보안 강화
-- [ ] **성능 최적화**
-  - [ ] 캐싱 전략 구현
-  - [ ] 데이터베이스 쿼리 최적화
-  - [ ] CDN 설정
-
-- [ ] **보안 강화**
-  - [ ] 보안 감사
-  - [ ] 취약점 분석 및 수정
-  - [ ] 모니터링 시스템 강화
-
-### 27-28주차: 테스트 및 배포 준비
-- [ ] **종합 테스트**
-  - [ ] E2E 테스트 작성
-  - [ ] 부하 테스트 수행
-  - [ ] 사용자 경험 테스트
-
-- [ ] **배포 준비**
-  - [ ] 프로덕션 환경 설정
-  - [ ] 모니터링 시스템 구축
-  - [ ] 배포 자동화
-
----
-
-## 📁 생성해야 할 주요 파일 구조
-
-### Phase 1 남은 작업
-```
-apps/web/src/
-├── app/
-│   ├── profile/
-│   │   └── page.tsx ❌
-│   ├── settings/
-│   │   └── page.tsx ❌
-│   └── analytics/
-│       └── page.tsx ❌
-├── components/
-│   ├── analytics/
-│   │   └── ... ❌
-│   └── profile/
-│       └── ... ❌
-└── lib/
-    └── analytics/
-        └── ... ❌
+# apps/api-server/.env 필수 설정  
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+GOOGLE_AI_API_KEY=AIza...
+CORS_ORIGINS=http://localhost:3000
 ```
 
-### Phase 3 API 서비스
-```
-functions/
-├── src/
-│   ├── api/
-│   │   ├── auth/
-│   │   │   └── ... ❌
-│   │   ├── chat/
-│   │   │   └── completions.ts ❌
-│   │   ├── agents/
-│   │   │   └── ... ❌
-│   │   └── billing/
-│   │       └── ... ❌
-│   └── middleware/
-│       └── ... ❌
+#### **1.2 API Server 실행 및 검증** 
+- [ ] **API Server 기동**: `cd apps/api-server && pnpm run dev`
+- [ ] **엔드포인트 테스트**: 
+  - `GET /health` - 서버 상태 확인
+  - `GET /v1/remote/providers` - Provider 등록 상태 확인
+  - `POST /v1/remote/chat` - 기본 채팅 테스트
+  - `POST /v1/remote/stream` - SSE 스트리밍 테스트
 
-apps/web/src/
-├── app/
-│   ├── api-keys/
-│   │   └── page.tsx ❌
-│   ├── billing/
-│   │   └── page.tsx ❌
-│   └── community/
-│       └── page.tsx ❌
-├── lib/
-│   ├── stripe/
-│   │   └── ... ❌
-│   └── api/
-│       └── ... ❌
-└── components/
-    ├── billing/
-    │   └── ... ❌
-    └── community/
-        └── ... ❌
+#### **1.3 Playground 연결 테스트**
+- [ ] **RemoteExecutor 연결**: `createPlaygroundExecutor()` 함수 검증
+- [ ] **Provider 통합**: OpenAI, Anthropic, Google 모든 Provider 테스트
+- [ ] **코드 실행**: 실제 AI Provider를 통한 응답 확인
+- [ ] **스트리밍**: 실시간 응답 스트리밍 동작 확인
+
+### **2. Playground 사용자 경험 완성** 🎮 **[긴급]**
+
+#### **2.1 연결 상태 관리 강화**
+- [ ] **연결 상태 표시**: 
+  - 🟢 Connected (원격 서버 연결 성공)
+  - 🟡 Connecting (연결 시도 중)
+  - 🔴 Disconnected (연결 실패, Mock 모드)
+- [ ] **자동 재연결**: 네트워크 오류 시 자동 재시도
+- [ ] **Fallback 처리**: 원격 실행 실패 시 Mock 응답으로 Graceful 전환
+
+#### **2.2 실제 AI 응답 구현 (부분 완료)**
+**✅ 완료된 작업:**
+- Playground 코드 실행 엔진 구현 (브라우저 sandbox 환경)
+- ES6 import 변환 시스템 (import statements → global variables)
+- Mock SDK 라이브러리 (`@robota-sdk/*`, `openai`, `anthropic`, `google`)
+- Top-level await 지원 (async IIFE 래퍼)
+- 템플릿 함수 래퍼 제거 (직접 실행 방식)
+
+**🔄 진행 중인 문제:**
+- Import 변환이 일부 케이스에서 실패 (OpenAI client import 등)
+- Mock과 실제 Remote Executor 연결 불완전
+- console.log 출력 캡처 시스템 개선 필요
+
+**⏳ 남은 작업:**
+```typescript
+// 현재 Mock 코드를 실제 RemoteExecutor 호출로 교체
+const handleSendMessage = async (message: string): Promise<string> => {
+  if (remoteState.isConnected && window.__ROBOTA_PLAYGROUND_EXECUTOR__) {
+    try {
+      const executor = window.__ROBOTA_PLAYGROUND_EXECUTOR__;
+      const response = await executor.executeChat({
+        messages: [{ role: 'user', content: message }],
+        provider: state.provider,
+        model: state.model,
+        temperature: state.temperature
+      });
+      return response.content || 'No response from AI';
+    } catch (error) {
+      // Fallback to mock on error
+      return generateMockResponse(message);
+    }
+  }
+  return generateMockResponse(message);
+};
 ```
 
-### Phase 4 고급 기능
-```
-apps/web/src/
-├── app/
-│   └── teams/
-│       └── page.tsx ❌
-├── components/
-│   ├── teams/
-│   │   └── ... ❌
-│   └── templates/
-│       └── marketplace.tsx ❌
-└── lib/
-    └── teams/
-        └── ... ❌
-```
+#### **2.3 스트리밍 응답 구현**
+- [ ] **SSE 연결**: Server-Sent Events로 실시간 응답
+- [ ] **청크 처리**: 스트리밍 응답 청크별 UI 업데이트
+- [ ] **타이핑 효과**: 자연스러운 AI 응답 타이핑 애니메이션
+
+### **3. 인증 및 보안 시스템 완성** 🔐 **[중요]**
+
+#### **3.1 사용자 인증 강화**
+- [ ] **JWT 토큰**: Firebase Auth → API Server JWT 교환
+- [ ] **토큰 갱신**: 만료 시 자동 갱신 메커니즘
+- [ ] **세션 관리**: 사용자별 세션 추적 및 관리
+
+#### **3.2 사용량 제한 구현**
+- [ ] **Rate Limiting**: 사용자별 API 호출 제한
+- [ ] **사용량 추적**: 실시간 사용량 표시 (`UsageMonitor` 컴포넌트 활성화)
+- [ ] **구독 연동**: 구독 레벨별 사용량 제한 차별화
+
+### **4. 고급 기능 구현** ⚡ **[추후]**
+
+#### **4.1 WebSocket 실시간 통신**
+- [ ] **WebSocket 서버**: API Server에 WebSocket 지원 추가
+- [ ] **실시간 채팅**: 더 빠른 응답을 위한 WebSocket 연결
+- [ ] **연결 관리**: WebSocket 연결 상태 관리 및 재연결
+
+#### **4.2 Zero-Config 경험**
+- [ ] **자동 설정**: `RemoteExecutor.create(serverUrl)` 간소화
+- [ ] **환경 감지**: 네트워크 상태에 따른 자동 최적화
+- [ ] **프로토콜 업그레이드**: HTTP → HTTP/2 → WebSocket 자동 전환
 
 ---
 
-## 🎯 다음 우선순위 개발 순서
+## 🚧 기타 SaaS 웹사이트 기능
 
-### 즉시 착수 가능 (Phase 1 완성)
-1. **프로필/설정 페이지 구현**
-   - `/profile` 페이지 생성
-   - `/settings` 페이지 생성
-   - 프로필 이미지 업로드 기능
+### **5. 인증 시스템 (부분 완료)**
+- [x] Firebase Auth 기본 구현
+- [ ] **소셜 로그인**: Google, GitHub, Discord 추가
+- [ ] **이메일 인증**: 이메일 확인 프로세스
+- [ ] **비밀번호 재설정**: 안전한 비밀번호 재설정
 
-2. **SEO 및 성능 최적화**
-   - Google Analytics 연동
-   - 이미지 최적화
-   - 접근성 개선
+### **6. 구독 및 결제 시스템** 💳 **[미구현]**
+- [ ] **Stripe 통합**: 구독 결제 시스템
+- [ ] **구독 플랜**: Free, Pro, Enterprise 티어
+- [ ] **사용량 기반 과금**: API 호출 수 기반 요금
+- [ ] **결제 관리**: 구독 변경, 취소, 환불 처리
 
-### 중기 계획 (Phase 3)
-3. **API 인프라 구축**
-   - Firebase Functions 설정
-   - API 키 관리 시스템
-   - 기본 API 엔드포인트
+### **7. 대시보드 및 관리** 📊 **[미구현]**
+- [ ] **사용량 대시보드**: API 호출 통계, 비용 분석
+- [ ] **프로젝트 관리**: 사용자별 프로젝트 저장/관리
+- [ ] **API Key 관리**: 사용자별 API Key 생성/관리
+- [ ] **팀 협업**: 팀 단위 프로젝트 공유
 
-4. **Stripe 결제 시스템**
-   - 결제 처리
-   - 구독 관리
-   - 요금제 시스템
+### **8. 마케팅 및 랜딩 페이지** 🎯 **[부분 완료]**
+- [x] 기본 랜딩 페이지 구조
+- [ ] **제품 소개**: 상세한 기능 설명
+- [ ] **가격 정책**: 명확한 가격 체계 표시
+- [ ] **사용 사례**: 실제 활용 예시
+- [ ] **고객 후기**: 사용자 리뷰 및 추천
 
-### 장기 계획 (Phase 4)
-5. **팀 협업 기능**
-6. **고급 템플릿 시스템**
-7. **성능 최적화 및 보안 강화**
+### **9. 문서화 및 지원** 📚 **[미구현]**
+- [ ] **API 문서**: 완전한 API 문서화
+- [ ] **튜토리얼**: 단계별 사용 가이드
+- [ ] **FAQ**: 자주 묻는 질문
+- [ ] **고객 지원**: 헬프데스크 시스템
 
 ---
 
-## 📝 개발 가이드라인
+## 📈 우선순위 및 일정
 
-### 새 기능 개발 시 고려사항
-1. **일관성 유지**: 기존 디자인 시스템 및 코딩 패턴 준수
-2. **타입 안전성**: TypeScript 인터페이스 정의 우선
-3. **접근성**: 모든 새 컴포넌트에 a11y 고려
-4. **반응형**: 모바일 우선 반응형 디자인
-5. **에러 처리**: 포괄적인 에러 핸들링 및 사용자 피드백
-6. **테스트**: 새 기능에 대한 단위 테스트 작성
-7. **문서화**: README 및 코드 주석 업데이트 
+### **Phase 1: Playground 실제 동작 (1-2일)** 🚀
+1. ✅ Remote System 구현 완료 (이미 75% 완료)
+2. ⏳ **API Server ↔ Playground 연동**
+3. ⏳ **실제 AI 응답 구현**
+4. ⏳ **사용자 테스트 및 버그 수정**
+
+### **Phase 2: 사용자 경험 개선 (3-5일)** 🎮
+1. 인증 시스템 강화
+2. 사용량 제한 및 모니터링
+3. 에러 처리 및 안정성 향상
+4. UI/UX 최적화
+
+### **Phase 3: 비즈니스 기능 (1-2주)** 💼
+1. 구독 및 결제 시스템
+2. 사용량 추적 및 과금
+3. 대시보드 및 관리 기능
+4. 고객 지원 시스템
+
+### **Phase 4: 마케팅 및 런칭 (1주)** 🚀
+1. 랜딩 페이지 완성
+2. 문서화 완료
+3. 마케팅 자료 준비
+4. 베타 테스트 및 피드백
+
+---
+
+## 🎯 즉시 실행 가능한 작업
+
+### **오늘 할 수 있는 작업:**
+
+1. **API Server 실행 테스트**:
+   ```bash
+   cd apps/api-server
+   cp .env.example .env
+   # .env 파일에 실제 API Keys 입력
+   pnpm run dev
+   ```
+
+2. **Playground 연동 테스트**:
+   ```bash
+   cd apps/web
+   # .env.local 파일에 Playground 설정 추가
+   npm run dev
+   ```
+
+3. **연결 확인**:
+   - `http://localhost:3001/health` 접속
+   - `http://localhost:3000/playground` 에서 연결 상태 확인
+   - 실제 AI Provider 응답 테스트
+
+### **1주일 내 완성 가능:**
+- ✅ Playground 실제 AI 연동
+- ✅ 기본 인증 및 사용량 추적
+- ✅ 안정적인 사용자 경험
+- ✅ 베타 서비스 런칭 준비
+
+현재 Remote System이 이미 75% 완료되어 있어, **Playground 실제 동작은 1-2일 내에 완성 가능**합니다! 🚀 

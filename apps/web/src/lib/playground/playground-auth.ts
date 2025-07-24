@@ -129,9 +129,14 @@ export function getCurrentUser(): Promise<User | null> {
 /**
  * Check if user has playground access
  */
-export async function hasPlaygroundAccess(user: User | null): Promise<boolean> {
+export async function hasPlaygroundAccess(user: User | null): Promise<{
+    hasAccess: boolean;
+    reason?: string;
+    subscription?: string;
+    needsEmailVerification?: boolean;
+}> {
     if (!user) {
-        return true; // Allow anonymous demo access
+        return { hasAccess: true }; // Allow anonymous demo access
     }
 
     try {
@@ -147,29 +152,46 @@ export async function hasPlaygroundAccess(user: User | null): Promise<boolean> {
 
         if (!response.ok) {
             console.warn('Could not verify playground access, allowing for now');
-            return true; // Allow access by default during development
+            return { hasAccess: true }; // Allow access by default during development
         }
 
-        const { hasAccess } = await response.json();
-        return hasAccess;
+        const data = await response.json();
+
+        return {
+            hasAccess: data.hasAccess,
+            reason: data.reason,
+            subscription: data.subscription,
+            needsEmailVerification: data.reason === 'Email not verified'
+        };
 
     } catch (error) {
         console.error('Error checking playground access:', error);
-        return true; // Allow access by default if check fails
+        return { hasAccess: true }; // Allow access by default if check fails
     }
 }
 
 /**
  * Initialize playground authentication
  */
-export async function initializePlaygroundAuth(): Promise<PlaygroundCredentials | null> {
+export async function initializePlaygroundAuth(): Promise<{
+    credentials: PlaygroundCredentials | null;
+    accessInfo?: {
+        hasAccess: boolean;
+        reason?: string;
+        subscription?: string;
+        needsEmailVerification?: boolean;
+    };
+}> {
     try {
         const user = await getCurrentUser();
 
         // Check if user has playground access
-        const hasAccess = await hasPlaygroundAccess(user);
-        if (!hasAccess) {
-            throw new Error('User does not have playground access');
+        const accessInfo = await hasPlaygroundAccess(user);
+        if (!accessInfo.hasAccess) {
+            return {
+                credentials: null,
+                accessInfo
+            };
         }
 
         // Create credentials
@@ -184,11 +206,20 @@ export async function initializePlaygroundAuth(): Promise<PlaygroundCredentials 
             permissions: ['playground:execute', 'playground:chat']
         } as PlaygroundSession));
 
-        return credentials;
+        return {
+            credentials,
+            accessInfo
+        };
 
     } catch (error) {
         console.error('Error initializing playground auth:', error);
-        return null;
+        return {
+            credentials: null,
+            accessInfo: {
+                hasAccess: false,
+                reason: error instanceof Error ? error.message : 'Authentication failed'
+            }
+        };
     }
 }
 
