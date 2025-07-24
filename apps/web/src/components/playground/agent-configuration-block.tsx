@@ -13,9 +13,10 @@
  * - Tool and Plugin visualization
  * - AI Provider selection
  * - Live validation feedback
+ * - Play/Stop execution control
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,11 +33,10 @@ import {
     Zap,
     Puzzle,
     Brain,
-    Edit3,
     Copy,
     Trash2,
     Play,
-    Pause,
+    Square,
     CheckCircle,
     AlertCircle,
     Info
@@ -48,166 +48,148 @@ export interface AgentConfigurationBlockProps {
     isActive?: boolean;
     isExecuting?: boolean;
     onConfigChange: (config: PlaygroundAgentConfig) => void;
+    onExecute?: (config: PlaygroundAgentConfig) => void;
+    onStop?: () => void;
     onDuplicate?: (config: PlaygroundAgentConfig) => void;
     onDelete?: (config: PlaygroundAgentConfig) => void;
-    onExecute?: (config: PlaygroundAgentConfig) => void;
-    onPause?: () => void;
     className?: string;
-    draggable?: boolean;
-    onDragStart?: (event: React.DragEvent) => void;
-    validationErrors?: string[];
 }
 
+/**
+ * Visual Agent Configuration Block Component
+ */
 export function AgentConfigurationBlock({
     config,
     isActive = false,
     isExecuting = false,
     onConfigChange,
+    onExecute,
+    onStop,
     onDuplicate,
     onDelete,
-    onExecute,
-    onPause,
-    className = '',
-    draggable = false,
-    onDragStart,
-    validationErrors = []
+    className = ''
 }: AgentConfigurationBlockProps) {
-    const [isEditing, setIsEditing] = useState(false);
+    // Configuration state - always editable when not executing
     const [editedConfig, setEditedConfig] = useState<PlaygroundAgentConfig>(config);
 
     // Validation state
-    const hasErrors = validationErrors.length > 0;
-    const isValid = !hasErrors && editedConfig.name.trim().length > 0;
+    const validation = useMemo(() => {
+        const errors: string[] = [];
 
-    // Status indicators
-    const statusIcon = useMemo(() => {
-        if (isExecuting) return <Play className="h-4 w-4 text-green-500 animate-pulse" />;
-        if (hasErrors) return <AlertCircle className="h-4 w-4 text-red-500" />;
-        if (isValid) return <CheckCircle className="h-4 w-4 text-green-500" />;
-        return <Info className="h-4 w-4 text-gray-400" />;
-    }, [isExecuting, hasErrors, isValid]);
+        if (!editedConfig.name?.trim()) {
+            errors.push('Agent name is required');
+        }
 
-    // Handle configuration updates
+        if (!editedConfig.defaultModel?.model) {
+            errors.push('Model selection is required');
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors
+        };
+    }, [editedConfig]);
+
+    const { isValid } = validation;
+
+    // Auto-save configuration changes when not executing
     const handleConfigUpdate = useCallback((updates: Partial<PlaygroundAgentConfig>) => {
+        if (isExecuting) return; // Prevent changes during execution
+
         const newConfig = { ...editedConfig, ...updates };
         setEditedConfig(newConfig);
 
-        if (!isEditing) {
-            onConfigChange(newConfig);
-        }
-    }, [editedConfig, isEditing, onConfigChange]);
+        // Auto-save changes
+        onConfigChange(newConfig);
+    }, [editedConfig, isExecuting, onConfigChange]);
 
-    // Save edited configuration
-    const handleSave = useCallback(() => {
-        onConfigChange(editedConfig);
-        setIsEditing(false);
-    }, [editedConfig, onConfigChange]);
-
-    // Cancel editing
-    const handleCancel = useCallback(() => {
+    // Sync props with state on mount
+    useEffect(() => {
         setEditedConfig(config);
-        setIsEditing(false);
     }, [config]);
 
-    // AI Provider configuration
-    const handleProviderUpdate = useCallback((field: string, value: string | number) => {
-        handleConfigUpdate({
-            defaultModel: {
-                ...editedConfig.defaultModel,
-                [field]: value
-            }
-        });
-    }, [editedConfig.defaultModel, handleConfigUpdate]);
+    // Status indicators
+    const statusIcon = useMemo(() => {
+        if (isExecuting) {
+            return <Badge variant="default" className="text-xs">Running</Badge>;
+        }
+        if (isActive) {
+            return <CheckCircle className="h-4 w-4 text-green-500" />;
+        }
+        if (!isValid) {
+            return <AlertCircle className="h-4 w-4 text-red-500" />;
+        }
+        return <Info className="h-4 w-4 text-blue-500" />;
+    }, [isActive, isValid, isExecuting]);
 
     return (
-        <Card
-            className={`
-        relative transition-all duration-200 border-2
-        ${isActive ? 'border-blue-500 shadow-lg' : 'border-gray-200 hover:border-gray-300'}
-        ${isExecuting ? 'bg-green-50 border-green-300' : ''}
-        ${hasErrors ? 'border-red-300 bg-red-50' : ''}
-        ${draggable ? 'cursor-move' : ''}
-        ${className}
-      `}
-            draggable={draggable}
-            onDragStart={onDragStart}
-        >
+        <Card className={`
+            border-2 transition-all duration-200 bg-white
+            ${isActive ? 'border-blue-500 shadow-md' : 'border-gray-200'}
+            ${isExecuting ? 'border-green-500 shadow-lg' : ''}
+            ${!isValid ? 'border-red-200' : ''}
+            ${className}
+        `}>
             {/* Header */}
             <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Bot className="h-5 w-5 text-blue-600" />
-                        {isEditing ? (
-                            <Input
-                                value={editedConfig.name}
-                                onChange={(e) => handleConfigUpdate({ name: e.target.value })}
-                                className="h-6 text-sm font-semibold"
-                                placeholder="Agent Name"
-                            />
-                        ) : (
-                            <CardTitle className="text-sm font-semibold">
-                                {config.name}
-                            </CardTitle>
-                        )}
+                        <Input
+                            value={editedConfig.name}
+                            onChange={(e) => handleConfigUpdate({ name: e.target.value })}
+                            className="h-6 text-sm font-semibold border-none p-0 focus-visible:ring-0"
+                            placeholder="Agent Name"
+                            disabled={isExecuting}
+                        />
                         {statusIcon}
                     </div>
 
                     <div className="flex items-center gap-1">
-                        {/* Action Buttons */}
+                        {/* Play/Stop Button */}
                         {isExecuting ? (
                             <Button
                                 size="sm"
-                                variant="outline"
-                                onClick={onPause}
-                                className="h-7 w-7 p-0"
+                                variant="destructive"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onStop?.();
+                                }}
+                                className="h-7 px-3 text-xs"
                             >
-                                <Pause className="h-3 w-3" />
+                                <Square className="h-3 w-3 mr-1" />
+                                Stop
                             </Button>
                         ) : (
                             <Button
                                 size="sm"
-                                variant="outline"
-                                onClick={() => onExecute?.(config)}
+                                variant="default"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (onExecute) {
+                                        onExecute(editedConfig);
+                                    } else {
+                                        console.warn('onExecute is not provided');
+                                    }
+                                }}
                                 disabled={!isValid}
-                                className="h-7 w-7 p-0"
+                                className="h-7 px-3 text-xs relative z-10"
+                                type="button"
                             >
-                                <Play className="h-3 w-3" />
+                                <Play className="h-3 w-3 mr-1" />
+                                Play
                             </Button>
                         )}
 
-                        {isEditing ? (
-                            <>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={handleSave}
-                                    className="h-7 px-2 text-xs"
-                                >
-                                    Save
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={handleCancel}
-                                    className="h-7 px-2 text-xs"
-                                >
-                                    Cancel
-                                </Button>
-                            </>
-                        ) : (
+                        {/* Additional Actions (only when not executing) */}
+                        {!isExecuting && (
                             <>
                                 <Button
                                     size="sm"
                                     variant="ghost"
-                                    onClick={() => setIsEditing(true)}
-                                    className="h-7 w-7 p-0"
-                                >
-                                    <Edit3 className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => onDuplicate?.(config)}
+                                    onClick={() => onDuplicate?.(editedConfig)}
                                     className="h-7 w-7 p-0"
                                 >
                                     <Copy className="h-3 w-3" />
@@ -215,7 +197,7 @@ export function AgentConfigurationBlock({
                                 <Button
                                     size="sm"
                                     variant="ghost"
-                                    onClick={() => onDelete?.(config)}
+                                    onClick={() => onDelete?.(editedConfig)}
                                     className="h-7 w-7 p-0 text-red-500"
                                 >
                                     <Trash2 className="h-3 w-3" />
@@ -225,31 +207,11 @@ export function AgentConfigurationBlock({
                     </div>
                 </div>
 
-                {/* Status Bar */}
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <Badge variant="outline" className="text-xs">
-                        {editedConfig.defaultModel.provider}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                        {editedConfig.defaultModel.model}
-                    </Badge>
-                    {editedConfig.tools && editedConfig.tools.length > 0 && (
-                        <Badge variant="secondary" className="text-xs">
-                            {editedConfig.tools.length} tools
-                        </Badge>
-                    )}
-                    {editedConfig.plugins && editedConfig.plugins.length > 0 && (
-                        <Badge variant="secondary" className="text-xs">
-                            {editedConfig.plugins.length} plugins
-                        </Badge>
-                    )}
-                </div>
-
                 {/* Validation Errors */}
-                {validationErrors.length > 0 && (
+                {validation.errors.length > 0 && (
                     <div className="mt-2 p-2 bg-red-100 border border-red-200 rounded text-xs text-red-700">
                         <ul className="list-disc list-inside space-y-1">
-                            {validationErrors.map((error, index) => (
+                            {validation.errors.map((error, index) => (
                                 <li key={index}>{error}</li>
                             ))}
                         </ul>
@@ -282,15 +244,21 @@ export function AgentConfigurationBlock({
                     {/* Model Configuration */}
                     <TabsContent value="model" className="space-y-3 mt-3">
                         <div className="grid grid-cols-2 gap-3">
+                            {/* Provider Selection */}
                             <div className="space-y-1">
-                                <Label className="text-xs">Provider</Label>
+                                <Label className="text-xs font-medium">Provider</Label>
                                 <Select
                                     value={editedConfig.defaultModel.provider}
-                                    onValueChange={(value) => handleProviderUpdate('provider', value)}
-                                    disabled={!isEditing}
+                                    onValueChange={(value) => handleConfigUpdate({
+                                        defaultModel: {
+                                            ...editedConfig.defaultModel,
+                                            provider: value
+                                        }
+                                    })}
+                                    disabled={isExecuting}
                                 >
                                     <SelectTrigger className="h-8 text-xs">
-                                        <SelectValue />
+                                        <SelectValue placeholder="Select Provider" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="openai">OpenAI</SelectItem>
@@ -300,102 +268,115 @@ export function AgentConfigurationBlock({
                                 </Select>
                             </div>
 
+                            {/* Model Selection */}
                             <div className="space-y-1">
-                                <Label className="text-xs">Model</Label>
+                                <Label className="text-xs font-medium">Model</Label>
                                 <Select
                                     value={editedConfig.defaultModel.model}
-                                    onValueChange={(value) => handleProviderUpdate('model', value)}
-                                    disabled={!isEditing}
+                                    onValueChange={(value) => handleConfigUpdate({
+                                        defaultModel: {
+                                            ...editedConfig.defaultModel,
+                                            model: value
+                                        }
+                                    })}
+                                    disabled={isExecuting}
                                 >
                                     <SelectTrigger className="h-8 text-xs">
-                                        <SelectValue />
+                                        <SelectValue placeholder="Select Model" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {editedConfig.defaultModel.provider === 'openai' && (
-                                            <>
-                                                <SelectItem value="gpt-4">GPT-4</SelectItem>
-                                                <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                                                <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
-                                            </>
-                                        )}
-                                        {editedConfig.defaultModel.provider === 'anthropic' && (
-                                            <>
-                                                <SelectItem value="claude-3-opus">Claude 3 Opus</SelectItem>
-                                                <SelectItem value="claude-3-sonnet">Claude 3 Sonnet</SelectItem>
-                                                <SelectItem value="claude-3-haiku">Claude 3 Haiku</SelectItem>
-                                            </>
-                                        )}
-                                        {editedConfig.defaultModel.provider === 'google' && (
-                                            <>
-                                                <SelectItem value="gemini-pro">Gemini Pro</SelectItem>
-                                                <SelectItem value="gemini-pro-vision">Gemini Pro Vision</SelectItem>
-                                            </>
-                                        )}
+                                        <SelectItem value="gpt-4">GPT-4</SelectItem>
+                                        <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
+                                        <SelectItem value="claude-3-opus">Claude 3 Opus</SelectItem>
+                                        <SelectItem value="claude-3-sonnet">Claude 3 Sonnet</SelectItem>
+                                        <SelectItem value="gemini-pro">Gemini Pro</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
                         </div>
 
+                        {/* Temperature */}
                         <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <Label className="text-xs">Temperature</Label>
-                                <span className="text-xs text-gray-500">
-                                    {editedConfig.defaultModel.temperature || 0.7}
-                                </span>
+                            <div className="flex justify-between items-center">
+                                <Label className="text-xs font-medium">Temperature</Label>
+                                <span className="text-xs text-gray-500">{editedConfig.defaultModel.temperature || 0.7}</span>
                             </div>
                             <input
                                 type="range"
                                 value={editedConfig.defaultModel.temperature || 0.7}
-                                onChange={(e) => handleProviderUpdate('temperature', parseFloat(e.target.value))}
+                                onChange={(e) => handleConfigUpdate({
+                                    defaultModel: {
+                                        ...editedConfig.defaultModel,
+                                        temperature: parseFloat(e.target.value)
+                                    }
+                                })}
                                 max={2}
                                 min={0}
                                 step={0.1}
-                                disabled={!isEditing}
+                                disabled={isExecuting}
                                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                             />
                         </div>
 
+                        {/* Max Tokens */}
                         <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <Label className="text-xs">Max Tokens</Label>
-                                <span className="text-xs text-gray-500">
-                                    {editedConfig.defaultModel.maxTokens || 2000}
-                                </span>
+                            <div className="flex justify-between items-center">
+                                <Label className="text-xs font-medium">Max Tokens</Label>
+                                <span className="text-xs text-gray-500">{editedConfig.defaultModel.maxTokens || 2000}</span>
                             </div>
                             <input
                                 type="range"
                                 value={editedConfig.defaultModel.maxTokens || 2000}
-                                onChange={(e) => handleProviderUpdate('maxTokens', parseInt(e.target.value))}
+                                onChange={(e) => handleConfigUpdate({
+                                    defaultModel: {
+                                        ...editedConfig.defaultModel,
+                                        maxTokens: parseInt(e.target.value)
+                                    }
+                                })}
                                 max={4000}
                                 min={100}
                                 step={100}
-                                disabled={!isEditing}
+                                disabled={isExecuting}
                                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                             />
                         </div>
 
+                        {/* System Message */}
                         <div className="space-y-1">
-                            <Label className="text-xs">System Message</Label>
+                            <Label className="text-xs font-medium">System Message</Label>
                             <Textarea
                                 value={editedConfig.defaultModel.systemMessage || ''}
-                                onChange={(e) => handleProviderUpdate('systemMessage', e.target.value)}
+                                onChange={(e) => handleConfigUpdate({
+                                    defaultModel: {
+                                        ...editedConfig.defaultModel,
+                                        systemMessage: e.target.value
+                                    }
+                                })}
                                 placeholder="You are a helpful AI assistant..."
                                 className="min-h-[60px] text-xs resize-none"
-                                disabled={!isEditing}
+                                disabled={isExecuting}
                             />
                         </div>
                     </TabsContent>
 
                     {/* Tools Configuration */}
                     <TabsContent value="tools" className="space-y-3 mt-3">
-                        <div className="text-center py-4 text-xs text-gray-500">
-                            <Zap className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                            <p>Tools configuration will be implemented in ToolContainerBlock</p>
-                            <div className="mt-2">
-                                {editedConfig.tools && editedConfig.tools.length > 0 ? (
-                                    <p>{editedConfig.tools.length} tools configured</p>
-                                ) : (
-                                    <p>No tools configured</p>
+                        <div className="space-y-2">
+                            <Label className="text-xs font-medium">Available Tools ({(editedConfig.tools || []).length})</Label>
+                            <div className="space-y-2 max-h-32 overflow-y-auto">
+                                {(editedConfig.tools || []).map((tool, index) => (
+                                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
+                                        <div>
+                                            <div className="font-medium">{tool.name}</div>
+                                            <div className="text-gray-500">{tool.description}</div>
+                                        </div>
+                                        <Badge variant="secondary" className="text-xs">Active</Badge>
+                                    </div>
+                                ))}
+                                {(!editedConfig.tools || editedConfig.tools.length === 0) && (
+                                    <div className="text-center py-4 text-xs text-gray-500">
+                                        No tools configured
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -403,43 +384,41 @@ export function AgentConfigurationBlock({
 
                     {/* Plugins Configuration */}
                     <TabsContent value="plugins" className="space-y-3 mt-3">
-                        <div className="text-center py-4 text-xs text-gray-500">
-                            <Puzzle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                            <p>Plugins configuration will be implemented in PluginContainerBlock</p>
-                            <div className="mt-2">
-                                {editedConfig.plugins && editedConfig.plugins.length > 0 ? (
-                                    <p>{editedConfig.plugins.length} plugins configured</p>
-                                ) : (
-                                    <p>No plugins configured</p>
+                        <div className="space-y-2">
+                            <Label className="text-xs font-medium">Active Plugins ({(editedConfig.plugins || []).length})</Label>
+                            <div className="space-y-2 max-h-32 overflow-y-auto">
+                                {(editedConfig.plugins || []).map((plugin, index) => (
+                                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
+                                        <div>
+                                            <div className="font-medium">{plugin.constructor.name}</div>
+                                            <div className="text-gray-500">Plugin configuration</div>
+                                        </div>
+                                        <Badge variant="secondary" className="text-xs">Enabled</Badge>
+                                    </div>
+                                ))}
+                                {(!editedConfig.plugins || editedConfig.plugins.length === 0) && (
+                                    <div className="text-center py-4 text-xs text-gray-500">
+                                        No plugins configured
+                                    </div>
                                 )}
                             </div>
                         </div>
                     </TabsContent>
 
-                    {/* Advanced Settings */}
+                    {/* Settings Configuration */}
                     <TabsContent value="settings" className="space-y-3 mt-3">
                         <div className="space-y-3">
+                            {/* Name */}
                             <div className="space-y-1">
-                                <Label className="text-xs">Agent ID</Label>
+                                <Label className="text-xs font-medium">Agent Name</Label>
                                 <Input
-                                    value={editedConfig.id || ''}
-                                    onChange={(e) => handleConfigUpdate({ id: e.target.value })}
-                                    placeholder="Auto-generated if empty"
+                                    value={editedConfig.name}
+                                    onChange={(e) => handleConfigUpdate({ name: e.target.value })}
+                                    placeholder="Agent Name"
                                     className="h-8 text-xs"
-                                    disabled={!isEditing}
+                                    disabled={isExecuting}
                                 />
                             </div>
-
-                            {editedConfig.metadata && (
-                                <div className="space-y-1">
-                                    <Label className="text-xs">Metadata</Label>
-                                    <div className="p-2 bg-gray-50 rounded text-xs">
-                                        <pre className="whitespace-pre-wrap text-gray-600">
-                                            {JSON.stringify(editedConfig.metadata, null, 2)}
-                                        </pre>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </TabsContent>
                 </Tabs>

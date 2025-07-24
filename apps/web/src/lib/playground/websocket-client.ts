@@ -55,6 +55,10 @@ export class PlaygroundWebSocketClient {
                 const wsUrl = this.serverUrl.replace(/^http/, 'ws') + '/ws/playground';
                 this.ws = new WebSocket(wsUrl);
 
+                // Store resolve/reject for authentication completion
+                const connectionResolve = resolve;
+                const connectionReject = reject;
+
                 this.ws.onopen = () => {
                     this.status.connected = true;
                     this.status.error = undefined;
@@ -66,11 +70,25 @@ export class PlaygroundWebSocketClient {
                     // Authenticate if credentials are available
                     if (this.userId && this.sessionId && this.authToken) {
                         this.authenticate();
+                        // Don't resolve yet - wait for authentication
+
+                        // Set up one-time authentication handler
+                        const authHandler = (event: any) => {
+                            if (event.data.success) {
+                                this.off('authenticated', authHandler);
+                                connectionResolve(true);
+                            } else {
+                                this.off('authenticated', authHandler);
+                                connectionReject(new Error(event.data.error || 'Authentication failed'));
+                            }
+                        };
+                        this.on('authenticated', authHandler);
+                    } else {
+                        // No authentication needed
+                        connectionResolve(true);
                     }
 
-                    console.log('🔌 Playground WebSocket connected');
                     this.emit('connection', { connected: true });
-                    resolve(true);
                 };
 
                 this.ws.onmessage = (event) => {
@@ -138,14 +156,16 @@ export class PlaygroundWebSocketClient {
             return;
         }
 
-        this.sendMessage({
+        const authData: Omit<PlaygroundWebSocketMessage, "timestamp"> = {
             type: 'auth',
             data: {
                 userId: this.userId,
                 sessionId: this.sessionId,
                 token: this.authToken
             }
-        });
+        };
+
+        this.sendMessage(authData);
     }
 
     /**
@@ -248,7 +268,12 @@ export class PlaygroundWebSocketClient {
     }
 
     private handleAuthResponse(message: PlaygroundWebSocketMessage): void {
-        const { success, error, userId, sessionId, clientId } = message.data || {};
+        const { success, error, userId, sessionId, clientId, message: welcomeMessage } = message.data || {};
+
+        // Check if this is a welcome message (not an auth response)
+        if (welcomeMessage && !('success' in (message.data || {}))) {
+            return; // Just ignore welcome messages
+        }
 
         if (success) {
             this.status.authenticated = true;

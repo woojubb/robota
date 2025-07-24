@@ -130,6 +130,9 @@ importers:
       eslint:
         specifier: ^8.55.0
         version: 8.57.1
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.0(tsx@4.20.3)(typescript@5.8.3)
       tsx:
         specifier: ^4.6.0
         version: 4.20.3
@@ -418,7 +421,7 @@ importers:
         version: 5.0.10
       tsup:
         specifier: ^8.0.1
-        version: 8.5.0(typescript@5.8.3)
+        version: 8.5.0(tsx@4.20.3)(typescript@5.8.3)
       typescript:
         specifier: ^5.3.3
         version: 5.8.3
@@ -449,7 +452,7 @@ importers:
         version: 5.0.10
       tsup:
         specifier: ^8.0.1
-        version: 8.5.0(typescript@5.8.3)
+        version: 8.5.0(tsx@4.20.3)(typescript@5.8.3)
       typescript:
         specifier: ^5.3.3
         version: 5.8.3
@@ -480,7 +483,7 @@ importers:
         version: 5.0.10
       tsup:
         specifier: ^8.0.1
-        version: 8.5.0(typescript@5.8.3)
+        version: 8.5.0(tsx@4.20.3)(typescript@5.8.3)
       typescript:
         specifier: ^5.3.3
         version: 5.8.3
@@ -511,7 +514,7 @@ importers:
         version: 5.0.10
       tsup:
         specifier: ^8.0.1
-        version: 8.5.0(typescript@5.8.3)
+        version: 8.5.0(tsx@4.20.3)(typescript@5.8.3)
       typescript:
         specifier: ^5.3.3
         version: 5.8.3
@@ -548,7 +551,7 @@ importers:
         version: 8.57.1
       tsup:
         specifier: ^8.0.0
-        version: 8.5.0(typescript@5.8.3)
+        version: 8.5.0(tsx@4.20.3)(typescript@5.8.3)
       typescript:
         specifier: ^5.0.0
         version: 5.8.3
@@ -570,7 +573,7 @@ importers:
         version: 5.0.10
       tsup:
         specifier: ^8.0.1
-        version: 8.5.0(typescript@5.8.3)
+        version: 8.5.0(tsx@4.20.3)(typescript@5.8.3)
       typescript:
         specifier: ^5.3.3
         version: 5.8.3
@@ -601,7 +604,7 @@ importers:
         version: 5.0.10
       tsup:
         specifier: ^8.0.1
-        version: 8.5.0(typescript@5.8.3)
+        version: 8.5.0(tsx@4.20.3)(typescript@5.8.3)
       typescript:
         specifier: ^5.3.3
         version: 5.8.3
@@ -12474,7 +12477,7 @@ packages:
     engines: {node: '>= 0.4'}
     dev: true
 
-  /postcss-load-config@6.0.1:
+  /postcss-load-config@6.0.1(tsx@4.20.3):
     resolution: {integrity: sha512-oPtTM4oerL+UXmx+93ytZVN82RrlY/wPUV8IeDxFrzIjXOLF1pN+EmKPLbubvKHT2HC20xXsCAH2Z+CKV6Oz/g==}
     engines: {node: '>= 18'}
     peerDependencies:
@@ -12493,6 +12496,7 @@ packages:
         optional: true
     dependencies:
       lilconfig: 3.1.3
+      tsx: 4.20.3
     dev: true
 
   /postcss@8.4.31:
@@ -14095,7 +14099,7 @@ packages:
   /tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
-  /tsup@8.5.0(typescript@5.8.3):
+  /tsup@8.5.0(tsx@4.20.3)(typescript@5.8.3):
     resolution: {integrity: sha512-VmBp77lWNQq6PfuMqCHD3xWl22vEoWsKajkF8t+yMBawlUS8JzEI+vOVMeuNZIuMML8qXRizFKi9oD5glKQVcQ==}
     engines: {node: '>=18'}
     hasBin: true
@@ -14123,7 +14127,7 @@ packages:
       fix-dts-default-cjs-exports: 1.0.1
       joycon: 3.1.1
       picocolors: 1.1.1
-      postcss-load-config: 6.0.1
+      postcss-load-config: 6.0.1(tsx@4.20.3)
       resolve-from: 5.0.0
       rollup: 4.45.1
       source-map: 0.8.0-beta.0

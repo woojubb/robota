@@ -156,7 +156,8 @@ export class PlaygroundWebSocketServer {
                 success: true,
                 message: 'Authentication successful',
                 userId,
-                sessionId
+                sessionId,
+                clientId
             }
         });
 

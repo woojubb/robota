@@ -1,11 +1,5 @@
 /**
- * Remote System - Server Build
- * 
- * Server-side exports with Node.js dependencies
+ * Server entry point for @robota-sdk/remote
  */
 
-// Re-export everything from main index
-export * from './index';
-
-// Server-specific exports
 export { RemoteServer } from './server/remote-server'; 
