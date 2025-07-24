@@ -13,6 +13,9 @@
  */
 
 import { PlaygroundHistoryPlugin, type PlaygroundVisualizationData, type ConversationEvent } from './plugins/playground-history-plugin';
+
+// Re-export types for external use
+export type { PlaygroundVisualizationData, ConversationEvent } from './plugins/playground-history-plugin';
 import { PlaygroundWebSocketClient } from './websocket-client';
 
 // Robota SDK-compatible type definitions for browser environment
@@ -361,7 +364,7 @@ export class PlaygroundExecutor {
     /**
      * Get plugin statistics (internal helper)
      */
-    private getVisualizationData(): PlaygroundVisualizationData {
+    getVisualizationData(): PlaygroundVisualizationData {
         return this.historyPlugin.getVisualizationData();
     }
 
