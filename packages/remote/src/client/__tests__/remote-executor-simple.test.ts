@@ -13,6 +13,7 @@ import type { BasicMessage } from '../../types/message-types';
 const mockHttpClient = {
     post: vi.fn(),
     get: vi.fn(),
+    chat: vi.fn(),
     validateConfig: vi.fn().mockReturnValue(true)
 };
 
@@ -249,7 +250,7 @@ describe('SimpleRemoteExecutor Facade', () => {
             const stream = executor.executeChatStream(invalidRequest);
 
             await expect(async () => {
-                for await (const chunk of stream) {
+                for await (const _chunk of stream) {
                     // This should throw before yielding any chunks
                 }
             }).rejects.toThrow('Messages array is required and cannot be empty');

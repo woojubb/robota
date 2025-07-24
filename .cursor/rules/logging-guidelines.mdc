@@ -1,0 +1,226 @@
+---
+alwaysApply: true
+---
+
+# Robota SDK Logging Guidelines
+
+## 🚫 Prohibition of Direct Console Usage
+
+**NEVER use `console.*` methods directly in production code**. The Robota SDK implements a sophisticated dependency injection logging system designed for various environments including:
+
+- **Server environments** where stdout/stderr may be restricted
+- **Browser environments** with different console capabilities  
+- **Container/Docker environments** with specific logging requirements
+- **Testing environments** where console output should be controlled
+
+## 🔧 Required Logging Pattern: Dependency Injection
+
+### Core Principle
+All components MUST receive their logger via constructor injection, never through global state or direct console calls.
+
+### SimpleLogger Interface Usage
+
+```typescript
+import { SimpleLogger, SilentLogger, DefaultConsoleLogger } from '@robota-sdk/agents';
+
+// ✅ CORRECT: Constructor injection pattern
+class MyService {
+  private readonly logger: SimpleLogger;
+
+  constructor(logger?: SimpleLogger) {
+    this.logger = logger || SilentLogger; // Silent by default
+  }
+
+  async processData() {
+    this.logger.info('Processing started');
+    this.logger.debug('Debug information', { details: 'extra context' });
+  }
+}
+
+// ❌ INCORRECT: Direct console usage
+class BadService {
+  async processData() {
+    console.log('Processing started'); // PROHIBITED
+    console.error('Error occurred');   // PROHIBITED
+  }
+}
+```
+
+## 📦 Environment-Specific Logger Implementations
+
+### 1. SilentLogger (Default - Production Safe)
+```typescript
+// Default for production environments
+const service = new MyService(); // Uses SilentLogger automatically
+```
+
+### 2. DefaultConsoleLogger (Development)
+```typescript
+import { DefaultConsoleLogger } from '@robota-sdk/agents';
+
+// Explicit console output for development
+const service = new MyService(DefaultConsoleLogger);
+```
+
+### 3. StderrLogger (Special Environments)
+```typescript
+import { StderrLogger } from '@robota-sdk/agents';
+
+// For environments requiring stderr-only output
+const service = new MyService(StderrLogger);
+```
+
+### 4. Custom Logger Implementation
+```typescript
+const customLogger: SimpleLogger = {
+  debug: () => {}, // Silent debug
+  info: (msg) => writeToDatabase('info', msg),
+  warn: (msg) => writeToDatabase('warn', msg),
+  error: (msg) => writeToDatabase('error', msg),
+  log: (msg) => writeToDatabase('log', msg)
+};
+
+const service = new MyService(customLogger);
+```
+
+## 🏗️ Architecture Examples from Robota SDK
+
+### Provider Pattern (OpenAI Reference)
+```typescript
+// From packages/openai/src/provider.ts
+export class OpenAIProvider extends BaseAIProvider {
+  private readonly logger: SimpleLogger;
+
+  constructor(options: OpenAIProviderOptions) {
+    super();
+    this.logger = options.logger || SilentLogger; // ✅ Injected dependency
+  }
+
+  async chat() {
+    this.logger.debug('Starting OpenAI chat request');
+    // Never: console.log('Starting request') ❌
+  }
+}
+```
+
+### Payload Logger Pattern
+```typescript
+// From packages/openai/src/loggers/console-payload-logger.ts
+export class ConsolePayloadLogger implements PayloadLogger {
+  private readonly logger: SimpleLogger;
+
+  constructor(options: PayloadLoggerOptions = {}) {
+    this.logger = options.logger || DefaultConsoleLogger; // ✅ Injected
+  }
+
+  async logPayload(payload: OpenAILogData) {
+    this.logger.info('📋 Request Details:', payload); // ✅ Through SimpleLogger
+    // Never: console.log(payload) ❌
+  }
+}
+```
+
+## 🚨 Enforcement Rules
+
+### 1. ESLint Configuration Errors and Solutions
+
+When ESLint detects violations, you'll see these errors:
+
+#### Console Usage Error
+```
+error  Unexpected console statement  no-console
+```
+
+**Solution**: Replace with SimpleLogger dependency injection:
+```typescript
+// ❌ Before
+console.log('Processing...');
+
+// ✅ After
+constructor(private logger: SimpleLogger = SilentLogger) {}
+this.logger.info('Processing...');
+```
+
+#### Any Type Error
+```
+error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+```
+
+**Solution**: Use specific types from `@robota-sdk/agents`:
+```typescript
+// ❌ Before
+function process(data: any): any
+
+// ✅ After
+import { UniversalMessage, ChatOptions } from '@robota-sdk/agents';
+function process(data: UniversalMessage): UniversalMessage
+```
+
+#### Unknown Type Error
+```
+error  Don't use `unknown` as a type. ❌ PROHIBITED: Use of 'unknown' type...
+```
+
+**Solution**: Import specific types or define explicit interfaces:
+```typescript
+// ❌ Before
+function handle(payload: unknown): unknown
+
+// ✅ After
+import { UniversalMessage } from '@robota-sdk/agents';
+function handle(payload: UniversalMessage): UniversalMessage
+```
+
+### 2. Code Review Checklist
+- [ ] No direct `console.*` calls in production code
+- [ ] All classes accept `logger?: SimpleLogger` in constructor
+- [ ] Default to `SilentLogger` when no logger provided
+- [ ] Use structured logging with context objects
+- [ ] Import specific types from `@robota-sdk/agents`
+- [ ] No `any` or `unknown` types in production code
+
+### 3. Exceptions (Limited)
+- **Test files**: Console usage allowed (warning level) for test output
+- **Example files**: Console usage allowed for demonstration
+- **Logger implementations**: Internal console wrapping only in [packages/agents/src/utils/simple-logger.ts](mdc:packages/agents/src/utils/simple-logger.ts)
+
+## 🎯 Benefits of This Approach
+
+1. **Environment Flexibility**: Same code works in browsers, Node.js, and special environments
+2. **Zero Configuration**: Silent by default, explicit when needed  
+3. **Testing Friendly**: Easy to mock and verify logging behavior
+4. **Performance**: No overhead when logging is disabled
+5. **Security**: No accidental sensitive data exposure through console
+
+## ⚠️ Migration from console.*
+
+If you find existing `console.*` usage, migrate it immediately:
+
+```typescript
+// ❌ Before
+class OldService {
+  process() {
+    console.log('Processing...');
+    console.error('Error:', error);
+  }
+}
+
+// ✅ After  
+class NewService {
+  constructor(private logger: SimpleLogger = SilentLogger) {}
+  
+  process() {
+    this.logger.info('Processing...');
+    this.logger.error('Error:', error);
+  }
+}
+```
+
+## 📚 References
+
+- [SimpleLogger Interface]([packages/agents/src/utils/simple-logger.ts](mdc:packages/agents/src/utils/simple-logger.ts))
+- [OpenAI Provider Implementation]([packages/openai/src/provider.ts](mdc:packages/openai/src/provider.ts))  
+- [Architecture Principles]([.cursor/rules/architecture-principles.mdc](mdc:.cursor/rules/architecture-principles.mdc))
+- [Logging Plugin System]([packages/agents/src/plugins/logging/logging-plugin.ts](mdc:packages/agents/src/plugins/logging/logging-plugin.ts))
+
+**Remember: If it needs to output something, inject a logger. Never assume console availability.**

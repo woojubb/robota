@@ -16,7 +16,7 @@ import {
     safeJsonParse
 } from '../transformers';
 // Type guard removed - using proper TypeScript types
-import type { BasicMessage, ResponseMessage } from '../../types/message-types';
+import type { BasicMessage } from '../../types/message-types';
 
 describe('Transformers Pure Functions', () => {
     describe('toRequestMessage', () => {
