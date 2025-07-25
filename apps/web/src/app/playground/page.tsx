@@ -11,7 +11,7 @@
  * - Tool and Plugin management
  */
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -207,7 +207,7 @@ function ConfigurationPanel() {
 }
 
 // Chat Interface Component
-function ChatInterfacePanel() {
+function ChatInterfacePanel({ blockTracking }: { blockTracking: any }) {
     const { state } = usePlayground();
     const { executePrompt, executeStreamPrompt, isExecuting, lastResult } = useRobotaExecution();
     const { conversationEvents } = usePlaygroundData();
@@ -223,20 +223,77 @@ function ChatInterfacePanel() {
     } = useChatInput();
 
     const [useStreaming, setUseStreaming] = useState(true);
+    const lastResultRef = useRef(lastResult);
+
+    // Monitor lastResult changes and create assistant blocks
+    useEffect(() => {
+        if (lastResult && lastResult !== lastResultRef.current && lastResult.response) {
+            if (blockTracking?.blockCollector) {
+                const assistantBlock = blockTracking.blockCollector.createGroupBlock(
+                    'assistant',
+                    lastResult.response,
+                    undefined,
+                    0
+                );
+
+                blockTracking.blockCollector.updateBlock(assistantBlock.blockMetadata.id, {
+                    visualState: 'completed'
+                });
+
+                console.log('Assistant response block created:', assistantBlock.blockMetadata.id);
+            }
+        }
+        lastResultRef.current = lastResult;
+    }, [lastResult, blockTracking]);
 
     const handleSendMessage = useCallback(async () => {
         if (!canSend) return;
 
+        const messageText = inputState.value.trim();
+        if (!messageText) return;
+
+        // Create user message block
+        let userBlockId: string | undefined;
+        if (blockTracking?.blockCollector) {
+            const userBlock = blockTracking.blockCollector.createGroupBlock(
+                'user',
+                messageText,
+                undefined,
+                0
+            );
+            userBlockId = userBlock.blockMetadata.id;
+            console.log('User message block created:', userBlockId);
+        }
+
         try {
+            let result: any;
             if (useStreaming) {
-                await sendStreamingMessage();
+                result = await sendStreamingMessage();
             } else {
-                await sendMessage();
+                result = await sendMessage();
             }
+
+            // Assistant response block will be created by useEffect when lastResult updates
+
         } catch (error) {
             console.error('Failed to send message:', error);
+
+            // Create error block if message sending fails
+            if (blockTracking?.blockCollector) {
+                const errorBlock = blockTracking.blockCollector.createGroupBlock(
+                    'group',
+                    `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                    undefined,
+                    0
+                );
+
+                blockTracking.blockCollector.updateBlock(errorBlock.blockMetadata.id, {
+                    visualState: 'error',
+                    type: 'error'
+                });
+            }
         }
-    }, [canSend, useStreaming, sendStreamingMessage, sendMessage]);
+    }, [canSend, inputState.value, useStreaming, sendStreamingMessage, sendMessage, blockTracking, lastResult]);
 
     const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -498,6 +555,63 @@ function PlaygroundContent() {
     // Memoize sessionId to prevent re-initialization
     const sessionId = useMemo(() => `session-${Date.now()}`, []);
 
+    // Test function to manually add blocks
+    const handleTestBlocks = useCallback(() => {
+        const { blockCollector } = blockTracking;
+
+        // Create a user message block
+        const userBlock = blockCollector.createGroupBlock(
+            'user',
+            '테스트 사용자 메시지',
+            undefined,
+            0
+        );
+
+        // Create an assistant response block
+        const assistantBlock = blockCollector.createGroupBlock(
+            'assistant',
+            '테스트 어시스턴트 응답',
+            userBlock.blockMetadata.id,
+            1
+        );
+
+        // Create a tool call block
+        const toolCallBlock = blockCollector.createGroupBlock(
+            'tool_call',
+            'weather_tool 호출',
+            assistantBlock.blockMetadata.id,
+            2
+        );
+
+        // Update tool call with parameters
+        blockCollector.updateBlock(toolCallBlock.blockMetadata.id, {
+            visualState: 'completed',
+            renderData: {
+                parameters: { city: '서울', unit: 'celsius' }
+            }
+        });
+
+        // Create tool result block
+        const resultBlock = blockCollector.createGroupBlock(
+            'group',
+            '서울 온도: 25°C, 맑음',
+            toolCallBlock.blockMetadata.id,
+            3
+        );
+
+        blockCollector.updateBlock(resultBlock.blockMetadata.id, {
+            visualState: 'completed',
+            type: 'tool_result'
+        });
+
+        console.log('테스트 블록 추가됨:', {
+            userBlock: userBlock.blockMetadata.id,
+            assistantBlock: assistantBlock.blockMetadata.id,
+            toolCallBlock: toolCallBlock.blockMetadata.id,
+            resultBlock: resultBlock.blockMetadata.id
+        });
+    }, [blockTracking]);
+
     // Initialize on mount
     useEffect(() => {
         initializeExecutor({
@@ -527,6 +641,14 @@ function PlaygroundContent() {
                             <Puzzle className="h-3 w-3 mr-1" />
                             Block Coding
                         </Badge>
+                        <Button
+                            onClick={handleTestBlocks}
+                            size="sm"
+                            className="flex items-center gap-1"
+                        >
+                            <Play className="h-3 w-3" />
+                            Test Blocks
+                        </Button>
                     </div>
                 </div>
 
@@ -539,7 +661,7 @@ function PlaygroundContent() {
 
                     {/* Middle Panel - Chat Interface */}
                     <div className="lg:col-span-1">
-                        <ChatInterfacePanel />
+                        <ChatInterfacePanel blockTracking={blockTracking} />
                     </div>
 
                     {/* Right Panel - Status and Monitoring */}
