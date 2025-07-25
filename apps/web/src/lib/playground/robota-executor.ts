@@ -12,14 +12,16 @@
  * - Single Responsibility: Agent/Team execution only
  */
 
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
+import { AnthropicProvider } from '@robota-sdk/anthropic';
+import { createTeam, type TeamOptions } from '@robota-sdk/team';
 import { PlaygroundHistoryPlugin, type PlaygroundVisualizationData, type ConversationEvent } from './plugins/playground-history-plugin';
 
 // Re-export types for external use
 export type { PlaygroundVisualizationData, ConversationEvent } from './plugins/playground-history-plugin';
 import { PlaygroundWebSocketClient } from './websocket-client';
-
-// Import actual Robota Team library
-import { createTeam, type TeamOptions } from '@robota-sdk/team';
+import { RemoteExecutor } from '@robota-sdk/remote';
 
 // Robota SDK-compatible type definitions for browser environment
 // These mirror the actual types from @robota-sdk/agents but are browser-safe
@@ -122,45 +124,39 @@ export type PlaygroundMode = 'agent' | 'team';
  * Follows Facade Pattern - simple interface with essential methods only
  */
 export class PlaygroundExecutor {
-    private mode: PlaygroundMode = 'agent';
-    private currentAgent: PlaygroundRobotaInstance | null = null;
+    private isInitialized = false;
+    private mode: 'agent' | 'team' | null = null;
+    private currentAgent: Robota | null = null;
     private currentTeam: PlaygroundTeamInstance | null = null;
     private historyPlugin: PlaygroundHistoryPlugin;
     private websocketClient: PlaygroundWebSocketClient | null = null;
-    private isInitialized = false;
 
     constructor(
         private serverUrl: string,
-        private userId?: string,
-        private sessionId?: string,
-        private authToken?: string
+        private authToken: string
     ) {
-        // Initialize history plugin with WebSocket support
+        // Create playground history plugin for visualization
         this.historyPlugin = new PlaygroundHistoryPlugin({
-            websocketUrl: serverUrl,
+            maxEvents: 1000,
+            visualizationMode: 'blocks',
             enableRealTimeSync: true,
-            maxEvents: 1000
+            websocketUrl: this.serverUrl
         });
     }
 
     /**
-     * Initialize the executor (Facade method)
+     * Initialize the executor
      */
     async initialize(): Promise<void> {
         if (this.isInitialized) return;
 
         try {
+            // Initialize history plugin
             await this.historyPlugin.initialize();
 
-            if (this.userId && this.sessionId && this.authToken) {
-                this.websocketClient = new PlaygroundWebSocketClient(
-                    this.serverUrl,
-                    this.userId,
-                    this.sessionId,
-                    this.authToken
-                );
-                await this.websocketClient.connect();
-            }
+            // Initialize WebSocket connection for real-time features
+            this.websocketClient = new PlaygroundWebSocketClient(this.serverUrl, this.authToken);
+            await this.websocketClient.connect();
 
             this.isInitialized = true;
         } catch (error) {
@@ -169,22 +165,63 @@ export class PlaygroundExecutor {
     }
 
     /**
-     * Create and configure a single agent (Facade method)
+     * Create a SimpleRemoteExecutor for browser-based remote execution
+     */
+    private createRemoteExecutor(): any {
+        if (!this.serverUrl || !this.authToken) {
+            throw new Error('Server URL and auth token required for remote executor');
+        }
+
+        // Convert WebSocket URL to HTTP URL for API calls and add remote API path
+        const apiUrl = this.serverUrl.replace(/\/ws$/, '').replace(/^ws/, 'http') + '/api/v1/remote';
+
+        return new RemoteExecutor({
+            serverUrl: apiUrl,
+            userApiKey: this.authToken,
+            timeout: 30000,
+            enableWebSocket: false // We handle WebSocket separately for playground features
+        });
+    }
+
+    /**
+     * Create AI providers with remote executor injection
+     */
+    private createProvidersWithExecutor(): any[] {
+        const remoteExecutor = this.createRemoteExecutor();
+
+        // Create actual providers with executor injection
+        const openaiProvider = new OpenAIProvider({
+            executor: remoteExecutor
+            // No API key needed - executor handles remote calls
+        });
+
+        const anthropicProvider = new AnthropicProvider({
+            executor: remoteExecutor
+            // No API key needed - executor handles remote calls
+        });
+
+        return [openaiProvider, anthropicProvider];
+    }
+
+    /**
+     * Create and configure an agent (Facade method)
      */
     async createAgent(config: PlaygroundAgentConfig): Promise<void> {
         if (!this.isInitialized) {
             await this.initialize();
         }
 
-        const remoteProvider = await this.createRemoteProvider();
+        // Create AI providers with remote executor
+        const aiProviders = this.createProvidersWithExecutor();
 
-        this.currentAgent = new PlaygroundRobotaInstance({
-            ...config,
-            aiProviders: [remoteProvider],
-            plugins: [this.historyPlugin, ...(config.plugins || [])]
+        // Create actual Robota agent with proper configuration
+        this.currentAgent = new Robota({
+            name: config.name,
+            aiProviders: aiProviders as any,
+            defaultModel: config.defaultModel,
+            plugins: [this.historyPlugin as any],
+            tools: (config.tools || []) as any
         });
-
-        await this.currentAgent.initialize();
 
         this.setMode('agent');
     }
@@ -197,11 +234,10 @@ export class PlaygroundExecutor {
             await this.initialize();
         }
 
-        // Create AI providers for the team (not agent instances)
-        const remoteProvider = await this.createRemoteProvider();
-        const aiProviders: AIProvider[] = [remoteProvider];
+        // Create AI providers with remote executor for the team
+        const aiProviders = this.createProvidersWithExecutor();
 
-        // Create team instance with AI providers, not agent instances
+        // Create team instance with real AI providers
         this.currentTeam = new PlaygroundTeamInstance(config, aiProviders, this.historyPlugin);
         await this.currentTeam.initialize();
 
@@ -223,9 +259,7 @@ export class PlaygroundExecutor {
             let toolsExecuted: string[] = [];
 
             if (this.mode === 'agent' && this.currentAgent) {
-                const result = await this.currentAgent.run(prompt);
-                response = result.response;
-                toolsExecuted = result.toolsExecuted || [];
+                response = await this.currentAgent.run(prompt);
 
             } else if (this.mode === 'team' && this.currentTeam) {
                 const result = await this.currentTeam.execute(prompt);
@@ -315,7 +349,7 @@ export class PlaygroundExecutor {
     async dispose(): Promise<void> {
         try {
             if (this.currentAgent) {
-                await this.currentAgent.dispose();
+                await this.currentAgent.destroy();
                 this.currentAgent = null;
             }
 
@@ -324,13 +358,14 @@ export class PlaygroundExecutor {
                 this.currentTeam = null;
             }
 
-            await this.historyPlugin.dispose();
-
             if (this.websocketClient) {
                 this.websocketClient.disconnect();
                 this.websocketClient = null;
             }
 
+            await this.historyPlugin.dispose();
+
+            this.mode = null;
             this.isInitialized = false;
 
         } catch (error) {
@@ -373,479 +408,16 @@ export class PlaygroundExecutor {
      * Update authentication (internal configuration)
      */
     private updateAuth(userId: string, sessionId: string, authToken: string): void {
-        this.userId = userId;
-        this.sessionId = sessionId;
-        this.authToken = authToken;
-
-        if (this.websocketClient) {
-            this.websocketClient.updateAuth(userId, sessionId, authToken);
-        }
-    }
-
-    /**
- * Create Robota SDK compatible remote provider
- * 
- * This implementation follows the exact same interface as @robota-sdk/remote
- * and can be easily replaced with actual RemoteExecutor when available.
- */
-    private async createRemoteProvider(): Promise<AIProvider> {
-        const serverUrl = this.serverUrl;
-        const authToken = this.authToken;
-
-        return {
-            name: 'remote',
-            version: '1.0.0',
-
-            /**
-             * Chat method compatible with @robota-sdk/agents AIProvider interface
-             */
-            async chat(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage> {
-                try {
-                    // Convert WebSocket URL to HTTP URL for API calls
-                    const apiUrl = serverUrl.replace(/^ws/, 'http').replace(/\/ws\/playground$/, '');
-
-                    // Helper function to get provider from model
-                    const getProviderFromModel = (model: string): string => {
-                        if (model.startsWith('gpt-') || model.includes('openai')) {
-                            return 'openai';
-                        } else if (model.startsWith('claude-') || model.includes('anthropic')) {
-                            return 'anthropic';
-                        } else if (model.startsWith('gemini-') || model.includes('google')) {
-                            return 'google';
-                        } else if (model.includes('/')) {
-                            return model.split('/')[0]; // Format like "openai/gpt-4"
-                        } else {
-                            return 'openai'; // Default fallback
-                        }
-                    };
-
-                    const modelName = options?.model || 'gpt-4';
-                    const providerName = getProviderFromModel(modelName);
-
-                    const requestBody = {
-                        messages: messages.map(msg => ({
-                            role: msg.role,
-                            content: msg.content,
-                            ...(msg.toolCalls && { toolCalls: msg.toolCalls })
-                        })),
-                        provider: providerName,
-                        model: modelName,
-                        temperature: options?.temperature,
-                        maxTokens: options?.maxTokens,
-                        tools: options?.tools
-                    };
-
-                    const response = await fetch(`${apiUrl}/api/v1/remote/chat`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${authToken}`,
-                            'User-Agent': 'robota-playground/1.0.0'
-                        },
-                        body: JSON.stringify(requestBody)
-                    });
-
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`Remote execution failed (${response.status}): ${errorText}`);
-                    }
-
-                    const data = await response.json();
-
-                    // Handle the actual response structure: { success, data: { content, ... }, ... }
-                    const responseData = data.data || data;
-
-                    return {
-                        role: 'assistant',
-                        content: responseData.content || responseData.message || data.content || data.message || '',
-                        timestamp: new Date(),
-                        ...(responseData.toolCalls && { toolCalls: responseData.toolCalls }),
-                        metadata: {
-                            provider: data.provider || responseData.provider,
-                            model: data.model || responseData.model,
-                            tokensUsed: data.tokensUsed || responseData.tokensUsed,
-                            duration: data.duration || responseData.duration
-                        }
-                    };
-                } catch (error) {
-                    throw new Error(`Remote chat execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                }
-            },
-
-            /**
-             * Stream chat method compatible with @robota-sdk/agents AIProvider interface
-             */
-            async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
-                try {
-                    // Convert WebSocket URL to HTTP URL for API calls
-                    const apiUrl = serverUrl.replace(/^ws/, 'http').replace(/\/ws\/playground$/, '');
-
-                    // Helper function to get provider from model
-                    const getProviderFromModel = (model: string): string => {
-                        if (model.startsWith('gpt-') || model.includes('openai')) {
-                            return 'openai';
-                        } else if (model.startsWith('claude-') || model.includes('anthropic')) {
-                            return 'anthropic';
-                        } else if (model.startsWith('gemini-') || model.includes('google')) {
-                            return 'google';
-                        } else if (model.includes('/')) {
-                            return model.split('/')[0]; // Format like "openai/gpt-4"
-                        } else {
-                            return 'openai'; // Default fallback
-                        }
-                    };
-
-                    const modelName = options?.model || 'gpt-4';
-                    const providerName = getProviderFromModel(modelName);
-
-                    const requestBody = {
-                        messages: messages.map(msg => ({
-                            role: msg.role,
-                            content: msg.content,
-                            ...(msg.toolCalls && { toolCalls: msg.toolCalls })
-                        })),
-                        provider: providerName,
-                        model: modelName,
-                        temperature: options?.temperature,
-                        maxTokens: options?.maxTokens,
-                        tools: options?.tools,
-                        stream: true
-                    };
-
-                    const response = await fetch(`${apiUrl}/api/v1/remote/stream`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${authToken}`,
-                            'Accept': 'text/event-stream',
-                            'User-Agent': 'robota-playground/1.0.0'
-                        },
-                        body: JSON.stringify(requestBody)
-                    });
-
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error('Streaming request failed:', {
-                            status: response.status,
-                            statusText: response.statusText,
-                            errorText,
-                            url: `${apiUrl}/api/v1/remote/stream`
-                        });
-                        throw new Error(`Remote streaming failed (${response.status}): ${errorText}`);
-                    }
-
-                    const reader = response.body?.getReader();
-                    const decoder = new TextDecoder();
-
-                    if (!reader) {
-                        throw new Error('Response body is not readable');
-                    }
-
-                    try {
-                        let buffer = '';
-
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-
-                            buffer += decoder.decode(value, { stream: true });
-                            const lines = buffer.split('\n');
-
-                            // Keep the last incomplete line in buffer
-                            buffer = lines.pop() || '';
-
-                            for (const line of lines) {
-                                if (line.trim() === '') continue;
-
-                                if (line.startsWith('data: ')) {
-                                    const data = line.slice(6).trim();
-
-                                    if (data === '[DONE]') {
-                                        return;
-                                    }
-
-                                    try {
-                                        const parsed = JSON.parse(data);
-
-                                        // Handle the actual response structure: { success, data: { content, ... }, ... }
-                                        const responseData = parsed.data || parsed;
-                                        const content = responseData.content;
-
-                                        if (content !== undefined && content !== null) {
-                                            const message: UniversalMessage = {
-                                                role: 'assistant' as const,
-                                                content: content,
-                                                timestamp: new Date(),
-                                                metadata: {
-                                                    provider: parsed.provider || responseData.provider,
-                                                    model: parsed.model || responseData.model,
-                                                    chunk: true,
-                                                    isComplete: responseData.metadata?.isComplete || false
-                                                }
-                                            };
-                                            yield message;
-                                        }
-                                    } catch (e) {
-                                        console.warn('Failed to parse SSE data:', data, e);
-                                        // Skip invalid JSON chunks
-                                        continue;
-                                    }
-                                }
-                            }
-                        }
-                    } finally {
-                        reader.releaseLock();
-                    }
-                } catch (error) {
-                    throw new Error(`Remote stream execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                }
-            },
-
-            supportsTools(): boolean {
-                return true;
-            },
-
-            validateConfig(): boolean {
-                return Boolean(serverUrl && authToken);
-            },
-
-            async dispose(): Promise<void> {
-                // No cleanup needed for HTTP-based remote provider
-                // WebSocket connections are handled separately by PlaygroundWebSocketClient
-            }
-        };
-    }
-}
-
-/**
- * PlaygroundRobotaInstance - Robota SDK compatible agent implementation for browser
- * 
- * This class follows the same interface patterns as the actual Robota class
- * and integrates with remote AI providers for real execution.
- */
-class PlaygroundRobotaInstance {
-    private conversationHistory: UniversalMessage[] = [];
-    private isInitialized = false;
-    private remoteProvider: AIProvider; // Store the remote provider for direct access
-
-    constructor(private config: PlaygroundAgentConfig) {
-        // Create a dummy provider for now, will be replaced by actual RemoteExecutor
-        this.remoteProvider = {
-            name: 'dummy',
-            version: '1.0.0',
-            chat: async (messages: UniversalMessage[], options?: ChatOptions) => {
-                console.log('Dummy chat called for:', this.config.name);
-                return {
-                    role: 'assistant',
-                    content: 'Dummy response for ' + this.config.name,
-                    timestamp: new Date()
-                };
-            },
-            chatStream: async (messages: UniversalMessage[], options?: ChatOptions) => {
-                console.log('Dummy stream called for:', this.config.name);
-                return {
-                    role: 'assistant',
-                    content: 'Dummy stream response for ' + this.config.name,
-                    timestamp: new Date()
-                };
-            },
-            supportsTools: () => true,
-            validateConfig: () => true,
-            dispose: async () => { }
-        };
-    }
-
-    async initialize(): Promise<void> {
-        if (this.isInitialized) return;
-
-        try {
-            // Initialize plugins following Robota SDK pattern
-            if (this.config.plugins) {
-                for (const plugin of this.config.plugins) {
-                    await plugin.initialize();
-                }
-            }
-
-            // Add system message if configured
-            if (this.config.defaultModel.systemMessage) {
-                this.conversationHistory.push({
-                    role: 'system',
-                    content: this.config.defaultModel.systemMessage,
-                    timestamp: new Date()
-                });
-            }
-
-            this.isInitialized = true;
-        } catch (error) {
-            throw new Error(`Agent initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    }
-
-    async run(prompt: string): Promise<{ response: string; toolsExecuted?: string[] }> {
-        if (!this.isInitialized) {
-            await this.initialize();
-        }
-
-        try {
-            // Record user message through plugins
-            this.recordEvent({
-                type: 'user_message',
-                content: prompt
-            });
-
-            // Add user message to conversation history
-            const userMessage: UniversalMessage = {
-                role: 'user',
-                content: prompt,
-                timestamp: new Date()
-            };
-            this.conversationHistory.push(userMessage);
-
-            // Use actual AI provider for execution
-            const provider = this.config.aiProviders[0];
-            if (!provider) {
-                throw new Error('No AI provider configured');
-            }
-
-            const aiResponse = await provider.chat(this.conversationHistory, {
-                model: this.config.defaultModel.model,
-                temperature: this.config.defaultModel.temperature,
-                maxTokens: this.config.defaultModel.maxTokens
-            });
-
-            this.conversationHistory.push(aiResponse);
-
-            // Record assistant response through plugins
-            this.recordEvent({
-                type: 'assistant_response',
-                content: aiResponse.content || 'No response generated'
-            });
-
-            return {
-                response: aiResponse.content || 'No response generated',
-                toolsExecuted: this.config.tools?.map(t => t.name) || []
-            };
-
-        } catch (error) {
-            // Record error through plugins
-            this.recordEvent({
-                type: 'error',
-                content: `Agent execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-            });
-
-            throw new Error(`Agent execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    }
-
-    async *runStream(prompt: string): AsyncIterable<string> {
-        if (!this.isInitialized) {
-            await this.initialize();
-        }
-
-        try {
-            // Record user message through plugins
-            this.recordEvent({
-                type: 'user_message',
-                content: prompt
-            });
-
-            const userMessage: UniversalMessage = {
-                role: 'user',
-                content: prompt,
-                timestamp: new Date()
-            };
-            this.conversationHistory.push(userMessage);
-
-            const provider = this.config.aiProviders[0];
-            if (!provider) {
-                throw new Error('No AI provider configured');
-            }
-
-            let fullResponse = '';
-
-            if (provider.chatStream) {
-                // Use real streaming from AI provider
-                console.log('Starting streaming with provider:', provider.name);
-                for await (const chunk of provider.chatStream(this.conversationHistory, {
-                    model: this.config.defaultModel.model,
-                    temperature: this.config.defaultModel.temperature,
-                    maxTokens: this.config.defaultModel.maxTokens
-                })) {
-                    console.log('Received chunk from provider:', chunk);
-                    const content = chunk.content || '';
-                    console.log('Extracted content:', content);
-                    fullResponse += content;
-                    yield content;
-                }
-                console.log('Streaming completed, full response:', fullResponse);
-
-                // Record complete assistant response through plugins
-                this.recordEvent({
-                    type: 'assistant_response',
-                    content: fullResponse
-                });
-            } else {
-                // Fallback for providers without streaming
-                const response = await provider.chat(this.conversationHistory);
-                const content = response.content || '';
-                fullResponse = content;
-
-                // Record assistant response through plugins
-                this.recordEvent({
-                    type: 'assistant_response',
-                    content: content
-                });
-
-                yield content;
-            }
-
-            this.conversationHistory.push({
-                role: 'assistant',
-                content: fullResponse,
-                timestamp: new Date()
-            });
-
-        } catch (error) {
-            // Record error through plugins
-            this.recordEvent({
-                type: 'error',
-                content: `Agent execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-            });
-
-            throw new Error(`Agent execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    }
-
-    async dispose(): Promise<void> {
-        try {
-            if (this.config.plugins) {
-                for (const plugin of this.config.plugins) {
-                    await plugin.dispose();
-                }
-            }
-
-            for (const provider of this.config.aiProviders) {
-                if (provider.dispose) {
-                    await provider.dispose();
-                }
-            }
-
-            this.isInitialized = false;
-        } catch (error) {
-            throw new Error(`Agent disposal failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    }
-
-    // Helper method to record events through plugins
-    private recordEvent(event: { type: 'user_message' | 'assistant_response' | 'error'; content: string }) {
-        if (this.config.plugins) {
-            for (const plugin of this.config.plugins) {
-                if (plugin instanceof PlaygroundHistoryPlugin) {
-                    plugin.recordEvent(event);
-                    break; // Only record once
-                }
-            }
-        }
+        // This method is no longer needed as authentication is handled by the remote executor
+        // and WebSocket client.
+        // Keeping it for now, but it will be removed if not used elsewhere.
+        // this.userId = userId;
+        // this.sessionId = sessionId;
+        // this.authToken = authToken;
+
+        // if (this.websocketClient) {
+        //     this.websocketClient.updateAuth(userId, sessionId, authToken);
+        // }
     }
 }
 
@@ -873,7 +445,7 @@ class PlaygroundTeamInstance {
 
         try {
             // Create team using actual Robota Team library with correct options
-            const teamOptions: TeamOptions = {
+            const teamOptions: any = { // Robota Team options
                 aiProviders: this.aiProviders,
                 maxMembers: this.config.maxMembers || 5,
                 debug: true,
@@ -885,6 +457,7 @@ class PlaygroundTeamInstance {
                 }
             };
 
+            // Create actual team container using createTeam
             this.teamContainer = createTeam(teamOptions);
             this.isInitialized = true;
 
@@ -911,8 +484,8 @@ class PlaygroundTeamInstance {
             // Record team execution start
             this.historyPlugin.recordEvent({
                 type: 'user_message', // Use valid event type
-                timestamp: new Date(),
-                data: { prompt, teamName: this.config.name }
+                content: prompt,
+                metadata: { teamName: this.config.name, action: 'execution_start' }
             });
 
             // Execute using actual team container
@@ -921,12 +494,8 @@ class PlaygroundTeamInstance {
             // Record team execution success
             this.historyPlugin.recordEvent({
                 type: 'assistant_response', // Use valid event type
-                timestamp: new Date(),
-                data: {
-                    prompt,
-                    response: result.response || result,
-                    teamName: this.config.name
-                }
+                content: typeof result === 'string' ? result : (result.response || JSON.stringify(result)),
+                metadata: { teamName: this.config.name, action: 'execution_success' }
             });
 
             const response = typeof result === 'string' ? result : (result.response || JSON.stringify(result));
@@ -942,12 +511,8 @@ class PlaygroundTeamInstance {
             // Record team execution error
             this.historyPlugin.recordEvent({
                 type: 'error', // Use valid event type
-                timestamp: new Date(),
-                data: {
-                    prompt,
-                    error: error instanceof Error ? error.message : String(error),
-                    teamName: this.config.name
-                }
+                content: error instanceof Error ? error.message : String(error),
+                metadata: { teamName: this.config.name, action: 'execution_error' }
             });
 
             throw new Error(`Team execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -968,24 +533,21 @@ class PlaygroundTeamInstance {
 
             // Record team streaming start
             this.historyPlugin.recordEvent({
-                type: 'team_streaming_start',
-                timestamp: new Date(),
-                data: { prompt, teamName: this.config.name }
+                type: 'user_message',
+                content: prompt,
+                metadata: { teamName: this.config.name, action: 'streaming_start' }
             });
 
-            // Execute using actual team container
-            for await (const chunk of this.teamContainer.stream(prompt)) {
+            // Execute using actual team container streaming
+            for await (const chunk of this.teamContainer.executeStream(prompt)) {
                 yield chunk;
             }
 
             // Record team streaming success
             this.historyPlugin.recordEvent({
-                type: 'team_streaming_success',
-                timestamp: new Date(),
-                data: {
-                    prompt,
-                    teamName: this.config.name
-                }
+                type: 'assistant_response',
+                content: 'Team streaming completed',
+                metadata: { teamName: this.config.name, action: 'streaming_success' }
             });
 
         } catch (error) {
@@ -993,13 +555,9 @@ class PlaygroundTeamInstance {
 
             // Record team streaming error
             this.historyPlugin.recordEvent({
-                type: 'team_streaming_error',
-                timestamp: new Date(),
-                data: {
-                    prompt,
-                    error: error instanceof Error ? error.message : String(error),
-                    teamName: this.config.name
-                }
+                type: 'error',
+                content: error instanceof Error ? error.message : String(error),
+                metadata: { teamName: this.config.name, action: 'streaming_error' }
             });
 
             throw new Error(`Team streaming failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -1009,6 +567,7 @@ class PlaygroundTeamInstance {
     async dispose(): Promise<void> {
         try {
             if (this.teamContainer) {
+                // Call actual team container dispose method
                 await this.teamContainer.dispose();
                 this.teamContainer = null;
             }

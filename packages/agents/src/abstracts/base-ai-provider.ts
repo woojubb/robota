@@ -271,7 +271,10 @@ export abstract class BaseAIProvider<TConfig = ProviderConfig, TMessage = Univer
         messages: TMessage[],
         options?: ChatOptions
     ): AsyncIterable<TResponse> {
+        console.log('executeStreamViaExecutorOrDirect called, executor:', !!this.executor, 'executeChatStream:', !!this.executor?.executeChatStream, 'model:', options?.model);
+
         if (this.executor && this.executor.executeChatStream && options?.model) {
+            console.log('Using executor.executeChatStream');
             // Use executor for remote/proxied streaming execution
             const stream = this.executor.executeChatStream({
                 messages: messages as UniversalMessage[],
@@ -288,6 +291,7 @@ export abstract class BaseAIProvider<TConfig = ProviderConfig, TMessage = Univer
             return;
         }
 
+        console.log('Fallback to direct execution error');
         // Fallback to direct execution - subclasses must implement this
         throw new Error(`Direct streaming execution not implemented for ${this.name} provider. Either provide an executor or implement direct streaming execution.`);
     }

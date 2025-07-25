@@ -36,6 +36,8 @@
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-toast": "^1.2.14",
     "@robota-sdk/agents": "workspace:^",
+    "@robota-sdk/anthropic": "workspace:^",
+    "@robota-sdk/openai": "workspace:^",
     "@robota-sdk/remote": "workspace:*",
     "@robota-sdk/team": "workspace:^",
     "@sentry/nextjs": "^9.40.0",

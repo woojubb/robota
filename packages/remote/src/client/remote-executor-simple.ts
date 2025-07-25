@@ -57,25 +57,122 @@ export class SimpleRemoteExecutor {
     }
 
     /**
-     * Execute chat request
+     * Execute chat request (supports both SimpleExecutionRequest and ChatExecutionRequest)
      */
-    async executeChat(request: SimpleExecutionRequest): Promise<ResponseMessage> {
-        this.validateExecutionRequest(request);
+    async executeChat(request: SimpleExecutionRequest | any): Promise<ResponseMessage | any> {
+        console.log('SimpleRemoteExecutor.executeChat called with request:', request);
 
-        return await this.httpClient.chat(
-            request.messages,
-            request.provider,
-            request.model
-        );
+        // Handle different request types
+        let messages: BasicMessage[];
+        let provider: string;
+        let model: string;
+
+        if ('options' in request && request.options) {
+            // ExecutorInterface format (ChatExecutionRequest)
+            console.log('Using ExecutorInterface format (non-streaming)');
+            messages = request.messages;
+            provider = request.provider;
+            model = request.model;
+
+            const response = await this.httpClient.chat(messages, provider, model);
+
+            return {
+                role: 'assistant',
+                content: response.content,
+                timestamp: new Date()
+            };
+        } else {
+            // Legacy SimpleExecutionRequest format
+            console.log('Using legacy SimpleExecutionRequest format');
+            this.validateExecutionRequest(request as SimpleExecutionRequest);
+
+            return await this.httpClient.chat(
+                request.messages,
+                request.provider,
+                request.model
+            );
+        }
     }
 
     /**
-     * Execute streaming chat request (simplified)
+     * Execute streaming chat request (supports both SimpleExecutionRequest and ChatExecutionRequest)
      */
-    async *executeChatStream(request: SimpleExecutionRequest): AsyncGenerator<ResponseMessage> {
-        // For now, yield single response (can be enhanced later)
-        const response = await this.executeChat(request);
-        yield response;
+    async *executeChatStream(request: SimpleExecutionRequest | any): AsyncGenerator<ResponseMessage | any> {
+        console.log('SimpleRemoteExecutor.executeChatStream called with request:', request);
+
+        // Handle different request types
+        let messages: BasicMessage[];
+        let provider: string;
+        let model: string;
+
+        if ('stream' in request && request.stream === true) {
+            // ExecutorInterface format (StreamExecutionRequest)
+            console.log('Using ExecutorInterface format (streaming)');
+            messages = request.messages;
+            provider = request.provider;
+            model = request.model;
+
+            for await (const response of this.httpClient.chatStream(messages, provider, model)) {
+                yield {
+                    role: 'assistant',
+                    content: response.content,
+                    timestamp: new Date()
+                };
+            }
+        } else {
+            // Legacy SimpleExecutionRequest format
+            console.log('Using legacy SimpleExecutionRequest format');
+            this.validateExecutionRequest(request as SimpleExecutionRequest);
+
+            const simpleRequest = request as SimpleExecutionRequest;
+            yield* this.httpClient.chatStream(
+                simpleRequest.messages,
+                simpleRequest.provider,
+                simpleRequest.model
+            );
+        }
+    }
+
+    /**
+     * ExecutorInterface-compatible executeChat method
+     */
+    async executeChatCompat(request: any): Promise<any> {
+        console.log('SimpleRemoteExecutor.executeChatCompat called');
+
+        const simpleRequest: SimpleExecutionRequest = {
+            messages: request.messages,
+            provider: request.provider,
+            model: request.model
+        };
+
+        const response = await this.executeChat(simpleRequest);
+
+        return {
+            role: 'assistant',
+            content: response.content,
+            timestamp: new Date()
+        };
+    }
+
+    /**
+     * ExecutorInterface-compatible executeChatStream method
+     */
+    async *executeChatStreamCompat(request: any): AsyncGenerator<any> {
+        console.log('SimpleRemoteExecutor.executeChatStreamCompat called');
+
+        const simpleRequest: SimpleExecutionRequest = {
+            messages: request.messages,
+            provider: request.provider,
+            model: request.model
+        };
+
+        for await (const response of this.executeChatStream(simpleRequest)) {
+            yield {
+                role: 'assistant',
+                content: response.content,
+                timestamp: new Date()
+            };
+        }
     }
 
     /**
@@ -128,6 +225,6 @@ export class SimpleRemoteExecutor {
      * Clean up resources
      */
     async dispose(): Promise<void> {
-        // Nothing to clean up in this simple implementation
+        // Clean up HTTP client if needed
     }
 } 

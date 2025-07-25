@@ -491,10 +491,89 @@ export class ExecutionService {
         config: AgentConfig,
         context?: Partial<ExecutionContext>
     ): AsyncGenerator<{ chunk: string; isComplete: boolean }> {
-        // For now, fall back to regular execution
-        // TODO: Implement proper streaming with provider delegation
-        const result = await this.execute(input, messages, config, context);
-        yield { chunk: result.response, isComplete: true };
+        console.log('ExecutionService.executeStream called');
+
+        const executionId = this.generateExecutionId();
+        const startTime = Date.now();
+
+        try {
+            // Create conversation session for this execution
+            const conversationSession = this.conversationHistory.getSession(context?.conversationId);
+
+            // Add user input to conversation
+            if (input) {
+                conversationSession.addUserMessage(input, { executionId });
+            }
+
+            // Call beforeRun hook on all plugins
+            await this.callPluginHook('beforeRun', {
+                input,
+                metadata: (context?.metadata || {}) as Metadata
+            });
+
+            // Get AI provider instance
+            const provider = this.aiProviders.getCurrentProviderInstance();
+            if (!provider) {
+                throw new Error('No AI provider available');
+            }
+
+            // Ensure provider is BaseAIProvider
+            if (!(provider instanceof BaseAIProvider)) {
+                throw new Error('Provider must extend BaseAIProvider to support streaming execution');
+            }
+
+            console.log('ExecutionService calling provider.chatStream');
+
+            // Get conversation messages for provider
+            const conversationMessages = conversationSession.getMessages();
+
+            // Create chat options
+            const chatOptions: ChatOptions = {
+                model: config.defaultModel.model,
+                ...(config.tools && config.tools.length > 0 && { tools: this.tools.getToolSchemas() })
+            };
+
+            // Use provider's streaming capability
+            const stream = provider.chatStream(conversationMessages, chatOptions);
+            let fullResponse = '';
+
+            for await (const chunk of stream) {
+                if (chunk.content) {
+                    fullResponse += chunk.content;
+                    yield { chunk: chunk.content, isComplete: false };
+                }
+            }
+
+            // Add assistant response to conversation
+            if (fullResponse) {
+                conversationSession.addAssistantMessage(fullResponse, { executionId });
+            }
+
+            // Call afterRun hook
+            await this.callPluginHook('afterRun', {
+                input,
+                response: fullResponse,
+                executionTime: Date.now() - startTime,
+                metadata: (context?.metadata || {}) as Metadata
+            });
+
+            yield { chunk: '', isComplete: true };
+
+        } catch (error) {
+            this.logger.error('ExecutionService streaming execution failed', {
+                error: error instanceof Error ? error.message : String(error),
+                executionTime: Date.now() - startTime
+            });
+
+            // Call error hook
+            await this.callPluginHook('onError', {
+                input,
+                error: error instanceof Error ? error : new Error(String(error)),
+                metadata: (context?.metadata || {}) as Metadata
+            });
+
+            throw error;
+        }
     }
 
     /**
