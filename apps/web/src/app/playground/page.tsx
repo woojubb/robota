@@ -78,7 +78,9 @@ function ConfigurationPanel() {
     } = useRobotaExecution();
 
     const [activeConfigTab, setActiveConfigTab] = useState<'agent' | 'team'>('agent');
+    // Local state for execution status
     const [isAgentRunning, setIsAgentRunning] = useState(false);
+    const [isTeamRunning, setIsTeamRunning] = useState(false);
 
     // Create default configurations
     const handleCreateAgent = useCallback(async () => {
@@ -106,14 +108,28 @@ function ConfigurationPanel() {
         }
     }, [createAgent]);
 
+    const handleExecuteTeam = useCallback(async (config: PlaygroundTeamConfig) => {
+        try {
+            console.log('Activating team for execution...');
+            // First ensure the team is created/updated
+            await createTeam(config);
+
+            // Set team to running state
+            setIsTeamRunning(true);
+            console.log('Team is now ready for execution');
+        } catch (error) {
+            console.error('Failed to activate team:', error);
+        }
+    }, [createTeam]);
+
     const handleStopExecution = useCallback(() => {
-        console.log('Stopping agent execution...');
-        cancelExecution();
+        console.log('Stopping execution...');
         setIsAgentRunning(false);
-    }, [cancelExecution]);
+        setIsTeamRunning(false);
+    }, []);
 
     // Sync global execution state with local agent running state
-    const effectiveIsExecuting = state.isExecuting || isAgentRunning;
+    const effectiveIsExecuting = currentMode === 'agent' ? isAgentRunning : isTeamRunning;
 
     // Reset local running state when global execution starts
     useEffect(() => {
@@ -183,6 +199,8 @@ function ConfigurationPanel() {
                                 isActive={currentMode === 'team'}
                                 isExecuting={effectiveIsExecuting}
                                 onConfigChange={createTeam}
+                                onExecute={handleExecuteTeam}
+                                onStop={handleStopExecution}
                                 className="w-full"
                             />
                         ) : (

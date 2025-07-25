@@ -18,6 +18,9 @@ import { PlaygroundHistoryPlugin, type PlaygroundVisualizationData, type Convers
 export type { PlaygroundVisualizationData, ConversationEvent } from './plugins/playground-history-plugin';
 import { PlaygroundWebSocketClient } from './websocket-client';
 
+// Import actual Robota Team library
+import { createTeam, type TeamOptions } from '@robota-sdk/team';
+
 // Robota SDK-compatible type definitions for browser environment
 // These mirror the actual types from @robota-sdk/agents but are browser-safe
 
@@ -99,6 +102,7 @@ export interface PlaygroundTeamConfig {
         coordinator?: string;
         maxDepth?: number;
     };
+    maxMembers?: number; // Added for team initialization
 }
 
 export interface PlaygroundExecutionResult {
@@ -193,23 +197,12 @@ export class PlaygroundExecutor {
             await this.initialize();
         }
 
+        // Create AI providers for the team (not agent instances)
         const remoteProvider = await this.createRemoteProvider();
+        const aiProviders: AIProvider[] = [remoteProvider];
 
-        const agents = await Promise.all(
-            config.agents.map(async (agentConfig: PlaygroundAgentConfig) => {
-                const agent = new PlaygroundRobotaInstance({
-                    name: agentConfig.name,
-                    aiProviders: [remoteProvider],
-                    defaultModel: agentConfig.defaultModel,
-                    tools: agentConfig.tools,
-                    plugins: [this.historyPlugin]
-                });
-                await agent.initialize();
-                return agent;
-            })
-        );
-
-        this.currentTeam = new PlaygroundTeamInstance(config, agents, this.historyPlugin);
+        // Create team instance with AI providers, not agent instances
+        this.currentTeam = new PlaygroundTeamInstance(config, aiProviders, this.historyPlugin);
         await this.currentTeam.initialize();
 
         this.setMode('team');
@@ -633,8 +626,34 @@ export class PlaygroundExecutor {
 class PlaygroundRobotaInstance {
     private conversationHistory: UniversalMessage[] = [];
     private isInitialized = false;
+    private remoteProvider: AIProvider; // Store the remote provider for direct access
 
-    constructor(private config: PlaygroundAgentConfig) { }
+    constructor(private config: PlaygroundAgentConfig) {
+        // Create a dummy provider for now, will be replaced by actual RemoteExecutor
+        this.remoteProvider = {
+            name: 'dummy',
+            version: '1.0.0',
+            chat: async (messages: UniversalMessage[], options?: ChatOptions) => {
+                console.log('Dummy chat called for:', this.config.name);
+                return {
+                    role: 'assistant',
+                    content: 'Dummy response for ' + this.config.name,
+                    timestamp: new Date()
+                };
+            },
+            chatStream: async (messages: UniversalMessage[], options?: ChatOptions) => {
+                console.log('Dummy stream called for:', this.config.name);
+                return {
+                    role: 'assistant',
+                    content: 'Dummy stream response for ' + this.config.name,
+                    timestamp: new Date()
+                };
+            },
+            supportsTools: () => true,
+            validateConfig: () => true,
+            dispose: async () => { }
+        };
+    }
 
     async initialize(): Promise<void> {
         if (this.isInitialized) return;
@@ -831,14 +850,21 @@ class PlaygroundRobotaInstance {
 }
 
 /**
- * PlaygroundTeamInstance - Team collaboration implementation for browser
+ * PlaygroundTeamInstance - Facade for TeamContainer
+ * 
+ * Follows Robota SDK Architecture Principles:
+ * - Facade Pattern: Simple wrapper around TeamContainer
+ * - Type Safety: Uses correct TeamOptions
+ * - Dependency Injection: Logger and AI provider injection
+ * - Single Responsibility: Team execution only
  */
 class PlaygroundTeamInstance {
+    private teamContainer: any = null; // TeamContainer from @robota-sdk/team
     private isInitialized = false;
 
     constructor(
         private config: PlaygroundTeamConfig,
-        private agents: PlaygroundRobotaInstance[],
+        private aiProviders: AIProvider[], // Use actual AI providers instead of agents
         private historyPlugin: PlaygroundHistoryPlugin
     ) { }
 
@@ -846,11 +872,26 @@ class PlaygroundTeamInstance {
         if (this.isInitialized) return;
 
         try {
-            for (const agent of this.agents) {
-                await agent.initialize();
-            }
+            // Create team using actual Robota Team library with correct options
+            const teamOptions: TeamOptions = {
+                aiProviders: this.aiProviders,
+                maxMembers: this.config.maxMembers || 5,
+                debug: true,
+                logger: {
+                    debug: (msg: string) => console.log('[Team Debug]', msg),
+                    info: (msg: string) => console.log('[Team Info]', msg),
+                    warn: (msg: string) => console.warn('[Team Warn]', msg),
+                    error: (msg: string) => console.error('[Team Error]', msg)
+                }
+            };
+
+            this.teamContainer = createTeam(teamOptions);
             this.isInitialized = true;
+
+            console.log('Team initialized successfully:', this.config.name);
+
         } catch (error) {
+            console.error('Team initialization failed:', error);
             throw new Error(`Team initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
@@ -860,21 +901,55 @@ class PlaygroundTeamInstance {
             await this.initialize();
         }
 
-        try {
-            // Simple team logic: use primary agent (can be enhanced)
-            const primaryAgent = this.agents[0];
-            if (!primaryAgent) {
-                throw new Error('No agents available in team');
-            }
+        if (!this.teamContainer) {
+            throw new Error('Team not properly initialized');
+        }
 
-            const result = await primaryAgent.run(prompt);
+        try {
+            console.log('Team executing prompt:', prompt);
+
+            // Record team execution start
+            this.historyPlugin.recordEvent({
+                type: 'user_message', // Use valid event type
+                timestamp: new Date(),
+                data: { prompt, teamName: this.config.name }
+            });
+
+            // Execute using actual team container
+            const result = await this.teamContainer.execute(prompt);
+
+            // Record team execution success
+            this.historyPlugin.recordEvent({
+                type: 'assistant_response', // Use valid event type
+                timestamp: new Date(),
+                data: {
+                    prompt,
+                    response: result.response || result,
+                    teamName: this.config.name
+                }
+            });
+
+            const response = typeof result === 'string' ? result : (result.response || JSON.stringify(result));
 
             return {
-                response: `Team response: ${result.response}`,
+                response,
                 toolsExecuted: result.toolsExecuted || []
             };
 
         } catch (error) {
+            console.error('Team execution failed:', error);
+
+            // Record team execution error
+            this.historyPlugin.recordEvent({
+                type: 'error', // Use valid event type
+                timestamp: new Date(),
+                data: {
+                    prompt,
+                    error: error instanceof Error ? error.message : String(error),
+                    teamName: this.config.name
+                }
+            });
+
             throw new Error(`Team execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
@@ -884,27 +959,58 @@ class PlaygroundTeamInstance {
             await this.initialize();
         }
 
+        if (!this.teamContainer) {
+            throw new Error('Team not properly initialized for streaming');
+        }
+
         try {
-            const primaryAgent = this.agents[0];
-            if (!primaryAgent) {
-                throw new Error('No agents available in team');
-            }
+            console.log('Team streaming prompt:', prompt);
 
-            yield 'Team processing: ';
+            // Record team streaming start
+            this.historyPlugin.recordEvent({
+                type: 'team_streaming_start',
+                timestamp: new Date(),
+                data: { prompt, teamName: this.config.name }
+            });
 
-            for await (const chunk of primaryAgent.runStream(prompt)) {
+            // Execute using actual team container
+            for await (const chunk of this.teamContainer.stream(prompt)) {
                 yield chunk;
             }
 
+            // Record team streaming success
+            this.historyPlugin.recordEvent({
+                type: 'team_streaming_success',
+                timestamp: new Date(),
+                data: {
+                    prompt,
+                    teamName: this.config.name
+                }
+            });
+
         } catch (error) {
-            throw new Error(`Team stream execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            console.error('Team streaming failed:', error);
+
+            // Record team streaming error
+            this.historyPlugin.recordEvent({
+                type: 'team_streaming_error',
+                timestamp: new Date(),
+                data: {
+                    prompt,
+                    error: error instanceof Error ? error.message : String(error),
+                    teamName: this.config.name
+                }
+            });
+
+            throw new Error(`Team streaming failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
 
     async dispose(): Promise<void> {
         try {
-            for (const agent of this.agents) {
-                await agent.dispose();
+            if (this.teamContainer) {
+                await this.teamContainer.dispose();
+                this.teamContainer = null;
             }
             this.isInitialized = false;
         } catch (error) {
