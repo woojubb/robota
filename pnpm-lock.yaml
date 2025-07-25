@@ -282,6 +282,12 @@ importers:
       '@robota-sdk/agents':
         specifier: workspace:^
         version: link:../../packages/agents
+      '@robota-sdk/anthropic':
+        specifier: workspace:^
+        version: link:../../packages/anthropic
+      '@robota-sdk/openai':
+        specifier: workspace:^
+        version: link:../../packages/openai
       '@robota-sdk/remote':
         specifier: workspace:*
         version: link:../../packages/remote
