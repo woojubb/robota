@@ -232,7 +232,8 @@ export function useChatInput(options: ChatInputOptions = {}): ChatInputHookRetur
             clearInput();
             setHistoryIndex(-1);
 
-            await executePrompt(messageToSend);
+            const result = await executePrompt(messageToSend);
+            return result;
 
         } catch (error) {
             console.error('Failed to send message:', error);
@@ -254,7 +255,7 @@ export function useChatInput(options: ChatInputOptions = {}): ChatInputHookRetur
             setHistoryIndex(-1);
             clearStreamingResponse();
 
-            await executeStreamPrompt(messageToSend);
+            return await executeStreamPrompt(messageToSend);
 
         } catch (error) {
             console.error('Failed to send streaming message:', error);

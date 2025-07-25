@@ -498,7 +498,7 @@ export class ExecutionService {
 
         try {
             // Create conversation session for this execution
-            const conversationSession = this.conversationHistory.getSession(context?.conversationId);
+            const conversationSession = this.conversationHistory.getConversationSession(context?.conversationId || 'default');
 
             // Add user input to conversation
             if (input) {
@@ -530,10 +530,14 @@ export class ExecutionService {
             // Create chat options
             const chatOptions: ChatOptions = {
                 model: config.defaultModel.model,
-                ...(config.tools && config.tools.length > 0 && { tools: this.tools.getToolSchemas() })
+                ...(config.tools && config.tools.length > 0 && { tools: this.tools.getToolSchema() })
             };
 
             // Use provider's streaming capability
+            if (!provider.chatStream) {
+                throw new Error('Provider does not support streaming');
+            }
+
             const stream = provider.chatStream(conversationMessages, chatOptions);
             let fullResponse = '';
 

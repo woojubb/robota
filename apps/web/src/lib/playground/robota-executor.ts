@@ -297,6 +297,9 @@ export class PlaygroundExecutor {
      * Execute with streaming response (Facade method)
      */
     async *runStream(prompt: string): AsyncGenerator<string, PlaygroundExecutionResult> {
+        console.log('PlaygroundExecutor.runStream called with prompt:', prompt);
+        console.log('Mode:', this.mode, 'currentAgent:', !!this.currentAgent, 'currentTeam:', !!this.currentTeam);
+
         if (!this.isInitialized) {
             throw new Error('PlaygroundExecutor not initialized');
         }
@@ -307,16 +310,21 @@ export class PlaygroundExecutor {
 
         try {
             if (this.mode === 'agent' && this.currentAgent) {
+                console.log('Calling currentAgent.runStream()');
                 for await (const chunk of this.currentAgent.runStream(prompt)) {
                     fullResponse += chunk;
                     yield chunk;
                 }
+                console.log('Agent runStream completed, fullResponse:', fullResponse);
             } else if (this.mode === 'team' && this.currentTeam) {
+                console.log('Calling currentTeam.executeStream()');
                 for await (const chunk of this.currentTeam.executeStream(prompt)) {
                     fullResponse += chunk;
                     yield chunk;
                 }
+                console.log('Team executeStream completed, fullResponse:', fullResponse);
             } else {
+                console.log('No agent/team configured! Mode:', this.mode, 'currentAgent:', !!this.currentAgent, 'currentTeam:', !!this.currentTeam);
                 throw new Error(`No ${this.mode} configured for execution`);
             }
 
@@ -331,6 +339,7 @@ export class PlaygroundExecutor {
             };
 
         } catch (error) {
+            console.log('PlaygroundExecutor.runStream error:', error);
             const duration = Date.now() - startTime;
 
             return {
@@ -378,8 +387,14 @@ export class PlaygroundExecutor {
     /**
      * Get conversation history (Facade essential method)
      */
-    getHistory(): ConversationEvent[] {
-        return this.historyPlugin.getVisualizationData().events;
+    getHistory(): any[] {
+        if (this.mode === 'agent' && this.currentAgent) {
+            return this.currentAgent.getHistory(); // Return actual Message[] from Robota
+        } else if (this.mode === 'team' && this.currentTeam) {
+            // For team, we might need a different approach
+            return this.historyPlugin.getVisualizationData().events;
+        }
+        return [];
     }
 
     /**
