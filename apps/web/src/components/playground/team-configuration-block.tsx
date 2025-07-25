@@ -59,6 +59,7 @@ export interface TeamConfigurationBlockProps {
     onDuplicate?: (config: PlaygroundTeamConfig) => void;
     onDelete?: (config: PlaygroundTeamConfig) => void;
     onExecute?: (config: PlaygroundTeamConfig) => void;
+    onStop?: () => void; // Added onStop prop
     onPause?: () => void;
     className?: string;
     draggable?: boolean;
@@ -288,6 +289,7 @@ export function TeamConfigurationBlock({
     onDuplicate,
     onDelete,
     onExecute,
+    onStop,
     onPause,
     className = '',
     draggable = false,
@@ -417,8 +419,8 @@ export function TeamConfigurationBlock({
                         {isExecuting ? (
                             <Button
                                 size="sm"
-                                variant="outline"
-                                onClick={onPause}
+                                variant="destructive"
+                                onClick={onStop}
                                 className="h-7 w-7 p-0"
                             >
                                 <Pause className="h-3 w-3" />
@@ -428,7 +430,7 @@ export function TeamConfigurationBlock({
                                 size="sm"
                                 variant="outline"
                                 onClick={() => onExecute?.(config)}
-                                disabled={!isValid}
+                                disabled={!isValid || isExecuting}
                                 className="h-7 w-7 p-0"
                             >
                                 <Play className="h-3 w-3" />
