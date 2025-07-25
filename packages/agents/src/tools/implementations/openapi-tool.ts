@@ -1,8 +1,8 @@
 import type { ToolInterface, ToolResult, ToolExecutionContext, OpenAPIToolConfig, ToolParameters, ToolParameterValue } from '../../interfaces/tool';
 import type { ToolSchema, ParameterSchema } from '../../interfaces/provider';
 import type { OpenAPIV3 } from 'openapi-types';
-import { BaseTool } from '../../abstracts/base-tool';
-import { ToolExecutionError } from '../../utils/errors';
+import { BaseTool, type BaseToolOptions } from '../../abstracts/base-tool';
+import { ToolExecutionError, ValidationError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
 
 /**
@@ -25,8 +25,8 @@ export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements
     private readonly baseURL: string;
     private readonly config: OpenAPIToolConfig;
 
-    constructor(config: OpenAPIToolConfig) {
-        super();
+    constructor(config: OpenAPIToolConfig, options: BaseToolOptions = {}) {
+        super(options);
         this.config = config;
         this.apiSpec = config.spec as OpenAPIV3.Document;
         this.operationId = config.operationId;
@@ -35,70 +35,99 @@ export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements
     }
 
     /**
-     * Execute the OpenAPI operation
+     * Execute the OpenAPI tool implementation
+     * This method is called by the parent's Template Method Pattern
      */
-    async execute(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
+    protected async executeImpl(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
         const toolName = this.schema.name;
 
         try {
-            logger.debug(`Executing OpenAPI tool "${toolName}"`, {
-                toolName,
-                parametersCount: Object.keys(parameters || {}).length,
-                baseURL: this.baseURL,
-                operationId: this.operationId
-            });
-
-            // Find the operation in the OpenAPI spec
-            const operation = this.findOperation();
-            if (!operation) {
-                throw new Error(`Operation ${this.operationId} not found in OpenAPI spec`);
+            // Validate parameters
+            const validation = this.validateParameters(parameters);
+            if (!validation.isValid) {
+                throw new ValidationError(`Invalid parameters for OpenAPI tool "${toolName}": ${validation.errors.join(', ')}`);
             }
 
-            // Build the HTTP request
-            const requestConfig = this.buildRequestConfig(operation, parameters);
-
-            // TODO: Implement actual HTTP request execution
-            // This would typically use fetch() or axios
-            const result = {
-                message: `OpenAPI tool "${toolName}" executed`,
+            this.logger.debug(`Executing OpenAPI tool "${toolName}"`, {
+                toolName,
                 operationId: this.operationId,
-                method: requestConfig.method,
-                url: requestConfig.url,
-                parameters,
-                timestamp: new Date().toISOString()
-            };
+                baseURL: this.baseURL,
+                parametersCount: Object.keys(parameters).length
+            });
+
+            // Execute the API call
+            const startTime = Date.now();
+            const result = await this.executeAPICall(parameters, context);
+            const executionTime = Date.now() - startTime;
+
+            this.logger.debug(`OpenAPI tool "${toolName}" executed successfully`, {
+                toolName,
+                executionTime,
+                resultType: typeof result
+            });
 
             return {
                 success: true,
                 data: result,
                 metadata: {
+                    executionTime,
                     toolName,
-                    toolType: 'openapi',
                     operationId: this.operationId,
-                    baseURL: this.baseURL,
-                    method: requestConfig.method
+                    baseURL: this.baseURL
                 }
             };
 
         } catch (error) {
-            logger.error(`OpenAPI tool "${toolName}" execution failed`, {
+            this.logger.error(`OpenAPI tool "${toolName}" execution failed`, {
                 toolName,
                 operationId: this.operationId,
-                error: error instanceof Error ? error.message : String(error)
+                error: error instanceof Error ? error.message : error,
+                parameters
             });
 
+            if (error instanceof ToolExecutionError || error instanceof ValidationError) {
+                throw error;
+            }
+
             throw new ToolExecutionError(
-                `OpenAPI execution failed: ${error instanceof Error ? error.message : String(error)}`,
+                `OpenAPI tool execution failed: ${error instanceof Error ? error.message : error}`,
                 toolName,
                 error instanceof Error ? error : new Error(String(error)),
                 {
-                    parametersCount: Object.keys(parameters || {}).length,
-                    hasContext: !!context,
                     operationId: this.operationId,
-                    baseURL: this.baseURL
+                    baseURL: this.baseURL,
+                    parametersCount: Object.keys(parameters).length
                 }
             );
         }
+    }
+
+    /**
+     * Execute the actual API call
+     * @private
+     */
+    private async executeAPICall(parameters: ToolParameters, context?: ToolExecutionContext) {
+        // Find the operation in the OpenAPI spec
+        const operation = this.findOperation();
+        if (!operation) {
+            throw new Error(`Operation ${this.operationId} not found in OpenAPI spec`);
+        }
+
+        // Build the HTTP request
+        const requestConfig = this.buildRequestConfig(operation, parameters);
+
+        // TODO: Implement actual HTTP request execution
+        // This would typically use fetch() or axios
+        const result = {
+            message: `OpenAPI tool "${toolName}" executed`,
+            operationId: this.operationId,
+            method: requestConfig.method,
+            url: requestConfig.url,
+            parameters,
+            timestamp: new Date().toISOString()
+        };
+
+        return result;
     }
 
     /**

@@ -1,8 +1,7 @@
 import type { FunctionTool as IFunctionTool, ToolResult, ToolExecutionContext, ParameterValidationResult, ToolExecutor, ToolExecutionData, ToolParameters, ToolParameterValue } from '../../interfaces/tool';
 import type { ToolSchema, ParameterSchema } from '../../interfaces/provider';
-import { BaseTool } from '../../abstracts/base-tool';
+import { BaseTool, type BaseToolOptions } from '../../abstracts/base-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
-import { logger } from '../../utils/logger';
 
 // Import from Facade pattern modules for type safety
 import type { ZodSchema } from './function-tool/types';
@@ -20,17 +19,18 @@ export class FunctionTool extends BaseTool<ToolParameters, ToolResult> implement
     readonly schema: ToolSchema;
     readonly fn: ToolExecutor;
 
-    constructor(schema: ToolSchema, fn: ToolExecutor) {
-        super();
+    constructor(schema: ToolSchema, fn: ToolExecutor, options: BaseToolOptions = {}) {
+        super(options);
         this.schema = schema;
         this.fn = fn;
         this.validateConstructorInputs();
     }
 
     /**
-     * Execute the function tool
+     * Execute the function tool implementation
+     * This method is called by the parent's Template Method Pattern
      */
-    async execute(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
+    protected async executeImpl(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
         const toolName = this.schema.name;
 
         try {
@@ -40,7 +40,7 @@ export class FunctionTool extends BaseTool<ToolParameters, ToolResult> implement
                 throw new ValidationError(`Invalid parameters for tool "${toolName}": ${errors.join(', ')}`);
             }
 
-            logger.debug(`Executing function tool "${toolName}"`, {
+            this.logger.debug(`Executing function tool "${toolName}"`, {
                 toolName,
                 parameterCount: Object.keys(parameters || {}).length,
                 hasContext: !!context
@@ -51,7 +51,7 @@ export class FunctionTool extends BaseTool<ToolParameters, ToolResult> implement
             const result = await this.fn(parameters, context);
             const executionTime = Date.now() - startTime;
 
-            logger.debug(`Function tool "${toolName}" executed successfully`, {
+            this.logger.debug(`Function tool "${toolName}" executed successfully`, {
                 toolName,
                 executionTime,
                 resultType: typeof result
@@ -68,14 +68,18 @@ export class FunctionTool extends BaseTool<ToolParameters, ToolResult> implement
             };
 
         } catch (error) {
-            logger.error(`Function tool "${toolName}" execution failed`, {
+            this.logger.error(`Function tool "${toolName}" execution failed`, {
                 toolName,
-                parameterCount: Object.keys(parameters || {}).length,
-                error: error instanceof Error ? error.message : String(error)
+                error: error instanceof Error ? error.message : error,
+                parameters
             });
 
+            if (error instanceof ToolExecutionError || error instanceof ValidationError) {
+                throw error;
+            }
+
             throw new ToolExecutionError(
-                `Function execution failed: ${error instanceof Error ? error.message : String(error)}`,
+                `Function tool execution failed: ${error instanceof Error ? error.message : error}`,
                 toolName,
                 error instanceof Error ? error : new Error(String(error)),
                 {
