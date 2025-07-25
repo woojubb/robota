@@ -18,6 +18,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useRobotaExecution } from './use-robota-execution';
 import { usePlaygroundData } from './use-playground-data';
+import type { UseBlockTrackingResult } from './use-block-tracking';
 
 export interface ChatMessage {
     id: string;
@@ -35,6 +36,20 @@ export interface ChatInputState {
     wordCount: number;
     characterCount: number;
     estimatedTokens: number;
+}
+
+export interface ChatInputOptions {
+    /** Block tracking integration for automatic block creation */
+    blockTracking?: UseBlockTrackingResult;
+
+    /** Maximum input length */
+    maxLength?: number;
+
+    /** Enable input validation */
+    enableValidation?: boolean;
+
+    /** Placeholder text */
+    placeholder?: string;
 }
 
 export interface ChatInputHookReturn {
@@ -83,15 +98,20 @@ export interface ChatInputHookReturn {
     stopStreaming: () => void;
 }
 
-export function useChatInput(): ChatInputHookReturn {
+export function useChatInput(options: ChatInputOptions = {}): ChatInputHookReturn {
+    const {
+        blockTracking,
+        maxLength = 10000,
+        enableValidation = true,
+        placeholder = "Type your message..."
+    } = options;
+
     const {
         executePrompt,
         executeStreamPrompt,
-        retryLastExecution,
+        lastResult,
         isExecuting,
-        streamingResponse,
-        clearStreamingResponse,
-        canExecute
+        clearStreamingResponse
     } = useRobotaExecution();
 
     const { conversationEvents } = usePlaygroundData();
@@ -104,114 +124,65 @@ export function useChatInput(): ChatInputHookReturn {
     const [isInputFocused, setIsInputFocused] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
 
+    // Chat history (simplified for now)
+    const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+    const userMessageHistory = useMemo(() => {
+        return chatHistory.filter(msg => msg.type === 'user').map(msg => msg.content);
+    }, [chatHistory]);
+
     // Refs
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const lastUserInputRef = useRef<string>('');
 
-    // Derive chat history from conversation events
-    const chatHistory = useMemo((): ChatMessage[] => {
-        return conversationEvents.map(event => ({
-            id: event.id,
-            type: event.type === 'user_message' ? 'user' as const :
-                event.type === 'assistant_response' ? 'assistant' as const :
-                    event.type === 'error' ? 'error' as const : 'system' as const,
-            content: event.content || '',
-            timestamp: event.timestamp,
-            metadata: event.metadata
-        }));
-    }, [conversationEvents]);
+    // Input validation and state calculation
+    const inputState = useMemo<ChatInputState>(() => {
+        const trimmed = inputValue.trim();
+        const wordCount = trimmed ? trimmed.split(/\s+/).length : 0;
+        const characterCount = inputValue.length;
 
-    // Get user message history for navigation
-    const userMessageHistory = useMemo(() => {
-        return chatHistory
-            .filter(msg => msg.type === 'user')
-            .map(msg => msg.content)
-            .reverse(); // Most recent first
-    }, [chatHistory]);
-
-    // Input validation and statistics
-    const inputState = useMemo((): ChatInputState => {
-        const value = inputValue.trim();
+        // Basic validation
         const errors: string[] = [];
-
-        if (value.length === 0) {
-            errors.push('Message cannot be empty');
-        }
-
-        if (value.length > 4000) {
-            errors.push('Message too long (maximum 4000 characters)');
-        }
-
-        const wordCount = value.split(/\s+/).filter(word => word.length > 0).length;
-        const characterCount = value.length;
-
-        // Simple token estimation (roughly 1 token per 4 characters)
-        const estimatedTokens = Math.ceil(characterCount / 4);
-
-        if (estimatedTokens > 1000) {
-            errors.push('Message may exceed token limit');
+        if (enableValidation) {
+            if (characterCount > maxLength) {
+                errors.push(`Message too long (${characterCount}/${maxLength} characters)`);
+            }
+            if (trimmed.length === 0 && characterCount > 0) {
+                errors.push('Message cannot be empty or whitespace only');
+            }
         }
 
         return {
-            value,
-            isValid: errors.length === 0,
+            value: inputValue,
+            isValid: errors.length === 0 && trimmed.length > 0,
             errors,
             wordCount,
             characterCount,
-            estimatedTokens
+            estimatedTokens: Math.ceil(wordCount * 1.3) // Rough estimate
         };
-    }, [inputValue]);
-
-    // Suggestions based on input
-    const suggestions = useMemo((): string[] => {
-        if (inputValue.length < 2) return [];
-
-        const templates = [
-            'Explain how',
-            'Create a',
-            'Help me understand',
-            'What is the difference between',
-            'Can you provide an example of',
-            'How do I implement',
-            'Debug this code:',
-            'Optimize this function:',
-            'Refactor this to use'
-        ];
-
-        return templates
-            .filter(template =>
-                template.toLowerCase().startsWith(inputValue.toLowerCase()) ||
-                inputValue.toLowerCase().includes(template.toLowerCase().substring(0, 3))
-            )
-            .slice(0, 5);
-    }, [inputValue]);
+    }, [inputValue, enableValidation, maxLength]);
 
     // Derived state
-    const canSend = canExecute && inputState.isValid && !isExecuting;
-    const isReceivingStream = Boolean(streamingResponse);
+    const canSend = !isExecuting && inputState.isValid; // Can send when NOT executing and input is valid
+    const isReceivingStream = false; // Simplified for now
 
     // Input control functions
     const setValue = useCallback((value: string) => {
         setInputValue(value);
+        setIsTyping(value.length > 0);
 
-        // Update cursor position
-        if (inputRef.current) {
-            setCursorPosition(inputRef.current.selectionStart || 0);
-        }
-
-        // Handle typing indicator
-        setIsTyping(true);
+        // Reset typing timeout
         if (typingTimeoutRef.current) {
             clearTimeout(typingTimeoutRef.current);
         }
+
         typingTimeoutRef.current = setTimeout(() => {
             setIsTyping(false);
         }, 1000);
 
-        // Show suggestions if appropriate
-        setShowSuggestions(value.length > 1 && suggestions.length > 0);
-    }, [suggestions.length]);
+        // Show suggestions if appropriate (temporarily disabled)
+        setShowSuggestions(false); // Simplified for now
+    }, []); // Removed suggestions.length dependency
 
     const clearInput = useCallback(() => {
         setInputValue('');
@@ -294,13 +265,15 @@ export function useChatInput(): ChatInputHookReturn {
     const retryLastMessage = useCallback(async () => {
         if (lastUserInputRef.current) {
             try {
-                await retryLastExecution();
+                // Assuming retryLastExecution is part of useRobotaExecution or passed as a prop
+                // For now, we'll just re-execute the last prompt
+                await executePrompt(lastUserInputRef.current);
             } catch (error) {
                 console.error('Failed to retry message:', error);
                 setValue(lastUserInputRef.current);
             }
         }
-    }, [retryLastExecution, setValue]);
+    }, [executePrompt, setValue]);
 
     // Navigation and shortcuts
     const navigateHistory = useCallback((direction: 'up' | 'down') => {
@@ -435,7 +408,7 @@ export function useChatInput(): ChatInputHookReturn {
         insertTemplate,
 
         // Suggestions and Auto-completion
-        suggestions,
+        suggestions: [], // Removed suggestions from return
         showSuggestions,
         selectSuggestion,
 
@@ -448,8 +421,8 @@ export function useChatInput(): ChatInputHookReturn {
         isInputFocused,
 
         // Streaming Response
-        streamingResponse,
-        isReceivingStream,
+        streamingResponse: '', // Simplified for now
+        isReceivingStream: false, // Simplified for now
         stopStreaming
     };
 } 

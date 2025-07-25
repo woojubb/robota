@@ -58,12 +58,16 @@ export const BlockTree: React.FC<BlockTreeProps> = ({
     showControls = true
 }) => {
     const [blocks, setBlocks] = useState<BlockMessage[]>([]);
-    const [stats, setStats] = useState(blockCollector.getStats());
+    const [stats, setStats] = useState(() =>
+        blockCollector ? blockCollector.getStats() : { total: 0, byType: {}, byState: {}, rootBlocks: 0 }
+    );
     const [localShowDebug, setLocalShowDebug] = useState(showDebug);
     const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
 
     // Update blocks when collector changes
     const updateBlocks = useCallback(() => {
+        if (!blockCollector) return;
+
         const newBlocks = blockCollector.getBlocks();
         setBlocks(newBlocks);
         setStats(blockCollector.getStats());
@@ -71,6 +75,8 @@ export const BlockTree: React.FC<BlockTreeProps> = ({
 
     // Listen to block collection events
     useEffect(() => {
+        if (!blockCollector) return;
+
         const handleBlockEvent = (event: BlockCollectionEvent) => {
             switch (event.type) {
                 case 'block_added':
@@ -159,7 +165,9 @@ export const BlockTree: React.FC<BlockTreeProps> = ({
         });
 
         // Update block collector
-        blockCollector.updateBlock(blockId, { isExpanded });
+        if (blockCollector) {
+            blockCollector.updateBlock(blockId, { isExpanded });
+        }
     }, [blockCollector]);
 
     // Handle block selection
@@ -169,7 +177,9 @@ export const BlockTree: React.FC<BlockTreeProps> = ({
 
     // Clear all blocks
     const handleClearBlocks = useCallback(() => {
-        blockCollector.clearBlocks();
+        if (blockCollector) {
+            blockCollector.clearBlocks();
+        }
         setExpandedBlocks(new Set());
     }, [blockCollector]);
 
@@ -184,9 +194,11 @@ export const BlockTree: React.FC<BlockTreeProps> = ({
         setExpandedBlocks(new Set(allBlockIds));
 
         // Update block collector for all blocks
-        allBlockIds.forEach(blockId => {
-            blockCollector.updateBlock(blockId, { isExpanded: true });
-        });
+        if (blockCollector) {
+            allBlockIds.forEach(blockId => {
+                blockCollector.updateBlock(blockId, { isExpanded: true });
+            });
+        }
     }, [blocks, blockCollector]);
 
     // Collapse all blocks
@@ -194,9 +206,11 @@ export const BlockTree: React.FC<BlockTreeProps> = ({
         setExpandedBlocks(new Set());
 
         // Update block collector for all blocks
-        blocks.forEach(block => {
-            blockCollector.updateBlock(block.blockMetadata.id, { isExpanded: false });
-        });
+        if (blockCollector) {
+            blocks.forEach(block => {
+                blockCollector.updateBlock(block.blockMetadata.id, { isExpanded: false });
+            });
+        }
     }, [blocks, blockCollector]);
 
     // Render tree nodes recursively

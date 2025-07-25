@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { ChevronDown, ChevronRight, Play, Pause, AlertCircle, CheckCircle, Clock, Tool, User, Bot, Settings } from 'lucide-react';
+import { ChevronDown, ChevronRight, Play, Pause, AlertCircle, CheckCircle, Clock, Wrench, User, Bot, Settings } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,7 +42,7 @@ const getBlockIcon = (type: BlockMetadata['type']) => {
         case 'assistant':
             return <Bot className="w-4 h-4" />;
         case 'tool_call':
-            return <Tool className="w-4 h-4" />;
+            return <Wrench className="w-4 h-4" />;
         case 'tool_result':
             return <Settings className="w-4 h-4" />;
         case 'error':
@@ -172,10 +172,8 @@ export const BlockNode: React.FC<BlockNodeProps> = ({
                                             <ChevronRight className="w-3 h-3" />
                                         )}
                                     </Button>
-                )}
                                 </CollapsibleTrigger>
-
-              {/* Block Icon */}
+                            )}
                             <div className="flex-shrink-0 mt-0.5">
                                 {typeIcon}
                             </div>

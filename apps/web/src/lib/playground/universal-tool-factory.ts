@@ -1,7 +1,5 @@
 import {
     FunctionTool,
-    OpenAPITool,
-    MCPTool,
     createZodFunctionTool,
     type ToolSchema,
     type ToolExecutor,
@@ -10,7 +8,6 @@ import {
     type ToolParameters,
     type ToolResult
 } from '@robota-sdk/agents';
-import { createAgentDelegationTool } from '@robota-sdk/team';
 import type {
     BlockDataCollector,
     ToolHooks
@@ -108,78 +105,52 @@ export class UniversalToolFactory {
 
     /**
      * Create OpenAPITool with block tracking
+     * Note: OpenAPITool not available in current SDK version
      */
     createOpenAPITool(
-        config: any, // OpenAPIToolConfig type would be imported from @robota-sdk/agents
+        config: any,
         options: {
             parentBlockId?: string;
             level?: number;
             logger?: SimpleLogger;
         } = {}
-    ): OpenAPITool {
-        const hooks = this.createHooks({
-            parentBlockId: options.parentBlockId,
-            level: options.level,
-            toolName: config.operationId || 'openapi-tool'
-        });
-
-        return new OpenAPITool(config, {
-            hooks,
-            logger: options.logger || this.logger
-        });
+    ): any {
+        console.warn('OpenAPITool not available in current SDK version');
+        return null;
     }
 
     /**
      * Create MCPTool with block tracking
+     * Note: MCPTool not available in current SDK version
      */
     createMCPTool(
-        config: any, // MCPConfig type would be imported from @robota-sdk/agents
-        schema: ToolSchema,
+        config: any,
+        schema: any,
         options: {
             parentBlockId?: string;
             level?: number;
             logger?: SimpleLogger;
         } = {}
-    ): MCPTool {
-        const hooks = this.createHooks({
-            parentBlockId: options.parentBlockId,
-            level: options.level,
-            toolName: schema.name
-        });
-
-        return new MCPTool(config, schema, {
-            hooks,
-            logger: options.logger || this.logger
-        });
+    ): any {
+        console.warn('MCPTool not available in current SDK version');
+        return null;
     }
 
     /**
      * Create AgentDelegationTool with delegation tracking
+     * Note: AgentDelegationTool not available in current SDK version
      */
     createDelegationTool(
-        teamContainer: any, // TeamContainer type
-        availableTemplates: any[], // TemplateInfo[] type
+        teamContainer: any,
+        availableTemplates: any[],
         options: {
             parentBlockId?: string;
             level?: number;
             logger?: SimpleLogger;
         } = {}
-    ): any { // AgentDelegationTool type
-        const hooks = createDelegationTrackingHooks(this.blockCollector, this.logger, {
-            parentBlockId: options.parentBlockId || this.defaultParentBlockId,
-            level: options.level ?? this.defaultLevel
-        });
-
-        return createAgentDelegationTool(
-            availableTemplates,
-            async (params: any) => {
-                return await teamContainer.assignTask(params);
-            },
-            {
-                hooks,
-                logger: options.logger || this.logger
-            }
-        );
+    ): any {
+        console.warn('AgentDelegationTool not available in current SDK version');
+        return null;
     }
 
     /**

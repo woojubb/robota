@@ -82,6 +82,20 @@ export interface BlockDataCollector {
         parentId?: string,
         level?: number
     ): BlockMessage;
+
+    /** Get statistics about collected blocks */
+    getStats(): {
+        total: number;
+        byType: Record<string, number>;
+        byState: Record<string, number>;
+        rootBlocks: number;
+    };
+
+    /** Add event listener */
+    addListener(listener: BlockCollectionListener): void;
+
+    /** Remove event listener */
+    removeListener(listener: BlockCollectionListener): void;
 }
 
 /**
