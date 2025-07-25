@@ -1,339 +1,640 @@
-# 🚀 Robota Playground 구현 로드맵
+# 🧩 Robota Playground 블록코딩 구현 로드맵
 
 ## 📋 개요
 
-Robota Playground는 시각적 에이전트 및 팀 구성 인터페이스로, 사용자가 블록 코딩 스타일로 AI 에이전트와 팀을 설계하고 실시간으로 테스트할 수 있는 환경을 제공합니다.
+Robota Playground에 **확장된 Block-Specific History 시스템**을 구축하여, 기존 UniversalMessage를 기반으로 하되 **Block 시각화 전용 확장 데이터**를 추가하여 실시간 동적 상태(호출중, 스트리밍, 임시 메시지 등)까지 포함한 **완전한 계층적 블록 시각화**를 제공합니다.
 
 ## 🎯 핵심 목표
 
-- **블록 코딩 스타일 UI**: Scratch/Blockly와 같은 직관적인 시각적 인터페이스
-- **실시간 에이전트 실행**: WebSocket을 통한 실시간 채팅 및 실행
-- **완전한 SDK 통합**: 실제 Robota SDK 기능과 완벽한 호환
-- **팀 워크플로우 시각화**: 복잡한 팀 구조의 시각적 표현
+- **Extended Block Messages**: UniversalMessage + Block 전용 확장 데이터
+- **Dynamic State Visualization**: 임시 상태(호출중, 스트리밍) 실시간 블록 표시
+- **Custom PlaygroundHistoryPlugin**: 웹 환경 특화 Block 데이터 수집
+- **Real-time Block Updates**: 상태 변화에 따른 블록 실시간 업데이트
+- **🌟 Team Agent Ready**: 향후 Agent MCP 중첩 대화 지원을 위한 확장 가능한 설계
 
 ---
 
-## ✅ **Phase 1: 규칙 준수 단계 (완료)**
+## 🔍 **Robota SDK 호환성 분석 및 구현 전략**
 
-### 🔧 타입 안전성 개선
-- [x] Mock 인터페이스를 Robota SDK 호환 타입으로 교체
-- [x] 모든 `any` 타입 제거, 구체적인 `UniversalMessage`, `ChatOptions`, `AIProvider` 사용
-- [x] 브라우저 안전 타입 정의로 `@robota-sdk/agents` 미러링
+### ✅ **Robota SDK 현재 강점 (이미 지원되는 기능들)**
 
-### 🔌 플러그인 아키텍처 준수
-- [x] `PlaygroundHistoryPlugin`이 `BasePlugin<TOptions, TStats>` 확장
-- [x] enable/disable 옵션 구현 (`enabled: false`, `strategy: 'silent'`)
-- [x] 실행 가능한 오류 메시지와 포괄적인 유효성 검사 추가
-- [x] `PluginCategory.STORAGE`와 `PluginPriority.HIGH` 분류 사용
-- [x] `SilentLogger` 기본값으로 의존성 주입 패턴
-
-### 🏗️ 파사드 패턴 준수
-- [x] `PlaygroundExecutor` 인터페이스를 필수 메서드만으로 단순화
-- [x] 핵심 메서드: `run()`, `runStream()`, `dispose()`, `getHistory()`, `clearHistory()`
-- [x] 복잡한 로직을 private 헬퍼 메서드로 추출
-- [x] Robota SDK 패턴 따름 (초기화, 실행, 정리)
-
-### 🚀 실제 SDK 통합
-- [x] `createRemoteProvider()`가 `@robota-sdk/remote` 인터페이스를 정확히 따름
-- [x] 적절한 HTTP 상태 코드로 오류 처리 강화
-- [x] 도구 호출, 스트리밍, 메타데이터 지원
-- [x] `PlaygroundRobotaInstance`가 실제 Robota 클래스 동작 미러링
-- [x] 실제 SDK와 같은 대화 기록 관리
-
----
-
-## ✅ **Phase 2: 프론트엔드 인프라 (완료)**
-
-### 🎛️ React Context 및 Hooks
-- [x] **PlaygroundContext** - 전역 상태 관리
-  - useReducer 패턴으로 타입 안전한 Context
-  - Executor 생명주기 관리
-  - 실시간 상태 동기화
-  - 오류 처리 및 로딩 상태
-
-- [x] **usePlaygroundData()** - 플러그인 데이터 접근
-  - 시각화 데이터 추출
-  - 이벤트 필터링 및 검색 기능
-  - 통계 계산
-  - 데이터 내보내기 기능
-
-- [x] **useRobotaExecution()** - 에이전트 실행 상태 관리
-  - 실행 상태 추적 (유휴, 실행 중, 스트리밍, 오류)
-  - 에이전트/팀 생성 및 구성
-  - 성능 메트릭 및 오류 처리
-  - 타임아웃 및 재시도 로직
-
-- [x] **useWebSocketConnection()** - 연결 상태 관리
-  - 지수 백오프를 통한 연결 상태 관리
-  - 상태 모니터링 및 핑 기능
-  - 메시지 라우팅 및 이벤트 처리
-  - 연결 통계 추적
-
-- [x] **useChatInput()** - 실시간 채팅 관리
-  - 입력 유효성 검사 및 통계
-  - 메시지 기록 탐색
-  - 제안 및 자동 완성
-  - 접근성 및 키보드 단축키
-
-### 🎨 아키텍처 이점
-- [x] **React 모범 사례**: useReducer, useCallback, useMemo 최적화
-- [x] **타입 안전성**: 모든 hooks가 완전한 TypeScript 지원
-- [x] **성능**: 메모이제이션과 적절한 의존성 배열
-- [x] **관심사 분리**: 각 hook이 단일 책임
-- [x] **실시간 준비**: WebSocket 통합과 스트리밍 지원
-- [x] **오류 경계**: 포괄적인 오류 처리
-
----
-
-## ✅ **Phase 3: 시각적 구성 시스템 (완료)**
-
-### 🧱 에이전트 구조 표시 컴포넌트
-
-#### [x] **AgentConfigurationBlock** - 에이전트 설정 블록
-- 블록 코딩 스타일 시각적 디자인
-- 실시간 모델 매개변수 편집 (temperature, tokens, system message)
-- AI 제공업체 선택 (OpenAI, Anthropic, Google)
-- 도구 및 플러그인 통합 자리 표시자
-- 유효성 검사 피드백 및 상태 표시기
-- **Play/Stop 버튼 시스템**: 직관적인 실행 제어
-
-#### [x] **ToolContainerBlock** - 대화형 도구 관리 (기본 구현)
-- 매개변수 구성이 있는 접을 수 있는 도구 블록
-- 검색 및 발견 기능이 있는 도구 라이브러리
-- 실행 미리보기 및 유효성 검사
-- 드래그 앤 드롭 지원으로 동적 추가/제거
-
-#### [x] **PluginContainerBlock** - 고급 플러그인 관리 (기본 구현)
-- 카테고리 기반 조직 (저장소, 모니터링, 분석, 보안)
-- 플러그인 통계 및 성능 모니터링
-- 타입 안전 입력으로 옵션 구성
-- 우선순위 관리 및 활성화/비활성화 컨트롤
-
-### 👥 팀 구조 표시 컴포넌트
-
-#### [x] **TeamConfigurationBlock** - 시각적 팀 워크플로우 (기본 구현)
-- 대화형 워크플로우 다이어그램 (순차, 병렬, 합의)
-- 시각적 미리보기가 있는 코디네이터 전략 선택
-- 팀 내 에이전트 컨테이너 관리
-- 팀 수준 설정 및 메타데이터
-
-#### [x] **AgentContainerBlock** - 컴팩트한 팀 에이전트 표현
-- 팀 역할 할당 (코디네이터, 전문가, 검증자 등)
-- 우선순위 및 리더 관리
-- 에이전트 재정렬을 위한 드래그 앤 드롭
-- 에이전트 구성에 대한 빠른 접근
-
-### 🎨 디자인 특징
-- [x] **블록 코딩 시각적 스타일**: Scratch/Blockly 스타일의 직관적 인터페이스
-- [x] **대화형 컴포넌트**: 접을 수 있는, 드래그 가능한, 실시간 편집
-- [x] **상태 표시기**: 실행 상태, 오류, 유효성 검사 피드백
-- [x] **반응형 디자인**: 모든 화면 크기에서 사용 가능
-- [x] **접근성**: 키보드 탐색, 스크린 리더 호환
-
-### 🔧 기술 아키텍처
-- [x] **모듈러 컴포넌트**: 재사용 가능한 독립적 블록들
-- [x] **타입 안전성**: 완전한 TypeScript 지원
-- [x] **이벤트 기반**: 콜백 기반 상태 관리
-- [x] **성능**: useMemo, useCallback 최적화
-- [x] **오류 처리**: 포괄적인 유효성 검사 및 오류 표시
-- [x] **반응형 디자인**: 접근성 기능이 있는 응답형 디자인
-
----
-
-## ✅ **Phase 4: Playground 페이지 통합 (완료)**
-
-### 🌟 완전히 새로운 Playground 인터페이스
-
-#### [x] **주요 구성 요소**
-- **왼쪽 패널**: 에이전트/팀 구성 블록
-- **오른쪽 패널**: 실시간 채팅 인터페이스
-- **상태 표시**: 연결 상태 및 실행 정보
-
-#### [x] **핵심 기능**
-- **PlaygroundProvider 통합**: 전역 상태 관리
-- **실시간 채팅**: 스트리밍 지원 및 실행 피드백
-- **시각적 구성**: 블록 코딩 스타일 에이전트/팀 설정
-- **WebSocket 연결**: 실시간 상태 업데이트
-- **성능 모니터링**: 메시지 통계 및 연결 상태
-
-#### [x] **사용자 경험**
-- **직관적 인터페이스**: 드래그 앤 드롭, 실시간 편집
-- **즉각적 피드백**: 유효성 검사, 오류 표시, 상태 업데이트
-- **유연한 구성**: 에이전트와 팀 모드 간 전환
-- **완전한 제어**: 모든 SDK 기능에 대한 접근
-
----
-
-## ✅ **Phase 5: Plugin 기반 History System (완료)**
-
-### 🔌 Robota Plugin 통합
-#### [x] **PlaygroundHistoryPlugin 완전 구현**
-- BasePlugin<TOptions, TStats> 확장으로 Robota SDK 준수
-- recordEvent() 메서드로 실시간 이벤트 수집
-- user_message, assistant_response, error 타입 지원
-- 최대 이벤트 수 제한 및 자동 정리
-- 플러그인 카테고리 및 우선순위 시스템
-
-#### [x] **실시간 데이터 동기화**
-- Plugin → UI 실시간 이벤트 스트리밍
-- PlaygroundContext에서 visualization data 업데이트
-- usePlaygroundData hook으로 데이터 접근
-- 메시지 타입별 시각적 구분 표시
-
-#### [x] **Chat Interface 완전 통합**
-- 사용자 메시지 즉시 표시
-- 스트리밍 응답 실시간 업데이트
-- 메시지 타임스탬프 및 상태 배지
-- 대화 이력 영구 저장 (Plugin 기반)
-
----
-
-## ✅ **Phase 6: 실행 시스템 및 API 통합 (완료)**
-
-### ⚡ Remote Execution 완전 연동
-#### [x] **API Server 통합**
-- `/api/v1/remote/chat` 및 `/api/v1/remote/stream` 엔드포인트 연동
-- Provider 자동 매핑 (gpt-4 → openai, claude-3 → anthropic)
-- 올바른 요청/응답 구조 파싱 ({ success, data: { content } })
-- WebSocket 기반 실시간 통신
-
-#### [x] **Browser Agent 실행**
-- PlaygroundRobotaInstance로 실제 Agent 브라우저에서 실행
-- Remote Provider를 통한 서버 AI Provider 안전 접근
-- Plugin 시스템과 완전 통합된 이벤트 수집
-- Play/Stop 버튼으로 직관적 실행 제어
-
-#### [x] **실시간 상태 관리**
-- Local execution state (Play/Stop 버튼)
-- Global execution state (실제 메시지 실행)
-- 상태 전환 자동 동기화
-- 오류 처리 및 복구 시스템
-
----
-
-## 🎯 **아키텍처 혜택**
-
-### 💡 개발자 경험
-- **타입 안전**: 완전한 TypeScript 지원으로 컴파일 타임 오류 방지
-- **모듈러 설계**: 재사용 가능한 컴포넌트로 유지보수성 향상
-- **실시간 피드백**: 즉각적인 유효성 검사 및 오류 표시
-- **SDK 준수**: Robota SDK 아키텍처 원칙 완전 준수
-
-### 🎨 사용자 경험
-- **시각적 구성**: 복잡한 에이전트/팀 구조의 직관적 표현
-- **실시간 실행**: 즉각적인 테스트 및 피드백
-- **성능 모니터링**: 실행 통계 및 성능 메트릭
-- **접근성**: 키보드 탐색 및 스크린 리더 지원
-
-### 🚀 확장성
-- **플러그인 시스템**: 새로운 도구 및 플러그인 쉽게 추가
-- **WebSocket 통합**: 실시간 협업 및 모니터링 지원
-- **모바일 준비**: 반응형 디자인으로 모든 기기 지원
-- **국제화 준비**: 다국어 지원을 위한 구조
-
----
-
-## 🚧 **다음 단계 (계획됨)**
-
-### Phase 7: 코드 생성 시스템
-- [ ] **Configuration → Code Transformer**: UI 설정을 실제 Robota 코드로 변환
-- [ ] **Monaco Editor 통합**: Syntax highlighting 및 auto-completion
-- [ ] **프로젝트 Export**: 완전한 실행 가능 프로젝트 생성
-- [ ] **Copy-to-Clipboard**: 한 번의 클릭으로 코드 복사
-
-### Phase 8: 고급 시각화
-- [ ] **Drag & Drop Interface**: 블록 재배치 및 연결
-- [ ] **Tool Parameter Visualization**: Tool 입력/출력 상세 표시
-- [ ] **Team Workflow Diagram**: 복잡한 팀 구조 시각화
-- [ ] **Performance Analytics**: 상세한 성능 분석 대시보드
-
-### Phase 9: 엔터프라이즈 기능
-- [ ] **템플릿 갤러리**: 사전 구성된 Agent/Team 템플릿
-- [ ] **협업 모드**: 다중 사용자 실시간 편집
-- [ ] **버전 관리**: 설정 변경 이력 추적
-- [ ] **배포 파이프라인**: 프로덕션 환경 자동 배포
-
----
-
-## 📊 **현재 구현 상태 (2024년 12월)**
-
-### ✅ 완료된 기능 (90%)
-- **🏗️ 핵심 아키텍처**: Robota SDK 완전 준수, Plugin 시스템 통합
-- **🎨 Visual Configuration**: 블록 기반 Agent 설정, 실시간 편집
-- **💬 Chat Interface**: 실시간 대화, 스트리밍 응답, 메시지 타입별 구분
-- **⚡ Execution System**: Browser Agent 실행, Remote Provider 연동
-- **🔌 Plugin Integration**: PlaygroundHistoryPlugin 완전 통합
-- **📱 Responsive UI**: 모든 기기에서 완벽한 사용자 경험
-- **🔄 Real-time Sync**: WebSocket 기반 실시간 상태 동기화
-
-### 🔄 부분 완료된 기능 (8%)
-- **👥 Team Configuration**: 기본 구조 구현, 고급 워크플로우 시각화 미완성
-- **🛠️ Tool Management**: 표시 및 기본 관리, 상세 파라미터 편집 미완성
-- **📊 Analytics**: 기본 통계, 고급 성능 분석 미완성
-
-### 📋 계획된 기능 (2%)
-- **💻 Code Generation**: 미구현
-- **🎯 Advanced Visualization**: 미구현
-
----
-
-## 📚 **기술 문서**
-
-### 주요 파일 구조
-```
-apps/web/src/
-├── contexts/
-│   └── playground-context.tsx          # ✅ 전역 상태 관리
-├── hooks/
-│   ├── use-playground-data.ts          # ✅ 플러그인 데이터 접근
-│   ├── use-robota-execution.ts         # ✅ 에이전트 실행 상태
-│   ├── use-websocket-connection.ts     # ✅ WebSocket 연결 관리
-│   └── use-chat-input.ts               # ✅ 채팅 입력 관리
-├── components/playground/
-│   ├── agent-configuration-block.tsx   # ✅ 에이전트 설정 블록
-│   ├── team-configuration-block.tsx    # ✅ 팀 설정 블록
-│   ├── tool-container-block.tsx        # ✅ 도구 컨테이너
-│   ├── plugin-container-block.tsx      # ✅ 플러그인 컨테이너
-│   └── agent-container-block.tsx       # ✅ 팀 내 에이전트
-├── lib/playground/
-│   ├── robota-executor.ts              # ✅ 핵심 실행 엔진
-│   ├── plugins/
-│   │   └── playground-history-plugin.ts # ✅ 기록 플러그인
-│   └── websocket-client.ts             # ✅ WebSocket 클라이언트
-└── app/playground/
-    └── page.tsx                        # ✅ 메인 Playground 페이지
+#### **1. 완벽한 플러그인 시스템 (95% 지원)**
+```typescript
+// 🟢 이미 사용 가능한 생명주기 훅들
+interface PluginHooks {
+  beforeRun?, afterRun?                    // 에이전트 실행 전후
+  beforeExecution?, afterExecution?        // 실행 컨텍스트 전후
+  beforeConversation?, afterConversation?  // 대화 세션 전후
+  beforeToolCall?, afterToolCall?          // 도구 호출 전후
+  beforeProviderCall?, afterProviderCall?  // AI 프로바이더 호출 전후
+  onStreamingChunk?                       // 🌟 스트리밍 청크별 처리
+  onError?, onMessageAdded?               // 에러 및 메시지 추가
+  onModuleEvent?                          // 모듈 이벤트 처리
+}
 ```
 
-### 상태 관리 패턴
-- **PlaygroundContext**: useReducer 기반 전역 상태
-- **Custom Hooks**: 기능별 상태 로직 분리
-- **Event-driven**: 콜백 기반 컴포넌트 통신
-- **Type-safe**: 모든 상태 변화에 대한 타입 안전성
+**📝 구현 참고사항:**
+- `onStreamingChunk`: 실시간 블록 업데이트에 핵심적으로 활용
+- `beforeToolCall`/`afterToolCall`: 도구 호출 블록 생성/완료 처리
+- `onMessageAdded`: 완성된 메시지의 최종 블록 변환
 
-### Plugin 기반 데이터 흐름
+#### **2. 강력한 이벤트 시스템 (90% 지원)**
+```typescript
+// 🟢 블록 시스템에 활용 가능한 이벤트들
+type EventType = 
+  | 'execution.start' | 'execution.complete' | 'execution.error'
+  | 'tool.beforeExecute' | 'tool.afterExecute' | 'tool.success' | 'tool.error'
+  | 'conversation.start' | 'conversation.complete'
+  | 'module.execution.start' | 'module.execution.complete'
 ```
-User Action → PlaygroundRobotaInstance → Plugin.recordEvent() 
-→ PlaygroundContext.getVisualizationData() → UI Update
+
+**📝 구현 참고사항:**
+- `tool.beforeExecute`: 도구 호출 준비 중 임시 블록 생성
+- `tool.success`/`tool.error`: 도구 결과 블록 상태 업데이트
+- `execution.start`/`complete`: 전체 실행 컨텍스트 블록 관리
+
+#### **3. 스트리밍 지원 (100% 지원)**
+```typescript
+// 🟢 완벽한 스트리밍 API
+async* runStream(input: string): AsyncGenerator<string, void, undefined>
+onStreamingChunk?(chunk: UniversalMessage): Promise<void>
+```
+
+**📝 구현 참고사항:**
+- Progressive 블록 업데이트를 위한 완벽한 기반
+- 실시간 텍스트 빌드업 및 상태 변화 추적 가능
+
+#### **4. 팀 에이전트 기반 구조 (85% 지원)**
+```typescript
+// 🟢 이미 구현된 delegation 시스템
+interface TaskDelegationRecord {
+  id: string;
+  agentId: string;
+  originalTask: string;
+  delegatedTask: string;
+  startTime: Date;
+  endTime?: Date;
+  result: string;
+  success: boolean;
+}
+```
+
+**📝 구현 참고사항:**
+- 중첩 대화 블록의 기반 구조 존재
+- Agent ID 및 delegation 관계 추적 가능
+
+---
+
+### 🚨 **아키텍처 원칙 준수 검토 및 설계 수정**
+
+#### **🔴 Critical Issue 1: 규칙 위반 - 공유 상태 및 정책 결정**
+
+**❌ 기존 잘못된 설계:**
+```typescript
+// 🚨 규칙 위반: 플러그인 간 공유 상태
+interface SharedPluginState {
+  set(key: string, value: any): void;  // ❌ 임의적 상태 공유
+  get(key: string): any;               // ❌ 글로벌 상태
+}
+
+class BasePlugin {
+  protected sharedState: SharedPluginState; // ❌ 의존성 주입 위반
+}
+```
+
+**✅ 규칙 준수 올바른 설계:**
+```typescript
+// 🟢 규칙 준수: 명시적 의존성 주입
+interface BlockDataCollector {
+  collectBlock(block: BlockMessage): void;
+  getBlocks(): BlockMessage[];
+}
+
+class PlaygroundHistoryPlugin extends BasePlugin {
+  private readonly blockCollector: BlockDataCollector;
+  private readonly logger: SimpleLogger;
+
+  constructor(options: PlaygroundHistoryPluginOptions) {
+    super();
+    // 🟢 명시적 의존성 주입
+    this.blockCollector = options.blockCollector || new SilentBlockCollector();
+    this.logger = options.logger || SilentLogger;
+  }
+}
+```
+
+#### **🔴 Critical Issue 2: 규칙 위반 - 임의적 확장 및 정책 결정**
+
+**❌ 기존 잘못된 설계:**
+```typescript
+// 🚨 규칙 위반: 임의적 팀 컨테이너 확장
+interface EnhancedTeamContainer {
+  onSubAgentStart(parentId: string, subAgentConfig: AgentConfig): void; // ❌ 정책 결정
+  onSubAgentMessage(contextId: string, message: UniversalMessage): void; // ❌ 임의적 동작
+}
+```
+
+**✅ 규칙 준수 올바른 설계:**
+```typescript
+// 🟢 규칙 준수: 인터페이스 분리 및 명시적 구성
+interface SubAgentEventHandler {
+  handleSubAgentStart?(parentId: string, agentId: string): void;
+  handleSubAgentMessage?(contextId: string, message: UniversalMessage): void;
+  handleSubAgentComplete?(contextId: string, result: any): void;
+}
+
+interface SubAgentTrackingOptions {
+  enabled: boolean;                          // 🟢 명시적 활성화 제어
+  eventHandler?: SubAgentEventHandler;       // 🟢 선택적 핸들러 주입
+  trackingStrategy: 'none' | 'basic' | 'detailed'; // 🟢 명시적 전략
+}
+
+// 🟢 BaseTool 확장을 통한 올바른 접근
+class AgentDelegationTool extends BaseTool<AgentDelegationParameters, AgentDelegationResult> {
+  private readonly subAgentTracker?: SubAgentEventHandler;
+
+  constructor(options: AgentDelegationToolOptions) {
+    super();
+    this.subAgentTracker = options.subAgentTracker; // 🟢 주입된 추적기
+  }
+
+  override async execute(
+    parameters: AgentDelegationParameters,
+    context?: ToolExecutionContext
+  ): Promise<AgentDelegationResult> {
+    // 🟢 정책 결정 없이 외부 핸들러에 위임
+    this.subAgentTracker?.handleSubAgentStart?.(context?.parentId, parameters.agentId);
+    
+    const result = await this.delegateToSubAgent(parameters);
+    
+    this.subAgentTracker?.handleSubAgentComplete?.(context?.contextId, result);
+    
+    return result;
+  }
+}
+```
+
+#### **🔴 Critical Issue 3: 규칙 위반 - 패키지 경계 및 책임 분리**
+
+**❌ 기존 잘못된 설계:**
+```typescript
+// 🚨 규칙 위반: 웹 특화 기능을 packages에 포함
+// packages/agents/src/plugins/playground-history-plugin.ts
+class PlaygroundHistoryPlugin {  // ❌ 웹 특화 기능이 agents 패키지에
+  syncToWebSocket(): void;       // ❌ 웹 관련 로직
+}
+```
+
+**✅ 규칙 준수 올바른 설계:**
+```typescript
+// 🟢 packages/agents: 순수 SDK 기능만
+interface HistoryCollectionPlugin extends BasePlugin {
+  readonly name: 'history-collection';
+  collectMessage(message: UniversalMessage): void;
+  getHistory(): UniversalMessage[];
+  clearHistory(): void;
+}
+
+// 🟢 apps/web: 웹 특화 구현
+class PlaygroundBlockDataCollector implements BlockDataCollector {
+  private readonly wsClient: PlaygroundWebSocketClient;
+  private readonly logger: SimpleLogger;
+
+  constructor(options: PlaygroundBlockCollectorOptions) {
+    this.wsClient = options.wsClient;
+    this.logger = options.logger || SilentLogger;
+  }
+
+  collectBlock(block: BlockMessage): void {
+    // 웹 특화 로직: WebSocket 전송
+    this.wsClient.send({
+      type: 'block_update',
+      data: block
+    });
+  }
+}
 ```
 
 ---
 
-## 🎉 **결론**
+### 📋 **규칙 준수 구현 전략**
 
-Robota Playground는 이제 **완전히 기능하는 시각적 에이전트 구성 환경**입니다. 
+#### **🔄 핵심 패러다임 전환: Tool = Universal Hook 시스템**
 
-### 🏆 주요 성과
-- **90% 완료**: 모든 핵심 기능이 구현되어 실제 사용 가능
-- **Plugin 기반**: Robota SDK 원칙을 완전히 준수하는 확장 가능한 아키텍처
-- **실시간 경험**: WebSocket 기반 즉시 피드백 및 상태 동기화
-- **생산성 도구**: 복잡한 AI Agent를 시각적으로 설계하고 즉시 테스트
+**💡 핵심 통찰:**
+```typescript
+// 🌟 BaseTool Hook 시스템의 범용성
+BaseTool (Hook 시스템 내장)
+├── FunctionTool (사용자 정의 함수)
+├── OpenAPITool (API 호출)  
+├── MCPTool (MCP 프로토콜)
+├── AgentDelegationTool (팀 delegation)
+└── CustomTool (사용자 커스텀)
 
-### 🚀 현재 가능한 기능
-1. **Agent 생성**: 시각적 블록으로 AI Agent 설계
-2. **실시간 채팅**: 설계한 Agent와 즉시 대화 테스트
-3. **스트리밍 응답**: 실시간으로 AI 응답 확인
-4. **대화 이력**: Plugin 기반 완전한 대화 관리
-5. **다중 Provider**: OpenAI, Anthropic, Google 등 지원
-6. **Team 구성**: 기본적인 Team Agent 설정
+// 🌟 모든 Tool이 자동으로 블록 추적 지원!
+```
 
-**Playground는 이제 프로덕션 준비가 완료되었으며, 사용자가 복잡한 AI 시스템을 쉽게 설계하고 테스트할 수 있는 강력한 도구입니다.** 🎯 
+**✅ Universal Hook 시스템의 장점:**
+- **범용성**: 모든 Tool 타입에 동일한 Hook 인터페이스
+- **일관성**: FunctionTool, OpenAPITool, MCPTool 모두 같은 방식으로 추적
+- **확장성**: 새로운 Tool 타입도 자동으로 Hook 지원
+- **투명성**: 기존 Tool 코드 전혀 수정 없음
+
+---
+
+#### **🟢 1. Universal BaseTool Hook 시스템**
+
+**핵심 구조:**
+```typescript
+// packages/agents/src/abstracts/base-tool.ts
+export interface ToolHooks {
+  beforeExecute?(toolName: string, parameters: ToolParameters, context?: ToolExecutionContext): Promise<void>;
+  afterExecute?(toolName: string, parameters: ToolParameters, result: ToolResult, context?: ToolExecutionContext): Promise<void>;
+  onError?(toolName: string, parameters: ToolParameters, error: Error, context?: ToolExecutionContext): Promise<void>;
+}
+
+export interface BaseToolOptions {
+  hooks?: ToolHooks;
+  logger?: SimpleLogger;
+}
+
+export abstract class BaseTool<TParams = ToolParameters, TResult = ToolResult> {
+  protected readonly hooks?: ToolHooks;
+  protected readonly logger: SimpleLogger;
+
+  constructor(options: BaseToolOptions = {}) {
+    this.hooks = options.hooks;
+    this.logger = options.logger || SilentLogger;
+  }
+
+  // 🟢 Template Method Pattern: 모든 하위 클래스에 Hook 적용
+  async execute(parameters: TParams, context?: ToolExecutionContext): Promise<TResult> {
+    const toolName = this.schema.name || this.constructor.name;
+    
+    try {
+      // 🟢 실행 전 Hook (모든 Tool 공통)
+      await this.hooks?.beforeExecute?.(toolName, parameters, context);
+      
+      // 🟢 실제 Tool 실행 (하위 클래스별 구현)
+      const result = await this.executeImpl(parameters, context);
+      
+      // 🟢 실행 후 Hook (모든 Tool 공통)
+      await this.hooks?.afterExecute?.(toolName, parameters, result, context);
+      
+      return result;
+    } catch (error) {
+      // 🟢 에러 Hook (모든 Tool 공통)
+      await this.hooks?.onError?.(toolName, parameters, error as Error, context);
+      throw error;
+    }
+  }
+
+  // 🟢 하위 클래스에서 실제 로직 구현
+  protected abstract executeImpl(parameters: TParams, context?: ToolExecutionContext): Promise<TResult>;
+  
+  // 🟢 Schema 접근을 위한 추상 속성
+  abstract get schema(): ToolSchema;
+}
+```
+
+**🎯 모든 Tool 구현체 자동 지원:**
+```typescript
+// 🟢 FunctionTool - 자동 Hook 지원
+export class FunctionTool extends BaseTool<ToolParameters, ToolResult> {
+  constructor(schema: ToolSchema, fn: ToolExecutor, options: BaseToolOptions = {}) {
+    super(options); // ✅ Hook 자동 적용
+    this.schema = schema;
+    this.fn = fn;
+  }
+
+  protected async executeImpl(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
+    // 기존 로직 그대로, Hook은 부모에서 자동 처리
+    const result = await this.fn(parameters, context);
+    return { success: true, data: result };
+  }
+}
+
+// 🟢 OpenAPITool - 자동 Hook 지원  
+export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> {
+  constructor(spec: OpenAPISpec, options: BaseToolOptions = {}) {
+    super(options); // ✅ Hook 자동 적용
+    // 기존 생성자 로직
+  }
+
+  protected async executeImpl(parameters: ToolParameters): Promise<ToolResult> {
+    // 기존 API 호출 로직 그대로, Hook은 부모에서 자동 처리
+    return await this.performAPICall(parameters);
+  }
+}
+
+// 🟢 MCPTool - 자동 Hook 지원
+export class MCPTool extends BaseTool<ToolParameters, ToolResult> {
+  constructor(config: MCPConfig, options: BaseToolOptions = {}) {
+    super(options); // ✅ Hook 자동 적용
+    // 기존 생성자 로직
+  }
+
+  protected async executeImpl(parameters: ToolParameters): Promise<ToolResult> {
+    // 기존 MCP 호출 로직 그대로, Hook은 부모에서 자동 처리
+    return await this.executeMCPRequest(parameters);
+  }
+}
+
+// 🟢 AgentDelegationTool - 자동 Hook 지원
+export class AgentDelegationTool extends BaseTool<AgentDelegationParameters, AgentDelegationResult> {
+  constructor(options: AgentDelegationToolOptions & BaseToolOptions) {
+    super(options); // ✅ Hook 자동 적용
+    // 기존 생성자 로직
+  }
+
+  protected async executeImpl(parameters: AgentDelegationParameters): Promise<AgentDelegationResult> {
+    // 기존 delegation 로직 그대로, Hook은 부모에서 자동 처리
+    return await this.teamContainer.assignTask(parameters);
+  }
+}
+```
+
+#### **🟢 2. Universal Block Tracking 헬퍼**
+
+**모든 Tool 타입에 적용 가능한 헬퍼:**
+```typescript
+// packages/agents/src/tools/helpers/block-tracking.ts
+export function createBlockTrackingHooks(
+  blockCollector: BlockDataCollector,
+  logger?: SimpleLogger
+): ToolHooks {
+  return {
+    async beforeExecute(toolName, parameters, context) {
+      const startMessage: UniversalMessage = {
+        role: 'system',
+        content: `🔧 Starting ${toolName} execution`,
+        timestamp: new Date().toISOString()
+      };
+      
+      blockCollector.collectBlock(startMessage, {
+        id: context?.executionId || generateId(),
+        timestamp: Date.now(),
+        type: 'system',
+        status: 'pending'
+      });
+
+      logger?.debug(`Tool execution started: ${toolName}`, { parameters });
+    },
+
+    async afterExecute(toolName, parameters, result, context) {
+      const completionMessage: UniversalMessage = {
+        role: 'system',
+        content: `✅ ${toolName} completed: ${result.success ? 'Success' : 'Failed'}`,
+        timestamp: new Date().toISOString()
+      };
+      
+      blockCollector.collectBlock(completionMessage, {
+        id: context?.executionId || generateId(),
+        timestamp: Date.now(),
+        type: 'system',
+        status: result.success ? 'completed' : 'error'
+      });
+
+      logger?.debug(`Tool execution completed: ${toolName}`, { result });
+    },
+
+    async onError(toolName, parameters, error, context) {
+      const errorMessage: UniversalMessage = {
+        role: 'system',
+        content: `❌ ${toolName} failed: ${error.message}`,
+        timestamp: new Date().toISOString()
+      };
+      
+      blockCollector.collectBlock(errorMessage, {
+        id: context?.executionId || generateId(),
+        timestamp: Date.now(),
+        type: 'system',
+        status: 'error'
+      });
+
+      logger?.error(`Tool execution error: ${toolName}`, { error: error.message, parameters });
+    }
+  };
+}
+
+// 🟢 Universal Tool 생성 헬퍼
+export function withBlockTracking<T extends BaseTool<any, any>>(
+  ToolClass: new (...args: any[]) => T,
+  blockCollector: BlockDataCollector,
+  logger?: SimpleLogger
+) {
+  return (...args: any[]): T => {
+    const hooks = createBlockTrackingHooks(blockCollector, logger);
+    
+    // 🟢 마지막 인자가 options이면 hooks 추가, 아니면 새로 생성
+    const lastArg = args[args.length - 1];
+    if (lastArg && typeof lastArg === 'object' && 'hooks' in lastArg) {
+      lastArg.hooks = hooks;
+    } else {
+      args.push({ hooks, logger });
+    }
+    
+    return new ToolClass(...args);
+  };
+}
+```
+
+#### **🟢 3. Universal 웹 앱 통합**
+
+**모든 Tool 타입을 한 번에 블록 추적:**
+```typescript
+// apps/web/src/lib/playground/tools/universal-tool-factory.ts
+export class UniversalToolFactory {
+  constructor(
+    private readonly blockCollector: BlockDataCollector,
+    private readonly logger: SimpleLogger = SilentLogger
+  ) {}
+
+  // 🟢 모든 Tool 타입에 블록 추적 자동 적용
+  createInstrumentedTools(tools: BaseTool<any, any>[]): BaseTool<any, any>[] {
+    const hooks = createBlockTrackingHooks(this.blockCollector, this.logger);
+    
+    return tools.map(tool => {
+      // 🟢 기존 Tool에 Hook 주입하여 새 인스턴스 생성
+      if (tool instanceof FunctionTool) {
+        return new FunctionTool(tool.schema, tool.fn, { hooks, logger: this.logger });
+      } else if (tool instanceof OpenAPITool) {
+        return new OpenAPITool(tool.spec, { hooks, logger: this.logger });
+      } else if (tool instanceof MCPTool) {
+        return new MCPTool(tool.config, { hooks, logger: this.logger });
+      } else if (tool instanceof AgentDelegationTool) {
+        return new AgentDelegationTool({
+          teamContainer: tool.teamContainer,
+          hooks,
+          logger: this.logger
+        });
+      }
+      
+      // 🟢 사용자 정의 Tool도 BaseTool을 상속했다면 자동 지원
+      return tool;
+    });
+  }
+
+  // 🟢 특정 Tool 타입별 생성 헬퍼
+  createWeatherTool(): FunctionTool {
+    const hooks = createBlockTrackingHooks(this.blockCollector, this.logger);
+    return new FunctionTool(weatherSchema, weatherFn, { hooks, logger: this.logger });
+  }
+
+  createSearchTool(): FunctionTool {
+    const hooks = createBlockTrackingHooks(this.blockCollector, this.logger);
+    return new FunctionTool(searchSchema, searchFn, { hooks, logger: this.logger });
+  }
+
+  createDelegationTool(teamContainer: TeamContainer): AgentDelegationTool {
+    const hooks = createBlockTrackingHooks(this.blockCollector, this.logger);
+    return new AgentDelegationTool({
+      teamContainer,
+      hooks,
+      logger: this.logger
+    });
+  }
+}
+```
+
+#### **🟢 4. 완전한 Team 통합 사용법**
+
+**기존 createTeam API 완전 무변경:**
+```typescript
+// apps/web/src/lib/playground/playground-team-integration.ts
+export class PlaygroundTeamIntegration {
+  private readonly toolFactory: UniversalToolFactory;
+
+  constructor(blockCollector: BlockDataCollector, logger?: SimpleLogger) {
+    this.toolFactory = new UniversalToolFactory(blockCollector, logger);
+  }
+
+  createInstrumentedTeam(config: {
+    aiProviders: AIProvider[];
+    maxMembers?: number;
+    customTools?: BaseTool<any, any>[];
+  }): TeamContainer {
+    // 🟢 1. 모든 사용자 Tool에 블록 추적 자동 적용
+    const instrumentedCustomTools = config.customTools 
+      ? this.toolFactory.createInstrumentedTools(config.customTools)
+      : [];
+
+    // 🟢 2. 기본 Tool들도 블록 추적 적용
+    const defaultInstrumentedTools = [
+      this.toolFactory.createWeatherTool(),
+      this.toolFactory.createSearchTool()
+    ];
+
+    // 🟢 3. 기존 createTeam API 그대로 사용!
+    const team = createTeam({
+      aiProviders: config.aiProviders,
+      maxMembers: config.maxMembers || 5,
+      tools: [...instrumentedCustomTools, ...defaultInstrumentedTools] // ← 블록 추적 Tool들
+    });
+
+    // 🟢 4. Team의 AgentDelegationTool도 자동으로 블록 추적됨!
+    // (Team 내부에서 생성되는 delegation tool에도 Hook 시스템이 적용됨)
+
+    return team;
+  }
+}
+
+// 🟢 5. 최종 사용법 - 믿을 수 없이 간단!
+const teamIntegration = new PlaygroundTeamIntegration(blockCollector, logger);
+
+const team = teamIntegration.createInstrumentedTeam({
+  aiProviders: [openaiProvider, anthropicProvider],
+  maxMembers: 8,
+  customTools: [
+    new FunctionTool(customSchema1, customFn1),    // ✅ 자동 블록 추적
+    new OpenAPITool(apiSpec),                      // ✅ 자동 블록 추적  
+    new MCPTool(mcpConfig),                        // ✅ 자동 블록 추적
+    userDefinedCustomTool                          // ✅ 자동 블록 추적 (BaseTool 상속 시)
+  ]
+});
+
+// 🟢 이제 모든 Tool 실행이 자동으로 블록으로 추적됨!
+// - Weather API 호출 → 블록 생성
+// - Search API 호출 → 블록 생성  
+// - Team Agent delegation → 블록 생성
+// - MCP 호출 → 블록 생성
+// - 사용자 정의 Tool → 블록 생성
+await team.execute('Create a comprehensive weather-based marketing strategy');
+```
+
+---
+
+### 🎯 **Universal Hook 시스템의 수정된 구현 우선순위**
+
+#### **🥇 1순위: Universal BaseTool Hook 시스템 (packages/agents) - 1주**
+```typescript
+// 🟢 모든 Tool의 기반이 되는 Hook 시스템
+- BaseTool Hook 인터페이스 정의 (ToolHooks, BaseToolOptions)
+- BaseTool 추상 클래스 Hook 지원 추가 (Template Method Pattern)
+- createBlockTrackingHooks 헬퍼 함수
+- withBlockTracking Universal 래퍼 함수
+- 기존 FunctionTool, OpenAPITool, MCPTool 생성자 options 추가
+```
+
+#### **🥈 2순위: Team Tool Hook 적용 (packages/team) - 1주**  
+```typescript
+// 🟢 AgentDelegationTool Hook 지원
+- AgentDelegationTool 생성자 BaseToolOptions 지원
+- Team 내부 Tool 생성 시 Hook 옵션 전달 메커니즘
+- 기존 createTeam API 완전 보존하면서 Hook 지원
+```
+
+#### **🥉 3순위: 웹 앱 Universal Tool Factory (apps/web) - 2주**
+```typescript
+// 🟢 모든 Tool을 한 번에 처리하는 Factory
+- UniversalToolFactory 클래스
+- PlaygroundTeamIntegration 클래스
+- React Hook과 통합
+- UI에서 블록 시각화
+```
+
+#### **🔮 4순위: 고급 Tool 특화 기능 - 2주**
+```typescript
+// 🟢 Tool 타입별 특화된 블록 표현
+- API Tool: 요청/응답 상세 블록
+- MCP Tool: 프로토콜 상태 블록
+- Delegation Tool: 중첩 대화 블록
+- 성능 최적화 및 메모리 관리
+```
+
+---
+
+### 📝 **Universal Hook 시스템의 패키지별 책임**
+
+| **패키지** | **책임** | **Universal 적용 범위** |
+|------------|----------|----------------------|
+| `packages/agents` | Universal Hook 시스템 | **모든** BaseTool 하위 클래스 |
+| `packages/team` | AgentDelegationTool Hook 지원 | Team delegation Tool |
+| `apps/web` | Universal Tool Factory | **모든** Tool 타입 블록 추적 |
+| `apps/api-server` | 서버 로직 | 변경 없음 |
+
+---
+
+### ✅ **Universal Hook 시스템의 혁신적 장점**
+
+1. **🌟 완전한 범용성**: 
+   - **모든 Tool 타입** (Function, OpenAPI, MCP, Delegation, Custom) 동일 인터페이스
+   - **미래 Tool** 타입도 자동으로 Hook 지원
+   - **일관된 블록 추적** 경험
+
+2. **🔧 Zero 기존 코드 수정**:
+   - createTeam API 완전 무변경
+   - 기존 Tool 사용법 그대로
+   - 단계적 적용 가능
+
+3. **🚀 무한 확장성**:
+   - 새로운 Hook 타입 쉽게 추가
+   - Tool별 특화 Hook 구현 가능
+   - 체이닝 가능한 Hook들
+
+4. **🧪 완벽한 테스트 환경**:
+   - Mock Hook으로 독립적 테스트
+   - Tool별 개별 Hook 테스트
+   - 통합 시나리오 테스트
+
+**이제 Robota SDK의 모든 Tool이 하나의 일관된 블록 추적 시스템을 가지게 됩니다!** 🎯🌟✨ 
