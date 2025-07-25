@@ -148,9 +148,20 @@ export class HttpClient {
 
                             try {
                                 const parsed = JSON.parse(data);
-                                if (parsed.content) {
+
+                                // Extract content from potentially nested structure
+                                let content = '';
+                                if (parsed.data && parsed.data.content) {
+                                    // Nested structure: { data: { content: "..." } }
+                                    content = parsed.data.content;
+                                } else if (parsed.content) {
+                                    // Direct structure: { content: "..." }
+                                    content = parsed.content;
+                                }
+
+                                if (content) {
                                     yield toResponseMessage(
-                                        { role: 'assistant', content: parsed.content },
+                                        { role: 'assistant', content },
                                         provider,
                                         model
                                     );

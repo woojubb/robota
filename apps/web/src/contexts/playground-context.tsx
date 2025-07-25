@@ -324,12 +324,30 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
 
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: result });
 
-            // Update conversation history
-            const history = state.executor.getHistory();
+            // Get updated conversation history and convert to chat events for UI
+            const history = state.executor.getHistory(); // UniversalMessage[]
             dispatch({ type: 'SET_CONVERSATION_HISTORY', payload: history });
 
-            // Update visualization data
-            const vizData = state.executor.getVisualizationData();
+            // Convert UniversalMessage[] to chat events for UI display
+            const chatEvents = history.map((msg, index) => ({
+                id: `msg_${index}_${msg.timestamp?.getTime() || Date.now()}`,
+                type: msg.role === 'user' ? 'user_message' as const : 'assistant_response' as const,
+                content: msg.content,
+                timestamp: msg.timestamp || new Date(),
+                metadata: msg.metadata || {}
+            }));
+
+            const vizData = {
+                mode: state.visualizationData?.mode || 'agent' as const,
+                events: chatEvents,
+                agents: state.visualizationData?.agents || [],
+                stats: {
+                    totalEvents: chatEvents.length,
+                    totalToolCalls: 0,
+                    averageResponseTime: result.duration || 0
+                }
+            };
+
             dispatch({ type: 'SET_VISUALIZATION_DATA', payload: vizData });
 
             return result;
@@ -346,8 +364,10 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Execution failed' });
 
             return errorResult;
+        } finally {
+            dispatch({ type: 'SET_EXECUTING', payload: false });
         }
-    }, [state.executor, state.isInitialized]);
+    }, [state.executor, state.isInitialized, state.visualizationData]);
 
     const executeStreamPrompt = useCallback(async (
         prompt: string,
@@ -361,10 +381,11 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'SET_EXECUTING', payload: true });
             dispatch({ type: 'SET_ERROR', payload: null });
 
-            let fullResponse = '';
             const startTime = Date.now();
 
             // Process stream and collect chunks
+            let fullResponse = '';
+
             for await (const chunk of state.executor.runStream(prompt)) {
                 fullResponse += chunk;
                 onChunk(chunk);
@@ -375,17 +396,35 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             const result: PlaygroundExecutionResult = {
                 success: true,
                 response: fullResponse,
-                duration,
-                visualizationData: state.executor.getVisualizationData()
+                duration
             };
 
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: result });
 
-            // Update conversation history and visualization data
-            const history = state.executor.getHistory();
+            // Get updated conversation history and convert to chat events for UI
+            const history = state.executor.getHistory(); // UniversalMessage[]
             dispatch({ type: 'SET_CONVERSATION_HISTORY', payload: history });
 
-            const vizData = state.executor.getVisualizationData();
+            // Convert UniversalMessage[] to chat events for UI display
+            const chatEvents = history.map((msg, index) => ({
+                id: `msg_${index}_${msg.timestamp?.getTime() || Date.now()}`,
+                type: msg.role === 'user' ? 'user_message' as const : 'assistant_response' as const,
+                content: msg.content,
+                timestamp: msg.timestamp || new Date(),
+                metadata: msg.metadata || {}
+            }));
+
+            const vizData = {
+                mode: state.visualizationData?.mode || 'agent' as const,
+                events: chatEvents,
+                agents: state.visualizationData?.agents || [],
+                stats: {
+                    totalEvents: chatEvents.length,
+                    totalToolCalls: 0,
+                    averageResponseTime: duration
+                }
+            };
+
             dispatch({ type: 'SET_VISUALIZATION_DATA', payload: vizData });
 
             return result;
@@ -402,8 +441,10 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Stream execution failed' });
 
             return errorResult;
+        } finally {
+            dispatch({ type: 'SET_EXECUTING', payload: false });
         }
-    }, [state.executor, state.isInitialized]);
+    }, [state.executor, state.isInitialized, state.visualizationData]);
 
     const clearHistory = useCallback(() => {
         if (state.executor && state.isInitialized) {

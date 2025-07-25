@@ -80,6 +80,8 @@ export interface PlaygroundHistoryPluginOptions extends BasePluginOptions {
     maxEvents?: number;
     visualizationMode?: 'blocks' | 'timeline' | 'tree';
     logger?: SimpleLogger;
+    subscribeToAllModuleEvents?: boolean;  // Added for auto event subscription
+    moduleEvents?: string[];  // Added for specific event subscription
 }
 
 export interface PlaygroundHistoryPluginStats extends PluginStats {
@@ -264,7 +266,13 @@ export class PlaygroundHistoryPlugin extends BasePlugin<PlaygroundHistoryPluginO
             enableRealTimeSync: options.enableRealTimeSync ?? false,
             maxEvents: options.maxEvents ?? 1000,
             visualizationMode: options.visualizationMode ?? 'blocks',
-            logger: options.logger ?? SilentLogger
+            logger: options.logger ?? SilentLogger,
+            subscribeToAllModuleEvents: options.subscribeToAllModuleEvents ?? true,  // Auto-subscribe to all events
+            moduleEvents: options.moduleEvents ?? [
+                'execution.start', 'execution.complete', 'execution.error',
+                'module.execution.start', 'module.execution.complete', 'module.execution.error',
+                'tool.execute.start', 'tool.execute.complete'
+            ]
         };
 
         this.logger.info('PlaygroundHistoryPlugin initialized', {
@@ -388,6 +396,103 @@ export class PlaygroundHistoryPlugin extends BasePlugin<PlaygroundHistoryPluginO
         this.agents = [];
         this.currentExecution = undefined;
         this.logger.debug('History cleared');
+    }
+
+    /**
+     * Handle module events automatically (SDK integration)
+     */
+    async onModuleEvent(eventType: string, eventData: any): Promise<void> {
+        if (!this.enabled) return;
+
+        try {
+            this.logger.debug('Module event received:', { eventType, eventData });
+
+            switch (eventType) {
+                case 'execution.start':
+                case 'module.execution.start':
+                    // Record execution start
+                    this.currentExecution = {
+                        id: `exec_${Date.now()}`,
+                        startTime: new Date(),
+                        status: 'running'
+                    };
+                    break;
+
+                case 'execution.complete':
+                case 'module.execution.complete':
+                    // Record execution completion
+                    if (this.currentExecution) {
+                        this.currentExecution.status = 'completed';
+                    }
+
+                    // Try to extract response from event data
+                    if (eventData && eventData.data && eventData.data.response) {
+                        this.recordEvent({
+                            type: 'assistant_response',
+                            content: eventData.data.response,
+                            metadata: {
+                                executionId: this.currentExecution?.id,
+                                success: true
+                            }
+                        });
+                    }
+                    break;
+
+                case 'execution.error':
+                case 'module.execution.error':
+                    // Record execution error
+                    if (this.currentExecution) {
+                        this.currentExecution.status = 'error';
+                    }
+
+                    if (eventData && eventData.data) {
+                        this.recordEvent({
+                            type: 'error',
+                            content: eventData.data.message || 'Execution error',
+                            metadata: {
+                                executionId: this.currentExecution?.id,
+                                error: eventData.data
+                            }
+                        });
+                    }
+                    break;
+
+                case 'tool.execute.start':
+                    // Record tool execution start
+                    if (eventData && eventData.data) {
+                        this.recordEvent({
+                            type: 'tool_call',
+                            toolName: eventData.data.toolName,
+                            parameters: eventData.data.parameters,
+                            metadata: {
+                                executionId: this.currentExecution?.id,
+                                phase: 'start'
+                            }
+                        });
+                    }
+                    break;
+
+                case 'tool.execute.complete':
+                    // Record tool execution result
+                    if (eventData && eventData.data) {
+                        this.recordEvent({
+                            type: 'tool_result',
+                            toolName: eventData.data.toolName,
+                            content: eventData.data.result ? JSON.stringify(eventData.data.result) : '',
+                            metadata: {
+                                executionId: this.currentExecution?.id,
+                                phase: 'complete',
+                                success: eventData.data.success !== false
+                            }
+                        });
+                    }
+                    break;
+            }
+
+        } catch (error) {
+            this.incrementErrors();
+            this.logger.error('Failed to handle module event:', error);
+        }
     }
 
     /**
