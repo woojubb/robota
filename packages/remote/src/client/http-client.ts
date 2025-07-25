@@ -90,6 +90,87 @@ export class HttpClient {
     }
 
     /**
+     * Execute streaming chat request
+     */
+    async *chatStream(messages: BasicMessage[], provider: string, model: string): AsyncGenerator<ResponseMessage> {
+        const requestData = {
+            messages: messages.map(msg => ({
+                role: msg.role,
+                content: msg.content
+            })),
+            provider,
+            model
+        };
+
+        const url = `${this.config.baseUrl}/stream`;
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    ...this.config.headers,
+                    'Content-Type': 'application/json',
+                    'Accept': 'text/event-stream'
+                } as HeadersInit,
+                body: JSON.stringify(requestData)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            if (!response.body) {
+                throw new Error('No response body for streaming');
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (line.trim() === '') continue;
+
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') {
+                                return;
+                            }
+
+                            try {
+                                const parsed = JSON.parse(data);
+                                if (parsed.content) {
+                                    yield toResponseMessage(
+                                        { role: 'assistant', content: parsed.content },
+                                        provider,
+                                        model
+                                    );
+                                }
+                            } catch (parseError) {
+                                // Skip invalid JSON
+                                continue;
+                            }
+                        }
+                    }
+                }
+            } finally {
+                reader.releaseLock();
+            }
+        } catch (error) {
+            throw new Error(`Streaming request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
      * Execute HTTP request with error handling
      */
     private async executeRequest<TResponse>(request: HttpRequest<DefaultRequestData> | HttpRequest<undefined>): Promise<HttpResponse<TResponse>> {

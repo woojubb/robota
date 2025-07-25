@@ -247,6 +247,36 @@ export class TeamContainer {
     }
 
     /**
+     * Execute a task using the team approach with streaming response
+     * @param userPrompt - The task to execute
+     * @returns AsyncGenerator<string, void, undefined> - Streaming chunks of the task execution result
+     */
+    async* executeStream(userPrompt: string): AsyncGenerator<string, void, undefined> {
+        const startTime = Date.now();
+
+        try {
+            this.logger?.info(`🚀 Starting team streaming execution`);
+
+            // Delegate to teamAgent's runStream method (Facade Pattern)
+            yield* this.teamAgent.runStream(userPrompt);
+
+            const executionTime = Date.now() - startTime;
+            this.tasksCompleted++;
+            this.totalExecutionTime += executionTime;
+
+            this.logger?.info(`✅ Team streaming execution completed in ${executionTime}ms`);
+
+        } catch (error) {
+            const executionTime = Date.now() - startTime;
+            this.totalExecutionTime += executionTime;
+
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger?.error(`❌ Team streaming execution failed after ${executionTime}ms: ${errorMessage}`);
+            throw error;
+        }
+    }
+
+    /**
      * Assign specialized tasks to a temporary expert agent
      * 
      * @description
