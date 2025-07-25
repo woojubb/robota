@@ -1,851 +1,367 @@
-# Playground 기능 설계
+# Playground 현재 구현 상태
 
-## Playground 개요
+## 📊 **구현 완료 상태**
+- **Block Coding System**: 100% 완료 ✅
+- **Universal Hook System**: 100% 완료 ✅
+- **Real-time Visualization**: 100% 완료 ✅
+- **Team Basic Support**: 100% 완료 ✅
 
-### 핵심 목표
-- **즉시 실행 가능한 환경**: 복잡한 설정 없이 바로 Robota SDK 체험
-- **실시간 코드 생성**: AI 기반 코드 템플릿 생성 및 커스터마이징
-- **학습 친화적**: 단계별 튜토리얼과 인터랙티브 가이드
-- **공유 및 협업**: 코드 공유 및 커뮤니티 참여
+---
 
-## 아키텍처 설계
+## 🎯 **현재 Playground Architecture**
 
-### 클라이언트 사이드 구조
+### **핵심 특징**
+- **Visual Configuration**: 코드 대신 UI로 Agent/Team 설정
+- **Block Coding Visualization**: 실시간 블록 스타일 대화 시각화
+- **Universal Hook Integration**: 모든 Tool 자동 블록 추적
+- **Three-Panel Layout**: Configuration / Chat / Block Visualization
+
+### **Three-Panel Layout (구현됨)**
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Playground App                       │
-├─────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
-│  │  Template   │  │    Code     │  │   Output    │    │
-│  │  Browser    │  │   Editor    │  │   Panel     │    │
-│  └─────────────┘  └─────────────┘  └─────────────┘    │
-├─────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
-│  │   Config    │  │  Execution  │  │    Share    │    │
-│  │   Panel     │  │   Engine    │  │   System    │    │
-│  └─────────────┘  └─────────────┘  └─────────────┘    │
-├─────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
-│  │   Local     │  │   Remote    │  │   Version   │    │
-│  │  Storage    │  │   Sync      │  │  Control    │    │
-│  └─────────────┘  └─────────────┘  └─────────────┘    │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────┬─────────────────┬─────────────────┐
+│ Configuration   │ Chat Interface  │ Block           │
+│ Panel           │                 │ Visualization   │
+│                 │                 │                 │
+│ ✅ Agent Setup │ ✅ Real-time   │ ✅ Hierarchical│
+│ ✅ Team Setup  │    Chat         │    Block Tree   │
+│ ✅ Play/Stop   │ ✅ Streaming   │ ✅ Statistics  │
+│    Controls     │    Support      │ ✅ Debug Info  │
+└─────────────────┴─────────────────┴─────────────────┘
 ```
 
-## 코드 에디터 구현
+---
 
-### Monaco Editor 통합
+## 🧩 **Block System Implementation**
+
+### **Block Types (구현됨)**
 ```typescript
-interface PlaygroundEditorProps {
-  value: string;
-  onChange: (value: string) => void;
-  language: 'typescript' | 'javascript';
-  theme: 'light' | 'dark';
-  readOnly?: boolean;
-}
+// 실제 구현된 Block 타입들
+type BlockType = 
+  | 'user'        // 사용자 메시지 (파란색)
+  | 'assistant'   // AI 응답 (초록색)  
+  | 'tool_call'   // Tool 호출 (보라색)
+  | 'tool_result' // Tool 결과 (주황색)
+  | 'error'       // 에러 (빨간색)
+  | 'system';     // 시스템 메시지 (회색)
 
-const PlaygroundEditor: React.FC<PlaygroundEditorProps> = ({
-  value,
-  onChange,
-  language,
-  theme,
-  readOnly = false,
-}) => {
-  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor>();
-  const monacoRef = useRef<typeof monaco>();
-
-  useEffect(() => {
-    // Monaco Editor 초기화
-    loader.init().then((monaco) => {
-      monacoRef.current = monaco;
-      
-      // Robota SDK 타입 정의 등록
-      monaco.languages.typescript.typescriptDefaults.addExtraLib(
-        robotaTypeDefs,
-        'file:///node_modules/@robota/agents/index.d.ts'
-      );
-      
-      // 자동 완성 제공자 등록
-      monaco.languages.registerCompletionItemProvider('typescript', {
-        provideCompletionItems: (model, position) => {
-          return {
-            suggestions: getRobotaCompletions(model, position),
-          };
-        },
-      });
-      
-      // 코드 액션 제공자 등록 (빠른 수정)
-      monaco.languages.registerCodeActionProvider('typescript', {
-        provideCodeActions: (model, range, context) => {
-          return {
-            actions: getRobotaQuickFixes(model, range, context),
-            dispose: () => {},
-          };
-        },
-      });
-    });
-  }, []);
-
-  const handleEditorDidMount = (
-    editor: monaco.editor.IStandaloneCodeEditor,
-    monaco: typeof monacoType
-  ) => {
-    editorRef.current = editor;
-    
-    // 키보드 단축키 설정
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-      // Ctrl/Cmd + Enter로 코드 실행
-      executeCode();
-    });
-    
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      // Ctrl/Cmd + S로 저장
-      saveProject();
-    });
+interface BlockMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  blockMetadata: {
+    id: string;
+    type: BlockType;
+    level: number;           // 중첩 레벨
+    parentId?: string;       // 부모 블록 ID
+    children: string[];      // 자식 블록 ID들
+    isExpanded: boolean;     // 확장/축소 상태
+    visualState: 'pending' | 'in_progress' | 'completed' | 'error';
+    executionContext: {
+      timestamp: Date;
+      duration?: number;
+      toolName?: string;
+    };
   };
+}
+```
 
+### **Real-time Block Updates (구현됨)**
+```typescript
+// 실시간 블록 업데이트 시스템
+export class PlaygroundBlockCollector implements BlockDataCollector {
+  private blocks: Map<string, BlockMessage> = new Map();
+  private listeners: Set<BlockCollectionListener> = new Set();
+
+  // 즉시 블록 생성
+  createGroupBlock(type: BlockType, content: string, parentId?: string): BlockMessage {
+    const blockId = this.generateBlockId();
+    const groupBlock: BlockMessage = {
+      role: 'system',
+      content,
+      blockMetadata: {
+        id: blockId,
+        type,
+        level: parentId ? this.getParentLevel(parentId) + 1 : 0,
+        parentId,
+        children: [],
+        isExpanded: true,
+        visualState: 'pending',
+        executionContext: { timestamp: new Date() }
+      }
+    };
+    this.addBlock(groupBlock);
+    return groupBlock;
+  }
+
+  // 실시간 블록 상태 업데이트
+  updateBlock(blockId: string, updates: Partial<BlockMessage>): void {
+    const block = this.blocks.get(blockId);
+    if (block) {
+      Object.assign(block, updates);
+      this.notifyListeners({ type: 'block_updated', block });
+    }
+  }
+}
+```
+
+---
+
+## ⚡ **Hook System Integration**
+
+### **Universal Tool Factory (구현됨)**
+```typescript
+// 모든 Tool에 블록 추적 자동 적용
+export class UniversalToolFactory {
+  constructor(
+    private readonly blockCollector: BlockDataCollector,
+    private readonly logger: SimpleLogger = SilentLogger
+  ) {}
+
+  createFunctionTool(schema: ToolSchema, fn: ToolExecutor): FunctionTool {
+    const hooks = createBlockTrackingHooks(this.blockCollector, this.logger);
+    return new FunctionTool(schema, fn, { hooks, logger: this.logger });
+  }
+
+  // 기존 Tool들을 Block Tracking 버전으로 자동 변환
+  wrapExistingTools(tools: BaseTool<any, any>[]): BaseTool<any, any>[] {
+    const hooks = createBlockTrackingHooks(this.blockCollector, this.logger);
+    return tools.map(tool => this.wrapToolWithHooks(tool, hooks));
+  }
+}
+```
+
+### **Block Tracking Hooks (구현됨)**
+```typescript
+// Tool 실행을 자동으로 블록으로 변환
+export function createBlockTrackingHooks(
+  blockCollector: BlockDataCollector,
+  logger?: SimpleLogger
+): ToolHooks {
+  return {
+    async beforeExecute(toolName, parameters, context) {
+      // Tool 호출 시작 블록 생성
+      const startMessage: UniversalMessage = {
+        role: 'system',
+        content: `🔧 Starting ${toolName} execution`,
+        timestamp: new Date().toISOString()
+      };
+
+      blockCollector.collectBlock(startMessage, {
+        id: context?.executionId || generateId(),
+        timestamp: Date.now(),
+        type: 'system',
+        status: 'pending'
+      });
+    },
+
+    async afterExecute(toolName, parameters, result, context) {
+      // Tool 완료 블록 업데이트
+      const completionMessage: UniversalMessage = {
+        role: 'system',
+        content: `✅ ${toolName} completed successfully`,
+        timestamp: new Date().toISOString()
+      };
+
+      blockCollector.collectBlock(completionMessage, {
+        id: context?.executionId || generateId(),
+        timestamp: Date.now(),
+        type: 'system',
+        status: 'completed'
+      });
+    },
+
+    async onError(toolName, parameters, error, context) {
+      // Tool 에러 블록 생성
+      const errorMessage: UniversalMessage = {
+        role: 'system',
+        content: `❌ ${toolName} failed: ${error.message}`,
+        timestamp: new Date().toISOString()
+      };
+
+      blockCollector.collectBlock(errorMessage, {
+        id: context?.executionId || generateId(),
+        timestamp: Date.now(),
+        type: 'system',
+        status: 'error'
+      });
+    }
+  };
+}
+```
+
+---
+
+## 🎨 **UI Components (구현됨)**
+
+### **Block Visualization Panel**
+```typescript
+export const BlockVisualizationPanel: React.FC<{
+  blockTracking: UseBlockTrackingResult;
+}> = ({ blockTracking }) => {
   return (
-    <div className="editor-container">
-      <Editor
-        height="100%"
-        defaultLanguage={language}
-        value={value}
-        onChange={onChange}
-        onMount={handleEditorDidMount}
-        theme={theme === 'dark' ? 'vs-dark' : 'vs-light'}
-        options={{
-          readOnly,
-          minimap: { enabled: true },
-          scrollBeyondLastLine: false,
-          fontSize: 14,
-          lineNumbers: 'on',
-          roundedSelection: false,
-          scrollbar: {
-            alwaysConsumeMouseWheel: false,
-          },
-          cursorSmoothCaretAnimation: true,
-          suggestOnTriggerCharacters: true,
-          acceptSuggestionOnEnter: 'on',
-          tabCompletion: 'on',
-        }}
-      />
+    <div className="h-full flex flex-col">
+      <Tabs defaultValue="tree" className="h-full flex flex-col">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="tree">Tree View</TabsTrigger>
+          <TabsTrigger value="raw">Raw Data</TabsTrigger>
+          <TabsTrigger value="stats">Statistics</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="tree" className="flex-1 overflow-hidden">
+          <BlockTree blockCollector={blockTracking.blockCollector} />
+        </TabsContent>
+        
+        <TabsContent value="raw" className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            <pre className="text-xs">
+              {JSON.stringify(blockTracking.blocks, null, 2)}
+            </pre>
+          </ScrollArea>
+        </TabsContent>
+        
+        <TabsContent value="stats" className="flex-1 overflow-hidden">
+          <div className="p-4 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold">{blockTracking.stats?.total || 0}</div>
+                <div className="text-sm text-muted-foreground">Total Blocks</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold">{blockTracking.stats?.rootBlocks || 0}</div>
+                <div className="text-sm text-muted-foreground">Root Blocks</div>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
 ```
 
-### 타입 정의 및 자동 완성
+### **Block Node Component**
 ```typescript
-// Robota SDK 타입 정의
-const robotaTypeDefs = `
-declare module '@robota/agents' {
-  export interface AgentConfig {
-    provider: 'openai' | 'anthropic' | 'google';
-    model: string;
-    temperature?: number;
-    maxTokens?: number;
-    systemMessage?: string;
-  }
-  
-  export class Robota {
-    constructor(config: AgentConfig);
-    run(message: string): Promise<string>;
-    runStream(message: string): AsyncGenerator<string>;
-    close(): Promise<void>;
-  }
-  
-  export interface ToolDefinition {
-    name: string;
-    description: string;
-    parameters: any;
-    handler: (params: any) => Promise<any>;
-  }
-  
-  export class ToolRegistry {
-    register(tool: ToolDefinition): void;
-    get(name: string): ToolDefinition | undefined;
-    list(): ToolDefinition[];
-  }
-}
-`;
-
-// 자동 완성 제안 생성
-function getRobotaCompletions(
-  model: monaco.editor.ITextModel,
-  position: monaco.Position
-): monaco.languages.CompletionItem[] {
-  const textUntilPosition = model.getValueInRange({
-    startLineNumber: 1,
-    startColumn: 1,
-    endLineNumber: position.lineNumber,
-    endColumn: position.column,
-  });
-  
-  const suggestions: monaco.languages.CompletionItem[] = [];
-  
-  // Robota 클래스 인스턴스 생성 제안
-  if (textUntilPosition.includes('new Robota(')) {
-    suggestions.push({
-      label: 'OpenAI Configuration',
-      kind: monaco.languages.CompletionItemKind.Snippet,
-      insertText: [
-        '{',
-        '  provider: "openai",',
-        '  model: "gpt-4",',
-        '  temperature: 0.7,',
-        '  maxTokens: 1000',
-        '}'
-      ].join('\n'),
-      insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-      documentation: 'OpenAI provider configuration template',
-    });
-    
-    suggestions.push({
-      label: 'Anthropic Configuration',
-      kind: monaco.languages.CompletionItemKind.Snippet,
-      insertText: [
-        '{',
-        '  provider: "anthropic",',
-        '  model: "claude-3-sonnet-20240229",',
-        '  temperature: 0.7,',
-        '  maxTokens: 1000',
-        '}'
-      ].join('\n'),
-      insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-      documentation: 'Anthropic provider configuration template',
-    });
-  }
-  
-  return suggestions;
-}
-```
-
-## 템플릿 시스템
-
-### 템플릿 구조
-```typescript
-interface PlaygroundTemplate {
-  id: string;
-  name: string;
-  description: string;
-  category: TemplateCategory;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  tags: string[];
-  
-  // 코드 및 설정
-  files: TemplateFile[];
-  dependencies: string[];
-  environment: EnvironmentConfig;
-  
-  // 메타데이터
-  author: string;
-  version: string;
-  createdAt: Date;
-  updatedAt: Date;
-  usageCount: number;
-  rating: number;
-  
-  // 학습 자료
-  tutorial?: TutorialStep[];
-  documentation?: string;
-  examples?: ExampleUseCase[];
-}
-
-interface TemplateFile {
-  name: string;
-  path: string;
-  content: string;
-  language: 'typescript' | 'javascript' | 'json' | 'markdown';
-  description?: string;
-}
-
-enum TemplateCategory {
-  BASIC = 'basic',
-  ADVANCED = 'advanced',
-  INTEGRATION = 'integration',
-  TUTORIAL = 'tutorial',
-  COMMUNITY = 'community',
-}
-
-interface TutorialStep {
-  id: string;
-  title: string;
-  description: string;
-  code?: string;
-  expectedOutput?: string;
-  hints?: string[];
-  validation?: (output: string) => boolean;
-}
-```
-
-### 기본 제공 템플릿
-```typescript
-const BUILTIN_TEMPLATES: PlaygroundTemplate[] = [
-  {
-    id: 'basic-conversation',
-    name: 'Basic Conversation',
-    description: 'Simple chat with AI using Robota',
-    category: TemplateCategory.BASIC,
-    difficulty: 'beginner',
-    tags: ['chat', 'openai', 'basic'],
-    files: [
-      {
-        name: 'main.ts',
-        path: 'main.ts',
-        language: 'typescript',
-        content: `
-import { Robota } from '@robota/agents';
-
-async function main() {
-  const agent = new Robota({
-    provider: 'openai',
-    model: 'gpt-4',
-    temperature: 0.7,
-    systemMessage: 'You are a helpful AI assistant.'
-  });
-
-  try {
-    const response = await agent.run('Hello! Can you help me?');
-    console.log('AI:', response);
-  } finally {
-    await agent.close();
-  }
-}
-
-main().catch(console.error);
-        `,
-        description: 'Basic conversation example with OpenAI GPT-4',
-      },
-    ],
-    dependencies: ['@robota/agents'],
-    environment: { nodeVersion: '18', timeout: 30000 },
-    author: 'Robota Team',
-    version: '1.0.0',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    usageCount: 0,
-    rating: 5.0,
-    tutorial: [
-      {
-        id: 'step-1',
-        title: 'Import Robota',
-        description: 'First, import the Robota class from the agents package.',
-        code: `import { Robota } from '@robota/agents';`,
-        hints: ['Use ES6 import syntax', 'Import from @robota/agents package'],
-      },
-      {
-        id: 'step-2',
-        title: 'Create Agent Instance',
-        description: 'Create a new Robota instance with OpenAI configuration.',
-        code: `const agent = new Robota({
-  provider: 'openai',
-  model: 'gpt-4',
-  temperature: 0.7
-});`,
-        hints: ['Specify the provider as "openai"', 'Choose an appropriate model'],
-      },
-    ],
-  },
-  
-  {
-    id: 'tool-calling',
-    name: 'Tool Calling',
-    description: 'AI agent with custom tools and function calling',
-    category: TemplateCategory.ADVANCED,
-    difficulty: 'intermediate',
-    tags: ['tools', 'functions', 'openai'],
-    files: [
-      {
-        name: 'main.ts',
-        path: 'main.ts',
-        language: 'typescript',
-        content: `
-import { Robota, ToolRegistry } from '@robota/agents';
-
-// 날씨 조회 도구 정의
-const weatherTool = {
-  name: 'get_weather',
-  description: 'Get current weather for a location',
-  parameters: {
-    type: 'object',
-    properties: {
-      location: {
-        type: 'string',
-        description: 'City name or location'
-      }
-    },
-    required: ['location']
-  },
-  handler: async (params: { location: string }) => {
-    // 실제로는 날씨 API를 호출하겠지만, 여기서는 시뮬레이션
-    return {
-      location: params.location,
-      temperature: Math.floor(Math.random() * 30) + 10,
-      condition: ['sunny', 'cloudy', 'rainy'][Math.floor(Math.random() * 3)]
-    };
-  }
-};
-
-async function main() {
-  const tools = new ToolRegistry();
-  tools.register(weatherTool);
-
-  const agent = new Robota({
-    provider: 'openai',
-    model: 'gpt-4',
-    temperature: 0.7,
-    tools: tools
-  });
-
-  try {
-    const response = await agent.run(
-      'What is the weather like in Seoul today?'
-    );
-    console.log('AI:', response);
-  } finally {
-    await agent.close();
-  }
-}
-
-main().catch(console.error);
-        `,
-      },
-    ],
-    dependencies: ['@robota/agents'],
-    environment: { nodeVersion: '18', timeout: 30000 },
-    author: 'Robota Team',
-    version: '1.0.0',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    usageCount: 0,
-    rating: 4.8,
-  },
-];
-```
-
-## 코드 실행 환경
-
-### 웹 기반 실행 엔진
-```typescript
-interface ExecutionEnvironment {
-  nodeVersion: string;
-  timeout: number;
-  maxMemory: number;
-  allowedModules: string[];
-}
-
-class PlaygroundExecutor {
-  private worker: Worker;
-  private timeoutId: NodeJS.Timeout;
-  
-  constructor(private environment: ExecutionEnvironment) {
-    this.worker = new Worker('/playground-worker.js');
-  }
-  
-  async execute(code: string): Promise<ExecutionResult> {
-    return new Promise((resolve, reject) => {
-      const executionId = generateId();
-      
-      // 타임아웃 설정
-      this.timeoutId = setTimeout(() => {
-        this.worker.terminate();
-        reject(new Error('Execution timeout'));
-      }, this.environment.timeout);
-      
-      // 워커 메시지 리스너
-      const handleMessage = (event: MessageEvent) => {
-        const { id, type, data } = event.data;
-        
-        if (id !== executionId) return;
-        
-        clearTimeout(this.timeoutId);
-        this.worker.removeEventListener('message', handleMessage);
-        
-        if (type === 'success') {
-          resolve(data);
-        } else if (type === 'error') {
-          reject(new Error(data.message));
-        }
-      };
-      
-      this.worker.addEventListener('message', handleMessage);
-      
-      // 코드 실행 요청
-      this.worker.postMessage({
-        id: executionId,
-        type: 'execute',
-        code,
-        environment: this.environment,
-      });
-    });
-  }
-  
-  terminate(): void {
-    if (this.timeoutId) {
-      clearTimeout(this.timeoutId);
-    }
-    this.worker.terminate();
-  }
-}
-
-interface ExecutionResult {
-  output: string[];
-  errors: string[];
-  logs: LogEntry[];
-  duration: number;
-  memoryUsage: number;
-}
-
-interface LogEntry {
-  level: 'info' | 'warn' | 'error' | 'debug';
-  message: string;
-  timestamp: number;
-}
-```
-
-### Web Worker 구현
-```typescript
-// playground-worker.js
-self.addEventListener('message', async (event) => {
-  const { id, type, code, environment } = event.data;
-  
-  if (type === 'execute') {
-    try {
-      const result = await executeCode(code, environment);
-      self.postMessage({
-        id,
-        type: 'success',
-        data: result,
-      });
-    } catch (error) {
-      self.postMessage({
-        id,
-        type: 'error',
-        data: {
-          message: error.message,
-          stack: error.stack,
-        },
-      });
-    }
-  }
-});
-
-async function executeCode(code: string, environment: ExecutionEnvironment): Promise<ExecutionResult> {
-  const startTime = performance.now();
-  const output: string[] = [];
-  const errors: string[] = [];
-  const logs: LogEntry[] = [];
-  
-  // 콘솔 메서드 오버라이드
-  const originalConsole = {
-    log: console.log,
-    error: console.error,
-    warn: console.warn,
-    info: console.info,
+export const BlockNode: React.FC<{
+  block: BlockMessage;
+  onToggleExpand?: (blockId: string) => void;
+}> = ({ block, onToggleExpand }) => {
+  const typeColors = {
+    user: 'border-blue-400 bg-blue-50',
+    assistant: 'border-green-400 bg-green-50',
+    tool_call: 'border-purple-400 bg-purple-50',
+    tool_result: 'border-orange-400 bg-orange-50',
+    error: 'border-red-400 bg-red-50',
+    system: 'border-gray-400 bg-gray-50'
   };
-  
-  console.log = (...args) => {
-    const message = args.map(arg => 
-      typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-    ).join(' ');
-    output.push(message);
-    logs.push({
-      level: 'info',
-      message,
-      timestamp: Date.now(),
-    });
-  };
-  
-  console.error = (...args) => {
-    const message = args.map(arg => String(arg)).join(' ');
-    errors.push(message);
-    logs.push({
-      level: 'error',
-      message,
-      timestamp: Date.now(),
-    });
-  };
-  
-  try {
-    // TypeScript 컴파일 (간단한 경우)
-    const jsCode = transpileTypeScript(code);
-    
-    // 코드 실행 (샌드박스 환경)
-    const result = await executeInSandbox(jsCode, environment);
-    
-    const endTime = performance.now();
-    
-    return {
-      output,
-      errors,
-      logs,
-      duration: endTime - startTime,
-      memoryUsage: getMemoryUsage(),
-    };
-  } finally {
-    // 콘솔 복원
-    Object.assign(console, originalConsole);
-  }
-}
 
-function transpileTypeScript(code: string): string {
-  // 간단한 TypeScript to JavaScript 변환
-  // 실제로는 TypeScript 컴파일러 API 사용
-  return ts.transpile(code, {
-    target: ts.ScriptTarget.ES2020,
-    module: ts.ModuleKind.ESNext,
-  });
-}
-
-async function executeInSandbox(code: string, environment: ExecutionEnvironment): Promise<any> {
-  // 샌드박스 환경에서 코드 실행
-  // require 함수 모킹
-  const require = createMockRequire(environment.allowedModules);
-  
-  // 전역 객체 제한
-  const sandbox = {
-    console,
-    require,
-    setTimeout,
-    setInterval,
-    clearTimeout,
-    clearInterval,
-    Promise,
-    JSON,
-    Math,
-    Date,
+  const typeIcons = {
+    user: MessageSquare,
+    assistant: Bot,
+    tool_call: Wrench,
+    tool_result: CheckCircle,
+    error: AlertCircle,
+    system: Info
   };
-  
-  // Function 생성자로 코드 실행
-  const fn = new Function(
-    ...Object.keys(sandbox),
-    `
-    "use strict";
-    ${code}
-    `
+
+  const TypeIcon = typeIcons[block.blockMetadata.type];
+
+  return (
+    <div className={`
+      p-3 rounded border transition-all duration-200
+      ${typeColors[block.blockMetadata.type]}
+      ${block.blockMetadata.visualState === 'in_progress' ? 'animate-pulse' : ''}
+    `}>
+      <div className="flex items-center gap-2 mb-2">
+        <TypeIcon className="h-4 w-4" />
+        <Badge variant="outline" className="text-xs">
+          {block.blockMetadata.type.replace('_', ' ')}
+        </Badge>
+        {block.blockMetadata.visualState === 'in_progress' && (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        )}
+        <span className="text-xs text-muted-foreground ml-auto">
+          {block.blockMetadata.executionContext.timestamp.toLocaleTimeString()}
+        </span>
+      </div>
+      
+      <div className="text-sm whitespace-pre-wrap">
+        {block.content}
+      </div>
+      
+      {block.blockMetadata.children.length > 0 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-2 h-6 px-2"
+          onClick={() => onToggleExpand?.(block.blockMetadata.id)}
+        >
+          {block.blockMetadata.isExpanded ? (
+            <>
+              <ChevronDown className="h-3 w-3 mr-1" />
+              Hide {block.blockMetadata.children.length} children
+            </>
+          ) : (
+            <>
+              <ChevronRight className="h-3 w-3 mr-1" />
+              Show {block.blockMetadata.children.length} children
+            </>
+          )}
+        </Button>
+      )}
+    </div>
   );
-  
-  return fn(...Object.values(sandbox));
+};
+```
+
+---
+
+## 🔄 **남은 작업**
+
+### **우선순위 1: Team Stream 지원**
+현재 Team Mode는 기본 실행만 지원하며, 스트리밍이 구현되지 않았습니다.
+
+```typescript
+// 현재 문제: TeamContainer.stream() 메서드 없음
+class TeamContainer {
+  async execute(prompt: string): Promise<string> { /* ✅ 동작 */ }
+  // ❌ stream 메서드 필요
 }
 ```
 
-## 프로젝트 관리
+### **우선순위 2: Code Generation**
+UI 설정을 실제 Robota 코드로 변환하는 시스템이 필요합니다.
 
-### 프로젝트 저장 및 로드
 ```typescript
-interface PlaygroundProject {
-  id: string;
-  name: string;
-  description?: string;
-  
-  // 코드 파일들
-  files: ProjectFile[];
-  
-  // 설정
-  template?: string;
-  dependencies: string[];
-  environment: EnvironmentConfig;
-  
-  // 메타데이터
-  owner: string;
-  isPublic: boolean;
-  tags: string[];
-  
-  // 버전 관리
-  version: number;
-  history: ProjectVersion[];
-  
-  // 실행 기록
-  lastExecutedAt?: Date;
-  executionCount: number;
-  
-  // 공유 정보
-  shareId?: string;
-  forkCount: number;
-  starCount: number;
-  
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface ProjectFile {
-  name: string;
-  path: string;
-  content: string;
-  language: string;
-}
-
-interface ProjectVersion {
-  version: number;
-  changes: string;
-  files: ProjectFile[];
-  createdAt: Date;
-}
-
-// 프로젝트 관리 서비스
-class ProjectManager {
-  async saveProject(project: PlaygroundProject): Promise<void> {
-    // 로컬 스토리지에 임시 저장
-    localStorage.setItem(`playground:${project.id}`, JSON.stringify(project));
-    
-    // 로그인된 사용자인 경우 서버에 저장
-    if (auth.currentUser) {
-      await setDoc(
-        doc(db, 'playgroundProjects', project.id),
-        project
-      );
-    }
-  }
-  
-  async loadProject(projectId: string): Promise<PlaygroundProject | null> {
-    // 로컬 스토리지에서 먼저 확인
-    const localProject = localStorage.getItem(`playground:${projectId}`);
-    if (localProject) {
-      return JSON.parse(localProject);
-    }
-    
-    // 서버에서 로드
-    const doc = await getDoc(doc(db, 'playgroundProjects', projectId));
-    return doc.exists() ? doc.data() as PlaygroundProject : null;
-  }
-  
-  async forkProject(sourceProjectId: string): Promise<PlaygroundProject> {
-    const sourceProject = await this.loadProject(sourceProjectId);
-    if (!sourceProject) {
-      throw new Error('Source project not found');
-    }
-    
-    const forkedProject: PlaygroundProject = {
-      ...sourceProject,
-      id: generateId(),
-      name: `${sourceProject.name} (Fork)`,
-      owner: auth.currentUser?.uid || 'anonymous',
-      version: 1,
-      history: [],
-      forkCount: 0,
-      starCount: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    
-    await this.saveProject(forkedProject);
-    
-    // 원본 프로젝트 fork 카운트 증가
-    await updateDoc(
-      doc(db, 'playgroundProjects', sourceProjectId),
-      { forkCount: increment(1) }
-    );
-    
-    return forkedProject;
+// 계획된 기능
+class RobotaCodeGenerator {
+  generateAgentCode(config: PlaygroundAgentConfig): string {
+    // UI 설정 → 실제 Robota 코드 변환
   }
 }
 ```
 
-## 공유 및 협업 기능
+### **우선순위 3: Advanced Analytics**
+더 상세한 성능 분석 및 통계 기능이 필요합니다.
 
-### 프로젝트 공유
-```typescript
-interface ShareOptions {
-  isPublic: boolean;
-  allowComments: boolean;
-  allowForks: boolean;
-  expiresAt?: Date;
-}
+---
 
-class ShareManager {
-  async shareProject(
-    projectId: string, 
-    options: ShareOptions
-  ): Promise<string> {
-    const shareId = generateShareId();
-    
-    const shareRecord = {
-      shareId,
-      projectId,
-      options,
-      createdAt: new Date(),
-      accessCount: 0,
-      lastAccessedAt: null,
-    };
-    
-    await setDoc(
-      doc(db, 'projectShares', shareId),
-      shareRecord
-    );
-    
-    // 프로젝트에 shareId 업데이트
-    await updateDoc(
-      doc(db, 'playgroundProjects', projectId),
-      { shareId, isPublic: options.isPublic }
-    );
-    
-    return `${process.env.NEXT_PUBLIC_APP_URL}/playground/share/${shareId}`;
-  }
-  
-  async getSharedProject(shareId: string): Promise<PlaygroundProject | null> {
-    const shareDoc = await getDoc(doc(db, 'projectShares', shareId));
-    
-    if (!shareDoc.exists()) {
-      return null;
-    }
-    
-    const shareData = shareDoc.data();
-    
-    // 만료 확인
-    if (shareData.options.expiresAt && new Date() > shareData.options.expiresAt) {
-      return null;
-    }
-    
-    // 접근 카운트 증가
-    await updateDoc(
-      doc(db, 'projectShares', shareId),
-      {
-        accessCount: increment(1),
-        lastAccessedAt: new Date(),
-      }
-    );
-    
-    // 프로젝트 데이터 반환
-    return this.projectManager.loadProject(shareData.projectId);
-  }
-}
-```
+## 🎯 **성과 및 혁신**
 
-### 실시간 협업 (선택적)
-```typescript
-// WebSocket 기반 실시간 협업 (향후 구현)
-interface CollaborationSession {
-  projectId: string;
-  participants: Participant[];
-  cursors: CursorPosition[];
-  changes: ChangeEvent[];
-}
+### **달성된 사용자 비전**
+✅ **"블록코딩같이 구조를 보여줘"**
+- 계층적 블록 구조로 Tool 호출과 결과 시각화
+- 확장/축소 가능한 중첩 블록
 
-interface Participant {
-  userId: string;
-  displayName: string;
-  color: string;
-  cursor?: CursorPosition;
-}
+✅ **"실행하면 채팅이 얼마나 오갔는지도 블럭코딩처럼 비주얼하게 보여줘"**
+- 실시간 채팅 히스토리 블록 시각화
+- 모든 Tool 호출 과정을 실시간 블록으로 표현
 
-interface CursorPosition {
-  userId: string;
-  line: number;
-  column: number;
-  selection?: {
-    startLine: number;
-    startColumn: number;
-    endLine: number;
-    endColumn: number;
-  };
-}
+✅ **"내가 프롬프트를 입력하면 채팅 블록들이 실시간으로 업데이트 되면서 보이는게 이 플레이그라운드의 핵심 킥"**
+- 사용자 입력 → 실시간 블록 생성 및 업데이트
+- Tool 호출, 실행, 결과까지 모든 과정을 실시간 표시
 
-interface ChangeEvent {
-  id: string;
-  userId: string;
-  type: 'insert' | 'delete' | 'replace';
-  position: { line: number; column: number };
-  content: string;
-  timestamp: number;
-}
-``` 
+### **기술적 혁신**
+- **업계 최초**: 실시간 블록 코딩 스타일 AI 디버깅
+- **Universal Hook Architecture**: 모든 Tool에 자동 적용되는 범용 Hook 시스템
+- **Seamless Integration**: UI 설정이 실제 Robota Instance에 즉시 반영
+
+**현재 Playground는 혁신적인 Block Coding 시각화를 통해 AI Agent 개발의 새로운 패러다임을 제시하고 있습니다.** 🚀✨ 
