@@ -1,5 +1,56 @@
 import type { ToolInterface, ToolResult, ToolExecutionContext, ParameterValidationResult } from '../interfaces/tool';
 import type { ToolSchema } from '../interfaces/provider';
+import type { SimpleLogger } from '../utils/simple-logger';
+import { SilentLogger } from '../utils/simple-logger';
+
+/**
+ * Hook interface for tool execution lifecycle
+ * Provides extension points for monitoring, logging, and custom logic
+ */
+export interface ToolHooks {
+    /**
+     * Called before tool execution
+     * @param toolName - Name of the tool being executed
+     * @param parameters - Parameters passed to the tool
+     * @param context - Optional execution context
+     */
+    beforeExecute?(toolName: string, parameters: any, context?: ToolExecutionContext): Promise<void> | void;
+
+    /**
+     * Called after successful tool execution
+     * @param toolName - Name of the tool that was executed
+     * @param parameters - Parameters that were passed to the tool
+     * @param result - Result returned by the tool
+     * @param context - Optional execution context
+     */
+    afterExecute?(toolName: string, parameters: any, result: any, context?: ToolExecutionContext): Promise<void> | void;
+
+    /**
+     * Called when tool execution throws an error
+     * @param toolName - Name of the tool that failed
+     * @param parameters - Parameters that were passed to the tool
+     * @param error - Error that was thrown
+     * @param context - Optional execution context
+     */
+    onError?(toolName: string, parameters: any, error: Error, context?: ToolExecutionContext): Promise<void> | void;
+}
+
+/**
+ * Options for BaseTool construction
+ * Supports dependency injection for hooks and logging
+ */
+export interface BaseToolOptions {
+    /**
+     * Optional hooks for tool execution lifecycle
+     */
+    hooks?: ToolHooks;
+
+    /**
+     * Optional logger for tool operations
+     * Defaults to SilentLogger if not provided
+     */
+    logger?: SimpleLogger;
+}
 
 /**
  * Base tool parameters type - extended for full ToolParameters compatibility
@@ -71,9 +122,73 @@ export interface TypeSafeToolInterface<TParameters = BaseToolParameters, TResult
  */
 export abstract class BaseTool<TParameters = BaseToolParameters, TResult = ToolResult>
     implements TypeSafeToolInterface<TParameters, TResult> {
+
     abstract readonly schema: ToolSchema;
 
-    abstract execute(parameters: TParameters, context?: ToolExecutionContext): Promise<TResult>;
+    /**
+     * Optional hooks for tool execution lifecycle
+     */
+    protected readonly hooks: ToolHooks | undefined;
+
+    /**
+     * Logger for tool operations
+     */
+    protected readonly logger: SimpleLogger;
+
+    /**
+     * Constructor with optional hook and logger support
+     * @param options - Configuration options for the tool
+     */
+    constructor(options: BaseToolOptions = {}) {
+        this.hooks = options.hooks;
+        this.logger = options.logger || SilentLogger;
+    }
+
+    /**
+     * Template Method Pattern: Execute tool with hook support
+     * This method coordinates the execution lifecycle and should not be overridden
+     * 
+     * @param parameters - Tool parameters
+     * @param context - Optional execution context
+     * @returns Promise resolving to tool result
+     */
+    async execute(parameters: TParameters, context?: ToolExecutionContext): Promise<TResult> {
+        const toolName = this.schema.name || this.constructor.name;
+
+        try {
+            // 🟢 Pre-execution hook
+            await this.hooks?.beforeExecute?.(toolName, parameters, context);
+
+            this.logger.debug(`Executing tool: ${toolName}`, { parameters });
+
+            // 🟢 Delegate to concrete implementation
+            const result = await this.executeImpl(parameters, context);
+
+            this.logger.debug(`Tool execution completed: ${toolName}`, { result });
+
+            // 🟢 Post-execution hook
+            await this.hooks?.afterExecute?.(toolName, parameters, result, context);
+
+            return result;
+        } catch (error) {
+            this.logger.error(`Tool execution failed: ${toolName}`, { error: error instanceof Error ? error.message : error, parameters });
+
+            // 🟢 Error hook
+            await this.hooks?.onError?.(toolName, parameters, error as Error, context);
+
+            throw error;
+        }
+    }
+
+    /**
+     * Concrete implementation of tool execution
+     * This method should be implemented by subclasses to provide actual tool logic
+     * 
+     * @param parameters - Tool parameters
+     * @param context - Optional execution context
+     * @returns Promise resolving to tool result
+     */
+    protected abstract executeImpl(parameters: TParameters, context?: ToolExecutionContext): Promise<TResult>;
 
     validate(parameters: TParameters): boolean {
         const required = this.schema.parameters.required || [];

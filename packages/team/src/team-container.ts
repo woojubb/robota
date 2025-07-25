@@ -6,7 +6,8 @@ import { createTaskAssignmentFacade } from './task-assignment/index.js';
 import {
     TeamContainerOptions,
     AssignTaskParams,
-    AssignTaskResult
+    AssignTaskResult,
+    TemplateInfo
 } from './types.js';
 
 /**
@@ -719,16 +720,16 @@ export class TeamContainer {
     }
 
     /**
-     * Create AssignTask tool using facade pattern with dynamic schema based on available templates
+     * Create AssignTask tool using the task assignment system
      */
     private createAssignTaskTool() {
-        // Convert templates to the format expected by the facade
-        const templateInfo = this.availableTemplates.map(template => ({
+        // Convert templates to the format expected by the task assignment system
+        const templateInfo: TemplateInfo[] = this.availableTemplates.map(template => ({
             id: template.id,
             description: template.description
         }));
 
-        // Create the task assignment facade
+        // Create the task assignment system
         const taskAssignment = createTaskAssignmentFacade(
             templateInfo,
             async (params: AssignTaskParams) => {

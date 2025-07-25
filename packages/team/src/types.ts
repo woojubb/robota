@@ -1,6 +1,14 @@
 import type { AgentConfig as RobotaAgentConfig, AgentTemplate, AIProvider } from '@robota-sdk/agents';
 
 /**
+ * Interface for template information
+ */
+export interface TemplateInfo {
+    id: string;
+    description: string;
+}
+
+/**
  * Team creation options for template-based teams
  * 
  * @description
