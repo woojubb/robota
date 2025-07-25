@@ -283,12 +283,37 @@ function ChatInterfacePanel({ blockTracking }: { blockTracking: any }) {
             console.log('User message block created:', userBlockId);
         }
 
+        // Add user message to conversation events for Chat UI
+        const userEvent = {
+            id: `event_${Date.now()}_user`,
+            type: 'user_message' as const,
+            content: messageText,
+            timestamp: new Date(),
+            metadata: {}
+        };
+
+        // Add to visualization data events
+        const currentVizData = state.visualizationData || { events: [], stats: {} };
+        const updatedVizData = {
+            ...currentVizData,
+            events: [...(currentVizData.events || []), userEvent]
+        };
+
+        // We need to add this to visualizationData, but we can't access dispatch here
+        // This should be handled differently - maybe in the Context layer
+
         try {
             let result: any;
+            console.log('handleSendMessage: messageText =', messageText, 'useStreaming =', useStreaming);
+
             if (useStreaming) {
+                console.log('Calling sendStreamingMessage()');
                 result = await sendStreamingMessage();
+                console.log('sendStreamingMessage result:', result);
             } else {
+                console.log('Calling sendMessage()');
                 result = await sendMessage();
+                console.log('sendMessage result:', result);
             }
 
             // Assistant response block will be created by useEffect when lastResult updates
@@ -311,7 +336,7 @@ function ChatInterfacePanel({ blockTracking }: { blockTracking: any }) {
                 });
             }
         }
-    }, [canSend, inputState.value, useStreaming, sendStreamingMessage, sendMessage, blockTracking, lastResult]);
+    }, [canSend, inputState.value, useStreaming, sendStreamingMessage, sendMessage, blockTracking, lastResult, state.visualizationData]);
 
     const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {

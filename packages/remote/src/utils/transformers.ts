@@ -98,10 +98,21 @@ export function createHttpResponse<TData>(
  * Extract content from response safely
  */
 export function extractContent(response: HttpResponse<DefaultRequestData>): string {
+    // Check for nested data structure: response.data.data.content
+    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+        const nestedData = response.data['data'];
+        if (nestedData && typeof nestedData === 'object' && 'content' in nestedData) {
+            const content = nestedData['content'];
+            return typeof content === 'string' ? content : '';
+        }
+    }
+
+    // Fallback to original structure: response.data.content
     if (response.data && typeof response.data === 'object' && 'content' in response.data) {
         const content = response.data['content'];
         return typeof content === 'string' ? content : '';
     }
+
     return '';
 }
 
