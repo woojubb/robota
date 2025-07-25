@@ -46,10 +46,12 @@ import { usePlaygroundData } from '@/hooks/use-playground-data';
 import { useRobotaExecution } from '@/hooks/use-robota-execution';
 import { useWebSocketConnection } from '@/hooks/use-websocket-connection';
 import { useChatInput } from '@/hooks/use-chat-input';
+import { useBlockTracking } from '@/hooks/use-block-tracking';
 
 // Visual Components
 import { AgentConfigurationBlock } from '@/components/playground/agent-configuration-block';
 import { TeamConfigurationBlock } from '@/components/playground/team-configuration-block';
+import { BlockVisualizationPanel } from '@/components/playground/block-visualization';
 import { ToolContainerBlock } from '@/components/playground/tool-container-block';
 import { PluginContainerBlock } from '@/components/playground/plugin-container-block';
 
@@ -491,6 +493,7 @@ function ConnectionStatusPanel() {
 // Main Playground Component (without Provider)
 function PlaygroundContent() {
     const { initializeExecutor } = usePlayground();
+    const blockTracking = useBlockTracking();
 
     // Memoize sessionId to prevent re-initialization
     const sessionId = useMemo(() => `session-${Date.now()}`, []);
@@ -543,18 +546,13 @@ function PlaygroundContent() {
                     <div className="lg:col-span-1 space-y-4">
                         <ConnectionStatusPanel />
 
-                        {/* Additional panels can be added here */}
-                        <Card>
-                            <CardHeader className="pb-3">
-                                <CardTitle className="text-sm font-semibold">Coming Soon</CardTitle>
-                            </CardHeader>
-                            <CardContent className="pt-0">
-                                <div className="text-center py-4 text-xs text-gray-500">
-                                    <Activity className="h-6 w-6 mx-auto mb-2 opacity-50" />
-                                    <p>Advanced analytics and monitoring</p>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        {/* Block Visualization Panel */}
+                        <BlockVisualizationPanel
+                            blockCollector={blockTracking.blockCollector}
+                            height="400px"
+                            showDebug={false}
+                            autoScroll={true}
+                        />
                     </div>
                 </div>
             </div>
