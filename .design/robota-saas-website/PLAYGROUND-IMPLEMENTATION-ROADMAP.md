@@ -566,34 +566,73 @@ await team.execute('Create a comprehensive weather-based marketing strategy');
 
 ### 🎯 **Universal Hook 시스템의 수정된 구현 우선순위**
 
-#### **🥇 1순위: Universal BaseTool Hook 시스템 (packages/agents) - 1주**
+#### **✅ 1순위: Universal BaseTool Hook 시스템 (packages/agents) - 완료**
 ```typescript
-// 🟢 모든 Tool의 기반이 되는 Hook 시스템
-- BaseTool Hook 인터페이스 정의 (ToolHooks, BaseToolOptions)
-- BaseTool 추상 클래스 Hook 지원 추가 (Template Method Pattern)
-- createBlockTrackingHooks 헬퍼 함수
-- withBlockTracking Universal 래퍼 함수
-- 기존 FunctionTool, OpenAPITool, MCPTool 생성자 options 추가
+// ✅ 모든 Tool 클래스 Template Method Pattern 통일 완료
+- ✅ BaseTool Hook 인터페이스 정의 (ToolHooks, BaseToolOptions)
+- ✅ BaseTool Template Method Pattern 구현 (execute → executeImpl)
+- ✅ FunctionTool executeImpl 패턴 변경 및 BaseToolOptions 지원
+- ✅ OpenAPITool executeImpl 패턴 변경 및 BaseToolOptions 지원
+- ✅ MCPTool executeImpl 패턴 변경 및 BaseToolOptions 지원
+- ✅ AgentDelegationTool Hook 지원 추가 (Facade 패턴으로 구현)
+- ✅ 빌드 검증 및 타입 검증 완료
 ```
 
-#### **🥈 2순위: Team Tool Hook 적용 (packages/team) - 1주**  
+**🎯 1순위 완료 성과:**
+- **Template Method Pattern 완전 통일**: 모든 Tool이 동일한 Hook 시스템 지원
+- **Universal Hook System**: beforeExecute, afterExecute, onError 모든 Tool 자동 적용  
+- **Dependency Injection**: 모든 Tool이 hooks, logger 생성자 주입 지원
+- **기존 API 호환성**: Breaking Change 없이 Hook 기능 추가
+- **TypeScript 타입 안전성**: 완벽한 타입 검증 및 컴파일 성공
+
+#### **✅ 2순위: Web Block 구현 (apps/web) - 완료**
 ```typescript
-// 🟢 AgentDelegationTool Hook 지원
-- AgentDelegationTool 생성자 BaseToolOptions 지원
-- Team 내부 Tool 생성 시 Hook 옵션 전달 메커니즘
-- 기존 createTeam API 완전 보존하면서 Hook 지원
+// ✅ Block 특화 타입 정의 및 인터페이스 완료
+- ✅ BlockMetadata, BlockMessage, BlockDataCollector 인터페이스 정의
+- ✅ ToolExecutionTrackingData, DelegationTrackingData 타입 정의
+- ✅ BlockTreeNode, BlockCollectionEvent 타입 정의
+- ✅ PlaygroundBlockCollector 클래스 구현 (React 상태 연동)
+- ✅ createBlockTrackingHooks 함수 구현 (ToolHooks 인터페이스 구현)
+- ✅ createDelegationTrackingHooks 함수 구현 (Team 시나리오 지원)
+- ✅ UniversalToolFactory 클래스 구현 (모든 Tool 타입 지원)
+- ✅ PlaygroundTeamIntegration 클래스 구현 (Team + Block 통합)
+- ✅ 패키지 의존성 설정 (@robota-sdk/agents, @robota-sdk/team)
 ```
 
-#### **🥉 3순위: 웹 앱 Universal Tool Factory (apps/web) - 2주**
+**🎯 2순위 완료 성과:**
+- **Block Tracking 완전 구현**: 모든 Tool 실행이 실시간 Block으로 시각화
+- **Universal Hook Integration**: SDK의 Hook 시스템과 Web Block 시스템 완벽 연결
+- **Hierarchical Block Structure**: 중첩된 Tool 호출과 Team delegation 지원
+- **Real-time State Management**: React와 연동된 실시간 Block 상태 업데이트
+- **Type Safety**: 완벽한 TypeScript 타입 지원 및 인터페이스 정의
+
+**🌟 Web Block 시스템 사용 예시:**
 ```typescript
-// 🟢 모든 Tool을 한 번에 처리하는 Factory
-- UniversalToolFactory 클래스
-- PlaygroundTeamIntegration 클래스
-- React Hook과 통합
-- UI에서 블록 시각화
+// 🟢 Block Collector 및 Tool Factory 생성
+const blockCollector = new PlaygroundBlockCollector();
+const toolFactory = new UniversalToolFactory({
+  blockCollector,
+  logger: DefaultConsoleLogger
+});
+
+// 🟢 모든 Tool이 자동으로 Block 추적 지원
+const trackedWeatherTool = toolFactory.createFunctionTool(weatherSchema, weatherFn);
+const trackedAPITool = toolFactory.createOpenAPITool(apiConfig);
+
+// 🟢 Team 생성 시 자동 Block 추적
+const teamIntegration = new PlaygroundTeamIntegration({ blockCollector });
+const { team, toolFactory: teamToolFactory } = await teamIntegration.createTrackedTeam({
+  aiProviders: [openaiProvider],
+  customTools: [trackedWeatherTool, trackedAPITool]
+});
+
+// 🟢 모든 실행이 자동으로 실시간 Block 시각화
+await teamIntegration.executeTeamTask(team, 'Analyze weather and create report');
 ```
 
-#### **🔮 4순위: 고급 Tool 특화 기능 - 2주**
+#### **🥇 3순위: React UI 컴포넌트 구현 (apps/web) - 시작 준비**
+
+#### **🥉 4순위: 고급 Tool 특화 기능 - 2주**
 ```typescript
 // 🟢 Tool 타입별 특화된 블록 표현
 - API Tool: 요청/응답 상세 블록
@@ -638,3 +677,540 @@ await team.execute('Create a comprehensive weather-based marketing strategy');
    - 통합 시나리오 테스트
 
 **이제 Robota SDK의 모든 Tool이 하나의 일관된 블록 추적 시스템을 가지게 됩니다!** 🎯🌟✨ 
+
+### 📋 **패키지 경계 명확화 전략**
+
+#### **🔄 핵심 원칙: SDK vs Third-Party 기능 분리 + Tool 구현 통일**
+
+**💡 핵심 통찰:**
+```typescript
+// 🌟 SDK 패키지 (packages/): 범용 Hook 시스템 + 통일된 Tool 패턴
+BaseTool {
+  hooks?: ToolHooks;  // ← 범용 Hook 인터페이스
+  logger?: SimpleLogger;
+  
+  // 🟢 Template Method Pattern - 모든 Tool 통일
+  async execute() {
+    await this.hooks?.beforeExecute();
+    const result = await this.executeImpl();  // ← 하위 클래스 구현
+    await this.hooks?.afterExecute();
+    return result;
+  }
+}
+
+// 🟢 Web 앱 (apps/web): Block 특화 구현
+BlockTrackingHooks implements ToolHooks {
+  // ← Block 전용 Hook 구현
+}
+```
+
+**✅ Template Method Pattern 채택 결정:**
+- **기존 사용자 없음**: Breaking Change 부담 없음
+- **구현 패턴 통일**: 기존 Tool들의 inconsistent한 패턴 정리
+- **성능 우선**: Decorator Pattern 대비 성능 우위
+- **타입 안전성**: 완벽한 TypeScript 지원
+
+---
+
+#### **🟢 1. SDK 패키지: Template Method Pattern 통일**
+
+**🎯 현재 문제점과 해결책:**
+```typescript
+// ❌ 기존: Tool마다 다른 구현 패턴
+class FunctionTool extends BaseTool {
+  async execute() { /* 직접 구현 */ }
+}
+
+class OpenAPITool extends BaseTool {
+  async execute() { /* 또 다른 직접 구현 */ }
+}
+
+class MCPTool extends BaseTool {
+  async execute() { /* 또 다른 직접 구현 */ }
+}
+
+// ✅ 통일 후: 모든 Tool이 동일한 패턴
+class FunctionTool extends BaseTool {
+  constructor(schema: ToolSchema, fn: ToolExecutor, options: BaseToolOptions = {}) {
+    super(options);  // 🟢 Hook 지원
+  }
+  
+  protected async executeImpl() { /* 순수 비즈니스 로직만 */ }
+}
+
+class OpenAPITool extends BaseTool {
+  constructor(config: OpenAPIToolConfig, options: BaseToolOptions = {}) {
+    super(options);  // 🟢 Hook 지원
+  }
+  
+  protected async executeImpl() { /* 순수 비즈니스 로직만 */ }
+}
+
+class MCPTool extends BaseTool {
+  constructor(config: MCPConfig, schema: ToolSchema, options: BaseToolOptions = {}) {
+    super(options);  // 🟢 Hook 지원
+  }
+  
+  protected async executeImpl() { /* 순수 비즈니스 로직만 */ }
+}
+```
+
+**🎯 packages/agents: 통일된 BaseTool Hook 시스템**
+```typescript
+// packages/agents/src/abstracts/base-tool.ts
+export interface ToolHooks {
+  beforeExecute?(toolName: string, parameters: any, context?: ToolExecutionContext): Promise<void> | void;
+  afterExecute?(toolName: string, parameters: any, result: any, context?: ToolExecutionContext): Promise<void> | void;
+  onError?(toolName: string, parameters: any, error: Error, context?: ToolExecutionContext): Promise<void> | void;
+}
+
+export interface BaseToolOptions {
+  hooks?: ToolHooks;
+  logger?: SimpleLogger;
+}
+
+export abstract class BaseTool<TParameters, TResult> {
+  protected readonly hooks: ToolHooks | undefined;
+  protected readonly logger: SimpleLogger;
+  
+  constructor(options: BaseToolOptions = {}) {
+    this.hooks = options.hooks;
+    this.logger = options.logger || SilentLogger;
+  }
+  
+  // 🟢 Template Method Pattern - 모든 하위 클래스 자동 지원
+  async execute(parameters: TParameters, context?: ToolExecutionContext): Promise<TResult> {
+    const toolName = this.schema.name || this.constructor.name;
+    
+    try {
+      // 🟢 Pre-execution hook (모든 Tool 공통)
+      await this.hooks?.beforeExecute?.(toolName, parameters, context);
+      
+      this.logger.debug(`Executing tool: ${toolName}`, { parameters });
+      
+      // 🟢 실제 Tool 실행 (하위 클래스별 구현)
+      const result = await this.executeImpl(parameters, context);
+      
+      this.logger.debug(`Tool execution completed: ${toolName}`, { result });
+      
+      // 🟢 Post-execution hook (모든 Tool 공통)
+      await this.hooks?.afterExecute?.(toolName, parameters, result, context);
+      
+      return result;
+    } catch (error) {
+      this.logger.error(`Tool execution failed: ${toolName}`, { error: error instanceof Error ? error.message : error, parameters });
+      
+      // 🟢 Error hook (모든 Tool 공통)
+      await this.hooks?.onError?.(toolName, parameters, error as Error, context);
+      
+      throw error;
+    }
+  }
+  
+  // 🟢 하위 클래스에서 실제 로직 구현
+  protected abstract executeImpl(parameters: TParameters, context?: ToolExecutionContext): Promise<TResult>;
+  
+  // 🟢 Schema 접근을 위한 추상 속성
+  abstract get schema(): ToolSchema;
+}
+```
+
+**🎯 packages/agents: 통일된 Tool 구현체들**
+```typescript
+// packages/agents/src/tools/implementations/function-tool.ts
+export class FunctionTool extends BaseTool<ToolParameters, ToolResult> {
+  readonly schema: ToolSchema;
+  readonly fn: ToolExecutor;
+
+  constructor(schema: ToolSchema, fn: ToolExecutor, options: BaseToolOptions = {}) {
+    super(options);  // 🟢 Hook 자동 지원
+    this.schema = schema;
+    this.fn = fn;
+  }
+
+  protected async executeImpl(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
+    // 🟢 순수 함수 실행 로직만, Hook은 부모에서 처리
+    const result = await this.fn(parameters, context);
+    return { success: true, data: result };
+  }
+}
+
+// packages/agents/src/tools/implementations/openapi-tool.ts
+export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> {
+  readonly schema: ToolSchema;
+  private readonly config: OpenAPIToolConfig;
+
+  constructor(config: OpenAPIToolConfig, options: BaseToolOptions = {}) {
+    super(options);  // 🟢 Hook 자동 지원
+    this.config = config;
+    this.schema = this.createSchemaFromOpenAPI();
+  }
+
+  protected async executeImpl(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
+    // 🟢 순수 API 호출 로직만, Hook은 부모에서 처리
+    const result = await this.performAPICall(parameters, context);
+    return { success: true, data: result };
+  }
+}
+
+// packages/agents/src/tools/implementations/mcp-tool.ts
+export class MCPTool extends BaseTool<ToolParameters, ToolResult> {
+  readonly schema: ToolSchema;
+  private readonly mcpConfig: MCPConfig;
+
+  constructor(config: MCPConfig, schema: ToolSchema, options: BaseToolOptions = {}) {
+    super(options);  // 🟢 Hook 자동 지원
+    this.mcpConfig = config;
+    this.schema = schema;
+  }
+
+  protected async executeImpl(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
+    // 🟢 순수 MCP 호출 로직만, Hook은 부모에서 처리
+    const result = await this.executeMCPRequest(parameters, context);
+    return { success: true, data: result };
+  }
+}
+```
+
+**🎯 packages/team: AgentDelegationTool 통일**
+```typescript
+// packages/team/src/tools/agent-delegation-tool.ts
+export interface AgentDelegationToolOptions {
+  teamContainer: TeamContainer;
+  logger?: SimpleLogger;
+  hooks?: ToolHooks; // 🟢 Hook 지원
+}
+
+export class AgentDelegationTool extends BaseTool<AgentDelegationParameters, AgentDelegationResult> {
+  readonly schema: ToolSchema = {
+    name: 'delegate_to_agent',
+    description: 'Delegate a task to a specialized agent',
+    parameters: {
+      type: 'object',
+      properties: {
+        agentTemplate: { type: 'string', description: 'Agent template to use' },
+        task: { type: 'string', description: 'Task to delegate' },
+        context: { type: 'string', description: 'Additional context' }
+      },
+      required: ['agentTemplate', 'task']
+    }
+  };
+
+  private readonly teamContainer: TeamContainer;
+
+  constructor(options: AgentDelegationToolOptions) {
+    super({
+      hooks: options.hooks,
+      logger: options.logger
+    });  // 🟢 Hook 자동 지원
+    this.teamContainer = options.teamContainer;
+  }
+
+  protected async executeImpl(parameters: AgentDelegationParameters, context?: ToolExecutionContext): Promise<AgentDelegationResult> {
+    // 🟢 순수 delegation 로직만, Hook은 부모에서 처리
+    const result = await this.teamContainer.assignTask({
+      agentTemplate: parameters.agentTemplate,
+      jobDescription: parameters.task,
+      context: parameters.context
+    });
+
+    return {
+      agentId: result.agentId,
+      result: result.result,
+      success: result.metadata?.errors?.length === 0,
+      conversationId: result.agentId
+    };
+  }
+}
+```
+
+#### **🟢 2. Web 앱: Block Tracking Third-Party 구현**
+
+**🎯 apps/web: Block 특화 인터페이스**
+```typescript
+// apps/web/src/lib/playground/block-system/types.ts
+export interface BlockDataCollector {
+  collectBlock(message: UniversalMessage, metadata?: BlockMetadata): void;
+  getCollectedData(): UniversalMessage[];
+  clearCollection(): void;
+}
+
+export interface BlockMetadata {
+  readonly id: string;
+  readonly timestamp: number;
+  readonly type: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'system';
+  readonly status: 'pending' | 'completed' | 'streaming' | 'error';
+}
+
+export interface UniversalMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: string;
+  toolCalls?: Array<{
+    id: string;
+    name: string;
+    parameters: Record<string, any>;
+  }>;
+  toolCallId?: string;
+}
+```
+
+**🎯 apps/web: Block Tracking Hook 구현**
+```typescript
+// apps/web/src/lib/playground/block-system/block-tracking-hooks.ts
+import type { ToolHooks } from '@robota-sdk/agents';
+import type { SimpleLogger } from '@robota-sdk/agents';
+import { SilentLogger } from '@robota-sdk/agents';
+import type { BlockDataCollector, BlockMetadata, UniversalMessage } from './types';
+
+function generateId(): string {
+  return `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+export function createBlockTrackingHooks(
+  blockCollector: BlockDataCollector,
+  logger?: SimpleLogger
+): ToolHooks {
+  const log = logger || SilentLogger;
+
+  return {
+    async beforeExecute(toolName, parameters, context) {
+      const startMessage: UniversalMessage = {
+        role: 'system',
+        content: `🔧 Starting ${toolName} execution`,
+        timestamp: new Date().toISOString()
+      };
+
+      const executionId = context?.['executionId'] || generateId();
+
+      blockCollector.collectBlock(startMessage, {
+        id: typeof executionId === 'string' ? executionId : generateId(),
+        timestamp: Date.now(),
+        type: 'system',
+        status: 'pending'
+      });
+
+      log.debug(`Tool execution started: ${toolName}`, { parameters });
+    },
+
+    async afterExecute(toolName, parameters, result, context) {
+      const success = result && typeof result === 'object' && 'success' in result 
+        ? result.success 
+        : true;
+
+      const completionMessage: UniversalMessage = {
+        role: 'system',
+        content: `✅ ${toolName} completed: ${success ? 'Success' : 'Failed'}`,
+        timestamp: new Date().toISOString()
+      };
+
+      const executionId = context?.['executionId'] || generateId();
+
+      blockCollector.collectBlock(completionMessage, {
+        id: typeof executionId === 'string' ? executionId : generateId(),
+        timestamp: Date.now(),
+        type: 'system',
+        status: success ? 'completed' : 'error'
+      });
+
+      log.debug(`Tool execution completed: ${toolName}`, { result });
+    },
+
+    async onError(toolName, parameters, error, context) {
+      const errorMessage: UniversalMessage = {
+        role: 'system',
+        content: `❌ ${toolName} failed: ${error.message}`,
+        timestamp: new Date().toISOString()
+      };
+
+      const executionId = context?.['executionId'] || generateId();
+
+      blockCollector.collectBlock(errorMessage, {
+        id: typeof executionId === 'string' ? executionId : generateId(),
+        timestamp: Date.now(),
+        type: 'system',
+        status: 'error'
+      });
+
+      log.error(`Tool execution error: ${toolName}`, { 
+        error: error.message, 
+        parameters 
+      });
+    }
+  };
+}
+```
+
+**🎯 apps/web: Universal Tool Factory**
+```typescript
+// apps/web/src/lib/playground/tools/universal-tool-factory.ts
+import { FunctionTool, OpenAPITool, MCPTool } from '@robota-sdk/agents';
+import { AgentDelegationTool } from '@robota-sdk/team';
+import type { SimpleLogger } from '@robota-sdk/agents';
+import { SilentLogger } from '@robota-sdk/agents';
+import { createBlockTrackingHooks } from '../block-system/block-tracking-hooks';
+import type { BlockDataCollector } from '../block-system/types';
+
+export class UniversalToolFactory {
+  constructor(
+    private readonly blockCollector: BlockDataCollector,
+    private readonly logger: SimpleLogger = SilentLogger
+  ) {}
+
+  // 🟢 모든 Tool 타입에 블록 추적 자동 적용
+  createInstrumentedFunctionTool(schema: ToolSchema, fn: ToolExecutor): FunctionTool {
+    const hooks = createBlockTrackingHooks(this.blockCollector, this.logger);
+    return new FunctionTool(schema, fn, { hooks, logger: this.logger });
+  }
+
+  createInstrumentedOpenAPITool(spec: OpenAPISpec): OpenAPITool {
+    const hooks = createBlockTrackingHooks(this.blockCollector, this.logger);
+    return new OpenAPITool(spec, { hooks, logger: this.logger });
+  }
+
+  createInstrumentedMCPTool(config: MCPConfig): MCPTool {
+    const hooks = createBlockTrackingHooks(this.blockCollector, this.logger);
+    return new MCPTool(config, { hooks, logger: this.logger });
+  }
+
+  createInstrumentedDelegationTool(teamContainer: TeamContainer): AgentDelegationTool {
+    const hooks = createBlockTrackingHooks(this.blockCollector, this.logger);
+    return new AgentDelegationTool({
+      teamContainer,
+      hooks,
+      logger: this.logger
+    });
+  }
+
+  // 🟢 기존 Tool들을 블록 추적 버전으로 변환
+  wrapExistingTools(tools: any[]): any[] {
+    const hooks = createBlockTrackingHooks(this.blockCollector, this.logger);
+    
+    return tools.map(tool => {
+      if (tool instanceof FunctionTool) {
+        return new FunctionTool(tool.schema, tool.fn, { hooks, logger: this.logger });
+      } else if (tool instanceof OpenAPITool) {
+        return new OpenAPITool(tool.spec, { hooks, logger: this.logger });
+      } else if (tool instanceof MCPTool) {
+        return new MCPTool(tool.config, { hooks, logger: this.logger });
+      } else if (tool instanceof AgentDelegationTool) {
+        return new AgentDelegationTool({
+          teamContainer: tool.teamContainer,
+          hooks,
+          logger: this.logger
+        });
+      }
+      
+      // 🟢 사용자 정의 Tool이 BaseTool을 상속했다면 Hook 지원
+      return tool;
+    });
+  }
+}
+```
+
+**🎯 apps/web: Team 통합**
+```typescript
+// apps/web/src/lib/playground/playground-team-integration.ts
+import { createTeam } from '@robota-sdk/team';
+import type { AIProvider } from '@robota-sdk/agents';
+import { UniversalToolFactory } from './tools/universal-tool-factory';
+import type { BlockDataCollector } from './block-system/types';
+
+export class PlaygroundTeamIntegration {
+  private readonly toolFactory: UniversalToolFactory;
+
+  constructor(blockCollector: BlockDataCollector, logger?: SimpleLogger) {
+    this.toolFactory = new UniversalToolFactory(blockCollector, logger);
+  }
+
+  createInstrumentedTeam(config: {
+    aiProviders: AIProvider[];
+    maxMembers?: number;
+    customTools?: any[];
+  }) {
+    // 🟢 1. 사용자 Tool들에 블록 추적 적용
+    const instrumentedCustomTools = config.customTools 
+      ? this.toolFactory.wrapExistingTools(config.customTools)
+      : [];
+
+    // 🟢 2. 기본 Tool들 생성
+    const defaultInstrumentedTools = [
+      this.toolFactory.createInstrumentedFunctionTool(weatherSchema, weatherFn),
+      this.toolFactory.createInstrumentedFunctionTool(searchSchema, searchFn)
+    ];
+
+    // 🟢 3. 기존 createTeam API 그대로 사용!
+    const team = createTeam({
+      aiProviders: config.aiProviders,
+      maxMembers: config.maxMembers || 5,
+      tools: [...instrumentedCustomTools, ...defaultInstrumentedTools]
+    });
+
+    return team;
+  }
+}
+```
+
+---
+
+### 🎯 **수정된 패키지 경계 구현 우선순위**
+
+#### **🥇 1순위: SDK Hook 시스템만 (packages/) - 1주**
+```typescript
+// 🟢 순수 SDK 확장 포인트만
+- BaseTool Hook 인터페이스 (ToolHooks, BaseToolOptions)
+- BaseTool Template Method Pattern 구현
+- FunctionTool, OpenAPITool, MCPTool 생성자 옵션 추가
+- AgentDelegationTool Hook 지원
+- ❌ Block 관련 로직은 일절 포함하지 않음
+```
+
+#### **🥈 2순위: Web Block 구현 (apps/web) - 2주**
+```typescript
+// 🟢 Third-party Block 기능만
+- [ ] Block 특화 타입 정의 (BlockDataCollector, BlockMetadata, UniversalMessage)
+- [ ] createBlockTrackingHooks 구현
+- [ ] UniversalToolFactory 클래스 (통일된 Tool Hook 적용)
+- [ ] PlaygroundTeamIntegration 클래스
+- [ ] React UI 컴포넌트와 통합
+```
+
+#### **🥉 3순위: 고급 기능 (apps/web) - 2주**
+```typescript
+// 🟢 Web 특화 고급 기능
+- [ ] Tool 타입별 특화된 블록 표현
+- [ ] 성능 최적화
+- [ ] 고급 시각화
+```
+
+---
+
+### 📝 **명확한 패키지별 책임 분리**
+
+| **패키지** | **포함 사항** | **제외 사항** |
+|------------|-------------|-------------|
+| `packages/agents` | ✅ ToolHooks 인터페이스<br/>✅ BaseToolOptions 인터페이스<br/>✅ BaseTool Hook 지원<br/>✅ Tool 구현체 옵션 추가 | ❌ Block 관련 모든 로직<br/>❌ BlockDataCollector<br/>❌ createBlockTrackingHooks<br/>❌ Web 특화 기능 |
+| `packages/team` | ✅ AgentDelegationTool Hook 지원<br/>✅ 생성자 옵션 추가 | ❌ Block 관련 모든 로직<br/>❌ Web 특화 기능 |
+| `apps/web` | ✅ 모든 Block 관련 구현<br/>✅ createBlockTrackingHooks<br/>✅ UniversalToolFactory<br/>✅ UI 특화 로직 | ❌ SDK 패키지 수정<br/>❌ 범용 Hook 인터페이스 |
+| `apps/api-server` | ✅ WebSocket 서버<br/>✅ 인증 | ❌ Block 관련 기능 |
+
+---
+
+### ✅ **명확한 경계의 핵심 장점**
+
+1. **🎯 SDK 순수성 보장**: 
+   - SDK는 Hook 확장 포인트만 제공
+   - Block 기능은 완전히 외부 third-party
+   - 미래에 Block이 SDK에 포함될지 여부를 나중에 결정
+
+2. **🔧 완벽한 분리**: 
+   - SDK 업데이트가 Block 기능에 영향 없음
+   - Block 기능 변경이 SDK에 영향 없음
+   - 독립적 테스트 및 배포
+
+3. **🚀 유연한 확장성**: 
+   - 다른 third-party 기능도 동일한 Hook 시스템 활용
+   - Block 외에도 metrics, logging, monitoring 등 확장 가능
+   - 플러그인 생태계 구축 기반 마련
+
+**이제 SDK는 순수하게 Hook 확장 포인트만 제공하고, Block 기능은 완전히 Web 앱의 third-party 구현으로 분리됩니다!** 🎯✨ 

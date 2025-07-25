@@ -1,8 +1,19 @@
-import type { ToolInterface, ToolResult, ToolExecutionContext, MCPToolConfig, ToolParameters } from '../../interfaces/tool';
+import type { ToolInterface, ToolResult, ToolExecutionContext, ToolParameters } from '../../interfaces/tool';
 import type { ToolSchema } from '../../interfaces/provider';
-import { BaseTool } from '../../abstracts/base-tool';
-import { ToolExecutionError } from '../../utils/errors';
+import { BaseTool, type BaseToolOptions } from '../../abstracts/base-tool';
+import { ToolExecutionError, ValidationError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
+
+/**
+ * MCP (Model Context Protocol) tool configuration
+ */
+export interface MCPConfig {
+    endpoint: string;
+    apiKey?: string;
+    timeout?: number;
+    retries?: number;
+    headers?: Record<string, string>;
+}
 
 /**
  * MCP protocol message types
@@ -57,30 +68,35 @@ interface MCPExecutionResult {
 
 /**
  * MCP (Model Context Protocol) tool implementation
- * Executes tools via MCP protocol
+ * Executes tools via the Model Context Protocol
  * 
  * @extends BaseTool<ToolParameters, ToolResult>
  */
 export class MCPTool extends BaseTool<ToolParameters, ToolResult> implements ToolInterface {
     readonly schema: ToolSchema;
-    private readonly mcpConfig: MCPToolConfig;
-    private connectionStatus: MCPConnectionStatus = 'disconnected';
+    private readonly mcpConfig: MCPConfig;
+    private connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error' = 'disconnected';
 
-    constructor(schema: ToolSchema, mcpConfig: MCPToolConfig) {
-        super();
+    constructor(config: MCPConfig, schema: ToolSchema, options: BaseToolOptions = {}) {
+        super(options);
+        this.mcpConfig = {
+            timeout: 30000,
+            retries: 3,
+            ...config
+        };
         this.schema = schema;
-        this.mcpConfig = mcpConfig;
     }
 
     /**
-     * Execute the MCP tool
+     * Execute the MCP tool implementation
+     * This method is called by the parent's Template Method Pattern
      */
-    async execute(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
+    protected async executeImpl(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
         const toolName = this.schema.name;
         const startTime = Date.now();
 
         try {
-            logger.debug(`Executing MCP tool "${toolName}"`, {
+            this.logger.debug(`Executing MCP tool "${toolName}"`, {
                 toolName,
                 parametersCount: Object.keys(parameters || {}).length,
                 endpoint: this.mcpConfig.endpoint,
@@ -102,57 +118,47 @@ export class MCPTool extends BaseTool<ToolParameters, ToolResult> implements Too
             const executionResult = this.processMCPResponse(mcpResponse);
             const executionTime = Date.now() - startTime;
 
-            logger.debug(`MCP tool "${toolName}" executed successfully`, {
+            this.logger.debug(`MCP tool "${toolName}" executed successfully`, {
                 toolName,
                 executionTime,
                 connectionStatus: this.connectionStatus
             });
 
             return {
-                success: executionResult.success,
-                // REASON: MCP protocol returns dynamic content structure that cannot be known at compile time
-                // ALTERNATIVES_CONSIDERED:
-                // 1. Union types (insufficient for dynamic MCP responses)
-                // 2. Interface definition (too restrictive for MCP protocol)
-                // 3. Generic types (breaks ToolResult compatibility)
-                // 4. Conditional types (complex mapping issues)
-                // 5. Mapped types (structural incompatibility)
-                // 6. Type guards (runtime only, doesn't solve compile time)
-                // 7. Custom declarations (breaks existing tool interface)
-                // 8. Code refactoring (would break MCP protocol compliance)
-                // TODO: Create MCP TypeScript definitions package or contribute to MCP specification for standardized TypeScript types
-                data: typeof executionResult.content === 'string' ? executionResult.content : JSON.stringify(executionResult.content),
+                success: true,
+                data: executionResult,
                 metadata: {
-                    toolName,
-                    toolType: 'mcp',
-                    endpoint: this.mcpConfig.endpoint,
                     executionTime,
-                    connectionStatus: this.connectionStatus,
-                    mcpMetadata: executionResult.metadata || {}
+                    toolName,
+                    endpoint: this.mcpConfig.endpoint,
+                    connectionStatus: this.connectionStatus
                 }
             };
 
         } catch (error) {
             const executionTime = Date.now() - startTime;
 
-            logger.error(`MCP tool "${toolName}" execution failed`, {
+            this.logger.error(`MCP tool "${toolName}" execution failed`, {
                 toolName,
-                endpoint: this.mcpConfig.endpoint,
                 executionTime,
                 connectionStatus: this.connectionStatus,
-                error: error instanceof Error ? error.message : String(error)
+                error: error instanceof Error ? error.message : error,
+                parameters
             });
 
+            if (error instanceof ToolExecutionError || error instanceof ValidationError) {
+                throw error;
+            }
+
             throw new ToolExecutionError(
-                `MCP execution failed: ${error instanceof Error ? error.message : String(error)}`,
+                `MCP tool execution failed: ${error instanceof Error ? error.message : error}`,
                 toolName,
                 error instanceof Error ? error : new Error(String(error)),
                 {
-                    parametersCount: Object.keys(parameters || {}).length,
-                    hasContext: !!context,
+                    executionTime,
                     endpoint: this.mcpConfig.endpoint,
                     connectionStatus: this.connectionStatus,
-                    executionTime
+                    parametersCount: Object.keys(parameters || {}).length
                 }
             );
         }
@@ -181,13 +187,13 @@ export class MCPTool extends BaseTool<ToolParameters, ToolResult> implements Too
         try {
             // TODO: Implement actual MCP connection logic
             // This would typically involve WebSocket or HTTP connection
-            logger.debug('Establishing MCP connection', { endpoint: this.mcpConfig.endpoint });
+            this.logger.debug('Establishing MCP connection', { endpoint: this.mcpConfig.endpoint });
 
             // Simulate connection delay
             await new Promise(resolve => setTimeout(resolve, 100));
 
             this.connectionStatus = 'connected';
-            logger.debug('MCP connection established', { endpoint: this.mcpConfig.endpoint });
+            this.logger.debug('MCP connection established', { endpoint: this.mcpConfig.endpoint });
 
         } catch (error) {
             this.connectionStatus = 'error';
@@ -207,8 +213,8 @@ export class MCPTool extends BaseTool<ToolParameters, ToolResult> implements Too
         };
 
         // Add metadata if configured
-        if (this.mcpConfig.toolConfig) {
-            mcpParams.metadata = this.mcpConfig.toolConfig as Record<string, string | number | boolean>;
+        if (this.mcpConfig.headers) {
+            mcpParams.metadata = this.mcpConfig.headers as Record<string, string | number | boolean>;
         }
 
         return {
@@ -226,7 +232,7 @@ export class MCPTool extends BaseTool<ToolParameters, ToolResult> implements Too
         try {
             // TODO: Implement actual MCP protocol communication
             // This would typically use WebSocket or HTTP POST to the MCP server
-            logger.debug('Sending MCP request', {
+            this.logger.debug('Sending MCP request', {
                 endpoint: this.mcpConfig.endpoint,
                 method: request.method,
                 id: request.id
@@ -315,14 +321,14 @@ export class MCPTool extends BaseTool<ToolParameters, ToolResult> implements Too
 
             try {
                 // TODO: Implement actual disconnection logic
-                logger.debug('Disconnecting from MCP server', { endpoint: this.mcpConfig.endpoint });
+                this.logger.debug('Disconnecting from MCP server', { endpoint: this.mcpConfig.endpoint });
 
                 this.connectionStatus = 'disconnected';
-                logger.debug('Disconnected from MCP server', { endpoint: this.mcpConfig.endpoint });
+                this.logger.debug('Disconnected from MCP server', { endpoint: this.mcpConfig.endpoint });
 
             } catch (error) {
                 this.connectionStatus = 'error';
-                logger.error('Error disconnecting from MCP server', {
+                this.logger.error('Error disconnecting from MCP server', {
                     endpoint: this.mcpConfig.endpoint,
                     error: error instanceof Error ? error.message : String(error)
                 });
@@ -334,6 +340,6 @@ export class MCPTool extends BaseTool<ToolParameters, ToolResult> implements Too
 /**
  * Factory function to create MCP tools
  */
-export function createMCPTool(schema: ToolSchema, mcpConfig: MCPToolConfig): MCPTool {
-    return new MCPTool(schema, mcpConfig);
+export function createMCPTool(config: MCPConfig, schema: ToolSchema, options: BaseToolOptions = {}): MCPTool {
+    return new MCPTool(config, schema, options);
 } 
