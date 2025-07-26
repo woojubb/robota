@@ -84,57 +84,31 @@
 - [x] relationshipTracker Map 초기화 보장
 - [x] **즉시 검증**: 모든 관계 관리 메서드 안전 동작
 
-### ✅ Phase 4: 통합 테스트 및 검증
+## 📊 현재 상황 요약
 
-#### [ ] 4.1 단위 테스트
-- [ ] PlaygroundHistoryPlugin 인스턴스 생성 테스트
-- [ ] recordEvent 기본 동작 테스트
-- [ ] getVisualizationData 반환값 검증
-- [ ] **즉시 검증**: 모든 기본 기능 정상 동작
+**✅ 해결 완료**:
+- `TypeError: Cannot read properties of undefined (reading 'calls')` 오류 해결
+- 공식 BasePlugin 상속 및 의존성 주입 패턴 적용 완료
+- 5개 기본 이벤트 타입으로 단순화 완료
+- 계층 구조 UI 표시 로직 구현 완료
 
-#### [ ] 4.2 통합 테스트
-- [ ] PlaygroundExecutor와 통합 테스트
-- [ ] Team 실행 중 플러그인 동작 테스트
-- [ ] 스트리밍 시나리오 테스트
-- [ ] **즉시 검증**: 실제 Team 채팅 시나리오 성공
+**🔄 현재 문제**:
+- Team 실행 시 assignTask Hook이 실행되지 않아 계층 구조가 나타나지 않음
+- 단순히 Team level의 user_message와 assistant_response만 표시됨
 
-#### [ ] 4.3 에러 핸들링 검증
-- [ ] 잘못된 이벤트 데이터 처리
-- [ ] 네트워크 오류 시 복구
-- [ ] 메모리 제한 초과 시 정리
-- [ ] **즉시 검증**: 모든 에러 시나리오 안전 처리
+**🎯 해결 방안**: 
+TeamOptions에 toolHooks 옵션 추가하여 표준화된 Hook 주입 방법 제공
 
-## 🔧 수정 원칙
+## 📋 구현 계획
 
-### 1. Robota SDK 아키텍처 100% 준수
-- **Facade Pattern**: 간단한 인터페이스 유지
-- **Type Safety**: any 타입 사용 금지, 엄격한 타입 정의
-- **Dependency Injection**: logger 등 의존성 올바른 주입
-- **Single Responsibility**: 플러그인은 히스토리 기록만 담당
+✅ **상세 구현 체크리스트**: [TEAM-HOOKS-IMPLEMENTATION-CHECKLIST.md](./TEAM-HOOKS-IMPLEMENTATION-CHECKLIST.md)
 
-### 2. 방어적 프로그래밍 적용
-- **Null Safety**: 모든 접근에서 null/undefined 체크
-- **Default Values**: 모든 필드에 안전한 기본값
-- **Error Boundaries**: 예외 상황에서도 시스템 중단 방지
-- **Graceful Degradation**: 부분 실패 시에도 기본 기능 유지
+**구현 우선순위**:
+1. **Team 패키지 toolHooks 지원 추가** - SDK 레벨 변경
+2. **Playground toolHooks 활용** - 웹 앱 연동  
+3. **통합 테스트 및 검증** - 동작 확인
 
-### 3. 단계적 검증 및 테스트
-- **즉시 검증**: 각 수정 후 바로 동작 확인
-- **점진적 개선**: 한 번에 모든 것을 바꾸지 않음
-- **회귀 방지**: 기존 동작하는 기능 보호
-- **문서화**: 모든 변경사항 명확히 기록
-
-## 📊 예상 결과
-
-**수정 완료 후 달성 목표**:
-- ✅ Team 스트리밍 정상 동작
-- ✅ PlaygroundHistoryPlugin 안정적 이벤트 기록
-- ✅ 타입 안전성 100% 보장
-- ✅ Robota SDK 아키텍처 규칙 100% 준수
-- ✅ 모든 에러 시나리오 안전 처리
-
-**기술적 품질 지표**:
-- 컴파일 오류: 0개
-- 런타임 오류: 0개  
-- Type Coverage: 100%
-- 아키텍처 규칙 준수율: 100% 
+**아키텍처 원칙 준수**:
+- Robota SDK의 Dependency Injection 패턴 활용
+- 기존 ToolHooks 인터페이스 재사용으로 일관성 유지
+- 하위 호환성 보장 (toolHooks 미사용 시 기존 동작) 

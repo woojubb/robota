@@ -1,4 +1,4 @@
-import type { AgentConfig as RobotaAgentConfig, AgentTemplate, AIProvider } from '@robota-sdk/agents';
+import type { AgentConfig as RobotaAgentConfig, AgentTemplate, AIProvider, ToolHooks } from '@robota-sdk/agents';
 
 /**
  * Interface for template information
@@ -21,6 +21,18 @@ export interface TemplateInfo {
  * const team = createTeam({
  *   aiProviders: [openaiProvider, anthropicProvider],
  *   debug: true
+ * });
+ * ```
+ * 
+ * @example With Tool Hooks for monitoring
+ * ```typescript
+ * const team = createTeam({
+ *   aiProviders: [openaiProvider, anthropicProvider],
+ *   toolHooks: {
+ *     beforeExecute: async (toolName, params) => console.log(`Starting ${toolName}`),
+ *     afterExecute: async (toolName, params, result) => console.log(`Completed ${toolName}`),
+ *     onError: async (toolName, params, error) => console.error(`Failed ${toolName}:`, error)
+ *   }
  * });
  * ```
  */
@@ -57,6 +69,7 @@ export interface TeamOptions {
         warn: (message: string) => void;
         error: (message: string) => void;
         debug: (message: string) => void;
+        log: (message: string) => void;
     };
 
     /** 
@@ -71,6 +84,31 @@ export interface TeamOptions {
      * Default: "task_coordinator"
      */
     leaderTemplate?: string;
+
+    /**
+     * Tool execution hooks for monitoring and instrumentation.
+     * Allows external systems to track tool execution lifecycle for debugging,
+     * logging, analytics, or custom business logic integration.
+     * 
+     * @example Monitoring hooks
+     * ```typescript
+     * toolHooks: {
+     *   beforeExecute: async (toolName, parameters, context) => {
+     *     console.log(`🚀 Starting ${toolName}`, parameters);
+     *     // Analytics tracking, logging, etc.
+     *   },
+     *   afterExecute: async (toolName, parameters, result, context) => {
+     *     console.log(`✅ Completed ${toolName}`, result);
+     *     // Success metrics, result caching, etc.
+     *   },
+     *   onError: async (toolName, parameters, error, context) => {
+     *     console.error(`❌ Failed ${toolName}:`, error.message);
+     *     // Error reporting, alerting, retry logic, etc.
+     *   }
+     * }
+     * ```
+     */
+    toolHooks?: ToolHooks;
 }
 
 /**
@@ -88,7 +126,16 @@ export interface TeamContainerOptions {
         warn: (message: string) => void;
         error: (message: string) => void;
         debug: (message: string) => void;
+        log: (message: string) => void;
     } | undefined;
+    /**
+     * Tool execution hooks for monitoring and instrumentation.
+     * If provided, assignTask tool will use AgentDelegationTool with hooks.
+     * If not provided, uses standard createTaskAssignmentFacade.
+     * 
+     * @internal Used internally by createTeam
+     */
+    toolHooks?: ToolHooks;
 }
 
 /**

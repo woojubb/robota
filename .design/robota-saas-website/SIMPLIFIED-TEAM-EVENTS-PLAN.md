@@ -49,33 +49,18 @@ interface ConversationEvent {
 
 ## 🏗️ 구현 계획
 
-### ✅ Phase 1: 이벤트 타입 단순화
+✅ **구현 상세 계획은 별도 문서 참조**: [TEAM-HOOKS-IMPLEMENTATION-CHECKLIST.md](./TEAM-HOOKS-IMPLEMENTATION-CHECKLIST.md)
 
-#### [x] 1.1 복잡한 Team 이벤트 타입 제거
-- [x] `agent_creation_*`, `agent_execution_*`, `task_aggregation_*` 타입 제거
-- [x] `tool_call_start/complete/error` → 기본 `tool_call/tool_result/error`로 통합
-- [x] **즉시 검증**: 5개 기본 타입만 사용하도록 확인
+### 핵심 아키텍처 변경점
 
-#### [x] 1.2 ConversationEvent 인터페이스 정리
-- [x] 불필요한 metadata 인터페이스들 제거
-- [x] 핵심 계층 필드만 유지
-- [x] 타입 정의 단순화
-- [x] **즉시 검증**: 인터페이스 컴파일 오류 없음
+**기존 문제**: Team 라이브러리에 Hook을 주입할 표준 방법이 없음
+**해결 방안**: TeamOptions에 toolHooks 옵션 추가로 표준화된 Hook 주입 제공
 
-### ✅ Phase 2: Tool Hook 기반 계층 추적
-
-#### [x] 2.1 assignTask Tool Hook 구현
-- [x] `onToolStart`: assignTask 시작 시 `tool_call` 이벤트 + delegation context
-- [x] `onToolComplete`: assignTask 완료 시 `tool_result` 이벤트 + 결과
-- [x] `onToolError`: assignTask 실패 시 `error` 이벤트
-- [x] **즉시 검증**: assignTask Hook 정상 동작
-
-#### [ ] 2.2 Sub-Agent 이벤트 자동 계층화
-- [x] Team Level 이벤트 기록 (Level 0)
-- [ ] Sub-Agent의 `user_message` → `parentEventId` = assignTask의 `tool_call.id`
-- [ ] Sub-Agent의 `assistant_response` → 동일한 `parentEventId` 
-- [ ] Sub-Agent의 `tool_call` → `executionLevel = 3` (Sub-Tool)
-- [ ] **즉시 검증**: 계층 구조 자동 생성 확인
+**아키텍처 준수**:
+- **Dependency Injection**: 생성자 옵션을 통한 Hook 주입
+- **Single Responsibility**: Team은 실행만, Hook은 추적만 담당  
+- **Interface Segregation**: 기존 ToolHooks 인터페이스 재사용
+- **보편성**: 모든 Team 라이브러리 사용자가 활용 가능
 
 ### ✅ Phase 3: 계층 표현 로직 구현
 
@@ -110,44 +95,92 @@ interface ConversationEvent {
 
 ## 🔧 구현 예시
 
-### Team 실행 시나리오
+### Team 실행 시나리오 (toolHooks 기반)
 ```
 사용자: "vue와 react 비교해줘"
 
 📊 생성되는 이벤트 구조:
-┌─ user_message (level=0, team)
-├─ tool_call (level=1, team→assignTask)  
-│  ├─ user_message (level=2, team→assignTask→agent_vue)
-│  ├─ assistant_response (level=2, team→assignTask→agent_vue)  
-│  ├─ user_message (level=2, team→assignTask→agent_react)
-│  └─ assistant_response (level=2, team→assignTask→agent_react)
-├─ tool_result (level=1, team→assignTask) 
-└─ assistant_response (level=0, team)
+┌─ user_message (level=0, team) [Team Level]
+├─ tool_call (level=1, team→assignTask) [Hook: onBeforeExecute]
+│  ├─ [Sub-Agent 실행 과정은 Team 내부에서 처리]
+│  ├─ [Vue 전문가 Agent 생성 → 분석 → 결과 반환]
+│  └─ [React 전문가 Agent 생성 → 분석 → 결과 반환]
+├─ tool_result (level=1, team→assignTask) [Hook: onAfterExecute]
+└─ assistant_response (level=0, team) [Team Level]
 ```
 
-### Hook 구현 예시
+### Hook 구현 예시 (Playground용)
 ```typescript
-// assignTask Tool에 주입될 Hook
-const createAssignTaskHooks = (historyPlugin: PlaygroundHistoryPlugin) => ({
-    onToolStart: async (context: ToolExecutionContext) => {
+// Playground에서 Team 생성 시
+const team = createTeam({
+  aiProviders: [openaiProvider, anthropicProvider],
+  toolHooks: {
+    beforeExecute: async (toolName, params, context) => {
+      if (toolName === 'assignTask') {
         historyPlugin.recordEvent({
-            type: 'tool_call',
-            toolName: 'assignTask',
-            content: `Task assignment started`,
-            delegationId: generateId(),
-            // parentEventId는 Team의 user_message.id
+          type: 'tool_call',
+          content: `🚀 [${toolName}] Starting: ${JSON.stringify(params)}`,
+          toolName,
+          parameters: params,
+          delegationId: generateDelegationId(),
+          // parentEventId는 Team의 user_message (자동 계층화)
         });
+      }
     },
-    
-    onToolComplete: async (context: ToolExecutionContext, result: any) => {
+    afterExecute: async (toolName, params, result, context) => {
+      if (toolName === 'assignTask') {
         historyPlugin.recordEvent({
-            type: 'tool_result', 
-            toolName: 'assignTask',
-            content: result.summary,
-            // parentEventId는 동일한 delegationId의 tool_call.id
+          type: 'tool_result',
+          content: `✅ [${toolName}] Completed: ${result}`,
+          toolName,
+          result,
+          // parentEventId는 동일 delegationId의 tool_call (자동 계층화)
         });
+      }
+    },
+    onError: async (toolName, params, error, context) => {
+      if (toolName === 'assignTask') {
+        historyPlugin.recordEvent({
+          type: 'error',
+          content: `❌ [${toolName}] Error: ${error.message}`,
+          toolName,
+          error: error.message,
+        });
+      }
     }
+  }
 });
+```
+
+### Team 패키지 구현 예시
+```typescript
+// packages/team/src/team-container.ts
+class TeamContainer {
+  private toolHooks?: ToolHooks;
+
+  constructor(options: TeamContainerOptions) {
+    this.toolHooks = options.toolHooks;
+    // ...
+  }
+
+  private createAssignTaskTool() {
+    if (this.toolHooks) {
+      // Hook이 있으면 AgentDelegationTool 사용
+      return new AgentDelegationTool({
+        hooks: this.toolHooks,
+        availableTemplates: this.availableTemplates,
+        executor: (params) => this.assignTask(params),
+        logger: this.logger
+      });
+    } else {
+      // Hook이 없으면 기존 방식 사용
+      return createTaskAssignmentFacade(
+        this.availableTemplates.map(t => ({ id: t.id, description: t.description })),
+        (params) => this.assignTask(params)
+      ).tool;
+    }
+  }
+}
 ```
 
 ## 🎯 핵심 이점
@@ -167,16 +200,33 @@ const createAssignTaskHooks = (historyPlugin: PlaygroundHistoryPlugin) => ({
 - **계층별 필터링** → Level별로 보기 가능
 - **단순한 이벤트 타입** → 로그 분석 용이
 
-## ✅ 성공 기준
+## ✅ 성공 기준 (toolHooks 아키텍처)
 
 **기술적 목표**:
-- [ ] 5개 기본 이벤트 타입만 사용
-- [ ] Tool Hook을 통한 자동 계층 추적
-- [ ] UI에서 계층 구조 명확히 표시
-- [ ] Team 스트리밍 정상 동작
+- [ ] TeamOptions에 toolHooks 옵션 추가로 표준 Hook 주입 방법 제공
+- [ ] 기존 ToolHooks 인터페이스 재사용하여 타입 안전성 보장
+- [ ] AgentDelegationTool과 기존 createTaskAssignmentFacade 선택적 사용
+- [ ] Playground에서 createTeam({ toolHooks }) 방식으로 간단 사용
+- [ ] assignTask 실행 시 Hook을 통한 자동 계층 이벤트 생성
 
 **사용자 경험 목표**:
-- [ ] Team 실행 과정을 한눈에 파악 가능
-- [ ] 각 Sub-Agent의 독립적 실행 과정 확인
-- [ ] 오류 발생 시 정확한 위치 추적 가능
-- [ ] 복잡하지 않은 직관적인 인터페이스 
+- [ ] Team 실행 과정을 Level 0(Team) → Level 1(assignTask) 계층으로 표시
+- [ ] assignTask 도구 호출과 완료가 명확히 구분되어 표시
+- [ ] Sub-Agent 실행은 Team 내부 처리로 단순화 (복잡성 제거)
+- [ ] 오류 발생 시 정확한 도구 레벨에서 추적 가능
+- [ ] 직관적인 들여쓰기 UI로 실행 흐름 파악 가능
+
+**아키텍처 준수 목표**:
+- [ ] **Dependency Injection**: toolHooks를 생성자 옵션으로 주입
+- [ ] **Single Responsibility**: Team은 실행만, Hook은 추적만 담당
+- [ ] **Interface Segregation**: 기존 ToolHooks 인터페이스 재사용
+- [ ] **보편성**: 모든 Team 라이브러리 사용자가 활용 가능한 공통 기능
+- [ ] **선택성**: Hook 없이도 기존과 동일하게 동작 (하위 호환성)
+
+**검증 체크리스트**:
+- [ ] `createTeam({ toolHooks })` 호출 시 컴파일 오류 없음
+- [ ] Team 실행 시 onBeforeExecute Hook 정상 호출
+- [ ] assignTask 완료 시 onAfterExecute Hook 정상 호출  
+- [ ] Hook을 통해 기록된 이벤트가 올바른 계층 레벨(0,1) 표시
+- [ ] UI에서 team→assignTask 경로가 들여쓰기로 표시
+- [ ] 기존 Team 라이브러리 사용자에게 영향 없음 (toolHooks 미사용 시) 
