@@ -93,30 +93,30 @@ export class HttpClient {
      * Execute streaming chat request
      */
     async *chatStream(messages: BasicMessage[], provider: string, model: string): AsyncGenerator<ResponseMessage> {
-        const requestData = {
-            messages: messages.map(msg => ({
-                role: msg.role,
-                content: msg.content
-            })),
+        const url = `${this.config.baseUrl}/stream`;
+        const body = {
+            messages,
             provider,
             model
         };
 
-        const url = `${this.config.baseUrl}/stream`;
+        console.log('🌐 HTTP chatStream request:', { url, provider, model, messagesCount: messages.length });
 
         try {
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
-                    ...this.config.headers,
                     'Content-Type': 'application/json',
-                    'Accept': 'text/event-stream'
-                } as HeadersInit,
-                body: JSON.stringify(requestData)
+                },
+                body: JSON.stringify(body)
             });
 
+            console.log('🌐 HTTP response status:', response.status, response.statusText);
+
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const errorText = await response.text();
+                console.error('❌ HTTP error response:', { status: response.status, statusText: response.statusText, body: errorText });
+                throw new Error(`HTTP ${response.status}: ${response.statusText}\n${errorText}`);
             }
 
             if (!response.body) {

@@ -90,6 +90,18 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
     const isStreaming = executionState === 'streaming';
     const canExecute = state.isInitialized && !isExecuting && Boolean(state.currentAgentConfig || state.currentTeamConfig);
 
+    // Debug log for canExecute (only when values change)
+    useEffect(() => {
+        console.log('🔍 canExecute state check:', {
+            isInitialized: state.isInitialized,
+            isExecuting: isExecuting,
+            hasAgentConfig: !!state.currentAgentConfig,
+            hasTeamConfig: !!state.currentTeamConfig,
+            canExecute: canExecute,
+            executionState: executionState
+        });
+    }, [state.isInitialized, isExecuting, state.currentAgentConfig, state.currentTeamConfig, canExecute, executionState]);
+
     // Performance metrics
     const averageExecutionTime = executionHistory.length > 0
         ? executionHistory.reduce((sum, result) => sum + result.duration, 0) / executionHistory.length
@@ -140,6 +152,7 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
 
             setExecutionState('idle');
         } catch (error) {
+            console.error('❌ createAgent error:', error);
             setExecutionState('error');
             setLastError(error instanceof Error ? error : new Error(String(error)));
             setErrorCount(prev => prev + 1);
@@ -165,7 +178,9 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
 
     const executePrompt = useCallback(async (prompt: string): Promise<PlaygroundExecutionResult> => {
         if (!canExecute) {
-            throw new Error('Cannot execute: executor not ready or already running');
+            const error = new Error('Cannot execute: executor not ready or already running');
+            console.error('❌ executePrompt blocked:', error);
+            throw error;
         }
 
         try {
@@ -212,7 +227,9 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
         onChunk?: (chunk: string) => void
     ): Promise<PlaygroundExecutionResult> => {
         if (!canExecute) {
-            throw new Error('Cannot execute: executor not ready or already running');
+            const error = new Error('Cannot execute: executor not ready or already running');
+            console.error('❌ executeStreamPrompt blocked:', error);
+            throw error;
         }
 
         try {
