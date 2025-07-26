@@ -224,6 +224,7 @@ export function useChatInput(options: ChatInputOptions = {}): ChatInputHookRetur
         const messageToSend = message || inputValue.trim();
 
         if (!canSend || !messageToSend) {
+            console.warn('⚠️ sendMessage blocked:', { canSend, messageToSend });
             return;
         }
 
@@ -232,13 +233,21 @@ export function useChatInput(options: ChatInputOptions = {}): ChatInputHookRetur
             clearInput();
             setHistoryIndex(-1);
 
+            console.log('📤 Sending message:', messageToSend);
             const result = await executePrompt(messageToSend);
+            console.log('✅ sendMessage result:', result);
             return result;
 
         } catch (error) {
-            console.error('Failed to send message:', error);
+            console.error('❌ Failed to send message:', error);
+            console.error('❌ Error details:', {
+                message: error instanceof Error ? error.message : 'Unknown error',
+                stack: error instanceof Error ? error.stack : undefined,
+                messageToSend
+            });
             // Restore input on error
             setValue(messageToSend);
+            throw error; // Re-throw to let parent handle
         }
     }, [inputValue, canSend, clearInput, executePrompt, setValue]);
 
@@ -246,6 +255,7 @@ export function useChatInput(options: ChatInputOptions = {}): ChatInputHookRetur
         const messageToSend = message || inputValue.trim();
 
         if (!canSend || !messageToSend) {
+            console.warn('⚠️ sendStreamingMessage blocked:', { canSend, messageToSend });
             return;
         }
 
@@ -255,11 +265,20 @@ export function useChatInput(options: ChatInputOptions = {}): ChatInputHookRetur
             setHistoryIndex(-1);
             clearStreamingResponse();
 
-            return await executeStreamPrompt(messageToSend);
+            console.log('📤 Sending streaming message:', messageToSend);
+            const result = await executeStreamPrompt(messageToSend);
+            console.log('✅ sendStreamingMessage result:', result);
+            return result;
 
         } catch (error) {
-            console.error('Failed to send streaming message:', error);
+            console.error('❌ Failed to send streaming message:', error);
+            console.error('❌ Error details:', {
+                message: error instanceof Error ? error.message : 'Unknown error',
+                stack: error instanceof Error ? error.stack : undefined,
+                messageToSend
+            });
             setValue(messageToSend);
+            throw error; // Re-throw to let parent handle
         }
     }, [inputValue, canSend, clearInput, executeStreamPrompt, clearStreamingResponse, setValue]);
 

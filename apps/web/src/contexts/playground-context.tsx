@@ -15,6 +15,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { PlaygroundExecutor, type PlaygroundExecutionResult, type PlaygroundAgentConfig, type PlaygroundTeamConfig, type PlaygroundMode, type ConversationEvent, type PlaygroundVisualizationData } from '@/lib/playground/robota-executor';
+import { DefaultConsoleLogger } from '@robota-sdk/agents';
 
 // ===== State Types =====
 
@@ -44,26 +45,34 @@ export interface PlaygroundState {
     isLoading: boolean;
     error: string | null;
     visualizationData: PlaygroundVisualizationData | null;
+    // Execution Statistics - Now managed by PlaygroundStatisticsPlugin
+    executionStats: {
+        totalExecutions: 0,
+        successfulExecutions: 0,
+        failedExecutions: 0,
+        averageExecutionTime: 0,
+        lastExecutionTime: null,
+        // Additional statistics from PlaygroundStatisticsPlugin
+        blockCreations: 0,
+        uiInteractions: 0,
+        streamingExecutions: 0,
+        agentModeExecutions: 0,
+        teamModeExecutions: 0,
+        successRate: 100
+    };
 }
 
 export type PlaygroundAction =
-    | { type: 'INITIALIZE_EXECUTOR'; payload: { serverUrl: string; userId?: string; sessionId?: string; authToken?: string } }
     | { type: 'SET_EXECUTOR'; payload: PlaygroundExecutor | null }
     | { type: 'SET_INITIALIZED'; payload: boolean }
+    | { type: 'SET_AGENT_CONFIG'; payload: PlaygroundAgentConfig | null }
+    | { type: 'SET_TEAM_CONFIG'; payload: PlaygroundTeamConfig | null }
     | { type: 'SET_EXECUTING'; payload: boolean }
-    | { type: 'SET_MODE'; payload: PlaygroundMode }
-    | { type: 'SET_AGENT_CONFIG'; payload: PlaygroundAgentConfig }
-    | { type: 'SET_TEAM_CONFIG'; payload: PlaygroundTeamConfig }
-    | { type: 'ADD_CONVERSATION_EVENT'; payload: ConversationEvent }
-    | { type: 'SET_CONVERSATION_HISTORY'; payload: ConversationEvent[] }
-    | { type: 'CLEAR_CONVERSATION_HISTORY' }
-    | { type: 'SET_EXECUTION_RESULT'; payload: PlaygroundExecutionResult }
     | { type: 'SET_WEBSOCKET_CONNECTED'; payload: boolean }
-    | { type: 'SET_AUTH'; payload: { userId: string; sessionId: string; authToken: string } }
+    | { type: 'SET_AUTH'; payload: { userId?: string; sessionId?: string; authToken?: string } }
     | { type: 'SET_LOADING'; payload: boolean }
     | { type: 'SET_ERROR'; payload: string | null }
-    | { type: 'SET_VISUALIZATION_DATA'; payload: PlaygroundVisualizationData }
-    | { type: 'DISPOSE_EXECUTOR' };
+    | { type: 'UPDATE_VISUALIZATION_DATA'; payload: Partial<PlaygroundVisualizationData> };
 
 // ===== Initial State =====
 
@@ -83,24 +92,28 @@ const initialState: PlaygroundState = {
     sessionId: null,
     isLoading: false,
     error: null,
-    visualizationData: null
+    visualizationData: null,
+    // Execution Statistics - Now managed by PlaygroundStatisticsPlugin
+    executionStats: {
+        totalExecutions: 0,
+        successfulExecutions: 0,
+        failedExecutions: 0,
+        averageExecutionTime: 0,
+        lastExecutionTime: null,
+        // Additional statistics from PlaygroundStatisticsPlugin
+        blockCreations: 0,
+        uiInteractions: 0,
+        streamingExecutions: 0,
+        agentModeExecutions: 0,
+        teamModeExecutions: 0,
+        successRate: 100
+    }
 };
 
 // ===== Reducer =====
 
 function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): PlaygroundState {
     switch (action.type) {
-        case 'INITIALIZE_EXECUTOR':
-            return {
-                ...state,
-                serverUrl: action.payload.serverUrl,
-                userId: action.payload.userId || null,
-                sessionId: action.payload.sessionId || null,
-                authToken: action.payload.authToken || null,
-                isLoading: true,
-                error: null
-            };
-
         case 'SET_EXECUTOR':
             return {
                 ...state,
@@ -160,10 +173,38 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
             };
 
         case 'SET_EXECUTION_RESULT':
+            // Update execution statistics based on result
+            const newStats = {
+                totalExecutions: state.executionStats.totalExecutions + 1,
+                successfulExecutions: state.executionStats.successfulExecutions + (action.payload.success ? 1 : 0),
+                failedExecutions: state.executionStats.failedExecutions + (action.payload.success ? 0 : 1),
+                averageExecutionTime: state.executionStats.totalExecutions > 0
+                    ? (state.executionStats.averageExecutionTime * state.executionStats.totalExecutions + (action.payload.duration || 0)) / (state.executionStats.totalExecutions + 1)
+                    : (action.payload.duration || 0),
+                lastExecutionTime: new Date()
+            };
+
             return {
                 ...state,
                 lastExecutionResult: action.payload,
-                isExecuting: false
+                executionStats: newStats
+            };
+
+        case 'UPDATE_EXECUTION_STATS':
+            const { success, duration } = action.payload;
+            const updatedStats = {
+                totalExecutions: state.executionStats.totalExecutions + 1,
+                successfulExecutions: state.executionStats.successfulExecutions + (success ? 1 : 0),
+                failedExecutions: state.executionStats.failedExecutions + (success ? 0 : 1),
+                averageExecutionTime: state.executionStats.totalExecutions > 0
+                    ? (state.executionStats.averageExecutionTime * state.executionStats.totalExecutions + duration) / (state.executionStats.totalExecutions + 1)
+                    : duration,
+                lastExecutionTime: new Date()
+            };
+
+            return {
+                ...state,
+                executionStats: updatedStats
             };
 
         case 'SET_WEBSOCKET_CONNECTED':
@@ -193,10 +234,13 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
                 isLoading: false
             };
 
-        case 'SET_VISUALIZATION_DATA':
+        case 'UPDATE_VISUALIZATION_DATA':
             return {
                 ...state,
-                visualizationData: action.payload
+                visualizationData: {
+                    ...state.visualizationData,
+                    ...action.payload
+                }
             };
 
         case 'DISPOSE_EXECUTOR':
@@ -216,7 +260,6 @@ interface PlaygroundContextValue {
     state: PlaygroundState;
 
     // Actions
-    initializeExecutor: (config: { serverUrl: string; userId?: string; sessionId?: string; authToken?: string }) => Promise<void>;
     createAgent: (config: PlaygroundAgentConfig) => Promise<void>;
     createTeam: (config: PlaygroundTeamConfig) => Promise<void>;
     executePrompt: (prompt: string) => Promise<PlaygroundExecutionResult>;
@@ -248,42 +291,35 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
     // Use ref to track executor for cleanup without causing re-renders
     const executorRef = useRef<PlaygroundExecutor | null>(null);
 
-    // ===== Executor Management =====
+    // Auto-initialize executor on mount
+    useEffect(() => {
+        if (!state.executor && defaultServerUrl) {
+            try {
+                // Create executor directly (no separate initialization needed)
+                const executor = new PlaygroundExecutor(
+                    defaultServerUrl,
+                    'playground-token',
+                    DefaultConsoleLogger // Add logger for development
+                );
 
-    const initializeExecutor = useCallback(async (config: { serverUrl: string; userId?: string; sessionId?: string; authToken?: string }) => {
-        try {
-            dispatch({ type: 'INITIALIZE_EXECUTOR', payload: config });
+                // Update state and ref
+                dispatch({ type: 'SET_INITIALIZED', payload: true });
+                dispatch({ type: 'SET_EXECUTOR', payload: executor });
+                executorRef.current = executor;
 
-            // Dispose existing executor if any
-            if (executorRef.current) {
-                await executorRef.current.dispose();
-                executorRef.current = null;
+            } catch (error) {
+                dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to create executor' });
             }
-
-            // Create new executor
-            const executor = new PlaygroundExecutor(
-                config.serverUrl,
-                config.userId,
-                config.sessionId,
-                config.authToken
-            );
-
-            // Initialize executor
-            await executor.initialize();
-
-            // Update state and ref
-            dispatch({ type: 'SET_INITIALIZED', payload: true });
-            dispatch({ type: 'SET_EXECUTOR', payload: executor });
-            executorRef.current = executor;
-
-        } catch (error) {
-            dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to initialize executor' });
         }
-    }, []);
+    }, [defaultServerUrl]); // Only run when defaultServerUrl changes
+
+    // ===== Executor Management =====
 
     const createAgent = useCallback(async (config: PlaygroundAgentConfig) => {
         if (!state.executor || !state.isInitialized) {
-            throw new Error('Executor not initialized');
+            const error = new Error('Executor not initialized');
+            console.error('❌ Executor not ready:', error);
+            throw error;
         }
 
         try {
@@ -293,6 +329,8 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'SET_LOADING', payload: false });
         } catch (error) {
             dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to create agent' });
+            dispatch({ type: 'SET_LOADING', payload: false });
+            throw error; // Re-throw error so useRobotaExecution can handle it
         }
     }, [state.executor, state.isInitialized]);
 
@@ -308,6 +346,8 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'SET_LOADING', payload: false });
         } catch (error) {
             dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to create team' });
+            dispatch({ type: 'SET_LOADING', payload: false });
+            throw error; // Re-throw error so useRobotaExecution can handle it
         }
     }, [state.executor, state.isInitialized]);
 
@@ -320,35 +360,52 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'SET_EXECUTING', payload: true });
             dispatch({ type: 'SET_ERROR', payload: null });
 
+            // Record UI interaction - chat send
+            if (typeof state.executor.recordPlaygroundAction === 'function') {
+                await state.executor.recordPlaygroundAction('chat_send', {
+                    prompt: prompt.substring(0, 100), // First 100 chars for tracking
+                    mode: state.mode
+                });
+            }
+
+            // Execute via PlaygroundExecutor (which handles statistics automatically)
             const result = await state.executor.run(prompt);
 
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: result });
 
-            // Get updated conversation history and convert to chat events for UI
+            // Sync conversation history from executor (central source of truth)
             const history = state.executor.getHistory(); // UniversalMessage[]
-            dispatch({ type: 'SET_CONVERSATION_HISTORY', payload: history });
 
-            // Convert UniversalMessage[] to chat events for UI display
+            // Convert UniversalMessage[] to ConversationEvent[] for UI display
             const chatEvents = history.map((msg, index) => ({
                 id: `msg_${index}_${msg.timestamp?.getTime() || Date.now()}`,
                 type: msg.role === 'user' ? 'user_message' as const : 'assistant_response' as const,
-                content: msg.content,
+                content: msg.content || '',
                 timestamp: msg.timestamp || new Date(),
                 metadata: msg.metadata || {}
             }));
 
+            dispatch({ type: 'SET_CONVERSATION_HISTORY', payload: chatEvents });
+
+            // Update visualization data with latest stats from plugin
+            let pluginStats = { totalEvents: chatEvents.length, totalToolCalls: 0, averageResponseTime: result.duration || 0 };
+            if (typeof state.executor.getPlaygroundStatistics === 'function') {
+                const stats = state.executor.getPlaygroundStatistics();
+                pluginStats = {
+                    totalEvents: stats.totalChatExecutions,
+                    totalToolCalls: 0, // Will be enhanced later
+                    averageResponseTime: stats.averageResponseTime
+                };
+            }
+
             const vizData = {
-                mode: state.visualizationData?.mode || 'agent' as const,
+                mode: state.visualizationData?.mode || state.mode,
                 events: chatEvents,
                 agents: state.visualizationData?.agents || [],
-                stats: {
-                    totalEvents: chatEvents.length,
-                    totalToolCalls: 0,
-                    averageResponseTime: result.duration || 0
-                }
+                stats: pluginStats
             };
 
-            dispatch({ type: 'SET_VISUALIZATION_DATA', payload: vizData });
+            dispatch({ type: 'UPDATE_VISUALIZATION_DATA', payload: vizData });
 
             return result;
 
@@ -367,7 +424,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
         } finally {
             dispatch({ type: 'SET_EXECUTING', payload: false });
         }
-    }, [state.executor, state.isInitialized, state.visualizationData]);
+    }, [state.executor, state.isInitialized, state.visualizationData, state.mode]);
 
     const executeStreamPrompt = useCallback(async (
         prompt: string,
@@ -381,9 +438,16 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'SET_EXECUTING', payload: true });
             dispatch({ type: 'SET_ERROR', payload: null });
 
-            const startTime = Date.now();
+            // Record UI interaction - streaming chat send
+            if (typeof state.executor.recordPlaygroundAction === 'function') {
+                await state.executor.recordPlaygroundAction('chat_send', {
+                    prompt: prompt.substring(0, 100),
+                    mode: state.mode,
+                    streaming: true
+                });
+            }
 
-            // Process stream and collect chunks
+            // Process stream (PlaygroundExecutor handles statistics automatically)
             let fullResponse = '';
 
             for await (const chunk of state.executor.runStream(prompt)) {
@@ -391,60 +455,75 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                 onChunk(chunk);
             }
 
-            const duration = Date.now() - startTime;
-
             const result: PlaygroundExecutionResult = {
                 success: true,
                 response: fullResponse,
-                duration
+                duration: 0 // Duration tracked by PlaygroundStatisticsPlugin
             };
 
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: result });
 
-            // Get updated conversation history and convert to chat events for UI
+            // Sync conversation history from executor (central source of truth)
             const history = state.executor.getHistory(); // UniversalMessage[]
-            dispatch({ type: 'SET_CONVERSATION_HISTORY', payload: history });
 
-            // Convert UniversalMessage[] to chat events for UI display
+            // Convert UniversalMessage[] to ConversationEvent[] for UI display
             const chatEvents = history.map((msg, index) => ({
                 id: `msg_${index}_${msg.timestamp?.getTime() || Date.now()}`,
                 type: msg.role === 'user' ? 'user_message' as const : 'assistant_response' as const,
-                content: msg.content,
+                content: msg.content || '',
                 timestamp: msg.timestamp || new Date(),
                 metadata: msg.metadata || {}
             }));
 
+            dispatch({ type: 'SET_CONVERSATION_HISTORY', payload: chatEvents });
+
+            // Update visualization data with latest stats from plugin
+            let pluginStats = { totalEvents: chatEvents.length, totalToolCalls: 0, averageResponseTime: 0 };
+            if (typeof state.executor.getPlaygroundStatistics === 'function') {
+                const stats = state.executor.getPlaygroundStatistics();
+                pluginStats = {
+                    totalEvents: stats.totalChatExecutions,
+                    totalToolCalls: 0, // Will be enhanced later
+                    averageResponseTime: stats.averageResponseTime
+                };
+            }
+
             const vizData = {
-                mode: state.visualizationData?.mode || 'agent' as const,
+                mode: state.visualizationData?.mode || state.mode,
                 events: chatEvents,
                 agents: state.visualizationData?.agents || [],
-                stats: {
-                    totalEvents: chatEvents.length,
-                    totalToolCalls: 0,
-                    averageResponseTime: duration
-                }
+                stats: pluginStats
             };
 
-            dispatch({ type: 'SET_VISUALIZATION_DATA', payload: vizData });
+            dispatch({ type: 'UPDATE_VISUALIZATION_DATA', payload: vizData });
 
             return result;
 
         } catch (error) {
+            console.error('❌ executeStreamPrompt error in context:', error);
+            console.error('❌ Context error details:', {
+                message: error instanceof Error ? error.message : 'Unknown error',
+                stack: error instanceof Error ? error.stack : undefined,
+                prompt,
+                hasExecutor: !!state.executor,
+                isInitialized: state.isInitialized
+            });
+
             const errorResult: PlaygroundExecutionResult = {
                 success: false,
-                response: 'Stream execution failed',
+                response: 'Execution failed',
                 duration: 0,
                 error: error instanceof Error ? error : new Error(String(error))
             };
 
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: errorResult });
-            dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Stream execution failed' });
+            dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Execution failed' });
 
             return errorResult;
         } finally {
             dispatch({ type: 'SET_EXECUTING', payload: false });
         }
-    }, [state.executor, state.isInitialized, state.visualizationData]);
+    }, [state.executor, state.isInitialized, state.visualizationData, state.mode]);
 
     const clearHistory = useCallback(() => {
         if (state.executor && state.isInitialized) {
@@ -518,7 +597,6 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
 
     const contextValue: PlaygroundContextValue = {
         state,
-        initializeExecutor,
         createAgent,
         createTeam,
         executePrompt,
@@ -556,7 +634,6 @@ export function usePlaygroundState() {
 
 export function usePlaygroundActions() {
     const {
-        initializeExecutor,
         createAgent,
         createTeam,
         executePrompt,
@@ -567,7 +644,6 @@ export function usePlaygroundActions() {
     } = usePlayground();
 
     return {
-        initializeExecutor,
         createAgent,
         createTeam,
         executePrompt,

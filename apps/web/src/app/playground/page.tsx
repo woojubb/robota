@@ -47,13 +47,14 @@ import { useRobotaExecution } from '@/hooks/use-robota-execution';
 import { useWebSocketConnection } from '@/hooks/use-websocket-connection';
 import { useChatInput } from '@/hooks/use-chat-input';
 import { useBlockTracking } from '@/hooks/use-block-tracking';
+import { usePlaygroundStatistics } from '@/hooks/use-playground-statistics';
 
 // Visual Components
 import { AgentConfigurationBlock } from '@/components/playground/agent-configuration-block';
 import { TeamConfigurationBlock } from '@/components/playground/team-configuration-block';
-import { BlockVisualizationPanel } from '@/components/playground/block-visualization';
 import { ToolContainerBlock } from '@/components/playground/tool-container-block';
 import { PluginContainerBlock } from '@/components/playground/plugin-container-block';
+import { AuthDebug } from '@/components/debug/auth-debug';
 
 // Types
 import type {
@@ -225,7 +226,7 @@ function ConfigurationPanel() {
 }
 
 // Chat Interface Component
-function ChatInterfacePanel({ blockTracking }: { blockTracking: any }) {
+function ChatInterfacePanel() {
     const { state } = usePlayground();
     const { executePrompt, executeStreamPrompt, isExecuting, lastResult } = useRobotaExecution();
     const { conversationEvents } = usePlaygroundData();
@@ -245,24 +246,19 @@ function ChatInterfacePanel({ blockTracking }: { blockTracking: any }) {
 
     // Monitor lastResult changes and create assistant blocks
     useEffect(() => {
+        console.log('🔍 lastResult changed:', {
+            hasLastResult: !!lastResult,
+            isNewResult: lastResult !== lastResultRef.current,
+            hasResponse: !!(lastResult?.response),
+            response: lastResult?.response
+        });
+
+        // Simply log - actual conversation history is managed by Robota SDK
         if (lastResult && lastResult !== lastResultRef.current && lastResult.response) {
-            if (blockTracking?.blockCollector) {
-                const assistantBlock = blockTracking.blockCollector.createGroupBlock(
-                    'assistant',
-                    lastResult.response,
-                    undefined,
-                    0
-                );
-
-                blockTracking.blockCollector.updateBlock(assistantBlock.blockMetadata.id, {
-                    visualState: 'completed'
-                });
-
-                console.log('Assistant response block created:', assistantBlock.blockMetadata.id);
-            }
+            console.log('✅ Assistant response received:', lastResult.response);
         }
         lastResultRef.current = lastResult;
-    }, [lastResult, blockTracking]);
+    }, [lastResult]);
 
     const handleSendMessage = useCallback(async () => {
         if (!canSend) return;
@@ -270,73 +266,30 @@ function ChatInterfacePanel({ blockTracking }: { blockTracking: any }) {
         const messageText = inputState.value.trim();
         if (!messageText) return;
 
-        // Create user message block
-        let userBlockId: string | undefined;
-        if (blockTracking?.blockCollector) {
-            const userBlock = blockTracking.blockCollector.createGroupBlock(
-                'user',
-                messageText,
-                undefined,
-                0
-            );
-            userBlockId = userBlock.blockMetadata.id;
-            console.log('User message block created:', userBlockId);
-        }
-
-        // Add user message to conversation events for Chat UI
-        const userEvent = {
-            id: `event_${Date.now()}_user`,
-            type: 'user_message' as const,
-            content: messageText,
-            timestamp: new Date(),
-            metadata: {}
-        };
-
-        // Add to visualization data events
-        const currentVizData = state.visualizationData || { events: [], stats: {} };
-        const updatedVizData = {
-            ...currentVizData,
-            events: [...(currentVizData.events || []), userEvent]
-        };
-
-        // We need to add this to visualizationData, but we can't access dispatch here
-        // This should be handled differently - maybe in the Context layer
+        console.log('📤 User message:', messageText);
 
         try {
             let result: any;
-            console.log('handleSendMessage: messageText =', messageText, 'useStreaming =', useStreaming);
 
             if (useStreaming) {
-                console.log('Calling sendStreamingMessage()');
-                result = await sendStreamingMessage();
-                console.log('sendStreamingMessage result:', result);
+                result = await sendStreamingMessage(messageText);
             } else {
-                console.log('Calling sendMessage()');
-                result = await sendMessage();
-                console.log('sendMessage result:', result);
+                result = await sendMessage(messageText);
             }
 
-            // Assistant response block will be created by useEffect when lastResult updates
+            console.log('✅ handleSendMessage completed:', result);
 
         } catch (error) {
-            console.error('Failed to send message:', error);
-
-            // Create error block if message sending fails
-            if (blockTracking?.blockCollector) {
-                const errorBlock = blockTracking.blockCollector.createGroupBlock(
-                    'group',
-                    `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                    undefined,
-                    0
-                );
-
-                blockTracking.blockCollector.updateBlock(errorBlock.blockMetadata.id, {
-                    visualState: 'error',
-                    type: 'error'
-                });
-            }
+            console.error('❌ handleSendMessage error:', error);
+            console.error('❌ Full error details:', {
+                message: error instanceof Error ? error.message : 'Unknown error',
+                stack: error instanceof Error ? error.stack : undefined,
+                name: error instanceof Error ? error.name : undefined,
+                messageText,
+                useStreaming
+            });
         }
-    }, [canSend, inputState.value, useStreaming, sendStreamingMessage, sendMessage, blockTracking, lastResult, state.visualizationData]);
+    }, [canSend, inputState.value, useStreaming, sendStreamingMessage, sendMessage]);
 
     const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -502,87 +455,110 @@ function ChatInterfacePanel({ blockTracking }: { blockTracking: any }) {
 }
 
 // Connection Status Component
-function ConnectionStatusPanel() {
+function SystemStatusPanel() {
     const { state } = usePlayground();
-    const { connectionState, connectionInfo, statistics } = useWebSocketConnection();
+    const {
+        chatExecutions,
+        errorCount,
+        averageResponseTime,
+        successRate,
+        agentExecutions,
+        teamExecutions,
+        isActive,
+        formattedResponseTime,
+        isLoading
+    } = usePlaygroundStatistics();
 
     return (
         <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <Activity className="h-4 w-4" />
                     System Status
                 </CardTitle>
             </CardHeader>
 
-            <CardContent className="pt-0 space-y-3">
-                {/* Connection Status */}
-                <div className="flex items-center justify-between">
-                    <Label className="text-xs">Connection</Label>
-                    <div className="flex items-center gap-1">
-                        {state.isWebSocketConnected ? (
-                            <>
-                                <Wifi className="h-3 w-3 text-green-500" />
-                                <span className="text-xs text-green-600">Connected</span>
-                            </>
-                        ) : (
-                            <>
-                                <WifiOff className="h-3 w-3 text-red-500" />
-                                <span className="text-xs text-red-600">Disconnected</span>
-                            </>
-                        )}
-                    </div>
-                </div>
-
-                {/* Executor Status */}
-                <div className="flex items-center justify-between">
-                    <Label className="text-xs">Executor</Label>
+            <CardContent className="pt-0 space-y-2">
+                {/* Compact Status Grid */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                    {/* Connection Status */}
                     <div className="flex items-center gap-1">
                         {state.isInitialized ? (
                             <>
                                 <CheckCircle className="h-3 w-3 text-green-500" />
-                                <span className="text-xs text-green-600">Ready</span>
+                                <span className="text-green-600">Ready</span>
                             </>
                         ) : (
                             <>
                                 <AlertCircle className="h-3 w-3 text-orange-500" />
-                                <span className="text-xs text-orange-600">Initializing</span>
+                                <span className="text-orange-600">Init...</span>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Execution Status */}
+                    <div className="flex items-center gap-1">
+                        {state.isExecuting || isActive ? (
+                            <>
+                                <Loader2 className="h-3 w-3 text-blue-500 animate-spin" />
+                                <span className="text-blue-600">Running</span>
+                            </>
+                        ) : chatExecutions > 0 ? (
+                            <>
+                                <CheckCircle className="h-3 w-3 text-green-500" />
+                                <span className="text-green-600">Idle</span>
+                            </>
+                        ) : (
+                            <>
+                                <AlertCircle className="h-3 w-3 text-gray-500" />
+                                <span className="text-gray-600">Ready</span>
                             </>
                         )}
                     </div>
                 </div>
 
-                {/* Server URL */}
-                {state.serverUrl && (
-                    <div className="space-y-1">
-                        <Label className="text-xs">Server</Label>
-                        <div className="text-xs text-gray-600 font-mono bg-gray-50 p-1 rounded">
-                            {state.serverUrl}
+                {/* Enhanced Statistics */}
+                <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
+                    <div>Total: {chatExecutions}</div>
+                    <div>Success: {Math.round(successRate)}%</div>
+                    <div>Agent: {agentExecutions}</div>
+                    <div>Team: {teamExecutions}</div>
+                </div>
+
+                {/* Response Time */}
+                {averageResponseTime > 0 && (
+                    <div className="text-xs text-gray-500 text-center">
+                        Avg Response: {formattedResponseTime}
+                    </div>
+                )}
+
+                {/* Error Count - Only when present */}
+                {errorCount > 0 && (
+                    <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                        <div className="flex items-center gap-1 font-medium">
+                            <AlertCircle className="h-3 w-3" />
+                            Errors: {errorCount}
                         </div>
                     </div>
                 )}
 
-                {/* Statistics */}
-                <Separator />
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                        <Label className="text-xs text-gray-500">Messages Sent</Label>
-                        <div className="font-semibold">{statistics.messagesSent}</div>
-                    </div>
-                    <div>
-                        <Label className="text-xs text-gray-500">Messages Received</Label>
-                        <div className="font-semibold">{statistics.messagesReceived}</div>
-                    </div>
-                </div>
-
-                {/* Error Display */}
+                {/* Current Error Display */}
                 {state.error && (
-                    <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                    <div className="p-2 bg-orange-50 border border-orange-200 rounded text-xs text-orange-700">
                         <div className="flex items-center gap-1 font-medium">
                             <AlertCircle className="h-3 w-3" />
-                            Error
+                            Current Error
                         </div>
-                        <div className="mt-1">{state.error}</div>
+                        <div className="mt-1 truncate" title={state.error}>
+                            {state.error}
+                        </div>
+                    </div>
+                )}
+
+                {/* Loading State */}
+                {isLoading && (
+                    <div className="text-xs text-gray-400 text-center">
+                        Loading statistics...
                     </div>
                 )}
             </CardContent>
@@ -590,145 +566,106 @@ function ConnectionStatusPanel() {
     );
 }
 
-// Main Playground Component (without Provider)
+// Main Content Component (requires PlaygroundProvider)
 function PlaygroundContent() {
-    const { initializeExecutor } = usePlayground();
-    const blockTracking = useBlockTracking();
-
-    // Memoize sessionId to prevent re-initialization
-    const sessionId = useMemo(() => `session-${Date.now()}`, []);
-
-    // Test function to manually add blocks
-    const handleTestBlocks = useCallback(() => {
-        const { blockCollector } = blockTracking;
-
-        // Create a user message block
-        const userBlock = blockCollector.createGroupBlock(
-            'user',
-            '테스트 사용자 메시지',
-            undefined,
-            0
-        );
-
-        // Create an assistant response block
-        const assistantBlock = blockCollector.createGroupBlock(
-            'assistant',
-            '테스트 어시스턴트 응답',
-            userBlock.blockMetadata.id,
-            1
-        );
-
-        // Create a tool call block
-        const toolCallBlock = blockCollector.createGroupBlock(
-            'tool_call',
-            'weather_tool 호출',
-            assistantBlock.blockMetadata.id,
-            2
-        );
-
-        // Update tool call with parameters
-        blockCollector.updateBlock(toolCallBlock.blockMetadata.id, {
-            visualState: 'completed',
-            renderData: {
-                parameters: { city: '서울', unit: 'celsius' }
-            }
-        });
-
-        // Create tool result block
-        const resultBlock = blockCollector.createGroupBlock(
-            'group',
-            '서울 온도: 25°C, 맑음',
-            toolCallBlock.blockMetadata.id,
-            3
-        );
-
-        blockCollector.updateBlock(resultBlock.blockMetadata.id, {
-            visualState: 'completed',
-            type: 'tool_result'
-        });
-
-        console.log('테스트 블록 추가됨:', {
-            userBlock: userBlock.blockMetadata.id,
-            assistantBlock: assistantBlock.blockMetadata.id,
-            toolCallBlock: toolCallBlock.blockMetadata.id,
-            resultBlock: resultBlock.blockMetadata.id
-        });
-    }, [blockTracking]);
-
-    // Initialize on mount
-    useEffect(() => {
-        initializeExecutor({
-            serverUrl: 'ws://localhost:3001', // Default server URL
-            userId: 'playground-user',
-            sessionId,
-            authToken: 'playground-token'
-        });
-    }, [initializeExecutor, sessionId]);
+    const { state } = usePlayground();
 
     return (
-        <div className="min-h-screen bg-gray-50 p-4">
-            <div className="max-w-7xl mx-auto space-y-4">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Robota Playground</h1>
-                        <p className="text-sm text-gray-600">Visual Agent and Team Configuration Interface</p>
-                    </div>
+        <div className="container mx-auto p-6 space-y-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold">Robota Playground</h1>
+                    <p className="text-gray-600">Build, test, and deploy intelligent agents</p>
+                </div>
+                <Badge variant={state.isInitialized ? "default" : "secondary"}>
+                    {state.isInitialized ? "Ready" : "Initializing"}
+                </Badge>
+            </div>
 
-                    <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                            <Zap className="h-3 w-3 mr-1" />
-                            Real-time
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                            <Puzzle className="h-3 w-3 mr-1" />
-                            Block Coding
-                        </Badge>
-                        <Button
-                            onClick={handleTestBlocks}
-                            size="sm"
-                            className="flex items-center gap-1"
-                        >
-                            <Play className="h-3 w-3" />
-                            Test Blocks
-                        </Button>
-                    </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Column - Configuration */}
+                <div className="space-y-6">
+                    <ConfigurationPanel />
+                    <SystemStatusPanel />
+                    <AuthDebug />
                 </div>
 
-                {/* Main Layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-200px)]">
-                    {/* Left Panel - Configuration */}
-                    <div className="lg:col-span-1">
-                        <ConfigurationPanel />
-                    </div>
+                {/* Middle Column - Chat Interface */}
+                <div className="space-y-6">
+                    <ChatInterfacePanel />
+                </div>
 
-                    {/* Middle Panel - Chat Interface */}
-                    <div className="lg:col-span-1">
-                        <ChatInterfacePanel blockTracking={blockTracking} />
-                    </div>
-
-                    {/* Right Panel - Status and Monitoring */}
-                    <div className="lg:col-span-1 space-y-4">
-                        <ConnectionStatusPanel />
-
-                        {/* Block Visualization Panel */}
-                        <BlockVisualizationPanel
-                            blockCollector={blockTracking.blockCollector}
-                            height="400px"
-                            showDebug={false}
-                            autoScroll={true}
-                        />
-                    </div>
+                {/* Right Column - Block Visualization */}
+                <div className="space-y-6">
+                    <BlockVisualizationPanel />
                 </div>
             </div>
         </div>
     );
 }
 
+// Temporary implementation of missing components
+function ToolsAndPluginsPanel() {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Puzzle className="h-4 w-4" />
+                    Tools & Plugins
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-gray-500">Coming soon...</p>
+            </CardContent>
+        </Card>
+    );
+}
+
+// Simple Block Visualization Panel using ConversationHistory
+function BlockVisualizationPanel() {
+    const { conversationEvents } = usePlaygroundData();
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                    <Puzzle className="h-4 w-4" />
+                    Block Visualization
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <ScrollArea className="h-96">
+                    <div className="space-y-2">
+                        {conversationEvents.map((event, index) => (
+                            <div
+                                key={event.id || index}
+                                className={`p-3 rounded-lg border ${event.type === 'user_message'
+                                    ? 'bg-blue-50 border-blue-200'
+                                    : 'bg-green-50 border-green-200'
+                                    }`}
+                            >
+                                <div className="text-xs text-gray-500 mb-1">
+                                    {event.type === 'user_message' ? 'User' : 'Assistant'} • {event.timestamp.toLocaleTimeString()}
+                                </div>
+                                <div className="text-sm">{event.content}</div>
+                            </div>
+                        ))}
+                        {conversationEvents.length === 0 && (
+                            <div className="text-center text-gray-500 py-8">
+                                No conversation blocks yet
+                            </div>
+                        )}
+                    </div>
+                </ScrollArea>
+            </CardContent>
+        </Card>
+    );
+}
+
 // Main Playground Page with Provider
 export default function PlaygroundPage() {
     return (
-        <PlaygroundProvider defaultServerUrl="ws://localhost:3001">
+        <PlaygroundProvider defaultServerUrl="ws://localhost:3001/ws">
             <PlaygroundContent />
         </PlaygroundProvider>
     );

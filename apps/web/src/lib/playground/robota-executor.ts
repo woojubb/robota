@@ -10,6 +10,7 @@
  * - Type Safety: Uses Robota-compatible types
  * - Dependency Injection: Logger injection pattern
  * - Single Responsibility: Agent/Team execution only
+ * - Statistics Collection: PlaygroundStatisticsPlugin integration
  */
 
 import { Robota } from '@robota-sdk/agents';
@@ -17,6 +18,9 @@ import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { createTeam, type TeamOptions } from '@robota-sdk/team';
 import { PlaygroundHistoryPlugin, type PlaygroundVisualizationData, type ConversationEvent } from './plugins/playground-history-plugin';
+import { PlaygroundStatisticsPlugin } from './plugins/playground-statistics-plugin';
+import type { PlaygroundMetrics, PlaygroundExecutionResult as PlaygroundStatisticsResult } from '../../types/playground-statistics';
+import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
 
 // Re-export types for external use
 export type { PlaygroundVisualizationData, ConversationEvent } from './plugins/playground-history-plugin';
@@ -121,47 +125,441 @@ export type PlaygroundMode = 'agent' | 'team';
 
 /**
  * Playground executor for managing Robota agents and teams in browser
+ * 
  * Follows Facade Pattern - simple interface with essential methods only
+ * Integrates PlaygroundStatisticsPlugin for real-time metrics collection
  */
 export class PlaygroundExecutor {
-    private isInitialized = false;
     private mode: 'agent' | 'team' | null = null;
     private currentAgent: Robota | null = null;
     private currentTeam: PlaygroundTeamInstance | null = null;
+
+    // Playground-specific plugins
     private historyPlugin: PlaygroundHistoryPlugin;
+    private statisticsPlugin: PlaygroundStatisticsPlugin;
+
     private websocketClient: PlaygroundWebSocketClient | null = null;
+    private readonly logger: SimpleLogger;
 
     constructor(
         private serverUrl: string,
-        private authToken: string
+        private authToken: string,
+        logger?: SimpleLogger
     ) {
-        // Create playground history plugin for visualization
+        // Initialize logger with dependency injection
+        this.logger = logger || SilentLogger;
+
+        // Create playground-specific plugins (ready immediately)
         this.historyPlugin = new PlaygroundHistoryPlugin({
             maxEvents: 1000,
             visualizationMode: 'blocks',
-            enableRealTimeSync: true,
+            enableRealTimeSync: false, // Disable WebSocket initially
             websocketUrl: this.serverUrl
         });
+
+        this.statisticsPlugin = new PlaygroundStatisticsPlugin({
+            enabled: true,
+            collectUIMetrics: true,
+            collectBlockMetrics: true,
+            trackResponseTime: true,
+            trackExecutionDetails: true,
+            maxEntries: 1000,
+            slowExecutionThreshold: 3000, // 3 seconds
+            errorRateThreshold: 10 // 10%
+        });
+
+        // PlaygroundExecutor is ready immediately
+        // WebSocket will be connected lazily when needed
     }
 
     /**
-     * Initialize the executor
+     * Get WebSocket client (lazy initialization)
      */
-    async initialize(): Promise<void> {
-        if (this.isInitialized) return;
-
-        try {
-            // Initialize history plugin
-            await this.historyPlugin.initialize();
-
-            // Initialize WebSocket connection for real-time features
+    private async getWebSocketClient(): Promise<PlaygroundWebSocketClient> {
+        if (!this.websocketClient) {
             this.websocketClient = new PlaygroundWebSocketClient(this.serverUrl, this.authToken);
             await this.websocketClient.connect();
-
-            this.isInitialized = true;
-        } catch (error) {
-            throw new Error(`PlaygroundExecutor initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
+        return this.websocketClient;
+    }
+
+    /**
+     * Log debug message
+     */
+    private logDebug(message: string, context?: any): void {
+        this.logger.debug(message, context);
+    }
+
+    /**
+     * Log error message
+     */
+    private logError(message: string, error?: Error, context?: any): void {
+        this.logger.error(message, { error: error?.message, stack: error?.stack, ...context });
+    }
+
+    /**
+     * Create and configure an agent (Facade method)
+     */
+    async createAgent(config: PlaygroundAgentConfig): Promise<void> {
+        try {
+            // Create AI providers with remote executor
+            const aiProviders = this.createProvidersWithExecutor();
+
+            // Create actual Robota agent with plugins
+            this.currentAgent = new Robota({
+                name: config.name,
+                aiProviders: aiProviders as any,
+                defaultModel: config.defaultModel,
+                plugins: [this.historyPlugin as any, this.statisticsPlugin as any],
+                tools: (config.tools || []) as any
+            });
+
+            this.setMode('agent');
+
+            // Record agent creation as UI interaction
+            await this.statisticsPlugin.recordUIInteraction('agent_create', {
+                agentName: config.name,
+                provider: config.defaultModel.provider,
+                model: config.defaultModel.model
+            });
+
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Create and configure a team (Facade method)
+     */
+    async createTeam(config: PlaygroundTeamConfig): Promise<void> {
+        try {
+            // Create AI providers with remote executor
+            const aiProviders = this.createProvidersWithExecutor();
+
+            // Create team instance with real AI providers and plugins
+            this.currentTeam = new PlaygroundTeamInstance(config, aiProviders, this.historyPlugin, this.statisticsPlugin);
+            await this.currentTeam.initialize();
+
+            this.setMode('team');
+
+            // Record team creation as UI interaction
+            await this.statisticsPlugin.recordUIInteraction('team_create', {
+                teamName: config.name,
+                agentCount: config.agents.length
+            });
+
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Execute a prompt (Facade method)
+     */
+    async run(prompt: string): Promise<PlaygroundExecutionResult> {
+        const request: UniversalMessage[] = [{ role: 'user', content: prompt }];
+
+        try {
+            const result = await this.executeChat(request);
+
+            return {
+                success: true,
+                response: result.content || 'No response',
+                duration: 0, // Duration tracked in executeChat
+                visualizationData: this.getVisualizationData()
+            };
+
+        } catch (error) {
+            return {
+                success: false,
+                response: 'Execution failed',
+                duration: 0,
+                error: error instanceof Error ? error : new Error(String(error)),
+                visualizationData: this.getVisualizationData()
+            };
+        }
+    }
+
+    /**
+     * Execute with streaming response (Facade method)
+     */
+    async *runStream(prompt: string): AsyncGenerator<string, PlaygroundExecutionResult> {
+        const request: UniversalMessage[] = [{ role: 'user', content: prompt }];
+
+        try {
+            let fullResponse = '';
+
+            for await (const chunk of this.executeChatStream(request)) {
+                const content = chunk.content || '';
+                fullResponse += content;
+                yield content;
+            }
+
+            return {
+                success: true,
+                response: fullResponse,
+                duration: 0, // Duration tracked in executeChatStream
+                visualizationData: this.getVisualizationData()
+            };
+
+        } catch (error) {
+            return {
+                success: false,
+                response: 'Streaming execution failed',
+                duration: 0,
+                error: error instanceof Error ? error : new Error(String(error)),
+                visualizationData: this.getVisualizationData()
+            };
+        }
+    }
+
+    // ==========================================================================
+    // Statistics and Visualization Methods
+    // ==========================================================================
+
+    /**
+     * Get current Playground statistics
+     */
+    getPlaygroundStatistics(): PlaygroundMetrics {
+        return this.statisticsPlugin.getPlaygroundStats();
+    }
+
+    /**
+     * Record a Playground-specific action
+     */
+    async recordPlaygroundAction(actionType: string, metadata?: Record<string, any>): Promise<void> {
+        await this.statisticsPlugin.recordUIInteraction(actionType, metadata);
+    }
+
+    /**
+     * Record block creation for visualization
+     */
+    async recordBlockCreation(blockType: string, metadata?: Record<string, any>): Promise<void> {
+        await this.statisticsPlugin.recordBlockCreation(blockType, metadata);
+    }
+
+    /**
+     * Get visualization data from history plugin
+     */
+    getVisualizationData(): PlaygroundVisualizationData {
+        return this.historyPlugin.getVisualizationData();
+    }
+
+    /**
+     * Get conversation history from current agent/team
+     */
+    getHistory(): UniversalMessage[] {
+        if (this.mode === 'agent' && this.currentAgent) {
+            return this.currentAgent.getHistory();
+        } else if (this.mode === 'team' && this.currentTeam) {
+            return this.historyPlugin.getVisualizationData().events.map(event => ({
+                role: event.role as any,
+                content: event.content,
+                timestamp: event.timestamp
+            }));
+        }
+        return [];
+    }
+
+    /**
+     * Clear conversation history (Facade essential method)
+     */
+    clearHistory(): void {
+        this.historyPlugin.clearHistory();
+    }
+
+    /**
+     * Dispose of all resources (Facade method)
+     */
+    async dispose(): Promise<void> {
+        try {
+            if (this.currentAgent) {
+                await this.currentAgent.destroy();
+                this.currentAgent = null;
+            }
+
+            if (this.currentTeam) {
+                await this.currentTeam.dispose();
+                this.currentTeam = null;
+            }
+
+            if (this.websocketClient) {
+                await this.websocketClient.disconnect();
+                this.websocketClient = null;
+            }
+
+            await this.historyPlugin.dispose();
+            await this.statisticsPlugin.destroy?.();
+
+        } catch (error) {
+            throw new Error(`Error during PlaygroundExecutor disposal: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    // ==========================================================================
+    // Private Helper Methods
+    // ==========================================================================
+
+    /**
+     * Execute chat completion (Facade method)
+     */
+    private async executeChat(messages: UniversalMessage[]): Promise<UniversalMessage> {
+        const startTime = Date.now();
+        const executionId = this.generateExecutionId();
+
+        try {
+            // Record execution start
+            await this.recordExecutionStart(executionId, messages);
+
+            let response: UniversalMessage;
+
+            if (this.mode === 'agent' && this.currentAgent) {
+                const prompt = messages[0].content || '';
+                const result = await this.currentAgent.run(prompt);
+                response = {
+                    role: 'assistant',
+                    content: result,
+                    timestamp: new Date()
+                } as UniversalMessage;
+
+            } else if (this.mode === 'team' && this.currentTeam) {
+                const result = await this.currentTeam.execute(messages[0].content || ''); // Assuming prompt is the first message
+                response = {
+                    role: 'assistant',
+                    content: result.response || JSON.stringify(result),
+                    timestamp: new Date()
+                } as UniversalMessage;
+
+            } else {
+                throw new Error(`No ${this.mode} configured for execution`);
+            }
+
+            const duration = Date.now() - startTime;
+
+            // Record successful execution
+            await this.recordExecutionComplete(executionId, {
+                success: true,
+                duration,
+                provider: 'openai', // Default provider
+                model: 'gpt-4', // Default model
+                mode: this.mode || 'agent',
+                streaming: false,
+                timestamp: new Date()
+            });
+
+            return response;
+
+        } catch (error) {
+            const duration = Date.now() - startTime;
+
+            // Record failed execution
+            await this.recordExecutionError(executionId, {
+                success: false,
+                duration,
+                provider: 'openai', // Default provider
+                model: 'gpt-4', // Default model
+                mode: this.mode || 'agent',
+                streaming: false,
+                timestamp: new Date(),
+                error: error instanceof Error ? error.message : String(error)
+            });
+
+            throw error;
+        }
+    }
+
+    /**
+     * Execute streaming chat completion (Facade method)
+     */
+    private async *executeChatStream(messages: UniversalMessage[]): AsyncIterable<UniversalMessage> {
+        const startTime = Date.now();
+        const executionId = this.generateExecutionId();
+
+        try {
+            console.log('🚀 executeChatStream starting:', { executionId, mode: this.mode, messagesCount: messages.length });
+
+            // Record execution start
+            await this.recordExecutionStart(executionId, messages);
+
+            if (this.mode === 'agent' && this.currentAgent) {
+                console.log('📡 Starting agent stream...');
+                const prompt = messages[0].content || '';
+                const stream = this.currentAgent.runStream(prompt);
+
+                for await (const chunk of stream) {
+                    yield {
+                        role: 'assistant',
+                        content: chunk,
+                        timestamp: new Date()
+                    } as UniversalMessage;
+                }
+
+            } else if (this.mode === 'team' && this.currentTeam) {
+                console.log('📡 Starting team stream...');
+                const prompt = messages[0].content || '';
+                const stream = this.currentTeam.executeStream(prompt);
+
+                for await (const chunk of stream) {
+                    yield {
+                        role: 'assistant',
+                        content: chunk,
+                        timestamp: new Date()
+                    } as UniversalMessage;
+                }
+
+            } else {
+                const error = new Error(`No ${this.mode} configured for streaming execution`);
+                console.error('❌ No configured executor:', { mode: this.mode, hasAgent: !!this.currentAgent, hasTeam: !!this.currentTeam });
+                throw error;
+            }
+
+            console.log('✅ executeChatStream completed successfully');
+
+        } catch (error) {
+            console.error('❌ executeChatStream error:', error);
+            console.error('❌ Execution context:', {
+                executionId,
+                mode: this.mode,
+                hasAgent: !!this.currentAgent,
+                hasTeam: !!this.currentTeam,
+                messagesCount: messages.length,
+                errorMessage: error instanceof Error ? error.message : 'Unknown error',
+                errorStack: error instanceof Error ? error.stack : undefined
+            });
+            throw error;
+        }
+    }
+
+    /**
+     * Generate unique execution ID
+     */
+    private generateExecutionId(): string {
+        return `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    /**
+     * Record execution start for statistics
+     */
+    private async recordExecutionStart(executionId: string, messages: UniversalMessage[]): Promise<void> {
+        // Start time is already tracked in executeChat/executeChatStream
+        // This can be used for more detailed tracking if needed
+        this.logDebug('Execution started', { executionId, provider: 'openai', model: 'gpt-4', mode: this.mode || 'agent' });
+    }
+
+    /**
+     * Record successful execution completion
+     */
+    private async recordExecutionComplete(executionId: string, result: PlaygroundStatisticsResult): Promise<void> {
+        await this.statisticsPlugin.recordPlaygroundExecution(result);
+        this.logDebug('Execution completed', { executionId, duration: result.duration, success: result.success });
+    }
+
+    /**
+     * Record execution error
+     */
+    private async recordExecutionError(executionId: string, result: PlaygroundStatisticsResult): Promise<void> {
+        await this.statisticsPlugin.recordPlaygroundExecution(result);
+        this.logError('Execution failed', new Error(result.error || 'Unknown error'), { executionId, duration: result.duration });
     }
 
     /**
@@ -204,219 +602,11 @@ export class PlaygroundExecutor {
     }
 
     /**
-     * Create and configure an agent (Facade method)
-     */
-    async createAgent(config: PlaygroundAgentConfig): Promise<void> {
-        if (!this.isInitialized) {
-            await this.initialize();
-        }
-
-        // Create AI providers with remote executor
-        const aiProviders = this.createProvidersWithExecutor();
-
-        // Create actual Robota agent with proper configuration
-        this.currentAgent = new Robota({
-            name: config.name,
-            aiProviders: aiProviders as any,
-            defaultModel: config.defaultModel,
-            plugins: [this.historyPlugin as any],
-            tools: (config.tools || []) as any
-        });
-
-        this.setMode('agent');
-    }
-
-    /**
-     * Create and configure a team (Facade method)
-     */
-    async createTeam(config: PlaygroundTeamConfig): Promise<void> {
-        if (!this.isInitialized) {
-            await this.initialize();
-        }
-
-        // Create AI providers with remote executor for the team
-        const aiProviders = this.createProvidersWithExecutor();
-
-        // Create team instance with real AI providers
-        this.currentTeam = new PlaygroundTeamInstance(config, aiProviders, this.historyPlugin);
-        await this.currentTeam.initialize();
-
-        this.setMode('team');
-    }
-
-    /**
-     * Execute a prompt (Facade method)
-     */
-    async run(prompt: string): Promise<PlaygroundExecutionResult> {
-        if (!this.isInitialized) {
-            throw new Error('PlaygroundExecutor not initialized');
-        }
-
-        const startTime = Date.now();
-
-        try {
-            let response: string;
-            let toolsExecuted: string[] = [];
-
-            if (this.mode === 'agent' && this.currentAgent) {
-                response = await this.currentAgent.run(prompt);
-
-            } else if (this.mode === 'team' && this.currentTeam) {
-                const result = await this.currentTeam.execute(prompt);
-                response = result.response;
-                toolsExecuted = result.toolsExecuted || [];
-
-            } else {
-                throw new Error(`No ${this.mode} configured for execution`);
-            }
-
-            const duration = Date.now() - startTime;
-
-            return {
-                success: true,
-                response,
-                duration,
-                toolsExecuted,
-                visualizationData: this.getVisualizationData()
-            };
-
-        } catch (error) {
-            const duration = Date.now() - startTime;
-
-            return {
-                success: false,
-                response: 'Execution failed',
-                duration,
-                error: error instanceof Error ? error : new Error(String(error)),
-                visualizationData: this.getVisualizationData()
-            };
-        }
-    }
-
-    /**
-     * Execute with streaming response (Facade method)
-     */
-    async *runStream(prompt: string): AsyncGenerator<string, PlaygroundExecutionResult> {
-        console.log('PlaygroundExecutor.runStream called with prompt:', prompt);
-        console.log('Mode:', this.mode, 'currentAgent:', !!this.currentAgent, 'currentTeam:', !!this.currentTeam);
-
-        if (!this.isInitialized) {
-            throw new Error('PlaygroundExecutor not initialized');
-        }
-
-        const startTime = Date.now();
-        let fullResponse = '';
-        let toolsExecuted: string[] = [];
-
-        try {
-            if (this.mode === 'agent' && this.currentAgent) {
-                console.log('Calling currentAgent.runStream()');
-                for await (const chunk of this.currentAgent.runStream(prompt)) {
-                    fullResponse += chunk;
-                    yield chunk;
-                }
-                console.log('Agent runStream completed, fullResponse:', fullResponse);
-            } else if (this.mode === 'team' && this.currentTeam) {
-                console.log('Calling currentTeam.executeStream()');
-                for await (const chunk of this.currentTeam.executeStream(prompt)) {
-                    fullResponse += chunk;
-                    yield chunk;
-                }
-                console.log('Team executeStream completed, fullResponse:', fullResponse);
-            } else {
-                console.log('No agent/team configured! Mode:', this.mode, 'currentAgent:', !!this.currentAgent, 'currentTeam:', !!this.currentTeam);
-                throw new Error(`No ${this.mode} configured for execution`);
-            }
-
-            const duration = Date.now() - startTime;
-
-            return {
-                success: true,
-                response: fullResponse,
-                duration,
-                toolsExecuted,
-                visualizationData: this.getVisualizationData()
-            };
-
-        } catch (error) {
-            console.log('PlaygroundExecutor.runStream error:', error);
-            const duration = Date.now() - startTime;
-
-            return {
-                success: false,
-                response: fullResponse || 'Stream execution failed',
-                duration,
-                error: error instanceof Error ? error : new Error(String(error)),
-                visualizationData: this.getVisualizationData()
-            };
-        }
-    }
-
-    /**
-     * Dispose of all resources (Facade method)
-     */
-    async dispose(): Promise<void> {
-        try {
-            if (this.currentAgent) {
-                await this.currentAgent.destroy();
-                this.currentAgent = null;
-            }
-
-            if (this.currentTeam) {
-                await this.currentTeam.dispose();
-                this.currentTeam = null;
-            }
-
-            if (this.websocketClient) {
-                this.websocketClient.disconnect();
-                this.websocketClient = null;
-            }
-
-            await this.historyPlugin.dispose();
-
-            this.mode = null;
-            this.isInitialized = false;
-
-        } catch (error) {
-            throw new Error(`PlaygroundExecutor disposal failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    }
-
-    // Essential Helper Methods (Facade Pattern - only core functionality)
-
-    /**
-     * Get conversation history (Facade essential method)
-     */
-    getHistory(): any[] {
-        if (this.mode === 'agent' && this.currentAgent) {
-            return this.currentAgent.getHistory(); // Return actual Message[] from Robota
-        } else if (this.mode === 'team' && this.currentTeam) {
-            // For team, we might need a different approach
-            return this.historyPlugin.getVisualizationData().events;
-        }
-        return [];
-    }
-
-    /**
-     * Clear conversation history (Facade essential method)
-     */
-    clearHistory(): void {
-        this.historyPlugin.clearHistory();
-    }
-
-    /**
-     * Get plugin statistics (internal helper)
-     */
-    getVisualizationData(): PlaygroundVisualizationData {
-        return this.historyPlugin.getVisualizationData();
-    }
-
-    /**
-     * Set current mode (internal configuration)
+     * Set execution mode and update state
      */
     private setMode(mode: PlaygroundMode): void {
         this.mode = mode;
-        this.historyPlugin.setMode(mode);
+        this.logDebug('Mode changed', { mode });
     }
 
     /**
@@ -452,7 +642,8 @@ class PlaygroundTeamInstance {
     constructor(
         private config: PlaygroundTeamConfig,
         private aiProviders: AIProvider[], // Use actual AI providers instead of agents
-        private historyPlugin: PlaygroundHistoryPlugin
+        private historyPlugin: PlaygroundHistoryPlugin,
+        private statisticsPlugin: PlaygroundStatisticsPlugin
     ) { }
 
     async initialize(): Promise<void> {
