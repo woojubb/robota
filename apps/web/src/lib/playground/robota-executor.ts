@@ -343,7 +343,8 @@ export class PlaygroundExecutor {
                     info: (msg: string) => this.logger.info(`[Team] ${msg}`),
                     warn: (msg: string) => this.logger.warn(`[Team] ${msg}`),
                     error: (msg: string) => this.logger.error(`[Team] ${msg}`),
-                    debug: (msg: string) => this.logger.debug(`[Team] ${msg}`)
+                    debug: (msg: string) => this.logger.debug(`[Team] ${msg}`),
+                    log: (msg: string) => this.logger.log(`[Team] ${msg}`)
                 }
             });
 
@@ -576,6 +577,14 @@ export class PlaygroundExecutor {
         const startTime = Date.now();
         const executionId = this.generateExecutionId();
 
+        // Debug: Log current execution state
+        console.log('🔍 PlaygroundExecutor.executeChat debug:', {
+            mode: this.mode,
+            hasAgent: !!this.currentAgent,
+            hasTeam: !!this.currentTeam,
+            message: messages[0]?.content?.substring(0, 50) + '...'
+        });
+
         try {
             // Record execution start
             await this.recordExecutionStart(executionId, messages);
@@ -583,6 +592,7 @@ export class PlaygroundExecutor {
             let response: UniversalMessage;
 
             if (this.mode === 'agent' && this.currentAgent) {
+                console.log('✅ Executing in AGENT mode');
                 const prompt = messages[0].content || '';
                 const result = await this.currentAgent.run(prompt);
                 response = {
@@ -592,6 +602,8 @@ export class PlaygroundExecutor {
                 } as UniversalMessage;
 
             } else if (this.mode === 'team' && this.currentTeam) {
+                console.log('✅ Executing in TEAM mode');
+
                 // 🎯 Team Level 사용자 메시지 기록
                 this.historyPlugin.recordEvent({
                     type: 'user_message',
@@ -599,7 +611,9 @@ export class PlaygroundExecutor {
                     metadata: { level: 'team', action: 'execute_start' }
                 });
 
+                console.log('🔥 About to call team.execute with:', messages[0].content);
                 const result = await this.currentTeam.execute(messages[0].content || '');
+                console.log('🔥 Team execution result:', result);
 
                 // 🎯 Team Level 응답 메시지 기록  
                 this.historyPlugin.recordEvent({
