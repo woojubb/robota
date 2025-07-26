@@ -49,6 +49,20 @@ export type {
     ToolExecutionData
 } from './tool';
 
+// 🆕 Progress reporting interface exports
+export type {
+    ProgressReportingTool,
+    ToolExecutionStep,
+    ToolProgressCallback
+} from './progress-reporting';
+
+export {
+    isProgressReportingTool,
+    getToolEstimatedDuration,
+    getToolExecutionSteps,
+    setToolProgressCallback
+} from './progress-reporting';
+
 export type {
     ConversationContextMetadata,
     ConversationContext,

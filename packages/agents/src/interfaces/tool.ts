@@ -74,6 +74,7 @@ export interface ToolExecutionResult {
 
 /**
  * Tool execution context - type-safe context for tool execution
+ * Enhanced with hierarchical execution tracking support
  */
 export interface ToolExecutionContext {
     toolName: string;
@@ -81,8 +82,33 @@ export interface ToolExecutionContext {
     userId?: string;
     sessionId?: string;
     metadata?: ToolMetadata;
-    // Additional context data
-    [key: string]: string | number | boolean | ToolParameters | ToolMetadata | undefined;
+
+    // 🆕 Hierarchical execution tracking fields (all optional for backward compatibility)
+
+    /** Parent execution ID for hierarchical tool execution tracking */
+    parentExecutionId?: string;
+
+    /** Root execution ID (Team/Agent level) for complete execution tree tracking */
+    rootExecutionId?: string;
+
+    /** Execution depth level (0: Team, 1: Agent, 2: Tool, etc.) */
+    executionLevel?: number;
+
+    /** Execution path array showing the complete execution hierarchy */
+    executionPath?: string[];
+
+    /** Real-time execution data for accurate tracking (no simulation) */
+    realTimeData?: {
+        /** Actual execution start time */
+        startTime: Date;
+        /** Actual input parameters passed to the tool */
+        actualParameters: any;
+        /** Tool-provided estimated duration (optional) */
+        estimatedDuration?: number;
+    };
+
+    // Additional context data - expanded to support new field types
+    [key: string]: string | number | boolean | string[] | Date | ToolParameters | ToolMetadata | any | undefined;
 }
 
 /**
