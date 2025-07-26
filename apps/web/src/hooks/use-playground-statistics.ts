@@ -28,7 +28,7 @@
  * ```
  */
 
-import { useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePlayground } from '../contexts/playground-context';
 import type { PlaygroundMetrics } from '../types/playground-statistics';
 import type { PlaygroundExecutor } from '../lib/playground/robota-executor';
@@ -97,26 +97,39 @@ const defaultStatistics: PlaygroundStatisticsHookResult = {
  * React 컴포넌트에서 사용하기 편한 형태로 가공하여 반환
  */
 export function usePlaygroundStatistics(): PlaygroundStatisticsHookResult {
-    const { state, dispatch } = usePlayground();
+    const { state } = usePlayground();
+    const [rawStatistics, setRawStatistics] = useState<PlaygroundMetrics | null>(null);
 
     // PlaygroundExecutor 타입 안전성 검사
     const executor = state.executor as PlaygroundExecutor | null;
     const isExecutorReady = executor && typeof executor.getPlaygroundStatistics === 'function';
 
     /**
-     * 원시 통계 데이터 가져오기 및 메모이제이션
+     * 주기적으로 통계 데이터 업데이트
      */
-    const rawStatistics = useMemo((): PlaygroundMetrics | null => {
+    useEffect(() => {
         if (!isExecutorReady) {
-            return null;
+            setRawStatistics(null);
+            return;
         }
 
-        try {
-            return executor.getPlaygroundStatistics();
-        } catch (error) {
-            console.warn('Failed to get playground statistics:', error);
-            return null;
-        }
+        // 즉시 한 번 업데이트
+        const updateStats = () => {
+            try {
+                const stats = executor.getPlaygroundStatistics();
+                setRawStatistics(stats);
+            } catch (error) {
+                console.error('❌ usePlaygroundStatistics: Failed to get statistics:', error);
+                setRawStatistics(null);
+            }
+        };
+
+        updateStats();
+
+        // 1초마다 통계 업데이트 (실시간 반영)
+        const interval = setInterval(updateStats, 1000);
+
+        return () => clearInterval(interval);
     }, [
         isExecutorReady,
         executor,
@@ -230,68 +243,4 @@ function formatResponseTime(milliseconds: number): string {
         const seconds = Math.round((milliseconds % 60000) / 1000);
         return `${minutes}m ${seconds}s`;
     }
-}
-
-/**
- * 통계 데이터의 변화 감지를 위한 유틸리티 Hook
- * 특정 메트릭의 변화를 추적하고 싶을 때 사용
- */
-export function useStatisticChanges(
-    statistic: keyof Pick<PlaygroundStatisticsHookResult, 'chatExecutions' | 'errorCount' | 'averageResponseTime'>
-) {
-    const stats = usePlaygroundStatistics();
-
-    const previousValue = useMemo(() => {
-        // 이전 값 추적 로직 (필요시 구현)
-        return stats[statistic];
-    }, [stats[statistic]]);
-
-    return {
-        current: stats[statistic],
-        previous: previousValue,
-        hasChanged: stats[statistic] !== previousValue
-    };
-}
-
-/**
- * 성능 임계값 체크를 위한 유틸리티 Hook
- */
-export function usePerformanceAlerts() {
-    const { averageResponseTime, errorCount, successRate } = usePlaygroundStatistics();
-
-    return useMemo(() => {
-        const alerts = [];
-
-        // 느린 응답 시간 경고 (3초 이상)
-        if (averageResponseTime > 3000) {
-            alerts.push({
-                type: 'warning' as const,
-                message: 'Average response time is above 3 seconds',
-                metric: 'responseTime',
-                value: averageResponseTime
-            });
-        }
-
-        // 높은 에러율 경고 (10% 이상)
-        if (successRate < 90) {
-            alerts.push({
-                type: 'error' as const,
-                message: 'Error rate is above 10%',
-                metric: 'errorRate',
-                value: 100 - successRate
-            });
-        }
-
-        // 에러 발생 알림
-        if (errorCount > 0) {
-            alerts.push({
-                type: 'info' as const,
-                message: `${errorCount} error(s) detected`,
-                metric: 'errorCount',
-                value: errorCount
-            });
-        }
-
-        return alerts;
-    }, [averageResponseTime, errorCount, successRate]);
 } 
