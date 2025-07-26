@@ -251,7 +251,8 @@ export function createZodFunctionTool(
     name: string,
     description: string,
     zodSchema: ZodSchema,
-    fn: ToolExecutor
+    fn: ToolExecutor,
+    options?: BaseToolOptions
 ): FunctionTool {
     // Use comprehensive Zod to JSON schema conversion
     const parameters = zodToJsonSchema(zodSchema);
@@ -275,7 +276,7 @@ export function createZodFunctionTool(
         return typeof result === 'string' ? result : JSON.stringify(result);
     };
 
-    return new FunctionTool(schema, wrappedFn);
+    return new FunctionTool(schema, wrappedFn, options);
 }
 
 // zodToJsonSchema function moved to Facade pattern schema-converter module 
