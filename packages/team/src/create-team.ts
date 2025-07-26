@@ -90,7 +90,8 @@ export function createTeam(options: TeamOptions): TeamContainer {
         debug: options.debug || false,
         ...(options.customTemplates && { customTemplates: options.customTemplates }),
         ...(options.leaderTemplate && { leaderTemplate: options.leaderTemplate }),
-        ...(options.logger && { logger: options.logger })
+        ...(options.logger && { logger: options.logger }),
+        ...(options.toolHooks && { toolHooks: options.toolHooks })
     };
 
     return new TeamContainer(fullOptions);
