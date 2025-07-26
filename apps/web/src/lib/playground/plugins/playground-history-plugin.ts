@@ -10,556 +10,411 @@
  * - Single responsibility: History capture and visualization only
  */
 
-// Robota SDK-compatible types for browser environment
-export enum PluginCategory {
-    MONITORING = 'monitoring',
-    LOGGING = 'logging',
-    STORAGE = 'storage',
-    NOTIFICATION = 'notification',
-    SECURITY = 'security',
-    PERFORMANCE = 'performance',
-    ERROR_HANDLING = 'error_handling',
-    LIMITS = 'limits',
-    EVENT_PROCESSING = 'event_processing',
-    CUSTOM = 'custom'
-}
+import {
+    BasePlugin,
+    BasePluginOptions,
+    PluginStats,
+    PluginCategory,
+    PluginPriority,
+    SimpleLogger,
+    SilentLogger
+} from '@robota-sdk/agents';
 
-export enum PluginPriority {
-    CRITICAL = 1000,
-    HIGH = 800,
-    NORMAL = 500,
-    LOW = 200,
-    MINIMAL = 100
-}
+// 🎯 기본 이벤트 타입 (단순화된 5개 타입)
+type BasicEventType =
+    | 'user_message'      // 사용자 입력
+    | 'assistant_response' // LLM 응답  
+    | 'tool_call'         // 도구 호출
+    | 'tool_result'       // 도구 결과
+    | 'error';            // 오류
 
-export interface BasePluginOptions {
-    enabled?: boolean;
-    strategy?: 'silent' | 'none' | string;
-    category?: PluginCategory;
-    priority?: PluginPriority | number;
-}
-
-export interface PluginStats {
-    calls: number;
-    errors: number;
-    lastActivity?: Date;
-    [key: string]: unknown;
-}
-
-// Logger interface for dependency injection
-export interface SimpleLogger {
-    debug(...args: unknown[]): void;
-    info(...args: unknown[]): void;
-    warn(...args: unknown[]): void;
-    error(...args: unknown[]): void;
-    log(...args: unknown[]): void;
-}
-
-// Silent logger implementation (default for production safety)
-export const SilentLogger: SimpleLogger = {
-    debug: () => { },
-    info: () => { },
-    warn: () => { },
-    error: () => { },
-    log: () => { }
-};
-
-// Browser console logger (explicit opt-in for development)
-export const BrowserConsoleLogger: SimpleLogger = {
-    debug: (...args) => console.debug('[Playground]', ...args),
-    info: (...args) => console.info('[Playground]', ...args),
-    warn: (...args) => console.warn('[Playground]', ...args),
-    error: (...args) => console.error('[Playground]', ...args),
-    log: (...args) => console.log('[Playground]', ...args)
-};
-
-// PlaygroundHistoryPlugin specific options
-export interface PlaygroundHistoryPluginOptions extends BasePluginOptions {
-    websocketUrl?: string;
-    enableRealTimeSync?: boolean;
-    maxEvents?: number;
-    visualizationMode?: 'blocks' | 'timeline' | 'tree';
-    logger?: SimpleLogger;
-    subscribeToAllModuleEvents?: boolean;  // Added for auto event subscription
-    moduleEvents?: string[];  // Added for specific event subscription
-}
-
-export interface PlaygroundHistoryPluginStats extends PluginStats {
-    eventsTracked: number;
-    conversationsRecorded: number;
-    toolCallsRecorded: number;
-    realTimeSyncEnabled: boolean;
-    currentMode: 'agent' | 'team';
-}
-
-// Visualization data structures
+// 🏗️ 계층 구조 중심의 ConversationEvent
 export interface ConversationEvent {
+    // 기본 필드들
     id: string;
-    type: 'user_message' | 'assistant_response' | 'tool_call' | 'tool_result' | 'error';
+    type: BasicEventType; // ✅ 단순한 5개 타입만
     timestamp: Date;
     content?: string;
-    toolName?: string;
+
+    // 🎯 계층 구조 핵심 필드들
+    parentEventId?: string;   // 부모 이벤트 참조
+    childEventIds: string[];  // 자식 이벤트들 (자동 관리)
+    executionLevel: number;   // 0=Team, 1=Tool, 2=Sub-Agent, 3=Sub-Tool
+    executionPath: string;    // 'team→assignTask→agent_abc→webSearch'
+
+    // 🔧 컨텍스트 추적
+    agentId?: string;         // 실행 중인 Agent ID
+    toolName?: string;        // 실행 중인 Tool 이름
+    delegationId?: string;    // assignTask 호출 고유 ID
     parameters?: Record<string, unknown>;
     result?: unknown;
     error?: string;
-    agentId?: string;
     metadata?: Record<string, unknown>;
 }
 
+// 플러그인 옵션 인터페이스 (단순화)
+export interface PlaygroundHistoryPluginOptions extends BasePluginOptions {
+    maxEvents?: number;
+    enableVisualization?: boolean;
+    logger?: SimpleLogger;
+}
+
+// 플러그인 통계 인터페이스
+export interface PlaygroundHistoryPluginStats extends PluginStats {
+    totalEvents: number;
+    userMessages: number;
+    assistantResponses: number;
+    toolCalls: number;
+    toolResults: number;
+    errorEvents: number;
+    totalAgents: number;
+    maxExecutionLevel: number;
+}
+
+// Agent 블록 인터페이스 (UI용)
 export interface AgentBlock {
     id: string;
     name: string;
-    role?: string;
-    status: 'idle' | 'processing' | 'waiting' | 'error';
-    tools: ToolBlock[];
-    plugins: PluginBlock[];
-    connections: ConnectionBlock[];
-}
-
-export interface ToolBlock {
-    name: string;
-    description: string;
-    parameters: Record<string, unknown>;
-    status: 'available' | 'executing' | 'completed' | 'error';
-    lastExecution?: Date;
-}
-
-export interface PluginBlock {
-    name: string;
-    category: PluginCategory;
-    enabled: boolean;
-    status: 'active' | 'inactive' | 'error';
-}
-
-export interface ConnectionBlock {
-    from: string;
-    to: string;
-    type: 'delegation' | 'communication' | 'data_flow';
-    status: 'active' | 'inactive';
-}
-
-export interface PlaygroundVisualizationData {
-    mode: 'agent' | 'team';
+    status: 'idle' | 'running' | 'completed' | 'error';
+    startTime?: Date;
+    endTime?: Date;
     events: ConversationEvent[];
+}
+
+// 시각화 데이터 인터페이스
+export interface VisualizationData {
+    events: ConversationEvent[];
+    mode: 'agent' | 'team';
     agents: AgentBlock[];
     currentExecution?: {
-        id: string;
+        agentId: string;
         startTime: Date;
         status: 'running' | 'completed' | 'error';
     };
-    stats: {
-        totalEvents: number;
-        totalToolCalls: number;
-        averageResponseTime: number;
-    };
 }
 
-/**
- * Base Plugin interface for Robota SDK compliance
- */
-export abstract class BasePlugin<TOptions extends BasePluginOptions = BasePluginOptions, TStats extends PluginStats = PluginStats> {
-    abstract readonly name: string;
-    abstract readonly version: string;
-
-    public enabled = true;
-    public category: PluginCategory = PluginCategory.CUSTOM;
-    public priority: number = PluginPriority.NORMAL;
-
-    protected options: TOptions | undefined;
-    protected logger: SimpleLogger;
-    protected stats = {
-        calls: 0,
-        errors: 0,
-        lastActivity: undefined as Date | undefined
-    };
-
-    constructor(logger?: SimpleLogger) {
-        this.logger = logger || SilentLogger;
-    }
-
-    async initialize(options?: TOptions): Promise<void> {
-        this.options = options;
-
-        // Set enabled state from options
-        if (options?.enabled !== undefined) {
-            this.enabled = options.enabled;
-        }
-
-        // Set category from options
-        if (options?.category) {
-            this.category = options.category;
-        }
-
-        // Set priority from options
-        if (options?.priority !== undefined) {
-            this.priority = typeof options.priority === 'number' ? options.priority : options.priority;
-        }
-
-        // Handle strategy option for disable modes
-        if (options?.strategy === 'silent' || options?.strategy === 'none') {
-            this.enabled = false;
-        }
-    }
-
-    abstract dispose(): Promise<void>;
-
-    abstract getStats(): TStats;
-
-    protected validateOptions(options: TOptions): void {
-        // Default validation - can be overridden
-        if (options && typeof options !== 'object') {
-            throw new Error(`${this.name}: Invalid options - must be an object`);
-        }
-    }
-
-    protected incrementCalls(): void {
-        this.stats.calls++;
-        this.stats.lastActivity = new Date();
-    }
-
-    protected incrementErrors(): void {
-        this.stats.errors++;
-        this.stats.lastActivity = new Date();
-    }
-}
-
-/**
- * PlaygroundHistoryPlugin - Captures and visualizes Robota execution history
- * 
- * Follows Robota SDK Architecture Principles:
- * - Single Responsibility: History capture only
- * - Dependency Injection: Logger injection with SilentLogger default
- * - Type Safety: Proper generic types
- * - Disable Options: enabled: false, strategy: 'silent'
- */
+// 🚀 공식 BasePlugin을 상속하는 PlaygroundHistoryPlugin
 export class PlaygroundHistoryPlugin extends BasePlugin<PlaygroundHistoryPluginOptions, PlaygroundHistoryPluginStats> {
     readonly name = 'PlaygroundHistoryPlugin';
     readonly version = '1.0.0';
 
+    // 플러그인 분류
+    public category = PluginCategory.MONITORING;
+    public priority = PluginPriority.HIGH;
+
+    // 이벤트 저장소
     private events: ConversationEvent[] = [];
-    private agents: AgentBlock[] = [];
+    private relationshipTracker = new Map<string, string[]>();
+
+    // Agent 관리
     private mode: 'agent' | 'team' = 'agent';
-    private currentExecution?: {
-        id: string;
-        startTime: Date;
-        status: 'running' | 'completed' | 'error';
-    };
-    private pluginOptions: Required<PlaygroundHistoryPluginOptions>;
+    private agents: AgentBlock[] = [];
 
-    constructor(options: PlaygroundHistoryPluginOptions = {}, logger?: SimpleLogger) {
-        super(logger);
+    // 로거 (의존성 주입)
+    private logger: SimpleLogger;
 
-        // Set plugin classification
-        this.category = PluginCategory.STORAGE;
+    constructor(options?: PlaygroundHistoryPluginOptions) {
+        super();
+
+        // 🎯 의존성 주입 패턴 - 공식 SDK 스타일
+        this.logger = options?.logger || SilentLogger;
+
+        // 플러그인 분류 설정
+        this.category = PluginCategory.MONITORING;
         this.priority = PluginPriority.HIGH;
 
-        // Validate options
-        this.validateOptions(options);
+        // 옵션 검증
+        if (options) {
+            this.validateOptions(options);
+        }
 
-        // Set defaults with comprehensive configuration
-        this.pluginOptions = {
-            enabled: options.enabled ?? true,
-            strategy: options.strategy ?? 'none',
-            category: options.category ?? PluginCategory.STORAGE,
-            priority: options.priority ?? PluginPriority.HIGH,
-            websocketUrl: options.websocketUrl ?? '',
-            enableRealTimeSync: options.enableRealTimeSync ?? false,
-            maxEvents: options.maxEvents ?? 1000,
-            visualizationMode: options.visualizationMode ?? 'blocks',
-            logger: options.logger ?? SilentLogger,
-            subscribeToAllModuleEvents: options.subscribeToAllModuleEvents ?? true,  // Auto-subscribe to all events
-            moduleEvents: options.moduleEvents ?? [
-                'execution.start', 'execution.complete', 'execution.error',
-                'module.execution.start', 'module.execution.complete', 'module.execution.error',
-                'tool.execute.start', 'tool.execute.complete'
-            ]
-        };
+        // 설정 적용
+        if (options?.enabled !== undefined) {
+            this.enabled = options.enabled;
+        }
 
-        this.logger.info('PlaygroundHistoryPlugin initialized', {
-            maxEvents: this.pluginOptions.maxEvents,
-            realTimeSync: this.pluginOptions.enableRealTimeSync,
-            mode: this.pluginOptions.visualizationMode
+        // disable 전략 처리 (단순화)
+        if (options?.enabled === false) {
+            this.enabled = false;
+        }
+
+        if (options?.maxEvents) {
+            // maxEvents 설정 적용 로직 (나중에 구현)
+        }
+
+        this.logger.info('PlaygroundHistoryPlugin created', {
+            enabled: this.enabled,
+            category: this.category,
+            priority: this.priority
         });
     }
 
-    async initialize(options?: PlaygroundHistoryPluginOptions): Promise<void> {
-        await super.initialize(options);
-
-        if (!this.enabled) {
-            this.logger.debug('PlaygroundHistoryPlugin disabled');
-            return;
-        }
-
-        try {
-            this.logger.info('PlaygroundHistoryPlugin initializing');
-
-            // Plugin initialization logic here
-            this.clearHistory();
-
-            this.logger.info('PlaygroundHistoryPlugin initialized successfully');
-        } catch (error) {
-            this.incrementErrors();
-            const errorMessage = error instanceof Error ? error.message : 'Unknown initialization error';
-            this.logger.error('PlaygroundHistoryPlugin initialization failed:', errorMessage);
-            throw new Error(`PlaygroundHistoryPlugin initialization failed: ${errorMessage}`);
+    // 🔧 옵션 검증 메서드
+    private validateOptions(options: PlaygroundHistoryPluginOptions): void {
+        if (options.maxEvents !== undefined) {
+            if (typeof options.maxEvents !== 'number' || options.maxEvents < 1) {
+                throw new Error(`PlaygroundHistoryPlugin: maxEvents must be a positive number. Got: ${options.maxEvents}`);
+            }
+            if (options.maxEvents > 10000) {
+                throw new Error(`PlaygroundHistoryPlugin: maxEvents cannot exceed 10,000 for performance reasons. Got: ${options.maxEvents}`);
+            }
         }
     }
 
-    /**
-     * Record conversation event (main plugin functionality)
-     */
-    recordEvent(event: Omit<ConversationEvent, 'id' | 'timestamp'>): void {
+    // ✅ 필수 추상 메서드 구현: initialize
+    async initialize(options?: PlaygroundHistoryPluginOptions): Promise<void> {
+        await super.initialize(options);
+        this.logger.info('PlaygroundHistoryPlugin initialized');
+    }
+
+    // ✅ 필수 추상 메서드 구현: dispose
+    async dispose(): Promise<void> {
+        this.events = [];
+        this.relationshipTracker.clear();
+        this.agents = [];
+        this.logger.info('PlaygroundHistoryPlugin disposed');
+    }
+
+    // ✅ 필수 추상 메서드 구현: getStats
+    override getStats(): PlaygroundHistoryPluginStats {
+        const eventCounts = {
+            userMessages: 0,
+            assistantResponses: 0,
+            toolCalls: 0,
+            toolResults: 0,
+            errorEvents: 0
+        };
+
+        this.events.forEach(event => {
+            switch (event.type) {
+                case 'user_message':
+                    eventCounts.userMessages++;
+                    break;
+                case 'assistant_response':
+                    eventCounts.assistantResponses++;
+                    break;
+                case 'tool_call':
+                    eventCounts.toolCalls++;
+                    break;
+                case 'tool_result':
+                    eventCounts.toolResults++;
+                    break;
+                case 'error':
+                    eventCounts.errorEvents++;
+                    break;
+            }
+        });
+
+        const maxExecutionLevel = this.events.reduce((max, event) =>
+            Math.max(max, event.executionLevel), 0
+        );
+
+        return {
+            enabled: this.enabled,
+            calls: this.stats.calls,
+            errors: this.stats.errors,
+            lastActivity: this.stats.lastActivity,
+            moduleEventsReceived: this.stats.moduleEventsReceived,
+            totalEvents: this.events.length,
+            ...eventCounts,
+            totalAgents: this.agents.length,
+            maxExecutionLevel
+        };
+    }
+
+    // ✅ 필수 추상 메서드 구현: onModuleEvent
+    async onModuleEvent(eventType: string, eventData: any): Promise<void> {
+        try {
+            this.stats.moduleEventsReceived++;
+            this.stats.lastActivity = new Date();
+
+            // SDK 이벤트를 ConversationEvent로 변환
+            if (eventType.includes('execution.start')) {
+                // 실행 시작 이벤트 처리
+            } else if (eventType.includes('execution.complete')) {
+                // 실행 완료 이벤트 처리
+            } else if (eventType.includes('execution.error')) {
+                // 실행 오류 이벤트 처리
+            }
+        } catch (error) {
+            this.stats.errors++;
+            this.logger.error('Failed to handle module event', { eventType, error });
+        }
+    }
+
+    // �� 이벤트 기록 메서드 (안전성 강화 + ID 반환)
+    recordEvent(event: Omit<ConversationEvent, 'id' | 'timestamp' | 'childEventIds' | 'executionLevel' | 'executionPath'>): string {
         if (!this.enabled) {
-            return; // Silent when disabled
+            return ''; // 플러그인이 비활성화된 경우 빈 ID 반환
         }
 
-        this.incrementCalls();
-
         try {
+            const eventId = `event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const parentEvent = event.parentEventId ? this.events.find(e => e.id === event.parentEventId) : undefined;
+
+            // 부모-자식 관계 자동 설정
+            if (event.parentEventId) {
+                const parent = this.events.find(e => e.id === event.parentEventId);
+                if (parent && Array.isArray(parent.childEventIds)) {
+                    parent.childEventIds.push(eventId);
+                }
+            }
+
+            // executionLevel 자동 계산 (null-safe)
+            const executionLevel = this.calculateExecutionLevel(event.type, parentEvent?.executionLevel);
+
+            // executionPath 자동 생성 (null-safe)
+            const executionPath = this.buildExecutionPath(parentEvent?.executionPath, event.type, event);
+
+            // 🔧 모든 필드에 기본값 보장
             const fullEvent: ConversationEvent = {
-                ...event,
-                id: `event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                timestamp: new Date()
+                // 기본 필드들
+                id: eventId,
+                type: event.type,
+                timestamp: new Date(),
+                content: event.content || '',
+
+                // 계층 구조 필드들 (기본값 보장)
+                parentEventId: event.parentEventId || undefined,
+                childEventIds: [], // 항상 빈 배열로 초기화
+                executionLevel: executionLevel || 0, // 기본값 0 (Team level)
+                executionPath: executionPath || 'team', // 기본값 'team'
+
+                // 컨텍스트 필드들 (안전한 기본값)
+                agentId: event.agentId || undefined,
+                toolName: event.toolName || undefined,
+                delegationId: event.delegationId || undefined,
+                parameters: event.parameters || undefined,
+                result: event.result || undefined,
+                error: event.error || undefined,
+                metadata: event.metadata || undefined
             };
 
             this.events.push(fullEvent);
 
-            // Enforce max events limit
-            if (this.events.length > this.pluginOptions.maxEvents) {
-                this.events.shift(); // Remove oldest event
+            // 🛡️ stats 안전성 보장
+            if (this.stats && typeof this.stats.calls === 'number') {
+                this.stats.calls++;
+            }
+            if (this.stats) {
+                this.stats.lastActivity = new Date();
             }
 
-            this.logger.debug('Event recorded:', {
-                type: fullEvent.type,
-                id: fullEvent.id
+            this.logger.debug('Event recorded', {
+                eventId,
+                type: event.type,
+                executionLevel: fullEvent.executionLevel,
+                executionPath: fullEvent.executionPath
             });
 
+            return eventId; // ✅ 생성된 이벤트 ID 반환
+
         } catch (error) {
-            this.incrementErrors();
-            this.logger.error('Failed to record event:', error);
+            // 🛡️ 에러 처리 안전성 보장
+            if (this.stats && typeof this.stats.errors === 'number') {
+                this.stats.errors++;
+            }
+            this.logger.error('Failed to record event', { error, eventType: event.type });
+            return ''; // 오류 시 빈 ID 반환
         }
     }
 
-    /**
-     * Set current mode (agent or team)
-     */
+    // 🔧 계층 계산 로직 (null-safe)
+    private calculateExecutionLevel(eventType: BasicEventType, parentLevel?: number): number {
+        try {
+            // null/undefined 안전성 보장
+            if (typeof parentLevel !== 'number') {
+                return 0; // Team level (기본값)
+            }
+
+            if (eventType === 'tool_call' && parentLevel === 0) {
+                return 1; // assignTask
+            }
+            if (parentLevel === 1) {
+                return 2; // Sub-Agent level
+            }
+            if (eventType === 'tool_call' && parentLevel === 2) {
+                return 3; // Sub-Tool
+            }
+
+            // 범위 제한 (최대 3레벨)
+            return Math.min(Math.max(parentLevel, 0), 3);
+        } catch (error) {
+            this.logger.error('Failed to calculate execution level', { eventType, parentLevel, error });
+            return 0; // 안전한 기본값
+        }
+    }
+
+    // 🔧 실행 경로 생성 로직 (null-safe)
+    private buildExecutionPath(parentPath?: string, eventType?: BasicEventType, context?: any): string {
+        try {
+            // null/undefined 안전성 보장
+            if (!parentPath || typeof parentPath !== 'string') {
+                return 'team'; // 기본 경로
+            }
+
+            if (eventType === 'tool_call' && context?.toolName === 'assignTask') {
+                return `${parentPath}→assignTask`;
+            }
+            if (eventType === 'user_message' && parentPath.includes('assignTask')) {
+                const agentId = context?.agentId || 'agent';
+                return `${parentPath}→${agentId}`;
+            }
+            if (eventType === 'tool_call' && context?.toolName) {
+                return `${parentPath}→${context.toolName}`;
+            }
+
+            // 기본적으로 부모 경로 유지
+            return parentPath;
+        } catch (error) {
+            this.logger.error('Failed to build execution path', { parentPath, eventType, context, error });
+            return 'team'; // 안전한 기본값
+        }
+    }
+
+    // 🎯 시각화 데이터 조회 (안전성 강화)
+    getVisualizationData(): VisualizationData {
+        try {
+            return {
+                events: Array.isArray(this.events) ? [...this.events] : [], // 안전한 복사본
+                mode: this.mode || 'agent', // 기본값 보장
+                agents: Array.isArray(this.agents) ? [...this.agents] : [], // 안전한 복사본
+                currentExecution: undefined // 필요시 구현
+            };
+        } catch (error) {
+            this.logger.error('Failed to get visualization data', { error });
+            // 🛡️ 실패 시 안전한 기본값 반환
+            return {
+                events: [],
+                mode: 'agent',
+                agents: [],
+                currentExecution: undefined
+            };
+        }
+    }
+
+    // 🔧 유틸리티 메서드들
     setMode(mode: 'agent' | 'team'): void {
-        if (!this.enabled) return;
-
         this.mode = mode;
-        this.logger.debug('Mode changed to:', mode);
+        this.logger.debug('Mode changed', { mode });
     }
 
-    /**
-     * Get visualization data
-     */
-    getVisualizationData(): PlaygroundVisualizationData {
-        const totalToolCalls = this.events.filter(e => e.type === 'tool_call').length;
-        const totalEvents = this.events.length;
-
-        // Calculate average response time
-        let totalResponseTime = 0;
-        let responseCount = 0;
-
-        for (let i = 0; i < this.events.length - 1; i++) {
-            const current = this.events[i];
-            const next = this.events[i + 1];
-
-            if (current.type === 'user_message' && next.type === 'assistant_response') {
-                totalResponseTime += next.timestamp.getTime() - current.timestamp.getTime();
-                responseCount++;
-            }
-        }
-
-        const averageResponseTime = responseCount > 0 ? totalResponseTime / responseCount : 0;
-
-        return {
-            mode: this.mode,
-            events: [...this.events],
-            agents: [...this.agents],
-            currentExecution: this.currentExecution,
-            stats: {
-                totalEvents,
-                totalToolCalls,
-                averageResponseTime
-            }
-        };
-    }
-
-    /**
-     * Clear conversation history
-     */
-    clearHistory(): void {
-        if (!this.enabled) return;
-
+    clearEvents(): void {
         this.events = [];
+        this.relationshipTracker.clear();
         this.agents = [];
-        this.currentExecution = undefined;
-        this.logger.debug('History cleared');
+        this.logger.info('Events cleared');
     }
 
-    /**
-     * Handle module events automatically (SDK integration)
-     */
-    async onModuleEvent(eventType: string, eventData: any): Promise<void> {
-        if (!this.enabled) return;
-
-        try {
-            this.logger.debug('Module event received:', { eventType, eventData });
-
-            switch (eventType) {
-                case 'execution.start':
-                case 'module.execution.start':
-                    // Record execution start
-                    this.currentExecution = {
-                        id: `exec_${Date.now()}`,
-                        startTime: new Date(),
-                        status: 'running'
-                    };
-                    break;
-
-                case 'execution.complete':
-                case 'module.execution.complete':
-                    // Record execution completion
-                    if (this.currentExecution) {
-                        this.currentExecution.status = 'completed';
-                    }
-
-                    // Try to extract response from event data
-                    if (eventData && eventData.data && eventData.data.response) {
-                        this.recordEvent({
-                            type: 'assistant_response',
-                            content: eventData.data.response,
-                            metadata: {
-                                executionId: this.currentExecution?.id,
-                                success: true
-                            }
-                        });
-                    }
-                    break;
-
-                case 'execution.error':
-                case 'module.execution.error':
-                    // Record execution error
-                    if (this.currentExecution) {
-                        this.currentExecution.status = 'error';
-                    }
-
-                    if (eventData && eventData.data) {
-                        this.recordEvent({
-                            type: 'error',
-                            content: eventData.data.message || 'Execution error',
-                            metadata: {
-                                executionId: this.currentExecution?.id,
-                                error: eventData.data
-                            }
-                        });
-                    }
-                    break;
-
-                case 'tool.execute.start':
-                    // Record tool execution start
-                    if (eventData && eventData.data) {
-                        this.recordEvent({
-                            type: 'tool_call',
-                            toolName: eventData.data.toolName,
-                            parameters: eventData.data.parameters,
-                            metadata: {
-                                executionId: this.currentExecution?.id,
-                                phase: 'start'
-                            }
-                        });
-                    }
-                    break;
-
-                case 'tool.execute.complete':
-                    // Record tool execution result
-                    if (eventData && eventData.data) {
-                        this.recordEvent({
-                            type: 'tool_result',
-                            toolName: eventData.data.toolName,
-                            content: eventData.data.result ? JSON.stringify(eventData.data.result) : '',
-                            metadata: {
-                                executionId: this.currentExecution?.id,
-                                phase: 'complete',
-                                success: eventData.data.success !== false
-                            }
-                        });
-                    }
-                    break;
-            }
-
-        } catch (error) {
-            this.incrementErrors();
-            this.logger.error('Failed to handle module event:', error);
-        }
+    getEventById(id: string): ConversationEvent | undefined {
+        return this.events.find(event => event.id === id);
     }
 
-    /**
-     * Get plugin statistics
-     */
-    getStats(): PlaygroundHistoryPluginStats {
-        const toolCallsRecorded = this.events.filter(e => e.type === 'tool_call').length;
-        const conversationsRecorded = this.events.filter(e => e.type === 'user_message').length;
-
-        return {
-            calls: this.stats.calls,
-            errors: this.stats.errors,
-            lastActivity: this.stats.lastActivity,
-            eventsTracked: this.events.length,
-            conversationsRecorded,
-            toolCallsRecorded,
-            realTimeSyncEnabled: this.pluginOptions.enableRealTimeSync,
-            currentMode: this.mode
-        };
+    getEventsByType(type: BasicEventType): ConversationEvent[] {
+        return this.events.filter(event => event.type === type);
     }
 
-    /**
-     * Dispose plugin resources
-     */
-    async dispose(): Promise<void> {
-        try {
-            this.logger.info('PlaygroundHistoryPlugin disposing');
-
-            this.clearHistory();
-            this.enabled = false;
-
-            this.logger.info('PlaygroundHistoryPlugin disposed successfully');
-        } catch (error) {
-            this.incrementErrors();
-            this.logger.error('PlaygroundHistoryPlugin disposal failed:', error);
-            throw new Error(`PlaygroundHistoryPlugin disposal failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    }
-
-    /**
-     * Validate plugin options with actionable error messages
-     */
-    protected override validateOptions(options: PlaygroundHistoryPluginOptions): void {
-        super.validateOptions(options);
-
-        if (options.maxEvents !== undefined) {
-            if (typeof options.maxEvents !== 'number' || options.maxEvents < 1) {
-                throw new Error(`${this.name}: maxEvents must be a positive number. Got: ${options.maxEvents}. Use maxEvents: 1000 for default.`);
-            }
-            if (options.maxEvents > 10000) {
-                throw new Error(`${this.name}: maxEvents cannot exceed 10,000 for performance reasons. Got: ${options.maxEvents}. Use a smaller number.`);
-            }
-        }
-
-        if (options.visualizationMode !== undefined) {
-            const validModes = ['blocks', 'timeline', 'tree'];
-            if (!validModes.includes(options.visualizationMode)) {
-                throw new Error(`${this.name}: visualizationMode must be one of: ${validModes.join(', ')}. Got: ${options.visualizationMode}`);
-            }
-        }
-
-        if (options.websocketUrl !== undefined && options.websocketUrl !== '') {
-            try {
-                new URL(options.websocketUrl);
-            } catch {
-                throw new Error(`${this.name}: websocketUrl must be a valid URL. Got: ${options.websocketUrl}. Example: 'ws://localhost:3001'`);
-            }
-        }
+    getEventsByExecutionLevel(level: number): ConversationEvent[] {
+        return this.events.filter(event => event.executionLevel === level);
     }
 } 

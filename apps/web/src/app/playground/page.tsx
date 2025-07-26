@@ -621,9 +621,121 @@ function ToolsAndPluginsPanel() {
     );
 }
 
-// Simple Block Visualization Panel using ConversationHistory
+// 🎯 계층 구조 기반 Block Visualization Panel
 function BlockVisualizationPanel() {
     const { conversationEvents } = usePlaygroundData();
+
+    // 이벤트 타입별 색상 및 아이콘 매핑
+    const getEventStyle = (event: any) => {
+        switch (event.type) {
+            case 'user_message':
+                return {
+                    bg: 'bg-blue-50 border-blue-200',
+                    text: 'text-blue-800',
+                    icon: '👤',
+                    label: 'User'
+                };
+            case 'assistant_response':
+                return {
+                    bg: 'bg-green-50 border-green-200',
+                    text: 'text-green-800',
+                    icon: '🤖',
+                    label: 'Assistant'
+                };
+            case 'tool_call':
+                return {
+                    bg: 'bg-orange-50 border-orange-200',
+                    text: 'text-orange-800',
+                    icon: '🔧',
+                    label: 'Tool Call'
+                };
+            case 'tool_result':
+                return {
+                    bg: 'bg-purple-50 border-purple-200',
+                    text: 'text-purple-800',
+                    icon: '✅',
+                    label: 'Tool Result'
+                };
+            case 'error':
+                return {
+                    bg: 'bg-red-50 border-red-200',
+                    text: 'text-red-800',
+                    icon: '❌',
+                    label: 'Error'
+                };
+            default:
+                return {
+                    bg: 'bg-gray-50 border-gray-200',
+                    text: 'text-gray-800',
+                    icon: '📄',
+                    label: 'Unknown'
+                };
+        }
+    };
+
+    // 계층별 들여쓰기 렌더링
+    const renderEventBlock = (event: any, index: number) => {
+        const style = getEventStyle(event);
+        const level = event.executionLevel || 0;
+        const marginLeft = level * 20; // 레벨당 20px 들여쓰기
+
+        return (
+            <div
+                key={event.id || index}
+                style={{ marginLeft: `${marginLeft}px` }}
+                className={`p-3 rounded-lg border ${style.bg} mb-2 transition-all duration-200 hover:shadow-sm`}
+            >
+                {/* 이벤트 헤더 */}
+                <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                        <span className="text-lg">{style.icon}</span>
+                        <span className={`text-xs font-medium ${style.text}`}>
+                            {style.label}
+                        </span>
+                        {event.executionLevel !== undefined && (
+                            <span className="text-xs bg-gray-200 px-2 py-1 rounded">
+                                Level {event.executionLevel}
+                            </span>
+                        )}
+                    </div>
+                    <span className="text-xs text-gray-500">
+                        {event.timestamp?.toLocaleTimeString() || 'Unknown time'}
+                    </span>
+                </div>
+
+                {/* 실행 경로 표시 */}
+                {event.executionPath && (
+                    <div className="text-xs text-gray-600 mb-2 font-mono bg-gray-100 px-2 py-1 rounded">
+                        Path: {event.executionPath}
+                    </div>
+                )}
+
+                {/* 이벤트 내용 */}
+                <div className="text-sm">{event.content || 'No content'}</div>
+
+                {/* Tool 관련 정보 */}
+                {event.toolName && (
+                    <div className="mt-2 text-xs text-gray-600">
+                        <strong>Tool:</strong> {event.toolName}
+                    </div>
+                )}
+
+                {/* Delegation ID 표시 */}
+                {event.delegationId && (
+                    <div className="mt-1 text-xs text-gray-500">
+                        <strong>Delegation:</strong> {event.delegationId}
+                    </div>
+                )}
+
+                {/* 계층 정보 */}
+                {event.parentEventId && (
+                    <div className="mt-1 text-xs text-gray-500">
+                        <strong>Parent:</strong> {event.parentEventId}
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     return (
         <Card>
@@ -631,28 +743,21 @@ function BlockVisualizationPanel() {
                 <CardTitle className="text-sm flex items-center gap-2">
                     <Puzzle className="h-4 w-4" />
                     Block Visualization
+                    <span className="text-xs text-gray-500 ml-2">
+                        ({conversationEvents.length} events)
+                    </span>
                 </CardTitle>
             </CardHeader>
             <CardContent>
                 <ScrollArea className="h-96">
-                    <div className="space-y-2">
-                        {conversationEvents.map((event, index) => (
-                            <div
-                                key={event.id || index}
-                                className={`p-3 rounded-lg border ${event.type === 'user_message'
-                                    ? 'bg-blue-50 border-blue-200'
-                                    : 'bg-green-50 border-green-200'
-                                    }`}
-                            >
-                                <div className="text-xs text-gray-500 mb-1">
-                                    {event.type === 'user_message' ? 'User' : 'Assistant'} • {event.timestamp.toLocaleTimeString()}
-                                </div>
-                                <div className="text-sm">{event.content}</div>
-                            </div>
-                        ))}
+                    <div className="space-y-1">
+                        {conversationEvents.map((event, index) => renderEventBlock(event, index))}
                         {conversationEvents.length === 0 && (
                             <div className="text-center text-gray-500 py-8">
                                 No conversation blocks yet
+                                <div className="text-xs mt-2">
+                                    Start a conversation to see the hierarchical block structure
+                                </div>
                             </div>
                         )}
                     </div>
