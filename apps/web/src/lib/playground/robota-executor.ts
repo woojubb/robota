@@ -257,26 +257,57 @@ export class PlaygroundExecutor {
      * Execute a prompt (Facade method)
      */
     async run(prompt: string): Promise<PlaygroundExecutionResult> {
+        const startTime = Date.now();
         const request: UniversalMessage[] = [{ role: 'user', content: prompt }];
 
         try {
             const result = await this.executeChat(request);
+            const duration = Date.now() - startTime;
 
-            return {
+            const executionResult: PlaygroundExecutionResult = {
                 success: true,
                 response: result.content || 'No response',
-                duration: 0, // Duration tracked in executeChat
+                duration: duration,
                 visualizationData: this.getVisualizationData()
             };
 
+            // Record this execution for statistics (with additional required fields)
+            await this.statisticsPlugin.recordPlaygroundExecution({
+                success: executionResult.success,
+                duration: executionResult.duration,
+                provider: 'openai',
+                model: 'gpt-4',
+                mode: this.mode || 'agent',
+                streaming: false,
+                timestamp: new Date(),
+                error: undefined // No error in success case
+            });
+
+            return executionResult;
+
         } catch (error) {
-            return {
+            const duration = Date.now() - startTime;
+            const executionResult: PlaygroundExecutionResult = {
                 success: false,
                 response: 'Execution failed',
-                duration: 0,
+                duration: duration,
                 error: error instanceof Error ? error : new Error(String(error)),
                 visualizationData: this.getVisualizationData()
             };
+
+            // Record this failed execution for statistics
+            await this.statisticsPlugin.recordPlaygroundExecution({
+                success: executionResult.success,
+                duration: executionResult.duration,
+                provider: 'openai',
+                model: 'gpt-4',
+                mode: this.mode || 'agent',
+                streaming: false,
+                timestamp: new Date(),
+                error: error instanceof Error ? error.message : String(error)
+            });
+
+            return executionResult;
         }
     }
 
@@ -284,6 +315,7 @@ export class PlaygroundExecutor {
      * Execute with streaming response (Facade method)
      */
     async *runStream(prompt: string): AsyncGenerator<string, PlaygroundExecutionResult> {
+        const startTime = Date.now();
         const request: UniversalMessage[] = [{ role: 'user', content: prompt }];
 
         try {
@@ -295,21 +327,51 @@ export class PlaygroundExecutor {
                 yield content;
             }
 
-            return {
+            const duration = Date.now() - startTime;
+            const executionResult: PlaygroundExecutionResult = {
                 success: true,
                 response: fullResponse,
-                duration: 0, // Duration tracked in executeChatStream
+                duration: duration,
                 visualizationData: this.getVisualizationData()
             };
 
+            // Record this streaming execution for statistics
+            await this.statisticsPlugin.recordPlaygroundExecution({
+                success: executionResult.success,
+                duration: executionResult.duration,
+                provider: 'openai',
+                model: 'gpt-4',
+                mode: this.mode || 'agent',
+                streaming: true, // This is a streaming execution
+                timestamp: new Date(),
+                error: undefined
+            });
+
+            return executionResult;
+
         } catch (error) {
-            return {
+            const duration = Date.now() - startTime;
+            const executionResult: PlaygroundExecutionResult = {
                 success: false,
                 response: 'Streaming execution failed',
-                duration: 0,
+                duration: duration,
                 error: error instanceof Error ? error : new Error(String(error)),
                 visualizationData: this.getVisualizationData()
             };
+
+            // Record this failed streaming execution for statistics
+            await this.statisticsPlugin.recordPlaygroundExecution({
+                success: executionResult.success,
+                duration: executionResult.duration,
+                provider: 'openai',
+                model: 'gpt-4',
+                mode: this.mode || 'agent',
+                streaming: true,
+                timestamp: new Date(),
+                error: error instanceof Error ? error.message : String(error)
+            });
+
+            return executionResult;
         }
     }
 
@@ -353,10 +415,10 @@ export class PlaygroundExecutor {
             return this.currentAgent.getHistory();
         } else if (this.mode === 'team' && this.currentTeam) {
             return this.historyPlugin.getVisualizationData().events.map(event => ({
-                role: event.role as any,
-                content: event.content,
+                role: event.type === 'user_message' ? 'user' : 'assistant',
+                content: event.content || '',
                 timestamp: event.timestamp
-            }));
+            } as UniversalMessage));
         }
         return [];
     }
@@ -389,7 +451,7 @@ export class PlaygroundExecutor {
             }
 
             await this.historyPlugin.dispose();
-            await this.statisticsPlugin.destroy?.();
+            // statisticsPlugin has no destroy method
 
         } catch (error) {
             throw new Error(`Error during PlaygroundExecutor disposal: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -744,15 +806,18 @@ class PlaygroundTeamInstance {
                 metadata: { teamName: this.config.name, action: 'streaming_start' }
             });
 
+            let fullResponse = '';
+
             // Execute using actual team container streaming
             for await (const chunk of this.teamContainer.executeStream(prompt)) {
+                fullResponse += chunk;
                 yield chunk;
             }
 
-            // Record team streaming success
+            // Record team streaming success with actual response
             this.historyPlugin.recordEvent({
                 type: 'assistant_response',
-                content: 'Team streaming completed',
+                content: fullResponse,
                 metadata: { teamName: this.config.name, action: 'streaming_success' }
             });
 

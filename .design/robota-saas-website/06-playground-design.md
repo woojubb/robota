@@ -48,7 +48,7 @@ interface BlockMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   blockMetadata: {
-    id: string;
+  id: string;
     type: BlockType;
     level: number;           // 중첩 레벨
     parentId?: string;       // 부모 블록 ID
@@ -163,7 +163,7 @@ export function createBlockTrackingHooks(
 
       blockCollector.collectBlock(completionMessage, {
         id: context?.executionId || generateId(),
-        timestamp: Date.now(),
+      timestamp: Date.now(),
         type: 'system',
         status: 'completed'
       });
@@ -179,7 +179,7 @@ export function createBlockTrackingHooks(
 
       blockCollector.collectBlock(errorMessage, {
         id: context?.executionId || generateId(),
-        timestamp: Date.now(),
+      timestamp: Date.now(),
         type: 'system',
         status: 'error'
       });
