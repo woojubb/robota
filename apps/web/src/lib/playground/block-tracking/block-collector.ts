@@ -1,11 +1,12 @@
-import { v4 as uuidv4 } from 'uuid';
 import type {
     BlockDataCollector,
     BlockMessage,
     BlockMetadata,
     BlockCollectionEvent,
     BlockCollectionListener,
-    BlockTreeNode
+    BlockTreeNode,
+    RealTimeBlockMessage,
+    RealTimeBlockMetadata
 } from './types';
 
 /**
@@ -86,6 +87,22 @@ export class PlaygroundBlockCollector implements BlockDataCollector {
     }
 
     /**
+     * Update a block's metadata in real-time
+     */
+    updateRealTimeBlock(blockId: string, updates: Partial<RealTimeBlockMetadata>): void {
+        const block = this.blocks.get(blockId);
+        if (!block) {
+            console.warn(`Block not found for real-time update: ${blockId}`);
+            return;
+        }
+
+        // Merge updates into existing metadata
+        Object.assign(block.blockMetadata, updates);
+
+        this.notifyListeners({ type: 'block_updated', blockId, updates });
+    }
+
+    /**
      * Get all collected blocks
      */
     getBlocks(): BlockMessage[] {
@@ -153,7 +170,7 @@ export class PlaygroundBlockCollector implements BlockDataCollector {
      * Generate unique block ID
      */
     generateBlockId(): string {
-        return `block_${uuidv4()}`;
+        return `block_${crypto.randomUUID()}`;
     }
 
     /**
