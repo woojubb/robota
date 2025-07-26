@@ -44,14 +44,15 @@ export class AgentDelegationTool {
         // Create dynamic schema with available templates
         const toolParametersSchema = createDynamicAssignTaskSchema(options.availableTemplates);
 
-        // Create the wrapped tool instance with proper schema validation
+        // Create the wrapped tool instance with proper schema validation and Hook support
         this.wrappedTool = createZodFunctionTool(
             'assignTask',
             this.createToolDescription(options.availableTemplates),
             toolParametersSchema,
             async (parameters: ToolParameters, context?: ToolExecutionContext) => {
                 return await this.executeWithHooks(parameters, context, options.executor, toolParametersSchema);
-            }
+            },
+            { hooks: this.hooks, logger: this.logger } // ✅ Hook과 logger 전달
         );
     }
 
