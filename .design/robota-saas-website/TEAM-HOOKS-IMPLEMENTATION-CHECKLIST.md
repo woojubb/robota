@@ -1,101 +1,290 @@
-# Team Hooks 구현 통합 체크리스트
+# 동적 트래킹 트리 구현 체크리스트
 
-## 🎯 목표
-Team 실행 시 assignTask 도구 호출을 Hook으로 추적하여 계층적 이벤트 구조 생성
+## 🎯 목표: 실시간 동적 노드 생성 시스템
 
-## 📋 구현 체크리스트
+Tool 실행을 하나의 노드로 관리하되, 실행 중에 하위 노드들이 동적으로 생성되는 트래킹 시스템 구현
 
-### Phase 1: Team 패키지 toolHooks 지원 추가
+## 📖 참고 자료
 
-#### [x] 1.1 TeamContainerOptions 인터페이스 확장
-- [x] `packages/team/src/types.ts`에서 `TeamContainerOptions`에 `toolHooks?: ToolHooks` 추가
-- [x] ToolHooks import 및 타입 정의 확인
-- [x] **검증**: 컴파일 오류 없음
+### 구현 목표 노드 구조
+자세한 중간 과정 노드 구조 예시는 **[SIMPLIFIED-TEAM-EVENTS-PLAN.md](./SIMPLIFIED-TEAM-EVENTS-PLAN.md)**의 "목표 구조 예시" 섹션을 참고하세요:
 
-#### [x] 1.2 createTeam 함수 수정
-- [x] `packages/team/src/create-team.ts`에서 `options.toolHooks`를 `TeamContainerOptions`로 전달
-- [x] fullOptions 객체에 toolHooks 추가: `...(options.toolHooks && { toolHooks: options.toolHooks })`
-- [x] **검증**: createTeam 호출 시 toolHooks 옵션 인식
+- **⏰ 시작 시점 (0초)**: 초기 Team 노드 생성
+- **⏰ 작업 계획 수립 (2초)**: assignTask 노드들 생성 및 실행 계획 표시
+- **⏰ 단계적 진행 (3초)**: 첫 번째 assignTask 실행 단계별 진행
+- **⏰ 병렬 실행 (6초)**: 두 assignTask 동시 진행 상태
+- **⏰ 하위 도구 실행 (10초)**: Agent 내부 도구 사용 세부 추적
+- **⏰ 부분 완료 (15초)**: 첫 번째 assignTask 완료, 두 번째 진행 중
+- **⏰ 최종 처리 (18초)**: 모든 assignTask 완료, Team 응답 생성
+- **✅ 최종 완료 (20초)**: 전체 실행 완료 상태
 
-#### [x] 1.3 TeamContainer 생성자 수정
-- [x] `packages/team/src/team-container.ts`에서 `private toolHooks?: ToolHooks` 필드 추가
-- [x] constructor에서 `this.toolHooks = options.toolHooks` 설정
-- [x] **검증**: TeamContainer 인스턴스에 toolHooks 저장됨
+### 다양한 Tool 타입별 트래킹 구조
+**[TOOL-TRACKING-EXAMPLES.md](./TOOL-TRACKING-EXAMPLES.md)**에서 다음 Tool 타입들의 구체적인 트래킹 예시를 확인하세요:
 
-#### [x] 1.4 createAssignTaskTool 메서드 수정
-- [x] 조건부 로직 추가: `if (this.toolHooks)` 분기
-- [x] toolHooks 있으면 `AgentDelegationTool` 생성, 없으면 기존 `createTaskAssignmentFacade` 사용
-- [x] AgentDelegationTool 생성 시 필요한 옵션들 전달
-- [x] **검증**: toolHooks 유무에 따른 도구 생성 방식 분기
+- **단순 Tool**: calculator, dateTime (즉시 실행 완료)
+- **API Tool**: webSearch, github-mcp (4단계 진행)
+- **파일 Tool**: fileSearch, codeAnalysis (파일 처리 단계)
+- **검증 Tool**: zodValidator (스키마 기반 검증)
+- **복합 사용**: 여러 Tool 순차 실행 시나리오
 
-### Phase 2: Playground toolHooks 연동
+이 구조들을 참고하여 각 단계별 노드 상태 변화를 정확히 구현하세요.
 
-#### [x] 2.1 PlaygroundExecutor.createTeam 수정
-- [x] `apps/web/src/lib/playground/robota-executor.ts`에서 `createAssignTaskHooks` 함수 호출
-- [x] `createTeam` 호출 시 `toolHooks: createAssignTaskHooks(this.historyPlugin)` 옵션 추가
-- [x] **검증**: createTeam에 toolHooks 전달됨
+## 📋 Phase 1: 기본 트래킹 트리 구현
 
-#### [x] 2.2 createAssignTaskHooks 함수 정리
-- [x] 기존 Hook 팩토리 함수 검토 및 정리
-- [x] assignTask 도구에 특화된 이벤트 기록 로직 유지
-- [x] delegationId, parentEventId 추적 로직 확인
-- [x] **검증**: Hook 함수들이 올바른 이벤트 생성
+### 1.1 노드 인터페이스 정의
+- [ ] TrackingNode 기본 인터페이스 구현
+  - [ ] id, type, status, timestamp, metadata, children 필드
+  - [ ] 'team' | 'agent' | 'tool' | 'message' | 'step' 타입 지원
+  - [ ] 'pending' | 'in_progress' | 'completed' | 'error' 상태 관리
 
-### Phase 3: 통합 테스트 및 검증
+- [ ] DynamicToolNode 확장 인터페이스 구현
+  - [ ] toolName, params, result 필드 추가
+  - [ ] executionPlan (실행 계획) 필드 추가
+  - [ ] currentStep, progress 필드 추가
 
-#### [ ] 3.1 기본 동작 테스트
-- [ ] 웹 앱 실행 후 Team 모드로 간단한 프롬프트 테스트
-- [ ] assignTask Hook이 실행되는지 콘솔 로그 확인
-- [ ] **검증**: Hook의 beforeExecute, afterExecute 호출 확인
+- [ ] ExecutionStep 인터페이스 정의
+  - [ ] 단계별 상태 관리 (id, name, status, description)
+  - [ ] 예상 소요 시간 및 실제 소요 시간 추적
+  - [ ] 단계별 출력 결과 저장
 
-#### [ ] 3.2 계층 구조 확인
-- [ ] Block Visualization Panel에서 Level 0 (Team), Level 1 (assignTask) 이벤트 표시 확인
-- [ ] 들여쓰기로 계층 구조 표현되는지 확인
-- [ ] executionPath가 'team→assignTask' 형태로 표시되는지 확인
-- [ ] **검증**: 계층적 UI 표시 정상 동작
+### 1.2 TrackingTree 싱글톤 클래스 구현
+- [ ] 싱글톤 패턴으로 전역 트리 관리자 구현
+- [ ] 노드 저장소 (Map<string, TrackingNode>) 구현
+- [ ] 활성 노드 스택 관리 (현재 실행 컨텍스트 추적)
 
-#### [ ] 3.3 하위 호환성 검증
-- [ ] toolHooks 없이 createTeam 호출해도 정상 동작하는지 확인
-- [ ] 기존 Team 라이브러리 사용자에게 영향 없는지 확인
-- [ ] **검증**: 기존 방식으로도 Team 실행 가능
+### 1.3 기본 노드 관리 메서드
+- [ ] createNode(): 새 노드 생성 및 계층 구조 자동 설정
+- [ ] updateNode(): 노드 상태 및 데이터 업데이트
+- [ ] getNode(): 노드 ID로 조회
+- [ ] getTree(): 전체 트리 구조 조회 (루트부터 재귀 구성)
+- [ ] getAllNodes(): 모든 노드 목록 조회
+- [ ] getNodesByType/Status(): 조건별 노드 필터링
 
-#### [ ] 3.4 에러 처리 확인
-- [ ] assignTask 실행 중 오류 발생 시 Hook의 onError 호출 확인
-- [ ] 에러 이벤트가 올바른 계층에 기록되는지 확인
-- [ ] **검증**: 에러 시나리오에서도 안정적 동작
+### 1.4 실시간 이벤트 시스템
+- [ ] 리스너 관리 시스템 구현
+- [ ] addListener(): 트리 변경 이벤트 구독
+- [ ] notifyListeners(): 변경 시 모든 구독자에게 알림
+- [ ] 노드 생성/업데이트 시 자동 알림 발생
 
-### Phase 4: 문서 정리 및 마무리
+## 📋 Phase 2: 동적 노드 생성 시스템
 
-#### [ ] 4.1 관련 문서 정리
-- [ ] SIMPLIFIED-TEAM-EVENTS-PLAN.md에서 완료된 항목 체크
-- [ ] PLUGIN-ARCHITECTURE-FIX-PLAN.md에서 완료된 항목 체크
-- [ ] 불필요한 중복 체크리스트 제거
-- [ ] **검증**: 문서 상태가 실제 구현과 일치
+### 2.1 실행 계획 시스템
+- [ ] Tool별 실행 계획 팩토리 구현
+  - [ ] AssignTaskExecutionPlan: 템플릿 선택 → Agent 생성 → 실행 → 결과 처리
+  - [ ] WebSearchExecutionPlan: 쿼리 처리 → 웹 요청 → 파싱 → 필터링
+  - [ ] 기본 실행 계획: 단순 실행 단계
 
-#### [ ] 4.2 GitHub 커밋 및 푸시
-- [ ] 모든 변경사항 git add
-- [ ] 의미있는 커밋 메시지로 커밋
-- [ ] develop 브랜치에 푸시
-- [ ] **검증**: 코드 변경사항이 원격 저장소에 반영
+- [ ] 동적 단계 진행 관리
+  - [ ] advanceExecutionStep(): 다음 단계로 진행
+  - [ ] completeExecutionStep(): 현재 단계 완료 처리
+  - [ ] createStepSubNodes(): 단계별 하위 노드 생성
 
-## 🎯 성공 기준
+### 2.2 하위 노드 자동 생성
+- [ ] generateSubNodes(): 동적 하위 노드 생성 메서드
+- [ ] createNodeFromData(): 노드 데이터로부터 트리에 노드 생성
+- [ ] 부모-자식 관계 자동 설정 및 유지
 
-**기술적 달성 목표**:
-- ✅ Team 실행 시 assignTask Hook 자동 실행
-- ✅ Level 0 (Team) → Level 1 (assignTask) 계층 구조 표시
-- ✅ 기존 Team 라이브러리 하위 호환성 유지
-- ✅ toolHooks 옵션을 통한 표준화된 Hook 주입 방법 제공
+### 2.3 진행률 계산 시스템
+- [ ] 단계 기반 진행률 계산 (current/total 단계)
+- [ ] 퍼센티지 자동 계산 및 업데이트
+- [ ] 예상 완료 시간 계산 (단계별 예상 소요 시간 기반)
 
-**사용자 경험 달성 목표**:
-- ✅ Block Visualization Panel에서 계층적 들여쓰기 표시
-- ✅ assignTask 도구 호출 시작/완료가 명확히 구분
-- ✅ Team 실행 과정의 시각적 추적 가능
-- ✅ 복잡한 Sub-Agent 세부사항은 숨김 (단순화)
+## 📋 Phase 3: Tool별 실행 계획 정의
 
-## 📊 진행 상황
-- [ ] Phase 1: Team 패키지 수정 (0/4 완료)
-- [ ] Phase 2: Playground 연동 (0/2 완료)  
-- [ ] Phase 3: 테스트 및 검증 (0/4 완료)
-- [ ] Phase 4: 문서 정리 (0/2 완료)
+### 3.1 assignTask Tool 실행 계획
+- [ ] 4단계 실행 계획 정의:
+  - [ ] 템플릿 선택 단계
+  - [ ] Agent 생성 단계
+  - [ ] 작업 실행 단계 (하위 Agent 노드 생성)
+  - [ ] 결과 처리 단계
 
-**전체 진행률**: 0/12 (0%) 
+### 3.2 webSearch Tool 실행 계획
+- [ ] 4단계 실행 계획 정의:
+  - [ ] 쿼리 처리 단계
+  - [ ] 웹 요청 단계
+  - [ ] 결과 파싱 단계
+  - [ ] 관련성 필터링 단계
+
+### 3.3 기타 Tool 실행 계획
+- [ ] 각 Tool별 맞춤형 실행 단계 정의
+- [ ] 기본 실행 계획 템플릿 제공
+- [ ] 실행 계획 등록 시스템 구현
+
+## 📋 Phase 4: 기존 코드와의 통합
+
+### 4.1 비침습적 통합 방법 구현
+- [ ] 래퍼 함수 방식: createTrackingWrapper()
+  - [ ] 기존 함수를 감싸서 추적 기능 추가
+  - [ ] 실행 전/후 노드 생성 및 업데이트
+  - [ ] 오류 처리 및 상태 반영
+
+- [ ] 프록시 객체 방식: createTrackedObject()
+  - [ ] 객체의 모든 메서드에 추적 기능 자동 적용
+  - [ ] 기존 코드 수정 없이 추적 가능
+
+- [ ] 팩토리 함수 래핑
+  - [ ] createTeam, createAgent 등 팩토리 함수 래핑
+  - [ ] 생성된 객체에 자동 추적 기능 적용
+
+### 4.2 Tool 실행 시 노드 생성 자동화
+- [ ] Tool 실행 시작 시 DynamicToolNode 생성
+- [ ] 실행 계획에 따른 단계별 노드 생성
+- [ ] 각 단계 완료 시 노드 상태 업데이트
+- [ ] 최종 결과 노드 연결
+
+### 4.3 하위 Agent/Tool 생성 시 노드 연결
+- [ ] Agent 생성 시 부모 Tool 노드에 Agent 노드 추가
+- [ ] Tool에서 다른 Tool 호출 시 하위 Tool 노드 생성
+- [ ] 계층 구조 자동 유지 및 관리
+
+### 4.4 단계별 실행 추적 콜백 시스템
+- [ ] executeToolWithStepTracking() 함수 구현
+- [ ] onStepComplete 콜백: 단계 완료 시 호출
+- [ ] onSubAgentCreated 콜백: 하위 Agent 생성 시 호출
+- [ ] onSubToolCalled 콜백: 하위 Tool 호출 시 호출
+
+## 📋 Phase 5: UI 구현
+
+### 5.1 기본 트리 렌더링 컴포넌트
+- [ ] TreeView 컴포넌트: 전체 트리 구조 표시
+- [ ] NodeView 컴포넌트: 개별 노드 렌더링
+- [ ] 노드 타입별 전용 컴포넌트:
+  - [ ] TeamNodeView: Team 실행 노드
+  - [ ] ToolNodeView: Tool 실행 노드 (진행률 포함)
+  - [ ] AgentNodeView: Agent 실행 노드
+  - [ ] MessageNodeView: 메시지 노드
+
+### 5.2 실시간 업데이트 시스템
+- [ ] React Hook: useTrackingTree()
+  - [ ] 트리 상태를 React 상태로 관리
+  - [ ] TrackingTree 변경 이벤트 구독
+  - [ ] 컴포넌트 언마운트 시 구독 해제
+
+- [ ] 성능 최적화
+  - [ ] 변경된 노드만 리렌더링
+  - [ ] React.memo를 통한 불필요한 렌더링 방지
+  - [ ] 가상화 (대규모 트리 처리)
+
+### 5.3 시각적 표현
+- [ ] 상태별 아이콘 및 색상
+  - [ ] ⏳ 대기 중 (pending) - 회색
+  - [ ] 🔄 진행 중 (in_progress) - 파란색
+  - [ ] ✅ 완료 (completed) - 초록색
+  - [ ] ❌ 오류 (error) - 빨간색
+
+- [ ] 노드 타입별 아이콘
+  - [ ] 📦 Team 실행
+  - [ ] 💬 메시지 (사용자/어시스턴트)
+  - [ ] 🔧 Tool 실행
+  - [ ] 👤 Agent 실행
+
+### 5.4 진행률 표시
+- [ ] 프로그레스 바 컴포넌트
+- [ ] 퍼센티지 텍스트 표시
+- [ ] 단계별 진행 상황 ("3/5 단계 완료")
+- [ ] 예상 완료 시간 표시
+
+### 5.5 인터랙티브 기능
+- [ ] 노드 확장/축소 기능
+- [ ] 세부 정보 토글 (매개변수, 결과 등)
+- [ ] 실행 단계별 상세 정보 표시
+- [ ] 오류 발생 시 상세 오류 정보 표시
+
+## 📋 Phase 6: 고급 기능 및 최적화
+
+### 6.1 병렬 실행 지원
+- [ ] 여러 assignTask 동시 실행 추적
+- [ ] 각 병렬 실행의 독립적 진행률 관리
+- [ ] 병렬 실행 간 의존성 표시 (필요한 경우)
+
+### 6.2 성능 최적화
+- [ ] 대규모 트리 처리 최적화
+  - [ ] 노드 페이지네이션
+  - [ ] 지연 로딩 (lazy loading)
+  - [ ] 가상 스크롤링
+
+- [ ] 메모리 사용량 최적화
+  - [ ] 오래된 노드 정리 메커니즘
+  - [ ] 노드 데이터 압축
+  - [ ] 메모리 누수 방지
+
+### 6.3 사용자 경험 개선
+- [ ] 애니메이션 효과
+  - [ ] 노드 생성 시 페이드인
+  - [ ] 상태 변경 시 색상 전환
+  - [ ] 진행률 바 애니메이션
+
+- [ ] 사용자 설정
+  - [ ] 표시할 노드 타입 필터링
+  - [ ] 세부 정보 표시 레벨 조정
+  - [ ] 자동 스크롤 설정
+
+### 6.4 디버깅 및 개발 도구
+- [ ] 트리 구조 JSON 내보내기
+- [ ] 노드 실행 시간 분석
+- [ ] 성능 메트릭 수집 및 표시
+- [ ] 개발자 모드 (상세 로그)
+
+## 📋 Phase 7: 테스트 및 검증
+
+### 7.1 단위 테스트
+- [ ] TrackingTree 클래스 메서드 테스트
+- [ ] 노드 생성 및 업데이트 로직 테스트
+- [ ] 실행 계획 진행 로직 테스트
+- [ ] 계층 구조 관리 테스트
+
+### 7.2 통합 테스트
+- [ ] Team + assignTask 통합 실행 테스트
+- [ ] 병렬 assignTask 실행 테스트
+- [ ] 하위 Agent/Tool 생성 연결 테스트
+- [ ] 오류 상황 처리 테스트
+
+### 7.3 UI 테스트
+- [ ] 트리 렌더링 테스트
+- [ ] 실시간 업데이트 테스트
+- [ ] 사용자 인터랙션 테스트
+- [ ] 성능 테스트 (대규모 트리)
+
+### 7.4 사용자 시나리오 테스트
+- [ ] "vue와 react 비교" 시나리오 전체 테스트
+- [ ] 복잡한 중첩 Tool 호출 시나리오
+- [ ] 오류 발생 및 복구 시나리오
+- [ ] 장시간 실행 시나리오
+
+## 🚀 구현 우선순위
+
+### 🔥 MVP (최소 실행 가능한 제품) - Week 1-2
+1. **기본 트래킹 트리**: 노드 생성, 업데이트, 조회
+2. **단순 Tool 추적**: assignTask 실행 시 기본 노드 생성  
+3. **기본 UI**: 간단한 트리 구조 표시
+4. **실시간 업데이트**: 노드 상태 변경 시 UI 갱신
+
+### ⚡ 핵심 기능 - Week 3-4
+1. **실행 계획 시스템**: 단계별 진행률 표시
+2. **동적 노드 생성**: 하위 Agent/Tool 자동 연결
+3. **진행률 표시**: 퍼센티지 및 단계별 표시
+4. **상태별 시각화**: 아이콘 및 색상 구분
+
+### 🎯 고급 기능 - Week 5-6
+1. **병렬 실행 지원**: 여러 assignTask 동시 추적
+2. **인터랙티브 UI**: 확장/축소, 세부 정보
+3. **성능 최적화**: 대규모 트리 처리
+4. **사용자 경험**: 애니메이션, 필터링
+
+## ✅ 성공 기준
+
+### 📊 기술적 성공 기준
+- [ ] 기존 Team/Agent/Tool 코드 수정 없이 추적 기능 동작
+- [ ] assignTask 실행의 모든 단계 세밀하게 추적
+- [ ] 병렬 실행되는 여러 assignTask 독립적 추적
+- [ ] 실시간 진행률 표시 (퍼센티지, 단계별)
+- [ ] 하위 Agent/Tool 생성 시 자동 노드 연결
+
+### 🎨 사용자 경험 성공 기준
+- [ ] "vue와 react 비교" 시나리오 완벽 추적 및 표시
+- [ ] 현재 진행 중인 작업을 한눈에 파악 가능
+- [ ] 예상 완료 시간 및 진행률 정확 표시
+- [ ] 오류 발생 시 정확한 위치와 원인 표시
+- [ ] 직관적이고 아름다운 UI로 복잡한 과정 단순화
+
+이 체크리스트를 통해 **동적 트래킹 트리 시스템**을 단계적으로 구현하여, 사용자가 Team 실행 과정을 실시간으로 세밀하게 추적할 수 있는 혁신적인 시스템을 완성할 수 있습니다. 
