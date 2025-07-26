@@ -172,13 +172,25 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
 
     // Generate demo data
     const handleGenerateDemo = () => {
-        generateDemoExecutionData(blockCollector);
-        setLastRefresh(Date.now());
+        console.log('🎬 Generate Demo button clicked!');
+        try {
+            generateDemoExecutionData(blockCollector);
+            setLastRefresh(Date.now());
+            console.log('✅ Demo data generated successfully');
+        } catch (error) {
+            console.error('❌ Error generating demo data:', error);
+        }
     };
 
     const handleGenerateComplexDemo = () => {
-        generateComplexDemoData(blockCollector);
-        setLastRefresh(Date.now());
+        console.log('🎬 Generate Complex Demo button clicked!');
+        try {
+            generateComplexDemoData(blockCollector);
+            setLastRefresh(Date.now());
+            console.log('✅ Complex demo data generated successfully');
+        } catch (error) {
+            console.error('❌ Error generating complex demo data:', error);
+        }
     };
 
     return (
