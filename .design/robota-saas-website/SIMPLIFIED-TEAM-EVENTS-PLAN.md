@@ -1,232 +1,389 @@
-# Team 이벤트 단순화 및 계층 표현 계획
+# Team 실행 추적을 위한 동적 트래킹 트리 계획
 
-## 🎯 핵심 아키텍처 이해
+## 🎯 최종 목표: 동적 노드 트리 시스템
 
-### Team 실행 흐름의 본질
+### 핵심 아이디어
+- **Tool 하나 = 노드 하나**, 하지만 실행 중에 **하위 노드들이 동적으로 생성**
+- 각 노드는 **독립적인 상태**와 **실행 단계**를 가짐
+- **실시간 진행률** 표시와 **병렬 실행** 추적 가능
+- **계층 구조 유지**하면서도 **세부 추적** 가능
+
+## 📖 관련 문서
+
+- **[TEAM-HOOKS-IMPLEMENTATION-CHECKLIST.md](./TEAM-HOOKS-IMPLEMENTATION-CHECKLIST.md)**: 상세 구현 체크리스트
+- **[TOOL-TRACKING-EXAMPLES.md](./TOOL-TRACKING-EXAMPLES.md)**: 다양한 Tool 타입별 트래킹 구조 예시
+
+## 📋 목표 구조 예시
+
+### 시나리오: "vue와 react를 비교해줘"
+
+#### ⏰ 시작 시점 (0초) - 초기 상태:
 ```
-Team Agent → assignTask Tool → Sub-Agent → user/assistant/tool 흐름
+📦 Team 실행 (시작됨)
+├── 상태: pending
+└── 💬 사용자 메시지: "vue와 react를 비교해줘"
 ```
 
-**핵심 통찰**:
-- Team은 단순히 Agent에게 Tool(assignTask)을 제공하는 컨테이너
-- assignTask Tool 내부에서 Sub-Agent가 독립적으로 실행됨
-- Sub-Agent는 일반적인 Agent와 동일한 user→assistant→tool 흐름을 가짐
-- **복잡한 Team 전용 이벤트는 불필요**, 계층 구조만 명확히 표현하면 됨
+#### ⏰ Team Agent 분석 완료 (2초) - 작업 계획 수립:
+```
+📦 Team 실행 (진행 중)
+├── 상태: in_progress
+├── 💬 사용자 메시지: "vue와 react를 비교해줘"
+├── 🔧 assignTask #1 (대기 중)
+│   ├── 상태: pending
+│   ├── 목표: "Vue.js 분석"
+│   └── 실행 계획: [템플릿 선택 → Agent 생성 → 실행 → 결과 정리]
+└── 🔧 assignTask #2 (대기 중)
+    ├── 상태: pending
+    ├── 목표: "React 분석"
+    └── 실행 계획: [템플릿 선택 → Agent 생성 → 실행 → 결과 정리]
+```
 
-## 📋 단순화된 이벤트 아키텍처
+#### ⏰ 첫 번째 assignTask 시작 (3초) - 단계적 진행:
+```
+📦 Team 실행 (진행 중)
+├── 💬 사용자 메시지: "vue와 react를 비교해줘"
+├── 🔧 assignTask #1 (진행 중 - 25%)
+│   ├── 상태: in_progress, 현재 단계: 1/4
+│   ├── ✅ 1. 템플릿 선택 (완료): "frontend_expert"
+│   ├── 🔄 2. Agent 생성 (진행 중)
+│   ├── ⏳ 3. 작업 실행 (대기)
+│   └── ⏳ 4. 결과 정리 (대기)
+└── 🔧 assignTask #2 (대기 중)
+    ├── 상태: pending
+    └── 목표: "React 분석"
+```
 
-### ✅ 기본 이벤트 타입 (변경 없음)
+#### ⏰ 두 assignTask 모두 진행 중 (6초) - 병렬 실행:
+```
+📦 Team 실행 (진행 중)
+├── 💬 사용자 메시지: "vue와 react를 비교해줘"
+├── 🔧 assignTask #1 (진행 중 - 75%)
+│   ├── 상태: in_progress, 현재 단계: 3/4
+│   ├── ✅ 1. 템플릿 선택: "frontend_expert"
+│   ├── ✅ 2. Agent 생성: vue_expert_001
+│   ├── 🔄 3. 작업 실행 (진행 중)
+│   │   └── 👤 Vue 전문가 Agent (시작됨)
+│   │       ├── 상태: in_progress
+│   │       ├── 💬 입력: "Vue.js 특징과 장단점 분석해줘"
+│   │       └── ⏳ 분석 중...
+│   └── ⏳ 4. 결과 정리 (대기)
+└── 🔧 assignTask #2 (진행 중 - 50%)
+    ├── 상태: in_progress, 현재 단계: 2/4
+    ├── ✅ 1. 템플릿 선택: "frontend_expert"
+    ├── 🔄 2. Agent 생성 (진행 중)
+    ├── ⏳ 3. 작업 실행 (대기)
+    └── ⏳ 4. 결과 정리 (대기)
+```
+
+#### ⏰ Vue Agent 도구 사용 중 (10초) - 하위 도구 실행:
+```
+📦 Team 실행 (진행 중)
+├── 💬 사용자 메시지: "vue와 react를 비교해줘"
+├── 🔧 assignTask #1 (진행 중 - 75%)
+│   ├── ✅ 1. 템플릿 선택: "frontend_expert"
+│   ├── ✅ 2. Agent 생성: vue_expert_001
+│   ├── 🔄 3. 작업 실행 (진행 중)
+│   │   └── 👤 Vue 전문가 Agent (진행 중)
+│   │       ├── 💬 입력: "Vue.js 특징과 장단점 분석해줘"
+│   │       ├── 🔧 웹 검색 (진행 중 - 75%)
+│   │       │   ├── ✅ 쿼리 처리: "Vue.js features pros cons"
+│   │       │   ├── ✅ 웹 요청 완료
+│   │       │   ├── 🔄 결과 파싱 중...
+│   │       │   └── ⏳ 관련성 필터링 (대기)
+│   │       └── ⏳ 응답 생성 (대기)
+│   └── ⏳ 4. 결과 정리 (대기)
+└── 🔧 assignTask #2 (진행 중 - 75%)
+    ├── ✅ 1. 템플릿 선택: "frontend_expert"
+    ├── ✅ 2. Agent 생성: react_expert_002
+    ├── 🔄 3. 작업 실행 (시작됨)
+    │   └── 👤 React 전문가 Agent (시작됨)
+    │       ├── 💬 입력: "React 특징과 장단점 분석해줘"
+    │       └── ⏳ 도구 선택 중...
+    └── ⏳ 4. 결과 정리 (대기)
+```
+
+#### ⏰ 첫 번째 assignTask 완료 (15초) - 부분 완료:
+```
+📦 Team 실행 (진행 중)
+├── 💬 사용자 메시지: "vue와 react를 비교해줘"
+├── 🔧 assignTask #1 (완료 ✅)
+│   ├── 상태: completed, 완료 시간: 15초
+│   ├── ✅ 1. 템플릿 선택: "frontend_expert"
+│   ├── ✅ 2. Agent 생성: vue_expert_001
+│   ├── ✅ 3. 작업 실행 완료
+│   │   └── 👤 Vue 전문가 Agent (완료)
+│   │       ├── 💬 입력: "Vue.js 특징과 장단점 분석해줘"
+│   │       ├── ✅ 웹 검색 완료
+│   │       │   ├── ✅ 쿼리 처리: "Vue.js features pros cons"
+│   │       │   ├── ✅ 웹 요청 완료
+│   │       │   ├── ✅ 결과 파싱 완료
+│   │       │   └── ✅ 관련성 필터링 완료
+│   │       └── 💭 응답: "Vue.js는 점진적 프레임워크로 기존 프로젝트에 쉽게 통합 가능하며..."
+│   └── ✅ 4. 결과 정리 완료: "Vue.js 분석 완료"
+└── 🔧 assignTask #2 (진행 중 - 90%)
+    ├── 상태: in_progress, 현재 단계: 3/4
+    ├── ✅ 1. 템플릿 선택: "frontend_expert"
+    ├── ✅ 2. Agent 생성: react_expert_002
+    ├── 🔄 3. 작업 실행 (거의 완료)
+    │   └── 👤 React 전문가 Agent (진행 중)
+    │       ├── 💬 입력: "React 특징과 장단점 분석해줘"
+    │       ├── ✅ 웹 검색 완료
+    │       └── 🔄 응답 생성 중...
+    └── ⏳ 4. 결과 정리 (대기)
+```
+
+#### ⏰ 모든 assignTask 완료, Team 응답 생성 중 (18초) - 최종 처리:
+```
+📦 Team 실행 (진행 중 - 95%)
+├── 💬 사용자 메시지: "vue와 react를 비교해줘"
+├── 🔧 assignTask #1 (완료 ✅)
+│   ├── 완료 시간: 15초
+│   └── 결과: "Vue.js 상세 분석 완료"
+├── 🔧 assignTask #2 (완료 ✅)
+│   ├── 완료 시간: 18초  
+│   └── 결과: "React 상세 분석 완료"
+└── 🔄 Team Agent 최종 응답 생성 중...
+    ├── 단계: 두 분석 결과 통합 중
+    └── 예상 완료: 2초 후
+```
+
+#### ✅ 최종 완료 시 노드 구조 (20초):
+```
+📦 Team 실행 (완료 ✅)
+├── 💬 사용자 메시지: "vue와 react를 비교해줘"
+├── 🔧 assignTask #1 (완료 ✅)
+│   ├── ✅ 템플릿 선택: "frontend_expert"
+│   ├── ✅ Agent 생성: vue_expert_001
+│   ├── ✅ 작업 실행 완료
+│   │   └── 👤 Vue 전문가 Agent (완료)
+│   │       ├── 💬 "Vue.js 특징과 장단점 분석해줘"
+│   │       ├── ✅ 웹 검색 완료
+│   │       │   ├── ✅ 쿼리 처리: "Vue.js features pros cons"
+│   │       │   ├── ✅ 웹 요청 완료  
+│   │       │   ├── ✅ 결과 파싱 완료
+│   │       │   └── ✅ 관련성 필터링 완료
+│   │       └── 💭 응답: "Vue.js는 점진적 프레임워크로..."
+│   └── ✅ 결과 정리 완료
+├── 🔧 assignTask #2 (완료 ✅)
+│   ├── ✅ 템플릿 선택: "frontend_expert"
+│   ├── ✅ Agent 생성: react_expert_002
+│   ├── ✅ 작업 실행 완료
+│   │   └── 👤 React 전문가 Agent (완료)
+│   │       ├── 💬 "React 특징과 장단점 분석해줘"
+│   │       ├── ✅ 웹 검색 완료
+│   │       │   ├── ✅ 쿼리 처리: "React features pros cons"
+│   │       │   ├── ✅ 웹 요청 완료
+│   │       │   ├── ✅ 결과 파싱 완료
+│   │       │   └── ✅ 관련성 필터링 완료
+│   │       └── 💭 응답: "React는 컴포넌트 기반 라이브러리로..."
+│   └── ✅ 결과 정리 완료
+└── 💭 최종 응답: "Vue와 React 비교 결과: Vue.js는... React는..."
+```
+
+## 🏗️ 핵심 설계 원칙
+
+### 1. 동적 하위 노드 생성
+- Tool 실행 시작 → 메인 노드 1개 생성
+- 실행 진행되면서 → **하위 노드들이 자동으로 추가**
+- 각 하위 노드는 **독립적인 상태** 관리
+
+### 2. 실행 계획 기반 추적
+- 각 Tool마다 **실행 단계를 미리 정의**
+- 예: assignTask = [템플릿 선택 → Agent 생성 → 실행 → 결과 정리]
+- 실행 전에 **예상 단계들을 미리 표시** 가능
+
+### 3. 실시간 상태 업데이트
+- 각 단계별로 **상태가 실시간 변경**
+- 진행률 표시: "3/5 단계 완료 (60%)"
+- 현재 어떤 단계가 실행 중인지 명확히 표시
+
+### 4. 병렬 실행 추적
+- 여러 assignTask가 **동시 실행**되는 것을 명확히 표현
+- 각각 **독립적인 진행률**과 상태 관리
+- 완료 시점이 다를 수 있음을 시각적으로 표현
+
+### 5. 계층 구조 유지
+- Team → assignTask → Agent → Tool 계층 명확 유지
+- 각 레벨에서 **적절한 수준의 정보** 표시
+- 하위 레벨로 갈수록 **더 세부적인 정보** 제공
+
+## 📊 노드 타입 정의
+
+### 기본 노드 타입
 ```typescript
-type BasicEventType = 
-    | 'user_message'      // 사용자 입력
-    | 'assistant_response' // LLM 응답  
-    | 'tool_call'         // 도구 호출
-    | 'tool_result'       // 도구 결과
-    | 'error';            // 오류
-```
-
-### ✅ 계층 구조 필드 (핵심)
-```typescript
-interface ConversationEvent {
-    // 기본 필드들...
-    id: string;
-    type: BasicEventType; // ✅ 단순한 5개 타입만
-    timestamp: Date;
-    content?: string;
-    
-    // 🎯 계층 구조 핵심 필드들
-    parentEventId?: string;   // 부모 이벤트 참조
-    childEventIds: string[];  // 자식 이벤트들 (자동 관리)
-    executionLevel: number;   // 0=Team, 1=Tool, 2=Sub-Agent, 3=Sub-Tool
-    executionPath: string;    // 'team→assignTask→agent_abc→webSearch'
-    
-    // 🔧 컨텍스트 추적
-    agentId?: string;         // 실행 중인 Agent ID
-    toolName?: string;        // 실행 중인 Tool 이름
-    delegationId?: string;    // assignTask 호출 고유 ID
+interface TrackingNode {
+  id: string;
+  type: 'team' | 'agent' | 'tool' | 'message' | 'step';
+  status: 'pending' | 'in_progress' | 'completed' | 'error';
+  timestamp: Date;
+  metadata: any;
+  children: string[]; // 자식 노드 ID 목록
 }
 ```
 
-## 🏗️ 구현 계획
-
-✅ **구현 상세 계획은 별도 문서 참조**: [TEAM-HOOKS-IMPLEMENTATION-CHECKLIST.md](./TEAM-HOOKS-IMPLEMENTATION-CHECKLIST.md)
-
-### 핵심 아키텍처 변경점
-
-**기존 문제**: Team 라이브러리에 Hook을 주입할 표준 방법이 없음
-**해결 방안**: TeamOptions에 toolHooks 옵션 추가로 표준화된 Hook 주입 제공
-
-**아키텍처 준수**:
-- **Dependency Injection**: 생성자 옵션을 통한 Hook 주입
-- **Single Responsibility**: Team은 실행만, Hook은 추적만 담당  
-- **Interface Segregation**: 기존 ToolHooks 인터페이스 재사용
-- **보편성**: 모든 Team 라이브러리 사용자가 활용 가능
-
-### ✅ Phase 3: 계층 표현 로직 구현
-
-#### [x] 3.1 executionLevel 자동 계산
-- [x] calculateExecutionLevel 메서드 구현
-- [x] null/undefined 안전성 보장
-- [x] 범위 제한 (최대 3레벨)
-
-#### [x] 3.2 executionPath 자동 생성
-- [x] buildExecutionPath 메서드 구현
-- [x] 안전한 문자열 생성
-- [x] 기본값 'team' 보장
-
-#### [x] 3.3 부모-자식 관계 자동 관리
-- [x] recordEvent 시 parentEventId 기반 자식 배열 업데이트
-- [x] 순환 참조 방지 로직
-- [x] **즉시 검증**: 관계 추적 정상 동작
-
-### ✅ Phase 4: UI 계층 시각화
-
-#### [x] 4.1 단순한 들여쓰기 기반 표시
-- [x] executionLevel 기반 들여쓰기 (level * 20px)
-- [x] 이벤트 타입별 색상 구분
-- [x] 실행 경로 breadcrumb 표시
-- [x] **즉시 검증**: UI 계층 표현 정상 동작
-
-#### [ ] 4.2 확장/축소 기능
-- [ ] 부모 이벤트 클릭 시 자식들 토글
-- [ ] Level별 색상 구분
-- [ ] 실행 경로 breadcrumb 표시
-- [ ] **즉시 검증**: UI 계층 표현 정상 동작
-
-## 🔧 구현 예시
-
-### Team 실행 시나리오 (toolHooks 기반)
-```
-사용자: "vue와 react 비교해줘"
-
-📊 생성되는 이벤트 구조:
-┌─ user_message (level=0, team) [Team Level]
-├─ tool_call (level=1, team→assignTask) [Hook: onBeforeExecute]
-│  ├─ [Sub-Agent 실행 과정은 Team 내부에서 처리]
-│  ├─ [Vue 전문가 Agent 생성 → 분석 → 결과 반환]
-│  └─ [React 전문가 Agent 생성 → 분석 → 결과 반환]
-├─ tool_result (level=1, team→assignTask) [Hook: onAfterExecute]
-└─ assistant_response (level=0, team) [Team Level]
-```
-
-### Hook 구현 예시 (Playground용)
+### 동적 Tool 노드
 ```typescript
-// Playground에서 Team 생성 시
-const team = createTeam({
-  aiProviders: [openaiProvider, anthropicProvider],
-  toolHooks: {
-    beforeExecute: async (toolName, params, context) => {
-      if (toolName === 'assignTask') {
-        historyPlugin.recordEvent({
-          type: 'tool_call',
-          content: `🚀 [${toolName}] Starting: ${JSON.stringify(params)}`,
-          toolName,
-          parameters: params,
-          delegationId: generateDelegationId(),
-          // parentEventId는 Team의 user_message (자동 계층화)
-        });
-      }
-    },
-    afterExecute: async (toolName, params, result, context) => {
-      if (toolName === 'assignTask') {
-        historyPlugin.recordEvent({
-          type: 'tool_result',
-          content: `✅ [${toolName}] Completed: ${result}`,
-          toolName,
-          result,
-          // parentEventId는 동일 delegationId의 tool_call (자동 계층화)
-        });
-      }
-    },
-    onError: async (toolName, params, error, context) => {
-      if (toolName === 'assignTask') {
-        historyPlugin.recordEvent({
-          type: 'error',
-          content: `❌ [${toolName}] Error: ${error.message}`,
-          toolName,
-          error: error.message,
-        });
-      }
-    }
-  }
-});
-```
-
-### Team 패키지 구현 예시
-```typescript
-// packages/team/src/team-container.ts
-class TeamContainer {
-  private toolHooks?: ToolHooks;
-
-  constructor(options: TeamContainerOptions) {
-    this.toolHooks = options.toolHooks;
-    // ...
-  }
-
-  private createAssignTaskTool() {
-    if (this.toolHooks) {
-      // Hook이 있으면 AgentDelegationTool 사용
-      return new AgentDelegationTool({
-        hooks: this.toolHooks,
-        availableTemplates: this.availableTemplates,
-        executor: (params) => this.assignTask(params),
-        logger: this.logger
-      });
-    } else {
-      // Hook이 없으면 기존 방식 사용
-      return createTaskAssignmentFacade(
-        this.availableTemplates.map(t => ({ id: t.id, description: t.description })),
-        (params) => this.assignTask(params)
-      ).tool;
-    }
-  }
+interface DynamicToolNode extends TrackingNode {
+  type: 'tool';
+  toolName: string;
+  params?: any;
+  result?: any;
+  
+  // 실행 계획
+  executionPlan?: {
+    steps: ExecutionStep[];
+    estimatedTotalTime?: number;
+  };
+  
+  // 현재 진행 상황
+  currentStep?: number;
+  progress?: {
+    current: number;
+    total: number;
+    percentage: number;
+  };
 }
 ```
 
-## 🎯 핵심 이점
+### 실행 단계
+```typescript
+interface ExecutionStep {
+  id: string;
+  name: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'error';
+  description?: string;
+  estimatedDuration?: number;
+  outputs?: any[];
+}
+```
 
-### 1. 아키텍처 단순성
-- **복잡한 Team 전용 이벤트 제거** → 유지보수 용이
-- **기본 5개 이벤트 타입만 사용** → 이해하기 쉬움  
-- **Tool Hook 패턴 활용** → 기존 SDK 아키텍처와 일관성
+## 🎨 UI 표현 목표
 
-### 2. 확장성
-- **새로운 Tool 추가 시** → 동일한 Hook 패턴 적용
-- **더 깊은 중첩** → executionLevel만 증가
-- **다른 Agent 타입** → 동일한 이벤트 구조 사용
+### 상태별 아이콘
+- ⏳ 대기 중 (pending)
+- 🔄 진행 중 (in_progress)  
+- ✅ 완료 (completed)
+- ❌ 오류 (error)
 
-### 3. 디버깅 용이성  
-- **실행 경로 추적** → `executionPath`로 한눈에 파악
-- **계층별 필터링** → Level별로 보기 가능
-- **단순한 이벤트 타입** → 로그 분석 용이
+### 노드 타입별 아이콘
+- 📦 Team 실행
+- 💬 메시지 (사용자/어시스턴트)
+- 🔧 Tool 실행
+- 👤 Agent 실행
+- 💭 응답/결과
 
-## ✅ 성공 기준 (toolHooks 아키텍처)
+### 진행률 표시
+- 퍼센티지: "(진행 중 - 60%)"
+- 단계별: "3/5 단계 완료"
+- 프로그레스 바: 시각적 진행률 표시
 
-**기술적 목표**:
-- [ ] TeamOptions에 toolHooks 옵션 추가로 표준 Hook 주입 방법 제공
-- [ ] 기존 ToolHooks 인터페이스 재사용하여 타입 안전성 보장
-- [ ] AgentDelegationTool과 기존 createTaskAssignmentFacade 선택적 사용
-- [ ] Playground에서 createTeam({ toolHooks }) 방식으로 간단 사용
-- [ ] assignTask 실행 시 Hook을 통한 자동 계층 이벤트 생성
+### 계층 표현
+- 들여쓰기로 계층 구조 표현
+- 확장/축소 가능한 노드
+- 실시간 업데이트 애니메이션
 
-**사용자 경험 목표**:
-- [ ] Team 실행 과정을 Level 0(Team) → Level 1(assignTask) 계층으로 표시
-- [ ] assignTask 도구 호출과 완료가 명확히 구분되어 표시
-- [ ] Sub-Agent 실행은 Team 내부 처리로 단순화 (복잡성 제거)
-- [ ] 오류 발생 시 정확한 도구 레벨에서 추적 가능
-- [ ] 직관적인 들여쓰기 UI로 실행 흐름 파악 가능
+## 🔧 구현 계획
 
-**아키텍처 준수 목표**:
-- [ ] **Dependency Injection**: toolHooks를 생성자 옵션으로 주입
-- [ ] **Single Responsibility**: Team은 실행만, Hook은 추적만 담당
-- [ ] **Interface Segregation**: 기존 ToolHooks 인터페이스 재사용
-- [ ] **보편성**: 모든 Team 라이브러리 사용자가 활용 가능한 공통 기능
-- [ ] **선택성**: Hook 없이도 기존과 동일하게 동작 (하위 호환성)
+### Phase 1: 기본 트래킹 트리 구현
+- [ ] TrackingNode 인터페이스 정의
+- [ ] TrackingTree 싱글톤 클래스 구현 
+- [ ] 노드 생성, 업데이트, 조회 메서드
+- [ ] 계층 구조 관리 기능
 
-**검증 체크리스트**:
-- [ ] `createTeam({ toolHooks })` 호출 시 컴파일 오류 없음
-- [ ] Team 실행 시 onBeforeExecute Hook 정상 호출
-- [ ] assignTask 완료 시 onAfterExecute Hook 정상 호출  
-- [ ] Hook을 통해 기록된 이벤트가 올바른 계층 레벨(0,1) 표시
-- [ ] UI에서 team→assignTask 경로가 들여쓰기로 표시
-- [ ] 기존 Team 라이브러리 사용자에게 영향 없음 (toolHooks 미사용 시) 
+### Phase 2: 동적 노드 생성 시스템
+- [ ] DynamicToolNode 인터페이스 구현
+- [ ] 실행 계획 정의 시스템
+- [ ] 단계별 하위 노드 자동 생성
+- [ ] 실시간 진행률 계산
+
+### Phase 3: Tool별 실행 계획 정의
+- [ ] assignTask 실행 계획 구현
+- [ ] webSearch 실행 계획 구현
+- [ ] 기타 Tool들의 실행 계획 정의
+- [ ] 실행 계획 팩토리 패턴 적용
+
+### Phase 4: 기존 코드와의 통합
+- [ ] Tool 실행 시 노드 생성 자동화
+- [ ] 각 실행 단계에서 노드 상태 업데이트
+- [ ] 하위 Agent/Tool 생성 시 노드 연결
+- [ ] 오류 처리 및 예외 상황 노드 생성
+
+### Phase 5: UI 구현
+- [ ] 노드 트리 렌더링 컴포넌트
+- [ ] 실시간 업데이트 구독 시스템
+- [ ] 상태별 시각적 표현 (아이콘, 색상)
+- [ ] 진행률 표시 및 애니메이션
+- [ ] 확장/축소 기능
+
+### Phase 6: 최적화 및 고도화
+- [ ] 성능 최적화 (큰 트리 처리)
+- [ ] 메모리 사용량 최적화
+- [ ] 실시간 업데이트 성능 개선
+- [ ] 사용자 경험 개선
+
+## 🎯 핵심 기술적 도전 과제
+
+### 1. 비침습적 통합
+- **문제**: 기존 Team, Agent, Tool 코드를 최대한 수정하지 않고 추적 기능 추가
+- **해결 방향**: 프록시 패턴 또는 래퍼 함수 활용
+
+### 2. 실시간 노드 생성
+- **문제**: Tool 실행 중에 동적으로 하위 노드를 생성하고 연결
+- **해결 방향**: 콜백 기반 단계별 알림 시스템
+
+### 3. 병렬 실행 추적
+- **문제**: 여러 assignTask가 동시 실행될 때 각각의 상태 독립 관리
+- **해결 방향**: 노드 ID 기반 독립적 상태 관리
+
+### 4. 계층 구조 유지
+- **문제**: 복잡한 중첩 구조에서도 명확한 부모-자식 관계 유지
+- **해결 방향**: 활성 노드 스택 또는 컨텍스트 기반 관리
+
+### 5. UI 성능
+- **문제**: 대량의 노드와 실시간 업데이트로 인한 UI 성능 저하
+- **해결 방향**: 가상화, 배치 업데이트, 메모화 적용
+
+## ✅ 성공 기준
+
+### 기술적 목표
+- [ ] 기존 코드 수정 없이 추적 기능 추가 가능
+- [ ] Tool 실행의 모든 단계를 세밀하게 추적
+- [ ] 병렬 실행되는 여러 assignTask 독립적 추적
+- [ ] 실시간 진행률 표시 (퍼센티지, 단계별)
+- [ ] 하위 Agent/Tool 생성 시 자동 노드 연결
+
+### 사용자 경험 목표
+- [ ] 복잡한 Team 실행 과정을 직관적으로 파악 가능
+- [ ] 현재 어떤 작업이 진행 중인지 명확히 표시
+- [ ] 예상 완료 시간 및 진행률 정보 제공
+- [ ] 오류 발생 시 정확한 위치와 원인 표시
+- [ ] 확장/축소를 통한 세부 정보 조절 가능
+
+### 아키텍처 목표
+- [ ] 단일 트래킹 트리로 모든 실행 정보 통합 관리
+- [ ] 느슨한 결합으로 기존 코드와 독립적 동작
+- [ ] 확장 가능한 구조로 새로운 Tool 타입 쉽게 추가
+- [ ] 실시간 이벤트 시스템으로 UI 자동 업데이트
+- [ ] 메모리 효율적인 노드 관리
+
+## 🚀 구현 시작점
+
+### 1. 최소 실행 가능한 제품 (MVP)
+1. **기본 트래킹 트리**: 노드 생성, 업데이트, 조회
+2. **단순 Tool 추적**: assignTask 실행 시 기본 노드 생성
+3. **기본 UI 렌더링**: 간단한 트리 구조 표시
+4. **실시간 업데이트**: 노드 상태 변경 시 UI 갱신
+
+### 2. 점진적 개선
+1. **실행 계획 추가**: 단계별 진행률 표시
+2. **동적 노드 생성**: 하위 Agent/Tool 자동 연결
+3. **병렬 실행 지원**: 여러 assignTask 동시 추적
+4. **고급 UI 기능**: 확장/축소, 애니메이션
+
+### 3. 통합 및 최적화
+1. **전체 Tool 지원**: 모든 Tool 타입에 대한 추적
+2. **성능 최적화**: 대규모 트리 처리 개선
+3. **사용자 경험 개선**: 직관적인 인터페이스 완성
+
+이 계획을 통해 **사용자가 Team 실행 과정을 직관적이고 상세하게 파악할 수 있는** 혁신적인 추적 시스템을 구현할 수 있습니다. 
