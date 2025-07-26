@@ -6,8 +6,10 @@ import type { TimerId } from '../utils';
 
 /**
  * Event types that can be emitted
+ * Enhanced with hierarchical execution tracking events
  */
 export type EventType =
+    // 🔄 Existing event types (unchanged for backward compatibility)
     | 'execution.start'
     | 'execution.complete'
     | 'execution.error'
@@ -30,7 +32,12 @@ export type EventType =
     | 'module.dispose.error'
     | 'module.registered'
     | 'module.unregistered'
-    | 'custom';
+    | 'custom'
+
+    // 🆕 New hierarchical execution tracking events
+    | 'execution.hierarchy'    // Hierarchical execution context information
+    | 'execution.realtime'     // Real-time execution data updates
+    | 'tool.realtime';         // Tool real-time status changes
 
 /**
  * Basic event execution value types - compatible with BaseExecutionResult
@@ -104,6 +111,36 @@ export interface EventData {
     data?: EventExecutionContextData | undefined;
     error?: Error | undefined;
     metadata?: EventEmitterMetadata | undefined;
+}
+
+/**
+ * 🆕 Enhanced event data for hierarchical execution tracking
+ * Extends EventData with additional fields for parent-child relationships and real-time data
+ */
+export interface HierarchicalEventData extends EventData {
+    /** Parent execution ID for hierarchical tracking */
+    parentExecutionId?: string;
+
+    /** Root execution ID (Team/Agent level) */
+    rootExecutionId?: string;
+
+    /** Execution depth level (0: Team, 1: Agent, 2: Tool, etc.) */
+    executionLevel: number;
+
+    /** Execution path showing complete hierarchy */
+    executionPath: string[];
+
+    /** Real-time execution data (no simulation) */
+    realTimeData?: {
+        /** Actual execution start time */
+        startTime: Date;
+        /** Actual duration in milliseconds (when completed) */
+        actualDuration?: number;
+        /** Actual input parameters */
+        actualParameters?: any;
+        /** Actual execution result */
+        actualResult?: any;
+    };
 }
 
 /**

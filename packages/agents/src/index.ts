@@ -188,7 +188,7 @@ export { ErrorHandlingPlugin, ErrorHandlingStrategy, ErrorHandlingPluginOptions 
  * @public
  */
 export { LimitsPlugin, LimitsStrategy, LimitsPluginOptions } from './plugins/limits-plugin';
-export { EventEmitterPlugin, EventType, EventData, EventListener, EventEmitterPluginOptions } from './plugins/event-emitter-plugin';
+export { EventEmitterPlugin, EventType, EventData, EventListener, EventEmitterPluginOptions, HierarchicalEventData } from './plugins/event-emitter-plugin';
 export { WebhookPlugin, WebhookEventType, WebhookPayload, WebhookEndpoint, WebhookPluginOptions } from './plugins/webhook';
 
 // ===== MAIN AGENT EXPORTS =====
