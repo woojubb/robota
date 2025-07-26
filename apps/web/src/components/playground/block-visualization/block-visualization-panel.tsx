@@ -11,12 +11,16 @@ import {
     AlertTriangle,
     Clock,
     Users,
-    Settings
+    Settings,
+    GitBranch,
+    Code
 } from 'lucide-react';
 import type {
     BlockMessage,
     BlockDataCollector
 } from '@/lib/playground/block-tracking';
+import { ExecutionTreeDebug } from '../execution-tree-debug';
+import type { PlaygroundBlockCollector } from '@/lib/playground/block-tracking/block-collector';
 
 /**
  * Props for BlockVisualizationPanel
@@ -295,10 +299,11 @@ export const BlockVisualizationPanel: React.FC<BlockVisualizationPanelProps> = (
 
             <CardContent className="flex-1 p-0">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-                    <TabsList className="grid w-full grid-cols-4 mx-3 mb-0">
+                    <TabsList className="grid w-full grid-cols-5 mx-3 mb-0">
                         <TabsTrigger value="tree">Tree</TabsTrigger>
                         <TabsTrigger value="stats">Stats</TabsTrigger>
                         <TabsTrigger value="types">Types</TabsTrigger>
+                        <TabsTrigger value="debug">Debug</TabsTrigger>
                         <TabsTrigger value="inspect">Inspect</TabsTrigger>
                     </TabsList>
 
@@ -324,6 +329,15 @@ export const BlockVisualizationPanel: React.FC<BlockVisualizationPanelProps> = (
                         <TabsContent value="types" className="h-full m-0">
                             <div className="h-full overflow-y-auto">
                                 <BlockTypeBreakdown blockCollector={blockCollector} />
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="debug" className="h-full m-0">
+                            <div className="h-full overflow-y-auto p-3">
+                                <ExecutionTreeDebug
+                                    blockCollector={blockCollector as PlaygroundBlockCollector}
+                                    refreshInterval={1000}
+                                />
                             </div>
                         </TabsContent>
 
