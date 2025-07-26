@@ -17,13 +17,17 @@ import { Robota, type ToolHooks } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { createTeam, type TeamOptions } from '@robota-sdk/team';
-import { PlaygroundHistoryPlugin, type PlaygroundVisualizationData, type ConversationEvent } from './plugins/playground-history-plugin';
+import {
+    PlaygroundHistoryPlugin,
+    ConversationEvent,
+    VisualizationData
+} from './plugins/playground-history-plugin';
 import { PlaygroundStatisticsPlugin } from './plugins/playground-statistics-plugin';
 import type { PlaygroundMetrics, PlaygroundExecutionResult as PlaygroundStatisticsResult } from '../../types/playground-statistics';
 import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
 
 // Re-export types for external use
-export type { PlaygroundVisualizationData, ConversationEvent } from './plugins/playground-history-plugin';
+export type { VisualizationData, ConversationEvent } from './plugins/playground-history-plugin';
 import { PlaygroundWebSocketClient } from './websocket-client';
 import { RemoteExecutor } from '@robota-sdk/remote';
 
@@ -31,52 +35,92 @@ import { RemoteExecutor } from '@robota-sdk/remote';
  * Hook Factory for AssignTask Tool
  * Creates hooks that automatically record Team delegation events to PlaygroundHistoryPlugin
  */
-const createAssignTaskHooks = (historyPlugin: PlaygroundHistoryPlugin): ToolHooks => ({
-    beforeExecute: async (toolName, parameters, context) => {
-        console.log(`🔧 [Hook] beforeExecute: ${toolName}`, parameters);
-        historyPlugin.recordEvent({
-            type: 'tool_call',
-            content: `🔧 [${toolName}] Starting: ${JSON.stringify(parameters)}`,
-            toolName,
-            parameters: parameters as Record<string, unknown>,
-            metadata: {
-                phase: 'start',
-                context,
-                timestamp: new Date().toISOString()
-            }
-        });
-    },
-    afterExecute: async (toolName, parameters, result, context) => {
-        console.log(`✅ [Hook] afterExecute: ${toolName}`, { parameters, result });
-        historyPlugin.recordEvent({
-            type: 'tool_result',
-            content: `✅ [${toolName}] Completed: ${typeof result === 'string' ? result : JSON.stringify(result)}`,
-            toolName,
-            parameters: parameters as Record<string, unknown>,
-            result,
-            metadata: {
-                phase: 'complete',
-                context,
-                timestamp: new Date().toISOString()
-            }
-        });
-    },
-    onError: async (toolName, parameters, error, context) => {
-        console.log(`❌ [Hook] onError: ${toolName}`, error.message);
-        historyPlugin.recordEvent({
-            type: 'error',
-            content: `❌ [${toolName}] Error: ${error.message}`,
-            toolName,
-            parameters: parameters as Record<string, unknown>,
-            error: error.message,
-            metadata: {
-                phase: 'error',
-                context,
-                timestamp: new Date().toISOString()
-            }
-        });
-    }
-});
+const createAssignTaskHooks = (historyPlugin: PlaygroundHistoryPlugin) => {
+    // 현재 delegation context 추적
+    let currentDelegationId: string | undefined;
+    let currentToolCallEventId: string | undefined;
+
+    return {
+        onBeforeExecute: async (toolName: string, parameters: any, context?: any) => {
+            console.log(`🚀 [Hook] beforeExecute: ${toolName}`, { parameters });
+
+            // delegation context 생성
+            currentDelegationId = `delegation_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+
+            // assignTask 시작 이벤트 (Level 1: Tool)
+            const toolCallEvent = historyPlugin.recordEvent({
+                type: 'tool_call',
+                content: `🚀 [${toolName}] Starting with: ${JSON.stringify(parameters)}`,
+                toolName,
+                parameters: parameters as Record<string, unknown>,
+                delegationId: currentDelegationId,
+                metadata: {
+                    phase: 'start',
+                    context,
+                    timestamp: new Date().toISOString()
+                }
+                // parentEventId는 Team의 user_message (자동으로 Level 0에서 Level 1로)
+            });
+
+            // 현재 tool call 이벤트 ID 저장 (Sub-Agent 이벤트들이 참조할 용도)
+            currentToolCallEventId = toolCallEvent?.id;
+        },
+
+        onAfterExecute: async (toolName: string, parameters: any, result: any, context?: any) => {
+            console.log(`✅ [Hook] afterExecute: ${toolName}`, { parameters, result });
+
+            // assignTask 완료 이벤트 (Level 1: Tool)
+            historyPlugin.recordEvent({
+                type: 'tool_result',
+                content: `✅ [${toolName}] Completed: ${typeof result === 'string' ? result : JSON.stringify(result)}`,
+                toolName,
+                parameters: parameters as Record<string, unknown>,
+                result,
+                delegationId: currentDelegationId,
+                parentEventId: currentToolCallEventId, // tool_call과 연결
+                metadata: {
+                    phase: 'complete',
+                    context,
+                    timestamp: new Date().toISOString()
+                }
+            });
+
+            // delegation 완료 후 context 초기화
+            currentDelegationId = undefined;
+            currentToolCallEventId = undefined;
+        },
+
+        onError: async (toolName: string, parameters: any, error: Error, context?: any) => {
+            console.log(`❌ [Hook] onError: ${toolName}`, error.message);
+
+            // assignTask 실패 이벤트 (Level 1: Tool)
+            historyPlugin.recordEvent({
+                type: 'error',
+                content: `❌ [${toolName}] Error: ${error.message}`,
+                toolName,
+                parameters: parameters as Record<string, unknown>,
+                error: error.message,
+                delegationId: currentDelegationId,
+                parentEventId: currentToolCallEventId, // tool_call과 연결
+                metadata: {
+                    phase: 'error',
+                    context,
+                    timestamp: new Date().toISOString()
+                }
+            });
+
+            // 오류 발생 후 context 초기화
+            currentDelegationId = undefined;
+            currentToolCallEventId = undefined;
+        },
+
+        // 🆕 Sub-Agent 이벤트를 위한 delegation context 제공
+        getCurrentDelegationContext: () => ({
+            delegationId: currentDelegationId,
+            parentToolCallEventId: currentToolCallEventId
+        })
+    };
+};
 
 // Robota SDK-compatible type definitions for browser environment
 // These mirror the actual types from @robota-sdk/agents but are browser-safe
@@ -169,7 +213,7 @@ export interface PlaygroundExecutionResult {
     tokensUsed?: number;
     toolsExecuted?: string[];
     error?: Error;
-    visualizationData?: PlaygroundVisualizationData;
+    visualizationData?: VisualizationData; // ✅ 올바른 타입 이름
 }
 
 export type PlaygroundMode = 'agent' | 'team';
@@ -203,9 +247,8 @@ export class PlaygroundExecutor {
         // Create playground-specific plugins (ready immediately)
         this.historyPlugin = new PlaygroundHistoryPlugin({
             maxEvents: 1000,
-            visualizationMode: 'blocks',
-            enableRealTimeSync: false, // Disable WebSocket initially
-            websocketUrl: this.serverUrl
+            enableVisualization: true,
+            logger: this.logger
         });
 
         this.statisticsPlugin = new PlaygroundStatisticsPlugin({
@@ -454,7 +497,7 @@ export class PlaygroundExecutor {
     /**
      * Get visualization data from history plugin
      */
-    getVisualizationData(): PlaygroundVisualizationData {
+    getVisualizationData(): VisualizationData {
         return this.historyPlugin.getVisualizationData();
     }
 
@@ -478,7 +521,7 @@ export class PlaygroundExecutor {
      * Clear conversation history (Facade essential method)
      */
     clearHistory(): void {
-        this.historyPlugin.clearHistory();
+        this.historyPlugin.clearEvents();
     }
 
     /**
@@ -841,7 +884,7 @@ class PlaygroundTeamInstance {
         }
     }
 
-    async *executeStream(prompt: string): AsyncIterable<string> {
+    async *executeStream(prompt: string): AsyncGenerator<string, void, undefined> {
         if (!this.isInitialized) {
             await this.initialize();
         }
@@ -853,36 +896,52 @@ class PlaygroundTeamInstance {
         try {
             console.log('Team streaming prompt:', prompt);
 
-            // Record team streaming start
-            this.historyPlugin.recordEvent({
+            // 🎯 Phase 2.2: Team Level 이벤트 기록 (Level 0)
+            const teamUserEventId = this.historyPlugin.recordEvent({
                 type: 'user_message',
                 content: prompt,
-                metadata: { teamName: this.config.name, action: 'streaming_start' }
+                metadata: {
+                    teamName: this.config.name,
+                    action: 'streaming_start',
+                    level: 'team'
+                }
+                // parentEventId 없음 (Level 0: Team level)
             });
 
             let fullResponse = '';
 
             // Execute using actual team container streaming
+            // 🔧 여기서 teamContainer.executeStream이 내부적으로 assignTask를 호출하고
+            // 각 Sub-Agent가 실행되면서 Hook을 통해 계층화된 이벤트들이 자동 기록됨
             for await (const chunk of this.teamContainer.executeStream(prompt)) {
                 fullResponse += chunk;
                 yield chunk;
             }
 
-            // Record team streaming success with actual response
+            // 🎯 Team Level 응답 이벤트 기록 (Level 0)
             this.historyPlugin.recordEvent({
                 type: 'assistant_response',
                 content: fullResponse,
-                metadata: { teamName: this.config.name, action: 'streaming_success' }
+                parentEventId: teamUserEventId, // Team의 user_message와 연결
+                metadata: {
+                    teamName: this.config.name,
+                    action: 'streaming_success',
+                    level: 'team'
+                }
             });
 
         } catch (error) {
             console.error('Team streaming failed:', error);
 
-            // Record team streaming error
+            // Team Level 에러 이벤트 기록 (Level 0)
             this.historyPlugin.recordEvent({
                 type: 'error',
                 content: error instanceof Error ? error.message : String(error),
-                metadata: { teamName: this.config.name, action: 'streaming_error' }
+                metadata: {
+                    teamName: this.config.name,
+                    action: 'streaming_error',
+                    level: 'team'
+                }
             });
 
             throw new Error(`Team streaming failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
