@@ -8,7 +8,7 @@ import { convertToAssignTaskParams, formatResultForLLM } from '../task-assignmen
  */
 export interface AgentDelegationToolOptions {
     /**
-     * Function to execute task assignment
+     * Task execution function
      */
     executor: (params: AssignTaskParams) => Promise<AssignTaskResult>;
 
@@ -25,14 +25,14 @@ export interface AgentDelegationToolOptions {
     /**
      * Optional logger for tool execution
      */
-    logger?: SimpleLogger;
+    logger?: SimpleLogger | undefined;
 }
 
 /**
  * Agent delegation tool implementation
  * Wraps the existing createZodFunctionTool while adding Template Method Pattern hook support
  */
-export class AgentDelegationTool {
+export class AgentDelegationTool implements BaseTool<ToolParameters, ToolResult> {
     private readonly wrappedTool: BaseTool<ToolParameters, ToolResult>;
     private readonly hooks: ToolHooks | undefined;
     private readonly logger: SimpleLogger;
@@ -56,18 +56,33 @@ export class AgentDelegationTool {
         );
     }
 
-    /**
-     * Get the underlying tool schema
-     */
+    // 🔧 BaseTool 인터페이스 구현 (proxy 메서드들)
     get schema() {
         return this.wrappedTool.schema;
     }
 
-    /**
-     * Execute tool with Template Method Pattern hooks
-     */
+    getName(): string {
+        return this.wrappedTool.getName();
+    }
+
+    getDescription(): string {
+        return this.wrappedTool.getDescription();
+    }
+
     async execute(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
         return await this.wrappedTool.execute(parameters, context);
+    }
+
+    async executeImpl(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
+        return await this.wrappedTool.executeImpl(parameters, context);
+    }
+
+    validate(parameters: unknown): ToolParameters {
+        return this.wrappedTool.validate(parameters);
+    }
+
+    validateParameters(parameters: unknown): ToolParameters {
+        return this.wrappedTool.validateParameters(parameters);
     }
 
     /**

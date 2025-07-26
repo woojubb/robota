@@ -1,7 +1,8 @@
 /* eslint-disable no-console */
-import { Robota, AgentConfig, ExecutionAnalyticsPlugin, BasePlugin } from '@robota-sdk/agents';
+import { Robota, AgentConfig, ExecutionAnalyticsPlugin, BasePlugin, ToolHooks, BaseTool, SimpleLogger } from '@robota-sdk/agents';
 import { v4 as uuidv4 } from 'uuid';
 import { createTaskAssignmentFacade } from './task-assignment/index.js';
+import { AgentDelegationTool } from './tools/agent-delegation-tool.js';
 
 import {
     TeamContainerOptions,
@@ -145,22 +146,19 @@ interface AgentTemplate {
 export class TeamContainer {
     private teamAgent!: Robota;
     private options: TeamContainerOptions;
-    private logger: {
-        info: (message: string) => void;
-        warn: (message: string) => void;
-        error: (message: string) => void;
-        debug: (message: string) => void;
-    } | undefined;
+    private logger: SimpleLogger | undefined;
     private availableTemplates: AgentTemplate[];
     private delegationHistory: TaskDelegationRecord[] = [];
     private activeAgentsCount: number = 0; // Track currently active agents
     private totalAgentsCreated: number = 0; // Track total agents created
     private tasksCompleted: number = 0; // Track completed tasks
     private totalExecutionTime: number = 0; // Track total execution time in ms
+    private toolHooks: ToolHooks | undefined; // Tool hooks for assignTask instrumentation
 
     constructor(options: TeamContainerOptions) {
         this.options = options;
         this.logger = options.logger;
+        this.toolHooks = options.toolHooks; // Direct assignment without explicit undefined
 
         // Initialize built-in templates
         this.availableTemplates = this.getBuiltinTemplates();
@@ -751,26 +749,40 @@ export class TeamContainer {
 
     /**
      * Create AssignTask tool using the task assignment system
+     * Uses AgentDelegationTool with hooks if toolHooks provided, otherwise uses standard facade
      */
-    private createAssignTaskTool() {
+    private createAssignTaskTool(): BaseTool<any, any> {
         // Convert templates to the format expected by the task assignment system
         const templateInfo: TemplateInfo[] = this.availableTemplates.map(template => ({
             id: template.id,
             description: template.description
         }));
 
-        // Create the task assignment system
-        const taskAssignment = createTaskAssignmentFacade(
-            templateInfo,
-            async (params: AssignTaskParams) => {
-                return await this.assignTask(params);
-            }
-        );
+        if (this.toolHooks) {
+            // Use AgentDelegationTool with hooks for instrumentation
+            const delegationTool = new AgentDelegationTool({
+                hooks: this.toolHooks,
+                availableTemplates: templateInfo,
+                executor: async (params: AssignTaskParams) => {
+                    return await this.assignTask(params);
+                },
+                logger: this.logger
+            });
+            return delegationTool as unknown as BaseTool<any, any>;
+        } else {
+            // Use standard task assignment facade (existing behavior)
+            const taskAssignment = createTaskAssignmentFacade(
+                templateInfo,
+                async (params: AssignTaskParams) => {
+                    return await this.assignTask(params);
+                }
+            );
 
-        // Log the schema for debugging
-        console.log('assignTask schema:', JSON.stringify(taskAssignment.tool.schema, null, 2));
+            // Log the schema for debugging
+            console.log('assignTask schema:', JSON.stringify(taskAssignment.tool.schema, null, 2));
 
-        return taskAssignment.tool;
+            return taskAssignment.tool;
+        }
     }
 
     /**

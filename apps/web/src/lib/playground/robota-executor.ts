@@ -16,7 +16,7 @@
 import { Robota, type ToolHooks } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
-import { createTeam, type TeamOptions } from '@robota-sdk/team';
+import { createTeam, type TeamOptions, type TeamContainer } from '@robota-sdk/team';
 import {
     PlaygroundHistoryPlugin,
     ConversationEvent,
@@ -227,7 +227,7 @@ export type PlaygroundMode = 'agent' | 'team';
 export class PlaygroundExecutor {
     private mode: 'agent' | 'team' | null = null;
     private currentAgent: Robota | null = null;
-    private currentTeam: PlaygroundTeamInstance | null = null;
+    private currentTeam: TeamContainer | null = null;
 
     // Playground-specific plugins
     private historyPlugin: PlaygroundHistoryPlugin;
@@ -330,9 +330,22 @@ export class PlaygroundExecutor {
             // Create AI providers with remote executor
             const aiProviders = this.createProvidersWithExecutor();
 
-            // Create team instance with real AI providers and plugins
-            this.currentTeam = new PlaygroundTeamInstance(config, aiProviders, this.historyPlugin, this.statisticsPlugin);
-            await this.currentTeam.initialize();
+            // Create toolHooks for assignTask tracking
+            const toolHooks = createAssignTaskHooks(this.historyPlugin);
+
+            // Create team using actual Robota Team library with toolHooks
+            this.currentTeam = createTeam({
+                aiProviders: aiProviders,
+                maxMembers: config.maxMembers || 5,
+                debug: true,
+                toolHooks: toolHooks, // 🎯 Hook 주입
+                logger: {
+                    info: (msg: string) => this.logger.info(`[Team] ${msg}`),
+                    warn: (msg: string) => this.logger.warn(`[Team] ${msg}`),
+                    error: (msg: string) => this.logger.error(`[Team] ${msg}`),
+                    debug: (msg: string) => this.logger.debug(`[Team] ${msg}`)
+                }
+            });
 
             this.setMode('team');
 
@@ -579,10 +592,25 @@ export class PlaygroundExecutor {
                 } as UniversalMessage;
 
             } else if (this.mode === 'team' && this.currentTeam) {
-                const result = await this.currentTeam.execute(messages[0].content || ''); // Assuming prompt is the first message
+                // 🎯 Team Level 사용자 메시지 기록
+                this.historyPlugin.recordEvent({
+                    type: 'user_message',
+                    content: messages[0].content || '',
+                    metadata: { level: 'team', action: 'execute_start' }
+                });
+
+                const result = await this.currentTeam.execute(messages[0].content || '');
+
+                // 🎯 Team Level 응답 메시지 기록  
+                this.historyPlugin.recordEvent({
+                    type: 'assistant_response',
+                    content: typeof result === 'string' ? result : JSON.stringify(result),
+                    metadata: { level: 'team', action: 'execute_complete' }
+                });
+
                 response = {
                     role: 'assistant',
-                    content: result.response || JSON.stringify(result),
+                    content: typeof result === 'string' ? result : JSON.stringify(result),
                     timestamp: new Date()
                 } as UniversalMessage;
 
@@ -653,15 +681,32 @@ export class PlaygroundExecutor {
             } else if (this.mode === 'team' && this.currentTeam) {
                 console.log('📡 Starting team stream...');
                 const prompt = messages[0].content || '';
+
+                // 🎯 Team Level 사용자 메시지 기록
+                this.historyPlugin.recordEvent({
+                    type: 'user_message',
+                    content: prompt,
+                    metadata: { level: 'team', action: 'stream_start' }
+                });
+
                 const stream = this.currentTeam.executeStream(prompt);
+                let fullResponse = '';
 
                 for await (const chunk of stream) {
+                    fullResponse += chunk;
                     yield {
                         role: 'assistant',
                         content: chunk,
                         timestamp: new Date()
                     } as UniversalMessage;
                 }
+
+                // 🎯 Team Level 응답 메시지 기록
+                this.historyPlugin.recordEvent({
+                    type: 'assistant_response',
+                    content: fullResponse,
+                    metadata: { level: 'team', action: 'stream_complete' }
+                });
 
             } else {
                 const error = new Error(`No ${this.mode} configured for streaming execution`);

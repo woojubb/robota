@@ -49,9 +49,9 @@ export function createAssignTaskTool(
 }
 
 /**
- * Convert validated Zod output to AssignTaskParams
+ * Convert validated parameters to AssignTaskParams format
  */
-function convertToAssignTaskParams(validated: DynamicAssignTaskSchemaType): AssignTaskParams {
+export function convertToAssignTaskParams(validated: DynamicAssignTaskSchemaType): AssignTaskParams {
     const params: AssignTaskParams = {
         jobDescription: validated.jobDescription
     };
@@ -95,9 +95,9 @@ function createToolDescription(availableTemplates: TemplateInfo[]): string {
 }
 
 /**
- * Format task result for LLM consumption
+ * Format AssignTaskResult for LLM consumption
  */
-function formatResultForLLM(result: AssignTaskResult): string {
+export function formatResultForLLM(result: AssignTaskResult): string {
     const baseResult = `Task completed successfully by ${result.agentId}.\n\nResult:\n${result.result}`;
 
     const metadata = `\n\nExecution time: ${result.metadata.executionTime}ms`;
