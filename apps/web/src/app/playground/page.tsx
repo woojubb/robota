@@ -37,7 +37,8 @@ import {
     WifiOff,
     AlertCircle,
     CheckCircle,
-    Loader2
+    Loader2,
+    GitBranch
 } from 'lucide-react';
 
 // Context and Hooks
@@ -48,6 +49,10 @@ import { useWebSocketConnection } from '@/hooks/use-websocket-connection';
 import { useChatInput } from '@/hooks/use-chat-input';
 import { useBlockTracking } from '@/hooks/use-block-tracking';
 import { usePlaygroundStatistics } from '@/hooks/use-playground-statistics';
+
+// Import our new execution tree components
+import { ExecutionTreeDebug } from '@/components/playground/execution-tree-debug';
+import { PlaygroundBlockCollector } from '@/lib/playground/block-tracking/block-collector';
 
 // Visual Components
 import { AgentConfigurationBlock } from '@/components/playground/agent-configuration-block';
@@ -582,7 +587,8 @@ function PlaygroundContent() {
                 </Badge>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Top Row - Configuration and Visualization */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 {/* Left Column - Configuration */}
                 <div className="space-y-6">
                     <ConfigurationPanel />
@@ -590,15 +596,16 @@ function PlaygroundContent() {
                     <AuthDebug />
                 </div>
 
-                {/* Middle Column - Chat Interface */}
+                {/* Right Column - Execution Tree (Larger) */}
                 <div className="space-y-6">
-                    <ChatInterfacePanel />
-                </div>
-
-                {/* Right Column - Block Visualization */}
-                <div className="space-y-6">
+                    <ExecutionTreePanel />
                     <BlockVisualizationPanel />
                 </div>
+            </div>
+
+            {/* Bottom Row - Chat Interface (Full Width) */}
+            <div className="w-full">
+                <ChatInterfacePanel />
             </div>
         </div>
     );
@@ -616,6 +623,33 @@ function ToolsAndPluginsPanel() {
             </CardHeader>
             <CardContent>
                 <p className="text-sm text-gray-500">Coming soon...</p>
+            </CardContent>
+        </Card>
+    );
+}
+
+// 🧪 New Execution Tree Panel with Demo Capabilities
+function ExecutionTreePanel() {
+    const [blockCollector] = useState(() => new PlaygroundBlockCollector());
+
+    return (
+        <Card className="h-[600px]">
+            <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <GitBranch className="h-4 w-4 text-blue-500" />
+                    Execution Tree Debug
+                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 ml-auto">
+                        New!
+                    </Badge>
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="h-full pt-0 pb-3">
+                <div className="h-full overflow-hidden">
+                    <ExecutionTreeDebug
+                        blockCollector={blockCollector}
+                        refreshInterval={1000}
+                    />
+                </div>
             </CardContent>
         </Card>
     );
@@ -749,7 +783,7 @@ function BlockVisualizationPanel() {
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <ScrollArea className="h-96">
+                <ScrollArea className="h-48">
                     <div className="space-y-1">
                         {conversationEvents.map((event, index) => renderEventBlock(event, index))}
                         {conversationEvents.length === 0 && (

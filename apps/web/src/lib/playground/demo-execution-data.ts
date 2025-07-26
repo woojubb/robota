@@ -290,10 +290,8 @@ export function generateComplexDemoData(blockCollector: PlaygroundBlockCollector
     const now = new Date();
     blockCollector.clearBlocks();
 
-    // More complex scenario with deeper nesting and multiple assignTask calls
-    // This will generate the structure shown in SIMPLIFIED-TEAM-EVENTS-PLAN.md
-
-    // ... (Implementation would follow the structure from the documentation)
+    // Simple implementation for now - just call the regular demo
+    generateDemoExecutionData(blockCollector);
 
     console.log('✅ Complex demo data generation complete!');
 } 
