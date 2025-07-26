@@ -104,7 +104,13 @@ export class RemoteServer {
         // Chat endpoint
         this.router.post('/chat', async (req, res) => {
             try {
-                const { provider, model, messages } = req.body;
+                const { provider, model, messages, tools } = req.body;
+
+                console.log('🔧 [REMOTE-SERVER] Chat request received:');
+                console.log('🔧 [REMOTE-SERVER] Provider:', provider);
+                console.log('🔧 [REMOTE-SERVER] Model:', model);
+                console.log('🔧 [REMOTE-SERVER] Messages count:', messages?.length || 0);
+                console.log('🔧 [REMOTE-SERVER] Tools:', tools?.length || 0);
 
                 if (!provider || !model || !messages) {
                     res.status(400).json({
@@ -123,7 +129,14 @@ export class RemoteServer {
                 }
 
                 // Execute chat
-                const response = await providerInstance.chat(messages, { model });
+                console.log('🔧 [REMOTE-SERVER] Calling provider.chat with tools:', !!tools);
+                const chatOptions = {
+                    model,
+                    ...(tools && tools.length > 0 && { tools })
+                };
+                console.log('🔧 [REMOTE-SERVER] Chat options:', chatOptions);
+
+                const response = await providerInstance.chat(messages, chatOptions);
 
                 res.json({
                     success: true,
@@ -145,7 +158,13 @@ export class RemoteServer {
         // Stream endpoint
         this.router.post('/stream', async (req, res) => {
             try {
-                const { provider, model, messages } = req.body;
+                const { provider, model, messages, tools } = req.body;
+
+                console.log('🔧 [REMOTE-SERVER] Stream request received:');
+                console.log('🔧 [REMOTE-SERVER] Provider:', provider);
+                console.log('🔧 [REMOTE-SERVER] Model:', model);
+                console.log('🔧 [REMOTE-SERVER] Messages count:', messages?.length || 0);
+                console.log('🔧 [REMOTE-SERVER] Tools:', tools?.length || 0);
 
                 if (!provider || !model || !messages) {
                     res.status(400).json({
@@ -178,7 +197,14 @@ export class RemoteServer {
                         throw new Error(`Provider ${provider} does not support streaming`);
                     }
 
-                    const stream = providerInstance.chatStream(messages, { model });
+                    console.log('🔧 [REMOTE-SERVER] Calling provider.chatStream with tools:', !!tools);
+                    const chatOptions = {
+                        model,
+                        ...(tools && tools.length > 0 && { tools })
+                    };
+                    console.log('🔧 [REMOTE-SERVER] Chat options:', chatOptions);
+
+                    const stream = providerInstance.chatStream(messages, chatOptions);
 
                     for await (const chunk of stream) {
                         const data = JSON.stringify({

@@ -55,8 +55,8 @@ const nextConfig: NextConfig = {
 
   // Compiler optimizations
   compiler: {
-    // Remove console.log in production
-    removeConsole: process.env.NODE_ENV === 'production',
+    // Keep console.log for debugging (temporarily disabled)
+    removeConsole: false,
   },
 
   // Remove complex webpack configuration

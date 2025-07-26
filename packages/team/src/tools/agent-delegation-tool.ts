@@ -70,7 +70,44 @@ export class AgentDelegationTool implements BaseTool<ToolParameters, ToolResult>
     }
 
     async execute(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
-        return await this.wrappedTool.execute(parameters, context);
+        const toolName = 'assignTask';
+        console.log('🔥 [DELEGATION] AgentDelegationTool.execute called with:', parameters);
+        console.log('🔥 [DELEGATION] Has hooks:', !!this.hooks);
+
+        // Call beforeExecute hook if present
+        if (this.hooks?.beforeExecute) {
+            try {
+                await this.hooks.beforeExecute(toolName, parameters, context);
+            } catch (error) {
+                this.logger.error('Hook beforeExecute failed', { error: String(error) });
+            }
+        }
+
+        try {
+            // Execute the wrapped tool
+            const result = await this.wrappedTool.execute(parameters, context);
+
+            // Call afterExecute hook if present
+            if (this.hooks?.afterExecute) {
+                try {
+                    await this.hooks.afterExecute(toolName, parameters, result, context);
+                } catch (error) {
+                    this.logger.error('Hook afterExecute failed', { error: String(error) });
+                }
+            }
+
+            return result;
+        } catch (error) {
+            // Call onError hook if present
+            if (this.hooks?.onError) {
+                try {
+                    await this.hooks.onError(toolName, parameters, error as Error, context);
+                } catch (hookError) {
+                    this.logger.error('Hook onError failed', { error: String(hookError) });
+                }
+            }
+            throw error;
+        }
     }
 
     async executeImpl(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {

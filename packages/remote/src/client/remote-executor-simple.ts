@@ -70,11 +70,13 @@ export class SimpleRemoteExecutor {
         if ('options' in request && request.options) {
             // ExecutorInterface format (ChatExecutionRequest)
             console.log('Using ExecutorInterface format (non-streaming)');
+            console.log('🔧 [REMOTE-EXECUTOR] Non-streaming request has tools:', !!request.tools);
+            console.log('🔧 [REMOTE-EXECUTOR] Non-streaming tools count:', request.tools?.length || 0);
             messages = request.messages;
             provider = request.provider;
             model = request.model;
 
-            const response = await this.httpClient.chat(messages, provider, model);
+            const response = await this.httpClient.chat(messages, provider, model, request.tools);
 
             return {
                 role: 'assistant',
@@ -108,11 +110,13 @@ export class SimpleRemoteExecutor {
         if ('stream' in request && request.stream === true) {
             // ExecutorInterface format (StreamExecutionRequest)
             console.log('Using ExecutorInterface format (streaming)');
+            console.log('🔧 [REMOTE-EXECUTOR] Request has tools:', !!request.tools);
+            console.log('🔧 [REMOTE-EXECUTOR] Tools count:', request.tools?.length || 0);
             messages = request.messages;
             provider = request.provider;
             model = request.model;
 
-            for await (const response of this.httpClient.chatStream(messages, provider, model)) {
+            for await (const response of this.httpClient.chatStream(messages, provider, model, request.tools)) {
                 yield {
                     role: 'assistant',
                     content: response.content,
