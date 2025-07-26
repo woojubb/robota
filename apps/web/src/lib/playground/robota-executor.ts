@@ -13,7 +13,7 @@
  * - Statistics Collection: PlaygroundStatisticsPlugin integration
  */
 
-import { Robota } from '@robota-sdk/agents';
+import { Robota, type ToolHooks } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { createTeam, type TeamOptions } from '@robota-sdk/team';
@@ -26,6 +26,57 @@ import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
 export type { PlaygroundVisualizationData, ConversationEvent } from './plugins/playground-history-plugin';
 import { PlaygroundWebSocketClient } from './websocket-client';
 import { RemoteExecutor } from '@robota-sdk/remote';
+
+/**
+ * Hook Factory for AssignTask Tool
+ * Creates hooks that automatically record Team delegation events to PlaygroundHistoryPlugin
+ */
+const createAssignTaskHooks = (historyPlugin: PlaygroundHistoryPlugin): ToolHooks => ({
+    beforeExecute: async (toolName, parameters, context) => {
+        console.log(`🔧 [Hook] beforeExecute: ${toolName}`, parameters);
+        historyPlugin.recordEvent({
+            type: 'tool_call',
+            content: `🔧 [${toolName}] Starting: ${JSON.stringify(parameters)}`,
+            toolName,
+            parameters: parameters as Record<string, unknown>,
+            metadata: {
+                phase: 'start',
+                context,
+                timestamp: new Date().toISOString()
+            }
+        });
+    },
+    afterExecute: async (toolName, parameters, result, context) => {
+        console.log(`✅ [Hook] afterExecute: ${toolName}`, { parameters, result });
+        historyPlugin.recordEvent({
+            type: 'tool_result',
+            content: `✅ [${toolName}] Completed: ${typeof result === 'string' ? result : JSON.stringify(result)}`,
+            toolName,
+            parameters: parameters as Record<string, unknown>,
+            result,
+            metadata: {
+                phase: 'complete',
+                context,
+                timestamp: new Date().toISOString()
+            }
+        });
+    },
+    onError: async (toolName, parameters, error, context) => {
+        console.log(`❌ [Hook] onError: ${toolName}`, error.message);
+        historyPlugin.recordEvent({
+            type: 'error',
+            content: `❌ [${toolName}] Error: ${error.message}`,
+            toolName,
+            parameters: parameters as Record<string, unknown>,
+            error: error.message,
+            metadata: {
+                phase: 'error',
+                context,
+                timestamp: new Date().toISOString()
+            }
+        });
+    }
+});
 
 // Robota SDK-compatible type definitions for browser environment
 // These mirror the actual types from @robota-sdk/agents but are browser-safe
@@ -689,13 +740,16 @@ export class PlaygroundExecutor {
 }
 
 /**
- * PlaygroundTeamInstance - Facade for TeamContainer
+ * Extended Team Instance with Hook Support
  * 
- * Follows Robota SDK Architecture Principles:
+ * Extends the standard TeamContainer functionality to inject Hook-enabled assignTask tools
+ * for detailed Team workflow tracking in the Playground environment.
+ * 
+ * Architectural Compliance:
  * - Facade Pattern: Simple wrapper around TeamContainer
  * - Type Safety: Uses correct TeamOptions
  * - Dependency Injection: Logger and AI provider injection
- * - Single Responsibility: Team execution only
+ * - Single Responsibility: Team execution + Hook integration only
  */
 class PlaygroundTeamInstance {
     private teamContainer: any = null; // TeamContainer from @robota-sdk/team
@@ -712,7 +766,7 @@ class PlaygroundTeamInstance {
         if (this.isInitialized) return;
 
         try {
-            // Create team using actual Robota Team library with correct options
+            // Create team using actual Robota Team library
             const teamOptions: any = { // Robota Team options
                 aiProviders: this.aiProviders,
                 maxMembers: this.config.maxMembers || 5,
@@ -729,7 +783,7 @@ class PlaygroundTeamInstance {
             this.teamContainer = createTeam(teamOptions);
             this.isInitialized = true;
 
-            console.log('Team initialized successfully:', this.config.name);
+            console.log('🎯 PlaygroundTeamInstance initialized with Hook support:', this.config.name);
 
         } catch (error) {
             console.error('Team initialization failed:', error);
