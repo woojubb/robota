@@ -86,8 +86,8 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
                 toolName: metadata.executionContext?.toolName,
                 level: metadata.executionHierarchy?.level ?? 0,
                 parentId: metadata.parentId,
-                startTime: metadata.startTime?.toISOString(),
-                endTime: metadata.endTime?.toISOString(),
+                startTime: isClient && metadata.startTime ? metadata.startTime.toISOString() : undefined,
+                endTime: isClient && metadata.endTime ? metadata.endTime.toISOString() : undefined,
                 duration: metadata.actualDuration,
                 executionPath: metadata.executionHierarchy?.path,
                 children: []
@@ -148,8 +148,12 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
 
     // Auto-refresh handler
     const [lastRefresh, setLastRefresh] = React.useState(Date.now());
+    const [isClient, setIsClient] = React.useState(false);
 
     React.useEffect(() => {
+        // Set client flag to prevent hydration mismatch
+        setIsClient(true);
+
         if (refreshInterval > 0) {
             const interval = setInterval(() => {
                 setLastRefresh(Date.now());
@@ -279,7 +283,7 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
 
                 <CardContent className="pt-0">
                     <div className="text-xs text-gray-600">
-                        Last updated: {new Date(lastRefresh).toLocaleTimeString()}
+                        Last updated: {isClient ? new Date(lastRefresh).toLocaleTimeString() : '--:--:--'}
                         {refreshInterval > 0 && ` (auto-refresh every ${refreshInterval}ms)`}
                     </div>
                 </CardContent>
