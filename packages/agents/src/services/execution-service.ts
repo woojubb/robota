@@ -528,10 +528,19 @@ export class ExecutionService {
             const conversationMessages = conversationSession.getMessages();
 
             // Create chat options
+            console.log('🔍 [EXECUTION-SERVICE] config.tools:', config.tools?.length || 0);
+            const toolSchemas = this.tools.getTools();
+            console.log('🔍 [EXECUTION-SERVICE] this.tools.getTools():', toolSchemas?.length || 0);
+            console.log('🔍 [EXECUTION-SERVICE] config.tools exists:', !!config.tools);
+            console.log('🔍 [EXECUTION-SERVICE] config.tools.length > 0:', config.tools && config.tools.length > 0);
+
             const chatOptions: ChatOptions = {
                 model: config.defaultModel.model,
-                ...(config.tools && config.tools.length > 0 && { tools: this.tools.getToolSchema() })
+                ...(config.tools && config.tools.length > 0 && { tools: this.tools.getTools() })
             };
+
+            console.log('🔍 [EXECUTION-SERVICE] Final chatOptions has tools:', !!chatOptions.tools);
+            console.log('🔍 [EXECUTION-SERVICE] Final chatOptions.tools length:', chatOptions.tools?.length || 0);
 
             // Use provider's streaming capability
             if (!provider.chatStream) {
@@ -540,24 +549,126 @@ export class ExecutionService {
 
             const stream = provider.chatStream(conversationMessages, chatOptions);
             let fullResponse = '';
+            let toolCalls: ToolCall[] = [];
 
+            // Collect streaming chunks and tool calls
             for await (const chunk of stream) {
                 if (chunk.content) {
                     fullResponse += chunk.content;
                     yield { chunk: chunk.content, isComplete: false };
                 }
+
+                // Collect tool calls from streaming chunks (type assertion for AssistantMessage)
+                if (chunk.role === 'assistant') {
+                    const assistantChunk = chunk as any; // Type assertion to handle toolCalls
+                    if (assistantChunk.toolCalls && assistantChunk.toolCalls.length > 0) {
+                        // Merge tool calls - OpenAI streams tool calls in fragments
+                        for (const chunkToolCall of assistantChunk.toolCalls) {
+                            const existingIndex = toolCalls.findIndex(tc => tc.id === chunkToolCall.id);
+                            if (existingIndex >= 0) {
+                                // Merge arguments
+                                if (chunkToolCall.function?.arguments) {
+                                    toolCalls[existingIndex].function.arguments += chunkToolCall.function.arguments;
+                                }
+                            } else {
+                                // New tool call
+                                toolCalls.push({
+                                    id: chunkToolCall.id,
+                                    type: chunkToolCall.type,
+                                    function: {
+                                        name: chunkToolCall.function?.name || '',
+                                        arguments: chunkToolCall.function?.arguments || ''
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
             }
 
-            // Add assistant response to conversation
-            if (fullResponse) {
-                conversationSession.addAssistantMessage(fullResponse, { executionId });
+            console.log('🔥 [EXECUTION-SERVICE-STREAM] Stream completed, toolCalls detected:', toolCalls.length);
+
+            // Add assistant response to conversation (with tool calls if any)
+            conversationSession.addAssistantMessage(
+                fullResponse || null,
+                toolCalls.length > 0 ? toolCalls : undefined,
+                { executionId }
+            );
+
+            // Execute tools if detected
+            if (toolCalls.length > 0) {
+                console.log('🔥 [EXECUTION-SERVICE-STREAM] Executing tools:', toolCalls.map(tc => tc.function.name));
+
+                // Execute tools
+                const toolRequests = this.toolExecutionService.createExecutionRequests(toolCalls);
+                const toolContext: ToolExecutionBatchContext = {
+                    requests: toolRequests,
+                    mode: 'parallel',
+                    maxConcurrency: 5,
+                    continueOnError: true
+                };
+
+                const toolSummary = await this.toolExecutionService.executeTools(toolContext);
+
+                // Add tool results to conversation in the order they were called
+                for (const toolCall of toolCalls) {
+                    if (!toolCall.id) {
+                        continue;
+                    }
+
+                    // Find the corresponding result for this tool call
+                    const result = toolSummary.results.find(r => r.executionId === toolCall.id);
+                    const error = toolSummary.errors.find(e => e.executionId === toolCall.id);
+
+                    let content: string;
+                    let metadata: Record<string, string | number | boolean> = { executionId };
+
+                    if (result && result.success) {
+                        // Successful tool execution
+                        content = typeof result.result === 'string'
+                            ? result.result
+                            : JSON.stringify(result.result || 'Tool executed successfully');
+                        metadata['success'] = true;
+                        if (result.toolName) {
+                            metadata['toolName'] = result.toolName;
+                        }
+
+                        // Yield tool result as streaming chunk
+                        yield { chunk: `\n[Tool: ${toolCall.function.name} executed successfully]`, isComplete: false };
+                    } else if (error) {
+                        // Tool execution failed
+                        content = `Error: ${error.error.message}`;
+                        metadata['success'] = false;
+                        metadata['error'] = error.error.message;
+                        if (error.toolName) {
+                            metadata['toolName'] = error.toolName;
+                        }
+
+                        // Yield error as streaming chunk
+                        yield { chunk: `\n[Tool: ${toolCall.function.name} failed: ${error.error.message}]`, isComplete: false };
+                    } else {
+                        // Unknown state
+                        content = 'Tool execution completed with unknown result';
+                        metadata['success'] = false;
+
+                        // Yield unknown state as streaming chunk  
+                        yield { chunk: `\n[Tool: ${toolCall.function.name} completed with unknown result]`, isComplete: false };
+                    }
+
+                    // Add tool result to conversation history
+                    conversationSession.addToolMessageWithId(
+                        content,
+                        toolCall.id,
+                        toolCall.function.name,
+                        metadata
+                    );
+                }
             }
 
             // Call afterRun hook
             await this.callPluginHook('afterRun', {
                 input,
                 response: fullResponse,
-                executionTime: Date.now() - startTime,
                 metadata: (context?.metadata || {}) as Metadata
             });
 

@@ -67,15 +67,18 @@ export class HttpClient {
     /**
      * Execute chat request specifically
      */
-    async chat(messages: BasicMessage[], provider: string, model: string): Promise<ResponseMessage> {
+    async chat(messages: BasicMessage[], provider: string, model: string, tools?: any[]): Promise<ResponseMessage> {
         const requestData = {
             messages: messages.map(msg => ({
                 role: msg.role,
                 content: msg.content
             })),
             provider,
-            model
+            model,
+            ...(tools && tools.length > 0 && { tools })
         };
+
+        console.log('🔧 [HTTP-CLIENT] Non-streaming request tools:', tools?.length || 0);
 
         const response = await this.post<typeof requestData, { content: string; provider?: string; model?: string }>(
             '/chat',
@@ -92,13 +95,16 @@ export class HttpClient {
     /**
      * Execute streaming chat request
      */
-    async *chatStream(messages: BasicMessage[], provider: string, model: string): AsyncGenerator<ResponseMessage> {
+    async *chatStream(messages: BasicMessage[], provider: string, model: string, tools?: any[]): AsyncGenerator<ResponseMessage> {
         const url = `${this.config.baseUrl}/stream`;
         const body = {
             messages,
             provider,
-            model
+            model,
+            ...(tools && tools.length > 0 && { tools })
         };
+
+        console.log('🔧 [HTTP-CLIENT] Request tools:', tools?.length || 0);
 
         console.log('🌐 HTTP chatStream request:', { url, provider, model, messagesCount: messages.length });
 
