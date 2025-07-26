@@ -12,10 +12,13 @@ import {
     RotateCcw,
     Activity,
     Eye,
-    RefreshCw
+    RefreshCw,
+    Play,
+    Zap
 } from 'lucide-react';
 import type { PlaygroundBlockCollector } from '@/lib/playground/block-tracking/block-collector';
 import type { RealTimeBlockMessage, RealTimeBlockMetadata } from '@/lib/playground/block-tracking/types';
+import { generateDemoExecutionData, generateComplexDemoData } from '@/lib/playground/demo-execution-data';
 
 /**
  * Tree node structure for debugging
@@ -167,6 +170,17 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
         setLastRefresh(Date.now());
     };
 
+    // Generate demo data
+    const handleGenerateDemo = () => {
+        generateDemoExecutionData(blockCollector);
+        setLastRefresh(Date.now());
+    };
+
+    const handleGenerateComplexDemo = () => {
+        generateComplexDemoData(blockCollector);
+        setLastRefresh(Date.now());
+    };
+
     return (
         <div className="h-full flex flex-col space-y-4">
             {/* Header with controls */}
@@ -206,6 +220,26 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
                                     </Badge>
                                 )}
                             </div>
+
+                            {/* Demo Controls */}
+                            <Button
+                                onClick={handleGenerateDemo}
+                                size="sm"
+                                className="text-xs bg-blue-500 hover:bg-blue-600"
+                            >
+                                <Play className="w-3 h-3 mr-1" />
+                                Generate Demo
+                            </Button>
+
+                            <Button
+                                onClick={handleGenerateComplexDemo}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                            >
+                                <Zap className="w-3 h-3 mr-1" />
+                                Complex Demo
+                            </Button>
 
                             {/* Controls */}
                             <Button

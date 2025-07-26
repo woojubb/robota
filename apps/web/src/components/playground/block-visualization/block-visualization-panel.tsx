@@ -294,6 +294,9 @@ export const BlockVisualizationPanel: React.FC<BlockVisualizationPanelProps> = (
                     <Badge variant="outline" className="ml-auto">
                         Real-time
                     </Badge>
+                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                        Try Debug Tab!
+                    </Badge>
                 </CardTitle>
             </CardHeader>
 
