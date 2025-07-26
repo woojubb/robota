@@ -50,8 +50,8 @@ export default defineConfig([
             'process.env.NODE_ENV': '"production"',
         },
         esbuildOptions(options) {
-            // Additional browser optimizations
-            options.drop = ['console', 'debugger'];
+            // Additional browser optimizations (console.log preserved for debugging)
+            options.drop = ['debugger'];
             options.dropLabels = ['DEV'];
         },
     }

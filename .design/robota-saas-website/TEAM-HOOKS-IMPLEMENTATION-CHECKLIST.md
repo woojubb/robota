@@ -26,6 +26,33 @@
 
 ---
 
+## 🚨 **긴급 수정 필요: ExecutionService 스트리밍 Tool Call 처리**
+
+### ❌ 현재 문제점
+- ✅ LLM이 tool call을 정상 생성 (네트워크 로그 확인)
+- ✅ OpenAI provider가 스트리밍에서 tool calls 수신
+- ❌ **ExecutionService.executeStream()에서 tool call 실행 누락**
+- ❌ toolHooks가 호출되지 않음 (assignTask 실행 안됨)
+
+### 🔧 수정된 사항
+- ✅ `packages/agents/src/services/execution-service.ts` 수정됨
+- ✅ 스트리밍 중 tool call 수집 로직 추가
+- ✅ 스트림 완료 후 tool 실행 로직 추가  
+- ❌ **타입 에러로 인한 빌드 실패**
+
+### 📋 즉시 해야 할 작업
+- [ ] **ExecutionService.executeStream() 타입 에러 수정**
+  - File: `packages/agents/src/services/execution-service.ts:571`
+  - Error: `Object is possibly 'undefined'`
+  - Tool call 병합 로직의 타입 안전성 확보
+- [ ] **agents 패키지 빌드 성공**
+- [ ] **브라우저에서 Team 모드 tool call 실행 확인**
+- [ ] **toolHooks 호출 로그 확인**:
+  - `🔥 [EXECUTION-SERVICE-STREAM] Stream completed, toolCalls detected: 1`
+  - `🔥 [DELEGATION] AgentDelegationTool.execute called with:`
+
+---
+
 ## 🏗️ **Phase 1: SDK 핵심 향상 (1주) - 비침습적 확장**
 
 ### 1.1 ToolExecutionContext 확장 (0% Breaking Change)

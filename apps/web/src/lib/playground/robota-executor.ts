@@ -31,96 +31,7 @@ export type { VisualizationData, ConversationEvent } from './plugins/playground-
 import { PlaygroundWebSocketClient } from './websocket-client';
 import { RemoteExecutor } from '@robota-sdk/remote';
 
-/**
- * Hook Factory for AssignTask Tool
- * Creates hooks that automatically record Team delegation events to PlaygroundHistoryPlugin
- */
-const createAssignTaskHooks = (historyPlugin: PlaygroundHistoryPlugin) => {
-    // 현재 delegation context 추적
-    let currentDelegationId: string | undefined;
-    let currentToolCallEventId: string | undefined;
 
-    return {
-        onBeforeExecute: async (toolName: string, parameters: any, context?: any) => {
-            console.log(`🚀 [Hook] beforeExecute: ${toolName}`, { parameters });
-
-            // delegation context 생성
-            currentDelegationId = `delegation_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-
-            // assignTask 시작 이벤트 (Level 1: Tool)
-            const toolCallEvent = historyPlugin.recordEvent({
-                type: 'tool_call',
-                content: `🚀 [${toolName}] Starting with: ${JSON.stringify(parameters)}`,
-                toolName,
-                parameters: parameters as Record<string, unknown>,
-                delegationId: currentDelegationId,
-                metadata: {
-                    phase: 'start',
-                    context,
-                    timestamp: new Date().toISOString()
-                }
-                // parentEventId는 Team의 user_message (자동으로 Level 0에서 Level 1로)
-            });
-
-            // 현재 tool call 이벤트 ID 저장 (Sub-Agent 이벤트들이 참조할 용도)
-            currentToolCallEventId = toolCallEvent?.id;
-        },
-
-        onAfterExecute: async (toolName: string, parameters: any, result: any, context?: any) => {
-            console.log(`✅ [Hook] afterExecute: ${toolName}`, { parameters, result });
-
-            // assignTask 완료 이벤트 (Level 1: Tool)
-            historyPlugin.recordEvent({
-                type: 'tool_result',
-                content: `✅ [${toolName}] Completed: ${typeof result === 'string' ? result : JSON.stringify(result)}`,
-                toolName,
-                parameters: parameters as Record<string, unknown>,
-                result,
-                delegationId: currentDelegationId,
-                parentEventId: currentToolCallEventId, // tool_call과 연결
-                metadata: {
-                    phase: 'complete',
-                    context,
-                    timestamp: new Date().toISOString()
-                }
-            });
-
-            // delegation 완료 후 context 초기화
-            currentDelegationId = undefined;
-            currentToolCallEventId = undefined;
-        },
-
-        onError: async (toolName: string, parameters: any, error: Error, context?: any) => {
-            console.log(`❌ [Hook] onError: ${toolName}`, error.message);
-
-            // assignTask 실패 이벤트 (Level 1: Tool)
-            historyPlugin.recordEvent({
-                type: 'error',
-                content: `❌ [${toolName}] Error: ${error.message}`,
-                toolName,
-                parameters: parameters as Record<string, unknown>,
-                error: error.message,
-                delegationId: currentDelegationId,
-                parentEventId: currentToolCallEventId, // tool_call과 연결
-                metadata: {
-                    phase: 'error',
-                    context,
-                    timestamp: new Date().toISOString()
-                }
-            });
-
-            // 오류 발생 후 context 초기화
-            currentDelegationId = undefined;
-            currentToolCallEventId = undefined;
-        },
-
-        // 🆕 Sub-Agent 이벤트를 위한 delegation context 제공
-        getCurrentDelegationContext: () => ({
-            delegationId: currentDelegationId,
-            parentToolCallEventId: currentToolCallEventId
-        })
-    };
-};
 
 // Robota SDK-compatible type definitions for browser environment
 // These mirror the actual types from @robota-sdk/agents but are browser-safe
@@ -330,10 +241,60 @@ export class PlaygroundExecutor {
             // Create AI providers with remote executor
             const aiProviders = this.createProvidersWithExecutor();
 
-            // Create toolHooks for assignTask tracking
-            const toolHooks = createAssignTaskHooks(this.historyPlugin);
+            // Create toolHooks for assignTask tracking (simple implementation like examples)
+            console.log('🎯 [DEBUG] Creating toolHooks for playground team...');
+            const toolHooks = {
+                beforeExecute: async (tool: string, params: any) => {
+                    console.log(`🔧 [ToolHook] Before tool execution:`, JSON.stringify(params, null, 2));
+
+                    // Record to history plugin for block visualization
+                    this.historyPlugin.recordEvent({
+                        type: 'tool_call',
+                        content: `🚀 [${tool}] Starting with: ${JSON.stringify(params)}`,
+                        toolName: tool,
+                        parameters: params as Record<string, unknown>,
+                        metadata: {
+                            phase: 'start',
+                            timestamp: new Date().toISOString()
+                        }
+                    });
+                },
+                afterExecute: async (tool: string, params: any, result: any) => {
+                    console.log(`✅ [ToolHook] After tool execution: Result received`);
+
+                    // Record to history plugin for block visualization
+                    this.historyPlugin.recordEvent({
+                        type: 'tool_result',
+                        content: `✅ [${tool}] Completed: ${typeof result === 'string' ? result : JSON.stringify(result)}`,
+                        toolName: tool,
+                        parameters: params as Record<string, unknown>,
+                        result,
+                        metadata: {
+                            phase: 'complete',
+                            timestamp: new Date().toISOString()
+                        }
+                    });
+                },
+                onError: async (tool: string, params: any, error: Error) => {
+                    console.log(`❌ [ToolHook] Tool execution error:`, error.message);
+
+                    // Record to history plugin for block visualization
+                    this.historyPlugin.recordEvent({
+                        type: 'error',
+                        content: `❌ [${tool}] Error: ${error.message}`,
+                        toolName: tool,
+                        parameters: params as Record<string, unknown>,
+                        error: error.message,
+                        metadata: {
+                            phase: 'error',
+                            timestamp: new Date().toISOString()
+                        }
+                    });
+                }
+            };
 
             // Create team using actual Robota Team library (following examples/05-team-collaboration.ts)
+            console.log('🎯 [DEBUG] Creating team with toolHooks:', !!toolHooks);
             this.currentTeam = createTeam({
                 aiProviders: aiProviders,
                 maxMembers: config.maxMembers || 5,
@@ -342,6 +303,11 @@ export class PlaygroundExecutor {
                 toolHooks: toolHooks, // 🎯 Hook 주입
                 logger: this.logger
             });
+            console.log('🎯 [DEBUG] Team created successfully');
+            console.log('🎯 [DEBUG] Created team type:', this.currentTeam.constructor.name);
+            console.log('🎯 [DEBUG] Created team prototype:', Object.getPrototypeOf(this.currentTeam).constructor.name);
+            console.log('🎯 [DEBUG] Team executeStream method:', typeof this.currentTeam.executeStream);
+            console.log('🎯 [DEBUG] Team has executeStream method on prototype:', 'executeStream' in Object.getPrototypeOf(this.currentTeam));
 
             // Add some default agents to make the team functional
             console.log('🎯 Setting up team with default agents for demo purposes');
@@ -552,7 +518,7 @@ export class PlaygroundExecutor {
             }
 
             if (this.currentTeam) {
-                await this.currentTeam.dispose();
+                // TeamContainer doesn't have dispose method
                 this.currentTeam = null;
             }
 
@@ -605,7 +571,9 @@ export class PlaygroundExecutor {
                 } as UniversalMessage;
 
             } else if (this.mode === 'team' && this.currentTeam) {
-                console.log('✅ Executing in TEAM mode');
+                console.log('✅ [TEAM] Executing in TEAM mode');
+                console.log('✅ [TEAM] Current team object:', !!this.currentTeam);
+                console.log('✅ [TEAM] User prompt:', messages[0].content);
 
                 // 🎯 Team Level 사용자 메시지 기록
                 this.historyPlugin.recordEvent({
@@ -614,9 +582,13 @@ export class PlaygroundExecutor {
                     metadata: { level: 'team', action: 'execute_start' }
                 });
 
-                console.log('🔥 About to call team.execute with:', messages[0].content);
+                console.log('🔥 [TEAM] About to call team.execute() method with prompt:', messages[0].content);
+                console.log('🔥 [TEAM] Team object type:', this.currentTeam.constructor.name);
+
                 const result = await this.currentTeam.execute(messages[0].content || '');
-                console.log('🔥 Team execution result:', result);
+
+                console.log('🔥 [TEAM] Team execution completed with result length:', typeof result === 'string' ? result.length : 'non-string');
+                console.log('🔥 [TEAM] Team execution result preview:', typeof result === 'string' ? result.substring(0, 100) + '...' : result);
 
                 // 🎯 Team Level 응답 메시지 기록  
                 this.historyPlugin.recordEvent({
@@ -678,6 +650,13 @@ export class PlaygroundExecutor {
 
         try {
             console.log('🚀 executeChatStream starting:', { executionId, mode: this.mode, messagesCount: messages.length });
+            console.log('🚀 [CRITICAL] Current execution state:', {
+                mode: this.mode,
+                hasAgent: !!this.currentAgent,
+                hasTeam: !!this.currentTeam,
+                agentType: this.currentAgent?.constructor?.name,
+                teamType: this.currentTeam?.constructor?.name
+            });
 
             // Record execution start
             await this.recordExecutionStart(executionId, messages);
@@ -698,6 +677,11 @@ export class PlaygroundExecutor {
             } else if (this.mode === 'team' && this.currentTeam) {
                 console.log('📡 Starting team stream...');
                 const prompt = messages[0].content || '';
+                console.log('🔥 [TEAM-STREAM] About to call currentTeam.executeStream()');
+                console.log('🔥 [TEAM-STREAM] currentTeam type:', this.currentTeam.constructor.name);
+                console.log('🔥 [TEAM-STREAM] currentTeam prototype:', Object.getPrototypeOf(this.currentTeam).constructor.name);
+                console.log('🔥 [TEAM-STREAM] executeStream method exists:', typeof this.currentTeam.executeStream);
+                console.log('🔥 [TEAM-STREAM] currentTeam methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.currentTeam)));
 
                 // 🎯 Team Level 사용자 메시지 기록
                 this.historyPlugin.recordEvent({
@@ -706,10 +690,23 @@ export class PlaygroundExecutor {
                     metadata: { level: 'team', action: 'stream_start' }
                 });
 
+                console.log('🔥 [TEAM-STREAM] Calling executeStream now...');
                 const stream = this.currentTeam.executeStream(prompt);
+                console.log('🔥 [TEAM-STREAM] executeStream called, got stream:', !!stream);
+
+                // 🕵️ Deep object analysis
+                console.log('🕵️ [DEEP-ANALYSIS] currentTeam object details:');
+                console.log('🕵️ Constructor:', this.currentTeam.constructor);
+                console.log('🕵️ Constructor name:', this.currentTeam.constructor.name);
+                console.log('🕵️ Prototype chain:', Object.getPrototypeOf(this.currentTeam));
+                console.log('🕵️ executeStream function:', this.currentTeam.executeStream);
+                console.log('🕵️ executeStream toString:', this.currentTeam.executeStream.toString().substring(0, 200));
+                console.log('🕵️ Is proxy?', typeof Proxy !== 'undefined' && this.currentTeam.constructor === Object);
                 let fullResponse = '';
 
+                console.log('🔥 [TEAM-STREAM] Starting to iterate over stream...');
                 for await (const chunk of stream) {
+                    console.log('🔥 [TEAM-STREAM] Received chunk:', chunk.length, 'chars');
                     fullResponse += chunk;
                     yield {
                         role: 'assistant',
@@ -717,6 +714,7 @@ export class PlaygroundExecutor {
                         timestamp: new Date()
                     } as UniversalMessage;
                 }
+                console.log('🔥 [TEAM-STREAM] Stream iteration completed, total response:', fullResponse.length, 'chars');
 
                 // 🎯 Team Level 응답 메시지 기록
                 this.historyPlugin.recordEvent({
@@ -823,7 +821,10 @@ export class PlaygroundExecutor {
      * Set execution mode and update state
      */
     private setMode(mode: PlaygroundMode): void {
+        console.log(`🔧 [MODE] Setting mode to:`, mode);
+        console.log(`🔧 [MODE] Previous mode:`, this.mode);
         this.mode = mode;
+        console.log(`🔧 [MODE] Mode set successfully to:`, this.mode);
         this.logDebug('Mode changed', { mode });
     }
 

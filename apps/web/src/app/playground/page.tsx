@@ -53,6 +53,7 @@ import { usePlaygroundStatistics } from '@/hooks/use-playground-statistics';
 // Import our new execution tree components
 import { ExecutionTreeDebug } from '@/components/playground/execution-tree-debug';
 import { PlaygroundBlockCollector } from '@/lib/playground/block-tracking/block-collector';
+import type { RealTimeBlockMessage } from '@/lib/playground/block-tracking/types';
 
 // Visual Components
 import { AgentConfigurationBlock } from '@/components/playground/agent-configuration-block';
@@ -588,25 +589,31 @@ function PlaygroundContent() {
                 </Badge>
             </div>
 
-            {/* Top Row - Configuration and Visualization */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-shrink-0">
-                {/* Left Column - Configuration */}
-                <div className="space-y-4 max-h-[700px] overflow-y-auto">
+            {/* Top Row - Configuration Banner */}
+            <div className="flex-shrink-0">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <ConfigurationPanel />
                     <SystemStatusPanel />
                     <AuthDebug />
                 </div>
+            </div>
 
-                {/* Right Column - Execution Tree (Larger) */}
-                <div className="space-y-4 max-h-[700px] overflow-y-auto">
+            {/* Middle Row - Chat Interface + Execution Tree (1:3 ratio) */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-grow min-h-0">
+                {/* Left Column - Chat Interface (1/4 width) */}
+                <div className="lg:col-span-1 min-h-0">
+                    <ChatInterfacePanel />
+                </div>
+
+                {/* Right Column - Execution Tree (3/4 width) */}
+                <div className="lg:col-span-3 min-h-0">
                     <ExecutionTreePanel />
-                    <BlockVisualizationPanel />
                 </div>
             </div>
 
-            {/* Bottom Row - Chat Interface (Full Width) */}
-            <div className="w-full flex-grow min-h-0">
-                <ChatInterfacePanel />
+            {/* Bottom Row - Block Visualization (Full Width) */}
+            <div className="w-full flex-shrink-0">
+                <BlockVisualizationPanel />
             </div>
         </div>
     );
@@ -632,10 +639,62 @@ function ToolsAndPluginsPanel() {
 // 🧪 New Execution Tree Panel with Demo Capabilities
 function ExecutionTreePanel() {
     const [blockCollector] = useState(() => new PlaygroundBlockCollector());
+    const { conversationEvents } = usePlaygroundData();
+
+    // Convert conversation events to our block format
+    useEffect(() => {
+        if (conversationEvents.length > 0) {
+            console.log('🔄 Converting conversation events to execution blocks:', conversationEvents);
+
+            // Clear existing blocks first
+            blockCollector.clearBlocks();
+
+            // Convert each conversation event to our block format
+            conversationEvents.forEach((event, index) => {
+                const blockMessage: RealTimeBlockMessage = {
+                    role: event.type === 'user_message' ? 'user' :
+                        event.type === 'assistant_response' ? 'assistant' :
+                            event.type === 'tool_call' ? 'tool' : 'system',
+                    content: event.content || '',
+                    timestamp: event.timestamp,
+                    blockMetadata: {
+                        id: event.id,
+                        type: event.type === 'user_message' ? 'user' :
+                            event.type === 'assistant_response' ? 'assistant' :
+                                event.type === 'tool_call' ? 'tool_call' :
+                                    event.type === 'tool_result' ? 'tool_result' : 'group',
+                        level: event.executionLevel || 0,
+                        parentId: event.parentEventId,
+                        children: event.childEventIds || [],
+                        isExpanded: true,
+                        visualState: 'completed',
+                        startTime: event.timestamp,
+                        endTime: event.timestamp,
+                        actualDuration: 0,
+                        executionHierarchy: {
+                            level: event.executionLevel || 0,
+                            path: event.executionPath ? event.executionPath.split('/') : [],
+                            parentExecutionId: event.parentEventId,
+                            rootExecutionId: event.delegationId || event.id
+                        },
+                        executionContext: {
+                            timestamp: event.timestamp,
+                            toolName: event.toolName,
+                            executionId: event.id
+                        }
+                    }
+                };
+
+                blockCollector.collectBlock(blockMessage);
+            });
+
+            console.log('✅ Converted events to blocks');
+        }
+    }, [conversationEvents, blockCollector]);
 
     return (
-        <Card className="h-[450px]">
-            <CardHeader className="pb-3">
+        <Card className="h-full flex flex-col">
+            <CardHeader className="pb-3 flex-shrink-0">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <GitBranch className="h-4 w-4 text-blue-500" />
                     Execution Tree Debug
@@ -644,7 +703,7 @@ function ExecutionTreePanel() {
                     </Badge>
                 </CardTitle>
             </CardHeader>
-            <CardContent className="h-full pt-0 pb-3">
+            <CardContent className="flex-1 pt-0 pb-3 min-h-0">
                 <div className="h-full overflow-hidden">
                     <ExecutionTreeDebug
                         blockCollector={blockCollector}
@@ -784,7 +843,7 @@ function BlockVisualizationPanel() {
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <ScrollArea className="h-32">
+                <ScrollArea className="h-64">
                     <div className="space-y-1">
                         {conversationEvents.map((event, index) => renderEventBlock(event, index))}
                         {conversationEvents.length === 0 && (

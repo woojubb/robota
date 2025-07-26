@@ -172,7 +172,9 @@ export class TeamContainer {
         });
 
         // Create AssignTaskTool with dynamic Zod schema based on available templates
+        console.log(`🔧 [TEAM-CONTAINER] Creating assignTask tool with toolHooks:`, !!this.toolHooks);
         const assignTaskTool = this.createAssignTaskTool();
+        console.log(`🔧 [TEAM-CONTAINER] AssignTask tool created:`, !!assignTaskTool);
 
         // Get leader template (default: task_coordinator)
         const leaderTemplateName = this.options.leaderTemplate || 'task_coordinator';
@@ -209,8 +211,12 @@ export class TeamContainer {
             ]
         };
 
+        console.log(`🔧 [TEAM-CONTAINER] Creating teamAgent with ${teamConfig.tools?.length || 0} tools`);
+        console.log(`🔧 [TEAM-CONTAINER] Tools list:`, teamConfig.tools?.map(t => t.getName?.() || 'unnamed'));
+
         this.teamAgent = new Robota(teamConfig);
 
+        console.log(`🔧 [TEAM-CONTAINER] TeamAgent created successfully`);
         this.logger?.info(`Team created with leader template: ${leaderTemplateName} (${leaderTemplate.config.provider}/${leaderTemplate.config.model})`);
     }
 
@@ -223,9 +229,15 @@ export class TeamContainer {
         const startTime = Date.now();
 
         try {
+            console.log(`🚀 [TEAM-CONTAINER] Starting team execution with prompt:`, userPrompt);
+            console.log(`🚀 [TEAM-CONTAINER] teamAgent object:`, !!this.teamAgent);
+            console.log(`🚀 [TEAM-CONTAINER] teamAgent type:`, this.teamAgent?.constructor?.name);
+
             this.logger?.info(`🚀 Starting team execution`);
 
+            console.log(`🔥 [TEAM-CONTAINER] About to call teamAgent.run()`);
             const result = await this.teamAgent.run(userPrompt);
+            console.log(`🔥 [TEAM-CONTAINER] teamAgent.run() completed`);
 
             const executionTime = Date.now() - startTime;
             this.tasksCompleted++;
@@ -250,13 +262,22 @@ export class TeamContainer {
      * @returns AsyncGenerator<string, void, undefined> - Streaming chunks of the task execution result
      */
     async* executeStream(userPrompt: string): AsyncGenerator<string, void, undefined> {
+        console.log(`🚨🚨🚨 [TEAM-CONTAINER-STREAM] EXECUTESTREAM CALLED!!! 🚨🚨🚨`);
+        console.log(`🚨 [TEAM-CONTAINER-STREAM] This log should ALWAYS appear if this method is called!`);
+
         const startTime = Date.now();
 
         try {
+            console.log(`🚀 [TEAM-CONTAINER-STREAM] Starting team streaming execution with prompt:`, userPrompt);
+            console.log(`🚀 [TEAM-CONTAINER-STREAM] teamAgent object:`, !!this.teamAgent);
+            console.log(`🚀 [TEAM-CONTAINER-STREAM] teamAgent type:`, this.teamAgent?.constructor?.name);
+
             this.logger?.info(`🚀 Starting team streaming execution`);
 
+            console.log(`🔥 [TEAM-CONTAINER-STREAM] About to call teamAgent.runStream()`);
             // Delegate to teamAgent's runStream method (Facade Pattern)
             yield* this.teamAgent.runStream(userPrompt);
+            console.log(`🔥 [TEAM-CONTAINER-STREAM] teamAgent.runStream() completed`);
 
             const executionTime = Date.now() - startTime;
             this.tasksCompleted++;
@@ -752,6 +773,9 @@ export class TeamContainer {
      * Uses AgentDelegationTool with hooks if toolHooks provided, otherwise uses standard facade
      */
     private createAssignTaskTool(): BaseTool<any, any> {
+        console.log('🔍 [DEBUG] createAssignTaskTool - toolHooks:', this.toolHooks ? 'PRESENT' : 'MISSING');
+        console.log('🔍 [DEBUG] toolHooks details:', this.toolHooks);
+
         // Convert templates to the format expected by the task assignment system
         const templateInfo: TemplateInfo[] = this.availableTemplates.map(template => ({
             id: template.id,
@@ -759,6 +783,7 @@ export class TeamContainer {
         }));
 
         if (this.toolHooks) {
+            console.log('✅ [DEBUG] Using AgentDelegationTool with hooks');
             // Use AgentDelegationTool with hooks for instrumentation
             const delegationTool = new AgentDelegationTool({
                 hooks: this.toolHooks,
@@ -770,6 +795,7 @@ export class TeamContainer {
             });
             return delegationTool as unknown as BaseTool<any, any>;
         } else {
+            console.log('❌ [DEBUG] Using standard facade (no hooks)');
             // Use standard task assignment facade (existing behavior)
             const taskAssignment = createTaskAssignmentFacade(
                 templateInfo,
