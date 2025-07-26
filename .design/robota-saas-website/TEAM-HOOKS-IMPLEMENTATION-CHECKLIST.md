@@ -1,8 +1,12 @@
-# 동적 트래킹 트리 구현 체크리스트
+# 동적 트래킹 구현 체크리스트 (기존 시스템 활용)
 
-## 🎯 목표: 실시간 동적 노드 생성 시스템
+## 🎯 목표: 기존 블록 시스템 확장을 통한 동적 트래킹
 
-Tool 실행을 하나의 노드로 관리하되, 실행 중에 하위 노드들이 동적으로 생성되는 트래킹 시스템 구현
+완전히 새로운 시스템을 만들지 않고, **기존 PlaygroundBlockCollector를 확장**하여 동적 트래킹 기능을 추가하는 방식으로 구현합니다.
+
+## 📋 상세 구현 계획
+
+👉 **자세한 구현 방법은 [SIMPLIFIED-TRACKING-IMPLEMENTATION-PLAN.md](./SIMPLIFIED-TRACKING-IMPLEMENTATION-PLAN.md)를 참고하세요.**
 
 ## 📖 참고 자료
 
@@ -29,262 +33,123 @@ Tool 실행을 하나의 노드로 관리하되, 실행 중에 하위 노드들�
 
 이 구조들을 참고하여 각 단계별 노드 상태 변화를 정확히 구현하세요.
 
-## 📋 Phase 1: 기본 트래킹 트리 구현
+## 📋 Phase 1: 기존 블록 시스템 확장 (1주)
 
-### 1.1 노드 인터페이스 정의
-- [ ] TrackingNode 기본 인터페이스 구현
-  - [ ] id, type, status, timestamp, metadata, children 필드
-  - [ ] 'team' | 'agent' | 'tool' | 'message' | 'step' 타입 지원
-  - [ ] 'pending' | 'in_progress' | 'completed' | 'error' 상태 관리
-
-- [ ] DynamicToolNode 확장 인터페이스 구현
-  - [ ] toolName, params, result 필드 추가
-  - [ ] executionPlan (실행 계획) 필드 추가
-  - [ ] currentStep, progress 필드 추가
+### 1.1 BlockMetadata 타입 확장
+- [ ] `apps/web/src/lib/playground/block-tracking/types.ts` 확장
+  - [ ] EnhancedBlockMetadata 인터페이스 추가
+  - [ ] executionPlan 필드 (Tool 시작 시 생성되는 실행 계획)
+  - [ ] progress 필드 (현재 진행 상황: currentStep, totalSteps, percentage)
+  - [ ] toolDetails 필드 (Tool 타입, 예상 소요시간, 하위 블록 IDs)
 
 - [ ] ExecutionStep 인터페이스 정의
   - [ ] 단계별 상태 관리 (id, name, status, description)
-  - [ ] 예상 소요 시간 및 실제 소요 시간 추적
-  - [ ] 단계별 출력 결과 저장
+  - [ ] 예상/실제 소요 시간 추적 (estimatedDuration, startTime, endTime)
+  - [ ] 단계별 진행 상태 ('pending' | 'in_progress' | 'completed' | 'error')
 
-### 1.2 TrackingTree 싱글톤 클래스 구현
-- [ ] 싱글톤 패턴으로 전역 트리 관리자 구현
-- [ ] 노드 저장소 (Map<string, TrackingNode>) 구현
-- [ ] 활성 노드 스택 관리 (현재 실행 컨텍스트 추적)
+### 1.2 ToolExecutionPlanner 클래스 생성
+- [ ] `apps/web/src/lib/playground/execution-planning/tool-planner.ts` 생성
+- [ ] Tool 타입별 실행 계획 생성 로직 구현
+  - [ ] Single-step tools: calculator, dateTime (1단계 즉시 완료)
+  - [ ] Multi-step API tools: webSearch, github-mcp (4단계 진행)
+  - [ ] File processing tools: fileSearch, codeAnalysis (파일 처리 단계)
+- [ ] createExecutionPlan() 정적 메서드 구현
+- [ ] Tool 이름 기반 자동 패턴 매칭
 
-### 1.3 기본 노드 관리 메서드
-- [ ] createNode(): 새 노드 생성 및 계층 구조 자동 설정
-- [ ] updateNode(): 노드 상태 및 데이터 업데이트
-- [ ] getNode(): 노드 ID로 조회
-- [ ] getTree(): 전체 트리 구조 조회 (루트부터 재귀 구성)
-- [ ] getAllNodes(): 모든 노드 목록 조회
-- [ ] getNodesByType/Status(): 조건별 노드 필터링
+### 1.3 Enhanced BlockTrackingHooks 구현
+- [ ] `apps/web/src/lib/playground/block-tracking/enhanced-block-hooks.ts` 생성
+- [ ] 기존 createBlockTrackingHooks 확장
+- [ ] beforeExecute: Tool 시작 시 실행 계획 생성 및 단계 블록 미리 생성
+- [ ] afterExecute: Tool 완료 시 LLM 응답 블록 자동 생성
+- [ ] 기존 ToolHooks 인터페이스 호환성 유지
 
-### 1.4 실시간 이벤트 시스템
-- [ ] 리스너 관리 시스템 구현
-- [ ] addListener(): 트리 변경 이벤트 구독
-- [ ] notifyListeners(): 변경 시 모든 구독자에게 알림
-- [ ] 노드 생성/업데이트 시 자동 알림 발생
+## 📋 Phase 2: 동적 단계 업데이트 시스템 (1주)
 
-## 📋 Phase 2: 동적 노드 생성 시스템
+### 2.1 StepProgressTracker 구현
+- [ ] `apps/web/src/lib/playground/progress-tracking/step-tracker.ts` 생성
+- [ ] 실행 중인 Tool의 단계별 진행 상황을 실시간 추적
+- [ ] onStepProgress(): Tool 단계 진행 시 해당 단계 블록 상태 업데이트
+- [ ] updateToolProgress(): 전체 Tool 진행률 계산 및 업데이트
+- [ ] calculateStepDuration(): 각 단계별 실제 소요 시간 계산
 
-### 2.1 실행 계획 시스템
-- [ ] Tool별 실행 계획 팩토리 구현
-  - [ ] AssignTaskExecutionPlan: 템플릿 선택 → Agent 생성 → 실행 → 결과 처리
-  - [ ] WebSearchExecutionPlan: 쿼리 처리 → 웹 요청 → 파싱 → 필터링
-  - [ ] 기본 실행 계획: 단순 실행 단계
+### 2.2 실시간 진행률 계산
+- [ ] `apps/web/src/lib/playground/progress-tracking/progress-calculator.ts` 생성
+- [ ] calculateToolProgress(): 완료된 단계 기반 퍼센티지 계산
+- [ ] getCurrentStepInfo(): 현재 진행 중인 단계 정보 반환
+- [ ] estimateRemainingTime(): 남은 예상 시간 계산
+- [ ] updateProgressMetadata(): BlockMetadata의 progress 필드 업데이트
 
-- [ ] 동적 단계 진행 관리
-  - [ ] advanceExecutionStep(): 다음 단계로 진행
-  - [ ] completeExecutionStep(): 현재 단계 완료 처리
-  - [ ] createStepSubNodes(): 단계별 하위 노드 생성
+### 2.3 LLM 응답 블록 자동 생성
+- [ ] `apps/web/src/lib/playground/llm-response/response-handler.ts` 생성
+- [ ] createLLMResponseBlock(): Tool 완료 후 LLM 응답 블록 생성
+- [ ] onLLMResponseComplete(): LLM 응답 완료 시 블록 업데이트
+- [ ] linkToolResultToLLM(): Tool 결과와 LLM 입력 데이터 연결
 
-### 2.2 하위 노드 자동 생성
-- [ ] generateSubNodes(): 동적 하위 노드 생성 메서드
-- [ ] createNodeFromData(): 노드 데이터로부터 트리에 노드 생성
-- [ ] 부모-자식 관계 자동 설정 및 유지
+## 📋 Phase 3: UI 컴포넌트 업데이트 (3일)
 
-### 2.3 진행률 계산 시스템
-- [ ] 단계 기반 진행률 계산 (current/total 단계)
-- [ ] 퍼센티지 자동 계산 및 업데이트
-- [ ] 예상 완료 시간 계산 (단계별 예상 소요 시간 기반)
+### 3.1 Enhanced Block Components
+- [ ] `apps/web/src/components/playground/` 기존 블록 컴포넌트 확장
+- [ ] EnhancedToolBlock: 진행률 표시 UI 추가
+- [ ] ProgressBar: 퍼센티지와 현재/전체 단계 표시
+- [ ] ExecutionSteps: 실행 계획 단계별 시각적 표현
+- [ ] LLMResponseBlock: LLM 응답 전용 블록 UI
 
-## 📋 Phase 3: Tool별 실행 계획 정의
+### 3.2 실시간 업데이트 연동
+- [ ] 기존 BlockCollector listener 시스템 활용
+- [ ] 블록 상태 변경 시 자동 UI 업데이트
+- [ ] 진행률 변경 시 부드러운 애니메이션 효과
+- [ ] 실시간 타이밍 표시 (경과 시간, 예상 완료 시간)
 
-### 3.1 assignTask Tool 실행 계획
-- [ ] 4단계 실행 계획 정의:
-  - [ ] 템플릿 선택 단계
-  - [ ] Agent 생성 단계
-  - [ ] 작업 실행 단계 (하위 Agent 노드 생성)
-  - [ ] 결과 처리 단계
+### 3.3 사용자 경험 개선
+- [ ] 확장/축소 가능한 실행 단계 표시
+- [ ] Tool 타입별 아이콘 및 색상 구분
+- [ ] 로딩 상태 애니메이션
+- [ ] 완료/오류 상태 시각적 피드백
 
-### 3.2 webSearch Tool 실행 계획
-- [ ] 4단계 실행 계획 정의:
-  - [ ] 쿼리 처리 단계
-  - [ ] 웹 요청 단계
-  - [ ] 결과 파싱 단계
-  - [ ] 관련성 필터링 단계
+## 🚀 MVP 구현 우선순위 (3주 완성)
 
-### 3.3 기타 Tool 실행 계획
-- [ ] 각 Tool별 맞춤형 실행 단계 정의
-- [ ] 기본 실행 계획 템플릿 제공
-- [ ] 실행 계획 등록 시스템 구현
+### Week 1: 기본 확장 ⭐
+1. **BlockMetadata 확장**: 실행 계획, 진행률 필드 추가
+2. **ToolExecutionPlanner**: 3가지 Tool 타입 (single, api, mcp) 실행 계획 생성  
+3. **Enhanced Hooks**: 기존 ToolHooks에 실행 계획 생성 로직 추가
 
-## 📋 Phase 4: 기존 코드와의 통합
+### Week 2: 동적 업데이트 ⭐
+1. **StepProgressTracker**: 실시간 단계 진행 추적
+2. **LLM Response Handler**: Tool 완료 후 LLM 블록 자동 생성
+3. **Progress Calculation**: 진행률 계산 및 블록 업데이트
 
-### 4.1 비침습적 통합 방법 구현
-- [ ] 래퍼 함수 방식: createTrackingWrapper()
-  - [ ] 기존 함수를 감싸서 추적 기능 추가
-  - [ ] 실행 전/후 노드 생성 및 업데이트
-  - [ ] 오류 처리 및 상태 반영
+### Week 3: UI 완성 ⭐
+1. **Enhanced Block Components**: 진행률 표시 UI
+2. **Real-time Updates**: 기존 listener 시스템 활용한 실시간 업데이트
+3. **Testing & Polish**: 전체 시스템 테스트 및 UX 개선
 
-- [ ] 프록시 객체 방식: createTrackedObject()
-  - [ ] 객체의 모든 메서드에 추적 기능 자동 적용
-  - [ ] 기존 코드 수정 없이 추적 가능
+## ✅ 이 접근법의 장점
 
-- [ ] 팩토리 함수 래핑
-  - [ ] createTeam, createAgent 등 팩토리 함수 래핑
-  - [ ] 생성된 객체에 자동 추적 기능 적용
+### 1. 기존 시스템 재활용 🔄
+- **90% 기존 코드 유지**: 새로 만들지 않고 확장만
+- **검증된 아키텍처**: 이미 작동하는 블록 시스템 기반
+- **React 연동 완료**: UI 컴포넌트들이 이미 연동되어 있음
 
-### 4.2 Tool 실행 시 노드 생성 자동화
-- [ ] Tool 실행 시작 시 DynamicToolNode 생성
-- [ ] 실행 계획에 따른 단계별 노드 생성
-- [ ] 각 단계 완료 시 노드 상태 업데이트
-- [ ] 최종 결과 노드 연결
+### 2. 점진적 개발 가능 📈
+- **단계별 검증**: 각 Week마다 즉시 테스트 가능
+- **롤백 가능**: 문제 발생 시 이전 단계로 쉽게 복원
+- **병렬 개발**: UI와 백엔드 로직을 독립적으로 개발
 
-### 4.3 하위 Agent/Tool 생성 시 노드 연결
-- [ ] Agent 생성 시 부모 Tool 노드에 Agent 노드 추가
-- [ ] Tool에서 다른 Tool 호출 시 하위 Tool 노드 생성
-- [ ] 계층 구조 자동 유지 및 관리
+### 3. Robota SDK 모범 사례 🏆
+- **ToolHooks 활용**: SDK의 표준 훅 시스템 사용
+- **플러그인 패턴**: 기존 플러그인 아키텍처와 호환
+- **최소 침입**: 기존 Agent/Tool 코드 수정 없음
 
-### 4.4 단계별 실행 추적 콜백 시스템
-- [ ] executeToolWithStepTracking() 함수 구현
-- [ ] onStepComplete 콜백: 단계 완료 시 호출
-- [ ] onSubAgentCreated 콜백: 하위 Agent 생성 시 호출
-- [ ] onSubToolCalled 콜백: 하위 Tool 호출 시 호출
+### 4. 개발자 친화적 👥
+- **학습 곡선 최소**: 기존 블록 시스템 개념 재사용
+- **디버깅 용이**: 블록 단위로 각 단계 추적 가능
+- **확장성**: 새로운 Tool 타입 쉽게 추가 가능
+## 🚀 구현 시작점
 
-## 📋 Phase 5: UI 구현
+**즉시 시작 가능한 첫 번째 작업**:
+1. `apps/web/src/lib/playground/block-tracking/types.ts`에 확장 타입 추가
+2. `ToolExecutionPlanner` 클래스 생성
+3. `createEnhancedBlockTrackingHooks` 함수 구현
 
-### 5.1 기본 트리 렌더링 컴포넌트
-- [ ] TreeView 컴포넌트: 전체 트리 구조 표시
-- [ ] NodeView 컴포넌트: 개별 노드 렌더링
-- [ ] 노드 타입별 전용 컴포넌트:
-  - [ ] TeamNodeView: Team 실행 노드
-  - [ ] ToolNodeView: Tool 실행 노드 (진행률 포함)
-  - [ ] AgentNodeView: Agent 실행 노드
-  - [ ] MessageNodeView: 메시지 노드
-
-### 5.2 실시간 업데이트 시스템
-- [ ] React Hook: useTrackingTree()
-  - [ ] 트리 상태를 React 상태로 관리
-  - [ ] TrackingTree 변경 이벤트 구독
-  - [ ] 컴포넌트 언마운트 시 구독 해제
-
-- [ ] 성능 최적화
-  - [ ] 변경된 노드만 리렌더링
-  - [ ] React.memo를 통한 불필요한 렌더링 방지
-  - [ ] 가상화 (대규모 트리 처리)
-
-### 5.3 시각적 표현
-- [ ] 상태별 아이콘 및 색상
-  - [ ] ⏳ 대기 중 (pending) - 회색
-  - [ ] 🔄 진행 중 (in_progress) - 파란색
-  - [ ] ✅ 완료 (completed) - 초록색
-  - [ ] ❌ 오류 (error) - 빨간색
-
-- [ ] 노드 타입별 아이콘
-  - [ ] 📦 Team 실행
-  - [ ] 💬 메시지 (사용자/어시스턴트)
-  - [ ] 🔧 Tool 실행
-  - [ ] 👤 Agent 실행
-
-### 5.4 진행률 표시
-- [ ] 프로그레스 바 컴포넌트
-- [ ] 퍼센티지 텍스트 표시
-- [ ] 단계별 진행 상황 ("3/5 단계 완료")
-- [ ] 예상 완료 시간 표시
-
-### 5.5 인터랙티브 기능
-- [ ] 노드 확장/축소 기능
-- [ ] 세부 정보 토글 (매개변수, 결과 등)
-- [ ] 실행 단계별 상세 정보 표시
-- [ ] 오류 발생 시 상세 오류 정보 표시
-
-## 📋 Phase 6: 고급 기능 및 최적화
-
-### 6.1 병렬 실행 지원
-- [ ] 여러 assignTask 동시 실행 추적
-- [ ] 각 병렬 실행의 독립적 진행률 관리
-- [ ] 병렬 실행 간 의존성 표시 (필요한 경우)
-
-### 6.2 성능 최적화
-- [ ] 대규모 트리 처리 최적화
-  - [ ] 노드 페이지네이션
-  - [ ] 지연 로딩 (lazy loading)
-  - [ ] 가상 스크롤링
-
-- [ ] 메모리 사용량 최적화
-  - [ ] 오래된 노드 정리 메커니즘
-  - [ ] 노드 데이터 압축
-  - [ ] 메모리 누수 방지
-
-### 6.3 사용자 경험 개선
-- [ ] 애니메이션 효과
-  - [ ] 노드 생성 시 페이드인
-  - [ ] 상태 변경 시 색상 전환
-  - [ ] 진행률 바 애니메이션
-
-- [ ] 사용자 설정
-  - [ ] 표시할 노드 타입 필터링
-  - [ ] 세부 정보 표시 레벨 조정
-  - [ ] 자동 스크롤 설정
-
-### 6.4 디버깅 및 개발 도구
-- [ ] 트리 구조 JSON 내보내기
-- [ ] 노드 실행 시간 분석
-- [ ] 성능 메트릭 수집 및 표시
-- [ ] 개발자 모드 (상세 로그)
-
-## 📋 Phase 7: 테스트 및 검증
-
-### 7.1 단위 테스트
-- [ ] TrackingTree 클래스 메서드 테스트
-- [ ] 노드 생성 및 업데이트 로직 테스트
-- [ ] 실행 계획 진행 로직 테스트
-- [ ] 계층 구조 관리 테스트
-
-### 7.2 통합 테스트
-- [ ] Team + assignTask 통합 실행 테스트
-- [ ] 병렬 assignTask 실행 테스트
-- [ ] 하위 Agent/Tool 생성 연결 테스트
-- [ ] 오류 상황 처리 테스트
-
-### 7.3 UI 테스트
-- [ ] 트리 렌더링 테스트
-- [ ] 실시간 업데이트 테스트
-- [ ] 사용자 인터랙션 테스트
-- [ ] 성능 테스트 (대규모 트리)
-
-### 7.4 사용자 시나리오 테스트
-- [ ] "vue와 react 비교" 시나리오 전체 테스트
-- [ ] 복잡한 중첩 Tool 호출 시나리오
-- [ ] 오류 발생 및 복구 시나리오
-- [ ] 장시간 실행 시나리오
-
-## 🚀 구현 우선순위
-
-### 🔥 MVP (최소 실행 가능한 제품) - Week 1-2
-1. **기본 트래킹 트리**: 노드 생성, 업데이트, 조회
-2. **단순 Tool 추적**: assignTask 실행 시 기본 노드 생성  
-3. **기본 UI**: 간단한 트리 구조 표시
-4. **실시간 업데이트**: 노드 상태 변경 시 UI 갱신
-
-### ⚡ 핵심 기능 - Week 3-4
-1. **실행 계획 시스템**: 단계별 진행률 표시
-2. **동적 노드 생성**: 하위 Agent/Tool 자동 연결
-3. **진행률 표시**: 퍼센티지 및 단계별 표시
-4. **상태별 시각화**: 아이콘 및 색상 구분
-
-### 🎯 고급 기능 - Week 5-6
-1. **병렬 실행 지원**: 여러 assignTask 동시 추적
-2. **인터랙티브 UI**: 확장/축소, 세부 정보
-3. **성능 최적화**: 대규모 트리 처리
-4. **사용자 경험**: 애니메이션, 필터링
-
-## ✅ 성공 기준
-
-### 📊 기술적 성공 기준
-- [ ] 기존 Team/Agent/Tool 코드 수정 없이 추적 기능 동작
-- [ ] assignTask 실행의 모든 단계 세밀하게 추적
-- [ ] 병렬 실행되는 여러 assignTask 독립적 추적
-- [ ] 실시간 진행률 표시 (퍼센티지, 단계별)
-- [ ] 하위 Agent/Tool 생성 시 자동 노드 연결
-
-### 🎨 사용자 경험 성공 기준
-- [ ] "vue와 react 비교" 시나리오 완벽 추적 및 표시
-- [ ] 현재 진행 중인 작업을 한눈에 파악 가능
-- [ ] 예상 완료 시간 및 진행률 정확 표시
-- [ ] 오류 발생 시 정확한 위치와 원인 표시
-- [ ] 직관적이고 아름다운 UI로 복잡한 과정 단순화
-
-이 체크리스트를 통해 **동적 트래킹 트리 시스템**을 단계적으로 구현하여, 사용자가 Team 실행 과정을 실시간으로 세밀하게 추적할 수 있는 혁신적인 시스템을 완성할 수 있습니다. 
+이 방식으로 **기존 playground의 복잡성을 그대로 활용하면서도, 새로운 동적 트래킹 기능을 단계적으로 추가**할 수 있습니다!
+ 
