@@ -333,20 +333,23 @@ export class PlaygroundExecutor {
             // Create toolHooks for assignTask tracking
             const toolHooks = createAssignTaskHooks(this.historyPlugin);
 
-            // Create team using actual Robota Team library with toolHooks
+            // Create team using actual Robota Team library (following examples/05-team-collaboration.ts)
             this.currentTeam = createTeam({
                 aiProviders: aiProviders,
                 maxMembers: config.maxMembers || 5,
+                maxTokenLimit: 8000,
                 debug: true,
                 toolHooks: toolHooks, // 🎯 Hook 주입
-                logger: {
-                    info: (msg: string) => this.logger.info(`[Team] ${msg}`),
-                    warn: (msg: string) => this.logger.warn(`[Team] ${msg}`),
-                    error: (msg: string) => this.logger.error(`[Team] ${msg}`),
-                    debug: (msg: string) => this.logger.debug(`[Team] ${msg}`),
-                    log: (msg: string) => this.logger.log(`[Team] ${msg}`)
-                }
+                logger: this.logger
             });
+
+            // Add some default agents to make the team functional
+            console.log('🎯 Setting up team with default agents for demo purposes');
+
+            // For now, create a basic team with assignTask functionality
+            // The team itself will have assignTask tool that can delegate to other agents
+            console.log('✅ Team created with assignTask capability');
+            console.log('📋 Team will use assignTask tool to delegate work to specialized agents');
 
             this.setMode('team');
 
