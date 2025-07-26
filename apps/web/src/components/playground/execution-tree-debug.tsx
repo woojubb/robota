@@ -58,6 +58,10 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
     blockCollector,
     refreshInterval = 1000
 }) => {
+    // Auto-refresh handler (moved up for dependency order)
+    const [lastRefresh, setLastRefresh] = React.useState(Date.now());
+    const [isClient, setIsClient] = React.useState(false);
+
     // Build hierarchical tree structure from flat block list
     const { debugTree, rawBlocks, stats } = useMemo(() => {
         const allBlocks = blockCollector.getBlocks();
@@ -144,11 +148,9 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
             rawBlocks: realTimeBlocks,
             stats
         };
-    }, [blockCollector]);
+    }, [blockCollector, lastRefresh]);
 
-    // Auto-refresh handler
-    const [lastRefresh, setLastRefresh] = React.useState(Date.now());
-    const [isClient, setIsClient] = React.useState(false);
+
 
     React.useEffect(() => {
         // Set client flag to prevent hydration mismatch
@@ -170,19 +172,55 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
 
     // Clear all blocks
     const handleClear = () => {
+        console.log('🧹 Clear button clicked!');
+        console.log('📊 Blocks before clear:', blockCollector.getBlocks().length);
         blockCollector.clearBlocks();
+        console.log('📊 Blocks after clear:', blockCollector.getBlocks().length);
         setLastRefresh(Date.now());
+        console.log('✅ Clear completed');
     };
 
     // Generate demo data
     const handleGenerateDemo = () => {
         console.log('🎬 Generate Demo button clicked!');
+        console.log('📊 Current block count before:', blockCollector.getBlocks().length);
+        console.log('📦 BlockCollector instance:', blockCollector);
+
         try {
+            // First test with a simple manual block
+            const testBlock: RealTimeBlockMessage = {
+                role: 'user',
+                content: 'Test message from debug',
+                timestamp: new Date(),
+                blockMetadata: {
+                    id: 'test_' + Date.now(),
+                    type: 'user',
+                    level: 0,
+                    parentId: undefined,
+                    children: [],
+                    isExpanded: true,
+                    visualState: 'completed',
+                    startTime: new Date(),
+                    endTime: new Date(),
+                    actualDuration: 100,
+                    executionContext: {
+                        timestamp: new Date()
+                    }
+                }
+            };
+
+            console.log('📝 Adding test block:', testBlock);
+            blockCollector.collectBlock(testBlock);
+            console.log('📊 Block count after test block:', blockCollector.getBlocks().length);
+
+            // Then generate demo data
             generateDemoExecutionData(blockCollector);
+            console.log('📊 Current block count after demo:', blockCollector.getBlocks().length);
             setLastRefresh(Date.now());
             console.log('✅ Demo data generated successfully');
         } catch (error) {
             console.error('❌ Error generating demo data:', error);
+            console.error('❌ Error details:', error);
         }
     };
 
