@@ -328,8 +328,8 @@ function ChatInterfacePanel() {
 
             <CardContent className="pt-0 flex-1 flex flex-col">
                 {/* Chat History */}
-                <div className="flex-1 mb-4">
-                    <ScrollArea className="h-80 border rounded p-3">
+                <div className="flex-1 mb-4 min-h-0">
+                    <ScrollArea className="h-full border rounded p-3">
                         {conversationEvents.length === 0 ? (
                             <div className="text-center py-6 text-sm text-gray-500">
                                 <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -576,8 +576,9 @@ function PlaygroundContent() {
     const { state } = usePlayground();
 
     return (
-        <div className="container mx-auto p-6 space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="container mx-auto p-6 min-h-screen flex flex-col space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between flex-shrink-0">
                 <div>
                     <h1 className="text-3xl font-bold">Robota Playground</h1>
                     <p className="text-gray-600">Build, test, and deploy intelligent agents</p>
@@ -588,23 +589,23 @@ function PlaygroundContent() {
             </div>
 
             {/* Top Row - Configuration and Visualization */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-shrink-0">
                 {/* Left Column - Configuration */}
-                <div className="space-y-6">
+                <div className="space-y-4 max-h-[700px] overflow-y-auto">
                     <ConfigurationPanel />
                     <SystemStatusPanel />
                     <AuthDebug />
                 </div>
 
                 {/* Right Column - Execution Tree (Larger) */}
-                <div className="space-y-6">
+                <div className="space-y-4 max-h-[700px] overflow-y-auto">
                     <ExecutionTreePanel />
                     <BlockVisualizationPanel />
                 </div>
             </div>
 
             {/* Bottom Row - Chat Interface (Full Width) */}
-            <div className="w-full">
+            <div className="w-full flex-grow min-h-0">
                 <ChatInterfacePanel />
             </div>
         </div>
@@ -633,7 +634,7 @@ function ExecutionTreePanel() {
     const [blockCollector] = useState(() => new PlaygroundBlockCollector());
 
     return (
-        <Card className="h-[600px]">
+        <Card className="h-[450px]">
             <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <GitBranch className="h-4 w-4 text-blue-500" />
@@ -783,7 +784,7 @@ function BlockVisualizationPanel() {
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <ScrollArea className="h-48">
+                <ScrollArea className="h-32">
                     <div className="space-y-1">
                         {conversationEvents.map((event, index) => renderEventBlock(event, index))}
                         {conversationEvents.length === 0 && (
