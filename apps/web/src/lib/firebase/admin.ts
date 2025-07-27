@@ -11,7 +11,16 @@ import { getAuth, type Auth } from 'firebase-admin/auth';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 
 let app: App | undefined;
-let auth: Auth | undefined;
+
+/**
+ * Get Firebase Auth instance
+ */
+function getFirebaseAuth(): Auth {
+    if (!app) {
+        app = initializeFirebaseAdmin();
+    }
+    return getAuth(app);
+}
 
 /**
  * Initialize Firebase Admin SDK
@@ -88,9 +97,14 @@ if (!app) {
 }
 
 // Initialize Auth
-if (!auth) {
-    auth = getAuth(app);
-}
+// if (!auth && app) { // This line is removed as per the new_code, as auth is now a function.
+//     auth = getAuth(app);
+// }
 
-export { auth };
+// Ensure auth is always available
+// if (!auth) { // This line is removed as per the new_code, as auth is now a function.
+//     throw new Error('Firebase Auth initialization failed');
+// }
+
+export { getFirebaseAuth };
 export default app; 

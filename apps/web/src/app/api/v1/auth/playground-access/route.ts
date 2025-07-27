@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/firebase/admin';
+import { getFirebaseAuth } from '@/lib/firebase/admin';
 
 /**
  * Check if user has playground access
@@ -19,7 +19,14 @@ export async function GET(request: NextRequest) {
         const idToken = authHeader.substring(7);
 
         // Verify Firebase ID token
-        const decodedToken = await auth.verifyIdToken(idToken);
+        if (!getFirebaseAuth()) {
+            return NextResponse.json(
+                { error: 'Firebase auth not initialized' },
+                { status: 500 }
+            );
+        }
+
+        const decodedToken = await getFirebaseAuth().verifyIdToken(idToken);
         const { uid, email } = decodedToken;
 
         // Check playground access
@@ -50,7 +57,7 @@ export async function GET(request: NextRequest) {
 async function checkPlaygroundAccess(userId: string) {
     try {
         // Get user record from Firebase Auth
-        const userRecord = await auth.getUser(userId);
+        const userRecord = await getFirebaseAuth().getUser(userId);
         const customClaims = userRecord.customClaims || {};
 
         // Check subscription level

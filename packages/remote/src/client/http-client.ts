@@ -160,17 +160,19 @@ export class HttpClient {
                             try {
                                 const parsed = JSON.parse(data);
 
-                                // Extract complete response data preserving toolCalls
-                                let responseData: any = null;
-                                if (parsed.data) {
-                                    // Nested structure: { data: { content: "...", toolCalls: [...] } }
-                                    responseData = parsed.data;
-                                } else if (parsed.content !== undefined) {
-                                    // Direct structure: { content: "...", toolCalls: [...] }
-                                    responseData = parsed;
-                                }
+                                // ✅ 서버가 원본 UniversalMessage를 직접 보내므로 래핑 해제 불필요
+                                const responseData = parsed;
 
-                                if (responseData) {
+                                if (responseData && responseData.role === 'assistant') {
+                                    // 🔍 디버깅: 파싱된 데이터 확인
+                                    this.logger.debug('🔍 [HTTP-CLIENT-PARSE] Parsed response data:', {
+                                        role: responseData.role,
+                                        content: responseData.content?.substring(0, 30) + '...',
+                                        hasToolCalls: !!responseData.toolCalls,
+                                        toolCallsLength: responseData.toolCalls?.length || 0,
+                                        toolCallsData: responseData.toolCalls
+                                    });
+
                                     yield toResponseMessage(
                                         {
                                             role: 'assistant',

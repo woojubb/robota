@@ -221,14 +221,17 @@ export class RemoteServer {
                     const stream = providerInstance.chatStream(messages, chatOptions);
 
                     for await (const chunk of stream) {
-                        const data = JSON.stringify({
-                            success: true,
-                            data: chunk,
-                            provider,
-                            model,
-                            timestamp: new Date().toISOString()
+                        // 🔍 디버깅: OpenAI에서 받은 원본 청크 로깅
+                        this.logger.debug('🔍 [REMOTE-SERVER-CHUNK] Raw chunk from OpenAI:', {
+                            role: chunk.role,
+                            content: chunk.content?.substring(0, 30) + '...',
+                            hasToolCalls: !!chunk.toolCalls,
+                            toolCallsLength: chunk.toolCalls?.length || 0,
+                            toolCallsData: chunk.toolCalls
                         });
 
+                        // ✅ OpenAI Provider와 동일: UniversalMessage를 그대로 전달 (메타데이터 래핑 없음)
+                        const data = JSON.stringify(chunk);
                         res.write(`data: ${data}\n\n`);
                     }
 
