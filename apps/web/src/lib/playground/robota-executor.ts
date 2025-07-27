@@ -30,6 +30,7 @@ import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
 export type { VisualizationData, ConversationEvent } from './plugins/playground-history-plugin';
 import { PlaygroundWebSocketClient } from './websocket-client';
 import { RemoteExecutor } from '@robota-sdk/remote';
+// import { PlaygroundEventService, createPlaygroundEventService } from './playground-event-service';
 
 
 
@@ -143,6 +144,7 @@ export class PlaygroundExecutor {
     // Playground-specific plugins
     private historyPlugin: PlaygroundHistoryPlugin;
     private statisticsPlugin: PlaygroundStatisticsPlugin;
+    // private eventService: PlaygroundEventService;
 
     private websocketClient: PlaygroundWebSocketClient | null = null;
     private readonly logger: SimpleLogger;

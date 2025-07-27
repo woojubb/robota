@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import { Robota, AgentConfig, ExecutionAnalyticsPlugin, BasePlugin, ToolHooks, BaseTool, SimpleLogger } from '@robota-sdk/agents';
+import { Robota, AgentConfig, ExecutionAnalyticsPlugin, BasePlugin, ToolHooks, BaseTool, SimpleLogger, EventService, SilentEventService } from '@robota-sdk/agents';
 import { v4 as uuidv4 } from 'uuid';
 import { createTaskAssignmentFacade } from './task-assignment/index.js';
 import { AgentDelegationTool } from './tools/agent-delegation-tool.js';
@@ -154,11 +154,13 @@ export class TeamContainer {
     private tasksCompleted: number = 0; // Track completed tasks
     private totalExecutionTime: number = 0; // Track total execution time in ms
     private toolHooks: ToolHooks | undefined; // Tool hooks for assignTask instrumentation
+    private eventService: EventService; // Event service for unified event emission
 
     constructor(options: TeamContainerOptions) {
         this.options = options;
         this.logger = options.logger;
         this.toolHooks = options.toolHooks; // Direct assignment without explicit undefined
+        this.eventService = options.eventService || new SilentEventService(); // Initialize EventService
 
         // Initialize built-in templates
         this.availableTemplates = this.getBuiltinTemplates();
@@ -210,6 +212,9 @@ export class TeamContainer {
                 assignTaskTool
             ]
         };
+
+        // Add EventService to teamConfig if available (temporary workaround for typing)
+        (teamConfig as any).eventService = this.eventService;
 
         console.log(`🔧 [TEAM-CONTAINER] Creating teamAgent with ${teamConfig.tools?.length || 0} tools`);
         console.log(`🔧 [TEAM-CONTAINER] Tools list:`, teamConfig.tools?.map(t => t.getName?.() || 'unnamed'));
@@ -387,7 +392,7 @@ export class TeamContainer {
                     systemMessage += '\n\nDIRECT EXECUTION: Handle this task directly using your specialized knowledge and skills. Do not delegate - focus on completing the work within your expertise.';
                 }
 
-                temporaryAgent = new Robota({
+                const tempAgentConfig = {
                     name: `temp-agent-${agentId}`,
                     aiProviders: this.options.baseRobotaOptions.aiProviders,
                     defaultModel: {
@@ -399,7 +404,12 @@ export class TeamContainer {
                     },
                     plugins: [taskAnalyticsPlugin as BasePlugin], // Add analytics to temporary agent
                     tools: [...delegationTools, ...(this.options.baseRobotaOptions.tools || [])]
-                });
+                };
+
+                // Add EventService to temporary agent (temporary workaround for typing)
+                (tempAgentConfig as any).eventService = this.eventService;
+
+                temporaryAgent = new Robota(tempAgentConfig);
             } else {
                 // Create dynamic agent
                 let systemMessage = `You are a specialist agent created to handle this specific task: ${params.jobDescription}. ${params.context || ''}`;
@@ -409,7 +419,7 @@ export class TeamContainer {
                     systemMessage += '\n\nDIRECT EXECUTION: Handle this task directly using your knowledge and skills. Do not delegate - focus on completing the work yourself.';
                 }
 
-                temporaryAgent = new Robota({
+                const dynamicAgentConfig = {
                     name: `temp-agent-${agentId}`,
                     aiProviders: this.options.baseRobotaOptions.aiProviders,
                     defaultModel: {
@@ -419,7 +429,12 @@ export class TeamContainer {
                     },
                     plugins: [taskAnalyticsPlugin as BasePlugin], // Add analytics to temporary agent
                     tools: [...delegationTools, ...(this.options.baseRobotaOptions.tools || [])]
-                });
+                };
+
+                // Add EventService to dynamic agent (temporary workaround for typing)
+                (dynamicAgentConfig as any).eventService = this.eventService;
+
+                temporaryAgent = new Robota(dynamicAgentConfig);
             }
 
             // Agent created successfully, execute the task

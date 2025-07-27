@@ -1,4 +1,4 @@
-import { BaseTool, createZodFunctionTool, type ToolHooks, type ToolParameters, type ToolResult, type ToolExecutionContext, type SimpleLogger, SilentLogger } from '@robota-sdk/agents';
+import { BaseTool, createZodFunctionTool, type ToolHooks, type ToolParameters, type ToolResult, type ToolExecutionContext, type SimpleLogger, SilentLogger, type EventService } from '@robota-sdk/agents';
 import type { AssignTaskParams, AssignTaskResult, TemplateInfo } from '../types';
 import { createDynamicAssignTaskSchema, type DynamicAssignTaskSchemaType } from '../task-assignment/schema.js';
 import { convertToAssignTaskParams, formatResultForLLM } from '../task-assignment/tool-factory.js';
@@ -26,6 +26,13 @@ export interface AgentDelegationToolOptions {
      * Optional logger for tool execution
      */
     logger?: SimpleLogger | undefined;
+
+    /**
+     * Optional event service for unified event emission
+     * If provided and hooks are not provided, will automatically create hooks using EventServiceHookFactory
+     * @since 2.1.0
+     */
+    eventService?: EventService;
 }
 
 /**

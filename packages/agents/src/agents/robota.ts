@@ -9,6 +9,7 @@ import { Tools } from '../managers/tool-manager';
 import { AgentFactory } from '../managers/agent-factory';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ExecutionService } from '../services/execution-service';
+import { EventService, SilentEventService } from '../services/event-service';
 
 import { BaseTool } from '../abstracts/base-tool';
 import { Logger, createLogger, setGlobalLogLevel } from '../utils/logger';
@@ -135,6 +136,7 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
 
     // Core services
     private executionService!: ExecutionService;
+    private eventService: EventService;
 
     // State management
     protected override config: AgentConfig;
@@ -204,6 +206,9 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
         // Create module system components
         this.eventEmitter = this.createEventEmitterInstance();
         this.moduleRegistry = this.createModuleRegistryInstance();
+
+        // Initialize EventService (use provided or default to SilentEventService)
+        this.eventService = config.eventService || new SilentEventService();
 
         // Store config for async initialization
         this.config = config;
@@ -361,7 +366,8 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
             this.executionService = new ExecutionService(
                 this.aiProviders,
                 this.tools,
-                this.conversationHistory
+                this.conversationHistory,
+                this.eventService
             );
 
             // Register plugins with ExecutionService after it's created

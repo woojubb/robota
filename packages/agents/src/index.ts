@@ -274,3 +274,22 @@ export type {
  */
 export type { ToolSchema as FunctionSchema } from './interfaces/provider';
 
+// ===== EVENT SERVICE EXPORTS =====
+/**
+ * EventService - Unified event emission system for Team/Agent/Tool integration.
+ * Provides single event handler architecture for complete execution tracking.
+ * 
+ * @public
+ */
+export {
+    EventService,
+    ServiceEventType,
+    ServiceEventData,
+    SilentEventService,
+    DefaultEventService,
+    StructuredEventService
+} from './services/event-service';
+
+export { EventServiceHookFactory } from './utils/event-service-hook-factory';
+// export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy';
+

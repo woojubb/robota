@@ -1,4 +1,4 @@
-import type { AgentConfig as RobotaAgentConfig, AgentTemplate, AIProvider, ToolHooks } from '@robota-sdk/agents';
+import type { AgentConfig as RobotaAgentConfig, AgentTemplate, AIProvider, ToolHooks, EventService } from '@robota-sdk/agents';
 
 /**
  * Interface for template information
@@ -109,6 +109,24 @@ export interface TeamOptions {
      * ```
      */
     toolHooks?: ToolHooks;
+
+    /**
+     * Event service for unified event emission across Team/Agent/Tool.
+     * Provides a single event system to track all team execution activities.
+     * 
+     * @example EventService usage
+     * ```typescript
+     * const eventService = new DefaultEventService();
+     * 
+     * const team = createTeam({
+     *   aiProviders: [openaiProvider],
+     *   eventService: eventService
+     * });
+     * ```
+     * 
+     * @since 2.1.0
+     */
+    eventService?: EventService;
 }
 
 /**
@@ -136,6 +154,16 @@ export interface TeamContainerOptions {
      * @internal Used internally by createTeam
      */
     toolHooks?: ToolHooks;
+
+    /**
+     * Event service for unified event emission across Team/Agent/Tool.
+     * If provided, will be injected into team agent and temporary agents.
+     * If toolHooks are not provided and eventService is provided, 
+     * toolHooks will be automatically generated using EventServiceHookFactory.
+     * 
+     * @since 2.1.0
+     */
+    eventService?: EventService;
 }
 
 /**
