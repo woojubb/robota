@@ -25,6 +25,7 @@ import {
 import { PlaygroundStatisticsPlugin } from './plugins/playground-statistics-plugin';
 import type { PlaygroundMetrics, PlaygroundExecutionResult as PlaygroundStatisticsResult } from '../../types/playground-statistics';
 import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
+// ExecutionHierarchyTracker will be added later when exports are fixed
 
 // Re-export types for external use
 export type { VisualizationData, ConversationEvent } from './plugins/playground-history-plugin';
@@ -146,7 +147,6 @@ export class PlaygroundExecutor {
     private historyPlugin: PlaygroundHistoryPlugin;
     private statisticsPlugin: PlaygroundStatisticsPlugin;
     private eventService: PlaygroundEventService;
-
     private websocketClient: PlaygroundWebSocketClient | null = null;
     private readonly logger: SimpleLogger;
 
@@ -157,6 +157,8 @@ export class PlaygroundExecutor {
     ) {
         // Initialize logger with dependency injection
         this.logger = logger || SilentLogger;
+
+        // HierarchyTracker will be added later
 
         // Create playground-specific plugins (ready immediately)
         this.historyPlugin = new PlaygroundHistoryPlugin({
@@ -443,6 +445,8 @@ export class PlaygroundExecutor {
     getPlaygroundEvents(): ConversationEvent[] {
         return this.historyPlugin.getAllEvents();
     }
+
+
 
     /**
      * Create ToolHooks using EventService for assignTask instrumentation
@@ -914,7 +918,7 @@ class PlaygroundTeamInstance {
 
             // Record team execution error
             this.historyPlugin.recordEvent({
-                type: 'error', // Use valid event type
+                type: 'execution.error', // Use valid event type
                 content: error instanceof Error ? error.message : String(error),
                 metadata: { teamName: this.config.name, action: 'execution_error' }
             });
@@ -977,7 +981,7 @@ class PlaygroundTeamInstance {
 
             // Team Level 에러 이벤트 기록 (Level 0)
             this.historyPlugin.recordEvent({
-                type: 'error',
+                type: 'execution.error',
                 content: error instanceof Error ? error.message : String(error),
                 metadata: {
                     teamName: this.config.name,

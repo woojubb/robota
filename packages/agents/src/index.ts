@@ -293,3 +293,7 @@ export {
 export { EventServiceHookFactory } from './utils/event-service-hook-factory';
 export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy';
 
+// ExecutionHierarchyTracker export
+export { ExecutionHierarchyTracker } from './services/execution-hierarchy-tracker';
+export type { ExecutionEntity, HierarchyInfo, ToolExecutionRegistration, EntityType } from './services/execution-hierarchy-tracker';
+
