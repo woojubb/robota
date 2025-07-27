@@ -933,5 +933,16 @@ Your goal is to coordinate effectively while leveraging specialist expertise for
             }
         ];
     }
+
+    /**
+     * Get conversation history from the team agent
+     * @returns Array of conversation messages
+     */
+    getHistory() {
+        if (!this.teamAgent) {
+            return [];
+        }
+        return this.teamAgent.getHistory();
+    }
 }
 

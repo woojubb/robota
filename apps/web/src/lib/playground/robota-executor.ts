@@ -398,11 +398,15 @@ export class PlaygroundExecutor {
         try {
             let fullResponse = '';
 
+            // ✅ executeChatStream의 모든 UniversalMessage를 수집
             for await (const chunk of this.executeChatStream(request)) {
                 const content = chunk.content || '';
                 fullResponse += content;
-                yield content;
+                // ❌ 각 UniversalMessage마다 yield하지 않음
             }
+
+            // ✅ 최종 완성된 응답만 한 번 yield
+            yield fullResponse;
 
             const duration = Date.now() - startTime;
             const executionResult: PlaygroundExecutionResult = {
@@ -491,11 +495,8 @@ export class PlaygroundExecutor {
         if (this.mode === 'agent' && this.currentAgent) {
             return this.currentAgent.getHistory();
         } else if (this.mode === 'team' && this.currentTeam) {
-            return this.historyPlugin.getVisualizationData().events.map(event => ({
-                role: event.type === 'user_message' ? 'user' : 'assistant',
-                content: event.content || '',
-                timestamp: event.timestamp
-            } as UniversalMessage));
+            // ✅ Use TeamContainer's teamAgent getHistory() - follows SDK architecture
+            return (this.currentTeam as any).getHistory();
         }
         return [];
     }
@@ -666,13 +667,19 @@ export class PlaygroundExecutor {
                 const prompt = messages[0].content || '';
                 const stream = this.currentAgent.runStream(prompt);
 
+                // ✅ Agent 모드도 team 모드와 동일: 청크를 수집만 하고 최종에 한 번만 yield
+                let fullResponse = '';
                 for await (const chunk of stream) {
-                    yield {
-                        role: 'assistant',
-                        content: chunk,
-                        timestamp: new Date()
-                    } as UniversalMessage;
+                    fullResponse += chunk;
+                    // ❌ 각 청크마다 yield하지 않음 (team 모드와 동일하게)
                 }
+
+                // ✅ 최종 완성된 메시지만 한 번 yield
+                yield {
+                    role: 'assistant',
+                    content: fullResponse,
+                    timestamp: new Date()
+                } as UniversalMessage;
 
             } else if (this.mode === 'team' && this.currentTeam) {
                 console.log('📡 Starting team stream...');
@@ -683,12 +690,12 @@ export class PlaygroundExecutor {
                 console.log('🔥 [TEAM-STREAM] executeStream method exists:', typeof this.currentTeam.executeStream);
                 console.log('🔥 [TEAM-STREAM] currentTeam methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.currentTeam)));
 
-                // 🎯 Team Level 사용자 메시지 기록
-                this.historyPlugin.recordEvent({
-                    type: 'user_message',
-                    content: prompt,
-                    metadata: { level: 'team', action: 'stream_start' }
-                });
+                // ❌ Team Level 사용자 메시지 기록 제거 (PlaygroundTeamInstance에서 이미 기록함)
+                // this.historyPlugin.recordEvent({
+                //     type: 'user_message',
+                //     content: prompt,
+                //     metadata: { level: 'team', action: 'stream_start' }
+                // });
 
                 console.log('🔥 [TEAM-STREAM] Calling executeStream now...');
                 const stream = this.currentTeam.executeStream(prompt);
@@ -720,12 +727,12 @@ export class PlaygroundExecutor {
                     timestamp: new Date()
                 } as UniversalMessage;
 
-                // 🎯 Team Level 응답 메시지 기록
-                this.historyPlugin.recordEvent({
-                    type: 'assistant_response',
-                    content: fullResponse,
-                    metadata: { level: 'team', action: 'stream_complete' }
-                });
+                // ❌ Team Level 응답 메시지 기록 제거 (PlaygroundTeamInstance에서 이미 기록함)
+                // this.historyPlugin.recordEvent({
+                //     type: 'assistant_response',
+                //     content: fullResponse,
+                //     metadata: { level: 'team', action: 'stream_complete' }
+                // });
 
             } else {
                 const error = new Error(`No ${this.mode} configured for streaming execution`);
@@ -982,8 +989,11 @@ class PlaygroundTeamInstance {
             // 각 Sub-Agent가 실행되면서 Hook을 통해 계층화된 이벤트들이 자동 기록됨
             for await (const chunk of this.teamContainer.executeStream(prompt)) {
                 fullResponse += chunk;
-                yield chunk;
+                // ❌ 각 청크마다 yield하지 않음 (PlaygroundExecutor와 일관성 유지)
             }
+
+            // ✅ 최종 완성된 응답만 한 번 yield
+            yield fullResponse;
 
             // 🎯 Team Level 응답 이벤트 기록 (Level 0)
             this.historyPlugin.recordEvent({
