@@ -6,7 +6,7 @@
  * Error context data type
  * Used for storing contextual information in error instances
  */
-export type ErrorContextData = Record<string, string | number | boolean | Date | Error | string[]>;
+export type ErrorContextData = Record<string, string | number | boolean | Date | Error | string[] | undefined>;
 
 /**
  * Error external input type

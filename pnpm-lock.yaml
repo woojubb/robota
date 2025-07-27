@@ -191,6 +191,9 @@ importers:
       '@robota-sdk/openai':
         specifier: workspace:*
         version: link:../../packages/openai
+      '@robota-sdk/remote':
+        specifier: workspace:*
+        version: link:../../packages/remote
       '@robota-sdk/team':
         specifier: workspace:*
         version: link:../../packages/team

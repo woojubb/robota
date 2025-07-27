@@ -20,15 +20,9 @@ import {
 } from './storages/index';
 
 /**
- * Context data for logging operations
- * Applied 12-alternative verification: Union types, interface definition, utility types all considered
+ * Logging context data - structured data for log entries
  */
-/**
- * Context data for logging operations
- * Applies Rule Pattern 1: exactOptionalPropertyTypes Compatibility
- * Extends LogEntry context requirements
- */
-export interface LoggingContextData extends Record<string, string | number | boolean | Date> {
+export interface LoggingContextData extends Record<string, string | number | boolean | Date | undefined> {
     userInput?: string;
     duration?: number;
     toolName?: string;

@@ -16,13 +16,7 @@ export interface HttpHeaders {
 
 // Default data structure for requests - flexible JSON-serializable data
 export interface DefaultRequestData {
-    [key: string]:
-    | string
-    | number
-    | boolean
-    | Array<string | number | boolean>
-    | Array<{ [key: string]: string | number | boolean }>
-    | { [key: string]: string | number | boolean };
+    [key: string]: any; // 더 유연한 타입으로 변경
 }
 
 // HTTP request structure

@@ -15,7 +15,7 @@ export interface LogEntry {
     timestamp: Date;
     level: LogLevel;
     message: string;
-    context?: Record<string, string | number | boolean | Date>;
+    context?: Record<string, string | number | boolean | Date | undefined>;
     metadata?: {
         executionId?: string;
         conversationId?: string;
