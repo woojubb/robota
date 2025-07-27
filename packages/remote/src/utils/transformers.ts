@@ -46,6 +46,12 @@ export function toResponseMessage<TMessage extends BasicMessage>(
         response.model = model;
     }
 
+    // ✅ toolCalls 데이터 보존 (타입 단언 사용)
+    const messageWithToolCalls = message as any;
+    if (messageWithToolCalls.toolCalls && Array.isArray(messageWithToolCalls.toolCalls)) {
+        response.toolCalls = messageWithToolCalls.toolCalls;
+    }
+
     return response;
 }
 

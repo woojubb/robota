@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/firebase/admin';
+import { getFirebaseAuth } from '@/lib/firebase/admin';
 
 export async function GET(request: NextRequest) {
     try {
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
         const idToken = authHeader.substring(7);
 
         // Verify Firebase ID token
-        const decodedToken = await auth.verifyIdToken(idToken);
+        const decodedToken = await getFirebaseAuth().verifyIdToken(idToken);
         const { uid } = decodedToken;
 
         // Get user limits based on their subscription/role
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 async function getUserPlaygroundLimits(userId: string) {
     try {
         // Get user record from Firebase Auth
-        const userRecord = await auth.getUser(userId);
+        const userRecord = await getFirebaseAuth().getUser(userId);
         const customClaims = userRecord.customClaims || {};
 
         // Check subscription level from custom claims

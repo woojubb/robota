@@ -56,8 +56,18 @@ export function createApp(): express.Application {
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-    // Initialize RemoteServer
-    const remoteServer = new RemoteServer();
+    // Initialize RemoteServer with console logger for debugging
+    const remoteServer = new RemoteServer({
+        enableCors: true,
+        enableHelmet: false, // Already using helmet above
+        logger: {
+            debug: (msg: string, ...args: any[]) => console.log(`[DEBUG] ${msg}`, ...args),
+            info: (msg: string, ...args: any[]) => console.log(`[INFO] ${msg}`, ...args),
+            warn: (msg: string, ...args: any[]) => console.log(`[WARN] ${msg}`, ...args),
+            error: (msg: string, ...args: any[]) => console.log(`[ERROR] ${msg}`, ...args),
+            log: (msg: string, ...args: any[]) => console.log(`[LOG] ${msg}`, ...args)
+        }
+    });
 
     // Initialize providers based on available API keys
     const providers: Record<string, any> = {};

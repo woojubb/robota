@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/firebase/admin';
+import { getFirebaseAuth } from '@/lib/firebase/admin';
 
 export async function POST(request: NextRequest) {
     try {
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
         const idToken = authHeader.substring(7);
 
         // Verify Firebase ID token
-        const decodedToken = await auth.verifyIdToken(idToken);
+        const decodedToken = await getFirebaseAuth().verifyIdToken(idToken);
         const { uid, email } = decodedToken;
 
         // Check if user has playground access
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 async function checkPlaygroundAccess(userId: string): Promise<boolean> {
     try {
         // Get user record from Firebase Auth
-        const userRecord = await auth.getUser(userId);
+        const userRecord = await getFirebaseAuth().getUser(userId);
 
         // Check custom claims for playground access
         const customClaims = userRecord.customClaims || {};
