@@ -567,59 +567,61 @@ function ExecutionTreePanel() {
             // Clear existing blocks first
             blockCollector.clearBlocks();
 
-            // Convert each conversation event to our block format
-            conversationEvents.forEach((event, index) => {
-                const blockMessage: RealTimeBlockMessage = {
-                    role: event.type === 'user_message' ? 'user' :
-                        event.type === 'assistant_response' ? 'assistant' :
-                            (event.type === 'tool_call_start' || event.type === 'tool_call_complete' || event.type === 'tool_call_error') ? 'tool' :
-                                (event.type === 'subtool.call_start' || event.type === 'subtool.call_complete' || event.type === 'subtool.call_error') ? 'tool' :
-                                    (event.type === 'execution.start' || event.type === 'execution.complete' || event.type === 'execution.error') ? 'assistant' :
-                                        (event.type === 'agent.creation_start' || event.type === 'agent.creation_complete') ? 'system' :
-                                            (event.type === 'agent.execution_start' || event.type === 'agent.execution_complete') ? 'assistant' :
-                                                (event.type === 'team.analysis_start' || event.type === 'team.analysis_complete') ? 'system' :
-                                                    (event.type === 'task.aggregation_start' || event.type === 'task.aggregation_complete') ? 'system' :
-                                                        (event.type === 'task.assigned' || event.type === 'task.completed') ? 'system' : 'system',
-                    content: event.content || '',
-                    timestamp: event.timestamp,
-                    blockMetadata: {
-                        id: event.id,
-                        type: event.type === 'user_message' ? 'user' :
-                            event.type === 'assistant_response' ? 'assistant' :
-                                event.type === 'tool_call_start' ? 'tool_call' :
-                                    event.type === 'tool_call_complete' ? 'tool_result' :
-                                        event.type === 'subtool.call_start' ? 'tool_call' :
-                                            event.type === 'subtool.call_complete' ? 'tool_result' :
-                                                (event.type === 'tool_call_error' || event.type === 'subtool.call_error' || event.type === 'execution.error') ? 'error' :
-                                                    (event.type === 'execution.start' || event.type === 'execution.complete') ? 'assistant' :
-                                                        (event.type === 'agent.execution_start' || event.type === 'agent.execution_complete') ? 'assistant' :
-                                                            (event.type === 'team.analysis_start' || event.type === 'team.analysis_complete' ||
-                                                                event.type === 'agent.creation_start' || event.type === 'agent.creation_complete' ||
-                                                                event.type === 'task.aggregation_start' || event.type === 'task.aggregation_complete' ||
-                                                                event.type === 'task.assigned' || event.type === 'task.completed') ? 'group' : 'group',
-                        level: event.executionLevel || 0,
-                        parentId: event.parentEventId,
-                        children: event.childEventIds || [],
-                        isExpanded: true,
-                        visualState: 'completed',
-                        startTime: event.timestamp,
-                        endTime: event.timestamp,
-                        actualDuration: 0,
-                        executionHierarchy: {
-                            level: event.executionLevel || 0,
-                            path: event.executionPath ? event.executionPath.split('/') : [],
-                            parentExecutionId: event.parentEventId,
-                            rootExecutionId: event.delegationId || event.id
-                        },
-                        executionContext: {
-                            timestamp: event.timestamp,
-                            toolName: event.toolName,
-                            executionId: event.id
-                        }
-                    }
-                };
+            // Helper functions to determine role and type
+            const getRole = (eventType: string): 'user' | 'assistant' | 'tool' | 'system' => {
+                if (eventType === 'user_message') return 'user';
+                if (eventType === 'assistant_response') return 'assistant';
+                if (eventType.includes('tool_call') || eventType.includes('subtool')) return 'tool';
+                if (eventType.includes('execution') || eventType.includes('agent.execution')) return 'assistant';
+                return 'system';
+            };
 
-                blockCollector.collectBlock(blockMessage);
+            const getBlockType = (eventType: string): 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'error' | 'group' => {
+                if (eventType === 'user_message') return 'user';
+                if (eventType === 'assistant_response') return 'assistant';
+                if (eventType === 'tool_call_start' || eventType === 'subtool.call_start') return 'tool_call';
+                if (eventType === 'tool_call_complete' || eventType === 'subtool.call_complete') return 'tool_result';
+                if (eventType.includes('error')) return 'error';
+                if (eventType.includes('execution') || eventType.includes('agent.execution')) return 'assistant';
+                return 'group';
+            };
+
+            // Convert each conversation event to our block format
+            conversationEvents.forEach((event) => {
+                try {
+                    const blockMessage: RealTimeBlockMessage = {
+                        role: getRole(event.type),
+                        content: event.content || '',
+                        timestamp: event.timestamp,
+                        blockMetadata: {
+                            id: event.id,
+                            type: getBlockType(event.type),
+                            level: event.executionLevel || 0,
+                            parentId: event.parentEventId,
+                            children: event.childEventIds || [],
+                            isExpanded: true,
+                            visualState: 'completed',
+                            startTime: event.timestamp,
+                            endTime: event.timestamp,
+                            actualDuration: 0,
+                            executionHierarchy: {
+                                level: event.executionLevel || 0,
+                                path: event.executionPath ? event.executionPath.split('/') : [],
+                                parentExecutionId: event.parentEventId,
+                                rootExecutionId: event.delegationId || event.id
+                            },
+                            executionContext: {
+                                timestamp: event.timestamp,
+                                toolName: event.toolName,
+                                executionId: event.id
+                            }
+                        }
+                    };
+
+                    blockCollector.collectBlock(blockMessage);
+                } catch (error) {
+                    console.error('Error creating block message:', error, event);
+                }
             });
         }
     }, [conversationEvents, blockCollector]);
@@ -701,66 +703,85 @@ function BlockVisualizationPanel() {
 
     // 계층별 들여쓰기 렌더링
     const renderEventBlock = (event: any, index: number) => {
-        const style = getEventStyle(event);
-        const level = event.executionLevel || 0;
-        const marginLeft = level * 20; // 레벨당 20px 들여쓰기
+        try {
+            const style = getEventStyle(event);
+            const level = event.executionLevel || 0;
+            const marginLeft = level * 20; // 레벨당 20px 들여쓰기
 
-        return (
-            <div
-                key={event.id || index}
-                style={{ marginLeft: `${marginLeft}px` }}
-                className={`p-3 rounded-lg border ${style.bg} mb-2 transition-all duration-200 hover:shadow-sm`}
-            >
-                {/* 이벤트 헤더 */}
-                <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                        <span className="text-lg">{style.icon}</span>
-                        <span className={`text-xs font-medium ${style.text}`}>
-                            {style.label}
-                        </span>
-                        {event.executionLevel !== undefined && (
-                            <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                                Level {event.executionLevel}
+            return (
+                <div
+                    key={event.id || index}
+                    style={{ marginLeft: `${marginLeft}px` }}
+                    className={`p-3 rounded-lg border ${style.bg} mb-2 transition-all duration-200 hover:shadow-sm`}
+                >
+                    {/* 이벤트 헤더 */}
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                            <span className="text-lg">{style.icon}</span>
+                            <span className={`text-xs font-medium ${style.text}`}>
+                                {style.label}
                             </span>
-                        )}
+                            {event.executionLevel !== undefined && (
+                                <span className="text-xs bg-gray-200 px-2 py-1 rounded">
+                                    Level {event.executionLevel}
+                                </span>
+                            )}
+                        </div>
+                        <span className="text-xs text-gray-500">
+                            {event.timestamp?.toLocaleTimeString() || 'Unknown time'}
+                        </span>
                     </div>
-                    <span className="text-xs text-gray-500">
-                        {event.timestamp?.toLocaleTimeString() || 'Unknown time'}
-                    </span>
+
+                    {/* 실행 경로 표시 */}
+                    {event.executionPath && (
+                        <div className="text-xs text-gray-600 mb-2 font-mono bg-gray-100 px-2 py-1 rounded">
+                            Path: {typeof event.executionPath === 'string'
+                                ? event.executionPath
+                                : JSON.stringify(event.executionPath)
+                            }
+                        </div>
+                    )}
+
+                    {/* 이벤트 내용 */}
+                    <div className="text-sm">
+                        {typeof event.content === 'string'
+                            ? event.content || 'No content'
+                            : event.content
+                                ? JSON.stringify(event.content, null, 2)
+                                : 'No content'
+                        }
+                    </div>
+
+                    {/* Tool 관련 정보 */}
+                    {event.toolName && (
+                        <div className="mt-2 text-xs text-gray-600">
+                            <strong>Tool:</strong> {String(event.toolName)}
+                        </div>
+                    )}
+
+                    {/* Delegation ID 표시 */}
+                    {event.delegationId && (
+                        <div className="mt-1 text-xs text-gray-500">
+                            <strong>Delegation:</strong> {String(event.delegationId)}
+                        </div>
+                    )}
+
+                    {/* 계층 정보 */}
+                    {event.parentEventId && (
+                        <div className="mt-1 text-xs text-gray-500">
+                            <strong>Parent:</strong> {String(event.parentEventId)}
+                        </div>
+                    )}
                 </div>
-
-                {/* 실행 경로 표시 */}
-                {event.executionPath && (
-                    <div className="text-xs text-gray-600 mb-2 font-mono bg-gray-100 px-2 py-1 rounded">
-                        Path: {event.executionPath}
-                    </div>
-                )}
-
-                {/* 이벤트 내용 */}
-                <div className="text-sm">{event.content || 'No content'}</div>
-
-                {/* Tool 관련 정보 */}
-                {event.toolName && (
-                    <div className="mt-2 text-xs text-gray-600">
-                        <strong>Tool:</strong> {event.toolName}
-                    </div>
-                )}
-
-                {/* Delegation ID 표시 */}
-                {event.delegationId && (
-                    <div className="mt-1 text-xs text-gray-500">
-                        <strong>Delegation:</strong> {event.delegationId}
-                    </div>
-                )}
-
-                {/* 계층 정보 */}
-                {event.parentEventId && (
-                    <div className="mt-1 text-xs text-gray-500">
-                        <strong>Parent:</strong> {event.parentEventId}
-                    </div>
-                )}
-            </div>
-        );
+            );
+        } catch (error) {
+            console.error('Error rendering event block:', error, event);
+            return (
+                <div key={index} className="p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm">
+                    Error rendering event: {String(error)}
+                </div>
+            );
+        }
     };
 
     return (

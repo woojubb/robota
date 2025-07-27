@@ -403,7 +403,11 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
                                                         path: metadata.executionHierarchy?.path,
                                                         startTime: metadata.startTime?.toISOString(),
                                                         duration: metadata.actualDuration,
-                                                        content: block.content?.substring(0, 100) + (block.content && block.content.length > 100 ? '...' : '')
+                                                        content: typeof block.content === 'string'
+                                                            ? (block.content.substring(0, 100) + (block.content.length > 100 ? '...' : ''))
+                                                            : block.content
+                                                                ? JSON.stringify(block.content).substring(0, 100) + '...'
+                                                                : ''
                                                     }, null, 2)}
                                                 </pre>
                                             </div>
