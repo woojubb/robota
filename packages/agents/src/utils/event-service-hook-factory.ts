@@ -63,7 +63,7 @@ export class EventServiceHookFactory {
                     }
                 };
 
-                eventService.emit(eventType as any, eventData);
+                eventService.emit(eventType, eventData);
             },
 
             /**
@@ -102,7 +102,7 @@ export class EventServiceHookFactory {
                     }
                 };
 
-                eventService.emit(eventType as any, eventData);
+                eventService.emit(eventType, eventData);
             },
 
             /**
@@ -142,7 +142,7 @@ export class EventServiceHookFactory {
                     }
                 };
 
-                eventService.emit(eventType as any, eventData);
+                eventService.emit(eventType, eventData);
             }
         };
     }
