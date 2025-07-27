@@ -70,16 +70,36 @@ where the task_coordinator template automatically handles team collaboration wit
             apiKey: anthropicApiKey
         });
 
+        // Debug EventService for testing
+        class DebugEventService {
+            constructor() {
+                console.log(chalk.magenta.bold('🔧 DebugEventService CREATED'));
+            }
+
+            emit(eventType: string, data: any): void {
+                console.log(chalk.green.bold(`🎯 EVENT: ${eventType}`));
+                console.log(chalk.cyan(`   Source: ${data.sourceType}:${data.sourceId}`));
+                console.log(chalk.gray(`   Time: ${new Date().toISOString()}`));
+                console.log(chalk.gray('   ---'));
+            }
+        }
+
         // Create team for example 1 (using simplified API)
         console.log(chalk.green('✅ Creating team for example 1...'));
+
+        const debugEventService = new DebugEventService();
+        console.log(chalk.blue(`🔧 About to inject DebugEventService:`, debugEventService));
 
         const team1 = createTeam({
             aiProviders: [openaiProvider1, anthropicProvider1],
             maxMembers: 5,
             maxTokenLimit: 8000,
             logger: console,
-            debug: false
+            debug: false,
+            eventService: debugEventService as any // Add EventService for testing
         });
+
+        console.log(chalk.blue(`🔧 Team created. Let's test simple task...`));
 
         const simpleTask = 'Please explain 3 key differences between React and Vue.js in simple terms.';
 
@@ -117,13 +137,19 @@ where the task_coordinator template automatically handles team collaboration wit
         });
 
         // Create team for example 2 (using simplified API, completely new team)
+        const debugEventService2 = new DebugEventService();
+        console.log(chalk.blue(`🔧 About to inject DebugEventService2:`, debugEventService2));
+
         const team2 = createTeam({
             aiProviders: [openaiProvider2, anthropicProvider2],
             maxMembers: 5,
             maxTokenLimit: 8000,
             logger: console,
-            debug: false
+            debug: false,
+            eventService: debugEventService2 as any // Add EventService for testing
         });
+
+        console.log(chalk.blue(`🔧 Team2 created. Let's test complex task...`));
 
         const complexTask = `Create a comprehensive coffee shop business plan. Please include both of the following sections: market analysis and menu development. Write each section separately.`;
 

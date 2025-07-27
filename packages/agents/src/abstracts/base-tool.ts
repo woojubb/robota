@@ -163,6 +163,28 @@ export abstract class BaseTool<TParameters = BaseToolParameters, TResult = ToolR
     }
 
     /**
+     * Set EventService and auto-generate ToolHooks if not already set
+     * This allows for post-construction EventService injection
+     * 
+     * @param eventService - EventService instance to use for event emission
+     */
+    setEventService(eventService: EventService): void {
+        // Only set hooks if they're not already configured
+        if (!this.hooks && eventService) {
+            // Use Object.defineProperty to set the readonly property
+            Object.defineProperty(this, 'hooks', {
+                value: EventServiceHookFactory.createToolHooks(
+                    eventService,
+                    `tool-${this.constructor.name}`
+                ),
+                writable: false,
+                enumerable: true,
+                configurable: false
+            });
+        }
+    }
+
+    /**
      * Template Method Pattern: Execute tool with hook support
      * This method coordinates the execution lifecycle and should not be overridden
      * 

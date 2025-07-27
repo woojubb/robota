@@ -30,7 +30,7 @@ import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
 export type { VisualizationData, ConversationEvent } from './plugins/playground-history-plugin';
 import { PlaygroundWebSocketClient } from './websocket-client';
 import { RemoteExecutor } from '@robota-sdk/remote';
-// import { PlaygroundEventService, createPlaygroundEventService } from './playground-event-service';
+import { PlaygroundEventService, createPlaygroundEventService } from './playground-event-service';
 
 
 
@@ -144,7 +144,7 @@ export class PlaygroundExecutor {
     // Playground-specific plugins
     private historyPlugin: PlaygroundHistoryPlugin;
     private statisticsPlugin: PlaygroundStatisticsPlugin;
-    // private eventService: PlaygroundEventService;
+    private eventService: PlaygroundEventService;
 
     private websocketClient: PlaygroundWebSocketClient | null = null;
     private readonly logger: SimpleLogger;
@@ -174,6 +174,9 @@ export class PlaygroundExecutor {
             slowExecutionThreshold: 3000, // 3 seconds
             errorRateThreshold: 10 // 10%
         });
+
+        // Create PlaygroundEventService that connects to historyPlugin
+        this.eventService = createPlaygroundEventService(this.historyPlugin);
 
         // PlaygroundExecutor is ready immediately
         // WebSocket will be connected lazily when needed
@@ -212,13 +215,14 @@ export class PlaygroundExecutor {
             // Create AI providers with remote executor
             const aiProviders = this.createProvidersWithExecutor();
 
-            // Create actual Robota agent with plugins
+            // Create actual Robota agent with plugins and EventService
             this.currentAgent = new Robota({
                 name: config.name,
                 aiProviders: aiProviders as any,
                 defaultModel: config.defaultModel,
                 plugins: [this.historyPlugin as any, this.statisticsPlugin as any],
-                tools: (config.tools || []) as any
+                tools: (config.tools || []) as any,
+                eventService: this.eventService as any // Inject EventService for automatic event emission
             });
 
             this.setMode('agent');
@@ -372,7 +376,8 @@ export class PlaygroundExecutor {
                 maxTokenLimit: 8000,
                 debug: true,
                 toolHooks: toolHooks, // 🎯 Hook 주입
-                logger: this.logger
+                logger: this.logger,
+                eventService: this.eventService as any // Inject EventService for automatic event emission
             });
             console.log('🎯 [DEBUG] Team created successfully');
             console.log('🎯 [DEBUG] Created team type:', this.currentTeam.constructor.name);
@@ -947,7 +952,8 @@ class PlaygroundTeamInstance {
         private config: PlaygroundTeamConfig,
         private aiProviders: AIProvider[], // Use actual AI providers instead of agents
         private historyPlugin: PlaygroundHistoryPlugin,
-        private statisticsPlugin: PlaygroundStatisticsPlugin
+        private statisticsPlugin: PlaygroundStatisticsPlugin,
+        private eventService: any // PlaygroundEventService
     ) { }
 
     async initialize(): Promise<void> {
@@ -964,7 +970,8 @@ class PlaygroundTeamInstance {
                     info: (msg: string) => console.log('[Team Info]', msg),
                     warn: (msg: string) => console.warn('[Team Warn]', msg),
                     error: (msg: string) => console.error('[Team Error]', msg)
-                }
+                },
+                eventService: this.eventService // Pass EventService from PlaygroundExecutor
             };
 
             // Create actual team container using createTeam

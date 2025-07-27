@@ -1,56 +1,35 @@
-// Types for EventService interface (will import from @robota-sdk/agents when available)
-export type ServiceEventType =
-    | 'execution.start' | 'execution.complete' | 'execution.error'
-    | 'tool_call_start' | 'tool_call_complete' | 'tool_call_error'
-    | 'task.assigned' | 'task.completed';
+import { EventService, ServiceEventType, ServiceEventData } from '@robota-sdk/agents';
 
-export interface ServiceEventData {
-    sourceType: 'agent' | 'team' | 'tool';
-    sourceId: string;
-    timestamp?: Date;
-    parentExecutionId?: string;
-    rootExecutionId?: string;
-    executionLevel?: number;
-    executionPath?: string[];
-    toolName?: string;
-    parameters?: any;
-    result?: any;
-    error?: string;
-    taskDescription?: string;
-    metadata?: Record<string, any>;
-    [key: string]: any;
-}
-
-export interface EventService {
-    emit(eventType: ServiceEventType, data: ServiceEventData): void;
-}
+// Import the existing ConversationEvent type from PlaygroundHistoryPlugin
+// This ensures type compatibility with the existing system
 
 /**
- * ConversationEvent interface for Playground UI
- * Matches the existing structure used by PlaygroundHistoryPlugin
+ * Basic event types supported by PlaygroundHistoryPlugin
+ */
+type BasicEventType =
+    | 'user_message'      // 사용자 입력
+    | 'assistant_response' // LLM 응답  
+    | 'tool_call'         // 도구 호출
+    | 'tool_result'       // 도구 결과
+    | 'error';            // 오류
+
+/**
+ * ConversationEvent interface matching PlaygroundHistoryPlugin
  */
 export interface ConversationEvent {
     id: string;
-    type: 'execution_start' | 'execution_complete' | 'execution_error' |
-    'tool_call_start' | 'tool_call_complete' | 'tool_call_error' |
-    'task_assigned' | 'task_completed';
-    sourceType: 'agent' | 'team' | 'tool';
-    sourceId: string;
+    type: BasicEventType;
     timestamp: Date;
-    data: {
-        toolName?: string;
-        parameters?: any;
-        result?: any;
-        error?: string;
-        taskDescription?: string;
-        duration?: number;
-        parentExecutionId?: string;
-        rootExecutionId?: string;
-        executionLevel?: number;
-        executionPath?: string[];
-        metadata?: Record<string, any>;
-        [key: string]: any;
-    };
+    content?: string;
+    parentEventId?: string;
+    childEventIds: string[];
+    executionLevel: number;
+    executionPath: string;
+    agentId?: string;
+    toolName?: string;
+    delegationId?: string;
+    parameters?: Record<string, unknown>;
+    result?: unknown;
 }
 
 /**
@@ -103,68 +82,49 @@ export class PlaygroundEventService implements EventService {
         return {
             id: eventId,
             type: conversationEventType,
-            sourceType: data.sourceType,
-            sourceId: data.sourceId,
             timestamp: data.timestamp || new Date(),
-            data: {
-                toolName: data.toolName,
-                parameters: data.parameters,
-                result: data.result,
-                error: data.error,
-                taskDescription: data.taskDescription,
-                duration: data.metadata?.duration,
-                parentExecutionId: data.parentExecutionId,
-                rootExecutionId: data.rootExecutionId,
-                executionLevel: executionLevel,
-                executionPath: executionPath,
-                metadata: {
-                    ...data.metadata,
-                    originalEventType: eventType,
-                    sourceType: data.sourceType,
-                    sourceId: data.sourceId
-                },
-                // Include any additional data fields
-                ...Object.fromEntries(
-                    Object.entries(data).filter(([key]) =>
-                        !['sourceType', 'sourceId', 'timestamp', 'toolName', 'parameters',
-                            'result', 'error', 'taskDescription', 'parentExecutionId',
-                            'rootExecutionId', 'executionLevel', 'executionPath', 'metadata'].includes(key)
-                    )
-                )
-            }
+            content: this.buildEventContent(eventType, data),
+            parentEventId: data.parentExecutionId,
+            childEventIds: [], // Will be managed by PlaygroundHistoryPlugin
+            executionLevel: executionLevel,
+            executionPath: this.buildExecutionPathString(data),
+            agentId: data.sourceType === 'agent' ? data.sourceId : undefined,
+            toolName: data.toolName,
+            delegationId: data.metadata?.delegationId,
+            parameters: data.parameters,
+            result: data.result
         };
     }
 
     /**
-     * Map ServiceEventType to ConversationEvent type
+     * Map ServiceEventType to BasicEventType
      */
-    private mapEventType(eventType: ServiceEventType): ConversationEvent['type'] {
+    private mapEventType(eventType: ServiceEventType): BasicEventType {
         switch (eventType) {
             case 'execution.start':
-                return 'execution_start';
             case 'execution.complete':
-                return 'execution_complete';
-            case 'execution.error':
-                return 'execution_error';
-            case 'tool_call_start':
-                return 'tool_call_start';
-            case 'tool_call_complete':
-                return 'tool_call_complete';
-            case 'tool_call_error':
-                return 'tool_call_error';
             case 'task.assigned':
-                return 'task_assigned';
             case 'task.completed':
-                return 'task_completed';
+                return 'assistant_response'; // Execution events map to assistant responses
+
+            case 'tool_call_start':
+                return 'tool_call';
+
+            case 'tool_call_complete':
+                return 'tool_result';
+
+            case 'execution.error':
+            case 'tool_call_error':
+                return 'error';
+
             default:
-                // Fallback for unknown event types
-                return 'execution_start';
+                return 'assistant_response'; // Default fallback
         }
     }
 
     /**
-     * Build execution path from hierarchical data
-     */
+ * Build execution path from hierarchical data
+ */
     private buildExecutionPath(data: ServiceEventData): string[] {
         if (data.executionPath && Array.isArray(data.executionPath)) {
             return data.executionPath;
@@ -188,6 +148,40 @@ export class PlaygroundEventService implements EventService {
         }
 
         return path;
+    }
+
+    /**
+     * Build execution path as string for PlaygroundHistoryPlugin
+     */
+    private buildExecutionPathString(data: ServiceEventData): string {
+        const pathArray = this.buildExecutionPath(data);
+        return pathArray.join('→');
+    }
+
+    /**
+     * Build content string for ConversationEvent
+     */
+    private buildEventContent(eventType: ServiceEventType, data: ServiceEventData): string {
+        switch (eventType) {
+            case 'execution.start':
+                return `🚀 Execution started: ${data.sourceType} ${data.sourceId}`;
+            case 'execution.complete':
+                return `✅ Execution completed: ${data.result || 'Success'}`;
+            case 'execution.error':
+                return `❌ Execution failed: ${data.error}`;
+            case 'tool_call_start':
+                return `🔧 Tool call started: ${data.toolName}`;
+            case 'tool_call_complete':
+                return `✅ Tool call completed: ${data.toolName}`;
+            case 'tool_call_error':
+                return `❌ Tool call failed: ${data.toolName} - ${data.error}`;
+            case 'task.assigned':
+                return `📋 Task assigned: ${data.taskDescription}`;
+            case 'task.completed':
+                return `✅ Task completed: ${data.taskDescription}`;
+            default:
+                return `ℹ️ Event: ${eventType}`;
+        }
     }
 
     /**

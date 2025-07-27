@@ -10,6 +10,7 @@ import { AgentFactory } from '../managers/agent-factory';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ExecutionService } from '../services/execution-service';
 import { EventService, SilentEventService } from '../services/event-service';
+import { createExecutionProxy } from '../utils/execution-proxy';
 
 import { BaseTool } from '../abstracts/base-tool';
 import { Logger, createLogger, setGlobalLogLevel } from '../utils/logger';
@@ -342,6 +343,11 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
             // Register tools
             if (this.config.tools) {
                 for (const tool of this.config.tools) {
+                    // Inject EventService into BaseTool if available
+                    if (tool instanceof BaseTool && this.eventService) {
+                        tool.setEventService(this.eventService);
+                    }
+
                     // Convert BaseTool to ToolSchema and executor
                     // Create an adapter to convert ToolResult to ToolExecutionData
                     const toolExecutor = async (parameters: BaseToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
@@ -448,6 +454,8 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
     async run(input: string, options: RunOptions = {}): Promise<string> {
         await this.ensureFullyInitialized();
 
+
+
         try {
             this.logger.debug('Starting Robota execution', {
                 inputLength: input.length,
@@ -488,6 +496,8 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
             if (!result.success && result.error) {
                 throw result.error;
             }
+
+
 
             return result.response;
 

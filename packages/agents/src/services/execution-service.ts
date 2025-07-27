@@ -164,6 +164,28 @@ export class ExecutionService {
             hasContext: !!context
         });
 
+        // Emit execution start event
+        if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+            const rootId = fullContext.conversationId || executionId;
+            this.eventService.emit('execution.start', {
+                sourceType: 'agent',
+                sourceId: rootId,
+                timestamp: startTime,
+                parameters: { input },
+                // Hierarchical tracking information
+                rootExecutionId: rootId,
+                executionLevel: 1, // Agent level execution
+                executionPath: [rootId],
+                metadata: {
+                    executionId,
+                    method: 'execute',
+                    inputLength: input.length,
+                    conversationId: fullContext.conversationId,
+                    messageCount: messages.length
+                }
+            });
+        }
+
         try {
             // Get conversation session for this conversation
             const conversationSession = this.conversationHistory.getConversationSession(conversationId);
@@ -464,6 +486,30 @@ export class ExecutionService {
                 rounds: currentRound
             });
 
+            // Emit execution complete event
+            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                const rootId = fullContext.conversationId || executionId;
+                this.eventService.emit('execution.complete', {
+                    sourceType: 'agent',
+                    sourceId: rootId,
+                    timestamp: new Date(),
+                    result: result.response.substring(0, 100) + '...',
+                    // Hierarchical tracking information
+                    rootExecutionId: rootId,
+                    executionLevel: 1, // Agent level execution
+                    executionPath: [rootId],
+                    metadata: {
+                        executionId,
+                        method: 'execute',
+                        success: true,
+                        duration,
+                        tokensUsed: result.tokensUsed,
+                        toolsExecuted: result.toolsExecuted,
+                        conversationId: fullContext.conversationId
+                    }
+                });
+            }
+
             return result;
 
         } catch (error) {
@@ -481,6 +527,28 @@ export class ExecutionService {
                 duration,
                 error: error instanceof Error ? error.message : String(error)
             });
+
+            // Emit execution error event
+            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                const rootId = fullContext.conversationId || executionId;
+                this.eventService.emit('execution.error', {
+                    sourceType: 'agent',
+                    sourceId: rootId,
+                    timestamp: new Date(),
+                    error: error instanceof Error ? error.message : String(error),
+                    // Hierarchical tracking information
+                    rootExecutionId: rootId,
+                    executionLevel: 1, // Agent level execution
+                    executionPath: [rootId],
+                    metadata: {
+                        executionId,
+                        method: 'execute',
+                        success: false,
+                        duration,
+                        conversationId: fullContext.conversationId
+                    }
+                });
+            }
 
             throw error;
         }

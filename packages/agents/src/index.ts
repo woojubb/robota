@@ -291,5 +291,5 @@ export {
 } from './services/event-service';
 
 export { EventServiceHookFactory } from './utils/event-service-hook-factory';
-// export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy';
+export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy';
 
