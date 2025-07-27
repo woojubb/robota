@@ -32,6 +32,7 @@ import {
     Zap,
     Puzzle,
     MessageCircle,
+    MessageSquare,
     Activity,
     Wifi,
     WifiOff,
@@ -231,69 +232,33 @@ function ConfigurationPanel() {
     );
 }
 
-// Chat Interface Component
-function ChatInterfacePanel() {
+// Chat Input Component - Input Only (No Chat History)
+function ChatInputPanel() {
     const { state } = usePlayground();
-    const { executePrompt, executeStreamPrompt, isExecuting, lastResult } = useRobotaExecution();
-    const { conversationEvents } = usePlaygroundData();
+    const { executePrompt, executeStreamPrompt, isExecuting } = useRobotaExecution();
     const {
         inputState,
         setValue,
         sendMessage,
         sendStreamingMessage,
-        streamingResponse,
-        isReceivingStream,
         inputRef,
         canSend
     } = useChatInput();
 
     const [useStreaming, setUseStreaming] = useState(true);
-    const lastResultRef = useRef(lastResult);
 
-    // Monitor lastResult changes and create assistant blocks
-    useEffect(() => {
-        console.log('🔍 lastResult changed:', {
-            hasLastResult: !!lastResult,
-            isNewResult: lastResult !== lastResultRef.current,
-            hasResponse: !!(lastResult?.response),
-            response: lastResult?.response
-        });
-
-        // Simply log - actual conversation history is managed by Robota SDK
-        if (lastResult && lastResult !== lastResultRef.current && lastResult.response) {
-            console.log('✅ Assistant response received:', lastResult.response);
-        }
-        lastResultRef.current = lastResult;
-    }, [lastResult]);
-
+    // Handle message sending
     const handleSendMessage = useCallback(async () => {
-        if (!canSend) return;
-
-        const messageText = inputState.value.trim();
-        if (!messageText) return;
-
-        console.log('📤 User message:', messageText);
+        if (!canSend || !inputState.value.trim()) return;
 
         try {
-            let result: any;
-
             if (useStreaming) {
-                result = await sendStreamingMessage(messageText);
+                await sendStreamingMessage(inputState.value);
             } else {
-                result = await sendMessage(messageText);
+                await sendMessage(inputState.value);
             }
-
-            console.log('✅ handleSendMessage completed:', result);
-
         } catch (error) {
-            console.error('❌ handleSendMessage error:', error);
-            console.error('❌ Full error details:', {
-                message: error instanceof Error ? error.message : 'Unknown error',
-                stack: error instanceof Error ? error.stack : undefined,
-                name: error instanceof Error ? error.name : undefined,
-                messageText,
-                useStreaming
-            });
+            console.error('Failed to send message:', error);
         }
     }, [canSend, inputState.value, useStreaming, sendStreamingMessage, sendMessage]);
 
@@ -306,90 +271,36 @@ function ChatInterfacePanel() {
 
     return (
         <Card className="h-full flex flex-col">
-            <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <MessageCircle className="h-4 w-4" />
-                        Chat Interface
-                    </CardTitle>
-
-                    <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                            {state.mode === 'agent' ? 'Agent Mode' : 'Team Mode'}
+            <CardHeader className="pb-3 flex-shrink-0">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4" />
+                    Chat Input
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                        {state.mode === 'agent' ? 'Agent Mode' : 'Team Mode'}
+                    </Badge>
+                    {isExecuting && (
+                        <Badge variant="secondary" className="text-xs animate-pulse">
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            Executing
                         </Badge>
-                        {isExecuting && (
-                            <Badge variant="secondary" className="text-xs animate-pulse">
-                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                Executing
-                            </Badge>
-                        )}
-                    </div>
+                    )}
                 </div>
             </CardHeader>
 
-            <CardContent className="pt-0 flex-1 flex flex-col">
-                {/* Chat History */}
-                <div className="flex-1 mb-4 min-h-0">
-                    <ScrollArea className="h-full border rounded p-3">
-                        {conversationEvents.length === 0 ? (
-                            <div className="text-center py-6 text-sm text-gray-500">
-                                <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                <p>No conversation yet</p>
-                                <p className="text-xs">Send a message to start</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
-                                {conversationEvents.map((event) => (
-                                    <div key={event.id} className="space-y-2">
-                                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                                            <Badge variant="outline" className="text-xs">
-                                                {event.type.replace('_', ' ')}
-                                            </Badge>
-                                            <span>{event.timestamp.toLocaleTimeString()}</span>
-                                        </div>
-                                        <div className={`
-                      p-3 rounded-lg text-sm
-                      ${event.type === 'user_message' ? 'bg-blue-50 border-l-4 border-blue-500' : ''}
-                      ${event.type === 'assistant_response' ? 'bg-green-50 border-l-4 border-green-500' : ''}
-                      ${event.type === 'error' ? 'bg-red-50 border-l-4 border-red-500' : ''}
-                      ${event.type === 'tool_call' ? 'bg-orange-50 border-l-4 border-orange-500' : ''}
-                    `}>
-                                            {event.content}
-                                        </div>
-                                    </div>
-                                ))}
-
-                                {/* Streaming Response */}
-                                {isReceivingStream && streamingResponse && (
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                                            <Badge variant="secondary" className="text-xs animate-pulse">
-                                                Streaming
-                                            </Badge>
-                                            <span>{new Date().toLocaleTimeString()}</span>
-                                        </div>
-                                        <div className="p-3 rounded-lg text-sm bg-green-50 border-l-4 border-green-500">
-                                            {streamingResponse}
-                                            <span className="inline-block w-2 h-4 bg-green-500 ml-1 animate-pulse" />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </ScrollArea>
-                </div>
-
-                {/* Input Area */}
-                <div className="space-y-3">
-                    {/* Input Controls */}
+            <CardContent className="flex-1 flex flex-col gap-3 min-h-0 pt-0">
+                {/* Input Section */}
+                <div className="flex-shrink-0 space-y-3">
+                    {/* Controls */}
                     <div className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2">
-                            <label className="flex items-center gap-1">
+                            <label className="flex items-center gap-1 cursor-pointer">
                                 <input
                                     type="checkbox"
                                     checked={useStreaming}
                                     onChange={(e) => setUseStreaming(e.target.checked)}
-                                    className="rounded"
+                                    className="w-3 h-3"
                                 />
                                 <span>Streaming</span>
                             </label>
@@ -412,7 +323,7 @@ function ChatInterfacePanel() {
                             onChange={(e) => setValue(e.target.value)}
                             onKeyPress={handleKeyPress}
                             placeholder="Type your message here... (Press Enter to send, Shift+Enter for new line)"
-                            className="flex-1 min-h-[80px] resize-none"
+                            className="flex-1 min-h-[120px] resize-none"
                             disabled={isExecuting}
                         />
 
@@ -454,6 +365,15 @@ function ChatInterfacePanel() {
                             ))}
                         </div>
                     )}
+                </div>
+
+                {/* Empty space for future features */}
+                <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+                    <div className="text-center">
+                        <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        <p>Chat history removed</p>
+                        <p className="text-xs">Focus on Block Tree</p>
+                    </div>
                 </div>
             </CardContent>
         </Card>
@@ -598,11 +518,11 @@ function PlaygroundContent() {
                 </div>
             </div>
 
-            {/* Middle Row - Chat Interface + Execution Tree (1:3 ratio) */}
+            {/* Main Content - Chat Input + Execution Tree */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-grow min-h-0">
-                {/* Left Column - Chat Interface (1/4 width) */}
+                {/* Left Column - Chat Input Only (1/4 width) */}
                 <div className="lg:col-span-1 min-h-0">
-                    <ChatInterfacePanel />
+                    <ChatInputPanel />
                 </div>
 
                 {/* Right Column - Execution Tree (3/4 width) */}
@@ -644,8 +564,6 @@ function ExecutionTreePanel() {
     // Convert conversation events to our block format
     useEffect(() => {
         if (conversationEvents.length > 0) {
-            console.log('🔄 Converting conversation events to execution blocks:', conversationEvents);
-
             // Clear existing blocks first
             blockCollector.clearBlocks();
 
@@ -654,15 +572,31 @@ function ExecutionTreePanel() {
                 const blockMessage: RealTimeBlockMessage = {
                     role: event.type === 'user_message' ? 'user' :
                         event.type === 'assistant_response' ? 'assistant' :
-                            event.type === 'tool_call' ? 'tool' : 'system',
+                            (event.type === 'tool_call_start' || event.type === 'tool_call_complete' || event.type === 'tool_call_error') ? 'tool' :
+                                (event.type === 'subtool.call_start' || event.type === 'subtool.call_complete' || event.type === 'subtool.call_error') ? 'tool' :
+                                    (event.type === 'execution.start' || event.type === 'execution.complete' || event.type === 'execution.error') ? 'assistant' :
+                                        (event.type === 'agent.creation_start' || event.type === 'agent.creation_complete') ? 'system' :
+                                            (event.type === 'agent.execution_start' || event.type === 'agent.execution_complete') ? 'assistant' :
+                                                (event.type === 'team.analysis_start' || event.type === 'team.analysis_complete') ? 'system' :
+                                                    (event.type === 'task.aggregation_start' || event.type === 'task.aggregation_complete') ? 'system' :
+                                                        (event.type === 'task.assigned' || event.type === 'task.completed') ? 'system' : 'system',
                     content: event.content || '',
                     timestamp: event.timestamp,
                     blockMetadata: {
                         id: event.id,
                         type: event.type === 'user_message' ? 'user' :
                             event.type === 'assistant_response' ? 'assistant' :
-                                event.type === 'tool_call' ? 'tool_call' :
-                                    event.type === 'tool_result' ? 'tool_result' : 'group',
+                                event.type === 'tool_call_start' ? 'tool_call' :
+                                    event.type === 'tool_call_complete' ? 'tool_result' :
+                                        event.type === 'subtool.call_start' ? 'tool_call' :
+                                            event.type === 'subtool.call_complete' ? 'tool_result' :
+                                                (event.type === 'tool_call_error' || event.type === 'subtool.call_error' || event.type === 'execution.error') ? 'error' :
+                                                    (event.type === 'execution.start' || event.type === 'execution.complete') ? 'assistant' :
+                                                        (event.type === 'agent.execution_start' || event.type === 'agent.execution_complete') ? 'assistant' :
+                                                            (event.type === 'team.analysis_start' || event.type === 'team.analysis_complete' ||
+                                                                event.type === 'agent.creation_start' || event.type === 'agent.creation_complete' ||
+                                                                event.type === 'task.aggregation_start' || event.type === 'task.aggregation_complete' ||
+                                                                event.type === 'task.assigned' || event.type === 'task.completed') ? 'group' : 'group',
                         level: event.executionLevel || 0,
                         parentId: event.parentEventId,
                         children: event.childEventIds || [],
@@ -687,8 +621,6 @@ function ExecutionTreePanel() {
 
                 blockCollector.collectBlock(blockMessage);
             });
-
-            console.log('✅ Converted events to blocks');
         }
     }, [conversationEvents, blockCollector]);
 

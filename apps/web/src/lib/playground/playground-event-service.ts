@@ -1,17 +1,40 @@
-import { EventService, ServiceEventType, ServiceEventData } from '@robota-sdk/agents';
+// Temporarily use any to avoid type conflicts during development
+import { EventService, ServiceEventData } from '@robota-sdk/agents';
 
-// Import the existing ConversationEvent type from PlaygroundHistoryPlugin
-// This ensures type compatibility with the existing system
+// Local ServiceEventType with extended events for detailed block tree
+type ServiceEventType =
+    | 'execution.start' | 'execution.complete' | 'execution.error'
+    | 'tool_call_start' | 'tool_call_complete' | 'tool_call_error'
+    | 'task.assigned' | 'task.completed'
+    | 'team.analysis_start' | 'team.analysis_complete'
+    | 'agent.creation_start' | 'agent.creation_complete'
+    | 'agent.execution_start' | 'agent.execution_complete'
+    | 'subtool.call_start' | 'subtool.call_complete' | 'subtool.call_error'
+    | 'task.aggregation_start' | 'task.aggregation_complete';
 
-/**
- * Basic event types supported by PlaygroundHistoryPlugin
- */
+// Import BasicEventType from PlaygroundHistoryPlugin for type consistency
 type BasicEventType =
-    | 'user_message'      // 사용자 입력
-    | 'assistant_response' // LLM 응답  
-    | 'tool_call'         // 도구 호출
-    | 'tool_result'       // 도구 결과
-    | 'error';            // 오류
+    | 'user_message'
+    | 'assistant_response'
+    | 'tool_call_start'
+    | 'tool_call_complete'
+    | 'tool_call_error'
+    | 'execution.start'
+    | 'execution.complete'
+    | 'execution.error'
+    | 'task.assigned'
+    | 'task.completed'
+    | 'team.analysis_start'
+    | 'team.analysis_complete'
+    | 'agent.creation_start'
+    | 'agent.creation_complete'
+    | 'agent.execution_start'
+    | 'agent.execution_complete'
+    | 'subtool.call_start'
+    | 'subtool.call_complete'
+    | 'subtool.call_error'
+    | 'task.aggregation_start'
+    | 'task.aggregation_complete';
 
 /**
  * ConversationEvent interface matching PlaygroundHistoryPlugin
@@ -30,6 +53,8 @@ export interface ConversationEvent {
     delegationId?: string;
     parameters?: Record<string, unknown>;
     result?: unknown;
+    error?: string;
+    metadata?: Record<string, unknown>;
 }
 
 /**
@@ -60,7 +85,22 @@ export class PlaygroundEventService implements EventService {
      */
     emit(eventType: ServiceEventType, data: ServiceEventData): void {
         const conversationEvent = this.mapToConversationEvent(eventType, data);
-        this.historyPlugin.recordEvent(conversationEvent);
+
+        // PlaygroundHistoryPlugin.recordEvent expects partial event without auto-generated fields
+        const partialEvent = {
+            type: conversationEvent.type,
+            content: conversationEvent.content,
+            parentEventId: conversationEvent.parentEventId,
+            agentId: conversationEvent.agentId,
+            toolName: conversationEvent.toolName,
+            delegationId: conversationEvent.delegationId,
+            parameters: conversationEvent.parameters,
+            result: conversationEvent.result,
+            error: conversationEvent.error,
+            metadata: conversationEvent.metadata
+        } as any; // Type assertion to work around interface mismatch
+
+        this.historyPlugin.recordEvent(partialEvent);
     }
 
     /**
@@ -92,7 +132,9 @@ export class PlaygroundEventService implements EventService {
             toolName: data.toolName,
             delegationId: data.metadata?.delegationId,
             parameters: data.parameters,
-            result: data.result
+            result: data.result,
+            error: data.error,
+            metadata: data.metadata
         };
     }
 
@@ -102,20 +144,51 @@ export class PlaygroundEventService implements EventService {
     private mapEventType(eventType: ServiceEventType): BasicEventType {
         switch (eventType) {
             case 'execution.start':
+                return 'execution.start';
             case 'execution.complete':
+                return 'execution.complete';
+            case 'execution.error':
+                return 'execution.error';
+
             case 'task.assigned':
+                return 'task.assigned';
             case 'task.completed':
-                return 'assistant_response'; // Execution events map to assistant responses
+                return 'task.completed';
 
             case 'tool_call_start':
-                return 'tool_call';
-
+                return 'tool_call_start';
             case 'tool_call_complete':
-                return 'tool_result';
-
-            case 'execution.error':
+                return 'tool_call_complete';
             case 'tool_call_error':
-                return 'error';
+                return 'tool_call_error';
+
+            // 새로운 상세 이벤트 타입들
+            case 'team.analysis_start':
+                return 'team.analysis_start';
+            case 'team.analysis_complete':
+                return 'team.analysis_complete';
+
+            case 'agent.creation_start':
+                return 'agent.creation_start';
+            case 'agent.creation_complete':
+                return 'agent.creation_complete';
+
+            case 'agent.execution_start':
+                return 'agent.execution_start';
+            case 'agent.execution_complete':
+                return 'agent.execution_complete';
+
+            case 'subtool.call_start':
+                return 'subtool.call_start';
+            case 'subtool.call_complete':
+                return 'subtool.call_complete';
+            case 'subtool.call_error':
+                return 'subtool.call_error';
+
+            case 'task.aggregation_start':
+                return 'task.aggregation_start';
+            case 'task.aggregation_complete':
+                return 'task.aggregation_complete';
 
             default:
                 return 'assistant_response'; // Default fallback
