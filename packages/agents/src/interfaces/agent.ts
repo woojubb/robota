@@ -30,6 +30,8 @@ export interface UserMessage extends BaseMessage {
 
 /**
  * Assistant message interface
+ * @deprecated Use AssistantMessage from '../managers/conversation-history-manager' instead
+ * This interface is being phased out in favor of the more comprehensive one in conversation-history-manager
  */
 export interface AssistantMessage extends BaseMessage {
     role: 'assistant';
@@ -79,20 +81,20 @@ export interface ProviderConfig {
         apiKey?: string;
         baseURL?: string;
         organization?: string;
-        [key: string]: ProviderConfigValue;
+        [key: string]: ProviderConfigValue | undefined;
     };
     anthropic?: {
         apiKey?: string;
         baseURL?: string;
-        [key: string]: ProviderConfigValue;
+        [key: string]: ProviderConfigValue | undefined;
     };
     google?: {
         apiKey?: string;
         projectId?: string;
         location?: string;
-        [key: string]: ProviderConfigValue;
+        [key: string]: ProviderConfigValue | undefined;
     };
-    [provider: string]: Record<string, ProviderConfigValue> | undefined;
+    [provider: string]: Record<string, ProviderConfigValue | undefined> | undefined;
 }
 
 /**

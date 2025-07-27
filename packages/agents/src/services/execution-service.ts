@@ -550,6 +550,7 @@ export class ExecutionService {
             const stream = provider.chatStream(conversationMessages, chatOptions);
             let fullResponse = '';
             let toolCalls: ToolCall[] = [];
+            let currentToolCallIndex = -1; // 현재 작업중인 도구 호출 인덱스
 
             // Collect streaming chunks and tool calls
             for await (const chunk of stream) {
@@ -562,24 +563,29 @@ export class ExecutionService {
                 if (chunk.role === 'assistant') {
                     const assistantChunk = chunk as any; // Type assertion to handle toolCalls
                     if (assistantChunk.toolCalls && assistantChunk.toolCalls.length > 0) {
-                        // Merge tool calls - OpenAI streams tool calls in fragments
+                        // 스트림 도구 호출 상태 관리
                         for (const chunkToolCall of assistantChunk.toolCalls) {
-                            const existingIndex = toolCalls.findIndex(tc => tc.id === chunkToolCall.id);
-                            if (existingIndex >= 0) {
-                                // Merge arguments
-                                if (chunkToolCall.function?.arguments) {
-                                    toolCalls[existingIndex].function.arguments += chunkToolCall.function.arguments;
-                                }
-                            } else {
-                                // New tool call
+                            if (chunkToolCall.id && chunkToolCall.id !== '') {
+                                // ✅ ID 있음 = 새 도구 호출 시작
+                                currentToolCallIndex = toolCalls.length;
                                 toolCalls.push({
                                     id: chunkToolCall.id,
-                                    type: chunkToolCall.type,
+                                    type: chunkToolCall.type || 'function',
                                     function: {
                                         name: chunkToolCall.function?.name || '',
                                         arguments: chunkToolCall.function?.arguments || ''
                                     }
                                 });
+                                console.log(`🆕 [TOOL-STREAM] New tool call started: ${chunkToolCall.id} (${chunkToolCall.function?.name})`);
+                            } else if (currentToolCallIndex >= 0) {
+                                // ✅ ID 없음 = 현재 도구 호출에 조각 추가
+                                if (chunkToolCall.function?.name) {
+                                    toolCalls[currentToolCallIndex].function.name += chunkToolCall.function.name;
+                                }
+                                if (chunkToolCall.function?.arguments) {
+                                    toolCalls[currentToolCallIndex].function.arguments += chunkToolCall.function.arguments;
+                                }
+                                console.log(`📝 [TOOL-STREAM] Adding fragment to tool ${toolCalls[currentToolCallIndex].id}: "${chunkToolCall.function?.arguments || chunkToolCall.function?.name || ''}"`);
                             }
                         }
                     }
