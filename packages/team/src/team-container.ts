@@ -155,7 +155,6 @@ export class TeamContainer {
     private totalExecutionTime: number = 0; // Track total execution time in ms
     private toolHooks: ToolHooks | undefined; // Tool hooks for assignTask instrumentation
     private eventService: EventService; // Event service for unified event emission
-
     constructor(options: TeamContainerOptions) {
         this.options = options;
         this.logger = options.logger;
@@ -305,11 +304,11 @@ export class TeamContainer {
         const executionLevel = (context?.executionLevel || 0) + 1; // Team level + 1
         const executionPath = [...(context?.executionPath || []), agentId];
 
-        // 1. Emit team analysis start event
+        // 1. Emit team analysis start event with hierarchy info
         if (this.eventService && !(this.eventService instanceof SilentEventService)) {
             this.eventService.emit('team.analysis_start', {
                 sourceType: 'team',
-                sourceId: 'team-analyzer',
+                sourceId: agentId,
                 taskDescription: params.jobDescription,
                 parameters: params,
                 // Add hierarchical context
@@ -329,21 +328,19 @@ export class TeamContainer {
         if (this.eventService && !(this.eventService instanceof SilentEventService)) {
             this.eventService.emit('team.analysis_complete', {
                 sourceType: 'team',
-                sourceId: 'team-analyzer',
-                taskDescription: `Analyzed job: ${params.jobDescription}`,
-                result: {
-                    selectedTemplate: params.agentTemplate,
-                    analysisComplete: true
+                sourceId: agentId,
+                taskDescription: `Job analysis completed for: ${params.jobDescription}`,
+                parameters: {
+                    analysisResult: 'Task requirements analyzed and agent template selected',
+                    selectedTemplate: params.agentTemplate
                 },
-                // Add hierarchical context
                 parentExecutionId,
                 rootExecutionId,
                 executionLevel,
                 executionPath,
                 metadata: {
-                    phase: 'job_analysis',
-                    duration: Date.now() - startTime,
-                    agentTemplate: params.agentTemplate
+                    phase: 'job_analysis_complete',
+                    selectedTemplate: params.agentTemplate
                 }
             });
         }
@@ -415,10 +412,10 @@ export class TeamContainer {
                         allowFurtherDelegation: params.allowFurtherDelegation
                     },
                     // Add hierarchical context
-                    parentExecutionId,
-                    rootExecutionId,
-                    executionLevel,
-                    executionPath,
+                    parentExecutionId: parentExecutionId,
+                    rootExecutionId: rootExecutionId,
+                    executionLevel: executionLevel,
+                    executionPath: executionPath,
                     metadata: {
                         phase: 'agent_creation',
                         agentTemplate: params.agentTemplate,
@@ -498,10 +495,10 @@ export class TeamContainer {
                             model: template.config.model
                         },
                         // Add hierarchical context
-                        parentExecutionId,
-                        rootExecutionId,
-                        executionLevel,
-                        executionPath,
+                        parentExecutionId: parentExecutionId,
+                        rootExecutionId: rootExecutionId,
+                        executionLevel: executionLevel,
+                        executionPath: executionPath,
                         metadata: {
                             phase: 'agent_creation',
                             agentTemplate: params.agentTemplate,
@@ -555,10 +552,10 @@ export class TeamContainer {
                         agentName: temporaryAgent.name
                     },
                     // Add hierarchical context
-                    parentExecutionId,
-                    rootExecutionId,
-                    executionLevel,
-                    executionPath,
+                    parentExecutionId: parentExecutionId,
+                    rootExecutionId: rootExecutionId,
+                    executionLevel: executionLevel,
+                    executionPath: executionPath,
                     metadata: {
                         phase: 'agent_execution',
                         agentId: agentId,
@@ -580,10 +577,10 @@ export class TeamContainer {
                     taskDescription: `Completed execution: ${params.jobDescription}`,
                     result: result.substring(0, 200) + '...',
                     // Add hierarchical context
-                    parentExecutionId,
-                    rootExecutionId,
-                    executionLevel,
-                    executionPath,
+                    parentExecutionId: parentExecutionId,
+                    rootExecutionId: rootExecutionId,
+                    executionLevel: executionLevel,
+                    executionPath: executionPath,
                     metadata: {
                         phase: 'agent_execution',
                         agentId: agentId,
@@ -608,10 +605,10 @@ export class TeamContainer {
                         }]
                     },
                     // Add hierarchical context
-                    parentExecutionId,
-                    rootExecutionId,
-                    executionLevel,
-                    executionPath,
+                    parentExecutionId: parentExecutionId,
+                    rootExecutionId: rootExecutionId,
+                    executionLevel: executionLevel,
+                    executionPath: executionPath,
                     metadata: {
                         phase: 'task_aggregation',
                         agentCount: 1,
@@ -635,10 +632,10 @@ export class TeamContainer {
                     taskDescription: 'Result aggregation and synthesis completed',
                     result: `Synthesized result from ${params.agentTemplate} agent`,
                     // Add hierarchical context
-                    parentExecutionId,
-                    rootExecutionId,
-                    executionLevel,
-                    executionPath,
+                    parentExecutionId: parentExecutionId,
+                    rootExecutionId: rootExecutionId,
+                    executionLevel: executionLevel,
+                    executionPath: executionPath,
                     metadata: {
                         phase: 'task_aggregation',
                         agentCount: 1,
@@ -764,6 +761,8 @@ export class TeamContainer {
 
             // Cleanup handled automatically by garbage collection
             temporaryAgent = null;
+
+            // Agent execution completed successfully
         }
     }
 
