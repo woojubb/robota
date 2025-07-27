@@ -388,13 +388,14 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                 allEvents = history.map((msg, index) => ({
                     id: `msg_${index}_${msg.timestamp?.getTime() || Date.now()}`,
                     type: msg.role === 'user' ? 'user_message' as const : 'assistant_response' as const,
-                    content: msg.content || '',
+                    content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content || ''),
                     timestamp: msg.timestamp || new Date(),
                     parentEventId: undefined,
                     childEventIds: [],
                     executionLevel: 0,
                     executionPath: 'basic',
-                    metadata: msg.metadata || {}
+                    metadata: typeof msg.metadata === 'object' && msg.metadata !== null ?
+                        JSON.parse(JSON.stringify(msg.metadata)) : {}
                 }));
             }
 
