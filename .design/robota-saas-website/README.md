@@ -1,146 +1,201 @@
-# 🤖 Robota SaaS 플랫폼 설계 문서
+# Robota SaaS Website 설계 문서
 
-## 📊 **프로젝트 현황**
-- [x] **전체 진행률**: 95% 완료 ✅
-- [x] **핵심 기능**: Block Coding System 완전 구현 ✅
-- [x] **현재 상태**: Team Stream 지원 개발 중 🔄
+## 📋 프로젝트 개요
+
+**Robota SaaS Website**는 사용자가 웹 브라우저에서 직접 AI Agent와 Team을 구성하고 실행할 수 있는 플랫폼입니다. 복잡한 설정 없이 드래그 앤 드롭과 시각적 인터페이스를 통해 AI 에이전트를 만들고 테스트할 수 있습니다.
+
+## 🎯 핵심 목표
+
+### 1. **직관적인 Agent 구성**
+- 코드 작성 없이 Agent 설정 가능
+- 다양한 AI 모델 (OpenAI, Anthropic, Google) 지원
+- 실시간 설정 변경 및 테스트
+
+### 2. **완전한 실행 추적**
+- Team/Agent/Tool 모든 실행 단계 시각화
+- 계층 구조 기반 블록 시스템
+- EventService 아키텍처로 통합 이벤트 처리
+
+### 3. **사용자 중심 SaaS 플랫폼**
+- Firebase 기반 사용자 인증 및 관리
+- 크레딧 기반 사용량 제한 시스템
+- Stripe 연동 구독 및 결제
+
+## 🏗️ 아키텍처 개요
+
+### 프론트엔드 스택
+- **Next.js 14** - React 기반 풀스택 프레임워크
+- **TypeScript** - 타입 안전성 확보
+- **Tailwind CSS** - 반응형 디자인
+- **Radix UI** - 접근성 중심 컴포넌트
+
+### 백엔드 & 인프라
+- **Firebase** - 인증, 데이터베이스, 호스팅
+- **Vercel** - 배포 및 서버리스 함수
+- **Stripe** - 결제 시스템
+- **Sentry** - 에러 추적
+
+### AI 통합
+- **Robota SDK** - Agent/Team 실행 엔진
+- **RemoteExecutor** - 브라우저에서 AI 모델 호출
+- **EventService** - 통합 이벤트 추적 시스템
+
+## �� 문서 구조
+
+### 🎯 현재 작업 (최우선)
+- **[EVENTSERVICE-IMPLEMENTATION-TASKS.md](./EVENTSERVICE-IMPLEMENTATION-TASKS.md)** - EventService 구현 전체 작업 목록
+- **[ROADMAP.md](./ROADMAP.md)** - 전체 개발 일정 및 마일스톤
+
+### 🏗️ 아키텍처 문서
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - 전체 시스템 아키텍처
+- **[02-tech-stack-architecture.md](./02-tech-stack-architecture.md)** - 기술 스택 상세 설명
+
+### 🎨 UI/UX 설계
+- **[03-ui-ux-design.md](./03-ui-ux-design.md)** - 전체 UI/UX 설계
+- **[06-playground-design.md](./06-playground-design.md)** - Playground 상세 설계
+
+### 🔧 기능별 설계
+- **[04-authentication-system.md](./04-authentication-system.md)** - Firebase 인증 시스템
+- **[05-api-usage-management.md](./05-api-usage-management.md)** - 크레딧 및 사용량 관리
+- **[07-firebase-backend-design.md](./07-firebase-backend-design.md)** - Firebase 백엔드 설계
+
+### 📊 기타 문서
+- **[FEATURES.md](./FEATURES.md)** - 핵심 기능 목록
+- **[08-development-roadmap.md](./08-development-roadmap.md)** - 개발 가이드라인
+
+## 🚀 현재 개발 상태
+
+### ✅ 완료된 기능
+- [x] **Playground 기본 구조** - Agent/Team 모드 전환
+- [x] **RemoteExecutor 통합** - 브라우저에서 AI 모델 호출
+- [x] **기본 블록 시스템** - 대화 내역 시각화
+- [x] **PlaygroundHistoryPlugin** - 이벤트 추적 기반 구조
+
+### 🔄 진행 중
+- [ ] **EventService 아키텍처** - Team/Agent/Tool 통합 이벤트 시스템
+- [ ] **계층 구조 시각화** - assignTask 도구 호출 완전 추적
+
+### 📋 다음 단계
+1. **EventService 핵심 구현** (7-10일)
+2. **Firebase 인증 시스템** (5-7일)  
+3. **크레딧 기반 사용량 관리** (7-10일)
+4. **UI/UX 최적화** (5-7일)
+
+## 🎯 EventService 아키텍처 (현재 핵심)
+
+### 핵심 설계 원칙
+- **Built-in Service**: ExecutionService와 동일한 패턴
+- **단순한 인터페이스**: `emit(eventType, data)` 메소드만
+- **의존성 주입**: Optional EventService로 유연성 확보
+- **아키텍처 일관성**: 기존 Robota SDK 패턴과 100% 일치
+
+### 주요 구현 사항
+```typescript
+// EventService 인터페이스
+interface EventService {
+  emit(eventType: EventType, data: EventData): void;
+}
+
+// Agent/Team에서 사용
+class Robota {
+  constructor(config: AgentConfig) {
+    this.eventService = config.eventService || new SilentEventService();
+  }
+}
+
+// Playground에서 구현
+class PlaygroundEventService implements EventService {
+  emit(eventType: EventType, data: EventData): void {
+    // UI 블록으로 변환하여 실시간 표시
+  }
+}
+```
+
+## 🎨 UI 미리보기
+
+### Playground 인터페이스
+- **왼쪽 패널**: Agent/Team 설정 및 구성
+- **중앙 패널**: 대화 인터페이스 및 실행 결과
+- **오른쪽 패널**: 실행 과정 블록 시각화
+
+### 블록 시각화 예시
+```
+📦 Team 실행
+├── 💬 사용자: "Vue와 React 비교해줘"
+├── 🔧 assignTask #1: Vue 분석
+│   ├── 👤 Vue 전문가 Agent
+│   ├── 🔍 웹 검색 도구
+│   └── ✅ 분석 완료
+├── 🔧 assignTask #2: React 분석  
+│   ├── 👤 React 전문가 Agent
+│   ├── 🔍 웹 검색 도구
+│   └── ✅ 분석 완료
+└── 💭 최종 비교 결과
+```
+
+## 📊 성공 지표
+
+### 기술적 목표
+- [ ] Team 모드 assignTask 100% 추적
+- [ ] 사용자 인증 성공률 99% 이상
+- [ ] API 응답 시간 < 500ms
+- [ ] 크레딧 계산 정확도 100%
+
+### 사용자 경험 목표
+- [ ] 코드 작성 없이 복잡한 AI Agent 구성
+- [ ] 모든 실행 과정 실시간 시각화
+- [ ] 직관적이고 반응성 좋은 인터페이스
+- [ ] 안정적인 결제 및 사용량 관리
+
+## 🚀 시작하기
+
+### 개발 환경 설정
+```bash
+# 프로젝트 클론
+git clone [repository-url]
+cd robota-saas-website
+
+# 의존성 설치
+npm install
+
+# 환경 변수 설정
+cp .env.example .env.local
+
+# 개발 서버 시작
+npm run dev
+```
+
+### 주요 명령어
+```bash
+npm run dev          # 개발 서버 시작
+npm run build        # 프로덕션 빌드
+npm run test         # 테스트 실행
+npm run lint         # 코드 품질 검사
+```
+
+## 🤝 기여하기
+
+### 개발 워크플로우
+1. **이슈 확인**: GitHub Issues에서 작업할 내용 확인
+2. **브랜치 생성**: `feature/[기능명]` 또는 `fix/[버그명]`
+3. **개발 진행**: 변경사항 구현 및 테스트
+4. **Pull Request**: 코드 리뷰 요청
+5. **병합**: 승인 후 메인 브랜치에 병합
+
+### 코드 스타일
+- **TypeScript** 엄격 모드 사용
+- **ESLint + Prettier** 자동 포맷팅
+- **컴포넌트** 명명: PascalCase
+- **함수/변수** 명명: camelCase
+
+## 📞 연락처
+
+- **프로젝트 관리**: GitHub Issues
+- **기술 지원**: 개발팀 Discord
+- **문서 개선**: Pull Request 환영
 
 ---
 
-## 📋 **핵심 문서**
-
-### **🎯 현재 상태 문서**
-- [x] **[FEATURES.md](./FEATURES.md)** - 완료된 모든 기능 종합 정리
-- [x] **[ARCHITECTURE.md](./ARCHITECTURE.md)** - 현재 시스템 아키텍처 상세 설명  
-- [x] **[ROADMAP.md](./ROADMAP.md)** - 향후 개발 계획 및 우선순위
-
-### **📚 상세 설계 문서**
-- [x] **[01-project-overview.md](./01-project-overview.md)** - 프로젝트 개요 및 목표
-- [x] **[02-tech-stack-architecture.md](./02-tech-stack-architecture.md)** - 기술 스택 및 아키텍처
-- [x] **[03-ui-ux-design.md](./03-ui-ux-design.md)** - UI/UX 설계 지침
-- [x] **[04-authentication-system.md](./04-authentication-system.md)** - 인증 시스템 설계
-- [x] **[05-api-usage-management.md](./05-api-usage-management.md)** - API 사용량 관리
-- [x] **[06-playground-design.md](./06-playground-design.md)** - Playground 현재 구현 상태
-- [x] **[07-firebase-backend-design.md](./07-firebase-backend-design.md)** - Firebase 백엔드 설계
-- [x] **[08-development-roadmap.md](./08-development-roadmap.md)** - 개발 이력 (Historical)
-
----
-
-## 🎯 **프로젝트 핵심 가치**
-
-### **혁신적인 Block Coding 시각화**
-- [x] 사용자가 AI Agent와 상호작용하는 모든 과정을 **실시간 블록 스타일**로 시각화
-- [x] 복잡한 AI 동작을 직관적으로 이해할 수 있도록 설계
-
-### **Universal Hook Architecture**
-- [x] 모든 Tool 타입에 일관된 Hook 시스템을 적용
-- [x] 개발자가 어떤 도구를 사용하든 동일한 경험을 제공
-
-### **Visual-First Configuration**
-- [x] 코드 작성 없이 시각적 인터페이스만으로 복잡한 AI Agent와 Team을 구성 가능
-
----
-
-## 🚀 **주요 성과**
-
-### ✅ **완료된 혁신 기능**
-- [x] **실시간 Block Visualization**: 모든 AI 상호작용을 블록으로 실시간 표시
-- [x] **Three-Panel Layout**: Configuration / Chat / Block Visualization 통합 UI
-- [x] **Universal Hook System**: 모든 Tool에 자동 블록 추적 적용
-- [x] **Remote Execution**: 안전한 서버 기반 AI Provider 연동
-- [x] **Team Basic Support**: createTeam API 기반 팀 에이전트 실행
-
-### 🔄 **진행 중인 작업**
-- [ ] **Team Stream Support**: TeamContainer.stream() 메서드 구현
-- [ ] **Code Generation**: UI 설정 → Robota 코드 자동 생성
-- [ ] **Advanced Analytics**: 상세한 성능 분석 및 통계
-
----
-
-## 🎨 **사용자 비전 달성**
-
-### ✅ **"블록코딩같이 구조를 보여줘"**
-- [x] 계층적 블록 구조로 Tool 호출과 결과를 시각화
-- [x] 확장/축소 가능한 중첩 블록을 제공
-
-### ✅ **"실행하면 채팅이 얼마나 오갔는지도 블럭코딩처럼 비주얼하게 보여줘"**
-- [x] 실시간 채팅 히스토리를 블록으로 시각화
-- [x] 모든 Tool 호출 과정을 실시간으로 표현
-
-### ✅ **"내가 프롬프트를 입력하면 채팅 블록들이 실시간으로 업데이트 되면서 보이는게 이 플레이그라운드의 핵심 킥"**
-- [x] 사용자 입력 시 즉시 블록이 생성
-- [x] Tool 호출부터 실행 결과까지 모든 과정이 실시간으로 블록 업데이트
-
----
-
-## 🏗️ **아키텍처 하이라이트**
-
-### **Frontend (Next.js 14)**
-- [x] **Block Visualization System**: 실시간 블록 렌더링 및 상태 관리
-- [x] **Universal Hook Integration**: 모든 Tool 자동 추적
-- [x] **Three-Panel Layout**: 직관적인 사용자 인터페이스
-
-### **Backend (Express.js + Firebase)**
-- [x] **Remote Execution System**: 안전한 AI Provider 프록시
-- [x] **WebSocket Real-time**: 실시간 상태 동기화
-- [x] **Authentication & Security**: Firebase Auth + JWT 토큰
-
-### **Robota SDK Integration**
-- [x] **Architecture Compliance**: SDK 원칙 100% 준수
-- [x] **Template Method Pattern**: 일관된 Tool 구현
-- [x] **Dependency Injection**: 명시적 의존성 주입
-
----
-
-## 📈 **비즈니스 임팩트**
-
-### **개발자 생산성 향상**
-- [x] 복잡한 AI Agent 설정을 시각적으로 간소화
-- [x] 실시간 디버깅으로 개발 시간 단축
-- [x] 직관적인 인터페이스로 학습 곡선 감소
-
-### **시장 차별화**
-- [x] **업계 최초** 실시간 블록 코딩 스타일 AI 디버깅
-- [x] 혁신적인 시각화로 경쟁사 대비 우위
-- [x] 사용자 경험 혁신으로 브랜드 가치 상승
-
-### **확장 가능성**
-- [x] Plugin 시스템으로 무한 확장 가능
-- [x] Multi-Agent 시나리오 지원 준비
-- [x] Cloud Native 아키텍처로 글로벌 확장 대비
-
----
-
-## 🔍 **문서 탐색 가이드**
-
-### **🎯 빠른 시작**
-1. [x] `FEATURES.md` - 현재 구현된 기능 파악
-2. [x] `ARCHITECTURE.md` - 시스템 구조 이해
-3. [x] `06-playground-design.md` - Playground 상세 구현
-
-### **📋 개발자용**
-1. [x] `02-tech-stack-architecture.md` - 기술 스택 상세
-2. [x] `ROADMAP.md` - 향후 개발 계획
-3. [x] `08-development-roadmap.md` - 개발 이력
-
-### **💼 비즈니스용**
-1. [x] `01-project-overview.md` - 프로젝트 목표 및 가치
-2. [x] `03-ui-ux-design.md` - 사용자 경험 설계
-3. [x] `FEATURES.md` - 완성된 기능 및 성과
-
----
-
-## 🎉 **Next Steps**
-
-### **즉시 시작 가능한 작업**
-- [ ] **Team Stream Support**: 최우선 개발 과제 (4주 예상)
-- [ ] **Code Generation System**: 설정 기반 코드 생성 (3주 예상)
-- [ ] **SaaS Platform Features**: 구독/결제 시스템 (6주 예상)
-
-현재 개발팀은 **Team Stream 지원**을 최우선으로 진행 중이며, 완료 후 **Code Generation System** 구현을 통해 사용자가 설정한 구성을 실제 Robota 프로젝트로 내보낼 수 있게 됩니다.
-
-**🎊 Robota Playground는 이미 혁신적인 Block Coding 시각화를 통해 AI Agent 개발의 새로운 패러다임을 제시하고 있습니다!** 🚀✨
-
----
-
-*마지막 업데이트: 2024년 12월* 
+**업데이트**: 2025-01-28  
+**상태**: EventService 구현 중  
+**다음 마일스톤**: 2025-02-07 (EventService 완성) 
