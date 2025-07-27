@@ -702,19 +702,23 @@ export class PlaygroundExecutor {
                 console.log('🕵️ executeStream function:', this.currentTeam.executeStream);
                 console.log('🕵️ executeStream toString:', this.currentTeam.executeStream.toString().substring(0, 200));
                 console.log('🕵️ Is proxy?', typeof Proxy !== 'undefined' && this.currentTeam.constructor === Object);
+                console.log('🔥 [TEAM-STREAM] Starting to iterate over stream...');
                 let fullResponse = '';
 
-                console.log('🔥 [TEAM-STREAM] Starting to iterate over stream...');
+                // ✅ ExecutionService와 동일: 청크를 수집만 하고 최종에 한 번만 yield
                 for await (const chunk of stream) {
                     console.log('🔥 [TEAM-STREAM] Received chunk:', chunk.length, 'chars');
                     fullResponse += chunk;
-                    yield {
-                        role: 'assistant',
-                        content: chunk,
-                        timestamp: new Date()
-                    } as UniversalMessage;
+                    // ❌ 각 청크마다 yield하지 않음 (LocalExecutor와 동일하게)
                 }
                 console.log('🔥 [TEAM-STREAM] Stream iteration completed, total response:', fullResponse.length, 'chars');
+
+                // ✅ 최종 완성된 메시지만 한 번 yield
+                yield {
+                    role: 'assistant',
+                    content: fullResponse,
+                    timestamp: new Date()
+                } as UniversalMessage;
 
                 // 🎯 Team Level 응답 메시지 기록
                 this.historyPlugin.recordEvent({
