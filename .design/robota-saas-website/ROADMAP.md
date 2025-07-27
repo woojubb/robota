@@ -1,253 +1,153 @@
-# 🗺️ Robota SaaS 플랫폼 개발 로드맵
+# Robota SaaS Website - 개발 로드맵
 
-## 📊 **전체 진행률**
-- **남은 작업**: 15% 
-- **현재 진행**: Agent Delegation Stream 지원 🔄
-- **예상 완료**: 2024년 Q4
+## 🎯 현재 상태 (2025-01-28)
 
----
+### ✅ 완료된 작업
+- [x] **RemoteExecutor 호환성 수정** - HTTP 스트리밍 및 Tool 호출 지원 완료
+- [x] **Playground 기본 구조** - Agent/Team 모드 구현 완료
+- [x] **PlaygroundHistoryPlugin 아키텍처 수정** - BasePlugin 올바른 구현 완료
+- [x] **Team 블록 표시 문제 진단** - EventService 설계로 해결 방안 확정
 
-## 🚨 **Phase 0: RemoteExecutor 호환성 긴급 수정 (최우선)**
+### 🔄 진행 중
+- [ ] **EventService 아키텍처 구현** - Team/Agent/Tool 통합 이벤트 시스템
+- [ ] **Playground UI 개선** - 계층 구조 시각화 완성
 
-### **0.1 Executor 호환성 위반 문제 해결**
-**현재 상황**: 로컬 예제는 완벽 작동, 플레이그라운드만 실패 → RemoteExecutor가 LocalExecutor 호환성 위반
+## 📋 우선순위별 작업 계획
 
-- [ ] **Step 1**: RemoteExecutor 타입 통일 (1일)
-  - File: `packages/remote/src/client/remote-executor-simple.ts`
-  - `ResponseMessage` → `UniversalMessage` 타입 변경
-  - `toolCalls` 필드 포함하도록 스트리밍 응답 수정
+### 🚨 Phase 1: EventService 핵심 구현 (우선순위: 최고)
+**목표**: Team 모드에서 assignTask 추적 완전 구현
 
-- [ ] **Step 2**: HttpClient 스트리밍 로직 수정 (1일)  
-  - File: `packages/remote/src/client/http-client.ts:134-182`
-  - HTTP 응답에서 `toolCalls` 정보 완전 보존
-  - 서버 응답의 `chunk` 데이터를 온전히 클라이언트로 전달
+- [ ] **EventService 인터페이스 구현**
+  - `packages/agents/src/services/event-service.ts` 생성
+  - SilentEventService, DefaultEventService 구현
+  - EventServiceHookFactory 구현
 
-- [ ] **Step 3**: 타입 안전성 확보 (0.5일)
-  - File: `packages/remote/src/shared/types.ts`
-  - `ResponseMessage` 인터페이스에 `toolCalls?` 필드 추가
-  - `UniversalMessage`와 100% 호환되도록 타입 정의 수정
+- [ ] **Agent/Team EventService 통합**
+  - AgentConfig, TeamContainerOptions에 eventService 추가
+  - Robota, TeamContainer에서 EventService 초기화
+  - 자동 이벤트 발생 및 ToolHooks 생성
 
-- [ ] **Step 4**: 통합 테스트 및 검증 (0.5일)
-  - LocalExecutor vs RemoteExecutor 동일성 검증
-  - 플레이그라운드에서 `assignTask` tool call 실행 확인
-  - 로컬 예제와 동일한 팀 협업 동작 검증
+- [ ] **Playground EventService 연동**
+  - PlaygroundEventService 구현
+  - PlaygroundExecutor에서 EventService 주입
+  - UI 계층 구조 완전 표시
 
-**긴급도**: 🔥 Critical - 팀 기능 완전 불가 상태
-**예상 완료**: 4일 (즉시 시작)
-**검증 방식**: 코드 분석 중심 (로그 의존 금지, SDK 아키텍처 엄격 준수)
+**예상 기간**: 7-10일  
+**성공 기준**: Team 모드에서 assignTask 도구 호출이 UI에 완전히 표시됨
 
----
+### 🔧 Phase 2: 사용자 인증 및 프로필 시스템 (우선순위: 높음)
+**목표**: Firebase Authentication 기반 사용자 관리
 
-## 🎯 **Phase 1: Team Stream 지원 (우선순위 2)**
+- [ ] **Firebase 인증 설정**
+  - Google, GitHub, 이메일 로그인 지원
+  - 사용자 프로필 페이지 구현
+  - 인증 상태 관리 (Context API)
 
-### **1.1 TeamContainer Stream API 구현** 
-- [x] `stream()` 메서드 설계 및 구현
-- [x] 스트리밍 응답 인터페이스 정의
-- [x] 에러 핸들링 및 중단 메커니즘
-- [x] 단위 테스트 작성
+- [ ] **사용자 데이터 관리**
+  - Firestore 사용자 프로필 저장
+  - 사용자별 설정 및 기본값 관리
+  - 프로필 수정 및 삭제 기능
 
-### **1.2 Playground Team Integration**
-- [x] executeStream() 메서드 구현
-- [x] 실시간 블록 생성 연동
-- [x] 에러 상태 UI 처리
-- [x] Play/Stop 버튼 완전 동작
+**예상 기간**: 5-7일  
+**참고 문서**: [04-authentication-system.md](./04-authentication-system.md)
 
-### **1.3 Real-time Block Updates**
-- [x] Team 실행 블록 실시간 업데이트
-- [x] 스트리밍 중 상태 표시 ("처리 중...")
-- [x] 완료/에러 상태 자동 전환
-- [x] 블록 트리 실시간 확장
+### 📊 Phase 3: API 사용량 관리 시스템 (우선순위: 높음)  
+**목표**: 사용자별 크레딧 기반 사용량 제한
 
-### **1.4 Agent Delegation Stream 지원 (RemoteExecutor 수정 후 재개)**
-- [ ] Delegation 시작/완료 블록 생성
-- [ ] 하위 Agent 실행 블록 중첩 표시
-- [ ] Team → Agent → Tool 3단계 블록 구조
-- [ ] 병렬 Delegation 지원
-- [ ] Delegation 실패 시 fallback 처리
+- [ ] **크레딧 시스템 구현**
+  - 사용자별 크레딧 잔액 관리
+  - AI 모델별 비용 계산 로직
+  - 실시간 사용량 추적
 
-### **1.5 ExecutionService 스트리밍 Tool Call 처리 (보류)**
-- [x] 스트리밍 중 tool call 수집 로직 추가
-- [ ] 타입 에러 수정 (RemoteExecutor 수정 후)
-- [ ] 빌드 및 통합 테스트
+- [ ] **Billing 통합**
+  - Stripe 결제 시스템 연동
+  - 구독 플랜 및 일회성 결제
+  - 결제 내역 및 영수증 관리
 
-### **1.6 핵심 인프라 문제 해결 (완료)**
-- [x] API 응답 구조 불일치 수정 (extractContent 함수)
-- [x] 스트리밍 응답 파싱 수정
-- [x] UniversalMessage[] 중앙 관리 방식 적용
-- [x] Chat UI 실시간 업데이트 구현
-- [x] Provider Injection 아키텍처 완성
+**예상 기간**: 7-10일  
+**참고 문서**: [05-api-usage-management.md](./05-api-usage-management.md)
 
-**진행률**: 70% 완료 (RemoteExecutor 수정 필요)
-**예상 완료**: Phase 0 완료 후 2주
+### 🎨 Phase 4: UI/UX 개선 및 고급 기능 (우선순위: 중간)
+**목표**: 사용자 경험 최적화
 
----
+- [ ] **Playground 고급 기능**
+  - 대화 저장 및 불러오기
+  - 템플릿 시스템 (사용자 정의 Agent 설정)
+  - 실행 기록 및 분석
 
-## 🎨 **Phase 2: Code Generation System (우선순위 2)**
+- [ ] **반응형 디자인 완성**
+  - 모바일 최적화
+  - 다크 모드 지원
+  - 접근성 개선
 
-### **2.1 Configuration Serialization**
-- [ ] Configuration 검증 시스템
-- [ ] JSON Schema 기반 유효성 검사
-- [ ] Configuration 버전 관리
-- [ ] 설정 변경 이력 추적
+**예상 기간**: 5-7일  
+**참고 문서**: [03-ui-ux-design.md](./03-ui-ux-design.md), [06-playground-design.md](./06-playground-design.md)
 
-### **2.2 Robota Code Generator**
-- [ ] Agent 코드 템플릿 시스템
-- [ ] Team 코드 템플릿 시스템
-- [ ] Provider 설정 코드 생성
-- [ ] Tool 설정 코드 생성
-- [ ] Plugin 설정 코드 생성
-- [ ] TypeScript 타입 자동 생성
+### 🚀 Phase 5: 배포 및 운영 인프라 (우선순위: 중간)
+**목표**: 프로덕션 환경 구축
 
-### **2.3 Project Export System**
-- [ ] 프로젝트 구조 생성 (package.json, tsconfig.json)
-- [ ] 의존성 자동 추가
-- [ ] 환경 설정 파일 생성 (.env.example)
-- [ ] README.md 자동 생성
-- [ ] 실행 스크립트 생성
-- [ ] ZIP 파일 다운로드 기능
+- [ ] **CI/CD 파이프라인**
+  - GitHub Actions 워크플로우
+  - 자동 테스트 및 배포
+  - 환경별 배포 전략
 
-### **2.4 Monaco Editor Integration**
-- [ ] 생성된 코드 Monaco Editor 표시
-- [ ] 실시간 코드 프리뷰
-- [ ] 코드 수정 및 재적용
-- [ ] TypeScript 오류 검사
-- [ ] 자동 완성 지원
-- [ ] 코드 포맷팅 (Prettier)
+- [ ] **모니터링 및 로깅**
+  - Sentry 에러 추적
+  - Firebase Analytics
+  - 성능 모니터링
 
-**예상 완료**: 3주 (2024년 9월 중순)
+**예상 기간**: 3-5일
 
----
+## 🎯 마일스톤
 
-## 💼 **Phase 3: SaaS Platform Features (우선순위 3)**
+### 🏁 M1: EventService 완성 (2025-02-07 목표)
+- EventService 아키텍처 완전 구현
+- Team/Agent/Tool 통합 이벤트 시스템 동작
+- Playground UI에서 완전한 계층 구조 표시
 
-### **3.1 구독 및 결제 시스템**
-- [ ] Stripe 결제 연동
-- [ ] 구독 플랜 설계 (Free/Pro/Enterprise)
-- [ ] 결제 페이지 구현
-- [ ] 구독 상태 관리
-- [ ] 결제 실패 처리
-- [ ] 영수증 및 청구서 시스템
+### 🏁 M2: 사용자 시스템 완성 (2025-02-14 목표)  
+- Firebase 인증 시스템 완성
+- 사용자 프로필 및 설정 관리
+- 기본적인 사용량 추적
 
-### **3.2 사용량 추적 및 제한**
-- [ ] API 호출 횟수 추적
-- [ ] 월별 사용량 제한
-- [ ] 실시간 사용량 표시
-- [ ] 제한 초과 시 알림
-- [ ] 사용량 통계 대시보드
-- [ ] 사용량 기반 과금
+### 🏁 M3: 크레딧 시스템 완성 (2025-02-21 목표)
+- 크레딧 기반 사용량 제한
+- Stripe 결제 시스템 연동
+- 구독 플랜 관리
 
-### **3.3 관리 대시보드**
-- [ ] 사용자 관리 인터페이스
-- [ ] 시스템 모니터링 대시보드
-- [ ] 에러 로그 추적
-- [ ] 성능 메트릭 수집
-- [ ] 사용자 피드백 시스템
-- [ ] A/B 테스트 인프라
+### 🏁 M4: MVP 완성 (2025-02-28 목표)
+- 모든 핵심 기능 동작
+- UI/UX 최적화 완료
+- 배포 인프라 구축
 
-### **3.4 고급 기능**
-- [ ] 프로젝트 공유 및 협업
-- [ ] 템플릿 마켓플레이스
-- [ ] 커뮤니티 기능
-- [ ] API 키 관리
-- [ ] 웹훅 알림
-- [ ] 써드파티 통합
+## ⚠️ 리스크 및 대응 방안
 
-**예상 완료**: 6주 (2024년 10월 말)
+### 🚨 기술적 위험
+- **EventService 복잡도**: 단계적 구현으로 위험 최소화
+- **Firebase 제한사항**: 사용량 모니터링 및 백업 방안 준비
+- **Stripe 연동**: 샌드박스 환경에서 충분한 테스트
+
+### 📈 우선순위 변경 가능성
+- EventService 구현이 예상보다 복잡할 경우 Phase 2 일정 조정
+- 사용자 피드백에 따른 UI/UX 우선순위 변경
+- 기술적 제약으로 인한 기능 범위 조정
+
+## 🎯 성공 지표
+
+### 기술적 지표
+- [ ] EventService로 Team 실행 100% 추적 가능
+- [ ] 사용자 인증 성공률 99% 이상
+- [ ] 크레딧 계산 정확도 100%
+- [ ] API 응답 시간 < 500ms
+
+### 사용자 지표  
+- [ ] Playground 사용률 증가
+- [ ] 사용자 체류 시간 증가
+- [ ] 오류 신고 건수 감소
+- [ ] 사용자 만족도 점수 향상
 
 ---
 
-## 🔧 **Phase 4: Advanced Features (장기 계획)**
-
-### **4.1 Multi-Agent Orchestration**
-- [ ] 복잡한 Agent 워크플로우 시각화
-- [ ] Agent 간 데이터 전달 블록
-- [ ] 조건부 실행 블록
-- [ ] 루프 및 반복 블록
-- [ ] 병렬 실행 블록
-- [ ] 워크플로우 템플릿
-
-### **4.2 Advanced Analytics**
-- [ ] AI 성능 분석 대시보드
-- [ ] 비용 최적화 제안
-- [ ] 사용 패턴 분석
-- [ ] 예측 분석
-- [ ] 벤치마킹 도구
-- [ ] ROI 계산기
-
-### **4.3 Enterprise Features**
-- [ ] SSO (Single Sign-On) 통합
-- [ ] 사용자 권한 관리
-- [ ] 감사 로그
-- [ ] 데이터 백업 및 복구
-- [ ] 온프레미스 배포 옵션
-- [ ] 커스텀 브랜딩
-
-### **4.4 AI Model Expansion**
-- [ ] 로컬 LLM 지원 (Ollama)
-- [ ] 커스텀 모델 파인튜닝
-- [ ] 모델 성능 비교
-- [ ] 다중 모델 앙상블
-- [ ] 모델 A/B 테스트
-- [ ] 비용 최적화 라우팅
-
-**예상 완료**: 2024년 Q4 ~ 2025년 Q1
-
----
-
-## 📋 **즉시 실행 가능한 다음 단계**
-
-### **🔥 이번 주 (우선순위)**
-- [ ] TeamContainer.stream() 메서드 구현 시작
-- [ ] 스트리밍 응답 인터페이스 설계
-- [ ] 기존 execute() 메서드 분석 및 확장점 파악
-
-### **📅 다음 주**
-- [ ] PlaygroundTeamInstance.executeStream() 구현
-- [ ] 실시간 블록 업데이트 테스트
-- [ ] Team Mode UI 완성
-
-### **🎯 월말 목표**
-- [ ] Team Stream 기본 기능 완료
-- [ ] Agent Delegation 블록 시각화 완료
-- [ ] 전체 시스템 통합 테스트
-
----
-
-## ⚠️ **리스크 및 대응 방안**
-
-### **기술적 리스크**
-- [ ] **TeamContainer API 제약**: 
-  - [ ] SDK 팀과 stream API 논의
-  - [ ] 대안적 구현 방법 검토
-- [ ] **실시간 성능**:
-  - [ ] WebSocket 연결 안정성 테스트
-  - [ ] 대용량 블록 처리 최적화
-- [ ] **브라우저 호환성**:
-  - [ ] 크로스 브라우저 테스트 강화
-  - [ ] 폴백 메커니즘 구현
-
-### **일정 리스크**
-- [ ] **개발 지연 대응**:
-  - [ ] 기능 우선순위 재조정
-  - [ ] MVP 기능 명확화
-- [ ] **품질 보장**:
-  - [ ] 자동화된 테스트 확대
-  - [ ] 코드 리뷰 프로세스 강화
-
----
-
-## 🎉 **성공 지표**
-
-### **Phase 1 완료 기준**
-- [ ] Team Mode에서 실시간 스트리밍 동작
-- [ ] 모든 Tool 호출이 블록으로 시각화
-- [ ] Play/Stop 버튼 완전 동작
-- [ ] 에러 처리 및 복구 메커니즘
-
-### **전체 프로젝트 성공 기준**
-- [ ] 사용자가 코드 없이 복잡한 AI Agent 구성 가능
-- [ ] 모든 AI 상호작용이 실시간 블록으로 시각화
-- [ ] 설정한 구성을 실제 Robota 프로젝트로 export 가능
-- [ ] 상용 서비스로 운영 가능한 안정성 확보
-
-**🚀 혁신적인 Block Coding 시각화를 통해 AI Agent 개발의 새로운 표준을 제시합니다!** ✨ 
+**다음 업데이트**: EventService Phase 1 완료 후  
+**책임자**: Development Team  
+**검토 주기**: 주 단위 
