@@ -76,5 +76,5 @@ export interface ErrorContextAdapter {
     sessionId?: string;
     userId?: string;
     attempt?: number;
-    [key: string]: string | number | boolean | Date | Error | string[];
+    [key: string]: string | number | boolean | Date | Error | string[] | undefined;
 } 

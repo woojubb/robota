@@ -4,23 +4,32 @@
  * Single responsibility: Define only message-related types
  */
 
-// Basic message structure
+// Basic message interface
 export interface BasicMessage {
-    role: string;
-    content: string;
+    role: 'user' | 'assistant' | 'system' | 'tool';
+    content: string | null;
 }
 
-// Request message with provider info
+// Request message with metadata
 export interface RequestMessage extends BasicMessage {
     provider: string;
     model: string;
 }
 
-// Response message with metadata
+// Response message with metadata  
 export interface ResponseMessage extends BasicMessage {
     timestamp: Date;
     provider?: string;
     model?: string;
+    /** Tool calls made by the assistant (OpenAI tool calling format) */
+    toolCalls?: Array<{
+        id: string;
+        type: 'function';
+        function: {
+            name: string;
+            arguments: string;
+        };
+    }>;
 }
 
 // Token usage information

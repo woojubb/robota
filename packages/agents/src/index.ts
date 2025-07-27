@@ -94,19 +94,19 @@ export type {
 export type {
     ToolCall,
     UserMessage,
-    AssistantMessage,
     SystemMessage,
     ToolMessage
 } from './interfaces/agent';
 
 /**
- * Universal message format used internally by the conversation history manager.
+ * Universal message format and assistant message used internally by the conversation history manager.
  * Provides a common format that can be converted to/from provider-specific formats.
  * 
  * @public
  */
 export type {
-    UniversalMessage
+    UniversalMessage,
+    AssistantMessage
 } from './managers/conversation-history-manager';
 
 /**

@@ -5,6 +5,8 @@
  */
 
 import type { HttpRequest, HttpResponse, DefaultRequestData } from '../types/http-types';
+import type { SimpleLogger } from '@robota-sdk/agents';
+import { SilentLogger } from '@robota-sdk/agents';
 import type { BasicMessage, ResponseMessage } from '../types/message-types';
 import {
     createHttpRequest,
@@ -19,6 +21,7 @@ export interface HttpClientConfig {
     baseUrl: string;
     timeout: number;
     headers: Record<string, string>;
+    logger?: SimpleLogger;
 }
 
 /**
@@ -26,9 +29,11 @@ export interface HttpClientConfig {
  */
 export class HttpClient {
     private config: HttpClientConfig;
+    private readonly logger: SimpleLogger;
 
     constructor(config: HttpClientConfig) {
         this.config = config;
+        this.logger = config.logger || SilentLogger;
     }
 
     /**
@@ -78,7 +83,7 @@ export class HttpClient {
             ...(tools && tools.length > 0 && { tools })
         };
 
-        console.log('🔧 [HTTP-CLIENT] Non-streaming request tools:', tools?.length || 0);
+        this.logger.info('🔧 [HTTP-CLIENT] Non-streaming request tools:', tools?.length || 0);
 
         const response = await this.post<typeof requestData, { content: string; provider?: string; model?: string }>(
             '/chat',
@@ -104,9 +109,9 @@ export class HttpClient {
             ...(tools && tools.length > 0 && { tools })
         };
 
-        console.log('🔧 [HTTP-CLIENT] Request tools:', tools?.length || 0);
+        this.logger.info('🔧 [HTTP-CLIENT] Request tools:', tools?.length || 0);
 
-        console.log('🌐 HTTP chatStream request:', { url, provider, model, messagesCount: messages.length });
+        this.logger.info('🌐 HTTP chatStream request:', { url, provider, model, messagesCount: messages.length });
 
         try {
             const response = await fetch(url, {
@@ -117,11 +122,11 @@ export class HttpClient {
                 body: JSON.stringify(body)
             });
 
-            console.log('🌐 HTTP response status:', response.status, response.statusText);
+            this.logger.info('🌐 HTTP response status:', response.status, response.statusText);
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('❌ HTTP error response:', { status: response.status, statusText: response.statusText, body: errorText });
+                this.logger.error('❌ HTTP error response:', { status: response.status, statusText: response.statusText, body: errorText });
                 throw new Error(`HTTP ${response.status}: ${response.statusText}\n${errorText}`);
             }
 
@@ -155,19 +160,25 @@ export class HttpClient {
                             try {
                                 const parsed = JSON.parse(data);
 
-                                // Extract content from potentially nested structure
-                                let content = '';
-                                if (parsed.data && parsed.data.content) {
-                                    // Nested structure: { data: { content: "..." } }
-                                    content = parsed.data.content;
-                                } else if (parsed.content) {
-                                    // Direct structure: { content: "..." }
-                                    content = parsed.content;
+                                // Extract complete response data preserving toolCalls
+                                let responseData: any = null;
+                                if (parsed.data) {
+                                    // Nested structure: { data: { content: "...", toolCalls: [...] } }
+                                    responseData = parsed.data;
+                                } else if (parsed.content !== undefined) {
+                                    // Direct structure: { content: "...", toolCalls: [...] }
+                                    responseData = parsed;
                                 }
 
-                                if (content) {
+                                if (responseData) {
                                     yield toResponseMessage(
-                                        { role: 'assistant', content },
+                                        {
+                                            role: 'assistant',
+                                            content: responseData.content || '',
+                                            // ✅ toolCalls가 있으면 무조건 전달 (빈 ID 조각들도 포함)
+                                            ...(responseData.toolCalls && Array.isArray(responseData.toolCalls) &&
+                                                { toolCalls: responseData.toolCalls })
+                                        },
                                         provider,
                                         model
                                     );

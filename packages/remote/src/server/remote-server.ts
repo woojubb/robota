@@ -1,5 +1,8 @@
 import express from 'express';
-import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
+import cors from 'cors';
+import helmet from 'helmet';
+import type { SimpleLogger } from '@robota-sdk/agents';
+import { SilentLogger } from '@robota-sdk/agents';
 import type { UniversalMessage, ChatOptions } from '@robota-sdk/agents';
 
 /**
@@ -21,17 +24,29 @@ interface AIProvider {
 }
 
 /**
- * RemoteServer - Express.js integration for AI Provider proxying
+ * Remote server for handling AI provider requests
  */
 export class RemoteServer {
-    private providers: Map<string, AIProvider> = new Map();
+    private app: express.Application;
+    private providers: Map<string, any>;
     private router: express.Router;
-    private initialized = false;
-    private logger: SimpleLogger;
+    private readonly logger: SimpleLogger;
 
-    constructor(logger?: SimpleLogger) {
-        this.logger = logger || SilentLogger;
+    constructor(config: RemoteServerConfig = {}) {
+        this.logger = config.logger || SilentLogger;
+        this.app = express();
+        this.providers = new Map();
         this.router = express.Router();
+
+        if (config.enableCors) {
+            this.app.use(cors());
+        }
+        if (config.enableHelmet) {
+            this.app.use(helmet());
+        }
+        this.app.use(express.json());
+        this.app.use(this.router);
+
         this.setupRoutes();
     }
 
@@ -46,7 +61,6 @@ export class RemoteServer {
                 this.logger.info(`✅ Registered provider: ${name}`);
             }
 
-            this.initialized = true;
             this.logger.info(`🚀 RemoteServer initialized with ${this.providers.size} providers`);
         } catch (error) {
             this.logger.error('❌ Failed to initialize RemoteServer:', error);
@@ -66,7 +80,7 @@ export class RemoteServer {
      */
     getStatus(): ServerStatus {
         return {
-            initialized: this.initialized,
+            initialized: true, // RemoteServer itself is always initialized
             providers: Array.from(this.providers.keys()),
             providerCount: this.providers.size,
             timestamp: new Date().toISOString()
@@ -106,11 +120,11 @@ export class RemoteServer {
             try {
                 const { provider, model, messages, tools } = req.body;
 
-                console.log('🔧 [REMOTE-SERVER] Chat request received:');
-                console.log('🔧 [REMOTE-SERVER] Provider:', provider);
-                console.log('🔧 [REMOTE-SERVER] Model:', model);
-                console.log('🔧 [REMOTE-SERVER] Messages count:', messages?.length || 0);
-                console.log('🔧 [REMOTE-SERVER] Tools:', tools?.length || 0);
+                this.logger.info('🔧 [REMOTE-SERVER] Chat request received:');
+                this.logger.info('🔧 [REMOTE-SERVER] Provider:', provider);
+                this.logger.info('🔧 [REMOTE-SERVER] Model:', model);
+                this.logger.info('🔧 [REMOTE-SERVER] Messages count:', messages?.length || 0);
+                this.logger.info('🔧 [REMOTE-SERVER] Tools:', tools?.length || 0);
 
                 if (!provider || !model || !messages) {
                     res.status(400).json({
@@ -129,12 +143,12 @@ export class RemoteServer {
                 }
 
                 // Execute chat
-                console.log('🔧 [REMOTE-SERVER] Calling provider.chat with tools:', !!tools);
+                this.logger.info('🔧 [REMOTE-SERVER] Calling provider.chat with tools:', !!tools);
                 const chatOptions = {
                     model,
                     ...(tools && tools.length > 0 && { tools })
                 };
-                console.log('🔧 [REMOTE-SERVER] Chat options:', chatOptions);
+                this.logger.info('🔧 [REMOTE-SERVER] Chat options:', chatOptions);
 
                 const response = await providerInstance.chat(messages, chatOptions);
 
@@ -160,11 +174,11 @@ export class RemoteServer {
             try {
                 const { provider, model, messages, tools } = req.body;
 
-                console.log('🔧 [REMOTE-SERVER] Stream request received:');
-                console.log('🔧 [REMOTE-SERVER] Provider:', provider);
-                console.log('🔧 [REMOTE-SERVER] Model:', model);
-                console.log('🔧 [REMOTE-SERVER] Messages count:', messages?.length || 0);
-                console.log('🔧 [REMOTE-SERVER] Tools:', tools?.length || 0);
+                this.logger.info('🔧 [REMOTE-SERVER] Stream request received:');
+                this.logger.info('🔧 [REMOTE-SERVER] Provider:', provider);
+                this.logger.info('🔧 [REMOTE-SERVER] Model:', model);
+                this.logger.info('🔧 [REMOTE-SERVER] Messages count:', messages?.length || 0);
+                this.logger.info('🔧 [REMOTE-SERVER] Tools:', tools?.length || 0);
 
                 if (!provider || !model || !messages) {
                     res.status(400).json({
@@ -197,12 +211,12 @@ export class RemoteServer {
                         throw new Error(`Provider ${provider} does not support streaming`);
                     }
 
-                    console.log('🔧 [REMOTE-SERVER] Calling provider.chatStream with tools:', !!tools);
+                    this.logger.info('🔧 [REMOTE-SERVER] Calling provider.chatStream with tools:', !!tools);
                     const chatOptions = {
                         model,
                         ...(tools && tools.length > 0 && { tools })
                     };
-                    console.log('🔧 [REMOTE-SERVER] Chat options:', chatOptions);
+                    this.logger.info('🔧 [REMOTE-SERVER] Chat options:', chatOptions);
 
                     const stream = providerInstance.chatStream(messages, chatOptions);
 
@@ -263,4 +277,12 @@ export class RemoteServer {
             });
         });
     }
+}
+
+// Import server configuration
+export interface RemoteServerConfig {
+    port?: number;
+    enableCors?: boolean;
+    enableHelmet?: boolean;
+    logger?: SimpleLogger;
 } 
