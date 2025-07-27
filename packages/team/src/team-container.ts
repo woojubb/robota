@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import { Robota, AgentConfig, ExecutionAnalyticsPlugin, BasePlugin, ToolHooks, BaseTool, SimpleLogger, EventService, SilentEventService } from '@robota-sdk/agents';
+import { Robota, AgentConfig, ExecutionAnalyticsPlugin, BasePlugin, ToolHooks, BaseTool, SimpleLogger, EventService, SilentEventService, ToolExecutionContext } from '@robota-sdk/agents';
 import { v4 as uuidv4 } from 'uuid';
 import { createTaskAssignmentFacade } from './task-assignment/index.js';
 import { AgentDelegationTool } from './tools/agent-delegation-tool.js';
@@ -174,9 +174,7 @@ export class TeamContainer {
         });
 
         // Create AssignTaskTool with dynamic Zod schema based on available templates
-        console.log(`🔧 [TEAM-CONTAINER] Creating assignTask tool with toolHooks:`, !!this.toolHooks);
         const assignTaskTool = this.createAssignTaskTool();
-        console.log(`🔧 [TEAM-CONTAINER] AssignTask tool created:`, !!assignTaskTool);
 
         // Get leader template (default: task_coordinator)
         const leaderTemplateName = this.options.leaderTemplate || 'task_coordinator';
@@ -233,15 +231,7 @@ export class TeamContainer {
         const startTime = Date.now();
 
         try {
-            console.log(`🚀 [TEAM-CONTAINER] Starting team execution with prompt:`, userPrompt);
-            console.log(`🚀 [TEAM-CONTAINER] teamAgent object:`, !!this.teamAgent);
-            console.log(`🚀 [TEAM-CONTAINER] teamAgent type:`, this.teamAgent?.constructor?.name);
-
-            this.logger?.info(`🚀 Starting team execution`);
-
-            console.log(`🔥 [TEAM-CONTAINER] About to call teamAgent.run()`);
             const result = await this.teamAgent.run(userPrompt);
-            console.log(`🔥 [TEAM-CONTAINER] teamAgent.run() completed`);
 
             const executionTime = Date.now() - startTime;
             this.tasksCompleted++;
@@ -266,22 +256,11 @@ export class TeamContainer {
      * @returns AsyncGenerator<string, void, undefined> - Streaming chunks of the task execution result
      */
     async* executeStream(userPrompt: string): AsyncGenerator<string, void, undefined> {
-        console.log(`🚨🚨🚨 [TEAM-CONTAINER-STREAM] EXECUTESTREAM CALLED!!! 🚨🚨🚨`);
-        console.log(`🚨 [TEAM-CONTAINER-STREAM] This log should ALWAYS appear if this method is called!`);
-
         const startTime = Date.now();
 
         try {
-            console.log(`🚀 [TEAM-CONTAINER-STREAM] Starting team streaming execution with prompt:`, userPrompt);
-            console.log(`🚀 [TEAM-CONTAINER-STREAM] teamAgent object:`, !!this.teamAgent);
-            console.log(`🚀 [TEAM-CONTAINER-STREAM] teamAgent type:`, this.teamAgent?.constructor?.name);
-
-            this.logger?.info(`🚀 Starting team streaming execution`);
-
-            console.log(`🔥 [TEAM-CONTAINER-STREAM] About to call teamAgent.runStream()`);
-            // Delegate to teamAgent's runStream method (Facade Pattern)
-            yield* this.teamAgent.runStream(userPrompt);
-            console.log(`🔥 [TEAM-CONTAINER-STREAM] teamAgent.runStream() completed`);
+            const generator = this.teamAgent.runStream(userPrompt);
+            yield* generator;
 
             const executionTime = Date.now() - startTime;
             this.tasksCompleted++;
@@ -308,29 +287,36 @@ export class TeamContainer {
      * executes the work, and is automatically cleaned up after completion.
      * 
      * @param params - Task assignment parameters
-     * @param params.jobDescription - Clear description of the specific job to assign
-     * @param params.context - Additional context or constraints for the job
-     * @param params.requiredTools - List of tools the member might need
-     * @param params.priority - Priority level for the task ('low' | 'medium' | 'high' | 'urgent')
-     * 
+     * @param context - Tool execution context with hierarchical information
      * @returns Promise resolving to the task result with metadata
      * 
      * @throws {Error} When maximum number of team members is reached
      * @throws {Error} When task execution fails
      */
-    private async assignTask(params: AssignTaskParams): Promise<AssignTaskResult> {
+    private async assignTask(params: AssignTaskParams, context?: ToolExecutionContext): Promise<AssignTaskResult> {
         let temporaryAgent: Robota | null = null;
         let counterIncremented = false; // Track if we incremented the counter
         const agentId = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const startTime = Date.now();
 
+        // Extract hierarchical information from context
+        const parentExecutionId = context?.parentExecutionId || context?.executionId;
+        const rootExecutionId = context?.rootExecutionId || parentExecutionId;
+        const executionLevel = (context?.executionLevel || 0) + 1; // Team level + 1
+        const executionPath = [...(context?.executionPath || []), agentId];
+
         // 1. Emit team analysis start event
         if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-            this.eventService.emit('team.analysis_start' as any, {
+            this.eventService.emit('team.analysis_start', {
                 sourceType: 'team',
                 sourceId: 'team-analyzer',
                 taskDescription: params.jobDescription,
                 parameters: params,
+                // Add hierarchical context
+                parentExecutionId,
+                rootExecutionId,
+                executionLevel,
+                executionPath,
                 metadata: {
                     phase: 'job_analysis',
                     agentTemplate: params.agentTemplate,
@@ -339,12 +325,9 @@ export class TeamContainer {
             });
         }
 
-        // Log received parameters (team analysis phase)
-        console.log('assignTask params:', JSON.stringify(params, null, 2));
-
         // 2. Emit team analysis complete event
         if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-            this.eventService.emit('team.analysis_complete' as any, {
+            this.eventService.emit('team.analysis_complete', {
                 sourceType: 'team',
                 sourceId: 'team-analyzer',
                 taskDescription: `Analyzed job: ${params.jobDescription}`,
@@ -352,6 +335,11 @@ export class TeamContainer {
                     selectedTemplate: params.agentTemplate,
                     analysisComplete: true
                 },
+                // Add hierarchical context
+                parentExecutionId,
+                rootExecutionId,
+                executionLevel,
+                executionPath,
                 metadata: {
                     phase: 'job_analysis',
                     duration: Date.now() - startTime,
@@ -374,9 +362,9 @@ export class TeamContainer {
                     context: params.context
                 },
                 // Hierarchical tracking information
-                rootExecutionId: agentId, // Team task is root level
-                executionLevel: 0, // Team level execution
-                executionPath: [agentId],
+                rootExecutionId: rootExecutionId, // Team task is root level
+                executionLevel: executionLevel, // Team level execution
+                executionPath: executionPath,
                 metadata: {
                     agentId,
                     agentTemplate: params.agentTemplate,
@@ -417,7 +405,7 @@ export class TeamContainer {
 
             // 4. Emit agent creation start event
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                this.eventService.emit('agent.creation_start' as any, {
+                this.eventService.emit('agent.creation_start', {
                     sourceType: 'team',
                     sourceId: agentId,
                     taskDescription: `Creating ${params.agentTemplate} agent`,
@@ -426,6 +414,11 @@ export class TeamContainer {
                         agentId: agentId,
                         allowFurtherDelegation: params.allowFurtherDelegation
                     },
+                    // Add hierarchical context
+                    parentExecutionId,
+                    rootExecutionId,
+                    executionLevel,
+                    executionPath,
                     metadata: {
                         phase: 'agent_creation',
                         agentTemplate: params.agentTemplate,
@@ -493,7 +486,7 @@ export class TeamContainer {
 
                 // 5. Emit agent creation complete event
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                    this.eventService.emit('agent.creation_complete' as any, {
+                    this.eventService.emit('agent.creation_complete', {
                         sourceType: 'team',
                         sourceId: agentId,
                         taskDescription: `Created ${params.agentTemplate} agent successfully`,
@@ -504,6 +497,11 @@ export class TeamContainer {
                             provider: template.config.provider,
                             model: template.config.model
                         },
+                        // Add hierarchical context
+                        parentExecutionId,
+                        rootExecutionId,
+                        executionLevel,
+                        executionPath,
                         metadata: {
                             phase: 'agent_creation',
                             agentTemplate: params.agentTemplate,
@@ -547,7 +545,7 @@ export class TeamContainer {
 
             // 6. Emit agent execution start event
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                this.eventService.emit('agent.execution_start' as any, {
+                this.eventService.emit('agent.execution_start', {
                     sourceType: 'team',
                     sourceId: agentId,
                     taskDescription: `Starting execution of: ${params.jobDescription}`,
@@ -556,6 +554,11 @@ export class TeamContainer {
                         agentId: agentId,
                         agentName: temporaryAgent.name
                     },
+                    // Add hierarchical context
+                    parentExecutionId,
+                    rootExecutionId,
+                    executionLevel,
+                    executionPath,
                     metadata: {
                         phase: 'agent_execution',
                         agentId: agentId,
@@ -571,11 +574,16 @@ export class TeamContainer {
 
             // 7. Emit agent execution complete event
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                this.eventService.emit('agent.execution_complete' as any, {
+                this.eventService.emit('agent.execution_complete', {
                     sourceType: 'team',
                     sourceId: agentId,
                     taskDescription: `Completed execution: ${params.jobDescription}`,
                     result: result.substring(0, 200) + '...',
+                    // Add hierarchical context
+                    parentExecutionId,
+                    rootExecutionId,
+                    executionLevel,
+                    executionPath,
                     metadata: {
                         phase: 'agent_execution',
                         agentId: agentId,
@@ -588,7 +596,7 @@ export class TeamContainer {
 
             // 8. Emit task aggregation start event
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                this.eventService.emit('task.aggregation_start' as any, {
+                this.eventService.emit('task.aggregation_start', {
                     sourceType: 'team',
                     sourceId: 'task-aggregator',
                     taskDescription: 'Starting result aggregation and synthesis',
@@ -599,6 +607,11 @@ export class TeamContainer {
                             resultLength: result.length
                         }]
                     },
+                    // Add hierarchical context
+                    parentExecutionId,
+                    rootExecutionId,
+                    executionLevel,
+                    executionPath,
                     metadata: {
                         phase: 'task_aggregation',
                         agentCount: 1,
@@ -616,11 +629,16 @@ export class TeamContainer {
 
             // 9. Emit task aggregation complete event
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                this.eventService.emit('task.aggregation_complete' as any, {
+                this.eventService.emit('task.aggregation_complete', {
                     sourceType: 'team',
                     sourceId: 'task-aggregator',
                     taskDescription: 'Result aggregation and synthesis completed',
                     result: `Synthesized result from ${params.agentTemplate} agent`,
+                    // Add hierarchical context
+                    parentExecutionId,
+                    rootExecutionId,
+                    executionLevel,
+                    executionPath,
                     metadata: {
                         phase: 'task_aggregation',
                         agentCount: 1,
@@ -640,9 +658,9 @@ export class TeamContainer {
                     taskDescription: params.jobDescription,
                     result: result.substring(0, 100) + '...',
                     // Hierarchical tracking information
-                    rootExecutionId: agentId, // Team task is root level
-                    executionLevel: 0, // Team level execution
-                    executionPath: [agentId],
+                    rootExecutionId: rootExecutionId, // Team task is root level
+                    executionLevel: executionLevel, // Team level execution
+                    executionPath: executionPath,
                     metadata: {
                         agentId,
                         agentTemplate: params.agentTemplate,
@@ -989,9 +1007,6 @@ export class TeamContainer {
      * Uses AgentDelegationTool with hooks if toolHooks provided, otherwise uses standard facade
      */
     private createAssignTaskTool(): BaseTool<any, any> {
-        console.log('🔍 [DEBUG] createAssignTaskTool - toolHooks:', this.toolHooks ? 'PRESENT' : 'MISSING');
-        console.log('🔍 [DEBUG] toolHooks details:', this.toolHooks);
-
         // Convert templates to the format expected by the task assignment system
         const templateInfo: TemplateInfo[] = this.availableTemplates.map(template => ({
             id: template.id,
@@ -999,19 +1014,17 @@ export class TeamContainer {
         }));
 
         if (this.toolHooks) {
-            console.log('✅ [DEBUG] Using AgentDelegationTool with hooks');
             // Use AgentDelegationTool with hooks for instrumentation
             const delegationTool = new AgentDelegationTool({
                 hooks: this.toolHooks,
                 availableTemplates: templateInfo,
-                executor: async (params: AssignTaskParams) => {
-                    return await this.assignTask(params);
+                executor: async (params: AssignTaskParams, context?: ToolExecutionContext) => {
+                    return await this.assignTask(params, context);
                 },
                 logger: this.logger
             });
             return delegationTool as unknown as BaseTool<any, any>;
         } else {
-            console.log('❌ [DEBUG] Using standard facade (no hooks)');
             // Use standard task assignment facade (existing behavior)
             const taskAssignment = createTaskAssignmentFacade(
                 templateInfo,
@@ -1019,9 +1032,6 @@ export class TeamContainer {
                     return await this.assignTask(params);
                 }
             );
-
-            // Log the schema for debugging
-            console.log('assignTask schema:', JSON.stringify(taskAssignment.tool.schema, null, 2));
 
             return taskAssignment.tool;
         }
