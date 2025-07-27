@@ -91,7 +91,8 @@ export function createTeam(options: TeamOptions): TeamContainer {
         ...(options.customTemplates && { customTemplates: options.customTemplates }),
         ...(options.leaderTemplate && { leaderTemplate: options.leaderTemplate }),
         ...(options.logger && { logger: options.logger }),
-        ...(options.toolHooks && { toolHooks: options.toolHooks })
+        ...(options.toolHooks && { toolHooks: options.toolHooks }),
+        ...(options.eventService && { eventService: options.eventService })
     };
 
     return new TeamContainer(fullOptions);

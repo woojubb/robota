@@ -5,6 +5,7 @@ import type { BaseModule } from '../abstracts/base-module';
 import type { UtilLogLevel } from '../utils/logger';
 import type { ToolExecutionResult } from './tool';
 import type { Metadata, ConfigValue } from './types';
+import type { EventService } from '../services/event-service';
 
 /**
  * Message metadata structure - specific type definition for agents
@@ -158,6 +159,9 @@ export interface AgentConfig {
         maxRequests?: number;
         windowMs?: number;
     };
+
+    // Event tracking
+    eventService?: EventService;
 }
 
 /**

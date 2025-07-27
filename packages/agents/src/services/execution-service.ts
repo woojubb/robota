@@ -8,6 +8,7 @@ import { ConversationHistory } from '../managers/conversation-history-manager';
 import { BaseAIProvider } from '../abstracts/base-ai-provider';
 import { Logger, createLogger } from '../utils/logger';
 import { ChatOptions, ToolCall } from '../interfaces/provider';
+import { EventService, SilentEventService } from './event-service';
 
 /**
  * Execution context passed through the pipeline
@@ -72,18 +73,21 @@ export class ExecutionService {
     private conversationHistory: ConversationHistory;
     private plugins: BasePlugin[] = [];
     private logger: Logger;
+    private eventService: EventService;
 
     constructor(
         aiProviders: AIProviders,
         tools: Tools,
-        conversationHistory: ConversationHistory
+        conversationHistory: ConversationHistory,
+        eventService?: EventService
     ) {
-        this.toolExecutionService = new ToolExecutionService(tools);
+        this.toolExecutionService = new ToolExecutionService(tools, {}, eventService);
         this.aiProviders = aiProviders;
         this.tools = tools;
         this.conversationHistory = conversationHistory;
         this.plugins = [];
         this.logger = createLogger('ExecutionService');
+        this.eventService = eventService || new SilentEventService();
     }
 
     /**
