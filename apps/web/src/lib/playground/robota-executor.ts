@@ -258,6 +258,30 @@ export class PlaygroundExecutor {
                             timestamp: new Date().toISOString()
                         }
                     });
+
+                    // If in team mode, also record to teamAgent's conversation session for proper block display
+                    if (this.mode === 'team' && this.currentTeam) {
+                        try {
+                            // Get teamAgent from TeamContainer and access its conversation session
+                            const teamAgent = (this.currentTeam as any).teamAgent;
+                            if (teamAgent && teamAgent.conversationHistory && teamAgent.conversationId) {
+                                const conversationSession = teamAgent.conversationHistory.getConversationSession(teamAgent.conversationId);
+                                if (conversationSession) {
+                                    // Add assistant message with tool call
+                                    conversationSession.addAssistantMessage('', [{
+                                        id: `call_${Date.now()}`,
+                                        type: 'function',
+                                        function: {
+                                            name: tool,
+                                            arguments: JSON.stringify(params)
+                                        }
+                                    }], { timestamp: new Date() });
+                                }
+                            }
+                        } catch (error) {
+                            console.warn('Failed to record tool call to teamAgent:', error);
+                        }
+                    }
                 },
                 afterExecute: async (tool: string, params: any, result: any) => {
                     console.log(`✅ [ToolHook] After tool execution: Result received`);
@@ -274,6 +298,29 @@ export class PlaygroundExecutor {
                             timestamp: new Date().toISOString()
                         }
                     });
+
+                    // If in team mode, also record tool result to teamAgent's conversation session
+                    if (this.mode === 'team' && this.currentTeam) {
+                        try {
+                            // Get teamAgent from TeamContainer and access its conversation session
+                            const teamAgent = (this.currentTeam as any).teamAgent;
+                            if (teamAgent && teamAgent.conversationHistory && teamAgent.conversationId) {
+                                const conversationSession = teamAgent.conversationHistory.getConversationSession(teamAgent.conversationId);
+                                if (conversationSession) {
+                                    // Add tool result message
+                                    const resultContent = typeof result === 'string' ? result : JSON.stringify(result);
+                                    conversationSession.addToolMessageWithId(
+                                        resultContent,
+                                        `call_${Date.now()}`,
+                                        tool,
+                                        { timestamp: new Date() }
+                                    );
+                                }
+                            }
+                        } catch (error) {
+                            console.warn('Failed to record tool result to teamAgent:', error);
+                        }
+                    }
                 },
                 onError: async (tool: string, params: any, error: Error) => {
                     console.log(`❌ [ToolHook] Tool execution error:`, error.message);
@@ -290,6 +337,28 @@ export class PlaygroundExecutor {
                             timestamp: new Date().toISOString()
                         }
                     });
+
+                    // If in team mode, also record error to teamAgent's conversation session
+                    if (this.mode === 'team' && this.currentTeam) {
+                        try {
+                            // Get teamAgent from TeamContainer and access its conversation session
+                            const teamAgent = (this.currentTeam as any).teamAgent;
+                            if (teamAgent && teamAgent.conversationHistory && teamAgent.conversationId) {
+                                const conversationSession = teamAgent.conversationHistory.getConversationSession(teamAgent.conversationId);
+                                if (conversationSession) {
+                                    // Add tool error message
+                                    conversationSession.addToolMessageWithId(
+                                        `Error: ${error.message}`,
+                                        `call_${Date.now()}`,
+                                        tool,
+                                        { timestamp: new Date() }
+                                    );
+                                }
+                            }
+                        } catch (hookError) {
+                            console.warn('Failed to record tool error to teamAgent:', hookError);
+                        }
+                    }
                 }
             };
 
