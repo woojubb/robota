@@ -6,9 +6,6 @@ Sentry.init({
     // Performance Monitoring
     tracesSampleRate: 1.0,
 
-    // Release Health
-    autoSessionTracking: true,
-
     // Capture Replay
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,

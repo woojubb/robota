@@ -105,93 +105,36 @@ export class SimpleRemoteExecutor implements ExecutorInterface {
     }
 
     /**
-     * Execute streaming chat request (ExecutorInterface compatible)
+     * Execute streaming chat completion
      */
     async *executeChatStream(request: StreamExecutionRequest): AsyncIterable<UniversalMessage> {
-        this.logger.debug('SimpleRemoteExecutor.executeChatStream called', {
-            hasTools: !!request.tools,
-            toolsCount: request.tools?.length || 0
-        });
+        this.logger.debug('🔍 [REMOTE-EXECUTOR] executeChatStream called');
 
-        this.logger.debug('Using ExecutorInterface format (streaming)');
-        const messages = request.messages;
-        const provider = request.provider;
-        const model = request.model;
-        const tools = request.tools;
+        try {
+            const stream = this.httpClient.chatStream(
+                request.messages,
+                request.provider,
+                request.model,
+                request.tools
+            );
 
-        // ✅ LocalExecutor와 동일한 tool call 병합 로직 구현
-        let toolCalls: ToolCall[] = [];
-        let currentToolCallIndex = -1; // 현재 작업중인 도구 호출 인덱스
+            // ✅ LocalExecutor와 완전히 동일: 모든 청크를 그대로 yield (ExecutionService가 병합 처리)
+            for await (const responseMessage of stream) {
+                // Convert ResponseMessage to UniversalMessage (LocalExecutor와 동일한 형태)
+                const universalMessage: UniversalMessage = {
+                    role: responseMessage.role as 'assistant',
+                    content: responseMessage.content,
+                    timestamp: responseMessage.timestamp,
+                    ...(responseMessage.toolCalls && { toolCalls: responseMessage.toolCalls })
+                };
 
-        for await (const response of this.httpClient.chatStream(messages, provider, model, tools)) {
-            // Convert ResponseMessage to UniversalMessage (preserving toolCalls)
-            const universalMessage: UniversalMessage = {
-                role: response.role as 'assistant',
-                content: response.content,
-                timestamp: new Date(),
-                ...(response.toolCalls && { toolCalls: response.toolCalls })
-            };
-
-            // ✅ ExecutionService와 동일한 tool call 병합 로직
-            if (universalMessage.role === 'assistant') {
-                const assistantChunk = universalMessage as any; // Type assertion to handle toolCalls
-                if (assistantChunk.toolCalls && assistantChunk.toolCalls.length > 0) {
-                    // 스트림 도구 호출 상태 관리
-                    for (const chunkToolCall of assistantChunk.toolCalls) {
-                        if (chunkToolCall.id && chunkToolCall.id !== '') {
-                            // ✅ ID 있음 = 새 도구 호출 시작
-                            currentToolCallIndex = toolCalls.length;
-                            toolCalls.push({
-                                id: chunkToolCall.id,
-                                type: chunkToolCall.type || 'function',
-                                function: {
-                                    name: chunkToolCall.function?.name || '',
-                                    arguments: chunkToolCall.function?.arguments || ''
-                                }
-                            });
-                            this.logger.debug(`New tool call started: ${chunkToolCall.id} (${chunkToolCall.function?.name})`);
-                        } else if (currentToolCallIndex >= 0) {
-                            // ✅ ID 없음 = 현재 도구 호출에 조각 추가
-                            if (chunkToolCall.function?.name) {
-                                toolCalls[currentToolCallIndex].function.name += chunkToolCall.function.name;
-                            }
-                            if (chunkToolCall.function?.arguments) {
-                                toolCalls[currentToolCallIndex].function.arguments += chunkToolCall.function.arguments;
-                            }
-                            this.logger.debug(`Adding fragment to tool ${toolCalls[currentToolCallIndex].id}: "${chunkToolCall.function?.arguments || chunkToolCall.function?.name || ''}"`);
-                        }
-                    }
-
-                    // ✅ 병합된 tool call이 있는 경우 새로운 청크로 교체
-                    if (toolCalls.length > 0) {
-                        // content만 있는 청크는 그대로 yield (UI 표시용)
-                        if (universalMessage.content && universalMessage.content.trim() !== '') {
-                            yield {
-                                role: 'assistant',
-                                content: universalMessage.content,
-                                timestamp: new Date()
-                            };
-                        }
-                        continue; // tool call 청크는 개별적으로 yield하지 않음
-                    }
-                }
-            }
-
-            // ✅ content가 있는 청크는 그대로 yield (UI 표시용)
-            if (universalMessage.content && universalMessage.content.trim() !== '') {
+                // LocalExecutor처럼 모든 청크를 그대로 yield
                 yield universalMessage;
             }
-        }
 
-        // ✅ 스트림 완료 시 완전한 tool call들을 포함한 최종 메시지 yield
-        if (toolCalls.length > 0) {
-            this.logger.debug('Stream completed, yielding complete tool calls:', toolCalls.length);
-            yield {
-                role: 'assistant',
-                content: '', // tool call 전용 메시지
-                timestamp: new Date(),
-                toolCalls: toolCalls
-            };
+        } catch (error) {
+            this.logger.error('Error in executeChatStream:', error);
+            throw error;
         }
     }
 
