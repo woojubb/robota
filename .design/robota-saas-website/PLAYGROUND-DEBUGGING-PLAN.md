@@ -1,9 +1,24 @@
-# Playground 채팅 및 스트리밍 문제 해결 계획
+# ⚠️ DEPRECATED: Playground 채팅 및 스트리밍 문제 해결 계획
 
-## 🚨 현재 문제 상황
+> **중요**: 이 문제의 근본 원인이 **RemoteExecutor ↔ LocalExecutor 호환성 위반**으로 밝혀졌습니다.  
+> **새로운 최우선 계획**: [TEAM-HOOKS-IMPLEMENTATION-CHECKLIST.md](./TEAM-HOOKS-IMPLEMENTATION-CHECKLIST.md)의 **Phase 0: RemoteExecutor 호환성 긴급 수정**을 먼저 완료해주세요.
+
+## 🔍 **근본 원인 진단 완료**
+
+**로컬 예제 vs 플레이그라운드 비교 결과**:
+- ✅ **LocalExecutor** (예제): `assignTask` tool call 정상 실행, 팀 협업 성공
+- ❌ **RemoteExecutor** (플레이그라운드): HTTP 전송 중 `toolCalls` 정보 손실
+- ❌ **심각한 아키텍처 위반**: RemoteExecutor가 LocalExecutor의 완전 대체재가 되지 못함
+
+**핵심 문제**: RemoteExecutor의 `executeChatStream()`이 `toolCalls` 없는 `ResponseMessage`만 반환하여  
+`ExecutionService.executeStream()`에서 tool 실행이 불가능한 상태
+
+## ❌ **기존 문제 진단 (잘못된 방향)**
 
 1. **스트리밍 방식**: 아예 작동하지 않음
 2. **일반 방식**: API 응답은 받지만 Chat UI 및 블록에 반영되지 않음
+
+→ **실제 원인**: RemoteExecutor의 타입 호환성 문제로 인한 tool call 실행 실패
 
 ## 🎯 핵심 설계 원칙 (반드시 준수)
 
@@ -12,6 +27,8 @@
 - ✅ 모든 API 호출은 RemoteExecutor를 통해서만 수행
 - ❌ 별도의 네트워크 호출이나 다른 방법 사용 금지
 - ❌ 기존 Robota SDK 아키텍처를 우회하는 방법 금지
+
+**단, RemoteExecutor가 LocalExecutor와 100% 호환되어야 함**
 
 ## 📋 수정된 디버깅 계획
 
