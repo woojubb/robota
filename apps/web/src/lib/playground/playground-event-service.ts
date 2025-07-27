@@ -1,16 +1,5 @@
-// Temporarily use any to avoid type conflicts during development
-import { EventService, ServiceEventData } from '@robota-sdk/agents';
-
-// Local ServiceEventType with extended events for detailed block tree
-type ServiceEventType =
-    | 'execution.start' | 'execution.complete' | 'execution.error'
-    | 'tool_call_start' | 'tool_call_complete' | 'tool_call_error'
-    | 'task.assigned' | 'task.completed'
-    | 'team.analysis_start' | 'team.analysis_complete'
-    | 'agent.creation_start' | 'agent.creation_complete'
-    | 'agent.execution_start' | 'agent.execution_complete'
-    | 'subtool.call_start' | 'subtool.call_complete' | 'subtool.call_error'
-    | 'task.aggregation_start' | 'task.aggregation_complete';
+// Import all types from the main EventService
+import { EventService, ServiceEventType, ServiceEventData } from '@robota-sdk/agents';
 
 // Import BasicEventType from PlaygroundHistoryPlugin for type consistency
 type BasicEventType =
@@ -59,9 +48,10 @@ export interface ConversationEvent {
 
 /**
  * History plugin interface that the PlaygroundEventService will interact with
+ * Updated to match the actual PlaygroundHistoryPlugin implementation
  */
 export interface PlaygroundHistoryPlugin {
-    recordEvent(event: ConversationEvent): void;
+    recordEvent(event: Omit<ConversationEvent, 'id' | 'timestamp' | 'childEventIds' | 'executionLevel' | 'executionPath'>): string;
 }
 
 /**
@@ -100,7 +90,12 @@ export class PlaygroundEventService implements EventService {
             metadata: conversationEvent.metadata
         } as any; // Type assertion to work around interface mismatch
 
-        this.historyPlugin.recordEvent(partialEvent);
+        const eventId = this.historyPlugin.recordEvent(partialEvent);
+
+        // Store event ID for potential future use
+        if (eventId) {
+            this.eventCounter++;
+        }
     }
 
     /**

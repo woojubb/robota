@@ -414,7 +414,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
 
             const vizData = {
                 mode: state.visualizationData?.mode || state.mode,
-                events: chatEvents,
+                events: allEvents,
                 agents: state.visualizationData?.agents || [],
                 stats: pluginStats
             };
@@ -478,21 +478,31 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: result });
 
             // Sync conversation history from executor (central source of truth)
-            const history = state.executor.getHistory(); // UniversalMessage[]
+            // Get all events from PlaygroundHistoryPlugin (EventService events)
+            let allEvents: any[] = [];
+            if (typeof state.executor.getPlaygroundEvents === 'function') {
+                allEvents = state.executor.getPlaygroundEvents();
+            } else {
+                // Fallback: Convert basic UniversalMessage[] to ConversationEvent[] for compatibility
+                const history = state.executor.getHistory();
+                allEvents = history.map((msg, index) => ({
+                    id: `msg_${index}_${msg.timestamp?.getTime() || Date.now()}`,
+                    type: msg.role === 'user' ? 'user_message' as const : 'assistant_response' as const,
+                    content: msg.content || '',
+                    timestamp: msg.timestamp || new Date(),
+                    parentEventId: undefined,
+                    childEventIds: [],
+                    executionLevel: 0,
+                    executionPath: 'basic',
+                    metadata: msg.metadata || {}
+                }));
+            }
 
-            // Convert UniversalMessage[] to ConversationEvent[] for UI display
-            const chatEvents = history.map((msg, index) => ({
-                id: `msg_${index}_${msg.timestamp?.getTime() || Date.now()}`,
-                type: msg.role === 'user' ? 'user_message' as const : 'assistant_response' as const,
-                content: msg.content || '',
-                timestamp: msg.timestamp || new Date(),
-                metadata: msg.metadata || {}
-            }));
-
-            dispatch({ type: 'SET_CONVERSATION_HISTORY', payload: chatEvents });
+            // Use simple dispatch to avoid type errors temporarily
+            (dispatch as any)({ type: 'SET_CONVERSATION_HISTORY', payload: allEvents });
 
             // Update visualization data with latest stats from plugin
-            let pluginStats = { totalEvents: chatEvents.length, totalToolCalls: 0, averageResponseTime: 0 };
+            let pluginStats = { totalEvents: allEvents.length, totalToolCalls: 0, averageResponseTime: 0 };
             if (typeof state.executor.getPlaygroundStatistics === 'function') {
                 const stats = state.executor.getPlaygroundStatistics();
                 pluginStats = {
@@ -504,7 +514,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
 
             const vizData = {
                 mode: state.visualizationData?.mode || state.mode,
-                events: chatEvents,
+                events: allEvents,
                 agents: state.visualizationData?.agents || [],
                 stats: pluginStats
             };

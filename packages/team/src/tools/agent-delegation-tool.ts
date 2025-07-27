@@ -1,6 +1,7 @@
-import { BaseTool, createZodFunctionTool, type ToolHooks, type ToolParameters, type ToolResult, type ToolExecutionContext, type SimpleLogger, SilentLogger, type EventService } from '@robota-sdk/agents';
-import type { AssignTaskParams, AssignTaskResult, TemplateInfo } from '../types';
-import { createDynamicAssignTaskSchema, type DynamicAssignTaskSchemaType } from '../task-assignment/schema.js';
+import { BaseTool, ToolHooks, SimpleLogger, SilentLogger, ToolExecutionContext, ToolParameters, ToolResult } from '@robota-sdk/agents';
+import { createZodFunctionTool } from '@robota-sdk/agents';
+import { AssignTaskParams, AssignTaskResult, TemplateInfo } from '../types.js';
+import { createDynamicAssignTaskSchema } from '../task-assignment/schema.js';
 import { convertToAssignTaskParams, formatResultForLLM } from '../task-assignment/tool-factory.js';
 
 /**
@@ -10,7 +11,7 @@ export interface AgentDelegationToolOptions {
     /**
      * Task execution function
      */
-    executor: (params: AssignTaskParams) => Promise<AssignTaskResult>;
+    executor: (params: AssignTaskParams, context?: ToolExecutionContext) => Promise<AssignTaskResult>;
 
     /**
      * Available agent templates for task assignment
@@ -135,7 +136,7 @@ export class AgentDelegationTool implements BaseTool<ToolParameters, ToolResult>
     private async executeWithHooks(
         parameters: ToolParameters,
         context: ToolExecutionContext | undefined,
-        executor: (params: AssignTaskParams) => Promise<AssignTaskResult>,
+        executor: (params: AssignTaskParams, context?: ToolExecutionContext) => Promise<AssignTaskResult>,
         schema: any
     ): Promise<string> {
         const toolName = 'assignTask';
@@ -148,7 +149,7 @@ export class AgentDelegationTool implements BaseTool<ToolParameters, ToolResult>
 
             // Type-safe conversion using Zod's inferred type
             const validatedParams = schema.parse(parameters);
-            const result = await executor(convertToAssignTaskParams(validatedParams));
+            const result = await executor(convertToAssignTaskParams(validatedParams), context);
 
             // Format result for LLM consumption
             const formattedResult = formatResultForLLM(result);
@@ -191,7 +192,7 @@ export class AgentDelegationTool implements BaseTool<ToolParameters, ToolResult>
  */
 export function createAgentDelegationTool(
     availableTemplates: TemplateInfo[],
-    executor: (params: AssignTaskParams) => Promise<AssignTaskResult>,
+    executor: (params: AssignTaskParams, context?: ToolExecutionContext) => Promise<AssignTaskResult>,
     options: { hooks?: ToolHooks; logger?: SimpleLogger } = {}
 ): AgentDelegationTool {
     return new AgentDelegationTool({
