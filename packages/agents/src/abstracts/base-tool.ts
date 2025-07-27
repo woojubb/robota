@@ -2,6 +2,8 @@ import type { ToolInterface, ToolResult, ToolExecutionContext, ParameterValidati
 import type { ToolSchema } from '../interfaces/provider';
 import type { SimpleLogger } from '../utils/simple-logger';
 import { SilentLogger } from '../utils/simple-logger';
+import type { EventService } from '../services/event-service';
+import { EventServiceHookFactory } from '../utils/event-service-hook-factory';
 
 /**
  * Hook interface for tool execution lifecycle
@@ -50,6 +52,13 @@ export interface BaseToolOptions {
      * Defaults to SilentLogger if not provided
      */
     logger?: SimpleLogger;
+
+    /**
+     * Optional event service for unified event emission
+     * If provided and hooks are not provided, will automatically create hooks using EventServiceHookFactory
+     * @since 2.1.0
+     */
+    eventService?: EventService;
 }
 
 /**
@@ -140,7 +149,16 @@ export abstract class BaseTool<TParameters = BaseToolParameters, TResult = ToolR
      * @param options - Configuration options for the tool
      */
     constructor(options: BaseToolOptions = {}) {
-        this.hooks = options.hooks;
+        // If eventService is provided and hooks are not, create hooks automatically
+        if (options.eventService && !options.hooks) {
+            this.hooks = EventServiceHookFactory.createToolHooks(
+                options.eventService,
+                options.eventService ? `tool-${this.constructor.name}` : 'unknown-tool'
+            );
+        } else {
+            this.hooks = options.hooks;
+        }
+
         this.logger = options.logger || SilentLogger;
     }
 

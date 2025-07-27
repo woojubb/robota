@@ -2,6 +2,7 @@ import { ToolExecutionResult, ToolResult } from '../interfaces/tool';
 import { Tools } from '../managers/tool-manager';
 import { Logger, createLogger } from '../utils/logger';
 import { ToolExecutionError, ValidationError } from '../utils/errors';
+import { EventService, SilentEventService } from './event-service';
 
 /**
  * Reusable type definitions for tool execution service
@@ -112,13 +113,16 @@ export class ToolExecutionService {
     private options: Required<ToolExecutionServiceOptions>;
     private executionHistory: ToolExecutionSummary[] = [];
     private executionStats: Map<string, { count: number; totalTime: number; errors: number }> = new Map();
+    private eventService: EventService;
 
     constructor(
         toolManager: Tools,
-        options: ToolExecutionServiceOptions = {}
+        options: ToolExecutionServiceOptions = {},
+        eventService?: EventService
     ) {
         this.toolManager = toolManager;
         this.logger = createLogger('ToolExecutionService');
+        this.eventService = eventService || new SilentEventService();
         this.options = {
             defaultTimeout: options.defaultTimeout || 120000, // Increased to 2 minutes for complex team tasks
             defaultMaxConcurrency: options.defaultMaxConcurrency || 5,
