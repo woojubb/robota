@@ -1,4 +1,4 @@
-import { ToolExecutionResult, ToolResult } from '../interfaces/tool';
+import { ToolExecutionResult, ToolResult, ToolExecutionContext } from '../interfaces/tool';
 import { Tools } from '../managers/tool-manager';
 import { Logger, createLogger } from '../utils/logger';
 import { ToolExecutionError, ValidationError } from '../utils/errors';
@@ -171,9 +171,28 @@ export class ToolExecutionService {
 
 
 
-            // Execute tool with timeout
+            // Build ToolExecutionContext for proper event emission with hierarchical information
+            const toolContext: ToolExecutionContext = {
+                toolName: request.toolName,
+                parameters: request.parameters,
+                executionId: executionId,
+                metadata: request.metadata,
+
+                // Extract hierarchical information from request metadata
+                parentExecutionId: request.metadata?.parentExecutionId as string,
+                rootExecutionId: request.metadata?.rootExecutionId as string,
+                executionLevel: (request.metadata?.executionLevel as number) || 2, // Default to tool level
+                executionPath: request.metadata?.executionPath as string[],
+
+                realTimeData: {
+                    startTime: new Date(startTime),
+                    actualParameters: request.parameters
+                }
+            };
+
+            // Execute tool with timeout and proper context
             const toolResult = await this.executeWithTimeout(
-                () => tool.execute(request.parameters),
+                () => tool.execute(request.parameters, toolContext),
                 this.options.defaultTimeout,
                 `Tool execution for ${request.toolName}`
             ) as ToolResult;
@@ -470,6 +489,50 @@ export class ToolExecutionService {
                 executionId: toolCall.id,
                 metadata: {
                     toolCallType: toolCall.type,
+                },
+            };
+        });
+    }
+
+    /**
+     * Create execution requests with hierarchical context information
+     */
+    createExecutionRequestsWithContext(
+        toolCalls: Array<{
+            id: string;
+            type: string;
+            function: { name: string; arguments: string };
+        }>,
+        hierarchicalContext: {
+            parentExecutionId: string;
+            rootExecutionId: string;
+            executionLevel: number;
+            executionPath: string[];
+        }
+    ): ToolExecutionRequest[] {
+        return toolCalls.map(toolCall => {
+            let parameters: ServiceToolExecutionData = {};
+            try {
+                parameters = JSON.parse(toolCall.function.arguments) as ServiceToolExecutionData;
+            } catch (error) {
+                this.logger.warn('Failed to parse tool arguments', {
+                    toolName: toolCall.function.name,
+                    arguments: toolCall.function.arguments,
+                    errorMessage: error instanceof Error ? error.message : String(error),
+                });
+            }
+
+            return {
+                toolName: toolCall.function.name,
+                parameters,
+                executionId: toolCall.id,
+                metadata: {
+                    toolCallType: toolCall.type,
+                    // Add hierarchical context for proper event emission
+                    parentExecutionId: hierarchicalContext.parentExecutionId,
+                    rootExecutionId: hierarchicalContext.rootExecutionId,
+                    executionLevel: hierarchicalContext.executionLevel,
+                    executionPath: hierarchicalContext.executionPath,
                 },
             };
         });

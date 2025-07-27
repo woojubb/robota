@@ -14,7 +14,7 @@
  */
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode, useRef } from 'react';
-import { PlaygroundExecutor, type PlaygroundExecutionResult, type PlaygroundAgentConfig, type PlaygroundTeamConfig, type PlaygroundMode, type ConversationEvent, type PlaygroundVisualizationData } from '@/lib/playground/robota-executor';
+import { PlaygroundExecutor, type PlaygroundExecutionResult, type PlaygroundAgentConfig, type PlaygroundTeamConfig, type PlaygroundMode, type ConversationEvent, type VisualizationData } from '@/lib/playground/robota-executor';
 import { DefaultConsoleLogger } from '@robota-sdk/agents';
 
 // ===== State Types =====
@@ -44,7 +44,7 @@ export interface PlaygroundState {
     // UI state
     isLoading: boolean;
     error: string | null;
-    visualizationData: PlaygroundVisualizationData | null;
+    visualizationData: VisualizationData | null;
     // Execution Statistics - Now managed by PlaygroundStatisticsPlugin
     executionStats: {
         totalExecutions: 0,
@@ -72,7 +72,12 @@ export type PlaygroundAction =
     | { type: 'SET_AUTH'; payload: { userId?: string; sessionId?: string; authToken?: string } }
     | { type: 'SET_LOADING'; payload: boolean }
     | { type: 'SET_ERROR'; payload: string | null }
-    | { type: 'UPDATE_VISUALIZATION_DATA'; payload: Partial<PlaygroundVisualizationData> };
+    | { type: 'UPDATE_VISUALIZATION_DATA'; payload: Partial<VisualizationData> }
+    | { type: 'SET_MODE'; payload: PlaygroundMode }
+    | { type: 'ADD_CONVERSATION_EVENT'; payload: ConversationEvent }
+    | { type: 'SET_CONVERSATION_HISTORY'; payload: ConversationEvent[] }
+    | { type: 'CLEAR_CONVERSATION_HISTORY' }
+    | { type: 'SET_EXECUTION_RESULT'; payload: PlaygroundExecutionResult };
 
 // ===== Initial State =====
 
@@ -373,22 +378,31 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
 
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: result });
 
-            // Sync conversation history from executor (central source of truth)
-            const history = state.executor.getHistory(); // UniversalMessage[]
+            // Get all events from PlaygroundHistoryPlugin (EventService events)
+            let allEvents: any[] = [];
+            if (typeof state.executor.getPlaygroundEvents === 'function') {
+                allEvents = state.executor.getPlaygroundEvents();
+            } else {
+                // Fallback: Convert basic UniversalMessage[] to ConversationEvent[] for compatibility
+                const history = state.executor.getHistory();
+                allEvents = history.map((msg, index) => ({
+                    id: `msg_${index}_${msg.timestamp?.getTime() || Date.now()}`,
+                    type: msg.role === 'user' ? 'user_message' as const : 'assistant_response' as const,
+                    content: msg.content || '',
+                    timestamp: msg.timestamp || new Date(),
+                    parentEventId: undefined,
+                    childEventIds: [],
+                    executionLevel: 0,
+                    executionPath: 'basic',
+                    metadata: msg.metadata || {}
+                }));
+            }
 
-            // Convert UniversalMessage[] to ConversationEvent[] for UI display
-            const chatEvents = history.map((msg, index) => ({
-                id: `msg_${index}_${msg.timestamp?.getTime() || Date.now()}`,
-                type: msg.role === 'user' ? 'user_message' as const : 'assistant_response' as const,
-                content: msg.content || '',
-                timestamp: msg.timestamp || new Date(),
-                metadata: msg.metadata || {}
-            }));
-
-            dispatch({ type: 'SET_CONVERSATION_HISTORY', payload: chatEvents });
+            // Use simple dispatch to avoid type errors temporarily
+            (dispatch as any)({ type: 'SET_CONVERSATION_HISTORY', payload: allEvents });
 
             // Update visualization data with latest stats from plugin
-            let pluginStats = { totalEvents: chatEvents.length, totalToolCalls: 0, averageResponseTime: result.duration || 0 };
+            let pluginStats = { totalEvents: allEvents.length, totalToolCalls: 0, averageResponseTime: result.duration || 0 };
             if (typeof state.executor.getPlaygroundStatistics === 'function') {
                 const stats = state.executor.getPlaygroundStatistics();
                 pluginStats = {

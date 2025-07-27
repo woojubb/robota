@@ -357,7 +357,15 @@ export class ExecutionService {
                 });
 
                 // Execute tools
-                const toolRequests = this.toolExecutionService.createExecutionRequests(assistantResponse.toolCalls);
+                const toolRequests = this.toolExecutionService.createExecutionRequestsWithContext(
+                    assistantResponse.toolCalls,
+                    {
+                        parentExecutionId: executionId,
+                        rootExecutionId: fullContext.conversationId || executionId,
+                        executionLevel: 2, // Tool level (Team=0, Agent=1, Tool=2)
+                        executionPath: [fullContext.conversationId || executionId, executionId]
+                    }
+                );
                 const toolContext: ToolExecutionBatchContext = {
                     requests: toolRequests,
                     mode: 'parallel',
@@ -677,8 +685,16 @@ export class ExecutionService {
             if (toolCalls.length > 0) {
                 console.log('🔥 [EXECUTION-SERVICE-STREAM] Executing tools:', toolCalls.map(tc => tc.function.name));
 
-                // Execute tools
-                const toolRequests = this.toolExecutionService.createExecutionRequests(toolCalls);
+                // Execute tools with hierarchical context
+                const toolRequests = this.toolExecutionService.createExecutionRequestsWithContext(
+                    toolCalls,
+                    {
+                        parentExecutionId: executionId,
+                        rootExecutionId: context?.conversationId || executionId,
+                        executionLevel: 2, // Tool level (Team=0, Agent=1, Tool=2)
+                        executionPath: [context?.conversationId || executionId, executionId]
+                    }
+                );
                 const toolContext: ToolExecutionBatchContext = {
                     requests: toolRequests,
                     mode: 'parallel',

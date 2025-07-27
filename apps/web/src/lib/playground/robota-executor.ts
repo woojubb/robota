@@ -247,151 +247,18 @@ export class PlaygroundExecutor {
             // Create AI providers with remote executor
             const aiProviders = this.createProvidersWithExecutor();
 
-            // Create toolHooks for assignTask tracking (simple implementation like examples)
-            console.log('🎯 [DEBUG] Creating toolHooks for playground team...');
-            const toolHooks = {
-                beforeExecute: async (tool: string, params: any) => {
-                    console.log(`🔧 [ToolHook] Before tool execution:`, JSON.stringify(params, null, 2));
+            // EventService will automatically handle all event tracking through the unified system
+            // No need for manual toolHooks - all events will be captured automatically
 
-                    // Record to history plugin for block visualization
-                    this.historyPlugin.recordEvent({
-                        type: 'tool_call',
-                        content: `🚀 [${tool}] Starting with: ${JSON.stringify(params)}`,
-                        toolName: tool,
-                        parameters: params as Record<string, unknown>,
-                        metadata: {
-                            phase: 'start',
-                            timestamp: new Date().toISOString()
-                        }
-                    });
-
-                    // If in team mode, also record to teamAgent's conversation session for proper block display
-                    if (this.mode === 'team' && this.currentTeam) {
-                        try {
-                            // Get teamAgent from TeamContainer and access its conversation session
-                            const teamAgent = (this.currentTeam as any).teamAgent;
-                            if (teamAgent && teamAgent.conversationHistory && teamAgent.conversationId) {
-                                const conversationSession = teamAgent.conversationHistory.getConversationSession(teamAgent.conversationId);
-                                if (conversationSession) {
-                                    // Add assistant message with tool call
-                                    conversationSession.addAssistantMessage('', [{
-                                        id: `call_${Date.now()}`,
-                                        type: 'function',
-                                        function: {
-                                            name: tool,
-                                            arguments: JSON.stringify(params)
-                                        }
-                                    }], { timestamp: new Date() });
-                                }
-                            }
-                        } catch (error) {
-                            console.warn('Failed to record tool call to teamAgent:', error);
-                        }
-                    }
-                },
-                afterExecute: async (tool: string, params: any, result: any) => {
-                    console.log(`✅ [ToolHook] After tool execution: Result received`);
-
-                    // Record to history plugin for block visualization
-                    this.historyPlugin.recordEvent({
-                        type: 'tool_result',
-                        content: `✅ [${tool}] Completed: ${typeof result === 'string' ? result : JSON.stringify(result)}`,
-                        toolName: tool,
-                        parameters: params as Record<string, unknown>,
-                        result,
-                        metadata: {
-                            phase: 'complete',
-                            timestamp: new Date().toISOString()
-                        }
-                    });
-
-                    // If in team mode, also record tool result to teamAgent's conversation session
-                    if (this.mode === 'team' && this.currentTeam) {
-                        try {
-                            // Get teamAgent from TeamContainer and access its conversation session
-                            const teamAgent = (this.currentTeam as any).teamAgent;
-                            if (teamAgent && teamAgent.conversationHistory && teamAgent.conversationId) {
-                                const conversationSession = teamAgent.conversationHistory.getConversationSession(teamAgent.conversationId);
-                                if (conversationSession) {
-                                    // Add tool result message
-                                    const resultContent = typeof result === 'string' ? result : JSON.stringify(result);
-                                    conversationSession.addToolMessageWithId(
-                                        resultContent,
-                                        `call_${Date.now()}`,
-                                        tool,
-                                        { timestamp: new Date() }
-                                    );
-                                }
-                            }
-                        } catch (error) {
-                            console.warn('Failed to record tool result to teamAgent:', error);
-                        }
-                    }
-                },
-                onError: async (tool: string, params: any, error: Error) => {
-                    console.log(`❌ [ToolHook] Tool execution error:`, error.message);
-
-                    // Record to history plugin for block visualization
-                    this.historyPlugin.recordEvent({
-                        type: 'error',
-                        content: `❌ [${tool}] Error: ${error.message}`,
-                        toolName: tool,
-                        parameters: params as Record<string, unknown>,
-                        error: error.message,
-                        metadata: {
-                            phase: 'error',
-                            timestamp: new Date().toISOString()
-                        }
-                    });
-
-                    // If in team mode, also record error to teamAgent's conversation session
-                    if (this.mode === 'team' && this.currentTeam) {
-                        try {
-                            // Get teamAgent from TeamContainer and access its conversation session
-                            const teamAgent = (this.currentTeam as any).teamAgent;
-                            if (teamAgent && teamAgent.conversationHistory && teamAgent.conversationId) {
-                                const conversationSession = teamAgent.conversationHistory.getConversationSession(teamAgent.conversationId);
-                                if (conversationSession) {
-                                    // Add tool error message
-                                    conversationSession.addToolMessageWithId(
-                                        `Error: ${error.message}`,
-                                        `call_${Date.now()}`,
-                                        tool,
-                                        { timestamp: new Date() }
-                                    );
-                                }
-                            }
-                        } catch (hookError) {
-                            console.warn('Failed to record tool error to teamAgent:', hookError);
-                        }
-                    }
-                }
-            };
-
-            // Create team using actual Robota Team library (following examples/05-team-collaboration.ts)
-            console.log('🎯 [DEBUG] Creating team with toolHooks:', !!toolHooks);
+            // Create team using actual Robota Team library with EventService
             this.currentTeam = createTeam({
                 aiProviders: aiProviders,
                 maxMembers: config.maxMembers || 5,
                 maxTokenLimit: 8000,
-                debug: true,
-                toolHooks: toolHooks, // 🎯 Hook 주입
+                debug: false, // Disable debug to reduce console output
                 logger: this.logger,
-                eventService: this.eventService as any // Inject EventService for automatic event emission
+                eventService: this.eventService as any // EventService for automatic event emission and block creation
             });
-            console.log('🎯 [DEBUG] Team created successfully');
-            console.log('🎯 [DEBUG] Created team type:', this.currentTeam.constructor.name);
-            console.log('🎯 [DEBUG] Created team prototype:', Object.getPrototypeOf(this.currentTeam).constructor.name);
-            console.log('🎯 [DEBUG] Team executeStream method:', typeof this.currentTeam.executeStream);
-            console.log('🎯 [DEBUG] Team has executeStream method on prototype:', 'executeStream' in Object.getPrototypeOf(this.currentTeam));
-
-            // Add some default agents to make the team functional
-            console.log('🎯 Setting up team with default agents for demo purposes');
-
-            // For now, create a basic team with assignTask functionality
-            // The team itself will have assignTask tool that can delegate to other agents
-            console.log('✅ Team created with assignTask capability');
-            console.log('📋 Team will use assignTask tool to delegate work to specialized agents');
 
             this.setMode('team');
 
@@ -562,6 +429,14 @@ export class PlaygroundExecutor {
      */
     getVisualizationData(): VisualizationData {
         return this.historyPlugin.getVisualizationData();
+    }
+
+    /**
+     * Get all playground events from PlaygroundHistoryPlugin
+     * These events include all EventService events (execution.*, tool_call_*, task.*)
+     */
+    getPlaygroundEvents(): ConversationEvent[] {
+        return this.historyPlugin.getAllEvents();
     }
 
     /**

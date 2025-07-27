@@ -20,13 +20,29 @@ import {
     SilentLogger
 } from '@robota-sdk/agents';
 
-// 🎯 기본 이벤트 타입 (단순화된 5개 타입)
+// 🎯 상세한 블록 tree를 위한 확장된 이벤트 타입
 type BasicEventType =
-    | 'user_message'      // 사용자 입력
-    | 'assistant_response' // LLM 응답  
-    | 'tool_call'         // 도구 호출
-    | 'tool_result'       // 도구 결과
-    | 'error';            // 오류
+    | 'user_message'           // 사용자 입력
+    | 'assistant_response'     // LLM 응답  
+    | 'tool_call_start'        // 도구 호출 시작
+    | 'tool_call_complete'     // 도구 호출 완료
+    | 'tool_call_error'        // 도구 호출 오류
+    | 'execution.start'        // Agent 실행 시작
+    | 'execution.complete'     // Agent 실행 완료
+    | 'execution.error'        // Agent 실행 오류
+    | 'task.assigned'          // Team 작업 할당
+    | 'task.completed'         // Team 작업 완료
+    | 'team.analysis_start'    // Team 작업 분석 시작
+    | 'team.analysis_complete' // Team 작업 분석 완료
+    | 'agent.creation_start'   // Agent 생성 시작
+    | 'agent.creation_complete'// Agent 생성 완료
+    | 'agent.execution_start'  // Agent 개별 실행 시작
+    | 'agent.execution_complete'// Agent 개별 실행 완료
+    | 'subtool.call_start'     // Agent 내부 도구 호출 시작
+    | 'subtool.call_complete'  // Agent 내부 도구 호출 완료
+    | 'subtool.call_error'     // Agent 내부 도구 호출 오류
+    | 'task.aggregation_start' // 작업 결과 집계 시작
+    | 'task.aggregation_complete'; // 작업 결과 집계 완료
 
 // 🏗️ 계층 구조 중심의 ConversationEvent
 export interface ConversationEvent {
@@ -193,13 +209,12 @@ export class PlaygroundHistoryPlugin extends BasePlugin<PlaygroundHistoryPluginO
                 case 'assistant_response':
                     eventCounts.assistantResponses++;
                     break;
-                case 'tool_call':
+                case 'tool_call_start':
+                case 'tool_call_complete':
                     eventCounts.toolCalls++;
                     break;
-                case 'tool_result':
-                    eventCounts.toolResults++;
-                    break;
-                case 'error':
+                case 'tool_call_error':
+                case 'execution.error':
                     eventCounts.errorEvents++;
                     break;
             }
@@ -327,13 +342,13 @@ export class PlaygroundHistoryPlugin extends BasePlugin<PlaygroundHistoryPluginO
                 return 0; // Team level (기본값)
             }
 
-            if (eventType === 'tool_call' && parentLevel === 0) {
+            if ((eventType === 'tool_call_start' || eventType === 'tool_call_complete') && parentLevel === 0) {
                 return 1; // assignTask
             }
             if (parentLevel === 1) {
                 return 2; // Sub-Agent level
             }
-            if (eventType === 'tool_call' && parentLevel === 2) {
+            if ((eventType === 'tool_call_start' || eventType === 'tool_call_complete') && parentLevel === 2) {
                 return 3; // Sub-Tool
             }
 
@@ -353,14 +368,14 @@ export class PlaygroundHistoryPlugin extends BasePlugin<PlaygroundHistoryPluginO
                 return 'team'; // 기본 경로
             }
 
-            if (eventType === 'tool_call' && context?.toolName === 'assignTask') {
+            if ((eventType === 'tool_call_start' || eventType === 'tool_call_complete') && context?.toolName === 'assignTask') {
                 return `${parentPath}→assignTask`;
             }
             if (eventType === 'user_message' && parentPath.includes('assignTask')) {
                 const agentId = context?.agentId || 'agent';
                 return `${parentPath}→${agentId}`;
             }
-            if (eventType === 'tool_call' && context?.toolName) {
+            if ((eventType === 'tool_call_start' || eventType === 'tool_call_complete') && context?.toolName) {
                 return `${parentPath}→${context.toolName}`;
             }
 
@@ -416,5 +431,13 @@ export class PlaygroundHistoryPlugin extends BasePlugin<PlaygroundHistoryPluginO
 
     getEventsByExecutionLevel(level: number): ConversationEvent[] {
         return this.events.filter(event => event.executionLevel === level);
+    }
+
+    /**
+     * Get all events recorded by this plugin
+     * Used by PlaygroundExecutor to provide events to PlaygroundContext
+     */
+    getAllEvents(): ConversationEvent[] {
+        return [...this.events]; // Return a copy to prevent external mutation
     }
 } 

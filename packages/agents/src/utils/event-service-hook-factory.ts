@@ -33,6 +33,10 @@ export class EventServiceHookFactory {
              * Emit tool_call_start event before tool execution
              */
             beforeExecute: async (toolName: string, parameters: any, context?: ToolExecutionContext) => {
+                // Determine if this is a subtool (called from within an agent) or main tool
+                const isSubTool = context?.executionLevel && context.executionLevel > 1;
+                const eventType = isSubTool ? 'subtool.call_start' : 'tool_call_start';
+
                 const eventData: ServiceEventData = {
                     sourceType: 'tool',
                     sourceId,
@@ -50,6 +54,7 @@ export class EventServiceHookFactory {
                     metadata: {
                         toolName,
                         phase: 'start',
+                        isSubTool: isSubTool,
                         context: context ? {
                             userId: context.userId,
                             sessionId: context.sessionId,
@@ -58,13 +63,17 @@ export class EventServiceHookFactory {
                     }
                 };
 
-                eventService.emit('tool_call_start', eventData);
+                eventService.emit(eventType as any, eventData);
             },
 
             /**
              * Emit tool_call_complete event after successful tool execution
              */
             afterExecute: async (toolName: string, parameters: any, result: any, context?: ToolExecutionContext) => {
+                // Determine if this is a subtool (called from within an agent) or main tool
+                const isSubTool = context?.executionLevel && context.executionLevel > 1;
+                const eventType = isSubTool ? 'subtool.call_complete' : 'tool_call_complete';
+
                 const eventData: ServiceEventData = {
                     sourceType: 'tool',
                     sourceId,
@@ -84,6 +93,7 @@ export class EventServiceHookFactory {
                         toolName,
                         phase: 'complete',
                         resultType: typeof result,
+                        isSubTool: isSubTool,
                         context: context ? {
                             userId: context.userId,
                             sessionId: context.sessionId,
@@ -92,13 +102,17 @@ export class EventServiceHookFactory {
                     }
                 };
 
-                eventService.emit('tool_call_complete', eventData);
+                eventService.emit(eventType as any, eventData);
             },
 
             /**
              * Emit tool_call_error event when tool execution fails
              */
             onError: async (toolName: string, parameters: any, error: Error, context?: ToolExecutionContext) => {
+                // Determine if this is a subtool (called from within an agent) or main tool
+                const isSubTool = context?.executionLevel && context.executionLevel > 1;
+                const eventType = isSubTool ? 'subtool.call_error' : 'tool_call_error';
+
                 const eventData: ServiceEventData = {
                     sourceType: 'tool',
                     sourceId,
@@ -119,6 +133,7 @@ export class EventServiceHookFactory {
                         phase: 'error',
                         errorName: error.name,
                         errorStack: error.stack,
+                        isSubTool: isSubTool,
                         context: context ? {
                             userId: context.userId,
                             sessionId: context.sessionId,
@@ -127,7 +142,7 @@ export class EventServiceHookFactory {
                     }
                 };
 
-                eventService.emit('tool_call_error', eventData);
+                eventService.emit(eventType as any, eventData);
             }
         };
     }
