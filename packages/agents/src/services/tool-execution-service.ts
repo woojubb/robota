@@ -152,6 +152,9 @@ export class ToolExecutionService {
                 parametersCount: Object.keys(request.parameters).length,
             });
 
+            // Note: Tool events are emitted by ToolHooks in BaseTool.execute()
+            // This provides more detailed hierarchical context information
+
             // Get tool from manager
             const tool = this.toolManager.getTool(request.toolName);
             if (!tool) {
@@ -165,6 +168,8 @@ export class ToolExecutionService {
                     `Invalid parameters for tool "${request.toolName}": ${validation.errors.join(', ')}`
                 );
             }
+
+
 
             // Execute tool with timeout
             const toolResult = await this.executeWithTimeout(
@@ -186,6 +191,9 @@ export class ToolExecutionService {
                 duration,
                 success: toolResult.success,
             });
+
+            // Note: Tool completion events are emitted by ToolHooks in BaseTool.execute()
+            // This provides more detailed hierarchical context and result information
 
             const executionResult: ToolExecutionResult = {
                 success: toolResult.success,
@@ -217,6 +225,9 @@ export class ToolExecutionService {
                 duration,
                 errorMessage: error instanceof Error ? error.message : String(error),
             });
+
+            // Note: Tool error events are emitted by ToolHooks in BaseTool.execute()
+            // This provides more detailed hierarchical context and error information
 
             throw new ToolExecutionError(
                 error instanceof Error ? error.message : String(error),

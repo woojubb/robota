@@ -1,17 +1,4 @@
-// TODO: Import from '../services/event-service' when building
-// import type { EventService, ServiceEventData } from '../services/event-service';
-
-// Temporary local type definitions
-type EventService = {
-    emit(eventType: string, data: any): void;
-};
-
-type ServiceEventData = {
-    sourceType: 'agent' | 'team' | 'tool';
-    sourceId: string;
-    timestamp?: Date;
-    [key: string]: any;
-};
+import type { EventService, ServiceEventData } from '../services/event-service';
 
 /**
  * Configuration for execution proxy
@@ -55,7 +42,7 @@ export interface MethodConfig {
  * - Configurable per method
  * - AOP (Aspect-Oriented Programming) pattern
  */
-export class ExecutionProxy<T extends object> {
+export class ExecutionProxy<T extends object = object> {
     private config: ExecutionProxyConfig;
     private methodConfigs: Map<string, MethodConfig> = new Map();
 
@@ -241,7 +228,7 @@ export class ExecutionProxy<T extends object> {
 
                 return originalMethod;
             }
-        });
+        }) as T;
     }
 
     /**
@@ -273,8 +260,9 @@ export function createExecutionProxy<T extends object>(
     target: T,
     config: ExecutionProxyConfig
 ): T {
-    const proxy = new ExecutionProxy(config);
-    return proxy.configureStandardMethods().wrap(target);
+    const proxy = new ExecutionProxy<T>(config);
+    proxy.configureStandardMethods();
+    return proxy.wrap(target);
 }
 
 /**

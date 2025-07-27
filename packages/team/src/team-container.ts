@@ -213,15 +213,14 @@ export class TeamContainer {
             ]
         };
 
-        // Add EventService to teamConfig if available (temporary workaround for typing)
-        (teamConfig as any).eventService = this.eventService;
+        // Add EventService to teamConfig
+        teamConfig.eventService = this.eventService;
 
-        console.log(`🔧 [TEAM-CONTAINER] Creating teamAgent with ${teamConfig.tools?.length || 0} tools`);
-        console.log(`🔧 [TEAM-CONTAINER] Tools list:`, teamConfig.tools?.map(t => t.getName?.() || 'unnamed'));
+
 
         this.teamAgent = new Robota(teamConfig);
 
-        console.log(`🔧 [TEAM-CONTAINER] TeamAgent created successfully`);
+
         this.logger?.info(`Team created with leader template: ${leaderTemplateName} (${leaderTemplate.config.provider}/${leaderTemplate.config.model})`);
     }
 
@@ -325,8 +324,37 @@ export class TeamContainer {
         const agentId = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const startTime = Date.now();
 
+
+
         // Log received parameters
         console.log('assignTask params:', JSON.stringify(params, null, 2));
+
+        // Emit task assigned event
+        if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+            this.eventService.emit('task.assigned', {
+                sourceType: 'team',
+                sourceId: agentId,
+                timestamp: new Date(),
+                taskDescription: params.jobDescription,
+                parameters: {
+                    jobDescription: params.jobDescription,
+                    agentTemplate: params.agentTemplate,
+                    priority: params.priority,
+                    context: params.context
+                },
+                // Hierarchical tracking information
+                rootExecutionId: agentId, // Team task is root level
+                executionLevel: 0, // Team level execution
+                executionPath: [agentId],
+                metadata: {
+                    agentId,
+                    agentTemplate: params.agentTemplate,
+                    priority: params.priority,
+                    startTime: startTime,
+                    allowFurtherDelegation: params.allowFurtherDelegation
+                }
+            });
+        }
 
         try {
 
@@ -392,7 +420,7 @@ export class TeamContainer {
                     systemMessage += '\n\nDIRECT EXECUTION: Handle this task directly using your specialized knowledge and skills. Do not delegate - focus on completing the work within your expertise.';
                 }
 
-                const tempAgentConfig = {
+                const tempAgentConfig: AgentConfig = {
                     name: `temp-agent-${agentId}`,
                     aiProviders: this.options.baseRobotaOptions.aiProviders,
                     defaultModel: {
@@ -406,8 +434,9 @@ export class TeamContainer {
                     tools: [...delegationTools, ...(this.options.baseRobotaOptions.tools || [])]
                 };
 
-                // Add EventService to temporary agent (temporary workaround for typing)
-                (tempAgentConfig as any).eventService = this.eventService;
+                // Add EventService to temporary agent
+                tempAgentConfig.eventService = this.eventService;
+
 
                 temporaryAgent = new Robota(tempAgentConfig);
             } else {
@@ -419,7 +448,7 @@ export class TeamContainer {
                     systemMessage += '\n\nDIRECT EXECUTION: Handle this task directly using your knowledge and skills. Do not delegate - focus on completing the work yourself.';
                 }
 
-                const dynamicAgentConfig = {
+                const dynamicAgentConfig: AgentConfig = {
                     name: `temp-agent-${agentId}`,
                     aiProviders: this.options.baseRobotaOptions.aiProviders,
                     defaultModel: {
@@ -431,8 +460,8 @@ export class TeamContainer {
                     tools: [...delegationTools, ...(this.options.baseRobotaOptions.tools || [])]
                 };
 
-                // Add EventService to dynamic agent (temporary workaround for typing)
-                (dynamicAgentConfig as any).eventService = this.eventService;
+                // Add EventService to dynamic agent
+                dynamicAgentConfig.eventService = this.eventService;
 
                 temporaryAgent = new Robota(dynamicAgentConfig);
             }
@@ -452,6 +481,29 @@ export class TeamContainer {
 
 
             this.logger?.info(`✅ Task completed by agent ${agentId} (${taskDuration}ms)`);
+
+            // Emit task completed event
+            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                this.eventService.emit('task.completed', {
+                    sourceType: 'team',
+                    sourceId: agentId,
+                    timestamp: new Date(),
+                    taskDescription: params.jobDescription,
+                    result: result.substring(0, 100) + '...',
+                    // Hierarchical tracking information
+                    rootExecutionId: agentId, // Team task is root level
+                    executionLevel: 0, // Team level execution
+                    executionPath: [agentId],
+                    metadata: {
+                        agentId,
+                        agentTemplate: params.agentTemplate,
+                        priority: params.priority,
+                        duration: taskDuration,
+                        success: true,
+                        resultLength: result.length
+                    }
+                });
+            }
 
             const delegationRecord: TaskDelegationRecord = {
                 id: uuidv4(),
