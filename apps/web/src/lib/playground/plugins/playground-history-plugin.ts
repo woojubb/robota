@@ -21,7 +21,7 @@ import {
 } from '@robota-sdk/agents';
 
 // 🎯 상세한 블록 tree를 위한 확장된 이벤트 타입
-type BasicEventType =
+export type BasicEventType =
     | 'user_message'           // 사용자 입력
     | 'assistant_response'     // LLM 응답  
     | 'tool_call_start'        // 도구 호출 시작

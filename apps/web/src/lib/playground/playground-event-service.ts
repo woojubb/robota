@@ -1,29 +1,6 @@
 // Import all types from the main EventService
 import { EventService, ServiceEventType, ServiceEventData } from '@robota-sdk/agents';
-
-// Import BasicEventType from PlaygroundHistoryPlugin for type consistency
-type BasicEventType =
-    | 'user_message'
-    | 'assistant_response'
-    | 'tool_call_start'
-    | 'tool_call_complete'
-    | 'tool_call_error'
-    | 'execution.start'
-    | 'execution.complete'
-    | 'execution.error'
-    | 'task.assigned'
-    | 'task.completed'
-    | 'team.analysis_start'
-    | 'team.analysis_complete'
-    | 'agent.creation_start'
-    | 'agent.creation_complete'
-    | 'agent.execution_start'
-    | 'agent.execution_complete'
-    | 'subtool.call_start'
-    | 'subtool.call_complete'
-    | 'subtool.call_error'
-    | 'task.aggregation_start'
-    | 'task.aggregation_complete';
+import { BasicEventType } from './plugins/playground-history-plugin';
 
 /**
  * ConversationEvent interface matching PlaygroundHistoryPlugin
@@ -55,15 +32,12 @@ export interface PlaygroundHistoryPlugin {
 }
 
 /**
- * PlaygroundEventService implementation
- * Maps EventService events to ConversationEvent format for the Playground UI
+ * PlaygroundEventService - Bridges EventService to PlaygroundHistoryPlugin
  * 
- * This service acts as the bridge between the unified EventService system
- * and the Playground's existing history tracking mechanism.
+ * Maps EventService events to ConversationEvent format for the Playground UI
  */
 export class PlaygroundEventService implements EventService {
     private historyPlugin: PlaygroundHistoryPlugin;
-    private eventCounter: number = 0;
 
     constructor(historyPlugin: PlaygroundHistoryPlugin) {
         this.historyPlugin = historyPlugin;
@@ -75,61 +49,30 @@ export class PlaygroundEventService implements EventService {
      */
     emit(eventType: ServiceEventType, data: ServiceEventData): void {
         const conversationEvent = this.mapToConversationEvent(eventType, data);
-
-        // PlaygroundHistoryPlugin.recordEvent expects partial event without auto-generated fields
-        const partialEvent = {
-            type: conversationEvent.type,
-            content: conversationEvent.content,
-            parentEventId: conversationEvent.parentEventId,
-            agentId: conversationEvent.agentId,
-            toolName: conversationEvent.toolName,
-            delegationId: conversationEvent.delegationId,
-            parameters: conversationEvent.parameters,
-            result: conversationEvent.result,
-            error: conversationEvent.error,
-            metadata: conversationEvent.metadata
-        } as any; // Type assertion to work around interface mismatch
-
-        const eventId = this.historyPlugin.recordEvent(partialEvent);
-
-        // Store event ID for potential future use
-        if (eventId) {
-            this.eventCounter++;
-        }
+        this.historyPlugin.recordEvent(conversationEvent);
     }
 
-    /**
-     * Map ServiceEventType and ServiceEventData to ConversationEvent format
-     */
     private mapToConversationEvent(eventType: ServiceEventType, data: ServiceEventData): ConversationEvent {
-        // Generate unique event ID
-        const eventId = `${data.sourceType}-${data.sourceId}-${Date.now()}-${++this.eventCounter}`;
-
-        // Map event type to ConversationEvent type
-        const conversationEventType = this.mapEventType(eventType);
-
-        // Build execution path if hierarchical data is available
-        const executionPath = this.buildExecutionPath(data);
-
-        // Infer execution level based on source type and context
-        const executionLevel = this.inferExecutionLevel(data);
+        const eventId = `${eventType}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
         return {
             id: eventId,
-            type: conversationEventType,
-            timestamp: data.timestamp || new Date(),
-            content: this.buildEventContent(eventType, data),
+            type: this.mapEventType(eventType),
+            timestamp: new Date(),
+            content: data.taskDescription || data.result || `${eventType} event`,
+            metadata: {
+                eventType,
+                sourceType: data.sourceType,
+                sourceId: data.sourceId,
+                parameters: data.parameters,
+                result: data.result,
+                error: data.error,
+                ...data.metadata
+            },
             parentEventId: data.parentExecutionId,
-            childEventIds: [], // Will be managed by PlaygroundHistoryPlugin
-            executionLevel: executionLevel,
-            executionPath: this.buildExecutionPathString(data),
-            agentId: data.sourceType === 'agent' ? data.sourceId : undefined,
-            toolName: data.toolName,
-            delegationId: data.metadata?.delegationId,
-            parameters: data.parameters,
-            result: data.result,
-            error: data.error,
-            metadata: data.metadata
+            childEventIds: [],
+            executionLevel: data.executionLevel || 0,
+            executionPath: data.executionPath ? data.executionPath.join(' > ') : ''
         };
     }
 

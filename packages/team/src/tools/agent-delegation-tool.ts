@@ -1,5 +1,6 @@
-import { BaseTool, ToolHooks, SimpleLogger, SilentLogger, ToolExecutionContext, ToolParameters, ToolResult } from '@robota-sdk/agents';
+import { BaseTool, ToolHooks, SimpleLogger, SilentLogger, ToolExecutionContext, ToolParameters, ToolResult, ToolSchema, ExecutionHierarchyTracker } from '@robota-sdk/agents';
 import { createZodFunctionTool } from '@robota-sdk/agents';
+import { ZodSchema } from 'zod';
 import { AssignTaskParams, AssignTaskResult, TemplateInfo } from '../types.js';
 import { createDynamicAssignTaskSchema } from '../task-assignment/schema.js';
 import { convertToAssignTaskParams, formatResultForLLM } from '../task-assignment/tool-factory.js';
@@ -34,6 +35,11 @@ export interface AgentDelegationToolOptions {
      * @since 2.1.0
      */
     eventService?: EventService;
+
+    /**
+     * Optional ExecutionHierarchyTracker for hierarchy tracking
+     */
+    hierarchyTracker?: ExecutionHierarchyTracker;
 }
 
 /**
@@ -44,10 +50,12 @@ export class AgentDelegationTool implements BaseTool<ToolParameters, ToolResult>
     private readonly wrappedTool: BaseTool<ToolParameters, ToolResult>;
     private readonly hooks: ToolHooks | undefined;
     private readonly logger: SimpleLogger;
+    private readonly hierarchyTracker: ExecutionHierarchyTracker | undefined;
 
     constructor(options: AgentDelegationToolOptions) {
         this.hooks = options.hooks;
         this.logger = options.logger || SilentLogger;
+        this.hierarchyTracker = options.hierarchyTracker;
 
         // Create dynamic schema with available templates
         const toolParametersSchema = createDynamicAssignTaskSchema(options.availableTemplates);
@@ -82,6 +90,32 @@ export class AgentDelegationTool implements BaseTool<ToolParameters, ToolResult>
         console.log('🔥 [DELEGATION] AgentDelegationTool.execute called with:', parameters);
         console.log('🔥 [DELEGATION] Has hooks:', !!this.hooks);
 
+        // 🆕 Register tool execution instance if hierarchyTracker is available
+        let toolExecutionId: string | undefined;
+        if (this.hierarchyTracker) {
+            toolExecutionId = `${toolName}-exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+            this.hierarchyTracker.registerToolExecution({
+                id: toolExecutionId,
+                toolName: toolName,
+                executionId: context?.executionId || 'unknown',
+                parentId: context?.parentExecutionId || context?.executionId || 'unknown-parent',
+                rootId: context?.rootExecutionId || context?.conversationId || 'unknown-root',
+                level: (context?.executionLevel || 0) + 1,
+                path: [...(context?.executionPath || []), toolExecutionId],
+                parameters: parameters,
+                metadata: {
+                    timestamp: new Date().toISOString(),
+                    source: 'AgentDelegationTool'
+                }
+            });
+
+            this.logger.debug(`Tool execution instance registered: ${toolExecutionId}`, {
+                parentId: context?.parentExecutionId,
+                level: (context?.executionLevel || 0) + 1
+            });
+        }
+
         // Call beforeExecute hook if present
         if (this.hooks?.beforeExecute) {
             try {
@@ -92,8 +126,16 @@ export class AgentDelegationTool implements BaseTool<ToolParameters, ToolResult>
         }
 
         try {
-            // Execute the wrapped tool
-            const result = await this.wrappedTool.execute(parameters, context);
+            // 🆕 Enhanced context with tool execution instance ID
+            const enhancedContext: ToolExecutionContext | undefined = context ? {
+                ...context,
+                toolExecutionId: toolExecutionId, // Pass tool execution instance ID
+                parentExecutionId: toolExecutionId, // Tool execution becomes parent for assignTask events
+                executionLevel: (context.executionLevel || 0) + 1 // Increment level
+            } : undefined;
+
+            // Execute the wrapped tool with enhanced context
+            const result = await this.wrappedTool.execute(parameters, enhancedContext);
 
             // Call afterExecute hook if present
             if (this.hooks?.afterExecute) {
@@ -102,6 +144,11 @@ export class AgentDelegationTool implements BaseTool<ToolParameters, ToolResult>
                 } catch (error) {
                     this.logger.error('Hook afterExecute failed', { error: String(error) });
                 }
+            }
+
+            // 🆕 Mark tool execution as complete
+            if (this.hierarchyTracker && toolExecutionId) {
+                this.hierarchyTracker.markExecutionComplete(toolExecutionId);
             }
 
             return result;
@@ -114,6 +161,21 @@ export class AgentDelegationTool implements BaseTool<ToolParameters, ToolResult>
                     this.logger.error('Hook onError failed', { error: String(hookError) });
                 }
             }
+
+            // 🆕 Mark tool execution as failed
+            if (this.hierarchyTracker && toolExecutionId) {
+                this.hierarchyTracker.markExecutionComplete(toolExecutionId);
+                // Add error info to metadata
+                const entity = this.hierarchyTracker.getAllEntities().get(toolExecutionId);
+                if (entity) {
+                    entity.metadata = {
+                        ...entity.metadata,
+                        status: 'failed',
+                        error: error instanceof Error ? error.message : String(error)
+                    };
+                }
+            }
+
             throw error;
         }
     }
