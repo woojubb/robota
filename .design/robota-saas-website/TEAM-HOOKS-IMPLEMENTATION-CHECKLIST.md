@@ -26,30 +26,79 @@
 
 ---
 
-## 🚨 **긴급 수정 필요: ExecutionService 스트리밍 Tool Call 처리**
+## 🚨 **최우선 수정: RemoteExecutor ↔ LocalExecutor 호환성 문제**
 
-### ❌ 현재 문제점
-- ✅ LLM이 tool call을 정상 생성 (네트워크 로그 확인)
-- ✅ OpenAI provider가 스트리밍에서 tool calls 수신
-- ❌ **ExecutionService.executeStream()에서 tool call 실행 누락**
-- ❌ toolHooks가 호출되지 않음 (assignTask 실행 안됨)
+### 🔍 **근본 원인 진단 완료**
+**로컬 예제는 완벽 작동, 플레이그라운드만 실패** → **Executor 호환성 위반 문제**
 
-### 🔧 수정된 사항
+- ✅ **LocalExecutor** (예제): `assignTask` tool call 정상 실행, 팀 협업 성공
+- ❌ **RemoteExecutor** (플레이그라운드): HTTP 전송 중 `toolCalls` 정보 손실
+- ❌ **심각한 아키텍처 위반**: RemoteExecutor가 LocalExecutor의 완전 대체재가 되지 못함
+
+### 📋 **긴급 수정 계획 (우선순위 1 - 필수)**
+
+#### **Step 1: RemoteExecutor 타입 통일 (1일)**
+- [ ] **File**: `packages/remote/src/client/remote-executor-simple.ts`
+- [ ] `ResponseMessage` → `UniversalMessage` 타입 변경
+- [ ] `toolCalls` 필드 포함하도록 스트리밍 응답 수정
+```typescript
+// 현재 (잘못됨)
+yield {
+  role: 'assistant',
+  content: response.content,  // ❌ toolCalls 누락
+  timestamp: new Date()
+};
+
+// 수정 필요
+yield {
+  role: 'assistant', 
+  content: response.content,
+  toolCalls: response.toolCalls,  // ✅ 추가 필요
+  timestamp: new Date()
+};
+```
+
+#### **Step 2: HttpClient 스트리밍 로직 수정 (1일)**
+- [ ] **File**: `packages/remote/src/client/http-client.ts:134-182`
+- [ ] HTTP 응답에서 `toolCalls` 정보 완전 보존
+- [ ] 서버 응답의 `chunk` 데이터를 온전히 클라이언트로 전달
+
+#### **Step 3: 타입 안전성 확보 (0.5일)**
+- [ ] **File**: `packages/remote/src/shared/types.ts`
+- [ ] `ResponseMessage` 인터페이스에 `toolCalls?` 필드 추가
+- [ ] `UniversalMessage`와 100% 호환되도록 타입 정의 수정
+
+#### **Step 4: 코드 분석 기반 검증 (1일)**
+- [ ] **타입 시그니처 호환성 검증** (컴파일 타임)
+- [ ] **SDK 아키텍처 준수 확인** (SimpleLogger, 타입 안전성, Interface segregation)
+- [ ] **정적 코드 분석 통과** (TypeScript 0 errors, ESLint 0 violations)
+- [ ] **실행 플로우 코드 분석** (toolCalls 처리 로직 존재 확인)
+- [ ] **UI 동작 검증** (로그 없는 실제 동작 확인)
+
+### 🎯 **성공 기준**
+```bash
+# 플레이그라운드에서 이 로그들이 나타나야 함
+🔥 [EXECUTION-SERVICE-STREAM] Stream completed, toolCalls detected: 1
+🔥 [DELEGATION] AgentDelegationTool.execute called with: {...}
+📊 Agent slot reserved - Active: 1, Total: 1, Max: 5
+✅ Task completed by agent agent-xxx-yyy (Nms)
+```
+
+---
+
+## ⚠️ **보류: ExecutionService 스트리밍 Tool Call 처리**
+
+### 📋 현재 상태 (RemoteExecutor 수정 후 재평가 필요)
 - ✅ `packages/agents/src/services/execution-service.ts` 수정됨
 - ✅ 스트리밍 중 tool call 수집 로직 추가
-- ✅ 스트림 완료 후 tool 실행 로직 추가  
 - ❌ **타입 에러로 인한 빌드 실패**
+- ❌ **RemoteExecutor에서 toolCalls 전달되지 않아 테스트 불가**
 
-### 📋 즉시 해야 할 작업
+### 📋 RemoteExecutor 수정 후 해야 할 작업
 - [ ] **ExecutionService.executeStream() 타입 에러 수정**
   - File: `packages/agents/src/services/execution-service.ts:571`
   - Error: `Object is possibly 'undefined'`
   - Tool call 병합 로직의 타입 안전성 확보
-- [ ] **agents 패키지 빌드 성공**
-- [ ] **브라우저에서 Team 모드 tool call 실행 확인**
-- [ ] **toolHooks 호출 로그 확인**:
-  - `🔥 [EXECUTION-SERVICE-STREAM] Stream completed, toolCalls detected: 1`
-  - `🔥 [DELEGATION] AgentDelegationTool.execute called with:`
 
 ---
 

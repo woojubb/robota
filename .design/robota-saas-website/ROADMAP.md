@@ -7,7 +7,38 @@
 
 ---
 
-## 🎯 **Phase 1: Team Stream 지원 (우선순위 1)**
+## 🚨 **Phase 0: RemoteExecutor 호환성 긴급 수정 (최우선)**
+
+### **0.1 Executor 호환성 위반 문제 해결**
+**현재 상황**: 로컬 예제는 완벽 작동, 플레이그라운드만 실패 → RemoteExecutor가 LocalExecutor 호환성 위반
+
+- [ ] **Step 1**: RemoteExecutor 타입 통일 (1일)
+  - File: `packages/remote/src/client/remote-executor-simple.ts`
+  - `ResponseMessage` → `UniversalMessage` 타입 변경
+  - `toolCalls` 필드 포함하도록 스트리밍 응답 수정
+
+- [ ] **Step 2**: HttpClient 스트리밍 로직 수정 (1일)  
+  - File: `packages/remote/src/client/http-client.ts:134-182`
+  - HTTP 응답에서 `toolCalls` 정보 완전 보존
+  - 서버 응답의 `chunk` 데이터를 온전히 클라이언트로 전달
+
+- [ ] **Step 3**: 타입 안전성 확보 (0.5일)
+  - File: `packages/remote/src/shared/types.ts`
+  - `ResponseMessage` 인터페이스에 `toolCalls?` 필드 추가
+  - `UniversalMessage`와 100% 호환되도록 타입 정의 수정
+
+- [ ] **Step 4**: 통합 테스트 및 검증 (0.5일)
+  - LocalExecutor vs RemoteExecutor 동일성 검증
+  - 플레이그라운드에서 `assignTask` tool call 실행 확인
+  - 로컬 예제와 동일한 팀 협업 동작 검증
+
+**긴급도**: 🔥 Critical - 팀 기능 완전 불가 상태
+**예상 완료**: 4일 (즉시 시작)
+**검증 방식**: 코드 분석 중심 (로그 의존 금지, SDK 아키텍처 엄격 준수)
+
+---
+
+## 🎯 **Phase 1: Team Stream 지원 (우선순위 2)**
 
 ### **1.1 TeamContainer Stream API 구현** 
 - [x] `stream()` 메서드 설계 및 구현
@@ -27,22 +58,27 @@
 - [x] 완료/에러 상태 자동 전환
 - [x] 블록 트리 실시간 확장
 
-### **1.4 Agent Delegation Stream 지원**
+### **1.4 Agent Delegation Stream 지원 (RemoteExecutor 수정 후 재개)**
 - [ ] Delegation 시작/완료 블록 생성
 - [ ] 하위 Agent 실행 블록 중첩 표시
 - [ ] Team → Agent → Tool 3단계 블록 구조
 - [ ] 병렬 Delegation 지원
 - [ ] Delegation 실패 시 fallback 처리
 
-### **1.5 핵심 인프라 문제 해결 (완료)**
+### **1.5 ExecutionService 스트리밍 Tool Call 처리 (보류)**
+- [x] 스트리밍 중 tool call 수집 로직 추가
+- [ ] 타입 에러 수정 (RemoteExecutor 수정 후)
+- [ ] 빌드 및 통합 테스트
+
+### **1.6 핵심 인프라 문제 해결 (완료)**
 - [x] API 응답 구조 불일치 수정 (extractContent 함수)
 - [x] 스트리밍 응답 파싱 수정
 - [x] UniversalMessage[] 중앙 관리 방식 적용
 - [x] Chat UI 실시간 업데이트 구현
 - [x] Provider Injection 아키텍처 완성
 
-**진행률**: 85% 완료 ✅
-**예상 완료**: 4주 (2024년 8월 말)
+**진행률**: 70% 완료 (RemoteExecutor 수정 필요)
+**예상 완료**: Phase 0 완료 후 2주
 
 ---
 
