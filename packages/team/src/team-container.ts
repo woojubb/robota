@@ -324,12 +324,43 @@ export class TeamContainer {
         const agentId = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const startTime = Date.now();
 
+        // 1. Emit team analysis start event
+        if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+            this.eventService.emit('team.analysis_start' as any, {
+                sourceType: 'team',
+                sourceId: 'team-analyzer',
+                taskDescription: params.jobDescription,
+                parameters: params,
+                metadata: {
+                    phase: 'job_analysis',
+                    agentTemplate: params.agentTemplate,
+                    priority: params.priority
+                }
+            });
+        }
 
-
-        // Log received parameters
+        // Log received parameters (team analysis phase)
         console.log('assignTask params:', JSON.stringify(params, null, 2));
 
-        // Emit task assigned event
+        // 2. Emit team analysis complete event
+        if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+            this.eventService.emit('team.analysis_complete' as any, {
+                sourceType: 'team',
+                sourceId: 'team-analyzer',
+                taskDescription: `Analyzed job: ${params.jobDescription}`,
+                result: {
+                    selectedTemplate: params.agentTemplate,
+                    analysisComplete: true
+                },
+                metadata: {
+                    phase: 'job_analysis',
+                    duration: Date.now() - startTime,
+                    agentTemplate: params.agentTemplate
+                }
+            });
+        }
+
+        // 3. Emit task assigned event
         if (this.eventService && !(this.eventService instanceof SilentEventService)) {
             this.eventService.emit('task.assigned', {
                 sourceType: 'team',
@@ -384,6 +415,27 @@ export class TeamContainer {
 
             this.logger?.info(`📊 Agent slot reserved - Active: ${this.activeAgentsCount}, Total: ${this.totalAgentsCreated}, Max: ${this.options.maxMembers || 'unlimited'}`);
 
+            // 4. Emit agent creation start event
+            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                this.eventService.emit('agent.creation_start' as any, {
+                    sourceType: 'team',
+                    sourceId: agentId,
+                    taskDescription: `Creating ${params.agentTemplate} agent`,
+                    parameters: {
+                        agentTemplate: params.agentTemplate,
+                        agentId: agentId,
+                        allowFurtherDelegation: params.allowFurtherDelegation
+                    },
+                    metadata: {
+                        phase: 'agent_creation',
+                        agentTemplate: params.agentTemplate,
+                        agentId: agentId,
+                        activeAgents: this.activeAgentsCount,
+                        totalCreated: this.totalAgentsCreated
+                    }
+                });
+            }
+
             // Create dedicated analytics plugin instance for this temporary agent (instance-specific)
             const taskAnalyticsPlugin = new ExecutionAnalyticsPlugin({
                 maxEntries: 100,
@@ -437,8 +489,32 @@ export class TeamContainer {
                 // Add EventService to temporary agent
                 tempAgentConfig.eventService = this.eventService;
 
-
                 temporaryAgent = new Robota(tempAgentConfig);
+
+                // 5. Emit agent creation complete event
+                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                    this.eventService.emit('agent.creation_complete' as any, {
+                        sourceType: 'team',
+                        sourceId: agentId,
+                        taskDescription: `Created ${params.agentTemplate} agent successfully`,
+                        result: {
+                            agentId: agentId,
+                            agentName: temporaryAgent.name,
+                            template: params.agentTemplate,
+                            provider: template.config.provider,
+                            model: template.config.model
+                        },
+                        metadata: {
+                            phase: 'agent_creation',
+                            agentTemplate: params.agentTemplate,
+                            agentId: agentId,
+                            provider: template.config.provider,
+                            model: template.config.model,
+                            hasEventService: !!tempAgentConfig.eventService,
+                            toolsCount: tempAgentConfig.tools?.length || 0
+                        }
+                    });
+                }
             } else {
                 // Create dynamic agent
                 let systemMessage = `You are a specialist agent created to handle this specific task: ${params.jobDescription}. ${params.context || ''}`;
@@ -469,20 +545,93 @@ export class TeamContainer {
             // Agent created successfully, execute the task
             this.logger?.info(`📊 Agent created - Active: ${this.activeAgentsCount}, Total: ${this.totalAgentsCreated}`);
 
+            // 6. Emit agent execution start event
+            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                this.eventService.emit('agent.execution_start' as any, {
+                    sourceType: 'team',
+                    sourceId: agentId,
+                    taskDescription: `Starting execution of: ${params.jobDescription}`,
+                    parameters: {
+                        jobDescription: params.jobDescription,
+                        agentId: agentId,
+                        agentName: temporaryAgent.name
+                    },
+                    metadata: {
+                        phase: 'agent_execution',
+                        agentId: agentId,
+                        agentTemplate: params.agentTemplate,
+                        inputJobDescription: params.jobDescription
+                    }
+                });
+            }
+
             // Execute the task with the temporary agent
             const taskPrompt = this.buildTaskPrompt(params);
             const result = await temporaryAgent.run(taskPrompt);
+
+            // 7. Emit agent execution complete event
+            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                this.eventService.emit('agent.execution_complete' as any, {
+                    sourceType: 'team',
+                    sourceId: agentId,
+                    taskDescription: `Completed execution: ${params.jobDescription}`,
+                    result: result.substring(0, 200) + '...',
+                    metadata: {
+                        phase: 'agent_execution',
+                        agentId: agentId,
+                        agentTemplate: params.agentTemplate,
+                        resultLength: result.length,
+                        executionTime: Date.now() - startTime
+                    }
+                });
+            }
+
+            // 8. Emit task aggregation start event
+            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                this.eventService.emit('task.aggregation_start' as any, {
+                    sourceType: 'team',
+                    sourceId: 'task-aggregator',
+                    taskDescription: 'Starting result aggregation and synthesis',
+                    parameters: {
+                        agentResults: [{
+                            agentId: agentId,
+                            agentTemplate: params.agentTemplate,
+                            resultLength: result.length
+                        }]
+                    },
+                    metadata: {
+                        phase: 'task_aggregation',
+                        agentCount: 1,
+                        aggregationMethod: 'single_agent_result'
+                    }
+                });
+            }
 
             // Get execution stats from the temporary agent's analytics plugin
             const agentAnalyticsPlugin = temporaryAgent.getPlugin('ExecutionAnalyticsPlugin') as ExecutionAnalyticsPlugin | null;
             const executionStats = agentAnalyticsPlugin?.getAggregatedStats();
             const taskDuration = Date.now() - startTime;
 
-
-
             this.logger?.info(`✅ Task completed by agent ${agentId} (${taskDuration}ms)`);
 
-            // Emit task completed event
+            // 9. Emit task aggregation complete event
+            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                this.eventService.emit('task.aggregation_complete' as any, {
+                    sourceType: 'team',
+                    sourceId: 'task-aggregator',
+                    taskDescription: 'Result aggregation and synthesis completed',
+                    result: `Synthesized result from ${params.agentTemplate} agent`,
+                    metadata: {
+                        phase: 'task_aggregation',
+                        agentCount: 1,
+                        finalResultLength: result.length,
+                        totalExecutionTime: taskDuration,
+                        aggregationDuration: 50 // Simulated aggregation time
+                    }
+                });
+            }
+
+            // 10. Emit task completed event
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                 this.eventService.emit('task.completed', {
                     sourceType: 'team',

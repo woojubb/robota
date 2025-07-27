@@ -12,16 +12,28 @@ import { SimpleLogger, SilentLogger, DefaultConsoleLogger } from '../utils/simpl
 
 /**
  * Service event types for unified tracking across Team/Agent/Tool
+ * Extended for detailed block tree visualization
  */
 export type ServiceEventType =
-    | 'execution.start'      // Agent/Team execution started
-    | 'execution.complete'   // Agent/Team execution completed
-    | 'execution.error'      // Agent/Team execution failed
-    | 'tool_call_start'      // Tool execution started
-    | 'tool_call_complete'   // Tool execution completed
-    | 'tool_call_error'      // Tool execution failed
-    | 'task.assigned'        // Team task assignment
-    | 'task.completed';      // Team task completion
+    | 'execution.start'           // Agent/Team execution started
+    | 'execution.complete'        // Agent/Team execution completed
+    | 'execution.error'           // Agent/Team execution failed
+    | 'tool_call_start'           // Tool execution started
+    | 'tool_call_complete'        // Tool execution completed
+    | 'tool_call_error'           // Tool execution failed
+    | 'task.assigned'             // Team task assignment
+    | 'task.completed'            // Team task completion
+    | 'team.analysis_start'       // Team job analysis started
+    | 'team.analysis_complete'    // Team job analysis completed
+    | 'agent.creation_start'      // Agent creation process started
+    | 'agent.creation_complete'   // Agent creation process completed
+    | 'agent.execution_start'     // Individual agent execution started
+    | 'agent.execution_complete'  // Individual agent execution completed
+    | 'subtool.call_start'        // Agent internal tool call started
+    | 'subtool.call_complete'     // Agent internal tool call completed
+    | 'subtool.call_error'        // Agent internal tool call failed
+    | 'task.aggregation_start'    // Task result aggregation started
+    | 'task.aggregation_complete'; // Task result aggregation completed      // Team task completion
 
 /**
  * Service event data structure with hierarchical tracking information
