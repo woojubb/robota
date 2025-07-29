@@ -287,8 +287,11 @@ export {
     ServiceEventData,
     SilentEventService,
     DefaultEventService,
-    StructuredEventService
+    StructuredEventService,
+    ActionTrackingEventService
 } from './services/event-service';
+
+export type { ExecutionNode } from './services/event-service';
 
 export { EventServiceHookFactory } from './utils/event-service-hook-factory';
 export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy';
