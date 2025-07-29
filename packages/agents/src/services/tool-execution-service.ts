@@ -130,11 +130,19 @@ export class ToolExecutionService {
             maxHistorySize: options.maxHistorySize || 100,
         };
 
+        // 🎯 Debug: Check if Enhanced EventService is available
+        const hasTrackExecution = this.eventService && typeof (this.eventService as any).trackExecution === 'function';
+        const hasCreateBoundEmit = this.eventService && typeof (this.eventService as any).createBoundEmit === 'function';
+
         this.logger.info('ToolExecutionService initialized', {
             defaultTimeout: this.options.defaultTimeout,
             defaultMaxConcurrency: this.options.defaultMaxConcurrency,
             collectStats: this.options.collectStats,
-            maxHistorySize: this.options.maxHistorySize
+            maxHistorySize: this.options.maxHistorySize,
+            eventServiceType: this.eventService?.constructor?.name || 'undefined',
+            hasTrackExecution,
+            hasCreateBoundEmit,
+            isEnhancedEventService: hasTrackExecution && hasCreateBoundEmit
         });
     }
 
@@ -192,8 +200,26 @@ export class ToolExecutionService {
 
             // 🎯 Enhanced EventService Duck Typing Detection
             // Automatically track execution hierarchy if ActionTrackingEventService is available
+
+            // Debug: Log eventService type and available methods
+            this.logger.debug('Duck Typing Detection Check', {
+                eventServiceType: this.eventService?.constructor?.name,
+                hasEventService: !!this.eventService,
+                hasTrackExecution: this.eventService && typeof (this.eventService as any).trackExecution === 'function',
+                hasCreateBoundEmit: this.eventService && typeof (this.eventService as any).createBoundEmit === 'function',
+                executionId,
+                parentExecutionId: toolContext.parentExecutionId,
+                executionLevel: toolContext.executionLevel
+            });
+
             if (this.eventService && typeof (this.eventService as any).trackExecution === 'function') {
                 try {
+                    this.logger.info('🎯 Enhanced EventService DETECTED - Starting automatic hierarchy tracking', {
+                        executionId,
+                        parentExecutionId: toolContext.parentExecutionId,
+                        executionLevel: toolContext.executionLevel
+                    });
+
                     // Register this tool execution in the hierarchy
                     (this.eventService as any).trackExecution(
                         executionId,
@@ -208,19 +234,25 @@ export class ToolExecutionService {
                         // Add bound emit to toolContext for tools that want to emit custom events
                         (toolContext as any).boundEmit = boundEmit;
 
-                        this.logger.debug('Enhanced EventService detected - automatic hierarchy tracking enabled', {
+                        this.logger.info('✅ Enhanced EventService hierarchy tracking ENABLED successfully', {
                             executionId,
                             parentExecutionId: toolContext.parentExecutionId,
-                            executionLevel: toolContext.executionLevel
+                            executionLevel: toolContext.executionLevel,
+                            boundEmitCreated: true
                         });
                     }
                 } catch (error) {
                     // Graceful degradation if Enhanced EventService fails
-                    this.logger.warn('Enhanced EventService tracking failed, continuing with standard execution', {
+                    this.logger.warn('❌ Enhanced EventService tracking FAILED, continuing with standard execution', {
                         error: error instanceof Error ? error.message : String(error),
                         executionId
                     });
                 }
+            } else {
+                this.logger.debug('⚠️ Enhanced EventService NOT detected - using standard execution flow', {
+                    eventServiceType: this.eventService?.constructor?.name,
+                    executionId
+                });
             }
 
             // Execute tool with timeout and proper context

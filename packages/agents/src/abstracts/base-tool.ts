@@ -145,10 +145,18 @@ export abstract class BaseTool<TParameters = BaseToolParameters, TResult = ToolR
     protected readonly logger: SimpleLogger;
 
     /**
+     * Enhanced EventService for automatic hierarchy tracking (if available)
+     */
+    private enhancedEventService: EventService | undefined;
+
+    /**
      * Constructor with optional hook and logger support
      * @param options - Configuration options for the tool
      */
     constructor(options: BaseToolOptions = {}) {
+        // Always store Enhanced EventService if available, regardless of hooks
+        this.enhancedEventService = options.eventService;
+
         // If eventService is provided and hooks are not, create hooks automatically
         if (options.eventService && !options.hooks) {
             this.hooks = EventServiceHookFactory.createToolHooks(
@@ -169,6 +177,9 @@ export abstract class BaseTool<TParameters = BaseToolParameters, TResult = ToolR
      * @param eventService - EventService instance to use for event emission
      */
     setEventService(eventService: EventService): void {
+        // Always store Enhanced EventService for hierarchy tracking
+        this.enhancedEventService = eventService;
+
         // Only set hooks if they're not already configured
         if (!this.hooks && eventService) {
             // Use Object.defineProperty to set the readonly property
@@ -194,6 +205,50 @@ export abstract class BaseTool<TParameters = BaseToolParameters, TResult = ToolR
      */
     async execute(parameters: TParameters, context?: ToolExecutionContext): Promise<TResult> {
         const toolName = this.schema.name || this.constructor.name;
+        // Generate execution ID - prioritize context.executionId from ToolExecutionService
+        const executionId = context?.executionId || `${toolName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // 🔥 Enhanced EventService Duck Typing - but don't register hierarchy here
+        // ToolExecutionService already registers the hierarchy with proper parent relationships
+        if (this.enhancedEventService && typeof (this.enhancedEventService as any).trackExecution === 'function') {
+            try {
+                this.logger.debug('🎯 Enhanced EventService detected in BaseTool - using existing hierarchy', {
+                    toolName,
+                    executionId,
+                    contextExecutionId: context?.executionId,
+                    hasParentId: !!context?.parentExecutionId,
+                    parentId: context?.parentExecutionId,
+                    executionLevel: context?.executionLevel
+                });
+
+                // Don't call trackExecution here - ToolExecutionService already did it
+                // Just get the bound emit function if available
+                if (typeof (this.enhancedEventService as any).createBoundEmit === 'function') {
+                    const boundEmit = (this.enhancedEventService as any).createBoundEmit(executionId);
+                    if (context) {
+                        (context as any).boundEmit = boundEmit;
+                        this.logger.debug('✅ BaseTool bound emit function attached to context', {
+                            toolName,
+                            executionId,
+                            hasBoundEmit: typeof boundEmit === 'function'
+                        });
+                    }
+                }
+            } catch (error) {
+                this.logger.warn('❌ Enhanced EventService integration failed in BaseTool', {
+                    toolName,
+                    executionId,
+                    error: error instanceof Error ? error.message : String(error)
+                });
+            }
+        } else {
+            this.logger.debug('⚠️ Enhanced EventService not detected in BaseTool', {
+                toolName,
+                executionId,
+                hasEnhancedEventService: !!this.enhancedEventService,
+                hasTrackExecution: this.enhancedEventService && typeof (this.enhancedEventService as any).trackExecution === 'function'
+            });
+        }
 
         try {
             // 🟢 Pre-execution hook

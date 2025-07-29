@@ -1,5 +1,17 @@
 /* eslint-disable no-console */
-import { Robota, AgentConfig, ExecutionAnalyticsPlugin, BasePlugin, ToolHooks, BaseTool, SimpleLogger, EventService, SilentEventService, ToolExecutionContext } from '@robota-sdk/agents';
+import {
+    Robota,
+    AgentConfig,
+    ExecutionAnalyticsPlugin,
+    BasePlugin,
+    ToolHooks,
+    BaseTool,
+    SimpleLogger,
+    EventService,
+    SilentEventService,
+    ToolExecutionContext,
+    EventServiceHookFactory  // 🔑 추가
+} from '@robota-sdk/agents';
 import { v4 as uuidv4 } from 'uuid';
 import { createTaskAssignmentFacade } from './task-assignment/index.js';
 import { AgentDelegationTool } from './tools/agent-delegation-tool.js';
@@ -1003,7 +1015,7 @@ export class TeamContainer {
 
     /**
      * Create AssignTask tool using the task assignment system
-     * Uses AgentDelegationTool with hooks if toolHooks provided, otherwise uses standard facade
+     * Uses AgentDelegationTool with hooks if toolHooks provided or eventService available
      */
     private createAssignTaskTool(): BaseTool<any, any> {
         // Convert templates to the format expected by the task assignment system
@@ -1012,15 +1024,22 @@ export class TeamContainer {
             description: template.description
         }));
 
-        if (this.toolHooks) {
+        // 🔑 eventService가 있고 toolHooks가 없으면 자동 생성
+        const effectiveHooks = this.toolHooks ||
+            (this.eventService && !(this.eventService instanceof SilentEventService)
+                ? EventServiceHookFactory.createToolHooks(this.eventService, 'team-assignTask')
+                : undefined);
+
+        if (effectiveHooks) {
             // Use AgentDelegationTool with hooks for instrumentation
             const delegationTool = new AgentDelegationTool({
-                hooks: this.toolHooks,
+                hooks: effectiveHooks,
                 availableTemplates: templateInfo,
                 executor: async (params: AssignTaskParams, context?: ToolExecutionContext) => {
                     return await this.assignTask(params, context);
                 },
-                logger: this.logger
+                logger: this.logger,
+                eventService: this.eventService // 🎯 Pass EventService for Enhanced EventService integration
             });
             return delegationTool as unknown as BaseTool<any, any>;
         } else {

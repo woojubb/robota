@@ -1,4 +1,4 @@
-import { BaseTool, ToolHooks, SimpleLogger, SilentLogger, ToolExecutionContext, ToolParameters, ToolResult, ToolSchema, ExecutionHierarchyTracker } from '@robota-sdk/agents';
+import { BaseTool, ToolHooks, SimpleLogger, SilentLogger, ToolExecutionContext, ToolParameters, ToolResult, ToolSchema, ExecutionHierarchyTracker, EventService } from '@robota-sdk/agents';
 import { createZodFunctionTool } from '@robota-sdk/agents';
 import { ZodSchema } from 'zod';
 import { AssignTaskParams, AssignTaskResult, TemplateInfo } from '../types.js';
@@ -60,15 +60,20 @@ export class AgentDelegationTool implements BaseTool<ToolParameters, ToolResult>
         // Create dynamic schema with available templates
         const toolParametersSchema = createDynamicAssignTaskSchema(options.availableTemplates);
 
-        // Create the wrapped tool instance with proper schema validation and Hook support
+        // 🎯 Wrapped tool creation - hooks 중복 방지를 위해 전달하지 않음
         this.wrappedTool = createZodFunctionTool(
             'assignTask',
             this.createToolDescription(options.availableTemplates),
-            toolParametersSchema,
+            toolParametersSchema as any, // Type compatibility workaround
             async (parameters: ToolParameters, context?: ToolExecutionContext) => {
+                // 🔑 Execute the delegation logic directly
                 return await this.executeWithHooks(parameters, context, options.executor, toolParametersSchema);
             },
-            { hooks: this.hooks, logger: this.logger } // ✅ Hook과 logger 전달
+            {
+                // hooks: this.hooks,  // ❌ 제거 - executeWithHooks에서만 호출
+                logger: this.logger,
+                eventService: options.eventService // 🎯 Pass EventService to wrapped tool
+            } as any // Type compatibility workaround
         );
     }
 
@@ -116,35 +121,44 @@ export class AgentDelegationTool implements BaseTool<ToolParameters, ToolResult>
             });
         }
 
+        // ❌ 중복 hooks 호출 제거 - executeWithHooks에서만 호출
         // Call beforeExecute hook if present
-        if (this.hooks?.beforeExecute) {
-            try {
-                await this.hooks.beforeExecute(toolName, parameters, context);
-            } catch (error) {
-                this.logger.error('Hook beforeExecute failed', { error: String(error) });
-            }
-        }
+        // if (this.hooks?.beforeExecute) {
+        //     try {
+        //         await this.hooks.beforeExecute(toolName, parameters, context);
+        //     } catch (error) {
+        //         this.logger.error('Hook beforeExecute failed', { error: String(error) });
+        //     }
+        // }
 
         try {
-            // 🆕 Enhanced context with tool execution instance ID
+            // 🆕 Enhanced context with tool execution instance ID - PRESERVE original context
             const enhancedContext: ToolExecutionContext | undefined = context ? {
-                ...context,
-                toolExecutionId: toolExecutionId, // Pass tool execution instance ID
-                parentExecutionId: toolExecutionId, // Tool execution becomes parent for assignTask events
-                executionLevel: (context.executionLevel || 0) + 1 // Increment level
+                ...context, // Preserve ALL original context including executionId
+
+                // Add tool execution instance ID for internal tracking
+                toolExecutionId: toolExecutionId,
+
+                // Keep original parentExecutionId - do NOT overwrite with toolExecutionId
+                // The original parentExecutionId from ToolExecutionService is correct
+                // parentExecutionId: context.parentExecutionId, // Already copied via ...context
+
+                // Only increment execution level for nested execution
+                executionLevel: (context.executionLevel || 0) + 1
             } : undefined;
 
             // Execute the wrapped tool with enhanced context
             const result = await this.wrappedTool.execute(parameters, enhancedContext);
 
+            // ❌ 중복 hooks 호출 제거 - executeWithHooks에서만 호출
             // Call afterExecute hook if present
-            if (this.hooks?.afterExecute) {
-                try {
-                    await this.hooks.afterExecute(toolName, parameters, result, context);
-                } catch (error) {
-                    this.logger.error('Hook afterExecute failed', { error: String(error) });
-                }
-            }
+            // if (this.hooks?.afterExecute) {
+            //     try {
+            //         await this.hooks.afterExecute(toolName, parameters, result, context);
+            //     } catch (error) {
+            //         this.logger.error('Hook afterExecute failed', { error: String(error) });
+            //     }
+            // }
 
             // 🆕 Mark tool execution as complete
             if (this.hierarchyTracker && toolExecutionId) {
@@ -153,20 +167,19 @@ export class AgentDelegationTool implements BaseTool<ToolParameters, ToolResult>
 
             return result;
         } catch (error) {
+            // ❌ 중복 hooks 호출 제거 - executeWithHooks에서만 호출
             // Call onError hook if present
-            if (this.hooks?.onError) {
-                try {
-                    await this.hooks.onError(toolName, parameters, error as Error, context);
-                } catch (hookError) {
-                    this.logger.error('Hook onError failed', { error: String(hookError) });
-                }
-            }
+            // if (this.hooks?.onError) {
+            //     try {
+            //         await this.hooks.onError(toolName, parameters, error as Error, context);
+            //     } catch (hookError) {
+            //         this.logger.error('Hook onError failed', { error: String(hookError) });
+            //     }
+            // }
 
             // 🆕 Mark tool execution as failed
             if (this.hierarchyTracker && toolExecutionId) {
-                this.hierarchyTracker.markExecutionComplete(toolExecutionId);
-                // Add error info to metadata
-                const entity = this.hierarchyTracker.getAllEntities().get(toolExecutionId);
+                const entity = this.hierarchyTracker.getEntity(toolExecutionId);
                 if (entity) {
                     entity.metadata = {
                         ...entity.metadata,
@@ -194,6 +207,7 @@ export class AgentDelegationTool implements BaseTool<ToolParameters, ToolResult>
 
     /**
      * Internal execution with hooks
+     * Handle hooks with proper executionId context from ToolExecutionService
      */
     private async executeWithHooks(
         parameters: ToolParameters,
@@ -204,10 +218,16 @@ export class AgentDelegationTool implements BaseTool<ToolParameters, ToolResult>
         const toolName = 'assignTask';
 
         try {
-            // Pre-execution hook
+            // 🔑 Call beforeExecute hook with proper context
             await this.hooks?.beforeExecute?.(toolName, parameters, context);
 
-            this.logger.debug(`Executing tool: ${toolName}`, { parameters });
+            this.logger.debug(`Executing tool: ${toolName}`, {
+                parameters,
+                hasContext: !!context,
+                contextExecutionId: context?.executionId,
+                contextParentId: context?.parentExecutionId,
+                executionLevel: context?.executionLevel
+            });
 
             // Type-safe conversion using Zod's inferred type
             const validatedParams = schema.parse(parameters);
@@ -216,9 +236,12 @@ export class AgentDelegationTool implements BaseTool<ToolParameters, ToolResult>
             // Format result for LLM consumption
             const formattedResult = formatResultForLLM(result);
 
-            this.logger.debug(`Tool execution completed: ${toolName}`, { result: formattedResult });
+            this.logger.debug(`Tool execution completed: ${toolName}`, {
+                result: formattedResult,
+                resultLength: formattedResult.length
+            });
 
-            // Post-execution hook
+            // 🔑 Call afterExecute hook with proper context and result
             await this.hooks?.afterExecute?.(toolName, parameters, formattedResult, context);
 
             return formattedResult;
@@ -229,7 +252,7 @@ export class AgentDelegationTool implements BaseTool<ToolParameters, ToolResult>
                 parameters
             });
 
-            // Error hook
+            // 🔑 Call onError hook with proper context
             await this.hooks?.onError?.(toolName, parameters, error as Error, context);
 
             throw error;

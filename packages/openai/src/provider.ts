@@ -144,10 +144,7 @@ export class OpenAIProvider extends BaseAIProvider {
      * Generate streaming response using UniversalMessage
      */
     override async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
-        console.log('OpenAI chatStream called, executor present:', !!this.executor);
-
         if (this.executor) {
-            console.log('Using executor for streaming');
             try {
                 yield* this.executeStreamViaExecutorOrDirect(messages, options);
                 return;
@@ -157,7 +154,6 @@ export class OpenAIProvider extends BaseAIProvider {
             }
         }
 
-        console.log('Using direct OpenAI client for streaming');
         // Direct execution with OpenAI client
         if (!this.client) {
             throw new Error('OpenAI client not available. Either provide a client/apiKey or use an executor.');
