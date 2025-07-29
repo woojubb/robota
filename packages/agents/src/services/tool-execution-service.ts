@@ -190,6 +190,39 @@ export class ToolExecutionService {
                 }
             };
 
+            // 🎯 Enhanced EventService Duck Typing Detection
+            // Automatically track execution hierarchy if ActionTrackingEventService is available
+            if (this.eventService && typeof (this.eventService as any).trackExecution === 'function') {
+                try {
+                    // Register this tool execution in the hierarchy
+                    (this.eventService as any).trackExecution(
+                        executionId,
+                        toolContext.parentExecutionId,
+                        toolContext.executionLevel
+                    );
+
+                    // Create bound emit function for automatic context injection
+                    if (typeof (this.eventService as any).createBoundEmit === 'function') {
+                        const boundEmit = (this.eventService as any).createBoundEmit(executionId);
+
+                        // Add bound emit to toolContext for tools that want to emit custom events
+                        (toolContext as any).boundEmit = boundEmit;
+
+                        this.logger.debug('Enhanced EventService detected - automatic hierarchy tracking enabled', {
+                            executionId,
+                            parentExecutionId: toolContext.parentExecutionId,
+                            executionLevel: toolContext.executionLevel
+                        });
+                    }
+                } catch (error) {
+                    // Graceful degradation if Enhanced EventService fails
+                    this.logger.warn('Enhanced EventService tracking failed, continuing with standard execution', {
+                        error: error instanceof Error ? error.message : String(error),
+                        executionId
+                    });
+                }
+            }
+
             // Execute tool with timeout and proper context
             const toolResult = await this.executeWithTimeout(
                 () => tool.execute(request.parameters, toolContext),

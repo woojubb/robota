@@ -85,7 +85,36 @@ export interface ServiceEventData {
 }
 
 /**
+ * Execution node for hierarchy tracking
+ * Represents a single execution instance in the execution tree
+ */
+export interface ExecutionNode {
+    /** Unique execution ID */
+    id: string;
+
+    /** Parent execution ID (undefined for root) */
+    parentId?: string;
+
+    /** Execution level (0=Team, 1=Agent, 2=Tool) */
+    level: number;
+
+    /** Child execution IDs */
+    children: string[];
+
+    /** Execution metadata */
+    metadata?: {
+        toolName?: string;
+        startTime?: Date;
+        source?: string;
+        [key: string]: any;
+    };
+}
+
+/**
  * EventService interface - Single event emission point
+ * 
+ * Enhanced with optional methods for hierarchical tracking.
+ * These methods are detected via Duck Typing pattern for zero-configuration.
  */
 export interface EventService {
     /**
@@ -94,6 +123,25 @@ export interface EventService {
      * @param data - Event data with hierarchical information
      */
     emit(eventType: ServiceEventType, data: ServiceEventData): void;
+
+    /**
+     * Optional: Track execution hierarchy (Duck Typing detection)
+     * Enables automatic hierarchical context for all events
+     * 
+     * @param executionId - Unique execution ID
+     * @param parentExecutionId - Parent execution ID
+     * @param level - Execution level (0=Team, 1=Agent, 2=Tool)
+     */
+    trackExecution?(executionId: string, parentExecutionId?: string, level?: number): void;
+
+    /**
+     * Optional: Create bound emit function with automatic context (Duck Typing detection)
+     * Returns an emit function that automatically includes hierarchical context
+     * 
+     * @param executionId - Execution ID to bind context to
+     * @returns Bound emit function with automatic parent/level context
+     */
+    createBoundEmit?(executionId: string): (eventType: ServiceEventType, data: ServiceEventData) => void;
 }
 
 /**
@@ -179,5 +227,191 @@ export class StructuredEventService implements EventService {
 
     private generateEventId(): string {
         return `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+}
+
+/**
+ * ActionTrackingEventService - Enhanced EventService with automatic hierarchy tracking
+ * 
+ * Wraps any base EventService and adds automatic hierarchical context to all events.
+ * Uses Duck Typing pattern for zero-configuration integration with existing code.
+ * 
+ * Key Features:
+ * - Automatic parent-child relationship tracking
+ * - Execution level inference (Team=0, Agent=1, Tool=2)
+ * - Bound emit functions with pre-filled context
+ * - Full backward compatibility with base EventService
+ * 
+ * @example
+ * ```typescript
+ * const enhanced = new ActionTrackingEventService(new PlaygroundEventService());
+ * 
+ * // Track execution hierarchy
+ * enhanced.trackExecution('agent-001', 'team-main', 1);
+ * 
+ * // Create bound emit with automatic context
+ * const boundEmit = enhanced.createBoundEmit('agent-001');
+ * boundEmit('execution.start', { sourceType: 'agent', sourceId: 'agent-001' });
+ * // Automatically includes: parentExecutionId: 'team-main', executionLevel: 1
+ * ```
+ */
+export class ActionTrackingEventService implements EventService {
+    private readonly baseEventService: EventService;
+    private readonly executionHierarchy: Map<string, ExecutionNode> = new Map();
+
+    constructor(baseEventService?: EventService) {
+        this.baseEventService = baseEventService || new SilentEventService();
+    }
+
+    /**
+     * Standard emit method - forwards to base service with enriched hierarchy data
+     */
+    emit(eventType: ServiceEventType, data: ServiceEventData): void {
+        const enrichedData = this.enrichWithHierarchy(data);
+        this.baseEventService.emit(eventType, enrichedData);
+    }
+
+    /**
+     * Track execution in the hierarchy
+     * Registers a new execution node with parent-child relationships
+     */
+    trackExecution(executionId: string, parentExecutionId?: string, level?: number): void {
+        // Infer level from parent if not provided
+        const inferredLevel = level ?? this.inferLevelFromParent(parentExecutionId);
+
+        // Add child reference to parent
+        if (parentExecutionId && this.executionHierarchy.has(parentExecutionId)) {
+            const parent = this.executionHierarchy.get(parentExecutionId)!;
+            if (!parent.children.includes(executionId)) {
+                parent.children.push(executionId);
+            }
+        }
+
+        // Register execution node
+        this.executionHierarchy.set(executionId, {
+            id: executionId,
+            parentId: parentExecutionId,
+            level: inferredLevel,
+            children: [],
+            metadata: {
+                startTime: new Date(),
+                source: 'ActionTrackingEventService'
+            }
+        });
+    }
+
+    /**
+     * Create bound emit function with automatic hierarchical context
+     * Returns a function that automatically includes parent/level information
+     */
+    createBoundEmit(executionId: string): (eventType: ServiceEventType, data: ServiceEventData) => void {
+        return (eventType: ServiceEventType, data: ServiceEventData) => {
+            const node = this.executionHierarchy.get(executionId);
+
+            const enrichedData: ServiceEventData = {
+                ...data,
+                parentExecutionId: node?.parentId,
+                rootExecutionId: this.findRootId(executionId),
+                executionLevel: node?.level,
+                executionPath: this.buildExecutionPath(executionId)
+            };
+
+            this.emit(eventType, enrichedData);
+        };
+    }
+
+    /**
+     * Enrich event data with available hierarchy information
+     */
+    private enrichWithHierarchy(data: ServiceEventData): ServiceEventData {
+        // If data already has all hierarchy info, return as-is
+        if (data.parentExecutionId && data.executionLevel !== undefined && data.executionPath) {
+            return data;
+        }
+
+        // Try to find execution info from sourceId or other identifiers
+        const executionId = this.findExecutionId(data);
+        if (!executionId) {
+            return data;
+        }
+
+        const node = this.executionHierarchy.get(executionId);
+        if (!node) {
+            return data;
+        }
+
+        return {
+            ...data,
+            parentExecutionId: data.parentExecutionId || node.parentId,
+            rootExecutionId: data.rootExecutionId || this.findRootId(executionId),
+            executionLevel: data.executionLevel ?? node.level,
+            executionPath: data.executionPath || this.buildExecutionPath(executionId)
+        };
+    }
+
+    /**
+     * Infer execution level from parent node
+     */
+    private inferLevelFromParent(parentExecutionId?: string): number {
+        if (!parentExecutionId) {
+            return 0; // Root level (Team)
+        }
+
+        const parent = this.executionHierarchy.get(parentExecutionId);
+        if (!parent) {
+            return 1; // Default to Agent level
+        }
+
+        return parent.level + 1;
+    }
+
+    /**
+     * Find root execution ID by traversing up the hierarchy
+     */
+    private findRootId(executionId: string): string {
+        const node = this.executionHierarchy.get(executionId);
+        if (!node || !node.parentId) {
+            return executionId; // This is the root
+        }
+
+        return this.findRootId(node.parentId);
+    }
+
+    /**
+     * Build execution path array from root to current execution
+     */
+    private buildExecutionPath(executionId: string): string[] {
+        const path: string[] = [];
+        let currentId: string | undefined = executionId;
+
+        while (currentId) {
+            path.unshift(currentId);
+            const node = this.executionHierarchy.get(currentId);
+            currentId = node?.parentId;
+        }
+
+        return path;
+    }
+
+    /**
+     * Try to find execution ID from event data
+     */
+    private findExecutionId(data: ServiceEventData): string | undefined {
+        // Try various fields that might contain execution ID
+        return data.sourceId || data.agentId || data.toolName || undefined;
+    }
+
+    /**
+     * Get current hierarchy state (for debugging)
+     */
+    getHierarchy(): Map<string, ExecutionNode> {
+        return new Map(this.executionHierarchy);
+    }
+
+    /**
+     * Clear hierarchy state
+     */
+    clearHierarchy(): void {
+        this.executionHierarchy.clear();
     }
 } 

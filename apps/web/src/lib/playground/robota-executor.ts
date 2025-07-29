@@ -13,7 +13,7 @@
  * - Statistics Collection: PlaygroundStatisticsPlugin integration
  */
 
-import { Robota, type ToolHooks } from '@robota-sdk/agents';
+import { Robota, type ToolHooks, ActionTrackingEventService } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { createTeam, type TeamOptions, type TeamContainer } from '@robota-sdk/team';
@@ -146,7 +146,7 @@ export class PlaygroundExecutor {
     // Playground-specific plugins
     private historyPlugin: PlaygroundHistoryPlugin;
     private statisticsPlugin: PlaygroundStatisticsPlugin;
-    private eventService: PlaygroundEventService;
+    private eventService: ActionTrackingEventService;
     private websocketClient: PlaygroundWebSocketClient | null = null;
     private readonly logger: SimpleLogger;
 
@@ -179,7 +179,10 @@ export class PlaygroundExecutor {
         });
 
         // Create PlaygroundEventService that connects to historyPlugin
-        this.eventService = createPlaygroundEventService(this.historyPlugin);
+        const basePlaygroundEventService = createPlaygroundEventService(this.historyPlugin);
+
+        // Wrap with ActionTrackingEventService for automatic hierarchy tracking
+        this.eventService = new ActionTrackingEventService(basePlaygroundEventService);
 
         // PlaygroundExecutor is ready immediately
         // WebSocket will be connected lazily when needed
@@ -225,7 +228,7 @@ export class PlaygroundExecutor {
                 defaultModel: config.defaultModel,
                 plugins: [this.historyPlugin as any, this.statisticsPlugin as any],
                 tools: (config.tools || []) as any,
-                eventService: this.eventService as any // Inject EventService for automatic event emission
+                eventService: this.eventService // ActionTrackingEventService implements EventService
             });
 
             this.setMode('agent');
