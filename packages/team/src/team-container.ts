@@ -310,11 +310,29 @@ export class TeamContainer {
         const agentId = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const startTime = Date.now();
 
-        // Extract hierarchical information from context
-        const parentExecutionId = context?.parentExecutionId || context?.executionId;
-        const rootExecutionId = context?.rootExecutionId || parentExecutionId;
-        const executionLevel = (context?.executionLevel || 0) + 1; // Team level + 1
-        const executionPath = [...(context?.executionPath || []), agentId];
+        // 🔧 FIXED: Proper infinite nesting hierarchy context
+        // Each assignTask call creates a NEW BRANCH in the execution tree
+        // The tool call itself becomes the parent of the agent it creates
+
+        // Generate unique tool execution ID for this assignTask call
+        const toolExecutionId = context?.executionId || `tool-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // For infinite nesting: 
+        // - If this is a root call (from Team Leader), parent = conversation root
+        // - If this is a nested call (from Agent), parent = that Agent's execution ID
+        const parentExecutionId = context?.parentExecutionId || context?.rootExecutionId || 'conversation-root';
+        const rootExecutionId = context?.rootExecutionId || toolExecutionId;
+
+        // Dynamic level calculation for infinite nesting:
+        // - Tool calls (assignTask) = odd levels (1, 3, 5, ...)  
+        // - Agent executions = even levels (2, 4, 6, ...)
+        const toolLevel = (context?.executionLevel || 0) + 1; // This tool call level
+        const agentLevel = toolLevel + 1; // Agent execution level
+
+        // Build execution path for complete traceability
+        const currentPath = context?.executionPath || [];
+        const toolPath = [...currentPath, toolExecutionId];
+        const agentPath = [...toolPath, agentId];
 
         // 1. Emit team analysis start event with hierarchy info
         if (this.eventService && !(this.eventService instanceof SilentEventService)) {
@@ -326,8 +344,8 @@ export class TeamContainer {
                 // Add hierarchical context
                 parentExecutionId,
                 rootExecutionId,
-                executionLevel,
-                executionPath,
+                executionLevel: agentLevel, // Team level + 1
+                executionPath: agentPath,
                 metadata: {
                     phase: 'job_analysis',
                     agentTemplate: params.agentTemplate,
@@ -348,8 +366,8 @@ export class TeamContainer {
                 },
                 parentExecutionId,
                 rootExecutionId,
-                executionLevel,
-                executionPath,
+                executionLevel: agentLevel, // Team level + 1
+                executionPath: agentPath,
                 metadata: {
                     phase: 'job_analysis_complete',
                     selectedTemplate: params.agentTemplate
@@ -372,8 +390,8 @@ export class TeamContainer {
                 },
                 // Hierarchical tracking information
                 rootExecutionId: rootExecutionId, // Team task is root level
-                executionLevel: executionLevel, // Team level execution
-                executionPath: executionPath,
+                executionLevel: agentLevel, // Team level execution
+                executionPath: agentPath,
                 metadata: {
                     agentId,
                     agentTemplate: params.agentTemplate,
@@ -426,8 +444,8 @@ export class TeamContainer {
                     // Add hierarchical context
                     parentExecutionId: parentExecutionId,
                     rootExecutionId: rootExecutionId,
-                    executionLevel: executionLevel,
-                    executionPath: executionPath,
+                    executionLevel: agentLevel, // Team level + 1
+                    executionPath: agentPath,
                     metadata: {
                         phase: 'agent_creation',
                         agentTemplate: params.agentTemplate,
@@ -509,8 +527,8 @@ export class TeamContainer {
                         // Add hierarchical context
                         parentExecutionId: parentExecutionId,
                         rootExecutionId: rootExecutionId,
-                        executionLevel: executionLevel,
-                        executionPath: executionPath,
+                        executionLevel: agentLevel, // Team level + 1
+                        executionPath: agentPath,
                         metadata: {
                             phase: 'agent_creation',
                             agentTemplate: params.agentTemplate,
@@ -566,8 +584,8 @@ export class TeamContainer {
                     // Add hierarchical context
                     parentExecutionId: parentExecutionId,
                     rootExecutionId: rootExecutionId,
-                    executionLevel: executionLevel,
-                    executionPath: executionPath,
+                    executionLevel: agentLevel, // Team level + 1
+                    executionPath: agentPath,
                     metadata: {
                         phase: 'agent_execution',
                         agentId: agentId,
@@ -591,8 +609,8 @@ export class TeamContainer {
                     // Add hierarchical context
                     parentExecutionId: parentExecutionId,
                     rootExecutionId: rootExecutionId,
-                    executionLevel: executionLevel,
-                    executionPath: executionPath,
+                    executionLevel: agentLevel, // Team level + 1
+                    executionPath: agentPath,
                     metadata: {
                         phase: 'agent_execution',
                         agentId: agentId,
@@ -619,8 +637,8 @@ export class TeamContainer {
                     // Add hierarchical context
                     parentExecutionId: parentExecutionId,
                     rootExecutionId: rootExecutionId,
-                    executionLevel: executionLevel,
-                    executionPath: executionPath,
+                    executionLevel: agentLevel, // Team level + 1
+                    executionPath: agentPath,
                     metadata: {
                         phase: 'task_aggregation',
                         agentCount: 1,
@@ -646,8 +664,8 @@ export class TeamContainer {
                     // Add hierarchical context
                     parentExecutionId: parentExecutionId,
                     rootExecutionId: rootExecutionId,
-                    executionLevel: executionLevel,
-                    executionPath: executionPath,
+                    executionLevel: agentLevel, // Team level + 1
+                    executionPath: agentPath,
                     metadata: {
                         phase: 'task_aggregation',
                         agentCount: 1,
@@ -668,8 +686,8 @@ export class TeamContainer {
                     result: result.substring(0, 100) + '...',
                     // Hierarchical tracking information
                     rootExecutionId: rootExecutionId, // Team task is root level
-                    executionLevel: executionLevel, // Team level execution
-                    executionPath: executionPath,
+                    executionLevel: agentLevel, // Team level execution
+                    executionPath: agentPath,
                     metadata: {
                         agentId,
                         agentTemplate: params.agentTemplate,
