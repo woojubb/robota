@@ -220,6 +220,23 @@ export class ToolExecutionService {
                         executionLevel: toolContext.executionLevel
                     });
 
+                    // 🔧 Register parent execution if not already registered (critical for hierarchy)
+                    if (toolContext.parentExecutionId) {
+                        const parentLevel = (toolContext.executionLevel || 2) - 1;
+                        this.logger.info('📊 Registering parent execution for hierarchy', {
+                            parentExecutionId: toolContext.parentExecutionId,
+                            parentLevel,
+                            toolExecutionId: executionId
+                        });
+
+                        // Register parent execution (this ensures hierarchy continuity)
+                        (this.eventService as any).trackExecution(
+                            toolContext.parentExecutionId,
+                            toolContext.rootExecutionId,
+                            parentLevel
+                        );
+                    }
+
                     // Register this tool execution in the hierarchy
                     (this.eventService as any).trackExecution(
                         executionId,

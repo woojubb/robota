@@ -423,8 +423,10 @@ export class ActionTrackingEventService implements EventService {
         console.log('🔍 [ActionTrackingEventService] findExecutionId searching in:', {
             executionId: data.executionId,
             sourceId: data.sourceId,
+            sourceType: data.sourceType,
             agentId: (data as any).agentId,
             toolName: data.toolName,
+            eventType: data.eventType || 'unknown',
             metadata: data.metadata ? {
                 executionId: data.metadata.executionId,
                 parentExecutionId: data.metadata.parentExecutionId,
@@ -434,7 +436,9 @@ export class ActionTrackingEventService implements EventService {
             context: data.context ? {
                 executionId: (data.context as any).executionId,
                 metadata: (data.context as any).metadata
-            } : undefined
+            } : undefined,
+            hierarchySize: this.executionHierarchy.size,
+            allRegisteredIds: Array.from(this.executionHierarchy.keys())
         });
 
         // Strategy 1: Direct executionId field
@@ -461,18 +465,48 @@ export class ActionTrackingEventService implements EventService {
             return data.context.metadata.parentExecutionId;
         }
 
+        // Strategy 4b: metadata.context.metadata.parentExecutionId (EventServiceHookFactory format)
+        if (data.metadata?.context?.metadata?.parentExecutionId) {
+            console.log('✅ [ActionTrackingEventService] Found metadata.context.metadata.parentExecutionId:', data.metadata.context.metadata.parentExecutionId);
+            return data.metadata.context.metadata.parentExecutionId;
+        }
+
         // Strategy 5: Search hierarchy by toolName or sourceId pattern
         if (data.toolName || data.sourceId) {
             const searchKey = data.toolName || data.sourceId;
+            console.log('🔍 [ActionTrackingEventService] Searching hierarchy by pattern:', {
+                searchKey,
+                totalHierarchyEntries: this.executionHierarchy.size
+            });
+
             for (const [executionId, node] of this.executionHierarchy.entries()) {
-                if (node.metadata?.toolName === searchKey ||
-                    executionId.includes(searchKey) ||
-                    node.metadata?.sourceId === data.sourceId) {
-                    console.log('✅ [ActionTrackingEventService] Found by pattern search:', executionId);
+                const matches = {
+                    toolNameMatch: node.metadata?.toolName === searchKey,
+                    idIncludesKey: executionId.includes(searchKey),
+                    sourceIdMatch: node.metadata?.sourceId === data.sourceId
+                };
+
+                console.log('🔍 [ActionTrackingEventService] Checking node:', {
+                    executionId,
+                    nodeLevel: node.level,
+                    nodeParent: node.parentId,
+                    nodeMetadata: node.metadata,
+                    matches
+                });
+
+                if (matches.toolNameMatch || matches.idIncludesKey || matches.sourceIdMatch) {
+                    console.log('✅ [ActionTrackingEventService] Found by pattern search:', {
+                        executionId,
+                        matchType: matches.toolNameMatch ? 'toolName' : matches.idIncludesKey ? 'idIncludes' : 'sourceId',
+                        nodeDetails: node
+                    });
                     return executionId;
                 }
             }
-            console.log('⚠️ [ActionTrackingEventService] No pattern match found for:', searchKey);
+            console.log('⚠️ [ActionTrackingEventService] No pattern match found for:', {
+                searchKey,
+                checkedEntries: this.executionHierarchy.size
+            });
         }
 
         // Strategy 6: Create mapping for agent/exec IDs to track cross-layer relationships
@@ -494,17 +528,67 @@ export class ActionTrackingEventService implements EventService {
         // Create a mapping entry for correlation
         const mappingKey = `mapping-${sourceId}`;
         if (!this.executionHierarchy.has(mappingKey)) {
+            // Infer level based on sourceType and eventType
+            let inferredLevel = 0;
+            let inferredParent: string | undefined = undefined;
+
+            if (data.sourceType === 'tool') {
+                inferredLevel = 1; // Tools are typically Level 1
+                // Try to find parent from context or metadata (multiple formats)
+                if (data.context?.metadata?.parentExecutionId) {
+                    inferredParent = data.context.metadata.parentExecutionId;
+                    inferredLevel = 2; // If has parent, likely Level 2
+                } else if (data.metadata?.parentExecutionId) {
+                    inferredParent = data.metadata.parentExecutionId;
+                    inferredLevel = 2;
+                } else if (data.metadata?.context?.metadata?.parentExecutionId) {
+                    // EventServiceHookFactory format
+                    inferredParent = data.metadata.context.metadata.parentExecutionId;
+                    inferredLevel = 2;
+                }
+            } else if (data.sourceType === 'team') {
+                inferredLevel = 2; // Team events are typically Level 2
+                // Try to find parent tool or agent execution
+                if (data.metadata?.parentExecutionId) {
+                    inferredParent = data.metadata.parentExecutionId;
+                } else if (data.metadata?.context?.metadata?.parentExecutionId) {
+                    inferredParent = data.metadata.context.metadata.parentExecutionId;
+                }
+            } else if (data.sourceType === 'agent') {
+                inferredLevel = 1; // Agent events are typically Level 1
+                if (data.metadata?.parentExecutionId) {
+                    inferredParent = data.metadata.parentExecutionId;
+                } else if (data.metadata?.context?.metadata?.parentExecutionId) {
+                    inferredParent = data.metadata.context.metadata.parentExecutionId;
+                }
+            }
+
+            console.log('📝 [ActionTrackingEventService] Creating source mapping:', {
+                mappingKey,
+                sourceId,
+                sourceType: data.sourceType,
+                inferredLevel,
+                inferredParent,
+                contextParent: data.context?.metadata?.parentExecutionId,
+                metadataParent: data.metadata?.parentExecutionId,
+                metadataContextParent: data.metadata?.context?.metadata?.parentExecutionId,
+                fullMetadata: data.metadata
+            });
+
             this.executionHierarchy.set(mappingKey, {
                 id: mappingKey,
-                parentId: undefined,
-                level: 0,
+                parentId: inferredParent,
+                level: inferredLevel,
                 children: [],
                 metadata: {
                     sourceId,
                     mappingType: 'source-correlation',
+                    inferredLevel,
+                    inferredParent,
                     originalData: {
                         sourceType: data.sourceType,
-                        timestamp: data.timestamp
+                        timestamp: data.timestamp,
+                        eventType: data.eventType || 'unknown'
                     }
                 }
             });

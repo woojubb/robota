@@ -536,7 +536,7 @@ export class TeamContainer {
                     aiProviders: this.options.baseRobotaOptions.aiProviders,
                     defaultModel: {
                         provider: this.options.baseRobotaOptions.aiProviders[0]?.name || 'openai',
-                        model: 'gpt-4o-mini',
+                        model: 'gpt-3.5-turbo', // Faster model for team members (text-only tasks)
                         systemMessage: systemMessage
                     },
                     plugins: [taskAnalyticsPlugin as BasePlugin], // Add analytics to temporary agent

@@ -127,22 +127,22 @@ async function testEnhancedEventServiceHierarchy() {
 
         console.log(chalk.green('✅ ActionTrackingEventService created with HierarchyVerificationEventService base'));
 
-        // Create providers
+        // Create providers optimized for test speed
         console.log(chalk.yellow('\n2. Creating AI providers...'));
+
+        // Single OpenAI provider - team will use different models internally
         const openaiProvider = new OpenAIProvider({
             apiKey: openaiApiKey,
             enablePayloadLogging: false, // Reduce noise
         });
 
-        const anthropicProvider = new AnthropicProvider({
-            apiKey: anthropicApiKey,
-            enablePayloadLogging: false, // Reduce noise
-        });
+        console.log(chalk.cyan('   Using OpenAI provider'));
+        console.log(chalk.cyan('   Team Leader: gpt-4o-mini (via template), Team Members: gpt-3.5-turbo (optimized)'));
 
         // Create team with enhanced EventService
         console.log(chalk.yellow('\n3. Creating team with Enhanced EventService...'));
         const team = createTeam({
-            aiProviders: [openaiProvider as any, anthropicProvider as any], // Type compatibility
+            aiProviders: [openaiProvider as any], // Single provider, models configured internally
             maxMembers: 3,
             maxTokenLimit: 8000,
             debug: false,
