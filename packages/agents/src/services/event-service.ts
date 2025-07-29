@@ -321,32 +321,55 @@ export class ActionTrackingEventService implements EventService {
     }
 
     /**
-     * Enrich event data with available hierarchy information
+     * Enrich event data with hierarchical context information
      */
     private enrichWithHierarchy(data: ServiceEventData): ServiceEventData {
-        // If data already has all hierarchy info, return as-is
-        if (data.parentExecutionId && data.executionLevel !== undefined && data.executionPath) {
-            return data;
-        }
-
-        // Try to find execution info from sourceId or other identifiers
         const executionId = this.findExecutionId(data);
+
+        console.log('🔍 [ActionTrackingEventService] enrichWithHierarchy called', {
+            executionId,
+            hasExecutionId: !!executionId,
+            hierarchySize: this.executionHierarchy.size,
+            dataKeys: Object.keys(data)
+        });
+
         if (!executionId) {
+            console.log('⚠️ [ActionTrackingEventService] No executionId found, returning original data');
             return data;
         }
 
         const node = this.executionHierarchy.get(executionId);
+        console.log('🔍 [ActionTrackingEventService] Hierarchy node lookup', {
+            executionId,
+            nodeFound: !!node,
+            node: node ? {
+                level: node.level,
+                parentId: node.parentId,
+                id: node.id
+            } : null
+        });
+
         if (!node) {
+            console.log('⚠️ [ActionTrackingEventService] No hierarchy node found for executionId:', executionId);
             return data;
         }
 
-        return {
+        const enrichedData = {
             ...data,
-            parentExecutionId: data.parentExecutionId || node.parentId,
-            rootExecutionId: data.rootExecutionId || this.findRootId(executionId),
             executionLevel: data.executionLevel ?? node.level,
-            executionPath: data.executionPath || this.buildExecutionPath(executionId)
+            parentExecutionId: data.parentExecutionId ?? node.parentId,
+            rootExecutionId: data.rootExecutionId ?? this.findRootId(executionId),
+            executionPath: data.executionPath ?? this.buildExecutionPath(executionId)
         };
+
+        console.log('✅ [ActionTrackingEventService] Data enriched successfully', {
+            originalLevel: data.executionLevel,
+            enrichedLevel: enrichedData.executionLevel,
+            originalParent: data.parentExecutionId,
+            enrichedParent: enrichedData.parentExecutionId
+        });
+
+        return enrichedData;
     }
 
     /**
@@ -394,11 +417,98 @@ export class ActionTrackingEventService implements EventService {
     }
 
     /**
-     * Try to find execution ID from event data
+     * Find appropriate execution ID from event data with multiple fallback strategies
      */
     private findExecutionId(data: ServiceEventData): string | undefined {
-        // Try various fields that might contain execution ID
-        return data.sourceId || data.agentId || data.toolName || undefined;
+        console.log('🔍 [ActionTrackingEventService] findExecutionId searching in:', {
+            executionId: data.executionId,
+            sourceId: data.sourceId,
+            agentId: (data as any).agentId,
+            toolName: data.toolName,
+            metadata: data.metadata ? {
+                executionId: data.metadata.executionId,
+                parentExecutionId: data.metadata.parentExecutionId,
+                agentId: data.metadata.agentId,
+                toolCallId: data.metadata.toolCallId
+            } : undefined,
+            context: data.context ? {
+                executionId: (data.context as any).executionId,
+                metadata: (data.context as any).metadata
+            } : undefined
+        });
+
+        // Strategy 1: Direct executionId field
+        if (data.executionId) {
+            console.log('✅ [ActionTrackingEventService] Found direct executionId:', data.executionId);
+            return data.executionId;
+        }
+
+        // Strategy 2: metadata.executionId
+        if (data.metadata?.executionId) {
+            console.log('✅ [ActionTrackingEventService] Found metadata.executionId:', data.metadata.executionId);
+            return data.metadata.executionId;
+        }
+
+        // Strategy 3: metadata.toolCallId (for tool events)
+        if (data.metadata?.toolCallId) {
+            console.log('✅ [ActionTrackingEventService] Found metadata.toolCallId:', data.metadata.toolCallId);
+            return data.metadata.toolCallId;
+        }
+
+        // Strategy 4: context.metadata.parentExecutionId (for nested contexts)
+        if (data.context?.metadata?.parentExecutionId) {
+            console.log('✅ [ActionTrackingEventService] Found context.metadata.parentExecutionId:', data.context.metadata.parentExecutionId);
+            return data.context.metadata.parentExecutionId;
+        }
+
+        // Strategy 5: Search hierarchy by toolName or sourceId pattern
+        if (data.toolName || data.sourceId) {
+            const searchKey = data.toolName || data.sourceId;
+            for (const [executionId, node] of this.executionHierarchy.entries()) {
+                if (node.metadata?.toolName === searchKey ||
+                    executionId.includes(searchKey) ||
+                    node.metadata?.sourceId === data.sourceId) {
+                    console.log('✅ [ActionTrackingEventService] Found by pattern search:', executionId);
+                    return executionId;
+                }
+            }
+            console.log('⚠️ [ActionTrackingEventService] No pattern match found for:', searchKey);
+        }
+
+        // Strategy 6: Create mapping for agent/exec IDs to track cross-layer relationships
+        if (data.sourceId) {
+            // Store source ID mappings for future correlation
+            this.storeSourceMapping(data.sourceId, data);
+            console.log('⚠️ [ActionTrackingEventService] Using fallback ID and storing mapping:', data.sourceId);
+            return data.sourceId;
+        }
+
+        console.log('❌ [ActionTrackingEventService] No executionId found in data');
+        return undefined;
+    }
+
+    /**
+     * Store source ID mappings for cross-layer correlation
+     */
+    private storeSourceMapping(sourceId: string, data: ServiceEventData): void {
+        // Create a mapping entry for correlation
+        const mappingKey = `mapping-${sourceId}`;
+        if (!this.executionHierarchy.has(mappingKey)) {
+            this.executionHierarchy.set(mappingKey, {
+                id: mappingKey,
+                parentId: undefined,
+                level: 0,
+                children: [],
+                metadata: {
+                    sourceId,
+                    mappingType: 'source-correlation',
+                    originalData: {
+                        sourceType: data.sourceType,
+                        timestamp: data.timestamp
+                    }
+                }
+            });
+        }
     }
 
     /**
