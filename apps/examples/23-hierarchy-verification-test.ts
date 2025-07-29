@@ -15,11 +15,14 @@ import chalk from 'chalk';
 import { createTeam } from '@robota-sdk/team';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
-import { ActionTrackingEventService } from '@robota-sdk/agents';
+import { ActionTrackingEventService, setGlobalLogLevel } from '@robota-sdk/agents';
 import dotenv from 'dotenv';
 
 // Load environment variables
 dotenv.config();
+
+// Set log level to debug to see all logs including ToolExecutionService initialization
+setGlobalLogLevel('debug');
 
 // Enhanced EventService for hierarchy verification
 class HierarchyVerificationEventService {
@@ -161,14 +164,23 @@ async function testEnhancedEventServiceHierarchy() {
 
         // Generate visual tree
         verificationService.generateEventTree();
+        const isSuccess = verificationService.verifyHierarchy();
 
-        // Verify hierarchy requirements
-        const success = verificationService.verifyHierarchy();
+        // 🔍 Debug: Check registered hierarchy in Enhanced EventService
+        console.log(chalk.blue.bold('\n🔍 Enhanced EventService Hierarchy Debug:'));
+        const hierarchy = enhancedEventService.getHierarchy();
+        console.log(chalk.cyan(`Registered Execution Nodes: ${hierarchy.size}`));
+
+        for (const [id, node] of hierarchy.entries()) {
+            console.log(chalk.yellow(`  - ID: ${id}`));
+            console.log(chalk.gray(`    Level: ${node.level}, Parent: ${node.parentId || 'none'}`));
+            console.log(chalk.gray(`    Metadata: ${JSON.stringify(node.metadata || {})}`));
+        }
 
         // Display final summary
         const summary = verificationService.getEventSummary();
         console.log(chalk.blue.bold('\n📋 Final Summary:'));
-        console.log(chalk.white(`🎯 Enhanced EventService Integration: ${success ? 'SUCCESS' : 'FAILED'}`));
+        console.log(chalk.white(`🎯 Enhanced EventService Integration: ${isSuccess ? 'SUCCESS' : 'FAILED'}`));
         console.log(chalk.white(`📊 Event Count: ${summary.count} (improvement: ${Math.round((summary.count - 4) / 4 * 100)}%)`));
         console.log(chalk.white(`🏗️  Hierarchy Levels: ${summary.levels.length} levels [${summary.levels.join(', ')}]`));
         console.log(chalk.white(`🔗 Parent-Child Relationships: ${summary.hasHierarchy ? 'Established' : 'Missing'}`));
@@ -177,7 +189,7 @@ async function testEnhancedEventServiceHierarchy() {
         console.log(chalk.blue.bold('\n💬 Task Result:'));
         console.log(chalk.gray(result));
 
-        return success;
+        return isSuccess;
 
     } catch (error) {
         console.error(chalk.red.bold('\n❌ Test failed:'), error);

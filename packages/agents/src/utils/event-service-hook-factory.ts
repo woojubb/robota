@@ -37,11 +37,17 @@ export class EventServiceHookFactory {
                 const isSubTool = context?.executionLevel && context.executionLevel > 1;
                 const eventType = isSubTool ? 'subtool.call_start' : 'tool_call_start';
 
+                // 🔑 Use actual executionId as sourceId for proper hierarchy mapping
+                const actualSourceId = context?.executionId || sourceId;
+
                 const eventData: ServiceEventData = {
                     sourceType: 'tool',
-                    sourceId,
+                    sourceId: actualSourceId,
                     toolName,
                     parameters,
+
+                    // Include the actual tool execution ID for hierarchy tracking
+                    executionId: context?.executionId,
 
                     // Extract hierarchical information from ToolExecutionContext
                     parentExecutionId: context?.parentExecutionId,
@@ -55,6 +61,7 @@ export class EventServiceHookFactory {
                         toolName,
                         phase: 'start',
                         isSubTool: isSubTool,
+                        executionId: context?.executionId, // Also include in metadata for backup
                         context: context ? {
                             userId: context.userId,
                             sessionId: context.sessionId,
@@ -74,12 +81,18 @@ export class EventServiceHookFactory {
                 const isSubTool = context?.executionLevel && context.executionLevel > 1;
                 const eventType = isSubTool ? 'subtool.call_complete' : 'tool_call_complete';
 
+                // 🔑 Use actual executionId as sourceId for proper hierarchy mapping
+                const actualSourceId = context?.executionId || sourceId;
+
                 const eventData: ServiceEventData = {
                     sourceType: 'tool',
-                    sourceId,
+                    sourceId: actualSourceId,
                     toolName,
                     parameters,
                     result,
+
+                    // Include the actual tool execution ID for hierarchy tracking
+                    executionId: context?.executionId,
 
                     // Extract hierarchical information from ToolExecutionContext
                     parentExecutionId: context?.parentExecutionId,
@@ -94,6 +107,7 @@ export class EventServiceHookFactory {
                         phase: 'complete',
                         resultType: typeof result,
                         isSubTool: isSubTool,
+                        executionId: context?.executionId, // Also include in metadata for backup
                         context: context ? {
                             userId: context.userId,
                             sessionId: context.sessionId,
@@ -113,12 +127,18 @@ export class EventServiceHookFactory {
                 const isSubTool = context?.executionLevel && context.executionLevel > 1;
                 const eventType = isSubTool ? 'subtool.call_error' : 'tool_call_error';
 
+                // 🔑 Use actual executionId as sourceId for proper hierarchy mapping
+                const actualSourceId = context?.executionId || sourceId;
+
                 const eventData: ServiceEventData = {
                     sourceType: 'tool',
-                    sourceId,
+                    sourceId: actualSourceId,
                     toolName,
                     parameters,
                     error: error.message,
+
+                    // Include the actual tool execution ID for hierarchy tracking
+                    executionId: context?.executionId,
 
                     // Extract hierarchical information from ToolExecutionContext
                     parentExecutionId: context?.parentExecutionId,
@@ -126,14 +146,15 @@ export class EventServiceHookFactory {
                     executionLevel: context?.executionLevel,
                     executionPath: context?.executionPath,
 
-                    // Include error occurrence time
+                    // Include error timestamp
                     timestamp: new Date(),
                     metadata: {
                         toolName,
                         phase: 'error',
-                        errorName: error.name,
+                        errorMessage: error.message,
                         errorStack: error.stack,
                         isSubTool: isSubTool,
+                        executionId: context?.executionId, // Also include in metadata for backup
                         context: context ? {
                             userId: context.userId,
                             sessionId: context.sessionId,

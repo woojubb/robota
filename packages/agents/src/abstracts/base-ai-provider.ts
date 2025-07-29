@@ -1,7 +1,6 @@
 import type { ToolSchema, ChatOptions } from '../interfaces/provider';
 import type { ExecutorInterface } from '../interfaces/executor';
 import type { UniversalMessage } from '../managers/conversation-history-manager';
-import { logger } from '../utils/logger';
 
 /**
  * Provider logging data type
@@ -222,23 +221,6 @@ export abstract class BaseAIProvider<TConfig = ProviderConfig, TMessage = Univer
     }
 
     /**
-     * Utility method for logging provider operations
-     * @param operation - Operation name
-     * @param data - Additional data to log
-     */
-    protected log(operation: string, data?: ProviderLoggingData): void {
-        logger.debug(`${this.name} Provider: ${operation}`, data);
-    }
-
-    /**
-     * Check if this provider is using an executor for execution
-     * @returns true if executor is configured
-     */
-    protected isUsingExecutor(): boolean {
-        return this.executor !== undefined;
-    }
-
-    /**
  * Execute chat via executor if available, otherwise fallback to direct implementation
  * This method should be called by subclasses in their chat() implementation
  */
@@ -271,15 +253,7 @@ export abstract class BaseAIProvider<TConfig = ProviderConfig, TMessage = Univer
         messages: TMessage[],
         options?: ChatOptions
     ): AsyncIterable<TResponse> {
-        console.log('🔍 [BASE-AI-PROVIDER] executeStreamViaExecutorOrDirect called');
-        console.log('🔍 [BASE-AI-PROVIDER] executor:', !!this.executor);
-        console.log('🔍 [BASE-AI-PROVIDER] executeChatStream:', !!this.executor?.executeChatStream);
-        console.log('🔍 [BASE-AI-PROVIDER] options.model:', options?.model);
-        console.log('🔍 [BASE-AI-PROVIDER] options.tools:', options?.tools?.length || 0);
-
         if (this.executor && this.executor.executeChatStream && options?.model) {
-            console.log('🚀 [BASE-AI-PROVIDER] Using executor.executeChatStream');
-            console.log('🚀 [BASE-AI-PROVIDER] About to call executor with tools:', options.tools?.length || 0);
             // Use executor for remote/proxied streaming execution
             const stream = this.executor.executeChatStream({
                 messages: messages as UniversalMessage[],
@@ -296,7 +270,6 @@ export abstract class BaseAIProvider<TConfig = ProviderConfig, TMessage = Univer
             return;
         }
 
-        console.log('Fallback to direct execution error');
         // Fallback to direct execution - subclasses must implement this
         throw new Error(`Direct streaming execution not implemented for ${this.name} provider. Either provide an executor or implement direct streaming execution.`);
     }
