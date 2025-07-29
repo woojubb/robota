@@ -151,14 +151,65 @@ async function testEnhancedEventServiceHierarchy() {
 
         console.log(chalk.green('✅ Team created with ActionTrackingEventService'));
 
-        // Execute complex task to trigger hierarchy
-        console.log(chalk.yellow('\n4. Executing complex team task...'));
-        console.log(chalk.gray('Task: "Vue.js 프레임워크의 주요 특징 3가지를 분석해줘"'));
-        console.log(chalk.gray('Expected: Team → Agent → Tool hierarchy with automatic tracking'));
+        // Execute team task that should create branching structure  
+        const result = await team.execute(`카페 창업 계획서를 작성해주세요. 반드시 다음 두 부분을 모두 포함해야 합니다: 시장 분석, 메뉴 구성. 각각을 별도로 작성해주세요.`);
 
-        const result = await team.execute(
-            'Vue.js 프레임워크의 주요 특징 3가지를 분석해줘. 각 특징마다 간단한 예시 코드도 포함해서 설명해줘.'
-        );
+        // Get raw hierarchy data from Enhanced EventService
+        const enhancedService = enhancedEventService as any;
+        if (enhancedService.getHierarchy) {
+            console.log(chalk.cyan('\n6. Raw Hierarchy Data Structure:'));
+            console.log(chalk.gray('='.repeat(80)));
+
+            const rawHierarchy = enhancedService.getHierarchy();
+            console.log('📋 Raw Hierarchy Object:');
+            console.log(JSON.stringify(rawHierarchy, null, 2));
+
+            console.log(chalk.cyan('\n7. Hierarchy Map Entries:'));
+            if (enhancedService.hierarchyMap) {
+                const hierarchyEntries = Array.from(enhancedService.hierarchyMap.entries());
+                hierarchyEntries.forEach((entry, index) => {
+                    const [key, value] = entry as [string, any];
+                    console.log(`\n[${index + 1}] Key: ${key}`);
+                    console.log(`    Value:`, JSON.stringify(value, null, 4));
+                });
+            }
+
+            console.log(chalk.cyan('\n8. Tree Structure Analysis:'));
+            // Try different ways to access the hierarchy data
+            console.log('🔍 Available properties on enhancedService:');
+            console.log(Object.keys(enhancedService).filter(key => !key.startsWith('_')));
+
+            // Check if rawHierarchy is a Map
+            if (rawHierarchy instanceof Map) {
+                console.log(`📊 Total Nodes in Map: ${rawHierarchy.size}`);
+
+                // Group by parent to show tree structure
+                const nodesByParent: { [key: string]: any[] } = {};
+                rawHierarchy.forEach((node: any, id: string) => {
+                    const parentId = node.parentId || 'ROOT';
+                    if (!nodesByParent[parentId]) {
+                        nodesByParent[parentId] = [];
+                    }
+                    nodesByParent[parentId].push({ id, ...node });
+                });
+
+                console.log('\n🌳 Tree Structure by Parent:');
+                Object.entries(nodesByParent).forEach(([parentId, children]) => {
+                    console.log(`\n📦 Parent: ${parentId}`);
+                    children.forEach((child, index) => {
+                        const isLast = index === children.length - 1;
+                        const prefix = isLast ? '└── ' : '├── ';
+                        console.log(`    ${prefix}${child.id} (Level: ${child.level})`);
+                        if (child.metadata) {
+                            console.log(`        Metadata: ${JSON.stringify(child.metadata, null, 0)}`);
+                        }
+                    });
+                });
+            } else if (rawHierarchy && typeof rawHierarchy === 'object') {
+                console.log('📊 Raw hierarchy object keys:', Object.keys(rawHierarchy));
+                console.log('📊 Raw hierarchy data:', JSON.stringify(rawHierarchy, null, 2));
+            }
+        }
 
         console.log(chalk.yellow('\n5. Task completed, analyzing results...'));
 
@@ -168,7 +219,7 @@ async function testEnhancedEventServiceHierarchy() {
 
         // 🔍 Debug: Check registered hierarchy in Enhanced EventService
         console.log(chalk.blue.bold('\n🔍 Enhanced EventService Hierarchy Debug:'));
-        const hierarchy = enhancedEventService.getHierarchy();
+        const hierarchy = enhancedService.getHierarchy();
         console.log(chalk.cyan(`Registered Execution Nodes: ${hierarchy.size}`));
 
         for (const [id, node] of hierarchy.entries()) {
