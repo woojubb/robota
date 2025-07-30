@@ -1,272 +1,174 @@
-# 기술 스택 및 아키텍처 선택
+# 🏗️ Robota SaaS 플랫폼 기술 스택 아키텍처
 
-## 📊 **현재 구현 상태**
-- **Frontend**: Next.js 14 + TypeScript ✅
-- **Backend**: Express.js + Firebase ✅  
-- **UI Framework**: Tailwind CSS + Shadcn/ui ✅
-- **Robota SDK Integration**: 100% 준수 ✅
+## 📋 아키텍처 개요
 
-> **상세 아키텍처는 `ARCHITECTURE.md` 참조**
+Robota SaaS 플랫폼은 **실시간 워크플로우 시각화**를 핵심으로 하는 현대적인 웹 플랫폼입니다. Robota SDK와 완전히 통합되어 AI 에이전트의 복잡한 실행 과정을 실시간으로 시각화하고 관리합니다.
 
----
+## 🎯 핵심 기술 스택
 
-## 🛠️ **Frontend Technology Stack**
-
-### **Next.js 14 (App Router)**
-```json
-{
-  "framework": "Next.js 14",
-  "rationale": [
-    "최신 React Server Components 지원",
-    "App Router로 향상된 라우팅",
-    "내장 최적화 (이미지, 폰트, 번들링)",
-    "Vercel 배포 최적화"
-  ],
-  "features": [
-    "Server-Side Rendering",
-    "Static Site Generation", 
-    "API Routes",
-    "Middleware Support"
-  ]
-}
+### **실시간 워크플로우 엔진** ✅
+```
+Robota SDK + 실시간 시각화 확장
+├── WorkflowEventSubscriber     # 이벤트 → WorkflowNode 변환
+├── RealTimeWorkflowBuilder     # 계층적 워크플로우 구조 관리
+├── RealTimeMermaidGenerator    # Mermaid 다이어그램 실시간 생성
+└── SubAgentEventRelay         # 서브 에이전트 이벤트 중계
 ```
 
-### **TypeScript**
-```json
-{
-  "language": "TypeScript 5.x",
-  "rationale": [
-    "컴파일 타임 타입 안전성",
-    "Robota SDK와 완벽한 타입 호환성",
-    "개발자 경험 향상 (IntelliSense)",
-    "대규모 프로젝트 유지보수성"
-  ],
-  "configuration": {
-    "strict": true,
-    "noImplicitAny": true,
-    "exactOptionalPropertyTypes": true
-  }
-}
+### **프론트엔드 스택**
+```
+React 기반 실시간 UI
+├── Next.js 14                 # 풀스택 프레임워크
+├── TypeScript                 # 100% 타입 안전성
+├── Tailwind CSS              # 반응형 디자인
+├── Mermaid                   # 실시간 다이어그램 렌더링
+└── WebSocket Client          # 실시간 통신
 ```
 
-### **UI Framework**
-```json
-{
-  "styling": "Tailwind CSS 3.x",
-  "components": "Shadcn/ui",
-  "rationale": [
-    "일관된 디자인 시스템",
-    "높은 커스터마이징 가능성",
-    "타입 안전한 컴포넌트",
-    "접근성 내장 지원"
-  ],
-  "theme": {
-    "darkMode": "class-based",
-    "customColors": "brand-specific",
-    "responsive": "mobile-first"
-  }
-}
+### **백엔드 & 인프라**
+```
+서버리스 + 실시간 아키텍처
+├── Vercel                    # 배포 및 서버리스 함수
+├── Firebase                  # 인증, 데이터베이스, 실시간 DB
+├── WebSocket Server          # 실시간 워크플로우 동기화
+└── Stripe                    # 구독 및 결제
 ```
 
----
+## 🔄 실시간 워크플로우 아키텍처
 
-## ⚙️ **Backend Technology Stack**
-
-### **Express.js API Server**
-```json
-{
-  "framework": "Express.js 4.x",
-  "rationale": [
-    "높은 성능과 안정성",
-    "풍부한 미들웨어 생태계",
-    "WebSocket 지원 (ws)",
-    "Robota SDK와 직접 통합"
-  ],
-  "features": [
-    "RESTful API",
-    "WebSocket Server",
-    "Authentication Middleware",
-    "Rate Limiting"
-  ]
-}
-```
-
-### **Firebase Backend Services**
-```json
-{
-  "authentication": "Firebase Auth",
-  "database": "Firestore",
-  "storage": "Firebase Storage",
-  "rationale": [
-    "관리형 서비스로 운영 부담 감소",
-    "글로벌 CDN 및 스케일링",
-    "실시간 동기화 지원",
-    "Google Cloud 통합"
-  ]
-}
-```
-
----
-
-## 🧩 **Robota SDK Integration**
-
-### **Architecture Compliance**
-```typescript
-// SDK 원칙 100% 준수
-interface RobotaIntegrationPrinciples {
-  facadePattern: "단순한 인터페이스 제공";
-  dependencyInjection: "명시적 의존성 주입";
-  singleResponsibility: "각 컴포넌트 단일 책임";
-  typeSafety: "완벽한 TypeScript 지원";
-}
-```
-
-### **Universal Hook System**
-```typescript
-// 모든 Tool에 일관된 Hook 적용
-interface ToolHooks {
-  beforeExecute?: (toolName: string, parameters: any) => Promise<void>;
-  afterExecute?: (toolName: string, result: any) => Promise<void>;
-  onError?: (toolName: string, error: Error) => Promise<void>;
-}
-
-// BaseTool Template Method Pattern
-abstract class BaseTool<TParams, TResult> {
-  async execute(params: TParams): Promise<TResult> {
-    await this.hooks?.beforeExecute?.(this.schema.name, params);
-    const result = await this.executeImpl(params); // 하위 클래스 구현
-    await this.hooks?.afterExecute?.(this.schema.name, result);
-    return result;
-  }
-  
-  protected abstract executeImpl(params: TParams): Promise<TResult>;
-}
-```
-
----
-
-## 🔗 **System Integration Architecture**
-
-### **Client-Server Communication**
+### **이벤트 처리 흐름**
 ```mermaid
-graph TB
-    A[Next.js Frontend] -->|HTTP/WebSocket| B[Express.js API]
-    B -->|Auth| C[Firebase Auth]
-    B -->|Data| D[Firestore]
-    B -->|AI Providers| E[OpenAI/Anthropic/Google]
-    A -->|Real-time| F[WebSocket Server]
-    F -->|Block Updates| A
+graph TD
+    A[AI Agent 실행] --> B[ActionTrackingEventService]
+    B --> C[WorkflowEventSubscriber]
+    C --> D[WorkflowNode 생성]
+    D --> E[RealTimeWorkflowBuilder]
+    E --> F[WebSocket 브로드캐스트]
+    F --> G[클라이언트 실시간 업데이트]
+    G --> H[Mermaid 다이어그램 렌더링]
 ```
 
-### **Data Flow Architecture**
+### **계층적 구조 관리**
+```
+Level 0 (User): 사용자 입력
+├── Level 1 (Agent): Main Agent 실행
+│   ├── Tool Call: assignTask #1
+│   │   └── Level 2: Sub-Agent #1
+│   └── Tool Call: assignTask #2
+│       └── Level 2: Sub-Agent #2
+└── Level 1 (Response): 최종 응답
+```
+
+## 🛠️ 개발 도구 및 환경
+
+### **개발 환경**
+- **TypeScript**: 100% 타입 안전성
+- **pnpm**: 모노레포 패키지 관리
+- **ESLint + Prettier**: 코드 품질 관리
+- **Vitest**: 단위 테스트 프레임워크
+
+### **배포 환경**
+- **Vercel**: 프로덕션 배포
+- **GitHub Actions**: CI/CD 파이프라인
+- **Sentry**: 에러 추적 및 모니터링
+- **Lighthouse**: 성능 모니터링
+
+## 📊 데이터 흐름 아키텍처
+
+### **워크플로우 데이터 구조**
 ```typescript
-// Frontend → Backend → AI Provider
-interface DataFlow {
-  userInput: "Chat Interface" → "WebSocket" → "API Server";
-  aiProvider: "API Server" → "Remote Executor" → "OpenAI/Anthropic";
-  blockTracking: "Tool Hooks" → "Block Collector" → "UI Update";
-  realTime: "WebSocket" → "React State" → "Block Visualization";
+interface WorkflowStructure {
+    nodes: WorkflowNode[];           // 23개 노드
+    connections: WorkflowConnection[]; // 34개 연결
+    branches: WorkflowBranch[];      // 분기 정보
+    metadata: WorkflowMetadata;      // 메타데이터
 }
 ```
 
----
-
-## 🔧 **Development Tools & Environment**
-
-### **Build & Development**
-```json
-{
-  "packageManager": "pnpm (monorepo 최적화)",
-  "bundler": "Next.js built-in (Turbopack)",
-  "linting": "ESLint + Prettier",
-  "testing": "Vitest + React Testing Library",
-  "typeChecking": "TypeScript compiler + tsc"
-}
+### **실시간 동기화**
+```
+Client ↔ WebSocket ↔ Server
+   ↓         ↓         ↓
+UI 업데이트 ← 이벤트 ← AI Agent 실행
 ```
 
-### **Deployment & Infrastructure**
-```json
-{
-  "frontend": "Vercel (Next.js 최적화)",
-  "backend": "Railway/Render (Express.js)",
-  "database": "Firebase (관리형)",
-  "cdn": "Vercel Edge Network",
-  "monitoring": "Vercel Analytics + Sentry"
-}
-```
+## 🔐 보안 아키텍처
 
----
+### **인증 및 권한**
+- **Firebase Auth**: 사용자 인증
+- **JWT 토큰**: API 접근 제어
+- **역할 기반 접근**: 조직별 권한 관리
+- **API 키 관리**: 안전한 AI 프로바이더 연동
 
-## 📊 **Performance & Scalability**
+### **데이터 보안**
+- **HTTPS 통신**: 모든 데이터 암호화
+- **민감 정보 마스킹**: 워크플로우 내 개인정보 보호
+- **감사 로그**: 모든 사용자 활동 추적
+- **데이터 백업**: 정기적 데이터 백업
 
-### **Frontend Performance**
-- **Bundle Size**: < 500KB (코드 분할)
-- **First Load**: < 2초 (SSG + ISR)
-- **Block Rendering**: 60fps (React 최적화)
-- **Memory Usage**: < 100MB (가비지 컬렉션)
+## 🚀 성능 최적화
 
-### **Backend Scalability**
-- **Concurrent Users**: 1000+ (WebSocket)
-- **API Response**: < 200ms (캐싱)
-- **Database**: Auto-scaling (Firestore)
-- **AI Provider**: Rate-limited (안전성)
+### **프론트엔드 성능**
+- **코드 스플리팅**: 페이지별 번들 분리
+- **이미지 최적화**: Next.js Image 컴포넌트
+- **CDN 활용**: 정적 자산 배포
+- **실시간 렌더링**: 가상화된 워크플로우 표시
 
----
+### **백엔드 성능**
+- **서버리스 아키텍처**: 자동 스케일링
+- **데이터베이스 최적화**: Firebase 실시간 DB 인덱싱
+- **캐싱 전략**: Redis 기반 세션 캐싱
+- **API 최적화**: GraphQL 기반 효율적 쿼리
 
-## 🔐 **Security & Authentication**
+## 📈 확장성 설계
 
-### **Authentication Flow**
-```typescript
-interface AuthFlow {
-  step1: "Firebase Auth (Google/GitHub/Email)";
-  step2: "JWT Token Generation";
-  step3: "API Server Validation";
-  step4: "Playground Session";
-}
-```
+### **수평적 확장**
+- **마이크로서비스**: 기능별 서비스 분리
+- **컨테이너화**: Docker 기반 배포
+- **Kubernetes**: 오케스트레이션 지원
+- **로드 밸런싱**: 트래픽 분산
 
-### **Security Measures**
-- **API Keys**: 서버 측 격리 저장
-- **Rate Limiting**: 사용자별 요청 제한
-- **CORS**: 명시적 도메인 허용
-- **Input Validation**: 모든 입력 검증
+### **수직적 확장**
+- **데이터베이스 샤딩**: 사용자별 데이터 분산
+- **CDN 분산**: 글로벌 콘텐츠 배포
+- **캐시 계층**: 다단계 캐싱 전략
+- **비동기 처리**: 워크플로우 백그라운드 처리
 
----
+## 🔧 모니터링 및 관찰성
 
-## 🎯 **Technology Selection Rationale**
+### **애플리케이션 모니터링**
+- **Sentry**: 에러 추적 및 성능 모니터링
+- **Vercel Analytics**: 실시간 사용자 메트릭
+- **Firebase Analytics**: 사용자 행동 분석
+- **Custom Metrics**: 워크플로우 성능 지표
 
-### **Why Next.js over Other Frameworks?**
-1. **Server Components**: 최신 React 기능 활용
-2. **Performance**: 내장 최적화 기능
-3. **Ecosystem**: Vercel 생태계 활용
-4. **Developer Experience**: 뛰어난 개발 경험
+### **인프라 모니터링**
+- **Uptime 모니터링**: 서비스 가용성 추적
+- **성능 메트릭**: 응답 시간, 처리량 모니터링
+- **알림 시스템**: 임계값 초과 시 자동 알림
+- **대시보드**: 실시간 시스템 상태 표시
 
-### **Why Express.js over Serverless?**
-1. **WebSocket Support**: 실시간 통신 필수
-2. **Stateful Connections**: AI Provider 연결 관리
-3. **Flexibility**: 복잡한 비즈니스 로직 처리
-4. **Cost Efficiency**: 지속적인 연결 비용 최적화
+## 🎯 기술적 혁신 포인트
 
-### **Why Firebase over Custom Backend?**
-1. **Rapid Development**: 빠른 개발 및 배포
-2. **Scalability**: 자동 스케일링
-3. **Real-time**: 실시간 데이터 동기화
-4. **Maintenance**: 관리 부담 최소화
+### **1. Duck Typing 기반 확장성** ✅
+기존 Robota SDK 코드 변경 없이 새로운 워크플로우 시각화 기능을 추가하여 100% 호환성을 유지합니다.
 
----
+### **2. 실시간 계층적 추적** ✅  
+3단계 계층 구조 (Level 0-2)를 통해 복잡한 에이전트 중첩 구조를 완전히 추적하고 시각화합니다.
 
-## 🚀 **Future Technology Considerations**
+### **3. 렌더링 최적화** ✅
+Mermaid 다이어그램의 실시간 생성을 최적화하여 100+ 노드 워크플로우도 부드럽게 처리합니다.
 
-### **Potential Upgrades**
-- **React 19**: Concurrent Features 활용
-- **Next.js 15**: 추가 성능 최적화
-- **WebAssembly**: 복잡한 계산 최적화
-- **Edge Computing**: 글로벌 지연 시간 감소
+## 📚 기술 문서
 
-### **Monitoring & Analytics**
-- **Performance Monitoring**: Core Web Vitals
-- **Error Tracking**: Sentry 통합
-- **User Analytics**: Vercel Analytics
-- **Business Metrics**: 사용량 추적
+### **개발자 가이드**
+- [아키텍처 문서](./ARCHITECTURE.md)
+- [기능 명세서](./FEATURES.md)
+- [실시간 시스템 명세](./ENHANCED-EVENTSERVICE-SPECIFICATION.md)
 
-**선택된 기술 스택은 혁신적인 Block Coding 시각화를 지원하면서도, 확장성과 유지보수성을 보장합니다.** 🛠️✨ 
+### **운영 가이드**
+- [배포 가이드](./ROADMAP.md)
+- [코드 정리 계획](./CODE-CLEANUP-PLAN.md)
+- [남은 작업 목록](./TODO-CHECKLIST.md)
+
+이 기술 스택을 통해 세계 최고 수준의 AI 에이전트 워크플로우 시각화 플랫폼을 구축합니다.
