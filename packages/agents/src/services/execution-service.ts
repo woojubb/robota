@@ -1,14 +1,15 @@
 import { Message, AgentConfig, AssistantMessage, ToolMessage } from '../interfaces/agent';
 import { PluginContext, Metadata } from '../interfaces/types';
 import { BasePlugin } from '../abstracts/base-plugin';
-import { ToolExecutionService, ToolExecutionBatchContext } from './tool-execution-service';
-import { AIProviders } from '../managers/ai-provider-manager';
-import { Tools } from '../managers/tool-manager';
+import { ToolExecutionService } from './tool-execution-service';
+import type { AIProviderManagerInterface } from '../interfaces/manager';
+import type { ToolManagerInterface } from '../interfaces/manager';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { BaseAIProvider } from '../abstracts/base-ai-provider';
 import { Logger, createLogger } from '../utils/logger';
 import { ChatOptions, ToolCall } from '../interfaces/provider';
 import { EventService, SilentEventService } from './event-service';
+import type { ToolExecutionBatchContext } from './tool-execution-service';
 
 /**
  * Execution context passed through the pipeline
@@ -68,20 +69,20 @@ interface PluginStats {
  */
 export class ExecutionService {
     private toolExecutionService: ToolExecutionService;
-    private aiProviders: AIProviders;
-    private tools: Tools;
+    private aiProviders: AIProviderManagerInterface;
+    private tools: ToolManagerInterface;
     private conversationHistory: ConversationHistory;
     private plugins: BasePlugin[] = [];
     private logger: Logger;
     private eventService: EventService;
 
     constructor(
-        aiProviders: AIProviders,
-        tools: Tools,
+        aiProviders: AIProviderManagerInterface,
+        tools: ToolManagerInterface,
         conversationHistory: ConversationHistory,
         eventService?: EventService
     ) {
-        this.toolExecutionService = new ToolExecutionService(tools, {}, eventService);
+        this.toolExecutionService = new ToolExecutionService(tools as any);
         this.aiProviders = aiProviders;
         this.tools = tools;
         this.conversationHistory = conversationHistory;
@@ -235,6 +236,27 @@ export class ExecutionService {
 
             if (shouldAddInput) {
                 conversationSession.addUserMessage(input, { executionId });
+
+                // Emit user message event as the starting point
+                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                    const rootId = fullContext.conversationId || executionId;
+                    this.eventService.emit('user.message', {
+                        sourceType: 'agent',
+                        sourceId: rootId,
+                        timestamp: new Date(),
+                        parameters: { input },
+                        // Hierarchical tracking information
+                        rootExecutionId: rootId,
+                        executionLevel: 0, // User message is Level 0
+                        executionPath: [rootId],
+                        metadata: {
+                            executionId,
+                            messageRole: 'user',
+                            inputLength: input.length,
+                            conversationId: fullContext.conversationId
+                        }
+                    });
+                }
             }
 
             // Call beforeRun hook on all plugins
@@ -243,15 +265,21 @@ export class ExecutionService {
                 metadata: (context?.metadata || {}) as Metadata
             });
 
-            // Get AI provider instance
-            const provider = this.aiProviders.getCurrentProviderInstance();
-            if (!provider) {
-                throw new Error('No AI provider available');
+            // Get current provider info
+            const currentInfo = this.aiProviders.getCurrentProvider();
+            if (!currentInfo) {
+                throw new Error('No AI provider configured');
             }
 
-            // Ensure provider is BaseAIProvider with execute method
-            if (!(provider instanceof BaseAIProvider)) {
-                throw new Error('Provider must extend BaseAIProvider to support execution');
+            // Get actual provider instance
+            const provider = this.aiProviders.getProvider(currentInfo.provider);
+            if (!provider) {
+                throw new Error(`AI provider '${currentInfo.provider}' not found`);
+            }
+
+            // Ensure provider has chat method (duck typing check)
+            if (typeof (provider as any).chat !== 'function') {
+                throw new Error('Provider must have chat method to support execution');
             }
 
             // Process with conversation loop - now delegated to provider
@@ -316,7 +344,30 @@ export class ExecutionService {
                     ...(availableTools.length > 0 && { tools: availableTools })
                 };
 
-                const response = await provider.chat(conversationMessages, chatOptions);
+                // Emit assistant message start event
+                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                    const rootId = fullContext.conversationId || executionId;
+                    this.eventService.emit('assistant.message_start', {
+                        sourceType: 'agent',
+                        sourceId: rootId,
+                        timestamp: new Date(),
+                        parameters: {
+                            round: currentRound,
+                            messageCount: conversationMessages.length
+                        },
+                        // Hierarchical tracking information
+                        rootExecutionId: rootId,
+                        executionLevel: 1, // Assistant message is Level 1
+                        executionPath: [rootId],
+                        metadata: {
+                            executionId,
+                            round: currentRound,
+                            conversationId: fullContext.conversationId
+                        }
+                    });
+                }
+
+                const response = await (provider as any).chat(conversationMessages, chatOptions);
 
                 // Call afterProviderCall hook
                 await this.callPluginHook('afterProviderCall', {
@@ -436,6 +487,30 @@ export class ExecutionService {
                     });
                 }
 
+                // Emit tool results to LLM event
+                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                    const rootId = fullContext.conversationId || executionId;
+                    this.eventService.emit('tool_results_to_llm', {
+                        sourceType: 'agent',
+                        sourceId: rootId,
+                        timestamp: new Date(),
+                        parameters: {
+                            toolsExecuted: toolsExecuted.length,
+                            round: currentRound
+                        },
+                        // Hierarchical tracking information
+                        rootExecutionId: rootId,
+                        executionLevel: 1, // Tool results presentation is Level 1
+                        executionPath: [rootId],
+                        metadata: {
+                            executionId,
+                            toolsExecuted: toolSummary.results.map(r => r.toolName || 'unknown'),
+                            round: currentRound,
+                            conversationId: fullContext.conversationId
+                        }
+                    });
+                }
+
                 // Continue to next round - let the AI decide if more tools are needed
                 // The AI will see the tool results and can either:
                 // 1. Call more tools if needed
@@ -493,6 +568,28 @@ export class ExecutionService {
                 toolsExecuted: result.toolsExecuted.length,
                 rounds: currentRound
             });
+
+            // Emit assistant message complete event
+            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                const rootId = fullContext.conversationId || executionId;
+                this.eventService.emit('assistant.message_complete', {
+                    sourceType: 'agent',
+                    sourceId: rootId,
+                    timestamp: new Date(),
+                    result: result.response.substring(0, 100) + '...',
+                    // Hierarchical tracking information
+                    rootExecutionId: rootId,
+                    executionLevel: 1, // Assistant message completion is Level 1
+                    executionPath: [rootId],
+                    metadata: {
+                        executionId,
+                        responseLength: result.response.length,
+                        tokensUsed: result.tokensUsed,
+                        rounds: currentRound,
+                        conversationId: fullContext.conversationId
+                    }
+                });
+            }
 
             // Emit execution complete event
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
@@ -591,15 +688,21 @@ export class ExecutionService {
                 metadata: (context?.metadata || {}) as Metadata
             });
 
-            // Get AI provider instance
-            const provider = this.aiProviders.getCurrentProviderInstance();
-            if (!provider) {
-                throw new Error('No AI provider available');
+            // Get current provider info
+            const currentInfo = this.aiProviders.getCurrentProvider();
+            if (!currentInfo) {
+                throw new Error('No AI provider configured');
             }
 
-            // Ensure provider is BaseAIProvider
-            if (!(provider instanceof BaseAIProvider)) {
-                throw new Error('Provider must extend BaseAIProvider to support streaming execution');
+            // Get actual provider instance
+            const provider = this.aiProviders.getProvider(currentInfo.provider);
+            if (!provider) {
+                throw new Error(`AI provider '${currentInfo.provider}' not found`);
+            }
+
+            // Ensure provider has chatStream method (duck typing check)
+            if (typeof (provider as any).chatStream !== 'function') {
+                throw new Error('Provider must have chatStream method to support streaming execution');
             }
 
             console.log('ExecutionService calling provider.chatStream');
@@ -623,11 +726,11 @@ export class ExecutionService {
             console.log('🔍 [EXECUTION-SERVICE] Final chatOptions.tools length:', chatOptions.tools?.length || 0);
 
             // Use provider's streaming capability
-            if (!provider.chatStream) {
+            if (!(provider as any).chatStream) {
                 throw new Error('Provider does not support streaming');
             }
 
-            const stream = provider.chatStream(conversationMessages, chatOptions);
+            const stream = (provider as any).chatStream(conversationMessages, chatOptions);
             let fullResponse = '';
             let toolCalls: ToolCall[] = [];
             let currentToolCallIndex = -1; // 현재 작업중인 도구 호출 인덱스

@@ -15,12 +15,16 @@ import { SimpleLogger, SilentLogger, DefaultConsoleLogger } from '../utils/simpl
  * Extended for detailed block tree visualization
  */
 export type ServiceEventType =
+    | 'user.message'              // User message received
+    | 'assistant.message_start'   // Assistant response generation started
+    | 'assistant.message_complete' // Assistant response generation completed
     | 'execution.start'           // Agent/Team execution started
     | 'execution.complete'        // Agent/Team execution completed
     | 'execution.error'           // Agent/Team execution failed
     | 'tool_call_start'           // Tool execution started
     | 'tool_call_complete'        // Tool execution completed
     | 'tool_call_error'           // Tool execution failed
+    | 'tool_results_to_llm'       // Tool results presented to LLM
     | 'task.assigned'             // Team task assignment
     | 'task.completed'            // Team task completion
     | 'team.analysis_start'       // Team job analysis started
@@ -39,8 +43,8 @@ export type ServiceEventType =
  * Service event data structure with hierarchical tracking information
  */
 export interface ServiceEventData {
-    /** Source type: agent, team, or tool */
-    sourceType: 'agent' | 'team' | 'tool';
+    /** Source type: agent, team, tool, or sub-agent */
+    sourceType: 'agent' | 'team' | 'tool' | 'sub-agent';
 
     /** Source identifier (agent ID, team ID, etc.) */
     sourceId: string;
@@ -548,11 +552,23 @@ export class ActionTrackingEventService implements EventService {
                 }
             } else if (data.sourceType === 'team') {
                 inferredLevel = 2; // Team events are typically Level 2
-                // Try to find parent tool or agent execution
-                if (data.metadata?.parentExecutionId) {
-                    inferredParent = data.metadata.parentExecutionId;
+                // Try to find parent tool or agent execution - check data.parentExecutionId first
+                if (data.parentExecutionId) {
+                    // Check if the parentExecutionId already exists in hierarchy
+                    if (this.executionHierarchy.has(data.parentExecutionId)) {
+                        inferredParent = data.parentExecutionId;
+                        console.log(`✅ [ActionTrackingEventService] Team event parent found in hierarchy: ${data.parentExecutionId}`);
+                    } else {
+                        console.log(`⚠️ [ActionTrackingEventService] Team event parent NOT found in hierarchy: ${data.parentExecutionId}`);
+                    }
+                } else if (data.metadata?.parentExecutionId) {
+                    if (this.executionHierarchy.has(data.metadata.parentExecutionId)) {
+                        inferredParent = data.metadata.parentExecutionId;
+                    }
                 } else if (data.metadata?.context?.metadata?.parentExecutionId) {
-                    inferredParent = data.metadata.context.metadata.parentExecutionId;
+                    if (this.executionHierarchy.has(data.metadata.context.metadata.parentExecutionId)) {
+                        inferredParent = data.metadata.context.metadata.parentExecutionId;
+                    }
                 }
             } else if (data.sourceType === 'agent') {
                 inferredLevel = 1; // Agent events are typically Level 1

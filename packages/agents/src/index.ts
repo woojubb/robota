@@ -293,10 +293,27 @@ export {
 
 export type { ExecutionNode } from './services/event-service';
 
-export { EventServiceHookFactory } from './utils/event-service-hook-factory';
+// Workflow Services (Phase 2)
+export {
+    WorkflowEventSubscriber,
+    RealTimeWorkflowBuilder
+} from './services';
+export type {
+    WorkflowNode,
+    WorkflowNodeUpdate,
+    WorkflowConnection,
+    WorkflowNodeType,
+    WorkflowConnectionType,
+    WorkflowNodeStatus,
+    WorkflowNodeData,
+    WorkflowStructure,
+    WorkflowBranch,
+    WorkflowMetadata,
+    WorkflowUpdate
+} from './services';
+
+// EventServiceHookFactory removed - simplified architecture
 export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy';
 
-// ExecutionHierarchyTracker export
-export { ExecutionHierarchyTracker } from './services/execution-hierarchy-tracker';
-export type { ExecutionEntity, HierarchyInfo, ToolExecutionRegistration, EntityType } from './services/execution-hierarchy-tracker';
+// ExecutionHierarchyTracker removed - functionality moved to ActionTrackingEventService
 

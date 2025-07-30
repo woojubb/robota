@@ -1,9 +1,27 @@
 // Services
 export * from './execution-service';
-export * from './tool-execution-service';
+export { ToolExecutionService } from './tool-execution-service';
+export type { ToolExecutionRequest, ToolExecutionBatchContext } from './tool-execution-service';
+export { WorkflowEventSubscriber } from './workflow-event-subscriber';
+export type {
+    WorkflowNode,
+    WorkflowNodeUpdate,
+    WorkflowConnection,
+    WorkflowNodeType,
+    WorkflowConnectionType,
+    WorkflowNodeStatus,
+    WorkflowNodeData
+} from './workflow-event-subscriber';
+export { RealTimeWorkflowBuilder } from './real-time-workflow-builder';
+export type {
+    WorkflowStructure,
+    WorkflowBranch,
+    WorkflowMetadata,
+    WorkflowUpdate
+} from './real-time-workflow-builder';
 export * from './conversation-service';
 export * from './event-service';
-export * from './execution-hierarchy-tracker';
+// execution-hierarchy-tracker removed
 
 // Service interfaces
 export type {
@@ -12,12 +30,7 @@ export type {
     ExecutionService as ExecutionServiceInterface
 } from './execution-service';
 
-export type {
-    ToolExecutionBatchContext,
-    ToolExecutionRequest,
-    ServiceToolExecutionData,
-    ServiceToolExecutionMetadata
-} from './tool-execution-service';
+// ToolExecutionService types simplified - complex batch types removed
 
 export type {
     ConversationServiceInterface,
@@ -32,10 +45,4 @@ export type {
     ServiceEventData
 } from './event-service';
 
-export type {
-    ExecutionHierarchyTrackerInterface,
-    ExecutionEntity,
-    HierarchyInfo,
-    ToolExecutionRegistration,
-    EntityType
-} from './execution-hierarchy-tracker'; 
+// ExecutionHierarchyTracker types removed - functionality moved to ActionTrackingEventService 
