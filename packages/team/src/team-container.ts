@@ -392,6 +392,7 @@ export class TeamContainer {
             this.eventService.emit('task.assigned', {
                 sourceType: 'team',
                 sourceId: agentId,
+                executionId: toolExecutionId,
                 timestamp: new Date(),
                 taskDescription: params.jobDescription,
                 parameters: {

@@ -424,7 +424,50 @@ export class ExecutionService {
                     continueOnError: true
                 };
 
+                // Emit tool_call_start events for each tool
+                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                    for (const toolCall of assistantResponse.toolCalls) {
+                        this.eventService.emit('tool_call_start', {
+                            sourceType: 'agent',
+                            sourceId: fullContext.conversationId || executionId,
+                            toolName: toolCall.function?.name,
+                            timestamp: new Date(),
+                            parameters: JSON.parse(toolCall.function?.arguments || '{}'),
+                            rootExecutionId: fullContext.conversationId || executionId,
+                            executionLevel: 2, // Tool level
+                            executionPath: [fullContext.conversationId || executionId, executionId],
+                            metadata: {
+                                toolCallId: toolCall.id,
+                                executionId: executionId,
+                                round: currentRound
+                            }
+                        });
+                    }
+                }
+
                 const toolSummary = await this.toolExecutionService.executeTools(toolContext);
+
+                // Emit tool_call_complete events for each completed tool
+                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                    for (const result of toolSummary.results) {
+                        this.eventService.emit('tool_call_complete', {
+                            sourceType: 'agent',
+                            sourceId: fullContext.conversationId || executionId,
+                            toolName: result.toolName,
+                            timestamp: new Date(),
+                            result: result.success ? result.result : result.error,
+                            rootExecutionId: fullContext.conversationId || executionId,
+                            executionLevel: 2, // Tool level
+                            executionPath: [fullContext.conversationId || executionId, executionId],
+                            metadata: {
+                                executionId: result.executionId,
+                                success: result.success,
+                                round: currentRound
+                            }
+                        });
+                    }
+                }
+
                 toolsExecuted.push(...toolSummary.results.map(r => r.toolName || 'unknown'));
 
                 // Add tool results to history in the order they were called
@@ -805,7 +848,49 @@ export class ExecutionService {
                     continueOnError: true
                 };
 
+                // Emit tool_call_start events for each tool (streaming)
+                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                    for (const toolCall of toolCalls) {
+                        this.eventService.emit('tool_call_start', {
+                            sourceType: 'agent',
+                            sourceId: context?.conversationId || executionId,
+                            toolName: toolCall.function?.name,
+                            timestamp: new Date(),
+                            parameters: JSON.parse(toolCall.function?.arguments || '{}'),
+                            rootExecutionId: context?.conversationId || executionId,
+                            executionLevel: 2, // Tool level
+                            executionPath: [context?.conversationId || executionId, executionId],
+                            metadata: {
+                                toolCallId: toolCall.id,
+                                executionId: executionId,
+                                streamMode: true
+                            }
+                        });
+                    }
+                }
+
                 const toolSummary = await this.toolExecutionService.executeTools(toolContext);
+
+                // Emit tool_call_complete events for each completed tool (streaming)
+                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                    for (const result of toolSummary.results) {
+                        this.eventService.emit('tool_call_complete', {
+                            sourceType: 'agent',
+                            sourceId: context?.conversationId || executionId,
+                            toolName: result.toolName,
+                            timestamp: new Date(),
+                            result: result.success ? result.result : result.error,
+                            rootExecutionId: context?.conversationId || executionId,
+                            executionLevel: 2, // Tool level
+                            executionPath: [context?.conversationId || executionId, executionId],
+                            metadata: {
+                                executionId: result.executionId,
+                                success: result.success,
+                                streamMode: true
+                            }
+                        });
+                    }
+                }
 
                 // Add tool results to conversation in the order they were called
                 for (const toolCall of toolCalls) {
