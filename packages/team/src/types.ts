@@ -1,4 +1,4 @@
-import type { AgentConfig as RobotaAgentConfig, AgentTemplate, AIProvider, ToolHooks, EventService } from '@robota-sdk/agents';
+import type { AgentConfig as RobotaAgentConfig, AgentTemplate, AIProvider, EventService } from '@robota-sdk/agents';
 
 /**
  * Interface for template information
@@ -108,7 +108,7 @@ export interface TeamOptions {
      * }
      * ```
      */
-    toolHooks?: ToolHooks;
+    toolHooks?: any; // ToolHooks removed - deprecated
 
     /**
      * Event service for unified event emission across Team/Agent/Tool.
@@ -148,18 +148,18 @@ export interface TeamContainerOptions {
     } | undefined;
     /**
      * Tool execution hooks for monitoring and instrumentation.
-     * If provided, assignTask tool will use AgentDelegationTool with hooks.
-     * If not provided, uses standard createTaskAssignmentFacade.
+     * Note: AgentDelegationTool has been removed, now uses createTaskAssignmentFacade only.
      * 
      * @internal Used internally by createTeam
+     * @deprecated Tool hooks are no longer used in the simplified architecture
      */
-    toolHooks?: ToolHooks;
+    toolHooks?: any; // ToolHooks removed - deprecated
 
     /**
      * Event service for unified event emission across Team/Agent/Tool.
      * If provided, will be injected into team agent and temporary agents.
      * If toolHooks are not provided and eventService is provided, 
-     * toolHooks will be automatically generated using EventServiceHookFactory.
+     * Note: EventServiceHookFactory has been removed in the simplified architecture.
      * 
      * @since 2.1.0
      */
