@@ -4,17 +4,18 @@ import {
     AgentConfig,
     ExecutionAnalyticsPlugin,
     BasePlugin,
-    ToolHooks,
+    // ToolHooks removed
     BaseTool,
     SimpleLogger,
     EventService,
     SilentEventService,
     ToolExecutionContext,
-    EventServiceHookFactory  // 🔑 추가
+    // EventServiceHookFactory removed
 } from '@robota-sdk/agents';
 import { v4 as uuidv4 } from 'uuid';
 import { createTaskAssignmentFacade } from './task-assignment/index.js';
-import { AgentDelegationTool } from './tools/agent-delegation-tool.js';
+import { SubAgentEventRelay } from './services/sub-agent-event-relay.js';
+// AgentDelegationTool removed - using createTaskAssignmentFacade only
 
 import {
     TeamContainerOptions,
@@ -165,7 +166,7 @@ export class TeamContainer {
     private totalAgentsCreated: number = 0; // Track total agents created
     private tasksCompleted: number = 0; // Track completed tasks
     private totalExecutionTime: number = 0; // Track total execution time in ms
-    private toolHooks: ToolHooks | undefined; // Tool hooks for assignTask instrumentation
+    private toolHooks: any | undefined; // Tool hooks removed - deprecated
     private eventService: EventService; // Event service for unified event emission
     constructor(options: TeamContainerOptions) {
         this.options = options;
@@ -305,6 +306,17 @@ export class TeamContainer {
      * @throws {Error} When task execution fails
      */
     private async assignTask(params: AssignTaskParams, context?: ToolExecutionContext): Promise<AssignTaskResult> {
+
+        // 🔍 DEBUG: Context 정보 확인
+        console.log('🔍 [TeamContainer] assignTask called with context:', {
+            hasContext: !!context,
+            'context?.executionId': context?.executionId,
+            'context?.parentExecutionId': context?.parentExecutionId,
+            'context?.rootExecutionId': context?.rootExecutionId,
+            'context?.executionLevel': context?.executionLevel,
+            fullContext: context ? JSON.stringify(context, null, 2) : 'NO CONTEXT'
+        });
+
         let temporaryAgent: Robota | null = null;
         let counterIncremented = false; // Track if we incremented the counter
         const agentId = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -341,8 +353,8 @@ export class TeamContainer {
                 sourceId: agentId,
                 taskDescription: params.jobDescription,
                 parameters: params,
-                // Add hierarchical context
-                parentExecutionId,
+                // 🔧 FIXED: Team events should have tool call as parent
+                parentExecutionId: toolExecutionId, // This tool call is the parent
                 rootExecutionId,
                 executionLevel: agentLevel, // Team level + 1
                 executionPath: agentPath,
@@ -364,7 +376,7 @@ export class TeamContainer {
                     analysisResult: 'Task requirements analyzed and agent template selected',
                     selectedTemplate: params.agentTemplate
                 },
-                parentExecutionId,
+                parentExecutionId: toolExecutionId, // This tool call is the parent
                 rootExecutionId,
                 executionLevel: agentLevel, // Team level + 1
                 executionPath: agentPath,
@@ -441,8 +453,8 @@ export class TeamContainer {
                         agentId: agentId,
                         allowFurtherDelegation: params.allowFurtherDelegation
                     },
-                    // Add hierarchical context
-                    parentExecutionId: parentExecutionId,
+                    // 🔧 FIXED: Team events should have tool call as parent
+                    parentExecutionId: toolExecutionId, // This tool call is the parent
                     rootExecutionId: rootExecutionId,
                     executionLevel: agentLevel, // Team level + 1
                     executionPath: agentPath,
@@ -506,8 +518,14 @@ export class TeamContainer {
                     tools: [...delegationTools, ...(this.options.baseRobotaOptions.tools || [])]
                 };
 
-                // Add EventService to temporary agent
-                tempAgentConfig.eventService = this.eventService;
+                // 🎯 Create SubAgentEventRelay for automatic parent connection
+                const subAgentEventService = new SubAgentEventRelay(
+                    this.eventService,
+                    toolExecutionId  // assignTask tool call ID as parent
+                );
+
+                // Add SubAgentEventRelay to temporary agent for automatic hierarchy
+                tempAgentConfig.eventService = subAgentEventService;
 
                 temporaryAgent = new Robota(tempAgentConfig);
 
@@ -524,8 +542,8 @@ export class TeamContainer {
                             provider: template.config.provider,
                             model: template.config.model
                         },
-                        // Add hierarchical context
-                        parentExecutionId: parentExecutionId,
+                        // 🔧 FIXED: Team events should have tool call as parent
+                        parentExecutionId: toolExecutionId, // This tool call is the parent
                         rootExecutionId: rootExecutionId,
                         executionLevel: agentLevel, // Team level + 1
                         executionPath: agentPath,
@@ -561,8 +579,14 @@ export class TeamContainer {
                     tools: [...delegationTools, ...(this.options.baseRobotaOptions.tools || [])]
                 };
 
-                // Add EventService to dynamic agent
-                dynamicAgentConfig.eventService = this.eventService;
+                // 🎯 Create SubAgentEventRelay for automatic parent connection (dynamic agent)
+                const dynamicSubAgentEventService = new SubAgentEventRelay(
+                    this.eventService,
+                    toolExecutionId  // assignTask tool call ID as parent
+                );
+
+                // Add SubAgentEventRelay to dynamic agent for automatic hierarchy
+                dynamicAgentConfig.eventService = dynamicSubAgentEventService;
 
                 temporaryAgent = new Robota(dynamicAgentConfig);
             }
@@ -581,8 +605,8 @@ export class TeamContainer {
                         agentId: agentId,
                         agentName: temporaryAgent.name
                     },
-                    // Add hierarchical context
-                    parentExecutionId: parentExecutionId,
+                    // 🔧 FIXED: Team events should have tool call as parent
+                    parentExecutionId: toolExecutionId, // This tool call is the parent
                     rootExecutionId: rootExecutionId,
                     executionLevel: agentLevel, // Team level + 1
                     executionPath: agentPath,
@@ -606,8 +630,8 @@ export class TeamContainer {
                     sourceId: agentId,
                     taskDescription: `Completed execution: ${params.jobDescription}`,
                     result: result.substring(0, 200) + '...',
-                    // Add hierarchical context
-                    parentExecutionId: parentExecutionId,
+                    // 🔧 FIXED: Team events should have tool call as parent
+                    parentExecutionId: toolExecutionId, // This tool call is the parent
                     rootExecutionId: rootExecutionId,
                     executionLevel: agentLevel, // Team level + 1
                     executionPath: agentPath,
@@ -634,8 +658,8 @@ export class TeamContainer {
                             resultLength: result.length
                         }]
                     },
-                    // Add hierarchical context
-                    parentExecutionId: parentExecutionId,
+                    // 🔧 FIXED: Team events should have tool call as parent
+                    parentExecutionId: toolExecutionId, // This tool call is the parent
                     rootExecutionId: rootExecutionId,
                     executionLevel: agentLevel, // Team level + 1
                     executionPath: agentPath,
@@ -661,8 +685,8 @@ export class TeamContainer {
                     sourceId: 'task-aggregator',
                     taskDescription: 'Result aggregation and synthesis completed',
                     result: `Synthesized result from ${params.agentTemplate} agent`,
-                    // Add hierarchical context
-                    parentExecutionId: parentExecutionId,
+                    // 🔧 FIXED: Team events should have tool call as parent
+                    parentExecutionId: toolExecutionId, // This tool call is the parent
                     rootExecutionId: rootExecutionId,
                     executionLevel: agentLevel, // Team level + 1
                     executionPath: agentPath,
@@ -1033,7 +1057,7 @@ export class TeamContainer {
 
     /**
      * Create AssignTask tool using the task assignment system
-     * Uses AgentDelegationTool with hooks if toolHooks provided or eventService available
+     * Simplified to use createTaskAssignmentFacade only
      */
     private createAssignTaskTool(): BaseTool<any, any> {
         // Convert templates to the format expected by the task assignment system
@@ -1042,35 +1066,15 @@ export class TeamContainer {
             description: template.description
         }));
 
-        // 🔑 eventService가 있고 toolHooks가 없으면 자동 생성
-        const effectiveHooks = this.toolHooks ||
-            (this.eventService && !(this.eventService instanceof SilentEventService)
-                ? EventServiceHookFactory.createToolHooks(this.eventService, 'team-assignTask')
-                : undefined);
+        // Use standard task assignment facade (simplified approach)
+        const taskAssignment = createTaskAssignmentFacade(
+            templateInfo,
+            async (params: AssignTaskParams, context?: ToolExecutionContext) => {
+                return await this.assignTask(params, context);
+            }
+        );
 
-        if (effectiveHooks) {
-            // Use AgentDelegationTool with hooks for instrumentation
-            const delegationTool = new AgentDelegationTool({
-                hooks: effectiveHooks,
-                availableTemplates: templateInfo,
-                executor: async (params: AssignTaskParams, context?: ToolExecutionContext) => {
-                    return await this.assignTask(params, context);
-                },
-                logger: this.logger,
-                eventService: this.eventService // 🎯 Pass EventService for Enhanced EventService integration
-            });
-            return delegationTool as unknown as BaseTool<any, any>;
-        } else {
-            // Use standard task assignment facade (existing behavior)
-            const taskAssignment = createTaskAssignmentFacade(
-                templateInfo,
-                async (params: AssignTaskParams) => {
-                    return await this.assignTask(params);
-                }
-            );
-
-            return taskAssignment.tool;
-        }
+        return taskAssignment.tool;
     }
 
     /**

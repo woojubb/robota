@@ -79,6 +79,7 @@ export interface ToolExecutionResult {
 export interface ToolExecutionContext {
     toolName: string;
     parameters: ToolParameters;
+    executionId?: string; // Tool execution ID (typically tool call ID)
     userId?: string;
     sessionId?: string;
     metadata?: ToolMetadata;

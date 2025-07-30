@@ -1,707 +1,184 @@
 import { ToolExecutionResult, ToolResult, ToolExecutionContext } from '../interfaces/tool';
-import { Tools } from '../managers/tool-manager';
-import { Logger, createLogger } from '../utils/logger';
+import type { ToolManagerInterface } from '../interfaces/manager';
+import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
 import { ToolExecutionError, ValidationError } from '../utils/errors';
-import { EventService, SilentEventService } from './event-service';
 
-/**
- * Reusable type definitions for tool execution service
- */
-
-/**
- * Service tool execution data type
- * Used for storing tool execution parameters and metadata
- */
-export type ServiceToolExecutionData = Record<string, string | number | boolean | string[] | number[] | boolean[]>;
-
-/**
- * Service tool execution metadata type
- * Used for storing extended metadata including objects and arrays
- */
-export type ServiceToolExecutionMetadata = Record<string, string | number | boolean | Date | Error | string[] | number[] | boolean[] | ServiceToolExecutionData | Required<ToolExecutionServiceOptions> | null | undefined>;
-
-/**
- * Tool execution request
- */
+// Add missing types for ExecutionService compatibility
 export interface ToolExecutionRequest {
-    /** Tool name to execute */
     toolName: string;
-    /** Input parameters for the tool */
-    parameters: ServiceToolExecutionData;
-    /** Execution ID for tracking */
+    parameters: Record<string, any>;
     executionId?: string;
-    /** Additional metadata */
-    metadata?: ServiceToolExecutionData;
+    metadata?: Record<string, any>;
 }
 
-/**
- * Tool execution batch context
- */
 export interface ToolExecutionBatchContext {
-    /** Execution requests */
     requests: ToolExecutionRequest[];
-    /** Execution mode */
     mode: 'parallel' | 'sequential';
-    /** Maximum execution time in milliseconds */
     timeout?: number;
-    /** Whether to continue on error (sequential mode only) */
     continueOnError?: boolean;
-    /** Maximum concurrent executions (parallel mode only) */
     maxConcurrency?: number;
+    parentContext?: ToolExecutionContext;
 }
 
 /**
- * Tool execution summary
- */
-export interface ToolExecutionSummary {
-    /** Total number of tools executed */
-    totalExecuted: number;
-    /** Number of successful executions */
-    successful: number;
-    /** Number of failed executions */
-    failed: number;
-    /** Total execution time in milliseconds */
-    totalDuration: number;
-    /** Average execution time per tool */
-    averageDuration: number;
-    /** Execution results */
-    results: ToolExecutionResult[];
-    /** Errors that occurred */
-    errors: Array<{
-        toolName: string;
-        error: Error;
-        executionId?: string;
-    }>;
-}
-
-/**
- * Tool execution statistics
- */
-export interface ToolExecutionStats {
-    /** Total tools executed */
-    totalExecutions: number;
-    /** Average execution time */
-    averageExecutionTime: number;
-    /** Success rate */
-    successRate: number;
-    /** Most used tools */
-    mostUsedTools: Array<{ name: string; count: number }>;
-    /** Error rate by tool */
-    errorRates: Record<string, number>;
-}
-
-/**
- * Tool execution service options
- */
-export interface ToolExecutionServiceOptions {
-    /** Default execution timeout */
-    defaultTimeout?: number;
-    /** Default maximum concurrency */
-    defaultMaxConcurrency?: number;
-    /** Whether to collect execution statistics */
-    collectStats?: boolean;
-    /** Maximum number of execution history to keep */
-    maxHistorySize?: number;
-}
-
-/**
- * Service for executing tools and managing tool execution workflows
+ * Simplified ToolExecutionService
+ * Focuses only on core tool execution without complex hierarchy tracking
  */
 export class ToolExecutionService {
-    private logger: Logger;
-    private toolManager: Tools;
-    private options: Required<ToolExecutionServiceOptions>;
-    private executionHistory: ToolExecutionSummary[] = [];
-    private executionStats: Map<string, { count: number; totalTime: number; errors: number }> = new Map();
-    private eventService: EventService;
+    private tools: ToolManagerInterface;
+    private logger: SimpleLogger;
 
-    constructor(
-        toolManager: Tools,
-        options: ToolExecutionServiceOptions = {},
-        eventService?: EventService
-    ) {
-        this.toolManager = toolManager;
-        this.logger = createLogger('ToolExecutionService');
-        this.eventService = eventService || new SilentEventService();
-        this.options = {
-            defaultTimeout: options.defaultTimeout || 120000, // Increased to 2 minutes for complex team tasks
-            defaultMaxConcurrency: options.defaultMaxConcurrency || 5,
-            collectStats: options.collectStats ?? true,
-            maxHistorySize: options.maxHistorySize || 100,
-        };
-
-        // 🎯 Debug: Check if Enhanced EventService is available
-        const hasTrackExecution = this.eventService && typeof (this.eventService as any).trackExecution === 'function';
-        const hasCreateBoundEmit = this.eventService && typeof (this.eventService as any).createBoundEmit === 'function';
-
-        this.logger.info('ToolExecutionService initialized', {
-            defaultTimeout: this.options.defaultTimeout,
-            defaultMaxConcurrency: this.options.defaultMaxConcurrency,
-            collectStats: this.options.collectStats,
-            maxHistorySize: this.options.maxHistorySize,
-            eventServiceType: this.eventService?.constructor?.name || 'undefined',
-            hasTrackExecution,
-            hasCreateBoundEmit,
-            isEnhancedEventService: hasTrackExecution && hasCreateBoundEmit
-        });
+    constructor(tools: ToolManagerInterface, logger?: SimpleLogger) {
+        this.tools = tools;
+        this.logger = logger || SilentLogger;
     }
 
     /**
      * Execute a single tool
+     * @param toolName - Name of the tool to execute
+     * @param parameters - Tool parameters
+     * @param context - Optional execution context
+     * @returns Promise resolving to tool execution result
      */
-    async executeTool(request: ToolExecutionRequest): Promise<ToolExecutionResult> {
-        const startTime = Date.now();
-        const executionId = request.executionId || this.generateExecutionId();
+    async executeTool(
+        toolName: string,
+        parameters: Record<string, any>,
+        context?: ToolExecutionContext
+    ): Promise<ToolExecutionResult> {
+        this.logger.debug(`Executing tool: ${toolName}`);
 
         try {
-            this.logger.debug('Starting tool execution', {
-                toolName: request.toolName,
-                executionId,
-                parametersCount: Object.keys(request.parameters).length,
-            });
-
-            // Note: Tool events are emitted by ToolHooks in BaseTool.execute()
-            // This provides more detailed hierarchical context information
-
-            // Get tool from manager
-            const tool = this.toolManager.getTool(request.toolName);
-            if (!tool) {
-                throw new ValidationError(`Tool "${request.toolName}" not found`);
-            }
-
-            // Validate parameters
-            const validation = tool.validateParameters(request.parameters);
-            if (!validation.isValid) {
-                throw new ValidationError(
-                    `Invalid parameters for tool "${request.toolName}": ${validation.errors.join(', ')}`
-                );
-            }
-
-
-
-            // Build ToolExecutionContext for proper event emission with hierarchical information
-            const toolContext: ToolExecutionContext = {
-                toolName: request.toolName,
-                parameters: request.parameters,
-                executionId: executionId,
-                metadata: request.metadata,
-
-                // Extract hierarchical information from request metadata
-                parentExecutionId: request.metadata?.parentExecutionId as string,
-                rootExecutionId: request.metadata?.rootExecutionId as string,
-                executionLevel: (request.metadata?.executionLevel as number) || 2, // Default to tool level
-                executionPath: request.metadata?.executionPath as string[],
-
-                realTimeData: {
-                    startTime: new Date(startTime),
-                    actualParameters: request.parameters
-                }
+            // Create execution context if not provided
+            const executionContext: ToolExecutionContext = {
+                toolName,
+                parameters,
+                executionId: context?.executionId || `${toolName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                ...context
             };
 
-            // 🎯 Enhanced EventService Duck Typing Detection
-            // Automatically track execution hierarchy if ActionTrackingEventService is available
+            // Execute the tool
+            const result = await this.tools.executeTool(toolName, parameters);
 
-            // Debug: Log eventService type and available methods
-            this.logger.debug('Duck Typing Detection Check', {
-                eventServiceType: this.eventService?.constructor?.name,
-                hasEventService: !!this.eventService,
-                hasTrackExecution: this.eventService && typeof (this.eventService as any).trackExecution === 'function',
-                hasCreateBoundEmit: this.eventService && typeof (this.eventService as any).createBoundEmit === 'function',
-                executionId,
-                parentExecutionId: toolContext.parentExecutionId,
-                executionLevel: toolContext.executionLevel
-            });
+            this.logger.debug(`Tool execution completed: ${toolName}`);
 
-            if (this.eventService && typeof (this.eventService as any).trackExecution === 'function') {
-                try {
-                    this.logger.info('🎯 Enhanced EventService DETECTED - Starting automatic hierarchy tracking', {
-                        executionId,
-                        parentExecutionId: toolContext.parentExecutionId,
-                        executionLevel: toolContext.executionLevel
-                    });
-
-                    // 🔧 Register parent execution if not already registered (critical for hierarchy)
-                    if (toolContext.parentExecutionId) {
-                        const parentLevel = (toolContext.executionLevel || 2) - 1;
-                        this.logger.info('📊 Registering parent execution for hierarchy', {
-                            parentExecutionId: toolContext.parentExecutionId,
-                            parentLevel,
-                            toolExecutionId: executionId
-                        });
-
-                        // Register parent execution (this ensures hierarchy continuity)
-                        (this.eventService as any).trackExecution(
-                            toolContext.parentExecutionId,
-                            toolContext.rootExecutionId,
-                            parentLevel
-                        );
-                    }
-
-                    // Register this tool execution in the hierarchy
-                    (this.eventService as any).trackExecution(
-                        executionId,
-                        toolContext.parentExecutionId,
-                        toolContext.executionLevel
-                    );
-
-                    // Create bound emit function for automatic context injection
-                    if (typeof (this.eventService as any).createBoundEmit === 'function') {
-                        const boundEmit = (this.eventService as any).createBoundEmit(executionId);
-
-                        // Add bound emit to toolContext for tools that want to emit custom events
-                        (toolContext as any).boundEmit = boundEmit;
-
-                        this.logger.info('✅ Enhanced EventService hierarchy tracking ENABLED successfully', {
-                            executionId,
-                            parentExecutionId: toolContext.parentExecutionId,
-                            executionLevel: toolContext.executionLevel,
-                            boundEmitCreated: true
-                        });
-                    }
-                } catch (error) {
-                    // Graceful degradation if Enhanced EventService fails
-                    this.logger.warn('❌ Enhanced EventService tracking FAILED, continuing with standard execution', {
-                        error: error instanceof Error ? error.message : String(error),
-                        executionId
-                    });
-                }
-            } else {
-                this.logger.debug('⚠️ Enhanced EventService NOT detected - using standard execution flow', {
-                    eventServiceType: this.eventService?.constructor?.name,
-                    executionId
-                });
-            }
-
-            // Execute tool with timeout and proper context
-            const toolResult = await this.executeWithTimeout(
-                () => tool.execute(request.parameters, toolContext),
-                this.options.defaultTimeout,
-                `Tool execution for ${request.toolName}`
-            ) as ToolResult;
-
-            const duration = Date.now() - startTime;
-
-            // Update statistics
-            if (this.options.collectStats) {
-                this.updateExecutionStats(request.toolName, duration, false);
-            }
-
-            this.logger.info('Tool executed successfully', {
-                toolName: request.toolName,
-                executionId,
-                duration,
-                success: toolResult.success,
-            });
-
-            // Note: Tool completion events are emitted by ToolHooks in BaseTool.execute()
-            // This provides more detailed hierarchical context and result information
-
-            const executionResult: ToolExecutionResult = {
-                success: toolResult.success,
-                toolName: request.toolName,
-                result: typeof toolResult.data === 'string'
-                    ? toolResult.data
-                    : JSON.stringify(toolResult.data),
-                error: toolResult.error || '',
-                executionId,
-                duration,
-                metadata: {
-                    ...toolResult.metadata,
-                    ...request.metadata,
-                },
+            return {
+                success: true,
+                result: result,
+                toolName,
+                executionId: executionContext.executionId!
             };
-
-            return executionResult;
         } catch (error) {
-            const duration = Date.now() - startTime;
+            this.logger.error(`Tool execution failed: ${toolName}`);
 
-            // Update error statistics
-            if (this.options.collectStats) {
-                this.updateExecutionStats(request.toolName, duration, true);
-            }
+            const toolError = error instanceof Error ? error : new Error(String(error));
 
-            this.logger.error('Tool execution failed', {
-                toolName: request.toolName,
-                executionId,
-                duration,
-                errorMessage: error instanceof Error ? error.message : String(error),
-            });
-
-            // Note: Tool error events are emitted by ToolHooks in BaseTool.execute()
-            // This provides more detailed hierarchical context and error information
-
-            throw new ToolExecutionError(
-                error instanceof Error ? error.message : String(error),
-                request.toolName,
-                error instanceof Error ? error : undefined,
-                { executionId, duration }
-            );
+            return {
+                success: false,
+                error: toolError.message,
+                toolName,
+                executionId: context?.executionId || `${toolName}-error-${Date.now()}`
+            };
         }
     }
 
     /**
-     * Execute multiple tools according to context
-     */
-    async executeTools(context: ToolExecutionBatchContext): Promise<ToolExecutionSummary> {
-        const startTime = Date.now();
-
-        this.logger.info('Starting tool execution batch', {
-            mode: context.mode,
-            toolCount: context.requests.length,
-            maxConcurrency: context.maxConcurrency || this.options.defaultMaxConcurrency,
-        });
-
-        let results: ToolExecutionResult[] = [];
-        const errors: Array<{ toolName: string; error: Error; executionId?: string }> = [];
-
-        try {
-            if (context.mode === 'parallel') {
-                const parallelResults = await this.executeToolsParallel(context);
-                results = parallelResults.results;
-                errors.push(...parallelResults.errors);
-            } else {
-                const sequentialResults = await this.executeToolsSequential(context);
-                results = sequentialResults.results;
-                errors.push(...sequentialResults.errors);
-            }
-        } catch (error) {
-            this.logger.error('Tool execution batch failed', {
-                errorMessage: error instanceof Error ? error.message : String(error)
-            });
-            throw error;
-        }
-
-        const totalDuration = Date.now() - startTime;
-        const successful = results.filter(r => r.success).length;
-        const failed = results.length - successful + errors.length;
-
-        const summary: ToolExecutionSummary = {
-            totalExecuted: context.requests.length,
-            successful,
-            failed,
-            totalDuration,
-            averageDuration: results.length > 0 ? totalDuration / results.length : 0,
-            results,
-            errors,
-        };
-
-        // Store execution history
-        if (this.options.collectStats) {
-            this.addToHistory(summary);
-        }
-
-        this.logger.info('Tool execution batch completed', {
-            mode: context.mode,
-            totalExecuted: summary.totalExecuted,
-            successful: summary.successful,
-            failed: summary.failed,
-            totalDuration: summary.totalDuration,
-        });
-
-        return summary;
-    }
-
-    /**
-     * Execute tools in parallel
-     */
-    private async executeToolsParallel(
-        context: ToolExecutionBatchContext
-    ): Promise<{ results: ToolExecutionResult[]; errors: Array<{ toolName: string; error: Error; executionId?: string }> }> {
-        const maxConcurrency = context.maxConcurrency || this.options.defaultMaxConcurrency;
-        const results: ToolExecutionResult[] = [];
-        const errors: Array<{ toolName: string; error: Error; executionId?: string }> = [];
-
-        // Process requests in batches to respect concurrency limit
-        for (let i = 0; i < context.requests.length; i += maxConcurrency) {
-            const batch = context.requests.slice(i, i + maxConcurrency);
-
-            const batchPromises = batch.map(async (request) => {
-                try {
-                    const result = await this.executeTool(request);
-                    return { success: true, result };
-                } catch (error) {
-                    return {
-                        success: false,
-                        error: error as Error,
-                        toolName: request.toolName,
-                        executionId: request.executionId,
-                    };
-                }
-            });
-
-            const batchResults = await Promise.all(batchPromises);
-
-            for (const batchResult of batchResults) {
-                if (batchResult.success && batchResult.result) {
-                    results.push(batchResult.result);
-                } else if (!batchResult.success) {
-                    const errorEntry: { toolName: string; error: Error; executionId?: string } = {
-                        toolName: batchResult.toolName!,
-                        error: batchResult.error!,
-                    };
-                    if (batchResult.executionId) {
-                        errorEntry.executionId = batchResult.executionId;
-                    }
-                    errors.push(errorEntry);
-                }
-            }
-        }
-
-        return { results, errors };
-    }
-
-    /**
-     * Execute tools sequentially
-     */
-    private async executeToolsSequential(
-        context: ToolExecutionBatchContext
-    ): Promise<{ results: ToolExecutionResult[]; errors: Array<{ toolName: string; error: Error; executionId?: string }> }> {
-        const results: ToolExecutionResult[] = [];
-        const errors: Array<{ toolName: string; error: Error; executionId?: string }> = [];
-
-        for (const request of context.requests) {
-            try {
-                const result = await this.executeTool(request);
-                results.push(result);
-            } catch (error) {
-                const errorEntry: { toolName: string; error: Error; executionId?: string } = {
-                    toolName: request.toolName,
-                    error: error as Error,
-                };
-                if (request.executionId) {
-                    errorEntry.executionId = request.executionId;
-                }
-                errors.push(errorEntry);
-
-                // Stop execution if continueOnError is false
-                if (!context.continueOnError) {
-                    this.logger.warn('Stopping sequential execution due to error', {
-                        toolName: request.toolName,
-                        errorMessage: error instanceof Error ? error.message : String(error),
-                    });
-                    break;
-                }
-            }
-        }
-
-        return { results, errors };
-    }
-
-    /**
-     * Get execution statistics
-     */
-    getExecutionStats(): ToolExecutionStats {
-        const totalExecutions = Array.from(this.executionStats.values())
-            .reduce((sum, stats) => sum + stats.count, 0);
-
-        const totalTime = Array.from(this.executionStats.values())
-            .reduce((sum, stats) => sum + stats.totalTime, 0);
-
-        const averageExecutionTime = totalExecutions > 0 ? totalTime / totalExecutions : 0;
-
-        const totalErrors = Array.from(this.executionStats.values())
-            .reduce((sum, stats) => sum + stats.errors, 0);
-
-        const successRate = totalExecutions > 0 ?
-            ((totalExecutions - totalErrors) / totalExecutions) * 100 : 100;
-
-        const mostUsedTools = Array.from(this.executionStats.entries())
-            .map(([name, stats]) => ({ name, count: stats.count }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 10);
-
-        const errorRates: Record<string, number> = {};
-        for (const [name, stats] of this.executionStats.entries()) {
-            errorRates[name] = stats.count > 0 ? (stats.errors / stats.count) * 100 : 0;
-        }
-
-        return {
-            totalExecutions,
-            averageExecutionTime,
-            successRate,
-            mostUsedTools,
-            errorRates,
-        };
-    }
-
-    /**
-     * Get execution history
-     */
-    getExecutionHistory(): ToolExecutionSummary[] {
-        return [...this.executionHistory];
-    }
-
-    /**
-     * Clear execution statistics and history
-     */
-    clearStats(): void {
-        this.executionStats.clear();
-        this.executionHistory = [];
-        this.logger.info('Execution statistics and history cleared');
-    }
-
-    /**
-     * Create tool execution requests from tool calls
-     * 
-     * Converts tool calls from AI provider responses to execution requests.
-     * 
+     * Create execution requests with context (for ExecutionService compatibility)
      * @param toolCalls - Array of tool calls from AI provider
+     * @param context - Execution context
      * @returns Array of tool execution requests
      */
-    createExecutionRequests(toolCalls: Array<{
-        id: string;
-        type: string;
-        function: { name: string; arguments: string };
-    }>): ToolExecutionRequest[] {
-        return toolCalls.map(toolCall => {
-            let parameters: ServiceToolExecutionData = {};
-            try {
-                parameters = JSON.parse(toolCall.function.arguments) as ServiceToolExecutionData;
-            } catch (error) {
-                this.logger.warn('Failed to parse tool arguments', {
-                    toolName: toolCall.function.name,
-                    arguments: toolCall.function.arguments,
-                    errorMessage: error instanceof Error ? error.message : String(error),
-                });
-            }
-
-            return {
-                toolName: toolCall.function.name,
-                parameters,
-                executionId: toolCall.id,
-                metadata: {
-                    toolCallType: toolCall.type,
-                },
-            };
-        });
-    }
-
-    /**
-     * Create execution requests with hierarchical context information
-     */
     createExecutionRequestsWithContext(
-        toolCalls: Array<{
-            id: string;
-            type: string;
-            function: { name: string; arguments: string };
-        }>,
-        hierarchicalContext: {
-            parentExecutionId: string;
-            rootExecutionId: string;
-            executionLevel: number;
-            executionPath: string[];
-        }
+        toolCalls: Array<{ id: string; function: { name: string; arguments: string } }>,
+        context: { parentExecutionId: string; rootExecutionId: string; executionLevel: number; executionPath: string[] }
     ): ToolExecutionRequest[] {
-        return toolCalls.map(toolCall => {
-            let parameters: ServiceToolExecutionData = {};
-            try {
-                parameters = JSON.parse(toolCall.function.arguments) as ServiceToolExecutionData;
-            } catch (error) {
-                this.logger.warn('Failed to parse tool arguments', {
-                    toolName: toolCall.function.name,
-                    arguments: toolCall.function.arguments,
-                    errorMessage: error instanceof Error ? error.message : String(error),
-                });
+        return toolCalls.map(toolCall => ({
+            toolName: toolCall.function.name,
+            parameters: JSON.parse(toolCall.function.arguments),
+            executionId: toolCall.id,
+            metadata: {
+                parentExecutionId: context.parentExecutionId,
+                rootExecutionId: context.rootExecutionId,
+                executionLevel: context.executionLevel,
+                executionPath: context.executionPath
             }
-
-            return {
-                toolName: toolCall.function.name,
-                parameters,
-                executionId: toolCall.id,
-                metadata: {
-                    toolCallType: toolCall.type,
-                    // Add hierarchical context for proper event emission
-                    parentExecutionId: hierarchicalContext.parentExecutionId,
-                    rootExecutionId: hierarchicalContext.rootExecutionId,
-                    executionLevel: hierarchicalContext.executionLevel,
-                    executionPath: hierarchicalContext.executionPath,
-                },
-            };
-        });
+        }));
     }
 
     /**
-     * Format execution results for AI response
+     * Execute tools from batch context (for ExecutionService compatibility)
+     * @param batchContext - Batch execution context
+     * @returns Promise resolving to tool execution summary
      */
-    formatResultsForResponse(summary: ToolExecutionSummary): string {
-        const successfulResults = summary.results.filter(r => r.success);
-        const failedResults = summary.results.filter(r => !r.success);
+    async executeTools(batchContext: ToolExecutionBatchContext): Promise<{ results: ToolExecutionResult[], errors: any[] }> {
+        this.logger.debug(`Executing ${batchContext.requests.length} tools in ${batchContext.mode} mode`);
 
-        let response = '';
+        const results: ToolExecutionResult[] = [];
+        const errors: any[] = [];
 
-        if (successfulResults.length > 0) {
-            response += 'Successfully executed tools:\n';
-            for (const result of successfulResults) {
-                response += `- ${result.toolName}: ${result.result}\n`;
+        if (batchContext.mode === 'parallel') {
+            const promises = batchContext.requests.map(request =>
+                this.executeTool(request.toolName, request.parameters, {
+                    toolName: request.toolName,
+                    parameters: request.parameters,
+                    executionId: request.executionId,
+                    parentExecutionId: request.metadata?.parentExecutionId,
+                    rootExecutionId: request.metadata?.rootExecutionId,
+                    executionLevel: request.metadata?.executionLevel,
+                    executionPath: request.metadata?.executionPath
+                }).catch(error => ({
+                    toolName: request.toolName,
+                    result: null,
+                    success: false,
+                    error: error.message,
+                    executionId: request.executionId
+                }))
+            );
+            const allResults = await Promise.all(promises);
+
+            // Separate successful results from errors
+            allResults.forEach(result => {
+                if (result.success) {
+                    results.push(result);
+                } else {
+                    errors.push({
+                        executionId: result.executionId,
+                        error: result.error,
+                        toolName: result.toolName
+                    });
+                }
+            });
+        } else {
+            // Sequential execution
+            for (const request of batchContext.requests) {
+                try {
+                    const result = await this.executeTool(request.toolName, request.parameters, {
+                        toolName: request.toolName,
+                        parameters: request.parameters,
+                        executionId: request.executionId,
+                        parentExecutionId: request.metadata?.parentExecutionId,
+                        rootExecutionId: request.metadata?.rootExecutionId,
+                        executionLevel: request.metadata?.executionLevel,
+                        executionPath: request.metadata?.executionPath
+                    });
+                    results.push(result);
+
+                    if (!result.success && !batchContext.continueOnError) {
+                        break;
+                    }
+                } catch (error) {
+                    errors.push({
+                        executionId: request.executionId,
+                        error: error instanceof Error ? error.message : String(error),
+                        toolName: request.toolName
+                    });
+
+                    if (!batchContext.continueOnError) {
+                        break;
+                    }
+                }
             }
         }
 
-        if (failedResults.length > 0 || summary.errors.length > 0) {
-            response += '\nTool execution errors:\n';
-            for (const result of failedResults) {
-                response += `- ${result.toolName}: ${result.error}\n`;
-            }
-            for (const error of summary.errors) {
-                response += `- ${error.toolName}: ${error.error.message}\n`;
-            }
-        }
-
-        return response.trim();
+        return { results, errors };
     }
-
-    /**
-     * Update execution statistics
-     */
-    private updateExecutionStats(toolName: string, duration: number, hasError: boolean): void {
-        if (!this.executionStats.has(toolName)) {
-            this.executionStats.set(toolName, { count: 0, totalTime: 0, errors: 0 });
-        }
-
-        const stats = this.executionStats.get(toolName)!;
-        stats.count++;
-        stats.totalTime += duration;
-        if (hasError) {
-            stats.errors++;
-        }
-    }
-
-    /**
-     * Add execution summary to history
-     */
-    private addToHistory(summary: ToolExecutionSummary): void {
-        this.executionHistory.push(summary);
-
-        // Keep history size within limit
-        if (this.executionHistory.length > this.options.maxHistorySize) {
-            this.executionHistory.shift();
-        }
-    }
-
-    /**
-     * Execute function with timeout
-     */
-    private async executeWithTimeout<T>(
-        fn: () => Promise<T>,
-        timeoutMs: number,
-        operation: string
-    ): Promise<T> {
-        return Promise.race([
-            fn(),
-            new Promise<never>((_, reject) => {
-                setTimeout(
-                    () => reject(new ToolExecutionError(`${operation} timed out after ${timeoutMs}ms`, operation)),
-                    timeoutMs
-                );
-            }),
-        ]);
-    }
-
-    /**
-     * Generate unique execution ID
-     */
-    private generateExecutionId(): string {
-        const timestamp = Date.now();
-        const random = Math.random().toString(36).substring(2, 8);
-        return `exec_${timestamp}_${random}`;
-    }
-} 
+}
