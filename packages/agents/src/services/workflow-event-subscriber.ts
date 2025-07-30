@@ -221,6 +221,12 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
             case 'team.analysis_complete':
                 this.handleTeamAnalysisComplete(data);
                 break;
+            case 'subtool.call_start':
+                this.handleToolCallStart(data); // 동일한 핸들러 사용
+                break;
+            case 'subtool.call_complete':
+                this.handleToolCallComplete(data); // 동일한 핸들러 사용
+                break;
         }
     }
 
@@ -437,6 +443,23 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
         };
     }
 
+    private createMergeResultsNode(data: ServiceEventData): WorkflowNode {
+        return {
+            id: `merge_results_${data.executionId}`,
+            type: 'merge_results',
+            parentId: data.sourceType === 'sub-agent' ? `sub_agent_${data.sourceId}` : `agent_${data.sourceId}`,
+            level: data.executionLevel || 2,
+            status: 'running',
+            data: {
+                eventType: 'task.aggregation_start',
+                sourceId: data.sourceId,
+                sourceType: data.sourceType
+            },
+            timestamp: data.timestamp || new Date(),
+            connections: []
+        };
+    }
+
     private createFinalResponseNode(data: ServiceEventData): WorkflowNode {
         return {
             id: `final_response_${data.sourceId}`,
@@ -562,11 +585,11 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
     }
 
     /**
-     * Task Aggregation Start 이벤트 처리 → agent_thinking Node
+     * Task Aggregation Start 이벤트 처리 → merge_results Node
      */
     private handleTaskAggregationStart(data: ServiceEventData): void {
         console.log(`🔔 [WorkflowEventSubscriber] Processing task.aggregation_start event`);
-        const node = this.createAgentThinkingNode(data);
+        const node = this.createMergeResultsNode(data);
         this.emitNodeUpdate('create', node);
     }
 
@@ -575,7 +598,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      */
     private handleTaskAggregationComplete(data: ServiceEventData): void {
         console.log(`🔔 [WorkflowEventSubscriber] Processing task.aggregation_complete event`);
-        const node = this.createFinalResponseNode(data);
+        const node = this.createMergeResultsNode(data);
         this.emitNodeUpdate('create', node);
     }
 

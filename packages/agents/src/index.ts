@@ -296,7 +296,8 @@ export type { ExecutionNode } from './services/event-service';
 // Workflow Services (Phase 2)
 export {
     WorkflowEventSubscriber,
-    RealTimeWorkflowBuilder
+    RealTimeWorkflowBuilder,
+    RealTimeMermaidGenerator
 } from './services';
 export type {
     WorkflowNode,

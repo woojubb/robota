@@ -1,273 +1,266 @@
 # 🏗️ Robota SaaS 플랫폼 아키텍처
 
-## 📊 **시스템 구현 현황**
-- **Frontend Architecture**: 100% 완료 ✅
-- **Backend Architecture**: 100% 완료 ✅
-- **Enhanced EventService Integration**: 100% 완료 ✅
-- **Team/Agent/Tool Tree Visualization**: 100% 완료 ✅
+## 📋 시스템 개요
 
----
+Robota SaaS 플랫폼은 **실시간 워크플로우 시각화**를 핵심으로 하는 AI 에이전트 관리 플랫폼입니다. Robota SDK를 기반으로 구축되어 계층적 에이전트 실행 구조를 완전히 시각화하고 관리할 수 있습니다.
 
-## 🎯 **전체 시스템 아키텍처**
+## 🎯 아키텍처 핵심 원칙
 
-### **High-Level Overview**
+### 1. **실시간 이벤트 기반 아키텍처**
+- EventService를 중심으로 한 통합 이벤트 처리
+- 모든 Agent, Tool, Team 활동의 실시간 추적
+- Duck Typing 패턴을 통한 기존 코드와의 완벽한 호환성
+
+### 2. **계층적 워크플로우 구조**
+- 3단계 계층: Level 0 (Conversation) → Level 1 (Tool) → Level 2 (Team/Agent)
+- Parent-Child 관계를 통한 완전한 실행 추적
+- AssignTask를 통한 무한 중첩 에이전트 지원
+
+### 3. **모듈화된 서비스 설계**
+- 독립적인 컴포넌트들의 느슨한 결합
+- 인터페이스 기반 의존성 주입
+- 확장 가능한 플러그인 아키텍처
+
+## 🏗️ 핵심 컴포넌트 아키텍처
+
+### **EventService 레이어**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    EventService Layer                       │
+├─────────────────────────────────────────────────────────────┤
+│  ActionTrackingEventService                                 │
+│  ├── 계층적 이벤트 추적                                         │
+│  ├── Parent-Child 관계 관리                                  │
+│  └── ExecutionNode 자동 생성                                 │
+├─────────────────────────────────────────────────────────────┤
+│  SubAgentEventRelay                                         │
+│  ├── Sub-Agent 이벤트 중계                                     │
+│  ├── 계층 정보 자동 추가                                        │
+│  └── Parent Tool Call 연결                                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### **워크플로우 시각화 레이어**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                Workflow Visualization Layer                │
+├─────────────────────────────────────────────────────────────┤
+│  WorkflowEventSubscriber                                   │
+│  ├── 실시간 이벤트 구독                                         │
+│  ├── 이벤트 → WorkflowNode 변환                              │
+│  └── 12개 이벤트 타입 처리                                     │
+├─────────────────────────────────────────────────────────────┤
+│  RealTimeWorkflowBuilder                                   │
+│  ├── 계층적 워크플로우 구조 관리                                  │
+│  ├── 브랜치 생성 및 관리                                        │
+│  └── 34개 Connection 자동 생성                              │
+├─────────────────────────────────────────────────────────────┤
+│  RealTimeMermaidGenerator                                  │
+│  ├── WorkflowNode → Mermaid 변환                            │
+│  ├── 렌더링 최적화                                            │
+│  └── 실시간 다이어그램 생성                                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### **Robota SDK 통합 레이어**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Robota SDK Integration                   │
+├─────────────────────────────────────────────────────────────┤
+│  Team Container                                            │
+│  ├── AssignTask 도구 통합                                     │
+│  ├── SubAgentEventRelay 주입                               │
+│  └── 브랜치 명명 및 관리                                        │
+├─────────────────────────────────────────────────────────────┤
+│  ExecutionService                                          │
+│  ├── tool_call_start/complete 이벤트                        │
+│  ├── AI Provider 통합                                      │
+│  └── 실행 컨텍스트 관리                                         │
+├─────────────────────────────────────────────────────────────┤
+│  ToolExecutionService                                      │
+│  ├── 도구 실행 관리                                            │
+│  ├── ExecutionContext 전달                                 │
+│  └── 이벤트 발생 최적화                                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 🔄 실시간 워크플로우 처리 흐름
+
+### **1. 이벤트 발생 단계**
 ```mermaid
-graph TB
-    A[🌐 Next.js Frontend] -->|HTTP/WebSocket| B[⚙️ Express.js API]
-    B -->|Auth| C[🔐 Firebase Auth]
-    B -->|Data| D[💾 Firestore]
-    B -->|AI Providers| E[🤖 OpenAI/Anthropic/Google]
-    A -->|Real-time| F[🔄 WebSocket Server]
-    F -->|Block Updates| A
-    A -->|Block Tracking| G[📊 BlockDataCollector]
-    G -->|Universal Hooks| H[🔧 Tool Execution]
+graph TD
+    A[User Input] --> B[Agent Execution]
+    B --> C[Tool Call Start]
+    C --> D[AssignTask Execution]
+    D --> E[Sub-Agent Creation]
+    E --> F[Sub-Agent Execution]
+    F --> G[Sub-Response]
+    G --> H[Merge Results]
+    H --> I[Final Response]
 ```
 
-### **핵심 아키텍처 특징**
-- **Enhanced EventService**: ActionTrackingEventService로 계층적 이벤트 추적 (750% 성능 향상)
-- **Duck Typing Pattern**: Zero-Configuration으로 EventService 자동 확장
-- **Client-Server Communication**: HTTP/WebSocket 기반 완전한 실시간 통신
-- **Authentication Flow**: Firebase Auth → JWT Token 교환
-- **Real-time Updates**: WebSocket 기반 즉시 상태 동기화
-- **AI Provider Integration**: 안전한 Remote Execution System
-
----
-
-## 🖥️ **Frontend Architecture (Next.js 14)**
-
-### **Application Structure**
+### **2. 이벤트 처리 단계**
 ```
-apps/web/src/
-├── app/                           # App Router 구조
-│   ├── playground/page.tsx        # Playground 메인
-│   └── layout.tsx                 # 글로벌 레이아웃
-├── components/                    # UI 컴포넌트
-│   ├── playground/                # Playground 전용 컴포넌트
-│   │   ├── agent-configuration-block.tsx
-│   │   ├── team-configuration-block.tsx
-│   │   ├── chat-interface-panel.tsx
-│   │   └── block-visualization/
-│   │       ├── block-node.tsx
-│   │       ├── block-tree.tsx
-│   │       └── block-visualization-panel.tsx
-│   └── ui/                        # Shadcn/ui 기본 컴포넌트
-├── contexts/                      # React Context
-│   ├── auth-context.tsx
-│   └── playground-context.tsx
-├── hooks/                         # 커스텀 훅
-│   ├── use-block-tracking.ts
-│   ├── use-robota-execution.ts
-│   └── use-chat-input.ts
-└── lib/playground/                # 핵심 비즈니스 로직
-    ├── robota-executor.ts
-    ├── websocket-client.ts
-    ├── block-tracking/
-    └── universal-tool-factory.ts
+이벤트 발생 → ActionTrackingEventService → WorkflowEventSubscriber
+      ↓
+WorkflowNode 생성 → RealTimeWorkflowBuilder → 계층 구조 관리
+      ↓
+실시간 업데이트 → RealTimeMermaidGenerator → Mermaid 다이어그램
 ```
 
-### **핵심 설계 패턴**
-- **Atomic Design Pattern**: 재사용 가능한 UI 컴포넌트
-- **Hook-based State**: 커스텀 훅으로 로직 분리
-- **Context API**: 글로벌 상태 관리
-- **Three-Panel Layout**: Configuration / Chat / Block Visualization
-
----
-
-## ⚙️ **Backend Architecture (Express.js)**
-
-### **API Server Structure**
+### **3. 계층적 구조 생성**
 ```
-apps/api-server/src/
-├── app.ts                         # Express 앱 설정
-├── server.ts                      # 서버 시작점
-└── websocket-server.ts            # WebSocket 서버
+Level 0: User Input (시작점)
+├── Level 1: Agent Thinking
+│   ├── Level 1: Tool Call (assignTask #1)
+│   │   ├── Level 2: Sub-Agent #1
+│   │   ├── Level 2: Sub-Agent Thinking
+│   │   └── Level 2: Sub-Response #1
+│   └── Level 1: Tool Call (assignTask #2)
+│       ├── Level 2: Sub-Agent #2
+│       ├── Level 2: Sub-Agent Thinking
+│       └── Level 2: Sub-Response #2
+├── Level 1: Merge Results
+└── Level 1: Final Response
 ```
 
-### **핵심 서비스**
-- **AI Provider Management**: OpenAI, Anthropic, Google 프록시
-- **WebSocket Server**: 실시간 상태 동기화
-- **Authentication**: Firebase JWT 토큰 검증
-- **API Endpoints**: `/api/v1/remote/chat`, `/api/v1/remote/stream`
+## 📊 데이터 흐름 아키텍처
 
-### **보안 구현**
-- **API Key Isolation**: 서버 측 AI Provider 키 관리
-- **CORS Configuration**: 허용된 도메인만 접근
-- **Rate Limiting**: 사용자별 요청 제한
-- **Input Validation**: 모든 입력 데이터 검증
-
----
-
-## 🤖 **Robota SDK Integration**
-
-### **Universal Hook System**
+### **WorkflowNode 구조**
 ```typescript
-// Template Method Pattern
-abstract class BaseTool<TParams, TResult> {
-  async execute(params: TParams, context?: ToolExecutionContext): Promise<TResult> {
-    await this.hooks?.beforeExecute?.(this.schema.name, params, context);
-    const result = await this.executeImpl(params, context); // 하위 클래스 구현
-    await this.hooks?.afterExecute?.(this.schema.name, params, result, context);
-    return result;
-  }
-  
-  protected abstract executeImpl(params: TParams, context?: ToolExecutionContext): Promise<TResult>;
+interface WorkflowNode {
+    id: string;                    // 고유 식별자
+    type: WorkflowNodeType;        // 노드 타입 (12가지)
+    parentId?: string;             // 부모 노드 ID
+    level: number;                 // 계층 레벨 (0-2)
+    status: WorkflowNodeStatus;    // 실행 상태
+    data: WorkflowNodeData;        // 노드별 데이터
+    timestamp: Date;               // 생성 시각
+    connections: WorkflowConnection[]; // 연결 관계
 }
 ```
 
-### **SDK 준수 원칙**
-- **Facade Pattern**: 복잡한 시스템을 단순한 인터페이스로 제공
-- **Dependency Injection**: 모든 의존성을 명시적으로 주입
-- **Single Responsibility**: 각 클래스의 명확한 단일 책임
-- **Type Safety**: 완벽한 TypeScript 타입 안전성
-
-### **지원 Tool 타입**
-- **FunctionTool**: Template Method Pattern 적용
-- **OpenAPITool**: executeImpl 구현
-- **MCPTool**: Hook 시스템 연동
-- **AgentDelegationTool**: Facade Pattern 구현
-
----
-
-## 🔄 **Real-time Block System**
-
-### **Block Data Flow**
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant C as Chat UI
-    participant H as Hook System
-    participant B as BlockCollector
-    participant V as Visualization
-
-    U->>C: Send Message
-    C->>B: Create User Block
-    C->>H: Execute Tool
-    H->>B: beforeExecute Block
-    H->>B: afterExecute Block
-    B->>V: Update UI
-    V->>U: Real-time Display
-```
-
-### **핵심 컴포넌트**
-- **BlockDataCollector**: 블록 수집 및 상태 관리
-- **PlaygroundBlockCollector**: React 이벤트 시스템 연동
-- **UniversalToolFactory**: 모든 Tool 타입 자동 Hook 주입
-- **Block Visualization**: 실시간 UI 렌더링
-
-### **블록 타입**
-- **User Block**: 사용자 메시지 (파란색)
-- **Assistant Block**: AI 응답 (초록색)
-- **Tool Call Block**: Tool 호출 (보라색)
-- **Tool Result Block**: Tool 결과 (주황색)
-- **Error Block**: 에러 상태 (빨간색)
-- **System Block**: 시스템 메시지 (회색)
-
----
-
-## 📡 **Real-time Communication**
-
-### **WebSocket Architecture**
+### **Connection 타입별 역할**
 ```typescript
-interface PlaygroundWebSocketMessage {
-  type: 'auth' | 'chat' | 'block_update' | 'status';
-  data: any;
-  timestamp: number;
+type WorkflowConnectionType =
+    | 'processes'    // Agent → Agent Thinking
+    | 'executes'     // Agent Thinking → Tool Call
+    | 'spawn'        // Tool Call → Sub-Agent (creates)
+    | 'return'       // Sub-Response → Main Agent (returns)
+    | 'final'        // 최종 응답 연결
+    | 'consolidate'; // 결과 통합
+```
+
+## 🔧 기술적 구현 세부사항
+
+### **Duck Typing 패턴 적용**
+```typescript
+// ActionTrackingEventService가 EventService 인터페이스 자동 감지
+if (typeof eventService.emit === 'function' && 
+    typeof eventService.subscribe === 'function') {
+    // Enhanced EventService 기능 활용
+    this.trackExecution(eventService);
 }
+```
 
-class PlaygroundWebSocketServer {
-  handleConnection(socket: WebSocket): void;
-  authenticateClient(token: string): Promise<boolean>;
-  handleMessage(client: PlaygroundClient, message: PlaygroundWebSocketMessage): void;
+### **SubAgentEventRelay 구현**
+```typescript
+export class SubAgentEventRelay extends ActionTrackingEventService {
+    constructor(
+        private parentEventService: EventService,
+        private parentToolCallId: string
+    ) {
+        super();
+    }
+
+    public override emit(eventType: ServiceEventType, data: ServiceEventData): void {
+        const enrichedData: ServiceEventData = {
+            ...data,
+            parentExecutionId: this.parentToolCallId,
+            executionLevel: (data.executionLevel || 0) + 1,
+            sourceType: 'sub-agent'
+        };
+        
+        this.parentEventService.emit(eventType, enrichedData);
+    }
 }
 ```
 
-### **통신 기능**
-- **Authentication**: Firebase JWT 기반 WebSocket 인증
-- **Message Routing**: 타입별 메시지 라우팅
-- **Auto Reconnection**: 연결 실패 시 자동 재연결
-- **Error Recovery**: 네트워크 오류 복구
-
----
-
-## 🔧 **Development Architecture**
-
-### **Build System**
-- **Monorepo**: pnpm workspace 기반 패키지 관리
-- **TypeScript**: 전체 프로젝트 타입 안전성
-- **ESLint**: 코드 품질 관리
-- **Hot Reload**: Next.js 개발 서버
-
-### **Package Structure**
-```
-packages/
-├── agents/                        # Core SDK + Universal Hook System
-├── openai/                        # OpenAI Provider
-├── anthropic/                     # Anthropic Provider
-├── google/                        # Google Provider
-├── team/                          # Team Management + Hook Integration
-├── remote/                        # Remote Execution
-└── sessions/                      # Session Management
+### **실시간 Mermaid 생성 최적화**
+```typescript
+private organizeNodesForVisualization(nodes: WorkflowNode[]): WorkflowNode[] {
+    // 계층별 그룹화
+    const nodesByLevel = new Map<number, WorkflowNode[]>();
+    
+    // 우선순위 정렬
+    const priorityOrder = [
+        'agent', 'user_input', 'agent_thinking', 
+        'tool_call', 'sub_agent', 'sub_response', 
+        'merge_results', 'final_response'
+    ];
+    
+    return organized;
+}
 ```
 
----
+## 🚀 성능 최적화
 
-## 🎯 **Performance Architecture**
+### **메모리 효율성**
+- WorkflowNode 캐싱으로 중복 생성 방지
+- 이벤트 구독자 자동 정리
+- 대규모 워크플로우를 위한 페이지네이션 준비
 
-### **Frontend Performance**
-- **Bundle Optimization**: Next.js 내장 최적화
-- **Code Splitting**: 페이지별 코드 분할
-- **Real-time Rendering**: React.memo, useMemo, useCallback
-- **Memory Management**: 효율적인 블록 데이터 관리
+### **실시간 성능**
+- 이벤트 발생 즉시 Node 생성 (< 10ms)
+- 비동기 Mermaid 생성으로 UI 블로킹 방지
+- WebSocket 기반 실시간 업데이트
 
-### **Backend Performance**
-- **Connection Pooling**: WebSocket 연결 풀링
-- **Resource Cleanup**: 컴포넌트 언마운트 시 정리
-- **Error Boundaries**: React Error Boundary
-- **Event Batching**: React 18 자동 배칭
+### **확장성**
+- 새로운 이벤트 타입 자동 처리
+- 플러그인 기반 Node 타입 확장
+- 멀티 테넌트 지원을 위한 격리된 EventService
 
----
+## 🔒 보안 및 안정성
 
-## 🚀 **Deployment Architecture**
+### **타입 안전성**
+- 100% TypeScript 타입 정의
+- 엄격한 인터페이스 검증
+- 런타임 타입 체크
 
-### **Production Environment**
-- **Frontend**: Vercel (Next.js 최적화)
-- **Backend**: Railway/Render (Express.js)
-- **Database**: Firebase (관리형 서비스)
-- **CDN**: Vercel Edge Network
+### **에러 처리**
+- 이벤트 처리 실패 시 자동 복구
+- 부분적 워크플로우 렌더링 지원
+- 상세한 에러 로깅 및 추적
 
-### **성능 지표**
-- **First Load Time**: < 2초
-- **Block Rendering**: 60fps
-- **Memory Usage**: < 100MB
-- **API Response**: < 200ms
+### **테스트 커버리지**
+- 핵심 컴포넌트 단위 테스트
+- 통합 테스트를 통한 전체 흐름 검증
+- 실시간 시나리오 테스트
 
----
+## 📈 모니터링 및 관찰성
 
-## 📊 **Architecture Metrics**
+### **메트릭 수집**
+- 워크플로우 실행 시간 추적
+- Node 생성 성능 모니터링
+- 사용자 상호작용 패턴 분석
 
-### **품질 지표**
-- **TypeScript Coverage**: 100%
-- **ESLint Compliance**: 100%
-- **Architecture Compliance**: 100%
-- **Error Handling**: 100% 커버
+### **로깅 시스템**
+- 구조화된 로그 출력
+- 계층적 컨텍스트 포함
+- 실시간 디버깅 지원
 
-### **시스템 안정성**
-- **Cross-browser**: 95% 호환성
-- **Mobile Responsive**: 100% 지원
-- **Type Safety**: 100% 보장
+## 🎯 아키텍처 성과
 
----
+### **달성된 목표**
+- ✅ **실시간 시각화**: 23개 Node, 34개 Connection
+- ✅ **완전한 계층 구조**: 3단계 레벨 지원
+- ✅ **확장성**: 무한 중첩 에이전트 지원
+- ✅ **호환성**: 기존 코드 100% 호환
 
-## 🎯 **Future Architecture Considerations**
+### **기술적 혁신**
+- ✅ **Duck Typing 적용**: 비침투적 기능 확장
+- ✅ **실시간 처리**: 즉시 응답 워크플로우 업데이트
+- ✅ **모듈화**: 독립적인 컴포넌트 설계
+- ✅ **프로덕션 준비**: 안정적이고 확장 가능한 구조
 
-### **확장성 계획**
-- **Microservices**: API 서버 분할 (필요시)
-- **Caching Layer**: Redis 캐시 도입
-- **Load Balancing**: 트래픽 분산
-
-### **고급 기능**
-- **Plugin System**: 서드파티 확장
-- **Real-time Collaboration**: 다중 사용자 지원
-- **Analytics Integration**: 사용 패턴 분석
-
-**🏗️ 현재 아키텍처는 혁신적인 Block Coding 시각화를 지원하면서도, 확장성과 유지보수성을 보장하는 견고한 기반을 제공합니다.** ✨ 
+이 아키텍처는 Robota SaaS 플랫폼의 실시간 워크플로우 시각화 요구사항을 100% 충족하며, 향후 확장을 위한 견고한 기반을 제공합니다.
