@@ -11,11 +11,11 @@ import { RealTimeWorkflowBuilder, WorkflowUpdate } from './real-time-workflow-bu
 import { UniversalToReactFlowConverter } from './react-flow';
 import { ReactFlowLayoutEngine } from './react-flow/layout-engine';
 import { ReactFlowMetadataMapper } from './react-flow/metadata-mapper';
+import type { MetadataMappingConfig } from './react-flow/metadata-mapper';
 import type {
     ReactFlowData,
     ReactFlowConverterConfig,
-    ReactFlowLayoutConfig,
-    MetadataMappingConfig
+    ReactFlowLayoutConfig
 } from './react-flow/types';
 import type { SimpleLogger } from '../utils/simple-logger';
 import { SilentLogger } from '../utils/simple-logger';

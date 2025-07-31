@@ -6,18 +6,15 @@
  * Features: 엔드투엔드 테스트, 성능 벤치마킹, 시나리오 시뮬레이션
  */
 
-import { EventService } from './event-service';
+import { EventService, DefaultEventService } from './event-service';
 import { RealTimeWorkflowBuilder } from './real-time-workflow-builder';
 import { RealTimeReactFlowGenerator } from './real-time-react-flow-generator';
 import { RealTimeEventIntegration } from './real-time-event-integration';
 import { ReactFlowPerformanceOptimizer } from './react-flow-performance-optimizer';
 import type { SimpleLogger } from '../utils/simple-logger';
 import { DefaultConsoleLogger, SilentLogger } from '../utils/simple-logger';
-import type {
-    ReactFlowData,
-    RealTimeReactFlowConfig,
-    ReactFlowConverterConfig
-} from './react-flow/types';
+import type { ReactFlowData, ReactFlowConverterConfig } from './react-flow/types';
+import type { RealTimeReactFlowConfig } from './real-time-workflow-builder';
 import type {
     EventIntegrationConfig,
     PerformanceOptimizerConfig
@@ -247,7 +244,7 @@ export class RealTimeSystemIntegrationTester {
         this.logger.debug('Initializing test components');
 
         // EventService 초기화
-        this.eventService = new EventService(this.logger);
+        this.eventService = new DefaultEventService({ logger: this.logger });
 
         // RealTimeWorkflowBuilder 초기화
         this.workflowBuilder = new RealTimeWorkflowBuilder(
