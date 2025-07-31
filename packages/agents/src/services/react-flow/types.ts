@@ -6,7 +6,7 @@
  * Patterns: Interface Segregation, Single Responsibility
  */
 
-import type { GenericConfig, GenericMetadata, primitive } from '../../interfaces/base-types';
+import type { GenericConfig, GenericMetadata, primitive, ConfigValue, MetadataValue } from '../../interfaces/base-types';
 
 // ================================
 // React-Flow v12 Core Types
