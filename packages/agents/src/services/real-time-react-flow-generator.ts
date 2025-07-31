@@ -293,7 +293,7 @@ export class RealTimeReactFlowGenerator {
                 validateOutput: false
             };
 
-            const layoutResult = await this.layoutEngine.calculateLayout(reactFlowData, layoutOptions);
+            const layoutResult = await this.layoutEngine.calculateReactFlowLayout(reactFlowData, layoutOptions);
             layoutTime = Date.now() - layoutStart;
 
             if (!layoutResult.success || !layoutResult.nodes.length) {
