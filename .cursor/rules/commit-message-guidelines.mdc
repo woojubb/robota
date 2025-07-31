@@ -1,4 +1,7 @@
-# Git Commit Message Guidelines
+---
+description: "Git commit message standards and formatting guidelines"
+---
+# Commit Message Standards
 
 ## Language Requirements
 - **ALL commit messages MUST be written in English only**
@@ -74,14 +77,9 @@ NOT:
 - What technical patterns did you use?
 - What code structure changes were made?
 
-## Common English Translations
-- 수정 → fix, resolve, update
-- 추가 → add, implement  
-- 제거 → remove, delete
-- 개선 → improve, enhance
-- 문제 → issue, bug
-- 기능 → feature
-- 인증 → authentication
-- 연결 → connection
-- 모니터링 → monitoring
-- 실행 → execution
+## Common Action Verbs
+- Fix: resolve, correct, repair
+- Add: implement, introduce, create
+- Remove: delete, eliminate, clean up
+- Improve: enhance, optimize, refine
+- Update: modify, change, adjust
