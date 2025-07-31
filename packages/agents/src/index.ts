@@ -313,6 +313,54 @@ export type {
     WorkflowUpdate
 } from './services';
 
+// Universal Workflow System (Phase 1 - React-Flow Integration)
+export type {
+    UniversalWorkflowStructure,
+    UniversalWorkflowNode,
+    UniversalWorkflowEdge,
+    UniversalPosition,
+    UniversalVisualState,
+    UniversalDimensions,
+    UniversalLayoutConfig,
+    UniversalConversionOptions,
+    UniversalNodeType,
+    UniversalEdgeType,
+    UNIVERSAL_NODE_TYPES,
+    UNIVERSAL_EDGE_TYPES
+} from './types/universal-workflow-types';
+
+// Workflow Converter Interfaces
+export type {
+    WorkflowConverterInterface,
+    WorkflowConversionOptions,
+    WorkflowConversionResult,
+    WorkflowData
+} from './interfaces/workflow-converter';
+
+export type {
+    LayoutEngineInterface,
+    LayoutCalculationOptions,
+    LayoutCalculationResult
+} from './interfaces/layout-engine';
+
+export type {
+    WorkflowValidatorInterface,
+    ValidationOptions,
+    ValidationResult,
+    ValidationIssue,
+    ValidationSeverity
+} from './interfaces/workflow-validator';
+
+// Abstract Base Classes
+export { BaseWorkflowConverter } from './abstracts/base-workflow-converter';
+export { BaseLayoutEngine } from './abstracts/base-layout-engine';
+export { BaseWorkflowValidator } from './abstracts/base-workflow-validator';
+
+// Concrete Implementations
+export { WorkflowToUniversalConverter } from './services/workflow-to-universal-converter';
+export { HierarchicalLayoutEngine } from './services/layout/hierarchical-layout-engine';
+export { UniversalWorkflowValidator } from './validators/universal-workflow-validator';
+
 // EventServiceHookFactory removed - simplified architecture
 export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy';
 

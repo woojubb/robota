@@ -1,0 +1,124 @@
+---
+alwaysApply: true
+description: Mandatory validation process before using unknown types
+---
+
+# Unknown Type Validation Process
+
+## 🚨 **MANDATORY: 3-Step Verification Before Unknown**
+
+**NEVER** use `unknown` type without completing this verification process. Every `unknown` usage must be justified with this exact process.
+
+## 📋 **30-Second Simulation Process**
+
+### **Step 1: Specific Types Simulation** ⚡
+```
+Q: Can this be string | number | boolean?
+Q: Can this be Date | Error | specific object?
+Q: Can this be a union of known types?
+
+If YES to any → Use specific types, STOP HERE
+If NO to all → Continue to Step 2
+```
+
+### **Step 2: Existing Types Simulation** ⚡
+```
+Q: Can this use WorkflowConfig?
+Q: Can this use WorkflowMetadata? 
+Q: Can this use GenericConfig?
+Q: Can this extend existing interface?
+
+If YES to any → Use/extend existing type, STOP HERE
+If NO to all → Continue to Step 3
+```
+
+### **Step 3: Interface Definition Simulation** ⚡
+```
+Q: Can I define specific interface properties?
+Q: Can I create a typed interface for this use case?
+Q: Can I use composition of existing types?
+
+If YES to any → Define proper interface, STOP HERE
+If NO to all → Proceed to Step 4
+```
+
+### **Step 4: Unknown Justification** (Final Resort)
+Only if ALL above steps failed, then justify with comment:
+
+```typescript
+// eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, [reason]
+data: Record<string, unknown>;
+```
+
+**Valid reasons:**
+- `external-api` - Third-party API returns arbitrary structure
+- `runtime-dynamic` - Data structure determined at runtime
+- `third-party` - Library requires unknown interface
+- `legacy-code` - Interfacing with legacy untyped code
+- `generic-constraint` - Generic type constraint requirement
+
+## 🚫 **Invalid Justifications**
+
+### **❌ Lazy Development**
+```typescript
+// ❌ REJECTED: Not a valid reason
+// eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, flexibility
+config: Record<string, unknown>; // Should use GenericConfig
+```
+
+### **❌ Skipped Verification**
+```typescript
+// ❌ REJECTED: No verification process shown
+// eslint-disable-next-line @typescript-eslint/ban-types -- external-api
+data: unknown; // Must show what alternatives were tried
+```
+
+### **❌ Subjective Judgment**
+```typescript
+// ❌ REJECTED: "seems necessary" is not objective
+// eslint-disable-next-line @typescript-eslint/ban-types -- seems necessary
+params: unknown;
+```
+
+## ✅ **Correct Examples**
+
+### **✅ Valid External API Case**
+```typescript
+// Step 1: ❌ Can't be string|number|boolean (arbitrary JSON)
+// Step 2: ❌ Can't use WorkflowConfig (external structure)  
+// Step 3: ❌ Can't define interface (structure changes per API version)
+// eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, external-api
+apiResponse: Record<string, unknown>;
+```
+
+### **✅ Valid Generic Constraint**
+```typescript
+// Step 1: ❌ Can't be specific (needs to accept any workflow type)
+// Step 2: ❌ Can't use existing (too restrictive for generic)
+// Step 3: ❌ Can't define interface (defeats generic purpose)
+// eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, generic-constraint
+interface BaseConverter<T extends Record<string, unknown>> {}
+```
+
+## 🎯 **Verification Documentation**
+
+Each `unknown` usage must document the verification:
+
+```typescript
+// VERIFICATION PROCESS:
+// Step 1: Tried string|number|boolean - FAILED because [specific reason]
+// Step 2: Tried WorkflowConfig - FAILED because [specific reason]  
+// Step 3: Tried custom interface - FAILED because [specific reason]
+// Conclusion: unknown required for [technical reason]
+// eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, external-api
+data: Record<string, unknown>;
+```
+
+## 🚨 **Enforcement**
+
+- **Code Review**: All `unknown` usages will be challenged
+- **Must Show Work**: Verification process must be documented
+- **Objective Reasons**: Only technical reasons accepted, no subjective judgment
+- **Alternative Required**: Must demonstrate that alternatives were attempted
+
+**Remember**: `unknown` is a failure of type system design. Use it only when TypeScript's type system genuinely cannot express the required constraint.

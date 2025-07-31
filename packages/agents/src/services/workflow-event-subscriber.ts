@@ -7,11 +7,12 @@
 
 import { EventService, ServiceEventType, ServiceEventData, ActionTrackingEventService } from './event-service';
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
+import type { WorkflowData } from '../interfaces/workflow-converter';
 
 /**
  * Workflow Node 기본 구조
  */
-export interface WorkflowNode {
+export interface WorkflowNode extends Record<string, unknown> {
     id: string;
     type: WorkflowNodeType;
     parentId?: string;
@@ -76,7 +77,7 @@ export type WorkflowConnectionType =
 /**
  * Workflow Connection
  */
-export interface WorkflowConnection {
+export interface WorkflowConnection extends Record<string, unknown> {
     fromId: string;
     toId: string;
     type: WorkflowConnectionType;
@@ -86,7 +87,7 @@ export interface WorkflowConnection {
 /**
  * Node Data
  */
-export interface WorkflowNodeData {
+export interface WorkflowNodeData extends Record<string, unknown> {
     eventType?: ServiceEventType;
     sourceId?: string;
     sourceType?: string;
@@ -94,9 +95,10 @@ export interface WorkflowNodeData {
     agentTemplate?: string;
     executionId?: string;
     parentExecutionId?: string;
-    parameters?: any;
-    result?: any;
-    metadata?: any;
+    description?: string; // 빌드 오류 해결을 위해 추가
+    parameters?: Record<string, unknown>;
+    result?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
 }
 
 /**

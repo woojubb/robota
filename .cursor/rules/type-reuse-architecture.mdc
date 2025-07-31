@@ -1,0 +1,162 @@
+---
+alwaysApply: true
+description: Enforces type reuse and prevents type declaration proliferation
+---
+
+# Type Reuse Architecture Guidelines
+
+## 🚫 **Critical Problem: Type Declaration Proliferation**
+
+**NEVER** declare duplicate types across multiple files. The project currently has **100+ files** with `Record<string,` declarations causing compatibility destruction.
+
+## 🏗️ **Feature-Based Type Organization**
+
+### **Core Principle: Feature Ownership**
+- **Each feature folder manages its own types**
+- **No forced centralization** - types belong where they're used
+- **Prevent duplication** across features, not centralize everything
+
+### **Folder Structure Example**
+```
+packages/agents/src/
+├── services/workflow/           # Workflow feature
+│   ├── types.ts                # Workflow-specific types
+│   ├── converter.ts
+│   └── validator.ts
+├── services/execution/          # Execution feature  
+│   ├── types.ts                # Execution-specific types
+│   ├── service.ts
+│   └── manager.ts
+├── interfaces/                  # Shared contracts only
+│   ├── workflow-converter.ts   # Cross-feature interfaces
+│   └── base-types.ts           # Minimal shared base types
+```
+
+## 📋 **Type Reuse Process**
+
+### **Before Creating Any New Type:**
+
+1. **SEARCH WITHIN FEATURE**: Check if type exists in your feature folder
+2. **SEARCH ACROSS FEATURES**: Look for similar concepts in other features  
+3. **CHECK SHARED INTERFACES**: See if base type exists in `interfaces/`
+4. **EXTEND, DON'T DUPLICATE**: Use inheritance/composition
+
+### **Decision Tree:**
+```
+Need new type?
+├── Is it feature-specific? → Create in feature/types.ts
+├── Is it shared across 2+ features? → Consider interfaces/
+├── Does similar type exist elsewhere? → Extend existing
+└── Is it truly unique? → Create new with documentation
+```
+
+## 🎯 **Shared vs Feature Types**
+
+### **✅ What Goes in interfaces/ (Shared)**
+- Cross-feature contracts (`WorkflowConverterInterface`)
+- Base constraint types (`WorkflowData`, `BaseConfig`)
+- Common primitives (`primitive`, `ConfigValue`)
+
+### **✅ What Stays in Feature Folders**
+- Feature-specific data structures (`ExecutionContext`)
+- Implementation details (`ConcreteConverterOptions`)
+- Business logic types (`PaymentStatus`, `UserRole`)
+
+### **❌ What NOT to Share**
+- Platform-specific types (`MermaidConfig` → belongs in mermaid feature)
+- Implementation details (`InternalCacheState`)
+- Feature-specific enums (`WorkflowNodeType` → belongs in workflow feature)
+
+## 🚨 **Prohibited Patterns**
+
+### **❌ Duplicate Record Declarations**
+```typescript
+// ❌ BAD: Same concept, different files
+// File A: services/workflow/types.ts
+interface WorkflowConfig { [key: string]: unknown; }
+
+// File B: services/execution/types.ts  
+interface ExecutionConfig { [key: string]: unknown; }
+
+// ✅ GOOD: Shared base, feature extensions
+// interfaces/base-types.ts
+type GenericConfig = Record<string, ConfigValue>;
+
+// services/workflow/types.ts
+interface WorkflowConfig extends GenericConfig {
+  timeout?: number;
+}
+
+// services/execution/types.ts
+interface ExecutionConfig extends GenericConfig {
+  retries?: number;
+}
+```
+
+### **❌ Cross-Feature Type Coupling**
+```typescript
+// ❌ BAD: Workflow depending on execution internals
+import { ExecutionInternalState } from '../execution/internal-types';
+
+// ✅ GOOD: Use shared interface
+import { ExecutionContext } from '../../interfaces/execution';
+```
+
+## ✅ **Correct Patterns**
+
+### **✅ Feature-Based Type Management**
+```typescript
+// services/workflow/types.ts - Workflow owns its types
+export interface WorkflowNode {
+  id: string;
+  type: WorkflowNodeType;
+  data: WorkflowNodeData;
+}
+
+export interface WorkflowNodeData extends GenericConfig {
+  label: string;
+  // Workflow-specific properties
+}
+```
+
+### **✅ Cross-Feature Interfaces**
+```typescript
+// interfaces/workflow-converter.ts - Shared contract
+export interface WorkflowConverterInterface<TInput, TOutput> {
+  convert(input: TInput): Promise<TOutput>;
+}
+
+// services/workflow/converter.ts - Feature implementation
+export class MyWorkflowConverter implements WorkflowConverterInterface<WorkflowData, UniversalData> {
+  // Implementation using workflow types
+}
+```
+
+## 🔄 **Refactoring Guidelines**
+
+### **When to Move Types**
+1. **Type used by 2+ features** → Consider moving to `interfaces/`
+2. **Type becomes too generic** → Extract base type to `interfaces/`
+3. **Type creates circular dependency** → Split into shared interface
+
+### **When NOT to Move Types**
+1. **Type used only within feature** → Keep in feature folder
+2. **Type is implementation detail** → Never move to shared
+3. **Type is platform-specific** → Keep in platform feature
+
+## 📊 **Success Metrics**
+
+- **Reduced Duplication**: Same concept = same base type
+- **Feature Autonomy**: Teams can work independently on features
+- **Clear Ownership**: Each type has obvious owner/location
+- **Maintainable Sharing**: Shared types are truly cross-cutting
+
+## 🚨 **Enforcement**
+
+Before creating new types, ask:
+1. **Does similar concept exist?** (Search first)
+2. **Where does this belong?** (Feature vs shared)
+3. **Can I extend existing?** (Composition over duplication)
+4. **Is it truly unique?** (Justify new type)
+
+**Remember**: Type reuse doesn't mean centralization. It means **smart organization** and **duplication prevention** within a **feature-based architecture**.

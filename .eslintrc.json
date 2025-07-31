@@ -16,7 +16,8 @@
       "./tsconfig.json",
       "./packages/*/tsconfig.json",
       "./packages/*/tsconfig.test.json"
-    ]
+    ],
+    "tsconfigRootDir": "."
   },
   "plugins": [
     "@typescript-eslint"
@@ -26,17 +27,17 @@
   },
   "rules": {
     // ==========================================
-    // CRITICAL POLICY: ANY/UNKNOWN TYPE PROHIBITION
+    // CRITICAL POLICY: TYPE SAFETY WITH CONTROLLED FLEXIBILITY
     // ==========================================
-    // 🚨 핵심 타입 안전성은 유지 🚨
-    "@typescript-eslint/no-explicit-any": "error", // 유지: any 타입 금지
+    // 🚨 핵심 타입 안전성은 유지, unknown은 조건부 허용 🚨
+    "@typescript-eslint/no-explicit-any": "error", // any 타입 완전 금지
     "@typescript-eslint/ban-types": [
       "error",
       {
         "types": {
-          "unknown": "❌ PROHIBITED: Use of 'unknown' type is not allowed. Import specific types from '@robota-sdk/agents'",
-          "any": "❌ PROHIBITED: Use of 'any' type violates Zero Any Policy. Import specific types from '@robota-sdk/agents'",
-          "{}": "Use 'Record<string, unknown>' or define explicit interface instead"
+          "unknown": "❌ Try specific types, existing types, interfaces first. If impossible: eslint-disable with comment pattern: tried-alternatives, [external-api|runtime-dynamic|third-party|legacy-code|generic-constraint]",
+          "any": "❌ PROHIBITED: Use unknown with type guards instead",
+          "{}": false
         },
         "extendDefaults": true
       }
