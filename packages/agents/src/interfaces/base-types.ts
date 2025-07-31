@@ -8,7 +8,7 @@
 /**
  * Primitive value types
  */
-export type primitive = string | number | boolean;
+export type primitive = string | number | boolean | undefined;
 
 /**
  * Recursive configuration value type
@@ -18,7 +18,8 @@ export type ConfigValue =
     | primitive
     | Date
     | ConfigValue[]
-    | { [key: string]: ConfigValue };
+    | { [key: string]: ConfigValue }
+    | undefined;
 
 /**
  * Generic configuration object
@@ -34,7 +35,8 @@ export type MetadataValue =
     | Date
     | Error
     | MetadataValue[]
-    | { [key: string]: MetadataValue };
+    | { [key: string]: MetadataValue }
+    | undefined;
 
 /**
  * Generic metadata object
