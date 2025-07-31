@@ -213,7 +213,7 @@ export abstract class BaseWorkflowValidator<TWorkflowData extends WorkflowData>
                 processingTime
             });
 
-            return this.createFailureResult(error, startTime, data);
+            return this.createFailureResult(error instanceof Error ? error : new Error(String(error)), startTime, data);
         }
     }
 
@@ -241,7 +241,7 @@ export abstract class BaseWorkflowValidator<TWorkflowData extends WorkflowData>
             const ruleResult = await this.performRuleValidation(data, rule, mergedOptions);
             return this.createValidationResult([rule], startTime, data, mergedOptions, ruleResult.issues);
         } catch (error) {
-            return this.createFailureResult(error, startTime, data);
+            return this.createFailureResult(error instanceof Error ? error : new Error(String(error)), startTime, data);
         }
     }
 
@@ -481,9 +481,9 @@ export abstract class BaseWorkflowValidator<TWorkflowData extends WorkflowData>
                 processingTime,
                 validator: this.name,
                 rulesApplied: appliedRules,
-                dataStats: this.getDataStats(data),
+                dataStats: this.getDataStats(this.extractSimpleData(data)),
                 version: this.version,
-                options: options
+                options: this.extractSimpleOptions(options)
             }
         };
     }
@@ -521,7 +521,7 @@ export abstract class BaseWorkflowValidator<TWorkflowData extends WorkflowData>
                 processingTime,
                 validator: this.name,
                 rulesApplied: [],
-                dataStats: this.getDataStats(data),
+                dataStats: this.getDataStats(this.extractSimpleData(data)),
                 version: this.version
             }
         };
@@ -551,6 +551,44 @@ export abstract class BaseWorkflowValidator<TWorkflowData extends WorkflowData>
             const severityCount = this.stats.issuesBySeverity.get(issue.severity) || 0;
             this.stats.issuesBySeverity.set(issue.severity, severityCount + 1);
         }
+    }
+
+    /**
+     * Extract simple options representation for metadata
+     */
+    private extractSimpleOptions(options: ValidationOptions): string | number | boolean | string[] | Date {
+        // Convert ValidationOptions to simple type safely
+        if (typeof options === 'object' && options !== null) {
+            return `${JSON.stringify(options).substring(0, 100)}...`; // Truncated string representation
+        }
+        return String(options);
+    }
+
+    /**
+     * Extract simple data representation from workflow data for statistics
+     */
+    private extractSimpleData(data: TWorkflowData): Record<string, string | number | boolean> {
+        // Convert TWorkflowData to simple Record format safely
+        const result: Record<string, string | number | boolean> = {};
+
+        // Handle known workflow properties
+        if (data && typeof data === 'object') {
+            const dataObj = data as any;
+            if (Array.isArray(dataObj.nodes)) {
+                result.nodes = dataObj.nodes.length;
+            }
+            if (Array.isArray(dataObj.edges)) {
+                result.edges = dataObj.edges.length;
+            }
+            if (Array.isArray(dataObj.node)) {
+                result.node = dataObj.node.length;
+            }
+            if (Array.isArray(dataObj.connections)) {
+                result.connections = dataObj.connections.length;
+            }
+        }
+
+        return result;
     }
 
     /**
