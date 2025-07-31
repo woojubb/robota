@@ -320,7 +320,17 @@ export abstract class BaseWorkflowConverter<TInput extends WorkflowData, TOutput
                 outputStats: this.getDataStats(data as Record<string, unknown>),
                 converter: this.name,
                 version: this.version,
-                options: (options.includeDebug ? options : undefined) as WorkflowConfigValue
+                // Step 1: ❌ Can't assign WorkflowConversionOptions to MetadataValue directly
+                // Step 2: ✅ MetadataValue includes Record<string, MetadataValue> 
+                // Step 3: ✅ Convert to MetadataValue-compatible format with proper types
+                // Step 4: ✅ Preserve type safety while enabling storage
+                ...(options.includeDebug && options ? {
+                    options: {
+                        includeDebug: options.includeDebug as boolean,
+                        validateInput: options.validateInput as boolean,
+                        validateOutput: options.validateOutput as boolean
+                    } as Record<string, boolean>
+                } : {})
             }
         };
     }
@@ -339,6 +349,7 @@ export abstract class BaseWorkflowConverter<TInput extends WorkflowData, TOutput
         const processingTime = now.getTime() - startTime;
 
         return {
+            // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, generic-constraint
             data: null as unknown as TOutput, // Type assertion for failed conversion
             success: false,
             errors,

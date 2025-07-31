@@ -2,7 +2,7 @@ import type { ToolInterface, ToolResult, ToolExecutionContext, ToolParameters } 
 import type { ToolSchema } from '../../interfaces/provider';
 import { BaseTool, type BaseToolOptions } from '../../abstracts/base-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
-import { logger } from '../../utils/logger';
+import { logger as _logger } from '../../utils/logger';
 
 /**
  * MCP (Model Context Protocol) tool configuration
@@ -91,7 +91,7 @@ export class MCPTool extends BaseTool<ToolParameters, ToolResult> implements Too
      * Execute the MCP tool implementation
      * This method is called by the parent's Template Method Pattern
      */
-    protected async executeImpl(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
+    protected async executeImpl(parameters: ToolParameters, _context?: ToolExecutionContext): Promise<ToolResult> {
         const toolName = this.schema.name;
         const startTime = Date.now();
 

@@ -1,8 +1,8 @@
-import type { UniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage, ConversationMessageMetadata as ConversationContextMetadata } from '../managers/conversation-history-manager';
-import type { AIProvider, ToolCall, ProviderRequest as BaseProviderRequest, RawProviderResponse as BaseRawProviderResponse } from '../interfaces/provider';
-import type { ToolExecutionResult } from '../interfaces/tool';
-import { NetworkError, ProviderError } from '../utils/errors';
-import { createLogger, Logger } from '../utils/logger';
+import type { UniversalMessage, UserMessage, AssistantMessage, SystemMessage, ToolMessage, ConversationMessageMetadata as ConversationContextMetadata } from '../../managers/conversation-history-manager';
+import type { AIProvider, ToolCall, ProviderRequest as BaseProviderRequest, RawProviderResponse as BaseRawProviderResponse } from '../../interfaces/provider';
+import type { ToolExecutionResult } from '../../interfaces/tool';
+import { NetworkError, ProviderError } from '../../utils/errors';
+import { createLogger, Logger } from '../../utils/logger';
 import {
     ConversationContext,
     ConversationResponse,
@@ -10,7 +10,7 @@ import {
     ConversationServiceOptions,
     ContextOptions,
     ConversationServiceInterface
-} from '../interfaces/service';
+} from '../../interfaces/service';
 
 /**
  * Default conversation service options

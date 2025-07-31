@@ -3,7 +3,7 @@ import type { ToolSchema, ParameterSchema } from '../../interfaces/provider';
 import type { OpenAPIV3 } from 'openapi-types';
 import { BaseTool, type BaseToolOptions } from '../../abstracts/base-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
-import { logger } from '../../utils/logger';
+import { logger as _logger } from '../../utils/logger';
 
 /**
  * OpenAPI operation method types
@@ -38,7 +38,7 @@ export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements
      * Execute the OpenAPI tool implementation
      * This method is called by the parent's Template Method Pattern
      */
-    protected async executeImpl(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
+    protected async executeImpl(parameters: ToolParameters, _context?: ToolExecutionContext): Promise<ToolResult> {
         const toolName = this.schema.name;
 
         try {
@@ -119,7 +119,7 @@ export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements
         // TODO: Implement actual HTTP request execution
         // This would typically use fetch() or axios
         const result = {
-            message: `OpenAPI tool "${toolName}" executed`,
+            message: `OpenAPI tool "${this.name}" executed`,
             operationId: this.operationId,
             method: requestConfig.method,
             url: requestConfig.url,

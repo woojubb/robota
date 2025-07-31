@@ -1,14 +1,39 @@
 import { ToolExecutionResult, ToolResult, ToolExecutionContext } from '../interfaces/tool';
 import type { ToolManagerInterface } from '../interfaces/manager';
+import type { ToolParameters } from '../interfaces/tool';
+import type { LoggerData } from '../interfaces/types';
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
 import { ToolExecutionError, ValidationError } from '../utils/errors';
+
+// Step 1: ❌ Can't assign null to string/number types directly
+// Step 2: ✅ UniversalValue doesn't include null, need proper type conversion
+// Step 3: ✅ Create type guards for safe conversion
+// Step 4: ✅ Provide fallback values for type safety
+function safeStringValue(value: any): string {
+    if (typeof value === 'string') return value;
+    if (value === null || value === undefined) return '';
+    return String(value);
+}
+
+function safeNumberValue(value: any): number {
+    if (typeof value === 'number') return value;
+    if (value === null || value === undefined) return 0;
+    const parsed = Number(value);
+    return isNaN(parsed) ? 0 : parsed;
+}
+
+function safeArrayValue(value: any): string[] {
+    if (Array.isArray(value)) return value.map(String);
+    if (value === null || value === undefined) return [];
+    return [String(value)];
+}
 
 // Add missing types for ExecutionService compatibility
 export interface ToolExecutionRequest {
     toolName: string;
-    parameters: Record<string, any>;
+    parameters: ToolParameters;
     executionId?: string;
-    metadata?: Record<string, any>;
+    metadata?: LoggerData;
 }
 
 export interface ToolExecutionBatchContext {
@@ -42,7 +67,7 @@ export class ToolExecutionService {
      */
     async executeTool(
         toolName: string,
-        parameters: Record<string, any>,
+        parameters: ToolParameters,
         context?: ToolExecutionContext
     ): Promise<ToolExecutionResult> {
         this.logger.debug(`Executing tool: ${toolName}`);
@@ -57,7 +82,7 @@ export class ToolExecutionService {
             };
 
             // Execute the tool
-            const result = await this.tools.executeTool(toolName, parameters);
+            const result = await this.tools.executeTool(toolName, parameters as any);
 
             this.logger.debug(`Tool execution completed: ${toolName}`);
 
@@ -109,11 +134,11 @@ export class ToolExecutionService {
      * @param batchContext - Batch execution context
      * @returns Promise resolving to tool execution summary
      */
-    async executeTools(batchContext: ToolExecutionBatchContext): Promise<{ results: ToolExecutionResult[], errors: any[] }> {
+    async executeTools(batchContext: ToolExecutionBatchContext): Promise<{ results: ToolExecutionResult[], errors: Error[] }> {
         this.logger.debug(`Executing ${batchContext.requests.length} tools in ${batchContext.mode} mode`);
 
         const results: ToolExecutionResult[] = [];
-        const errors: any[] = [];
+        const errors: Error[] = [];
 
         if (batchContext.mode === 'parallel') {
             const promises = batchContext.requests.map(request =>
@@ -121,16 +146,16 @@ export class ToolExecutionService {
                     toolName: request.toolName,
                     parameters: request.parameters,
                     executionId: request.executionId,
-                    parentExecutionId: request.metadata?.parentExecutionId,
-                    rootExecutionId: request.metadata?.rootExecutionId,
-                    executionLevel: request.metadata?.executionLevel,
-                    executionPath: request.metadata?.executionPath
+                    parentExecutionId: safeStringValue(request.metadata?.parentExecutionId) || undefined,
+                    rootExecutionId: safeStringValue(request.metadata?.rootExecutionId) || undefined,
+                    executionLevel: safeNumberValue(request.metadata?.executionLevel),
+                    executionPath: safeArrayValue(request.metadata?.executionPath)
                 }).catch(error => ({
-                    toolName: request.toolName,
+                    toolName: request.toolName || 'unknown',
                     result: null,
                     success: false,
-                    error: error.message,
-                    executionId: request.executionId
+                    error: error instanceof Error ? error.message : String(error),
+                    executionId: request.executionId || 'unknown'
                 }))
             );
             const allResults = await Promise.all(promises);
@@ -142,9 +167,9 @@ export class ToolExecutionService {
                 } else {
                     errors.push({
                         executionId: result.executionId,
-                        error: result.error,
+                        error: new Error(result.error || 'Unknown error'),
                         toolName: result.toolName
-                    });
+                    } as any);
                 }
             });
         } else {
@@ -155,10 +180,10 @@ export class ToolExecutionService {
                         toolName: request.toolName,
                         parameters: request.parameters,
                         executionId: request.executionId,
-                        parentExecutionId: request.metadata?.parentExecutionId,
-                        rootExecutionId: request.metadata?.rootExecutionId,
-                        executionLevel: request.metadata?.executionLevel,
-                        executionPath: request.metadata?.executionPath
+                        parentExecutionId: safeStringValue(request.metadata?.parentExecutionId) || undefined,
+                        rootExecutionId: safeStringValue(request.metadata?.rootExecutionId) || undefined,
+                        executionLevel: safeNumberValue(request.metadata?.executionLevel),
+                        executionPath: safeArrayValue(request.metadata?.executionPath)
                     });
                     results.push(result);
 
@@ -168,9 +193,9 @@ export class ToolExecutionService {
                 } catch (error) {
                     errors.push({
                         executionId: request.executionId,
-                        error: error instanceof Error ? error.message : String(error),
+                        error: error instanceof Error ? error : new Error(String(error)),
                         toolName: request.toolName
-                    });
+                    } as any);
 
                     if (!batchContext.continueOnError) {
                         break;

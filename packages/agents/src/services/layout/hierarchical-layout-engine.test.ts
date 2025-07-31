@@ -9,7 +9,7 @@ import type {
     UniversalWorkflowNode, 
     UniversalWorkflowEdge, 
     UniversalLayoutConfig 
-} from '../../types/universal-workflow-types';
+} from '../workflow-converter/universal-types';
 import { SilentLogger } from '../../utils/simple-logger';
 
 describe('HierarchicalLayoutEngine', () => {

@@ -123,7 +123,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
     constructor(logger?: SimpleLogger) {
         super(); // ActionTrackingEventService 생성자와 호환 (baseEventService 기본값 사용)
         this.logger = logger || SilentLogger;
-        console.log('🏗️ [WorkflowEventSubscriber] Constructor called - Instance created');
+        this.logger.info('🏗️ [WorkflowEventSubscriber] Constructor called - Instance created');
         this.logger.debug('WorkflowEventSubscriber initialized');
     }
 
@@ -151,7 +151,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * 모든 이벤트가 이 메서드를 통과하므로 여기서 Node 생성 처리
      */
     public override emit(eventType: ServiceEventType, data: ServiceEventData): void {
-        console.log(`🔔 [WorkflowEventSubscriber] Received event: ${eventType}`, {
+        this.logger.debug(`🔔 [WorkflowEventSubscriber] Received event: ${eventType}`, {
             sourceType: data.sourceType,
             sourceId: data.sourceId,
             executionId: data.executionId
@@ -581,7 +581,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Task Completed 이벤트 처리 → merge_results Node
      */
     private handleTaskCompleted(data: ServiceEventData): void {
-        console.log(`🔔 [WorkflowEventSubscriber] Processing task.completed event`);
+        this.logger.debug(`🔔 [WorkflowEventSubscriber] Processing task.completed event`);
         const node = this.createSubResponseNode(data);
         this.emitNodeUpdate('create', node);
     }
@@ -590,7 +590,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Task Aggregation Start 이벤트 처리 → merge_results Node
      */
     private handleTaskAggregationStart(data: ServiceEventData): void {
-        console.log(`🔔 [WorkflowEventSubscriber] Processing task.aggregation_start event`);
+        this.logger.debug(`🔔 [WorkflowEventSubscriber] Processing task.aggregation_start event`);
         const node = this.createMergeResultsNode(data);
         this.emitNodeUpdate('create', node);
     }
@@ -599,7 +599,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Task Aggregation Complete 이벤트 처리 → merge_results Node
      */
     private handleTaskAggregationComplete(data: ServiceEventData): void {
-        console.log(`🔔 [WorkflowEventSubscriber] Processing task.aggregation_complete event`);
+        this.logger.debug(`🔔 [WorkflowEventSubscriber] Processing task.aggregation_complete event`);
         const node = this.createMergeResultsNode(data);
         this.emitNodeUpdate('create', node);
     }
@@ -608,7 +608,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Tool Results to LLM 이벤트 처리 → agent_thinking Node
      */
     private handleToolResultsToLLM(data: ServiceEventData): void {
-        console.log(`🔔 [WorkflowEventSubscriber] Processing tool_results_to_llm event`);
+        this.logger.debug(`🔔 [WorkflowEventSubscriber] Processing tool_results_to_llm event`);
         const node = this.createAgentThinkingNode(data);
         this.emitNodeUpdate('create', node);
     }
@@ -617,7 +617,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Task Assigned 이벤트 처리 → tool_call Node (assignTask 도구 호출)
      */
     private handleTaskAssigned(data: ServiceEventData): void {
-        console.log(`🔔 [WorkflowEventSubscriber] Processing task.assigned event`);
+        this.logger.debug(`🔔 [WorkflowEventSubscriber] Processing task.assigned event`);
         const node = this.createAssignTaskCallNode(data);
         this.emitNodeUpdate('create', node);
     }
@@ -626,7 +626,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Team Analysis Start 이벤트 처리 → agent_thinking Node
      */
     private handleTeamAnalysisStart(data: ServiceEventData): void {
-        console.log(`🔔 [WorkflowEventSubscriber] Processing team.analysis_start event`);
+        this.logger.debug(`🔔 [WorkflowEventSubscriber] Processing team.analysis_start event`);
         const node = this.createAgentThinkingNode(data);
         this.emitNodeUpdate('create', node);
     }
@@ -635,7 +635,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Team Analysis Complete 이벤트 처리 → merge_results Node
      */
     private handleTeamAnalysisComplete(data: ServiceEventData): void {
-        console.log(`🔔 [WorkflowEventSubscriber] Processing team.analysis_complete event`);
+        this.logger.debug(`🔔 [WorkflowEventSubscriber] Processing team.analysis_complete event`);
         const node = this.createFinalResponseNode(data); // merge_results 역할
         this.emitNodeUpdate('create', node);
     }

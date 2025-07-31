@@ -5,8 +5,9 @@
  * Follows Single Responsibility Principle by focusing only on position calculation.
  */
 
-import type { UniversalWorkflowNode, UniversalWorkflowEdge, UniversalLayoutConfig } from '../types/universal-workflow-types';
+import type { UniversalWorkflowNode, UniversalWorkflowEdge, UniversalLayoutConfig } from '../services/workflow-converter/universal-types';
 import { SimpleLogger } from '../utils/simple-logger';
+import { GenericMetadata } from './base-types';
 import { WorkflowConfig } from './workflow-converter';
 
 /**
@@ -19,23 +20,23 @@ export interface LayoutCalculationOptions {
         height: number;
         padding: number;
     };
-    
+
     /** Preserve existing positions where possible */
     preservePositions?: boolean;
-    
+
     /** Animation/transition support */
     enableAnimation?: boolean;
-    
+
     /** Custom spacing overrides */
     spacingOverrides?: {
         nodeSpacing?: number;
         levelSpacing?: number;
         groupSpacing?: number;
     };
-    
+
     /** Custom logger for layout process */
     logger?: SimpleLogger;
-    
+
     /** Algorithm-specific options */
     algorithmOptions?: WorkflowConfig;
 }
@@ -46,24 +47,24 @@ export interface LayoutCalculationOptions {
 export interface LayoutCalculationResult {
     /** Updated nodes with calculated positions */
     nodes: UniversalWorkflowNode[];
-    
+
     /** Layout success status */
     success: boolean;
-    
+
     /** Layout errors (if any) */
     errors: string[];
-    
+
     /** Layout warnings (if any) */
     warnings: string[];
-    
+
     /** Layout metadata */
     metadata: {
         /** Layout calculation timestamp */
         calculatedAt: Date;
-        
+
         /** Processing time in milliseconds */
         processingTime: number;
-        
+
         /** Layout bounds used */
         bounds: {
             minX: number;
@@ -73,19 +74,24 @@ export interface LayoutCalculationResult {
             width: number;
             height: number;
         };
-        
+
         /** Nodes processed */
         nodeCount: number;
-        
+
         /** Edges considered */
         edgeCount: number;
-        
+
         /** Algorithm used */
         algorithm: string;
-        
-        /** Additional metrics */
-        [key: string]: string | number | boolean;
-    };
+
+        /** Engine name */
+        engine: string;
+
+        /** Engine version */
+        version: string;
+
+        /** Additional metadata using GenericMetadata */
+    } & GenericMetadata;
 }
 
 /**
@@ -97,16 +103,16 @@ export interface LayoutCalculationResult {
 export interface LayoutEngineInterface {
     /** Layout engine name for identification */
     readonly name: string;
-    
+
     /** Layout engine version */
     readonly version: string;
-    
+
     /** Layout algorithm type */
     readonly algorithm: string;
-    
+
     /** Supported layout directions */
     readonly supportedDirections: Array<'TB' | 'BT' | 'LR' | 'RL'>;
-    
+
     /**
      * Calculate positions for workflow nodes
      * 
@@ -122,7 +128,7 @@ export interface LayoutEngineInterface {
         config: UniversalLayoutConfig,
         options?: LayoutCalculationOptions
     ): Promise<LayoutCalculationResult>;
-    
+
     /**
      * Validate layout configuration
      * 
@@ -134,7 +140,7 @@ export interface LayoutEngineInterface {
         errors: string[];
         warnings: string[];
     };
-    
+
     /**
      * Check if this engine supports the given configuration
      * 
@@ -142,7 +148,7 @@ export interface LayoutEngineInterface {
      * @returns True if engine can handle this configuration
      */
     supportsConfig(config: UniversalLayoutConfig): boolean;
-    
+
     /**
      * Get optimal layout configuration for given data
      * 
@@ -154,7 +160,7 @@ export interface LayoutEngineInterface {
         nodes: UniversalWorkflowNode[],
         edges: UniversalWorkflowEdge[]
     ): UniversalLayoutConfig;
-    
+
     /**
      * Calculate bounds for a set of positioned nodes
      * 
@@ -169,7 +175,7 @@ export interface LayoutEngineInterface {
         width: number;
         height: number;
     };
-    
+
     /**
      * Get layout engine statistics and metrics
      * 
@@ -183,7 +189,7 @@ export interface LayoutEngineInterface {
         averageNodeCount: number;
         lastCalculationAt?: Date;
     };
-    
+
     /**
      * Reset layout engine statistics
      */

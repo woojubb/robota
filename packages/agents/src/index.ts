@@ -327,7 +327,7 @@ export type {
     UniversalEdgeType,
     UNIVERSAL_NODE_TYPES,
     UNIVERSAL_EDGE_TYPES
-} from './types/universal-workflow-types';
+} from './services/workflow-converter/universal-types';
 
 // Workflow Converter Interfaces
 export type {
@@ -357,7 +357,7 @@ export { BaseLayoutEngine } from './abstracts/base-layout-engine';
 export { BaseWorkflowValidator } from './abstracts/base-workflow-validator';
 
 // Concrete Implementations
-export { WorkflowToUniversalConverter } from './services/workflow-to-universal-converter';
+export { WorkflowToUniversalConverter } from './services/workflow-converter';
 export { HierarchicalLayoutEngine } from './services/layout/hierarchical-layout-engine';
 export { UniversalWorkflowValidator } from './validators/universal-workflow-validator';
 
@@ -365,4 +365,99 @@ export { UniversalWorkflowValidator } from './validators/universal-workflow-vali
 export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy';
 
 // ExecutionHierarchyTracker removed - functionality moved to ActionTrackingEventService
+
+// ================================
+// React-Flow Integration (Phase 2)
+// ================================
+
+// React-Flow Types
+export type {
+    ReactFlowData,
+    ReactFlowNode,
+    ReactFlowEdge,
+    ReactFlowPosition,
+    ReactFlowDimensions,
+    ReactFlowNodeData,
+    ReactFlowEdgeData,
+    ReactFlowViewport,
+    ReactFlowThemeConfig,
+    ReactFlowConverterConfig,
+    ReactFlowLayoutConfig,
+    ReactFlowConversionMetadata,
+    ReactFlowConversionResult,
+    NodeTypeMapping,
+    EdgeTypeMapping,
+    ReactFlowNodeStyle,
+    ReactFlowEdgeStyle,
+    DEFAULT_NODE_TYPE_MAPPING,
+    DEFAULT_EDGE_TYPE_MAPPING
+} from './services/react-flow/types';
+
+// React-Flow Layout Engine Types
+export type {
+    ReactFlowLayoutAlgorithm,
+    ReactFlowLayoutOptions
+} from './services/react-flow/layout-engine';
+
+// React-Flow Metadata Mapper Types
+export type {
+    MetadataMappingConfig,
+    MetadataMappingResult
+} from './services/react-flow/metadata-mapper';
+
+// React-Flow Integration Test Types
+export type {
+    ReactFlowTestConfig,
+    ReactFlowTestResult
+} from './services/react-flow/integration-test';
+
+// React-Flow Classes
+export { UniversalToReactFlowConverter } from './services/react-flow';
+export { ReactFlowLayoutEngine } from './services/react-flow/layout-engine';
+export { ReactFlowMetadataMapper } from './services/react-flow/metadata-mapper';
+export {
+    ReactFlowIntegrationTester,
+    runQuickReactFlowTest,
+    runReactFlowBenchmark
+} from './services/react-flow/integration-test';
+
+// ================================
+// Real-Time System (Phase 3)
+// ================================
+
+// Real-Time React-Flow Generator
+export { RealTimeReactFlowGenerator } from './services/real-time-react-flow-generator';
+export type {
+    RealTimeReactFlowConfig,
+    RealTimeReactFlowResult,
+    ReactFlowGenerationMetrics
+} from './services/real-time-react-flow-generator';
+
+// Real-Time Event Integration
+export { RealTimeEventIntegration } from './services/real-time-event-integration';
+export type {
+    EventIntegrationConfig,
+    EventProcessingResult,
+    EventProcessingMetrics
+} from './services/real-time-event-integration';
+
+// Performance Optimizer
+export { ReactFlowPerformanceOptimizer } from './services/react-flow-performance-optimizer';
+export type {
+    PerformanceOptimizerConfig,
+    PerformanceMetrics,
+    OptimizationResult,
+    DiffResult
+} from './services/react-flow-performance-optimizer';
+
+// Real-Time System Integration Test
+export {
+    RealTimeSystemIntegrationTester,
+    runQuickRealTimeSystemTest,
+    runRealTimeSystemBenchmark
+} from './services/real-time-system-integration-test';
+export type {
+    RealTimeSystemTestConfig,
+    RealTimeSystemTestResult
+} from './services/real-time-system-integration-test';
 

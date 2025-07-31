@@ -1,0 +1,236 @@
+---
+alwaysApply: true
+description: Interface import hierarchy and dependency rules
+---
+
+# Interface Import Hierarchy Rules
+
+## 🚫 **PROHIBITED: Arbitrary Interface Imports**
+
+**NEVER** import interfaces randomly from anywhere in the project. Interface imports must follow strict hierarchical rules and legitimate connection patterns.
+
+## 📋 **Valid Interface Import Patterns**
+
+### **✅ Upward References (Lower → Higher)**
+- **Services** can import from **abstracts/** and **interfaces/**
+- **Tools** can import from **abstracts/** and **interfaces/**
+- **Executors** can import from **abstracts/** and **interfaces/**
+- **Managers** can import from **abstracts/** and **interfaces/**
+
+```typescript
+// ✅ CORRECT: Service importing from higher level
+// services/workflow-converter/index.ts
+import type { WorkflowConverterInterface } from '../../interfaces/workflow-converter';
+import { BaseWorkflowConverter } from '../../abstracts/base-workflow-converter';
+
+// ✅ CORRECT: Tool importing from abstracts
+// tools/implementations/openapi-tool.ts
+import { BaseTool } from '../../abstracts/base-tool';
+import type { ToolInterface } from '../../interfaces/tool';
+```
+
+### **✅ Connected Interface References**
+- **Parent-Child relationships**: Child services can reference parent interfaces
+- **Composition relationships**: Components can reference interfaces they implement
+- **Dependency injection**: Services can reference interfaces they consume
+
+```typescript
+// ✅ CORRECT: Child component referencing parent interface
+// services/execution-service.ts
+import type { ExecutorInterface } from '../interfaces/executor'; // Uses executors
+
+// ✅ CORRECT: Implementation referencing its contract
+// services/workflow-converter/index.ts  
+import type { WorkflowConverterInterface } from '../../interfaces/workflow-converter'; // Implements this
+```
+
+### **✅ Shared Foundation Types**
+- Any module can import **truly foundational types** from `interfaces/base-types.ts`
+- Any module can import **common primitives** like `primitive`, `GenericConfig`
+
+```typescript
+// ✅ CORRECT: Using shared foundation types
+import type { GenericConfig, primitive } from '../../interfaces/base-types';
+```
+
+## 🚫 **Invalid Import Patterns**
+
+### **❌ Lateral Cross-Imports**
+```typescript
+// ❌ WRONG: Service importing from peer service
+// services/workflow-converter/index.ts
+import type { ConversationServiceOptions } from '../conversation-service/types'; // NO!
+
+// ❌ WRONG: Tool importing from unrelated tool
+// tools/implementations/mcp-tool.ts
+import type { OpenAPIConfig } from '../openapi-tool'; // NO!
+```
+
+### **❌ Downward References (Higher → Lower)**
+```typescript
+// ❌ WRONG: Abstract importing from implementation
+// abstracts/base-workflow-converter.ts
+import type { WorkflowConverterOptions } from '../services/workflow-converter/types'; // NO!
+
+// ❌ WRONG: Interface importing from service
+// interfaces/workflow-converter.ts
+import type { MermaidConfig } from '../services/mermaid-generator/types'; // NO!
+```
+
+### **❌ Distant Unrelated Imports**
+```typescript
+// ❌ WRONG: Random unrelated import
+// services/conversation-service/index.ts
+import type { ReactFlowConfig } from '../mermaid-generator/types'; // NO CONNECTION!
+```
+
+## 🏗️ **Hierarchical Architecture**
+
+### **Layer Structure**
+```
+interfaces/          # 📚 Foundation contracts (highest level)
+├── base-types.ts    # Universal primitives  
+├── tool.ts          # Tool contracts
+├── executor.ts      # Executor contracts
+└── workflow-*.ts    # Workflow contracts
+
+abstracts/           # 🏗️ Base implementations (high level)  
+├── base-tool.ts     # Tool base class
+├── base-executor.ts # Executor base class
+└── base-workflow-*  # Workflow base classes
+
+managers/            # 🎛️ Management layer (mid level)
+├── tool-manager.ts  # Can import: interfaces/, abstracts/
+└── agent-factory.ts # Can import: interfaces/, abstracts/
+
+services/            # ⚙️ Implementation layer (low level)
+├── workflow-converter/ # Can import: interfaces/, abstracts/, managers/
+├── execution-service/  # Can import: interfaces/, abstracts/, managers/
+└── conversation-service/ # Can import: interfaces/, abstracts/, managers/
+
+tools/               # 🔧 Tool implementations (low level)
+└── implementations/ # Can import: interfaces/, abstracts/
+```
+
+### **Import Direction Rules**
+- **⬆️ Upward Only**: Lower layers import from higher layers
+- **🚫 No Lateral**: Same-level modules don't import from each other
+- **🚫 No Downward**: Higher layers never import from lower layers
+
+## 📋 **Connection Validation Checklist**
+
+Before importing any interface, ask:
+
+### **Step 1: Legitimate Connection?**
+- [ ] Does my module **implement** this interface?
+- [ ] Does my module **consume/use** objects of this interface type?
+- [ ] Does my module **extend** this base class?
+- [ ] Is this a **foundational primitive** used everywhere?
+
+### **Step 2: Hierarchical Compliance?**
+- [ ] Is the target interface in a **higher or equal layer**?
+- [ ] Am I avoiding **lateral cross-imports** between peer modules?
+- [ ] Am I avoiding **downward imports** from higher to lower layers?
+
+### **Step 3: Architectural Necessity?**
+- [ ] Is this import **architecturally necessary** for functionality?
+- [ ] Can I achieve the same goal with **local types** instead?
+- [ ] Am I importing for **legitimate composition** vs random convenience?
+
+## ✅ **Correct Import Examples**
+
+### **Service Implementing Interface**
+```typescript
+// services/workflow-converter/index.ts
+import type { WorkflowConverterInterface } from '../../interfaces/workflow-converter';
+import { BaseWorkflowConverter } from '../../abstracts/base-workflow-converter';
+
+export class WorkflowToUniversalConverter 
+  extends BaseWorkflowConverter 
+  implements WorkflowConverterInterface<WorkflowData, UniversalWorkflowStructure> {
+  // ✅ LEGITIMATE: Implements the interface, extends the base
+}
+```
+
+### **Service Using Manager Interface**
+```typescript
+// services/execution-service.ts
+import type { ExecutorInterface } from '../interfaces/executor';
+
+export class ExecutionService {
+  constructor(private executor: ExecutorInterface) {}
+  // ✅ LEGITIMATE: Uses executor through DI
+}
+```
+
+### **Manager Coordinating Services**
+```typescript
+// managers/agent-factory.ts
+import type { AIProviderInterface } from '../interfaces/provider';
+import type { ExecutorInterface } from '../interfaces/executor';
+
+export class AgentFactory {
+  createAgent(provider: AIProviderInterface, executor: ExecutorInterface) {}
+  // ✅ LEGITIMATE: Coordinates interfaces for composition
+}
+```
+
+## 🚨 **Violation Examples with Fixes**
+
+### **❌ Problem: Random Cross-Import**
+```typescript
+// ❌ BAD: services/conversation-service/index.ts
+import type { MermaidConfig } from '../mermaid-generator/types'; // Unrelated!
+
+// ✅ SOLUTION: Use local type or shared base
+// services/conversation-service/types.ts
+export interface ConversationVisualizationConfig {
+  theme: string;
+  layout: string;
+}
+```
+
+### **❌ Problem: Downward Import**
+```typescript
+// ❌ BAD: interfaces/workflow-converter.ts  
+import type { WorkflowConverterOptions } from '../services/workflow-converter/types';
+
+// ✅ SOLUTION: Define interface contract only
+// interfaces/workflow-converter.ts
+export interface WorkflowConverterInterface<TInput, TOutput> {
+  convert(input: TInput, options?: GenericConfig): Promise<TOutput>;
+}
+```
+
+## 🎯 **Enforcement Strategy**
+
+### **Code Review Questions**
+1. **"Why does this module need this interface?"**
+2. **"Is there a legitimate hierarchical connection?"**
+3. **"Can this be achieved with local types instead?"**
+4. **"Does this create circular dependencies?"**
+
+### **ESLint Configuration** (Future)
+```typescript
+// Custom rule to prevent lateral imports
+"@custom/no-lateral-imports": "error",
+"@custom/no-downward-imports": "error",
+"@custom/enforce-hierarchy": "error"
+```
+
+### **Import Path Patterns**
+- ✅ `../../interfaces/` (upward to contracts)
+- ✅ `../../abstracts/` (upward to base classes)  
+- ✅ `../interfaces/` (upward from same level)
+- ❌ `../services/` (lateral to peer services)
+- ❌ `../tools/` (lateral to peer tools)
+
+## 🎯 **Success Criteria**
+
+- **Clean Dependencies**: No circular dependencies between modules
+- **Clear Hierarchy**: Import direction always flows upward
+- **Logical Connections**: Every import has a clear architectural justification
+- **Module Autonomy**: Services can evolve independently without affecting peers
+- **Interface Segregation**: Modules only depend on interfaces they actually use
+
+**Remember**: Interface imports should reflect legitimate architectural relationships, not convenience or code reuse opportunities.

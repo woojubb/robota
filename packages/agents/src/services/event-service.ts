@@ -8,7 +8,26 @@
  * - Architecture Consistency: 100% aligned with Robota SDK patterns
  */
 
-import { SimpleLogger, SilentLogger, DefaultConsoleLogger } from '../utils/simple-logger';
+import { SimpleLogger, DefaultConsoleLogger } from '../utils/simple-logger';
+import type { ToolParameters, ToolResult } from '../interfaces/tool';
+import type { LoggerData, MetadataValue } from '../interfaces/types';
+
+// Step 1: ❌ Can't assign MetadataValue to string directly (type mismatch)
+// Step 2: ✅ MetadataValue includes primitives but needs safe conversion
+// Step 3: ✅ Create type guards for safe metadata value extraction
+// Step 4: ✅ Provide fallback values for type safety
+function safeStringFromMetadata(value: MetadataValue | undefined): string | undefined {
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number') return String(value);
+    if (typeof value === 'boolean') return String(value);
+    if (value instanceof Date) return value.toISOString();
+    if (value instanceof Error) return value.message;
+    return undefined;
+}
+
+function hasMetadataProperty(obj: any, prop: string): boolean {
+    return obj && typeof obj === 'object' && prop in obj;
+}
 
 /**
  * Service event types for unified tracking across Team/Agent/Tool
@@ -70,10 +89,10 @@ export interface ServiceEventData {
     toolName?: string;
 
     /** Parameters passed to tool/agent */
-    parameters?: any;
+    parameters?: ToolParameters;
 
     /** Result from tool/agent execution */
-    result?: any;
+    result?: ToolResult;
 
     /** Error message for error events */
     error?: string;
@@ -82,10 +101,11 @@ export interface ServiceEventData {
     taskDescription?: string;
 
     /** Additional metadata */
-    metadata?: Record<string, any>;
+    metadata?: LoggerData;
 
     /** Allow additional properties for extensibility */
-    [key: string]: any;
+    // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, generic-constraint
+    [key: string]: unknown;
 }
 
 /**
@@ -110,7 +130,8 @@ export interface ExecutionNode {
         toolName?: string;
         startTime?: Date;
         source?: string;
-        [key: string]: any;
+        // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, generic-constraint
+        [key: string]: unknown;
     };
 }
 
@@ -262,9 +283,11 @@ export class StructuredEventService implements EventService {
 export class ActionTrackingEventService implements EventService {
     private readonly baseEventService: EventService;
     private readonly executionHierarchy: Map<string, ExecutionNode> = new Map();
+    private readonly logger: SimpleLogger;
 
-    constructor(baseEventService?: EventService) {
+    constructor(baseEventService?: EventService, logger?: SimpleLogger) {
         this.baseEventService = baseEventService || new SilentEventService();
+        this.logger = logger || DefaultConsoleLogger;
     }
 
     /**
@@ -330,7 +353,7 @@ export class ActionTrackingEventService implements EventService {
     private enrichWithHierarchy(data: ServiceEventData): ServiceEventData {
         const executionId = this.findExecutionId(data);
 
-        console.log('🔍 [ActionTrackingEventService] enrichWithHierarchy called', {
+        this.logger.debug('🔍 [ActionTrackingEventService] enrichWithHierarchy called', {
             executionId,
             hasExecutionId: !!executionId,
             hierarchySize: this.executionHierarchy.size,
@@ -338,12 +361,12 @@ export class ActionTrackingEventService implements EventService {
         });
 
         if (!executionId) {
-            console.log('⚠️ [ActionTrackingEventService] No executionId found, returning original data');
+            this.logger.debug('⚠️ [ActionTrackingEventService] No executionId found, returning original data');
             return data;
         }
 
         const node = this.executionHierarchy.get(executionId);
-        console.log('🔍 [ActionTrackingEventService] Hierarchy node lookup', {
+        this.logger.debug('🔍 [ActionTrackingEventService] Hierarchy node lookup', {
             executionId,
             nodeFound: !!node,
             node: node ? {
@@ -354,7 +377,7 @@ export class ActionTrackingEventService implements EventService {
         });
 
         if (!node) {
-            console.log('⚠️ [ActionTrackingEventService] No hierarchy node found for executionId:', executionId);
+            this.logger.debug('⚠️ [ActionTrackingEventService] No hierarchy node found for executionId:', executionId);
             return data;
         }
 
@@ -366,7 +389,7 @@ export class ActionTrackingEventService implements EventService {
             executionPath: data.executionPath ?? this.buildExecutionPath(executionId)
         };
 
-        console.log('✅ [ActionTrackingEventService] Data enriched successfully', {
+        this.logger.debug('✅ [ActionTrackingEventService] Data enriched successfully', {
             originalLevel: data.executionLevel,
             enrichedLevel: enrichedData.executionLevel,
             originalParent: data.parentExecutionId,
@@ -424,7 +447,7 @@ export class ActionTrackingEventService implements EventService {
      * Find appropriate execution ID from event data with multiple fallback strategies
      */
     private findExecutionId(data: ServiceEventData): string | undefined {
-        console.log('🔍 [ActionTrackingEventService] findExecutionId searching in:', {
+        this.logger.debug('🔍 [ActionTrackingEventService] findExecutionId searching in:', {
             executionId: data.executionId,
             sourceId: data.sourceId,
             sourceType: data.sourceType,
@@ -446,39 +469,54 @@ export class ActionTrackingEventService implements EventService {
         });
 
         // Strategy 1: Direct executionId field
-        if (data.executionId) {
-            console.log('✅ [ActionTrackingEventService] Found direct executionId:', data.executionId);
-            return data.executionId;
+        const directExecutionId = safeStringFromMetadata(data.executionId as MetadataValue);
+        if (directExecutionId) {
+            this.logger.debug('✅ [ActionTrackingEventService] Found direct executionId:', { executionId: directExecutionId });
+            return directExecutionId;
         }
 
         // Strategy 2: metadata.executionId
-        if (data.metadata?.executionId) {
-            console.log('✅ [ActionTrackingEventService] Found metadata.executionId:', data.metadata.executionId);
-            return data.metadata.executionId;
+        const metadataExecutionId = hasMetadataProperty(data.metadata, 'executionId')
+            ? safeStringFromMetadata((data.metadata as any).executionId)
+            : undefined;
+        if (metadataExecutionId) {
+            this.logger.debug('✅ [ActionTrackingEventService] Found metadata.executionId:', { executionId: metadataExecutionId });
+            return metadataExecutionId;
         }
 
         // Strategy 3: metadata.toolCallId (for tool events)
-        if (data.metadata?.toolCallId) {
-            console.log('✅ [ActionTrackingEventService] Found metadata.toolCallId:', data.metadata.toolCallId);
-            return data.metadata.toolCallId;
+        const toolCallId = hasMetadataProperty(data.metadata, 'toolCallId')
+            ? safeStringFromMetadata((data.metadata as any).toolCallId)
+            : undefined;
+        if (toolCallId) {
+            this.logger.debug('✅ [ActionTrackingEventService] Found metadata.toolCallId:', { toolCallId });
+            return toolCallId;
         }
 
         // Strategy 4: context.metadata.parentExecutionId (for nested contexts)
-        if (data.context?.metadata?.parentExecutionId) {
-            console.log('✅ [ActionTrackingEventService] Found context.metadata.parentExecutionId:', data.context.metadata.parentExecutionId);
-            return data.context.metadata.parentExecutionId;
+        const contextParentId = hasMetadataProperty(data.context, 'metadata') && hasMetadataProperty((data.context as any).metadata, 'parentExecutionId')
+            ? safeStringFromMetadata((data.context as any).metadata.parentExecutionId)
+            : undefined;
+        if (contextParentId) {
+            this.logger.debug('✅ [ActionTrackingEventService] Found context.metadata.parentExecutionId:', { parentExecutionId: contextParentId });
+            return contextParentId;
         }
 
         // Strategy 4b: metadata.context.metadata.parentExecutionId (EventServiceHookFactory format)
-        if (data.metadata?.context?.metadata?.parentExecutionId) {
-            console.log('✅ [ActionTrackingEventService] Found metadata.context.metadata.parentExecutionId:', data.metadata.context.metadata.parentExecutionId);
-            return data.metadata.context.metadata.parentExecutionId;
+        const metadataContextParentId = hasMetadataProperty(data.metadata, 'context') &&
+            hasMetadataProperty((data.metadata as any).context, 'metadata') &&
+            hasMetadataProperty((data.metadata as any).context.metadata, 'parentExecutionId')
+            ? safeStringFromMetadata((data.metadata as any).context.metadata.parentExecutionId)
+            : undefined;
+        if (metadataContextParentId) {
+            this.logger.debug('✅ [ActionTrackingEventService] Found metadata.context.metadata.parentExecutionId:', { parentExecutionId: metadataContextParentId });
+            return metadataContextParentId;
         }
 
         // Strategy 5: Search hierarchy by toolName or sourceId pattern
         if (data.toolName || data.sourceId) {
             const searchKey = data.toolName || data.sourceId;
-            console.log('🔍 [ActionTrackingEventService] Searching hierarchy by pattern:', {
+            this.logger.debug('🔍 [ActionTrackingEventService] Searching hierarchy by pattern:', {
                 searchKey,
                 totalHierarchyEntries: this.executionHierarchy.size
             });
@@ -490,7 +528,7 @@ export class ActionTrackingEventService implements EventService {
                     sourceIdMatch: node.metadata?.sourceId === data.sourceId
                 };
 
-                console.log('🔍 [ActionTrackingEventService] Checking node:', {
+                this.logger.debug('🔍 [ActionTrackingEventService] Checking node:', {
                     executionId,
                     nodeLevel: node.level,
                     nodeParent: node.parentId,
@@ -499,7 +537,7 @@ export class ActionTrackingEventService implements EventService {
                 });
 
                 if (matches.toolNameMatch || matches.idIncludesKey || matches.sourceIdMatch) {
-                    console.log('✅ [ActionTrackingEventService] Found by pattern search:', {
+                    this.logger.debug('✅ [ActionTrackingEventService] Found by pattern search:', {
                         executionId,
                         matchType: matches.toolNameMatch ? 'toolName' : matches.idIncludesKey ? 'idIncludes' : 'sourceId',
                         nodeDetails: node
@@ -507,7 +545,7 @@ export class ActionTrackingEventService implements EventService {
                     return executionId;
                 }
             }
-            console.log('⚠️ [ActionTrackingEventService] No pattern match found for:', {
+            this.logger.debug('⚠️ [ActionTrackingEventService] No pattern match found for:', {
                 searchKey,
                 checkedEntries: this.executionHierarchy.size
             });
@@ -517,11 +555,11 @@ export class ActionTrackingEventService implements EventService {
         if (data.sourceId) {
             // Store source ID mappings for future correlation
             this.storeSourceMapping(data.sourceId, data);
-            console.log('⚠️ [ActionTrackingEventService] Using fallback ID and storing mapping:', data.sourceId);
+            this.logger.debug('⚠️ [ActionTrackingEventService] Using fallback ID and storing mapping:', data.sourceId);
             return data.sourceId;
         }
 
-        console.log('❌ [ActionTrackingEventService] No executionId found in data');
+        this.logger.debug('❌ [ActionTrackingEventService] No executionId found in data');
         return undefined;
     }
 
@@ -539,15 +577,27 @@ export class ActionTrackingEventService implements EventService {
             if (data.sourceType === 'tool') {
                 inferredLevel = 1; // Tools are typically Level 1
                 // Try to find parent from context or metadata (multiple formats)
-                if (data.context?.metadata?.parentExecutionId) {
-                    inferredParent = data.context.metadata.parentExecutionId;
+                const contextMetadataParentId = hasMetadataProperty(data.context, 'metadata') && hasMetadataProperty((data.context as any).metadata, 'parentExecutionId')
+                    ? safeStringFromMetadata((data.context as any).metadata.parentExecutionId)
+                    : undefined;
+                const directMetadataParentId = hasMetadataProperty(data.metadata, 'parentExecutionId')
+                    ? safeStringFromMetadata((data.metadata as any).parentExecutionId)
+                    : undefined;
+                const nestedMetadataParentId = hasMetadataProperty(data.metadata, 'context') &&
+                    hasMetadataProperty((data.metadata as any).context, 'metadata') &&
+                    hasMetadataProperty((data.metadata as any).context.metadata, 'parentExecutionId')
+                    ? safeStringFromMetadata((data.metadata as any).context.metadata.parentExecutionId)
+                    : undefined;
+
+                if (contextMetadataParentId) {
+                    inferredParent = contextMetadataParentId;
                     inferredLevel = 2; // If has parent, likely Level 2
-                } else if (data.metadata?.parentExecutionId) {
-                    inferredParent = data.metadata.parentExecutionId;
+                } else if (directMetadataParentId) {
+                    inferredParent = directMetadataParentId;
                     inferredLevel = 2;
-                } else if (data.metadata?.context?.metadata?.parentExecutionId) {
+                } else if (nestedMetadataParentId) {
                     // EventServiceHookFactory format
-                    inferredParent = data.metadata.context.metadata.parentExecutionId;
+                    inferredParent = nestedMetadataParentId;
                     inferredLevel = 2;
                 }
             } else if (data.sourceType === 'team') {
@@ -557,37 +607,60 @@ export class ActionTrackingEventService implements EventService {
                     // Check if the parentExecutionId already exists in hierarchy
                     if (this.executionHierarchy.has(data.parentExecutionId)) {
                         inferredParent = data.parentExecutionId;
-                        console.log(`✅ [ActionTrackingEventService] Team event parent found in hierarchy: ${data.parentExecutionId}`);
+                        this.logger.debug(`✅ [ActionTrackingEventService] Team event parent found in hierarchy: ${data.parentExecutionId}`);
                     } else {
-                        console.log(`⚠️ [ActionTrackingEventService] Team event parent NOT found in hierarchy: ${data.parentExecutionId}`);
+                        this.logger.debug(`⚠️ [ActionTrackingEventService] Team event parent NOT found in hierarchy: ${data.parentExecutionId}`);
                     }
-                } else if (data.metadata?.parentExecutionId) {
-                    if (this.executionHierarchy.has(data.metadata.parentExecutionId)) {
-                        inferredParent = data.metadata.parentExecutionId;
-                    }
-                } else if (data.metadata?.context?.metadata?.parentExecutionId) {
-                    if (this.executionHierarchy.has(data.metadata.context.metadata.parentExecutionId)) {
-                        inferredParent = data.metadata.context.metadata.parentExecutionId;
+                } else {
+                    const teamMetadataParentId = hasMetadataProperty(data.metadata, 'parentExecutionId')
+                        ? safeStringFromMetadata((data.metadata as any).parentExecutionId)
+                        : undefined;
+                    if (teamMetadataParentId && this.executionHierarchy.has(teamMetadataParentId)) {
+                        inferredParent = teamMetadataParentId;
+                    } else {
+                        // Check nested metadata context format
+                        const hierarchyParentId = hasMetadataProperty(data.metadata, 'context') &&
+                            hasMetadataProperty((data.metadata as any).context, 'metadata') &&
+                            hasMetadataProperty((data.metadata as any).context.metadata, 'parentExecutionId')
+                            ? safeStringFromMetadata((data.metadata as any).context.metadata.parentExecutionId)
+                            : undefined;
+                        if (hierarchyParentId && this.executionHierarchy.has(hierarchyParentId)) {
+                            inferredParent = hierarchyParentId;
+                        }
                     }
                 }
             } else if (data.sourceType === 'agent') {
                 inferredLevel = 1; // Agent events are typically Level 1
-                if (data.metadata?.parentExecutionId) {
-                    inferredParent = data.metadata.parentExecutionId;
-                } else if (data.metadata?.context?.metadata?.parentExecutionId) {
-                    inferredParent = data.metadata.context.metadata.parentExecutionId;
+                const agentMetadataParentId = hasMetadataProperty(data.metadata, 'parentExecutionId')
+                    ? safeStringFromMetadata((data.metadata as any).parentExecutionId)
+                    : undefined;
+                const agentNestedParentId = hasMetadataProperty(data.metadata, 'context') &&
+                    hasMetadataProperty((data.metadata as any).context, 'metadata') &&
+                    hasMetadataProperty((data.metadata as any).context.metadata, 'parentExecutionId')
+                    ? safeStringFromMetadata((data.metadata as any).context.metadata.parentExecutionId)
+                    : undefined;
+
+                if (agentMetadataParentId) {
+                    inferredParent = agentMetadataParentId;
+                } else if (agentNestedParentId) {
+                    inferredParent = agentNestedParentId;
                 }
             }
 
-            console.log('📝 [ActionTrackingEventService] Creating source mapping:', {
+            this.logger.debug('📝 [ActionTrackingEventService] Creating source mapping:', {
                 mappingKey,
                 sourceId,
                 sourceType: data.sourceType,
                 inferredLevel,
                 inferredParent,
-                contextParent: data.context?.metadata?.parentExecutionId,
-                metadataParent: data.metadata?.parentExecutionId,
-                metadataContextParent: data.metadata?.context?.metadata?.parentExecutionId,
+                contextParent: hasMetadataProperty(data.context, 'metadata') && hasMetadataProperty((data.context as any).metadata, 'parentExecutionId')
+                    ? safeStringFromMetadata((data.context as any).metadata.parentExecutionId) : undefined,
+                metadataParent: hasMetadataProperty(data.metadata, 'parentExecutionId')
+                    ? safeStringFromMetadata((data.metadata as any).parentExecutionId) : undefined,
+                metadataContextParent: hasMetadataProperty(data.metadata, 'context') &&
+                    hasMetadataProperty((data.metadata as any).context, 'metadata') &&
+                    hasMetadataProperty((data.metadata as any).context.metadata, 'parentExecutionId')
+                    ? safeStringFromMetadata((data.metadata as any).context.metadata.parentExecutionId) : undefined,
                 fullMetadata: data.metadata
             });
 

@@ -10,7 +10,7 @@ import { AgentFactory } from '../managers/agent-factory';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ExecutionService } from '../services/execution-service';
 import { EventService, SilentEventService } from '../services/event-service';
-import { createExecutionProxy } from '../utils/execution-proxy';
+
 
 import { BaseTool } from '../abstracts/base-tool';
 import { Logger, createLogger, setGlobalLogLevel } from '../utils/logger';

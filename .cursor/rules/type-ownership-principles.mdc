@@ -1,0 +1,191 @@
+---
+alwaysApply: true
+description: Guidelines for determining type ownership and preventing orphaned type files
+---
+
+# Type Ownership Principles
+
+## 🏠 **Core Principle: "Who Owns This Type?"**
+
+Before creating any type definition, **identify the true owner** of that type. The owner is the module that **creates, defines, and is primarily responsible** for that type concept.
+
+## 📋 **Type Ownership Decision Framework**
+
+### **Step 1: Identify the Primary Creator**
+Ask these questions in order:
+
+1. **Who creates/instantiates this type?** → That's likely the owner
+2. **Who defines the business logic for this type?** → That's likely the owner  
+3. **Who would change this type when requirements change?** → That's likely the owner
+4. **If this type didn't exist, who would need to create it?** → That's likely the owner
+
+### **Step 2: Determine Ownership Category**
+
+#### **✅ Local Ownership (Most Common)**
+- **Owner**: Specific service/feature that creates and manages the type
+- **Location**: Same folder as the owning service
+- **Examples**:
+  ```typescript
+  // services/workflow-converter/types.ts
+  export type NodeTypeMapping = Record<string, string>; // Owned by workflow-converter
+  
+  // services/mermaid-generator/types.ts  
+  export type MermaidShapeMapping = Record<string, MermaidShapeConfig>; // Owned by mermaid-generator
+  ```
+
+#### **✅ Shared Contract Ownership**
+- **Owner**: Cross-cutting interface used by multiple services
+- **Location**: `interfaces/` folder
+- **Examples**:
+  ```typescript
+  // interfaces/workflow-converter.ts
+  export interface WorkflowConverterInterface<TInput, TOutput> // Contract between multiple converters
+  
+  // interfaces/base-types.ts
+  export type GenericConfig = Record<string, ConfigValue>; // Foundational type used everywhere
+  ```
+
+#### **❌ No Clear Ownership (Fix Required)**
+- **Problem**: Type belongs to everyone and no one
+- **Solution**: Find the primary creator and move type there
+- **Example**: `UniversalWorkflowNode` → Belongs to `workflow-converter` (the creator)
+
+## 🚨 **Prohibited Patterns**
+
+### **❌ Orphaned Type Files**
+```
+❌ WRONG: Types without clear ownership
+src/types/
+├── random-types.ts              # Who owns these?
+├── shared-interfaces.ts         # Too vague
+└── common-definitions.ts        # No clear owner
+
+✅ CORRECT: Types with clear ownership
+src/services/
+├── workflow-converter/
+│   ├── index.ts                 # Owner implementation
+│   ├── types.ts                 # Local types owned by this service
+│   └── universal-types.ts       # Universal types created by this service
+```
+
+### **❌ Type Ownership Confusion**
+```typescript
+// ❌ WRONG: Type defined away from its owner
+// interfaces/random-types.ts
+export interface WorkflowProcessingState { } // Actually owned by workflow-processor
+
+// ✅ CORRECT: Type defined with its owner  
+// services/workflow-processor/types.ts
+export interface WorkflowProcessingState { } // Clearly owned by workflow-processor
+```
+
+### **❌ Central Type Dumping Ground**
+```
+❌ WRONG: Everything dumped in one place
+src/types/
+├── everything.ts                # 500+ lines of unrelated types
+├── all-interfaces.ts            # Mixed ownership
+└── global-types.ts              # No clear responsibility
+
+✅ CORRECT: Distributed ownership
+src/
+├── services/feature-a/types.ts  # Feature A owns its types
+├── services/feature-b/types.ts  # Feature B owns its types
+└── interfaces/shared.ts         # Only truly shared contracts
+```
+
+## ✅ **Correct Ownership Patterns**
+
+### **Pattern 1: Service-Owned Types**
+```
+services/workflow-converter/
+├── index.ts                     # WorkflowToUniversalConverter (owner)
+├── types.ts                     # Local conversion types
+└── universal-types.ts           # Universal types (created by this service)
+
+Other services import from here:
+import { UniversalWorkflowNode } from '../workflow-converter/universal-types';
+```
+
+### **Pattern 2: Contract Interfaces**
+```
+interfaces/
+├── workflow-converter.ts        # Interface contract (not implementation)
+├── base-types.ts               # Foundational types used across features
+└── validation.ts               # Validation contracts
+
+Services implement these interfaces but don't own the type definitions.
+```
+
+### **Pattern 3: Feature-Specific Extensions**
+```
+services/mermaid-generator/
+├── index.ts                    # MermaidGenerator (owner)
+└── types.ts                    # Mermaid-specific types that extend base types
+
+import { GenericConfig } from '../../interfaces/base-types';
+export interface MermaidConfig extends GenericConfig { theme: string; }
+```
+
+## 🔍 **Ownership Validation Checklist**
+
+Before creating any type file, verify:
+
+- [ ] **Clear Owner Identified**: Can you name the specific service/module that owns this type?
+- [ ] **Logical Co-location**: Is the type file in the same folder as its owner?
+- [ ] **Import Direction**: Do other modules import FROM the owner, not TO the owner?
+- [ ] **Responsibility Clarity**: If this type needs to change, is it obvious who should change it?
+- [ ] **Lifecycle Ownership**: Who creates, modifies, and deletes instances of this type?
+
+## 🎯 **Ownership Migration Process**
+
+### **When You Find Orphaned Types:**
+
+1. **Identify the True Owner**:
+   - Look for the main creator/user of this type
+   - Check git history to see who modifies it most
+   - Ask: "If this type breaks, who would fix it?"
+
+2. **Move to Owner's Folder**:
+   ```bash
+   # Move orphaned type to its owner
+   mv src/types/orphaned-type.ts src/services/actual-owner/types.ts
+   ```
+
+3. **Update All Imports**:
+   ```typescript
+   // Update all files that import this type
+   // From: import { SomeType } from '../types/orphaned-type';
+   // To:   import { SomeType } from '../services/actual-owner/types';
+   ```
+
+4. **Verify Ownership**:
+   - Ensure the owning service actually uses/creates this type
+   - Check that the type logically belongs with its owner
+   - Confirm no circular dependencies were created
+
+## 💡 **Quick Decision Guide**
+
+| If the type is... | Owner is... | Location should be... |
+|-------------------|-------------|----------------------|
+| Created by service X | Service X | `services/X/types.ts` |
+| Used by multiple services | Shared contract | `interfaces/contract.ts` |
+| Platform-specific extension | Platform service | `services/platform/types.ts` |
+| Business domain concept | Primary domain service | `services/domain/types.ts` |
+| Configuration/metadata | Service that uses it | `services/user/types.ts` |
+
+## 🚫 **Forbidden Locations**
+
+- `src/types/` - Too generic, no clear ownership
+- `src/common/` - Vague ownership, becomes dumping ground
+- `src/shared/` - Unclear responsibility boundaries
+- `src/global/` - Everything becomes "global", nothing has an owner
+
+## ✅ **Approved Locations**
+
+- `services/[owner]/types.ts` - Clear service ownership
+- `services/[owner]/[specific].ts` - Specific type files (e.g., `universal-types.ts`)
+- `interfaces/[contract].ts` - Cross-service contracts only
+- `interfaces/base-types.ts` - Foundational primitives only
+
+**Remember**: Every type must have a clear owner. If you can't identify the owner in 30 seconds, the type is in the wrong place.
