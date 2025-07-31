@@ -121,13 +121,17 @@ export interface ValidationResult {
         rulesApplied: string[];
 
         /** Data statistics */
-        dataStats: {
-            nodeCount?: number;
-            edgeCount?: number;
-        } & Record<string, string | number | boolean>;
-        
+        dataStats: Record<string, string | number | boolean>;
+
+        /** Version */
+        version?: string;
+
+        /** Options */
+        options?: string | number | boolean | string[] | Date;
+
         /** Additional metrics */
-    } & Record<string, string | number | boolean | Date | string[]>;
+        [key: string]: string | number | boolean | Date | string[] | Record<string, string | number | boolean> | undefined;
+    };
 
     /** Auto-recovery suggestions (if enabled) */
     recoveryOptions?: Array<{

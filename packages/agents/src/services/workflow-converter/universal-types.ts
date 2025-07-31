@@ -11,8 +11,8 @@
  * - Type-safe with comprehensive validation support
  */
 
-import { SimpleLogger } from '../utils/simple-logger';
-import type { WorkflowData } from '../interfaces/workflow-converter';
+import { SimpleLogger } from '../../utils/simple-logger';
+import type { WorkflowData } from '../../interfaces/workflow-converter';
 
 /**
  * Universal position information for nodes

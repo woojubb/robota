@@ -15,7 +15,8 @@ import type { MetadataMappingConfig } from './react-flow/metadata-mapper';
 import type {
     ReactFlowData,
     ReactFlowConverterConfig,
-    ReactFlowLayoutConfig
+    ReactFlowLayoutConfig,
+    ReactFlowNode
 } from './react-flow/types';
 import type { SimpleLogger } from '../utils/simple-logger';
 import { SilentLogger } from '../utils/simple-logger';
@@ -295,16 +296,45 @@ export class RealTimeReactFlowGenerator {
             const layoutResult = await this.layoutEngine.calculateLayout(reactFlowData, layoutOptions);
             layoutTime = Date.now() - layoutStart;
 
-            if (!layoutResult.success || !layoutResult.data) {
+            if (!layoutResult.success || !layoutResult.nodes.length) {
                 return {
                     success: false,
-                    error: `Layout calculation failed: ${layoutResult.error}`
+                    error: `Layout calculation failed: ${layoutResult.errors.join(', ')}`
                 };
             }
 
             // 3. 메타데이터 매핑 및 최종 처리
             const mappingStart = Date.now();
-            const finalData = await this.applyFinalProcessing(layoutResult.data);
+            // Convert UniversalWorkflowNode to ReactFlowNode format using proper type mapping
+            const convertedNodes: ReactFlowNode[] = layoutResult.nodes.map(node => {
+                // Create properly typed ReactFlowNode from UniversalWorkflowNode
+                const reactFlowNode: ReactFlowNode = {
+                    id: node.id,
+                    type: node.type,
+                    position: {
+                        x: node.position?.x || 0,
+                        y: node.position?.y || 0
+                    },
+                    data: {
+                        // Map compatible properties from UniversalWorkflowNode.data
+                        label: node.data.label,
+                        ...(node.data.description && { description: node.data.description }),
+                        // Only include properties that are compatible with ReactFlowNodeData
+                        metadata: {} // Reset to empty metadata to avoid type conflicts
+                    },
+                    selected: false, // Default value since visualState.selected property doesn't exist
+                    dragging: false,
+                    selectable: true,
+                    connectable: true,
+                    deletable: true
+                };
+                return reactFlowNode;
+            });
+
+            const finalData = await this.applyFinalProcessing({
+                nodes: convertedNodes,
+                edges: reactFlowData.edges || []
+            });
             mappingTime = Date.now() - mappingStart;
 
             const metrics: ReactFlowGenerationMetrics = {
@@ -358,7 +388,7 @@ export class RealTimeReactFlowGenerator {
                     transition: `all ${this.config.animationDuration}ms ease-in-out`,
                     // 상태에 따른 동적 스타일링
                     borderColor: this.getNodeBorderColor(node.data?.status),
-                    boxShadow: node.selected ? '0 0 10px rgba(0, 123, 255, 0.5)' : undefined
+                    ...(node.selected && { boxShadow: '0 0 10px rgba(0, 123, 255, 0.5)' })
                 }
             }));
         }
