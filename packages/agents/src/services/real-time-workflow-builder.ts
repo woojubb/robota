@@ -18,7 +18,20 @@ import {
 } from './workflow-event-subscriber';
 import { EventService } from './event-service';
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
+import type { GenericMetadata } from '../interfaces/base-types';
 import type { WorkflowData } from '../interfaces/workflow-converter';
+
+// React-Flow Integration imports
+import { UniversalToReactFlowConverter } from './react-flow';
+import { WorkflowToUniversalConverter } from './workflow-converter';
+import type {
+    ReactFlowData,
+    ReactFlowConverterConfig
+} from './react-flow/types';
+import type {
+    UniversalWorkflowStructure
+} from './workflow-converter/universal-types';
+import type { WorkflowConversionOptions } from '../interfaces/workflow-converter';
 
 /**
  * Workflow 구조 (목표 AssignTask 분기 구조)
@@ -46,7 +59,7 @@ export interface WorkflowBranch {
 /**
  * Workflow 메타데이터
  */
-export interface WorkflowMetadata extends Record<string, unknown> {
+export interface WorkflowMetadata extends GenericMetadata {
     startTime: Date;
     endTime?: Date;
     totalDuration?: number;
@@ -79,15 +92,39 @@ export class RealTimeWorkflowBuilder {
     private pendingConnections = new Map<string, PendingConnection>();
     private nodeParentMap = new Map<string, string>(); // nodeId → parentId
 
+    // React-Flow Integration
+    private universalConverter: WorkflowToUniversalConverter;
+    private reactFlowConverter: UniversalToReactFlowConverter;
+    private reactFlowConfig: ReactFlowConverterConfig;
+    private reactFlowUpdateCallbacks: ((reactFlowData: ReactFlowData) => void)[] = [];
+
     constructor(
         eventService: EventService,
-        logger?: SimpleLogger
+        logger?: SimpleLogger,
+        reactFlowConfig?: ReactFlowConverterConfig
     ) {
         this.logger = logger || SilentLogger;
         this.workflowSubscriber = eventService as WorkflowEventSubscriber;
 
+        // React-Flow 설정
+        this.reactFlowConfig = {
+            enableAnimation: true,
+            enableSelection: true,
+            fitViewOnLoad: true,
+            nodeSpacing: {
+                horizontal: 200,
+                vertical: 120
+            },
+            ...reactFlowConfig
+        };
+
+        // 변환기들 초기화
+        this.universalConverter = new WorkflowToUniversalConverter({}, this.logger);
+        this.reactFlowConverter = new UniversalToReactFlowConverter(this.reactFlowConfig, this.logger);
+
         // 초기 Workflow 구조
         this.currentWorkflow = {
+            __workflowType: 'RobotaWorkflowStructure',
             nodes: [],
             connections: [],
             branches: [],
@@ -101,7 +138,7 @@ export class RealTimeWorkflowBuilder {
         };
 
         this.setupWorkflowSubscription();
-        this.logger.debug('RealTimeWorkflowBuilder initialized');
+        this.logger.debug('RealTimeWorkflowBuilder initialized with React-Flow support');
     }
 
     /**
@@ -507,12 +544,18 @@ export class RealTimeWorkflowBuilder {
             changedBranch
         };
 
+        // 기존 워크플로우 업데이트 알림
         this.workflowUpdateCallbacks.forEach(callback => {
             try {
                 callback(update);
             } catch (error) {
                 this.logger.error('Error in workflow update callback:', error);
             }
+        });
+
+        // React-Flow 업데이트 알림 (비동기)
+        this.notifyReactFlowUpdates().catch(error => {
+            this.logger.error('Error notifying React-Flow updates:', error);
         });
     }
 
@@ -548,6 +591,127 @@ export class RealTimeWorkflowBuilder {
             completedBranches: this.currentWorkflow.metadata.completedBranches,
             isCompleted: this.currentWorkflow.metadata.endTime !== undefined,
             duration: this.currentWorkflow.metadata.totalDuration
+        };
+    }
+
+    // ================================
+    // React-Flow Integration Methods
+    // ================================
+
+    /**
+     * React-Flow 데이터 구독
+     */
+    subscribeToReactFlowUpdates(callback: (reactFlowData: ReactFlowData) => void): void {
+        this.reactFlowUpdateCallbacks.push(callback);
+        this.logger.debug('New React-Flow update subscriber registered');
+    }
+
+    /**
+     * 현재 워크플로우를 React-Flow 형식으로 변환하여 반환
+     */
+    async generateReactFlowData(): Promise<ReactFlowData | null> {
+        try {
+            this.logger.debug('Generating React-Flow data from current workflow');
+
+            // 1. 현재 워크플로우를 Universal 형식으로 변환
+            const conversionOptions: WorkflowConversionOptions = {
+                validateInput: true,
+                validateOutput: true,
+                includeDebug: false
+            };
+
+            const universalResult = await this.universalConverter.convert(
+                this.currentWorkflow,
+                conversionOptions
+            );
+
+            if (!universalResult.success || !universalResult.data) {
+                this.logger.error('Failed to convert workflow to Universal format', {
+                    error: universalResult.error
+                });
+                return null;
+            }
+
+            // 2. Universal 형식을 React-Flow 형식으로 변환
+            const reactFlowResult = await this.reactFlowConverter.convert(
+                universalResult.data,
+                conversionOptions
+            );
+
+            if (!reactFlowResult.success || !reactFlowResult.data) {
+                this.logger.error('Failed to convert Universal to React-Flow format', {
+                    error: reactFlowResult.error
+                });
+                return null;
+            }
+
+            this.logger.debug('React-Flow data generated successfully', {
+                nodeCount: reactFlowResult.data.nodes.length,
+                edgeCount: reactFlowResult.data.edges.length
+            });
+
+            return reactFlowResult.data;
+
+        } catch (error) {
+            this.logger.error('Error generating React-Flow data', { error });
+            return null;
+        }
+    }
+
+    /**
+     * 워크플로우 업데이트 시 React-Flow 데이터도 함께 생성하여 알림
+     */
+    private async notifyReactFlowUpdates(): Promise<void> {
+        if (this.reactFlowUpdateCallbacks.length === 0) {
+            return; // 구독자가 없으면 처리하지 않음
+        }
+
+        try {
+            const reactFlowData = await this.generateReactFlowData();
+            if (reactFlowData) {
+                this.reactFlowUpdateCallbacks.forEach(callback => {
+                    try {
+                        callback(reactFlowData);
+                    } catch (error) {
+                        this.logger.error('Error in React-Flow update callback', { error });
+                    }
+                });
+            }
+        } catch (error) {
+            this.logger.error('Error notifying React-Flow updates', { error });
+        }
+    }
+
+    /**
+     * React-Flow 설정 업데이트
+     */
+    updateReactFlowConfig(newConfig: Partial<ReactFlowConverterConfig>): void {
+        this.reactFlowConfig = {
+            ...this.reactFlowConfig,
+            ...newConfig
+        };
+
+        // 새 설정으로 변환기 재생성
+        this.reactFlowConverter = new UniversalToReactFlowConverter(this.reactFlowConfig, this.logger);
+
+        this.logger.debug('React-Flow configuration updated', { config: newConfig });
+
+        // 설정 변경 후 즉시 업데이트 알림
+        this.notifyReactFlowUpdates();
+    }
+
+    /**
+     * React-Flow 관련 통계 정보
+     */
+    getReactFlowStats(): {
+        hasReactFlowSubscribers: boolean;
+        subscriberCount: number;
+        config: ReactFlowConverterConfig;
+    } {
+        return {
+            hasReactFlowSubscribers: this.reactFlowUpdateCallbacks.length > 0,
+            subscriberCount: this.reactFlowUpdateCallbacks.length,
+            config: this.reactFlowConfig
         };
     }
 }

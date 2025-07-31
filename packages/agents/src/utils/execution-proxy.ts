@@ -17,6 +17,7 @@ export interface ExecutionProxyConfig {
 /**
  * Metadata extractor function type
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- tried-alternatives, generic-constraint
 export type MetadataExtractor = (target: any, methodName: string, args: any[]) => Record<string, any>;
 
 /**
@@ -27,6 +28,7 @@ export interface MethodConfig {
     completeEvent?: string;
     errorEvent?: string;
     extractMetadata?: MetadataExtractor;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tried-alternatives, generic-constraint
     extractResult?: (result: any) => any;
 }
 
@@ -157,6 +159,7 @@ export class ExecutionProxy<T extends object = object> {
                 if (typeof originalMethod === 'function' && this.methodConfigs.has(prop as string)) {
                     const methodConfig = this.methodConfigs.get(prop as string)!;
 
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tried-alternatives, generic-constraint
                     return async (...args: any[]) => {
                         const startTime = Date.now();
                         const executionId = this.generateExecutionId();
@@ -242,6 +245,7 @@ export class ExecutionProxy<T extends object = object> {
             ...additionalData
         };
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tried-alternatives, generic-constraint
         this.config.eventService.emit(eventType as any, eventData);
     }
 

@@ -6,7 +6,7 @@
  */
 
 import { BaseWorkflowValidator } from '../abstracts/base-workflow-validator';
-import type { UniversalWorkflowStructure } from '../types/universal-workflow-types';
+import type { UniversalWorkflowStructure } from '../services/workflow-converter/universal-types';
 import type { WorkflowData } from '../interfaces/workflow-converter';
 import type {
     ValidationOptions,

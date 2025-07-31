@@ -103,13 +103,14 @@ export interface ToolExecutionContext {
         /** Actual execution start time */
         startTime: Date;
         /** Actual input parameters passed to the tool */
-        actualParameters: any;
+        actualParameters: ToolParameters;
         /** Tool-provided estimated duration (optional) */
         estimatedDuration?: number;
     };
 
-    // Additional context data - expanded to support new field types
-    [key: string]: string | number | boolean | string[] | Date | ToolParameters | ToolMetadata | any | undefined;
+    // Additional context data - expanded to support new field types  
+    // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, generic-constraint
+    [key: string]: string | number | boolean | string[] | Date | ToolParameters | ToolMetadata | unknown | undefined;
 }
 
 /**

@@ -1,20 +1,21 @@
 /**
- * Centralized type definitions for agents library
- * Provides consistent, well-defined types to eliminate any/unknown usage
+ * Agent-specific type definitions
+ * Local types for agent functionality - not forced to use base types unless needed for cross-connections
  */
 
 /**
  * Primitive value types - foundation for all other types
+ * Extended to include null/undefined for agent contexts
  */
 export type PrimitiveValue = string | number | boolean | null | undefined;
 
 /**
- * Array value types - well-defined array structures (includes object arrays for complex data)
+ * Array value types - well-defined array structures
  */
 export type ArrayValue = string[] | number[] | boolean[] | Array<PrimitiveValue> | Array<ObjectValue>;
 
 /**
- * Object value types - structured object definitions (includes Date for compatibility)
+ * Object value types - structured object definitions  
  */
 export type ObjectValue = Record<string, PrimitiveValue | ArrayValue | Date>;
 
@@ -24,7 +25,7 @@ export type ObjectValue = Record<string, PrimitiveValue | ArrayValue | Date>;
 export type UniversalValue = PrimitiveValue | ArrayValue | ObjectValue;
 
 /**
- * Metadata type - consistent across all components (includes Date for compatibility)
+ * Metadata type - consistent across agent components
  */
 export type MetadataValue = PrimitiveValue | ArrayValue | Date;
 export type Metadata = Record<string, MetadataValue>;
@@ -35,12 +36,12 @@ export type Metadata = Record<string, MetadataValue>;
 export type ContextData = Record<string, UniversalValue>;
 
 /**
- * Logger data type - for logging contexts (includes Date for timestamps)
+ * Logger data type - for logging contexts
  */
 export type LoggerData = Record<string, UniversalValue | Date | Error>;
 
 /**
- * Configuration value type - supports complex objects like tools, plugins, and nested configurations
+ * Configuration types - for agent configuration
  */
 export type ComplexConfigValue = Record<string, PrimitiveValue | ArrayValue | ObjectValue>;
 export type ConfigValue = PrimitiveValue | ArrayValue | ObjectValue | Array<ComplexConfigValue> | Array<Record<string, PrimitiveValue | ArrayValue | ObjectValue>> | Array<ComplexConfigValue> | ComplexConfigValue;

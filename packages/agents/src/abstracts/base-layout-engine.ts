@@ -15,7 +15,7 @@ import type {
     UniversalWorkflowNode,
     UniversalWorkflowEdge,
     UniversalLayoutConfig
-} from '../types/universal-workflow-types';
+} from '../services/workflow-converter/universal-types';
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
 
 /**
@@ -439,7 +439,7 @@ export abstract class BaseLayoutEngine implements LayoutEngineInterface {
                 algorithm: this.algorithm as UniversalLayoutConfig['algorithm'],
                 engine: this.name,
                 version: this.version,
-                config
+                ...(config as any)
             }
         };
     }

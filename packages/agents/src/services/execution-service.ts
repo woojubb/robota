@@ -11,6 +11,20 @@ import { ChatOptions, ToolCall } from '../interfaces/provider';
 import { EventService, SilentEventService } from './event-service';
 import type { ToolExecutionBatchContext } from './tool-execution-service';
 
+// Step 1: ❌ Can't use Error.executionId (not in Error interface)
+// Step 2: ❌ Can't extend Error interface (TypeScript limitation)  
+// Step 3: ✅ Define custom interface for execution errors
+interface ExecutionError extends Error {
+    executionId?: string;
+    toolName?: string;
+    error?: Error;
+}
+
+// Type guard to check if error has execution properties
+function isExecutionError(error: Error): error is ExecutionError {
+    return 'executionId' in error || 'toolName' in error;
+}
+
 /**
  * Execution context passed through the pipeline
  */
@@ -455,7 +469,11 @@ export class ExecutionService {
                             sourceId: fullContext.conversationId || executionId,
                             toolName: result.toolName,
                             timestamp: new Date(),
-                            result: result.success ? result.result : result.error,
+                            result: {
+                                success: result.success,
+                                data: result.success ? result.result : undefined,
+                                error: result.success ? undefined : (result.error ?? 'Unknown error')
+                            },
                             rootExecutionId: fullContext.conversationId || executionId,
                             executionLevel: 2, // Tool level
                             executionPath: [fullContext.conversationId || executionId, executionId],
@@ -479,7 +497,7 @@ export class ExecutionService {
 
                     // Find the corresponding result for this tool call
                     const result = toolSummary.results.find(r => r.executionId === toolCall.id);
-                    const error = toolSummary.errors.find(e => e.executionId === toolCall.id);
+                    const error = toolSummary.errors.find(e => isExecutionError(e) && e.executionId === toolCall.id);
 
                     let content: string;
                     let metadata: Record<string, string | number | boolean> = { round: currentRound };
@@ -495,11 +513,12 @@ export class ExecutionService {
                         }
                     } else if (error) {
                         // Tool execution failed
-                        content = `Error: ${error.error.message}`;
+                        const execError = error as ExecutionError;
+                        content = `Error: ${execError.error?.message || execError.message || 'Unknown error'}`;
                         metadata['success'] = false;
-                        metadata['error'] = error.error.message;
-                        if (error.toolName) {
-                            metadata['toolName'] = error.toolName;
+                        metadata['error'] = execError.error?.message || execError.message || 'Unknown error';
+                        if (execError.toolName) {
+                            metadata['toolName'] = execError.toolName;
                         }
                     } else {
                         // No result found for this tool call
@@ -619,7 +638,10 @@ export class ExecutionService {
                     sourceType: 'agent',
                     sourceId: rootId,
                     timestamp: new Date(),
-                    result: result.response.substring(0, 100) + '...',
+                    result: {
+                        success: true,
+                        data: result.response.substring(0, 100) + '...'
+                    },
                     // Hierarchical tracking information
                     rootExecutionId: rootId,
                     executionLevel: 1, // Assistant message completion is Level 1
@@ -641,7 +663,10 @@ export class ExecutionService {
                     sourceType: 'agent',
                     sourceId: rootId,
                     timestamp: new Date(),
-                    result: result.response.substring(0, 100) + '...',
+                    result: {
+                        success: true,
+                        data: result.response.substring(0, 100) + '...'
+                    },
                     // Hierarchical tracking information
                     rootExecutionId: rootId,
                     executionLevel: 1, // Agent level execution
@@ -711,7 +736,7 @@ export class ExecutionService {
         config: AgentConfig,
         context?: Partial<ExecutionContext>
     ): AsyncGenerator<{ chunk: string; isComplete: boolean }> {
-        console.log('ExecutionService.executeStream called');
+        this.logger.debug('ExecutionService.executeStream called');
 
         const executionId = this.generateExecutionId();
         const startTime = Date.now();
@@ -748,25 +773,25 @@ export class ExecutionService {
                 throw new Error('Provider must have chatStream method to support streaming execution');
             }
 
-            console.log('ExecutionService calling provider.chatStream');
+            this.logger.debug('ExecutionService calling provider.chatStream');
 
             // Get conversation messages for provider
             const conversationMessages = conversationSession.getMessages();
 
             // Create chat options
-            console.log('🔍 [EXECUTION-SERVICE] config.tools:', config.tools?.length || 0);
+            this.logger.debug('🔍 [EXECUTION-SERVICE] config.tools:', { length: config.tools?.length || 0 });
             const toolSchemas = this.tools.getTools();
-            console.log('🔍 [EXECUTION-SERVICE] this.tools.getTools():', toolSchemas?.length || 0);
-            console.log('🔍 [EXECUTION-SERVICE] config.tools exists:', !!config.tools);
-            console.log('🔍 [EXECUTION-SERVICE] config.tools.length > 0:', config.tools && config.tools.length > 0);
+            this.logger.debug('🔍 [EXECUTION-SERVICE] this.tools.getTools():', { length: toolSchemas?.length || 0 });
+            this.logger.debug('🔍 [EXECUTION-SERVICE] config.tools exists:', { exists: !!config.tools });
+            this.logger.debug('🔍 [EXECUTION-SERVICE] config.tools.length > 0:', { hasTools: config.tools && config.tools.length > 0 });
 
             const chatOptions: ChatOptions = {
                 model: config.defaultModel.model,
                 ...(config.tools && config.tools.length > 0 && { tools: this.tools.getTools() })
             };
 
-            console.log('🔍 [EXECUTION-SERVICE] Final chatOptions has tools:', !!chatOptions.tools);
-            console.log('🔍 [EXECUTION-SERVICE] Final chatOptions.tools length:', chatOptions.tools?.length || 0);
+            this.logger.debug('🔍 [EXECUTION-SERVICE] Final chatOptions has tools:', { hasTools: !!chatOptions.tools });
+            this.logger.debug('🔍 [EXECUTION-SERVICE] Final chatOptions.tools length:', { length: chatOptions.tools?.length || 0 });
 
             // Use provider's streaming capability
             if (!(provider as any).chatStream) {
@@ -802,7 +827,7 @@ export class ExecutionService {
                                         arguments: chunkToolCall.function?.arguments || ''
                                     }
                                 });
-                                console.log(`🆕 [TOOL-STREAM] New tool call started: ${chunkToolCall.id} (${chunkToolCall.function?.name})`);
+                                this.logger.debug(`🆕 [TOOL-STREAM] New tool call started: ${chunkToolCall.id} (${chunkToolCall.function?.name})`);
                             } else if (currentToolCallIndex >= 0) {
                                 // ✅ ID 없음 = 현재 도구 호출에 조각 추가
                                 if (chunkToolCall.function?.name) {
@@ -811,14 +836,14 @@ export class ExecutionService {
                                 if (chunkToolCall.function?.arguments) {
                                     toolCalls[currentToolCallIndex].function.arguments += chunkToolCall.function.arguments;
                                 }
-                                console.log(`📝 [TOOL-STREAM] Adding fragment to tool ${toolCalls[currentToolCallIndex].id}: "${chunkToolCall.function?.arguments || chunkToolCall.function?.name || ''}"`);
+                                this.logger.debug(`📝 [TOOL-STREAM] Adding fragment to tool ${toolCalls[currentToolCallIndex].id}: "${chunkToolCall.function?.arguments || chunkToolCall.function?.name || ''}"`);
                             }
                         }
                     }
                 }
             }
 
-            console.log('🔥 [EXECUTION-SERVICE-STREAM] Stream completed, toolCalls detected:', toolCalls.length);
+            this.logger.debug('🔥 [EXECUTION-SERVICE-STREAM] Stream completed, toolCalls detected:', { count: toolCalls.length });
 
             // Add assistant response to conversation (with tool calls if any)
             conversationSession.addAssistantMessage(
@@ -829,7 +854,7 @@ export class ExecutionService {
 
             // Execute tools if detected
             if (toolCalls.length > 0) {
-                console.log('🔥 [EXECUTION-SERVICE-STREAM] Executing tools:', toolCalls.map(tc => tc.function.name));
+                this.logger.debug('🔥 [EXECUTION-SERVICE-STREAM] Executing tools:', { tools: toolCalls.map(tc => tc.function.name) });
 
                 // Execute tools with hierarchical context
                 const toolRequests = this.toolExecutionService.createExecutionRequestsWithContext(
@@ -879,7 +904,11 @@ export class ExecutionService {
                             sourceId: context?.conversationId || executionId,
                             toolName: result.toolName,
                             timestamp: new Date(),
-                            result: result.success ? result.result : result.error,
+                            result: {
+                                success: result.success,
+                                data: result.success ? result.result : undefined,
+                                error: result.success ? undefined : (result.error ?? 'Unknown error')
+                            },
                             rootExecutionId: context?.conversationId || executionId,
                             executionLevel: 2, // Tool level
                             executionPath: [context?.conversationId || executionId, executionId],
@@ -900,7 +929,7 @@ export class ExecutionService {
 
                     // Find the corresponding result for this tool call
                     const result = toolSummary.results.find(r => r.executionId === toolCall.id);
-                    const error = toolSummary.errors.find(e => e.executionId === toolCall.id);
+                    const error = toolSummary.errors.find(e => isExecutionError(e) && e.executionId === toolCall.id);
 
                     let content: string;
                     let metadata: Record<string, string | number | boolean> = { executionId };
@@ -919,15 +948,16 @@ export class ExecutionService {
                         yield { chunk: `\n[Tool: ${toolCall.function.name} executed successfully]`, isComplete: false };
                     } else if (error) {
                         // Tool execution failed
-                        content = `Error: ${error.error.message}`;
+                        const execError = error as ExecutionError;
+                        content = `Error: ${execError.error?.message || execError.message || 'Unknown error'}`;
                         metadata['success'] = false;
-                        metadata['error'] = error.error.message;
-                        if (error.toolName) {
-                            metadata['toolName'] = error.toolName;
+                        metadata['error'] = execError.error?.message || execError.message || 'Unknown error';
+                        if (execError.toolName) {
+                            metadata['toolName'] = execError.toolName;
                         }
 
                         // Yield error as streaming chunk
-                        yield { chunk: `\n[Tool: ${toolCall.function.name} failed: ${error.error.message}]`, isComplete: false };
+                        yield { chunk: `\n[Tool: ${toolCall.function.name} failed: ${execError.error?.message || execError.message || 'Unknown error'}]`, isComplete: false };
                     } else {
                         // Unknown state
                         content = 'Tool execution completed with unknown result';

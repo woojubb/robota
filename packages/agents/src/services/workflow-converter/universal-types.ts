@@ -311,6 +311,8 @@ export interface UniversalLayoutConfig {
  */
 export interface UniversalWorkflowStructure extends WorkflowData {
     readonly __workflowType: 'UniversalWorkflowStructure';
+    // Index signature to satisfy WorkflowData constraint
+    [key: string]: unknown;
     /** Workflow identification */
     id: string;
     name?: string;

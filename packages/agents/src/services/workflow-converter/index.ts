@@ -5,22 +5,23 @@
  * Follows Robota SDK architecture principles with dependency injection and logging.
  */
 
-import { BaseWorkflowConverter } from '../abstracts/base-workflow-converter';
-import type { WorkflowStructure } from './real-time-workflow-builder';
-import type { WorkflowData } from '../interfaces/workflow-converter';
-import type { WorkflowNode, WorkflowConnection } from './workflow-event-subscriber';
+import { BaseWorkflowConverter } from '../../abstracts/base-workflow-converter';
+import type { WorkflowStructure } from '../real-time-workflow-builder';
+import type { WorkflowData } from '../../interfaces/workflow-converter';
+import { NodeTypeMapping, EdgeTypeMapping, WorkflowStatusMapping, EdgeStyleMapping, NodeIconMapping, NodeColorMapping, EdgeColorMapping } from './types';
+import type { WorkflowNode, WorkflowConnection } from '../workflow-event-subscriber';
 import type {
     UniversalWorkflowStructure,
     UniversalWorkflowNode,
     UniversalWorkflowEdge,
     UniversalVisualState
-} from '../types/universal-workflow-types';
+} from './universal-types';
 import {
     UNIVERSAL_NODE_TYPES,
     UNIVERSAL_EDGE_TYPES
-} from '../types/universal-workflow-types';
-import type { WorkflowConversionOptions } from '../interfaces/workflow-converter';
-import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
+} from './universal-types';
+import type { WorkflowConversionOptions } from '../../interfaces/workflow-converter';
+import { SimpleLogger, SilentLogger } from '../../utils/simple-logger';
 
 /**
  * Options specific to WorkflowToUniversal conversion
@@ -371,7 +372,7 @@ export class WorkflowToUniversalConverter extends BaseWorkflowConverter<Workflow
      * Map Robota node types to Universal node types
      */
     private mapNodeType(robotaType: string): string {
-        const typeMap: Record<string, string> = {
+        const typeMap: NodeTypeMapping = {
             'user_input': UNIVERSAL_NODE_TYPES.USER_INPUT,
             'output': UNIVERSAL_NODE_TYPES.OUTPUT,
             'agent': UNIVERSAL_NODE_TYPES.AGENT,
@@ -393,7 +394,7 @@ export class WorkflowToUniversalConverter extends BaseWorkflowConverter<Workflow
      * Map Robota connection types to Universal edge types
      */
     private mapConnectionType(robotaType: string): string {
-        const typeMap: Record<string, string> = {
+        const typeMap: EdgeTypeMapping = {
             'has_tools': UNIVERSAL_EDGE_TYPES.HAS_TOOLS,
             'contains': UNIVERSAL_EDGE_TYPES.CONTAINS,
             'receives': UNIVERSAL_EDGE_TYPES.RECEIVES,
@@ -417,7 +418,7 @@ export class WorkflowToUniversalConverter extends BaseWorkflowConverter<Workflow
      * Map Robota node status to Universal visual status
      */
     private mapNodeStatus(robotaStatus: unknown): UniversalVisualState['status'] {
-        const statusMap: Record<string, UniversalVisualState['status']> = {
+        const statusMap: WorkflowStatusMapping = {
             'pending': 'pending',
             'running': 'running',
             'completed': 'completed',
@@ -434,7 +435,7 @@ export class WorkflowToUniversalConverter extends BaseWorkflowConverter<Workflow
      * Get icon for node type
      */
     private getNodeIcon(nodeType: string): string {
-        const iconMap: Record<string, string> = {
+        const iconMap: NodeIconMapping = {
             'user_input': '👤',
             'agent': '🤖',
             'sub_agent': '🔧',
@@ -453,7 +454,7 @@ export class WorkflowToUniversalConverter extends BaseWorkflowConverter<Workflow
      * Get color for node type
      */
     private getNodeColor(nodeType: string): string {
-        const colorMap: Record<string, string> = {
+        const colorMap: NodeColorMapping = {
             'user_input': '#4CAF50',
             'agent': '#2196F3',
             'sub_agent': '#FF9800',
@@ -471,7 +472,7 @@ export class WorkflowToUniversalConverter extends BaseWorkflowConverter<Workflow
      * Get edge style type
      */
     private getEdgeStyleType(connectionType: string): 'default' | 'straight' | 'step' | 'smoothstep' | 'bezier' {
-        const styleMap: Record<string, 'default' | 'straight' | 'step' | 'smoothstep' | 'bezier'> = {
+        const styleMap: EdgeStyleMapping = {
             'executes': 'straight',
             'processes': 'step',
             'branch': 'smoothstep',
@@ -493,7 +494,7 @@ export class WorkflowToUniversalConverter extends BaseWorkflowConverter<Workflow
      * Get edge color
      */
     private getEdgeColor(connectionType: string): string {
-        const colorMap: Record<string, string> = {
+        const colorMap: EdgeColorMapping = {
             'executes': '#2196F3',
             'processes': '#4CAF50',
             'branch': '#FF9800',
