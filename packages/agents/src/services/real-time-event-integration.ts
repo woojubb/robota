@@ -11,11 +11,9 @@ import { RealTimeWorkflowBuilder } from './real-time-workflow-builder';
 import { RealTimeReactFlowGenerator } from './real-time-react-flow-generator';
 import type { SimpleLogger } from '../utils/simple-logger';
 import { SilentLogger } from '../utils/simple-logger';
-import type {
-    ReactFlowData,
-    RealTimeReactFlowResult,
-    RealTimeReactFlowConfig
-} from './react-flow/types';
+import type { ReactFlowData } from './react-flow/types';
+import type { RealTimeReactFlowResult } from './real-time-react-flow-generator';
+import type { RealTimeReactFlowConfig } from './real-time-workflow-builder';
 import type { GenericMetadata } from '../interfaces/base-types';
 
 /**
