@@ -879,3 +879,147 @@ apps/examples/
 - **남은 작업**: 주로 품질 보증 및 미세 조정으로, 핵심 기능에는 영향 없음
 
 **즉시 사용 가능한 상태이며, Phase 4 개선 사항들은 점진적으로 적용 가능합니다.**
+
+---
+
+## 📋 **Phase 4.6: packages/agents 아키텍처 검토 및 개선 작업**
+
+### **🔍 아키텍처 준수 검토 결과 (2024-12-20)**
+
+packages/agents 패키지에 대한 전면적 검토를 통해 다음과 같은 개선 영역들을 발견했습니다.
+
+#### **4.6.1 Type Record 타입 중복 정리** ⚠️ **개선 필요**
+
+- [ ] **Type Record 타입 중복 제거 및 의미 있는 이름 적용**
+  - [ ] packages/agents/src 내 Record<string, 타입 선언들 분석 및 분류 - 동일 개념 식별
+  - [ ] ConversationContextMetadata, ToolExecutionParameters, ExecutionMetadata, ResponseMetadata 등 중복된 Record 타입들을 GenericMetadata 기반으로 통합
+  - [ ] MessageMetadata, AgentCreationMetadata, ToolMetadata 등을 GenericMetadata extends 패턴으로 변경
+  - [ ] 기술적 이름(Record, Mapping 등) → 도메인 의미 이름으로 변경 (예: ProviderConfigurationData, ToolParameterValues)
+
+#### **4.6.2 Any/Unknown 타입 4-step 검증 프로세스 적용** ⚠️ **개선 필요**
+
+- [ ] **Any/Unknown 타입 4-step 검증 프로세스 적용**
+  - [ ] utils/execution-proxy.ts의 MetadataExtractor any 타입들에 대한 4-step 검증 및 문서화
+  - [ ] services/event-service.ts의 hasMetadataProperty(obj: any) → 적절한 타입 가드로 변경
+  - [ ] services/tool-execution-service.ts의 safeStringValue(value: any) 등 → UniversalValue 기반으로 타입 안전화
+  - [ ] services/real-time-react-flow-generator.ts의 workflow: any 타입을 WorkflowData 제약으로 변경
+  - [ ] 테스트 파일들의 any 타입 사용에 대한 규칙 예외 처리 또는 타입 안전화
+
+#### **4.6.3 Interface Import Hierarchy 규칙 준수 검증** ⚠️ **개선 필요**
+
+- [ ] **Interface Import Hierarchy 규칙 준수 검증**
+  - [ ] services/execution-service.ts의 다중 계층 import 정리 - abstract, interface, manager 간 계층 구조 준수
+  - [ ] services/conversation-service/index.ts의 순환 참조 위험 검토 - manager → service → interface 계층 정리
+  - [ ] agents/robota.ts의 과도한 import 정리 - 핵심 의존성만 유지, 나머지는 DI 패턴 적용
+  - [ ] 모든 서비스 파일에서 lateral cross-import (동일 레벨 간 import) 제거
+
+#### **4.6.4 Console 사용 규칙 준수 검증** ✅ **양호**
+
+- [ ] **Console 사용 규칙 준수 검증**
+  - [ ] 직접적인 console 사용이 utils/simple-logger.ts와 문서 예제에만 제한되어 있는지 확인
+  - [ ] 모든 클래스가 SimpleLogger 의존성 주입 패턴을 올바르게 사용하는지 검증
+  - [ ] 기본값으로 SilentLogger 사용하는지 확인 (Production-safe 기본값)
+
+#### **4.6.5 Type Ownership 원칙 적용 검증** ⚠️ **개선 필요**
+
+- [ ] **Type Ownership 원칙 적용 검증**
+  - [ ] services 내 각 폴더가 자체 types.ts를 통해 타입 소유권을 명확히 하는지 확인
+  - [ ] interfaces/ 폴더가 진정한 공유 계약만 포함하고 기능별 타입은 포함하지 않는지 검증
+  - [ ] services/workflow-event-subscriber.ts, services/react-flow/ 등의 타입들이 적절한 소유권을 가지는지 확인
+
+#### **4.6.6 Semantic Naming 원칙 적용** ⚠️ **개선 필요**
+
+- [ ] **Semantic Naming 원칙 적용**
+  - [ ] 기술적 이름들(EventExecutionValue, EventDataValue 등)을 도메인 의미 이름으로 변경
+  - [ ] generic한 이름들(BaseResult, BaseConfig 등)에 구체적인 컨텍스트 추가
+  - [ ] Record 기반 타입들에 의미 있는 도메인 이름 부여
+
+#### **4.6.7 Feature-Based Type Organization 적용** ⚠️ **개선 필요**
+
+- [ ] **Feature-Based Type Organization 적용**
+  - [ ] services 내 개별 폴더들(conversation-service/, react-flow/, workflow-converter/ 등)에 각각 types.ts 파일 생성
+  - [ ] 중앙집권적 types/ 폴더 지양 - 기능별 자율성 보장
+  - [ ] interfaces/ 폴더는 최소한의 공유 계약만 유지
+
+#### **4.6.8 Build Integrity 원칙 검증** ✅ **양호**
+
+- [ ] **Build Integrity 원칙 검증**
+  - [ ] 임시 any 타입 assertion이나 우회책이 사용되지 않았는지 확인
+  - [ ] 모든 타입 오류가 근본적 해결을 통해 처리되었는지 검증
+  - [ ] TypeScript strict 모드와 ESLint 규칙이 일관되게 준수되는지 확인
+
+#### **4.6.9 Error Handling 표준화 및 일관성** ⚠️ **개선 필요**
+
+- [ ] **Error Handling 패턴 통합 및 표준화**
+  - [ ] plugins/error-handling/error-handling-plugin.ts의 복잡한 ErrorContextData 호환성 문제 해결
+  - [ ] services/execution-service.ts의 ExecutionError 인터페이스와 기본 Error 클래스 간 타입 안전성 강화
+  - [ ] utils/errors.ts의 ErrorExternalInput Record 타입을 GenericMetadata 기반으로 통합
+  - [ ] 모든 에러 핸들링에서 동일한 컨텍스트 데이터 구조 사용하도록 통일
+
+#### **4.6.10 Plugin Lifecycle 및 Dependency Management** ⚠️ **개선 필요**
+
+- [ ] **Plugin 시스템 아키텍처 최적화**
+  - [ ] managers/plugins.ts의 순환 의존성 탐지 알고리즘 성능 최적화
+  - [ ] abstracts/base-plugin.ts의 PluginHooks 인터페이스 메서드 시그니처 일관성 검증
+  - [ ] Plugin priority 및 dependency resolution 로직 타입 안전성 강화
+  - [ ] 모든 플러그인에서 dispose 패턴 일관성 확보
+
+#### **4.6.11 Resource Management 및 Memory Leak 방지** ⚠️ **개선 필요**
+
+- [ ] **리소스 정리 패턴 표준화**
+  - [ ] agents/robota.ts의 destroy() 메서드 순서 및 에러 핸들링 검증
+  - [ ] abstracts/base-module.ts의 dispose() 패턴이 모든 상속 클래스에서 일관되게 적용되는지 확인
+  - [ ] managers/ai-provider-manager.ts의 doDispose() 메서드에서 provider.close() 호출 표준화
+  - [ ] EventEmitter 및 타이머 정리가 모든 컴포넌트에서 올바르게 수행되는지 검증
+
+#### **4.6.12 Validation 및 Schema 처리 일관성** ⚠️ **개선 필요**
+
+- [ ] **검증 시스템 통합 및 표준화**
+  - [ ] utils/validation.ts의 ValidationResult와 interfaces/workflow-validator.ts의 ValidationResult 타입 통합
+  - [ ] schemas/agent-template-schema.ts의 SchemaValidationInput 타입을 GenericConfig 기반으로 변경
+  - [ ] tools/registry/tool-registry.ts의 validateToolSchema() 메서드 타입 안전성 강화
+  - [ ] Zod 스키마와 커스텀 검증 로직 간 일관성 확보
+
+#### **4.6.13 Module System 및 Circular Dependency 관리** ✅ **우수**
+
+- [ ] **Module 시스템 아키텍처 검증 (참고용)**
+  - [ ] managers/module-registry.ts의 순환 의존성 탐지 및 해결 메커니즘 검토
+  - [ ] managers/module-type-registry.ts의 의존성 순서 해결 알고리즘 성능 검증
+  - [ ] 모든 모듈 초기화 순서가 올바른 우선순위를 따르는지 확인
+
+### **🎯 성공 기준 (Phase 4.6 완료 시)**
+
+- [ ] **타입 중복 제거**: 현재 30+ Record 타입 선언 → 5-10개 도메인 타입으로 통합
+- [ ] **Any/Unknown 검증**: 모든 any/unknown 사용에 대한 4-step 검증 완료 또는 적절한 대안 적용
+- [ ] **Import 계층 준수**: 모든 서비스가 Interface Import Hierarchy 규칙 100% 준수
+- [ ] **타입 소유권 명확화**: 각 기능별 타입 소유권 명확히 정의 및 적절한 위치 배치
+- [ ] **의미 있는 네이밍**: 모든 타입이 도메인 중심의 의미 있는 이름 사용
+- [ ] **빌드 무결성**: TypeScript 컴파일 및 ESLint 검사 완전 통과
+- [ ] **에러 핸들링 통일**: 모든 컴포넌트에서 일관된 에러 컨텍스트 및 처리 패턴 사용
+- [ ] **리소스 관리 완성**: 모든 dispose/destroy 메서드에서 완전한 리소스 정리 수행
+- [ ] **검증 시스템 통합**: Zod 스키마와 커스텀 검증 로직 간 완전한 호환성 확보
+
+### **⚠️ 우선순위 (업데이트됨)**
+
+1. **최우선**: Type Record 중복 제거 (4.6.1) - 가장 많은 아키텍처 위반 사례
+2. **높음**: Any/Unknown 타입 검증 (4.6.2) - 타입 안전성 확보
+3. **높음**: Import Hierarchy 준수 (4.6.3) - 아키텍처 일관성
+4. **높음**: Error Handling 표준화 (4.6.9) - 시스템 안정성 향상
+5. **중간**: Resource Management 개선 (4.6.11) - 메모리 누수 방지
+6. **중간**: Validation 시스템 통합 (4.6.12) - 데이터 무결성 확보
+7. **중간**: Type Ownership 명확화 (4.6.5) - 장기적 유지보수성
+8. **낮음**: Plugin Lifecycle 최적화 (4.6.10) - 성능 개선
+9. **낮음**: Semantic Naming 및 Organization (4.6.6, 4.6.7) - 코드 품질 향상
+
+### **📊 추가 발견 사항 요약**
+
+꼼꼼한 재검토를 통해 다음과 같은 추가 개선 영역들을 발견했습니다:
+
+- **Error Handling 복잡성**: ErrorContextData와 ErrorHandlingContextData 간 타입 호환성 문제
+- **Resource Management 불일치**: dispose/destroy 패턴이 일부 컴포넌트에서 불완전
+- **Validation 중복**: ValidationResult 타입이 여러 위치에서 다르게 정의됨
+- **Schema 타입 불일치**: Zod 기반 스키마와 커스텀 타입 간 호환성 문제
+
+**총 개선 영역**: 13개 (기존 8개 + 추가 5개)
+
+**이 작업들을 완료하면 packages/agents가 Robota SDK 아키텍처 원칙을 100% 준수하는 모범적인 패키지가 됩니다.**

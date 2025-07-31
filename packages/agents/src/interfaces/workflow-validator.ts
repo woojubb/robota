@@ -124,12 +124,10 @@ export interface ValidationResult {
         dataStats: {
             nodeCount?: number;
             edgeCount?: number;
-                        [key: string]: string | number | boolean;
-        };
+        } & Record<string, string | number | boolean>;
         
         /** Additional metrics */
-        [key: string]: string | number | boolean;
-    };
+    } & Record<string, string | number | boolean | Date | string[]>;
 
     /** Auto-recovery suggestions (if enabled) */
     recoveryOptions?: Array<{
