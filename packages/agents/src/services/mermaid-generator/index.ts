@@ -4,9 +4,10 @@ import {
     WorkflowNodeStatus,
     WorkflowConnection,
     WorkflowConnectionType
-} from './workflow-event-subscriber';
-import { WorkflowStructure } from './real-time-workflow-builder';
-import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
+} from '../workflow-event-subscriber';
+import { WorkflowStructure } from '../real-time-workflow-builder';
+import { SimpleLogger, SilentLogger } from '../../utils/simple-logger';
+import { MermaidNodeClassMapping, MermaidNodeEmojiMapping, MermaidStatusMapping, MermaidShapeMapping, MermaidArrowMapping, MermaidLabelMapping } from './types';
 
 /**
  * Generates real-time Mermaid diagrams from WorkflowNode structures
@@ -228,7 +229,7 @@ export class RealTimeMermaidGenerator {
     }
 
     private getNodeClassName(type: string): string {
-        const classMap: Record<string, string> = {
+        const classMap: MermaidNodeClassMapping = {
             'agent': 'agent',
             'sub_agent': 'agent',
             'user_input': 'user',
@@ -297,7 +298,7 @@ export class RealTimeMermaidGenerator {
     }
 
     private getNodeEmoji(type: string): string {
-        const emojiMap: Record<string, string> = {
+        const emojiMap: MermaidNodeEmojiMapping = {
             'agent': '🤖',
             'user_input': '👤',
             'agent_thinking': '💭',
@@ -313,7 +314,7 @@ export class RealTimeMermaidGenerator {
     }
 
     private getStatusEmoji(status: string): string {
-        const statusMap: Record<string, string> = {
+        const statusMap: MermaidStatusMapping = {
             'pending': '⏳',
             'running': '▶️',
             'completed': '✅',
@@ -324,7 +325,7 @@ export class RealTimeMermaidGenerator {
     }
 
     private getNodeShape(type: string): { start: string; end: string } {
-        const shapeMap: Record<string, { start: string; end: string }> = {
+        const shapeMap: MermaidShapeMapping = {
             'agent': { start: '[', end: ']' },
             'user_input': { start: '(', end: ')' },
             'tool_call': { start: '[', end: ']' },
@@ -337,7 +338,7 @@ export class RealTimeMermaidGenerator {
     }
 
     private getConnectionArrow(type: string): string {
-        const arrowMap: Record<string, string> = {
+        const arrowMap: MermaidArrowMapping = {
             'processes': '-->',
             'executes': '-->',
             'spawn': '==>',
@@ -352,7 +353,7 @@ export class RealTimeMermaidGenerator {
     }
 
     private getConnectionLabel(type: string): string {
-        const labelMap: Record<string, string> = {
+        const labelMap: MermaidLabelMapping = {
             'spawn': 'creates',
             'return': 'returns',
             'consolidate': 'merges',

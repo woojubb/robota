@@ -4,6 +4,7 @@ import type {
     LocalExecutorConfig
 } from '../interfaces/executor';
 import type { UniversalMessage, AssistantMessage } from '../managers/conversation-history-manager';
+import type { ChatOptions } from '../interfaces/provider';
 import { BaseExecutor } from '../abstracts/base-executor';
 
 /**
@@ -242,10 +243,10 @@ export interface AIProviderInstance {
     readonly name?: string;
 
     /** Chat completion method */
-    chat?(messages: UniversalMessage[], options?: any): Promise<UniversalMessage>;
+    chat?(messages: UniversalMessage[], options?: ChatOptions): Promise<UniversalMessage>;
 
     /** Streaming chat completion method */
-    chatStream?(messages: UniversalMessage[], options?: any): AsyncIterable<UniversalMessage>;
+    chatStream?(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage>;
 
     /** Check if provider supports tools */
     supportsTools?(): boolean;

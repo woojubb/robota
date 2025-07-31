@@ -1,15 +1,19 @@
 ---
 alwaysApply: true
-description: Mandatory validation process before using unknown types
+description: Mandatory validation process before using any or unknown types
 ---
 
-# Unknown Type Validation Process
+# Any/Unknown Type Validation Process
 
-## 🚨 **MANDATORY: 3-Step Verification Before Unknown**
+## 🚨 **MANDATORY: 3-Step Verification Before Any/Unknown**
 
-**NEVER** use `unknown` type without completing this verification process. Every `unknown` usage must be justified with this exact process.
+**NEVER** use `any` or `unknown` types without completing this verification process. Every `any`/`unknown` usage must be justified with this exact process.
 
-## 📋 **30-Second Simulation Process**
+## 🚫 **Prohibited Types**
+- **`any`**: Disables all type checking, bypasses TypeScript safety
+- **`unknown`**: Should only be used when all alternatives are exhausted
+
+## 📋 **4-Step Verification Process**
 
 ### **Step 1: Specific Types Simulation** ⚡
 ```
@@ -23,13 +27,18 @@ If NO to all → Continue to Step 2
 
 ### **Step 2: Existing Types Simulation** ⚡
 ```
-Q: Can this use WorkflowConfig?
-Q: Can this use WorkflowMetadata? 
-Q: Can this use GenericConfig?
-Q: Can this extend existing interface?
+Q: Can this use WorkflowConfig AND is there a legitimate connection?
+Q: Can this use WorkflowMetadata AND does this module logically relate to workflows? 
+Q: Can this use GenericConfig AND is this truly configuration data?
+Q: Can this extend existing interface AND does it implement/consume that interface?
 
-If YES to any → Use/extend existing type, STOP HERE
-If NO to all → Continue to Step 3
+CRITICAL: Check Interface Import Hierarchy rules:
+- Is this an upward reference (lower → higher layer)?
+- Is there a legitimate architectural connection?
+- Am I avoiding arbitrary cross-imports?
+
+If YES to any + legitimate connection → Use/extend existing type, STOP HERE
+If NO to all OR no legitimate connection → Continue to Step 3
 ```
 
 ### **Step 3: Interface Definition Simulation** ⚡
@@ -39,21 +48,38 @@ Q: Can I create a typed interface for this use case?
 Q: Can I use composition of existing types?
 
 If YES to any → Define proper interface, STOP HERE
-If NO to all → Proceed to Step 4
+If NO to all → Continue to Step 4
 ```
 
-### **Step 4: Unknown Justification** (Final Resort)
+### **Step 4: Design Improvement Simulation** 🏗️ **NEW**
+```
+Q: Can I redesign this to avoid any/unknown entirely?
+Q: Can I use generics with proper constraints instead?
+Q: Can I apply Strategy/Factory patterns for type safety?
+Q: Can I use branded types or discriminated unions?
+Q: Can I refactor the architecture to eliminate the need?
+
+If YES to any → Apply better design, STOP HERE
+If NO to all → Proceed to Step 5
+```
+
+### **Step 5: Any/Unknown Justification** (Final Resort)
 Only if ALL above steps failed, then justify with comment:
 
 ```typescript
+// For unknown types:
 // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, [reason]
 data: Record<string, unknown>;
+
+// For any types:
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- tried-alternatives, [reason]
+handler: (target: any, methodName: string, args: any[]) => any;
 ```
 
 **Valid reasons:**
 - `external-api` - Third-party API returns arbitrary structure
 - `runtime-dynamic` - Data structure determined at runtime
-- `third-party` - Library requires unknown interface
+- `third-party` - Library requires any/unknown interface
 - `legacy-code` - Interfacing with legacy untyped code
 - `generic-constraint` - Generic type constraint requirement
 
@@ -64,6 +90,10 @@ data: Record<string, unknown>;
 // ❌ REJECTED: Not a valid reason
 // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, flexibility
 config: Record<string, unknown>; // Should use GenericConfig
+
+// ❌ REJECTED: any for convenience
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- tried-alternatives, flexibility
+result: any; // Should define proper return type
 ```
 
 ### **❌ Skipped Verification**
@@ -71,6 +101,10 @@ config: Record<string, unknown>; // Should use GenericConfig
 // ❌ REJECTED: No verification process shown
 // eslint-disable-next-line @typescript-eslint/ban-types -- external-api
 data: unknown; // Must show what alternatives were tried
+
+// ❌ REJECTED: any without verification
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- external-api
+params: any; // Must show verification steps
 ```
 
 ### **❌ Subjective Judgment**
@@ -78,6 +112,10 @@ data: unknown; // Must show what alternatives were tried
 // ❌ REJECTED: "seems necessary" is not objective
 // eslint-disable-next-line @typescript-eslint/ban-types -- seems necessary
 params: unknown;
+
+// ❌ REJECTED: "easier" is not a technical reason
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- easier
+handler: any;
 ```
 
 ## ✅ **Correct Examples**
@@ -85,8 +123,9 @@ params: unknown;
 ### **✅ Valid External API Case**
 ```typescript
 // Step 1: ❌ Can't be string|number|boolean (arbitrary JSON)
-// Step 2: ❌ Can't use WorkflowConfig (external structure)  
+// Step 2: ❌ Can't use WorkflowConfig (no legitimate connection - external API)  
 // Step 3: ❌ Can't define interface (structure changes per API version)
+// Step 4: ❌ Can't redesign (external API structure beyond our control)
 // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, external-api
 apiResponse: Record<string, unknown>;
 ```
@@ -94,31 +133,114 @@ apiResponse: Record<string, unknown>;
 ### **✅ Valid Generic Constraint**
 ```typescript
 // Step 1: ❌ Can't be specific (needs to accept any workflow type)
-// Step 2: ❌ Can't use existing (too restrictive for generic)
+// Step 2: ❌ Can't use existing (no specific constraint needed for generic base)
 // Step 3: ❌ Can't define interface (defeats generic purpose)
+// Step 4: ❌ Can't redesign (generic constraint by design requirement)
 // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, generic-constraint
 interface BaseConverter<T extends Record<string, unknown>> {}
 ```
 
+### **✅ Valid Legitimate Connection Example**
+```typescript
+// services/workflow-converter/types.ts
+// Step 1: ❌ Can't be specific (extensible metadata)
+// Step 2: ✅ Can use GenericMetadata + legitimate connection (workflow-related module)
+import type { GenericMetadata } from '../../interfaces/base-types';
+
+export interface WorkflowMetadata extends GenericMetadata {
+  executionId: string;
+  // Workflow-specific metadata properties
+}
+```
+
+### **❌ Invalid Connection Example** 
+```typescript
+// services/conversation-service/types.ts - NO WORKFLOW CONNECTION
+// Step 1: ❌ Can't be specific (extensible metadata)
+// Step 2: ❌ Can't use WorkflowMetadata (no legitimate connection - conversation ≠ workflow)
+// Step 3: ✅ Define local interface instead
+
+export interface ConversationMetadata {
+  sessionId: string;
+  participantCount: number;
+  // Conversation-specific metadata
+}
+```
+
+### **✅ Valid Any for Proxy Pattern**
+```typescript
+// Step 1: ❌ Can't be specific (must handle any object type)
+// Step 2: ❌ Can't use existing (proxy needs complete flexibility)
+// Step 3: ❌ Can't define interface (proxy targets vary dynamically)
+// Step 4: ❌ Can't redesign (Proxy pattern inherently requires any for target flexibility)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- tried-alternatives, generic-constraint
+export type MetadataExtractor = (target: any, methodName: string, args: any[]) => Record<string, any>;
+```
+
+### **✅ Design Improvement Success Example**
+```typescript
+// Before: Using any
+interface BadEventData {
+  data: any; // ❌ Originally used any
+}
+
+// After: Step 4 Design Improvement Applied
+interface EventData<TData = EventPayload> {
+  data: TData; // ✅ Generic with proper constraint
+}
+
+interface EventPayload {
+  type: string;
+  timestamp: Date;
+  payload: Record<string, string | number | boolean>;
+}
+
+// Usage with type safety
+const userEvent: EventData<UserEventPayload> = {
+  data: { type: 'user_action', timestamp: new Date(), payload: { userId: '123' } }
+};
+```
+
 ## 🎯 **Verification Documentation**
 
-Each `unknown` usage must document the verification:
+Each `any`/`unknown` usage must document the verification:
 
 ```typescript
 // VERIFICATION PROCESS:
 // Step 1: Tried string|number|boolean - FAILED because [specific reason]
 // Step 2: Tried WorkflowConfig - FAILED because [specific reason]  
 // Step 3: Tried custom interface - FAILED because [specific reason]
+// Step 4: Tried design improvement - FAILED because [specific reason]
 // Conclusion: unknown required for [technical reason]
 // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, external-api
 data: Record<string, unknown>;
+
+// OR for any types:
+// VERIFICATION PROCESS:
+// Step 1: Tried specific function signature - FAILED because [specific reason]
+// Step 2: Tried existing handler types - FAILED because [specific reason]
+// Step 3: Tried interface definition - FAILED because [specific reason]
+// Step 4: Tried architectural redesign - FAILED because [specific reason]
+// Conclusion: any required for [technical reason]
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- tried-alternatives, generic-constraint
+handler: (target: any, ...args: any[]) => any;
 ```
 
 ## 🚨 **Enforcement**
 
-- **Code Review**: All `unknown` usages will be challenged
+- **Code Review**: All `any`/`unknown` usages will be challenged
 - **Must Show Work**: Verification process must be documented
 - **Objective Reasons**: Only technical reasons accepted, no subjective judgment
 - **Alternative Required**: Must demonstrate that alternatives were attempted
 
-**Remember**: `unknown` is a failure of type system design. Use it only when TypeScript's type system genuinely cannot express the required constraint.
+## 🚫 **Anti-Pattern: Any/Unknown Replacement**
+**NEVER** replace `unknown` with `any` or vice versa to bypass lint errors:
+```typescript
+// ❌ WRONG: Replacing unknown with any
+const data: any = input; // Still violates type safety
+
+// ❌ WRONG: Replacing any with unknown without verification
+const handler: unknown = callback; // Makes code unusable
+```
+
+**Remember**: Both `any` and `unknown` represent failures of type system design. Use them only when TypeScript's type system genuinely cannot express the required constraint AND when architectural improvements cannot eliminate the need.

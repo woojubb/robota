@@ -10,41 +10,40 @@
 
 import { SimpleLogger } from '../utils/simple-logger';
 
+import { GenericConfig, GenericMetadata, ConfigValue, MetadataValue } from './base-types';
+
 /**
- * Base workflow data constraint
- * All workflow data must extend this interface for type safety
- */
-/**
- * Generic configuration object for workflow processing
- * Uses recursive type for nested configuration support
+ * Workflow configuration - uses base type for cross-converter compatibility
+ * Step 1: ❌ Can't assign number/boolean to ConfigValue directly (index signature conflict)
+ * Step 2: ✅ ConfigValue already includes primitive types (number, boolean)
+ * Step 3: ✅ Fix index signature to allow optional properties
+ * Step 4: ✅ Use proper intersection type for compatibility
  */
 export interface WorkflowConfig {
-    [key: string]: WorkflowConfigValue;
+    // Workflow-specific config properties
+    timeout?: number;
+    retries?: number;
+    validateInput?: boolean;
+    validateOutput?: boolean;
+    // Extend GenericConfig compatibility with proper typing
+    [key: string]: ConfigValue | undefined;
 }
-
-export type WorkflowConfigValue =
-    | string
-    | number
-    | boolean
-    | Date
-    | WorkflowConfig
-    | WorkflowConfigValue[];
 
 /**
- * Metadata container for workflow operations  
- * Uses recursive type for nested metadata support
+ * Workflow metadata - uses base type for cross-converter compatibility
+ * Step 1: ❌ Can't assign Date/number/string to MetadataValue directly (index signature conflict)
+ * Step 2: ✅ MetadataValue already includes Date, primitive types
+ * Step 3: ✅ Fix index signature to allow optional properties  
+ * Step 4: ✅ Use proper intersection type for compatibility
  */
 export interface WorkflowMetadata {
-    [key: string]: WorkflowMetadataValue;
+    // Workflow-specific metadata properties
+    convertedAt?: Date;
+    processingTime?: number;
+    executionId?: string;
+    // Extend GenericMetadata compatibility with proper typing
+    [key: string]: MetadataValue | undefined;
 }
-
-export type WorkflowMetadataValue =
-    | string
-    | number
-    | boolean
-    | Date
-    | WorkflowMetadata
-    | WorkflowMetadataValue[];
 
 /**
  * Base workflow data constraint with flexible typing
@@ -58,6 +57,10 @@ export interface WorkflowData {
 
 /**
  * Conversion options for workflow transformations
+ * Step 1: ❌ Can't assign WorkflowConversionOptions to MetadataValue (missing index signature)
+ * Step 2: ✅ Add index signature to make it compatible with MetadataValue
+ * Step 3: ✅ Maintain type safety while allowing metadata storage
+ * Step 4: ✅ Use MetadataValue compatibility for dynamic properties
  */
 export interface WorkflowConversionOptions {
     /** Include debug information in output */
@@ -77,6 +80,9 @@ export interface WorkflowConversionOptions {
 
     /** Platform-specific options */
     platformOptions?: WorkflowConfig;
+
+    /** Additional dynamic options compatible with MetadataValue */
+    [key: string]: MetadataValue | SimpleLogger | WorkflowMetadata | WorkflowConfig | undefined;
 }
 
 /**
@@ -115,9 +121,17 @@ export interface WorkflowConversionResult<TOutput> {
             edgeCount: number;
         };
 
-        /** Additional metrics */
-        [key: string]: string | number | boolean;
-    };
+        /** Converter name */
+        converter: string;
+
+        /** Converter version */
+        version: string;
+
+        /** Additional options */
+        options?: WorkflowConversionOptions;
+
+        /** Additional metadata using GenericMetadata */
+    } & GenericMetadata;
 }
 
 /**

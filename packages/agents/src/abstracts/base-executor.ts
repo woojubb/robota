@@ -4,6 +4,7 @@ import type {
     StreamExecutionRequest
 } from '../interfaces/executor';
 import type { UniversalMessage, AssistantMessage } from '../managers/conversation-history-manager';
+import type { LoggerData } from '../interfaces/types';
 import { logger } from '../utils/logger';
 
 /**
@@ -130,7 +131,7 @@ export abstract class BaseExecutor implements ExecutorInterface {
      * @param message - Log message
      * @param data - Optional data to log
      */
-    protected logDebug(message: string, data?: any): void {
+    protected logDebug(message: string, data?: LoggerData): void {
         logger.debug(`[${this.name}] ${message}`, data);
     }
 
@@ -141,7 +142,7 @@ export abstract class BaseExecutor implements ExecutorInterface {
      * @param error - Error object
      * @param data - Optional additional data
      */
-    protected logError(message: string, error: Error, data?: any): void {
+    protected logError(message: string, error: Error, data?: LoggerData): void {
         logger.error(`[${this.name}] ${message}`, {
             error: error.message,
             stack: error.stack,

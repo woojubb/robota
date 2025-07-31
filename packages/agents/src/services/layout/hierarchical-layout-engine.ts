@@ -10,7 +10,7 @@ import type {
     UniversalWorkflowNode,
     UniversalWorkflowEdge,
     UniversalLayoutConfig
-} from '../../types/universal-workflow-types';
+} from '../workflow-converter/universal-types';
 import type { LayoutCalculationOptions } from '../../interfaces/layout-engine';
 import { SimpleLogger, SilentLogger } from '../../utils/simple-logger';
 
