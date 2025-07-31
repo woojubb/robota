@@ -1,5 +1,37 @@
 # 🔄 React-Flow 통합 작업 계획서
 
+## 🚨 **현재 상황 및 가장 시급한 작업들**
+
+### ✅ **완료된 작업 (Phase 1 대부분 완료)**
+- **Universal 데이터 구조 설계**: `UniversalWorkflowStructure`, `UniversalWorkflowNode`, `UniversalWorkflowEdge` 완료
+- **아키텍처 기반 구조**: `BaseWorkflowConverter`, `BaseLayoutEngine`, `BaseWorkflowValidator` 완료
+- **구체 구현체**: `WorkflowToUniversalConverter`, `HierarchicalLayoutEngine`, `UniversalWorkflowValidator` 완료
+- **인터페이스 분리**: `WorkflowConverterInterface`, `LayoutEngineInterface`, `WorkflowValidatorInterface` 완료
+
+### ⚠️ **가장 시급한 남은 작업들 (우선순위 순서)**
+
+#### **🔥 1순위: 타입 오류 해결 (127개 → 10개 이하)**
+- **현재 상황**: 127개 타입 오류로 빌드 실패
+- **근본 원인**: 100+개 파일에서 Record<string, 중복 타입 선언
+- **해결 방법**: Phase X.1의 타입 통합 리팩토링 필요
+
+#### **🔥 2순위: Universal 타입 아키텍처 결함 해결**
+- **현재 문제**: `UniversalWorkflowNode`에 `mermaid`, `reactFlow` 하드코딩
+- **아키텍처 위반**: Universal 타입이 특정 플랫폼에 의존적
+- **해결 방법**: Phase X.2의 Platform-agnostic 리팩토링 필요
+
+#### **🔥 3순위: React-Flow 변환기 구현**
+- **현재 상황**: Phase 2 아직 시작 안됨
+- **필요 작업**: React-Flow v12.8.2 타입 정의 및 변환기 구현
+- **의존성**: 1순위, 2순위 완료 후 진행 가능
+
+### 📊 **진행 상황 요약**
+- **Phase 1**: 95% 완료 (타입 오류 해결 필요)
+- **Phase X (리팩토링)**: 10% 완료 (긴급 진행 필요)
+- **Phase 2**: 0% 완료 (Phase X 완료 후 진행)
+- **Phase 3**: 0% 완료
+- **Phase 4**: 0% 완료
+
 ## 📋 프로젝트 개요
 
 현재 Mermaid 다이어그램으로 워크플로우를 시각화하고 있는 시스템을 확장하여, **중간 단계 데이터 구조**를 만들고 이를 기반으로 **React-Flow의 nodes + edges 형태**로 변환하는 기능을 개발합니다.
@@ -79,66 +111,143 @@ interface ReactFlowEdge {
 
 ## 🏗️ 작업 단계별 체크리스트
 
-### **Phase 1: 중간 데이터 구조 설계 및 구현**
+### **Phase 1: 중간 데이터 구조 설계 및 구현 (아키텍처 원칙 준수)**
 
-#### **1.1 범용 워크플로우 데이터 구조 정의**
-- [ ] `UniversalWorkflowNode` 인터페이스 설계
-  - [ ] 모든 워크플로우 노드 타입을 포괄할 수 있는 구조
-  - [ ] 위치 정보를 포함하되 유연한 레이아웃 지원
-  - [ ] 메타데이터 및 상태 정보 포함
-- [ ] `UniversalWorkflowEdge` 인터페이스 설계
-  - [ ] 노드 간 연결 관계 표현
-  - [ ] 연결 타입 및 스타일 정보 포함
-- [ ] `UniversalWorkflowStructure` 컨테이너 인터페이스 설계
-  - [ ] nodes와 edges 배열
-  - [ ] 메타데이터 (제목, 설명, 생성일 등)
-  - [ ] 레이아웃 설정 정보
+#### **1.1 타입 정의 및 인터페이스 분리 (단일 책임 원칙)**
+- [x] `UniversalWorkflowNode` 인터페이스 설계 ✅ 완료
+  - [x] 모든 워크플로우 노드 타입을 포괄할 수 있는 구조
+  - [x] 위치 정보를 포함하되 유연한 레이아웃 지원  
+  - [x] 메타데이터 및 상태 정보 포함
+- [x] `UniversalWorkflowEdge` 인터페이스 설계 ✅ 완료
+  - [x] 노드 간 연결 관계 표현
+  - [x] 연결 타입 및 스타일 정보 포함
+- [x] `UniversalWorkflowStructure` 컨테이너 인터페이스 설계 ✅ 완료
+  - [x] nodes와 edges 배열
+  - [x] 메타데이터 (제목, 설명, 생성일 등)
+  - [x] 레이아웃 설정 정보
 
-#### **1.2 기존 WorkflowStructure → Universal 변환기 구현**
-- [ ] `WorkflowToUniversalConverter` 클래스 생성
-  - [ ] `packages/agents/src/services/workflow-to-universal-converter.ts`
-  - [ ] 기존 `WorkflowStructure`를 `UniversalWorkflowStructure`로 변환
-  - [ ] 노드 위치 자동 계산 알고리즘 구현 (계층 기반 레이아웃)
-- [ ] 변환기 테스트 코드 작성
+#### **1.2 추상화 계층 설계 (Facade 패턴 적용)** ✅ **완료**
+- [x] `BaseWorkflowConverter` 추상 클래스 생성 ✅ **완료**
+  - [x] `packages/agents/src/abstracts/base-workflow-converter.ts` ✅
+  - [x] 모든 변환기가 상속받을 공통 인터페이스 정의 ✅
+  - [x] BaseModule 패턴 적용 (enabled, logger, eventEmitter) ✅
+  - [x] 타입 안전성을 위한 제네릭 타입 파라미터 `<TInput, TOutput>` ✅
+- [x] `BaseLayoutEngine` 추상 클래스 생성 ✅ **완료**
+  - [x] `packages/agents/src/abstracts/base-layout-engine.ts` ✅
+  - [x] 레이아웃 알고리즘 추상화 (hierarchical, force, grid 등) ✅
+  - [x] 위치 계산 로직 분리 ✅
+- [x] `BaseWorkflowValidator` 추상 클래스 생성 ✅ **완료**
+  - [x] `packages/agents/src/abstracts/base-workflow-validator.ts` ✅
+  - [x] 검증 로직 추상화 ✅
+  - [x] 플랫폼별 검증 규칙 확장 가능 ✅
+
+#### **1.3 구체 구현 클래스 (단일 책임 원칙)** ✅ **완료**
+- [x] `WorkflowToUniversalConverter` 클래스 구현 ✅ **완료**
+  - [x] `packages/agents/src/services/workflow-to-universal-converter.ts` ✅
+  - [x] `BaseWorkflowConverter<WorkflowStructure, UniversalWorkflowStructure>` 상속 ✅
+  - [x] 기존 `WorkflowStructure`를 `UniversalWorkflowStructure`로 변환 ✅
+  - [x] SimpleLogger 의존성 주입 패턴 적용 ✅
+- [x] `HierarchicalLayoutEngine` 클래스 구현 ✅ **완료**
+  - [x] `packages/agents/src/services/layout/hierarchical-layout-engine.ts` ✅
+  - [x] `BaseLayoutEngine` 상속 ✅
+  - [x] 계층 기반 노드 위치 자동 계산 알고리즘 ✅
+- [x] `UniversalWorkflowValidator` 클래스 구현 ✅ **완료**
+  - [x] `packages/agents/src/validators/universal-workflow-validator.ts` ✅
+  - [x] `BaseWorkflowValidator` 상속 ✅
+  - [x] Universal 구조 유효성 검증 ✅
+
+#### **1.4 인터페이스 분리 원칙 적용** ✅ **완료**
+- [x] `WorkflowConverterInterface` 인터페이스 정의 ✅ **완료**
+  - [x] `packages/agents/src/interfaces/workflow-converter.ts` ✅
+  - [x] 변환 기능만 담당하는 최소 인터페이스 ✅
+- [x] `LayoutEngineInterface` 인터페이스 정의 ✅ **완료**
+  - [x] `packages/agents/src/interfaces/layout-engine.ts` ✅
+  - [x] 레이아웃 계산만 담당하는 최소 인터페이스 ✅
+- [x] `WorkflowValidatorInterface` 인터페이스 정의 ✅ **완료**
+  - [x] `packages/agents/src/interfaces/workflow-validator.ts` ✅
+  - [x] 검증 기능만 담당하는 최소 인터페이스 ✅
+
+#### **1.5 테스트 코드 및 통합** ⚠️ **필요**
+- [ ] 추상 클래스 테스트 작성 ⚠️ **필요**
+  - [ ] 각 Base 클래스의 공통 동작 검증 
+- [ ] 구체 구현 테스트 작성 ⚠️ **필요**
   - [ ] 기존 24-workflow-structure-test.ts와 연동 테스트
+  - [ ] Mock 객체 활용한 단위 테스트
 
-### **Phase 2: React-Flow 변환기 구현**
+### **Phase 2: React-Flow 변환기 구현 (아키텍처 원칙 준수)** ⚠️ **시작 필요**
 
-#### **2.1 React-Flow v12 타입 정의**
-- [ ] `ReactFlowTypes` 인터페이스 파일 생성
+#### **2.1 React-Flow v12 타입 정의 및 인터페이스 분리** ⚠️ **시작 필요**
+- [ ] `ReactFlowTypes` 인터페이스 파일 생성 ⚠️ **시작 필요**
   - [ ] `packages/agents/src/types/react-flow-types.ts`
   - [ ] React-Flow v12.8.2 호환 Node, Edge 인터페이스 정의
   - [ ] Robota 워크플로우 특화 확장 타입 정의
   - [ ] v12 신규 기능 (SSR, Dark Mode, Reactive Flows) 지원 타입
+- [ ] `ReactFlowConverterInterface` 인터페이스 정의 ⚠️ **시작 필요**
+  - [ ] `packages/agents/src/interfaces/react-flow-converter.ts`
+  - [ ] React-Flow 특화 변환 메서드 정의
+  - [ ] 노드/엣지 타입 매핑 인터페이스
 
-#### **2.2 Universal → React-Flow 변환기 구현**
-- [ ] `UniversalToReactFlowConverter` 클래스 생성
+#### **2.2 추상화 계층 확장 (기존 Base 클래스 활용)**
+- [ ] `BaseReactFlowConverter` 추상 클래스 생성
+  - [ ] `packages/agents/src/abstracts/base-react-flow-converter.ts`
+  - [ ] `BaseWorkflowConverter<UniversalWorkflowStructure, ReactFlowData>` 상속
+  - [ ] React-Flow 특화 공통 로직 (노드 타입 매핑, 스타일링)
+  - [ ] v12 호환성 검증 로직
+- [ ] `BaseReactFlowLayoutEngine` 추상 클래스 생성
+  - [ ] `packages/agents/src/abstracts/base-react-flow-layout-engine.ts`
+  - [ ] `BaseLayoutEngine` 상속
+  - [ ] React-Flow 특화 레이아웃 로직 (Dagre, Force-directed)
+  - [ ] SSR/SSG 지원을 위한 사전 크기 계산
+
+#### **2.3 구체 구현 클래스 (단일 책임 원칙)**
+- [ ] `UniversalToReactFlowConverter` 클래스 구현
   - [ ] `packages/agents/src/services/universal-to-react-flow-converter.ts`
+  - [ ] `BaseReactFlowConverter` 상속
   - [ ] UniversalWorkflowStructure → React-Flow v12 데이터 변환
-  - [ ] 노드 타입별 맞춤 변환 로직
-  - [ ] 엣지 스타일링 및 애니메이션 설정
+  - [ ] SimpleLogger 의존성 주입 패턴 적용
+- [ ] `ReactFlowNodeFactory` 클래스 구현 (팩토리 패턴)
+  - [ ] `packages/agents/src/services/react-flow/react-flow-node-factory.ts`
+  - [ ] 노드 타입별 맞춤 변환 로직 분리
   - [ ] v12 신규 필드 (`measured`, `selectable`, `deletable`) 처리
-- [ ] 노드 위치 최적화 알고리즘 구현
-  - [ ] 자동 레이아웃 (Dagre, Force-directed 등 고려)
+- [ ] `ReactFlowEdgeFactory` 클래스 구현 (팩토리 패턴)
+  - [ ] `packages/agents/src/services/react-flow/react-flow-edge-factory.ts`
+  - [ ] 엣지 스타일링 및 애니메이션 설정 분리
+  - [ ] 조건부 스타일링 (성공/실패 상태별) 로직
+- [ ] `DagreLayoutEngine` 클래스 구현
+  - [ ] `packages/agents/src/services/layout/dagre-layout-engine.ts`
+  - [ ] `BaseReactFlowLayoutEngine` 상속
+  - [ ] Dagre 알고리즘 기반 자동 레이아웃
   - [ ] 충돌 방지 및 가독성 최적화
-  - [ ] 반응형 크기 조정
-  - [ ] SSR/SSG 지원을 위한 `width`, `height` 사전 계산
 
-#### **2.3 React-Flow v12 특화 기능 구현**
-- [ ] 커스텀 노드 타입 정의 (v12 호환)
-  - [ ] Agent 노드 (🤖 아이콘 + 라벨)
-  - [ ] Tool Call 노드 (⚡ 아이콘 + 도구명)
-  - [ ] User Input 노드 (👤 아이콘 + 입력 내용)
-  - [ ] Response 노드 (💬 아이콘 + 응답 내용)
-  - [ ] Group 노드 (Team 실행 그룹화)
-- [ ] 커스텀 엣지 타입 정의 (v12 호환)
-  - [ ] 실행 연결 (→)
-  - [ ] 생성 연결 (⇒)
-  - [ ] 반환 연결 (↩)
-  - [ ] 애니메이션 효과 (`animated: true`)
-  - [ ] 조건부 스타일링 (성공/실패 상태별)
-- [ ] Dark Mode 지원
-  - [ ] `colorMode` prop 활용
+#### **2.4 React-Flow v12 특화 팩토리 클래스들 (팩토리 패턴)**
+- [ ] `ReactFlowNodeTypeFactory` 클래스 구현
+  - [ ] `packages/agents/src/services/react-flow/node-types/react-flow-node-type-factory.ts`
+  - [ ] 노드 타입별 생성 로직 분리
+- [ ] 개별 노드 타입 팩토리들:
+  - [ ] `AgentNodeFactory` - Agent 노드 (🤖 아이콘 + 라벨)
+  - [ ] `ToolCallNodeFactory` - Tool Call 노드 (⚡ 아이콘 + 도구명)
+  - [ ] `UserInputNodeFactory` - User Input 노드 (👤 아이콘 + 입력 내용)
+  - [ ] `ResponseNodeFactory` - Response 노드 (💬 아이콘 + 응답 내용)
+  - [ ] `GroupNodeFactory` - Group 노드 (Team 실행 그룹화)
+- [ ] `ReactFlowEdgeTypeFactory` 클래스 구현
+  - [ ] `packages/agents/src/services/react-flow/edge-types/react-flow-edge-type-factory.ts`
+  - [ ] 엣지 타입별 생성 로직 분리
+- [ ] 개별 엣지 타입 팩토리들:
+  - [ ] `ExecutionEdgeFactory` - 실행 연결 (→)
+  - [ ] `CreationEdgeFactory` - 생성 연결 (⇒)
+  - [ ] `ReturnEdgeFactory` - 반환 연결 (↩)
+  - [ ] `AnimatedEdgeFactory` - 애니메이션 효과 (`animated: true`)
+
+#### **2.5 테마 및 스타일링 시스템 (전략 패턴)**
+- [ ] `ReactFlowThemeStrategy` 인터페이스 정의
+  - [ ] `packages/agents/src/interfaces/react-flow-theme-strategy.ts`
+  - [ ] 테마 적용 전략 인터페이스
+- [ ] `LightThemeStrategy` 클래스 구현
+  - [ ] `packages/agents/src/services/react-flow/themes/light-theme-strategy.ts`
+  - [ ] 라이트 모드 스타일링 전략
+- [ ] `DarkThemeStrategy` 클래스 구현
+  - [ ] `packages/agents/src/services/react-flow/themes/dark-theme-strategy.ts`
+  - [ ] `colorMode` prop 활용 다크 모드 지원
   - [ ] CSS Variables 기반 테마 설정
 
 ### **Phase 3: 실시간 워크플로우 빌더 확장**
@@ -161,20 +270,52 @@ interface ReactFlowEdge {
   - [ ] 변환 과정 추적
   - [ ] 성능 메트릭 수집
 
-### **Phase 4: 데이터 검증 및 품질 보증**
+### **Phase 4: 데이터 검증 및 품질 보증 (아키텍처 원칙 준수)**
 
-#### **4.1 React-Flow 데이터 검증 시스템 구현**
-- [ ] `ReactFlowDataValidator` 클래스 생성
+#### **4.1 검증 시스템 추상화 계층 설계**
+- [ ] `BaseWorkflowValidator` 추상 클래스 확장
+  - [ ] `packages/agents/src/abstracts/base-workflow-validator.ts` (이미 계획됨)
+  - [ ] 모든 검증기가 상속받을 공통 인터페이스
+  - [ ] BaseModule 패턴 적용 (enabled, logger, eventEmitter)
+  - [ ] 제네릭 타입 파라미터 `<TWorkflowData>`
+- [ ] `ValidationRuleInterface` 인터페이스 정의
+  - [ ] `packages/agents/src/interfaces/validation-rule.ts`
+  - [ ] 개별 검증 규칙의 최소 인터페이스
+  - [ ] 체인 패턴 지원 (여러 규칙 조합)
+- [ ] `ValidationResultInterface` 인터페이스 정의
+  - [ ] `packages/agents/src/interfaces/validation-result.ts`
+  - [ ] 검증 결과 표준화
+
+#### **4.2 React-Flow 특화 검증 시스템 구현 (전략 패턴)**
+- [ ] `ReactFlowDataValidator` 클래스 구현
   - [ ] `packages/agents/src/validators/react-flow-data-validator.ts`
-  - [ ] v12.8.2 호환성 검증 (필수 필드, 타입 체크)
-  - [ ] 노드/엣지 ID 중복 검증
-  - [ ] 순환 참조 검증 (무한 루프 방지)
-  - [ ] 연결 유효성 검증 (존재하지 않는 노드 참조 체크)
-- [ ] 실시간 검증 시스템
-  - [ ] 변환 과정 중 실시간 검증
+  - [ ] `BaseWorkflowValidator<ReactFlowData>` 상속
+  - [ ] v12.8.2 호환성 검증 조정자 역할 (Facade 패턴)
+  - [ ] SimpleLogger 의존성 주입 패턴 적용
+- [ ] 개별 검증 규칙 클래스들 (단일 책임 원칙):
+  - [ ] `NodeStructureValidationRule` - 노드 구조 검증
+  - [ ] `EdgeStructureValidationRule` - 엣지 구조 검증
+  - [ ] `IdDuplicationValidationRule` - ID 중복 검증
+  - [ ] `CircularReferenceValidationRule` - 순환 참조 검증
+  - [ ] `ReferenceIntegrityValidationRule` - 참조 무결성 검증
+  - [ ] `V12CompatibilityValidationRule` - v12 호환성 검증
+
+#### **4.3 실시간 검증 시스템 (관찰자 패턴)**
+- [ ] `RealTimeValidationOrchestrator` 클래스 구현
+  - [ ] `packages/agents/src/services/validation/real-time-validation-orchestrator.ts`
+  - [ ] 변환 과정 중 실시간 검증 조정
+  - [ ] 여러 검증기 관리 및 결과 집계
+- [ ] `ValidationEventEmitter` 클래스 구현
+  - [ ] `packages/agents/src/services/validation/validation-event-emitter.ts`
+  - [ ] 검증 이벤트 발생 및 구독 관리
   - [ ] 오류 발생 시 상세 에러 메시지 제공
-  - [ ] 검증 실패 시 자동 복구 시도
-  - [ ] 검증 결과 로깅 및 디버깅 정보
+- [ ] `AutoRecoveryStrategy` 인터페이스 및 구현
+  - [ ] `packages/agents/src/interfaces/auto-recovery-strategy.ts`
+  - [ ] `packages/agents/src/services/validation/auto-recovery-strategy.ts`
+  - [ ] 검증 실패 시 자동 복구 시도 전략
+- [ ] `ValidationLogger` 클래스 구현
+  - [ ] `packages/agents/src/services/validation/validation-logger.ts`
+  - [ ] 검증 결과 로깅 및 디버깅 정보 전문 관리
 
 #### **4.2 검증 테스트 슈트 구현**
 - [ ] 포괄적 검증 테스트 케이스 작성
@@ -265,20 +406,70 @@ interface ReactFlowEdge {
   - [ ] 프로덕션 빌드 검증
   - [ ] 버전 관리 및 변경 로그 작성
 
-## 📁 예상 파일 구조
+## 📁 예상 파일 구조 (아키텍처 원칙 준수)
 
 ```
 packages/agents/src/
 ├── types/
 │   ├── react-flow-types.ts          # React-Flow v12 타입 정의
 │   └── universal-workflow-types.ts   # 범용 워크플로우 타입
-├── services/
+├── interfaces/                       # 인터페이스 분리 원칙
+│   ├── workflow-converter.ts         # 변환기 인터페이스
+│   ├── layout-engine.ts              # 레이아웃 엔진 인터페이스
+│   ├── workflow-validator.ts         # 검증기 인터페이스
+│   ├── react-flow-converter.ts       # React-Flow 변환기 인터페이스
+│   ├── react-flow-theme-strategy.ts  # 테마 전략 인터페이스
+│   ├── validation-rule.ts            # 검증 규칙 인터페이스
+│   ├── validation-result.ts          # 검증 결과 인터페이스
+│   └── auto-recovery-strategy.ts     # 자동 복구 전략 인터페이스
+├── abstracts/                        # 추상 클래스 계층
+│   ├── base-workflow-converter.ts    # 변환기 베이스 클래스
+│   ├── base-layout-engine.ts         # 레이아웃 엔진 베이스 클래스
+│   ├── base-workflow-validator.ts    # 검증기 베이스 클래스
+│   ├── base-react-flow-converter.ts  # React-Flow 변환기 베이스
+│   └── base-react-flow-layout-engine.ts # React-Flow 레이아웃 베이스
+├── services/                         # 구체 구현 클래스들
 │   ├── workflow-to-universal-converter.ts    # 기존 → 범용 변환
 │   ├── universal-to-react-flow-converter.ts  # 범용 → React-Flow 변환
 │   ├── real-time-react-flow-generator.ts     # 실시간 React-Flow 생성기
+│   ├── layout/                       # 레이아웃 알고리즘들
+│   │   ├── hierarchical-layout-engine.ts     # 계층 레이아웃
+│   │   └── dagre-layout-engine.ts            # Dagre 레이아웃
+│   ├── react-flow/                   # React-Flow 특화 서비스들
+│   │   ├── react-flow-node-factory.ts        # 노드 팩토리
+│   │   ├── react-flow-edge-factory.ts        # 엣지 팩토리
+│   │   ├── node-types/               # 노드 타입 팩토리들
+│   │   │   ├── react-flow-node-type-factory.ts
+│   │   │   ├── agent-node-factory.ts
+│   │   │   ├── tool-call-node-factory.ts
+│   │   │   ├── user-input-node-factory.ts
+│   │   │   ├── response-node-factory.ts
+│   │   │   └── group-node-factory.ts
+│   │   ├── edge-types/               # 엣지 타입 팩토리들
+│   │   │   ├── react-flow-edge-type-factory.ts
+│   │   │   ├── execution-edge-factory.ts
+│   │   │   ├── creation-edge-factory.ts
+│   │   │   ├── return-edge-factory.ts
+│   │   │   └── animated-edge-factory.ts
+│   │   └── themes/                   # 테마 전략들
+│   │       ├── light-theme-strategy.ts
+│   │       └── dark-theme-strategy.ts
+│   ├── validation/                   # 검증 시스템
+│   │   ├── real-time-validation-orchestrator.ts
+│   │   ├── validation-event-emitter.ts
+│   │   ├── auto-recovery-strategy.ts
+│   │   └── validation-logger.ts
 │   └── (기존 파일들...)
-├── validators/
-│   └── react-flow-data-validator.ts  # React-Flow 데이터 검증기
+├── validators/                       # 검증기들
+│   ├── universal-workflow-validator.ts       # Universal 구조 검증
+│   ├── react-flow-data-validator.ts          # React-Flow 데이터 검증
+│   └── rules/                        # 개별 검증 규칙들
+│       ├── node-structure-validation-rule.ts
+│       ├── edge-structure-validation-rule.ts
+│       ├── id-duplication-validation-rule.ts
+│       ├── circular-reference-validation-rule.ts
+│       ├── reference-integrity-validation-rule.ts
+│       └── v12-compatibility-validation-rule.ts
 └── index.ts                         # 새로운 exports 추가
 
 apps/web/src/components/playground/
@@ -367,8 +558,177 @@ apps/examples/
 - **100% 데이터 검증을 통한 안정성 보장**
 - **기존 Mermaid 시스템과 완벽한 호환성 유지**
 
+## 🚨 **중대한 아키텍처 개선 작업 (롤백 방지를 위한 필수 리팩토링)**
+
+### **Phase X.1: 타입 선언 남발 문제 해결** ⚠️ **최우선**
+- [ ] **근본 문제**: 49개 파일에서 `Record<string,` 타입 중복 선언으로 호환성 파괴
+- [ ] **진단 결과**: 
+  - [ ] 72개 인터페이스가 interfaces 폴더에만 존재 (과도한 타입 선언)
+  - [ ] 동일한 개념의 타입이 여러 곳에서 다르게 정의됨
+  - [ ] 타입 재사용 없이 무분별한 중복 선언
+
+#### **X.1.1: 기능별 타입 정리 및 중복 제거 (기능 기반 접근)**
+- [x] **현재 구조 유지** ✅ **올바른 접근**
+  - [x] 각 기능 폴더가 자체 타입 관리 (workflow/, execution/, services/)
+  - [x] `interfaces/` 폴더는 진짜 공유 계약만 (workflow-converter.ts 등)
+  - [x] 과도한 중앙집권화 방지 (❌ src/types/common/ 강제 생성 안함)
+- [x] **베이스 타입 기반 구조 설정** ✅ **부분 완료**
+  - [x] `WorkflowConfig`, `WorkflowMetadata` 정의 (workflow-converter.ts에 구현됨)
+  - [x] `WorkflowData` 제약 인터페이스 정의
+  - [ ] **중복 제거에만 집중** ⚠️ **진행 필요**
+    - [ ] 동일 개념의 Record 타입들 찾아서 통합
+    - [ ] `primitive`, `ConfigValue` 같은 최소한의 공통 타입만 interfaces/에 추가
+    - [ ] 각 기능 폴더의 타입은 그대로 유지하되 중복만 제거
+
+#### **X.1.2: 의존성 주입 지원 설계 패턴 구현**
+- [x] **Strategy 패턴 기반 구조** ✅ **완료**
+  - [x] `WorkflowConverterInterface<TInput, TOutput>` 인터페이스 정의됨
+  - [x] `BaseWorkflowConverter` 추상 클래스로 공통 기능 구현
+  - [x] `WorkflowToUniversalConverter` 구체적 구현체 완료
+- [ ] **Builder 패턴 타입 제약** ⚠️ **필요**
+  - [ ] `Builder<T, TConfig = BaseConfig>`, `ValidatedBuilder<T, TConfig>` 정의
+  - [ ] WorkflowBuilder 등을 타입 안전한 Builder로 변경
+- [x] **Plugin 아키텍처 타입 안전성** ✅ **기본 완료**
+  - [x] BaseModule 패턴으로 enabled, logger, config 의존성 주입 지원
+  - [x] 모든 Base 클래스들이 공통 타입 기반 사용 중
+  - [ ] 최종 정리 및 통합 필요
+
+#### **X.1.3: 워크플로우 타입 계층 재설계**
+- [x] **WorkflowData 타입 재구성 (SSOT 원칙)** ✅ **기본 완료**
+  - [x] `WorkflowData` 인터페이스 단순화 완료
+    - [x] `readonly __workflowType?: string` 브랜딩 구현됨
+    - [x] `[key: string]: unknown` index signature 적용
+  - [x] 타입 브랜딩 적용 완료
+    - [x] `UniversalWorkflowStructure`에 `'UniversalWorkflowStructure'` 브랜딩
+    - [x] `WorkflowStructure`에 `'RobotaWorkflowStructure'` 브랜딩
+  - [ ] 컴포지션 기반 확장 구조 적용 ⚠️ **필요**
+    - [ ] `BaseWorkflowEntity extends Identifiable, Timestamped`
+    - [ ] `WorkflowNode extends BaseWorkflowEntity, Configurable<NodeConfig>`
+
+#### **X.1.4: 중복 Record 타입 통합 (기능 자율성 유지)** ⚠️ **현재 상황: 100+개 Record 타입 발견**
+- [ ] **1차: 동일 개념 중복 제거** ⚠️ **진행 중**
+  - [x] `WorkflowConfig` 기본 타입 정의 완료
+  - [ ] 각 기능 폴더에서 동일 개념 Config 타입들 찾아서 extends 방식으로 변경 ⚠️ **필요**
+  - [ ] `WorkflowConverterOptions`, `LayoutCalculationOptions` 등은 각자 폴더에서 관리하되 공통 부분만 extends ⚠️ **필요**
+  - [x] `BaseModuleOptions` 확장 패턴 부분 적용됨
+- [ ] **2차: 메타데이터 중복 제거** ⚠️ **진행 중**
+  - [x] `WorkflowMetadata` 기본 타입 정의 완료
+  - [ ] 각 기능별 메타데이터는 각자 폴더에서 관리, 공통 부분만 extends ⚠️ **필요**
+  - [ ] `ConversionResult.metadata`, `ValidationResult.metadata`는 각자 위치에서 공통 베이스 extends ⚠️ **필요**
+  - [ ] `ExecutionMetadata`, `ResponseMetadata`는 execution/ 폴더에서 자체 관리 ⚠️ **필요**
+- [ ] **3차: 공통 유틸리티 타입만 최소 공유** ⚠️ **필요**
+  - [ ] `primitive`, `ConfigValue` 같은 정말 공통 타입만 interfaces/에 추가
+  - [ ] 기능별 Options, Results는 각자 폴더에서 관리
+
+#### **X.1.5: Abstract 클래스 타입 안전성 개선** ✅ **대부분 완료**
+- [x] **BaseWorkflowConverter 리팩토링** ✅ **완료**
+  - [x] 제네릭 제약을 `extends WorkflowData` 기반으로 강화 완료
+  - [x] `getDataStats` 메서드 구현 완료 (Record<string, unknown> 타입 사용)
+  - [x] `createConversionResult` 메서드 타입 일관성 확보 완료
+- [x] **BaseLayoutEngine 리팩토링** ✅ **완료**
+  - [x] 설정 타입을 `WorkflowConfig` 기반으로 통합 완료
+  - [x] LayoutCalculationResult 타입 구현 완료
+- [x] **BaseWorkflowValidator 리팩토링** ✅ **완료**
+  - [x] `ValidationResult` 타입 구현 완료
+  - [x] `ValidationOptions` 타입 `WorkflowConfig` 기반으로 변경 완료
+  - [x] 제네릭 제약을 `extends WorkflowData` 기반으로 강화 완료
+
+#### **X.1.6: 점진적 타입 강화 적용**
+- [ ] **Universal 타입 플랫폼 독립성 확보** ⚠️ **중요한 아키텍처 결함 발견**
+  - [ ] `UniversalWorkflowNode`에서 `mermaid`, `reactFlow` 하드코딩 제거 ⚠️ **긴급 필요**
+  - [ ] `extensions?: GenericConfig` 형태로 동적 확장 지원 ⚠️ **긴급 필요**
+  - [ ] Platform-agnostic 설계 원칙 적용 ⚠️ **긴급 필요**
+- [x] **타입 호환성 검증** ✅ **부분 완료**
+  - [x] `WorkflowData` 기반 제네릭 제약으로 타입 호환성 확보
+  - [x] 기존 구현체들이 새로운 타입과 호환됨 확인
+  - [ ] 컴파일 오류 해결 진행 중 (127개 → 줄여야 함)
+- [x] **Backward Compatibility 보장** ✅ **완료**
+  - [x] 기존 인터페이스 유지하면서 확장 구조 적용
+  - [x] Type alias 및 extends 활용한 점진적 전환 구조 구현
+
+#### **X.1.7: 타입 오류 체계적 해결** ⚠️ **현재 진행중**
+- [ ] **Build 오류 우선 해결** ⚠️ **진행중**
+  - [x] `Date` 타입 호환성 문제 부분 해결 (WorkflowMetadata에서 Date 허용)
+  - [x] Index signature 충돌 문제 부분 해결 (`[key: string]: unknown` 적용)
+  - [x] Generic 제약 조건 충돌 해결 (`extends WorkflowData` 기반 통합 완료)
+  - [ ] 남은 127개 타입 오류 체계적 해결 ⚠️ **진행중**
+- [x] **Lint 오류 단계적 해결** ✅ **대부분 완료**
+  - [x] `any` 타입 -> `unknown` + ESLint 주석으로 변경 완료
+  - [x] `unknown` 사용 시 3단계 검증 과정 규칙 적용
+  - [ ] 중복 타입 선언 제거 및 기존 타입 재사용 ⚠️ **100+개 Record 타입 정리 필요**
+
+- [ ] **성공 기준**: 타입 오류 127개 → 10개 이하로 감소 ⚠️ **진행중 (현재 127개)**
+- [ ] **우선순위**: **즉시 착수 필요** (롤백 방지)
+
+### **Phase X.2: Universal 타입 의존성 해결** 
+- [ ] **문제**: UniversalWorkflowNode가 특정 플랫폼(mermaid, reactFlow)에 의존적
+- [ ] **해결**: Platform-agnostic extensions 구조로 리팩토링
+- [ ] **설계**: `extensions?: GenericConfig` 형태로 변경 (X.1 완료 후)
+
+#### **X.2.1: Platform 하드코딩 제거**
+- [ ] **UniversalWorkflowNode 리팩토링**
+  - [ ] `mermaid?: Record<string, unknown>` 제거
+  - [ ] `reactFlow?: Record<string, unknown>` 제거
+  - [ ] `extensions?: GenericConfig` 동적 확장 구조로 변경
+- [ ] **UniversalWorkflowStructure 리팩토링**
+  - [ ] `platforms.mermaid`, `platforms.reactFlow` 하드코딩 제거
+  - [ ] `platformConfigs?: Record<string, GenericConfig>` 동적 구조로 변경
+
+#### **X.2.2: 어댑터 패턴 도입**
+- [ ] **PlatformAdapter 인터페이스 정의**
+  - [ ] `PlatformAdapter<TConfig = GenericConfig, TOutput = GenericConfig>` 인터페이스
+  - [ ] `adaptToUniversal()`, `adaptFromUniversal()` 메서드 정의
+- [ ] **구체적 어댑터 구현**
+  - [ ] `MermaidAdapter implements PlatformAdapter<MermaidConfig, MermaidOutput>`
+  - [ ] `ReactFlowAdapter implements PlatformAdapter<ReactFlowConfig, ReactFlowOutput>`
+- [ ] **어댑터 레지스트리 구축**
+  - [ ] `PlatformAdapterRegistry` 클래스로 동적 어댑터 관리
+  - [ ] 런타임에 플랫폼 어댑터 등록 및 해제 지원
+
+#### **X.2.3: 타입 안전한 동적 확장**
+- [ ] **Extension 타입 시스템**
+  - [ ] `PlatformExtension<T = GenericConfig>` 베이스 타입 정의
+  - [ ] `VisualizationExtension`, `ConfigurationExtension` 등 도메인별 확장
+- [ ] **Extension 검증 시스템**
+  - [ ] Extension 타입 검증 및 런타임 체크
+  - [ ] 잘못된 Extension 설정 시 명확한 오류 메시지
+- [ ] **Extension 호환성 보장**
+  - [ ] 기존 플랫폼들이 Extension 시스템으로 자연스럽게 이관
+  - [ ] Backward compatibility를 위한 마이그레이션 가이드
+
+#### **X.2.4: Universal 원칙 재확립**
+- [ ] **진정한 Platform-agnostic 달성**
+  - [ ] Universal 타입이 어떤 플랫폼 이름도 직접 참조하지 않음
+  - [ ] 모든 플랫폼별 정보가 Extension 시스템을 통해 처리
+- [ ] **확장성 검증**
+  - [ ] 새로운 플랫폼 추가 시 Universal 타입 변경 불필요 확인
+  - [ ] Extension 시스템만으로 새 플랫폼 지원 가능 검증
+- [ ] **타입 일관성 보장**
+  - [ ] 모든 Extension이 GenericConfig 기반으로 일관성 유지
+  - [ ] Platform-specific 타입들이 Universal 타입과 호환성 유지
+
+- [ ] **우선순위**: Phase X.1 완료 후 즉시 착수
+
 ### **🔍 검증 완료 기준**
+
+#### **타입 안전성 및 아키텍처 기준** ⚠️ **NEW**
+- [ ] **타입 오류 해결**: 현재 127개 → 10개 이하로 감소
+- [ ] **타입 재사용 달성**: 49개 Record 파일 → 5-10개 기본 타입으로 통합
+- [ ] **빌드 성공**: `pnpm run build` 오류 없이 완료
+- [ ] **Lint 성공**: `pnpm run lint` 심각한 오류 없이 완료
+- [ ] **타입 규칙 준수**: 새로운 Cursor Rules 100% 준수
+  - [ ] Type Reuse Architecture 원칙 적용
+  - [ ] Unknown 타입 3단계 검증 과정 준수
+  - [ ] 타입 선언 남발 방지 확인
+
+#### **기능 및 성능 기준**
 - [ ] 모든 생성된 React-Flow 데이터가 검증기를 통과
 - [ ] Playground에서 실시간 워크플로우 시각화 정상 동작
 - [ ] 성능 기준 만족 (변환 < 100ms, 검증 < 50ms, 렌더링 < 500ms)
 - [ ] 모든 테스트 케이스 통과 (커버리지 > 90%)
+
+#### **아키텍처 호환성 기준**
+- [ ] **Platform-agnostic 원칙**: Universal 타입이 특정 플랫폼에 의존하지 않음
+- [ ] **확장성 보장**: 새로운 플랫폼 추가 시 기존 타입 변경 불필요
+- [ ] **Backward Compatibility**: 기존 코드가 새로운 타입 시스템과 호환
+- [ ] **Type Safety**: 런타임 타입 오류 없이 안전한 타입 변환

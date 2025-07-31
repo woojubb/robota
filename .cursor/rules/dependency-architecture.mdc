@@ -39,6 +39,14 @@ Higher-Level Packages (@robota-sdk/sessions, @robota-sdk/team)
 - **Plugin System**: Register providers as plugins
 - **Event System**: Use events for loose coupling
 
+## Type Reuse Dependency Patterns (NEW)
+- **Type-Only Dependencies**: Use `import type` for type sharing across packages
+- **Base Type Layer**: Common types in core package, extensions in domain packages
+- **Generic Constraints**: Use generic interfaces to avoid tight coupling
+- **Composition Dependencies**: Prefer type composition over inheritance across package boundaries
+- **Interface Segregation**: Small, focused interfaces to minimize dependency surface
+- **Progressive Type Dependencies**: Allow type enhancement without breaking existing dependencies
+
 ## Enforcement
 - Build failures for circular dependencies
 - CI/CD validation of dependency graph

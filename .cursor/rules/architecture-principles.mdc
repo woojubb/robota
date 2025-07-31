@@ -25,6 +25,14 @@ alwaysApply: true
 - **Single Responsibility**: Each class/module should have one clear purpose
 - **Avoid Duplication**: Extract common logic to base classes instead of duplicating code
 
+## 🔄 Type Reuse Architecture (NEW)
+- **Composition Over Inheritance**: Build complex types by composing base types
+- **Base Type Foundation**: Establish common base types (BaseConfig, BaseMetadata) before domain-specific types
+- **Progressive Type Enhancement**: Start with minimal types, enhance progressively with backward compatibility
+- **Dependency Injection Support**: Design types to naturally support DI patterns and generic constraints
+- **Plugin-Friendly Types**: Ensure type system supports plugin architecture without coupling
+- **Environmental Design**: Create modular type organization that enables natural reuse
+
 ## 📝 Documentation Standards
 - **English Only**: All code comments, logs, and documentation must be in English
 - **Clear Examples**: Provide comprehensive configuration examples for all features
@@ -36,3 +44,56 @@ alwaysApply: true
 - **Error Scenarios**: Test both success and failure cases
 - **Integration Tests**: Test how components work together
 - **No Arbitrary Behavior**: If behavior can't be tested predictably, it's probably too ambiguous
+
+## 🚨 Build Integrity Principles
+
+### Strict No-Workaround Policy
+- **PROHIBITED**: Temporary fixes to resolve build errors
+- **PROHIBITED**: Dummy data or placeholder values to bypass type checking
+- **PROHIBITED**: Temporary type assertions (`as any`, `as unknown`) without proper type guards
+- **PROHIBITED**: Commenting out code to make builds pass
+- **PROHIBITED**: Disabling TypeScript strict checks or ESLint rules for convenience
+
+### Required Approach for Build Issues
+- **ROOT CAUSE ANALYSIS**: Always identify and fix the underlying type/design issue
+- **PROPER TYPE DESIGN**: Use constraint-based generics and proper interfaces
+- **TYPE GUARDS**: Implement proper runtime type checking instead of blind casting
+- **INTERFACE SEGREGATION**: Break down complex types into manageable, well-defined interfaces
+- **PROGRESSIVE ENHANCEMENT**: Build features incrementally with proper type safety at each step
+
+### Build Error Resolution Strategy
+1. **Identify the Type Conflict**: Understand why TypeScript is rejecting the code
+2. **Design Proper Types**: Create appropriate interfaces with proper constraints
+3. **Implement Type Guards**: Add runtime validation where needed
+4. **Use Branded Types**: Employ discriminated unions for type safety
+5. **Test Thoroughly**: Ensure the solution works correctly in all scenarios
+
+### Examples of Prohibited Practices
+
+```typescript
+// ❌ PROHIBITED: Temporary type assertion
+const result = input as any; // Bypasses all type checking
+
+// ❌ PROHIBITED: Dummy data
+const mockData = {}; // Empty object to satisfy interface
+
+// ❌ PROHIBITED: Disabling checks
+// @ts-ignore
+// eslint-disable-line
+
+// ✅ CORRECT: Proper type guard and constraint
+function isValidInput(input: unknown): input is ValidInputType {
+    return typeof input === 'object' && input !== null && 'requiredProp' in input;
+}
+
+if (isValidInput(input)) {
+    // TypeScript now knows input is ValidInputType
+    processInput(input);
+}
+```
+
+### Enforcement
+- **Code Review Rejection**: Any PR with temporary workarounds will be rejected
+- **Build Pipeline**: CI/CD must enforce strict TypeScript and ESLint rules
+- **Architecture Review**: Complex type issues require architectural review before implementation
+- **Documentation**: All type design decisions must be properly documented

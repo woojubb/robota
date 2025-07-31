@@ -8,21 +8,23 @@
  * User Input → Agent → Agent Thinking → Tool Call (assignTask) → Sub-Agent → Sub-Agent Thinking → Sub-Tool Calls → Sub-Response → Main Merge → Final Response
  */
 
-import { 
-    WorkflowEventSubscriber, 
-    WorkflowNode, 
-    WorkflowNodeUpdate, 
+import {
+    WorkflowEventSubscriber,
+    WorkflowNode,
+    WorkflowNodeUpdate,
     WorkflowConnection,
     WorkflowNodeType,
-    WorkflowConnectionType 
+    WorkflowConnectionType
 } from './workflow-event-subscriber';
 import { EventService } from './event-service';
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
+import type { WorkflowData } from '../interfaces/workflow-converter';
 
 /**
  * Workflow 구조 (목표 AssignTask 분기 구조)
  */
-export interface WorkflowStructure {
+export interface WorkflowStructure extends WorkflowData {
+    readonly __workflowType: 'RobotaWorkflowStructure';
     nodes: WorkflowNode[];
     connections: WorkflowConnection[];
     branches: WorkflowBranch[];  // assignTask 분기들
@@ -44,13 +46,14 @@ export interface WorkflowBranch {
 /**
  * Workflow 메타데이터
  */
-export interface WorkflowMetadata {
+export interface WorkflowMetadata extends Record<string, unknown> {
     startTime: Date;
     endTime?: Date;
     totalDuration?: number;
     mainAgentId: string;
     totalBranches: number;
     completedBranches: number;
+    executionId: string; // 빌드 오류에서 요구되는 속성 추가
 }
 
 /**
@@ -71,18 +74,18 @@ export class RealTimeWorkflowBuilder {
     private workflowSubscriber: WorkflowEventSubscriber;
     private currentWorkflow: WorkflowStructure;
     private workflowUpdateCallbacks: ((update: WorkflowUpdate) => void)[] = [];
-    
+
     // Node 연결 관계 추적
     private pendingConnections = new Map<string, PendingConnection>();
     private nodeParentMap = new Map<string, string>(); // nodeId → parentId
-    
+
     constructor(
         eventService: EventService,
         logger?: SimpleLogger
     ) {
         this.logger = logger || SilentLogger;
         this.workflowSubscriber = eventService as WorkflowEventSubscriber;
-        
+
         // 초기 Workflow 구조
         this.currentWorkflow = {
             nodes: [],
@@ -92,10 +95,11 @@ export class RealTimeWorkflowBuilder {
                 startTime: new Date(),
                 mainAgentId: '',
                 totalBranches: 0,
-                completedBranches: 0
+                completedBranches: 0,
+                executionId: 'workflow-' + Date.now().toString()
             }
         };
-        
+
         this.setupWorkflowSubscription();
         this.logger.debug('RealTimeWorkflowBuilder initialized');
     }
@@ -122,28 +126,28 @@ export class RealTimeWorkflowBuilder {
      */
     private handleNodeUpdate(nodeUpdate: WorkflowNodeUpdate): void {
         const { action, node } = nodeUpdate;
-        
+
         this.logger.debug(`Processing node update: ${action} ${node.type} (${node.id})`);
-        
+
         switch (action) {
             case 'create':
                 this.addNodeToWorkflow(node);
                 this.establishConnections(node);
                 break;
-                
+
             case 'update':
                 this.updateNodeInWorkflow(node);
                 break;
-                
+
             case 'complete':
                 this.completeNode(node);
                 break;
-                
+
             case 'error':
                 this.handleNodeError(node);
                 break;
         }
-        
+
         // Workflow 구조 변경 알림
         this.emitWorkflowUpdate('structure_changed');
     }
@@ -159,26 +163,26 @@ export class RealTimeWorkflowBuilder {
         } else {
             this.currentWorkflow.nodes.push(node);
         }
-        
+
         // 특별한 Node 타입 처리
         switch (node.type) {
             case 'user_input':
                 this.handleUserInputNode(node);
                 break;
-                
+
             case 'agent':
                 this.handleMainAgentNode(node);
                 break;
-                
+
             case 'tool_call':
                 this.handleToolCallNode(node);
                 break;
-                
+
             case 'sub_agent':
                 this.handleSubAgentNode(node);
                 break;
         }
-        
+
         this.logger.debug(`Added node to workflow: ${node.type} (${node.id})`);
     }
 
@@ -221,10 +225,10 @@ export class RealTimeWorkflowBuilder {
             nodes: [toolCallNode],
             status: 'pending'
         };
-        
+
         this.currentWorkflow.branches.push(branch);
         this.currentWorkflow.metadata.totalBranches++;
-        
+
         this.logger.debug(`Created assignTask branch: ${branch.name} (${branch.id})`);
         this.emitWorkflowUpdate('branch_added', branch);
     }
@@ -251,16 +255,16 @@ export class RealTimeWorkflowBuilder {
         // parentExecutionId를 통해 해당하는 assignTask 분기 찾기
         const parentExecutionId = node.data.parentExecutionId;
         if (!parentExecutionId) return;
-        
+
         const branch = this.findBranchByAssignTaskId(parentExecutionId);
         if (branch) {
             branch.subAgentId = node.id;
             branch.nodes.push(node);
             branch.status = 'running';
-            
+
             // Tool Call → Sub-Agent spawn 연결 생성
             this.createSpawnConnection(branch.assignTaskCallId, node.id);
-            
+
             this.logger.debug(`Sub-Agent connected to branch: ${branch.name} → ${node.id}`);
         }
     }
@@ -269,7 +273,7 @@ export class RealTimeWorkflowBuilder {
      * assignTask ID로 분기 찾기
      */
     private findBranchByAssignTaskId(assignTaskId: string): WorkflowBranch | undefined {
-        return this.currentWorkflow.branches.find(branch => 
+        return this.currentWorkflow.branches.find(branch =>
             branch.assignTaskCallId === assignTaskId ||
             branch.assignTaskCallId === `tool_call_${assignTaskId}`
         );
@@ -285,15 +289,15 @@ export class RealTimeWorkflowBuilder {
             type: 'spawn',
             label: 'creates sub-agent'
         };
-        
+
         this.currentWorkflow.connections.push(connection);
-        
+
         // 해당 Tool Call Node에도 연결 추가
         const toolCallNode = this.currentWorkflow.nodes.find(n => n.id === fromNodeId);
         if (toolCallNode) {
             toolCallNode.connections.push(connection);
         }
-        
+
         this.logger.debug(`Created spawn connection: ${fromNodeId} → ${toNodeId}`);
     }
 
@@ -305,7 +309,7 @@ export class RealTimeWorkflowBuilder {
         if (node.parentId) {
             this.createParentChildConnection(node.parentId, node.id, node.type);
         }
-        
+
         // 특별한 연결 규칙들
         this.applySpecialConnectionRules(node);
     }
@@ -315,14 +319,14 @@ export class RealTimeWorkflowBuilder {
      */
     private createParentChildConnection(parentId: string, childId: string, childType: WorkflowNodeType): void {
         const connectionType = this.determineConnectionType(childType);
-        
+
         const connection: WorkflowConnection = {
             fromId: parentId,
             toId: childId,
             type: connectionType,
             label: this.getConnectionLabel(connectionType)
         };
-        
+
         this.currentWorkflow.connections.push(connection);
         this.nodeParentMap.set(childId, parentId);
     }
@@ -374,7 +378,7 @@ export class RealTimeWorkflowBuilder {
         if (node.type === 'sub_response') {
             this.createReturnToMainConnection(node);
         }
-        
+
         // Multiple Sub-Responses → Final Response 연결
         if (node.type === 'final_response') {
             this.createConsolidationConnections(node);
@@ -393,7 +397,7 @@ export class RealTimeWorkflowBuilder {
                 type: 'return',
                 label: 'returns result to main agent'
             };
-            
+
             this.currentWorkflow.connections.push(connection);
         }
     }
@@ -404,7 +408,7 @@ export class RealTimeWorkflowBuilder {
     private createConsolidationConnections(finalResponseNode: WorkflowNode): void {
         // 모든 Sub-Response Node 찾기
         const subResponseNodes = this.currentWorkflow.nodes.filter(n => n.type === 'sub_response');
-        
+
         subResponseNodes.forEach(subResponseNode => {
             const connection: WorkflowConnection = {
                 fromId: subResponseNode.id,
@@ -412,7 +416,7 @@ export class RealTimeWorkflowBuilder {
                 type: 'consolidate',
                 label: 'consolidates into final response'
             };
-            
+
             this.currentWorkflow.connections.push(connection);
         });
     }
@@ -425,7 +429,7 @@ export class RealTimeWorkflowBuilder {
         if (index !== -1) {
             this.currentWorkflow.nodes[index] = node;
         }
-        
+
         // 분기 상태 업데이트
         this.updateBranchStatus(node);
     }
@@ -441,10 +445,10 @@ export class RealTimeWorkflowBuilder {
                 if (allCompleted && branch.status !== 'completed') {
                     branch.status = 'completed';
                     this.currentWorkflow.metadata.completedBranches++;
-                    
+
                     this.logger.debug(`Branch completed: ${branch.name}`);
                     this.emitWorkflowUpdate('branch_completed', branch);
-                    
+
                     // 모든 분기가 완료되었는지 확인
                     this.checkWorkflowCompletion();
                 }
@@ -466,7 +470,7 @@ export class RealTimeWorkflowBuilder {
     private handleNodeError(node: WorkflowNode): void {
         node.status = 'error';
         this.updateNodeInWorkflow(node);
-        
+
         // 해당 분기도 오류로 표시
         this.currentWorkflow.branches.forEach(branch => {
             if (branch.nodes.some(n => n.id === node.id)) {
@@ -481,13 +485,13 @@ export class RealTimeWorkflowBuilder {
     private checkWorkflowCompletion(): void {
         const totalBranches = this.currentWorkflow.metadata.totalBranches;
         const completedBranches = this.currentWorkflow.metadata.completedBranches;
-        
+
         if (totalBranches > 0 && completedBranches === totalBranches) {
             this.currentWorkflow.metadata.endTime = new Date();
-            this.currentWorkflow.metadata.totalDuration = 
-                this.currentWorkflow.metadata.endTime.getTime() - 
+            this.currentWorkflow.metadata.totalDuration =
+                this.currentWorkflow.metadata.endTime.getTime() -
                 this.currentWorkflow.metadata.startTime.getTime();
-            
+
             this.logger.debug('Workflow completed');
             this.emitWorkflowUpdate('workflow_completed');
         }
@@ -502,7 +506,7 @@ export class RealTimeWorkflowBuilder {
             workflow: { ...this.currentWorkflow },
             changedBranch
         };
-        
+
         this.workflowUpdateCallbacks.forEach(callback => {
             try {
                 callback(update);
