@@ -313,13 +313,8 @@ export type {
     WorkflowUpdate
 } from './services';
 
-// Universal Workflow System (Phase 1 - React-Flow Integration)
+// Universal Workflow System (Phase 1 - Additional Types)
 export type {
-    UniversalWorkflowStructure,
-    UniversalWorkflowNode,
-    UniversalWorkflowEdge,
-    UniversalPosition,
-    UniversalVisualState,
     UniversalDimensions,
     UniversalLayoutConfig,
     UniversalConversionOptions,
@@ -367,27 +362,17 @@ export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils
 // ExecutionHierarchyTracker removed - functionality moved to ActionTrackingEventService
 
 // ================================
-// React-Flow Integration (Phase 2)
+// Universal Workflow Types (Core)
 // ================================
 
-// React-Flow Types
+// Universal Workflow Types (for external integrations)
 export type {
-    ReactFlowData,
-    ReactFlowNode,
-    ReactFlowEdge,
-    ReactFlowPosition,
-    ReactFlowNodeData,
-    ReactFlowEdgeData
-} from './services/react-flow/types';
-
-// React-Flow Layout Helper (Simplified)
-export type {
-    SimpleLayoutOptions
-} from './services/react-flow/layout-engine';
-
-// React-Flow Classes (Simplified)
-export { SimpleReactFlowConverter, UniversalToReactFlowConverter } from './services/react-flow';
-export { SimpleReactFlowLayoutHelper, ReactFlowLayoutEngine } from './services/react-flow/layout-engine';
+    UniversalWorkflowStructure,
+    UniversalWorkflowNode,
+    UniversalWorkflowEdge,
+    UniversalPosition,
+    UniversalVisualState
+} from './services/workflow-converter/universal-types';
 
 
 // ================================
@@ -410,14 +395,8 @@ export type {
     EventProcessingMetrics
 } from './services/real-time-event-integration';
 
-// Performance Optimizer
-export { ReactFlowPerformanceOptimizer } from './services/react-flow-performance-optimizer';
-export type {
-    PerformanceOptimizerConfig,
-    PerformanceMetrics,
-    OptimizationResult,
-    DiffResult
-} from './services/react-flow-performance-optimizer';
+// Performance Optimizer - MOVED to apps/web/src/lib/workflow-visualization
+// These exports have been moved to maintain clean architecture separation
 
 // Real-Time System Integration Test
 export {

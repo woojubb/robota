@@ -5,11 +5,11 @@
  * Principle: Basic positioning only - let React-Flow handle complex layouts
  */
 
-import type { SimpleLogger } from '../../utils/simple-logger';
-import { SilentLogger } from '../../utils/simple-logger';
-import type {
+import type { 
+    SimpleLogger,
     UniversalWorkflowNode
-} from '../workflow-converter/universal-types';
+} from '@robota-sdk/agents';
+import { SilentLogger } from '@robota-sdk/agents';
 
 /**
  * Simple layout options
@@ -30,7 +30,7 @@ export interface SimpleLayoutOptions {
 export class SimpleReactFlowLayoutHelper {
     private readonly logger: SimpleLogger;
 
-    constructor(logger: SimpleLogger = SilentLogger) {
+    constructor(logger: SimpleLogger = new SilentLogger()) {
         this.logger = logger;
     }
 
