@@ -32,7 +32,7 @@ export type { VisualizationData, ConversationEvent } from './plugins/playground-
 import { PlaygroundWebSocketClient } from './websocket-client';
 import { RemoteExecutor } from '@robota-sdk/remote';
 import { PlaygroundEventService, createPlaygroundEventService } from './playground-event-service';
-import { EventServiceHookFactory } from '@robota-sdk/agents';
+import { createBlockTrackingHooks } from './block-tracking/block-hooks';
 
 
 
@@ -253,21 +253,16 @@ export class PlaygroundExecutor {
             // Create AI providers with remote executor
             const aiProviders = this.createProvidersWithExecutor();
 
-            // EventService will automatically handle all event tracking through the unified system
-            // No need for manual toolHooks - all events will be captured automatically
-
-            // Create ToolHooks for assignTask instrumentation using EventService
-            const toolHooks = this.createEventServiceToolHooks();
-
             // Create team using actual Robota Team library with EventService
+            // EventService will automatically handle all event tracking through the unified system
             this.currentTeam = createTeam({
                 aiProviders: aiProviders,
                 maxMembers: config.maxMembers || 5,
                 maxTokenLimit: 8000,
                 debug: false, // Disable debug to reduce console output
                 logger: this.logger,
-                eventService: this.eventService, // EventService for automatic event emission and block creation
-                toolHooks: toolHooks // ToolHooks for assignTask tool instrumentation
+                eventService: this.eventService // EventService for automatic event emission and tracking
+                // Note: toolHooks are optional - EventService handles tracking automatically
             });
 
             this.setMode('team');
