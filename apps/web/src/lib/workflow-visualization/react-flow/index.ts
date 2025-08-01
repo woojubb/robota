@@ -6,12 +6,19 @@
  */
 
 import type { 
-    SimpleLogger,
     UniversalWorkflowStructure,
     UniversalWorkflowNode,
     UniversalWorkflowEdge
 } from '@robota-sdk/agents';
 import { SilentLogger } from '@robota-sdk/agents';
+
+// SimpleLogger interface for internal use
+interface SimpleLogger {
+    debug: (message: string, ...args: any[]) => void;
+    info: (message: string, ...args: any[]) => void;
+    warn: (message: string, ...args: any[]) => void;
+    error: (message: string, ...args: any[]) => void;
+}
 import type {
     ReactFlowData,
     ReactFlowNode,
@@ -31,7 +38,7 @@ import type {
 export class SimpleReactFlowConverter {
     private readonly logger: SimpleLogger;
 
-    constructor(logger: SimpleLogger = new SilentLogger()) {
+    constructor(logger: SimpleLogger = SilentLogger) {
         this.logger = logger;
     }
 

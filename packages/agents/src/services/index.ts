@@ -13,7 +13,7 @@ export type {
     WorkflowNodeData
 } from './workflow-event-subscriber';
 export { RealTimeWorkflowBuilder } from './real-time-workflow-builder';
-export { RealTimeMermaidGenerator } from './mermaid-generator';
+// Visualization Generators moved to apps/web for domain separation
 export type {
     WorkflowStructure,
     WorkflowBranch,

@@ -1,26 +1,27 @@
 /**
  * RealTimeReactFlowGenerator - 실시간 React-Flow 데이터 생성 시스템
  * 
+ * MOVED FROM: packages/agents/src/services/real-time-react-flow-generator.ts
+ * 
  * Purpose: RealTimeMermaidGenerator와 병렬로 동작하는 React-Flow 전용 제너레이터
  * Architecture: Observer Pattern + Strategy Pattern으로 실시간 시각화 데이터 생성
  * Features: 실시간 스타일링, 애니메이션, 성능 최적화, 메트릭 수집
  */
 
-import { EventService } from './event-service';
-import { RealTimeWorkflowBuilder, WorkflowUpdate } from './real-time-workflow-builder';
-import { UniversalToReactFlowConverter } from './react-flow';
-import { ReactFlowLayoutEngine } from './react-flow/layout-engine';
-import { ReactFlowMetadataMapper } from './react-flow/metadata-mapper';
+import { EventService, RealTimeWorkflowBuilder, SimpleLogger, SilentLogger, GenericMetadata } from '@robota-sdk/agents';
+import { UniversalToReactFlowConverter, ReactFlowLayoutEngine, ReactFlowMetadataMapper } from './react-flow';
+import type { ReactFlowData, ReactFlowConverterConfig, ReactFlowLayoutConfig, ReactFlowNode } from './react-flow/types';
 import type { MetadataMappingConfig } from './react-flow/metadata-mapper';
-import type {
-    ReactFlowData,
-    ReactFlowConverterConfig,
-    ReactFlowLayoutConfig,
-    ReactFlowNode
-} from './react-flow/types';
-import type { SimpleLogger } from '../utils/simple-logger';
-import { SilentLogger } from '../utils/simple-logger';
-import type { GenericMetadata } from '../interfaces/base-types';
+
+/**
+ * Workflow Update interface (imported from agents)
+ */
+export interface WorkflowUpdate {
+    type: 'node_added' | 'node_updated' | 'connection_added' | 'branch_completed' | 'workflow_completed';
+    nodeId?: string;
+    data?: any;
+    timestamp: Date;
+}
 
 /**
  * Real-Time React-Flow Generator Configuration
@@ -275,17 +276,30 @@ export class RealTimeReactFlowGenerator {
 
         try {
             // 1. Universal 형식으로 변환 (이미 RealTimeWorkflowBuilder에서 처리됨)
-            const reactFlowData = await this.workflowBuilder.generateReactFlowData();
+            const universalWorkflow = await this.workflowBuilder.generateUniversalWorkflow();
             conversionTime = Date.now() - startTime;
 
-            if (!reactFlowData) {
+            if (!universalWorkflow) {
                 return {
                     success: false,
-                    error: 'Failed to generate React-Flow data from workflow builder'
+                    error: 'Failed to generate Universal workflow data from workflow builder'
                 };
             }
 
-            // 2. 레이아웃 적용
+            // 2. Universal → React-Flow 변환
+            const reactFlowResult = await this.converter.convert(universalWorkflow, {
+                validateInput: false,
+                validateOutput: false
+            });
+
+            if (!reactFlowResult.success || !reactFlowResult.data) {
+                return {
+                    success: false,
+                    error: `React-Flow conversion failed: ${reactFlowResult.errors?.join(', ')}`
+                };
+            }
+
+            // 3. 레이아웃 적용
             const layoutStart = Date.now();
             const layoutOptions = {
                 algorithm: this.config.layout?.algorithm || 'hierarchical',
@@ -293,7 +307,7 @@ export class RealTimeReactFlowGenerator {
                 validateOutput: false
             };
 
-            const layoutResult = await this.layoutEngine.calculateReactFlowLayout(reactFlowData, layoutOptions);
+            const layoutResult = await this.layoutEngine.calculateReactFlowLayout(reactFlowResult.data, layoutOptions);
             layoutTime = Date.now() - layoutStart;
 
             if (!layoutResult.success || !layoutResult.nodes.length) {
@@ -303,37 +317,11 @@ export class RealTimeReactFlowGenerator {
                 };
             }
 
-            // 3. 메타데이터 매핑 및 최종 처리
+            // 4. 메타데이터 매핑 및 최종 처리
             const mappingStart = Date.now();
-            // Convert UniversalWorkflowNode to ReactFlowNode format using proper type mapping
-            const convertedNodes: ReactFlowNode[] = layoutResult.nodes.map(node => {
-                // Create properly typed ReactFlowNode from UniversalWorkflowNode
-                const reactFlowNode: ReactFlowNode = {
-                    id: node.id,
-                    type: node.type,
-                    position: {
-                        x: node.position?.x || 0,
-                        y: node.position?.y || 0
-                    },
-                    data: {
-                        // Map compatible properties from UniversalWorkflowNode.data
-                        label: node.data.label,
-                        ...(node.data.description && { description: node.data.description }),
-                        // Only include properties that are compatible with ReactFlowNodeData
-                        metadata: {} // Reset to empty metadata to avoid type conflicts
-                    },
-                    selected: false, // Default value since visualState.selected property doesn't exist
-                    dragging: false,
-                    selectable: true,
-                    connectable: true,
-                    deletable: true
-                };
-                return reactFlowNode;
-            });
-
             const finalData = await this.applyFinalProcessing({
-                nodes: convertedNodes,
-                edges: reactFlowData.edges || []
+                nodes: layoutResult.nodes,
+                edges: reactFlowResult.data.edges || []
             });
             mappingTime = Date.now() - mappingStart;
 

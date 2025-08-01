@@ -62,6 +62,7 @@ import { TeamConfigurationBlock } from '@/components/playground/team-configurati
 import { ToolContainerBlock } from '@/components/playground/tool-container-block';
 import { PluginContainerBlock } from '@/components/playground/plugin-container-block';
 import { AuthDebug } from '@/components/debug/auth-debug';
+import { WorkflowVisualization } from '@/components/playground/workflow-visualization';
 
 // Types
 import type {
@@ -90,16 +91,132 @@ function ConfigurationPanel() {
     const [isAgentRunning, setIsAgentRunning] = useState(false);
     const [isTeamRunning, setIsTeamRunning] = useState(false);
 
+    // Create workflow structure
+    const createWorkflowForAgent = useCallback((config: PlaygroundAgentConfig): UniversalWorkflowStructure => {
+        const agentNode: UniversalWorkflowNode = {
+            id: `agent-${Date.now()}`,
+            type: 'agent',
+            position: { x: 250, y: 100, level: 0, order: 0 },
+            data: {
+                label: config.name || 'Agent',
+                agentConfig: config
+            },
+            visualState: {
+                status: 'ready',
+                emphasis: 'normal',
+                lastUpdated: new Date()
+            },
+            metadata: {
+                createdAt: new Date(),
+                updatedAt: new Date()
+            }
+        };
+
+        return {
+            __workflowType: 'UniversalWorkflowStructure',
+            id: `workflow-${Date.now()}`,
+            nodes: [agentNode],
+            edges: [],
+            layout: {
+                direction: 'topDown',
+                spacing: { nodeSpacing: 150, levelSpacing: 100 },
+                alignment: { horizontal: 'center', vertical: 'top' }
+            },
+            metadata: {
+                createdAt: new Date(),
+                updatedAt: new Date()
+            }
+        };
+    }, []);
+
+    const createWorkflowForTeam = useCallback((config: PlaygroundTeamConfig): UniversalWorkflowStructure => {
+        const teamNode: UniversalWorkflowNode = {
+            id: `team-${Date.now()}`,
+            type: 'team',
+            position: { x: 250, y: 50, level: 0, order: 0 },
+            data: {
+                label: config.name || 'Team',
+                memberCount: config.members?.length || 0,
+                teamConfig: config
+            },
+            visualState: {
+                status: 'ready',
+                emphasis: 'normal',
+                lastUpdated: new Date()
+            },
+            metadata: {
+                createdAt: new Date(),
+                updatedAt: new Date()
+            }
+        };
+
+        const agentNodes: UniversalWorkflowNode[] = (config.members || []).map((member, index) => ({
+            id: `agent-${Date.now()}-${index}`,
+            type: 'agent',
+            position: { x: 150 + (index * 200), y: 200, level: 1, order: index },
+            data: {
+                label: member.name || `Agent ${index + 1}`,
+                agentConfig: member
+            },
+            visualState: {
+                status: 'ready',
+                emphasis: 'normal',
+                lastUpdated: new Date()
+            },
+            metadata: {
+                createdAt: new Date(),
+                updatedAt: new Date()
+            }
+        }));
+
+        const edges: UniversalWorkflowEdge[] = agentNodes.map((agent, index) => ({
+            id: `edge-team-${agent.id}`,
+            source: teamNode.id,
+            target: agent.id,
+            data: { executionOrder: index },
+            metadata: {
+                createdAt: new Date(),
+                updatedAt: new Date()
+            }
+        }));
+
+        return {
+            __workflowType: 'UniversalWorkflowStructure',
+            id: `workflow-${Date.now()}`,
+            nodes: [teamNode, ...agentNodes],
+            edges,
+            layout: {
+                direction: 'topDown',
+                spacing: { nodeSpacing: 150, levelSpacing: 100 },
+                alignment: { horizontal: 'center', vertical: 'top' }
+            },
+            metadata: {
+                createdAt: new Date(),
+                updatedAt: new Date()
+            }
+        };
+    }, []);
+
     // Create default configurations
     const handleCreateAgent = useCallback(async () => {
         const defaultConfig = getDefaultAgentConfig();
         await createAgent(defaultConfig);
-    }, [createAgent, getDefaultAgentConfig]);
+
+        // Create and update workflow
+        const workflow = createWorkflowForAgent(defaultConfig);
+        // TODO: Add workflow update to context
+        console.log('Created agent workflow:', workflow);
+    }, [createAgent, getDefaultAgentConfig, createWorkflowForAgent]);
 
     const handleCreateTeam = useCallback(async () => {
         const defaultConfig = getDefaultTeamConfig();
         await createTeam(defaultConfig);
-    }, [createTeam, getDefaultTeamConfig]);
+
+        // Create and update workflow
+        const workflow = createWorkflowForTeam(defaultConfig);
+        // TODO: Add workflow update to context
+        console.log('Created team workflow:', workflow);
+    }, [createTeam, getDefaultTeamConfig, createWorkflowForTeam]);
 
     // Execution handlers
     const handleExecuteAgent = useCallback(async (config: PlaygroundAgentConfig) => {
@@ -518,15 +635,20 @@ function PlaygroundContent() {
                 </div>
             </div>
 
-            {/* Main Content - Chat Input + Execution Tree */}
+            {/* Main Content - Chat + Workflow + Tree */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-grow min-h-0">
-                {/* Left Column - Chat Input Only (1/4 width) */}
+                {/* Left Column - Chat Input (1/4 width) */}
                 <div className="lg:col-span-1 min-h-0">
                     <ChatInputPanel />
                 </div>
 
-                {/* Right Column - Execution Tree (3/4 width) */}
-                <div className="lg:col-span-3 min-h-0">
+                {/* Center Column - Workflow Visualization (2/4 width) */}
+                <div className="lg:col-span-2 min-h-0">
+                    <WorkflowVisualization workflow={state.currentWorkflow} />
+                </div>
+
+                {/* Right Column - Execution Tree (1/4 width) */}
+                <div className="lg:col-span-1 min-h-0">
                     <ExecutionTreePanel />
                 </div>
             </div>

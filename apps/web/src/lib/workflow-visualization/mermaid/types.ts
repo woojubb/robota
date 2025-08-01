@@ -1,8 +1,9 @@
 /**
- * Mermaid Generator Local Types
+ * Mermaid Generator Types for Web Application
  * 
- * Local type definitions for Mermaid diagram generation services.
- * These types are used within this mermaid generator service and don't need to be shared globally.
+ * Purpose: Local type definitions for Mermaid diagram generation services in web context.
+ * Architecture: Separated from agents package to maintain domain neutrality.
+ * Features: Platform-specific Mermaid rendering configurations and mappings.
  */
 
 /**

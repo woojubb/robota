@@ -9,9 +9,9 @@
  */
 
 // React-Flow Integration
-export { 
+export {
     SimpleReactFlowConverter,
-    UniversalToReactFlowConverter 
+    UniversalToReactFlowConverter
 } from './react-flow';
 
 export type {
@@ -23,13 +23,27 @@ export type {
     ReactFlowEdgeData
 } from './react-flow/types';
 
-export { 
-    SimpleReactFlowLayoutHelper 
+export {
+    SimpleReactFlowLayoutHelper
 } from './react-flow/layout-engine';
 
 export type {
     SimpleLayoutOptions
 } from './react-flow/layout-engine';
 
-// Future: Mermaid integration will be added here
-// export { MermaidGenerator } from './mermaid';
+// Mermaid Integration
+export {
+    RealTimeMermaidGenerator
+} from './mermaid';
+
+export type {
+    MermaidNodeClassMapping,
+    MermaidNodeEmojiMapping,
+    MermaidStatusMapping,
+    MermaidShapeMapping,
+    MermaidArrowMapping,
+    MermaidLabelMapping,
+    MermaidDiagramConfig,
+    MermaidNodeDefinition,
+    MermaidEdgeDefinition
+} from './mermaid/types';

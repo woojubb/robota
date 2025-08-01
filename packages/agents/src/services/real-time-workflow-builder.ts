@@ -21,13 +21,8 @@ import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
 import type { GenericMetadata } from '../interfaces/base-types';
 import type { WorkflowData } from '../interfaces/workflow-converter';
 
-// React-Flow Integration imports
-import { UniversalToReactFlowConverter } from './react-flow';
+// Universal Workflow Integration
 import { WorkflowToUniversalConverter } from './workflow-converter';
-import type {
-    ReactFlowData,
-    ReactFlowConverterConfig
-} from './react-flow/types';
 import type {
     UniversalWorkflowStructure
 } from './workflow-converter/universal-types';
@@ -92,35 +87,19 @@ export class RealTimeWorkflowBuilder {
     private pendingConnections = new Map<string, PendingConnection>();
     private nodeParentMap = new Map<string, string>(); // nodeId → parentId
 
-    // React-Flow Integration
+    // Universal Workflow Integration
     private universalConverter: WorkflowToUniversalConverter;
-    private reactFlowConverter: UniversalToReactFlowConverter;
-    private reactFlowConfig: ReactFlowConverterConfig;
-    private reactFlowUpdateCallbacks: ((reactFlowData: ReactFlowData) => void)[] = [];
+    private universalUpdateCallbacks: ((universalData: UniversalWorkflowStructure) => void)[] = [];
 
     constructor(
         eventService: EventService,
-        logger?: SimpleLogger,
-        reactFlowConfig?: ReactFlowConverterConfig
+        logger?: SimpleLogger
     ) {
         this.logger = logger || SilentLogger;
         this.workflowSubscriber = eventService as WorkflowEventSubscriber;
 
-        // React-Flow 설정
-        this.reactFlowConfig = {
-            enableAnimation: true,
-            enableSelection: true,
-            fitViewOnLoad: true,
-            nodeSpacing: {
-                horizontal: 200,
-                vertical: 120
-            },
-            ...reactFlowConfig
-        };
-
-        // 변환기들 초기화
+        // Universal 변환기 초기화
         this.universalConverter = new WorkflowToUniversalConverter({}, this.logger);
-        this.reactFlowConverter = new UniversalToReactFlowConverter(this.reactFlowConfig, this.logger);
 
         // 초기 Workflow 구조
         this.currentWorkflow = {
@@ -138,7 +117,7 @@ export class RealTimeWorkflowBuilder {
         };
 
         this.setupWorkflowSubscription();
-        this.logger.debug('RealTimeWorkflowBuilder initialized with React-Flow support');
+        this.logger.debug('RealTimeWorkflowBuilder initialized with Universal workflow support');
     }
 
     /**
@@ -553,9 +532,9 @@ export class RealTimeWorkflowBuilder {
             }
         });
 
-        // React-Flow 업데이트 알림 (비동기)
-        this.notifyReactFlowUpdates().catch(error => {
-            this.logger.error('Error notifying React-Flow updates:', error);
+        // Universal 워크플로우 업데이트 알림 (비동기)
+        this.notifyUniversalUpdates().catch(error => {
+            this.logger.error('Error notifying Universal workflow updates:', error);
         });
     }
 
@@ -595,23 +574,23 @@ export class RealTimeWorkflowBuilder {
     }
 
     // ================================
-    // React-Flow Integration Methods
+    // Universal Workflow Integration Methods
     // ================================
 
     /**
-     * React-Flow 데이터 구독
+     * Universal 워크플로우 데이터 구독
      */
-    subscribeToReactFlowUpdates(callback: (reactFlowData: ReactFlowData) => void): void {
-        this.reactFlowUpdateCallbacks.push(callback);
-        this.logger.debug('New React-Flow update subscriber registered');
+    subscribeToUniversalUpdates(callback: (universalData: UniversalWorkflowStructure) => void): void {
+        this.universalUpdateCallbacks.push(callback);
+        this.logger.debug('New Universal workflow update subscriber registered');
     }
 
     /**
-     * 현재 워크플로우를 React-Flow 형식으로 변환하여 반환
+     * 현재 워크플로우를 Universal 형식으로 변환하여 반환
      */
-    async generateReactFlowData(): Promise<ReactFlowData | null> {
+    async generateUniversalWorkflow(): Promise<UniversalWorkflowStructure | null> {
         try {
-            this.logger.debug('Generating React-Flow data from current workflow');
+            this.logger.debug('Generating Universal workflow data from current workflow');
 
             // 1. 현재 워크플로우를 Universal 형식으로 변환
             const conversionOptions: WorkflowConversionOptions = {
@@ -627,91 +606,58 @@ export class RealTimeWorkflowBuilder {
 
             if (!universalResult.success || !universalResult.data) {
                 this.logger.error('Failed to convert workflow to Universal format', {
-                    error: universalResult.error
+                    error: universalResult.errors
                 });
                 return null;
             }
 
-            // 2. Universal 형식을 React-Flow 형식으로 변환
-            const reactFlowResult = await this.reactFlowConverter.convert(
-                universalResult.data,
-                conversionOptions
-            );
-
-            if (!reactFlowResult.success || !reactFlowResult.data) {
-                this.logger.error('Failed to convert Universal to React-Flow format', {
-                    error: reactFlowResult.error
-                });
-                return null;
-            }
-
-            this.logger.debug('React-Flow data generated successfully', {
-                nodeCount: reactFlowResult.data.nodes.length,
-                edgeCount: reactFlowResult.data.edges.length
+            this.logger.debug('Universal workflow data generated successfully', {
+                nodeCount: universalResult.data.nodes.length,
+                edgeCount: universalResult.data.edges.length
             });
 
-            return reactFlowResult.data;
+            return universalResult.data;
 
         } catch (error) {
-            this.logger.error('Error generating React-Flow data', { error });
+            this.logger.error('Error generating Universal workflow data', { error });
             return null;
         }
     }
 
     /**
-     * 워크플로우 업데이트 시 React-Flow 데이터도 함께 생성하여 알림
+     * 워크플로우 업데이트 시 Universal 데이터도 함께 생성하여 알림
      */
-    private async notifyReactFlowUpdates(): Promise<void> {
-        if (this.reactFlowUpdateCallbacks.length === 0) {
+    private async notifyUniversalUpdates(): Promise<void> {
+        if (this.universalUpdateCallbacks.length === 0) {
             return; // 구독자가 없으면 처리하지 않음
         }
 
         try {
-            const reactFlowData = await this.generateReactFlowData();
-            if (reactFlowData) {
-                this.reactFlowUpdateCallbacks.forEach(callback => {
+            const universalData = await this.generateUniversalWorkflow();
+            if (universalData) {
+                this.universalUpdateCallbacks.forEach(callback => {
                     try {
-                        callback(reactFlowData);
+                        callback(universalData);
                     } catch (error) {
-                        this.logger.error('Error in React-Flow update callback', { error });
+                        this.logger.error('Error in Universal workflow update callback', { error });
                     }
                 });
             }
         } catch (error) {
-            this.logger.error('Error notifying React-Flow updates', { error });
+            this.logger.error('Error notifying Universal workflow updates', { error });
         }
     }
 
     /**
-     * React-Flow 설정 업데이트
+     * Universal 워크플로우 관련 통계 정보
      */
-    updateReactFlowConfig(newConfig: Partial<ReactFlowConverterConfig>): void {
-        this.reactFlowConfig = {
-            ...this.reactFlowConfig,
-            ...newConfig
-        };
-
-        // 새 설정으로 변환기 재생성
-        this.reactFlowConverter = new UniversalToReactFlowConverter(this.reactFlowConfig, this.logger);
-
-        this.logger.debug('React-Flow configuration updated', { config: newConfig });
-
-        // 설정 변경 후 즉시 업데이트 알림
-        this.notifyReactFlowUpdates();
-    }
-
-    /**
-     * React-Flow 관련 통계 정보
-     */
-    getReactFlowStats(): {
-        hasReactFlowSubscribers: boolean;
+    getUniversalStats(): {
+        hasUniversalSubscribers: boolean;
         subscriberCount: number;
-        config: ReactFlowConverterConfig;
     } {
         return {
-            hasReactFlowSubscribers: this.reactFlowUpdateCallbacks.length > 0,
-            subscriberCount: this.reactFlowUpdateCallbacks.length,
-            config: this.reactFlowConfig
+            hasUniversalSubscribers: this.universalUpdateCallbacks.length > 0,
+            subscriberCount: this.universalUpdateCallbacks.length
         };
     }
 }
