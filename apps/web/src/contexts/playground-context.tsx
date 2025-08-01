@@ -16,6 +16,8 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { PlaygroundExecutor, type PlaygroundExecutionResult, type PlaygroundAgentConfig, type PlaygroundTeamConfig, type PlaygroundMode, type ConversationEvent, type VisualizationData } from '@/lib/playground/robota-executor';
 import { DefaultConsoleLogger } from '@robota-sdk/agents';
+// Import Universal types from their proper location (Feature Ownership principle)
+import type { UniversalWorkflowStructure } from '@robota-sdk/agents';
 
 // ===== State Types =====
 
@@ -45,6 +47,9 @@ export interface PlaygroundState {
     isLoading: boolean;
     error: string | null;
     visualizationData: VisualizationData | null;
+
+    // Workflow state
+    currentWorkflow: UniversalWorkflowStructure | null;
     // Execution Statistics - Now managed by PlaygroundStatisticsPlugin
     executionStats: {
         totalExecutions: 0,
@@ -98,6 +103,7 @@ const initialState: PlaygroundState = {
     isLoading: false,
     error: null,
     visualizationData: null,
+    currentWorkflow: null,
     // Execution Statistics - Now managed by PlaygroundStatisticsPlugin
     executionStats: {
         totalExecutions: 0,

@@ -296,8 +296,8 @@ export type { ExecutionNode } from './services/event-service';
 // Workflow Services (Phase 2)
 export {
     WorkflowEventSubscriber,
-    RealTimeWorkflowBuilder,
-    RealTimeMermaidGenerator
+    // RealTimeWorkflowBuilder, // MOVED to apps/web due to React-Flow dependencies
+    // RealTimeDiagramGenerator // MOVED to apps/web for domain separation
 } from './services';
 export type {
     WorkflowNode,
@@ -350,6 +350,13 @@ export type {
 export { BaseWorkflowConverter } from './abstracts/base-workflow-converter';
 export { BaseLayoutEngine } from './abstracts/base-layout-engine';
 export { BaseWorkflowValidator } from './abstracts/base-workflow-validator';
+export { BaseVisualizationGenerator } from './abstracts/base-visualization-generator';
+
+// Base Visualization Types
+export type {
+    BaseVisualizationConfig,
+    VisualizationResult
+} from './abstracts/base-visualization-generator';
 
 // Concrete Implementations
 export { WorkflowToUniversalConverter } from './services/workflow-converter';
@@ -379,33 +386,13 @@ export type {
 // Real-Time System (Phase 3)
 // ================================
 
-// Real-Time React-Flow Generator
-export { RealTimeReactFlowGenerator } from './services/real-time-react-flow-generator';
-export type {
-    RealTimeReactFlowConfig,
-    RealTimeReactFlowResult,
-    ReactFlowGenerationMetrics
-} from './services/real-time-react-flow-generator';
+// Real-Time React-Flow Generator - MOVED to apps/web/src/lib/workflow-visualization
+// These exports have been moved to maintain clean architecture separation
 
-// Real-Time Event Integration
-export { RealTimeEventIntegration } from './services/real-time-event-integration';
-export type {
-    EventIntegrationConfig,
-    EventProcessingResult,
-    EventProcessingMetrics
-} from './services/real-time-event-integration';
+// Real-Time Event Integration - MOVED to apps/web due to React-Flow dependencies
 
 // Performance Optimizer - MOVED to apps/web/src/lib/workflow-visualization
 // These exports have been moved to maintain clean architecture separation
 
-// Real-Time System Integration Test
-export {
-    RealTimeSystemIntegrationTester,
-    runQuickRealTimeSystemTest,
-    runRealTimeSystemBenchmark
-} from './services/real-time-system-integration-test';
-export type {
-    RealTimeSystemTestConfig,
-    RealTimeSystemTestResult
-} from './services/real-time-system-integration-test';
+// Real-Time System Integration Test - MOVED to apps/web due to React-Flow dependencies
 

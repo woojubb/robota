@@ -2,13 +2,14 @@
  * Universal Workflow Types
  * 
  * Purpose: Platform-agnostic workflow representation that can be converted to
- * various visualization formats (Mermaid, React-Flow, etc.)
+ * various visualization formats through pluggable converters
  * 
  * Design Principles:
  * - Complete compatibility with existing WorkflowNode structure
  * - Enhanced with position and layout information for visual rendering
  * - Extensible metadata for different visualization needs
  * - Type-safe with comprehensive validation support
+ * - Domain-neutral: No specific platform dependencies
  */
 
 import { SimpleLogger } from '../../utils/simple-logger';
@@ -157,14 +158,10 @@ export interface UniversalWorkflowNode {
         // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
         style?: Record<string, unknown>;
 
-        // Platform-specific extensions
+        // Platform-agnostic extensions
         extensions?: {
             // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
-            mermaid?: Record<string, unknown>;
-            // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
-            reactFlow?: Record<string, unknown>;
-            // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
-            [platform: string]: unknown;
+            [platformName: string]: Record<string, unknown>;
         };
 
         // Additional metadata
@@ -250,14 +247,10 @@ export interface UniversalWorkflowEdge {
         // Visual customization
         className?: string;
 
-        // Platform extensions
+        // Platform-agnostic extensions
         extensions?: {
             // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
-            mermaid?: Record<string, unknown>;
-            // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
-            reactFlow?: Record<string, unknown>;
-            // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
-            [platform: string]: unknown;
+            [platformName: string]: Record<string, unknown>;
         };
 
         // Additional metadata
@@ -366,33 +359,43 @@ export interface UniversalWorkflowStructure extends WorkflowData {
         lastValidated: Date;
     };
 
-    /** Platform-specific configurations */
+    /** Platform-agnostic configurations */
     platforms?: {
-        mermaid?: {
-            theme?: string;
-            // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
-            config?: Record<string, unknown>;
-        };
-        reactFlow?: {
-            // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
-            nodeTypes?: Record<string, unknown>;
-            // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
-            edgeTypes?: Record<string, unknown>;
-            // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
-            defaultViewport?: Record<string, unknown>;
-            [key: string]: unknown;
-        };
         // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
-        [platform: string]: unknown;
+        [platformName: string]: UniversalPlatformConfig;
     };
 }
 
 /**
- * Conversion options for platform-specific exports
+ * Platform configuration interface for extensible platform support
+ */
+export interface UniversalPlatformConfig {
+    /** Platform-specific theme or style configuration */
+    theme?: string;
+    
+    /** Platform-specific rendering configuration */
+    // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
+    config?: Record<string, unknown>;
+    
+    /** Platform-specific type mappings */
+    // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
+    typeMapping?: Record<string, unknown>;
+    
+    /** Platform-specific viewport or canvas settings */
+    // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
+    viewport?: Record<string, unknown>;
+    
+    /** Platform-specific metadata */
+    // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, runtime-dynamic
+    metadata?: Record<string, unknown>;
+}
+
+/**
+ * Conversion options for platform-agnostic exports
  */
 export interface UniversalConversionOptions {
-    /** Target platform */
-    platform: 'mermaid' | 'reactFlow' | 'svg' | 'json';
+    /** Target platform identifier */
+    platform: string;
 
     /** Include debug information */
     includeDebug?: boolean;
