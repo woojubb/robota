@@ -297,7 +297,7 @@ export abstract class BaseWorkflowConverter<TInput extends WorkflowData, TOutput
     /**
      * Create success result with metadata
      */
-    private createSuccessResult(
+    protected createSuccessResult(
         data: TOutput,
         startTime: number,
         input: TInput,
@@ -338,7 +338,7 @@ export abstract class BaseWorkflowConverter<TInput extends WorkflowData, TOutput
     /**
      * Create failure result with error information
      */
-    private createFailureResult(
+    protected createFailureResult(
         errors: string[],
         warnings: string[],
         startTime: number,

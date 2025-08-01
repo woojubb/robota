@@ -376,50 +376,19 @@ export type {
     ReactFlowNode,
     ReactFlowEdge,
     ReactFlowPosition,
-    ReactFlowDimensions,
     ReactFlowNodeData,
-    ReactFlowEdgeData,
-    ReactFlowViewport,
-    ReactFlowThemeConfig,
-    ReactFlowConverterConfig,
-    ReactFlowLayoutConfig,
-    ReactFlowConversionMetadata,
-    ReactFlowConversionResult,
-    NodeTypeMapping,
-    EdgeTypeMapping,
-    ReactFlowNodeStyle,
-    ReactFlowEdgeStyle,
-    DEFAULT_NODE_TYPE_MAPPING,
-    DEFAULT_EDGE_TYPE_MAPPING
+    ReactFlowEdgeData
 } from './services/react-flow/types';
 
-// React-Flow Layout Engine Types
+// React-Flow Layout Helper (Simplified)
 export type {
-    ReactFlowLayoutAlgorithm,
-    ReactFlowLayoutOptions
+    SimpleLayoutOptions
 } from './services/react-flow/layout-engine';
 
-// React-Flow Metadata Mapper Types
-export type {
-    MetadataMappingConfig,
-    MetadataMappingResult
-} from './services/react-flow/metadata-mapper';
+// React-Flow Classes (Simplified)
+export { SimpleReactFlowConverter, UniversalToReactFlowConverter } from './services/react-flow';
+export { SimpleReactFlowLayoutHelper, ReactFlowLayoutEngine } from './services/react-flow/layout-engine';
 
-// React-Flow Integration Test Types
-export type {
-    ReactFlowTestConfig,
-    ReactFlowTestResult
-} from './services/react-flow/integration-test';
-
-// React-Flow Classes
-export { UniversalToReactFlowConverter } from './services/react-flow';
-export { ReactFlowLayoutEngine } from './services/react-flow/layout-engine';
-export { ReactFlowMetadataMapper } from './services/react-flow/metadata-mapper';
-export {
-    ReactFlowIntegrationTester,
-    runQuickReactFlowTest,
-    runReactFlowBenchmark
-} from './services/react-flow/integration-test';
 
 // ================================
 // Real-Time System (Phase 3)
