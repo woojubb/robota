@@ -1,20 +1,19 @@
 /**
  * Real-Time Event Integration System
  * 
- * Purpose: 실시간 이벤트 기반 React-Flow 업데이트 시스템
+ * Purpose: 실시간 이벤트 기반 Universal 워크플로우 업데이트 시스템
  * Architecture: Observer + Mediator Pattern으로 이벤트 기반 시각화 업데이트
  * Features: 이벤트 필터링, 업데이트 배칭, 성능 최적화, 오류 복구
  */
 
 import { EventService } from './event-service';
 import { RealTimeWorkflowBuilder } from './real-time-workflow-builder';
-import { RealTimeReactFlowGenerator } from './real-time-react-flow-generator';
+// import { RealTimeReactFlowGenerator } from './real-time-react-flow-generator'; // MOVED to apps/web
 import type { SimpleLogger } from '../utils/simple-logger';
 import { SilentLogger } from '../utils/simple-logger';
 // import type { ReactFlowData } from './react-flow/types'; // MOVED: React-Flow types moved to apps/web
-import type { RealTimeReactFlowResult } from './real-time-react-flow-generator';
-// import type { RealTimeReactFlowConfig } from './real-time-workflow-builder';
-type RealTimeReactFlowConfig = Record<string, unknown>; // Temporary type definition
+// import type { RealTimeReactFlowResult } from './real-time-react-flow-generator'; // MOVED to apps/web
+import type { UniversalWorkflowStructure } from './workflow-converter/universal-types';
 import type { GenericMetadata } from '../interfaces/base-types';
 
 /**
