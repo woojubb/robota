@@ -82,7 +82,9 @@ export type PlaygroundAction =
     | { type: 'ADD_CONVERSATION_EVENT'; payload: ConversationEvent }
     | { type: 'SET_CONVERSATION_HISTORY'; payload: ConversationEvent[] }
     | { type: 'CLEAR_CONVERSATION_HISTORY' }
-    | { type: 'SET_EXECUTION_RESULT'; payload: PlaygroundExecutionResult };
+    | { type: 'SET_EXECUTION_RESULT'; payload: PlaygroundExecutionResult }
+    | { type: 'SET_CURRENT_WORKFLOW'; payload: UniversalWorkflowStructure | null }
+    | { type: 'UPDATE_NODE_STATUS'; payload: { nodeId: string; status: 'pending' | 'ready' | 'running' | 'completed' | 'error' } };
 
 // ===== Initial State =====
 
@@ -259,6 +261,35 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
                 ...initialState
             };
 
+        case 'SET_CURRENT_WORKFLOW':
+            return {
+                ...state,
+                currentWorkflow: action.payload
+            };
+
+        case 'UPDATE_NODE_STATUS':
+            if (!state.currentWorkflow) {
+                return state;
+            }
+
+            return {
+                ...state,
+                currentWorkflow: {
+                    ...state.currentWorkflow,
+                    nodes: state.currentWorkflow.nodes.map(node =>
+                        node.id === action.payload.nodeId
+                            ? {
+                                ...node,
+                                data: {
+                                    ...node.data,
+                                    status: action.payload.status
+                                }
+                            }
+                            : node
+                    )
+                }
+            };
+
         default:
             return state;
     }
@@ -278,6 +309,9 @@ interface PlaygroundContextValue {
     clearHistory: () => void;
     setAuth: (userId: string, sessionId: string, authToken: string) => void;
     disposeExecutor: () => Promise<void>;
+    setWorkflow: (workflow: UniversalWorkflowStructure | null) => void;
+    updateNodeStatus: (nodeId: string, status: 'pending' | 'ready' | 'running' | 'completed' | 'error') => void;
+    setExecuting: (isExecuting: boolean) => void;
 
     // Getters
     getVisualizationData: () => PlaygroundVisualizationData | null;
@@ -459,6 +493,15 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'SET_EXECUTING', payload: true });
             dispatch({ type: 'SET_ERROR', payload: null });
 
+            // Update node status to 'running' for current workflow
+            if (state.currentWorkflow && state.currentWorkflow.nodes.length > 0) {
+                // Find the main agent node (first agent-type node)
+                const agentNode = state.currentWorkflow.nodes.find(node => node.type === 'agent');
+                if (agentNode) {
+                    dispatch({ type: 'UPDATE_NODE_STATUS', payload: { nodeId: agentNode.id, status: 'running' } });
+                }
+            }
+
             // Record UI interaction - streaming chat send
             if (typeof state.executor.recordPlaygroundAction === 'function') {
                 await state.executor.recordPlaygroundAction('chat_send', {
@@ -483,6 +526,15 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             };
 
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: result });
+
+            // Update node status to 'completed' for current workflow
+            if (state.currentWorkflow && state.currentWorkflow.nodes.length > 0) {
+                // Find the main agent node (first agent-type node)
+                const agentNode = state.currentWorkflow.nodes.find(node => node.type === 'agent');
+                if (agentNode) {
+                    dispatch({ type: 'UPDATE_NODE_STATUS', payload: { nodeId: agentNode.id, status: 'completed' } });
+                }
+            }
 
             // Sync conversation history from executor (central source of truth)
             // Get all events from PlaygroundHistoryPlugin (EventService events)
@@ -550,11 +602,19 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: errorResult });
             dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Execution failed' });
 
+            // Update node status to 'error' for current workflow
+            if (state.currentWorkflow && state.currentWorkflow.nodes.length > 0) {
+                const agentNode = state.currentWorkflow.nodes.find(node => node.type === 'agent');
+                if (agentNode) {
+                    dispatch({ type: 'UPDATE_NODE_STATUS', payload: { nodeId: agentNode.id, status: 'error' } });
+                }
+            }
+
             return errorResult;
         } finally {
             dispatch({ type: 'SET_EXECUTING', payload: false });
         }
-    }, [state.executor, state.isInitialized, state.visualizationData, state.mode]);
+    }, [state.executor, state.isInitialized, state.visualizationData, state.mode, state.currentWorkflow]);
 
     const clearHistory = useCallback(() => {
         if (state.executor && state.isInitialized) {
@@ -582,6 +642,18 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             }
         }
         dispatch({ type: 'DISPOSE_EXECUTOR' });
+    }, []);
+
+    const setWorkflow = useCallback((workflow: UniversalWorkflowStructure | null) => {
+        dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: workflow });
+    }, []);
+
+    const updateNodeStatus = useCallback((nodeId: string, status: 'pending' | 'ready' | 'running' | 'completed' | 'error') => {
+        dispatch({ type: 'UPDATE_NODE_STATUS', payload: { nodeId, status } });
+    }, []);
+
+    const setExecuting = useCallback((isExecuting: boolean) => {
+        dispatch({ type: 'SET_EXECUTING', payload: isExecuting });
     }, []);
 
     // ===== Getters =====
@@ -635,6 +707,9 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
         clearHistory,
         setAuth,
         disposeExecutor,
+        setWorkflow,
+        updateNodeStatus,
+        setExecuting,
         getVisualizationData,
         getConnectionStatus
     };
