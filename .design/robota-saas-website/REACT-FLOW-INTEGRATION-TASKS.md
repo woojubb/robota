@@ -1002,3 +1002,469 @@ packages/agents 패키지에 대한 전면적 검토를 통해 다음과 같은 
 **총 개선 영역**: 13개 (기존 8개 + 추가 5개)
 
 **이 작업들을 완료하면 packages/agents가 Robota SDK 아키텍처 원칙을 100% 준수하는 모범적인 패키지가 됩니다.**
+
+---
+
+## 🚀 **PHASE 5: 기존 구조 존중 기반 React-Flow 통합 (수정된 접근법)**
+
+### **🎯 핵심 원칙: 기존 구조 최대 존중 및 범용성 유지**
+
+**⚠️ 중요한 설계 원칙:**
+1. **기존 구조 변경 최소화** - PlaygroundContext, WorkflowVisualization 등 기존 인터페이스 유지
+2. **범용성 확보** - 다른 플레이그라운드나 환경에서도 재사용 가능하도록 설계
+3. **점진적 확장** - 기존 기능에 영향 없이 새로운 기능 추가
+4. **구조 변경 시 사전 협의** - 기본 구조 수정은 반드시 사용자와 협의 후 진행
+
+### **📊 기존 구조 분석 및 존중 사항**
+
+**✅ 기존 우수 구조 (절대 변경 금지):**
+- `PlaygroundContext`: 완벽한 상태 관리 패턴 (reducer + useCallback 조합)
+- `WorkflowVisualization({ workflow })`: 깔끔한 props 인터페이스
+- `currentWorkflow: UniversalWorkflowStructure | null`: 이미 완벽한 상태 설계
+- `createAgent`, `createTeam`, `executeStreamPrompt`: 일관된 메서드 시그니처
+
+**✅ 기존 패턴 준수 필수:**
+- Action 타입: `{ type: 'ACTION_NAME'; payload: DataType }` 형식
+- 메서드: `useCallback`로 감싸고 의존성 배열 명시
+- 에러 처리: try-catch + dispatch 패턴
+- 타입 안전성: 모든 인터페이스 명시적 정의
+
+**❌ 현재 누락된 연결 (최소 확장으로 해결):**
+- `currentWorkflow` 상태 업데이트 액션 없음 → 기존 패턴 따라 추가만
+- WorkflowVisualization과 실시간 데이터 연결 없음 → Props 활용하여 연결만
+
+### **👁️ PHASE 5.1: 눈에 보이는 결과 우선 - 단계별 확인 방식**
+
+#### **🎯 목표: 각 단계마다 사용자가 직접 확인할 수 있는 시각적 결과 제공**
+
+**📋 진행 방식:**
+1. **작업 실행** → **시각적 결과 확인** → **사용자 승인** → **다음 단계**
+2. 각 단계는 독립적으로 테스트 가능
+3. 문제 발생 시 해당 단계에서 중단하고 수정
+
+---
+
+#### **👀 STEP 1: 기본 액션 추가 → 개발자 도구에서 확인**
+
+**🎯 기대 결과:** 개발자 도구에서 `SET_CURRENT_WORKFLOW` 액션 확인 가능
+
+- [ ] **1.1 PlaygroundAction 타입 확장**
+  ```typescript
+  | { type: 'SET_CURRENT_WORKFLOW'; payload: UniversalWorkflowStructure | null }
+  ```
+  
+- [ ] **1.2 playgroundReducer 케이스 추가**
+  ```typescript
+  case 'SET_CURRENT_WORKFLOW':
+    return { ...state, currentWorkflow: action.payload };
+  ```
+
+- [ ] **1.3 setWorkflow 메서드 추가**
+  ```typescript
+  const setWorkflow = useCallback((workflow: UniversalWorkflowStructure | null) => {
+    dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: workflow });
+  }, []);
+  ```
+
+- [ ] **1.4 PlaygroundContextValue에 메서드 추가**
+  ```typescript
+  setWorkflow: (workflow: UniversalWorkflowStructure | null) => void;
+  ```
+
+**✅ 확인 방법:** 
+- 브라우저 개발자 도구 → Redux DevTools (또는 console.log)
+- `setWorkflow` 호출 시 상태 변경 확인
+- **사용자 확인 필요:** "액션이 정상적으로 동작하는지"
+
+---
+
+#### **👀 STEP 2: Create Agent 버튼 → React-Flow에 노드 나타남**
+
+**🎯 기대 결과:** Create Agent 클릭 시 Workflow Visualization 박스에 Agent 노드 표시
+
+- [ ] **2.1 간단한 워크플로우 생성 함수 추가**
+  ```typescript
+  function createSimpleAgentWorkflow(agentName: string): UniversalWorkflowStructure {
+    return {
+      id: `workflow_${Date.now()}`,
+      nodes: [{
+        id: `agent_${Date.now()}`,
+        type: 'agent',
+        position: { x: 100, y: 100 },
+        data: { label: agentName }
+      }],
+      edges: [],
+      // ... 기타 필수 속성들
+    };
+  }
+  ```
+
+- [ ] **2.2 handleCreateAgent에 워크플로우 생성 추가**
+  ```typescript
+  // 기존 createAgent 호출 후
+  const workflow = createSimpleAgentWorkflow(config.name);
+  setWorkflow(workflow);
+  ```
+
+**✅ 확인 방법:**
+- Playground 접속 → Create Agent 버튼 클릭
+- Workflow Visualization 박스에 Agent 노드 표시 확인
+- **사용자 확인 필요:** "Agent 노드가 보이는지"
+
+---
+
+#### **👀 STEP 3: Create Team 버튼 → React-Flow에 Team + Agent 노드들 나타남**
+
+**🎯 기대 결과:** Create Team 클릭 시 Team 노드 + 멤버 Agent 노드들 표시
+
+- [ ] **3.1 Team 워크플로우 생성 함수 추가**
+  ```typescript
+  function createSimpleTeamWorkflow(teamConfig: PlaygroundTeamConfig): UniversalWorkflowStructure {
+    const teamNode = { id: 'team_main', type: 'team', position: { x: 100, y: 50 } };
+    const agentNodes = teamConfig.members.map((member, index) => ({
+      id: `agent_${member.name}`,
+      type: 'agent', 
+      position: { x: 50 + index * 150, y: 200 }
+    }));
+    // Team → Agent 연결 엣지들
+    const edges = agentNodes.map(agent => ({
+      id: `edge_team_${agent.id}`,
+      source: 'team_main',
+      target: agent.id
+    }));
+    
+    return { nodes: [teamNode, ...agentNodes], edges, ... };
+  }
+  ```
+
+- [ ] **3.2 handleCreateTeam에 워크플로우 생성 추가**
+
+**✅ 확인 방법:**
+- Create Team 버튼 클릭
+- Team 노드 + 여러 Agent 노드들이 연결된 상태로 표시 확인
+- **사용자 확인 필요:** "Team과 Agent들이 연결되어 보이는지"
+
+---
+
+#### **👀 STEP 4: 실행 버튼 → 노드 상태 변화 확인**
+
+**🎯 기대 결과:** Play 버튼 클릭 시 Agent 노드 색상/상태 변화
+
+- [ ] **4.1 노드 상태 업데이트 함수 추가**
+  ```typescript
+  function updateAgentNodeStatus(nodeId: string, status: 'running' | 'completed' | 'error') {
+    // currentWorkflow에서 해당 노드 찾아서 상태 업데이트
+  }
+  ```
+
+- [ ] **4.2 executeStreamPrompt에 상태 업데이트 추가**
+  - 실행 시작 시: 'running' 상태
+  - 실행 완료 시: 'completed' 상태
+  - 오류 시: 'error' 상태
+
+**✅ 확인 방법:**
+- Create Agent → Play 버튼 클릭
+- Agent 노드 색상이 변하는지 확인
+- **사용자 확인 필요:** "노드 상태 변화가 보이는지"
+
+---
+
+#### **👀 STEP 5: 채팅 입력 → 새로운 노드들 추가**
+
+**🎯 기대 결과:** 채팅 시 User Input, Agent Response 노드 추가
+
+- [ ] **5.1 채팅 기반 노드 추가 함수**
+- [ ] **5.2 executeStreamPrompt에서 실시간 노드 추가**
+
+**✅ 확인 방법:**
+- 채팅 입력 후 User Input 노드 추가 확인
+- 응답 완료 후 Agent Response 노드 추가 확인
+- **사용자 확인 필요:** "채팅할 때마다 노드가 추가되는지"
+
+---
+
+### **📋 진행 순서**
+
+1. **STEP 1 완료** → 사용자 확인 → 다음 단계 승인
+2. **STEP 2 완료** → 사용자 확인 → 다음 단계 승인  
+3. **STEP 3 완료** → 사용자 확인 → 다음 단계 승인
+4. **STEP 4 완료** → 사용자 확인 → 다음 단계 승인
+5. **STEP 5 완료** → 사용자 확인 → 완료
+
+**각 STEP에서 문제 발생 시 해당 단계에서 멈추고 수정합니다.**
+
+### **📋 PHASE 5.2: 범용성 보장 및 사용자 협의 필수 영역**
+
+**⚠️ 경고: 이 단계부터는 기존 구조 변경이 필요할 수 있음**
+**모든 변경 사항은 사용자와 사전 협의 후 진행**
+
+#### **5.2.1 구조 변경 검토 필요 영역 (사용자 협의 필수)**
+
+**🔍 협의 필요 사항들:**
+
+- [ ] **PlaygroundExecutor 확장 검토**
+  - **현재**: `PlaygroundExecutor`에 `RealTimeWorkflowBuilder` 연결 없음
+  - **제안**: `PlaygroundExecutor`에 워크플로우 이벤트 연동 추가
+  - **영향도**: 중간 - 기존 API는 유지하되 내부 구조 확장
+  - **범용성**: 다른 플레이그라운드에서도 활용 가능한 구조인지 검토 필요
+  - **사용자 협의 필요**: PlaygroundExecutor 확장 방향성
+
+- [ ] **executeStreamPrompt 확장 검토**
+  - **현재**: 순수한 채팅 실행 메서드
+  - **제안**: 워크플로우 노드 생성 로직 추가
+  - **영향도**: 높음 - 핵심 실행 로직 변경
+  - **범용성**: 다른 환경에서 워크플로우 기능을 원하지 않을 수 있음
+  - **사용자 협의 필요**: 채팅 실행과 워크플로우 연동 방식
+
+- [ ] **실시간 데이터 동기화 아키텍처 검토**
+  - **현재**: `currentWorkflow` 상태와 실시간 시스템 분리됨
+  - **제안**: 이벤트 기반 실시간 동기화 시스템
+  - **영향도**: 높음 - 새로운 아키텍처 패턴 도입
+  - **범용성**: 복잡성 증가로 범용성 저하 우려
+  - **사용자 협의 필요**: 실시간 동기화의 필요성 및 구현 방식
+
+#### **5.2.2 대안적 접근법 (구조 변경 최소화)**
+
+**Option A: 수동 업데이트 방식 (추천)**
+- [ ] 채팅 실행 완료 후 수동으로 워크플로우 상태 업데이트
+- [ ] 실시간 연동 대신 이벤트 완료 시점에서 상태 갱신
+- [ ] 기존 구조 변경 없이 최소한의 추가 로직만 구현
+
+**Option B: 플러그인 방식**
+- [ ] 워크플로우 업데이트 기능을 별도 플러그인으로 분리
+- [ ] PlaygroundExecutor에 플러그인 시스템 도입
+- [ ] 선택적으로 워크플로우 기능 활성화/비활성화 가능
+
+**Option C: 이벤트 리스너 방식**
+- [ ] PlaygroundContext에 이벤트 리스너 추가
+- [ ] executeStreamPrompt 완료 시 이벤트 발생
+- [ ] 이벤트 기반으로 워크플로우 상태 업데이트
+
+#### **5.2.3 사용자 결정 대기 항목**
+
+다음 항목들은 사용자 협의 후 진행:
+- [ ] PlaygroundExecutor 내부 구조 확장 여부
+- [ ] 실시간 vs 수동 업데이트 방식 선택
+- [ ] 범용성 vs 기능성 우선순위
+- [ ] 복잡성 증가에 대한 허용 범위
+
+### **📋 PHASE 5.3: WorkflowVisualization 컴포넌트 노드 상태 시각화 강화**
+
+#### **5.3.1 노드 상태별 시각적 표현 구현**
+- [ ] **실행 상태 시각화 강화**
+  - [ ] `AgentNode`, `TeamNode` 컴포넌트에 상태별 스타일링 추가
+  - [ ] pending: 회색, running: 파란색 + 애니메이션, completed: 초록색, error: 빨간색
+  - [ ] 실행 중 노드에 로딩 스피너 또는 펄스 애니메이션 추가
+  - [ ] 노드 상태 변경 시 부드러운 트랜지션 효과
+
+- [ ] **새로운 노드 타입 추가**
+  - [ ] `UserInputNode`: 사용자 채팅 입력 노드 컴포넌트
+  - [ ] `AgentResponseNode`: Agent 응답 노드 컴포넌트  
+  - [ ] `ToolCallNode`: Tool 호출 노드 컴포넌트
+  - [ ] `SubAgentNode`: Sub-Agent 노드 컴포넌트
+  - [ ] 각 노드 타입별 고유 아이콘 및 색상 스키마
+
+#### **5.3.2 동적 레이아웃 및 자동 배치**
+- [ ] **실시간 노드 추가 시 레이아웃 자동 조정**
+  - [ ] 새로운 노드 추가 시 기존 노드와 겹치지 않는 위치 계산
+  - [ ] 워크플로우 방향에 따른 자동 배치 (세로/가로 플로우)
+  - [ ] 노드 간 적절한 간격 및 연결선 최적화
+  - [ ] 화면 크기에 맞는 자동 확대/축소
+
+- [ ] **연결선 및 흐름 시각화 개선**
+  - [ ] 실행 흐름에 따른 엣지 애니메이션 (화살표 이동 효과)
+  - [ ] 노드 타입별 연결선 색상 및 스타일 차별화
+  - [ ] 에러 발생 시 연결선 빨간색으로 표시
+  - [ ] 성공적인 실행 흐름 강조 표시
+
+### **📋 PHASE 5.4: 완전한 생명주기 통합 및 검증**
+
+#### **5.4.1 End-to-End 생명주기 검증**
+- [ ] **Agent 생성 → 실행 → 채팅 → 응답 전체 플로우 테스트**
+  - [ ] Create Agent → Agent 노드 생성 확인
+  - [ ] Agent 실행 시작 → 노드 상태 'running' 확인
+  - [ ] 채팅 입력 → User Input 노드 추가 확인
+  - [ ] Agent 응답 → Agent Response 노드 추가 및 연결 확인
+  - [ ] Tool 호출 → Tool Call 노드 추가 및 연결 확인
+  - [ ] 실행 완료 → 노드 상태 'completed' 확인
+
+- [ ] **Team 생성 → 복잡한 워크플로우 검증**
+  - [ ] Create Team → Team + Agent 노드들 생성 확인
+  - [ ] Team 실행 → 멀티 Agent 워크플로우 노드 생성 확인
+  - [ ] Sub-Agent 실행 → 계층적 노드 구조 확인
+  - [ ] 병렬 처리 → 동시 실행 노드 상태 관리 확인
+
+#### **5.4.2 데이터 일관성 및 오류 처리**
+- [ ] **ID 매칭 및 중복 방지**
+  - [ ] 일관된 노드 ID 생성 규칙 정의 (`${type}_${timestamp}_${uniqueId}`)
+  - [ ] `RealTimeWorkflowBuilder` 이벤트와 UI 생성 노드 ID 매칭 보장
+  - [ ] 중복 노드 생성 방지 로직
+  - [ ] 기존 노드 유지하면서 새로운 노드 추가하는 병합 로직
+
+- [ ] **오류 상황 처리**
+  - [ ] Agent 실행 실패 시 노드 상태 'error' 반영
+  - [ ] WebSocket 연결 끊김 시 워크플로우 상태 보존
+  - [ ] 불완전한 워크플로우 데이터 복구 메커니즘
+  - [ ] 사용자에게 명확한 오류 피드백 제공
+
+### **📋 PHASE 5.5: 테스트 및 검증**
+
+#### **5.5.1 기능 테스트**
+- [ ] **Create Agent/Team 플로우 테스트**
+  - [ ] Create Agent 버튼 → React-Flow 노드 생성 검증
+  - [ ] Create Team 버튼 → Team + Agent 노드들 생성 검증
+  - [ ] 노드 위치 자동 계산 정확성 검증
+  - [ ] 다양한 시나리오에서 노드 생성 테스트
+
+- [ ] **실시간 워크플로우 반영 테스트**
+  - [ ] 채팅 실행 → 워크플로우 노드 추가 검증
+  - [ ] Tool 호출 → Tool 노드 생성 검증
+  - [ ] Sub-Agent 생성 → 새로운 노드 추가 검증
+  - [ ] 실행 상태 변경 → 시각적 피드백 검증
+
+#### **5.5.2 통합 테스트**
+- [ ] **End-to-End 시나리오 테스트**
+  - [ ] Agent 생성 → 채팅 실행 → 결과 시각화 전체 플로우
+  - [ ] Team 생성 → 복잡한 태스크 실행 → 멀티 에이전트 워크플로우 시각화
+  - [ ] 오류 상황에서의 시각화 동작 검증
+  - [ ] 대용량 워크플로우 처리 성능 테스트
+
+- [ ] **회귀 테스트**
+  - [ ] 기존 플레이그라운드 기능 정상 동작 확인
+  - [ ] 다른 시각화 방식과의 호환성 확인
+  - [ ] 브라우저별 호환성 테스트
+  - [ ] 모바일 환경에서의 동작 테스트
+
+### **🎯 완전한 생명주기 성공 기준**
+
+- [ ] **🔧 Agent 생성 단계**
+  - [ ] Create Agent 버튼 클릭 → React-Flow에 Agent 노드 즉시 표시
+  - [ ] Agent 노드에 이름, 모델, 상태 정보 표시
+  - [ ] 노드 위치 자동 계산 및 배치
+
+- [ ] **⚡ 실행 시작 단계**  
+  - [ ] Play 버튼 클릭 → Agent 노드 상태가 'running'으로 변경
+  - [ ] 실행 중 노드에 시각적 피드백 (색상 변경, 애니메이션)
+  - [ ] 실행 준비 완료 상태 명확한 표시
+
+- [ ] **💬 채팅 입력 단계**
+  - [ ] 채팅 메시지 전송 → User Input 노드 즉시 추가
+  - [ ] Agent 노드와 User Input 노드 간 연결선 생성
+  - [ ] 사용자 입력 내용이 노드에 표시
+
+- [ ] **🤖 채팅 응답 단계**
+  - [ ] Agent 응답 생성 → Agent Response 노드 추가
+  - [ ] User Input → Agent Response 연결선 생성
+  - [ ] Tool 호출 시 → Tool Call 노드 및 연결선 추가
+  - [ ] Sub-Agent 생성 시 → 새로운 Agent 노드 추가
+
+- [ ] **🏁 실행 완료 단계**
+  - [ ] 실행 완료 시 → 모든 노드 상태 'completed'로 변경
+  - [ ] 성공적인 실행 흐름 시각적 강조
+  - [ ] 오류 발생 시 해당 노드 'error' 상태 표시
+
+- [ ] **🔄 데이터 일관성**
+  - [ ] 기존 노드 유지하면서 새로운 노드 추가
+  - [ ] 중복 노드 생성 방지
+  - [ ] 모든 연결 관계 정확성 보장
+  - [ ] 메모리 누수 없는 상태 관리
+
+### **⚠️ 위험 요소 및 대응책**
+
+**높은 위험**:
+- **데이터 동기화 복잡성**: Universal ↔ React-Flow 데이터 불일치
+  - *대응책*: 철저한 ID 매칭 시스템, 자동 검증 로직
+- **성능 저하**: 실시간 업데이트로 인한 렌더링 지연
+  - *대응책*: 메모이제이션, 배칭, 가상화 적용
+
+**중간 위험**:
+- **UI 복잡성**: React-Flow 설정 및 커스터마이징
+  - *대응책*: 단계적 구현, 기본 기능부터 시작
+- **테스트 복잡성**: 실시간 상태 변경 테스트 어려움  
+  - *대응책*: Mock 데이터 활용, 단위 테스트 분리
+
+### **📊 수정된 예상 소요 시간**
+
+- **PHASE 5.1**: 1-2일 (기존 구조 활용한 생명주기 통합)
+- **PHASE 5.2**: 2-3일 (실행 상태 및 채팅 연동)
+- **PHASE 5.3**: 1-2일 (시각화 강화)
+- **PHASE 5.4**: 1-2일 (완전한 통합 검증)
+- **PHASE 5.5**: 1일 (테스트 및 디버깅)
+
+**총 예상 시간**: **6-10일** (기존 구조 활용으로 단축)
+
+### **🚀 즉시 시작 단계**
+
+**Step 1 (최우선)**: PHASE 5.1.1 - Create Agent/Team → currentWorkflow 상태 업데이트
+1. `handleCreateAgent`에서 `UniversalWorkflowStructure` 생성 및 `setCurrentWorkflow` 호출
+2. `handleCreateTeam`에서 Team + Agent 노드들 포함한 워크플로우 생성
+3. `PlaygroundContext`에 `SET_CURRENT_WORKFLOW` 액션 추가
+
+**Step 2**: PHASE 5.1.2 - PlaygroundContext 액션 확장
+1. `UPDATE_WORKFLOW_NODES`, `updateWorkflowNodeStatus` 메서드 추가
+2. 워크플로우 병합 로직 구현
+
+**Step 3**: PHASE 5.2.1 - Agent 실행 상태 연동
+1. `PlaygroundExecutor.run()`에서 실행 시작/완료 이벤트 발생
+2. 노드 상태 업데이트 로직 구현
+
+### **🔍 기존 구조 존중 기반 실현 가능성 재평가 (2024-12-20)**
+
+#### **🟢 즉시 실현 가능 (95-100%) - 기존 구조 완전 준수**
+
+**PHASE 5.1: 기존 패턴 엄격 준수 - 최소 확장**
+- **현재 상태**: 완벽한 기존 패턴이 존재 ✅
+- **필요 작업**: 기존 패턴 100% 동일하게 적용만 하면 됨
+- **복잡도**: 매우 낮음 - 복사 붙여넣기 수준
+- **위험도**: 거의 없음 - 기존 구조 일체 변경 없음
+- **예상 시간**: 1-2시간 (기존 패턴 그대로 적용)
+
+**구체적 작업:**
+- `PlaygroundAction` 타입에 액션 하나 추가 (기존 스타일 100% 동일)
+- `playgroundReducer`에 케이스 하나 추가 (기존 케이스 복사)  
+- `useCallback` 메서드 하나 추가 (기존 메서드 복사)
+- Props 연결 한 줄 추가 (기존 방식과 동일)
+
+#### **🟡 사용자 협의 필요 (실현 가능성 미정)**
+
+**PHASE 5.2: 구조 변경 검토 영역**
+- **실현 가능성**: 사용자 결정에 따라 0% ~ 90%
+- **핵심 이슈**: 기존 구조 변경의 범용성 및 필요성
+- **협의 필요 사항**:
+  - PlaygroundExecutor 확장 여부 및 방향성
+  - executeStreamPrompt 확장 vs 대안 방식
+  - 실시간 vs 수동 업데이트 선택
+  - 복잡성 증가 허용 범위
+
+#### **📊 수정된 전략 및 권장사항**
+
+**즉시 시작 가능 (Phase 5.1):**
+1. **최소 확장 우선** - 기존 구조 100% 유지하며 기본 기능만 구현
+2. **MVP 검증** - Create Agent → 노드 표시 기본 기능 확인
+3. **사용자 피드백** - 기본 기능 확인 후 추가 기능 협의
+
+**사용자 협의 후 진행 (Phase 5.2):**
+1. **구조 변경 영향도** 분석 및 범용성 검토
+2. **대안 방식** 비교 검토 (수동 vs 실시간 vs 플러그인)
+3. **점진적 확장** vs **기능 제한** 선택
+
+### **🎯 수정된 성공 확률**
+
+**PHASE 5.1 (기존 구조 완전 준수)**: **95-100%**
+- 위험 요소: 거의 없음
+- 필요 시간: 1-2시간
+- 즉시 시작 가능
+
+**PHASE 5.2 (사용자 협의 후)**: **협의 결과에 따라 결정**
+- 구조 변경 허용 시: 70-85%
+- 구조 변경 제한 시: 50-70% (기능 제한됨)
+- 대안 방식 채택 시: 80-90%
+
+### **✅ 최종 권장 방향**
+
+1. **즉시 PHASE 5.1 진행** - 기존 구조 100% 유지하며 기본 기능 구현
+2. **기본 기능 검증** - Create Agent → 노드 표시 동작 확인  
+3. **사용자 협의** - 추가 기능의 구조 변경 필요성 및 범용성 검토
+4. **협의 결과에 따른 진행** - 구조 변경 vs 대안 방식 vs 기능 제한 선택
+
+**결론**: **기존 구조를 완전히 존중하면 95-100% 실현 가능**
