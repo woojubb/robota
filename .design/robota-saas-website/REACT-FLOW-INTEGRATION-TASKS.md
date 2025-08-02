@@ -1044,29 +1044,29 @@ packages/agents 패키지에 대한 전면적 검토를 통해 다음과 같은 
 
 ---
 
-#### **👀 STEP 1: 기본 액션 추가 → 개발자 도구에서 확인**
+#### **👀 STEP 1: 기본 액션 추가 → 개발자 도구에서 확인** ✅ **완료**
 
 **🎯 기대 결과:** 개발자 도구에서 `SET_CURRENT_WORKFLOW` 액션 확인 가능
 
-- [ ] **1.1 PlaygroundAction 타입 확장**
+- [x] **1.1 PlaygroundAction 타입 확장**
   ```typescript
   | { type: 'SET_CURRENT_WORKFLOW'; payload: UniversalWorkflowStructure | null }
   ```
   
-- [ ] **1.2 playgroundReducer 케이스 추가**
+- [x] **1.2 playgroundReducer 케이스 추가**
   ```typescript
   case 'SET_CURRENT_WORKFLOW':
     return { ...state, currentWorkflow: action.payload };
   ```
 
-- [ ] **1.3 setWorkflow 메서드 추가**
+- [x] **1.3 setWorkflow 메서드 추가**
   ```typescript
   const setWorkflow = useCallback((workflow: UniversalWorkflowStructure | null) => {
     dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: workflow });
   }, []);
   ```
 
-- [ ] **1.4 PlaygroundContextValue에 메서드 추가**
+- [x] **1.4 PlaygroundContextValue에 메서드 추가**
   ```typescript
   setWorkflow: (workflow: UniversalWorkflowStructure | null) => void;
   ```
@@ -1078,11 +1078,11 @@ packages/agents 패키지에 대한 전면적 검토를 통해 다음과 같은 
 
 ---
 
-#### **👀 STEP 2: Create Agent 버튼 → React-Flow에 노드 나타남**
+#### **👀 STEP 2: Create Agent 버튼 → React-Flow에 노드 나타남** ✅ **완료**
 
 **🎯 기대 결과:** Create Agent 클릭 시 Workflow Visualization 박스에 Agent 노드 표시
 
-- [ ] **2.1 간단한 워크플로우 생성 함수 추가**
+- [x] **2.1 간단한 워크플로우 생성 함수 추가**
   ```typescript
   function createSimpleAgentWorkflow(agentName: string): UniversalWorkflowStructure {
     return {
@@ -1099,7 +1099,7 @@ packages/agents 패키지에 대한 전면적 검토를 통해 다음과 같은 
   }
   ```
 
-- [ ] **2.2 handleCreateAgent에 워크플로우 생성 추가**
+- [x] **2.2 handleCreateAgent에 워크플로우 생성 추가**
   ```typescript
   // 기존 createAgent 호출 후
   const workflow = createSimpleAgentWorkflow(config.name);
@@ -1113,11 +1113,11 @@ packages/agents 패키지에 대한 전면적 검토를 통해 다음과 같은 
 
 ---
 
-#### **👀 STEP 3: Create Team 버튼 → React-Flow에 Team + Agent 노드들 나타남**
+#### **👀 STEP 3: Create Team 버튼 → React-Flow에 Team + Agent 노드들 나타남** ✅ **완료**
 
 **🎯 기대 결과:** Create Team 클릭 시 Team 노드 + 멤버 Agent 노드들 표시
 
-- [ ] **3.1 Team 워크플로우 생성 함수 추가**
+- [x] **3.1 Team 워크플로우 생성 함수 추가**
   ```typescript
   function createSimpleTeamWorkflow(teamConfig: PlaygroundTeamConfig): UniversalWorkflowStructure {
     const teamNode = { id: 'team_main', type: 'team', position: { x: 100, y: 50 } };
@@ -1137,7 +1137,7 @@ packages/agents 패키지에 대한 전면적 검토를 통해 다음과 같은 
   }
   ```
 
-- [ ] **3.2 handleCreateTeam에 워크플로우 생성 추가**
+- [x] **3.2 handleCreateTeam에 워크플로우 생성 추가**
 
 **✅ 확인 방법:**
 - Create Team 버튼 클릭
@@ -1146,18 +1146,18 @@ packages/agents 패키지에 대한 전면적 검토를 통해 다음과 같은 
 
 ---
 
-#### **👀 STEP 4: 실행 버튼 → 노드 상태 변화 확인**
+#### **👀 STEP 4: 실행 버튼 → 노드 상태 변화 확인** ✅ **완료**
 
 **🎯 기대 결과:** Play 버튼 클릭 시 Agent 노드 색상/상태 변화
 
-- [ ] **4.1 노드 상태 업데이트 함수 추가**
+- [x] **4.1 노드 상태 업데이트 함수 추가**
   ```typescript
   function updateAgentNodeStatus(nodeId: string, status: 'running' | 'completed' | 'error') {
     // currentWorkflow에서 해당 노드 찾아서 상태 업데이트
   }
   ```
 
-- [ ] **4.2 executeStreamPrompt에 상태 업데이트 추가**
+- [x] **4.2 executeStreamPrompt에 상태 업데이트 추가**
   - 실행 시작 시: 'running' 상태
   - 실행 완료 시: 'completed' 상태
   - 오류 시: 'error' 상태
@@ -1169,12 +1169,13 @@ packages/agents 패키지에 대한 전면적 검토를 통해 다음과 같은 
 
 ---
 
-#### **👀 STEP 5: 채팅 입력 → 새로운 노드들 추가**
+#### **👀 STEP 5: 채팅 입력 → 새로운 노드들 추가** ✅ **완료**
 
-**🎯 기대 결과:** 채팅 시 User Input, Agent Response 노드 추가
+**🎯 기대 결과:** 채팅 시 User Input, Agent Response 노드 추가 (개선된 타이밍)
 
-- [ ] **5.1 채팅 기반 노드 추가 함수**
-- [ ] **5.2 executeStreamPrompt에서 실시간 노드 추가**
+- [x] **5.1 채팅 기반 노드 추가 함수**
+- [x] **5.2 executeStreamPrompt에서 실시간 노드 추가**
+- [x] **5.3 Team 워크플로우 연결 수정** (User Input → Team 우선 연결)
 
 **✅ 확인 방법:**
 - 채팅 입력 후 User Input 노드 추가 확인
@@ -1183,13 +1184,180 @@ packages/agents 패키지에 대한 전면적 검토를 통해 다음과 같은 
 
 ---
 
+#### **👀 STEP 6: Team assignTask Tool 시각화 → Tool Call 노드 추가**
+
+**🎯 목표: Team의 assignTask Tool을 활용한 Tool Call 노드 시각화 구현**
+
+**💡 핵심 아이디어:**
+- **Create Agent**: Tool Call 기능 없음 (현재 상태 유지)
+- **Create Team**: Team Leader Agent + assignTask Tool 기본 보유
+- **assignTask 실행 시**: Tool Call 노드 + 새로운 Agent 노드 자동 생성
+- **단계별 눈으로 확인**: 각 단계마다 시각적 결과 확인 후 진행
+
+**📋 세부 단계:**
+
+##### **👀 STEP 6.1: Team 기본 Tool 노드 표시**
+**🎯 기대 결과:** Create Team 시 assignTask Tool 노드가 Team과 함께 표시
+
+- [ ] **6.1.1 Team 워크플로우 생성 함수 확장**
+  ```typescript
+  function createTeamWithToolsWorkflow(teamConfig: PlaygroundTeamConfig): UniversalWorkflowStructure {
+    const teamNode = { id: 'team_main', type: 'team', position: { x: 200, y: 50 } };
+    const assignTaskNode = { 
+      id: 'tool_assignTask', 
+      type: 'toolCall', 
+      position: { x: 200, y: 200 },
+      data: { label: 'assignTask Tool', toolName: 'assignTask', status: 'available' }
+    };
+    const agentNodes = teamConfig.agents.map((agent, index) => ({
+      id: `agent_${agent.name}`,
+      type: 'agent', 
+      position: { x: 50 + index * 200, y: 350 }
+    }));
+    
+    // 연결: Team → assignTask Tool, assignTask Tool → Agent들
+    const edges = [
+      { source: 'team_main', target: 'tool_assignTask', sourceHandle: 'team-output', targetHandle: 'tool-input' },
+      ...agentNodes.map(agent => ({
+        source: 'tool_assignTask', 
+        target: agent.id,
+        sourceHandle: 'tool-output', 
+        targetHandle: 'agent-input'
+      }))
+    ];
+    
+    return { nodes: [teamNode, assignTaskNode, ...agentNodes], edges, ... };
+  }
+  ```
+
+- [ ] **6.1.2 handleCreateTeam 함수 업데이트**
+  ```typescript
+  // 기존 createSimpleTeamWorkflow → createTeamWithToolsWorkflow로 변경
+  const workflow = createTeamWithToolsWorkflow(config);
+  setWorkflow(workflow);
+  ```
+
+**✅ 확인 방법:**
+- Create Team 버튼 클릭
+- **Team 노드** + **assignTask Tool 노드** + **Agent 노드들** 표시 확인
+- Team → assignTask → Agent들 연결선 확인
+- **사용자 확인 필요:** "assignTask Tool 노드가 Team과 Agent 사이에 보이는지"
+
+---
+
+##### **👀 STEP 6.2: assignTask 실행 감지 및 Tool Call 상태 업데이트**
+**🎯 기대 결과:** Team 채팅 시 assignTask가 실행되면 Tool Call 노드 상태 변화
+
+- [ ] **6.2.1 Tool Call 이벤트 감지 로직 추가**
+  ```typescript
+  // executeStreamPrompt에서 Tool Call 감지
+  if (state.currentWorkflow && response.includes('assignTask')) {
+    // assignTask Tool 노드 상태를 'running'으로 업데이트
+    const toolNode = state.currentWorkflow.nodes.find(node => 
+      node.type === 'toolCall' && node.data?.toolName === 'assignTask'
+    );
+    if (toolNode) {
+      updateNodeStatus(toolNode.id, 'running');
+    }
+  }
+  ```
+
+- [ ] **6.2.2 Tool Call 완료 시 상태 업데이트**
+  ```typescript
+  // Tool Call 완료 시 'completed' 상태로 변경
+  if (toolCallCompleted) {
+    updateNodeStatus(toolNode.id, 'completed');
+  }
+  ```
+
+**✅ 확인 방법:**
+- Create Team → Team 채팅 시작
+- assignTask 관련 명령 입력 (예: "팀원들에게 작업을 분배해줘")
+- assignTask Tool 노드가 파란색 → 주황색(실행중) → 초록색(완료) 변화 확인
+- **사용자 확인 필요:** "Tool Call 노드 상태 변화가 보이는지"
+
+---
+
+##### **👀 STEP 6.3: Tool Call로 생성된 새로운 Agent 노드 추가**
+**🎯 기대 결과:** assignTask 실행으로 새로운 Agent 생성 시 Agent 노드 추가
+
+- [ ] **6.3.1 Tool Call로 생성된 Agent 감지 로직**
+  ```typescript
+  // Tool Call 결과로 새로운 Agent 생성 이벤트 감지
+  if (newAgentCreatedFromToolCall) {
+    const newAgentNode = {
+      id: `agent-${timestamp}`,
+      type: 'agent',  // 동일한 agent 타입 사용
+      position: calculateNewAgentPosition(),
+      data: { 
+        label: `Agent (${taskName})`, 
+        taskName: taskName,
+        status: 'pending',
+        level: parentAgent.level + 1  // 계층 레벨 관리
+      }
+    };
+    
+    // Tool Call → Agent 연결
+    const toolToAgentEdge = {
+      source: toolCallNodeId,
+      target: newAgentNode.id,
+      sourceHandle: 'tool-output',
+      targetHandle: 'agent-input'
+    };
+  }
+  ```
+
+- [ ] **6.3.2 새로운 Agent의 재귀적 패턴 지원**
+  ```typescript
+  // 새로운 Agent도 동일한 패턴으로 Tool Call 가능
+  // Agent → Tool Call → Agent → Tool Call... (무한 반복 가능)
+  ```
+
+**✅ 확인 방법:**
+- assignTask 실행 후 새로운 Agent 노드 추가 확인
+- Tool Call → Agent 연결선 확인
+- 새로운 Agent 노드 상태 변화 확인 (pending → running → completed)
+- **사용자 확인 필요:** "Tool Call에서 새로운 Agent 노드가 연결되어 나타나는지"
+
+---
+
+##### **👀 STEP 6.4: 완전한 재귀적 Agent Workflow 생명주기 확인**
+**🎯 기대 결과:** Team의 완전한 Tool Call → Agent → Tool Call... 재귀적 워크플로우 시각화
+
+- [ ] **6.4.1 전체 흐름 통합 테스트**
+  ```
+  User Input → Team → assignTask Tool Call → Agent → Agent Response
+                  ↓                            ↓
+           Direct Agent Response        Agent → Tool Call → Agent → Response
+                                                        ↓
+                                              Agent → Tool Call → ...
+  ```
+
+- [ ] **6.4.2 복잡한 재귀적 시나리오 테스트**
+  - 여러 Agent 동시 생성 (Tool Call로부터)
+  - 중첩된 Tool Call (Agent → Tool Call → Agent → Tool Call...)
+  - 계층적 레벨 관리 (level 1, 2, 3... Agent들)
+  - Tool Call 실패 시 오류 상태 표시
+
+**✅ 확인 방법:**
+- Create Team → 복잡한 팀 작업 요청
+- 재귀적 Agent → Tool Call → Agent 패턴 확인
+- 모든 노드 상태 변화 추적
+- **사용자 확인 필요:** "재귀적 Agent 워크플로우가 제대로 시각화되는지"
+
+---
+
 ### **📋 진행 순서**
 
-1. **STEP 1 완료** → 사용자 확인 → 다음 단계 승인
-2. **STEP 2 완료** → 사용자 확인 → 다음 단계 승인  
-3. **STEP 3 완료** → 사용자 확인 → 다음 단계 승인
-4. **STEP 4 완료** → 사용자 확인 → 다음 단계 승인
-5. **STEP 5 완료** → 사용자 확인 → 완료
+1. **STEP 1 완료** ✅ → 사용자 확인 완료 → 다음 단계 승인
+2. **STEP 2 완료** ✅ → 사용자 확인 완료 → 다음 단계 승인  
+3. **STEP 3 완료** ✅ → 사용자 확인 완료 → 다음 단계 승인
+4. **STEP 4 완료** ✅ → 사용자 확인 완료 → 다음 단계 승인
+5. **STEP 5 완료** ✅ → 사용자 확인 완료 → 다음 단계 승인
+6. **STEP 6.1** → 사용자 확인 → STEP 6.2 진행
+7. **STEP 6.2** → 사용자 확인 → STEP 6.3 진행
+8. **STEP 6.3** → 사용자 확인 → STEP 6.4 진행
+9. **STEP 6.4** → 사용자 확인 → **Tool Call 시각화 완료**
 
 **각 STEP에서 문제 발생 시 해당 단계에서 멈추고 수정합니다.**
 
