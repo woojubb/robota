@@ -38,8 +38,7 @@ import {
     WifiOff,
     AlertCircle,
     CheckCircle,
-    Loader2,
-    GitBranch
+    Loader2
 } from 'lucide-react';
 
 // Context and Hooks
@@ -51,10 +50,7 @@ import { useChatInput } from '@/hooks/use-chat-input';
 import { useBlockTracking } from '@/hooks/use-block-tracking';
 import { usePlaygroundStatistics } from '@/hooks/use-playground-statistics';
 
-// Import our new execution tree components
-import { ExecutionTreeDebug } from '@/components/playground/execution-tree-debug';
-import { PlaygroundBlockCollector } from '@/lib/playground/block-tracking/block-collector';
-import type { RealTimeBlockMessage } from '@/lib/playground/block-tracking/types';
+
 
 // Visual Components
 import { AgentConfigurationBlock } from '@/components/playground/agent-configuration-block';
@@ -635,27 +631,17 @@ function PlaygroundContent() {
                 </div>
             </div>
 
-            {/* Main Content - Chat + Workflow + Tree */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-grow min-h-0">
-                {/* Left Column - Chat Input (1/4 width) */}
+            {/* Main Content - Chat + Workflow */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow min-h-0">
+                {/* Left Column - Chat Input (1/3 width) */}
                 <div className="lg:col-span-1 min-h-0">
                     <ChatInputPanel />
                 </div>
 
-                {/* Center Column - Workflow Visualization (2/4 width) */}
+                {/* Right Column - Workflow Visualization (2/3 width) */}
                 <div className="lg:col-span-2 min-h-0">
                     <WorkflowVisualization workflow={state.currentWorkflow} />
                 </div>
-
-                {/* Right Column - Execution Tree (1/4 width) */}
-                <div className="lg:col-span-1 min-h-0">
-                    <ExecutionTreePanel />
-                </div>
-            </div>
-
-            {/* Bottom Row - Block Visualization (Full Width) */}
-            <div className="w-full flex-shrink-0">
-                <BlockVisualizationPanel />
             </div>
         </div>
     );
@@ -678,263 +664,7 @@ function ToolsAndPluginsPanel() {
     );
 }
 
-// 🧪 New Execution Tree Panel with Demo Capabilities
-function ExecutionTreePanel() {
-    const [blockCollector] = useState(() => new PlaygroundBlockCollector());
-    const { conversationEvents } = usePlaygroundData();
 
-    // Convert conversation events to our block format
-    useEffect(() => {
-        if (conversationEvents.length > 0) {
-            // Clear existing blocks first
-            blockCollector.clearBlocks();
-
-            // Helper functions to determine role and type
-            const getRole = (eventType: string): 'user' | 'assistant' | 'tool' | 'system' => {
-                if (eventType === 'user_message') return 'user';
-                if (eventType === 'assistant_response') return 'assistant';
-                if (eventType.includes('tool_call') || eventType.includes('subtool')) return 'tool';
-                if (eventType.includes('execution') || eventType.includes('agent.execution')) return 'assistant';
-                return 'system';
-            };
-
-            const getBlockType = (eventType: string): 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'error' | 'group' => {
-                if (eventType === 'user_message') return 'user';
-                if (eventType === 'assistant_response') return 'assistant';
-                if (eventType === 'tool_call_start' || eventType === 'subtool.call_start') return 'tool_call';
-                if (eventType === 'tool_call_complete' || eventType === 'subtool.call_complete') return 'tool_result';
-                if (eventType.includes('error')) return 'error';
-                if (eventType.includes('execution') || eventType.includes('agent.execution')) return 'assistant';
-                return 'group';
-            };
-
-            // Convert each conversation event to our block format
-            conversationEvents.forEach((event) => {
-                try {
-                    const blockMessage: RealTimeBlockMessage = {
-                        role: getRole(event.type),
-                        content: event.content || '',
-                        timestamp: event.timestamp,
-                        blockMetadata: {
-                            id: event.id,
-                            type: getBlockType(event.type),
-                            level: event.executionLevel || 0,
-                            parentId: event.parentEventId,
-                            children: event.childEventIds || [],
-                            isExpanded: true,
-                            visualState: 'completed',
-                            startTime: event.timestamp,
-                            endTime: event.timestamp,
-                            actualDuration: 0,
-                            executionHierarchy: {
-                                level: event.executionLevel || 0,
-                                path: event.executionPath ? event.executionPath.split('/') : [],
-                                parentExecutionId: event.parentEventId,
-                                rootExecutionId: event.delegationId || event.id
-                            },
-                            executionContext: {
-                                timestamp: event.timestamp,
-                                toolName: event.toolName,
-                                executionId: event.id
-                            }
-                        }
-                    };
-
-                    blockCollector.collectBlock(blockMessage);
-                } catch (error) {
-                    console.error('Error creating block message:', error, event);
-                }
-            });
-        }
-    }, [conversationEvents, blockCollector]);
-
-    return (
-        <Card className="h-full flex flex-col">
-            <CardHeader className="pb-3 flex-shrink-0">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <GitBranch className="h-4 w-4 text-blue-500" />
-                    Execution Tree Debug
-                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 ml-auto">
-                        New!
-                    </Badge>
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 pt-0 pb-3 min-h-0">
-                <div className="h-full overflow-hidden">
-                    <ExecutionTreeDebug
-                        blockCollector={blockCollector}
-                        refreshInterval={1000}
-                    />
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
-// 🎯 계층 구조 기반 Block Visualization Panel
-function BlockVisualizationPanel() {
-    const { conversationEvents } = usePlaygroundData();
-
-    // 이벤트 타입별 색상 및 아이콘 매핑
-    const getEventStyle = (event: any) => {
-        switch (event.type) {
-            case 'user_message':
-                return {
-                    bg: 'bg-blue-50 border-blue-200',
-                    text: 'text-blue-800',
-                    icon: '👤',
-                    label: 'User'
-                };
-            case 'assistant_response':
-                return {
-                    bg: 'bg-green-50 border-green-200',
-                    text: 'text-green-800',
-                    icon: '🤖',
-                    label: 'Assistant'
-                };
-            case 'tool_call':
-                return {
-                    bg: 'bg-orange-50 border-orange-200',
-                    text: 'text-orange-800',
-                    icon: '🔧',
-                    label: 'Tool Call'
-                };
-            case 'tool_result':
-                return {
-                    bg: 'bg-purple-50 border-purple-200',
-                    text: 'text-purple-800',
-                    icon: '✅',
-                    label: 'Tool Result'
-                };
-            case 'error':
-                return {
-                    bg: 'bg-red-50 border-red-200',
-                    text: 'text-red-800',
-                    icon: '❌',
-                    label: 'Error'
-                };
-            default:
-                return {
-                    bg: 'bg-gray-50 border-gray-200',
-                    text: 'text-gray-800',
-                    icon: '📄',
-                    label: 'Unknown'
-                };
-        }
-    };
-
-    // 계층별 들여쓰기 렌더링
-    const renderEventBlock = (event: any, index: number) => {
-        try {
-            const style = getEventStyle(event);
-            const level = event.executionLevel || 0;
-            const marginLeft = level * 20; // 레벨당 20px 들여쓰기
-
-            return (
-                <div
-                    key={event.id || index}
-                    style={{ marginLeft: `${marginLeft}px` }}
-                    className={`p-3 rounded-lg border ${style.bg} mb-2 transition-all duration-200 hover:shadow-sm`}
-                >
-                    {/* 이벤트 헤더 */}
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                            <span className="text-lg">{style.icon}</span>
-                            <span className={`text-xs font-medium ${style.text}`}>
-                                {style.label}
-                            </span>
-                            {event.executionLevel !== undefined && (
-                                <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                                    Level {event.executionLevel}
-                                </span>
-                            )}
-                        </div>
-                        <span className="text-xs text-gray-500">
-                            {event.timestamp?.toLocaleTimeString() || 'Unknown time'}
-                        </span>
-                    </div>
-
-                    {/* 실행 경로 표시 */}
-                    {event.executionPath && (
-                        <div className="text-xs text-gray-600 mb-2 font-mono bg-gray-100 px-2 py-1 rounded">
-                            Path: {typeof event.executionPath === 'string'
-                                ? event.executionPath
-                                : JSON.stringify(event.executionPath)
-                            }
-                        </div>
-                    )}
-
-                    {/* 이벤트 내용 */}
-                    <div className="text-sm">
-                        {typeof event.content === 'string'
-                            ? event.content || 'No content'
-                            : event.content
-                                ? JSON.stringify(event.content, null, 2)
-                                : 'No content'
-                        }
-                    </div>
-
-                    {/* Tool 관련 정보 */}
-                    {event.toolName && (
-                        <div className="mt-2 text-xs text-gray-600">
-                            <strong>Tool:</strong> {String(event.toolName)}
-                        </div>
-                    )}
-
-                    {/* Delegation ID 표시 */}
-                    {event.delegationId && (
-                        <div className="mt-1 text-xs text-gray-500">
-                            <strong>Delegation:</strong> {String(event.delegationId)}
-                        </div>
-                    )}
-
-                    {/* 계층 정보 */}
-                    {event.parentEventId && (
-                        <div className="mt-1 text-xs text-gray-500">
-                            <strong>Parent:</strong> {String(event.parentEventId)}
-                        </div>
-                    )}
-                </div>
-            );
-        } catch (error) {
-            console.error('Error rendering event block:', error, event);
-            return (
-                <div key={index} className="p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm">
-                    Error rendering event: {String(error)}
-                </div>
-            );
-        }
-    };
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                    <Puzzle className="h-4 w-4" />
-                    Block Visualization
-                    <span className="text-xs text-gray-500 ml-2">
-                        ({conversationEvents.length} events)
-                    </span>
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                <ScrollArea className="h-64">
-                    <div className="space-y-1">
-                        {conversationEvents.map((event, index) => renderEventBlock(event, index))}
-                        {conversationEvents.length === 0 && (
-                            <div className="text-center text-gray-500 py-8">
-                                No conversation blocks yet
-                                <div className="text-xs mt-2">
-                                    Start a conversation to see the hierarchical block structure
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </ScrollArea>
-            </CardContent>
-        </Card>
-    );
-}
 
 // Main Playground Page with Provider
 export default function PlaygroundPage() {

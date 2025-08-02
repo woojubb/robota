@@ -99,7 +99,7 @@ export class RealTimeWorkflowBuilder {
         this.workflowSubscriber = eventService as WorkflowEventSubscriber;
 
         // Universal 변환기 초기화
-        this.universalConverter = new WorkflowToUniversalConverter({}, this.logger);
+        this.universalConverter = new WorkflowToUniversalConverter(this.logger);
 
         // 초기 Workflow 구조
         this.currentWorkflow = {
