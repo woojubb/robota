@@ -507,9 +507,10 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                 const timestamp = Date.now();
                 userInputNodeId = `user-input-${timestamp}`;
 
-                // Find the main agent node to connect to
-                const agentNode = state.currentWorkflow.nodes.find(node => node.type === 'agent');
-                if (agentNode) {
+                // Find the main node to connect to (Team first, then Agent)
+                const teamNode = state.currentWorkflow.nodes.find(node => node.type === 'team');
+                const mainNode = teamNode || state.currentWorkflow.nodes.find(node => node.type === 'agent');
+                if (mainNode) {
                     // Calculate position for User Input node
                     const existingNodes = state.currentWorkflow.nodes;
                     const maxY = Math.max(...existingNodes.map(node => node.position.y || 0));
@@ -527,13 +528,13 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                         metadata: { createdAt: new Date(), updatedAt: new Date() }
                     };
 
-                    // Create edge: User Input → Agent
-                    const userToAgentEdge: any = {
+                    // Create edge: User Input → Team (or Agent if no Team)
+                    const userToMainEdge: any = {
                         id: `edge-user-${timestamp}`,
                         source: userInputNodeId,
-                        target: agentNode.id,
+                        target: mainNode.id,
                         sourceHandle: 'user-output',
-                        targetHandle: 'agent-input',
+                        targetHandle: teamNode ? 'team-input' : 'agent-input',
                         data: {},
                         metadata: { createdAt: new Date(), updatedAt: new Date() }
                     };
@@ -542,7 +543,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                     const updatedWorkflow = {
                         ...state.currentWorkflow,
                         nodes: [...state.currentWorkflow.nodes, userInputNode],
-                        edges: [...state.currentWorkflow.edges, userToAgentEdge]
+                        edges: [...state.currentWorkflow.edges, userToMainEdge]
                     };
 
                     dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: updatedWorkflow });
@@ -599,9 +600,10 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                 const timestamp = Date.now();
                 const responseNodeId = `agent-response-${timestamp}`;
 
-                // Find the main agent node to connect to
-                const agentNode = currentWorkflowRef.current.nodes.find(node => node.type === 'agent');
-                if (agentNode) {
+                // Find the main node to connect from (Team first, then Agent)
+                const teamNode = currentWorkflowRef.current.nodes.find(node => node.type === 'team');
+                const mainNode = teamNode || currentWorkflowRef.current.nodes.find(node => node.type === 'agent');
+                if (mainNode) {
                     // Calculate position for Agent Response node
                     const existingNodes = currentWorkflowRef.current.nodes;
                     const maxY = Math.max(...existingNodes.map(node => node.position.y || 0));
@@ -619,12 +621,12 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                         metadata: { createdAt: new Date(), updatedAt: new Date() }
                     };
 
-                    // Create edge: Agent → Agent Response
-                    const agentToResponseEdge: any = {
+                    // Create edge: Team (or Agent) → Agent Response
+                    const mainToResponseEdge: any = {
                         id: `edge-response-${timestamp}`,
-                        source: agentNode.id,
+                        source: mainNode.id,
                         target: responseNodeId,
-                        sourceHandle: 'agent-output',
+                        sourceHandle: teamNode ? 'team-output' : 'agent-output',
                         targetHandle: 'response-input',
                         data: {},
                         metadata: { createdAt: new Date(), updatedAt: new Date() }
@@ -634,7 +636,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                     const updatedWorkflow = {
                         ...currentWorkflowRef.current,
                         nodes: [...currentWorkflowRef.current.nodes, agentResponseNode],
-                        edges: [...currentWorkflowRef.current.edges, agentToResponseEdge]
+                        edges: [...currentWorkflowRef.current.edges, mainToResponseEdge]
                     };
 
                     dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: updatedWorkflow });

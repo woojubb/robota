@@ -171,6 +171,14 @@ const TeamNode = ({ data }: { data: any }) => {
                 </Badge>
             )}
 
+            {/* Target handle - User Input connects to Team */}
+            <Handle
+                type="target"
+                position={Position.Top}
+                id="team-input"
+                style={{ background: '#16a34a' }}
+            />
+
             {/* Source handle - Team connects to Agents */}
             <Handle
                 type="source"
