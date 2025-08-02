@@ -26,7 +26,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Bot, Users, Zap, MessageSquare, MessageCircle } from 'lucide-react';
+import { Bot, Users, Zap, MessageSquare, MessageCircle, Settings } from 'lucide-react';
 import type {
     UniversalWorkflowStructure,
     UniversalWorkflowNode,
@@ -87,6 +87,16 @@ const AgentNode = ({ data }: { data: any }) => {
                 <Bot className={styles.icon} />
                 <div className="text-sm font-semibold">{data.label}</div>
             </div>
+            {data.taskName && (
+                <div className="mt-1 text-xs text-gray-600 max-w-[150px] truncate">
+                    {data.taskName}
+                </div>
+            )}
+            {data.level && data.level > 0 && (
+                <Badge className="mt-1 text-xs bg-gray-100 text-gray-700">
+                    Level {data.level}
+                </Badge>
+            )}
             {data.status && (
                 <Badge className={`mt-1 text-xs ${styles.badge}`}>
                     {data.status}
@@ -258,13 +268,57 @@ const AgentResponseNode = ({ data }: { data: any }) => {
     );
 };
 
+/**
+ * Custom Node Component for Tool Calls
+ */
+const ToolCallNode = ({ data }: { data: any }) => {
+    return (
+        <div className="px-3 py-2 shadow-md rounded-md bg-white border-2 border-orange-400">
+            <div className="flex items-center gap-2">
+                <Settings className="h-3 w-3 text-orange-600" />
+                <div className="text-xs font-semibold">Tool Call</div>
+            </div>
+            {data.toolName && (
+                <div className="mt-1 text-xs text-gray-600 max-w-[150px] truncate">
+                    {data.toolName}
+                </div>
+            )}
+            {data.status && (
+                <Badge className="mt-1 text-xs bg-orange-100 text-orange-800">
+                    {data.status}
+                </Badge>
+            )}
+
+            {/* Target handle - Tool Call receives from Agent */}
+            <Handle
+                type="target"
+                position={Position.Top}
+                id="tool-input"
+                style={{ background: '#ea580c' }}
+            />
+
+            {/* Source handle - Tool Call connects to Sub-Agent or Response */}
+            <Handle
+                type="source"
+                position={Position.Bottom}
+                id="tool-output"
+                style={{ background: '#ea580c' }}
+            />
+        </div>
+    );
+};
+
+// SubAgentNode 제거 - Agent 노드 타입으로 통일
+
 // Node types for React-Flow
 const nodeTypes = {
     agent: AgentNode,
     team: TeamNode,
     tool: ToolNode,
     userInput: UserInputNode,
-    agentResponse: AgentResponseNode
+    agentResponse: AgentResponseNode,
+    toolCall: ToolCallNode
+    // subAgent 제거 - 모든 Agent는 동일한 'agent' 타입 사용
 };
 
 function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualizationProps) {
