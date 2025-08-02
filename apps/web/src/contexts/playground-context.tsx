@@ -336,6 +336,14 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
     // Use ref to track executor for cleanup without causing re-renders
     const executorRef = useRef<PlaygroundExecutor | null>(null);
 
+    // Use ref to track the latest workflow state during executeStreamPrompt
+    const currentWorkflowRef = useRef<UniversalWorkflowStructure | null>(null);
+
+    // Sync currentWorkflow state with ref
+    useEffect(() => {
+        currentWorkflowRef.current = state.currentWorkflow;
+    }, [state.currentWorkflow]);
+
     // Auto-initialize executor on mount
     useEffect(() => {
         if (!state.executor && defaultServerUrl) {
@@ -493,6 +501,56 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'SET_EXECUTING', payload: true });
             dispatch({ type: 'SET_ERROR', payload: null });
 
+            // Add User Input node immediately when chat starts
+            let userInputNodeId = '';
+            if (state.currentWorkflow) {
+                const timestamp = Date.now();
+                userInputNodeId = `user-input-${timestamp}`;
+
+                // Find the main agent node to connect to
+                const agentNode = state.currentWorkflow.nodes.find(node => node.type === 'agent');
+                if (agentNode) {
+                    // Calculate position for User Input node
+                    const existingNodes = state.currentWorkflow.nodes;
+                    const maxY = Math.max(...existingNodes.map(node => node.position.y || 0));
+                    const userInputY = maxY + 150;
+
+                    // Create User Input node
+                    const userInputNode: any = {
+                        id: userInputNodeId,
+                        type: 'userInput',
+                        position: { x: 50, y: userInputY },
+                        data: {
+                            label: 'User Input',
+                            message: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : '')
+                        },
+                        metadata: { createdAt: new Date(), updatedAt: new Date() }
+                    };
+
+                    // Create edge: User Input → Agent
+                    const userToAgentEdge: any = {
+                        id: `edge-user-${timestamp}`,
+                        source: userInputNodeId,
+                        target: agentNode.id,
+                        sourceHandle: 'user-output',
+                        targetHandle: 'agent-input',
+                        data: {},
+                        metadata: { createdAt: new Date(), updatedAt: new Date() }
+                    };
+
+                    // Update workflow with User Input node immediately
+                    const updatedWorkflow = {
+                        ...state.currentWorkflow,
+                        nodes: [...state.currentWorkflow.nodes, userInputNode],
+                        edges: [...state.currentWorkflow.edges, userToAgentEdge]
+                    };
+
+                    dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: updatedWorkflow });
+                    // Update ref immediately to ensure Agent Response node can access the latest state
+                    currentWorkflowRef.current = updatedWorkflow;
+                }
+            }
+
             // Update node status to 'running' for current workflow
             if (state.currentWorkflow && state.currentWorkflow.nodes.length > 0) {
                 // Find the main agent node (first agent-type node)
@@ -533,6 +591,55 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                 const agentNode = state.currentWorkflow.nodes.find(node => node.type === 'agent');
                 if (agentNode) {
                     dispatch({ type: 'UPDATE_NODE_STATUS', payload: { nodeId: agentNode.id, status: 'completed' } });
+                }
+            }
+
+            // Add Agent Response node when response is completed
+            if (currentWorkflowRef.current) {
+                const timestamp = Date.now();
+                const responseNodeId = `agent-response-${timestamp}`;
+
+                // Find the main agent node to connect to
+                const agentNode = currentWorkflowRef.current.nodes.find(node => node.type === 'agent');
+                if (agentNode) {
+                    // Calculate position for Agent Response node
+                    const existingNodes = currentWorkflowRef.current.nodes;
+                    const maxY = Math.max(...existingNodes.map(node => node.position.y || 0));
+                    const agentResponseY = maxY + 150;
+
+                    // Create Agent Response node
+                    const agentResponseNode: any = {
+                        id: responseNodeId,
+                        type: 'agentResponse',
+                        position: { x: 300, y: agentResponseY },
+                        data: {
+                            label: 'Agent Response',
+                            response: fullResponse.substring(0, 50) + (fullResponse.length > 50 ? '...' : '')
+                        },
+                        metadata: { createdAt: new Date(), updatedAt: new Date() }
+                    };
+
+                    // Create edge: Agent → Agent Response
+                    const agentToResponseEdge: any = {
+                        id: `edge-response-${timestamp}`,
+                        source: agentNode.id,
+                        target: responseNodeId,
+                        sourceHandle: 'agent-output',
+                        targetHandle: 'response-input',
+                        data: {},
+                        metadata: { createdAt: new Date(), updatedAt: new Date() }
+                    };
+
+                    // Update workflow with Agent Response node (keeping all existing nodes including User Input)
+                    const updatedWorkflow = {
+                        ...currentWorkflowRef.current,
+                        nodes: [...currentWorkflowRef.current.nodes, agentResponseNode],
+                        edges: [...currentWorkflowRef.current.edges, agentToResponseEdge]
+                    };
+
+                    dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: updatedWorkflow });
+                    // Update ref with the latest state
+                    currentWorkflowRef.current = updatedWorkflow;
                 }
             }
 
@@ -655,6 +762,8 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
     const setExecuting = useCallback((isExecuting: boolean) => {
         dispatch({ type: 'SET_EXECUTING', payload: isExecuting });
     }, []);
+
+
 
     // ===== Getters =====
 
