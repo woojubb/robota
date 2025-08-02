@@ -1,0 +1,122 @@
+---
+alwaysApply: true
+description: "No fallback policy - implement proper solutions instead of fallback mechanisms"
+---
+
+# No Fallback Policy - Proper Solution Implementation
+
+## 🚫 금지된 패턴들
+
+### Fallback 메커니즘 금지
+- **절대 금지**: "연결이 실패할 수 있다"는 가정 하에 fallback 로직 구현
+- **절대 금지**: 임시 대안책이나 우회 방법으로 문제 해결
+- **절대 금지**: "실패 시 다른 방법으로" 패턴
+- **절대 금지**: try-catch로 오류를 숨기고 대안 실행
+
+### 불확실한 가정 금지
+```typescript
+// ❌ 금지된 패턴
+if (connection.failed) {
+  // fallback to alternative method
+  useAlternativeConnection();
+}
+
+// ❌ 금지된 패턴  
+try {
+  connectPrimary();
+} catch {
+  connectSecondary(); // fallback
+}
+
+// ❌ 금지된 패턴
+const result = await primaryMethod() || await fallbackMethod();
+```
+
+## ✅ 올바른 접근 방식
+
+### 1. 근본 원인 해결
+- **연결 실패 원인 분석**: 왜 연결이 안 되는지 근본 원인 파악
+- **환경 문제 해결**: 연결이 안 되는 환경 자체를 수정
+- **정석적 구현**: 표준적이고 확실한 방법으로 구현
+
+### 2. 확실한 연결 보장
+```typescript
+// ✅ 올바른 패턴
+async function establishConnection(): Promise<Connection> {
+  // 1. 연결 전제조건 검증
+  validateConnectionRequirements();
+  
+  // 2. 정석적인 연결 방법 사용
+  const connection = await createStandardConnection(config);
+  
+  // 3. 연결 성공 확인
+  if (!connection.isActive()) {
+    throw new Error('Connection failed - check environment configuration');
+  }
+  
+  return connection;
+}
+```
+
+### 3. 예측 가능한 동작
+```typescript
+// ✅ 올바른 패턴 - 확실한 ID 매칭
+function linkNodes(sourceId: string, targetId: string): Edge {
+  // 정확한 ID로 연결 - 추측이나 대안 없음
+  if (!nodeExists(sourceId)) {
+    throw new Error(`Source node ${sourceId} does not exist`);
+  }
+  if (!nodeExists(targetId)) {
+    throw new Error(`Target node ${targetId} does not exist`);
+  }
+  
+  return createEdge(sourceId, targetId);
+}
+```
+
+## 🎯 구현 원칙
+
+### 원칙 1: 문제의 근본 해결
+- 문제가 발생하는 **근본 원인을 찾아 해결**
+- 증상만 처리하는 임시방편 금지
+- 환경이나 설정 문제라면 그것부터 수정
+
+### 원칙 2: 예측 가능한 동작
+- 모든 연결과 동작이 **확실하고 예측 가능**해야 함
+- "아마도", "혹시", "만약에" 같은 불확실성 제거
+- 명확한 입력 → 명확한 출력 보장
+
+### 원칙 3: 표준 방법 사용
+- 업계 표준이나 프레임워크 권장 방법 사용
+- 독자적인 우회 방법 대신 정석적 구현
+- 문서화된 Best Practice 준수
+
+### 원칙 4: 실패 시 명확한 오류
+```typescript
+// ✅ 올바른 오류 처리
+if (!isValidConfiguration(config)) {
+  throw new ConfigurationError(
+    'Invalid configuration detected. Please check: ' + 
+    getConfigurationRequirements()
+  );
+}
+```
+
+## 🚨 위험 신호들
+
+다음과 같은 코드나 생각이 나타나면 즉시 재검토:
+- "실패할 수도 있으니까 대안을..."
+- "혹시 모르니까 백업 방법을..."
+- "일단 이렇게 하고 나중에..."
+- "임시로 이 방법으로..."
+
+## 📋 검증 체크리스트
+
+코드 구현 전 반드시 확인:
+- [ ] 이 구현이 표준적인 방법인가?
+- [ ] 모든 전제조건이 명확히 정의되었는가?
+- [ ] 실패 케이스에 대한 명확한 오류 메시지가 있는가?
+- [ ] Fallback이나 대안 로직이 포함되어 있지 않은가?
+- [ ] 이 코드의 동작이 100% 예측 가능한가?
+
+**기억하세요**: Fallback 기능은 문제 해결을 방해하는 심각한 오류를 만들어냅니다. 정석적인 해결책만이 진정한 해결책입니다.
