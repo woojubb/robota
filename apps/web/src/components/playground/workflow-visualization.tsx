@@ -26,7 +26,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Bot, Users, Zap } from 'lucide-react';
+import { Bot, Users, Zap, MessageSquare, MessageCircle } from 'lucide-react';
 import type {
     UniversalWorkflowStructure,
     UniversalWorkflowNode,
@@ -196,11 +196,67 @@ const ToolNode = ({ data }: { data: any }) => {
     );
 };
 
+/**
+ * Custom Node Component for User Input
+ */
+const UserInputNode = ({ data }: { data: any }) => {
+    return (
+        <div className="px-4 py-2 shadow-md rounded-md bg-white border-2 border-purple-400">
+            <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-purple-600" />
+                <div className="text-sm font-semibold">User Input</div>
+            </div>
+            {data.message && (
+                <div className="mt-1 text-xs text-gray-600 max-w-[200px] truncate">
+                    {data.message}
+                </div>
+            )}
+
+            {/* Source handle - User Input connects to Agent */}
+            <Handle
+                type="source"
+                position={Position.Bottom}
+                id="user-output"
+                style={{ background: '#9333ea' }}
+            />
+        </div>
+    );
+};
+
+/**
+ * Custom Node Component for Agent Response
+ */
+const AgentResponseNode = ({ data }: { data: any }) => {
+    return (
+        <div className="px-4 py-2 shadow-md rounded-md bg-white border-2 border-teal-400">
+            <div className="flex items-center gap-2">
+                <MessageCircle className="h-4 w-4 text-teal-600" />
+                <div className="text-sm font-semibold">Agent Response</div>
+            </div>
+            {data.response && (
+                <div className="mt-1 text-xs text-gray-600 max-w-[200px] truncate">
+                    {data.response}
+                </div>
+            )}
+
+            {/* Target handle - Agent Response receives from Agent */}
+            <Handle
+                type="target"
+                position={Position.Top}
+                id="response-input"
+                style={{ background: '#14b8a6' }}
+            />
+        </div>
+    );
+};
+
 // Node types for React-Flow
 const nodeTypes = {
     agent: AgentNode,
     team: TeamNode,
     tool: ToolNode,
+    userInput: UserInputNode,
+    agentResponse: AgentResponseNode
 };
 
 function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualizationProps) {
