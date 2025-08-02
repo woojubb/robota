@@ -18,6 +18,8 @@ import {
     useNodesState,
     useEdgesState,
     addEdge,
+    Handle,
+    Position,
     Connection,
     ReactFlowProvider
 } from '@xyflow/react';
@@ -25,10 +27,10 @@ import '@xyflow/react/dist/style.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Bot, Users, Zap } from 'lucide-react';
-import type { 
+import type {
     UniversalWorkflowStructure,
     UniversalWorkflowNode,
-    UniversalWorkflowEdge 
+    UniversalWorkflowEdge
 } from '@robota-sdk/agents';
 import { SimpleReactFlowConverter } from '@/lib/workflow-visualization';
 
@@ -41,17 +43,71 @@ interface WorkflowVisualizationProps {
  * Custom Node Component for Agents
  */
 const AgentNode = ({ data }: { data: any }) => {
+    // Status-based styling
+    const getStatusStyles = (status?: string) => {
+        switch (status) {
+            case 'ready':
+                return {
+                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-yellow-400',
+                    icon: 'h-4 w-4 text-yellow-600',
+                    badge: 'bg-yellow-100 text-yellow-800'
+                };
+            case 'running':
+                return {
+                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-orange-400 animate-pulse',
+                    icon: 'h-4 w-4 text-orange-600',
+                    badge: 'bg-orange-100 text-orange-800'
+                };
+            case 'completed':
+                return {
+                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-green-400',
+                    icon: 'h-4 w-4 text-green-600',
+                    badge: 'bg-green-100 text-green-800'
+                };
+            case 'error':
+                return {
+                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-red-400',
+                    icon: 'h-4 w-4 text-red-600',
+                    badge: 'bg-red-100 text-red-800'
+                };
+            default: // pending or undefined
+                return {
+                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-blue-400',
+                    icon: 'h-4 w-4 text-blue-600',
+                    badge: 'bg-blue-100 text-blue-800'
+                };
+        }
+    };
+
+    const styles = getStatusStyles(data.status);
+
     return (
-        <div className="px-4 py-2 shadow-md rounded-md bg-white border-2 border-blue-400">
+        <div className={styles.container}>
             <div className="flex items-center gap-2">
-                <Bot className="h-4 w-4 text-blue-600" />
+                <Bot className={styles.icon} />
                 <div className="text-sm font-semibold">{data.label}</div>
             </div>
             {data.status && (
-                <Badge variant="secondary" className="mt-1 text-xs">
+                <Badge className={`mt-1 text-xs ${styles.badge}`}>
                     {data.status}
                 </Badge>
             )}
+
+            {/* Target handle - Agents receive connections from Team */}
+            <Handle
+                type="target"
+                position={Position.Top}
+                id="agent-input"
+                style={{ background: '#2563eb' }}
+            />
+
+            {/* Source handle - Agents can connect to other nodes */}
+            <Handle
+                type="source"
+                position={Position.Bottom}
+                id="agent-output"
+                style={{ background: '#2563eb' }}
+            />
         </div>
     );
 };
@@ -60,17 +116,68 @@ const AgentNode = ({ data }: { data: any }) => {
  * Custom Node Component for Teams
  */
 const TeamNode = ({ data }: { data: any }) => {
+    // Status-based styling for teams
+    const getStatusStyles = (status?: string) => {
+        switch (status) {
+            case 'ready':
+                return {
+                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-yellow-400',
+                    icon: 'h-4 w-4 text-yellow-600',
+                    badge: 'bg-yellow-100 text-yellow-800'
+                };
+            case 'running':
+                return {
+                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-orange-400 animate-pulse',
+                    icon: 'h-4 w-4 text-orange-600',
+                    badge: 'bg-orange-100 text-orange-800'
+                };
+            case 'completed':
+                return {
+                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-green-500',
+                    icon: 'h-4 w-4 text-green-700',
+                    badge: 'bg-green-100 text-green-800'
+                };
+            case 'error':
+                return {
+                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-red-400',
+                    icon: 'h-4 w-4 text-red-600',
+                    badge: 'bg-red-100 text-red-800'
+                };
+            default: // pending or undefined
+                return {
+                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-green-400',
+                    icon: 'h-4 w-4 text-green-600',
+                    badge: 'bg-green-100 text-green-800'
+                };
+        }
+    };
+
+    const styles = getStatusStyles(data.status);
+
     return (
-        <div className="px-4 py-2 shadow-md rounded-md bg-white border-2 border-green-400">
+        <div className={styles.container}>
             <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-green-600" />
+                <Users className={styles.icon} />
                 <div className="text-sm font-semibold">{data.label}</div>
             </div>
             {data.memberCount && (
-                <Badge variant="secondary" className="mt-1 text-xs">
+                <Badge className={`mt-1 text-xs ${styles.badge}`}>
                     {data.memberCount} members
                 </Badge>
             )}
+            {data.status && (
+                <Badge className={`mt-1 text-xs ${styles.badge}`}>
+                    {data.status}
+                </Badge>
+            )}
+
+            {/* Source handle - Team connects to Agents */}
+            <Handle
+                type="source"
+                position={Position.Bottom}
+                id="team-output"
+                style={{ background: '#16a34a' }}
+            />
         </div>
     );
 };

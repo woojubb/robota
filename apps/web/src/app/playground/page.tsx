@@ -66,10 +66,15 @@ import type {
     PlaygroundTeamConfig,
     PlaygroundExecutionResult
 } from '@/lib/playground/robota-executor';
+import type {
+    UniversalWorkflowStructure,
+    UniversalWorkflowNode,
+    UniversalWorkflowEdge
+} from '@robota-sdk/agents';
 
 // Configuration Panel Component
 function ConfigurationPanel() {
-    const { state } = usePlayground();
+    const { state, setWorkflow, updateNodeStatus } = usePlayground();
     const {
         createAgent,
         createTeam,
@@ -132,7 +137,7 @@ function ConfigurationPanel() {
             position: { x: 250, y: 50, level: 0, order: 0 },
             data: {
                 label: config.name || 'Team',
-                memberCount: config.members?.length || 0,
+                memberCount: config.agents?.length || 0,
                 teamConfig: config
             },
             visualState: {
@@ -146,13 +151,13 @@ function ConfigurationPanel() {
             }
         };
 
-        const agentNodes: UniversalWorkflowNode[] = (config.members || []).map((member, index) => ({
+        const agentNodes: UniversalWorkflowNode[] = (config.agents || []).map((agent, index) => ({
             id: `agent-${Date.now()}-${index}`,
             type: 'agent',
             position: { x: 150 + (index * 200), y: 200, level: 1, order: index },
             data: {
-                label: member.name || `Agent ${index + 1}`,
-                agentConfig: member
+                label: agent.name || `Agent ${index + 1}`,
+                agentConfig: agent
             },
             visualState: {
                 status: 'ready',
@@ -181,14 +186,21 @@ function ConfigurationPanel() {
             id: `workflow-${Date.now()}`,
             nodes: [teamNode, ...agentNodes],
             edges,
+            branches: [],
             layout: {
-                direction: 'topDown',
+                algorithm: 'hierarchical',
+                direction: 'TB',
                 spacing: { nodeSpacing: 150, levelSpacing: 100 },
-                alignment: { horizontal: 'center', vertical: 'top' }
+                alignment: { horizontal: 'center', vertical: 'center' }
             },
             metadata: {
                 createdAt: new Date(),
-                updatedAt: new Date()
+                updatedAt: new Date(),
+                startTime: new Date(),
+                mainAgentId: teamNode.id,
+                totalBranches: 0,
+                completedBranches: 0,
+                executionId: `team-execution-${Date.now()}`
             }
         };
     }, []);
@@ -200,19 +212,68 @@ function ConfigurationPanel() {
 
         // Create and update workflow
         const workflow = createWorkflowForAgent(defaultConfig);
-        // TODO: Add workflow update to context
-        console.log('Created agent workflow:', workflow);
-    }, [createAgent, getDefaultAgentConfig, createWorkflowForAgent]);
+        setWorkflow(workflow);
+        console.log('✅ Created agent workflow:', workflow);
+    }, [createAgent, getDefaultAgentConfig, createWorkflowForAgent, setWorkflow]);
 
     const handleCreateTeam = useCallback(async () => {
         const defaultConfig = getDefaultTeamConfig();
         await createTeam(defaultConfig);
 
-        // Create and update workflow
-        const workflow = createWorkflowForTeam(defaultConfig);
-        // TODO: Add workflow update to context
-        console.log('Created team workflow:', workflow);
-    }, [createTeam, getDefaultTeamConfig, createWorkflowForTeam]);
+        // Create simple team workflow for testing
+        const teamWorkflow = {
+            __workflowType: 'UniversalWorkflowStructure' as const,
+            id: 'team-workflow',
+            nodes: [
+                {
+                    id: 'team-main',
+                    type: 'team',
+                    position: { x: 250, y: 50 },
+                    data: {
+                        label: defaultConfig.name || 'Team',
+                        memberCount: defaultConfig.agents?.length || 0
+                    },
+                    metadata: { createdAt: new Date(), updatedAt: new Date() }
+                },
+                ...(defaultConfig.agents || []).map((agent, index) => ({
+                    id: `agent-${index}`,
+                    type: 'agent',
+                    position: { x: 150 + (index * 200), y: 200 },
+                    data: {
+                        label: agent.name || `Agent ${index + 1}`
+                    },
+                    metadata: { createdAt: new Date(), updatedAt: new Date() }
+                }))
+            ],
+            edges: (defaultConfig.agents || []).map((agent, index) => ({
+                id: `edge-team-agent-${index}`,
+                source: 'team-main',
+                target: `agent-${index}`,
+                sourceHandle: 'team-output',
+                targetHandle: 'agent-input',
+                data: {},
+                metadata: { createdAt: new Date(), updatedAt: new Date() }
+            })),
+            branches: [],
+            layout: {
+                algorithm: 'hierarchical' as const,
+                direction: 'TB' as const,
+                spacing: { nodeSpacing: 200, levelSpacing: 150 },
+                alignment: { horizontal: 'center' as const, vertical: 'center' as const }
+            },
+            metadata: {
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                startTime: new Date(),
+                mainAgentId: 'team-main',
+                totalBranches: 0,
+                completedBranches: 0,
+                executionId: 'team-execution'
+            }
+        };
+        setWorkflow(teamWorkflow);
+        console.log('✅ Created team workflow:', teamWorkflow);
+    }, [createTeam, getDefaultTeamConfig, setWorkflow]);
 
     // Execution handlers
     const handleExecuteAgent = useCallback(async (config: PlaygroundAgentConfig) => {
@@ -221,13 +282,21 @@ function ConfigurationPanel() {
             // First ensure the agent is created/updated
             await createAgent(config);
 
+            // Update agent node status to 'ready' (without affecting global execution state)
+            if (state.currentWorkflow && state.currentWorkflow.nodes.length > 0) {
+                const agentNode = state.currentWorkflow.nodes.find(node => node.type === 'agent');
+                if (agentNode) {
+                    updateNodeStatus(agentNode.id, 'ready');
+                }
+            }
+
             // Set agent to running state
             setIsAgentRunning(true);
             console.log('Agent is now ready for execution');
         } catch (error) {
             console.error('Failed to activate agent:', error);
         }
-    }, [createAgent]);
+    }, [createAgent, updateNodeStatus, state.currentWorkflow]);
 
     const handleExecuteTeam = useCallback(async (config: PlaygroundTeamConfig) => {
         try {
@@ -235,13 +304,21 @@ function ConfigurationPanel() {
             // First ensure the team is created/updated
             await createTeam(config);
 
+            // Update team node status to 'ready' (without affecting global execution state)
+            if (state.currentWorkflow && state.currentWorkflow.nodes.length > 0) {
+                const teamNode = state.currentWorkflow.nodes.find(node => node.type === 'team');
+                if (teamNode) {
+                    updateNodeStatus(teamNode.id, 'ready');
+                }
+            }
+
             // Set team to running state
             setIsTeamRunning(true);
             console.log('Team is now ready for execution');
         } catch (error) {
             console.error('Failed to activate team:', error);
         }
-    }, [createTeam]);
+    }, [createTeam, updateNodeStatus, state.currentWorkflow]);
 
     const handleStopExecution = useCallback(() => {
         console.log('Stopping execution...');
@@ -307,6 +384,48 @@ function ConfigurationPanel() {
                                 >
                                     <Plus className="h-3 w-3" />
                                     Create Agent
+                                </Button>
+
+                                {/* TEST: setWorkflow 기능 테스트 버튼 */}
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                        console.log('🧪 TEST: setWorkflow 호출');
+                                        const testWorkflow = {
+                                            __workflowType: 'UniversalWorkflowStructure' as const,
+                                            id: 'test-workflow',
+                                            nodes: [{
+                                                id: 'test-node',
+                                                type: 'agent',
+                                                position: { x: 100, y: 100 },
+                                                data: { label: 'Test Agent' },
+                                                metadata: { createdAt: new Date(), updatedAt: new Date() }
+                                            }],
+                                            edges: [],
+                                            branches: [],
+                                            layout: {
+                                                algorithm: 'hierarchical' as const,
+                                                direction: 'TB' as const,
+                                                spacing: { nodeSpacing: 200, levelSpacing: 150 },
+                                                alignment: { horizontal: 'center' as const, vertical: 'center' as const }
+                                            },
+                                            metadata: {
+                                                createdAt: new Date(),
+                                                updatedAt: new Date(),
+                                                startTime: new Date(),
+                                                mainAgentId: 'test-node',
+                                                totalBranches: 0,
+                                                completedBranches: 0,
+                                                executionId: 'test-execution'
+                                            }
+                                        };
+                                        setWorkflow(testWorkflow);
+                                        console.log('✅ TEST: setWorkflow 완료', testWorkflow);
+                                    }}
+                                    className="flex items-center gap-2 mt-2"
+                                >
+                                    🧪 Test Workflow
                                 </Button>
                             </div>
                         )}
@@ -640,7 +759,7 @@ function PlaygroundContent() {
 
                 {/* Right Column - Workflow Visualization (2/3 width) */}
                 <div className="lg:col-span-2 min-h-0">
-                    <WorkflowVisualization workflow={state.currentWorkflow} />
+                    <WorkflowVisualization workflow={state.currentWorkflow || undefined} />
                 </div>
             </div>
         </div>
