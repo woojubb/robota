@@ -116,15 +116,15 @@ export interface WorkflowNodeUpdate {
  * EventService에 구독 메서드가 없으므로 ActionTrackingEventService를 확장하여 사용
  */
 export class WorkflowEventSubscriber extends ActionTrackingEventService {
-    private logger: SimpleLogger;
+    private workflowLogger: SimpleLogger;
     private nodeUpdateCallbacks: ((update: WorkflowNodeUpdate) => void)[] = [];
     private nodeMap = new Map<string, WorkflowNode>(); // Node 캐시
 
     constructor(logger?: SimpleLogger) {
         super(); // ActionTrackingEventService 생성자와 호환 (baseEventService 기본값 사용)
-        this.logger = logger || SilentLogger;
-        this.logger.info('🏗️ [WorkflowEventSubscriber] Constructor called - Instance created');
-        this.logger.debug('WorkflowEventSubscriber initialized');
+        this.workflowLogger = logger || SilentLogger;
+        this.workflowLogger.info('🏗️ [WorkflowEventSubscriber] Constructor called - Instance created');
+        this.workflowLogger.debug('WorkflowEventSubscriber initialized');
     }
 
     /**
@@ -132,7 +132,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      */
     subscribeToWorkflowEvents(callback: (nodeUpdate: WorkflowNodeUpdate) => void): void {
         this.nodeUpdateCallbacks.push(callback);
-        this.logger.debug('New workflow event subscriber registered');
+        this.workflowLogger.debug('New workflow event subscriber registered');
     }
 
     /**
@@ -142,7 +142,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
         const index = this.nodeUpdateCallbacks.indexOf(callback);
         if (index !== -1) {
             this.nodeUpdateCallbacks.splice(index, 1);
-            this.logger.debug('Workflow event subscriber removed');
+            this.workflowLogger.debug('Workflow event subscriber removed');
         }
     }
 
@@ -151,7 +151,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * 모든 이벤트가 이 메서드를 통과하므로 여기서 Node 생성 처리
      */
     public override emit(eventType: ServiceEventType, data: ServiceEventData): void {
-        this.logger.debug(`🔔 [WorkflowEventSubscriber] Received event: ${eventType}`, {
+        this.workflowLogger.debug(`🔔 [WorkflowEventSubscriber] Received event: ${eventType}`, {
             sourceType: data.sourceType,
             sourceId: data.sourceId,
             executionId: data.executionId
@@ -289,7 +289,8 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * 기타 이벤트 처리 메서드들
      */
     private handleExecutionComplete(data: ServiceEventData): void {
-        this.updateNodeStatus(data.executionId || data.sourceId, 'completed');
+        const nodeId = String(data.executionId || data.sourceId || 'unknown');
+        this.updateNodeStatus(nodeId, 'completed');
     }
 
     private handleAssistantMessageComplete(data: ServiceEventData): void {
@@ -303,7 +304,8 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
     }
 
     private handleToolCallComplete(data: ServiceEventData): void {
-        this.updateNodeStatus(data.executionId || data.sourceId, 'completed');
+        const nodeId = String(data.executionId || data.sourceId || 'unknown');
+        this.updateNodeStatus(nodeId, 'completed');
     }
 
     private handleAgentCreationStart(data: ServiceEventData): void {
@@ -345,8 +347,8 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
             status: 'running',
             data: {
                 eventType: 'execution.start',
-                sourceId: data.sourceId,
-                executionId: data.executionId
+                sourceId: String(data.sourceId || 'unknown'),
+                executionId: String(data.executionId || 'unknown')
             },
             timestamp: data.timestamp || new Date(),
             connections: []
@@ -362,10 +364,10 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
             status: 'running',
             data: {
                 eventType: 'execution.start',
-                sourceId: data.sourceId,
+                sourceId: String(data.sourceId || 'unknown'),
                 sourceType: 'sub-agent',
-                executionId: data.executionId,
-                parentExecutionId: data.parentExecutionId
+                executionId: String(data.executionId || 'unknown'),
+                parentExecutionId: String(data.parentExecutionId || 'unknown')
             },
             timestamp: data.timestamp || new Date(),
             connections: []
@@ -401,7 +403,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
             data: {
                 eventType: 'tool_call_start',
                 toolName: 'assignTask',
-                executionId: data.executionId,
+                executionId: String(data.executionId || 'unknown'),
                 parameters: data.parameters
             },
             timestamp: data.timestamp || new Date(),
@@ -418,8 +420,8 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
             status: 'running',
             data: {
                 eventType: 'tool_call_start',
-                toolName: data.toolName,
-                executionId: data.executionId,
+                toolName: String(data.toolName || 'unknown'),
+                executionId: String(data.executionId || 'unknown'),
                 sourceType: 'sub-agent'
             },
             timestamp: data.timestamp || new Date(),
@@ -499,7 +501,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
             });
 
             this.emitNodeUpdate('update', toolCallNode);
-            this.logger.debug(`Connected assignTask ${toolCallNodeId} → Sub-Agent ${subAgentNodeId}`);
+            this.workflowLogger.debug(`Connected assignTask ${toolCallNodeId} → Sub-Agent ${subAgentNodeId}`);
         }
     }
 
@@ -543,11 +545,11 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
             try {
                 callback(update);
             } catch (error) {
-                this.logger.error('Error in workflow node update callback:', error);
+                this.workflowLogger.error('Error in workflow node update callback:', error);
             }
         });
 
-        this.logger.debug(`WorkflowNode ${action}: ${node.type} (${node.id})`);
+        this.workflowLogger.debug(`WorkflowNode ${action}: ${node.type} (${node.id})`);
     }
 
     /**
@@ -581,7 +583,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Task Completed 이벤트 처리 → merge_results Node
      */
     private handleTaskCompleted(data: ServiceEventData): void {
-        this.logger.debug(`🔔 [WorkflowEventSubscriber] Processing task.completed event`);
+        this.workflowLogger.debug(`🔔 [WorkflowEventSubscriber] Processing task.completed event`);
         const node = this.createSubResponseNode(data);
         this.emitNodeUpdate('create', node);
     }
@@ -590,7 +592,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Task Aggregation Start 이벤트 처리 → merge_results Node
      */
     private handleTaskAggregationStart(data: ServiceEventData): void {
-        this.logger.debug(`🔔 [WorkflowEventSubscriber] Processing task.aggregation_start event`);
+        this.workflowLogger.debug(`🔔 [WorkflowEventSubscriber] Processing task.aggregation_start event`);
         const node = this.createMergeResultsNode(data);
         this.emitNodeUpdate('create', node);
     }
@@ -599,7 +601,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Task Aggregation Complete 이벤트 처리 → merge_results Node
      */
     private handleTaskAggregationComplete(data: ServiceEventData): void {
-        this.logger.debug(`🔔 [WorkflowEventSubscriber] Processing task.aggregation_complete event`);
+        this.workflowLogger.debug(`🔔 [WorkflowEventSubscriber] Processing task.aggregation_complete event`);
         const node = this.createMergeResultsNode(data);
         this.emitNodeUpdate('create', node);
     }
@@ -608,7 +610,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Tool Results to LLM 이벤트 처리 → agent_thinking Node
      */
     private handleToolResultsToLLM(data: ServiceEventData): void {
-        this.logger.debug(`🔔 [WorkflowEventSubscriber] Processing tool_results_to_llm event`);
+        this.workflowLogger.debug(`🔔 [WorkflowEventSubscriber] Processing tool_results_to_llm event`);
         const node = this.createAgentThinkingNode(data);
         this.emitNodeUpdate('create', node);
     }
@@ -617,7 +619,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Task Assigned 이벤트 처리 → tool_call Node (assignTask 도구 호출)
      */
     private handleTaskAssigned(data: ServiceEventData): void {
-        this.logger.debug(`🔔 [WorkflowEventSubscriber] Processing task.assigned event`);
+        this.workflowLogger.debug(`🔔 [WorkflowEventSubscriber] Processing task.assigned event`);
         const node = this.createAssignTaskCallNode(data);
         this.emitNodeUpdate('create', node);
     }
@@ -626,7 +628,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Team Analysis Start 이벤트 처리 → agent_thinking Node
      */
     private handleTeamAnalysisStart(data: ServiceEventData): void {
-        this.logger.debug(`🔔 [WorkflowEventSubscriber] Processing team.analysis_start event`);
+        this.workflowLogger.debug(`🔔 [WorkflowEventSubscriber] Processing team.analysis_start event`);
         const node = this.createAgentThinkingNode(data);
         this.emitNodeUpdate('create', node);
     }
@@ -635,7 +637,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Team Analysis Complete 이벤트 처리 → merge_results Node
      */
     private handleTeamAnalysisComplete(data: ServiceEventData): void {
-        this.logger.debug(`🔔 [WorkflowEventSubscriber] Processing team.analysis_complete event`);
+        this.workflowLogger.debug(`🔔 [WorkflowEventSubscriber] Processing team.analysis_complete event`);
         const node = this.createFinalResponseNode(data); // merge_results 역할
         this.emitNodeUpdate('create', node);
     }

@@ -14,7 +14,6 @@ dotenv.config();
 import {
     ActionTrackingEventService,
     RealTimeWorkflowBuilder,
-    RealTimeMermaidGenerator,
     WorkflowEventSubscriber
 } from '@robota-sdk/agents';
 import type {
@@ -42,9 +41,8 @@ async function testWorkflowStructure() {
         const workflowBuilder = new RealTimeWorkflowBuilder(workflowSubscriber);
         console.log('✅ RealTimeWorkflowBuilder created');
 
-        // 3. Workflow 업데이트 구독 + Mermaid Generator
+        // 3. Workflow 업데이트 구독
         const workflowUpdates: WorkflowUpdate[] = [];
-        const mermaidGenerator = new RealTimeMermaidGenerator(console);
 
         workflowBuilder.subscribeToWorkflowUpdates((update) => {
             workflowUpdates.push(update);
@@ -125,14 +123,13 @@ async function testWorkflowStructure() {
         console.log(`   Is Completed: ${stats.isCompleted}`);
         console.log(`   Duration: ${stats.duration || duration}ms`);
 
-        // 11. 실시간 Mermaid 다이어그램 생성
-        console.log('\n9. Generating Real-time Mermaid Diagram...');
+        // 11. 실시간 워크플로우 구조 검증
+        console.log('\n9. Verifying Workflow Structure...');
         const currentWorkflow = workflowBuilder.getCurrentWorkflow();
-        const mermaidDiagram = mermaidGenerator.generateMermaidFromWorkflow(currentWorkflow);
 
-        console.log('\n🎨 Generated Mermaid Diagram:');
+        console.log('\n📊 Current Workflow Structure:');
         console.log('================================================================================');
-        console.log(mermaidDiagram);
+        console.log(JSON.stringify(currentWorkflow, null, 2));
         console.log('================================================================================');
 
         console.log('\n💬 Task Result:');

@@ -296,7 +296,7 @@ export type { ExecutionNode } from './services/event-service';
 // Workflow Services (Phase 2)
 export {
     WorkflowEventSubscriber,
-    // RealTimeWorkflowBuilder, // MOVED to apps/web due to React-Flow dependencies
+    RealTimeWorkflowBuilder, // Domain-neutral workflow builder (no React-Flow dependencies)
     // RealTimeDiagramGenerator // MOVED to apps/web for domain separation
 } from './services';
 export type {
