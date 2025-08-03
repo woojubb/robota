@@ -1,45 +1,6 @@
 # 📋 Robota SaaS 플랫폼 통합 작업 체크리스트
 
-## 🚨 현재 최우선 작업 (2025-01-08 기준)
-
-### Phase 1: Tool Response 연결 복구 (Critical)
-- [ ] Tool Response → Merge Results 연결 수정
-  - [ ] `toolResponsesByExecution` Map key 일치 문제 해결
-  - [ ] Tool Response 저장 시 사용하는 key와 Merge Results 생성 시 조회하는 key 통일
-  - [ ] `connectedToolResponses` 배열이 비어있지 않도록 보장
-- [ ] 이벤트 순서 보장
-  - [ ] `task.aggregation_start` 타이밍 조정
-  - [ ] Tool execution 완료 확인 로직 추가
-  - [ ] 모든 Tool Response 수집 대기 후 Merge Results 생성
-
-### Phase 2: Agent Numbering System 활성화 (High)
-- [ ] AgentCopyManager 활용
-  - [ ] Agent 생성 시 `agentCopyManager.assignAgentNumber()` 호출
-  - [ ] 생성된 노드에 agentNumber 메타데이터 추가
-  - [ ] Agent 0, 1, 2 순차 번호 확인
-- [ ] Agent Standard Structure 구현
-  - [ ] 각 Agent별 필수 구조 보장 (Agent → Thinking → Tool Call/Response)
-  - [ ] 표준 연결 패턴 적용
-
-### Phase 3: Agent Integration Instance 구현 (Medium)
-- [ ] Agent 0 Copy (Integration Instance) 생성
-  - [ ] Tool Response 통합 지점 생성
-  - [ ] `agent_0_copy_1` 노드가 Integration Instance 역할
-  - [ ] 모든 Sub-Agent Response를 여기로 집결
-- [ ] 교차 연결 방지
-  - [ ] Response 노드가 자신의 Agent로만 연결
-  - [ ] `response_agent_1_copy_1` → `agent_2_copy_1` 교차 연결 방지
-
-### Phase 4: 중복 및 고립 노드 정리 (Normal)
-- [ ] 중복 Merge Results 제거
-  - [ ] 단일 Merge Results 노드만 생성
-  - [ ] 중복 이벤트 발생 방지
-  - [ ] sourceType별 중복 생성 방지
-- [ ] User Input 연결
-  - [ ] User Input → Team/Agent 0 연결 복구
-  - [ ] 전체 워크플로우 시작점 명확화
-
-## 🎯 웹 플랫폼 개발 (우선순위 2)
+## 🎯 웹 플랫폼 개발 (우선순위 1)
 
 ### 플레이그라운드 기능
 - [ ] 에이전트 설정 UI와 워크플로우 시각화 연동
@@ -61,7 +22,7 @@
 - [ ] 워크플로우 인터렉션 기능 (노드 클릭, 확대/축소)
 - [ ] 다크모드 지원 Mermaid 테마 적용
 
-## 🔧 기능 확장 (우선순위 3)
+## 🔧 기능 확장 (우선순위 2)
 
 ### 워크플로우 고도화
 - [ ] 커스텀 Node 타입 추가 지원
@@ -82,7 +43,7 @@
 - [ ] Team 구성원별 역할 시각화
 - [ ] 동적 Team 재구성 워크플로우
 
-## 🏗️ 인프라 및 성능 (우선순위 4)
+## 🏗️ 인프라 및 성능 (우선순위 3)
 
 ### 성능 최적화
 - [ ] 대규모 워크플로우 (100+ 노드) 최적화
@@ -102,7 +63,7 @@
 - [ ] API 키 및 민감 정보 마스킹
 - [ ] 워크플로우 실행 로그 보안
 
-## 🎨 사용자 경험 (우선순위 5)
+## 🎨 사용자 경험 (우선순위 4)
 
 ### UI/UX 개선
 - [ ] 워크플로우 노드 커스터마이징
@@ -122,7 +83,7 @@
 - [ ] 인터랙티브 데모
 - [ ] 도움말 및 문서 통합
 
-## 📊 분석 및 모니터링 (우선순위 6)
+## 📊 분석 및 모니터링 (우선순위 5)
 
 ### 사용자 분석
 - [ ] 워크플로우 사용 패턴 분석
@@ -145,5 +106,5 @@
 ---
 
 **문서 업데이트**: 2025-01-08  
-**상태**: 🔴 워크플로우 연결 문제 해결 최우선  
-**다음 작업**: Phase 1 - Tool Response 연결 복구
+**상태**: 🎯 웹 플랫폼 개발 최우선  
+**다음 작업**: 플레이그라운드 기능 개발 및 대시보드 구현
