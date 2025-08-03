@@ -25,7 +25,8 @@ import {
     EdgeTypes,
     BaseEdge,
     getStraightPath,
-    useReactFlow
+    useReactFlow,
+    NodeProps
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -164,7 +165,7 @@ const edgeTypes: EdgeTypes = {
 /**
  * Custom Node Component for Agents
  */
-const AgentNode = ({ data }: { data: any }) => {
+const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps) => {
     // Status-based styling
     const getStatusStyles = (status?: string) => {
         switch (status) {
@@ -246,13 +247,16 @@ const AgentNode = ({ data }: { data: any }) => {
             {/* Target handle - Agents receive connections from Team */}
             <Handle
                 type="target"
-                position={Position.Top}
+                position={targetPosition || data.targetPosition || Position.Top}
                 id="agent-input"
-                style={{ 
-                    background: '#2563eb', 
-                    width: 8, 
+                style={{
+                    background: '#2563eb',
+                    width: 8,
                     height: 8,
-                    top: -4,
+                    top: (targetPosition || data.targetPosition) === Position.Top ? -4 : undefined,
+                    bottom: (targetPosition || data.targetPosition) === Position.Bottom ? -4 : undefined,
+                    left: (targetPosition || data.targetPosition) === Position.Left ? -4 : undefined,
+                    right: (targetPosition || data.targetPosition) === Position.Right ? -4 : undefined,
                     border: '2px solid white'
                 }}
             />
@@ -260,13 +264,16 @@ const AgentNode = ({ data }: { data: any }) => {
             {/* Source handle - Agents can connect to other nodes */}
             <Handle
                 type="source"
-                position={Position.Bottom}
+                position={sourcePosition || data.sourcePosition || Position.Bottom}
                 id="agent-output"
-                style={{ 
-                    background: '#2563eb', 
-                    width: 8, 
+                style={{
+                    background: '#2563eb',
+                    width: 8,
                     height: 8,
-                    bottom: -4,
+                    top: (sourcePosition || data.sourcePosition) === Position.Top ? -4 : undefined,
+                    bottom: (sourcePosition || data.sourcePosition) === Position.Bottom ? -4 : undefined,
+                    left: (sourcePosition || data.sourcePosition) === Position.Left ? -4 : undefined,
+                    right: (sourcePosition || data.sourcePosition) === Position.Right ? -4 : undefined,
                     border: '2px solid white'
                 }}
             />
@@ -277,7 +284,7 @@ const AgentNode = ({ data }: { data: any }) => {
 /**
  * Custom Node Component for Teams
  */
-const TeamNode = ({ data }: { data: any }) => {
+const TeamNode = ({ data, sourcePosition, targetPosition }: NodeProps) => {
     // Status-based styling for teams
     const getStatusStyles = (status?: string) => {
         switch (status) {
@@ -336,13 +343,16 @@ const TeamNode = ({ data }: { data: any }) => {
             {/* Target handle - User Input connects to Team */}
             <Handle
                 type="target"
-                position={Position.Top}
+                position={targetPosition || data.targetPosition || Position.Top}
                 id="team-input"
-                style={{ 
-                    background: '#16a34a', 
-                    width: 8, 
+                style={{
+                    background: '#16a34a',
+                    width: 8,
                     height: 8,
-                    top: -4,
+                    top: (targetPosition || data.targetPosition) === Position.Top ? -4 : undefined,
+                    bottom: (targetPosition || data.targetPosition) === Position.Bottom ? -4 : undefined,
+                    left: (targetPosition || data.targetPosition) === Position.Left ? -4 : undefined,
+                    right: (targetPosition || data.targetPosition) === Position.Right ? -4 : undefined,
                     border: '2px solid white'
                 }}
             />
@@ -350,13 +360,16 @@ const TeamNode = ({ data }: { data: any }) => {
             {/* Source handle - Team connects to Agents */}
             <Handle
                 type="source"
-                position={Position.Bottom}
+                position={sourcePosition || data.sourcePosition || Position.Bottom}
                 id="team-output"
-                style={{ 
-                    background: '#16a34a', 
-                    width: 8, 
+                style={{
+                    background: '#16a34a',
+                    width: 8,
                     height: 8,
-                    bottom: -4,
+                    top: (sourcePosition || data.sourcePosition) === Position.Top ? -4 : undefined,
+                    bottom: (sourcePosition || data.sourcePosition) === Position.Bottom ? -4 : undefined,
+                    left: (sourcePosition || data.sourcePosition) === Position.Left ? -4 : undefined,
+                    right: (sourcePosition || data.sourcePosition) === Position.Right ? -4 : undefined,
                     border: '2px solid white'
                 }}
             />
@@ -408,7 +421,7 @@ const UserInputNode = ({ data }: { data: any }) => {
 /**
  * Custom Node Component for Agent Response
  */
-const AgentResponseNode = ({ data }: { data: any }) => {
+const AgentResponseNode = ({ data, sourcePosition, targetPosition }: NodeProps) => {
     return (
         <div className="px-4 py-2 shadow-md rounded-md bg-white border-2 border-teal-400">
             <div className="flex items-center gap-2">
@@ -424,13 +437,16 @@ const AgentResponseNode = ({ data }: { data: any }) => {
             {/* Target handle - Agent Response receives from Agent */}
             <Handle
                 type="target"
-                position={Position.Top}
+                position={targetPosition || data.targetPosition || Position.Top}
                 id="response-input"
-                style={{ 
-                    background: '#14b8a6', 
-                    width: 8, 
+                style={{
+                    background: '#14b8a6',
+                    width: 8,
                     height: 8,
-                    top: -4,
+                    top: (targetPosition || data.targetPosition) === Position.Top ? -4 : undefined,
+                    bottom: (targetPosition || data.targetPosition) === Position.Bottom ? -4 : undefined,
+                    left: (targetPosition || data.targetPosition) === Position.Left ? -4 : undefined,
+                    right: (targetPosition || data.targetPosition) === Position.Right ? -4 : undefined,
                     border: '2px solid white'
                 }}
             />
@@ -441,7 +457,7 @@ const AgentResponseNode = ({ data }: { data: any }) => {
 /**
  * Custom Node Component for Tool Calls
  */
-const ToolCallNode = ({ data }: { data: any }) => {
+const ToolCallNode = ({ data, sourcePosition, targetPosition }: NodeProps) => {
     return (
         <div className="px-3 py-2 shadow-md rounded-md bg-white border-2 border-orange-400">
             <div className="flex items-center gap-2">
@@ -462,13 +478,16 @@ const ToolCallNode = ({ data }: { data: any }) => {
             {/* Target handle - Tool Call receives from Agent */}
             <Handle
                 type="target"
-                position={Position.Top}
+                position={targetPosition || data.targetPosition || Position.Top}
                 id="tool-input"
-                style={{ 
-                    background: '#ea580c', 
-                    width: 8, 
+                style={{
+                    background: '#ea580c',
+                    width: 8,
                     height: 8,
-                    top: -4,
+                    top: (targetPosition || data.targetPosition) === Position.Top ? -4 : undefined,
+                    bottom: (targetPosition || data.targetPosition) === Position.Bottom ? -4 : undefined,
+                    left: (targetPosition || data.targetPosition) === Position.Left ? -4 : undefined,
+                    right: (targetPosition || data.targetPosition) === Position.Right ? -4 : undefined,
                     border: '2px solid white'
                 }}
             />
@@ -476,13 +495,16 @@ const ToolCallNode = ({ data }: { data: any }) => {
             {/* Source handle - Tool Call connects to Sub-Agent or Response */}
             <Handle
                 type="source"
-                position={Position.Bottom}
+                position={sourcePosition || data.sourcePosition || Position.Bottom}
                 id="tool-output"
-                style={{ 
-                    background: '#ea580c', 
-                    width: 8, 
+                style={{
+                    background: '#ea580c',
+                    width: 8,
                     height: 8,
-                    bottom: -4,
+                    top: (sourcePosition || data.sourcePosition) === Position.Top ? -4 : undefined,
+                    bottom: (sourcePosition || data.sourcePosition) === Position.Bottom ? -4 : undefined,
+                    left: (sourcePosition || data.sourcePosition) === Position.Left ? -4 : undefined,
+                    right: (sourcePosition || data.sourcePosition) === Position.Right ? -4 : undefined,
                     border: '2px solid white'
                 }}
             />
