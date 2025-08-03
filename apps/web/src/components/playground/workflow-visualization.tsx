@@ -24,18 +24,27 @@ import {
     ReactFlowProvider,
     EdgeTypes,
     BaseEdge,
-    getStraightPath
+    getStraightPath,
+    useReactFlow
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bot, Users, Zap, MessageSquare, MessageCircle, Settings, Wrench } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Bot, Users, Zap, MessageSquare, MessageCircle, Settings, Wrench, LayoutGrid, RefreshCw } from 'lucide-react';
 import type {
     UniversalWorkflowStructure,
     UniversalWorkflowNode,
     UniversalWorkflowEdge
 } from '@robota-sdk/agents';
 import { SimpleReactFlowConverter } from '@/lib/workflow-visualization';
+import {
+    layoutExistingFlow,
+    LAYOUT_PRESETS,
+    suggestOptimalLayout,
+    type LayoutConfig
+} from '@/lib/workflow-visualization/auto-layout';
 
 interface WorkflowVisualizationProps {
     workflow?: UniversalWorkflowStructure;
@@ -239,7 +248,13 @@ const AgentNode = ({ data }: { data: any }) => {
                 type="target"
                 position={Position.Top}
                 id="agent-input"
-                style={{ background: '#2563eb' }}
+                style={{ 
+                    background: '#2563eb', 
+                    width: 8, 
+                    height: 8,
+                    top: -4,
+                    border: '2px solid white'
+                }}
             />
 
             {/* Source handle - Agents can connect to other nodes */}
@@ -247,7 +262,13 @@ const AgentNode = ({ data }: { data: any }) => {
                 type="source"
                 position={Position.Bottom}
                 id="agent-output"
-                style={{ background: '#2563eb' }}
+                style={{ 
+                    background: '#2563eb', 
+                    width: 8, 
+                    height: 8,
+                    bottom: -4,
+                    border: '2px solid white'
+                }}
             />
         </div>
     );
@@ -317,7 +338,13 @@ const TeamNode = ({ data }: { data: any }) => {
                 type="target"
                 position={Position.Top}
                 id="team-input"
-                style={{ background: '#16a34a' }}
+                style={{ 
+                    background: '#16a34a', 
+                    width: 8, 
+                    height: 8,
+                    top: -4,
+                    border: '2px solid white'
+                }}
             />
 
             {/* Source handle - Team connects to Agents */}
@@ -325,7 +352,13 @@ const TeamNode = ({ data }: { data: any }) => {
                 type="source"
                 position={Position.Bottom}
                 id="team-output"
-                style={{ background: '#16a34a' }}
+                style={{ 
+                    background: '#16a34a', 
+                    width: 8, 
+                    height: 8,
+                    bottom: -4,
+                    border: '2px solid white'
+                }}
             />
         </div>
     );
@@ -393,7 +426,13 @@ const AgentResponseNode = ({ data }: { data: any }) => {
                 type="target"
                 position={Position.Top}
                 id="response-input"
-                style={{ background: '#14b8a6' }}
+                style={{ 
+                    background: '#14b8a6', 
+                    width: 8, 
+                    height: 8,
+                    top: -4,
+                    border: '2px solid white'
+                }}
             />
         </div>
     );
@@ -425,7 +464,13 @@ const ToolCallNode = ({ data }: { data: any }) => {
                 type="target"
                 position={Position.Top}
                 id="tool-input"
-                style={{ background: '#ea580c' }}
+                style={{ 
+                    background: '#ea580c', 
+                    width: 8, 
+                    height: 8,
+                    top: -4,
+                    border: '2px solid white'
+                }}
             />
 
             {/* Source handle - Tool Call connects to Sub-Agent or Response */}
@@ -433,7 +478,13 @@ const ToolCallNode = ({ data }: { data: any }) => {
                 type="source"
                 position={Position.Bottom}
                 id="tool-output"
-                style={{ background: '#ea580c' }}
+                style={{ 
+                    background: '#ea580c', 
+                    width: 8, 
+                    height: 8,
+                    bottom: -4,
+                    border: '2px solid white'
+                }}
             />
         </div>
     );
@@ -456,6 +507,36 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [converter] = useState(() => new SimpleReactFlowConverter());
+    const [selectedLayout, setSelectedLayout] = useState<keyof typeof LAYOUT_PRESETS>('vertical');
+    const [isAutoLayoutEnabled, setIsAutoLayoutEnabled] = useState(true);
+    const { fitView } = useReactFlow();
+
+    // Auto layout function
+    const applyAutoLayout = useCallback((layoutPreset?: keyof typeof LAYOUT_PRESETS) => {
+        if (nodes.length === 0) return;
+
+        const layoutToUse = layoutPreset || selectedLayout;
+        const { nodes: layoutedNodes, edges: layoutedEdges } = layoutExistingFlow(
+            nodes,
+            edges,
+            layoutToUse
+        );
+
+        setNodes(layoutedNodes);
+        setEdges(layoutedEdges);
+
+        // Fit view after layout with a slight delay
+        setTimeout(() => fitView({ duration: 500, padding: 0.1 }), 100);
+    }, [nodes, edges, selectedLayout, setNodes, setEdges, fitView]);
+
+    // Auto-suggest optimal layout
+    const suggestAndApplyOptimalLayout = useCallback(() => {
+        if (nodes.length === 0) return;
+
+        const suggestedLayout = suggestOptimalLayout(nodes, edges);
+        setSelectedLayout(suggestedLayout);
+        applyAutoLayout(suggestedLayout);
+    }, [nodes, edges, applyAutoLayout]);
 
     // Convert workflow to React-Flow format
     useEffect(() => {
@@ -484,8 +565,22 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
                 console.log('🔗 [EDGES]:', JSON.stringify(reactFlowData.edges, null, 2));
                 console.log('🧪 [REACT-FLOW-DATA] === 덤프 완료 ===');
 
-                setNodes(reactFlowData.nodes);
-                setEdges(reactFlowData.edges);
+                // Apply auto layout if enabled
+                if (isAutoLayoutEnabled && reactFlowData.nodes.length > 0) {
+                    const { nodes: layoutedNodes, edges: layoutedEdges } = layoutExistingFlow(
+                        reactFlowData.nodes,
+                        reactFlowData.edges,
+                        selectedLayout
+                    );
+                    setNodes(layoutedNodes);
+                    setEdges(layoutedEdges);
+
+                    // Fit view after layout
+                    setTimeout(() => fitView({ duration: 800, padding: 0.1 }), 200);
+                } else {
+                    setNodes(reactFlowData.nodes);
+                    setEdges(reactFlowData.edges);
+                }
             } catch (error) {
                 console.error('Failed to convert workflow:', error);
                 setNodes([
@@ -501,7 +596,7 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
         };
 
         convertWorkflow();
-    }, [workflow, converter]);
+    }, [workflow, converter, isAutoLayoutEnabled, selectedLayout, fitView, setNodes, setEdges]);
 
     const onConnect = useCallback(
         (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -511,10 +606,52 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
     return (
         <Card className={className}>
             <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                    <Bot className="h-5 w-5" />
-                    Workflow Visualization
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                        <Bot className="h-5 w-5" />
+                        Workflow Visualization
+                    </CardTitle>
+
+                    {/* Auto Layout Controls */}
+                    <div className="flex items-center gap-2">
+                        <Select
+                            value={selectedLayout}
+                            onValueChange={(value: keyof typeof LAYOUT_PRESETS) => setSelectedLayout(value)}
+                        >
+                            <SelectTrigger className="w-32">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="vertical">Vertical</SelectItem>
+                                <SelectItem value="horizontal">Horizontal</SelectItem>
+                                <SelectItem value="compact">Compact</SelectItem>
+                                <SelectItem value="spacious">Spacious</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => applyAutoLayout()}
+                            disabled={nodes.length === 0}
+                            className="flex items-center gap-1"
+                        >
+                            <LayoutGrid className="h-4 w-4" />
+                            Layout
+                        </Button>
+
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={suggestAndApplyOptimalLayout}
+                            disabled={nodes.length === 0}
+                            className="flex items-center gap-1"
+                        >
+                            <RefreshCw className="h-4 w-4" />
+                            Auto
+                        </Button>
+                    </div>
+                </div>
             </CardHeader>
             <CardContent>
                 <div style={{ width: '100%', height: '400px' }}>
