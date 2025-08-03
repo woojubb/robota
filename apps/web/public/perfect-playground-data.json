@@ -1,0 +1,1314 @@
+{
+  "metadata": {
+    "createdAt": "2025-08-03T10:26:23.101Z",
+    "updatedAt": "2025-08-03T10:26:23.101Z",
+    "metrics": {
+      "totalNodes": 12,
+      "totalEdges": 21
+    },
+    "testType": "example-26-verification",
+    "sourceExample": "26-playground-edge-verification.ts"
+  },
+  "__workflowType": "UniversalWorkflowStructure",
+  "id": "example-26-edge-verification",
+  "name": "Example 26 Edge Verification Result",
+  "nodes": [
+    {
+      "id": "agent_0_copy_1",
+      "type": "agent",
+      "level": 1,
+      "position": {
+        "level": 1,
+        "order": 0,
+        "x": -50,
+        "y": 150
+      },
+      "dimensions": {
+        "width": 150,
+        "height": 50
+      },
+      "visualState": {
+        "status": "running",
+        "emphasis": "normal",
+        "lastUpdated": "2025-08-03T10:26:23.098Z"
+      },
+      "data": {
+        "label": "agent",
+        "eventType": "execution.start",
+        "sourceId": "conv_1754216751718_e72rl5h94",
+        "executionId": "unknown",
+        "icon": "🤖",
+        "color": "#2196F3",
+        "extensions": {
+          "robota": {
+            "originalType": "agent",
+            "originalData": {
+              "eventType": "execution.start",
+              "sourceId": "conv_1754216751718_e72rl5h94",
+              "executionId": "unknown",
+              "agentNumber": 0,
+              "copyNumber": 1,
+              "label": "Agent 0 Copy 1",
+              "reservedThinkingId": "thinking_agent_0_copy_1",
+              "reservedResponseId": "response_agent_0_copy_1"
+            }
+          }
+        }
+      },
+      "interaction": {
+        "selectable": true,
+        "draggable": true,
+        "deletable": false,
+        "clickable": true
+      },
+      "createdAt": "2025-08-03T10:25:51.719Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "user_input_conv_1754216751718_e72rl5h94",
+      "type": "user_input",
+      "level": 0,
+      "position": {
+        "level": 0,
+        "order": 0,
+        "x": 0,
+        "y": 0
+      },
+      "dimensions": {
+        "width": 150,
+        "height": 50
+      },
+      "visualState": {
+        "status": "completed",
+        "emphasis": "normal",
+        "lastUpdated": "2025-08-03T10:26:23.098Z"
+      },
+      "data": {
+        "label": "user_input",
+        "eventType": "user.message",
+        "sourceId": "conv_1754216751718_e72rl5h94",
+        "parameters": {
+          "input": "카페 창업 계획서를 작성해주세요. 반드시 다음 두 부분을 모두 포함해야 합니다: 1) 시장 분석 (경쟁사, 타겟 고객, 트렌드) 2) 메뉴 구성 (음료 3개, 디저트 2개, 가격대) 각각을 별도의 팀원이 작성해주세요."
+        },
+        "icon": "👤",
+        "color": "#4CAF50",
+        "extensions": {
+          "robota": {
+            "originalType": "user_input",
+            "originalData": {
+              "eventType": "user.message",
+              "sourceId": "conv_1754216751718_e72rl5h94",
+              "parameters": {
+                "input": "카페 창업 계획서를 작성해주세요. 반드시 다음 두 부분을 모두 포함해야 합니다: 1) 시장 분석 (경쟁사, 타겟 고객, 트렌드) 2) 메뉴 구성 (음료 3개, 디저트 2개, 가격대) 각각을 별도의 팀원이 작성해주세요."
+              }
+            }
+          }
+        }
+      },
+      "interaction": {
+        "selectable": true,
+        "draggable": true,
+        "deletable": false,
+        "clickable": true
+      },
+      "createdAt": "2025-08-03T10:25:51.720Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "thinking_agent_0_copy_1",
+      "type": "agent_thinking",
+      "parentId": "agent_0_copy_1",
+      "level": 2,
+      "position": {
+        "level": 2,
+        "order": 0,
+        "x": -400,
+        "y": 300
+      },
+      "dimensions": {
+        "width": 150,
+        "height": 50
+      },
+      "visualState": {
+        "status": "running",
+        "emphasis": "normal",
+        "lastUpdated": "2025-08-03T10:26:23.098Z"
+      },
+      "data": {
+        "label": "agent_thinking",
+        "eventType": "assistant.message_start",
+        "sourceId": "conv_1754216751718_e72rl5h94",
+        "sourceType": "agent",
+        "icon": "💭",
+        "color": "#607D8B",
+        "extensions": {
+          "robota": {
+            "originalType": "agent_thinking",
+            "originalData": {
+              "eventType": "assistant.message_start",
+              "sourceId": "conv_1754216751718_e72rl5h94",
+              "sourceType": "agent",
+              "agentNumber": 0,
+              "label": "Agent 0 Thinking"
+            }
+          }
+        }
+      },
+      "interaction": {
+        "selectable": true,
+        "draggable": true,
+        "deletable": false,
+        "clickable": true
+      },
+      "createdAt": "2025-08-03T10:26:10.452Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "tool_call_call_aehIq18N2KikWqkwqNzLsn3z",
+      "type": "tool_call",
+      "parentId": "thinking_agent_1754216751722_exec_1754216751719_y57l6441v",
+      "level": 2,
+      "position": {
+        "level": 2,
+        "order": 1,
+        "x": -300,
+        "y": 300
+      },
+      "dimensions": {
+        "width": 150,
+        "height": 50
+      },
+      "visualState": {
+        "status": "running",
+        "emphasis": "normal",
+        "lastUpdated": "2025-08-03T10:26:23.098Z"
+      },
+      "data": {
+        "label": "tool_call: assignTask",
+        "eventType": "tool_call_start",
+        "toolName": "assignTask",
+        "executionId": "unknown",
+        "parameters": {
+          "jobDescription": "시장 분석을 위한 계획서 작성. 경쟁사 분석, 타겟 고객 설정, 현재 트렌드 조사 포함.",
+          "context": "카페 창업을 위한 시장 분석 섹션으로, 카페 산업의 경쟁 환경과 고객 특성을 이해하고, 최신 트렌드를 반영해야 함.",
+          "priority": "high",
+          "agentTemplate": "domain_researcher",
+          "allowFurtherDelegation": false
+        },
+        "icon": "⚡",
+        "color": "#9C27B0",
+        "extensions": {
+          "robota": {
+            "originalType": "tool_call",
+            "originalData": {
+              "eventType": "tool_call_start",
+              "toolName": "assignTask",
+              "executionId": "unknown",
+              "parameters": {
+                "jobDescription": "시장 분석을 위한 계획서 작성. 경쟁사 분석, 타겟 고객 설정, 현재 트렌드 조사 포함.",
+                "context": "카페 창업을 위한 시장 분석 섹션으로, 카페 산업의 경쟁 환경과 고객 특성을 이해하고, 최신 트렌드를 반영해야 함.",
+                "priority": "high",
+                "agentTemplate": "domain_researcher",
+                "allowFurtherDelegation": false
+              }
+            }
+          }
+        }
+      },
+      "interaction": {
+        "selectable": true,
+        "draggable": true,
+        "deletable": false,
+        "clickable": true
+      },
+      "createdAt": "2025-08-03T10:25:57.006Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "tool_call_call_beO1BGXt405gkVgW8JCoAK6Z",
+      "type": "tool_call",
+      "parentId": "thinking_agent_1754216751722_exec_1754216751719_y57l6441v",
+      "level": 2,
+      "position": {
+        "level": 2,
+        "order": 2,
+        "x": -200,
+        "y": 300
+      },
+      "dimensions": {
+        "width": 150,
+        "height": 50
+      },
+      "visualState": {
+        "status": "running",
+        "emphasis": "normal",
+        "lastUpdated": "2025-08-03T10:26:23.098Z"
+      },
+      "data": {
+        "label": "tool_call: assignTask",
+        "eventType": "tool_call_start",
+        "toolName": "assignTask",
+        "executionId": "unknown",
+        "parameters": {
+          "jobDescription": "카페 메뉴 구성 계획서 작성. 음료 3종과 디저트 2종을 포함하고, 가격대를 설정해야 함.",
+          "context": "고객의 선호도와 시장 가격을 고려하여 매력적인 메뉴를 구성해야 함.",
+          "priority": "high",
+          "agentTemplate": "creative_ideator",
+          "allowFurtherDelegation": false
+        },
+        "icon": "⚡",
+        "color": "#9C27B0",
+        "extensions": {
+          "robota": {
+            "originalType": "tool_call",
+            "originalData": {
+              "eventType": "tool_call_start",
+              "toolName": "assignTask",
+              "executionId": "unknown",
+              "parameters": {
+                "jobDescription": "카페 메뉴 구성 계획서 작성. 음료 3종과 디저트 2종을 포함하고, 가격대를 설정해야 함.",
+                "context": "고객의 선호도와 시장 가격을 고려하여 매력적인 메뉴를 구성해야 함.",
+                "priority": "high",
+                "agentTemplate": "creative_ideator",
+                "allowFurtherDelegation": false
+              }
+            }
+          }
+        }
+      },
+      "interaction": {
+        "selectable": true,
+        "draggable": true,
+        "deletable": false,
+        "clickable": true
+      },
+      "createdAt": "2025-08-03T10:25:57.007Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "tool_call_call_LOpeEze82wDHpe4DFUc5YhcX",
+      "type": "tool_call",
+      "parentId": "thinking_agent_1754216757016_exec_1754216751719_y57l6441v",
+      "level": 2,
+      "position": {
+        "level": 2,
+        "order": 3,
+        "x": -100,
+        "y": 300
+      },
+      "dimensions": {
+        "width": 150,
+        "height": 50
+      },
+      "visualState": {
+        "status": "running",
+        "emphasis": "normal",
+        "lastUpdated": "2025-08-03T10:26:23.098Z"
+      },
+      "data": {
+        "label": "tool_call: assignTask",
+        "eventType": "tool_call_start",
+        "toolName": "assignTask",
+        "executionId": "unknown",
+        "parameters": {
+          "jobDescription": "시장 분석을 위한 계획서 작성. 경쟁사 분석, 타겟 고객 설정, 현재 트렌드 조사 포함.",
+          "context": "카페 창업을 위한 시장 분석 섹션으로, 카페 산업의 경쟁 환경과 고객 특성을 이해하고, 최신 트렌드를 반영해야 함.",
+          "priority": "high",
+          "agentTemplate": "domain_researcher",
+          "allowFurtherDelegation": false
+        },
+        "icon": "⚡",
+        "color": "#9C27B0",
+        "extensions": {
+          "robota": {
+            "originalType": "tool_call",
+            "originalData": {
+              "eventType": "tool_call_start",
+              "toolName": "assignTask",
+              "executionId": "unknown",
+              "parameters": {
+                "jobDescription": "시장 분석을 위한 계획서 작성. 경쟁사 분석, 타겟 고객 설정, 현재 트렌드 조사 포함.",
+                "context": "카페 창업을 위한 시장 분석 섹션으로, 카페 산업의 경쟁 환경과 고객 특성을 이해하고, 최신 트렌드를 반영해야 함.",
+                "priority": "high",
+                "agentTemplate": "domain_researcher",
+                "allowFurtherDelegation": false
+              }
+            }
+          }
+        }
+      },
+      "interaction": {
+        "selectable": true,
+        "draggable": true,
+        "deletable": false,
+        "clickable": true
+      },
+      "createdAt": "2025-08-03T10:26:01.508Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "tool_call_call_r2ZgkK7ipnlkRoTRIjmk480j",
+      "type": "tool_call",
+      "parentId": "thinking_agent_1754216757016_exec_1754216751719_y57l6441v",
+      "level": 2,
+      "position": {
+        "level": 2,
+        "order": 4,
+        "x": 0,
+        "y": 300
+      },
+      "dimensions": {
+        "width": 150,
+        "height": 50
+      },
+      "visualState": {
+        "status": "running",
+        "emphasis": "normal",
+        "lastUpdated": "2025-08-03T10:26:23.098Z"
+      },
+      "data": {
+        "label": "tool_call: assignTask",
+        "eventType": "tool_call_start",
+        "toolName": "assignTask",
+        "executionId": "unknown",
+        "parameters": {
+          "jobDescription": "카페 메뉴 구성 계획서 작성. 음료 3종과 디저트 2종을 포함하고, 가격대를 설정해야 함.",
+          "context": "고객의 선호도와 시장 가격을 고려하여 매력적인 메뉴를 구성해야 함.",
+          "priority": "high",
+          "agentTemplate": "creative_ideator",
+          "allowFurtherDelegation": false
+        },
+        "icon": "⚡",
+        "color": "#9C27B0",
+        "extensions": {
+          "robota": {
+            "originalType": "tool_call",
+            "originalData": {
+              "eventType": "tool_call_start",
+              "toolName": "assignTask",
+              "executionId": "unknown",
+              "parameters": {
+                "jobDescription": "카페 메뉴 구성 계획서 작성. 음료 3종과 디저트 2종을 포함하고, 가격대를 설정해야 함.",
+                "context": "고객의 선호도와 시장 가격을 고려하여 매력적인 메뉴를 구성해야 함.",
+                "priority": "high",
+                "agentTemplate": "creative_ideator",
+                "allowFurtherDelegation": false
+              }
+            }
+          }
+        }
+      },
+      "interaction": {
+        "selectable": true,
+        "draggable": true,
+        "deletable": false,
+        "clickable": true
+      },
+      "createdAt": "2025-08-03T10:26:01.510Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "tool_call_call_ToCEqqdCimKMesZmPKhSHC0k",
+      "type": "tool_call",
+      "parentId": "thinking_agent_1754216761518_exec_1754216751719_y57l6441v",
+      "level": 2,
+      "position": {
+        "level": 2,
+        "order": 5,
+        "x": 100,
+        "y": 300
+      },
+      "dimensions": {
+        "width": 150,
+        "height": 50
+      },
+      "visualState": {
+        "status": "running",
+        "emphasis": "normal",
+        "lastUpdated": "2025-08-03T10:26:23.098Z"
+      },
+      "data": {
+        "label": "tool_call: assignTask",
+        "eventType": "tool_call_start",
+        "toolName": "assignTask",
+        "executionId": "unknown",
+        "parameters": {
+          "jobDescription": "시장 분석을 위한 계획서 작성. 경쟁사 분석, 타겟 고객 설정, 현재 트렌드 조사 포함.",
+          "context": "카페 창업을 위한 시장 분석 섹션으로, 카페 산업의 경쟁 환경과 고객 특성을 이해하고, 최신 트렌드를 반영해야 함.",
+          "priority": "high",
+          "agentTemplate": "domain_researcher",
+          "allowFurtherDelegation": false
+        },
+        "icon": "⚡",
+        "color": "#9C27B0",
+        "extensions": {
+          "robota": {
+            "originalType": "tool_call",
+            "originalData": {
+              "eventType": "tool_call_start",
+              "toolName": "assignTask",
+              "executionId": "unknown",
+              "parameters": {
+                "jobDescription": "시장 분석을 위한 계획서 작성. 경쟁사 분석, 타겟 고객 설정, 현재 트렌드 조사 포함.",
+                "context": "카페 창업을 위한 시장 분석 섹션으로, 카페 산업의 경쟁 환경과 고객 특성을 이해하고, 최신 트렌드를 반영해야 함.",
+                "priority": "high",
+                "agentTemplate": "domain_researcher",
+                "allowFurtherDelegation": false
+              }
+            }
+          }
+        }
+      },
+      "interaction": {
+        "selectable": true,
+        "draggable": true,
+        "deletable": false,
+        "clickable": true
+      },
+      "createdAt": "2025-08-03T10:26:06.405Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "tool_call_call_Xvqfancm1zaEguMiHE6V6Zf9",
+      "type": "tool_call",
+      "parentId": "thinking_agent_1754216761518_exec_1754216751719_y57l6441v",
+      "level": 2,
+      "position": {
+        "level": 2,
+        "order": 6,
+        "x": 200,
+        "y": 300
+      },
+      "dimensions": {
+        "width": 150,
+        "height": 50
+      },
+      "visualState": {
+        "status": "running",
+        "emphasis": "normal",
+        "lastUpdated": "2025-08-03T10:26:23.098Z"
+      },
+      "data": {
+        "label": "tool_call: assignTask",
+        "eventType": "tool_call_start",
+        "toolName": "assignTask",
+        "executionId": "unknown",
+        "parameters": {
+          "jobDescription": "카페 메뉴 구성 계획서 작성. 음료 3종과 디저트 2종을 포함하고, 가격대를 설정해야 함.",
+          "context": "고객의 선호도와 시장 가격을 고려하여 매력적인 메뉴를 구성해야 함.",
+          "priority": "high",
+          "agentTemplate": "creative_ideator",
+          "allowFurtherDelegation": false
+        },
+        "icon": "⚡",
+        "color": "#9C27B0",
+        "extensions": {
+          "robota": {
+            "originalType": "tool_call",
+            "originalData": {
+              "eventType": "tool_call_start",
+              "toolName": "assignTask",
+              "executionId": "unknown",
+              "parameters": {
+                "jobDescription": "카페 메뉴 구성 계획서 작성. 음료 3종과 디저트 2종을 포함하고, 가격대를 설정해야 함.",
+                "context": "고객의 선호도와 시장 가격을 고려하여 매력적인 메뉴를 구성해야 함.",
+                "priority": "high",
+                "agentTemplate": "creative_ideator",
+                "allowFurtherDelegation": false
+              }
+            }
+          }
+        }
+      },
+      "interaction": {
+        "selectable": true,
+        "draggable": true,
+        "deletable": false,
+        "clickable": true
+      },
+      "createdAt": "2025-08-03T10:26:06.406Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "tool_call_call_OVYB6hq1qD4zYJ7GUe8gA7MY",
+      "type": "tool_call",
+      "parentId": "thinking_agent_1754216766414_exec_1754216751719_y57l6441v",
+      "level": 2,
+      "position": {
+        "level": 2,
+        "order": 7,
+        "x": 300,
+        "y": 300
+      },
+      "dimensions": {
+        "width": 150,
+        "height": 50
+      },
+      "visualState": {
+        "status": "running",
+        "emphasis": "normal",
+        "lastUpdated": "2025-08-03T10:26:23.098Z"
+      },
+      "data": {
+        "label": "tool_call: assignTask",
+        "eventType": "tool_call_start",
+        "toolName": "assignTask",
+        "executionId": "unknown",
+        "parameters": {
+          "jobDescription": "시장 분석을 위한 계획서 작성. 경쟁사 분석, 타겟 고객 설정, 현재 트렌드 조사 포함.",
+          "context": "카페 창업을 위한 시장 분석 섹션으로, 카페 산업의 경쟁 환경과 고객 특성을 이해하고, 최신 트렌드를 반영해야 함.",
+          "priority": "high",
+          "agentTemplate": "domain_researcher",
+          "allowFurtherDelegation": false
+        },
+        "icon": "⚡",
+        "color": "#9C27B0",
+        "extensions": {
+          "robota": {
+            "originalType": "tool_call",
+            "originalData": {
+              "eventType": "tool_call_start",
+              "toolName": "assignTask",
+              "executionId": "unknown",
+              "parameters": {
+                "jobDescription": "시장 분석을 위한 계획서 작성. 경쟁사 분석, 타겟 고객 설정, 현재 트렌드 조사 포함.",
+                "context": "카페 창업을 위한 시장 분석 섹션으로, 카페 산업의 경쟁 환경과 고객 특성을 이해하고, 최신 트렌드를 반영해야 함.",
+                "priority": "high",
+                "agentTemplate": "domain_researcher",
+                "allowFurtherDelegation": false
+              }
+            }
+          }
+        }
+      },
+      "interaction": {
+        "selectable": true,
+        "draggable": true,
+        "deletable": false,
+        "clickable": true
+      },
+      "createdAt": "2025-08-03T10:26:10.440Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "tool_call_call_3KGGn9KEtcDXoK1kX5A0Rtwu",
+      "type": "tool_call",
+      "parentId": "thinking_agent_1754216766414_exec_1754216751719_y57l6441v",
+      "level": 2,
+      "position": {
+        "level": 2,
+        "order": 8,
+        "x": 400,
+        "y": 300
+      },
+      "dimensions": {
+        "width": 150,
+        "height": 50
+      },
+      "visualState": {
+        "status": "running",
+        "emphasis": "normal",
+        "lastUpdated": "2025-08-03T10:26:23.098Z"
+      },
+      "data": {
+        "label": "tool_call: assignTask",
+        "eventType": "tool_call_start",
+        "toolName": "assignTask",
+        "executionId": "unknown",
+        "parameters": {
+          "jobDescription": "카페 메뉴 구성 계획서 작성. 음료 3종과 디저트 2종을 포함하고, 가격대를 설정해야 함.",
+          "context": "고객의 선호도와 시장 가격을 고려하여 매력적인 메뉴를 구성해야 함.",
+          "priority": "high",
+          "agentTemplate": "creative_ideator",
+          "allowFurtherDelegation": false
+        },
+        "icon": "⚡",
+        "color": "#9C27B0",
+        "extensions": {
+          "robota": {
+            "originalType": "tool_call",
+            "originalData": {
+              "eventType": "tool_call_start",
+              "toolName": "assignTask",
+              "executionId": "unknown",
+              "parameters": {
+                "jobDescription": "카페 메뉴 구성 계획서 작성. 음료 3종과 디저트 2종을 포함하고, 가격대를 설정해야 함.",
+                "context": "고객의 선호도와 시장 가격을 고려하여 매력적인 메뉴를 구성해야 함.",
+                "priority": "high",
+                "agentTemplate": "creative_ideator",
+                "allowFurtherDelegation": false
+              }
+            }
+          }
+        }
+      },
+      "interaction": {
+        "selectable": true,
+        "draggable": true,
+        "deletable": false,
+        "clickable": true
+      },
+      "createdAt": "2025-08-03T10:26:10.441Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "response_agent_0_copy_1",
+      "type": "response",
+      "parentId": "agent_0_copy_1",
+      "level": 1,
+      "position": {
+        "level": 1,
+        "order": 1,
+        "x": 50,
+        "y": 150
+      },
+      "dimensions": {
+        "width": 150,
+        "height": 50
+      },
+      "visualState": {
+        "status": "completed",
+        "emphasis": "normal",
+        "lastUpdated": "2025-08-03T10:26:23.098Z"
+      },
+      "data": {
+        "label": "response",
+        "eventType": "assistant.message_complete",
+        "sourceId": "conv_1754216751718_e72rl5h94",
+        "sourceType": "agent",
+        "result": {
+          "success": true,
+          "data": "현재 시스템에 문제가 발생하여 전문가 에이전트를 할당하는 데 실패했습니다. 대신, 카페 창업 계획서의 시장 분석과 메뉴 구성에 대한 초안을 직접 작성해드리겠습니다.\n\n### 1. ..."
+        },
+        "icon": "⚪",
+        "color": "#9E9E9E",
+        "extensions": {
+          "robota": {
+            "originalType": "response",
+            "originalData": {
+              "eventType": "assistant.message_complete",
+              "sourceId": "conv_1754216751718_e72rl5h94",
+              "sourceType": "agent",
+              "result": {
+                "success": true,
+                "data": "현재 시스템에 문제가 발생하여 전문가 에이전트를 할당하는 데 실패했습니다. 대신, 카페 창업 계획서의 시장 분석과 메뉴 구성에 대한 초안을 직접 작성해드리겠습니다.\n\n### 1. ..."
+              },
+              "agentNumber": 0,
+              "label": "Response 0"
+            }
+          }
+        }
+      },
+      "interaction": {
+        "selectable": true,
+        "draggable": true,
+        "deletable": false,
+        "clickable": true
+      },
+      "createdAt": "2025-08-03T10:26:23.096Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-agent_0_copy_1-thinking_agent_0_copy_1-0",
+      "source": "agent_0_copy_1",
+      "target": "thinking_agent_0_copy_1",
+      "type": "processes",
+      "label": "processes",
+      "style": {
+        "type": "step",
+        "animated": true,
+        "strokeColor": "#4CAF50"
+      },
+      "data": {
+        "executionOrder": 0,
+        "extensions": {
+          "robota": {
+            "originalType": "processes",
+            "originalConnection": {
+              "fromId": "agent_0_copy_1",
+              "toId": "thinking_agent_0_copy_1",
+              "type": "processes",
+              "label": "processes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-thinking_agent_1754216751722_exec_1754216751719_y57l6441v-tool_call_call_aehIq18N2KikWqkwqNzLsn3z-1",
+      "source": "thinking_agent_1754216751722_exec_1754216751719_y57l6441v",
+      "target": "tool_call_call_aehIq18N2KikWqkwqNzLsn3z",
+      "type": "executes",
+      "label": "executes",
+      "style": {
+        "type": "straight",
+        "animated": true,
+        "strokeColor": "#2196F3"
+      },
+      "data": {
+        "executionOrder": 1,
+        "extensions": {
+          "robota": {
+            "originalType": "executes",
+            "originalConnection": {
+              "fromId": "thinking_agent_1754216751722_exec_1754216751719_y57l6441v",
+              "toId": "tool_call_call_aehIq18N2KikWqkwqNzLsn3z",
+              "type": "executes",
+              "label": "executes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-thinking_agent_1754216751722_exec_1754216751719_y57l6441v-tool_call_call_beO1BGXt405gkVgW8JCoAK6Z-2",
+      "source": "thinking_agent_1754216751722_exec_1754216751719_y57l6441v",
+      "target": "tool_call_call_beO1BGXt405gkVgW8JCoAK6Z",
+      "type": "executes",
+      "label": "executes",
+      "style": {
+        "type": "straight",
+        "animated": true,
+        "strokeColor": "#2196F3"
+      },
+      "data": {
+        "executionOrder": 2,
+        "extensions": {
+          "robota": {
+            "originalType": "executes",
+            "originalConnection": {
+              "fromId": "thinking_agent_1754216751722_exec_1754216751719_y57l6441v",
+              "toId": "tool_call_call_beO1BGXt405gkVgW8JCoAK6Z",
+              "type": "executes",
+              "label": "executes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-agent_0_copy_1-thinking_agent_0_copy_1-3",
+      "source": "agent_0_copy_1",
+      "target": "thinking_agent_0_copy_1",
+      "type": "processes",
+      "label": "processes",
+      "style": {
+        "type": "step",
+        "animated": true,
+        "strokeColor": "#4CAF50"
+      },
+      "data": {
+        "executionOrder": 3,
+        "extensions": {
+          "robota": {
+            "originalType": "processes",
+            "originalConnection": {
+              "fromId": "agent_0_copy_1",
+              "toId": "thinking_agent_0_copy_1",
+              "type": "processes",
+              "label": "processes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-agent_0_copy_1-thinking_agent_0_copy_1-4",
+      "source": "agent_0_copy_1",
+      "target": "thinking_agent_0_copy_1",
+      "type": "processes",
+      "label": "processes",
+      "style": {
+        "type": "step",
+        "animated": true,
+        "strokeColor": "#4CAF50"
+      },
+      "data": {
+        "executionOrder": 4,
+        "extensions": {
+          "robota": {
+            "originalType": "processes",
+            "originalConnection": {
+              "fromId": "agent_0_copy_1",
+              "toId": "thinking_agent_0_copy_1",
+              "type": "processes",
+              "label": "processes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-thinking_agent_1754216757016_exec_1754216751719_y57l6441v-tool_call_call_LOpeEze82wDHpe4DFUc5YhcX-5",
+      "source": "thinking_agent_1754216757016_exec_1754216751719_y57l6441v",
+      "target": "tool_call_call_LOpeEze82wDHpe4DFUc5YhcX",
+      "type": "executes",
+      "label": "executes",
+      "style": {
+        "type": "straight",
+        "animated": true,
+        "strokeColor": "#2196F3"
+      },
+      "data": {
+        "executionOrder": 5,
+        "extensions": {
+          "robota": {
+            "originalType": "executes",
+            "originalConnection": {
+              "fromId": "thinking_agent_1754216757016_exec_1754216751719_y57l6441v",
+              "toId": "tool_call_call_LOpeEze82wDHpe4DFUc5YhcX",
+              "type": "executes",
+              "label": "executes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-thinking_agent_1754216757016_exec_1754216751719_y57l6441v-tool_call_call_r2ZgkK7ipnlkRoTRIjmk480j-6",
+      "source": "thinking_agent_1754216757016_exec_1754216751719_y57l6441v",
+      "target": "tool_call_call_r2ZgkK7ipnlkRoTRIjmk480j",
+      "type": "executes",
+      "label": "executes",
+      "style": {
+        "type": "straight",
+        "animated": true,
+        "strokeColor": "#2196F3"
+      },
+      "data": {
+        "executionOrder": 6,
+        "extensions": {
+          "robota": {
+            "originalType": "executes",
+            "originalConnection": {
+              "fromId": "thinking_agent_1754216757016_exec_1754216751719_y57l6441v",
+              "toId": "tool_call_call_r2ZgkK7ipnlkRoTRIjmk480j",
+              "type": "executes",
+              "label": "executes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-agent_0_copy_1-thinking_agent_0_copy_1-7",
+      "source": "agent_0_copy_1",
+      "target": "thinking_agent_0_copy_1",
+      "type": "processes",
+      "label": "processes",
+      "style": {
+        "type": "step",
+        "animated": true,
+        "strokeColor": "#4CAF50"
+      },
+      "data": {
+        "executionOrder": 7,
+        "extensions": {
+          "robota": {
+            "originalType": "processes",
+            "originalConnection": {
+              "fromId": "agent_0_copy_1",
+              "toId": "thinking_agent_0_copy_1",
+              "type": "processes",
+              "label": "processes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-agent_0_copy_1-thinking_agent_0_copy_1-8",
+      "source": "agent_0_copy_1",
+      "target": "thinking_agent_0_copy_1",
+      "type": "processes",
+      "label": "processes",
+      "style": {
+        "type": "step",
+        "animated": true,
+        "strokeColor": "#4CAF50"
+      },
+      "data": {
+        "executionOrder": 8,
+        "extensions": {
+          "robota": {
+            "originalType": "processes",
+            "originalConnection": {
+              "fromId": "agent_0_copy_1",
+              "toId": "thinking_agent_0_copy_1",
+              "type": "processes",
+              "label": "processes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-thinking_agent_1754216761518_exec_1754216751719_y57l6441v-tool_call_call_ToCEqqdCimKMesZmPKhSHC0k-9",
+      "source": "thinking_agent_1754216761518_exec_1754216751719_y57l6441v",
+      "target": "tool_call_call_ToCEqqdCimKMesZmPKhSHC0k",
+      "type": "executes",
+      "label": "executes",
+      "style": {
+        "type": "straight",
+        "animated": true,
+        "strokeColor": "#2196F3"
+      },
+      "data": {
+        "executionOrder": 9,
+        "extensions": {
+          "robota": {
+            "originalType": "executes",
+            "originalConnection": {
+              "fromId": "thinking_agent_1754216761518_exec_1754216751719_y57l6441v",
+              "toId": "tool_call_call_ToCEqqdCimKMesZmPKhSHC0k",
+              "type": "executes",
+              "label": "executes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-thinking_agent_1754216761518_exec_1754216751719_y57l6441v-tool_call_call_Xvqfancm1zaEguMiHE6V6Zf9-10",
+      "source": "thinking_agent_1754216761518_exec_1754216751719_y57l6441v",
+      "target": "tool_call_call_Xvqfancm1zaEguMiHE6V6Zf9",
+      "type": "executes",
+      "label": "executes",
+      "style": {
+        "type": "straight",
+        "animated": true,
+        "strokeColor": "#2196F3"
+      },
+      "data": {
+        "executionOrder": 10,
+        "extensions": {
+          "robota": {
+            "originalType": "executes",
+            "originalConnection": {
+              "fromId": "thinking_agent_1754216761518_exec_1754216751719_y57l6441v",
+              "toId": "tool_call_call_Xvqfancm1zaEguMiHE6V6Zf9",
+              "type": "executes",
+              "label": "executes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-agent_0_copy_1-thinking_agent_0_copy_1-11",
+      "source": "agent_0_copy_1",
+      "target": "thinking_agent_0_copy_1",
+      "type": "processes",
+      "label": "processes",
+      "style": {
+        "type": "step",
+        "animated": true,
+        "strokeColor": "#4CAF50"
+      },
+      "data": {
+        "executionOrder": 11,
+        "extensions": {
+          "robota": {
+            "originalType": "processes",
+            "originalConnection": {
+              "fromId": "agent_0_copy_1",
+              "toId": "thinking_agent_0_copy_1",
+              "type": "processes",
+              "label": "processes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-agent_0_copy_1-thinking_agent_0_copy_1-12",
+      "source": "agent_0_copy_1",
+      "target": "thinking_agent_0_copy_1",
+      "type": "processes",
+      "label": "processes",
+      "style": {
+        "type": "step",
+        "animated": true,
+        "strokeColor": "#4CAF50"
+      },
+      "data": {
+        "executionOrder": 12,
+        "extensions": {
+          "robota": {
+            "originalType": "processes",
+            "originalConnection": {
+              "fromId": "agent_0_copy_1",
+              "toId": "thinking_agent_0_copy_1",
+              "type": "processes",
+              "label": "processes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-thinking_agent_1754216766414_exec_1754216751719_y57l6441v-tool_call_call_OVYB6hq1qD4zYJ7GUe8gA7MY-13",
+      "source": "thinking_agent_1754216766414_exec_1754216751719_y57l6441v",
+      "target": "tool_call_call_OVYB6hq1qD4zYJ7GUe8gA7MY",
+      "type": "executes",
+      "label": "executes",
+      "style": {
+        "type": "straight",
+        "animated": true,
+        "strokeColor": "#2196F3"
+      },
+      "data": {
+        "executionOrder": 13,
+        "extensions": {
+          "robota": {
+            "originalType": "executes",
+            "originalConnection": {
+              "fromId": "thinking_agent_1754216766414_exec_1754216751719_y57l6441v",
+              "toId": "tool_call_call_OVYB6hq1qD4zYJ7GUe8gA7MY",
+              "type": "executes",
+              "label": "executes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-thinking_agent_1754216766414_exec_1754216751719_y57l6441v-tool_call_call_3KGGn9KEtcDXoK1kX5A0Rtwu-14",
+      "source": "thinking_agent_1754216766414_exec_1754216751719_y57l6441v",
+      "target": "tool_call_call_3KGGn9KEtcDXoK1kX5A0Rtwu",
+      "type": "executes",
+      "label": "executes",
+      "style": {
+        "type": "straight",
+        "animated": true,
+        "strokeColor": "#2196F3"
+      },
+      "data": {
+        "executionOrder": 14,
+        "extensions": {
+          "robota": {
+            "originalType": "executes",
+            "originalConnection": {
+              "fromId": "thinking_agent_1754216766414_exec_1754216751719_y57l6441v",
+              "toId": "tool_call_call_3KGGn9KEtcDXoK1kX5A0Rtwu",
+              "type": "executes",
+              "label": "executes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-agent_0_copy_1-thinking_agent_0_copy_1-15",
+      "source": "agent_0_copy_1",
+      "target": "thinking_agent_0_copy_1",
+      "type": "processes",
+      "label": "processes",
+      "style": {
+        "type": "step",
+        "animated": true,
+        "strokeColor": "#4CAF50"
+      },
+      "data": {
+        "executionOrder": 15,
+        "extensions": {
+          "robota": {
+            "originalType": "processes",
+            "originalConnection": {
+              "fromId": "agent_0_copy_1",
+              "toId": "thinking_agent_0_copy_1",
+              "type": "processes",
+              "label": "processes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-agent_0_copy_1-thinking_agent_0_copy_1-16",
+      "source": "agent_0_copy_1",
+      "target": "thinking_agent_0_copy_1",
+      "type": "processes",
+      "label": "processes",
+      "style": {
+        "type": "step",
+        "animated": true,
+        "strokeColor": "#4CAF50"
+      },
+      "data": {
+        "executionOrder": 16,
+        "extensions": {
+          "robota": {
+            "originalType": "processes",
+            "originalConnection": {
+              "fromId": "agent_0_copy_1",
+              "toId": "thinking_agent_0_copy_1",
+              "type": "processes",
+              "label": "processes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-agent_0_copy_1-response_agent_0_copy_1-17",
+      "source": "agent_0_copy_1",
+      "target": "response_agent_0_copy_1",
+      "type": "return",
+      "label": "returns to",
+      "style": {
+        "type": "bezier",
+        "animated": false,
+        "strokeColor": "#9C27B0"
+      },
+      "data": {
+        "executionOrder": 17,
+        "extensions": {
+          "robota": {
+            "originalType": "return",
+            "originalConnection": {
+              "fromId": "agent_0_copy_1",
+              "toId": "response_agent_0_copy_1",
+              "type": "return",
+              "label": "returns to"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-thinking_agent_0_copy_1-response_agent_0_copy_1-18",
+      "source": "thinking_agent_0_copy_1",
+      "target": "response_agent_0_copy_1",
+      "type": "return",
+      "label": "Agent 0 result",
+      "style": {
+        "type": "bezier",
+        "animated": false,
+        "strokeColor": "#9C27B0"
+      },
+      "data": {
+        "executionOrder": 18,
+        "extensions": {
+          "robota": {
+            "originalType": "return",
+            "originalConnection": {
+              "fromId": "thinking_agent_0_copy_1",
+              "toId": "response_agent_0_copy_1",
+              "type": "return",
+              "label": "Agent 0 result"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-response_agent_0_copy_1-agent_0_copy_1-19",
+      "source": "response_agent_0_copy_1",
+      "target": "agent_0_copy_1",
+      "type": "return",
+      "label": "returns result to main agent",
+      "style": {
+        "type": "bezier",
+        "animated": false,
+        "strokeColor": "#9C27B0"
+      },
+      "data": {
+        "executionOrder": 19,
+        "extensions": {
+          "robota": {
+            "originalType": "return",
+            "originalConnection": {
+              "fromId": "response_agent_0_copy_1",
+              "toId": "agent_0_copy_1",
+              "type": "return",
+              "label": "returns result to main agent"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    },
+    {
+      "id": "edge-response_agent_0_copy_1-response_agent_0_copy_1-20",
+      "source": "response_agent_0_copy_1",
+      "target": "response_agent_0_copy_1",
+      "type": "consolidates",
+      "label": "consolidates into final response",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#9E9E9E"
+      },
+      "data": {
+        "executionOrder": 20,
+        "extensions": {
+          "robota": {
+            "originalType": "consolidates",
+            "originalConnection": {
+              "fromId": "response_agent_0_copy_1",
+              "toId": "response_agent_0_copy_1",
+              "type": "consolidates",
+              "label": "consolidates into final response"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-03T10:26:23.098Z",
+      "updatedAt": "2025-08-03T10:26:23.098Z"
+    }
+  ],
+  "layout": {
+    "algorithm": "hierarchical",
+    "direction": "TB",
+    "spacing": {
+      "nodeSpacing": 200,
+      "levelSpacing": 150
+    },
+    "alignment": {
+      "horizontal": "center",
+      "vertical": "top"
+    }
+  }
+}
