@@ -1,6 +1,6 @@
 import type { AIProvider } from './provider';
 import type { ToolSchema } from './provider';
-import type { ToolInterface, ToolExecutor, ToolExecutionData } from './tool';
+import type { ToolInterface, ToolExecutor, ToolExecutionData, ToolExecutionContext } from './tool';
 import type { AgentConfig, AgentInterface } from './agent';
 
 /**
@@ -105,7 +105,7 @@ export interface ToolManagerInterface {
     /**
      * Execute a tool
      */
-    executeTool(name: string, parameters: ManagerToolParameters): Promise<ToolExecutionData>;
+    executeTool(name: string, parameters: ManagerToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData>;
 
     /**
      * Check if tool exists

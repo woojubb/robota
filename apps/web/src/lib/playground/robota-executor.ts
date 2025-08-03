@@ -13,7 +13,8 @@
  * - Statistics Collection: PlaygroundStatisticsPlugin integration
  */
 
-import { Robota, type ToolHooks, ActionTrackingEventService } from '@robota-sdk/agents';
+import { Robota, type ToolHooks, ActionTrackingEventService, WorkflowEventSubscriber, RealTimeWorkflowBuilder } from '@robota-sdk/agents';
+import { DefaultExternalWorkflowStore, type ExternalWorkflowStore } from './external-workflow-store';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { createTeam, type TeamOptions, type TeamContainer } from '@robota-sdk/team';
@@ -148,6 +149,14 @@ export class PlaygroundExecutor {
     private statisticsPlugin: PlaygroundStatisticsPlugin;
     private eventService: ActionTrackingEventService;
     private websocketClient: PlaygroundWebSocketClient | null = null;
+
+    // SDK Workflow system
+    private workflowSubscriber: WorkflowEventSubscriber;
+    private workflowBuilder: RealTimeWorkflowBuilder;
+
+    // STEP 8.3.1: External Workflow Store
+    private externalWorkflowStore: ExternalWorkflowStore;
+
     private readonly logger: SimpleLogger;
 
     constructor(
@@ -183,6 +192,29 @@ export class PlaygroundExecutor {
 
         // Wrap with ActionTrackingEventService for automatic hierarchy tracking
         this.eventService = new ActionTrackingEventService(basePlaygroundEventService);
+
+        // STEP 7.1.1: Create WorkflowEventSubscriber
+        this.workflowSubscriber = new WorkflowEventSubscriber(this.logger);
+        console.log('🏗️ [STEP 7.1.1] WorkflowEventSubscriber created:', !!this.workflowSubscriber);
+
+        // STEP 8.3.2: Create ExternalWorkflowStore
+        this.externalWorkflowStore = new DefaultExternalWorkflowStore(this.logger);
+        console.log('🏪 [STEP 8.3.2] ExternalWorkflowStore created:', !!this.externalWorkflowStore);
+
+        // STEP 7.1.2: Create RealTimeWorkflowBuilder with ExternalWorkflowStore
+        this.workflowBuilder = new RealTimeWorkflowBuilder(
+            this.workflowSubscriber,
+            this.logger,
+            this.externalWorkflowStore  // STEP 8.3.2: 외부 Store 주입
+        );
+        console.log('🔧 [STEP 7.1.2] RealTimeWorkflowBuilder created with External Store:', !!this.workflowBuilder);
+
+        // External Store → SDK Store 연결 설정
+        this.externalWorkflowStore.setUpdateCallback(async () => {
+            await this.workflowBuilder.triggerManualUpdate();
+        });
+        console.log('🔗 [CONNECTION] External Store → SDK Store trigger connected');
+        console.log('🔧 [STEP 7.1.2] Workflow system ready');
 
         // PlaygroundExecutor is ready immediately
         // WebSocket will be connected lazily when needed
@@ -253,17 +285,20 @@ export class PlaygroundExecutor {
             // Create AI providers with remote executor
             const aiProviders = this.createProvidersWithExecutor();
 
-            // Create team using actual Robota Team library with EventService
-            // EventService will automatically handle all event tracking through the unified system
+            // STEP 7.1.5: Create team using WorkflowEventSubscriber for SDK Workflow system
+            console.log('🚀 [STEP 7.1.5] Creating team with WorkflowEventSubscriber');
+
             this.currentTeam = createTeam({
                 aiProviders: aiProviders,
                 maxMembers: config.maxMembers || 5,
                 maxTokenLimit: 8000,
                 debug: false, // Disable debug to reduce console output
                 logger: this.logger,
-                eventService: this.eventService // EventService for automatic event emission and tracking
-                // Note: toolHooks are optional - EventService handles tracking automatically
+                // 핵심: WorkflowEventSubscriber 사용
+                eventService: this.workflowSubscriber
             });
+
+            console.log('🚀 [STEP 7.1.5] Team created with Workflow system');
 
             this.setMode('team');
 
@@ -730,6 +765,20 @@ export class PlaygroundExecutor {
     }
 
     /**
+     * Get last execution ID for External Store connection
+     */
+    getLastExecutionId(): string | null {
+        // For now, we'll generate a consistent ID based on current state
+        // This should be improved to track actual execution IDs
+        if (this.mode === 'team') {
+            return 'team-execution-' + Date.now();
+        } else if (this.mode === 'agent') {
+            return 'agent-execution-' + Date.now();
+        }
+        return null;
+    }
+
+    /**
      * Record execution start for statistics
      */
     private async recordExecutionStart(executionId: string, messages: UniversalMessage[]): Promise<void> {
@@ -802,6 +851,34 @@ export class PlaygroundExecutor {
         this.mode = mode;
         console.log(`🔧 [MODE] Mode set successfully to:`, this.mode);
         this.logDebug('Mode changed', { mode });
+    }
+
+    /**
+     * STEP 7.1.3: Get current workflow from SDK
+     */
+    async getCurrentWorkflow(): Promise<any | null> {
+        console.log('📊 [STEP 7.1.3] getCurrentWorkflow called');
+        const result = await this.workflowBuilder.generateUniversalWorkflow();
+        console.log('📊 [STEP 7.1.3] Workflow result:', result ? 'Success' : 'Null');
+        return result;
+    }
+
+    /**
+     * STEP 7.1.4: Subscribe to workflow updates from SDK
+     */
+    subscribeToWorkflowUpdates(callback: (workflow: any) => void): void {
+        console.log('📡 [STEP 7.1.4] Setting up workflow subscription');
+        this.workflowBuilder.subscribeToUniversalUpdates((workflow) => {
+            console.log('📡 [STEP 7.1.4] Workflow update received:', !!workflow);
+            callback(workflow);
+        });
+    }
+
+    /**
+     * STEP 8.3.3: Get External Workflow Store for manual node management
+     */
+    getExternalWorkflowStore(): ExternalWorkflowStore {
+        return this.externalWorkflowStore;
     }
 
     /**
@@ -1003,5 +1080,13 @@ class PlaygroundTeamInstance {
         } catch (error) {
             throw new Error(`Team disposal failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
+    }
+
+    /**
+     * Get Event Service for external event listening
+     * Used by PlaygroundContext to listen for tool_call_start and agent_created events
+     */
+    getEventService(): ActionTrackingEventService {
+        return this.eventService;
     }
 } 

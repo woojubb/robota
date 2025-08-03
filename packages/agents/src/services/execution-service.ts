@@ -358,6 +358,9 @@ export class ExecutionService {
                     ...(availableTools.length > 0 && { tools: availableTools })
                 };
 
+                // Generate thinking node ID for direct parent provision (no inference needed)
+                const thinkingNodeId = `thinking_agent_${Date.now()}_${executionId}`;
+
                 // Emit assistant message start event
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                     const rootId = fullContext.conversationId || executionId;
@@ -376,7 +379,9 @@ export class ExecutionService {
                         metadata: {
                             executionId,
                             round: currentRound,
-                            conversationId: fullContext.conversationId
+                            conversationId: fullContext.conversationId,
+                            // Direct provision of thinking node ID (no mapping/inference needed)
+                            thinkingNodeId: thinkingNodeId
                         }
                     });
                 }
@@ -438,7 +443,7 @@ export class ExecutionService {
                     continueOnError: true
                 };
 
-                // Emit tool_call_start events for each tool
+                // Emit tool_call_start events for each tool with direct parent provision
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                     for (const toolCall of assistantResponse.toolCalls) {
                         this.eventService.emit('tool_call_start', {
@@ -450,10 +455,14 @@ export class ExecutionService {
                             rootExecutionId: fullContext.conversationId || executionId,
                             executionLevel: 2, // Tool level
                             executionPath: [fullContext.conversationId || executionId, executionId],
+                            // Direct parent ID provision (no mapping/inference needed)
+                            parentExecutionId: thinkingNodeId,
                             metadata: {
                                 toolCallId: toolCall.id,
                                 executionId: executionId,
-                                round: currentRound
+                                round: currentRound,
+                                // Direct thinking node reference for immediate connection
+                                directParentId: thinkingNodeId
                             }
                         });
                     }
@@ -873,11 +882,14 @@ export class ExecutionService {
                     continueOnError: true
                 };
 
-                // Emit tool_call_start events for each tool (streaming)
+                // Generate thinking node ID for streaming mode (direct provision)
+                const streamingThinkingNodeId = `thinking_agent_${Date.now()}_${executionId}`;
+
+                // Emit tool_call_start events for each tool (streaming) with direct parent provision
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                     for (const toolCall of toolCalls) {
-                        this.eventService.emit('tool_call_start', {
-                            sourceType: 'agent',
+                        const eventData = {
+                            sourceType: 'agent' as const,
                             sourceId: context?.conversationId || executionId,
                             toolName: toolCall.function?.name,
                             timestamp: new Date(),
@@ -885,12 +897,17 @@ export class ExecutionService {
                             rootExecutionId: context?.conversationId || executionId,
                             executionLevel: 2, // Tool level
                             executionPath: [context?.conversationId || executionId, executionId],
+                            // Direct parent ID provision (no mapping/inference needed)
+                            parentExecutionId: streamingThinkingNodeId,
                             metadata: {
                                 toolCallId: toolCall.id,
                                 executionId: executionId,
-                                streamMode: true
+                                streamMode: true,
+                                // Direct thinking node reference for immediate connection
+                                directParentId: streamingThinkingNodeId
                             }
-                        });
+                        };
+                        this.eventService.emit('tool_call_start', eventData);
                     }
                 }
 

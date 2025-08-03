@@ -226,9 +226,14 @@ export class TeamContainer {
         // Add EventService to teamConfig
         teamConfig.eventService = this.eventService;
 
-
+        console.log('🔍 [TEAM-DEBUG] EventService type:', this.eventService.constructor.name);
+        console.log('🔍 [TEAM-DEBUG] EventService instance ID:', this.eventService);
+        console.log('🔍 [TEAM-DEBUG] EventService toString:', this.eventService.toString().substring(0, 50));
+        console.log('🔍 [TEAM-DEBUG] EventService methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.eventService)));
 
         this.teamAgent = new Robota(teamConfig);
+
+        console.log('🔍 [TEAM-DEBUG] Team Agent created with EventService:', !!teamConfig.eventService);
 
 
         this.logger?.info(`Team created with leader template: ${leaderTemplateName} (${leaderTemplate.config.provider}/${leaderTemplate.config.model})`);
@@ -271,6 +276,10 @@ export class TeamContainer {
         const startTime = Date.now();
 
         try {
+            console.log('🔍 [TEAM-STREAM] About to call teamAgent.runStream()');
+            console.log('🔍 [TEAM-STREAM] TeamAgent has EventService:', !!this.teamAgent);
+            console.log('🔍 [TEAM-STREAM] Current EventService in Team:', this.eventService.constructor.name);
+
             const generator = this.teamAgent.runStream(userPrompt);
             yield* generator;
 
@@ -352,7 +361,7 @@ export class TeamContainer {
                 sourceType: 'team',
                 sourceId: agentId,
                 taskDescription: params.jobDescription,
-                parameters: params,
+                parameters: params as any,
                 // 🔧 FIXED: Team events should have tool call as parent
                 parentExecutionId: toolExecutionId, // This tool call is the parent
                 rootExecutionId,
@@ -537,6 +546,7 @@ export class TeamContainer {
                         sourceId: agentId,
                         taskDescription: `Created ${params.agentTemplate} agent successfully`,
                         result: {
+                            success: true,
                             agentId: agentId,
                             agentName: temporaryAgent.name,
                             template: params.agentTemplate,
@@ -630,7 +640,7 @@ export class TeamContainer {
                     sourceType: 'team',
                     sourceId: agentId,
                     taskDescription: `Completed execution: ${params.jobDescription}`,
-                    result: result.substring(0, 200) + '...',
+                    result: { success: true, data: result.substring(0, 200) + '...' },
                     // 🔧 FIXED: Team events should have tool call as parent
                     parentExecutionId: toolExecutionId, // This tool call is the parent
                     rootExecutionId: rootExecutionId,
@@ -658,7 +668,7 @@ export class TeamContainer {
                             agentTemplate: params.agentTemplate,
                             resultLength: result.length
                         }]
-                    },
+                    } as any,
                     // 🔧 FIXED: Team events should have tool call as parent
                     parentExecutionId: toolExecutionId, // This tool call is the parent
                     rootExecutionId: rootExecutionId,
@@ -685,7 +695,7 @@ export class TeamContainer {
                     sourceType: 'team',
                     sourceId: 'task-aggregator',
                     taskDescription: 'Result aggregation and synthesis completed',
-                    result: `Synthesized result from ${params.agentTemplate} agent`,
+                    result: { success: true, data: `Synthesized result from ${params.agentTemplate} agent` },
                     // 🔧 FIXED: Team events should have tool call as parent
                     parentExecutionId: toolExecutionId, // This tool call is the parent
                     rootExecutionId: rootExecutionId,
@@ -708,7 +718,7 @@ export class TeamContainer {
                     sourceId: agentId,
                     timestamp: new Date(),
                     taskDescription: params.jobDescription,
-                    result: result.substring(0, 100) + '...',
+                    result: { success: true, data: result.substring(0, 100) + '...' },
                     // Hierarchical tracking information
                     rootExecutionId: rootExecutionId, // Team task is root level
                     executionLevel: agentLevel, // Team level execution

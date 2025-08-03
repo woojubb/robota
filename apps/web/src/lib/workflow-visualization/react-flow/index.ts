@@ -5,7 +5,7 @@
  * Principle: Delegate React-Flow native features to React-Flow itself
  */
 
-import type { 
+import type {
     UniversalWorkflowStructure,
     UniversalWorkflowNode,
     UniversalWorkflowEdge
@@ -26,10 +26,28 @@ import type {
 } from './types';
 
 /**
+ * SDK to React-Flow Node Type Mapping
+ * Maps Universal Workflow node types to React-Flow custom node types
+ */
+const SDK_TO_REACTFLOW_TYPE_MAP: Record<string, string> = {
+    'tool_call': 'toolCall',
+    'agent_thinking': 'agent',
+    'final_response': 'agentResponse',
+    'sub_agent': 'agent',
+    'user_input': 'userInput',
+    'merge_results': 'agentResponse',
+    'agent': 'agent',
+    'team': 'team',
+    'tool': 'tool',
+    'output': 'agentResponse'
+};
+
+/**
  * Simple React-Flow Converter
  * 
  * Features:
  * - Pure Universal → React-Flow data transformation
+ * - SDK node type mapping to React-Flow custom types
  * - No layout calculation (delegate to React-Flow)
  * - No styling (delegate to React-Flow CSS)
  * - No interaction control (delegate to React-Flow props)
@@ -48,11 +66,11 @@ export class SimpleReactFlowConverter {
      */
     async convert(universal: UniversalWorkflowStructure): Promise<ReactFlowData> {
         this.logger.debug('Converting Universal Workflow to React-Flow format');
-        
+
         try {
             const nodes = this.convertNodes(universal.nodes);
             const edges = this.convertEdges(universal.edges);
-            
+
             return {
                 nodes,
                 edges
@@ -65,26 +83,35 @@ export class SimpleReactFlowConverter {
 
     /**
      * Convert Universal nodes to React-Flow nodes
-     * Pure data transformation - styling delegated to React-Flow
+     * Pure data transformation with SDK type mapping - styling delegated to React-Flow
      */
     private convertNodes(universalNodes: UniversalWorkflowNode[]): ReactFlowNode[] {
-        return universalNodes.map(universalNode => ({
-            id: universalNode.id,
-            type: universalNode.type || 'default',
-            position: {
-                x: universalNode.position?.x || 0,
-                y: universalNode.position?.y || 0
-            },
-            data: {
-                label: universalNode.data.label || `${universalNode.type} ${universalNode.id}`,
-                // Pass through all Universal data
-                ...universalNode.data,
-                // Include visual state for reference
-                visualState: universalNode.visualState,
-                // Include metadata for reference
-                metadata: universalNode.metadata
-            }
-        }));
+        return universalNodes.map(universalNode => {
+            // Map SDK node type to React-Flow custom node type
+            const mappedType = SDK_TO_REACTFLOW_TYPE_MAP[universalNode.type] || universalNode.type || 'default';
+
+            this.logger.debug(`Converting node ${universalNode.id}: ${universalNode.type} → ${mappedType}`);
+
+            return {
+                id: universalNode.id,
+                type: mappedType,
+                position: {
+                    x: universalNode.position?.x || 0,
+                    y: universalNode.position?.y || 0
+                },
+                data: {
+                    label: universalNode.data.label || `${universalNode.type} ${universalNode.id}`,
+                    // Pass through all Universal data
+                    ...universalNode.data,
+                    // Include original SDK type for reference
+                    originalType: universalNode.type,
+                    // Include visual state for reference
+                    visualState: universalNode.visualState,
+                    // Include metadata for reference
+                    metadata: universalNode.metadata
+                }
+            };
+        });
     }
 
     /**

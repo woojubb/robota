@@ -1,6 +1,8 @@
 /**
  * @fileoverview Robota SDK Agents Package - Comprehensive AI Agent Framework
  * 
+ * 🎯 중앙집중 Node Type 관리 추가: 도메인 중립적 워크플로우 노드 타입 시스템
+ * 
  * The `@robota-sdk/agents` package provides a complete AI agent framework with support for
  * multiple AI providers, tool calling, plugin systems, and streaming responses. This package
  * provides a modern, modular architecture for building powerful AI applications.
@@ -56,6 +58,17 @@
  * @public
  */
 export * from './interfaces';
+
+/**
+ * 🎯 중앙집중 Node Type 시스템 (외부 커스텀 타입 생성 방지)
+ * 
+ * 도메인 중립적이고 일관된 워크플로우 노드 타입을 제공합니다.
+ * 외부에서 임의의 Node 타입을 생성하는 것을 방지하고,
+ * 모든 Node 타입을 이 상수들을 통해 관리합니다.
+ * 
+ * @public
+ */
+export * from './constants/workflow-node-types';
 
 /**
  * Abstract base classes that provide common functionality and structure.

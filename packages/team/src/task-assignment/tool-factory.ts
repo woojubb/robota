@@ -1,4 +1,4 @@
-import { createZodFunctionTool, type ToolParameters } from '@robota-sdk/agents';
+import { createZodFunctionTool, type ToolParameters, type ToolExecutionContext } from '@robota-sdk/agents';
 import type { ZodTypeAny } from 'zod';
 import type { AssignTaskParams, AssignTaskResult } from '../types.js';
 import { createDynamicAssignTaskSchema, type DynamicAssignTaskSchemaType } from './schema.js';
@@ -15,7 +15,7 @@ export interface TemplateInfo {
  * Interface for AssignTask executor function
  */
 export interface AssignTaskExecutor {
-    (params: AssignTaskParams): Promise<AssignTaskResult>;
+    (params: AssignTaskParams, context?: ToolExecutionContext): Promise<AssignTaskResult>;
 }
 
 
@@ -35,10 +35,10 @@ export function createAssignTaskTool(
         'assignTask',
         createToolDescription(availableTemplates),
         toolParametersSchema as ZodTypeAny,
-        async (parameters: ToolParameters) => {
+        async (parameters: ToolParameters, context?: ToolExecutionContext) => {
             // Type-safe conversion using Zod's inferred type
             const validatedParams = toolParametersSchema.parse(parameters);
-            const result = await executor(convertToAssignTaskParams(validatedParams));
+            const result = await executor(convertToAssignTaskParams(validatedParams), context);
 
             // Return formatted string result for LLM consumption
             return formatResultForLLM(result);

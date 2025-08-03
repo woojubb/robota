@@ -1,6 +1,6 @@
 import type { ToolManagerInterface } from '../interfaces/manager';
 import type { ToolSchema } from '../interfaces/provider';
-import type { ToolInterface, ToolExecutor, ToolExecutionData, ToolParameters } from '../interfaces/tool';
+import type { ToolInterface, ToolExecutor, ToolExecutionData, ToolParameters, ToolExecutionContext } from '../interfaces/tool';
 import { BaseManager } from '../abstracts/base-manager';
 import { ToolRegistry } from '../tools/registry/tool-registry';
 import { FunctionTool } from '../tools/implementations/function-tool';
@@ -94,7 +94,7 @@ export class Tools extends BaseManager implements ToolManagerInterface {
     /**
      * Execute a tool with parameters
      */
-    async executeTool(name: string, parameters: ToolParameters): Promise<ToolExecutionData> {
+    async executeTool(name: string, parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> {
         this.ensureInitialized();
 
         // Check if tool is allowed
@@ -113,7 +113,7 @@ export class Tools extends BaseManager implements ToolManagerInterface {
             );
         }
 
-        const result = await tool.execute(parameters);
+        const result = await tool.execute(parameters, context);
 
         if (!result.success) {
             throw new ToolExecutionError(
