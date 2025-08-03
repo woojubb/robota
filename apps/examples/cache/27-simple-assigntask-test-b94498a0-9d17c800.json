@@ -1,0 +1,47 @@
+{
+  "timestamp": 1754230458284,
+  "sourceFileHash": "",
+  "dependencyVersions": {
+    "timestamp": "1754230458284"
+  },
+  "executionResult": {
+    "nodes": [],
+    "edges": [],
+    "logs": [
+      "1️⃣ Creating team...",
+      "✅ Team created\n",
+      "2️⃣ Executing team with simple task...",
+      "[2025-08-03T14:14:12.180Z] [WARN] [ExecutionAnalyticsPlugin] No active execution found for afterRun \n {\n  \"input\": \"Task: Write a test message\\n\\nPriority: high\\n\\nPlease complete this task thoroughly and provide a compr\"\n}",
+      "[2025-08-03T14:14:18.282Z] [WARN] [ExecutionAnalyticsPlugin] Slow provider call detected \n {\n  \"executionId\": \"provider-1754230444677-2\",\n  \"duration\": 13605,\n  \"threshold\": 5000\n}",
+      "[2025-08-03T14:14:18.283Z] [WARN] [ExecutionAnalyticsPlugin] No active execution found for afterRun \n {\n  \"input\": \"Create a simple test task using the assignTask tool. \\n        Use these parameters:\\n        - jobDes\"\n}",
+      "\n✅ Team execution completed",
+      "⏱️  Duration: 13608ms",
+      "\n📊 Result:",
+      "The test task has been completed successfully. Here is the result:\n\n---\n\n**Subject:** Urgent: Test Message for System Verification\n\n**Dear Team,**\n\nThis is a test message intended to verify the functionality of our communication system. Please read the following details carefully:\n\n1. **Purpose**: To ensure that all team members can receive and respond to messages efficiently.\n\n2. **Action Required**: \n   - Acknowledge receipt of this message by replying with a simple \"Received\" by [insert deadline, e.g., end of the day].\n   - If you encounter any issues receiving this message, please report them immediately.\n\n3. **Additional Information**: \n   - This test is part of our regular system checks to maintain optimal communication flow within the team.\n   - If you have any suggestions for improving our communication processes, please include them in your response.\n\nThank you for your prompt attention to this matter. Your cooperation is greatly appreciated.\n\n**Best regards,**\n\n[Your Name]  \n[Your Position]  \n[Your Contact Information]  \n[Your Company/Organization]  \n\n---\n\nPlease ensure that this message is treated as a priority and that all responses are collected and reviewed.\n\n**Execution time:** 5947ms  \n**Tokens used:** 306  \n**Agent executions:** 1  \n**Success rate:** 100.0%",
+      "\n📈 Team Stats:",
+      "- Tasks completed: 1",
+      "- Total agents created: 1",
+      "- Total execution time: 13608ms",
+      "\n📋 Detailed Team Stats:",
+      "- Active agents: 0",
+      "- Max members: 3",
+      "- Successful tasks: 1",
+      "- Failed tasks: 0",
+      "- Delegation history: 1 entries"
+    ],
+    "metadata": {
+      "teamStats": {
+        "activeAgentsCount": 0,
+        "totalAgentsCreated": 1,
+        "maxMembers": 3,
+        "delegationHistoryLength": 1,
+        "successfulTasks": 1,
+        "failedTasks": 0,
+        "tasksCompleted": 1,
+        "totalExecutionTime": 13608
+      },
+      "duration": 13608
+    }
+  },
+  "success": true
+}

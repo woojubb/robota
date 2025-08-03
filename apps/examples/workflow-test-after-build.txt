@@ -1,0 +1,96 @@
+🧪 Simple assignTask Test Starting...
+
+💰 Cache MISS: 27-simple-assigntask-test-46dcfe16-70fb5d8e (file not found)
+💰 Cache MISS - executing with LLM (cost incurred)
+1️⃣ Creating team...
+Team created with leader template: task_coordinator (openai/gpt-4o-mini)
+✅ Team created
+
+2️⃣ Executing team with simple task...
+📊 Agent slot reserved - Active: 1, Total: 1, Max: 3
+🎯 [assignTask] Creating temporaryAgent from template: general
+🎯 [assignTask] temporaryAgent created successfully: temp-agent-agent-1754231810622-9c1ft7ahk
+📊 Agent created - Active: 1, Total: 1
+🎯 [assignTask] About to execute temporaryAgent.run() for agent: agent-1754231810622-9c1ft7ahk
+🎯 [assignTask] Task prompt: Task: Write a test message
+
+Priority: high
+
+Please complete this task thoroughly and provide a comprehensive response....
+[2025-08-03T14:36:55.895Z] [WARN] [ExecutionAnalyticsPlugin] No active execution found for afterRun 
+ {
+  "input": "Task: Write a test message\n\nPriority: high\n\nPlease complete this task thoroughly and provide a compr"
+}
+🎯 [assignTask] temporaryAgent.run() completed for agent: agent-1754231810622-9c1ft7ahk
+✅ Task completed by agent agent-1754231810622-9c1ft7ahk (5273ms)
+📊 Agent completed successfully - Active agents now: 0
+[2025-08-03T14:37:02.334Z] [WARN] [ExecutionAnalyticsPlugin] Slow provider call detected 
+ {
+  "executionId": "provider-1754231809631-2",
+  "duration": 12703,
+  "threshold": 5000
+}
+[2025-08-03T14:37:02.334Z] [WARN] [ExecutionAnalyticsPlugin] No active execution found for afterRun 
+ {
+  "input": "Create a simple test task using the assignTask tool. \n        Use these parameters:\n        - jobDes"
+}
+✅ Team execution completed in 12705ms
+
+✅ Team execution completed
+⏱️  Duration: 12705ms
+
+📊 Result:
+The test task has been successfully completed. Here’s the result:
+
+**Subject**: Urgent: Test Message for System Verification
+
+---
+
+Dear Team,
+
+This is a test message intended to verify the functionality of our communication system. Please read the following details carefully:
+
+1. **Purpose of the Test**: To ensure that all team members receive important communications in a timely manner and that the system is operating effectively.
+
+2. **Instructions**:
+   - Please confirm receipt of this message by replying to this email.
+   - If you do not receive this message, please notify the IT department immediately.
+
+3. **Deadline for Responses**: Kindly respond by [insert specific date and time] to ensure we can address any issues promptly.
+
+4. **Additional Notes**:
+   - If you encounter any issues while responding, please document the problem and include any error messages in your reply.
+   - This test is crucial for our ongoing efforts to improve communication and ensure that all team members are connected.
+
+Thank you for your prompt attention to this matter. Your cooperation is greatly appreciated.
+
+Best regards,
+
+[Your Name]  
+[Your Position]  
+[Your Contact Information]  
+[Your Company/Organization Name]  
+
+---
+
+**Execution time**: 5273ms  
+**Tokens used**: 316  
+**Agent executions**: 1  
+**Success rate**: 100.0%
+
+📈 Team Stats:
+- Tasks completed: 1
+- Total agents created: 1
+- Total execution time: 12705ms
+
+📋 Detailed Team Stats:
+- Active agents: 0
+- Max members: 3
+- Successful tasks: 1
+- Failed tasks: 0
+- Delegation history: 1 entries
+💾 Cache SAVED: 27-simple-assigntask-test-46dcfe16-70fb5d8e
+
+💾 Execution result cached for future use
+
+🏁 Test completed
