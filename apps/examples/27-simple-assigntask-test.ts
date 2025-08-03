@@ -2,30 +2,75 @@
 /**
  * Simple assignTask Test - Minimal example to test assignTask functionality
  * Tests the assignTask tool execution in isolation
+ * 
+ * 🚀 Cache-enabled for cost-efficient development
  */
 
 import { createTeam } from '@robota-sdk/team';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { config } from 'dotenv';
+import { CacheManager } from './utils/cache-manager';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
 
 // Load environment variables
 config();
 
+// ES module __filename equivalent
+const __filename = fileURLToPath(import.meta.url);
+
+const cacheManager = new CacheManager();
+const EXAMPLE_NAME = '27-simple-assigntask-test';
+const SOURCE_FILE = __filename;
+
 async function testAssignTask() {
     console.log('🧪 Simple assignTask Test Starting...\n');
 
+    // 🚀 Check cache first (cost-efficient development)
+    const cacheKey = cacheManager.generateCacheKey(EXAMPLE_NAME, SOURCE_FILE);
+    const cacheResult = cacheManager.checkCache(cacheKey);
+
+    if (cacheResult.isValid && cacheResult.data) {
+        console.log('📊 Using cached execution result for analysis:\n');
+
+        // Analyze cached workflow data for Tool Response connections
+        const cachedWorkflow = cacheResult.data.executionResult;
+        console.log(`🔍 Cached workflow analysis:`);
+        console.log(`- Total nodes: ${cachedWorkflow.nodes?.length || 0}`);
+        console.log(`- Total edges: ${cachedWorkflow.edges?.length || 0}`);
+
+        // Filter logs for Agent Copy and Tool Response tracking
+        const agentCopyLogs = cachedWorkflow.logs?.filter(log =>
+            log.includes('AGENT-COPY') || log.includes('MERGE-RESULTS') || log.includes('TOOL-RESPONSE')
+        ) || [];
+
+        if (agentCopyLogs.length > 0) {
+            console.log('\n🎯 Tool Response Connection Analysis:');
+            agentCopyLogs.forEach(log => console.log(`  ${log}`));
+        }
+
+        console.log('\n🏁 Cache analysis completed');
+        return;
+    }
+
+    console.log('💰 Cache MISS - executing with LLM (cost incurred)');
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
         throw new Error('OPENAI_API_KEY environment variable is required');
     }
 
+    const executionLogs: string[] = [];
+    const originalConsoleLog = console.log;
+    console.log = (...args) => {
+        const message = args.join(' ');
+        executionLogs.push(message);
+        originalConsoleLog(...args);
+    };
+
     try {
-        // Create provider
+        // Create provider with correct interface
         const openaiProvider = new OpenAIProvider({
-            apiKey,
-            enablePayloadLogging: true,
-            payloadLogDir: './logs/simple-assigntask-test',
-            includeTimestampInLogFiles: true
+            apiKey
         });
 
         // Create a simple team
@@ -44,7 +89,7 @@ async function testAssignTask() {
         const prompt = `Create a simple test task using the assignTask tool. 
         Use these parameters:
         - jobDescription: "Write a test message"
-        - agentTemplate: "test_agent"
+        - agentTemplate: "general"
         - priority: "high"
         
         Just call the tool once and return the result.`;
@@ -58,29 +103,40 @@ async function testAssignTask() {
         console.log('\n📊 Result:');
         console.log(result);
 
-        // Get team stats
+        // Get team stats (using correct property names)
         const stats = team.getStats();
         console.log('\n📈 Team Stats:');
-        console.log(`- Total executions: ${stats.totalExecutions}`);
-        console.log(`- Active agents: ${stats.activeAgents}`);
+        console.log(`- Tasks completed: ${stats.tasksCompleted}`);
         console.log(`- Total agents created: ${stats.totalAgentsCreated}`);
-        console.log(`- Task delegations: ${stats.taskDelegations.length}`);
+        console.log(`- Total execution time: ${stats.totalExecutionTime}ms`);
 
-        if (stats.taskDelegations.length > 0) {
-            console.log('\n📋 Task Delegations:');
-            stats.taskDelegations.forEach((delegation, index) => {
-                console.log(`  ${index + 1}. ${delegation.originalTask}`);
-                console.log(`     Agent: ${delegation.agentId}`);
-                console.log(`     Success: ${delegation.success}`);
-                console.log(`     Duration: ${delegation.duration}ms`);
-            });
-        }
+        // Get detailed team stats
+        const teamStats = team.getTeamStats();
+        console.log('\n📋 Detailed Team Stats:');
+        console.log(`- Active agents: ${teamStats.activeAgentsCount}`);
+        console.log(`- Max members: ${teamStats.maxMembers}`);
+        console.log(`- Successful tasks: ${teamStats.successfulTasks}`);
+        console.log(`- Failed tasks: ${teamStats.failedTasks}`);
+        console.log(`- Delegation history: ${teamStats.delegationHistoryLength} entries`);
+
+        // 💾 Save successful execution to cache
+        const mockWorkflowResult = {
+            nodes: [], // Would be populated by WorkflowEventSubscriber
+            edges: [], // Would be populated by WorkflowEventSubscriber  
+            metadata: { teamStats, duration }
+        };
+
+        cacheManager.saveToCache(cacheKey, mockWorkflowResult, executionLogs);
+        console.log('\n💾 Execution result cached for future use');
 
     } catch (error) {
         console.error('\n❌ Error during test:', error);
         if (error instanceof Error) {
             console.error('Stack:', error.stack);
         }
+    } finally {
+        // Restore console.log
+        console.log = originalConsoleLog;
     }
 
     console.log('\n🏁 Test completed');

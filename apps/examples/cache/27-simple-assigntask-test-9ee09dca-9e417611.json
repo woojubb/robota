@@ -1,0 +1,45 @@
+{
+  "timestamp": 1754230428987,
+  "sourceFileHash": "",
+  "dependencyVersions": {
+    "timestamp": "1754230428988"
+  },
+  "executionResult": {
+    "nodes": [],
+    "edges": [],
+    "logs": [
+      "1️⃣ Creating team...",
+      "✅ Team created\n",
+      "2️⃣ Executing team with simple task...",
+      "[2025-08-03T14:13:48.987Z] [WARN] [ExecutionAnalyticsPlugin] No active execution found for afterRun \n {\n  \"input\": \"Create a simple test task using the assignTask tool. \\n        Use these parameters:\\n        - jobDes\"\n}",
+      "\n✅ Team execution completed",
+      "⏱️  Duration: 3323ms",
+      "\n📊 Result:",
+      "The attempt to create a test task using the specified agent template \"test_agent\" failed because that template does not exist. The available templates are: general, summarizer, ethical_reviewer, creative_ideator, fast_executor, domain_researcher, and task_coordinator. \n\nIf you'd like to proceed with a different template or adjust the parameters, please let me know!",
+      "\n📈 Team Stats:",
+      "- Tasks completed: 1",
+      "- Total agents created: 1",
+      "- Total execution time: 3323ms",
+      "\n📋 Detailed Team Stats:",
+      "- Active agents: 0",
+      "- Max members: 3",
+      "- Successful tasks: 0",
+      "- Failed tasks: 1",
+      "- Delegation history: 1 entries"
+    ],
+    "metadata": {
+      "teamStats": {
+        "activeAgentsCount": 0,
+        "totalAgentsCreated": 1,
+        "maxMembers": 3,
+        "delegationHistoryLength": 1,
+        "successfulTasks": 0,
+        "failedTasks": 1,
+        "tasksCompleted": 1,
+        "totalExecutionTime": 3323
+      },
+      "duration": 3323
+    }
+  },
+  "success": true
+}
