@@ -658,8 +658,11 @@ export class TeamContainer {
                 });
             }
 
-            // 8. Emit task aggregation start event
+            // 8. Emit task aggregation start event (with timing adjustment to ensure tool_call_complete events are processed first)
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                // Add small delay to ensure tool_call_complete events are processed first
+                await new Promise(resolve => setTimeout(resolve, 10));
+
                 // Use the actual agent ID instead of 'task-aggregator'
                 const actualSourceId = String(context?.sourceId || agentId);
                 this.eventService.emit('task.aggregation_start', {

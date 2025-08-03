@@ -358,20 +358,15 @@ export class ExecutionService {
                     ...(availableTools.length > 0 && { tools: availableTools })
                 };
 
-                // 🔧 Use reserved thinking node ID from WorkflowEventSubscriber (no custom ID generation)
-                // This ensures ID consistency and eliminates Ghost Connections
+                // 🔧 Sequential thinking ID generation (consistent with WorkflowEventSubscriber)
                 const rootId = fullContext.conversationId || executionId;
-                let thinkingNodeId = `thinking_agent_0_copy_1`; // Default to Agent 0 reserved ID
 
-                // 🎯 Try to get reserved thinking ID from WorkflowEventSubscriber if available
-                if (this.eventService && 'agentToThinkingMap' in this.eventService) {
-                    const reservedId = (this.eventService as any).agentToThinkingMap?.get(String(rootId));
-                    if (reservedId) {
-                        thinkingNodeId = reservedId;
-                    }
-                }
+                // 🎯 Generate sequential thinking ID matching WorkflowEventSubscriber logic
+                const conversationId = String(rootId).replace('conv_', '').substring(0, 16);
+                const sequentialThinkingId = `thinking_agent_0_copy_1_${conversationId}_round${currentRound + 1}`;
+                let thinkingNodeId = sequentialThinkingId;
 
-                // Emit assistant message start event
+                // Emit assistant message start event for each thinking phase
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                     this.eventService.emit('assistant.message_start', {
                         sourceType: 'agent',
@@ -459,10 +454,21 @@ export class ExecutionService {
 
                 // Emit tool_call_start events for each tool with direct parent provision
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                    // 🎯 ActionTrackingEventService에 hierarchy 등록
+                    if ('trackExecution' in this.eventService) {
+                        (this.eventService as any).trackExecution(thinkingNodeId, fullContext.conversationId || executionId, 1);
+                    }
+
                     for (const toolCall of assistantResponse.toolCalls) {
+                        // 🎯 각 tool call을 hierarchy에 등록
+                        if ('trackExecution' in this.eventService) {
+                            (this.eventService as any).trackExecution(toolCall.id, thinkingNodeId, 2);
+                        }
+
                         this.eventService.emit('tool_call_start', {
                             sourceType: 'agent',
                             sourceId: fullContext.conversationId || executionId,
+                            executionId: toolCall.id, // 🎯 tool call ID를 executionId로 설정
                             toolName: toolCall.function?.name,
                             timestamp: new Date(),
                             parameters: JSON.parse(toolCall.function?.arguments || '{}'),
