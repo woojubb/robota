@@ -705,17 +705,32 @@ function WorkflowTestButtons() {
     }, [setWorkflow]);
 
     // 🎉 완벽한 Agent Copy 시스템 데이터 (실제 SDK 결과)
-    const handleLoadPerfectAgentCopy = useCallback(() => {
+    const handleLoadPerfectAgentCopy = useCallback(async () => {
         console.log('🎉 [PERFECT-COPY] Loading perfect Agent Copy system data from actual SDK execution...');
-        const perfectData = generatePerfectAgentCopyData();
+        
+        try {
+            // 실제 SDK 실행 결과 JSON 파일 로드
+            const response = await fetch('/perfect-playground-data.json');
+            if (!response.ok) {
+                throw new Error(`Failed to load perfect data: ${response.status}`);
+            }
+            const perfectData = await response.json();
+            
+            console.log('🎉 [PERFECT-COPY] Loaded real SDK execution result:', {
+                nodes: perfectData.nodes?.length || 0,
+                edges: perfectData.edges?.length || 0,
+                timestamp: perfectData.metadata?.createdAt,
+                features: 'Real SDK Execution Result + 21 Edge Connections + Agent Copy System'
+            });
 
-        setWorkflow(perfectData);
-
-        console.log('🎉 [PERFECT-COPY] Perfect Agent Copy data loaded:', {
-            nodes: perfectData.nodes?.length || 0,
-            edges: perfectData.edges?.length || 0,
-            features: 'Agent Copy System + Standard Connection Rules + Complete Edge Connections'
-        });
+            setWorkflow(perfectData);
+        } catch (error) {
+            console.error('❌ [PERFECT-COPY] Failed to load perfect data:', error);
+            // Fallback to mock data if JSON loading fails
+            const fallbackData = generatePerfectAgentCopyData();
+            setWorkflow(fallbackData);
+            console.log('🔄 [PERFECT-COPY] Used fallback data instead');
+        }
     }, [setWorkflow]);
 
     return (
@@ -727,13 +742,13 @@ function WorkflowTestButtons() {
             >
                 🎯 Load Agent Numbering System
             </button>
-            <button
-                onClick={handleLoadPerfectAgentCopy}
-                className="px-4 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition-colors font-medium"
-                title="Load Perfect Agent Copy System - Real SDK execution result with 37 complete edge connections"
-            >
-                🎉 Load Perfect Agent Copy System
-            </button>
+                                    <button
+                            onClick={handleLoadPerfectAgentCopy}
+                            className="px-4 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition-colors font-medium"
+                            title="Load Real SDK Execution Result - 12 nodes, 21 edges from actual Example 26 execution"
+                        >
+                            🎯 Load REAL SDK Result (12 nodes, 21 edges)
+                        </button>
         </>
     );
 }
