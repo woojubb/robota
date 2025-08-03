@@ -25,72 +25,72 @@ export interface LayoutConfig {
  * Default layout configurations for different scenarios
  */
 export const LAYOUT_PRESETS: Record<string, LayoutConfig> = {
-  // Vertical workflow layout (default) - optimized for edge connections
-  vertical: {
-    rankdir: 'TB',
-    align: 'UL',
-    nodesep: 40,
-    edgesep: 15,
-    ranksep: 80,
-    marginx: 40,
-    marginy: 40
-  },
-  
-  // Horizontal workflow layout - optimized for wide displays
-  horizontal: {
-    rankdir: 'LR',
-    align: 'UL',
-    nodesep: 25,
-    edgesep: 15,
-    ranksep: 120,
-    marginx: 40,
-    marginy: 40
-  },
-  
-  // Compact layout for dense workflows - tighter spacing
-  compact: {
-    rankdir: 'TB',
-    align: 'UL',
-    nodesep: 25,
-    edgesep: 8,
-    ranksep: 50,
-    marginx: 25,
-    marginy: 25
-  },
-  
-  // Spacious layout for presentations - wider spacing
-  spacious: {
-    rankdir: 'TB',
-    align: 'UL',
-    nodesep: 60,
-    edgesep: 20,
-    ranksep: 120,
-    marginx: 60,
-    marginy: 60
-  }
+    // Vertical workflow layout (default) - optimized for edge connections
+    vertical: {
+        rankdir: 'TB',
+        align: 'UL',
+        nodesep: 40,
+        edgesep: 15,
+        ranksep: 80,
+        marginx: 40,
+        marginy: 40
+    },
+
+    // Horizontal workflow layout - optimized for wide displays
+    horizontal: {
+        rankdir: 'LR',
+        align: 'UL',
+        nodesep: 25,
+        edgesep: 15,
+        ranksep: 120,
+        marginx: 40,
+        marginy: 40
+    },
+
+    // Compact layout for dense workflows - tighter spacing
+    compact: {
+        rankdir: 'TB',
+        align: 'UL',
+        nodesep: 25,
+        edgesep: 8,
+        ranksep: 50,
+        marginx: 25,
+        marginy: 25
+    },
+
+    // Spacious layout for presentations - wider spacing
+    spacious: {
+        rankdir: 'TB',
+        align: 'UL',
+        nodesep: 60,
+        edgesep: 20,
+        ranksep: 120,
+        marginx: 60,
+        marginy: 60
+    }
 };
 
 /**
  * Node dimensions based on type with precise measurements
  */
 const NODE_DIMENSIONS = {
-  default: { width: 200, height: 80 },
-  agent: { width: 220, height: 100 },
-  agent_thinking: { width: 200, height: 80 },
-  tool_call: { width: 180, height: 70 },
-  tool_call_response: { width: 180, height: 70 },
-  user_message: { width: 160, height: 60 },
-  merge_results: { width: 200, height: 80 },
-  response: { width: 180, height: 70 }
+    default: { width: 200, height: 80 },
+    agent: { width: 220, height: 100 },
+    agent_thinking: { width: 200, height: 80 },
+    tool_call: { width: 180, height: 70 },
+    tool_call_response: { width: 180, height: 70 },
+    user_message: { width: 160, height: 60 },
+    merge_results: { width: 200, height: 80 },
+    response: { width: 180, height: 70 }
 };
 
 /**
  * Handle offset corrections for better edge connections
  */
 const HANDLE_OFFSET = {
-  top: 4,    // Offset from top edge for input handles
-  bottom: 4, // Offset from bottom edge for output handles
-  side: 4    // Offset from side edges for side handles
+    top: 4,    // Offset from top edge for input handles
+    bottom: 4, // Offset from bottom edge for output handles
+    side: 4    // Offset from side edges for side handles
 };
 
 /**
@@ -141,32 +141,42 @@ export function applyDagreLayout(
     // Run layout algorithm
     dagre.layout(dagreGraph);
 
-      // Update node positions based on layout results with handle offset correction
-  const layoutedNodes: Node[] = nodes.map((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id);
-    const dimensions = getNodeDimensions(node.type);
-    
-    // Calculate position with proper centering and handle offset
-    const x = nodeWithPosition.x - dimensions.width / 2;
-    const y = nodeWithPosition.y - dimensions.height / 2;
-    
-    return {
-      ...node,
-      position: { x, y },
-      // Ensure nodes have proper dimensions for React Flow
-      style: {
-        ...node.style,
-        width: dimensions.width,
-        height: dimensions.height
-      },
-      // Add computed dimensions to data for handle positioning
-      data: {
-        ...node.data,
-        computedWidth: dimensions.width,
-        computedHeight: dimensions.height
-      }
-    };
-  });
+    // Update node positions based on layout results with handle positioning
+    const layoutedNodes: Node[] = nodes.map((node) => {
+        const nodeWithPosition = dagreGraph.node(node.id);
+        const dimensions = getNodeDimensions(node.type);
+
+        // Determine handle positions based on layout direction
+        const isHorizontal = config.rankdir === 'LR' || config.rankdir === 'RL';
+        const sourcePosition = isHorizontal ? 'right' : 'bottom';
+        const targetPosition = isHorizontal ? 'left' : 'top';
+
+        // Calculate position with proper centering (Dagre uses center-center, React Flow uses top-left)
+        const x = nodeWithPosition.x - dimensions.width / 2;
+        const y = nodeWithPosition.y - dimensions.height / 2;
+
+        return {
+            ...node,
+            position: { x, y },
+            // Set dynamic handle positions based on layout direction
+            sourcePosition,
+            targetPosition,
+            // Ensure nodes have proper dimensions for React Flow
+            style: {
+                ...node.style,
+                width: dimensions.width,
+                height: dimensions.height
+            },
+            // Add computed dimensions and handle positions to data
+            data: {
+                ...node.data,
+                computedWidth: dimensions.width,
+                computedHeight: dimensions.height,
+                sourcePosition,
+                targetPosition
+            }
+        };
+    });
 
     return {
         nodes: layoutedNodes,
