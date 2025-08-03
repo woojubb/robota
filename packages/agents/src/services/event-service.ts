@@ -52,18 +52,20 @@ export type ServiceEventType =
     | 'agent.creation_complete'   // Agent creation process completed
     | 'agent.execution_start'     // Individual agent execution started
     | 'agent.execution_complete'  // Individual agent execution completed
-    | 'subtool.call_start'        // Agent internal tool call started
-    | 'subtool.call_complete'     // Agent internal tool call completed
-    | 'subtool.call_error'        // Agent internal tool call failed
+    // 🗑️ Sub tool events removed - unified into standard tool_call events for domain neutrality
     | 'task.aggregation_start'    // Task result aggregation started
-    | 'task.aggregation_complete'; // Task result aggregation completed      // Team task completion
+    | 'task.aggregation_complete' // Task result aggregation completed
+    // Agent Integration Instance events for Playground-level connection quality
+    | 'agent.integration_start'     // Agent Integration Instance creation started
+    | 'agent.integration_complete'  // Agent Integration Instance processing completed
+    | 'response.integration';       // Response integration into Agent Integration Instance
 
 /**
  * Service event data structure with hierarchical tracking information
  */
 export interface ServiceEventData {
-    /** Source type: agent, team, tool, or sub-agent */
-    sourceType: 'agent' | 'team' | 'tool' | 'sub-agent';
+    /** Source type: agent, team, or tool (sub-agent removed for domain neutrality) */
+    sourceType: 'agent' | 'team' | 'tool';
 
     /** Source identifier (agent ID, team ID, etc.) */
     sourceId: string;
@@ -102,6 +104,16 @@ export interface ServiceEventData {
 
     /** Additional metadata */
     metadata?: LoggerData;
+
+    // Agent Integration Instance specific data (for Playground-level connection quality)
+    /** Integration instance identifier for result consolidation */
+    integrationId?: string;
+
+    /** Source response IDs being integrated */
+    sourceResponseIds?: string[];
+
+    /** Integration processing level (3: Integration Instance level) */
+    integrationLevel?: number;
 
     /** Allow additional properties for extensibility */
     // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, generic-constraint

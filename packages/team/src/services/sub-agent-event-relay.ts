@@ -52,48 +52,56 @@ export class SubAgentEventRelay extends ActionTrackingEventService {
     /**
      * Emit event with direct parent ID provision (no inference needed)
      * Provides exact parentId for each event type to eliminate mapping/inference
+     * Uses asynchronous processing to prevent event loop blocking
      * 
      * @param eventType - Type of event to emit
      * @param data - Event data
      */
     emit(eventType: ServiceEventType, data: ServiceEventData): void {
-        let enrichedData: ServiceEventData = {
-            ...data,
-            parentExecutionId: this.parentToolCallId,  // 🔑 Connect to assignTask
-            executionLevel: (data.executionLevel || 0) + 1,  // 🔑 Nested level
-            sourceType: 'agent'  // 🔑 Unified domain-neutral agent type (no sub-agent)
-        };
+        // Process event asynchronously to prevent blocking
+        setTimeout(() => {
+            try {
+                let enrichedData: ServiceEventData = {
+                    ...data,
+                    parentExecutionId: this.parentToolCallId,  // 🔑 Connect to assignTask
+                    executionLevel: (data.executionLevel || 0) + 1,  // 🔑 Nested level
+                    sourceType: 'agent'  // 🔑 Unified domain-neutral agent type (no sub-agent)
+                };
 
-        // 🎯 Agent Copy 시스템 통합: 독립적인 ID 생성 제거
-        // WorkflowEventSubscriber의 표준 Agent Copy 시스템에서 예약된 ID 사용
-        if (eventType === 'assistant.message_start') {
-            // 표준 Agent Copy 시스템에서 thinking ID가 예약되어 제공됨
-            // SubAgentEventRelay는 단순히 이벤트를 전달만 함
-            enrichedData = {
-                ...enrichedData,
-                metadata: {
-                    ...data.metadata,
-                    // 🎯 표준 시스템 통합: 독립적인 thinkingNodeId 생성 제거
-                    // WorkflowEventSubscriber에서 예약된 ID 사용
+                // 🎯 Agent Copy 시스템 통합: 독립적인 ID 생성 제거
+                // WorkflowEventSubscriber의 표준 Agent Copy 시스템에서 예약된 ID 사용
+                if (eventType === 'assistant.message_start') {
+                    // 표준 Agent Copy 시스템에서 thinking ID가 예약되어 제공됨
+                    // SubAgentEventRelay는 단순히 이벤트를 전달만 함
+                    enrichedData = {
+                        ...enrichedData,
+                        metadata: {
+                            ...data.metadata,
+                            // 🎯 표준 시스템 통합: 독립적인 thinkingNodeId 생성 제거
+                            // WorkflowEventSubscriber에서 예약된 ID 사용
+                        }
+                    };
                 }
-            };
-        }
 
-        if (eventType === 'tool_call_start') {
-            // 🎯 표준 Agent Copy 시스템 통합: 독립적인 매핑 제거
-            // WorkflowEventSubscriber에서 agentToThinkingMap 사용
-            enrichedData = {
-                ...enrichedData,
-                metadata: {
-                    ...data.metadata,
-                    // 🎯 표준 시스템 통합: WorkflowEventSubscriber의 agentToThinkingMap 사용
-                    // SubAgentEventRelay의 독립적인 executionToThinkingMap 제거
+                if (eventType === 'tool_call_start') {
+                    // 🎯 표준 Agent Copy 시스템 통합: 독립적인 매핑 제거
+                    // WorkflowEventSubscriber에서 agentToThinkingMap 사용
+                    enrichedData = {
+                        ...enrichedData,
+                        metadata: {
+                            ...data.metadata,
+                            // 🎯 표준 시스템 통합: WorkflowEventSubscriber의 agentToThinkingMap 사용
+                            // SubAgentEventRelay의 독립적인 executionToThinkingMap 제거
+                        }
+                    };
                 }
-            };
-        }
 
-        // Forward to parent EventService for unified hierarchy
-        this.parentEventService.emit(eventType, enrichedData);
+                // Forward to parent EventService for unified hierarchy
+                this.parentEventService.emit(eventType, enrichedData);
+            } catch (error) {
+                console.error(`[SubAgentEventRelay] Error processing event ${eventType}:`, error);
+            }
+        }, 0);
     }
 
     /**
