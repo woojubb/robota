@@ -13,20 +13,28 @@ import {
     WorkflowNode,
     WorkflowNodeUpdate,
     WorkflowConnection,
-    WorkflowNodeType,
     WorkflowConnectionType
 } from './workflow-event-subscriber';
 import { EventService } from './event-service';
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
+import { WORKFLOW_NODE_TYPES, WorkflowNodeType } from '../constants/workflow-node-types';
 import type { GenericMetadata } from '../interfaces/base-types';
 import type { WorkflowData } from '../interfaces/workflow-converter';
 
 // Universal Workflow Integration
 import { WorkflowToUniversalConverter } from './workflow-converter';
 import type {
-    UniversalWorkflowStructure
+    UniversalWorkflowStructure,
+    UniversalWorkflowNode,
+    UniversalWorkflowEdge
 } from './workflow-converter/universal-types';
 import type { WorkflowConversionOptions } from '../interfaces/workflow-converter';
+
+// External Store interface for minimal modification
+export interface ExternalWorkflowStore {
+    getNodes(): UniversalWorkflowNode[];
+    getEdges(): UniversalWorkflowEdge[];
+}
 
 /**
  * Workflow 구조 (목표 AssignTask 분기 구조)
@@ -91,12 +99,22 @@ export class RealTimeWorkflowBuilder {
     private universalConverter: WorkflowToUniversalConverter;
     private universalUpdateCallbacks: ((universalData: UniversalWorkflowStructure) => void)[] = [];
 
+    // External Store Integration (STEP 8.2.1)
+    private externalStore: ExternalWorkflowStore | null = null;
+
     constructor(
         eventService: EventService,
-        logger?: SimpleLogger
+        logger?: SimpleLogger,
+        externalStore?: ExternalWorkflowStore  // STEP 8.2.1: 외부 Store 주입 옵션 추가
     ) {
         this.logger = logger || SilentLogger;
         this.workflowSubscriber = eventService as WorkflowEventSubscriber;
+
+        // STEP 8.2.1: 외부 Store 설정
+        this.externalStore = externalStore || null;
+        if (this.externalStore) {
+            this.logger.debug('RealTimeWorkflowBuilder initialized with ExternalWorkflowStore');
+        }
 
         // Universal 변환기 초기화
         this.universalConverter = new WorkflowToUniversalConverter(this.logger);
@@ -182,21 +200,21 @@ export class RealTimeWorkflowBuilder {
 
         // 특별한 Node 타입 처리
         switch (node.type) {
-            case 'user_input':
+            case WORKFLOW_NODE_TYPES.USER_INPUT:
                 this.handleUserInputNode(node);
                 break;
 
-            case 'agent':
+            case WORKFLOW_NODE_TYPES.AGENT:
                 this.handleMainAgentNode(node);
                 break;
 
-            case 'tool_call':
+            case WORKFLOW_NODE_TYPES.TOOL_CALL:
                 this.handleToolCallNode(node);
                 break;
 
-            case 'sub_agent':
-                this.handleSubAgentNode(node);
-                break;
+            // case 'sub_agent': // 제거됨 - 모든 agent는 동일한 'agent' 타입 사용
+            //     this.handleSubAgentNode(node);
+            //     break;
         }
 
         this.logger.debug(`Added node to workflow: ${node.type} (${node.id})`);
@@ -264,26 +282,7 @@ export class RealTimeWorkflowBuilder {
         return `Branch ${this.currentWorkflow.branches.length + 1}`;
     }
 
-    /**
-     * Sub-Agent Node 처리 - 분기에 Sub-Agent 연결
-     */
-    private handleSubAgentNode(node: WorkflowNode): void {
-        // parentExecutionId를 통해 해당하는 assignTask 분기 찾기
-        const parentExecutionId = node.data.parentExecutionId;
-        if (!parentExecutionId) return;
-
-        const branch = this.findBranchByAssignTaskId(parentExecutionId);
-        if (branch) {
-            branch.subAgentId = node.id;
-            branch.nodes.push(node);
-            branch.status = 'running';
-
-            // Tool Call → Sub-Agent spawn 연결 생성
-            this.createSpawnConnection(branch.assignTaskCallId, node.id);
-
-            this.logger.debug(`Sub-Agent connected to branch: ${branch.name} → ${node.id}`);
-        }
-    }
+    // 🗑️ handleSubAgentNode removed - unified agent handling for domain neutrality
 
     /**
      * assignTask ID로 분기 찾기
@@ -295,35 +294,34 @@ export class RealTimeWorkflowBuilder {
         );
     }
 
-    /**
-     * spawn 연결 생성 (Tool Call → Sub-Agent)
-     */
-    private createSpawnConnection(fromNodeId: string, toNodeId: string): void {
-        const connection: WorkflowConnection = {
-            fromId: fromNodeId,
-            toId: toNodeId,
-            type: 'spawn',
-            label: 'creates sub-agent'
-        };
-
-        this.currentWorkflow.connections.push(connection);
-
-        // 해당 Tool Call Node에도 연결 추가
-        const toolCallNode = this.currentWorkflow.nodes.find(n => n.id === fromNodeId);
-        if (toolCallNode) {
-            toolCallNode.connections.push(connection);
-        }
-
-        this.logger.debug(`Created spawn connection: ${fromNodeId} → ${toNodeId}`);
-    }
+    // 🗑️ createSpawnConnection removed - unified connection handling for domain neutrality
 
     /**
      * Node 간 연결 관계 설정
      */
     private establishConnections(node: WorkflowNode): void {
-        // Parent-Child 연결
-        if (node.parentId) {
+        // Parent-Child 연결 (🚀 와일드카드 방지: parentId가 확실히 존재하는 경우에만)
+        if (node.parentId && !node.parentId.includes('*') && !node.parentId.includes('undefined')) {
             this.createParentChildConnection(node.parentId, node.id, node.type);
+        } else if (node.parentId) {
+            this.logger.warn(`🚨 [WILDCARD-PREVENTION] Skipping invalid parentId: ${node.parentId} for node: ${node.id}`);
+        }
+
+        // 🔧 NODE CONNECTIONS 추출: WorkflowEventSubscriber에서 생성한 연결들을 workflow.connections로 복사
+        if (node.connections && Array.isArray(node.connections)) {
+            node.connections.forEach(connection => {
+                // 중복 연결 방지 검사
+                const isDuplicate = this.currentWorkflow.connections.some(existing =>
+                    existing.fromId === connection.fromId &&
+                    existing.toId === connection.toId &&
+                    existing.type === connection.type
+                );
+
+                if (!isDuplicate) {
+                    this.currentWorkflow.connections.push(connection);
+                    this.logger.debug(`🔗 [NODE-CONNECTIONS] Added connection: ${connection.fromId} → ${connection.toId} (${connection.type})`);
+                }
+            });
         }
 
         // 특별한 연결 규칙들
@@ -352,13 +350,12 @@ export class RealTimeWorkflowBuilder {
      */
     private determineConnectionType(nodeType: WorkflowNodeType): WorkflowConnectionType {
         switch (nodeType) {
-            case 'agent': return 'receives';
-            case 'agent_thinking': return 'processes';
-            case 'tool_call': return 'executes';
-            case 'sub_agent': return 'spawn';
-            case 'sub_tool_call': return 'executes';
-            case 'sub_response': return 'return';
-            case 'final_response': return 'final';
+            case WORKFLOW_NODE_TYPES.AGENT: return 'receives';
+            case WORKFLOW_NODE_TYPES.AGENT_THINKING: return 'processes';
+            case WORKFLOW_NODE_TYPES.TOOL_CALL: return 'executes';
+            case WORKFLOW_NODE_TYPES.TOOL_CALL_RESPONSE: return 'result';
+            case WORKFLOW_NODE_TYPES.RESPONSE: return 'return'; // 도메인 중립적 통일
+            case WORKFLOW_NODE_TYPES.MERGE_RESULTS: return 'consolidates';
             default: return 'result';
         }
     }
@@ -373,13 +370,15 @@ export class RealTimeWorkflowBuilder {
             'receives': 'receives input',
             'processes': 'processes',
             'executes': 'executes',
+            'calls': 'calls',
+            'creates': 'creates',
             'branch': 'branches to',
             'result': 'returns result',
             'analyze': 'analyzes',
-            'spawn': 'creates',
-            'delegate': 'delegates to',
             'return': 'returns to',
-            'consolidate': 'consolidates',
+            'consolidates': 'consolidates',
+            'integrates': 'integrates',
+            'finalizes': 'finalizes',
             'final': 'generates',
             'deliver': 'delivers'
         };
@@ -390,13 +389,13 @@ export class RealTimeWorkflowBuilder {
      * 특별한 연결 규칙 적용
      */
     private applySpecialConnectionRules(node: WorkflowNode): void {
-        // Sub-Agent Response → Main Agent Merge 연결
-        if (node.type === 'sub_response') {
+        // Agent Response → Main Agent Merge 연결 (도메인 중립적)
+        if (node.type === WORKFLOW_NODE_TYPES.RESPONSE) {
             this.createReturnToMainConnection(node);
         }
 
-        // Multiple Sub-Responses → Final Response 연결
-        if (node.type === 'final_response') {
+        // Multiple Responses → Response 연결 (도메인 중립적)
+        if (node.type === WORKFLOW_NODE_TYPES.RESPONSE) {
             this.createConsolidationConnections(node);
         }
     }
@@ -423,13 +422,13 @@ export class RealTimeWorkflowBuilder {
      */
     private createConsolidationConnections(finalResponseNode: WorkflowNode): void {
         // 모든 Sub-Response Node 찾기
-        const subResponseNodes = this.currentWorkflow.nodes.filter(n => n.type === 'sub_response');
+        const subResponseNodes = this.currentWorkflow.nodes.filter(n => n.type === WORKFLOW_NODE_TYPES.RESPONSE);
 
         subResponseNodes.forEach(subResponseNode => {
             const connection: WorkflowConnection = {
                 fromId: subResponseNode.id,
                 toId: finalResponseNode.id,
-                type: 'consolidate',
+                type: 'consolidates',
                 label: 'consolidates into final response'
             };
 
@@ -587,6 +586,7 @@ export class RealTimeWorkflowBuilder {
 
     /**
      * 현재 워크플로우를 Universal 형식으로 변환하여 반환
+     * STEP 8.2.3: 외부 Store 노드들과 SDK 노드들 병합
      */
     async generateUniversalWorkflow(): Promise<UniversalWorkflowStructure | null> {
         try {
@@ -611,9 +611,34 @@ export class RealTimeWorkflowBuilder {
                 return null;
             }
 
+            // STEP 8.2.3: 외부 Store 노드들과 병합
+            if (this.externalStore) {
+                const externalNodes = this.externalStore.getNodes();
+                const externalEdges = this.externalStore.getEdges();
+
+                if (externalNodes.length > 0) {
+                    // 기존 노드들과 외부 노드들 병합 (중복 제거)
+                    const existingNodeIds = new Set(universalResult.data.nodes.map(n => n.id));
+                    const newExternalNodes = externalNodes.filter(n => !existingNodeIds.has(n.id));
+
+                    universalResult.data.nodes = [...newExternalNodes, ...universalResult.data.nodes];
+                    this.logger.debug(`Merged ${newExternalNodes.length} external nodes with ${universalResult.data.nodes.length - newExternalNodes.length} SDK nodes`);
+                }
+
+                if (externalEdges.length > 0) {
+                    // 기존 엣지들과 외부 엣지들 병합 (중복 제거)
+                    const existingEdgeIds = new Set(universalResult.data.edges.map(e => e.id));
+                    const newExternalEdges = externalEdges.filter(e => !existingEdgeIds.has(e.id));
+
+                    universalResult.data.edges = [...newExternalEdges, ...universalResult.data.edges];
+                    this.logger.debug(`Merged ${newExternalEdges.length} external edges`);
+                }
+            }
+
             this.logger.debug('Universal workflow data generated successfully', {
                 nodeCount: universalResult.data.nodes.length,
-                edgeCount: universalResult.data.edges.length
+                edgeCount: universalResult.data.edges.length,
+                hasExternalStore: !!this.externalStore
             });
 
             return universalResult.data;
@@ -659,6 +684,19 @@ export class RealTimeWorkflowBuilder {
             hasUniversalSubscribers: this.universalUpdateCallbacks.length > 0,
             subscriberCount: this.universalUpdateCallbacks.length
         };
+    }
+
+    /**
+     * Manual 업데이트 트리거 (External Store 변경 시 호출)
+     * Purpose: External Store에 노드가 추가되었을 때 SDK Store 업데이트를 즉시 트리거
+     */
+    async triggerManualUpdate(): Promise<void> {
+        this.logger.debug('Manual update triggered - notifying Universal workflow subscribers');
+
+        // notifyUniversalUpdates를 직접 호출하여 즉시 업데이트
+        await this.notifyUniversalUpdates();
+
+        this.logger.debug('Manual update completed');
     }
 }
 

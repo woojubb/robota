@@ -49,7 +49,8 @@ export interface PlaygroundState {
     visualizationData: VisualizationData | null;
 
     // Workflow state
-    currentWorkflow: UniversalWorkflowStructure | null;
+    currentWorkflow: UniversalWorkflowStructure | null;  // Manual Store (deprecated)
+    sdkWorkflow: UniversalWorkflowStructure | null;      // SDK Store (primary)
     // Execution Statistics - Now managed by PlaygroundStatisticsPlugin
     executionStats: {
         totalExecutions: 0,
@@ -84,6 +85,7 @@ export type PlaygroundAction =
     | { type: 'CLEAR_CONVERSATION_HISTORY' }
     | { type: 'SET_EXECUTION_RESULT'; payload: PlaygroundExecutionResult }
     | { type: 'SET_CURRENT_WORKFLOW'; payload: UniversalWorkflowStructure | null }
+    | { type: 'UPDATE_WORKFLOW_FROM_SDK'; payload: UniversalWorkflowStructure }  // STEP 7.2.2: 새로 추가
     | { type: 'UPDATE_NODE_STATUS'; payload: { nodeId: string; status: 'pending' | 'ready' | 'running' | 'completed' | 'error' } };
 
 // ===== Initial State =====
@@ -105,7 +107,8 @@ const initialState: PlaygroundState = {
     isLoading: false,
     error: null,
     visualizationData: null,
-    currentWorkflow: null,
+    currentWorkflow: null,  // Manual Store (deprecated)
+    sdkWorkflow: null,      // SDK Store (primary)
     // Execution Statistics - Now managed by PlaygroundStatisticsPlugin
     executionStats: {
         totalExecutions: 0,
@@ -267,6 +270,31 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
                 currentWorkflow: action.payload
             };
 
+        case 'UPDATE_WORKFLOW_FROM_SDK':
+            console.log('🔄 [STEP 10.1] SDK Workflow updated (no merge):', action.payload ? 'Success' : 'Null');
+            console.log('🔄 [STEP 10.1] SDK Workflow nodes count:', action.payload?.nodes?.length || 0);
+            // UI 상태 업데이트
+            if (typeof document !== 'undefined') {
+                const nodesCountElement = document.getElementById('workflow-nodes-count');
+                const lastUpdateElement = document.getElementById('last-workflow-update');
+                if (nodesCountElement) nodesCountElement.textContent = String(action.payload?.nodes?.length || 0);
+                if (lastUpdateElement) lastUpdateElement.textContent = new Date().toLocaleTimeString();
+
+                // Tool Call 및 Agent 카운트
+                const toolCallsElement = document.getElementById('tool-calls-count');
+                const agentsElement = document.getElementById('agents-created-count');
+                if (action.payload?.nodes) {
+                    const toolCallNodes = action.payload.nodes.filter(node => node.type === 'tool_call' || node.type === 'toolCall');
+                    const agentNodes = action.payload.nodes.filter(node => node.type === 'agent');
+                    if (toolCallsElement) toolCallsElement.textContent = String(toolCallNodes.length);
+                    if (agentsElement) agentsElement.textContent = String(agentNodes.length);
+                }
+            }
+            return {
+                ...state,
+                sdkWorkflow: action.payload  // STEP 10.1: SDK Store만 업데이트, merge 제거
+            };
+
         case 'UPDATE_NODE_STATUS':
             if (!state.currentWorkflow) {
                 return state;
@@ -328,10 +356,14 @@ interface PlaygroundProviderProps {
 }
 
 export function PlaygroundProvider({ children, defaultServerUrl = '' }: PlaygroundProviderProps) {
+    console.log('🚨 [PLAYGROUND-PROVIDER] Component rendering! defaultServerUrl:', defaultServerUrl);
+
     const [state, dispatch] = useReducer(playgroundReducer, {
         ...initialState,
         serverUrl: defaultServerUrl
     });
+
+    console.log('🚨 [PLAYGROUND-PROVIDER] Current state.executor:', !!state.executor);
 
     // Use ref to track executor for cleanup without causing re-renders
     const executorRef = useRef<PlaygroundExecutor | null>(null);
@@ -346,8 +378,10 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
 
     // Auto-initialize executor on mount
     useEffect(() => {
+        console.log('🚨 [EXECUTOR-INIT] useEffect triggered! state.executor:', !!state.executor, 'defaultServerUrl:', defaultServerUrl);
         if (!state.executor && defaultServerUrl) {
             try {
+                console.log('🚨 [EXECUTOR-INIT] Creating new PlaygroundExecutor...');
                 // Create executor directly (no separate initialization needed)
                 const executor = new PlaygroundExecutor(
                     defaultServerUrl,
@@ -359,12 +393,362 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                 dispatch({ type: 'SET_INITIALIZED', payload: true });
                 dispatch({ type: 'SET_EXECUTOR', payload: executor });
                 executorRef.current = executor;
+                console.log('🚨 [EXECUTOR-INIT] PlaygroundExecutor created and state updated!');
 
             } catch (error) {
+                console.error('Failed to create executor:', error);
                 dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to create executor' });
             }
         }
     }, [defaultServerUrl]); // Only run when defaultServerUrl changes
+
+    // Event System Setup for Tool Call and Agent Creation
+    useEffect(() => {
+        console.log('🚨 [Event Setup] useEffect triggered! state.executor:', !!state.executor);
+        if (!state.executor) {
+            console.log('🔍 [Event Setup] No executor available');
+            return;
+        }
+
+        // 안전한 메서드 호출 - getEventService 메서드 존재 확인
+        if (typeof state.executor.getEventService !== 'function') {
+            console.warn('⚠️ getEventService method not available on executor. Skipping event listeners setup.');
+            return;
+        }
+
+        const eventService = state.executor.getEventService();
+        if (!eventService) {
+            console.log('🔍 [Event Setup] No event service available');
+            return;
+        }
+
+        console.log('✅ [Event Setup] Event listeners being registered');
+        console.log('🔍 [Event Setup] EventService instance ID:', eventService);
+        console.log('🔍 [Event Setup] EventService type:', eventService.constructor.name);
+        console.log('🔍 [Event Setup] EventService toString:', eventService.toString().substring(0, 50));
+
+        // Tool Call Event Listener - 범용적인 Tool Call 감지
+        const handleToolCallStart = (event: any) => {
+            console.log('🔧 [EVENT DETECTED] Tool Call started:', event);
+            console.log('🔧 [EVENT DETECTED] Current workflow exists:', !!currentWorkflowRef.current);
+
+            if (!currentWorkflowRef.current) return;
+
+            const timestamp = Date.now();
+            const toolCallNode: any = {
+                id: `tool-${event.toolName || 'unknown'}-${timestamp}`,
+                type: 'toolCall',
+                level: 2,
+                position: {
+                    x: 350 + Math.random() * 100,
+                    y: 300 + Math.random() * 50,
+                    level: 2,
+                    order: 0
+                },
+                data: {
+                    label: `Tool: ${event.toolName || 'Unknown'}`,
+                    toolName: event.toolName || 'unknown',
+                    sourceAgentId: event.sourceId
+                },
+                visualState: {
+                    status: 'running' as const,
+                    emphasis: 'normal' as const,
+                    lastUpdated: new Date()
+                },
+                createdAt: new Date(),
+                updatedAt: new Date()
+            };
+
+            // Find source agent to connect from
+            const sourceAgent = currentWorkflowRef.current.nodes.find(node =>
+                node.id.includes('agent') || node.type === 'agent'
+            );
+
+            let newEdges = [];
+            if (sourceAgent) {
+                const toolCallEdge: any = {
+                    id: `edge-agent-tool-${timestamp}`,
+                    source: sourceAgent.id,
+                    target: toolCallNode.id,
+                    type: 'default',
+                    sourceHandle: 'agent-output',
+                    targetHandle: 'tool-input',
+                    data: { executionOrder: 0 },
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                };
+                newEdges.push(toolCallEdge);
+            }
+
+            // Add Tool Call node to workflow
+            const updatedWorkflow = {
+                ...currentWorkflowRef.current,
+                nodes: [...currentWorkflowRef.current.nodes, toolCallNode],
+                edges: [...currentWorkflowRef.current.edges, ...newEdges]
+            };
+
+            dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: updatedWorkflow });
+            currentWorkflowRef.current = updatedWorkflow;
+        };
+
+        // Agent Creation Event Listener
+        const handleAgentCreated = (event: any) => {
+            console.log('🤖 Agent creation completed:', event);
+
+            if (!currentWorkflowRef.current) return;
+
+            const timestamp = Date.now();
+            const agentNode: any = {
+                id: `agent-${event.agentId || timestamp}`,
+                type: 'agent',
+                level: 3,
+                position: {
+                    x: 450 + Math.random() * 100,
+                    y: 400 + Math.random() * 50,
+                    level: 3,
+                    order: 0
+                },
+                data: {
+                    label: `Agent: ${event.taskName || 'New Agent'}`,
+                    taskName: event.taskName,
+                    level: (event.level || 0) + 1
+                },
+                visualState: {
+                    status: 'pending' as const,
+                    emphasis: 'normal' as const,
+                    lastUpdated: new Date()
+                },
+                createdAt: new Date(),
+                updatedAt: new Date()
+            };
+
+            // Find parent Tool Call to connect from
+            const parentToolCall = currentWorkflowRef.current.nodes.find(node =>
+                node.type === 'toolCall' &&
+                (event.parentToolCallId ? node.id === event.parentToolCallId : true)
+            );
+
+            let newEdges = [];
+            if (parentToolCall) {
+                const toolToAgentEdge: any = {
+                    id: `edge-tool-agent-${timestamp}`,
+                    source: parentToolCall.id,
+                    target: agentNode.id,
+                    type: 'default',
+                    sourceHandle: 'tool-output',
+                    targetHandle: 'agent-input',
+                    data: { executionOrder: 0 },
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                };
+                newEdges.push(toolToAgentEdge);
+            }
+
+            // Add Agent node to workflow
+            const updatedWorkflow = {
+                ...currentWorkflowRef.current,
+                nodes: [...currentWorkflowRef.current.nodes, agentNode],
+                edges: [...currentWorkflowRef.current.edges, ...newEdges]
+            };
+
+            dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: updatedWorkflow });
+            currentWorkflowRef.current = updatedWorkflow;
+        };
+
+        // Register event listeners
+        console.log('📡 [Event Setup] Registering tool_call_start listener');
+        eventService.on('tool_call_start', handleToolCallStart);
+
+        console.log('📡 [Event Setup] Registering agent.creation_complete listener');
+        eventService.on('agent.creation_complete', handleAgentCreated);
+
+        // Test event emission to verify connection
+        console.log('🧪 [Event Test] Testing event emission directly');
+        try {
+            eventService.emit('tool_call_start', {
+                sourceType: 'agent',
+                sourceId: 'test-agent',
+                toolName: 'test-tool',
+                timestamp: new Date(),
+                parameters: { test: true },
+                rootExecutionId: 'test-root',
+                executionLevel: 2,
+                executionPath: ['test-path']
+            });
+            console.log('🧪 [Event Test] Direct event emission successful');
+        } catch (error) {
+            console.error('🧪 [Event Test] Direct event emission failed:', error);
+        }
+
+        console.log('✅ [Event Setup] All event listeners registered successfully');
+
+        // Cleanup on unmount
+        return () => {
+            console.log('🧹 [Event Cleanup] Removing event listeners');
+            eventService.off('tool_call_start', handleToolCallStart);
+            eventService.off('agent.creation_complete', handleAgentCreated);
+        };
+    }, [state.executor, state.mode, state.isInitialized]);
+
+    // ===== Event Listener Setup Function =====
+    const setupEventListeners = useCallback(() => {
+        if (!state.executor) {
+            return;
+        }
+
+        // 안전한 메서드 호출 - getEventService 메서드 존재 확인
+        if (typeof state.executor.getEventService !== 'function') {
+            return;
+        }
+
+        const eventService = state.executor.getEventService();
+        if (!eventService) {
+            return;
+        }
+
+        // Tool Call Event Listener - 범용적인 Tool Call 감지
+        const handleToolCallStart = (event: any) => {
+            console.log('🔧 [EVENT DETECTED] Tool Call started:', event);
+            console.log('🔧 [EVENT DETECTED] Current workflow exists:', !!currentWorkflowRef.current);
+
+            if (!currentWorkflowRef.current) {
+                console.log('⚠️ [EVENT DETECTED] No current workflow to update');
+                return;
+            }
+
+            const currentWorkflow = currentWorkflowRef.current;
+            const timestamp = new Date();
+
+            // Create Tool Call Node
+            const toolCallNodeId = `tool-call-${event.toolName}-${Date.now()}`;
+            const toolCallNode = {
+                id: toolCallNodeId,
+                type: 'tool',
+                position: { x: 400, y: 150, level: 1, order: currentWorkflow.nodes.length },
+                data: {
+                    label: event.toolName,
+                    parameters: event.parameters,
+                    status: 'running' as const
+                },
+                visualState: { status: 'running' as const },
+                metadata: {
+                    createdAt: timestamp,
+                    updatedAt: timestamp
+                }
+            };
+
+            // Add Tool Call Node
+            const updatedWorkflow = {
+                ...currentWorkflow,
+                nodes: [...currentWorkflow.nodes, toolCallNode],
+                metadata: {
+                    ...currentWorkflow.metadata,
+                    updatedAt: timestamp
+                }
+            };
+
+            currentWorkflowRef.current = updatedWorkflow;
+            dispatch({ type: 'SET_WORKFLOW', payload: updatedWorkflow });
+        };
+
+        // Agent Creation Event Listener
+        const handleAgentCreated = (event: any) => {
+            console.log('🤖 [EVENT DETECTED] Agent created:', event);
+            console.log('🤖 [EVENT DETECTED] Current workflow exists:', !!currentWorkflowRef.current);
+
+            if (!currentWorkflowRef.current) {
+                console.log('⚠️ [EVENT DETECTED] No current workflow to update');
+                return;
+            }
+
+            const currentWorkflow = currentWorkflowRef.current;
+            const timestamp = new Date();
+
+            // Create Agent Node
+            const agentNodeId = `agent-${Date.now()}`;
+            const agentNode = {
+                id: agentNodeId,
+                type: 'agent',
+                position: { x: 600, y: 150, level: 2, order: currentWorkflow.nodes.length },
+                data: {
+                    label: event.agentName || 'New Agent',
+                    template: event.template,
+                    status: 'running' as const
+                },
+                visualState: { status: 'running' as const },
+                metadata: {
+                    createdAt: timestamp,
+                    updatedAt: timestamp
+                }
+            };
+
+            // Add Agent Node
+            const updatedWorkflow = {
+                ...currentWorkflow,
+                nodes: [...currentWorkflow.nodes, agentNode],
+                metadata: {
+                    ...currentWorkflow.metadata,
+                    updatedAt: timestamp
+                }
+            };
+
+            currentWorkflowRef.current = updatedWorkflow;
+            dispatch({ type: 'SET_WORKFLOW', payload: updatedWorkflow });
+        };
+
+        // Register event listeners
+        eventService.on('tool_call_start', handleToolCallStart);
+        eventService.on('agent.creation_complete', handleAgentCreated);
+    }, [state.executor]);
+
+    // STEP 7.2.3: SDK Workflow 구독 useEffect
+    useEffect(() => {
+        console.log('🚨 [STEP 7.2.3] Setting up SDK workflow subscription');
+
+        // UI 상태 업데이트: 연결 시도 중
+        const statusElement = document.getElementById('sdk-subscription-status');
+        if (statusElement) statusElement.textContent = 'Connecting...';
+
+        if (!state.executor?.subscribeToWorkflowUpdates) {
+            console.log('🔍 [STEP 7.2.3] No workflow subscription available');
+            if (statusElement) statusElement.textContent = 'Not Available';
+            return;
+        }
+
+        console.log('✅ [STEP 7.2.3] Setting up workflow subscription');
+
+        // 실제 SDK 구독 설정
+        state.executor.subscribeToWorkflowUpdates((workflow) => {
+            console.log('🔄 [STEP 7.2.3] Workflow update received:', !!workflow);
+            dispatch({ type: 'UPDATE_WORKFLOW_FROM_SDK', payload: workflow });
+        });
+
+        // UI 상태 업데이트: 연결 완료
+        if (statusElement) statusElement.textContent = 'Connected';
+        console.log('🎉 [STEP 7.2.3] SDK subscription setup completed');
+
+    }, [state.executor, state.isInitialized]);
+
+    // STEP 7.2.4: 초기 Workflow 로드 useEffect
+    useEffect(() => {
+        if (!state.executor?.getCurrentWorkflow) return;
+
+        console.log('🔄 [STEP 7.2.4] Loading initial workflow');
+
+        const loadInitialWorkflow = async () => {
+            try {
+                const workflow = await state.executor.getCurrentWorkflow();
+                console.log('🔄 [STEP 7.2.4] Initial workflow loaded:', !!workflow);
+                if (workflow && workflow.nodes.length > 0) {
+                    dispatch({ type: 'UPDATE_WORKFLOW_FROM_SDK', payload: workflow });
+                }
+            } catch (error) {
+                console.warn('⚠️ [STEP 7.2.4] Failed to load initial workflow:', error);
+            }
+        };
+
+        loadInitialWorkflow();
+    }, [state.executor, state.isInitialized]);
 
     // ===== Executor Management =====
 
@@ -396,6 +780,10 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'SET_LOADING', payload: true });
             await state.executor.createTeam(config);
             dispatch({ type: 'SET_TEAM_CONFIG', payload: config });
+
+            // Setup Event Listeners after Team creation
+            setupEventListeners();
+
             dispatch({ type: 'SET_LOADING', payload: false });
         } catch (error) {
             dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to create team' });
@@ -501,55 +889,65 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'SET_EXECUTING', payload: true });
             dispatch({ type: 'SET_ERROR', payload: null });
 
-            // Add User Input node immediately when chat starts
-            let userInputNodeId = '';
-            if (state.currentWorkflow) {
-                const timestamp = Date.now();
-                userInputNodeId = `user-input-${timestamp}`;
+            // STEP 9.1.3: SDK Store에 User Input 노드 추가 (Manual Store 제거)
+            const timestamp = Date.now();
+            const userInputNodeId = `user-input-${timestamp}`;
 
-                // Find the main node to connect to (Team first, then Agent)
-                const teamNode = state.currentWorkflow.nodes.find(node => node.type === 'team');
-                const mainNode = teamNode || state.currentWorkflow.nodes.find(node => node.type === 'agent');
-                if (mainNode) {
-                    // Calculate position for User Input node
-                    const existingNodes = state.currentWorkflow.nodes;
-                    const maxY = Math.max(...existingNodes.map(node => node.position.y || 0));
-                    const userInputY = maxY + 150;
+            const externalStore = state.executor?.getExternalWorkflowStore();
+            if (externalStore) {
+                externalStore.addUserInputNode({
+                    id: userInputNodeId,
+                    content: prompt
+                });
+                console.log('🏪 [STEP 9.1.3] User Input node added to SDK Store (via External Store)');
 
-                    // Create User Input node
-                    const userInputNode: any = {
-                        id: userInputNodeId,
-                        type: 'userInput',
-                        position: { x: 50, y: userInputY },
-                        data: {
-                            label: 'User Input',
-                            message: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : '')
-                        },
-                        metadata: { createdAt: new Date(), updatedAt: new Date() }
-                    };
+                // 모드에 따른 연결 edge 추가
+                const nodes = externalStore.getNodes();
+                let targetNodeId = null;
+                let targetNodeType = '';
 
-                    // Create edge: User Input → Team (or Agent if no Team)
-                    const userToMainEdge: any = {
-                        id: `edge-user-${timestamp}`,
-                        source: userInputNodeId,
-                        target: mainNode.id,
-                        sourceHandle: 'user-output',
-                        targetHandle: teamNode ? 'team-input' : 'agent-input',
-                        data: {},
-                        metadata: { createdAt: new Date(), updatedAt: new Date() }
-                    };
-
-                    // Update workflow with User Input node immediately
-                    const updatedWorkflow = {
-                        ...state.currentWorkflow,
-                        nodes: [...state.currentWorkflow.nodes, userInputNode],
-                        edges: [...state.currentWorkflow.edges, userToMainEdge]
-                    };
-
-                    dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: updatedWorkflow });
-                    // Update ref immediately to ensure Agent Response node can access the latest state
-                    currentWorkflowRef.current = updatedWorkflow;
+                if (state.mode === 'team') {
+                    // Team 모드: Team 노드 찾기
+                    const teamNode = nodes.find(node => node.type === 'team');
+                    if (teamNode) {
+                        targetNodeId = teamNode.id;
+                        targetNodeType = 'Team';
+                    }
+                } else if (state.mode === 'agent') {
+                    // Agent 모드: Agent 노드 찾기
+                    const agentNode = nodes.find(node => node.type === 'agent');
+                    if (agentNode) {
+                        targetNodeId = agentNode.id;
+                        targetNodeType = 'Agent';
+                    }
                 }
+
+                // 연결 edge 추가
+                if (targetNodeId) {
+                    const edgeId = `edge-input-${state.mode}-${timestamp}`;
+                    externalStore.addEdge({
+                        id: edgeId,
+                        source: userInputNodeId,
+                        target: targetNodeId,
+                        type: 'receives',
+                        label: `User Input → ${targetNodeType}`,
+                        data: {
+                            executionOrder: 0,
+                            metadata: {
+                                connectionType: 'user-input-to-executor',
+                                mode: state.mode,
+                                label: `User Input → ${targetNodeType}`
+                            }
+                        },
+                        createdAt: new Date(),
+                        updatedAt: new Date()
+                    });
+                    console.log(`🏪 [STEP 9.1.3] User Input → ${targetNodeType} edge added to SDK Store (${state.mode} mode)`);
+                } else {
+                    console.warn(`⚠️ [STEP 9.1.3] No ${state.mode} node found to connect User Input to`);
+                }
+            } else {
+                console.warn('⚠️ [STEP 9.1.3] External Store not available');
             }
 
             // Update node status to 'running' for current workflow
@@ -571,12 +969,16 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             }
 
             // Process stream (PlaygroundExecutor handles statistics automatically)
+            console.log(`🚀 [Team/Agent Execution] Starting ${state.mode} mode execution with prompt:`, prompt.substring(0, 100));
             let fullResponse = '';
 
             for await (const chunk of state.executor.runStream(prompt)) {
                 fullResponse += chunk;
                 onChunk(chunk);
             }
+
+            console.log(`✅ [Team/Agent Execution] ${state.mode} mode execution completed. Response length:`, fullResponse.length);
+            console.log(`📝 [Team/Agent Execution] Actual response content:`, fullResponse.substring(0, 300));
 
             const result: PlaygroundExecutionResult = {
                 success: true,
@@ -754,7 +1156,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
     }, []);
 
     const setWorkflow = useCallback((workflow: UniversalWorkflowStructure | null) => {
-        dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: workflow });
+        dispatch({ type: 'UPDATE_WORKFLOW_FROM_SDK', payload: workflow });
     }, []);
 
     const updateNodeStatus = useCallback((nodeId: string, status: 'pending' | 'ready' | 'running' | 'completed' | 'error') => {

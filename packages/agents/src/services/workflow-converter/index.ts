@@ -376,15 +376,16 @@ export class WorkflowToUniversalConverter extends BaseWorkflowConverter<Workflow
             'user_input': UNIVERSAL_NODE_TYPES.USER_INPUT,
             'output': UNIVERSAL_NODE_TYPES.OUTPUT,
             'agent': UNIVERSAL_NODE_TYPES.AGENT,
-            'sub_agent': UNIVERSAL_NODE_TYPES.SUB_AGENT,
+            'sub_agent': UNIVERSAL_NODE_TYPES.AGENT, // 🎯 통합: sub_agent → agent
             'tools_container': UNIVERSAL_NODE_TYPES.TOOLS_CONTAINER,
             'tool_definition': UNIVERSAL_NODE_TYPES.TOOL_DEFINITION,
             'agent_thinking': UNIVERSAL_NODE_TYPES.AGENT_THINKING,
             'tool_call': UNIVERSAL_NODE_TYPES.TOOL_CALL,
-            'sub_tool_call': UNIVERSAL_NODE_TYPES.SUB_TOOL_CALL,
+            'sub_tool_call': UNIVERSAL_NODE_TYPES.TOOL_CALL, // 🎯 통합: sub_tool_call → tool_call
             'merge_results': UNIVERSAL_NODE_TYPES.MERGE_RESULTS,
-            'sub_merge': UNIVERSAL_NODE_TYPES.SUB_MERGE,
-            'final_response': UNIVERSAL_NODE_TYPES.FINAL_RESPONSE
+            'sub_merge': UNIVERSAL_NODE_TYPES.MERGE_RESULTS, // 🎯 통합: sub_merge → merge_results
+            'final_response': UNIVERSAL_NODE_TYPES.RESPONSE, // 🎯 통합: final_response → response
+            'response': UNIVERSAL_NODE_TYPES.RESPONSE
         };
 
         return typeMap[robotaType] || robotaType;
@@ -403,10 +404,10 @@ export class WorkflowToUniversalConverter extends BaseWorkflowConverter<Workflow
             'branch': UNIVERSAL_EDGE_TYPES.BRANCH,
             'result': UNIVERSAL_EDGE_TYPES.RESULT,
             'analyze': UNIVERSAL_EDGE_TYPES.ANALYZE,
-            'spawn': UNIVERSAL_EDGE_TYPES.SPAWN,
-            'delegate': UNIVERSAL_EDGE_TYPES.DELEGATE,
+            'spawn': UNIVERSAL_EDGE_TYPES.EXECUTES, // 🎯 통합: spawn → executes
+            'delegate': UNIVERSAL_EDGE_TYPES.PROCESSES, // 🎯 통합: delegate → processes
             'return': UNIVERSAL_EDGE_TYPES.RETURN,
-            'consolidate': UNIVERSAL_EDGE_TYPES.CONSOLIDATE,
+            'consolidate': UNIVERSAL_EDGE_TYPES.PROCESSES, // 🎯 통합: consolidate → processes
             'final': UNIVERSAL_EDGE_TYPES.FINAL,
             'deliver': UNIVERSAL_EDGE_TYPES.DELIVER
         };

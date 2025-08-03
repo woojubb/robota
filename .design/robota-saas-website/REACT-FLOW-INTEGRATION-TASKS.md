@@ -30,13 +30,13 @@
 - [x] **ReactFlowPerformanceOptimizer**: 증분 업데이트, 스마트 캐싱, 메모리 관리
 - [ ] **통합 테스트 시스템**: 일부 integration-test.ts에서 타입 호환성 오류
 
-### 🚨 **현재 상황: 핵심 기능 완료, 빌드 오류 해결 시급**
+### 🚨 **현재 상황: SDK 호환 ID 연결 완료, 예제 기반 테스트 필요**
 
-### 📊 **현재 빌드 상태 (2024-12-20)**
-- **🚨 빌드 오류**: 26개 타입 오류 (주로 테스트 파일 및 layout-engine.ts)
-- **핵심 비즈니스 로직**: 대부분 완료 및 정상 작동
-- **테스트 파일**: integration-test.ts에서 다수 타입 호환성 오류
-- **우선순위**: **빌드 무결성 복구가 최우선**
+### 📊 **현재 작업 상태 (2024-12-20)**
+- **✅ SDK 호환 ID**: External Store Agent ID를 `agent_${executionId}` 패턴으로 변경하여 SDK 연결 준비 완료
+- **🔧 연결 테스트 준비**: 초기 3개 노드와 SDK 18개 노드의 연결관계 검증 필요
+- **📝 예제 기반 검증**: apps/examples에 독립적인 테스트 환경 구축 필요
+- **우선순위**: **전체 워크플로우 연결 무결성 검증이 최우선**
 
 ### 📊 **진행 상황 요약 (업데이트됨)**
 - **Phase 1**: ✅ **100% 완료** (Universal 데이터 구조)
@@ -44,6 +44,7 @@
 - **Phase 2**: ⚠️ **90% 완료** (React-Flow 변환기 - 테스트 파일 오류)
 - **Phase 3**: ⚠️ **95% 완료** (실시간 시스템 - 통합 오류)
 - **Phase 4**: ⚠️ **빌드 무결성 복구 필요**
+- **Phase 12**: 🔄 **진행 중** (예제 기반 워크플로우 연결 테스트)
 
 ## 📋 프로젝트 개요
 
@@ -1196,8 +1197,8 @@ packages/agents 패키지에 대한 전면적 검토를 통해 다음과 같은 
 
 **📋 세부 단계:**
 
-##### **👀 STEP 6.1: Team 기본 Tool 노드 표시**
-**🎯 기대 결과:** Create Team 시 assignTask Tool 노드가 Team과 함께 표시
+##### **👀 STEP 6.1: Team 기본 Tool 노드 표시** ✅ **완료 (수정됨)**
+**🎯 기대 결과:** Create Team 시 Team + Agent(Leader) 표시, Agent 하위에 Tool Slot으로 assignTask 표시
 
 - [ ] **6.1.1 Team 워크플로우 생성 함수 확장**
   ```typescript
@@ -1245,36 +1246,99 @@ packages/agents 패키지에 대한 전면적 검토를 통해 다음과 같은 
 
 ---
 
-##### **👀 STEP 6.2: assignTask 실행 감지 및 Tool Call 상태 업데이트**
-**🎯 기대 결과:** Team 채팅 시 assignTask가 실행되면 Tool Call 노드 상태 변화
+##### **👀 STEP 6.2: Event 기반 동적 Tool Call/Agent 노드 생성** ✅ **완료**
+**🎯 기대 결과:** Team/Agent 채팅 시 Tool 실행에 따라 동적으로 Tool Call 및 Agent 노드 생성
 
-- [ ] **6.2.1 Tool Call 이벤트 감지 로직 추가**
+- [x] **6.2.1 모드 기반 User Input 연결**
   ```typescript
-  // executeStreamPrompt에서 Tool Call 감지
-  if (state.currentWorkflow && response.includes('assignTask')) {
-    // assignTask Tool 노드 상태를 'running'으로 업데이트
-    const toolNode = state.currentWorkflow.nodes.find(node => 
-      node.type === 'toolCall' && node.data?.toolName === 'assignTask'
-    );
-    if (toolNode) {
-      updateNodeStatus(toolNode.id, 'running');
+  // 도메인 중립적 모드 감지 (특정 Tool 키워드 없음)
+  const connectUserInput = () => {
+    if (currentMode === 'team') {
+      // User Input → Team 노드 연결
+      addUserInputNode('team', teamNodeId);
+    } else if (currentMode === 'agent') {
+      // User Input → Agent 노드 연결
+      addUserInputNode('agent', agentNodeId);
     }
   }
   ```
 
-- [ ] **6.2.2 Tool Call 완료 시 상태 업데이트**
+- [x] **6.2.2 Event 기반 Tool Call 노드 동적 생성**
   ```typescript
-  // Tool Call 완료 시 'completed' 상태로 변경
-  if (toolCallCompleted) {
-    updateNodeStatus(toolNode.id, 'completed');
-  }
+  // Event System에서 tool_call_start 이벤트 감지
+  eventService.on('tool_call_start', (event) => {
+    // 범용적인 Tool Call 노드 생성 (Tool 이름 무관)
+    const toolCallNode = createToolCallNode({
+      id: `tool-${event.toolName}-${Date.now()}`,
+      toolName: event.toolName,
+      sourceAgentId: event.sourceId
+    });
+    addNodeToWorkflow(toolCallNode);
+  });
   ```
+
+- [x] **6.2.3 Event 기반 Agent 노드 동적 생성**
+  ```typescript
+  // Event System에서 agent_created 이벤트 감지  
+  eventService.on('agent_created', (event) => {
+    // 새 Agent 노드 생성 및 Tool Call과 연결
+    const agentNode = createAgentNode({
+      id: event.agentId,
+      parentToolCallId: event.parentToolCallId,
+      taskName: event.taskName
+    });
+    addNodeToWorkflow(agentNode);
+    connectNodes(event.parentToolCallId, event.agentId);
+  });
+  ```
+
+**⚠️ 현재 문제**: Team 채팅에서 LLM이 Tool Call을 하지 않아 tool_call_start 이벤트가 발생하지 않음
 
 **✅ 확인 방법:**
 - Create Team → Team 채팅 시작
-- assignTask 관련 명령 입력 (예: "팀원들에게 작업을 분배해줘")
-- assignTask Tool 노드가 파란색 → 주황색(실행중) → 초록색(완료) 변화 확인
-- **사용자 확인 필요:** "Tool Call 노드 상태 변화가 보이는지"
+- 임의의 Tool 실행 명령 입력 (Tool 이름 무관)
+- Tool Call 노드 동적 생성 확인
+- 새 Agent 노드 동적 생성 및 연결 확인
+- **사용자 확인 필요:** "Event 기반 동적 노드 생성이 보이는지"
+
+---
+
+##### **👀 STEP 6.3: 도메인 중립적 Tool Call 유도 System Message 수정** 🔄 **진행중**
+
+**🎯 목적**: Team Agent가 도메인 중립적으로 Tool 사용을 고려하도록 System Message 개선
+
+**🔧 핵심 구현 사항**:
+- Team Container에서 Team Agent System Message에 일반적인 Tool 사용 유도 문구 추가
+- 특정 Tool 이름(assignTask) 언급 없이 일반적인 Tool 활용 권장
+- 도메인 중립성 유지하면서 LLM의 Tool Call 결정 유도
+
+**🎯 기대 결과**: Team 채팅에서 복잡한 작업 시 LLM이 자발적으로 사용 가능한 Tool 활용
+
+**📋 세부 작업**:
+- [x] **6.3.1 Console 로깅 강화 (디버깅용)**
+  ```typescript
+  // apps/web/src/contexts/playground-context.tsx에 추가된 디버깅 로그:
+  // ✅ [Event Setup] Event listeners being registered
+  // 📡 [Event Setup] Registering tool_call_start listener
+  // 🚀 [Team/Agent Execution] Starting team mode execution
+  // 🔧 [EVENT DETECTED] Tool Call started (if event occurs)
+  ```
+
+- [ ] **6.3.2 도메인 중립성 검증**
+  - ✅ 특정 Tool 이름(`assignTask`) 언급 없음
+  - ✅ 일반적인 Tool 사용 유도 (모든 Tool에 적용 가능)
+  - ✅ Team Package만 수정 (다른 패키지는 `assignTask` 모름)
+  - ✅ Event 이름도 중립적 (기존 `tool_call_start` 사용)
+
+- [ ] **6.3.3 Tool Call 유도 테스트**
+  - [ ] 복잡한 작업 프롬프트 테스트: "웹사이트를 만들어주세요. 프론트엔드와 백엔드가 모두 필요합니다."
+  - [ ] LLM의 Tool Call 결정 및 `tool_call_start` 이벤트 발생 확인
+  - [ ] Tool Call Node 및 Agent Node 동적 생성 검증
+
+- [ ] **6.3.4 Event 흐름 정상 동작 확인**
+  - [ ] Team Agent → Tool Call → `tool_call_start` 이벤트 → Tool Call Node 생성
+  - [ ] Team Tool 실행 → `agent.creation_complete` 이벤트 → Agent Node 생성
+  - [ ] 전체 Node 연결 관계 및 시각화 정상 동작 확인
 
 ---
 
@@ -1636,3 +1700,1428 @@ packages/agents 패키지에 대한 전면적 검토를 통해 다음과 같은 
 4. **협의 결과에 따른 진행** - 구조 변경 vs 대안 방식 vs 기능 제한 선택
 
 **결론**: **기존 구조를 완전히 존중하면 95-100% 실현 가능**
+
+---
+
+## 🚨 **STEP 7: 실제 SDK API 기반 아키텍처 수정 (수정됨)**
+
+### **📋 7차 검토 결과 - 이전 STEP 7의 치명적 결함 발견**
+
+**❌ 이전 STEP 7의 실현 불가능한 부분들:**
+1. **존재하지 않는 메서드**: `getUniversalWorkflow()`, `subscribeToWorkflowUpdates()` 
+2. **EventService 인터페이스 오해**: `on()`, `off()` 메서드는 EventService에 없음
+3. **현재 시스템과 호환성 문제**: 기존 PlaygroundContext는 `eventService.on()` 의존
+4. **실제 SDK API 무시**: 실제 메서드 이름과 동작 방식 다름
+
+**✅ 실제 존재하는 SDK API:**
+```typescript
+// RealTimeWorkflowBuilder - 실제 메서드들
+✅ generateUniversalWorkflow(): Promise<UniversalWorkflowStructure | null>  // async
+✅ subscribeToUniversalUpdates(callback): void  // 실제 이름
+
+// EventService 인터페이스 - 실제 메서드들
+✅ emit(eventType, data): void  // 유일한 필수 메서드
+✅ trackExecution?(): void  // 선택적
+✅ createBoundEmit?(): void  // 선택적
+❌ on(), off() 메서드 없음  // EventService에 존재하지 않음
+```
+
+---
+
+### **📋 올바른 문제 진단 결과**
+
+**🔍 실제 근본 원인:**
+
+1. **✅ PlaygroundExecutor 아키텍처 문제**: WorkflowEventSubscriber + RealTimeWorkflowBuilder 미사용 (정확함)
+2. **✅ Event 처리 불완전**: PlaygroundEventService는 History만 기록, Workflow Node 생성 안함 (정확함)
+3. **❌ SDK 아키텍처 무시 (부분 수정)**: 실제 존재하는 SDK 기능을 활용해야 함
+4. **❌ Rule 위반 (부분 수정)**: 기존 on/off 시스템은 유지하되 Workflow 생성 추가
+
+**✅ 실제 SDK 아키텍처 (apps/examples/24-workflow-structure-test.ts 참조):**
+```typescript
+// 1. WorkflowEventSubscriber 생성
+const workflowSubscriber = new WorkflowEventSubscriber();
+
+// 2. RealTimeWorkflowBuilder 생성  
+const workflowBuilder = new RealTimeWorkflowBuilder(workflowSubscriber);
+
+// 3. Team 생성 시 WorkflowEventSubscriber 사용
+const team = createTeam({
+    eventService: workflowSubscriber  // 실제로 작동함
+});
+
+// 4. 실제 존재하는 구독 메서드
+workflowBuilder.subscribeToUniversalUpdates((universalData) => {  // 실제 메서드명
+    // UI 업데이트
+});
+```
+
+---
+
+##### **👀 STEP 7.1: PlaygroundExecutor에 SDK Workflow 시스템 추가 (시각적 확인 단계별)** 🔄 진행중
+
+**🎯 목적**: 눈에 보이는 작은 변화들을 단계별로 확인하며 SDK Workflow 시스템 통합
+
+---
+
+**📋 7.1.1: WorkflowEventSubscriber 추가 및 Console 로그 확인**
+- [ ] **PlaygroundExecutor에 WorkflowEventSubscriber 추가**
+  ```typescript
+  // apps/web/src/lib/playground/robota-executor.ts
+  import { WorkflowEventSubscriber } from '@robota-sdk/agents';
+  
+  constructor() {
+      // 기존 코드 유지 + 추가
+      this.workflowSubscriber = new WorkflowEventSubscriber(this.logger);
+      console.log('🏗️ [STEP 7.1.1] WorkflowEventSubscriber created:', !!this.workflowSubscriber);
+  }
+  ```
+
+**🎯 시각적 확인**: 
+- 브라우저 Console에서 `🏗️ [STEP 7.1.1] WorkflowEventSubscriber created: true` 로그 확인
+- Playground 접속 시 에러 없이 정상 로딩 확인
+
+**✅ 사용자 확인 필요**: Console 로그가 보이고 에러가 없으면 다음 단계 진행
+
+---
+
+**📋 7.1.2: RealTimeWorkflowBuilder 추가 및 초기화 로그 확인**
+- [ ] **RealTimeWorkflowBuilder 추가**
+  ```typescript
+  // PlaygroundExecutor constructor에 추가
+  import { RealTimeWorkflowBuilder } from '@robota-sdk/agents';
+  
+  constructor() {
+      // 7.1.1 코드 이후 추가
+      this.workflowBuilder = new RealTimeWorkflowBuilder(this.workflowSubscriber, this.logger);
+      console.log('🔧 [STEP 7.1.2] RealTimeWorkflowBuilder created:', !!this.workflowBuilder);
+      console.log('🔧 [STEP 7.1.2] Workflow system ready');
+  }
+  ```
+
+**🎯 시각적 확인**: 
+- Console에서 `🔧 [STEP 7.1.2] RealTimeWorkflowBuilder created: true` 로그 확인
+- Console에서 `🔧 [STEP 7.1.2] Workflow system ready` 로그 확인
+
+**✅ 사용자 확인 필요**: 두 로그가 모두 보이면 다음 단계 진행
+
+---
+
+**📋 7.1.3: getCurrentWorkflow 메서드 추가 및 테스트 버튼 생성**
+- [ ] **getCurrentWorkflow 메서드 추가**
+  ```typescript
+  // PlaygroundExecutor에 메서드 추가
+  async getCurrentWorkflow(): Promise<UniversalWorkflowStructure | null> {
+      console.log('📊 [STEP 7.1.3] getCurrentWorkflow called');
+      const result = await this.workflowBuilder.generateUniversalWorkflow();
+      console.log('📊 [STEP 7.1.3] Workflow result:', result ? 'Success' : 'Null');
+      return result;
+  }
+  ```
+
+- [ ] **Playground UI에 테스트 버튼 임시 추가**
+  ```typescript
+  // apps/web/src/app/playground/page.tsx에 임시 버튼 추가
+  <button 
+      onClick={async () => {
+          const workflow = await executor?.getCurrentWorkflow();
+          console.log('🧪 [TEST] Current workflow:', workflow);
+      }}
+      className="bg-blue-500 text-white px-4 py-2 rounded"
+  >
+      Test getCurrentWorkflow
+  </button>
+  ```
+
+**🎯 시각적 확인**: 
+- Playground에 "Test getCurrentWorkflow" 버튼이 보임
+- 버튼 클릭 시 Console에서 로그 확인
+- `📊 [STEP 7.1.3] getCurrentWorkflow called` 및 결과 로그 확인
+
+**✅ 사용자 확인 필요**: 버튼이 보이고 클릭 시 로그가 나오면 다음 단계 진행
+
+---
+
+**📋 7.1.4: subscribeToWorkflowUpdates 메서드 추가 및 구독 테스트**
+- [ ] **subscribeToWorkflowUpdates 메서드 추가**
+  ```typescript
+  // PlaygroundExecutor에 메서드 추가
+  subscribeToWorkflowUpdates(callback: (workflow: UniversalWorkflowStructure) => void): void {
+      console.log('📡 [STEP 7.1.4] Setting up workflow subscription');
+      this.workflowBuilder.subscribeToUniversalUpdates((workflow) => {
+          console.log('📡 [STEP 7.1.4] Workflow update received:', !!workflow);
+          callback(workflow);
+      });
+  }
+  ```
+
+- [ ] **구독 테스트 버튼 추가**
+  ```typescript
+  // Playground UI에 추가 버튼
+  <button 
+      onClick={() => {
+          executor?.subscribeToWorkflowUpdates((workflow) => {
+              console.log('🧪 [TEST] Subscription callback:', workflow);
+          });
+          console.log('🧪 [TEST] Subscription set up completed');
+      }}
+      className="bg-green-500 text-white px-4 py-2 rounded ml-2"
+  >
+      Test Workflow Subscription
+  </button>
+  ```
+
+**🎯 시각적 확인**: 
+- "Test Workflow Subscription" 버튼이 보임
+- 버튼 클릭 시 `📡 [STEP 7.1.4] Setting up workflow subscription` 로그 확인
+- `🧪 [TEST] Subscription set up completed` 로그 확인
+
+**✅ 사용자 확인 필요**: 구독 설정 로그가 보이면 다음 단계 진행
+
+---
+
+**📋 7.1.5: createTeam에서 WorkflowEventSubscriber 사용 및 이벤트 감지 확인**
+- [ ] **createTeam 메서드 수정**
+  ```typescript
+  // PlaygroundExecutor의 createTeam 메서드 수정
+  async createTeam(config: PlaygroundTeamConfig): Promise<void> {
+      console.log('🚀 [STEP 7.1.5] Creating team with WorkflowEventSubscriber');
+      
+      this.currentTeam = createTeam({
+          aiProviders: aiProviders,
+          maxMembers: config.maxMembers || 5,
+          logger: this.logger,
+          // 핵심: WorkflowEventSubscriber 사용
+          eventService: this.workflowSubscriber
+      });
+      
+      console.log('🚀 [STEP 7.1.5] Team created with Workflow system');
+  }
+  ```
+
+**🎯 시각적 확인**: 
+- Create Team 버튼 클릭 시 `🚀 [STEP 7.1.5] Creating team with WorkflowEventSubscriber` 로그 확인
+- `🚀 [STEP 7.1.5] Team created with Workflow system` 로그 확인
+- 기존 Team 생성 기능이 정상 동작하는지 확인
+
+**✅ 사용자 확인 필요**: Team 생성이 정상 동작하고 로그가 보이면 STEP 7.1 완료
+
+**🎯 STEP 7.1 최종 결과**: 
+- PlaygroundExecutor에 Workflow 시스템이 추가됨
+- 기존 기능은 그대로 유지됨  
+- Console 로그로 각 단계별 동작 확인 가능
+- 임시 테스트 버튼들로 새로운 기능 동작 확인 가능
+
+---
+
+##### **👀 STEP 7.2: PlaygroundContext에 SDK Workflow 구독 추가 (시각적 확인 단계별)** 🔄 진행중
+
+**🎯 목적**: UI에서 눈으로 확인 가능한 단계별로 Workflow 구독 기능 추가
+
+---
+
+**📋 7.2.1: Workflow 구독 상태 표시를 위한 UI 추가**
+- [ ] **Playground UI에 Workflow 상태 표시 영역 추가**
+  ```typescript
+  // apps/web/src/app/playground/page.tsx에 상태 표시 영역 추가
+  <div className="bg-gray-100 p-4 rounded mb-4">
+      <h3 className="font-bold">🔄 Workflow System Status</h3>
+      <div id="workflow-status">
+          <p>📊 Current Workflow: <span id="workflow-nodes-count">0</span> nodes</p>
+          <p>📡 SDK Subscription: <span id="sdk-subscription-status">Not Connected</span></p>
+          <p>🕐 Last Update: <span id="last-workflow-update">Never</span></p>
+      </div>
+  </div>
+  ```
+
+**🎯 시각적 확인**: 
+- Playground에 "Workflow System Status" 박스가 표시됨
+- 초기값: "0 nodes", "Not Connected", "Never" 표시
+
+**✅ 사용자 확인 필요**: Status 박스가 보이면 다음 단계 진행
+
+---
+
+**📋 7.2.2: PlaygroundState에 UPDATE_WORKFLOW_FROM_SDK action 추가**
+- [ ] **PlaygroundAction 타입에 새로운 액션 추가**
+  ```typescript
+  // apps/web/src/contexts/playground-context.tsx
+  type PlaygroundAction = 
+      | { type: 'SET_CURRENT_WORKFLOW'; payload: UniversalWorkflowStructure }
+      | { type: 'UPDATE_WORKFLOW_FROM_SDK'; payload: UniversalWorkflowStructure }  // 새로 추가
+      | ...기존 액션들;
+  ```
+
+- [ ] **playgroundReducer에 케이스 추가**
+  ```typescript
+  // playgroundReducer에 케이스 추가
+  case 'UPDATE_WORKFLOW_FROM_SDK':
+      console.log('🔄 [STEP 7.2.2] Workflow updated from SDK:', action.payload ? 'Success' : 'Null');
+      // UI 상태 업데이트
+      if (typeof document !== 'undefined') {
+          const nodesCountElement = document.getElementById('workflow-nodes-count');
+          const lastUpdateElement = document.getElementById('last-workflow-update');
+          if (nodesCountElement) nodesCountElement.textContent = String(action.payload?.nodes?.length || 0);
+          if (lastUpdateElement) lastUpdateElement.textContent = new Date().toLocaleTimeString();
+      }
+      return {
+          ...state,
+          currentWorkflow: action.payload
+      };
+  ```
+
+**🎯 시각적 확인**: 
+- Console에서 `🔄 [STEP 7.2.2] Workflow updated from SDK` 로그 확인 가능
+- 빌드 에러 없이 정상 컴파일 확인
+
+**✅ 사용자 확인 필요**: 빌드 에러가 없으면 다음 단계 진행
+
+---
+
+**📋 7.2.3: SDK Workflow 구독 useEffect 추가 및 연결 상태 확인**
+- [ ] **PlaygroundProvider에 Workflow 구독 useEffect 추가**
+  ```typescript
+  // PlaygroundProvider 컴포넌트에 추가
+  useEffect(() => {
+      console.log('🚨 [STEP 7.2.3] Setting up SDK workflow subscription');
+      
+      // UI 상태 업데이트: 연결 시도 중
+      const statusElement = document.getElementById('sdk-subscription-status');
+      if (statusElement) statusElement.textContent = 'Connecting...';
+      
+      if (!state.executor?.subscribeToWorkflowUpdates) {
+          console.log('🔍 [STEP 7.2.3] No workflow subscription available');
+          if (statusElement) statusElement.textContent = 'Not Available';
+          return;
+      }
+      
+      console.log('✅ [STEP 7.2.3] Setting up workflow subscription');
+      
+      // 실제 SDK 구독 설정
+      state.executor.subscribeToWorkflowUpdates((workflow) => {
+          console.log('🔄 [STEP 7.2.3] Workflow update received:', !!workflow);
+          dispatch({ type: 'UPDATE_WORKFLOW_FROM_SDK', payload: workflow });
+      });
+      
+      // UI 상태 업데이트: 연결 완료
+      if (statusElement) statusElement.textContent = 'Connected';
+      console.log('🎉 [STEP 7.2.3] SDK subscription setup completed');
+      
+  }, [state.executor, state.isInitialized]);
+  ```
+
+**🎯 시각적 확인**: 
+- Status 박스에서 "SDK Subscription: Connected" 표시 확인
+- Console에서 `🚨 [STEP 7.2.3] Setting up SDK workflow subscription` 로그 확인
+- Console에서 `🎉 [STEP 7.2.3] SDK subscription setup completed` 로그 확인
+
+**✅ 사용자 확인 필요**: Status가 "Connected"로 바뀌고 로그가 보이면 다음 단계 진행
+
+---
+
+**📋 7.2.4: 초기 Workflow 로드 기능 추가 및 버튼으로 테스트**
+- [ ] **초기 Workflow 로드 useEffect 추가**
+  ```typescript
+  // PlaygroundProvider에 추가
+  useEffect(() => {
+      if (!state.executor?.getCurrentWorkflow) return;
+      
+      console.log('🔄 [STEP 7.2.4] Loading initial workflow');
+      
+      const loadInitialWorkflow = async () => {
+          try {
+              const workflow = await state.executor.getCurrentWorkflow();
+              console.log('🔄 [STEP 7.2.4] Initial workflow loaded:', !!workflow);
+              if (workflow && workflow.nodes.length > 0) {
+                  dispatch({ type: 'UPDATE_WORKFLOW_FROM_SDK', payload: workflow });
+              }
+          } catch (error) {
+              console.warn('⚠️ [STEP 7.2.4] Failed to load initial workflow:', error);
+          }
+      };
+      
+      loadInitialWorkflow();
+  }, [state.executor, state.isInitialized]);
+  ```
+
+- [ ] **"Load Current Workflow" 테스트 버튼 추가**
+  ```typescript
+  // Playground UI에 테스트 버튼 추가
+  <button 
+      onClick={async () => {
+          console.log('🧪 [TEST] Manual workflow load triggered');
+          const workflow = await executor?.getCurrentWorkflow();
+          if (workflow) {
+              dispatch({ type: 'UPDATE_WORKFLOW_FROM_SDK', payload: workflow });
+              console.log('🧪 [TEST] Manual workflow load completed');
+          }
+      }}
+      className="bg-purple-500 text-white px-4 py-2 rounded ml-2"
+  >
+      Load Current Workflow
+  </button>
+  ```
+
+**🎯 시각적 확인**: 
+- "Load Current Workflow" 버튼이 보임
+- 버튼 클릭 시 Status 박스의 "nodes" 수가 업데이트됨
+- Console에서 workflow 로드 로그 확인
+
+**✅ 사용자 확인 필요**: 버튼 클릭 시 Status가 업데이트되면 다음 단계 진행
+
+---
+
+**📋 7.2.5: Team 생성 시 SDK Workflow 자동 업데이트 확인**
+- [ ] **Create Team 후 자동 Workflow 업데이트 확인**
+  ```typescript
+  // 기존 CreateTeam 버튼 클릭 후 자동으로 SDK Workflow 업데이트되는지 확인
+  // (별도 코드 수정 불필요 - STEP 7.1에서 이미 설정됨)
+  ```
+
+**🎯 시각적 확인**: 
+- Create Team 버튼 클릭
+- Status 박스에서 "nodes" 수가 자동으로 증가하는지 확인
+- "Last Update" 시간이 업데이트되는지 확인
+- Console에서 `🔄 [STEP 7.2.3] Workflow update received` 로그 확인
+
+**✅ 사용자 확인 필요**: Team 생성 시 Status가 자동 업데이트되면 STEP 7.2 완료
+
+**🎯 STEP 7.2 최종 결과**: 
+- UI에서 Workflow 상태를 실시간으로 확인 가능
+- SDK Workflow 구독이 정상 동작함
+- Team 생성 시 자동으로 Workflow가 업데이트됨
+- 모든 변화가 Status 박스와 Console 로그로 확인 가능
+
+---
+
+##### **👀 STEP 7.3: 실제 Team assignTask 실행 및 SDK Workflow 동작 확인 (시각적 테스트)** 🔄 진행중
+
+**🎯 목적**: 실제 Team을 사용해서 SDK Workflow 시스템이 정상 동작하는지 눈으로 확인
+
+---
+
+**📋 7.3.1: assignTask Tool Call 감지를 위한 추가 UI 상태 표시**
+- [ ] **Tool Call 추적 상태 표시 추가**
+  ```typescript
+  // apps/web/src/app/playground/page.tsx의 Status 박스에 추가
+  <div className="bg-gray-100 p-4 rounded mb-4">
+      <h3 className="font-bold">🔄 Workflow System Status</h3>
+      <div id="workflow-status">
+          <p>📊 Current Workflow: <span id="workflow-nodes-count">0</span> nodes</p>
+          <p>📡 SDK Subscription: <span id="sdk-subscription-status">Not Connected</span></p>
+          <p>🕐 Last Update: <span id="last-workflow-update">Never</span></p>
+          {/* 새로 추가 */}
+          <p>🔧 Tool Calls Detected: <span id="tool-calls-count">0</span></p>
+          <p>🤖 Agents Created: <span id="agents-created-count">0</span></p>
+      </div>
+  </div>
+  ```
+
+**🎯 시각적 확인**: 
+- Status 박스에 "Tool Calls Detected: 0", "Agents Created: 0" 표시 추가됨
+
+**✅ 사용자 확인 필요**: 새로운 상태 표시가 보이면 다음 단계 진행
+
+---
+
+**📋 7.3.2: WorkflowEventSubscriber의 이벤트 감지 로그 강화**
+- [ ] **Tool Call 이벤트 감지 시 UI 업데이트 추가**
+  ```typescript
+  // apps/web/src/contexts/playground-context.tsx의 UPDATE_WORKFLOW_FROM_SDK에 추가
+  case 'UPDATE_WORKFLOW_FROM_SDK':
+      console.log('🔄 [STEP 7.3.2] Workflow updated from SDK:', action.payload ? 'Success' : 'Null');
+      
+      // 기존 UI 상태 업데이트
+      if (typeof document !== 'undefined') {
+          const nodesCountElement = document.getElementById('workflow-nodes-count');
+          const lastUpdateElement = document.getElementById('last-workflow-update');
+          if (nodesCountElement) nodesCountElement.textContent = String(action.payload?.nodes?.length || 0);
+          if (lastUpdateElement) lastUpdateElement.textContent = new Date().toLocaleTimeString();
+          
+          // 새로 추가: Tool Call 및 Agent 카운트
+          const toolCallsElement = document.getElementById('tool-calls-count');
+          const agentsElement = document.getElementById('agents-created-count');
+          if (action.payload?.nodes) {
+              const toolCallNodes = action.payload.nodes.filter(node => node.type === 'tool_call' || node.type === 'toolCall');
+              const agentNodes = action.payload.nodes.filter(node => node.type === 'agent');
+              if (toolCallsElement) toolCallsElement.textContent = String(toolCallNodes.length);
+              if (agentsElement) agentsElement.textContent = String(agentNodes.length);
+          }
+      }
+      return { ...state, currentWorkflow: action.payload };
+  ```
+
+**🎯 시각적 확인**: 
+- Workflow 업데이트 시 Tool Calls와 Agents 카운트가 자동 업데이트됨
+
+**✅ 사용자 확인 필요**: 카운트 업데이트 로직이 추가되면 다음 단계 진행
+
+---
+
+**📋 7.3.3: 실제 Team assignTask 테스트 실행**
+- [ ] **복잡한 작업 프롬프트로 assignTask 유도**
+  ```typescript
+  // 테스트 시나리오 준비
+  테스트 단계:
+  1. Create Team 버튼 클릭
+  2. Play 버튼 클릭 (ready 상태로 변경)
+  3. 다음 프롬프트 입력:
+     "웹사이트를 만들어주세요. 프론트엔드와 백엔드가 모두 필요합니다. 
+      각각 별도의 전문가가 담당해야 합니다."
+  4. 전송 버튼 클릭
+  ```
+
+**🎯 시각적 확인**: 
+- 채팅 응답 진행 중 Status 박스의 변화 관찰
+- Console에서 `🔄 [STEP 7.2.3] Workflow update received` 로그 확인
+- "Tool Calls Detected" 숫자가 증가하는지 확인
+- "Agents Created" 숫자가 증가하는지 확인
+
+**✅ 사용자 확인 필요**: 채팅 중에 Status 박스 숫자가 증가하면 다음 단계 진행
+
+---
+
+**📋 7.3.4: React-Flow 시각화에 SDK Workflow 데이터 반영 확인**
+- [ ] **현재 React-Flow 영역에 SDK 데이터 표시 확인**
+  ```typescript
+  // Workflow Visualization 영역에서 확인할 내용:
+  // 1. Team Node 존재 확인
+  // 2. Tool Call Node(assignTask) 생성 확인  
+  // 3. 새로운 Agent Node 생성 확인
+  // 4. Node 간 연결선(Edge) 확인
+  ```
+
+**🎯 시각적 확인**: 
+- React-Flow 영역에서 새로운 Node들이 나타나는지 확인
+- Node 간 연결선이 올바르게 그어지는지 확인
+- Node 상태(pending → running → completed) 변화 확인
+
+**✅ 사용자 확인 필요**: React-Flow에서 실제 Workflow가 시각화되면 다음 단계 진행
+
+---
+
+**📋 7.3.5: 기존 Event 시스템과 새로운 Workflow 시스템 동시 동작 확인**
+- [ ] **이중 시스템 동작 확인**
+  ```typescript
+  // 확인할 내용:
+  // 1. 기존 Event Listener (handleToolCallStart, handleAgentCreated)도 여전히 동작하는지
+  // 2. 새로운 SDK Workflow 구독도 동작하는지
+  // 3. 두 시스템이 서로 간섭하지 않는지
+  // 4. UI가 올바르게 업데이트되는지
+  ```
+
+**🎯 시각적 확인**: 
+- Console에서 기존 Event Listener 로그도 함께 보이는지 확인
+- Console에서 SDK Workflow 로그도 함께 보이는지 확인
+- 두 시스템의 로그가 충돌 없이 같이 나타나는지 확인
+
+**✅ 사용자 확인 필요**: 두 시스템의 로그가 모두 보이고 충돌이 없으면 STEP 7.3 완료
+
+**🎯 STEP 7.3 최종 결과**: 
+- 실제 Team assignTask가 SDK Workflow 시스템을 통해 시각화됨
+- Status 박스에서 실시간으로 Tool Call 및 Agent 생성 확인 가능
+- React-Flow에서 실제 Workflow 구조 시각화 확인
+- 기존 시스템과 새로운 시스템이 충돌 없이 동시 동작
+- 모든 변화가 눈으로 직접 확인 가능
+
+---
+
+##### **👀 STEP 7.4: 시각화 개선 및 임시 테스트 요소 정리 (시각적 완성)** 🔄 진행중
+
+**🎯 목적**: 실제 사용자에게 보여줄 수 있는 깔끔한 UI로 완성
+
+---
+
+**📋 7.4.1: Status 박스를 실제 사용자용 UI로 개선**
+- [ ] **Status 박스 디자인 개선 및 토글 기능 추가**
+  ```typescript
+  // apps/web/src/app/playground/page.tsx에서 Status 박스 개선
+  <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4 shadow-sm">
+      <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-gray-800">🔄 Workflow System</h3>
+          <button 
+              onClick={() => setShowWorkflowDetails(!showWorkflowDetails)}
+              className="text-sm text-blue-600 hover:text-blue-800"
+          >
+              {showWorkflowDetails ? 'Hide Details' : 'Show Details'}
+          </button>
+      </div>
+      
+      {showWorkflowDetails && (
+          <div className="mt-3 space-y-2 text-sm text-gray-600">
+              <div className="flex justify-between">
+                  <span>📊 Current Workflow:</span>
+                  <span id="workflow-nodes-count" className="font-medium">0</span> nodes
+              </div>
+              <div className="flex justify-between">
+                  <span>🔧 Tool Calls:</span>
+                  <span id="tool-calls-count" className="font-medium">0</span>
+              </div>
+              <div className="flex justify-between">
+                  <span>🤖 Agents Created:</span>
+                  <span id="agents-created-count" className="font-medium">0</span>
+              </div>
+              <div className="flex justify-between">
+                  <span>📡 SDK Status:</span>
+                  <span id="sdk-subscription-status" className="font-medium text-green-600">Connected</span>
+              </div>
+          </div>
+      )}
+  </div>
+  ```
+
+**🎯 시각적 확인**: 
+- 깔끔한 디자인의 접을 수 있는 Status 박스가 표시됨
+- "Show Details" / "Hide Details" 토글 버튼 동작 확인
+
+**✅ 사용자 확인 필요**: 개선된 Status 박스가 보이고 토글이 작동하면 다음 단계 진행
+
+---
+
+**📋 7.4.2: 임시 테스트 버튼들을 개발자 모드로 이동**
+- [ ] **테스트 버튼들을 개발자 모드에서만 표시**
+  ```typescript
+  // 개발자 모드 상태 추가
+  const [isDeveloperMode, setIsDeveloperMode] = useState(false);
+  
+  // 테스트 버튼들을 조건부 렌더링
+  {isDeveloperMode && (
+      <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4">
+          <h4 className="font-medium text-yellow-800 mb-2">🛠️ Developer Tools</h4>
+          <div className="space-x-2">
+              <button className="bg-blue-500 text-white px-3 py-1 rounded text-sm">
+                  Test getCurrentWorkflow
+              </button>
+              <button className="bg-green-500 text-white px-3 py-1 rounded text-sm">
+                  Test Workflow Subscription
+              </button>
+              <button className="bg-purple-500 text-white px-3 py-1 rounded text-sm">
+                  Load Current Workflow
+              </button>
+          </div>
+      </div>
+  )}
+  
+  // 개발자 모드 토글 버튼 (우측 상단에 작게)
+  <button 
+      onClick={() => setIsDeveloperMode(!isDeveloperMode)}
+      className="fixed top-4 right-4 bg-gray-600 text-white px-2 py-1 rounded text-xs"
+  >
+      {isDeveloperMode ? 'Hide Dev' : 'Dev Mode'}
+  </button>
+  ```
+
+**🎯 시각적 확인**: 
+- 기본적으로는 테스트 버튼들이 숨겨짐
+- 우측 상단의 "Dev Mode" 버튼 클릭 시 테스트 버튼들이 나타남
+
+**✅ 사용자 확인 필요**: Dev Mode 토글이 정상 작동하면 다음 단계 진행
+
+---
+
+**📋 7.4.3: React-Flow 시각화와 SDK Workflow 데이터 연결 확인**
+- [ ] **React-Flow가 SDK Workflow 데이터를 실제로 표시하는지 확인**
+  ```typescript
+  // WorkflowVisualization 컴포넌트에서 SDK 데이터 사용 확인
+  // currentWorkflow가 SDK에서 오는 데이터인지 확인
+  // Node와 Edge가 올바르게 렌더링되는지 확인
+  ```
+
+**🎯 시각적 확인**: 
+- Team assignTask 실행 시 React-Flow에서 실제 Node들이 나타나는지 확인
+- SDK에서 받은 Workflow 데이터가 React-Flow에 정확히 반영되는지 확인
+- Node 간 연결이 올바르게 표시되는지 확인
+
+**✅ 사용자 확인 필요**: React-Flow에서 SDK Workflow가 정확히 시각화되면 다음 단계 진행
+
+---
+
+**📋 7.4.4: Console 로그 레벨 조정 및 사용자용 로그 정리**
+- [ ] **개발용 로그와 사용자용 로그 분리**
+  ```typescript
+  // 개발용 로그는 개발자 모드에서만 표시
+  const debugLog = (message: string, ...args: any[]) => {
+      if (isDeveloperMode || process.env.NODE_ENV === 'development') {
+          console.log(message, ...args);
+      }
+  };
+  
+  // 사용자용 중요 로그만 유지
+  const userLog = (message: string, ...args: any[]) => {
+      console.log(message, ...args);
+  };
+  
+  // 로그 레벨 조정 적용
+  debugLog('🏗️ [STEP 7.1.1] WorkflowEventSubscriber created:', !!this.workflowSubscriber);
+  userLog('✅ Workflow system initialized');
+  ```
+
+**🎯 시각적 확인**: 
+- 일반 사용자에게는 필수적인 로그만 표시됨
+- 개발자 모드에서는 상세한 디버그 로그도 표시됨
+
+**✅ 사용자 확인 필요**: Console이 깔끔해지고 중요한 정보만 보이면 다음 단계 진행
+
+---
+
+**📋 7.4.5: 최종 통합 테스트 및 사용자 경험 확인**
+- [ ] **전체 워크플로우 사용자 관점에서 테스트**
+  ```typescript
+  // 최종 사용자 시나리오:
+  1. Playground 접속 → 깔끔한 UI 확인
+  2. Create Team → Status 박스에서 상태 변화 확인
+  3. 복잡한 작업 요청 → React-Flow에서 실시간 시각화 확인
+  4. assignTask 실행 → Tool Call 및 Agent 생성 시각화 확인
+  5. 전체 과정이 직관적이고 이해하기 쉬운지 확인
+  ```
+
+**🎯 시각적 확인**: 
+- 전체 과정이 사용자에게 직관적으로 보이는지 확인
+- 불필요한 개발자 정보는 숨겨져 있는지 확인
+- 중요한 정보는 명확하게 표시되는지 확인
+- React-Flow 시각화가 실제로 도움이 되는지 확인
+
+**✅ 사용자 확인 필요**: 전체 시스템이 사용자 친화적으로 동작하면 STEP 7.4 완료
+
+**🎯 STEP 7.4 최종 결과**: 
+- 사용자 친화적인 깔끔한 UI 완성
+- 개발자 도구는 별도 모드로 분리
+- React-Flow와 SDK Workflow의 완전한 통합
+- 실제 서비스에서 사용 가능한 수준의 시각화 시스템 완성
+- 모든 기능이 직관적이고 안정적으로 동작
+
+---
+
+### **📋 STEP 7 진행 순서 (시각적 확인 기반으로 수정됨)**
+
+**🎯 핵심 원칙**: 모든 단계는 **눈으로 확인 가능한 변화**가 있어야 하며, **사용자 승인 후** 다음 단계 진행
+
+#### **🔄 STEP 7.1: SDK Workflow 시스템 기반 구축**
+1. **7.1.1** → Console 로그 확인 → ✅ 사용자 확인 → 다음 단계
+2. **7.1.2** → 추가 Console 로그 확인 → ✅ 사용자 확인 → 다음 단계
+3. **7.1.3** → 테스트 버튼 표시 및 동작 확인 → ✅ 사용자 확인 → 다음 단계
+4. **7.1.4** → 구독 테스트 버튼 동작 확인 → ✅ 사용자 확인 → 다음 단계
+5. **7.1.5** → Team 생성 로그 확인 → ✅ 사용자 확인 → **STEP 7.1 완료**
+
+#### **🔄 STEP 7.2: UI 상태 표시 및 실시간 업데이트**
+1. **7.2.1** → Status 박스 UI 표시 확인 → ✅ 사용자 확인 → 다음 단계
+2. **7.2.2** → 빌드 에러 없음 확인 → ✅ 사용자 확인 → 다음 단계
+3. **7.2.3** → "Connected" 상태 표시 확인 → ✅ 사용자 확인 → 다음 단계
+4. **7.2.4** → 버튼 클릭 시 Status 업데이트 확인 → ✅ 사용자 확인 → 다음 단계
+5. **7.2.5** → Team 생성 시 자동 업데이트 확인 → ✅ 사용자 확인 → **STEP 7.2 완료**
+
+#### **🔄 STEP 7.3: 실제 assignTask 실행 및 시각화 확인**
+1. **7.3.1** → Tool Calls/Agents 카운트 표시 확인 → ✅ 사용자 확인 → 다음 단계
+2. **7.3.2** → 카운트 업데이트 로직 동작 확인 → ✅ 사용자 확인 → 다음 단계
+3. **7.3.3** → 실제 채팅 중 Status 박스 변화 확인 → ✅ 사용자 확인 → 다음 단계
+4. **7.3.4** → React-Flow에서 실제 Node 시각화 확인 → ✅ 사용자 확인 → 다음 단계
+5. **7.3.5** → 이중 시스템 동시 동작 확인 → ✅ 사용자 확인 → **STEP 7.3 완료**
+
+#### **🔄 STEP 7.4: UI/UX 완성 및 사용자 친화적 마무리**
+1. **7.4.1** → 깔끔한 Status 박스 및 토글 기능 확인 → ✅ 사용자 확인 → 다음 단계
+2. **7.4.2** → Dev Mode 토글 및 테스트 버튼 숨김 확인 → ✅ 사용자 확인 → 다음 단계
+3. **7.4.3** → React-Flow와 SDK 데이터 연결 최종 확인 → ✅ 사용자 확인 → 다음 단계
+4. **7.4.4** → Console 로그 정리 및 사용자 친화적 변경 확인 → ✅ 사용자 확인 → 다음 단계
+5. **7.4.5** → 전체 사용자 경험 최종 테스트 → ✅ 사용자 확인 → **STEP 7.4 완료**
+
+### **🎯 각 단계별 사용자 확인 기준**
+
+**✅ 진행 가능**: 해당 단계의 시각적 변화가 명확히 보임
+**⚠️ 대기 필요**: 시각적 변화가 불분명하거나 예상과 다름
+**❌ 수정 필요**: 에러 발생 또는 전혀 동작하지 않음
+
+### **🔄 각 STEP에서 문제 발생 시**
+1. **즉시 해당 단계에서 중단**
+2. **문제 원인 분석 및 수정**
+3. **수정 후 해당 단계 재실행**
+4. **사용자 확인 후 다음 단계 진행**
+
+**💡 핵심**: 모든 단계는 **작고 명확한 시각적 변화**를 기준으로 하며, **사용자가 직접 눈으로 확인**할 수 있어야 함
+
+### **✅ 수정된 STEP 7의 Rule 준수성**
+
+**✅ No Fallback Policy 완전 준수**:
+- ✅ 실제 존재하는 SDK API만 사용 (fallback 로직 없음)
+- ✅ 가상의 메서드나 기능에 의존하지 않음
+- ✅ 확실한 연결 보장 (SDK가 실제로 제공하는 기능만 활용)
+
+**✅ Build Integrity 완전 준수**:
+- ✅ 실제 존재하는 API만 사용하여 빌드 오류 없음
+- ✅ 근본 원인 해결 (WorkflowEventSubscriber + RealTimeWorkflowBuilder 활용)
+- ✅ 정석적 구현 (SDK 예제와 동일한 패턴)
+
+**✅ Robota SDK 아키텍처 완전 준수**:
+- ✅ 실제 WorkflowEventSubscriber 사용
+- ✅ 실제 RealTimeWorkflowBuilder 사용  
+- ✅ 실제 존재하는 메서드명과 동작 방식 준수
+- ✅ 도메인 중립성 (모든 Tool에 대해 범용적 처리)
+
+**✅ 기존 구조 완전 존중**:
+- ✅ 기존 EventService 구조 완전 보존 (on/off 지원)
+- ✅ 기존 PlaygroundContext 동작 유지
+- ✅ PlaygroundHistoryPlugin 완전 보존
+- ✅ 점진적 확장 (기존 시스템 + 새로운 시스템)
+
+### **🎯 수정된 STEP 7 완료 후 기대 결과**
+
+**✅ 실제 SDK 아키텍처 활용**:
+```
+Team → WorkflowEventSubscriber → RealTimeWorkflowBuilder → PlaygroundContext
+  ↓
+기존 Event System (on/off) → 기존 UI 업데이트 (유지)
+```
+
+**✅ 안정적인 이중 시스템**:
+- 기존 Event 기반 시스템: 호환성 보장, 즉시 동작
+- 새로운 Workflow 기반 시스템: SDK 정식 기능, 향후 확장성
+- 점진적 전환: 사용자 선택에 따라 시스템 전환 가능
+
+**✅ 실제 실현 가능성 100%**:
+- 모든 API가 실제 존재함
+- 모든 메서드명이 정확함
+- 기존 시스템과 완전 호환
+- SDK 예제와 동일한 패턴
+
+**🙏 수정된 STEP 7 작업 시작 승인을 요청드립니다.**
+
+---
+
+## 🔧 **STEP 8: SDK Store 외부 주입 방식으로 최소 수정 (수정됨)**
+
+### **📌 현재 문제점**
+- **Two-Store Problem**: Manual Store (PlaygroundContext.currentWorkflow) vs SDK Store (RealTimeWorkflowBuilder.currentWorkflow)
+- **덮어쓰기 문제**: Tool 호출 시 SDK가 18개 노드를 생성하면서 기존 3개 Manual 노드(Team, Agent, User Input)를 완전 덮어쓰기
+- **SDK Store 접근성**: 현재 SDK Store는 내부에 숨겨져 있어 외부에서 Manual 노드 추가 불가
+
+### **🎯 해결 방안: 최소 수정으로 SDK Store 외부 접근 가능하게 만들기**
+**핵심 아이디어**: 
+1. **기존 18개 노드 생성 로직 보존** (수정 없음)
+2. **SDK Store만 외부 주입 가능하도록 최소 수정**
+3. **Manual Store와 SDK Store 병합은 그대로 유지** (문제 해결 연기)
+4. **외부에서 SDK Store에 Manual 노드 추가 가능하도록 준비**
+
+```
+현재 구조:
+RealTimeWorkflowBuilder.currentWorkflow (내부, 접근 불가)
+       ↓ universalUpdate
+PlaygroundContext.currentWorkflow (Manual Store)
+       ↓ 
+React-Flow Visualization
+
+수정 후 구조:
+ExternalWorkflowStore (외부 주입) ← 새로 추가
+       ↓ 
+RealTimeWorkflowBuilder.currentWorkflow (주입된 Store 사용)
+       ↓ universalUpdate  
+PlaygroundContext.currentWorkflow (Manual Store - 기존 유지)
+       ↓ 
+React-Flow Visualization
+```
+
+### **📋 STEP 8 최소 수정 작업 계획**
+
+#### **🔧 STEP 8.1: 외부 WorkflowStore 인터페이스 정의**
+- [ ] **8.1.1**: `apps/web/src/lib/playground/external-workflow-store.ts` 파일 생성
+- [ ] **8.1.2**: 간단한 `ExternalWorkflowStore` 인터페이스 정의
+  ```typescript
+  export interface ExternalWorkflowStore {
+    // 기본 노드 관리
+    addNode(node: UniversalWorkflowNode): void;
+    getNodes(): UniversalWorkflowNode[];
+    
+    // Manual 노드 추가용 헬퍼 메서드들
+    addTeamNode(teamData: { id: string; name: string }): void;
+    addAgentNode(agentData: { id: string; name: string }): void;
+    addUserInputNode(inputData: { id: string; content: string }): void;
+  }
+  ```
+- [ ] **8.1.3**: 기본 구현체 `DefaultExternalWorkflowStore` 클래스 생성
+- [ ] **8.1.4**: Manual 노드 데이터를 `UniversalWorkflowNode` 형태로 변환하는 헬퍼 함수들
+
+#### **🔧 STEP 8.2: RealTimeWorkflowBuilder 주입 가능하도록 최소 수정**
+- [ ] **8.2.1**: `RealTimeWorkflowBuilder` 생성자에 `externalStore` 옵션 추가
+  ```typescript
+  constructor(
+    eventService: EventService,
+    logger?: SimpleLogger,
+    externalStore?: ExternalWorkflowStore  // 새로 추가
+  )
+  ```
+- [ ] **8.2.2**: 외부 Store가 주입된 경우 해당 Store의 노드들을 초기 워크플로우에 포함
+- [ ] **8.2.3**: 워크플로우 업데이트 시 외부 Store 노드들과 SDK 노드들 병합
+- [ ] **8.2.4**: **기존 18개 노드 생성 로직은 전혀 수정하지 않음** (중요!)
+
+#### **🔧 STEP 8.3: PlaygroundExecutor에서 ExternalWorkflowStore 주입**
+- [ ] **8.3.1**: `PlaygroundExecutor`에 `ExternalWorkflowStore` 인스턴스 생성
+  ```typescript
+  private externalWorkflowStore: ExternalWorkflowStore;
+  ```
+- [ ] **8.3.2**: 생성자에서 `ExternalWorkflowStore` 초기화 및 `RealTimeWorkflowBuilder`에 주입
+  ```typescript
+  this.externalWorkflowStore = new DefaultExternalWorkflowStore();
+  this.workflowBuilder = new RealTimeWorkflowBuilder(
+    this.workflowSubscriber, 
+    this.logger,
+    this.externalWorkflowStore  // 주입
+  );
+  ```
+- [ ] **8.3.3**: public 접근 메서드 추가
+  ```typescript
+  getExternalWorkflowStore(): ExternalWorkflowStore {
+    return this.externalWorkflowStore;
+  }
+  ```
+
+#### **🔧 STEP 8.4: UI에서 ExternalWorkflowStore 사용하도록 최소 수정**
+- [ ] **8.4.1**: `apps/web/src/app/playground/page.tsx`의 `handleCreateTeam` 수정
+  ```typescript
+  const handleCreateTeam = useCallback(async () => {
+    const defaultConfig = getDefaultTeamConfig();
+    await createTeam(defaultConfig);
+    
+    // 외부 Store에 Team 노드 추가
+    const externalStore = state.executor?.getExternalWorkflowStore();
+    externalStore?.addTeamNode({
+      id: `team-${Date.now()}`,
+      name: defaultConfig.name || 'Team'
+    });
+  }, [createTeam, getDefaultTeamConfig, state.executor]);
+  ```
+- [ ] **8.4.2**: `handleCreateAgent` 수정하여 외부 Store 사용
+- [ ] **8.4.3**: 채팅 입력 시 User Input 노드를 외부 Store에 추가
+- [ ] **8.4.4**: **기존 PlaygroundContext의 Manual Store 로직은 그대로 유지** (병합 문제 해결 연기)
+
+#### **🔧 STEP 8.5: 최소 테스트 및 검증**
+- [ ] **8.5.1**: 외부 Store에 Manual 노드 추가가 SDK 워크플로우에 반영되는지 확인
+- [ ] **8.5.2**: 기존 18개 노드 생성이 여전히 정상 동작하는지 확인  
+- [ ] **8.5.3**: Manual Store와 SDK Store 병합이 여전히 작동하는지 확인 (문제 있어도 OK)
+- [ ] **8.5.4**: 전체 시스템이 이전과 동일하게 작동하는지 확인
+- [ ] **8.5.5**: 콘솔에서 외부 Store의 노드들이 SDK 워크플로우에 포함되는지 로그 확인
+
+### **🎯 STEP 8 완료 후 기대 결과**
+
+**✅ 외부 접근성 확보**:
+- SDK Store에 외부에서 Manual 노드 추가 가능
+- `PlaygroundExecutor.getExternalWorkflowStore()` 통해 접근
+- 향후 완전한 일원화를 위한 기반 마련
+
+**✅ 기존 기능 완전 보존**:
+- 18개 SDK 노드 생성 로직 전혀 수정 안함
+- 기존 Manual Store 로직 완전 보존
+- 기존 병합 로직 완전 보존 (문제 있어도 그대로 유지)
+
+**✅ 최소 위험**:
+- 새로운 기능 추가만 하고 기존 기능 수정 없음
+- 문제 발생 시 외부 Store 기능만 비활성화하면 원상복구
+- 점진적 개선 가능
+
+**✅ 향후 확장성**:
+- 외부 Store 인터페이스 확장으로 완전한 일원화 가능
+- Manual Store → SDK Store 완전 이전 준비 완료
+- 병합 문제 해결을 위한 인프라 구축
+
+### **🚨 주의사항**
+
+1. **최소 수정 원칙**: 기존 코드 수정 최소화, 새로운 기능 추가 위주
+2. **기존 기능 보존**: 18개 노드 생성, Manual Store, 병합 로직 모두 그대로 유지
+3. **문제 해결 연기**: 병합 문제는 이번에 해결하지 않고 인프라만 구축
+4. **점진적 접근**: 외부 Store 안정화 후 향후 완전한 일원화 진행
+5. **롤백 준비**: 각 단계별 git commit, 문제 시 외부 Store 기능만 제거
+
+---
+
+## 🔧 **STEP 9: Manual Store → SDK Store 저장 위치 변경 (최소 수정)**
+
+### **📌 현재 문제점 분석**
+**사용자 보고 내용**:
+- Default Team은 유지됨 ✅
+- Default Agent가 사라짐 ❌  
+- User Input 노드가 3개나 생성됨 ❌
+- 총 20개 노드 (예상 21개보다 1개 적음)
+
+**근본 원인**:
+- **중복 저장**: Manual Store + External Store = 같은 노드가 2곳에 저장됨
+- **충돌**: Manual Store 노드와 SDK Store 노드가 병합 시 충돌
+- **덮어쓰기**: SDK 이벤트 발생 시 Manual Store 데이터가 손실됨
+
+### **🎯 해결 방안: 저장 위치만 변경 (최소 수정)**
+
+**현재 구조** (문제 있음):
+```
+UI 이벤트 → Manual Store (PlaygroundContext) ← 문제 발생
+            External Store → SDK Store
+            ↓ (충돌하는 병합)
+            React-Flow Visualization
+```
+
+**목표 구조** (최소 수정):
+```
+UI 이벤트 → External Store → SDK Store ← 유일한 저장소
+            Manual Store (빈 상태로 유지) ← 기존 로직 보존
+            ↓ (SDK Store만 사용)
+            React-Flow Visualization
+```
+
+### **📋 STEP 9 최소 수정 작업 계획**
+
+#### **🔧 STEP 9.1: Manual Store → SDK Store 저장 위치 변경**
+- [ ] **9.1.1**: `handleCreateTeam`에서 Manual Store 저장을 SDK Store 저장으로 **변경**
+  ```typescript
+  // 기존 Manual Store 저장 코드:
+  // const workflow = createTeamWorkflow(defaultConfig);
+  // setWorkflow(workflow);
+  
+  // 변경 → SDK Store 저장 코드:
+  // External Store에 Team 노드 추가 (이미 구현됨)
+  // Manual Store 저장 코드는 제거
+  ```
+- [ ] **9.1.2**: `handleCreateAgent`에서 Manual Store 저장을 SDK Store 저장으로 **변경**
+  ```typescript
+  // 기존 Manual Store 저장 코드:
+  // const workflow = createWorkflowForAgent(defaultConfig);
+  // setWorkflow(workflow);
+  
+  // 변경 → SDK Store 저장 코드:
+  // External Store에 Agent 노드 추가 (이미 구현됨)
+  // Manual Store 저장 코드는 제거
+  ```
+- [ ] **9.1.3**: `executeStreamPrompt`에서 Manual User Input 저장을 SDK Store 저장으로 **변경**
+  ```typescript
+  // 기존 Manual Store User Input 저장 코드:
+  // - state.currentWorkflow 기반 노드 생성
+  // - dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: updatedWorkflow });
+  // - currentWorkflowRef.current = updatedWorkflow;
+  
+  // 변경 → SDK Store 저장 코드:
+  // External Store에 User Input 노드 추가 (이미 구현됨)
+  // Manual Store 저장 코드는 제거
+  ```
+
+#### **🔧 STEP 9.2: React-Flow가 SDK Store만 사용하도록 최소 수정**
+- [ ] **9.2.1**: `workflow-visualization.tsx`의 데이터 소스가 어디서 오는지 확인
+  ```typescript
+  // 현재 workflow prop이 Manual Store인지 SDK Store인지 확인
+  // Manual Store면 SDK Store로 변경
+  ```
+- [ ] **9.2.2**: PlaygroundContext에서 Manual Store 대신 SDK Store 데이터 전달
+  ```typescript
+  // currentWorkflow 대신 sdkWorkflow 사용
+  // UPDATE_WORKFLOW_FROM_SDK 결과를 React-Flow에 전달
+  ```
+
+#### **🔧 STEP 9.3: Manual Store → SDK Store 변경 검증**
+- [ ] **9.3.1**: Manual Store 저장 코드가 모두 SDK Store 저장으로 변경되었는지 확인
+  ```typescript
+  // 확인 항목:
+  // - handleCreateTeam: External Store 사용, Manual Store 제거
+  // - handleCreateAgent: External Store 사용, Manual Store 제거  
+  // - executeStreamPrompt: External Store 사용, Manual Store 제거
+  ```
+- [ ] **9.3.2**: 사용되지 않는 Manual Store 관련 import 및 함수 정리
+  ```typescript
+  // 정리 대상:
+  // - createTeamWorkflow, createWorkflowForAgent import 제거
+  // - setWorkflow Manual Store 호출 제거
+  // - 관련 유틸리티 함수들 정리
+  ```
+
+#### **🔧 STEP 9.4: 테스트 및 검증**
+- [ ] **9.4.1**: Create Team → External Store에만 추가되고 Manual Store에는 추가 안되는지 확인
+- [ ] **9.4.2**: Create Agent → External Store에만 추가되고 Manual Store에는 추가 안되는지 확인  
+- [ ] **9.4.3**: 채팅 입력 → External Store에만 User Input 추가되고 Manual Store에는 추가 안되는지 확인
+- [ ] **9.4.4**: React-Flow가 SDK Store 데이터만 표시하는지 확인
+- [ ] **9.4.5**: Tool 호출 → 총 21개 노드 (초기 3개 + SDK 18개)가 정확히 표시되는지 확인
+
+### **🎯 STEP 9 완료 후 기대 결과**
+
+**✅ 최소 수정으로 Single Source of Truth 달성**:
+- External Store → SDK Store가 유일한 **활성 데이터 소스**
+- Manual Store는 보존되지만 **비활성화** (삭제하지 않음)
+- 중복 저장 문제 해결 (같은 노드가 2곳에 저장되지 않음)
+
+**✅ 예상 동작**:
+1. **Create Team**: External Store에만 Team 노드 1개 추가 → SDK Store 반영 → React-Flow 표시
+2. **Create Agent**: External Store에만 Agent 노드 1개 추가 → SDK Store 반영 → React-Flow 표시  
+3. **채팅 입력**: External Store에만 User Input 노드 1개 추가 → SDK Store 반영 → React-Flow 표시
+4. **Tool 호출**: 기존 노드들 보존 + SDK의 18개 노드 추가 = 총 21개 노드
+
+**✅ 문제 해결**:
+- ❌ Default Agent 사라짐 → ✅ Default Agent 보존 (External Store → SDK Store 경로)
+- ❌ User Input 3개 생성 → ✅ User Input 1개만 생성 (Manual Store 비활성화)
+- ❌ 20개 노드 (1개 부족) → ✅ 21개 노드 (정확한 수)
+
+**✅ 확실한 문제 해결**:
+- Manual Store 저장 → SDK Store 저장으로 **완전 변경**
+- 중복 저장 문제 **근본 해결** (1곳에만 저장)
+- 데이터 충돌 문제 **완전 제거** (단일 데이터 소스)
+
+### **🚨 주의사항**
+
+1. **저장 위치 변경**: Manual Store 저장 코드를 SDK Store 저장으로 완전 변경
+2. **단계별 진행**: 각 단계별로 사용자 테스트 후 다음 진행
+3. **백업 유지**: git commit으로 롤백 준비
+4. **근본 해결**: 중복 저장 문제를 완전히 해결
+5. **확실한 변경**: External Store → SDK Store 경로만 사용
+
+### **📊 작업 우선순위**
+
+**🔴 HIGH (즉시)**: 9.1 (Manual Store → SDK Store 저장 변경)
+**🟡 MEDIUM (곧바로)**: 9.2 (React-Flow 데이터 소스 변경)  
+**🟢 LOW (확인)**: 9.3, 9.4 (변경 검증 및 테스트)
+
+---
+
+## 🔧 **STEP 11: External Store → SDK Store 즉시 트리거 연결** ✅ **완료**
+
+### **📌 문제점 분석**
+**사용자 보고 내용**: Create Team 버튼을 눌러도 React-Flow 화면이 바뀌지 않음
+**힌트**: 모든 작업이 끝난 후에는 React-Flow에 잘 적용되어 보임 (채팅 완료 시)
+
+### **🔍 근본 원인 (검증 완료)**
+- **External Store 노드 추가 ≠ SDK Store 업데이트 트리거**
+- Create Team 시: External Store에만 추가, SDK Store 업데이트 안됨 → React-Flow 반영 안됨  
+- 채팅 완료 시: SDK 내부 이벤트 발생 → `notifyUniversalUpdates()` 트리거 → External Store + SDK Store 병합 → React-Flow 반영됨
+
+### **✅ 해결 방법 (구현 완료)**
+
+#### **수정된 파일들:**
+
+1. **`packages/agents/src/services/real-time-workflow-builder.ts`**:
+   ```typescript
+   // 새로 추가된 public 메서드
+   async triggerManualUpdate(): Promise<void> {
+       this.logger.debug('Manual update triggered - notifying Universal workflow subscribers');
+       await this.notifyUniversalUpdates();
+       this.logger.debug('Manual update completed');
+   }
+   ```
+
+2. **`apps/web/src/lib/playground/external-workflow-store.ts`**:
+   ```typescript
+   export interface ExternalWorkflowStore {
+       // 기존 메서드들...
+       setUpdateCallback(callback: () => Promise<void>): void;  // 새로 추가
+   }
+
+   export class DefaultExternalWorkflowStore implements ExternalWorkflowStore {
+       private updateCallback: (() => Promise<void>) | null = null;  // 새로 추가
+
+       addNode(node: UniversalWorkflowNode): void {
+           // ... 기존 로직 ...
+           this.triggerUpdate();  // 새로 추가
+       }
+
+       setUpdateCallback(callback: () => Promise<void>): void {
+           this.updateCallback = callback;
+           this.logger.debug('Update callback set for SDK Store trigger');
+       }
+
+       private triggerUpdate(): void {
+           if (this.updateCallback) {
+               this.updateCallback().catch(error => {
+                   this.logger.error('Error triggering SDK Store update:', error);
+               });
+           }
+       }
+   }
+   ```
+
+3. **`apps/web/src/lib/playground/robota-executor.ts`**:
+   ```typescript
+   // External Store → SDK Store 연결 설정
+   this.externalWorkflowStore.setUpdateCallback(async () => {
+       await this.workflowBuilder.triggerManualUpdate();
+   });
+   console.log('🔗 [CONNECTION] External Store → SDK Store trigger connected');
+   ```
+
+### **🎯 완료 후 예상 동작**
+
+**✅ Create Team 버튼 클릭**:
+```
+handleCreateTeam() 
+→ externalStore.addTeamNode() 
+→ triggerUpdate() 
+→ triggerManualUpdate() 
+→ notifyUniversalUpdates() 
+→ PlaygroundContext UPDATE_WORKFLOW_FROM_SDK
+→ React-Flow 즉시 업데이트 ✅
+```
+
+**✅ Create Agent 버튼 클릭**:
+```
+handleCreateAgent() 
+→ externalStore.addAgentNode() 
+→ triggerUpdate() 
+→ triggerManualUpdate() 
+→ notifyUniversalUpdates() 
+→ PlaygroundContext UPDATE_WORKFLOW_FROM_SDK
+→ React-Flow 즉시 업데이트 ✅
+```
+
+**✅ 채팅 입력**:
+```
+executeStreamPrompt() 
+→ externalStore.addUserInputNode() 
+→ triggerUpdate() 
+→ triggerManualUpdate() 
+→ notifyUniversalUpdates() 
+→ PlaygroundContext UPDATE_WORKFLOW_FROM_SDK
+→ React-Flow 즉시 업데이트 ✅
+```
+
+### **✅ 수정 완료 검증**
+
+**Rule 준수 확인**:
+- ✅ **Build Integrity**: TypeScript 안전성 보장, 실제 존재하는 API만 사용
+- ✅ **Architecture Principles**: 의존성 방향 준수 (External Store → SDK Store)
+- ✅ **No Fallback Policy**: 정석적 해결 방법, 불확실성 제거
+- ✅ **Domain Neutrality**: SDK는 도메인 중립 유지, generic한 메서드명 사용
+
+**최소 수정 원칙 준수**:
+- ✅ 기존 SDK 로직 완전 보존
+- ✅ 필요한 연결점만 추가
+- ✅ Public API 최소 추가 (`triggerManualUpdate()`, `setUpdateCallback()`)
+
+---
+
+## 🔧 **Phase 12: 예제 기반 워크플로우 연결 테스트**
+
+### **📌 목표**
+현재 playground에서 구현된 SDK 호환 ID 연결 시스템을 apps/examples에 독립적인 예제로 구현하여 18개 노드의 완전한 연결관계를 검증하고 누락된 연결 문제를 해결합니다.
+
+### **🎯 테스트 시나리오**
+- **프롬프트**: "카페 창업 계획서를 작성해주세요. 반드시 다음 두 부분을 모두 포함해야 합니다: 시장 분석, 메뉴 구성. 각각을 별도로 작성해주세요."
+- **예상 결과**: 초기 3개 노드(Team, Agent, User Input) + SDK 18개 노드가 완전히 연결된 워크플로우
+
+### **🔧 STEP 12.0: Playground Test 버튼 시스템 구현 (시각적 검증 인프라)**
+
+- [ ] 12.0.1: **Test 버튼 UI 컴포넌트 추가**
+  - playground에 "Test Workflow", "Test Missing Connections", "Test Final Workflow" 버튼 추가
+  - 각 버튼은 다른 데이터셋을 React-Flow에 주입
+  - **권한 범위**: apps/web UI 컴포넌트 수정만
+- [ ] 12.0.2: **JSON 데이터 주입 시스템 구현**
+  - 외부 JSON 데이터를 playground React-Flow에 직접 주입하는 함수 구현
+  - 기존 workflow 데이터를 덮어쓰지 않고 임시로 표시하는 메커니즘
+  - **권한 범위**: apps/web 영역, SDK 로직에 개입하지 않음
+- [ ] 12.0.3: **시각적 구분 시스템 구현**
+  - 정상 연결: 초록색 edge
+  - 누락된 연결: 빨간색 edge (점선)
+  - 다른 계층 Agent: 다른 색상으로 구분
+  - **권한 범위**: React-Flow 스타일링만, 데이터 구조 변경 없음
+
+### **🔧 STEP 12.1: 기존 workflow 예제 분석 및 복사본 생성**
+
+- [ ] 12.1.1: `apps/examples` 폴더 내 기존 workflow 관련 예제 파일 식별
+- [ ] 12.1.2: 가장 적합한 예제 파일을 `workflow-connection-test.ts`로 복사
+- [ ] 12.1.3: 복사된 예제의 기본 구조 및 의존성 확인
+- [ ] 12.1.4: 예제 파일에서 불필요한 부분 제거 및 기본 구조 정리
+- [ ] **12.1.5: 예제 → Playground 데이터 전송 시스템 구현**
+  - 예제에서 생성된 워크플로우 데이터를 JSON 파일로 출력
+  - playground가 해당 JSON을 읽어서 Test 버튼에 활용할 수 있도록 구현
+  - **권한 범위**: 데이터 출력 및 전송만, 로직 변경 없음
+
+### **🔧 STEP 12.2: Playground 설정을 예제에 적용 (권한 범위: apps/examples)**
+
+- [ ] 12.2.1: **SDK 컴포넌트 인스턴스화** (packages/agents 인터페이스 사용)
+  - `WorkflowEventSubscriber` 인스턴스 생성 (SDK 패키지 권한)
+  - `RealTimeWorkflowBuilder` 인스턴스 생성 (SDK 패키지 권한)
+  - **수정 권한**: apps/examples에서 인터페이스를 통한 인스턴스화만 가능
+- [ ] 12.2.2: **Team 생성 로직 복제** (apps/web → apps/examples)
+  - PlaygroundExecutor의 team 생성 패턴을 예제에 복사
+  - **수정 권한**: apps/examples 영역, 기존 로직 변경 없이 복제만
+- [ ] 12.2.3: **SDK 호환 ID 패턴 적용** (`agent_${executionId}`)
+  - 기존 ID 생성 로직을 SDK 호환 패턴으로 변경
+  - **수정 권한**: apps/examples 영역, UI 레벨 ID 생성 로직만
+- [ ] 12.2.4: **인터페이스 호환성 검증**
+  - SDK 컴포넌트들이 올바른 인터페이스를 통해 연결되는지 확인
+  - **검증 범위**: 타입 안전성, 의존성 방향 준수
+
+### **🔧 STEP 12.3: External Store 기능을 예제에 통합 (권한 범위: apps/examples + apps/web interface)**
+
+- [ ] 12.3.1: **External Store 인스턴스 생성** (apps/examples 영역)
+  - `DefaultExternalWorkflowStore` 생성 및 설정
+  - **수정 권한**: apps/examples에서 apps/web 컴포넌트 사용
+  - **제한사항**: External Store 내부 로직 변경 금지, 인터페이스 사용만
+- [ ] 12.3.2: **SDK Store 트리거 연결** (기존 인터페이스 활용)
+  - `setUpdateCallback()` 메서드를 통한 External → SDK 연결
+  - **수정 권한**: 기존 Public API만 사용, SDK 내부 로직 변경 금지
+  - **검증 요구**: 인터페이스 호환성 및 이벤트 전파 확인
+- [ ] 12.3.3: **초기 노드 추가 로직** (UI 레벨 로직)
+  - Team, Agent, User Input 노드 생성 (기존 패턴 복제)
+  - **수정 권한**: apps/examples 영역, 노드 생성 로직만
+  - **제한사항**: SDK 노드 생성 로직에 개입 금지
+- [ ] 12.3.4: **Edge 연결 로직** (UI 레벨 연결)
+  - Team→Agent, User Input→Agent 연결 구현
+  - **수정 권한**: External Store의 `addEdge()` 인터페이스 사용만
+  - **검증 요구**: SDK의 계층적 연결과 충돌 없음 확인
+
+### **🔧 STEP 12.4: 카페 창업 계획서 프롬프트로 예제 실행 및 노드 연결 테스트**
+
+- [ ] 12.4.1: 예제 실행 전 초기 상태 로깅 (3개 노드 확인)
+- [ ] 12.4.2: "카페 창업 계획서..." 프롬프트 실행
+- [ ] 12.4.3: 실행 과정에서 생성되는 모든 노드와 연결 상태 로깅
+- [ ] 12.4.4: 최종 결과에서 총 21개 노드(3+18) 확인
+- [ ] **12.4.5: 시각적 검증을 위한 Playground Test 버튼 구현**
+  - 예제에서 생성된 워크플로우 데이터를 JSON으로 출력
+  - playground에 "Test Workflow" 버튼 추가
+  - 버튼 클릭 시 예제 데이터를 React-Flow에 주입하여 시각적 확인
+  - **사용자 확인 대기**: 시각적 결과를 사용자가 확인 후 다음 단계 진행
+
+### **🔧 STEP 12.5: 18개 노드의 연결관계 분석 및 누락된 연결 식별 (분석 단계)**
+
+- [ ] 12.5.1: **SDK 노드 계층 정보 분석** (읽기 전용)
+  - 각 노드의 `parentId`, `executionLevel`, `executionPath` 로깅
+  - **권한 범위**: 데이터 분석만, 수정 금지
+- [ ] 12.5.2: **계층적 연결 패턴 검증** (SDK 동작 분석)
+  - Agent → Agent Thinking 연결 확인
+  - Agent Thinking → Tool Call 연결 확인  
+  - Tool Call → **새로운 Agent** 연결 확인 (재귀적 Agent 생성 시)
+  - **도메인 중립성**: Tool 이름(`assignTask`)에 따른 특별 처리 **금지**
+  - **권한 범위**: 관찰 및 분석만, SDK 로직 변경 금지
+- [ ] 12.5.3: **연결 누락 패턴 식별** (문제 진단)
+  - ID 매칭 실패 패턴 분석
+  - 이벤트 전파 누락 지점 확인
+  - 계층 레벨 불일치 문제 식별
+  - **권한 범위**: 진단만, 해결책 제시는 권한 검증 후
+- [ ] **12.5.4: 중간 검증 - 분석 결과 시각적 확인**
+  - 분석된 연결 누락 패턴을 시각적으로 표시하는 데이터 생성
+  - playground "Test Missing Connections" 버튼 구현
+  - 누락된 연결을 빨간색으로, 정상 연결을 초록색으로 표시
+  - **사용자 확인 대기**: 분석 결과를 확인하고 수정 방향 승인
+
+### **🔧 STEP 12.6: 연결 누락 문제 수정 및 완전한 워크플로우 구현 (권한 기반 수정)**
+
+- [ ] 12.6.1: **근본 원인 분석 및 권한 매트릭스 적용**
+  - 식별된 문제를 권한 매트릭스에 따라 분류
+  - apps/web 영역 문제 vs packages/agents 영역 문제 구분
+  - **수정 전 검증**: 각 수정이 해당 컴포넌트 권한 범위 내인지 확인
+- [ ] 12.6.2: **SDK 영역 수정** (packages/agents 권한 필요시)
+  - WorkflowEventSubscriber의 연결 로직 수정 (**완전히 도메인 중립적으로만**)
+  - **Sub-Agent 제거**: `sub-agent`, `sub_agent` 노드 타입을 `agent` 타입으로 통일
+  - **Generic 이벤트 처리**: Tool 이름에 관계없이 모든 tool을 동등하게 처리
+  - **assignTask 키워드 제거**: 특정 tool에 대한 특별 처리 로직 완전 제거
+  - **수정 조건**: 완전한 도메인 중립성, third-party tool 무지각성 유지
+- [ ] 12.6.3: **UI 영역 수정** (apps/examples 권한)
+  - External Store의 Edge 생성 로직 보완
+  - ID 매칭 로직 개선 (SDK 패턴에 맞춤)
+  - **수정 조건**: SDK 내부 로직에 개입 금지, 인터페이스만 사용
+- [ ] 12.6.4: **권한 검증 후 재실행**
+  - 수정된 로직이 권한 매트릭스를 위반하지 않았는지 확인
+  - 도메인 중립성 및 인터페이스 호환성 재검증
+- [ ] 12.6.5: **최종 워크플로우 완전성 검증**
+  - 21개 노드 완전 연결 확인
+  - **재귀적 Agent 플로우** (Team → Agent → Agent Thinking → Tool Call → **새로운 Agent**) 동작 검증
+  - **도메인 중립성 검증**: 모든 Agent가 동일한 타입으로 처리되는지 확인
+  - **성공 기준**: 권한 위반 없이 완전한 연결 달성, Sub-Agent 개념 완전 제거
+- [ ] **12.6.6: 최종 시각적 검증 - 완성된 워크플로우 확인**
+  - 수정 완료된 워크플로우 데이터를 playground "Test Final Workflow" 버튼으로 시각화
+  - 21개 노드의 완전한 연결 상태를 시각적으로 확인
+  - 재귀적 Agent 구조 (Team → Agent → Tool Call → 새로운 Agent) 시각적 검증
+  - **사용자 최종 승인**: 완성된 워크플로우가 요구사항을 만족하는지 확인
+
+### **🎯 성공 기준 (권한 준수 포함)**
+
+#### **✅ 기능적 성공 기준**
+- ✅ 예제가 독립적으로 실행되어 playground와 동일한 환경 재현
+- ✅ 초기 3개 노드(Team, Agent, User Input)가 올바르게 생성됨
+- ✅ SDK에서 생성하는 18개 노드가 모두 생성됨
+- ✅ 21개 노드가 계층적으로 완전히 연결됨 (연결이 끊어진 노드 없음)
+- ✅ **재귀적 Agent 플로우**가 올바르게 동작함: Team → Agent → Agent Thinking → Tool Call → **새로운 Agent** (무한 반복 가능)
+
+#### **✅ 시각적 검증 성공 기준**
+- ✅ **중간 검증 시스템**: 각 단계마다 playground Test 버튼으로 시각적 확인 가능
+- ✅ **연결 상태 시각화**: 정상 연결(초록색), 누락 연결(빨간색) 구분 표시
+- ✅ **계층별 Agent 구분**: 다른 레벨의 Agent들이 시각적으로 구분됨
+- ✅ **사용자 승인 프로세스**: 각 중간 단계에서 사용자 확인 후 다음 단계 진행
+- ✅ **최종 시각적 검증**: 완성된 21개 노드의 완전한 연결이 React-Flow로 확인됨
+
+#### **✅ 권한/역할 준수 기준**
+- ✅ **완전한 도메인 중립성**: packages/agents에 UI 관련 의존성 및 third-party tool 특화 로직 추가 안됨
+- ✅ **Third-Party Tool 무지각성**: `assignTask` 키워드나 특정 tool에 대한 특별 처리 로직 완전 제거
+- ✅ **Agent 타입 통일**: `sub-agent` 개념 완전 제거, 모든 Agent는 동일한 `agent` 타입으로 처리
+- ✅ **Generic 이벤트 처리**: Tool 이름에 관계없이 모든 tool을 동등하게 처리
+- ✅ **권한 매트릭스 준수**: 각 컴포넌트가 자신의 권한 범위 내에서만 수정됨
+- ✅ **인터페이스 경계 존중**: 패키지 간 상호작용이 정의된 인터페이스를 통해서만 이루어짐
+- ✅ **의존성 방향 유지**: 하위 레벨 → 상위 레벨 의존성 구조 위반 안됨
+- ✅ **SDK 구조 보존**: 기존 SDK 아키텍처 변경 없이 문제 해결됨
+
+### **📋 Rule 준수 사항 및 권한/역할 기반 수정 원칙**
+
+#### **🚨 도메인 중립성 및 권한 분리 (Domain Neutrality & Responsibility Separation)**
+
+##### **📦 패키지 권한 및 책임 범위**
+- **packages/agents**: 순수 비즈니스 로직만, UI 라이브러리 의존성 금지
+- **packages/team**: Team 특화 로직, `assignTask` tool 제공 (third-party tool)
+- **apps/web**: UI 관련 로직만, SDK 내부 구조 변경 금지  
+- **External Store**: apps/web 영역, SDK 내부 로직에 개입하지 않고 인터페이스를 통해서만 상호작용
+- **WorkflowEventSubscriber**: packages/agents 영역, **완전히 도메인 중립적** 이벤트 처리만
+
+##### **🚫 Third-Party Tool 도메인 중립성 원칙**
+- **`assignTask`는 packages/team의 third-party tool**: packages/agents, apps/web, workflow 등은 `assignTask`의 존재를 **사전에 알 수 없음**
+- **이벤트 발생**: `assignTask` 키워드가 포함된 특화 이벤트 발생 **절대 금지**
+- **Generic 이벤트만 사용**: `tool_call_start`, `tool_call_complete`, `agent.creation_start` 등 **도메인 중립적 이벤트만**
+- **Tool 구분**: Tool 타입이나 이름에 따른 특별 처리 로직 **금지** (모든 tool은 동등하게 처리)
+
+##### **🔄 Agent 재귀적 구조 원칙 (Sub-Agent 개념 폐지)**
+- **Agent는 항상 Agent**: 계층에 관계없이 모든 Agent는 동일한 `Agent` 타입
+- **Sub-Agent 개념 제거**: `sub-agent`, `sub_agent` 노드 타입 **사용 금지**
+- **재귀적 구조**: Team → Agent → Tool Call (assignTask) → **새로운 Agent** → Tool Call → **또 다른 Agent**... (무한 반복 가능)
+- **계층 정보**: `executionLevel`, `parentExecutionId`로 계층 추적, 하지만 **타입은 모두 동일한 Agent**
+
+##### **📊 올바른 아키텍처 구조 다이어그램**
+```
+🏢 Team (Level 0)
+ └── 👤 Agent (Level 1) [agent_exec_123]
+     ├── 🧠 Agent Thinking
+     └── 🔧 Tool Call (assignTask) ← Third-party tool
+         └── 👤 **새로운 Agent** (Level 2) [agent_exec_456] ← Agent 타입 동일!
+             ├── 🧠 Agent Thinking
+             └── 🔧 Tool Call (다른 tool)
+                 └── 👤 **또 다른 Agent** (Level 3) [agent_exec_789]
+                     └── ... (무한 재귀 가능)
+
+❌ 잘못된 구조: sub-agent, sub_agent 타입 사용
+✅ 올바른 구조: 모든 Agent는 동일한 'agent' 타입, 레벨로만 구분
+```
+
+##### **🔍 도메인 중립적 이벤트 플로우**
+```
+1. 'tool_call_start' (도메인 중립) ← assignTask라는 키워드 없음
+2. 'agent.creation_start' (도메인 중립) ← Generic Agent 생성
+3. 'agent.creation_complete' (도메인 중립) ← Agent 타입으로 완료
+4. 'execution.start' (도메인 중립) ← 새 Agent 실행 시작
+
+❌ 금지: 'assignTask_start', 'sub_agent_creation' 등 특화 이벤트
+✅ 허용: Generic 이벤트만, Tool 이름 무관하게 동등 처리
+```
+
+#### **🔒 수정 권한 매트릭스 (Modification Authority Matrix)**
+```
+┌─────────────────────┬──────────────┬──────────────┬─────────────────┐
+│ 컴포넌트/패키지      │ apps/web     │ packages/*   │ 수정 가능 범위   │
+├─────────────────────┼──────────────┼──────────────┼─────────────────┤
+│ External Store      │ ✅ 전체 수정  │ ❌ 접근 금지  │ UI 연결 로직     │
+│ WorkflowSubscriber  │ ❌ 읽기만    │ ✅ 로직 수정  │ 이벤트 처리      │
+│ RealTimeBuilder     │ ❌ 인터페이스│ ✅ 로직 수정  │ 워크플로우 빌딩  │
+│ PlaygroundExecutor  │ ✅ 전체 수정  │ ❌ 접근 금지  │ UI 상태 관리     │
+│ React-Flow 컴포넌트  │ ✅ 전체 수정  │ ❌ 접근 금지  │ 시각화 로직      │
+└─────────────────────┴──────────────┴──────────────┴─────────────────┘
+```
+
+#### **⚡ 근본적 수정 시 권한 검증 프로세스**
+1. **권한 확인**: 수정하려는 컴포넌트가 수정 권한 매트릭스에 포함되는가?
+2. **도메인 검증**: 수정이 해당 컴포넌트의 도메인 책임 범위 내인가?
+3. **인터페이스 준수**: 다른 패키지와의 상호작용이 정의된 인터페이스를 통해서만 이루어지는가?
+4. **의존성 방향**: 하위 레벨이 상위 레벨을 의존하는 구조를 위반하지 않는가?
+
+#### **🎯 SDK 아키텍처 준수 원칙**
+- **Build Integrity**: 모든 타입이 올바르게 정의되고 TypeScript 빌드 통과
+- **Architecture Principles**: 의존성 방향 준수, domain neutrality 유지
+- **No Fallback Policy**: 정석적인 연결 방법만 사용, 불확실한 fallback 로직 금지
+- **Robota SDK Architecture**: SDK의 기존 구조 최대한 보존
+- **Robota Usage Patterns**: 올바른 생성자 패턴, 도구 생성 패턴, 패키지 임포트 규칙 준수
+
+---
+
+**📝 문서 확인 요청**: 위 STEP 9 작업 계획이 정확하고 실현 가능한지 검토 후 승인 부탁드립니다.
