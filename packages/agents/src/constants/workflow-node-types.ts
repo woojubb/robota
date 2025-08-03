@@ -18,7 +18,10 @@
 export const WORKFLOW_NODE_TYPES = {
     // 시작점: 사용자가 워크플로우를 시작하는 지점
     USER_INPUT: 'user_input',
-    
+
+    // 사용자 메시지: Agent에게 전달되는 메시지 (tool_call_response → user_message → agent)
+    USER_MESSAGE: 'user_message',
+
     // 종료점: 사용자에게 결과를 전달하는 지점 (반드시 마지막은 아님)
     OUTPUT: 'output',
 
@@ -28,10 +31,10 @@ export const WORKFLOW_NODE_TYPES = {
      * 번호와 역할은 data.agentNumber, data.label로 구분
      */
     AGENT: 'agent',
-    
+
     // Tools 관리 컨테이너 (Agent가 사용할 수 있는 도구들의 집합)
     TOOLS_CONTAINER: 'tools_container',
-    
+
     // 개별 Tool 정의 (특정 기능을 수행하는 도구)
     TOOL_DEFINITION: 'tool_definition',
 
@@ -40,20 +43,20 @@ export const WORKFLOW_NODE_TYPES = {
      */
     // Agent의 사고/판단 과정 (LLM 추론 단계)
     AGENT_THINKING: 'agent_thinking',
-    
+
     // 개별 Tool 실행 (도구 호출 및 실행)
     TOOL_CALL: 'tool_call',
-    
+
     // Tool 실행 결과에 대한 응답 (tool_call → tool_call_response)
     TOOL_CALL_RESPONSE: 'tool_call_response',
-    
+
     /**
      * 📤 Response Types - 응답 처리
      * "final"이라는 개념 제거: 모든 응답은 연속될 수 있음
      */
     // Agent의 응답 (thinking → response, 연속 대화 가능)
     RESPONSE: 'response',
-    
+
     // 여러 Tool/Agent 결과의 합류점 (병렬 처리 결과 통합)
     MERGE_RESULTS: 'merge_results'
 } as const;

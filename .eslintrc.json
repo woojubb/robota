@@ -62,7 +62,24 @@
     "no-useless-catch": "warn", // 유지
     // 🚨 유지: 로깅 아키텍처 준수 (엔터프라이즈 필수)
     "no-console": "error", // 유지: SimpleLogger 패턴 강제
-    "no-redeclare": "error"
+    "no-redeclare": "error",
+    // ==========================================
+    // IMPORT STATEMENT STANDARDS
+    // ==========================================
+    // 🚨 동적 import 금지: 상단 정식 import만 허용
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "AwaitExpression[argument.type='ImportExpression']",
+        "message": "❌ PROHIBITED: Dynamic imports with 'await import()' are forbidden. Use standard top-level imports at the beginning of the file instead."
+      },
+      {
+        "selector": "ImportExpression",
+        "message": "❌ PROHIBITED: Dynamic imports with 'import()' are forbidden except for truly conditional optional modules. Use standard top-level imports at the beginning of the file instead."
+      }
+    ],
+    // 🚨 require() 사용 금지 (ES modules 사용)
+    "@typescript-eslint/no-require-imports": "error"
   },
   "overrides": [
     {
@@ -108,6 +125,18 @@
         "@typescript-eslint/ban-types": "off",
         "no-console": "warn" // ⚠️ WARNING: Console usage in test files should be minimal. Use test framework assertions or mockable loggers for better isolation
         // ==========================================
+      }
+    },
+    {
+      "files": [
+        "**/*.config.js",
+        "**/*.config.ts",
+        "**/webpack.config.js",
+        "**/vite.config.ts",
+        "**/rollup.config.js"
+      ],
+      "rules": {
+        "no-restricted-syntax": "off"
       }
     }
   ],

@@ -398,7 +398,9 @@ export class ActionTrackingEventService implements EventService {
             executionLevel: data.executionLevel ?? node.level,
             parentExecutionId: data.parentExecutionId ?? node.parentId,
             rootExecutionId: data.rootExecutionId ?? this.findRootId(executionId),
-            executionPath: data.executionPath ?? this.buildExecutionPath(executionId)
+            executionPath: data.executionPath ?? this.buildExecutionPath(executionId),
+            // 🎯 중요: metadata 보존 (tool_call의 directParentId 등)
+            ...(data.metadata && { metadata: data.metadata })
         };
 
         this.logger.debug('✅ [ActionTrackingEventService] Data enriched successfully', {
