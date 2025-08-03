@@ -1,0 +1,231 @@
+
+============================================================
+📋 팀 협업 데모 (한국어)
+============================================================
+
+🎯 아키텍처:
+사용자 명령 → Team 에이전트 → (필요시 작업 위임) → 팀 멤버들 → 최종 응답
+
+📋 이 데모에서 보여줄 것:
+• 단순한 작업은 팀 에이전트가 직접 처리
+• 복잡한 작업은 전문화된 팀 멤버들에게 위임
+• 성능 통계 및 분석
+
+🚀 간소화된 API:
+이 예제는 새로운 간소화된 createTeam API를 사용하며,
+task_coordinator 템플릿이 최적화된 설정으로 팀 협업을 자동으로 처리합니다.
+        
+
+============================================================
+📋 예제 1: 단순한 작업 (직접 처리)
+============================================================
+✅ 예제 1용 팀을 생성하고 있습니다...
+Team created with leader template: task_coordinator (openai/gpt-4o-mini)
+사용자: React와 Vue.js의 주요 차이점 3가지를 간단히 알려주세요.
+🤖 팀이 처리중입니다...
+[2025-08-03T14:38:41.272Z] [WARN] [ExecutionAnalyticsPlugin] Slow provider call detected 
+ {
+  "executionId": "provider-1754231912600-2",
+  "duration": 8672,
+  "threshold": 5000
+}
+[2025-08-03T14:38:41.272Z] [WARN] [ExecutionAnalyticsPlugin] Slow run execution detected 
+ {
+  "executionId": "exec-1754231912599-1",
+  "duration": 8673,
+  "threshold": 5000
+}
+✅ Team execution completed in 8674ms
+
+팀 응답:
+React와 Vue.js는 둘 다 인기 있는 JavaScript 라이브러리 및 프레임워크로, 웹 애플리케이션 개발에 사용됩니다. 주요 차이점은 다음과 같습니다:
+
+1. **구성 요소 구조**:
+   - **React**: 컴포넌트를 함수형 또는 클래스형으로 정의하며, JSX를 사용하여 HTML과 JavaScript를 결합합니다. 상태 관리와 생명주기 메서드가 컴포넌트 내에서 정의됩니다.
+   - **Vue.js**: Vue 인스턴스를 기반으로 하며, 템플릿 구문을 사용하여 HTML을 정의합니다. Vue의 반응형 시스템은 데이터 변경 시 UI를 자동으로 업데이트합니다.
+
+2. **상태 관리**:
+   - **React**: 상태 관리를 위해 Redux, MobX 같은 외부 라이브러리를 자주 사용합니다. React의 컨텍스트 API를 통해 간단한 상태 관리를 할 수도 있습니다.
+   - **Vue.js**: Vuex라는 공식 상태 관리 패턴과 라이브러리를 제공하여, 중앙 집중식으로 상태를 관리하고 복잡한 애플리케이션에서 상태를 쉽게 관리할 수 있습니다.
+
+3. **학습 곡선**:
+   - **React**: JSX와 컴포넌트 생명주기, 상태 관리 개념을 이해해야 하므로 초보자에게는 다소 복잡할 수 있습니다.
+   - **Vue.js**: 더 직관적인 템플릿 구문과 문서화가 잘 되어 있어, 초보자가 배우기에 상대적으로 쉬운 편입니다.
+
+이러한 차이점들로 인해 개발자들은 프로젝트의 요구 사항에 따라 React 또는 Vue.js를 선택할 수 있습니다.
+
+============================================================
+📋 예제 1: 성능 분석
+============================================================
+
+📈 예제 1 결과:
+• 완료된 작업: 1
+• 총 생성된 에이전트: 0
+• 총 실행 시간: 8674ms
+        
+✅ 예제 1 완료!
+
+
+============================================================
+📋 예제 2: 복잡한 작업 (팀 협업)
+============================================================
+✅ 예제 2용 새로운 팀을 생성하고 있습니다...
+Team created with leader template: task_coordinator (openai/gpt-4o-mini)
+사용자: 카페 창업 계획서를 작성해주세요. 반드시 다음 두 부분을 모두 포함해야 합니다: 시장 분석, 메뉴 구성. 각각을 별도로 작성해주세요.
+🤖 팀이 전문가들과 협업중입니다...
+📊 Agent slot reserved - Active: 1, Total: 1, Max: 5
+🎯 [assignTask] Creating temporaryAgent from template: domain_researcher
+🎯 [assignTask] temporaryAgent created successfully: temp-agent-agent-1754231926035-cu5lmaian
+📊 Agent created - Active: 1, Total: 1
+🎯 [assignTask] About to execute temporaryAgent.run() for agent: agent-1754231926035-cu5lmaian
+🎯 [assignTask] Task prompt: Task: 시장 분석을 위한 카페 창업 계획서를 작성합니다. 주요 내용으로는 목표 시장, 경쟁 분석, 소비자 트렌드, 시장 규모, 성장 가능성 등을 포함합니다.
+
+Context: 카페 창업을 위한 시장 분석을 통해 사업의 타당성을 평가하고, 향후 전략을 수립할 수 있도록 합니다.
+
+Priority: high
+
+Please complete this task ...
+📊 Agent slot reserved - Active: 2, Total: 2, Max: 5
+🎯 [assignTask] Creating temporaryAgent from template: domain_researcher
+🎯 [assignTask] temporaryAgent created successfully: temp-agent-agent-1754231926036-76s7byxc3
+📊 Agent created - Active: 2, Total: 2
+🎯 [assignTask] About to execute temporaryAgent.run() for agent: agent-1754231926036-76s7byxc3
+🎯 [assignTask] Task prompt: Task: 카페 메뉴 구성을 위한 계획서를 작성합니다. 주요 내용으로는 메뉴 종류, 가격 설정, 특성 및 차별점, 계절 메뉴, 건강 옵션 등을 포함합니다.
+
+Context: 소비자 선호도와 시장 트렌드를 반영한 카페 메뉴 구성을 통해 고객 유치 및 매출 증대를 목표로 합니다.
+
+Priority: high
+
+Please complete this task th...
+[2025-08-03T14:39:03.383Z] [WARN] [ExecutionAnalyticsPlugin] Slow provider call detected 
+ {
+  "executionId": "provider-1754231926037-2",
+  "duration": 17346,
+  "threshold": 10000
+}
+[2025-08-03T14:39:03.383Z] [WARN] [ExecutionAnalyticsPlugin] No active execution found for afterRun 
+ {
+  "input": "Task: 카페 메뉴 구성을 위한 계획서를 작성합니다. 주요 내용으로는 메뉴 종류, 가격 설정, 특성 및 차별점, 계절 메뉴, 건강 옵션 등을 포함합니다.\n\nContext: 소비자"
+}
+🎯 [assignTask] temporaryAgent.run() completed for agent: agent-1754231926036-76s7byxc3
+✅ Task completed by agent agent-1754231926036-76s7byxc3 (17348ms)
+📊 Agent completed successfully - Active agents now: 1
+[2025-08-03T14:39:05.988Z] [WARN] [ExecutionAnalyticsPlugin] Slow provider call detected 
+ {
+  "executionId": "provider-1754231926037-2",
+  "duration": 19951,
+  "threshold": 10000
+}
+[2025-08-03T14:39:05.988Z] [WARN] [ExecutionAnalyticsPlugin] No active execution found for afterRun 
+ {
+  "input": "Task: 시장 분석을 위한 카페 창업 계획서를 작성합니다. 주요 내용으로는 목표 시장, 경쟁 분석, 소비자 트렌드, 시장 규모, 성장 가능성 등을 포함합니다.\n\nContext: "
+}
+🎯 [assignTask] temporaryAgent.run() completed for agent: agent-1754231926035-cu5lmaian
+✅ Task completed by agent agent-1754231926035-cu5lmaian (19953ms)
+📊 Agent completed successfully - Active agents now: 0
+[2025-08-03T14:39:21.512Z] [WARN] [ExecutionAnalyticsPlugin] Slow provider call detected 
+ {
+  "executionId": "provider-1754231921274-2",
+  "duration": 40238,
+  "threshold": 5000
+}
+[2025-08-03T14:39:21.513Z] [WARN] [ExecutionAnalyticsPlugin] Slow run execution detected 
+ {
+  "executionId": "exec-1754231921273-1",
+  "duration": 40240,
+  "threshold": 5000
+}
+✅ Team execution completed in 40240ms
+
+팀 응답:
+## 카페 창업 계획서
+
+### 1. 시장 분석
+
+#### 1.1. 시장 정의
+카페는 커피, 차, 디저트 및 간단한 식사를 제공하는 업소로, 주로 젊은 층과 직장인을 타겟으로 하고 있습니다. 이 시장은 20대 후반에서 40대 초반의 소비자를 중심으로 성장하고 있으며, 특히 다양한 음료와 편안한 분위기를 제공하는 카페가 인기를 끌고 있습니다.
+
+#### 1.2. 시장 세분화
+- **연령대**: 20대 후반 ~ 40대 초반
+- **소득 수준**: 중상위층 이상
+- **라이프스타일**: 여가 및 휴식을 중시하는 소비자
+
+#### 1.3. 경쟁 분석
+- **주요 경쟁자**: 스타벅스, 커피빈, 로티프레소 등
+- **경쟁 우위 요인**: 품질 높은 원두, 다양한 메뉴, 편리한 위치, 고객 서비스
+
+#### 1.4. 소비자 트렌드
+소비자들은 건강을 중시하며, 유기농 원두 및 저칼로리 음료에 대한 선호도가 증가하고 있습니다. 또한, 인스타그램과 같은 SNS를 통한 비주얼 마케팅이 중요한 요소로 작용하고 있습니다.
+
+#### 1.5. 시장 규모 및 성장 가능성
+2023년 기준, 한국의 카페 시장 규모는 약 5조 원으로 추정되며, 매년 5-7%의 성장률을 보이고 있습니다. 특히, 스페셜티 커피와 대체 음료 시장이 급성장하고 있습니다.
+
+---
+
+### 2. 메뉴 구성
+
+#### 2.1. 메뉴 개요
+- **커피**
+  - 아메리카노: 4,000원
+  - 카페라떼: 4,500원
+  - 카푸치노: 4,500원
+  - 바닐라라떼: 5,000원
+  - 모카: 5,500원
+
+- **차**
+  - 허브차: 4,000원
+  - 녹차: 4,500원
+  - 홍차: 4,500원
+  - 과일차: 5,000원
+
+- **스무디 & 주스**
+  - 베리 스무디: 6,000원
+  - 망고 스무디: 6,000원
+  - 오렌지 주스: 4,500원
+  - 사과 주스: 4,500원
+
+#### 2.2. 디저트
+- **케이크**
+  - 초코 케이크: 5,000원
+  - 치즈 케이크: 5,500원
+  - 당근 케이크: 5,500원
+
+- **빵**
+  - 크루아상: 3,500원
+  - 스콘: 3,500원
+  - 브라우니: 4,000원
+
+#### 2.3. 계절 메뉴
+- 여름: 아이스 아메리카노, 수박 주스
+- 겨울: 핫 초코, 생강차
+
+#### 2.4. 건강 옵션
+- 저칼로리 음료
+- 유기농 원두 사용
+- 글루텐 프리 제품
+
+이 메뉴 구성은 소비자 선호도와 시장 트렌드를 반영하여 고객 유치 및 매출 증대를 목표로 합니다.
+
+============================================================
+📋 예제 2: 성능 분석
+============================================================
+
+📈 예제 2 결과:
+• 완료된 작업: 1
+• 총 생성된 에이전트: 2
+• 총 실행 시간: 40240ms
+        
+
+============================================================
+📋 전체 팀 성능 요약
+============================================================
+
+📊 전체 요약:
+• 총 완료된 작업: 2
+• 총 생성된 에이전트: 2
+• 총 실행 시간: 48914ms
+        
+
+✅ 팀 협업 데모가 성공적으로 완료되었습니다!
+팀 에이전트가 직접 처리할지 위임할지를 지능적으로 결정합니다.
+복잡한 작업에서는 에이전트들이 어떻게 협업하는지 분석할 수 있습니다.

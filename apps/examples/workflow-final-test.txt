@@ -1,0 +1,3303 @@
+
+============================================================
+📋 팀 협업 데모 (한국어)
+============================================================
+
+🎯 아키텍처:
+사용자 명령 → Team 에이전트 → (필요시 작업 위임) → 팀 멤버들 → 최종 응답
+
+📋 이 데모에서 보여줄 것:
+• 단순한 작업은 팀 에이전트가 직접 처리
+• 복잡한 작업은 전문화된 팀 멤버들에게 위임
+• 성능 통계 및 분석
+
+🚀 간소화된 API:
+이 예제는 새로운 간소화된 createTeam API를 사용하며,
+task_coordinator 템플릿이 최적화된 설정으로 팀 협업을 자동으로 처리합니다.
+        
+
+============================================================
+📋 예제 1: 단순한 작업 (직접 처리)
+============================================================
+✅ 예제 1용 팀을 생성하고 있습니다...
+🏗️ [WorkflowEventSubscriber] Constructor called - Instance created
+WorkflowEventSubscriber initialized
+Team created with leader template: task_coordinator (openai/gpt-4o-mini)
+사용자: React와 Vue.js의 주요 차이점 3가지를 간단히 알려주세요.
+🤖 팀이 처리중입니다...
+🔔 [WorkflowEventSubscriber] Received event: execution.start {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232652575_eu34ax6av',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232652575_eu34ax6av',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232652576_mhphyovcd',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 0,
+  allRegisteredIds: []
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232652576_mhphyovcd' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232652576_mhphyovcd',
+  hasExecutionId: true,
+  hierarchySize: 0,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'parameters',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232652576_mhphyovcd',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232652576_mhphyovcd
+🔔 [WorkflowEventSubscriber] Received event: user.message {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232652575_eu34ax6av',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232652575_eu34ax6av',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232652576_mhphyovcd',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 0,
+  allRegisteredIds: []
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232652576_mhphyovcd' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232652576_mhphyovcd',
+  hasExecutionId: true,
+  hierarchySize: 0,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'parameters',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232652576_mhphyovcd',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232652576_mhphyovcd
+🔔 [WorkflowEventSubscriber] Received event: assistant.message_start {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232652575_eu34ax6av',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232652575_eu34ax6av',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232652576_mhphyovcd',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 0,
+  allRegisteredIds: []
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232652576_mhphyovcd' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232652576_mhphyovcd',
+  hasExecutionId: true,
+  hierarchySize: 0,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'parameters',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232652576_mhphyovcd',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232652576_mhphyovcd
+🎯 [AGENT-NUMBERING] Assigned Agent 0 to sourceId: conv_1754232652575_eu34ax6av
+🎯 [AGENT-COPY] Created Agent 0 Copy 1 for sourceId: conv_1754232652575_eu34ax6av
+🎯 [AGENT-COPY] Created Agent 0 Copy 1 for sourceId: conv_1754232652575_eu34ax6av
+🔧 [AGENT-ID-MAPPING] Stored mapping: conv_1754232652575_eu34ax6av → agent_0_copy_1
+WorkflowNode create: agent (agent_0_copy_1)
+WorkflowNode create: user_input (user_input_conv_1754232652575_eu34ax6av)
+🎯 [STANDARD-STRUCTURE] Agent conv_1754232652575_eu34ax6av → Reserved Thinking thinking_agent_0_copy_1
+🔧 [AGENT-COPY] Using Agent Copy ID: agent_0_copy_1
+✅ [STANDARD-RULE-1] Agent → Thinking 연결 생성: agent_0_copy_1 → thinking_agent_0_copy_1
+WorkflowNode create: agent_thinking (thinking_agent_0_copy_1)
+🔗 [USER-INPUT-CONNECTION] Agent mode: user_input_conv_1754232652575_eu34ax6av → agent_0_copy_1 (receives)
+WorkflowNode update: user_input (user_input_conv_1754232652575_eu34ax6av)
+[2025-08-03T14:51:01.704Z] [WARN] [ExecutionAnalyticsPlugin] Slow provider call detected 
+ {
+  "executionId": "provider-1754232652578-2",
+  "duration": 9126,
+  "threshold": 5000
+}
+[2025-08-03T14:51:01.705Z] [WARN] [ExecutionAnalyticsPlugin] Slow run execution detected 
+ {
+  "executionId": "exec-1754232652577-1",
+  "duration": 9127,
+  "threshold": 5000
+}
+🔔 [WorkflowEventSubscriber] Received event: assistant.message_complete {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232652575_eu34ax6av',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232652575_eu34ax6av',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232652576_mhphyovcd',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 0,
+  allRegisteredIds: []
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232652576_mhphyovcd' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232652576_mhphyovcd',
+  hasExecutionId: true,
+  hierarchySize: 0,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'result',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232652576_mhphyovcd',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232652576_mhphyovcd
+🔔 [WorkflowEventSubscriber] Received event: execution.complete {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232652575_eu34ax6av',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232652575_eu34ax6av',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232652576_mhphyovcd',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 0,
+  allRegisteredIds: []
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232652576_mhphyovcd' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232652576_mhphyovcd',
+  hasExecutionId: true,
+  hierarchySize: 0,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'result',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232652576_mhphyovcd',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232652576_mhphyovcd
+✅ Team execution completed in 9130ms
+
+팀 응답:
+React와 Vue.js는 둘 다 인기 있는 JavaScript 프레임워크로, 웹 애플리케이션 개발에 널리 사용됩니다. 이 두 프레임워크의 주요 차이점은 다음과 같습니다:
+
+1. **구조와 철학**:
+   - **React**: 컴포넌트 기반 라이브러리로, UI를 구성하는 작은 재사용 가능한 컴포넌트를 만드는 데 중점을 둡니다. 상태 관리와 생명 주기 메서드를 통해 UI를 업데이트합니다.
+   - **Vue.js**: 더 포괄적인 프레임워크로, 컴포넌트 기반 구조를 가지고 있지만 템플릿 문법과 반응형 데이터 바인딩을 통해 더 직관적인 개발 경험을 제공합니다.
+
+2. **상태 관리**:
+   - **React**: 상태 관리를 위해 Redux, MobX와 같은 외부 라이브러리를 사용해야 하는 경우가 많습니다. 상태 관리는 주로 컴포넌트의 props와 state를 통해 이루어집니다.
+   - **Vue.js**: Vuex라는 내장 상태 관리 라이브러리를 제공하여, 상태 관리를 더 쉽고 일관되게 할 수 있도록 지원합니다.
+
+3. **커뮤니티와 생태계**:
+   - **React**: Facebook에서 개발하고 유지 관리하며, 대규모 기업과 커뮤니티에서 널리 사용되고 있습니다. 다양한 서드파티 라이브러리와 도구들이 풍부하게 존재합니다.
+   - **Vue.js**: Evan You에 의해 개발되었으며, 비교적 작은 커뮤니티이지만, 사용자 친화적인 문서와 학습 곡선 덕분에 빠르게 성장하고 있습니다.
+
+이러한 차이점들은 개발자가 선택할 때 고려해야 할 중요한 요소입니다.
+
+============================================================
+📋 예제 1: 성능 분석
+============================================================
+
+📈 예제 1 결과:
+• 완료된 작업: 1
+• 총 생성된 에이전트: 0
+• 총 실행 시간: 9130ms
+        
+✅ 예제 1 완료!
+
+
+============================================================
+📋 예제 2: 복잡한 작업 (팀 협업)
+============================================================
+✅ 예제 2용 새로운 팀을 생성하고 있습니다...
+🏗️ [WorkflowEventSubscriber] Constructor called - Instance created
+WorkflowEventSubscriber initialized
+Team created with leader template: task_coordinator (openai/gpt-4o-mini)
+사용자: 카페 창업 계획서를 작성해주세요. 반드시 다음 두 부분을 모두 포함해야 합니다: 시장 분석, 메뉴 구성. 각각을 별도로 작성해주세요.
+🤖 팀이 전문가들과 협업중입니다...
+🔔 [WorkflowEventSubscriber] Received event: execution.start {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232661706_pqmjfropy',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 0,
+  allRegisteredIds: []
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232661706_pqmjfropy' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  hasExecutionId: true,
+  hierarchySize: 0,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'parameters',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232661706_pqmjfropy
+🔔 [WorkflowEventSubscriber] Received event: user.message {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232661706_pqmjfropy',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 0,
+  allRegisteredIds: []
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232661706_pqmjfropy' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  hasExecutionId: true,
+  hierarchySize: 0,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'parameters',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232661706_pqmjfropy
+🔔 [WorkflowEventSubscriber] Received event: assistant.message_start {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232661706_pqmjfropy',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 0,
+  allRegisteredIds: []
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232661706_pqmjfropy' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  hasExecutionId: true,
+  hierarchySize: 0,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'parameters',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232661706_pqmjfropy
+🎯 [STANDARD-STRUCTURE] Agent conv_1754232652575_eu34ax6av → Reserved Response response_agent_0_copy_1, Thinking: thinking_agent_0_copy_1
+✅ [STANDARD-RULE-4] Thinking → Response 연결 생성: thinking_agent_0_copy_1 → response_agent_0_copy_1
+WorkflowNode create: response (response_agent_0_copy_1)
+🎯 [AGENT-NUMBERING] Assigned Agent 0 to sourceId: conv_1754232661706_ala5w7cl5
+🎯 [AGENT-COPY] Created Agent 0 Copy 1 for sourceId: conv_1754232661706_ala5w7cl5
+🎯 [AGENT-COPY] Created Agent 0 Copy 1 for sourceId: conv_1754232661706_ala5w7cl5
+🔧 [AGENT-ID-MAPPING] Stored mapping: conv_1754232661706_ala5w7cl5 → agent_0_copy_1
+WorkflowNode create: agent (agent_0_copy_1)
+WorkflowNode create: user_input (user_input_conv_1754232661706_ala5w7cl5)
+🎯 [STANDARD-STRUCTURE] Agent conv_1754232661706_ala5w7cl5 → Reserved Thinking thinking_agent_0_copy_1
+🔧 [AGENT-COPY] Using Agent Copy ID: agent_0_copy_1
+✅ [STANDARD-RULE-1] Agent → Thinking 연결 생성: agent_0_copy_1 → thinking_agent_0_copy_1
+WorkflowNode create: agent_thinking (thinking_agent_0_copy_1)
+🔗 [USER-INPUT-CONNECTION] Agent mode: user_input_conv_1754232661706_ala5w7cl5 → agent_0_copy_1 (receives)
+WorkflowNode update: user_input (user_input_conv_1754232661706_ala5w7cl5)
+🔔 [WorkflowEventSubscriber] Received event: tool_call_start {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: 'assignTask',
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232661706_pqmjfropy',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F'
+  },
+  context: undefined,
+  hierarchySize: 0,
+  allRegisteredIds: []
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232661706_pqmjfropy' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  hasExecutionId: true,
+  hierarchySize: 0,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'toolName',
+    'timestamp',
+    'parameters',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'parentExecutionId',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232661706_pqmjfropy
+🔔 [WorkflowEventSubscriber] Received event: tool_call_start {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: 'assignTask',
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232661706_pqmjfropy',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: 'call_2FuKX2kv4jmWA3SCbQmrnDlv'
+  },
+  context: undefined,
+  hierarchySize: 0,
+  allRegisteredIds: []
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232661706_pqmjfropy' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  hasExecutionId: true,
+  hierarchySize: 0,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'toolName',
+    'timestamp',
+    'parameters',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'parentExecutionId',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232661706_pqmjfropy
+🔔 [WorkflowEventSubscriber] Received event: team.analysis_start {
+  sourceType: 'team',
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  sourceType: 'team',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 0,
+  allRegisteredIds: []
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665993-8nckupcy9',
+  totalHierarchyEntries: 0
+}
+⚠️ [ActionTrackingEventService] No pattern match found for: { searchKey: 'agent-1754232665993-8nckupcy9', checkedEntries: 0 }
+⚠️ [ActionTrackingEventService] Team event parent NOT found in hierarchy: call_QdQrJt4bNeaqPsb99Yw0YJ6F
+📝 [ActionTrackingEventService] Creating source mapping: {
+  mappingKey: 'mapping-agent-1754232665993-8nckupcy9',
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  sourceType: 'team',
+  inferredLevel: 2,
+  inferredParent: undefined,
+  contextParent: undefined,
+  metadataParent: undefined,
+  metadataContextParent: undefined,
+  fullMetadata: {
+    phase: 'job_analysis',
+    agentTemplate: 'domain_researcher',
+    priority: 'high'
+  }
+}
+⚠️ [ActionTrackingEventService] Using fallback ID and storing mapping: agent-1754232665993-8nckupcy9
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'agent-1754232665993-8nckupcy9',
+  hasExecutionId: true,
+  hierarchySize: 1,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'taskDescription',
+    'parameters',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'agent-1754232665993-8nckupcy9',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: agent-1754232665993-8nckupcy9
+🔔 [WorkflowEventSubscriber] Received event: team.analysis_complete {
+  sourceType: 'team',
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  sourceType: 'team',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 1,
+  allRegisteredIds: [ 'mapping-agent-1754232665993-8nckupcy9' ]
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665993-8nckupcy9',
+  totalHierarchyEntries: 1
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665993-8nckupcy9',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: true, sourceIdMatch: true }
+}
+✅ [ActionTrackingEventService] Found by pattern search: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  matchType: 'idIncludes',
+  nodeDetails: {
+    id: 'mapping-agent-1754232665993-8nckupcy9',
+    parentId: undefined,
+    level: 2,
+    children: [],
+    metadata: {
+      sourceId: 'agent-1754232665993-8nckupcy9',
+      mappingType: 'source-correlation',
+      inferredLevel: 2,
+      inferredParent: undefined,
+      originalData: [Object]
+    }
+  }
+}
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  hasExecutionId: true,
+  hierarchySize: 1,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'taskDescription',
+    'parameters',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeFound: true,
+  node: {
+    level: 2,
+    parentId: undefined,
+    id: 'mapping-agent-1754232665993-8nckupcy9'
+  }
+}
+✅ [ActionTrackingEventService] Data enriched successfully {
+  originalLevel: 3,
+  enrichedLevel: 3,
+  originalParent: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F',
+  enrichedParent: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F'
+}
+🔔 [WorkflowEventSubscriber] Received event: task.assigned {
+  sourceType: 'team',
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  executionId: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F'
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F',
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  sourceType: 'team',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: 'agent-1754232665993-8nckupcy9',
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 1,
+  allRegisteredIds: [ 'mapping-agent-1754232665993-8nckupcy9' ]
+}
+✅ [ActionTrackingEventService] Found direct executionId: { executionId: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F',
+  hasExecutionId: true,
+  hierarchySize: 1,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'executionId',
+    'timestamp',
+    'taskDescription',
+    'parameters',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: call_QdQrJt4bNeaqPsb99Yw0YJ6F
+📊 Agent slot reserved - Active: 1, Total: 1, Max: 5
+🔔 [WorkflowEventSubscriber] Received event: agent.creation_start {
+  sourceType: 'team',
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  sourceType: 'team',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: 'agent-1754232665993-8nckupcy9',
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 1,
+  allRegisteredIds: [ 'mapping-agent-1754232665993-8nckupcy9' ]
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665993-8nckupcy9',
+  totalHierarchyEntries: 1
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665993-8nckupcy9',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: true, sourceIdMatch: true }
+}
+✅ [ActionTrackingEventService] Found by pattern search: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  matchType: 'idIncludes',
+  nodeDetails: {
+    id: 'mapping-agent-1754232665993-8nckupcy9',
+    parentId: undefined,
+    level: 2,
+    children: [],
+    metadata: {
+      sourceId: 'agent-1754232665993-8nckupcy9',
+      mappingType: 'source-correlation',
+      inferredLevel: 2,
+      inferredParent: undefined,
+      originalData: [Object]
+    }
+  }
+}
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  hasExecutionId: true,
+  hierarchySize: 1,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'taskDescription',
+    'parameters',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeFound: true,
+  node: {
+    level: 2,
+    parentId: undefined,
+    id: 'mapping-agent-1754232665993-8nckupcy9'
+  }
+}
+✅ [ActionTrackingEventService] Data enriched successfully {
+  originalLevel: 3,
+  enrichedLevel: 3,
+  originalParent: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F',
+  enrichedParent: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F'
+}
+🎯 [assignTask] Creating temporaryAgent from template: domain_researcher
+🎯 [assignTask] temporaryAgent created successfully: temp-agent-agent-1754232665993-8nckupcy9
+🔔 [WorkflowEventSubscriber] Received event: agent.creation_complete {
+  sourceType: 'team',
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  sourceType: 'team',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: 'agent-1754232665993-8nckupcy9',
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 1,
+  allRegisteredIds: [ 'mapping-agent-1754232665993-8nckupcy9' ]
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665993-8nckupcy9',
+  totalHierarchyEntries: 1
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665993-8nckupcy9',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: true, sourceIdMatch: true }
+}
+✅ [ActionTrackingEventService] Found by pattern search: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  matchType: 'idIncludes',
+  nodeDetails: {
+    id: 'mapping-agent-1754232665993-8nckupcy9',
+    parentId: undefined,
+    level: 2,
+    children: [],
+    metadata: {
+      sourceId: 'agent-1754232665993-8nckupcy9',
+      mappingType: 'source-correlation',
+      inferredLevel: 2,
+      inferredParent: undefined,
+      originalData: [Object]
+    }
+  }
+}
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  hasExecutionId: true,
+  hierarchySize: 1,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'taskDescription',
+    'result',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeFound: true,
+  node: {
+    level: 2,
+    parentId: undefined,
+    id: 'mapping-agent-1754232665993-8nckupcy9'
+  }
+}
+✅ [ActionTrackingEventService] Data enriched successfully {
+  originalLevel: 3,
+  enrichedLevel: 3,
+  originalParent: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F',
+  enrichedParent: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F'
+}
+📊 Agent created - Active: 1, Total: 1
+🔔 [WorkflowEventSubscriber] Received event: agent.execution_start {
+  sourceType: 'team',
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  sourceType: 'team',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: 'agent-1754232665993-8nckupcy9',
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 1,
+  allRegisteredIds: [ 'mapping-agent-1754232665993-8nckupcy9' ]
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665993-8nckupcy9',
+  totalHierarchyEntries: 1
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665993-8nckupcy9',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: true, sourceIdMatch: true }
+}
+✅ [ActionTrackingEventService] Found by pattern search: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  matchType: 'idIncludes',
+  nodeDetails: {
+    id: 'mapping-agent-1754232665993-8nckupcy9',
+    parentId: undefined,
+    level: 2,
+    children: [],
+    metadata: {
+      sourceId: 'agent-1754232665993-8nckupcy9',
+      mappingType: 'source-correlation',
+      inferredLevel: 2,
+      inferredParent: undefined,
+      originalData: [Object]
+    }
+  }
+}
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  hasExecutionId: true,
+  hierarchySize: 1,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'taskDescription',
+    'parameters',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeFound: true,
+  node: {
+    level: 2,
+    parentId: undefined,
+    id: 'mapping-agent-1754232665993-8nckupcy9'
+  }
+}
+✅ [ActionTrackingEventService] Data enriched successfully {
+  originalLevel: 3,
+  enrichedLevel: 3,
+  originalParent: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F',
+  enrichedParent: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F'
+}
+🎯 [assignTask] About to execute temporaryAgent.run() for agent: agent-1754232665993-8nckupcy9
+🎯 [assignTask] Task prompt: Task: 시장 분석을 포함한 카페 창업 계획서 작성.
+
+Context: 카페 창업을 위한 시장 분석, 경쟁 업체 분석, 소비자 트렌드, 시장 규모 및 성장 가능성 등을 포함해야 함.
+
+Priority: high
+
+Please complete this task thoroughly and provide a comprehensive response....
+🔔 [WorkflowEventSubscriber] Received event: team.analysis_start {
+  sourceType: 'team',
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  sourceType: 'team',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 1,
+  allRegisteredIds: [ 'mapping-agent-1754232665993-8nckupcy9' ]
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665997-hqzygxvc0',
+  totalHierarchyEntries: 1
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665993-8nckupcy9',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: false, sourceIdMatch: false }
+}
+⚠️ [ActionTrackingEventService] No pattern match found for: { searchKey: 'agent-1754232665997-hqzygxvc0', checkedEntries: 1 }
+⚠️ [ActionTrackingEventService] Team event parent NOT found in hierarchy: call_2FuKX2kv4jmWA3SCbQmrnDlv
+📝 [ActionTrackingEventService] Creating source mapping: {
+  mappingKey: 'mapping-agent-1754232665997-hqzygxvc0',
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  sourceType: 'team',
+  inferredLevel: 2,
+  inferredParent: undefined,
+  contextParent: undefined,
+  metadataParent: undefined,
+  metadataContextParent: undefined,
+  fullMetadata: {
+    phase: 'job_analysis',
+    agentTemplate: 'creative_ideator',
+    priority: 'high'
+  }
+}
+⚠️ [ActionTrackingEventService] Using fallback ID and storing mapping: agent-1754232665997-hqzygxvc0
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'agent-1754232665997-hqzygxvc0',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'taskDescription',
+    'parameters',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'agent-1754232665997-hqzygxvc0',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: agent-1754232665997-hqzygxvc0
+🔔 [WorkflowEventSubscriber] Received event: team.analysis_complete {
+  sourceType: 'team',
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  sourceType: 'team',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665997-hqzygxvc0',
+  totalHierarchyEntries: 2
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665993-8nckupcy9',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: false, sourceIdMatch: false }
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665997-hqzygxvc0',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: true, sourceIdMatch: true }
+}
+✅ [ActionTrackingEventService] Found by pattern search: {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  matchType: 'idIncludes',
+  nodeDetails: {
+    id: 'mapping-agent-1754232665997-hqzygxvc0',
+    parentId: undefined,
+    level: 2,
+    children: [],
+    metadata: {
+      sourceId: 'agent-1754232665997-hqzygxvc0',
+      mappingType: 'source-correlation',
+      inferredLevel: 2,
+      inferredParent: undefined,
+      originalData: [Object]
+    }
+  }
+}
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'taskDescription',
+    'parameters',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  nodeFound: true,
+  node: {
+    level: 2,
+    parentId: undefined,
+    id: 'mapping-agent-1754232665997-hqzygxvc0'
+  }
+}
+✅ [ActionTrackingEventService] Data enriched successfully {
+  originalLevel: 3,
+  enrichedLevel: 3,
+  originalParent: 'call_2FuKX2kv4jmWA3SCbQmrnDlv',
+  enrichedParent: 'call_2FuKX2kv4jmWA3SCbQmrnDlv'
+}
+🔔 [WorkflowEventSubscriber] Received event: task.assigned {
+  sourceType: 'team',
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  executionId: 'call_2FuKX2kv4jmWA3SCbQmrnDlv'
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: 'call_2FuKX2kv4jmWA3SCbQmrnDlv',
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  sourceType: 'team',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: 'agent-1754232665997-hqzygxvc0',
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+✅ [ActionTrackingEventService] Found direct executionId: { executionId: 'call_2FuKX2kv4jmWA3SCbQmrnDlv' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'call_2FuKX2kv4jmWA3SCbQmrnDlv',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'executionId',
+    'timestamp',
+    'taskDescription',
+    'parameters',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'call_2FuKX2kv4jmWA3SCbQmrnDlv',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: call_2FuKX2kv4jmWA3SCbQmrnDlv
+📊 Agent slot reserved - Active: 2, Total: 2, Max: 5
+🔔 [WorkflowEventSubscriber] Received event: agent.creation_start {
+  sourceType: 'team',
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  sourceType: 'team',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: 'agent-1754232665997-hqzygxvc0',
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665997-hqzygxvc0',
+  totalHierarchyEntries: 2
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665993-8nckupcy9',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: false, sourceIdMatch: false }
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665997-hqzygxvc0',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: true, sourceIdMatch: true }
+}
+✅ [ActionTrackingEventService] Found by pattern search: {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  matchType: 'idIncludes',
+  nodeDetails: {
+    id: 'mapping-agent-1754232665997-hqzygxvc0',
+    parentId: undefined,
+    level: 2,
+    children: [],
+    metadata: {
+      sourceId: 'agent-1754232665997-hqzygxvc0',
+      mappingType: 'source-correlation',
+      inferredLevel: 2,
+      inferredParent: undefined,
+      originalData: [Object]
+    }
+  }
+}
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'taskDescription',
+    'parameters',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  nodeFound: true,
+  node: {
+    level: 2,
+    parentId: undefined,
+    id: 'mapping-agent-1754232665997-hqzygxvc0'
+  }
+}
+✅ [ActionTrackingEventService] Data enriched successfully {
+  originalLevel: 3,
+  enrichedLevel: 3,
+  originalParent: 'call_2FuKX2kv4jmWA3SCbQmrnDlv',
+  enrichedParent: 'call_2FuKX2kv4jmWA3SCbQmrnDlv'
+}
+🎯 [assignTask] Creating temporaryAgent from template: creative_ideator
+🎯 [assignTask] temporaryAgent created successfully: temp-agent-agent-1754232665997-hqzygxvc0
+🔔 [WorkflowEventSubscriber] Received event: agent.creation_complete {
+  sourceType: 'team',
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  sourceType: 'team',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: 'agent-1754232665997-hqzygxvc0',
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665997-hqzygxvc0',
+  totalHierarchyEntries: 2
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665993-8nckupcy9',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: false, sourceIdMatch: false }
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665997-hqzygxvc0',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: true, sourceIdMatch: true }
+}
+✅ [ActionTrackingEventService] Found by pattern search: {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  matchType: 'idIncludes',
+  nodeDetails: {
+    id: 'mapping-agent-1754232665997-hqzygxvc0',
+    parentId: undefined,
+    level: 2,
+    children: [],
+    metadata: {
+      sourceId: 'agent-1754232665997-hqzygxvc0',
+      mappingType: 'source-correlation',
+      inferredLevel: 2,
+      inferredParent: undefined,
+      originalData: [Object]
+    }
+  }
+}
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'taskDescription',
+    'result',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  nodeFound: true,
+  node: {
+    level: 2,
+    parentId: undefined,
+    id: 'mapping-agent-1754232665997-hqzygxvc0'
+  }
+}
+✅ [ActionTrackingEventService] Data enriched successfully {
+  originalLevel: 3,
+  enrichedLevel: 3,
+  originalParent: 'call_2FuKX2kv4jmWA3SCbQmrnDlv',
+  enrichedParent: 'call_2FuKX2kv4jmWA3SCbQmrnDlv'
+}
+📊 Agent created - Active: 2, Total: 2
+🔔 [WorkflowEventSubscriber] Received event: agent.execution_start {
+  sourceType: 'team',
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  sourceType: 'team',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: 'agent-1754232665997-hqzygxvc0',
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665997-hqzygxvc0',
+  totalHierarchyEntries: 2
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665993-8nckupcy9',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: false, sourceIdMatch: false }
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665997-hqzygxvc0',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: true, sourceIdMatch: true }
+}
+✅ [ActionTrackingEventService] Found by pattern search: {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  matchType: 'idIncludes',
+  nodeDetails: {
+    id: 'mapping-agent-1754232665997-hqzygxvc0',
+    parentId: undefined,
+    level: 2,
+    children: [],
+    metadata: {
+      sourceId: 'agent-1754232665997-hqzygxvc0',
+      mappingType: 'source-correlation',
+      inferredLevel: 2,
+      inferredParent: undefined,
+      originalData: [Object]
+    }
+  }
+}
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'taskDescription',
+    'parameters',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  nodeFound: true,
+  node: {
+    level: 2,
+    parentId: undefined,
+    id: 'mapping-agent-1754232665997-hqzygxvc0'
+  }
+}
+✅ [ActionTrackingEventService] Data enriched successfully {
+  originalLevel: 3,
+  enrichedLevel: 3,
+  originalParent: 'call_2FuKX2kv4jmWA3SCbQmrnDlv',
+  enrichedParent: 'call_2FuKX2kv4jmWA3SCbQmrnDlv'
+}
+🎯 [assignTask] About to execute temporaryAgent.run() for agent: agent-1754232665997-hqzygxvc0
+🎯 [assignTask] Task prompt: Task: 카페 메뉴 구성에 대한 계획서 작성.
+
+Context: 카페의 특성에 맞춘 메뉴 구성, 가격 책정, 계절별 메뉴, 음료 및 디저트 옵션 등을 포함해야 함.
+
+Priority: high
+
+Please complete this task thoroughly and provide a comprehensive response....
+🎯 [DIRECT-MAPPING] Tool Call call_QdQrJt4bNeaqPsb99Yw0YJ6F → Thinking thinking_agent_0_copy_1 직접 제공됨 (추론 없음)
+WorkflowNode create: tool_call (tool_call_call_QdQrJt4bNeaqPsb99Yw0YJ6F)
+🎯 [DIRECT-MAPPING] Tool Call call_2FuKX2kv4jmWA3SCbQmrnDlv → Thinking thinking_agent_0_copy_1 직접 제공됨 (추론 없음)
+WorkflowNode create: tool_call (tool_call_call_2FuKX2kv4jmWA3SCbQmrnDlv)
+🔔 [WorkflowEventSubscriber] Processing team.analysis_start event
+Error handling workflow event team.analysis_start: Error: ❌ [STANDARD-STRUCTURE] No agent copy found for sourceId: agent-1754232665993-8nckupcy9
+    at Ze.createAgentThinkingNode (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:22702)
+    at Ze.handleTeamAnalysisStart (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:30067)
+    at Ze.handleEventForWorkflow (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:17245)
+    at Timeout._onTimeout (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:15767)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+🔔 [WorkflowEventSubscriber] Processing team.analysis_complete event
+Error handling workflow event team.analysis_complete: Error: ❌ [STANDARD-STRUCTURE] No agent copy found for sourceId: agent-1754232665993-8nckupcy9
+    at Ze.createAgentResponseNode (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:24461)
+    at Ze.handleTeamAnalysisComplete (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:32654)
+    at Ze.handleEventForWorkflow (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:17313)
+    at Timeout._onTimeout (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:15767)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+🔔 [WorkflowEventSubscriber] Processing task.assigned event
+Error handling workflow event task.assigned: Error: ❌ [DIRECT-MAPPING] No directParentId provided in tool_call_start event
+    at Ze.createUniversalToolCallNode (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:23737)
+    at Ze.handleTaskAssigned (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:29863)
+    at Ze.handleEventForWorkflow (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:17185)
+    at Timeout._onTimeout (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:15767)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+WorkflowNode update: tool_call (tool_call_call_QdQrJt4bNeaqPsb99Yw0YJ6F)
+Connected tool call tool_call_call_QdQrJt4bNeaqPsb99Yw0YJ6F → Agent agent_agent-1754232665993-8nckupcy9
+🎯 [TOOL-CALL-AGENT-MAPPING] Tool call call_QdQrJt4bNeaqPsb99Yw0YJ6F → Agent agent-1754232665993-8nckupcy9
+🔔 [WorkflowEventSubscriber] Processing team.analysis_start event
+Error handling workflow event team.analysis_start: Error: ❌ [STANDARD-STRUCTURE] No agent copy found for sourceId: agent-1754232665997-hqzygxvc0
+    at Ze.createAgentThinkingNode (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:22702)
+    at Ze.handleTeamAnalysisStart (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:30067)
+    at Ze.handleEventForWorkflow (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:17245)
+    at Timeout._onTimeout (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:15767)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+🔔 [WorkflowEventSubscriber] Processing team.analysis_complete event
+Error handling workflow event team.analysis_complete: Error: ❌ [STANDARD-STRUCTURE] No agent copy found for sourceId: agent-1754232665997-hqzygxvc0
+    at Ze.createAgentResponseNode (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:24461)
+    at Ze.handleTeamAnalysisComplete (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:32654)
+    at Ze.handleEventForWorkflow (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:17313)
+    at Timeout._onTimeout (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:15767)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+🔔 [WorkflowEventSubscriber] Processing task.assigned event
+Error handling workflow event task.assigned: Error: ❌ [DIRECT-MAPPING] No directParentId provided in tool_call_start event
+    at Ze.createUniversalToolCallNode (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:23737)
+    at Ze.handleTaskAssigned (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:29863)
+    at Ze.handleEventForWorkflow (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:17185)
+    at Timeout._onTimeout (file:///Users/jungyoun/Documents/dev/robota/packages/agents/dist/node/index.js:5:15767)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+WorkflowNode update: tool_call (tool_call_call_2FuKX2kv4jmWA3SCbQmrnDlv)
+Connected tool call tool_call_call_2FuKX2kv4jmWA3SCbQmrnDlv → Agent agent_agent-1754232665997-hqzygxvc0
+🎯 [TOOL-CALL-AGENT-MAPPING] Tool call call_2FuKX2kv4jmWA3SCbQmrnDlv → Agent agent-1754232665997-hqzygxvc0
+🔔 [WorkflowEventSubscriber] Received event: execution.start {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232665996_dicm3fovq',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232665996_dicm3fovq',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232666000_pshhcyzk2',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232666000_pshhcyzk2' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232666000_pshhcyzk2',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'parameters',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata',
+    'parentExecutionId'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232666000_pshhcyzk2',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232666000_pshhcyzk2
+🔔 [WorkflowEventSubscriber] Received event: user.message {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232665996_dicm3fovq',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232665996_dicm3fovq',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232666000_pshhcyzk2',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232666000_pshhcyzk2' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232666000_pshhcyzk2',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'parameters',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata',
+    'parentExecutionId'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232666000_pshhcyzk2',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232666000_pshhcyzk2
+🔔 [WorkflowEventSubscriber] Received event: execution.start {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232665999_401orc09q',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232665999_401orc09q',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232666000_rystjyzr8',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232666000_rystjyzr8' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232666000_rystjyzr8',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'parameters',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata',
+    'parentExecutionId'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232666000_rystjyzr8',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232666000_rystjyzr8
+🔔 [WorkflowEventSubscriber] Received event: user.message {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232665999_401orc09q',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232665999_401orc09q',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232666000_rystjyzr8',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232666000_rystjyzr8' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232666000_rystjyzr8',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'parameters',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata',
+    'parentExecutionId'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232666000_rystjyzr8',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232666000_rystjyzr8
+🔔 [WorkflowEventSubscriber] Received event: assistant.message_start {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232665996_dicm3fovq',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232665996_dicm3fovq',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232666000_pshhcyzk2',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232666000_pshhcyzk2' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232666000_pshhcyzk2',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'parameters',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata',
+    'parentExecutionId'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232666000_pshhcyzk2',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232666000_pshhcyzk2
+🔔 [WorkflowEventSubscriber] Received event: assistant.message_start {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232665999_401orc09q',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232665999_401orc09q',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232666000_rystjyzr8',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232666000_rystjyzr8' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232666000_rystjyzr8',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'parameters',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata',
+    'parentExecutionId'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232666000_rystjyzr8',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232666000_rystjyzr8
+🎯 [AGENT-NUMBERING] Assigned Agent 1 to sourceId: conv_1754232665996_dicm3fovq
+🎯 [AGENT-COPY] Created Agent 1 Copy 1 for sourceId: conv_1754232665996_dicm3fovq
+🎯 [AGENT-COPY] Created Agent 1 Copy 1 for sourceId: conv_1754232665996_dicm3fovq
+🔧 [AGENT-ID-MAPPING] Stored mapping: conv_1754232665996_dicm3fovq → agent_1_copy_1
+WorkflowNode create: agent (agent_1_copy_1)
+WorkflowNode create: user_input (user_input_conv_1754232665996_dicm3fovq)
+🎯 [AGENT-NUMBERING] Assigned Agent 2 to sourceId: conv_1754232665999_401orc09q
+🎯 [AGENT-COPY] Created Agent 2 Copy 1 for sourceId: conv_1754232665999_401orc09q
+🎯 [AGENT-COPY] Created Agent 2 Copy 1 for sourceId: conv_1754232665999_401orc09q
+🔧 [AGENT-ID-MAPPING] Stored mapping: conv_1754232665999_401orc09q → agent_2_copy_1
+WorkflowNode create: agent (agent_2_copy_1)
+WorkflowNode create: user_input (user_input_conv_1754232665999_401orc09q)
+🎯 [STANDARD-STRUCTURE] Agent conv_1754232665996_dicm3fovq → Reserved Thinking thinking_agent_1_copy_1
+🔧 [AGENT-COPY] Using Agent Copy ID: agent_1_copy_1
+✅ [STANDARD-RULE-1] Agent → Thinking 연결 생성: agent_1_copy_1 → thinking_agent_1_copy_1
+WorkflowNode create: agent_thinking (thinking_agent_1_copy_1)
+🎯 [STANDARD-STRUCTURE] Agent conv_1754232665999_401orc09q → Reserved Thinking thinking_agent_2_copy_1
+🔧 [AGENT-COPY] Using Agent Copy ID: agent_2_copy_1
+✅ [STANDARD-RULE-1] Agent → Thinking 연결 생성: agent_2_copy_1 → thinking_agent_2_copy_1
+WorkflowNode create: agent_thinking (thinking_agent_2_copy_1)
+🔗 [USER-INPUT-CONNECTION] Agent mode: user_input_conv_1754232665996_dicm3fovq → agent_1_copy_1 (receives)
+WorkflowNode update: user_input (user_input_conv_1754232665996_dicm3fovq)
+🔗 [USER-INPUT-CONNECTION] Agent mode: user_input_conv_1754232665999_401orc09q → agent_2_copy_1 (receives)
+WorkflowNode update: user_input (user_input_conv_1754232665999_401orc09q)
+[2025-08-03T14:51:25.971Z] [WARN] [ExecutionAnalyticsPlugin] Slow provider call detected 
+ {
+  "executionId": "provider-1754232666000-2",
+  "duration": 19971,
+  "threshold": 10000
+}
+[2025-08-03T14:51:25.971Z] [WARN] [ExecutionAnalyticsPlugin] No active execution found for afterRun 
+ {
+  "input": "Task: 카페 메뉴 구성에 대한 계획서 작성.\n\nContext: 카페의 특성에 맞춘 메뉴 구성, 가격 책정, 계절별 메뉴, 음료 및 디저트 옵션 등을 포함해야 함.\n\nPriori"
+}
+🎯 [assignTask] temporaryAgent.run() completed for agent: agent-1754232665997-hqzygxvc0
+🔔 [WorkflowEventSubscriber] Received event: agent.execution_complete {
+  sourceType: 'team',
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  sourceType: 'team',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: 'agent-1754232665997-hqzygxvc0',
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665997-hqzygxvc0',
+  totalHierarchyEntries: 2
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665993-8nckupcy9',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: false, sourceIdMatch: false }
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665997-hqzygxvc0',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: true, sourceIdMatch: true }
+}
+✅ [ActionTrackingEventService] Found by pattern search: {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  matchType: 'idIncludes',
+  nodeDetails: {
+    id: 'mapping-agent-1754232665997-hqzygxvc0',
+    parentId: undefined,
+    level: 2,
+    children: [],
+    metadata: {
+      sourceId: 'agent-1754232665997-hqzygxvc0',
+      mappingType: 'source-correlation',
+      inferredLevel: 2,
+      inferredParent: undefined,
+      originalData: [Object]
+    }
+  }
+}
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'taskDescription',
+    'result',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  nodeFound: true,
+  node: {
+    level: 2,
+    parentId: undefined,
+    id: 'mapping-agent-1754232665997-hqzygxvc0'
+  }
+}
+✅ [ActionTrackingEventService] Data enriched successfully {
+  originalLevel: 3,
+  enrichedLevel: 3,
+  originalParent: 'call_2FuKX2kv4jmWA3SCbQmrnDlv',
+  enrichedParent: 'call_2FuKX2kv4jmWA3SCbQmrnDlv'
+}
+🔔 [WorkflowEventSubscriber] Received event: task.aggregation_start {
+  sourceType: 'agent',
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665997-hqzygxvc0',
+  totalHierarchyEntries: 2
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665993-8nckupcy9',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: false, sourceIdMatch: false }
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665997-hqzygxvc0',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: true, sourceIdMatch: true }
+}
+✅ [ActionTrackingEventService] Found by pattern search: {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  matchType: 'idIncludes',
+  nodeDetails: {
+    id: 'mapping-agent-1754232665997-hqzygxvc0',
+    parentId: undefined,
+    level: 2,
+    children: [],
+    metadata: {
+      sourceId: 'agent-1754232665997-hqzygxvc0',
+      mappingType: 'source-correlation',
+      inferredLevel: 2,
+      inferredParent: undefined,
+      originalData: [Object]
+    }
+  }
+}
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'taskDescription',
+    'parameters',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  nodeFound: true,
+  node: {
+    level: 2,
+    parentId: undefined,
+    id: 'mapping-agent-1754232665997-hqzygxvc0'
+  }
+}
+✅ [ActionTrackingEventService] Data enriched successfully {
+  originalLevel: 3,
+  enrichedLevel: 3,
+  originalParent: 'call_2FuKX2kv4jmWA3SCbQmrnDlv',
+  enrichedParent: 'call_2FuKX2kv4jmWA3SCbQmrnDlv'
+}
+✅ Task completed by agent agent-1754232665997-hqzygxvc0 (19976ms)
+🔔 [WorkflowEventSubscriber] Received event: task.aggregation_complete {
+  sourceType: 'agent',
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665997-hqzygxvc0',
+  totalHierarchyEntries: 2
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665993-8nckupcy9',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: false, sourceIdMatch: false }
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665997-hqzygxvc0',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: true, sourceIdMatch: true }
+}
+✅ [ActionTrackingEventService] Found by pattern search: {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  matchType: 'idIncludes',
+  nodeDetails: {
+    id: 'mapping-agent-1754232665997-hqzygxvc0',
+    parentId: undefined,
+    level: 2,
+    children: [],
+    metadata: {
+      sourceId: 'agent-1754232665997-hqzygxvc0',
+      mappingType: 'source-correlation',
+      inferredLevel: 2,
+      inferredParent: undefined,
+      originalData: [Object]
+    }
+  }
+}
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'taskDescription',
+    'result',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  nodeFound: true,
+  node: {
+    level: 2,
+    parentId: undefined,
+    id: 'mapping-agent-1754232665997-hqzygxvc0'
+  }
+}
+✅ [ActionTrackingEventService] Data enriched successfully {
+  originalLevel: 3,
+  enrichedLevel: 3,
+  originalParent: 'call_2FuKX2kv4jmWA3SCbQmrnDlv',
+  enrichedParent: 'call_2FuKX2kv4jmWA3SCbQmrnDlv'
+}
+🔔 [WorkflowEventSubscriber] Received event: task.completed {
+  sourceType: 'team',
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665997-hqzygxvc0',
+  sourceType: 'team',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: 'agent-1754232665997-hqzygxvc0',
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665997-hqzygxvc0',
+  totalHierarchyEntries: 2
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665993-8nckupcy9',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: false, sourceIdMatch: false }
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665997-hqzygxvc0',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: true, sourceIdMatch: true }
+}
+✅ [ActionTrackingEventService] Found by pattern search: {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  matchType: 'idIncludes',
+  nodeDetails: {
+    id: 'mapping-agent-1754232665997-hqzygxvc0',
+    parentId: undefined,
+    level: 2,
+    children: [],
+    metadata: {
+      sourceId: 'agent-1754232665997-hqzygxvc0',
+      mappingType: 'source-correlation',
+      inferredLevel: 2,
+      inferredParent: undefined,
+      originalData: [Object]
+    }
+  }
+}
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'taskDescription',
+    'result',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'mapping-agent-1754232665997-hqzygxvc0',
+  nodeFound: true,
+  node: {
+    level: 2,
+    parentId: undefined,
+    id: 'mapping-agent-1754232665997-hqzygxvc0'
+  }
+}
+✅ [ActionTrackingEventService] Data enriched successfully {
+  originalLevel: 3,
+  enrichedLevel: 3,
+  originalParent: 'call_2FuKX2kv4jmWA3SCbQmrnDlv',
+  enrichedParent: 'call_2FuKX2kv4jmWA3SCbQmrnDlv'
+}
+📊 Agent completed successfully - Active agents now: 1
+🔔 [WorkflowEventSubscriber] Received event: assistant.message_complete {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232665999_401orc09q',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232665999_401orc09q',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232666000_rystjyzr8',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232666000_rystjyzr8' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232666000_rystjyzr8',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'result',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata',
+    'parentExecutionId'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232666000_rystjyzr8',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232666000_rystjyzr8
+🔔 [WorkflowEventSubscriber] Received event: execution.complete {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232665999_401orc09q',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232665999_401orc09q',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232666000_rystjyzr8',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232666000_rystjyzr8' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232666000_rystjyzr8',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'result',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata',
+    'parentExecutionId'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232666000_rystjyzr8',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232666000_rystjyzr8
+🔔 [WorkflowEventSubscriber] Processing task.aggregation_start event
+WorkflowNode create: merge_results (merge_results_agent-1754232665997-hqzygxvc0_1754232685975)
+🔔 [WorkflowEventSubscriber] Processing task.aggregation_complete event
+🎯 [MERGE-RESULTS] Found existing merge results node: merge_results_agent-1754232665997-hqzygxvc0_1754232685975, checking for new connections
+WorkflowNode create: merge_results (merge_results_agent-1754232665997-hqzygxvc0_1754232685975)
+🔔 [WorkflowEventSubscriber] Processing task.completed event
+WorkflowNode create: merge_results (merge_results_agent-1754232665997-hqzygxvc0_1754232685976)
+🎯 [STANDARD-STRUCTURE] Agent conv_1754232665999_401orc09q → Reserved Response response_agent_2_copy_1, Thinking: thinking_agent_2_copy_1
+✅ [STANDARD-RULE-4] Thinking → Response 연결 생성: thinking_agent_2_copy_1 → response_agent_2_copy_1
+WorkflowNode create: response (response_agent_2_copy_1)
+🎯 [AGENT-RESPONSE-MAPPING] Agent conv_1754232665999_401orc09q (Agent 2) → Response response_agent_2_copy_1
+🎯 [MERGE-RESULTS-UPDATE] No parent tool call found for agent conv_1754232665999_401orc09q
+[2025-08-03T14:51:31.877Z] [WARN] [ExecutionAnalyticsPlugin] Slow provider call detected 
+ {
+  "executionId": "provider-1754232666000-2",
+  "duration": 25877,
+  "threshold": 10000
+}
+[2025-08-03T14:51:31.877Z] [WARN] [ExecutionAnalyticsPlugin] No active execution found for afterRun 
+ {
+  "input": "Task: 시장 분석을 포함한 카페 창업 계획서 작성.\n\nContext: 카페 창업을 위한 시장 분석, 경쟁 업체 분석, 소비자 트렌드, 시장 규모 및 성장 가능성 등을 포함해야 "
+}
+🎯 [assignTask] temporaryAgent.run() completed for agent: agent-1754232665993-8nckupcy9
+🔔 [WorkflowEventSubscriber] Received event: agent.execution_complete {
+  sourceType: 'team',
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  sourceType: 'team',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: 'agent-1754232665993-8nckupcy9',
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665993-8nckupcy9',
+  totalHierarchyEntries: 2
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665993-8nckupcy9',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: true, sourceIdMatch: true }
+}
+✅ [ActionTrackingEventService] Found by pattern search: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  matchType: 'idIncludes',
+  nodeDetails: {
+    id: 'mapping-agent-1754232665993-8nckupcy9',
+    parentId: undefined,
+    level: 2,
+    children: [],
+    metadata: {
+      sourceId: 'agent-1754232665993-8nckupcy9',
+      mappingType: 'source-correlation',
+      inferredLevel: 2,
+      inferredParent: undefined,
+      originalData: [Object]
+    }
+  }
+}
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'taskDescription',
+    'result',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeFound: true,
+  node: {
+    level: 2,
+    parentId: undefined,
+    id: 'mapping-agent-1754232665993-8nckupcy9'
+  }
+}
+✅ [ActionTrackingEventService] Data enriched successfully {
+  originalLevel: 3,
+  enrichedLevel: 3,
+  originalParent: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F',
+  enrichedParent: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F'
+}
+🔔 [WorkflowEventSubscriber] Received event: task.aggregation_start {
+  sourceType: 'agent',
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665993-8nckupcy9',
+  totalHierarchyEntries: 2
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665993-8nckupcy9',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: true, sourceIdMatch: true }
+}
+✅ [ActionTrackingEventService] Found by pattern search: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  matchType: 'idIncludes',
+  nodeDetails: {
+    id: 'mapping-agent-1754232665993-8nckupcy9',
+    parentId: undefined,
+    level: 2,
+    children: [],
+    metadata: {
+      sourceId: 'agent-1754232665993-8nckupcy9',
+      mappingType: 'source-correlation',
+      inferredLevel: 2,
+      inferredParent: undefined,
+      originalData: [Object]
+    }
+  }
+}
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'taskDescription',
+    'parameters',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeFound: true,
+  node: {
+    level: 2,
+    parentId: undefined,
+    id: 'mapping-agent-1754232665993-8nckupcy9'
+  }
+}
+✅ [ActionTrackingEventService] Data enriched successfully {
+  originalLevel: 3,
+  enrichedLevel: 3,
+  originalParent: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F',
+  enrichedParent: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F'
+}
+✅ Task completed by agent agent-1754232665993-8nckupcy9 (25884ms)
+🔔 [WorkflowEventSubscriber] Received event: task.aggregation_complete {
+  sourceType: 'agent',
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665993-8nckupcy9',
+  totalHierarchyEntries: 2
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665993-8nckupcy9',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: true, sourceIdMatch: true }
+}
+✅ [ActionTrackingEventService] Found by pattern search: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  matchType: 'idIncludes',
+  nodeDetails: {
+    id: 'mapping-agent-1754232665993-8nckupcy9',
+    parentId: undefined,
+    level: 2,
+    children: [],
+    metadata: {
+      sourceId: 'agent-1754232665993-8nckupcy9',
+      mappingType: 'source-correlation',
+      inferredLevel: 2,
+      inferredParent: undefined,
+      originalData: [Object]
+    }
+  }
+}
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'taskDescription',
+    'result',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeFound: true,
+  node: {
+    level: 2,
+    parentId: undefined,
+    id: 'mapping-agent-1754232665993-8nckupcy9'
+  }
+}
+✅ [ActionTrackingEventService] Data enriched successfully {
+  originalLevel: 3,
+  enrichedLevel: 3,
+  originalParent: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F',
+  enrichedParent: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F'
+}
+🔔 [WorkflowEventSubscriber] Received event: task.completed {
+  sourceType: 'team',
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'agent-1754232665993-8nckupcy9',
+  sourceType: 'team',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: undefined,
+    parentExecutionId: undefined,
+    agentId: 'agent-1754232665993-8nckupcy9',
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+🔍 [ActionTrackingEventService] Searching hierarchy by pattern: {
+  searchKey: 'agent-1754232665993-8nckupcy9',
+  totalHierarchyEntries: 2
+}
+🔍 [ActionTrackingEventService] Checking node: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeLevel: 2,
+  nodeParent: undefined,
+  nodeMetadata: {
+    sourceId: 'agent-1754232665993-8nckupcy9',
+    mappingType: 'source-correlation',
+    inferredLevel: 2,
+    inferredParent: undefined,
+    originalData: { sourceType: 'team', timestamp: undefined, eventType: 'unknown' }
+  },
+  matches: { toolNameMatch: false, idIncludesKey: true, sourceIdMatch: true }
+}
+✅ [ActionTrackingEventService] Found by pattern search: {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  matchType: 'idIncludes',
+  nodeDetails: {
+    id: 'mapping-agent-1754232665993-8nckupcy9',
+    parentId: undefined,
+    level: 2,
+    children: [],
+    metadata: {
+      sourceId: 'agent-1754232665993-8nckupcy9',
+      mappingType: 'source-correlation',
+      inferredLevel: 2,
+      inferredParent: undefined,
+      originalData: [Object]
+    }
+  }
+}
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'taskDescription',
+    'result',
+    'parentExecutionId',
+    'executionLevel',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'mapping-agent-1754232665993-8nckupcy9',
+  nodeFound: true,
+  node: {
+    level: 2,
+    parentId: undefined,
+    id: 'mapping-agent-1754232665993-8nckupcy9'
+  }
+}
+✅ [ActionTrackingEventService] Data enriched successfully {
+  originalLevel: 3,
+  enrichedLevel: 3,
+  originalParent: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F',
+  enrichedParent: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F'
+}
+📊 Agent completed successfully - Active agents now: 0
+🔔 [WorkflowEventSubscriber] Received event: tool_call_complete {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: 'assignTask',
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'toolName',
+    'timestamp',
+    'result',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'call_QdQrJt4bNeaqPsb99Yw0YJ6F',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: call_QdQrJt4bNeaqPsb99Yw0YJ6F
+🔔 [WorkflowEventSubscriber] Received event: tool_call_complete {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: 'assignTask',
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'call_2FuKX2kv4jmWA3SCbQmrnDlv',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'call_2FuKX2kv4jmWA3SCbQmrnDlv' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'call_2FuKX2kv4jmWA3SCbQmrnDlv',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'toolName',
+    'timestamp',
+    'result',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'call_2FuKX2kv4jmWA3SCbQmrnDlv',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: call_2FuKX2kv4jmWA3SCbQmrnDlv
+🔔 [WorkflowEventSubscriber] Received event: tool_results_to_llm {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232661706_pqmjfropy',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232661706_pqmjfropy' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'parameters',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232661706_pqmjfropy
+🔔 [WorkflowEventSubscriber] Received event: assistant.message_start {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232661706_pqmjfropy',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232661706_pqmjfropy' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'parameters',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232661706_pqmjfropy
+🔔 [WorkflowEventSubscriber] Received event: assistant.message_complete {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232665996_dicm3fovq',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232665996_dicm3fovq',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232666000_pshhcyzk2',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232666000_pshhcyzk2' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232666000_pshhcyzk2',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'result',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata',
+    'parentExecutionId'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232666000_pshhcyzk2',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232666000_pshhcyzk2
+🔔 [WorkflowEventSubscriber] Received event: execution.complete {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232665996_dicm3fovq',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232665996_dicm3fovq',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232666000_pshhcyzk2',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232666000_pshhcyzk2' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232666000_pshhcyzk2',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'result',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata',
+    'parentExecutionId'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232666000_pshhcyzk2',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232666000_pshhcyzk2
+🔔 [WorkflowEventSubscriber] Processing task.aggregation_start event
+WorkflowNode create: merge_results (merge_results_agent-1754232665993-8nckupcy9_1754232691880)
+🔔 [WorkflowEventSubscriber] Processing task.aggregation_complete event
+🎯 [MERGE-RESULTS] Found existing merge results node: merge_results_agent-1754232665993-8nckupcy9_1754232691880, checking for new connections
+WorkflowNode create: merge_results (merge_results_agent-1754232665993-8nckupcy9_1754232691880)
+🔔 [WorkflowEventSubscriber] Processing task.completed event
+🎯 [MERGE-RESULTS] Found existing merge results node: merge_results_agent-1754232665993-8nckupcy9_1754232691880, checking for new connections
+WorkflowNode create: merge_results (merge_results_agent-1754232665993-8nckupcy9_1754232691880)
+WorkflowNode create: tool_call_response (tool_response_call_QdQrJt4bNeaqPsb99Yw0YJ6F)
+🎯 [TOOL-RESPONSE-TRACKING] Tracked tool response: tool_response_call_QdQrJt4bNeaqPsb99Yw0YJ6F for execution: conv_1754232661706_ala5w7cl5
+WorkflowNode create: tool_call_response (tool_response_call_2FuKX2kv4jmWA3SCbQmrnDlv)
+🎯 [TOOL-RESPONSE-TRACKING] Tracked tool response: tool_response_call_2FuKX2kv4jmWA3SCbQmrnDlv for execution: conv_1754232661706_ala5w7cl5
+🔔 [WorkflowEventSubscriber] Processing tool_results_to_llm event
+🎯 [STANDARD-STRUCTURE] Agent conv_1754232661706_ala5w7cl5 → Reserved Thinking thinking_agent_0_copy_1
+🔧 [AGENT-COPY] Using Agent Copy ID: agent_0_copy_1
+✅ [STANDARD-RULE-1] Agent → Thinking 연결 생성: agent_0_copy_1 → thinking_agent_0_copy_1
+WorkflowNode create: agent_thinking (thinking_agent_0_copy_1)
+🎯 [STANDARD-STRUCTURE] Agent conv_1754232661706_ala5w7cl5 → Reserved Thinking thinking_agent_0_copy_1
+🔧 [AGENT-COPY] Using Agent Copy ID: agent_0_copy_1
+✅ [STANDARD-RULE-1] Agent → Thinking 연결 생성: agent_0_copy_1 → thinking_agent_0_copy_1
+WorkflowNode create: agent_thinking (thinking_agent_0_copy_1)
+🎯 [STANDARD-STRUCTURE] Agent conv_1754232665996_dicm3fovq → Reserved Response response_agent_1_copy_1, Thinking: thinking_agent_1_copy_1
+✅ [STANDARD-RULE-4] Thinking → Response 연결 생성: thinking_agent_1_copy_1 → response_agent_1_copy_1
+WorkflowNode create: response (response_agent_1_copy_1)
+🎯 [AGENT-RESPONSE-MAPPING] Agent conv_1754232665996_dicm3fovq (Agent 1) → Response response_agent_1_copy_1
+🎯 [MERGE-RESULTS-UPDATE] No parent tool call found for agent conv_1754232665996_dicm3fovq
+[2025-08-03T14:51:49.902Z] [WARN] [ExecutionAnalyticsPlugin] Slow provider call detected 
+ {
+  "executionId": "provider-1754232661707-2",
+  "duration": 48195,
+  "threshold": 5000
+}
+[2025-08-03T14:51:49.902Z] [WARN] [ExecutionAnalyticsPlugin] Slow run execution detected 
+ {
+  "executionId": "exec-1754232661707-1",
+  "duration": 48195,
+  "threshold": 5000
+}
+🔔 [WorkflowEventSubscriber] Received event: assistant.message_complete {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232661706_pqmjfropy',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232661706_pqmjfropy' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'result',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232661706_pqmjfropy
+🔔 [WorkflowEventSubscriber] Received event: execution.complete {
+  sourceType: 'agent',
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  executionId: undefined
+}
+🔍 [ActionTrackingEventService] findExecutionId searching in: {
+  executionId: undefined,
+  sourceId: 'conv_1754232661706_ala5w7cl5',
+  sourceType: 'agent',
+  agentId: undefined,
+  toolName: undefined,
+  eventType: 'unknown',
+  metadata: {
+    executionId: 'exec_1754232661706_pqmjfropy',
+    parentExecutionId: undefined,
+    agentId: undefined,
+    toolCallId: undefined
+  },
+  context: undefined,
+  hierarchySize: 2,
+  allRegisteredIds: [
+    'mapping-agent-1754232665993-8nckupcy9',
+    'mapping-agent-1754232665997-hqzygxvc0'
+  ]
+}
+✅ [ActionTrackingEventService] Found metadata.executionId: { executionId: 'exec_1754232661706_pqmjfropy' }
+🔍 [ActionTrackingEventService] enrichWithHierarchy called {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  hasExecutionId: true,
+  hierarchySize: 2,
+  dataKeys: [
+    'sourceType',
+    'sourceId',
+    'timestamp',
+    'result',
+    'rootExecutionId',
+    'executionLevel',
+    'executionPath',
+    'metadata'
+  ]
+}
+🔍 [ActionTrackingEventService] Hierarchy node lookup {
+  executionId: 'exec_1754232661706_pqmjfropy',
+  nodeFound: false,
+  node: null
+}
+⚠️ [ActionTrackingEventService] No hierarchy node found for executionId: exec_1754232661706_pqmjfropy
+✅ Team execution completed in 48197ms
+
+팀 응답:
+### 1. 시장 분석
+
+#### 1.1. 시장 동향 및 성장 가능성
+한국의 카페 시장은 지속적으로 성장하고 있으며, 2023년 기준으로 약 5조 원 규모로 추정됩니다. 특히, 코로나19 이후 소비자들이 외식과 여가를 즐기기 시작하면서 카페의 수요가 증가했습니다. 2024년까지 연평균 성장률이 5%에 이를 것으로 예상되며, 이는 건강과 웰빙을 중시하는 소비 트렌드와 관련이 있습니다. 카페의 다양한 구비가 필요하며, 이는 커피, 차, 음료 등 다양한 제품군을 포함합니다.
+
+#### 1.2. 소비자 트렌드
+- **건강 및 웰빙**: 소비자들은 건강에 좋은 음료 및 디저트를 선호하고 있습니다. 유기농 재료와 저칼로리 옵션이 인기를 끌고 있습니다.
+- **경험 중심 소비**: 단순한 음료 구매를 넘어 카페에서의 경험을 중시하는 소비자가 늘어나고 있습니다. 이는 카페 인테리어, 분위기, 고객 서비스 등에서 차별화된 요소가 필요함을 의미합니다.
+- **SNS 활용**: 소비자들은 SNS를 통해 카페를 홍보하고, 특별한 경험을 공유하는 경향이 강합니다.
+
+### 2. 메뉴 구성
+
+#### 2.1. 기본 메뉴
+- **커피**:
+  - 아메리카노: 4,500원
+  - 카페라떼: 5,000원
+  - 카푸치노: 5,500원
+  - 바닐라 라떼: 6,000원
+  - 드립 커피: 5,000원
+
+- **차**:
+  - 녹차: 4,000원
+  - 허브차 (카모마일, 민트): 4,500원
+  - 밀크티: 4,500원
+
+- **디저트**:
+  - 치즈케이크: 6,000원
+  - 티라미수: 6,500원
+  - 마카롱: 3,000원
+
+#### 2.2. 시즌 메뉴
+- **여름**:
+  - 수박 스무디: 6,500원
+  - 아이스 아메리카노: 4,500원
+
+- **겨울**:
+  - 핫초코: 5,500원
+  - 생강차: 5,000원
+
+#### 2.3. 가격 전략
+- 가격은 경쟁업체와 비슷하거나 약간 낮게 설정하여 소비자 유입을 유도합니다.
+- 특별 이벤트나 프로모션을 통해 새로운 고객을 유치하고, 기존 고객의 재방문을 유도하는 전략을 사용할 것입니다.
+
+이와 같은 시장 분석과 메뉴 구성은 카페 창업에 있어 성공적인 기반을 마련하는 데 중요한 요소입니다.
+
+============================================================
+📋 예제 2: 성능 분석
+============================================================
+
+📈 예제 2 결과:
+• 완료된 작업: 1
+• 총 생성된 에이전트: 2
+• 총 실행 시간: 48197ms
+        
+
+============================================================
+📋 전체 팀 성능 요약
+============================================================
+
+📊 전체 요약:
+• 총 완료된 작업: 2
+• 총 생성된 에이전트: 2
+• 총 실행 시간: 57327ms
+        
+
+✅ 팀 협업 데모가 성공적으로 완료되었습니다!
+팀 에이전트가 직접 처리할지 위임할지를 지능적으로 결정합니다.
+복잡한 작업에서는 에이전트들이 어떻게 협업하는지 분석할 수 있습니다.
