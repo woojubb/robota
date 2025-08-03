@@ -21,12 +21,15 @@ import {
     Handle,
     Position,
     Connection,
-    ReactFlowProvider
+    ReactFlowProvider,
+    EdgeTypes,
+    BaseEdge,
+    getStraightPath
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Bot, Users, Zap, MessageSquare, MessageCircle, Settings } from 'lucide-react';
+import { Bot, Users, Zap, MessageSquare, MessageCircle, Settings, Wrench } from 'lucide-react';
 import type {
     UniversalWorkflowStructure,
     UniversalWorkflowNode,
@@ -38,6 +41,116 @@ interface WorkflowVisualizationProps {
     workflow?: UniversalWorkflowStructure;
     className?: string;
 }
+
+// STEP 12.0.3: 시각적 구분 시스템 - Custom Edge Components
+
+/**
+ * 정상 연결 Edge (초록색)
+ */
+const ConnectedEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => {
+    const [edgePath] = getStraightPath({
+        sourceX,
+        sourceY,
+        targetX,
+        targetY,
+    });
+
+    return (
+        <BaseEdge
+            path={edgePath}
+            style={{
+                stroke: '#10b981', // green-500
+                strokeWidth: 2,
+            }}
+        />
+    );
+};
+
+/**
+ * 누락된 연결 Edge (빨간색 점선)
+ */
+const MissingEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => {
+    const [edgePath] = getStraightPath({
+        sourceX,
+        sourceY,
+        targetX,
+        targetY,
+    });
+
+    return (
+        <BaseEdge
+            path={edgePath}
+            style={{
+                stroke: '#ef4444', // red-500
+                strokeWidth: 2,
+                strokeDasharray: '5,5',
+            }}
+        />
+    );
+};
+
+/**
+ * 도메인 중립적 Tool Call Edge (오렌지색)
+ */
+const ToolCallEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => {
+    const [edgePath] = getStraightPath({
+        sourceX,
+        sourceY,
+        targetX,
+        targetY,
+    });
+
+    return (
+        <BaseEdge
+            path={edgePath}
+            style={{
+                stroke: '#f97316', // orange-500
+                strokeWidth: 3,
+            }}
+        />
+    );
+};
+
+/**
+ * 재귀적 Agent 생성 Edge (보라색)
+ */
+const RecursiveAgentEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => {
+    const [edgePath] = getStraightPath({
+        sourceX,
+        sourceY,
+        targetX,
+        targetY,
+    });
+
+    return (
+        <BaseEdge
+            path={edgePath}
+            style={{
+                stroke: '#8b5cf6', // violet-500
+                strokeWidth: 2,
+                strokeDasharray: '10,5',
+            }}
+        />
+    );
+};
+
+/**
+ * Edge Types 정의 - 연결 상태 시각적 구분
+ */
+const edgeTypes: EdgeTypes = {
+    connected: ConnectedEdge,        // ✅ 정상 연결 (초록색)
+    missing: MissingEdge,            // ❌ 누락 연결 (빨간색 점선)
+    toolCall: ToolCallEdge,          // 🔧 Tool Call (오렌지색)
+    recursiveAgent: RecursiveAgentEdge, // 🔄 재귀 Agent (보라색)
+
+    // 실제 SDK에서 생성되는 타입들 매핑
+    processes: ConnectedEdge,        // 🎯 Agent → Agent Thinking (실제 SDK)
+    contains: ConnectedEdge,         // Team → Agent
+    receives: ConnectedEdge,         // User Input → Agent
+    thinks: ConnectedEdge,           // Agent → Agent Thinking
+    calls: ToolCallEdge,             // Agent Thinking → Tool Call
+    creates: RecursiveAgentEdge,     // Tool Call → New Agent
+};
 
 /**
  * Custom Node Component for Agents
@@ -101,6 +214,24 @@ const AgentNode = ({ data }: { data: any }) => {
                 <Badge className={`mt-1 text-xs ${styles.badge}`}>
                     {data.status}
                 </Badge>
+            )}
+
+            {/* Tool Slots - 사용 가능한 도구들 표시 */}
+            {data.toolSlots && data.toolSlots.length > 0 && (
+                <div className="mt-2 border-t pt-2">
+                    <div className="text-xs text-gray-500 mb-1">Tools:</div>
+                    <div className="flex flex-wrap gap-1">
+                        {data.toolSlots.map((tool: string, index: number) => (
+                            <div
+                                key={index}
+                                className="flex items-center gap-1 px-2 py-1 bg-gray-50 border border-gray-200 rounded text-xs"
+                            >
+                                <Wrench className="h-3 w-3 text-gray-600" />
+                                <span className="text-gray-700">{tool}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             )}
 
             {/* Target handle - Agents receive connections from Team */}
@@ -322,8 +453,8 @@ const nodeTypes = {
 };
 
 function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualizationProps) {
-    const [nodes, setNodes, onNodesChange] = useNodesState([]);
-    const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+    const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+    const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [converter] = useState(() => new SimpleReactFlowConverter());
 
     // Convert workflow to React-Flow format
@@ -345,6 +476,14 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
 
             try {
                 const reactFlowData = await converter.convert(workflow);
+
+                // 🧪 [DEBUG] React-Flow 데이터 출력
+                console.log('🧪 [REACT-FLOW-DATA] === 완전한 데이터 덤프 ===');
+                console.log('📊 [WORKFLOW-INPUT]:', JSON.stringify(workflow, null, 2));
+                console.log('🔵 [NODES]:', JSON.stringify(reactFlowData.nodes, null, 2));
+                console.log('🔗 [EDGES]:', JSON.stringify(reactFlowData.edges, null, 2));
+                console.log('🧪 [REACT-FLOW-DATA] === 덤프 완료 ===');
+
                 setNodes(reactFlowData.nodes);
                 setEdges(reactFlowData.edges);
             } catch (error) {
@@ -386,6 +525,7 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
                         onEdgesChange={onEdgesChange}
                         onConnect={onConnect}
                         nodeTypes={nodeTypes}
+                        edgeTypes={edgeTypes}
                         fitView
                         attributionPosition="bottom-left"
                     >

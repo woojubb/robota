@@ -82,7 +82,7 @@ export class ToolExecutionService {
             };
 
             // Execute the tool
-            const result = await this.tools.executeTool(toolName, parameters as any);
+            const result = await this.tools.executeTool(toolName, parameters as any, executionContext);
 
             this.logger.debug(`Tool execution completed: ${toolName}`);
 

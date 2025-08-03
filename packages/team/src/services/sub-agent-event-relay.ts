@@ -33,6 +33,8 @@ export class SubAgentEventRelay extends ActionTrackingEventService {
     private readonly parentEventService: EventService;
     private readonly parentToolCallId: string;
 
+    // 🗑️ executionToThinkingMap 제거: 표준 Agent Copy 시스템 사용
+
     /**
      * Constructor for SubAgentEventRelay
      * @param parentEventService - The parent TeamContainer's EventService
@@ -48,20 +50,47 @@ export class SubAgentEventRelay extends ActionTrackingEventService {
     }
 
     /**
-     * Emit event with automatic parent connection
-     * Enriches all Sub-Agent events with parent execution information
+     * Emit event with direct parent ID provision (no inference needed)
+     * Provides exact parentId for each event type to eliminate mapping/inference
      * 
      * @param eventType - Type of event to emit
      * @param data - Event data
      */
     emit(eventType: ServiceEventType, data: ServiceEventData): void {
-        // Enrich Sub-Agent event with parent connection info
-        const enrichedData: ServiceEventData = {
+        let enrichedData: ServiceEventData = {
             ...data,
             parentExecutionId: this.parentToolCallId,  // 🔑 Connect to assignTask
             executionLevel: (data.executionLevel || 0) + 1,  // 🔑 Nested level
-            sourceType: 'sub-agent'  // 🔑 Mark as Sub-Agent event
+            sourceType: 'agent'  // 🔑 Unified domain-neutral agent type (no sub-agent)
         };
+
+        // 🎯 Agent Copy 시스템 통합: 독립적인 ID 생성 제거
+        // WorkflowEventSubscriber의 표준 Agent Copy 시스템에서 예약된 ID 사용
+        if (eventType === 'assistant.message_start') {
+            // 표준 Agent Copy 시스템에서 thinking ID가 예약되어 제공됨
+            // SubAgentEventRelay는 단순히 이벤트를 전달만 함
+            enrichedData = {
+                ...enrichedData,
+                metadata: {
+                    ...data.metadata,
+                    // 🎯 표준 시스템 통합: 독립적인 thinkingNodeId 생성 제거
+                    // WorkflowEventSubscriber에서 예약된 ID 사용
+                }
+            };
+        }
+
+        if (eventType === 'tool_call_start') {
+            // 🎯 표준 Agent Copy 시스템 통합: 독립적인 매핑 제거
+            // WorkflowEventSubscriber에서 agentToThinkingMap 사용
+            enrichedData = {
+                ...enrichedData,
+                metadata: {
+                    ...data.metadata,
+                    // 🎯 표준 시스템 통합: WorkflowEventSubscriber의 agentToThinkingMap 사용
+                    // SubAgentEventRelay의 독립적인 executionToThinkingMap 제거
+                }
+            };
+        }
 
         // Forward to parent EventService for unified hierarchy
         this.parentEventService.emit(eventType, enrichedData);

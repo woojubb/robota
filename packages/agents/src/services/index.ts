@@ -7,11 +7,11 @@ export type {
     WorkflowNode,
     WorkflowNodeUpdate,
     WorkflowConnection,
-    WorkflowNodeType,
     WorkflowConnectionType,
     WorkflowNodeStatus,
     WorkflowNodeData
 } from './workflow-event-subscriber';
+export type { WorkflowNodeType } from '../constants/workflow-node-types';
 export { RealTimeWorkflowBuilder } from './real-time-workflow-builder';
 // Visualization Generators moved to apps/web for domain separation
 export type {
