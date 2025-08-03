@@ -27,6 +27,19 @@ export {
     SimpleReactFlowLayoutHelper
 } from './react-flow/layout-engine';
 
+// Auto Layout Integration
+export {
+    applyDagreLayout,
+    convertUniversalToReactFlowWithLayout,
+    layoutExistingFlow,
+    suggestOptimalLayout,
+    LAYOUT_PRESETS
+} from './auto-layout';
+
+export type {
+    LayoutConfig
+} from './auto-layout';
+
 export type {
     SimpleLayoutOptions
 } from './react-flow/layout-engine';
