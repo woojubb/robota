@@ -358,12 +358,21 @@ export class ExecutionService {
                     ...(availableTools.length > 0 && { tools: availableTools })
                 };
 
-                // Generate thinking node ID for direct parent provision (no inference needed)
-                const thinkingNodeId = `thinking_agent_${Date.now()}_${executionId}`;
+                // 🔧 Use reserved thinking node ID from WorkflowEventSubscriber (no custom ID generation)
+                // This ensures ID consistency and eliminates Ghost Connections
+                const rootId = fullContext.conversationId || executionId;
+                let thinkingNodeId = `thinking_agent_0_copy_1`; // Default to Agent 0 reserved ID
+
+                // 🎯 Try to get reserved thinking ID from WorkflowEventSubscriber if available
+                if (this.eventService && 'agentToThinkingMap' in this.eventService) {
+                    const reservedId = (this.eventService as any).agentToThinkingMap?.get(String(rootId));
+                    if (reservedId) {
+                        thinkingNodeId = reservedId;
+                    }
+                }
 
                 // Emit assistant message start event
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                    const rootId = fullContext.conversationId || executionId;
                     this.eventService.emit('assistant.message_start', {
                         sourceType: 'agent',
                         sourceId: rootId,
@@ -380,7 +389,7 @@ export class ExecutionService {
                             executionId,
                             round: currentRound,
                             conversationId: fullContext.conversationId,
-                            // Direct provision of thinking node ID (no mapping/inference needed)
+                            // Use consistent reserved thinking node ID (Ghost Connection eliminated)
                             thinkingNodeId: thinkingNodeId
                         }
                     });
@@ -427,13 +436,18 @@ export class ExecutionService {
                 });
 
                 // Execute tools
+                // Ensure proper ID hierarchy for tool execution
+                const toolRootId = fullContext.conversationId;
+                const toolParentId = executionId;
+
                 const toolRequests = this.toolExecutionService.createExecutionRequestsWithContext(
                     assistantResponse.toolCalls,
                     {
-                        parentExecutionId: executionId,
-                        rootExecutionId: fullContext.conversationId || executionId,
+                        parentExecutionId: toolParentId,
+                        rootExecutionId: toolRootId || executionId,
                         executionLevel: 2, // Tool level (Team=0, Agent=1, Tool=2)
-                        executionPath: [fullContext.conversationId || executionId, executionId]
+                        executionPath: [toolRootId || executionId, toolParentId],
+                        conversationId: toolRootId // Pass conversationId explicitly
                     }
                 );
                 const toolContext: ToolExecutionBatchContext = {

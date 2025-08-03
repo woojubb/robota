@@ -351,16 +351,8 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
                     // Convert BaseTool to ToolSchema and executor
                     // Create an adapter to convert ToolResult to ToolExecutionData
                     const toolExecutor = async (parameters: BaseToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
-                        // Create proper ToolExecutionContext for BaseTool.execute
-                        const toolContext: ToolExecutionContext = {
-                            toolName: tool.schema.name,
-                            parameters: parameters as ToolParameters,
-                            ...(context?.userId && { userId: context.userId }),
-                            ...(context?.sessionId && { sessionId: context.sessionId }),
-                            ...(context?.metadata && { metadata: context.metadata })
-                        };
-
-                        const result = await tool.execute(parameters, toolContext);
+                        // Pass the full context to the tool, not just selected fields
+                        const result = await tool.execute(parameters, context);
                         return result.data ?? result;
                     };
                     this.tools.addTool(tool.schema, toolExecutor);
@@ -1094,16 +1086,8 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
 
         // Create an adapter to convert ToolResult to ToolExecutionData
         const toolExecutor = async (parameters: BaseToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
-            // Create proper ToolExecutionContext for BaseTool.execute
-            const toolContext: ToolExecutionContext = {
-                toolName: tool.schema.name,
-                parameters: parameters as ToolParameters,
-                ...(context?.userId && { userId: context.userId }),
-                ...(context?.sessionId && { sessionId: context.sessionId }),
-                ...(context?.metadata && { metadata: context.metadata })
-            };
-
-            const result = await tool.execute(parameters, toolContext);
+            // Pass the full context to the tool, not just selected fields
+            const result = await tool.execute(parameters, context);
             return result.data ?? result;
         };
         this.tools.addTool(tool.schema, toolExecutor);

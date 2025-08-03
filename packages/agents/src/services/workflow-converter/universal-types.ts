@@ -372,19 +372,19 @@ export interface UniversalWorkflowStructure extends WorkflowData {
 export interface UniversalPlatformConfig {
     /** Platform-specific theme or style configuration */
     theme?: string;
-    
+
     /** Platform-specific rendering configuration */
     // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
     config?: Record<string, unknown>;
-    
+
     /** Platform-specific type mappings */
     // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
     typeMapping?: Record<string, unknown>;
-    
+
     /** Platform-specific viewport or canvas settings */
     // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, third-party
     viewport?: Record<string, unknown>;
-    
+
     /** Platform-specific metadata */
     // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, runtime-dynamic
     metadata?: Record<string, unknown>;
@@ -432,19 +432,16 @@ export const UNIVERSAL_NODE_TYPES = {
     USER_INPUT: 'user_input',
     OUTPUT: 'output',
 
-    // Agent Core
+    // Agent Core (Sub types removed for domain neutrality)
     AGENT: 'agent',
-    SUB_AGENT: 'sub_agent',
     TOOLS_CONTAINER: 'tools_container',
     TOOL_DEFINITION: 'tool_definition',
 
-    // Execution Flow
+    // Execution Flow (Sub types removed, Final Response unified to Response)
     AGENT_THINKING: 'agent_thinking',
     TOOL_CALL: 'tool_call',
-    SUB_TOOL_CALL: 'sub_tool_call',
     MERGE_RESULTS: 'merge_results',
-    SUB_MERGE: 'sub_merge',
-    FINAL_RESPONSE: 'final_response',
+    RESPONSE: 'response', // 🗑️ FINAL_RESPONSE unified to RESPONSE for domain neutrality
 
     // Special Nodes
     GROUP: 'group',
@@ -471,10 +468,8 @@ export const UNIVERSAL_EDGE_TYPES = {
     // Control Flow
     BRANCH: 'branch',
     ANALYZE: 'analyze',
-    SPAWN: 'spawn',
-    DELEGATE: 'delegate',
+    // 🗑️ Sub-related edge types removed for domain neutrality: SPAWN, DELEGATE, CONSOLIDATE
     RETURN: 'return',
-    CONSOLIDATE: 'consolidate',
     FINAL: 'final',
     DELIVER: 'deliver',
 

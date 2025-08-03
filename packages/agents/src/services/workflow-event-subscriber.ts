@@ -179,6 +179,9 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
     private integrationInstanceMap = new Map<string, string>(); // rootExecutionId → Agent Integration Instance ID
     private responseIntegrationQueue = new Map<string, string[]>(); // rootExecutionId → pending response IDs
 
+    // 🎯 Tool Call Response 추적 (executionId/sourceId -> tool response node IDs)
+    private toolResponsesByExecution = new Map<string, string[]>();
+
     // ExecutionId-based mapping system for wildcard elimination (핵심 연결 문제 해결)
     private executionToThinkingMap = new Map<string, string>(); // executionId → thinking node ID
 
@@ -212,6 +215,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
     /**
      * emit 메서드 오버라이드하여 이벤트 모니터링
      * 모든 이벤트가 이 메서드를 통과하므로 여기서 Node 생성 처리
+     * 비동기 처리로 이벤트 블로킹 방지
      */
     public override emit(eventType: ServiceEventType, data: ServiceEventData): void {
         this.workflowLogger.debug(`🔔 [WorkflowEventSubscriber] Received event: ${eventType}`, {
@@ -223,8 +227,15 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
         // 부모 클래스의 emit 호출 (hierarchy 추적 등)
         super.emit(eventType, data);
 
-        // 이벤트 타입별 Node 생성 처리
-        this.handleEventForWorkflow(eventType, data);
+        // 이벤트 타입별 Node 생성 처리를 비동기로 실행
+        // setTimeout을 사용하여 이벤트 루프를 블로킹하지 않도록 함
+        setTimeout(() => {
+            try {
+                this.handleEventForWorkflow(eventType, data);
+            } catch (error) {
+                this.workflowLogger.error(`Error handling workflow event ${eventType}:`, error);
+            }
+        }, 0);
     }
 
     /**
@@ -318,6 +329,13 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
         // 🎯 Sub-Agent 개념 제거: 모든 Agent를 동등하게 처리
         const node = this.createAgentNode(data);
         this.emitNodeUpdate('create', node);
+
+        // 🔧 Team 모드에서 Agent 번호 시스템 지원
+        // assignTask로 생성된 Agent들을 위한 기본 매핑 추가
+        if (data.sourceType === 'team' && data.sourceId) {
+            const agentNumber = this.assignAgentNumber(String(data.sourceId));
+            this.workflowLogger.debug(`🎯 [TEAM-AGENT-MAPPING] Team mode Agent ${agentNumber} created: ${data.sourceId} → ${node.id}`);
+        }
     }
 
     /**
@@ -364,6 +382,16 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
         // 🎯 Tool Call 완료 시 Tool Call Response 노드 생성
         const responseNode = this.createToolCallResponseNode(data);
         this.emitNodeUpdate('create', responseNode);
+
+        // Tool Response 추적 - 나중에 merge results와 연결하기 위해
+        const key = String(data.rootExecutionId || data.sourceId || data.executionId || 'unknown');
+        if (key && key !== 'unknown') {
+            const existing = this.toolResponsesByExecution.get(key) || [];
+            existing.push(responseNode.id);
+            this.toolResponsesByExecution.set(key, existing);
+
+            this.workflowLogger.debug(`🎯 [TOOL-RESPONSE-TRACKING] Tracked tool response: ${responseNode.id} for execution: ${key}`);
+        }
 
         // 기존 Tool Call 노드 상태도 업데이트
         const nodeId = String(data.executionId || data.sourceId || 'unknown');
@@ -601,20 +629,69 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
     }
 
     private createMergeResultsNode(data: ServiceEventData): WorkflowNode {
+        // Generate a unique ID for merge results if executionId is missing
+        const mergeResultsId = data.executionId ||
+            data.metadata?.executionId ||
+            `${data.sourceId}_${Date.now()}`;
+
+        const nodeId = `merge_results_${mergeResultsId}`;
+        const connections: WorkflowConnection[] = [];
+
+        // 🎯 Tool Response들과 연결 (당신의 아이디어 구현)
+        const key = String(data.rootExecutionId || data.sourceId || data.executionId || 'unknown');
+        const toolResponses = this.toolResponsesByExecution.get(key) || [];
+
+        this.workflowLogger.debug(`🎯 [MERGE-RESULTS] Creating merge results node with ${toolResponses.length} tool responses`);
+
+        // 각 Tool Response와 연결
+        toolResponses.forEach(toolResponseId => {
+            connections.push({
+                fromId: toolResponseId,
+                toId: nodeId,
+                type: 'consolidates',
+                label: 'merge tool results'
+            });
+        });
+
+        // Tool Response가 없을 경우에만 agent와 직접 연결 (fallback)
+        if (toolResponses.length === 0) {
+            const actualSourceId = this.agentNodeIdMap.get(data.sourceId) || data.sourceId;
+            if (this.nodeExists(actualSourceId)) {
+                connections.push({
+                    fromId: actualSourceId,
+                    toId: nodeId,
+                    type: 'consolidates',
+                    label: 'merge results'
+                });
+            }
+        }
+
         return {
-            id: `merge_results_${data.executionId}`,
+            id: nodeId,
             type: WORKFLOW_NODE_TYPES.MERGE_RESULTS,
-            parentId: `agent_${data.sourceId}`, // 🗑️ sub-agent conditional removed - all agents unified
+            parentId: undefined, // Tool responses가 parent이므로 parentId는 필요없음
             level: data.executionLevel || 2,
             status: 'running',
             data: {
                 eventType: 'task.aggregation_start',
                 sourceId: data.sourceId,
-                sourceType: data.sourceType
+                sourceType: data.sourceType,
+                connectedToolResponses: toolResponses
             },
             timestamp: data.timestamp || new Date(),
-            connections: []
+            connections: connections
         };
+    }
+
+    /**
+     * Check if a node exists in the workflow
+     */
+    private nodeExists(nodeId: string): boolean {
+        // Check in the current workflow state through event emission
+        // For now, we'll assume the node exists if it's in our agentNodeIdMap
+        return this.agentNodeIdMap.has(nodeId) ||
+            nodeId.startsWith('agent_') ||
+            nodeId.startsWith('tool_response_');
     }
 
     /**
@@ -965,7 +1042,31 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * User Input → Agent/Team 연결 생성
      */
     private createUserInputConnection(userInputId: string, sourceId: string): void {
-        // 1. Agent Copy 시스템에서 해당 sourceId의 Agent 노드 찾기
+        // 🎯 Team 모드 우선 처리 (Team 환경에서 연결 실패 방지)
+        // 1. Team 노드 찾기 (Team 모드인 경우)  
+        const teamNodes = Array.from(this.nodeMap.values()).filter(n =>
+            (n.data?.label && typeof n.data.label === 'string' && n.data.label.toLowerCase().includes('team')) ||
+            (typeof n.type === 'string' && n.type.toLowerCase().includes('team')));
+
+        if (teamNodes.length > 0) {
+            const teamNode = teamNodes[0]; // 첫 번째 Team 노드
+            const userInputNode = this.nodeMap.get(userInputId);
+            if (userInputNode) {
+                const connection: WorkflowConnection = {
+                    fromId: userInputId,
+                    toId: teamNode.id,
+                    type: 'receives' as const,
+                    label: 'User input to team'
+                };
+
+                userInputNode.connections.push(connection);
+                this.workflowLogger.debug(`🔗 [USER-INPUT-CONNECTION] Team mode: ${userInputId} → ${teamNode.id} (receives)`);
+                this.emitNodeUpdate('update', userInputNode);
+                return;
+            }
+        }
+
+        // 2. Agent Copy 시스템에서 해당 sourceId의 Agent 노드 찾기 (Agent 모드)
         const agentNodeId = this.agentNodeIdMap.get(sourceId);
 
         if (agentNodeId && this.nodeMap.has(agentNodeId)) {
@@ -980,35 +1081,13 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 };
 
                 userInputNode.connections.push(connection);
-                this.workflowLogger.debug(`🔗 [USER-INPUT-CONNECTION] Created: ${userInputId} → ${agentNodeId} (receives)`);
-                this.emitNodeUpdate('update', userInputNode);
-                return;
-            }
-        }
-
-        // 2. Team 노드 찾기 (Team 모드인 경우)  
-        const teamNodes = Array.from(this.nodeMap.values()).filter(n =>
-            (n.data?.label && typeof n.data.label === 'string' && n.data.label.toLowerCase().includes('team')) ||
-            (typeof n.type === 'string' && n.type.toLowerCase().includes('team')));
-        if (teamNodes.length > 0) {
-            const teamNode = teamNodes[0]; // 첫 번째 Team 노드
-            const userInputNode = this.nodeMap.get(userInputId);
-            if (userInputNode) {
-                const connection: WorkflowConnection = {
-                    fromId: userInputId,
-                    toId: teamNode.id,
-                    type: 'receives' as const,
-                    label: 'User input to team'
-                };
-
-                userInputNode.connections.push(connection);
-                this.workflowLogger.debug(`🔗 [USER-INPUT-CONNECTION] Created: ${userInputId} → ${teamNode.id} (receives)`);
+                this.workflowLogger.debug(`🔗 [USER-INPUT-CONNECTION] Agent mode: ${userInputId} → ${agentNodeId} (receives)`);
                 this.emitNodeUpdate('update', userInputNode);
                 return;
             }
         }
 
         // 3. 연결할 대상이 없는 경우 경고
-        this.workflowLogger.debug(`⚠️ [USER-INPUT-CONNECTION] No target found for User Input: ${userInputId}`);
+        this.workflowLogger.debug(`⚠️ [USER-INPUT-CONNECTION] No target found for User Input: ${userInputId} (checked Team and Agent modes)`);
     }
 }
