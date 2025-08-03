@@ -93,6 +93,11 @@ async function testPlaygroundEdgeConnections() {
 
         // 6. Team 생성 with WorkflowEventSubscriber
         console.log('\n5. Creating team with WorkflowEventSubscriber...');
+
+        // Generate conversation ID for this test
+        const testConversationId = `test_conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        console.log(`   Generated conversation ID: ${testConversationId}`);
+
         const team = createTeam({
             aiProviders: [provider],
             eventService: baseEventService,

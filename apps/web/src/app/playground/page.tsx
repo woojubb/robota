@@ -707,7 +707,7 @@ function WorkflowTestButtons() {
     // 🎉 완벽한 Agent Copy 시스템 데이터 (실제 SDK 결과)
     const handleLoadPerfectAgentCopy = useCallback(async () => {
         console.log('🎉 [PERFECT-COPY] Loading perfect Agent Copy system data from actual SDK execution...');
-        
+
         try {
             // 실제 SDK 실행 결과 JSON 파일 로드
             const response = await fetch('/perfect-playground-data.json');
@@ -715,7 +715,7 @@ function WorkflowTestButtons() {
                 throw new Error(`Failed to load perfect data: ${response.status}`);
             }
             const perfectData = await response.json();
-            
+
             console.log('🎉 [PERFECT-COPY] Loaded real SDK execution result:', {
                 nodes: perfectData.nodes?.length || 0,
                 edges: perfectData.edges?.length || 0,
@@ -728,8 +728,31 @@ function WorkflowTestButtons() {
             console.error('❌ [PERFECT-COPY] Failed to load perfect data:', error);
             // Fallback to mock data if JSON loading fails
             const fallbackData = generatePerfectAgentCopyData();
-            setWorkflow(fallbackData);
+            setWorkflow(fallbackData as UniversalWorkflowStructure);
             console.log('🔄 [PERFECT-COPY] Used fallback data instead');
+        }
+    }, [setWorkflow]);
+
+    // 🚀 최신 SDK 실행 결과 로드 (16 nodes, 24 edges)
+    const handleLoadLatestSDKResult = useCallback(async () => {
+        console.log('🚀 [LATEST-SDK] Loading latest SDK execution result...');
+        try {
+            // Try to fetch the latest data from public folder
+            const response = await fetch('/perfect-playground-data.json');
+            if (response.ok) {
+                const data = await response.json();
+                console.log('🚀 [LATEST-SDK] Successfully loaded latest data from file:', {
+                    nodes: data.nodes?.length || 0,
+                    edges: data.edges?.length || 0,
+                    timestamp: new Date().toISOString()
+                });
+                setWorkflow(data);
+            } else {
+                throw new Error('Failed to fetch perfect-playground-data.json');
+            }
+        } catch (error) {
+            console.error('❌ [LATEST-SDK] Failed to load latest SDK result:', error);
+            alert('Failed to load latest SDK result. Please run example 26 first.');
         }
     }, [setWorkflow]);
 
@@ -742,13 +765,20 @@ function WorkflowTestButtons() {
             >
                 🎯 Load Agent Numbering System
             </button>
-                                    <button
-                            onClick={handleLoadPerfectAgentCopy}
-                            className="px-4 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition-colors font-medium"
-                            title="Load Real SDK Execution Result - 12 nodes, 21 edges from actual Example 26 execution"
-                        >
-                            🎯 Load REAL SDK Result (12 nodes, 21 edges)
-                        </button>
+            <button
+                onClick={handleLoadPerfectAgentCopy}
+                className="px-4 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition-colors font-medium"
+                title="Load Real SDK Execution Result - 12 nodes, 21 edges from actual Example 26 execution"
+            >
+                🎯 Load REAL SDK Result (12 nodes, 21 edges)
+            </button>
+            <button
+                onClick={handleLoadLatestSDKResult}
+                className="px-4 py-2 bg-purple-500 text-white text-sm rounded hover:bg-purple-600 transition-colors font-medium"
+                title="Load Latest SDK Execution Result - 16 nodes, 24 edges from actual Example 26 execution"
+            >
+                🚀 Load Latest SDK Result (16 nodes, 24 edges)
+            </button>
         </>
     );
 }
@@ -762,7 +792,7 @@ function generatePerfectAgentCopyData() {
 
     // 🎯 실제 SDK에서 생성된 완벽한 데이터 구조
     return {
-        "__workflowType": "UniversalWorkflowStructure",
+        "__workflowType": "UniversalWorkflowStructure" as const,
         "id": "perfect-agent-copy-system",
         "name": "Perfect Agent Copy System - Real SDK Result",
         "nodes": [

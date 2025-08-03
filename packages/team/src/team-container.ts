@@ -226,15 +226,9 @@ export class TeamContainer {
         // Add EventService to teamConfig
         teamConfig.eventService = this.eventService;
 
-        console.log('🔍 [TEAM-DEBUG] EventService type:', this.eventService.constructor.name);
-        console.log('🔍 [TEAM-DEBUG] EventService instance ID:', this.eventService);
-        console.log('🔍 [TEAM-DEBUG] EventService toString:', this.eventService.toString().substring(0, 50));
-        console.log('🔍 [TEAM-DEBUG] EventService methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.eventService)));
-
         this.teamAgent = new Robota(teamConfig);
 
-        console.log('🔍 [TEAM-DEBUG] Team Agent created with EventService:', !!teamConfig.eventService);
-
+        // Team agent created successfully
 
         this.logger?.info(`Team created with leader template: ${leaderTemplateName} (${leaderTemplate.config.provider}/${leaderTemplate.config.model})`);
     }
@@ -246,8 +240,10 @@ export class TeamContainer {
      */
     async execute(userPrompt: string): Promise<string> {
         const startTime = Date.now();
+        const conversationId = `team-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
         try {
+            // Execute with proper execution context for tool calls
             const result = await this.teamAgent.run(userPrompt);
 
             const executionTime = Date.now() - startTime;
@@ -316,15 +312,16 @@ export class TeamContainer {
      */
     private async assignTask(params: AssignTaskParams, context?: ToolExecutionContext): Promise<AssignTaskResult> {
 
-        // 🔍 DEBUG: Context 정보 확인
-        console.log('🔍 [TeamContainer] assignTask called with context:', {
-            hasContext: !!context,
-            'context?.executionId': context?.executionId,
-            'context?.parentExecutionId': context?.parentExecutionId,
-            'context?.rootExecutionId': context?.rootExecutionId,
-            'context?.executionLevel': context?.executionLevel,
-            fullContext: context ? JSON.stringify(context, null, 2) : 'NO CONTEXT'
-        });
+
+        // Use tool call ID from context as the parent reference
+        const parentToolCallId = context?.executionId;
+
+        if (!parentToolCallId) {
+            this.logger?.warn('assignTask called without tool call ID in context', {
+                hasContext: !!context,
+                executionId: context?.executionId || 'missing'
+            });
+        }
 
         let temporaryAgent: Robota | null = null;
         let counterIncremented = false; // Track if we incremented the counter
@@ -335,25 +332,15 @@ export class TeamContainer {
         // Each assignTask call creates a NEW BRANCH in the execution tree
         // The tool call itself becomes the parent of the agent it creates
 
-        // Generate unique tool execution ID for this assignTask call
-        const toolExecutionId = context?.executionId || `tool-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        // Use the tool call ID as the direct parent for the sub-agent
+        const toolExecutionId = parentToolCallId || `tool-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-        // For infinite nesting: 
-        // - If this is a root call (from Team Leader), parent = conversation root
-        // - If this is a nested call (from Agent), parent = that Agent's execution ID
-        const parentExecutionId = context?.parentExecutionId || context?.rootExecutionId || 'conversation-root';
-        const rootExecutionId = context?.rootExecutionId || toolExecutionId;
+        // Simple parent-child relationship: tool call -> sub-agent
+        const parentExecutionId = toolExecutionId;
 
-        // Dynamic level calculation for infinite nesting:
-        // - Tool calls (assignTask) = odd levels (1, 3, 5, ...)  
-        // - Agent executions = even levels (2, 4, 6, ...)
-        const toolLevel = (context?.executionLevel || 0) + 1; // This tool call level
-        const agentLevel = toolLevel + 1; // Agent execution level
-
-        // Build execution path for complete traceability
-        const currentPath = context?.executionPath || [];
-        const toolPath = [...currentPath, toolExecutionId];
-        const agentPath = [...toolPath, agentId];
+        // Dynamic level calculation from context
+        const toolLevel = context?.executionLevel || 2; // Default tool level
+        const agentLevel = toolLevel + 1; // Sub-agent is one level deeper
 
         // 1. Emit team analysis start event with hierarchy info
         if (this.eventService && !(this.eventService instanceof SilentEventService)) {
@@ -362,11 +349,9 @@ export class TeamContainer {
                 sourceId: agentId,
                 taskDescription: params.jobDescription,
                 parameters: params as any,
-                // 🔧 FIXED: Team events should have tool call as parent
-                parentExecutionId: toolExecutionId, // This tool call is the parent
-                rootExecutionId,
-                executionLevel: agentLevel, // Team level + 1
-                executionPath: agentPath,
+                // Tool call is the parent of this sub-agent
+                parentExecutionId: parentExecutionId,
+                executionLevel: agentLevel,
                 metadata: {
                     phase: 'job_analysis',
                     agentTemplate: params.agentTemplate,
@@ -385,16 +370,16 @@ export class TeamContainer {
                     analysisResult: 'Task requirements analyzed and agent template selected',
                     selectedTemplate: params.agentTemplate
                 },
-                parentExecutionId: toolExecutionId, // This tool call is the parent
-                rootExecutionId,
-                executionLevel: agentLevel, // Team level + 1
-                executionPath: agentPath,
+                parentExecutionId: parentExecutionId,
+                executionLevel: agentLevel,
                 metadata: {
                     phase: 'job_analysis_complete',
                     selectedTemplate: params.agentTemplate
                 }
             });
         }
+
+
 
         // 3. Emit task assigned event
         if (this.eventService && !(this.eventService instanceof SilentEventService)) {
@@ -411,9 +396,8 @@ export class TeamContainer {
                     context: params.context
                 },
                 // Hierarchical tracking information
-                rootExecutionId: rootExecutionId, // Team task is root level
-                executionLevel: agentLevel, // Team level execution
-                executionPath: agentPath,
+                parentExecutionId: parentExecutionId,
+                executionLevel: agentLevel,
                 metadata: {
                     agentId,
                     agentTemplate: params.agentTemplate,
@@ -464,10 +448,10 @@ export class TeamContainer {
                         allowFurtherDelegation: params.allowFurtherDelegation
                     },
                     // 🔧 FIXED: Team events should have tool call as parent
-                    parentExecutionId: toolExecutionId, // This tool call is the parent
-                    rootExecutionId: rootExecutionId,
+
+                    parentExecutionId: parentExecutionId,
                     executionLevel: agentLevel, // Team level + 1
-                    executionPath: agentPath,
+
                     metadata: {
                         phase: 'agent_creation',
                         agentTemplate: params.agentTemplate,
@@ -537,7 +521,9 @@ export class TeamContainer {
                 // Add SubAgentEventRelay to temporary agent for automatic hierarchy
                 tempAgentConfig.eventService = subAgentEventService;
 
+                this.logger?.info(`🎯 [assignTask] Creating temporaryAgent from template: ${params.agentTemplate}`);
                 temporaryAgent = new Robota(tempAgentConfig);
+                this.logger?.info(`🎯 [assignTask] temporaryAgent created successfully: ${temporaryAgent.name}`);
 
                 // 5. Emit agent creation complete event
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
@@ -554,10 +540,10 @@ export class TeamContainer {
                             model: template.config.model
                         },
                         // 🔧 FIXED: Team events should have tool call as parent
-                        parentExecutionId: toolExecutionId, // This tool call is the parent
-                        rootExecutionId: rootExecutionId,
+
+                        parentExecutionId: parentExecutionId,
                         executionLevel: agentLevel, // Team level + 1
-                        executionPath: agentPath,
+
                         metadata: {
                             phase: 'agent_creation',
                             agentTemplate: params.agentTemplate,
@@ -599,7 +585,9 @@ export class TeamContainer {
                 // Add SubAgentEventRelay to dynamic agent for automatic hierarchy
                 dynamicAgentConfig.eventService = dynamicSubAgentEventService;
 
+                this.logger?.info(`🎯 [assignTask] Creating dynamic temporaryAgent`);
                 temporaryAgent = new Robota(dynamicAgentConfig);
+                this.logger?.info(`🎯 [assignTask] Dynamic temporaryAgent created successfully: ${temporaryAgent.name}`);
             }
 
             // Agent created successfully, execute the task
@@ -617,10 +605,10 @@ export class TeamContainer {
                         agentName: temporaryAgent.name
                     },
                     // 🔧 FIXED: Team events should have tool call as parent
-                    parentExecutionId: toolExecutionId, // This tool call is the parent
-                    rootExecutionId: rootExecutionId,
+
+                    parentExecutionId: parentExecutionId,
                     executionLevel: agentLevel, // Team level + 1
-                    executionPath: agentPath,
+
                     metadata: {
                         phase: 'agent_execution',
                         agentId: agentId,
@@ -632,7 +620,21 @@ export class TeamContainer {
 
             // Execute the task with the temporary agent
             const taskPrompt = this.buildTaskPrompt(params);
-            const result = await temporaryAgent.run(taskPrompt);
+            this.logger?.info(`🎯 [assignTask] About to execute temporaryAgent.run() for agent: ${agentId}`);
+            this.logger?.info(`🎯 [assignTask] Task prompt: ${taskPrompt.substring(0, 200)}...`);
+
+            let result: string;
+            try {
+                result = await temporaryAgent.run(taskPrompt);
+                this.logger?.info(`🎯 [assignTask] temporaryAgent.run() completed for agent: ${agentId}`);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                this.logger?.warn(`🚨 [assignTask] temporaryAgent.run() failed for agent: ${agentId} - Error: ${errorMessage}`);
+                if (error instanceof Error && error.stack) {
+                    this.logger?.warn(`🚨 [assignTask] Stack trace: ${error.stack}`);
+                }
+                throw error;
+            }
 
             // 7. Emit agent execution complete event
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
@@ -642,10 +644,10 @@ export class TeamContainer {
                     taskDescription: `Completed execution: ${params.jobDescription}`,
                     result: { success: true, data: result.substring(0, 200) + '...' },
                     // 🔧 FIXED: Team events should have tool call as parent
-                    parentExecutionId: toolExecutionId, // This tool call is the parent
-                    rootExecutionId: rootExecutionId,
+
+                    parentExecutionId: parentExecutionId,
                     executionLevel: agentLevel, // Team level + 1
-                    executionPath: agentPath,
+
                     metadata: {
                         phase: 'agent_execution',
                         agentId: agentId,
@@ -658,9 +660,11 @@ export class TeamContainer {
 
             // 8. Emit task aggregation start event
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                // Use the actual agent ID instead of 'task-aggregator'
+                const actualSourceId = String(context?.sourceId || agentId);
                 this.eventService.emit('task.aggregation_start', {
-                    sourceType: 'team',
-                    sourceId: 'task-aggregator',
+                    sourceType: 'agent',
+                    sourceId: actualSourceId,
                     taskDescription: 'Starting result aggregation and synthesis',
                     parameters: {
                         agentResults: [{
@@ -670,10 +674,10 @@ export class TeamContainer {
                         }]
                     } as any,
                     // 🔧 FIXED: Team events should have tool call as parent
-                    parentExecutionId: toolExecutionId, // This tool call is the parent
-                    rootExecutionId: rootExecutionId,
+
+                    parentExecutionId: parentExecutionId,
                     executionLevel: agentLevel, // Team level + 1
-                    executionPath: agentPath,
+
                     metadata: {
                         phase: 'task_aggregation',
                         agentCount: 1,
@@ -691,16 +695,18 @@ export class TeamContainer {
 
             // 9. Emit task aggregation complete event
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                // Use the actual agent ID instead of 'task-aggregator'
+                const actualSourceId = String(context?.sourceId || agentId);
                 this.eventService.emit('task.aggregation_complete', {
-                    sourceType: 'team',
-                    sourceId: 'task-aggregator',
+                    sourceType: 'agent',
+                    sourceId: actualSourceId,
                     taskDescription: 'Result aggregation and synthesis completed',
                     result: { success: true, data: `Synthesized result from ${params.agentTemplate} agent` },
                     // 🔧 FIXED: Team events should have tool call as parent
-                    parentExecutionId: toolExecutionId, // This tool call is the parent
-                    rootExecutionId: rootExecutionId,
+
+                    parentExecutionId: parentExecutionId,
                     executionLevel: agentLevel, // Team level + 1
-                    executionPath: agentPath,
+
                     metadata: {
                         phase: 'task_aggregation',
                         agentCount: 1,
@@ -720,9 +726,9 @@ export class TeamContainer {
                     taskDescription: params.jobDescription,
                     result: { success: true, data: result.substring(0, 100) + '...' },
                     // Hierarchical tracking information
-                    rootExecutionId: rootExecutionId, // Team task is root level
+                    parentExecutionId: parentExecutionId, // Team task is root level
                     executionLevel: agentLevel, // Team level execution
-                    executionPath: agentPath,
+
                     metadata: {
                         agentId,
                         agentTemplate: params.agentTemplate,
@@ -755,7 +761,7 @@ export class TeamContainer {
             };
             this.delegationHistory.push(delegationRecord);
 
-            return {
+            const returnValue = {
                 result,
                 agentId: agentId,
                 metadata: {
@@ -767,6 +773,7 @@ export class TeamContainer {
                     errors: []
                 }
             };
+            return returnValue;
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);

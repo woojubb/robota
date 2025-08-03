@@ -78,10 +78,26 @@ export class ToolExecutionService {
                 toolName,
                 parameters,
                 executionId: context?.executionId || `${toolName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                parentExecutionId: context?.parentExecutionId,
+                rootExecutionId: context?.rootExecutionId || (context?.metadata?.rootExecutionId as string | undefined),
+                executionLevel: context?.executionLevel || (context?.metadata?.executionLevel as number | undefined),
+                executionPath: context?.executionPath || (context?.metadata?.executionPath as string[] | undefined),
                 ...context
             };
 
-            // Execute the tool
+            // Tool Execution Context validation for assignTask
+            if (toolName === 'assignTask') {
+                this.logger.info(`[ToolExecutionService] Executing assignTask with context`, {
+                    hasContext: !!context,
+                    executionId: executionContext.executionId,
+                    parentExecutionId: executionContext.parentExecutionId || 'none',
+                    rootExecutionId: executionContext.rootExecutionId || 'none',
+                    executionLevel: executionContext.executionLevel || 0
+                });
+            }
+
+            // Execute the tool with full context
+            // Context already contains all necessary information including tool call ID
             const result = await this.tools.executeTool(toolName, parameters as any, executionContext);
 
             this.logger.debug(`Tool execution completed: ${toolName}`);
@@ -114,7 +130,7 @@ export class ToolExecutionService {
      */
     createExecutionRequestsWithContext(
         toolCalls: Array<{ id: string; function: { name: string; arguments: string } }>,
-        context: { parentExecutionId: string; rootExecutionId: string; executionLevel: number; executionPath: string[] }
+        context: { parentExecutionId: string; rootExecutionId: string; executionLevel: number; executionPath: string[]; conversationId?: string }
     ): ToolExecutionRequest[] {
         return toolCalls.map(toolCall => ({
             toolName: toolCall.function.name,
@@ -124,7 +140,8 @@ export class ToolExecutionService {
                 parentExecutionId: context.parentExecutionId,
                 rootExecutionId: context.rootExecutionId,
                 executionLevel: context.executionLevel,
-                executionPath: context.executionPath
+                executionPath: context.executionPath,
+                conversationId: context.conversationId || context.rootExecutionId
             }
         }));
     }
