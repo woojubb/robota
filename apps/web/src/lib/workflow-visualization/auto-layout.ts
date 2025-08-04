@@ -161,11 +161,11 @@ export function applyDagreLayout(
             // Set dynamic handle positions based on layout direction
             sourcePosition,
             targetPosition,
-            // Ensure nodes have proper dimensions for React Flow
+            // Ensure nodes have proper width for React Flow (height auto)
             style: {
                 ...node.style,
-                width: dimensions.width,
-                height: dimensions.height
+                width: dimensions.width
+                // height removed - let content determine natural height
             },
             // Add computed dimensions and handle positions to data
             data: {
@@ -260,4 +260,86 @@ export function suggestOptimalLayout(
 
     // Default to vertical for most cases
     return 'vertical';
+}
+
+/**
+ * 동적 레이아웃을 위한 설정 생성
+ */
+export function createDynamicLayoutConfig(
+    presetName: keyof typeof LAYOUT_PRESETS,
+    customOverrides?: Partial<LayoutConfig>
+): LayoutConfig {
+    return {
+        ...LAYOUT_PRESETS[presetName],
+        ...customOverrides
+    };
+}
+
+/**
+ * 레이아웃 품질 검증 함수
+ */
+export function validateLayoutResult(
+    nodes: Node[],
+    edges: Edge[]
+): { isValid: boolean; issues: string[] } {
+    const issues: string[] = [];
+
+    // 노드 겹침 검사
+    for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+            const node1 = nodes[i];
+            const node2 = nodes[j];
+            const distance = Math.sqrt(
+                Math.pow(node1.position.x - node2.position.x, 2) +
+                Math.pow(node1.position.y - node2.position.y, 2)
+            );
+            if (distance < 100) {
+                issues.push(`Nodes ${node1.id} and ${node2.id} are too close (distance: ${distance.toFixed(1)})`);
+            }
+        }
+    }
+
+    // 엣지 연결 검증
+    edges.forEach(edge => {
+        const sourceNode = nodes.find(n => n.id === edge.source);
+        const targetNode = nodes.find(n => n.id === edge.target);
+
+        if (!sourceNode) {
+            issues.push(`Edge ${edge.id}: source node ${edge.source} not found`);
+        }
+        if (!targetNode) {
+            issues.push(`Edge ${edge.id}: target node ${edge.target} not found`);
+        }
+    });
+
+    return {
+        isValid: issues.length === 0,
+        issues
+    };
+}
+
+/**
+ * 노드 크기 기반 최적 간격 계산
+ */
+export function calculateOptimalSpacing(nodes: Node[]): Partial<LayoutConfig> {
+    if (nodes.length === 0) return {};
+
+    // 평균 노드 크기 계산
+    const avgWidth = nodes.reduce((sum, node) =>
+        sum + (node.data?.computedWidth || 200), 0) / nodes.length;
+    const avgHeight = nodes.reduce((sum, node) =>
+        sum + (node.data?.computedHeight || 80), 0) / nodes.length;
+
+    // 크기에 따른 동적 간격 조정
+    const nodesep = Math.max(40, avgWidth * 0.2);
+    const ranksep = Math.max(60, avgHeight * 1.2);
+    const edgesep = Math.max(15, avgWidth * 0.1);
+
+    return {
+        nodesep,
+        ranksep,
+        edgesep,
+        marginx: Math.max(40, avgWidth * 0.3),
+        marginy: Math.max(40, avgHeight * 0.5)
+    };
 }

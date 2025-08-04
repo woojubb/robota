@@ -355,7 +355,7 @@ export class RealTimeWorkflowBuilder {
             case WORKFLOW_NODE_TYPES.TOOL_CALL: return 'executes';
             case WORKFLOW_NODE_TYPES.TOOL_CALL_RESPONSE: return 'result';
             case WORKFLOW_NODE_TYPES.RESPONSE: return 'return'; // 도메인 중립적 통일
-            case WORKFLOW_NODE_TYPES.MERGE_RESULTS: return 'consolidates';
+            case WORKFLOW_NODE_TYPES.TOOL_RESULT: return 'consolidates';
             default: return 'result';
         }
     }

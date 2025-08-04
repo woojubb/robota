@@ -1,5 +1,27 @@
 # 📋 Robota SaaS 플랫폼 통합 작업 체크리스트
 
+## ✨ 워크플로우 시각화 안정성 확보 (긴급 수정)
+
+- [ ] **1. Fork/Join Point 매핑 시스템 도입**: `tool_result` 노드 중복 생성 및 `thinking_round2` 연결 오류 근본 해결
+    - [ ] **1-1. `WorkflowEventSubscriber`에 신규 맵 추가**: `thinkingToToolResultMap` (Thinking Node ID → Tool Result Node ID) 멤버 변수 선언.
+    - [ ] **1-2. 보조 함수 `findParentThinkingNodeForAgent` 구현**: `toolCallToAgentMap` 등을 역추적하여 주어진 Agent를 생성한 `thinking` 노드를 찾는 로직 추가.
+- [ ] **2. 레거시 코드 및 로직 정리**: 오류 발생 가능성이 높은 복잡한 로직 제거
+    - [ ] **2-1. `updateMergeResultsForNewAgentResponse` 함수 완전 삭제**: 불필요하고 복잡한 추측성 연결 로직 제거.
+    - [ ] **2-2. `createToolResultNode` 함수 역할 축소**: 다른 함수에서 호출될 때 순수하게 노드를 생성하는 역할에만 집중하도록 로직 단순화.
+- [ ] **3. `handleToolResultAggregationStart` 로직 재설계**: 단일 합류점(Join Point) 생성 및 관리 책임 부여
+    - [ ] **3-1. `findParentThinkingNodeForAgent` 호출**: 이벤트를 발생시킨 Agent의 부모 `thinking` 노드 ID (Fork Point)를 조회.
+    - [ ] **3-2. `thinkingToToolResultMap` 확인**: 부모 `thinking` 노드에 해당하는 `tool_result` 노드(Join Point)가 이미 생성되었는지 확인.
+    - [ ] **3-3. `tool_result` 노드 조건부 생성**: Join Point가 없을 경우에만 `createToolResultNode`를 호출하여 **최초 1회** 생성하고 `thinkingToToolResultMap`에 등록.
+    - [ ] **3-4. `response` 노드 연결**: 현재 Agent의 `response` 노드를 Join Point(`tool_result`)에 연결.
+- [ ] **4. `createAgentThinkingNode` 로직 수정**: `thinking_round2`의 정확한 연결 보장
+    - [ ] **4-1. `thinkingToToolResultMap` 조회**: `round > 1`일 경우, 이전 라운드 `thinking` 노드 ID를 키로 사용하여 `thinkingToToolResultMap`에서 연결할 `tool_result` 노드 ID 조회.
+    - [ ] **4-2. `analyze` 타입 연결 생성**: 조회된 `tool_result` 노드와 현재 `thinking_round2` 노드를 `analyze` 타입으로 연결.
+    - [ ] **4-3. "사용 후 정리" 로직 구현**: 연결에 사용된 `tool_result` 맵 항목을 `thinkingToToolResultMap`에서 삭제하여 메모리 누수 방지 및 상태 관리.
+- [ ] **5. 전체 시스템 검증**
+    - [ ] **5-1. `packages/agents` 빌드**: 수정된 `WorkflowEventSubscriber`가 포함된 패키지 빌드.
+    - [ ] **5-2. `05-team-collaboration-ko.ts` 예제 실행**: 수정된 로직으로 예제 실행.
+    - [ ] **5-3. `real-workflow-data.json` 분석**: 실행 결과 데이터에서 `tool_result`가 1개만 생성되고 `thinking_round2`가 해당 노드에 올바르게 연결되었는지 검증.
+
 ## 🎯 웹 플랫폼 개발 (우선순위 1)
 
 ### 플레이그라운드 기능

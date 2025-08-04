@@ -304,6 +304,11 @@ export class ExecutionService {
             while (currentRound < maxRounds) {
                 currentRound++;
 
+                // 🎯 라운드 시작 시점에 해당 라운드의 thinking ID를 생성
+                const rootId = fullContext.conversationId || executionId;
+                const conversationId = String(rootId).replace('conv_', '').substring(0, 16);
+                const thinkingNodeId = `thinking_agent_0_copy_1_${conversationId}_round${currentRound}`;
+
                 // Get messages from conversation history
                 const conversationMessages = conversationSession.getMessages();
 
@@ -357,14 +362,6 @@ export class ExecutionService {
                     ...(config.defaultModel.temperature !== undefined && { temperature: config.defaultModel.temperature }),
                     ...(availableTools.length > 0 && { tools: availableTools })
                 };
-
-                // 🔧 Sequential thinking ID generation (consistent with WorkflowEventSubscriber)
-                const rootId = fullContext.conversationId || executionId;
-
-                // 🎯 Generate sequential thinking ID matching WorkflowEventSubscriber logic
-                const conversationId = String(rootId).replace('conv_', '').substring(0, 16);
-                const sequentialThinkingId = `thinking_agent_0_copy_1_${conversationId}_round${currentRound + 1}`;
-                let thinkingNodeId = sequentialThinkingId;
 
                 // Emit assistant message start event for each thinking phase
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
