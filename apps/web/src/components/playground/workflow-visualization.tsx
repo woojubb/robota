@@ -26,7 +26,8 @@ import {
     BaseEdge,
     getStraightPath,
     useReactFlow,
-    NodeProps
+    NodeProps,
+    useStore
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,11 +47,72 @@ import {
     suggestOptimalLayout,
     type LayoutConfig
 } from '@/lib/workflow-visualization/auto-layout';
+import dagre from 'dagre';
 
 interface WorkflowVisualizationProps {
     workflow?: UniversalWorkflowStructure;
     className?: string;
 }
+
+// Base Node Template Types
+type NodeType = 'agent' | 'team' | 'toolCall' | 'agentResponse' | 'tool' | 'userInput';
+
+interface BaseNodeTemplateProps {
+    nodeType: NodeType;
+    data: any;
+    sourcePosition?: Position;
+    targetPosition?: Position;
+    children: React.ReactNode;
+    handles?: {
+        target?: boolean;
+        source?: boolean;
+        targetId?: string;
+        sourceId?: string;
+    };
+}
+
+/**
+ * Base Node Template Component
+ * 
+ * 모든 커스텀 노드의 공통 구조와 Handle 로직을 추상화
+ * - 외부 div에 data-node-type, data-status 속성 설정
+ * - Handle 위치와 ID 자동 관리
+ * - CSS에서 노드 타입별 스타일링 적용
+ */
+const BaseNodeTemplate = ({
+    nodeType,
+    data,
+    sourcePosition,
+    targetPosition,
+    children,
+    handles = { target: true, source: true }
+}: BaseNodeTemplateProps) => {
+    return (
+        <div
+            className="bg-white"
+            data-status={data.status}
+            data-node-type={nodeType}
+        >
+            {children}
+
+            {handles.target && (
+                <Handle
+                    type="target"
+                    position={targetPosition || data.targetPosition || Position.Top}
+                    id={handles.targetId || `${nodeType}-input`}
+                />
+            )}
+
+            {handles.source && (
+                <Handle
+                    type="source"
+                    position={sourcePosition || data.sourcePosition || Position.Bottom}
+                    id={handles.sourceId || `${nodeType}-output`}
+                />
+            )}
+        </div>
+    );
+};
 
 // STEP 12.0.3: 시각적 구분 시스템 - Custom Edge Components
 
@@ -145,6 +207,140 @@ const RecursiveAgentEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => 
 };
 
 /**
+ * Dynamic Dagre Layout Component 
+ * React Flow Provider 내부에서 실행되어 실제 노드 크기로 레이아웃 재계산
+ */
+const DynamicDagreLayout = ({
+    layoutConfig,
+    onLayoutComplete
+}: {
+    layoutConfig: LayoutConfig;
+    onLayoutComplete?: () => void;
+}) => {
+    const { getNodes, getEdges, setNodes } = useReactFlow();
+    const nodeInternals = useStore((state: any) => state.nodeInternals);
+    const [hasAppliedLayout, setHasAppliedLayout] = useState(false);
+
+    useEffect(() => {
+        // React Flow가 완전히 초기화되었는지 확인
+        if (!getNodes || !getEdges || !setNodes) {
+            console.log('🔄 React Flow not ready yet, skipping layout');
+            return;
+        }
+
+        // React Flow 내부 상태에서 실제 렌더링된 노드 크기 가져오기
+        const nodes = getNodes();
+        const edges = getEdges();
+
+        // 노드가 없으면 레이아웃 불필요
+        if (nodes.length === 0) {
+            return;
+        }
+
+        // nodeInternals가 존재하고 값이 있는지 확인
+        if (!nodeInternals || typeof nodeInternals.values !== 'function') {
+            console.log('🔄 NodeInternals not ready yet, skipping layout');
+            return;
+        }
+
+        // 모든 노드가 실제 크기를 가지고 있는지 확인
+        const nodesWithDimensions = Array.from(nodeInternals.values());
+        const allNodesHaveDimensions = nodesWithDimensions.length > 0 &&
+            nodesWithDimensions.every((node: any) => node.width && node.height);
+
+        if (allNodesHaveDimensions && !hasAppliedLayout && nodes.length > 0) {
+            console.log('🎯 Applying dynamic Dagre layout with actual node dimensions');
+
+            try {
+                // Dagre 그래프 생성
+                const dagreGraph = new dagre.graphlib.Graph();
+                dagreGraph.setDefaultEdgeLabel(() => ({}));
+                dagreGraph.setGraph({
+                    rankdir: layoutConfig.rankdir,
+                    align: layoutConfig.align,
+                    nodesep: layoutConfig.nodesep,
+                    edgesep: layoutConfig.edgesep,
+                    ranksep: layoutConfig.ranksep,
+                    marginx: layoutConfig.marginx,
+                    marginy: layoutConfig.marginy
+                });
+
+                // 실제 측정된 크기로 노드 설정
+                nodesWithDimensions.forEach((nodeInternal: any) => {
+                    if (nodeInternal && nodeInternal.id) {
+                        dagreGraph.setNode(nodeInternal.id, {
+                            width: nodeInternal.width || 200,
+                            height: nodeInternal.height || 80
+                        });
+                    }
+                });
+
+                // 엣지 설정
+                edges.forEach((edge) => {
+                    dagreGraph.setEdge(edge.source, edge.target);
+                });
+
+                // Dagre 레이아웃 실행
+                dagre.layout(dagreGraph);
+
+                // 레이아웃 결과를 React Flow 노드에 적용
+                const isHorizontal = layoutConfig.rankdir === 'LR' || layoutConfig.rankdir === 'RL';
+                const sourcePos = isHorizontal ? Position.Right : Position.Bottom;
+                const targetPos = isHorizontal ? Position.Left : Position.Top;
+
+                const layoutedNodes = nodes.map((node) => {
+                    const nodeWithPosition = dagreGraph.node(node.id);
+                    const nodeInternal = nodeInternals.get(node.id);
+
+                    return {
+                        ...node,
+                        position: {
+                            x: nodeWithPosition.x - (nodeInternal?.width || 200) / 2,
+                            y: nodeWithPosition.y - (nodeInternal?.height || 80) / 2
+                        },
+                        sourcePosition: sourcePos,
+                        targetPosition: targetPos,
+                        data: {
+                            ...node.data,
+                            computedWidth: nodeInternal?.width || 200,
+                            computedHeight: nodeInternal?.height || 80,
+                            sourcePosition: sourcePos,
+                            targetPosition: targetPos
+                        }
+                    };
+                });
+
+                setNodes(layoutedNodes);
+                setHasAppliedLayout(true);
+                onLayoutComplete?.();
+            } catch (error) {
+                console.error('❌ Dynamic Dagre layout failed:', error);
+                // Fallback to simple layout without nodeInternals
+                console.log('🔄 Falling back to basic layout without node dimensions');
+                setHasAppliedLayout(true); // Prevent retry loop
+            }
+        }
+    }, [nodeInternals, getNodes, getEdges, setNodes, layoutConfig, hasAppliedLayout, onLayoutComplete]);
+
+    // 레이아웃 재설정 함수
+    const resetLayout = useCallback(() => {
+        setHasAppliedLayout(false);
+    }, []);
+
+    // 외부에서 재레이아웃 트리거할 수 있도록 노출
+    useEffect(() => {
+        (window as any).__resetDagreLayout = resetLayout;
+        return () => {
+            delete (window as any).__resetDagreLayout;
+        };
+    }, [resetLayout]);
+
+    return null;
+};
+
+
+
+/**
  * Edge Types 정의 - 연결 상태 시각적 구분
  */
 const edgeTypes: EdgeTypes = {
@@ -165,37 +361,32 @@ const edgeTypes: EdgeTypes = {
 /**
  * Custom Node Component for Agents
  */
-const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps) => {
-    // Status-based styling
+const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => {
+    // Status-based icon and badge styling (border now handled by CSS)
     const getStatusStyles = (status?: string) => {
         switch (status) {
             case 'ready':
                 return {
-                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-yellow-400',
                     icon: 'h-4 w-4 text-yellow-600',
                     badge: 'bg-yellow-100 text-yellow-800'
                 };
             case 'running':
                 return {
-                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-orange-400 animate-pulse',
                     icon: 'h-4 w-4 text-orange-600',
                     badge: 'bg-orange-100 text-orange-800'
                 };
             case 'completed':
                 return {
-                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-green-400',
                     icon: 'h-4 w-4 text-green-600',
                     badge: 'bg-green-100 text-green-800'
                 };
             case 'error':
                 return {
-                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-red-400',
                     icon: 'h-4 w-4 text-red-600',
                     badge: 'bg-red-100 text-red-800'
                 };
             default: // pending or undefined
                 return {
-                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-blue-400',
                     icon: 'h-4 w-4 text-blue-600',
                     badge: 'bg-blue-100 text-blue-800'
                 };
@@ -205,116 +396,90 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps) => {
     const styles = getStatusStyles(data.status);
 
     return (
-        <div className={styles.container}>
-            <div className="flex items-center gap-2">
-                <Bot className={styles.icon} />
-                <div className="text-sm font-semibold">{data.label}</div>
-            </div>
-            {data.taskName && (
-                <div className="mt-1 text-xs text-gray-600 max-w-[150px] truncate">
-                    {data.taskName}
+        <BaseNodeTemplate
+            nodeType="agent"
+            data={data}
+            sourcePosition={sourcePosition}
+            targetPosition={targetPosition}
+            handles={{
+                target: true,
+                source: true,
+                targetId: "agent-input",
+                sourceId: "agent-output"
+            }}
+        >
+            <div className="px-3 py-1.5">
+                <div className="flex items-center gap-2">
+                    <Bot className={styles.icon} />
+                    <div className="text-sm font-semibold">{data.label}</div>
                 </div>
-            )}
-            {data.level && data.level > 0 && (
-                <Badge className="mt-1 text-xs bg-gray-100 text-gray-700">
-                    Level {data.level}
-                </Badge>
-            )}
-            {data.status && (
-                <Badge className={`mt-1 text-xs ${styles.badge}`}>
-                    {data.status}
-                </Badge>
-            )}
-
-            {/* Tool Slots - 사용 가능한 도구들 표시 */}
-            {data.toolSlots && data.toolSlots.length > 0 && (
-                <div className="mt-2 border-t pt-2">
-                    <div className="text-xs text-gray-500 mb-1">Tools:</div>
-                    <div className="flex flex-wrap gap-1">
-                        {data.toolSlots.map((tool: string, index: number) => (
-                            <div
-                                key={index}
-                                className="flex items-center gap-1 px-2 py-1 bg-gray-50 border border-gray-200 rounded text-xs"
-                            >
-                                <Wrench className="h-3 w-3 text-gray-600" />
-                                <span className="text-gray-700">{tool}</span>
-                            </div>
-                        ))}
+                {data.taskName && (
+                    <div className="mt-1 text-xs text-gray-600 max-w-[150px] truncate">
+                        {data.taskName}
                     </div>
-                </div>
-            )}
+                )}
+                {data.level && data.level > 0 && (
+                    <Badge className="mt-1 text-xs bg-gray-100 text-gray-700">
+                        Level {data.level}
+                    </Badge>
+                )}
+                {data.status && (
+                    <Badge className={`mt-1 text-xs ${styles.badge}`}>
+                        {data.status}
+                    </Badge>
+                )}
 
-            {/* Target handle - Agents receive connections from Team */}
-            <Handle
-                type="target"
-                position={targetPosition || data.targetPosition || Position.Top}
-                id="agent-input"
-                style={{
-                    background: '#2563eb',
-                    width: 8,
-                    height: 8,
-                    top: (targetPosition || data.targetPosition) === Position.Top ? -4 : undefined,
-                    bottom: (targetPosition || data.targetPosition) === Position.Bottom ? -4 : undefined,
-                    left: (targetPosition || data.targetPosition) === Position.Left ? -4 : undefined,
-                    right: (targetPosition || data.targetPosition) === Position.Right ? -4 : undefined,
-                    border: '2px solid white'
-                }}
-            />
-
-            {/* Source handle - Agents can connect to other nodes */}
-            <Handle
-                type="source"
-                position={sourcePosition || data.sourcePosition || Position.Bottom}
-                id="agent-output"
-                style={{
-                    background: '#2563eb',
-                    width: 8,
-                    height: 8,
-                    top: (sourcePosition || data.sourcePosition) === Position.Top ? -4 : undefined,
-                    bottom: (sourcePosition || data.sourcePosition) === Position.Bottom ? -4 : undefined,
-                    left: (sourcePosition || data.sourcePosition) === Position.Left ? -4 : undefined,
-                    right: (sourcePosition || data.sourcePosition) === Position.Right ? -4 : undefined,
-                    border: '2px solid white'
-                }}
-            />
-        </div>
+                {/* Tool Slots - 사용 가능한 도구들 표시 */}
+                {data.toolSlots && data.toolSlots.length > 0 && (
+                    <div className="mt-2 border-t pt-2">
+                        <div className="text-xs text-gray-500 mb-1">Tools:</div>
+                        <div className="flex flex-wrap gap-1">
+                            {data.toolSlots.map((tool: string, index: number) => (
+                                <div
+                                    key={index}
+                                    className="flex items-center gap-1 px-2 py-1 bg-gray-50 border border-gray-200 rounded text-xs"
+                                >
+                                    <Wrench className="h-3 w-3 text-gray-600" />
+                                    <span className="text-gray-700">{tool}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </BaseNodeTemplate>
     );
 };
 
 /**
  * Custom Node Component for Teams
  */
-const TeamNode = ({ data, sourcePosition, targetPosition }: NodeProps) => {
-    // Status-based styling for teams
+const TeamNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => {
+    // Status-based styling for teams (border now handled by CSS)
     const getStatusStyles = (status?: string) => {
         switch (status) {
             case 'ready':
                 return {
-                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-yellow-400',
                     icon: 'h-4 w-4 text-yellow-600',
                     badge: 'bg-yellow-100 text-yellow-800'
                 };
             case 'running':
                 return {
-                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-orange-400 animate-pulse',
                     icon: 'h-4 w-4 text-orange-600',
                     badge: 'bg-orange-100 text-orange-800'
                 };
             case 'completed':
                 return {
-                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-green-500',
                     icon: 'h-4 w-4 text-green-700',
                     badge: 'bg-green-100 text-green-800'
                 };
             case 'error':
                 return {
-                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-red-400',
                     icon: 'h-4 w-4 text-red-600',
                     badge: 'bg-red-100 text-red-800'
                 };
             default: // pending or undefined
                 return {
-                    container: 'px-4 py-2 shadow-md rounded-md bg-white border-2 border-green-400',
                     icon: 'h-4 w-4 text-green-600',
                     badge: 'bg-green-100 text-green-800'
                 };
@@ -324,56 +489,35 @@ const TeamNode = ({ data, sourcePosition, targetPosition }: NodeProps) => {
     const styles = getStatusStyles(data.status);
 
     return (
-        <div className={styles.container}>
-            <div className="flex items-center gap-2">
-                <Users className={styles.icon} />
-                <div className="text-sm font-semibold">{data.label}</div>
+        <BaseNodeTemplate
+            nodeType="team"
+            data={data}
+            sourcePosition={sourcePosition}
+            targetPosition={targetPosition}
+            handles={{
+                target: true,
+                source: true,
+                targetId: "team-input",
+                sourceId: "team-output"
+            }}
+        >
+            <div className="px-3 py-1.5">
+                <div className="flex items-center gap-2">
+                    <Users className={styles.icon} />
+                    <div className="text-sm font-semibold">{data.label}</div>
+                </div>
+                {data.memberCount && (
+                    <Badge className={`mt-1 text-xs ${styles.badge}`}>
+                        {data.memberCount} members
+                    </Badge>
+                )}
+                {data.status && (
+                    <Badge className={`mt-1 text-xs ${styles.badge}`}>
+                        {data.status}
+                    </Badge>
+                )}
             </div>
-            {data.memberCount && (
-                <Badge className={`mt-1 text-xs ${styles.badge}`}>
-                    {data.memberCount} members
-                </Badge>
-            )}
-            {data.status && (
-                <Badge className={`mt-1 text-xs ${styles.badge}`}>
-                    {data.status}
-                </Badge>
-            )}
-
-            {/* Target handle - User Input connects to Team */}
-            <Handle
-                type="target"
-                position={targetPosition || data.targetPosition || Position.Top}
-                id="team-input"
-                style={{
-                    background: '#16a34a',
-                    width: 8,
-                    height: 8,
-                    top: (targetPosition || data.targetPosition) === Position.Top ? -4 : undefined,
-                    bottom: (targetPosition || data.targetPosition) === Position.Bottom ? -4 : undefined,
-                    left: (targetPosition || data.targetPosition) === Position.Left ? -4 : undefined,
-                    right: (targetPosition || data.targetPosition) === Position.Right ? -4 : undefined,
-                    border: '2px solid white'
-                }}
-            />
-
-            {/* Source handle - Team connects to Agents */}
-            <Handle
-                type="source"
-                position={sourcePosition || data.sourcePosition || Position.Bottom}
-                id="team-output"
-                style={{
-                    background: '#16a34a',
-                    width: 8,
-                    height: 8,
-                    top: (sourcePosition || data.sourcePosition) === Position.Top ? -4 : undefined,
-                    bottom: (sourcePosition || data.sourcePosition) === Position.Bottom ? -4 : undefined,
-                    left: (sourcePosition || data.sourcePosition) === Position.Left ? -4 : undefined,
-                    right: (sourcePosition || data.sourcePosition) === Position.Right ? -4 : undefined,
-                    border: '2px solid white'
-                }}
-            />
-        </div>
+        </BaseNodeTemplate>
     );
 };
 
@@ -382,12 +526,21 @@ const TeamNode = ({ data, sourcePosition, targetPosition }: NodeProps) => {
  */
 const ToolNode = ({ data }: { data: any }) => {
     return (
-        <div className="px-3 py-2 shadow-md rounded-md bg-white border-2 border-purple-400">
-            <div className="flex items-center gap-2">
-                <Zap className="h-3 w-3 text-purple-600" />
-                <div className="text-xs font-medium">{data.label}</div>
+        <BaseNodeTemplate
+            nodeType="tool"
+            data={data}
+            handles={{
+                target: false,
+                source: false
+            }}
+        >
+            <div className="px-3 py-1.5">
+                <div className="flex items-center gap-2">
+                    <Zap className="h-3 w-3 text-purple-600" />
+                    <div className="text-xs font-medium">{data.label}</div>
+                </div>
             </div>
-        </div>
+        </BaseNodeTemplate>
     );
 };
 
@@ -396,119 +549,95 @@ const ToolNode = ({ data }: { data: any }) => {
  */
 const UserInputNode = ({ data }: { data: any }) => {
     return (
-        <div className="px-4 py-2 shadow-md rounded-md bg-white border-2 border-purple-400">
-            <div className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-purple-600" />
-                <div className="text-sm font-semibold">User Input</div>
-            </div>
-            {data.message && (
-                <div className="mt-1 text-xs text-gray-600 max-w-[200px] truncate">
-                    {data.message}
+        <BaseNodeTemplate
+            nodeType="userInput"
+            data={data}
+            handles={{
+                target: false,
+                source: true,
+                sourceId: "user-output"
+            }}
+        >
+            <div className="px-3 py-1.5">
+                <div className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-purple-600" />
+                    <div className="text-sm font-semibold">User Input</div>
                 </div>
-            )}
-
-            {/* Source handle - User Input connects to Agent */}
-            <Handle
-                type="source"
-                position={Position.Bottom}
-                id="user-output"
-                style={{ background: '#9333ea' }}
-            />
-        </div>
+                {data.message && (
+                    <div className="mt-1 text-xs text-gray-600 max-w-[200px] truncate">
+                        {data.message}
+                    </div>
+                )}
+            </div>
+        </BaseNodeTemplate>
     );
 };
 
 /**
  * Custom Node Component for Agent Response
  */
-const AgentResponseNode = ({ data, sourcePosition, targetPosition }: NodeProps) => {
+const AgentResponseNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => {
     return (
-        <div className="px-4 py-2 shadow-md rounded-md bg-white border-2 border-teal-400">
-            <div className="flex items-center gap-2">
-                <MessageCircle className="h-4 w-4 text-teal-600" />
-                <div className="text-sm font-semibold">Agent Response</div>
-            </div>
-            {data.response && (
-                <div className="mt-1 text-xs text-gray-600 max-w-[200px] truncate">
-                    {data.response}
+        <BaseNodeTemplate
+            nodeType="agentResponse"
+            data={data}
+            sourcePosition={sourcePosition}
+            targetPosition={targetPosition}
+            handles={{
+                target: true,
+                source: false,
+                targetId: "response-input"
+            }}
+        >
+            <div className="px-3 py-1.5">
+                <div className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-teal-600" />
+                    <div className="text-sm font-semibold">Agent Response</div>
                 </div>
-            )}
-
-            {/* Target handle - Agent Response receives from Agent */}
-            <Handle
-                type="target"
-                position={targetPosition || data.targetPosition || Position.Top}
-                id="response-input"
-                style={{
-                    background: '#14b8a6',
-                    width: 8,
-                    height: 8,
-                    top: (targetPosition || data.targetPosition) === Position.Top ? -4 : undefined,
-                    bottom: (targetPosition || data.targetPosition) === Position.Bottom ? -4 : undefined,
-                    left: (targetPosition || data.targetPosition) === Position.Left ? -4 : undefined,
-                    right: (targetPosition || data.targetPosition) === Position.Right ? -4 : undefined,
-                    border: '2px solid white'
-                }}
-            />
-        </div>
+                {data.response && (
+                    <div className="mt-1 text-xs text-gray-600 max-w-[200px] truncate">
+                        {data.response}
+                    </div>
+                )}
+            </div>
+        </BaseNodeTemplate>
     );
 };
 
 /**
  * Custom Node Component for Tool Calls
  */
-const ToolCallNode = ({ data, sourcePosition, targetPosition }: NodeProps) => {
+const ToolCallNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => {
     return (
-        <div className="px-3 py-2 shadow-md rounded-md bg-white border-2 border-orange-400">
-            <div className="flex items-center gap-2">
-                <Settings className="h-3 w-3 text-orange-600" />
-                <div className="text-xs font-semibold">Tool Call</div>
-            </div>
-            {data.toolName && (
-                <div className="mt-1 text-xs text-gray-600 max-w-[150px] truncate">
-                    {data.toolName}
+        <BaseNodeTemplate
+            nodeType="toolCall"
+            data={data}
+            sourcePosition={sourcePosition}
+            targetPosition={targetPosition}
+            handles={{
+                target: true,
+                source: true,
+                targetId: "tool-input",
+                sourceId: "tool-output"
+            }}
+        >
+            <div className="px-3 py-1.5">
+                <div className="flex items-center gap-2">
+                    <Settings className="h-3 w-3 text-orange-600" />
+                    <div className="text-xs font-semibold">Tool Call</div>
                 </div>
-            )}
-            {data.status && (
-                <Badge className="mt-1 text-xs bg-orange-100 text-orange-800">
-                    {data.status}
-                </Badge>
-            )}
-
-            {/* Target handle - Tool Call receives from Agent */}
-            <Handle
-                type="target"
-                position={targetPosition || data.targetPosition || Position.Top}
-                id="tool-input"
-                style={{
-                    background: '#ea580c',
-                    width: 8,
-                    height: 8,
-                    top: (targetPosition || data.targetPosition) === Position.Top ? -4 : undefined,
-                    bottom: (targetPosition || data.targetPosition) === Position.Bottom ? -4 : undefined,
-                    left: (targetPosition || data.targetPosition) === Position.Left ? -4 : undefined,
-                    right: (targetPosition || data.targetPosition) === Position.Right ? -4 : undefined,
-                    border: '2px solid white'
-                }}
-            />
-
-            {/* Source handle - Tool Call connects to Sub-Agent or Response */}
-            <Handle
-                type="source"
-                position={sourcePosition || data.sourcePosition || Position.Bottom}
-                id="tool-output"
-                style={{
-                    background: '#ea580c',
-                    width: 8,
-                    height: 8,
-                    top: (sourcePosition || data.sourcePosition) === Position.Top ? -4 : undefined,
-                    bottom: (sourcePosition || data.sourcePosition) === Position.Bottom ? -4 : undefined,
-                    left: (sourcePosition || data.sourcePosition) === Position.Left ? -4 : undefined,
-                    right: (sourcePosition || data.sourcePosition) === Position.Right ? -4 : undefined,
-                    border: '2px solid white'
-                }}
-            />
-        </div>
+                {data.toolName && (
+                    <div className="mt-1 text-xs text-gray-600 max-w-[150px] truncate">
+                        {data.toolName}
+                    </div>
+                )}
+                {data.status && (
+                    <Badge className="mt-1 text-xs bg-orange-100 text-orange-800">
+                        {data.status}
+                    </Badge>
+                )}
+            </div>
+        </BaseNodeTemplate>
     );
 };
 
@@ -516,12 +645,12 @@ const ToolCallNode = ({ data, sourcePosition, targetPosition }: NodeProps) => {
 
 // Node types for React-Flow
 const nodeTypes = {
-    agent: AgentNode,
-    team: TeamNode,
-    tool: ToolNode,
-    userInput: UserInputNode,
-    agentResponse: AgentResponseNode,
-    toolCall: ToolCallNode
+    agent: AgentNode as any,
+    team: TeamNode as any,
+    tool: ToolNode as any,
+    userInput: UserInputNode as any,
+    agentResponse: AgentResponseNode as any,
+    toolCall: ToolCallNode as any
     // subAgent 제거 - 모든 Agent는 동일한 'agent' 타입 사용
 };
 
@@ -531,9 +660,20 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
     const [converter] = useState(() => new SimpleReactFlowConverter());
     const [selectedLayout, setSelectedLayout] = useState<keyof typeof LAYOUT_PRESETS>('vertical');
     const [isAutoLayoutEnabled, setIsAutoLayoutEnabled] = useState(true);
+    const [currentLayoutConfig, setCurrentLayoutConfig] = useState<LayoutConfig>(LAYOUT_PRESETS.vertical);
     const { fitView } = useReactFlow();
 
-    // Auto layout function
+    // Apply layout using DynamicDagreLayout
+    const handleApplyLayout = useCallback((presetName: keyof typeof LAYOUT_PRESETS) => {
+        setSelectedLayout(presetName);
+        setCurrentLayoutConfig(LAYOUT_PRESETS[presetName]);
+        // 레이아웃 재설정 트리거
+        if ((window as any).__resetDagreLayout) {
+            (window as any).__resetDagreLayout();
+        }
+    }, []);
+
+    // Legacy auto layout function (fallback)
     const applyAutoLayout = useCallback((layoutPreset?: keyof typeof LAYOUT_PRESETS) => {
         if (nodes.length === 0) return;
 
@@ -638,7 +778,7 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
                     <div className="flex items-center gap-2">
                         <Select
                             value={selectedLayout}
-                            onValueChange={(value: keyof typeof LAYOUT_PRESETS) => setSelectedLayout(value)}
+                            onValueChange={(value: keyof typeof LAYOUT_PRESETS) => handleApplyLayout(value)}
                         >
                             <SelectTrigger className="w-32">
                                 <SelectValue />
@@ -654,7 +794,7 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
                         <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => applyAutoLayout()}
+                            onClick={() => handleApplyLayout(selectedLayout)}
                             disabled={nodes.length === 0}
                             className="flex items-center gap-1"
                         >
@@ -688,6 +828,16 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
                         fitView
                         attributionPosition="bottom-left"
                     >
+                        {/* 동적 Dagre 레이아웃 컴포넌트 */}
+                        <DynamicDagreLayout
+                            layoutConfig={currentLayoutConfig}
+                            onLayoutComplete={() => {
+                                console.log('✅ Dynamic layout applied successfully');
+                                // Fit view after layout completion
+                                setTimeout(() => fitView({ duration: 500, padding: 0.1 }), 100);
+                            }}
+                        />
+
                         <Controls />
                         <MiniMap />
                         <Background variant={BackgroundVariant.Dots} />

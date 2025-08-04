@@ -299,3 +299,103 @@
   outline: 2px solid oklch(var(--ring));
   outline-offset: 2px;
 }
+
+/* React Flow Custom Node Styles - 외부 박스에 스타일 적용 */
+
+/* Agent Node - Status-based border colors */
+.react-flow__node-agent {
+  border-radius: 0.375rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  background: white;
+  border: 2px solid #3b82f6;
+  /* default: border-blue-400 */
+}
+
+/* Agent Node Status Variants */
+.react-flow__node-agent[data-status="ready"] {
+  border-color: #facc15;
+  /* border-yellow-400 */
+}
+
+.react-flow__node-agent[data-status="running"] {
+  border-color: #fb923c;
+  /* border-orange-400 */
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.react-flow__node-agent[data-status="completed"] {
+  border-color: #22c55e;
+  /* border-green-400 */
+}
+
+.react-flow__node-agent[data-status="error"] {
+  border-color: #f87171;
+  /* border-red-400 */
+}
+
+/* Team Node */
+.react-flow__node-team {
+  border-radius: 0.375rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  background: white;
+  border: 2px solid #22c55e;
+  /* default: border-green-400 */
+}
+
+/* Team Node Status Variants */
+.react-flow__node-team[data-status="ready"] {
+  border-color: #facc15;
+  /* border-yellow-400 */
+}
+
+.react-flow__node-team[data-status="running"] {
+  border-color: #fb923c;
+  /* border-orange-400 */
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.react-flow__node-team[data-status="completed"] {
+  border-color: #16a34a;
+  /* border-green-500 */
+}
+
+.react-flow__node-team[data-status="error"] {
+  border-color: #f87171;
+  /* border-red-400 */
+}
+
+/* Tool Call Node */
+.react-flow__node-toolCall {
+  border: 2px solid #ea580c;
+  /* border-orange-400 */
+  border-radius: 0.375rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  background: white;
+}
+
+/* Agent Response Node */
+.react-flow__node-agentResponse {
+  border: 2px solid #14b8a6;
+  /* border-teal-400 */
+  border-radius: 0.375rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  background: white;
+}
+
+/* Tool Node */
+.react-flow__node-tool {
+  border: 2px solid #a855f7;
+  /* border-purple-400 */
+  border-radius: 0.375rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  background: white;
+}
+
+/* User Input Node */
+.react-flow__node-userInput {
+  border: 2px solid #a855f7;
+  /* border-purple-400 */
+  border-radius: 0.375rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  background: white;
+}

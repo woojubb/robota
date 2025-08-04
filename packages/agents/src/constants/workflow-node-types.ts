@@ -58,7 +58,7 @@ export const WORKFLOW_NODE_TYPES = {
     RESPONSE: 'response',
 
     // 여러 Tool/Agent 결과의 합류점 (병렬 처리 결과 통합)
-    MERGE_RESULTS: 'merge_results'
+    TOOL_RESULT: 'tool_result', // Previously MERGE_RESULTS
 } as const;
 
 /**
@@ -92,5 +92,5 @@ export const WORKFLOW_NODE_TYPE_DESCRIPTIONS = {
     [WORKFLOW_NODE_TYPES.TOOL_CALL]: '개별 Tool 실행',
     [WORKFLOW_NODE_TYPES.TOOL_CALL_RESPONSE]: 'Tool 실행 결과 응답',
     [WORKFLOW_NODE_TYPES.RESPONSE]: 'Agent 응답 (연속 가능)',
-    [WORKFLOW_NODE_TYPES.MERGE_RESULTS]: '결과 합류점'
+    [WORKFLOW_NODE_TYPES.TOOL_RESULT]: 'Tool 결과 합류점'
 } as const;
