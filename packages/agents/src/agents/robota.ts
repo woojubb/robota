@@ -351,8 +351,16 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
                     // Convert BaseTool to ToolSchema and executor
                     // Create an adapter to convert ToolResult to ToolExecutionData
                     const toolExecutor = async (parameters: BaseToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
-                        // Pass the full context to the tool, not just selected fields
-                        const result = await tool.execute(parameters, context);
+                        // 🎯 FIXED: Ensure context is always a valid ToolExecutionContext
+                        const finalContext: ToolExecutionContext = context || {
+                            executionId: `tool-exec-${Date.now()}`,
+                            sourceId: this.conversationId,
+                            sourceType: 'agent',
+                            executionLevel: 2,
+                            toolName: tool.schema.name,
+                            parameters: parameters,
+                        };
+                        const result = await tool.execute(parameters, finalContext);
                         return result.data ?? result;
                     };
                     this.tools.addTool(tool.schema, toolExecutor);
@@ -1086,8 +1094,16 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
 
         // Create an adapter to convert ToolResult to ToolExecutionData
         const toolExecutor = async (parameters: BaseToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
-            // Pass the full context to the tool, not just selected fields
-            const result = await tool.execute(parameters, context);
+            // 🎯 FIXED: Ensure context is always a valid ToolExecutionContext
+            const finalContext: ToolExecutionContext = context || {
+                executionId: `tool-exec-${Date.now()}`,
+                sourceId: this.conversationId,
+                sourceType: 'agent',
+                executionLevel: 2,
+                toolName: tool.schema.name,
+                parameters: parameters,
+            };
+            const result = await tool.execute(parameters, finalContext);
             return result.data ?? result;
         };
         this.tools.addTool(tool.schema, toolExecutor);
@@ -1311,4 +1327,4 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
             throw error;
         }
     }
-} 
+}

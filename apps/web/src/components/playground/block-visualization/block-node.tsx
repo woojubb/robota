@@ -76,7 +76,7 @@ const getStateIcon = (state: BlockMetadata['visualState']) => {
  * Get color scheme based on block type and state
  */
 const getBlockColors = (type: BlockMetadata['type'], state: BlockMetadata['visualState']) => {
-    const baseColors = {
+    const baseColors: Record<BlockMetadata['type'], string> = {
         user: 'bg-blue-50 border-blue-200 text-blue-900',
         assistant: 'bg-green-50 border-green-200 text-green-900',
         tool_call: 'bg-purple-50 border-purple-200 text-purple-900',
@@ -85,7 +85,8 @@ const getBlockColors = (type: BlockMetadata['type'], state: BlockMetadata['visua
         group: 'bg-gray-50 border-gray-200 text-gray-900'
     };
 
-    const stateOverrides = {
+    const stateOverrides: Record<BlockMetadata['visualState'], string> = {
+        pending: 'ring-1 ring-gray-200',
         in_progress: 'ring-2 ring-blue-300 animate-pulse',
         error: 'ring-2 ring-red-300',
         completed: 'ring-1 ring-green-200'
@@ -93,6 +94,7 @@ const getBlockColors = (type: BlockMetadata['type'], state: BlockMetadata['visua
 
     return `${baseColors[type]} ${stateOverrides[state] || ''}`;
 };
+
 
 /**
  * Format duration for display
@@ -263,4 +265,4 @@ export const BlockNode: React.FC<BlockNodeProps> = ({
             </Collapsible>
         </div>
     );
-}; 
+};
