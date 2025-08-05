@@ -658,9 +658,9 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [converter] = useState(() => new SimpleReactFlowConverter());
-    const [selectedLayout, setSelectedLayout] = useState<keyof typeof LAYOUT_PRESETS>('vertical');
+    const [selectedLayout, setSelectedLayout] = useState<keyof typeof LAYOUT_PRESETS>('compact');
     const [isAutoLayoutEnabled, setIsAutoLayoutEnabled] = useState(true);
-    const [currentLayoutConfig, setCurrentLayoutConfig] = useState<LayoutConfig>(LAYOUT_PRESETS.vertical);
+    const [currentLayoutConfig, setCurrentLayoutConfig] = useState<LayoutConfig>(LAYOUT_PRESETS.compact);
     const { fitView } = useReactFlow();
 
     // Apply layout using DynamicDagreLayout

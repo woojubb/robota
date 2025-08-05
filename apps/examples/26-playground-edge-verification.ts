@@ -19,8 +19,7 @@ import {
     ActionTrackingEventService,
     RealTimeWorkflowBuilder,
     WorkflowEventSubscriber,
-    DefaultConsoleLogger,
-    WorkflowToUniversalConverter
+    DefaultConsoleLogger
 } from '@robota-sdk/agents';
 import type {
     UniversalWorkflowStructure,
@@ -129,18 +128,33 @@ async function testPlaygroundEdgeConnections() {
             console.log('\n📊 Final Edge Verification Results:');
             console.log('================================================================================');
 
-            // 🎯 핵심 수정: WorkflowStructure → UniversalWorkflowStructure 변환
-            console.log('🔄 Converting WorkflowStructure to UniversalWorkflowStructure...');
-            const converter = new WorkflowToUniversalConverter(DefaultConsoleLogger);
-            const conversionResult = await converter.convert(currentWorkflow);
+            // 🎯 핵심 수정: 변환 과정 제거, WorkflowEventSubscriber에서 직접 데이터 사용
+            console.log('🔄 Getting direct workflow data from WorkflowEventSubscriber...');
+            const workflowData = workflowSubscriber.getWorkflowData();
+            const connectionSummary = workflowSubscriber.getConnectionSummary();
 
-            if (!conversionResult.success) {
-                throw new Error(`Conversion failed: ${conversionResult.errors.join(', ')}`);
-            }
+            const universalWorkflow = {
+                __workflowType: "UniversalWorkflowStructure" as const,
+                nodes: workflowData.nodes.map(node => ({
+                    id: node.id,
+                    type: node.type,
+                    data: node.data,
+                    position: { x: 0, y: 0 }, // 기본 위치
+                    style: { type: 'default', variant: 'primary' },
+                    createdAt: node.timestamp.toISOString(),
+                    updatedAt: node.timestamp.toISOString()
+                })),
+                edges: workflowData.edges,
+                metadata: {
+                    totalNodes: connectionSummary.totalNodes,
+                    totalEdges: connectionSummary.totalEdges,
+                    edgesByType: connectionSummary.edgesByType,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                }
+            };
 
-            const universalWorkflow = conversionResult.data;
-
-            console.log(`✅ Conversion completed: ${currentWorkflow.connections?.length || 0} connections → ${universalWorkflow.edges?.length || 0} edges`);
+            console.log(`✅ Direct data retrieved: ${connectionSummary.totalNodes} nodes → ${connectionSummary.totalEdges} edges`);
             console.log(`🔍 UniversalWorkflow debug: nodes=${universalWorkflow.nodes?.length || 0}, edges=${universalWorkflow.edges?.length || 0}`);
 
             // 🔍 Edge 연결 중심 검증
