@@ -14,6 +14,8 @@ packages/**/*.js.map
 packages/**/*.d.ts
 packages/**/*.d.ts.map
 
+logs/
+
 # code coverage
 coverage
 *.lcov

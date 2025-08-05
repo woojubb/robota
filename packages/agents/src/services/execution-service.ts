@@ -304,6 +304,13 @@ export class ExecutionService {
             while (currentRound < maxRounds) {
                 currentRound++;
 
+                this.logger.debug(`🔄 [ROUND-${currentRound}] Starting execution round ${currentRound}`, {
+                    executionId,
+                    conversationId: fullContext.conversationId,
+                    round: currentRound,
+                    maxRounds: maxRounds
+                });
+
                 // 🎯 라운드 시작 시점에 해당 라운드의 thinking ID를 생성
                 const rootId = fullContext.conversationId || executionId;
                 const conversationId = String(rootId).replace('conv_', '').substring(0, 16);
@@ -389,6 +396,15 @@ export class ExecutionService {
 
                 const response = await (provider as any).chat(conversationMessages, chatOptions);
 
+                this.logger.debug(`🤖 [ROUND-${currentRound}] Provider response completed`, {
+                    executionId,
+                    conversationId: fullContext.conversationId,
+                    round: currentRound,
+                    responseLength: response.content?.length || 0,
+                    hasToolCalls: !!(response as any).toolCalls && (response as any).toolCalls.length > 0,
+                    toolCallsCount: (response as any).toolCalls?.length || 0
+                });
+
                 // Call afterProviderCall hook
                 await this.callPluginHook('afterProviderCall', {
                     messages: conversationMessages.map(msg => ({
@@ -416,8 +432,24 @@ export class ExecutionService {
                 );
 
                 // Check if we need to execute tools
+                this.logger.debug(`[MAIN-AGENT-DEBUG] Round ${currentRound} for sourceId: ${fullContext.conversationId}`, {
+                    round: currentRound,
+                    conversationId: fullContext.conversationId,
+                    toolCallsFound: assistantResponse.toolCalls?.length || 0,
+                    responseLength: assistantResponse.content?.length || 0,
+                    isMainAgent: !fullContext.conversationId?.includes('copy')
+                });
+
+                this.logger.debug(`[RULE-9-DEBUG] Round ${currentRound} response check: toolCalls=${assistantResponse.toolCalls?.length || 0}`, {
+                    round: currentRound,
+                    hasToolCalls: !!assistantResponse.toolCalls,
+                    toolCallsLength: assistantResponse.toolCalls?.length || 0,
+                    responseContent: assistantResponse.content?.substring(0, 100) + '...'
+                });
+
                 if (!assistantResponse.toolCalls || assistantResponse.toolCalls.length === 0) {
                     // No tools to execute, we're done
+                    this.logger.debug(`[RULE-9-DEBUG] Round ${currentRound} completed - no tool calls, breaking loop`);
                     break;
                 }
 
@@ -658,8 +690,21 @@ export class ExecutionService {
             });
 
             // Emit assistant message complete event
+            const rootId = fullContext.conversationId || executionId;
+            this.logger.debug(`[MAIN-AGENT-DEBUG] Ensuring assistant.message_complete for: ${rootId}`, {
+                rounds: currentRound,
+                responseLength: result.response.length,
+                isMainAgent: !rootId?.includes('copy'),
+                eventServiceAvailable: !!(this.eventService && !(this.eventService instanceof SilentEventService))
+            });
+
+            this.logger.debug(`[RULE-9-DEBUG] Emitting assistant.message_complete event for sourceId: ${rootId}`, {
+                rounds: currentRound,
+                responseLength: result.response.length,
+                eventServiceType: this.eventService?.constructor.name
+            });
+
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                const rootId = fullContext.conversationId || executionId;
                 this.eventService.emit('assistant.message_complete', {
                     sourceType: 'agent',
                     sourceId: rootId,

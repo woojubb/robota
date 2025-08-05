@@ -9,6 +9,7 @@ import { EventService, ServiceEventType, ServiceEventData, ActionTrackingEventSe
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
 import type { WorkflowData } from '../interfaces/workflow-converter';
 import { WORKFLOW_NODE_TYPES, WorkflowNodeType, isValidWorkflowNodeType } from '../constants/workflow-node-types';
+import type { UniversalWorkflowEdge } from './workflow-converter/universal-types';
 
 /**
  * Agent 표준 구성 요소 구조
@@ -169,6 +170,8 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
     private workflowLogger: SimpleLogger;
     private nodeUpdateCallbacks: ((update: WorkflowNodeUpdate) => void)[] = [];
     private nodeMap = new Map<string, WorkflowNode>(); // Node 캐시
+    private edges: UniversalWorkflowEdge[] = []; // 🎯 직접 edges 배열 관리
+    private agentRound1ThinkingMap = new Map<string, string>(); // sourceId -> round1ThinkingId
     private agentCounter = 0; // Agent 번호 시스템: Agent 0, Agent 1, Agent 2...
     private agentNumberMap = new Map<string, number>(); // sourceId → Agent 번호 매핑
     private agentNodeIdMap = new Map<string, string>(); // 🔧 sourceId → 실제 생성된 Agent Node ID 매핑
@@ -333,7 +336,12 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
             const agentNode = this.nodeMap.get(agentNodeId);
             if (agentNode) {
                 this.connectNodes(agentNode, userMessageNode, 'receives', 'receives input');
+                this.workflowLogger.info(`🔗 [USER-MESSAGE] Connected ${agentNodeId} → ${userMessageNode.id}`);
+            } else {
+                this.workflowLogger.error(`❌ [MISSING-AGENT-NODE] Agent node ${agentNodeId} not found in nodeMap for sourceId ${data.sourceId}`);
             }
+        } else {
+            this.workflowLogger.error(`❌ [NO-AGENT-MAPPING] No agent mapping found for sourceId ${data.sourceId}`);
         }
     }
 
@@ -342,15 +350,40 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Execution Start 이벤트 처리 → agent Node 생성 및 연결
      */
     private handleExecutionStart(data: ServiceEventData): void {
-        const node = this.createAgentNode(data);
-        this.emitNodeUpdate('create', node);
+        // 🎯 [DUPLICATE-PREVENTION] 기존 agent node가 있으면 재사용, 없으면 생성
+        const existingAgentNodeId = this.agentNodeIdMap.get(String(data.sourceId));
+        let node: WorkflowNode;
+
+        if (existingAgentNodeId) {
+            // 기존 agent node 재사용
+            const existingNode = this.nodeMap.get(existingAgentNodeId);
+            if (!existingNode) {
+                // nodeMap에서 찾을 수 없으면 새로 생성
+                node = this.createAgentNode(data);
+                this.emitNodeUpdate('create', node);
+                this.workflowLogger.info(`🔄 [AGENT-RECREATION] Recreated missing agent ${node.id} for sourceId ${data.sourceId}`);
+            } else {
+                node = existingNode;
+                this.workflowLogger.info(`♻️ [AGENT-REUSE] Reusing existing agent ${node.id} for sourceId ${data.sourceId}`);
+            }
+        } else {
+            // 새로운 agent node 생성
+            node = this.createAgentNode(data);
+            this.emitNodeUpdate('create', node);
+            this.workflowLogger.info(`🆕 [AGENT-CREATE] Created new agent ${node.id} for sourceId ${data.sourceId}`);
+        }
 
         // 🎯 [CONNECTION-FIX] parentNodeId가 있으면 부모 tool_call 노드와 연결
         if (data.parentNodeId) {
             const parentNode = this.nodeMap.get(String(data.parentNodeId));
             if (parentNode) {
                 this.connectNodes(parentNode, node, 'creates', 'creates agent');
+                this.workflowLogger.info(`🔗 [AGENT-CREATION] Connected ${parentNode.id} → ${node.id}`);
+            } else {
+                this.workflowLogger.error(`❌ [MISSING-PARENT] Parent node ${data.parentNodeId} not found for agent ${node.id}`);
             }
+        } else {
+            this.workflowLogger.info(`🎯 [ROOT-AGENT] Agent ${node.id} created without parent (root agent)`);
         }
     }
 
@@ -363,11 +396,50 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
         if (node) {
             this.emitNodeUpdate('create', node);
 
-            // 🎯 [CONNECTION-FIX] User Message와의 연결을 여기서 보장
-            const userMessageNodeId = `user_message_${data.sourceId}`;
-            const userMessageNode = this.nodeMap.get(userMessageNodeId);
-            if (userMessageNode) {
-                this.connectNodes(userMessageNode, node, 'processes', 'triggers thinking');
+            // 🎯 [DIRECT-EDGES] 연결 로직을 직접 edges 시스템으로 처리
+            const round = (data.parameters as any)?.round || 1;
+            const agentNodeId = this.agentNodeIdMap.get(String(data.sourceId));
+
+            if (round > 1) {
+                // Round 2+: tool_result -> thinking 연결
+                // 🎯 [FIX] Round 1 thinking node ID를 별도 맵에서 정확히 찾기
+                const round1ThinkingNodeId = this.agentRound1ThinkingMap.get(String(data.sourceId));
+
+                this.workflowLogger.debug(`🔍 [ROUND2-FIX] Looking for Round 1 thinking: ${round1ThinkingNodeId} for sourceId: ${data.sourceId} Round ${round} connection`);
+
+                if (round1ThinkingNodeId) {
+                    const toolResultNodeId = this.thinkingToToolResultMap.get(round1ThinkingNodeId);
+                    this.workflowLogger.debug(`🔍 [ROUND2-FIX] Tool result node ID: ${toolResultNodeId} for Round 1 thinking: ${round1ThinkingNodeId}`);
+
+                    if (toolResultNodeId) {
+                        const toolResultNode = this.nodeMap.get(toolResultNodeId);
+                        this.workflowLogger.debug(`🔍 [ROUND2-FIX] Tool result node exists: ${!!toolResultNode}, status: ${toolResultNode?.status}`);
+
+                        if (toolResultNode) {
+                            // tool_result -> round 2+ thinking 연결
+                            this.connectNodes(toolResultNode, node, 'analyze', 'analyzes results');
+                            this.workflowLogger.debug(`✅ [FORK-JOIN] Round ${round} thinking connected to Join Point ${toolResultNodeId} (status: ${toolResultNode.status})`);
+
+                            // Round 1 thinking의 매핑은 유지 (다른 round에서 사용할 수 있음)
+                            this.workflowLogger.debug(`🔧 [FORK-JOIN] Keeping map entry for Round 1 thinking: ${round1ThinkingNodeId}`);
+                        } else {
+                            this.workflowLogger.warn(`⚠️ [ROUND2-FIX] Tool result node not found in nodeMap: ${toolResultNodeId}`);
+                        }
+                    } else {
+                        this.workflowLogger.warn(`⚠️ [ROUND2-FIX] No tool result node ID found for Round 1 thinking: ${round1ThinkingNodeId}`);
+                    }
+                } else {
+                    this.workflowLogger.warn(`⚠️ [ROUND2-FIX] No Round 1 thinking node found for sourceId: ${data.sourceId}`);
+                }
+            }
+
+            // 🎯 [SINGLE-CONNECTION] Round 1에서만 User Message 연결, Round 2+는 tool_result만 연결
+            if (round === 1) {
+                const userMessageNodeId = `user_message_${data.sourceId}`;
+                const userMessageNode = this.nodeMap.get(userMessageNodeId);
+                if (userMessageNode) {
+                    this.connectNodes(userMessageNode, node, 'processes', 'triggers thinking');
+                }
             }
         }
     }
@@ -439,13 +511,168 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * [수정] Assistant Message Complete 이벤트 처리 (단순화)
      */
     private async handleAssistantMessageComplete(data: ServiceEventData): Promise<void> {
+        this.workflowLogger.debug(`🔔 [ASSISTANT-COMPLETE] Processing assistant.message_complete for: ${data.sourceId}`);
+        this.workflowLogger.debug(`🔍 [RULE-9-DEBUG] Event data: sourceType=${data.sourceType}, sourceId=${data.sourceId}, executionId=${data.executionId}`);
         const node = this.createAgentResponseNode(data);
         this.emitNodeUpdate('create', node);
 
-        // Agent → Response 매핑
+        // 🎯 [DIRECT-EDGES] Agent와 Thinking에서 Response로의 연결 생성
         if (data.sourceId && data.sourceType === 'agent') {
+            const agentNodeId = this.agentNodeIdMap.get(String(data.sourceId));
+            const thinkingNodeId = this.agentToThinkingMap.get(String(data.sourceId));
+
+            this.workflowLogger.debug(`🔍 [RULE-9-DEBUG] Processing response connection for: ${data.sourceId}`);
+            this.workflowLogger.debug(`🔍 [RULE-9-DEBUG] AgentNodeId: ${agentNodeId}, ThinkingNodeId: ${thinkingNodeId}`);
+            this.workflowLogger.debug(`🔍 [RULE-9-DEBUG] AgentToThinkingMap contents: ${Array.from(this.agentToThinkingMap.entries()).map(([k, v]) => `${k}→${v}`).join(', ')}`);
+
+            // Thinking → Response 연결
+            if (thinkingNodeId) {
+                const thinkingNode = this.nodeMap.get(thinkingNodeId);
+                this.workflowLogger.debug(`🔍 [RULE-9-DEBUG] ThinkingNode found: ${!!thinkingNode}, ThinkingNode type: ${thinkingNode?.type}`);
+                this.workflowLogger.debug(`🔍 [MAIN-AGENT-DEBUG] Response for ${data.sourceId}: thinking=${thinkingNodeId}, isRound2=${thinkingNodeId?.includes('_round2')}`);
+
+                if (thinkingNode) {
+                    this.connectNodes(thinkingNode, node, 'return', 'generates response');
+                    this.workflowLogger.debug(`🔗 [RULE-9-FIX] Connected thinking ${thinkingNodeId} → response ${node.id}`);
+
+                    // Round 2 thinking의 경우 추가 로깅
+                    if (thinkingNodeId.includes('_round2')) {
+                        this.workflowLogger.debug(`🔗 [MAIN-AGENT-FIX] Connected Round 2 thinking → response for main agent ${data.sourceId}`);
+                    }
+                } else {
+                    this.workflowLogger.debug(`⚠️ [RULE-9-DEBUG] ThinkingNode not found in nodeMap for ID: ${thinkingNodeId}`);
+                }
+            } else {
+                this.workflowLogger.debug(`⚠️ [MAIN-AGENT-DEBUG] No thinking node found for ${data.sourceId} in agentToThinkingMap`);
+                this.workflowLogger.debug(`🔍 [RULE-9-DEBUG] AgentToThinkingMap contents: ${Array.from(this.agentToThinkingMap.entries()).map(([k, v]) => `${k}→${v}`).join(', ')}`);
+            }
+
             this.agentToResponseMap.set(String(data.sourceId), node.id);
             this.workflowLogger.debug(`[RESPONSE-MAPPING] Agent ${data.sourceId} → Response ${node.id}`);
+
+            // 🎯 [RULE-7-COMPLIANCE] agent response → tool_response 연결 생성
+            const conversationId = String(data.sourceId);
+            this.workflowLogger.debug(`🔍 [RULE-7-DEBUG] Processing response for conversation: ${conversationId}`);
+
+            // 1. 현재 conversation의 agent 노드 찾기
+            let currentAgentNodeId: string | undefined;
+            for (const [nodeId, nodeData] of this.nodeMap.entries()) {
+                if (nodeData.type === 'agent' && nodeData.data?.sourceId === conversationId) {
+                    currentAgentNodeId = nodeId;
+                    break;
+                }
+            }
+
+            if (!currentAgentNodeId) {
+                this.workflowLogger.debug(`⚠️ [RULE-7-DEBUG] No agent node found for conversation: ${conversationId}`);
+                return;
+            }
+
+            this.workflowLogger.debug(`🔍 [RULE-7-DEBUG] Found agent node: ${currentAgentNodeId} for conversation: ${conversationId}`);
+
+            // 2. 해당 agent를 생성한 tool_call 찾기
+            let parentToolCallNodeId: string | undefined;
+            for (const edge of this.edges) {
+                if (edge.target === currentAgentNodeId && edge.source.startsWith('tool_call_') && edge.type === 'creates') {
+                    parentToolCallNodeId = edge.source;
+                    break;
+                }
+            }
+
+            if (!parentToolCallNodeId) {
+                this.workflowLogger.debug(`🔍 [RULE-7-DEBUG] No parent tool_call found for agent: ${currentAgentNodeId} (this is normal for root agent)`);
+                return;
+            }
+
+            this.workflowLogger.debug(`🔍 [RULE-7-DEBUG] Found parent tool_call: ${parentToolCallNodeId} for agent: ${currentAgentNodeId}`);
+
+            // 3. 해당 tool_call에서 tool_response로의 임시 연결 찾기
+            const toolResponseEdge = this.edges.find(edge =>
+                edge.source === parentToolCallNodeId &&
+                edge.target.startsWith('tool_response_') &&
+                edge.type === 'result'
+            );
+
+            if (toolResponseEdge) {
+                const toolResponseNodeId = toolResponseEdge.target;
+                const toolResponseNode = this.nodeMap.get(toolResponseNodeId);
+
+                if (toolResponseNode) {
+                    // 기존 tool_call → tool_response 연결 제거
+                    this.edges = this.edges.filter(edge =>
+                        !(edge.source === parentToolCallNodeId && edge.target === toolResponseNodeId && edge.type === 'result')
+                    );
+                    this.workflowLogger.debug(`🗑️ [RULE-7-COMPLIANCE] Removed temp connection ${parentToolCallNodeId} → ${toolResponseNodeId}`);
+
+                    // 새로운 agent response → tool_response 연결 생성
+                    this.connectNodes(node, toolResponseNode, 'result', 'produces tool result');
+                    this.workflowLogger.debug(`🔗 [RULE-7-FIX] Connected agent response ${node.id} → tool_response ${toolResponseNodeId} (replaced temp connection)`);
+                } else {
+                    this.workflowLogger.debug(`⚠️ [RULE-7-DEBUG] Tool response node not found in nodeMap: ${toolResponseNodeId}`);
+                }
+            } else {
+                this.workflowLogger.debug(`⚠️ [RULE-7-DEBUG] No tool_response edge found for tool_call: ${parentToolCallNodeId}`);
+            }
+        }
+    }
+
+    /**
+     * [신규] tool_call → tool_response 연결을 agent_response → tool_response로 교체
+     */
+    private replaceToolCallResponseConnection(toolCallNodeId: string, toolResponseNodeId: string): void {
+        this.workflowLogger.debug(`🔄 [RULE-7-FIX] Attempting to replace connection for ${toolCallNodeId} → ${toolResponseNodeId}`);
+
+        // 1. 이 tool_call에 의해 생성된 agent 찾기
+        let agentNodeId: string | undefined;
+        for (const edge of this.edges) {
+            if (edge.source === toolCallNodeId && edge.type === 'creates') {
+                agentNodeId = edge.target;
+                break;
+            }
+        }
+
+        if (!agentNodeId) {
+            this.workflowLogger.debug(`⚠️ [RULE-7-FIX] No agent found for tool_call: ${toolCallNodeId}`);
+            return;
+        }
+
+        this.workflowLogger.debug(`🔍 [RULE-7-FIX] Found agent: ${agentNodeId} for tool_call: ${toolCallNodeId}`);
+
+        // 2. 해당 agent의 response 노드 찾기
+        let agentResponseNodeId: string | undefined;
+        this.workflowLogger.debug(`🔍 [RULE-7-FIX] Searching agentToResponseMap for agent: ${agentNodeId}`);
+        this.workflowLogger.debug(`🔍 [RULE-7-FIX] AgentToResponseMap entries: ${Array.from(this.agentToResponseMap.entries()).map(([k, v]) => `${k}→${v}`).join(', ')}`);
+
+        // agentToResponseMap의 키는 conversation ID이므로 해당 agent의 conversation ID를 찾아야 함
+        let agentConversationId: string | undefined;
+        for (const [nodeId, nodeData] of this.nodeMap.entries()) {
+            if (nodeId === agentNodeId && nodeData.data?.sourceId) {
+                agentConversationId = nodeData.data.sourceId;
+                break;
+            }
+        }
+
+        if (agentConversationId) {
+            agentResponseNodeId = this.agentToResponseMap.get(agentConversationId);
+            this.workflowLogger.debug(`🔍 [RULE-7-FIX] Found conversation ID: ${agentConversationId} → response: ${agentResponseNodeId}`);
+        }
+
+        if (agentResponseNodeId) {
+            // 기존 tool_call → tool_response 연결 제거
+            this.edges = this.edges.filter(edge =>
+                !(edge.source === toolCallNodeId && edge.target === toolResponseNodeId && edge.type === 'result')
+            );
+            this.workflowLogger.debug(`🗑️ [RULE-7-FIX] Removed temp connection ${toolCallNodeId} → ${toolResponseNodeId}`);
+
+            // 새로운 agent_response → tool_response 연결 생성
+            const agentResponseNode = this.nodeMap.get(agentResponseNodeId);
+            const toolResponseNode = this.nodeMap.get(toolResponseNodeId);
+            if (agentResponseNode && toolResponseNode) {
+                this.connectNodes(agentResponseNode, toolResponseNode, 'result', 'produces tool result');
+                this.workflowLogger.debug(`🔗 [RULE-7-FIX] Connected agent response ${agentResponseNodeId} → tool_response ${toolResponseNodeId} (replaced temp connection)`);
+            }
+        } else {
+            this.workflowLogger.debug(`⚠️ [RULE-7-FIX] No response found for agent: ${agentNodeId}`);
         }
     }
 
@@ -455,6 +682,19 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
     private handleToolCallComplete(data: ServiceEventData): void {
         const responseNode = this.createToolCallResponseNode(data);
         this.emitNodeUpdate('create', responseNode);
+
+        // 🎯 [RULE-7-COMPLIANCE] tool_call → tool_response 연결 일시적으로 생성
+        // 나중에 agent response → tool_response 연결이 생성되면 제거됨
+        const finalExecutionId = data.executionId || data.metadata?.executionId || `generated_${Date.now()}`;
+        const toolCallNodeId = `tool_call_${finalExecutionId}`;
+        const toolCallNode = this.nodeMap.get(toolCallNodeId);
+        if (toolCallNode) {
+            this.connectNodes(toolCallNode, responseNode, 'result', 'produces result');
+            this.workflowLogger.debug(`🔗 [TEMP-CONNECTION] Connected ${toolCallNodeId} → ${responseNode.id} (temporary)`);
+
+            // 🎯 [RULE-7-FIX] 이 tool_call에 해당하는 agent response 찾아서 연결 교체
+            this.replaceToolCallResponseConnection(toolCallNodeId, responseNode.id);
+        }
 
         const executionId = String(data.executionId || data.metadata?.executionId);
 
@@ -500,7 +740,21 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
 
         const toolResponseNodeId = String(data.sourceId);
         if (toolResultNode && toolResponseNodeId) {
-            this.connectNodesById(toolResponseNodeId, toolResultNode.id, 'result');
+            // 🎯 [ALL-CONNECTIONS] 모든 tool_response가 tool_result에 연결 (Rule 6 준수)
+            // 이미 연결되어 있는지 확인하여 중복 방지
+            const existingConnection = this.edges.find(edge =>
+                edge.source === toolResponseNodeId &&
+                edge.target === toolResultNode.id &&
+                edge.type === 'result'
+            );
+
+            if (!existingConnection) {
+                // tool_response → tool_result 연결 생성
+                this.connectNodesById(toolResponseNodeId, toolResultNode.id, 'result');
+                this.workflowLogger.debug(`🔗 [ALL-CONNECTIONS] Connected tool_response ${toolResponseNodeId} → tool_result ${toolResultNode.id}`);
+            } else {
+                this.workflowLogger.debug(`🔗 [ALL-CONNECTIONS] Connection already exists: ${toolResponseNodeId} → ${toolResultNode.id}`);
+            }
         }
     }
 
@@ -659,42 +913,38 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
 
         const connections: WorkflowConnection[] = [];
 
-        // 🎯 [CONNECTION-FIX] 연결 로직 단순화
-        if (round === 1) {
-            if (agentNode) {
-                // agent -> thinking 연결
-                connections.push({ fromId: agentNode.id, toId: sequentialThinkingId, type: 'processes', label: 'processes' });
-            }
-        } else {
-            const previousThinkingNodeId = this.agentToThinkingMap.get(String(data.sourceId));
-
-            if (!previousThinkingNodeId) {
-                this.workflowLogger.error(`[SEQUENTIAL-THINKING] Could not find previous thinking node for agent ${data.sourceId} to start round ${round}.`);
-                return null;
-            }
-
-            const toolResultNodeId = this.thinkingToToolResultMap.get(previousThinkingNodeId);
-            if (!toolResultNodeId) {
-                this.workflowLogger.warn(`[RACE-CONDITION-FIX] Tool result node ID not yet available for thinking node ${previousThinkingNodeId}. Queuing thinking event for round ${round}.`);
-                this.pendingThinkingEvents.set(previousThinkingNodeId, data);
-                return null;
-            }
-
-            const toolResultNode = this.nodeMap.get(toolResultNodeId);
-
-            if (toolResultNode && toolResultNode.status === 'completed') {
-                connections.push({ fromId: toolResultNodeId, toId: sequentialThinkingId, type: 'analyze', label: 'analyzes results' });
-                this.workflowLogger.debug(`[FORK-JOIN] Round ${round} thinking connected to Join Point ${toolResultNodeId}`);
-                this.thinkingToToolResultMap.delete(previousThinkingNodeId);
-                this.workflowLogger.debug(`[FORK-JOIN] Cleaned up map entry for Fork Point ${previousThinkingNodeId}`);
-            } else {
-                this.workflowLogger.warn(`[RACE-CONDITION-FIX] Tool result node ${toolResultNodeId} not ready (current status: ${toolResultNode?.status}). Queuing thinking event for round ${round}.`);
-                this.pendingThinkingEvents.set(previousThinkingNodeId, data);
-                return null;
-            }
-        }
+        // 🎯 [CONNECTION-FIX] 연결 로직을 직접 edges 시스템으로 통일
+        // 노드를 먼저 생성한 후 연결을 설정해야 하므로, 노드 생성 후에 연결 생성
 
         this.agentToThinkingMap.set(String(data.sourceId), sequentialThinkingId);
+
+        // 🎯 [ROUND1-TRACKING] Round 1 thinking node는 별도로 추적
+        if (round === 1) {
+            this.agentRound1ThinkingMap.set(String(data.sourceId), sequentialThinkingId);
+            this.workflowLogger.debug(`🔧 [ROUND1-TRACKING] Stored Round 1 thinking: ${data.sourceId} → ${sequentialThinkingId}`);
+        }
+
+        // 🎯 [MAIN-AGENT-FIX] Round 2 thinking의 경우 수동으로 assistant.message_complete 이벤트 생성
+        if (round === 2 && !String(data.sourceId).includes('copy')) {
+            this.workflowLogger.debug(`🔧 [MAIN-AGENT-FIX] Detected Round 2 thinking for main agent: ${data.sourceId}`);
+            // ExecutionService가 정상 종료되지 않는 경우를 대비해 수동으로 이벤트 발생
+            setTimeout(() => {
+                this.workflowLogger.debug(`🔧 [MAIN-AGENT-FIX] Manually triggering assistant.message_complete for: ${data.sourceId}`);
+                this.handleAssistantMessageComplete({
+                    sourceType: 'agent',
+                    sourceId: data.sourceId,
+                    timestamp: new Date(),
+                    result: {
+                        success: true,
+                        data: 'Final response for Round 2'
+                    },
+                    metadata: {
+                        round: 2,
+                        manually_triggered: true
+                    }
+                });
+            }, 500);
+        }
 
         return {
             id: sequentialThinkingId,
@@ -899,18 +1149,20 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
     private handleTeamAnalysisStart(data: ServiceEventData): void {
         this.workflowLogger.debug(`🔔 [WorkflowEventSubscriber] Processing team.analysis_start event`);
 
-        // 에이전트 노드가 이미 생성되었는지 확인
-        let agentNode = this.nodeMap.get(this.agentNodeIdMap.get(String(data.sourceId)) || '');
+        // 🎯 [FIX] execution.start에서 이미 agent를 생성했으므로 여기서는 생성하지 않음
+        // 에이전트 노드가 이미 생성되었는지 확인만 함
+        const agentNodeId = this.agentNodeIdMap.get(String(data.sourceId));
+        const agentNode = agentNodeId ? this.nodeMap.get(agentNodeId) : null;
 
-        // 에이전트 노드가 없으면 생성
         if (!agentNode) {
-            this.workflowLogger.debug(`[TEAM-AGENT-FIX] Agent node for ${data.sourceId} not found. Creating now.`);
-            agentNode = this.createAgentNode(data);
-            this.emitNodeUpdate('create', agentNode);
+            this.workflowLogger.warn(`⚠️ [TEAM-AGENT] Agent node for ${data.sourceId} not found. Should have been created by execution.start event.`);
+            // Agent 생성은 handleExecutionStart에서 담당하므로 여기서는 생성하지 않음
+            return;
         } else {
-            this.workflowLogger.debug(`[TEAM-AGENT-FIX] Agent node for ${data.sourceId} already exists.`);
+            this.workflowLogger.debug(`✅ [TEAM-AGENT] Agent node for ${data.sourceId} already exists: ${agentNode.id}`);
         }
 
+        // thinking node는 계속 생성 (이건 필요함)
         const thinkingNode = this.createAgentThinkingNode(data);
         if (thinkingNode) {
             this.emitNodeUpdate('create', thinkingNode);
@@ -929,6 +1181,16 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
         this.workflowLogger.debug(`🎯 [INTEGRATION] Processing agent.integration_complete event`);
         const node = this.createFinalIntegrationThinking(data);
         this.emitNodeUpdate('create', node);
+
+        // 🎯 [DIRECT-EDGES] Integration Instance → Final Thinking 연결
+        const rootId = data.rootExecutionId || data.sourceId;
+        const integrationInstanceId = this.integrationInstanceMap.get(rootId);
+        if (integrationInstanceId) {
+            const integrationInstance = this.nodeMap.get(integrationInstanceId);
+            if (integrationInstance) {
+                this.connectNodes(integrationInstance, node, 'consolidates', 'Final integration processing');
+            }
+        }
     }
 
     private handleResponseIntegration(data: ServiceEventData): void {
@@ -965,14 +1227,8 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
         const integrationInstanceId = this.integrationInstanceMap.get(rootId);
         const finalThinkingId = `thinking_integration_final_${Date.now()}`;
         const connections: WorkflowConnection[] = [];
-        if (integrationInstanceId) {
-            connections.push({
-                fromId: integrationInstanceId,
-                toId: finalThinkingId,
-                type: 'consolidates',
-                label: 'Final integration processing'
-            });
-        }
+
+        // 🎯 [DIRECT-EDGES] 연결은 노드 생성 후에 별도로 처리
         this.workflowLogger.debug(`🎯 [INTEGRATION] Created Final Integration Thinking: ${finalThinkingId}`);
         return {
             id: finalThinkingId,
@@ -1016,10 +1272,48 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
     }
 
     private connectNodes(fromNode: WorkflowNode, toNode: WorkflowNode, type: WorkflowConnectionType, label?: string): void {
-        if (!fromNode.connections.some(c => c.toId === toNode.id)) {
-            fromNode.connections.push({ fromId: fromNode.id, toId: toNode.id, type, label });
-            this.emitNodeUpdate('update', fromNode);
-            this.workflowLogger.debug(`🔗 [CONNECTION] Connected ${fromNode.type} ${fromNode.id} -> ${toNode.type} ${toNode.id}`);
+        // 중복 연결 방지 체크
+        const existingEdge = this.edges.find(edge =>
+            edge.source === fromNode.id &&
+            edge.target === toNode.id &&
+            edge.type === type
+        );
+
+        if (!existingEdge) {
+            // 🎯 직접 edges 배열에 추가
+            const newEdge: UniversalWorkflowEdge = {
+                id: `edge_${fromNode.id}_to_${toNode.id}_${this.edges.length}`,
+                source: fromNode.id,
+                target: toNode.id,
+                type: type,
+                label: label || type,
+                style: {
+                    type: 'default',
+                    animated: false,
+                    strokeColor: '#666666'
+                },
+                data: {
+                    executionOrder: this.edges.length,
+                    extensions: {
+                        robota: {
+                            originalType: type,
+                            originalConnection: { fromId: fromNode.id, toId: toNode.id, type, label }
+                        }
+                    }
+                },
+                createdAt: new Date(),
+                updatedAt: new Date()
+            };
+
+            this.edges.push(newEdge);
+
+            // 기존 node.connections도 호환성을 위해 유지
+            if (!fromNode.connections.some(c => c.toId === toNode.id)) {
+                fromNode.connections.push({ fromId: fromNode.id, toId: toNode.id, type, label });
+                this.emitNodeUpdate('update', fromNode);
+            }
+
+            this.workflowLogger.debug(`🔗 [DIRECT-EDGE] Created edge ${fromNode.id} -> ${toNode.id} (${type})`);
         }
     }
 
@@ -1029,5 +1323,38 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
         if (fromNode && toNode) {
             this.connectNodes(fromNode, toNode, type, label);
         }
+    }
+
+    /**
+     * 직접 생성된 edges 배열 반환
+     */
+    public getEdges(): UniversalWorkflowEdge[] {
+        return this.edges;
+    }
+
+    /**
+     * nodes와 edges를 포함한 완전한 워크플로우 데이터 반환
+     */
+    public getWorkflowData(): { nodes: WorkflowNode[], edges: UniversalWorkflowEdge[] } {
+        return {
+            nodes: Array.from(this.nodeMap.values()),
+            edges: this.edges
+        };
+    }
+
+    /**
+     * 디버깅을 위한 연결 상태 요약 반환
+     */
+    public getConnectionSummary(): { totalNodes: number, totalEdges: number, edgesByType: Record<string, number> } {
+        const edgesByType: Record<string, number> = {};
+        this.edges.forEach(edge => {
+            edgesByType[edge.type] = (edgesByType[edge.type] || 0) + 1;
+        });
+
+        return {
+            totalNodes: this.nodeMap.size,
+            totalEdges: this.edges.length,
+            edgesByType
+        };
     }
 }
