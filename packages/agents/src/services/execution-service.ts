@@ -435,7 +435,7 @@ export class ExecutionService {
                 const toolRequests = this.toolExecutionService.createExecutionRequestsWithContext(
                     assistantResponse.toolCalls,
                     {
-                        parentExecutionId: toolParentId,
+                        parentExecutionId: thinkingNodeId, // 🎯 Use thinkingNodeId as parentExecutionId
                         rootExecutionId: toolRootId || executionId,
                         executionLevel: 2, // Tool level (Team=0, Agent=1, Tool=2)
                         executionPath: [toolRootId || executionId, toolParentId],
@@ -1169,4 +1169,4 @@ export class ExecutionService {
             messageCount: context.messages.length
         };
     }
-} 
+}

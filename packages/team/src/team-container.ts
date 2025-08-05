@@ -310,9 +310,7 @@ export class TeamContainer {
      * @throws {Error} When maximum number of team members is reached
      * @throws {Error} When task execution fails
      */
-    private async assignTask(params: AssignTaskParams, context?: ToolExecutionContext): Promise<AssignTaskResult> {
-
-
+    private async assignTask(params: AssignTaskParams, context: ToolExecutionContext): Promise<AssignTaskResult> {
         // Use tool call ID from context as the parent reference
         const parentToolCallId = context?.executionId;
 
@@ -403,12 +401,15 @@ export class TeamContainer {
                     agentTemplate: params.agentTemplate,
                     priority: params.priority,
                     startTime: startTime,
-                    allowFurtherDelegation: params.allowFurtherDelegation
+                    allowFurtherDelegation: params.allowFurtherDelegation,
+                    directParentId: context.parentExecutionId // 🎯 Pass parent thinking node ID
                 }
             });
         }
 
         try {
+
+
 
 
 
@@ -475,7 +476,27 @@ export class TeamContainer {
             const shouldAllowDelegation = params.allowFurtherDelegation === true; // Default to false
             const delegationTools = shouldAllowDelegation ? [this.createAssignTaskTool()] : [];
 
+            const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
+            // Anonymous EventService Proxy to inject context
+            const originalEventService = this.eventService;
+            const parentNodeId = `tool_call_${context.executionId}`; // This is the parent node for the new agent
+            const directParentIdForToolCall = context.parentExecutionId; // This is the thinking node
+
+            const scopedEventService: EventService = {
+                emit: (eventName, data) => {
+                    const enhancedData = { ...data, parentNodeId };
+
+                    // 🎯 [CONNECTION-FIX] Inject directParentId into tool_call_start events
+                    if (eventName === 'tool_call_start' && directParentIdForToolCall) {
+                        enhancedData.metadata = {
+                            ...enhancedData.metadata,
+                            directParentId: directParentIdForToolCall,
+                        };
+                    }
+                    originalEventService.emit(eventName, enhancedData);
+                },
+            };
 
             if (params.agentTemplate) {
                 // Create from template
@@ -493,9 +514,9 @@ export class TeamContainer {
                 // Build system message with delegation guidance
                 let systemMessage = template.config.systemMessage;
                 if (shouldAllowDelegation) {
-                    systemMessage += '\n\nDELEGATION GUIDANCE: You can use assignTask to delegate parts of this work to other specialists if the task would benefit from specialized expertise outside your primary domain. Focus on your expertise but delegate when it would significantly improve quality.';
+                    systemMessage += '\\n\\nDELEGATION GUIDANCE: You can use assignTask to delegate parts of this work to other specialists if the task would benefit from specialized expertise outside your primary domain. Focus on your expertise but delegate when it would significantly improve quality.';
                 } else {
-                    systemMessage += '\n\nDIRECT EXECUTION: Handle this task directly using your specialized knowledge and skills. Do not delegate - focus on completing the work within your expertise.';
+                    systemMessage += '\\n\\nDIRECT EXECUTION: Handle this task directly using your specialized knowledge and skills. Do not delegate - focus on completing the work within your expertise.';
                 }
 
                 const tempAgentConfig: AgentConfig = {
@@ -509,17 +530,10 @@ export class TeamContainer {
                         ...(template.config.maxTokens && { maxTokens: template.config.maxTokens })
                     },
                     plugins: [taskAnalyticsPlugin as BasePlugin], // Add analytics to temporary agent
-                    tools: [...delegationTools, ...(this.options.baseRobotaOptions.tools || [])]
+                    tools: [...delegationTools, ...(this.options.baseRobotaOptions.tools || [])],
+                    conversationId: conversationId,
+                    eventService: scopedEventService, // Inject the scoped event service
                 };
-
-                // 🎯 Create SubAgentEventRelay for automatic parent connection
-                const subAgentEventService = new SubAgentEventRelay(
-                    this.eventService,
-                    toolExecutionId  // assignTask tool call ID as parent
-                );
-
-                // Add SubAgentEventRelay to temporary agent for automatic hierarchy
-                tempAgentConfig.eventService = subAgentEventService;
 
                 this.logger?.info(`🎯 [assignTask] Creating temporaryAgent from template: ${params.agentTemplate}`);
                 temporaryAgent = new Robota(tempAgentConfig);
@@ -537,7 +551,8 @@ export class TeamContainer {
                             agentName: temporaryAgent.name,
                             template: params.agentTemplate,
                             provider: template.config.provider,
-                            model: template.config.model
+                            model: template.config.model,
+                            conversationId: conversationId
                         },
                         // 🔧 FIXED: Team events should have tool call as parent
 
@@ -559,9 +574,9 @@ export class TeamContainer {
                 // Create dynamic agent
                 let systemMessage = `You are a specialist agent created to handle this specific task: ${params.jobDescription}. ${params.context || ''}`;
                 if (shouldAllowDelegation) {
-                    systemMessage += '\n\nDELEGATION GUIDANCE: You can use assignTask to delegate parts of this work to other specialists if the task would benefit from specialized expertise outside your capabilities.';
+                    systemMessage += '\\n\\nDELEGATION GUIDANCE: You can use assignTask to delegate parts of this work to other specialists if the task would benefit from specialized expertise outside your capabilities.';
                 } else {
-                    systemMessage += '\n\nDIRECT EXECUTION: Handle this task directly using your knowledge and skills. Do not delegate - focus on completing the work yourself.';
+                    systemMessage += '\\n\\nDIRECT EXECUTION: Handle this task directly using your knowledge and skills. Do not delegate - focus on completing the work yourself.';
                 }
 
                 const dynamicAgentConfig: AgentConfig = {
@@ -573,22 +588,16 @@ export class TeamContainer {
                         systemMessage: systemMessage
                     },
                     plugins: [taskAnalyticsPlugin as BasePlugin], // Add analytics to temporary agent
-                    tools: [...delegationTools, ...(this.options.baseRobotaOptions.tools || [])]
+                    tools: [...delegationTools, ...(this.options.baseRobotaOptions.tools || [])],
+                    conversationId: conversationId,
+                    eventService: scopedEventService, // Inject the scoped event service
                 };
-
-                // 🎯 Create SubAgentEventRelay for automatic parent connection (dynamic agent)
-                const dynamicSubAgentEventService = new SubAgentEventRelay(
-                    this.eventService,
-                    toolExecutionId  // assignTask tool call ID as parent
-                );
-
-                // Add SubAgentEventRelay to dynamic agent for automatic hierarchy
-                dynamicAgentConfig.eventService = dynamicSubAgentEventService;
 
                 this.logger?.info(`🎯 [assignTask] Creating dynamic temporaryAgent`);
                 temporaryAgent = new Robota(dynamicAgentConfig);
                 this.logger?.info(`🎯 [assignTask] Dynamic temporaryAgent created successfully: ${temporaryAgent.name}`);
             }
+
 
             // Agent created successfully, execute the task
             this.logger?.info(`📊 Agent created - Active: ${this.activeAgentsCount}, Total: ${this.totalAgentsCreated}`);
@@ -1053,17 +1062,17 @@ export class TeamContainer {
      * Build task prompt for delegation
      */
     private buildTaskPrompt(params: AssignTaskParams): string {
-        let prompt = `Task: ${params.jobDescription}\n\n`;
+        let prompt = `Task: ${params.jobDescription}\\n\\n`;
 
         if (params.context) {
-            prompt += `Context: ${params.context}\n\n`;
+            prompt += `Context: ${params.context}\\n\\n`;
         }
 
         if (params.requiredTools && params.requiredTools.length > 0) {
-            prompt += `Available tools: ${params.requiredTools.join(', ')}\n\n`;
+            prompt += `Available tools: ${params.requiredTools.join(', ')}\\n\\n`;
         }
 
-        prompt += `Priority: ${params.priority || 'medium'}\n\nPlease complete this task thoroughly and provide a comprehensive response.`;
+        prompt += `Priority: ${params.priority || 'medium'}\\n\\nPlease complete this task thoroughly and provide a comprehensive response.`;
 
         return prompt;
     }
@@ -1090,7 +1099,19 @@ export class TeamContainer {
         // Use standard task assignment facade (simplified approach)
         const taskAssignment = createTaskAssignmentFacade(
             templateInfo,
-            async (params: AssignTaskParams, context?: ToolExecutionContext) => {
+            // 🎯 FIXED: Made context optional and added a null check
+            async (params: AssignTaskParams, context?: ToolExecutionContext): Promise<AssignTaskResult> => {
+                if (!context) {
+                    this.logger?.error("Critical Error: assignTask called without ToolExecutionContext. This should not happen.");
+                    return {
+                        result: "Task assignment failed: Critical error - execution context was not provided.",
+                        agentId: `error-${Date.now()}`,
+                        metadata: {
+                            executionTime: 0,
+                            errors: ["ToolExecutionContext is required for assignTask"]
+                        }
+                    };
+                }
                 return await this.assignTask(params, context);
             }
         );
@@ -1115,7 +1136,7 @@ export class TeamContainer {
                 config: {
                     model: defaultModel,
                     provider: defaultProvider,
-                    systemMessage: 'You are a helpful and capable AI assistant with broad knowledge and skills. You can adapt to various tasks and requirements while maintaining high quality and accuracy. Your strengths include:\n\n• General problem-solving and analysis\n• Clear communication and explanation\n• Flexible task adaptation\n• Balanced approach to different types of work\n• Reliable execution of varied requests\n\nWhen handling tasks:\n1. Analyze the request to understand requirements\n2. Apply appropriate methods and knowledge\n3. Provide clear, useful, and accurate responses\n4. Ask for clarification when needed\n5. Adapt your approach to the specific context\n6. Ensure completeness and quality in your work\n\nProvide helpful, accurate, and well-structured responses that meet the user\'s needs effectively.',
+                    systemMessage: 'You are a helpful and capable AI assistant with broad knowledge and skills. You can adapt to various tasks and requirements while maintaining high quality and accuracy. Your strengths include:\\n\\n• General problem-solving and analysis\\n• Clear communication and explanation\\n• Flexible task adaptation\\n• Balanced approach to different types of work\\n• Reliable execution of varied requests\\n\\nWhen handling tasks:\\n1. Analyze the request to understand requirements\\n2. Apply appropriate methods and knowledge\\n3. Provide clear, useful, and accurate responses\\n4. Ask for clarification when needed\\n5. Adapt your approach to the specific context\\n6. Ensure completeness and quality in your work\\n\\nProvide helpful, accurate, and well-structured responses that meet the user\'s needs effectively.',
                     temperature: 0.5
                 }
             },
@@ -1128,7 +1149,7 @@ export class TeamContainer {
                 config: {
                     model: defaultModel,
                     provider: defaultProvider,
-                    systemMessage: 'You are an expert summarization specialist with advanced capabilities in analyzing and distilling complex information. Your expertise includes:\n\n• Extracting key points and main ideas from lengthy documents\n• Creating concise summaries while preserving essential information\n• Identifying critical insights and actionable items\n• Structuring information in clear, digestible formats\n• Adapting summary length and style to audience needs\n\nWhen summarizing, focus on:\n1. Main themes and central arguments\n2. Supporting evidence and key data points\n3. Conclusions and recommendations\n4. Action items and next steps\n5. Critical dependencies and risks\n\nDELEGATION GUIDELINES:\n- Handle summarization and analysis tasks directly within your expertise\n- Consider delegating if the task requires specialized domain research, creative ideation, or ethical review beyond summarization\n- Only delegate when it would significantly improve quality or when the task clearly falls outside summarization expertise\n- For pure summarization requests, always handle directly\n\nProvide summaries that are accurate, comprehensive, and immediately useful for decision-making.',
+                    systemMessage: 'You are an expert summarization specialist with advanced capabilities in analyzing and distilling complex information. Your expertise includes:\\n\\n• Extracting key points and main ideas from lengthy documents\\n• Creating concise summaries while preserving essential information\\n• Identifying critical insights and actionable items\\n• Structuring information in clear, digestible formats\\n• Adapting summary length and style to audience needs\\n\\nWhen summarizing, focus on:\\n1. Main themes and central arguments\\n2. Supporting evidence and key data points\\n3. Conclusions and recommendations\\n4. Action items and next steps\\n5. Critical dependencies and risks\\n\\nDELEGATION GUIDELINES:\\n- Handle summarization and analysis tasks directly within your expertise\\n- Consider delegating if the task requires specialized domain research, creative ideation, or ethical review beyond summarization\\n- Only delegate when it would significantly improve quality or when the task clearly falls outside summarization expertise\\n- For pure summarization requests, always handle directly\\n\\nProvide summaries that are accurate, comprehensive, and immediately useful for decision-making.',
                     temperature: 0.3
                 }
             },
@@ -1141,7 +1162,7 @@ export class TeamContainer {
                 config: {
                     model: defaultModel,
                     provider: defaultProvider,
-                    systemMessage: 'You are an ethical review specialist focused on responsible AI practices and content compliance. Your expertise covers:\n\n• AI ethics and responsible technology development\n• Privacy protection and data governance\n• Bias detection and fairness assessment\n• Legal compliance and regulatory requirements\n• Content moderation and safety guidelines\n• Transparency and accountability standards\n\nWhen reviewing content or proposals, evaluate:\n1. Potential ethical implications and risks\n2. Privacy and data protection concerns\n3. Bias, fairness, and inclusivity issues\n4. Legal and regulatory compliance\n5. Transparency and explainability requirements\n6. Potential unintended consequences\n\nProvide balanced assessments with specific recommendations for addressing identified concerns while supporting innovation and progress.',
+                    systemMessage: 'You are an ethical review specialist focused on responsible AI practices and content compliance. Your expertise covers:\\n\\n• AI ethics and responsible technology development\\n• Privacy protection and data governance\\n• Bias detection and fairness assessment\\n• Legal compliance and regulatory requirements\\n• Content moderation and safety guidelines\\n• Transparency and accountability standards\\n\\nWhen reviewing content or proposals, evaluate:\\n1. Potential ethical implications and risks\\n2. Privacy and data protection concerns\\n3. Bias, fairness, and inclusivity issues\\n4. Legal and regulatory compliance\\n5. Transparency and explainability requirements\\n6. Potential unintended consequences\\n\\nProvide balanced assessments with specific recommendations for addressing identified concerns while supporting innovation and progress.',
                     temperature: 0.2
                 }
             },
@@ -1154,7 +1175,7 @@ export class TeamContainer {
                 config: {
                     model: defaultModel,
                     provider: defaultProvider,
-                    systemMessage: 'You are a creative ideation expert specializing in innovative thinking and breakthrough idea generation. Your strengths include:\n\n• Divergent thinking and brainstorming techniques\n• Cross-industry innovation and pattern recognition\n• Creative problem-solving methodologies\n• Design thinking and user-centered innovation\n• Future-oriented scenario planning\n• Connecting disparate concepts and ideas\n\nWhen generating ideas, apply:\n1. Multiple perspective-taking and reframing\n2. "What if" scenarios and possibility thinking\n3. Combination and recombination of existing concepts\n4. Challenge assumptions and conventional wisdom\n5. Explore edge cases and unconventional approaches\n6. Consider both incremental and radical innovations\n\nDeliver creative solutions that are imaginative yet practical, pushing boundaries while remaining grounded in feasibility.',
+                    systemMessage: 'You are a creative ideation expert specializing in innovative thinking and breakthrough idea generation. Your strengths include:\\n\\n• Divergent thinking and brainstorming techniques\\n• Cross-industry innovation and pattern recognition\\n• Creative problem-solving methodologies\\n• Design thinking and user-centered innovation\\n• Future-oriented scenario planning\\n• Connecting disparate concepts and ideas\\n\\nWhen generating ideas, apply:\\n1. Multiple perspective-taking and reframing\\n2. "What if" scenarios and possibility thinking\\n3. Combination and recombination of existing concepts\\n4. Challenge assumptions and conventional wisdom\\n5. Explore edge cases and unconventional approaches\\n6. Consider both incremental and radical innovations\\n\\nDeliver creative solutions that are imaginative yet practical, pushing boundaries while remaining grounded in feasibility.',
                     temperature: 0.8
                 }
             },
@@ -1167,7 +1188,7 @@ export class TeamContainer {
                 config: {
                     model: defaultModel,
                     provider: defaultProvider,
-                    systemMessage: 'You are a fast and accurate task executor focused on efficiency and precision. Your core competencies include:\n\n• Rapid task analysis and prioritization\n• Efficient workflow optimization\n• Quick decision-making with available information\n• Streamlined communication and reporting\n• Resource optimization and time management\n• Quality control under time constraints\n\nWhen executing tasks, prioritize:\n1. Speed without compromising accuracy\n2. Clear, concise deliverables\n3. Essential information over comprehensive detail\n4. Actionable outputs and next steps\n5. Efficient use of available resources\n6. Quick validation and error checking\n\nDeliver results that meet requirements efficiently, focusing on what matters most for immediate progress and decision-making.',
+                    systemMessage: 'You are a fast and accurate task executor focused on efficiency and precision. Your core competencies include:\\n\\n• Rapid task analysis and prioritization\\n• Efficient workflow optimization\\n• Quick decision-making with available information\\n• Streamlined communication and reporting\\n• Resource optimization and time management\\n• Quality control under time constraints\\n\\nWhen executing tasks, prioritize:\\n1. Speed without compromising accuracy\\n2. Clear, concise deliverables\\n3. Essential information over comprehensive detail\\n4. Actionable outputs and next steps\\n5. Efficient use of available resources\\n6. Quick validation and error checking\\n\\nDeliver results that meet requirements efficiently, focusing on what matters most for immediate progress and decision-making.',
                     temperature: 0.1,
                     maxTokens: 1000
                 }
@@ -1181,7 +1202,7 @@ export class TeamContainer {
                 config: {
                     model: defaultModel,
                     provider: defaultProvider,
-                    systemMessage: 'You are a domain research specialist with expertise in conducting thorough investigations across various fields. Your research capabilities include:\n\n• Systematic literature review and analysis\n• Primary and secondary source evaluation\n• Cross-disciplinary knowledge synthesis\n• Trend analysis and pattern recognition\n• Expert opinion and perspective gathering\n• Evidence-based conclusion development\n\nWhen conducting research, focus on:\n1. Comprehensive coverage of relevant sources\n2. Critical evaluation of information quality\n3. Identification of knowledge gaps and limitations\n4. Synthesis of findings into coherent insights\n5. Recognition of competing perspectives and debates\n6. Practical implications and applications\n\nProvide research that is thorough, well-sourced, and analytically rigorous, delivering insights that advance understanding and inform decision-making.',
+                    systemMessage: 'You are a domain research specialist with expertise in conducting thorough investigations across various fields. Your research capabilities include:\\n\\n• Systematic literature review and analysis\\n• Primary and secondary source evaluation\\n• Cross-disciplinary knowledge synthesis\\n• Trend analysis and pattern recognition\\n• Expert opinion and perspective gathering\\n• Evidence-based conclusion development\\n\\nWhen conducting research, focus on:\\n1. Comprehensive coverage of relevant sources\\n2. Critical evaluation of information quality\\n3. Identification of knowledge gaps and limitations\\n4. Synthesis of findings into coherent insights\\n5. Recognition of competing perspectives and debates\\n6. Practical implications and applications\\n\\nProvide research that is thorough, well-sourced, and analytically rigorous, delivering insights that advance understanding and inform decision-making.',
                     temperature: 0.4
                 }
             },
@@ -1232,4 +1253,3 @@ Your goal is to coordinate effectively while leveraging specialist expertise for
         return this.teamAgent.getHistory();
     }
 }
-
