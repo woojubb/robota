@@ -19,6 +19,12 @@
         "start:all": "echo '🚀 Running all examples sequentially...' && pnpm start:basic && echo '' && pnpm start:tools && echo '' && pnpm start:multi && echo '' && pnpm start:advanced && echo '' && pnpm start:agents-basic && echo '' && pnpm start:agents-streaming",
         "start:agents-all": "echo '🤖 Running all agents examples...' && pnpm start:agents-basic && echo '' && pnpm start:agents-streaming",
         "test:playground": "tsx 26-playground-edge-verification.ts",
+        "verify:workflow": "tsx utils/verify-workflow-connections.ts",
+        "convert:universal": "tsx utils/convert-to-universal.ts",
+        "playground:auto": "tsx utils/run-and-verify-workflow.ts",
+        "playground:generate": "tsx 26-playground-edge-verification.ts && mv perfect-playground-data.json data/ && echo '✅ Data generated in data/perfect-playground-data.json'",
+        "playground:deploy": "cp data/perfect-playground-data.json ../web/public/perfect-playground-data.json && echo '✅ Data deployed to playground'",
+        "playground:quick": "pnpm playground:generate && pnpm verify:workflow && pnpm playground:deploy",
         "lint": "eslint . --ext .ts,.tsx",
         "lint:fix": "eslint . --ext .ts,.tsx --fix",
         "check-types": "tsc --noEmit"

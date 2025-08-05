@@ -487,6 +487,11 @@ export class TeamContainer {
                 emit: (eventName, data) => {
                     const enhancedData = { ...data, parentNodeId };
 
+                    // 🎯 [DEBUG] parentNodeId 주입 로깅
+                    if (eventName === 'execution.start') {
+                        console.log(`🔗 [PARENT-INJECTION] execution.start: parentNodeId=${parentNodeId} for sourceId=${enhancedData.sourceId}`);
+                    }
+
                     // 🎯 [CONNECTION-FIX] Inject directParentId into tool_call_start events
                     if (eventName === 'tool_call_start' && directParentIdForToolCall) {
                         enhancedData.metadata = {
