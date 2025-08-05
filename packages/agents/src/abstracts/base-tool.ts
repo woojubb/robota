@@ -79,7 +79,7 @@ export interface BaseToolInterface<TParams = BaseToolParameters, TResult = ToolR
  */
 export interface TypeSafeToolInterface<TParameters = BaseToolParameters, TResult = ToolResult> {
     readonly schema: ToolSchema;
-    execute(parameters: TParameters, context?: ToolExecutionContext): Promise<TResult>;
+    execute(parameters: TParameters, context: ToolExecutionContext): Promise<TResult>;
     validate(parameters: TParameters): boolean;
     validateParameters(parameters: TParameters): ParameterValidationResult;
     getDescription(): string;
@@ -131,7 +131,7 @@ export abstract class BaseTool<TParameters = BaseToolParameters, TResult = ToolR
      * @param context - Optional execution context
      * @returns Promise resolving to tool result
      */
-    async execute(parameters: TParameters, context?: ToolExecutionContext): Promise<TResult> {
+    async execute(parameters: TParameters, context: ToolExecutionContext): Promise<TResult> {
         return await this.executeImpl(parameters, context);
     }
 
@@ -143,7 +143,7 @@ export abstract class BaseTool<TParameters = BaseToolParameters, TResult = ToolR
      * @param context - Optional execution context
      * @returns Promise resolving to tool result
      */
-    protected abstract executeImpl(parameters: TParameters, context?: ToolExecutionContext): Promise<TResult>;
+    protected abstract executeImpl(parameters: TParameters, context: ToolExecutionContext): Promise<TResult>;
 
     validate(parameters: TParameters): boolean {
         const required = this.schema.parameters.required || [];
@@ -183,4 +183,4 @@ export abstract class BaseTool<TParameters = BaseToolParameters, TResult = ToolR
  * Legacy tool class for backward compatibility
  * @deprecated Use BaseTool with type parameters instead
  */
-export abstract class LegacyBaseTool extends BaseTool<BaseToolParameters, ToolResult> implements ToolInterface { } 
+export abstract class LegacyBaseTool extends BaseTool<BaseToolParameters, ToolResult> implements ToolInterface { }

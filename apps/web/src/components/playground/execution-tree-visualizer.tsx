@@ -21,9 +21,9 @@ import {
 import { RealTimeToolBlock } from './real-time-tool-block';
 import type {
     RealTimeBlockMessage,
-    RealTimeBlockMetadata,
-    PlaygroundBlockCollector
+    RealTimeBlockMetadata
 } from '@/lib/playground/block-tracking/types';
+import type { PlaygroundBlockCollector } from '@/lib/playground/block-tracking/block-collector';
 
 /**
  * Tree node structure for hierarchical rendering
@@ -332,4 +332,4 @@ export const ExecutionTreeVisualizer: React.FC<ExecutionTreeVisualizerProps> = (
     );
 };
 
-export default ExecutionTreeVisualizer; 
+export default ExecutionTreeVisualizer;

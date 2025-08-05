@@ -51,7 +51,24 @@ import {
     Shield,
     Zap
 } from 'lucide-react';
-import type { BasePlugin, PluginCategory, PluginPriority } from '@/lib/playground/plugins/playground-history-plugin';
+import type { BasePlugin } from '@robota-sdk/agents';
+
+// Enums defined locally to avoid import issues from non-exported types
+export enum PluginCategory {
+    STORAGE = 'STORAGE',
+    MONITORING = 'MONITORING',
+    ANALYTICS = 'ANALYTICS',
+    SECURITY = 'SECURITY',
+    CUSTOM = 'CUSTOM',
+}
+
+export enum PluginPriority {
+    CRITICAL = 100,
+    HIGH = 75,
+    MEDIUM = 50,
+    LOW = 25,
+    DEFAULT = 10
+}
 
 export interface PluginBlock {
     id: string;
@@ -666,4 +683,4 @@ export function PluginContainerBlock({
             </CardContent>
         </Card>
     );
-} 
+}

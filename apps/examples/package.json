@@ -18,6 +18,7 @@
         "start:agents-streaming": "tsx 11-agents-streaming.ts",
         "start:all": "echo '🚀 Running all examples sequentially...' && pnpm start:basic && echo '' && pnpm start:tools && echo '' && pnpm start:multi && echo '' && pnpm start:advanced && echo '' && pnpm start:agents-basic && echo '' && pnpm start:agents-streaming",
         "start:agents-all": "echo '🤖 Running all agents examples...' && pnpm start:agents-basic && echo '' && pnpm start:agents-streaming",
+        "test:playground": "tsx 26-playground-edge-verification.ts",
         "lint": "eslint . --ext .ts,.tsx",
         "lint:fix": "eslint . --ext .ts,.tsx --fix",
         "check-types": "tsc --noEmit"
@@ -43,7 +44,7 @@
         "@typescript-eslint/eslint-plugin": "^6.18.0",
         "@typescript-eslint/parser": "^6.18.0",
         "eslint": "^8.56.0",
-        "tsx": "^4.0.0",
+        "tsx": "^4.20.3",
         "typescript": "^5.0.0"
     }
 }
