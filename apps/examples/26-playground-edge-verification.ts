@@ -12,6 +12,7 @@ import { OpenAIProvider } from '@robota-sdk/openai';
 import { createTeam } from '@robota-sdk/team';
 import dotenv from 'dotenv';
 import fs from 'fs';
+import path from 'path';
 
 // Load environment variables
 dotenv.config();
@@ -177,8 +178,9 @@ async function testPlaygroundEdgeConnections() {
                 ...playgroundTestData
             };
 
-            fs.writeFileSync('perfect-playground-data.json', JSON.stringify(perfectPlaygroundData, null, 2));
-            console.log('\n💾 Perfect playground data saved to: perfect-playground-data.json');
+            const outputPath = path.join('data', 'perfect-playground-data.json');
+            fs.writeFileSync(outputPath, JSON.stringify(perfectPlaygroundData, null, 2));
+            console.log(`\n💾 Perfect playground data saved to: ${outputPath}`);
             console.log(`📊 Ready for Playground: ${perfectPlaygroundData.nodes?.length || 0} nodes, ${perfectPlaygroundData.edges?.length || 0} edges`);
 
             console.log('\n🎯 Test completed. Results ready for Playground verification.');
