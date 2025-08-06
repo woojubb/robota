@@ -801,7 +801,13 @@ class WorkflowConnectionVerifier {
 
 // Main execution
 function main() {
-    const verifier = new WorkflowConnectionVerifier();
+    // Get filename from command line arguments
+    const filename = process.argv[2] || '../data/real-workflow-data.json';
+    console.log(`🔍 Workflow Connection Verification`);
+    console.log(`==================================================`);
+    console.log(`📁 File: ${path.basename(filename)}`);
+
+    const verifier = new WorkflowConnectionVerifier(filename);
     const result = verifier.verify();
     verifier.displayResults(result);
 }

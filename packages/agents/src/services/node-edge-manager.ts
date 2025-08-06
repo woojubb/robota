@@ -67,6 +67,43 @@ export class NodeEdgeManager {
     }
 
     /**
+     * 독립적인 엣지 생성 (기존 노드들 간의 연결)
+     * 이미 존재하는 노드들 간에 엣지만 생성할 때 사용
+     */
+    addEdge(fromNodeId: string, toNodeId: string, connectionType: WorkflowConnectionType, connectionLabel?: string): UniversalWorkflowEdge {
+        // 🚨 [STRICT-ORDER-ENFORCEMENT] 두 노드 모두 존재해야 함
+        const fromNode = this.nodes.get(fromNodeId);
+        const toNode = this.nodes.get(toNodeId);
+
+        if (!fromNode) {
+            throw new Error(`🚨 [ORDER-VIOLATION] Source node ${fromNodeId} does not exist. Must create source node first.`);
+        }
+
+        if (!toNode) {
+            throw new Error(`🚨 [ORDER-VIOLATION] Target node ${toNodeId} does not exist. Must create target node first.`);
+        }
+
+        // 중복 엣지 방지
+        const existingEdge = this.edges.find(edge =>
+            edge.source === fromNodeId &&
+            edge.target === toNodeId &&
+            edge.type === connectionType
+        );
+
+        if (existingEdge) {
+            this.logger.debug(`🔗 [EDGE-EXISTS] Edge already exists: ${fromNodeId} → ${toNodeId} (${connectionType})`);
+            return existingEdge;
+        }
+
+        // 🔒 엣지 생성 (내부에서 timestamp 자동 생성)
+        const edge = this.createEdge(fromNodeId, toNodeId, connectionType, connectionLabel);
+
+        this.logger.debug(`🔒 [EDGE-MANAGER] Created independent edge: ${fromNodeId} → ${toNodeId} (${connectionType})`);
+
+        return edge;
+    }
+
+    /**
      * 직접 엣지 생성 (addNode에서 내부적으로 사용)
      * 외부에서 직접 호출 금지 - addNode를 통해서만 사용
      */
