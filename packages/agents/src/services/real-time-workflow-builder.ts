@@ -225,7 +225,7 @@ export class RealTimeWorkflowBuilder {
      */
     private handleUserInputNode(node: WorkflowNode): void {
         // Workflow 시작 시간 설정
-        this.currentWorkflow.metadata.startTime = node.timestamp;
+        this.currentWorkflow.metadata.startTime = new Date(node.timestamp);
         this.logger.debug('Workflow started with user input');
     }
 

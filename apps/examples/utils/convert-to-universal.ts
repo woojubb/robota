@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 // 실제 WorkflowNode 데이터를 UniversalWorkflowStructure로 변환
 async function convertToUniversal() {
     // 실제 워크플로우 데이터 로드
-    const realDataPath = path.join(__dirname, 'real-workflow-data.json');
+    const realDataPath = path.join(__dirname, '../data/real-workflow-data.json');
     const realData = JSON.parse(fs.readFileSync(realDataPath, 'utf-8'));
 
     console.log('🔄 Converting real workflow data to Universal format...');
