@@ -1,1200 +1,959 @@
 {
   "metadata": {
-    "createdAt": "2025-08-05T00:51:53.719Z",
-    "updatedAt": "2025-08-05T00:51:53.719Z",
+    "createdAt": "2025-08-06T17:04:48.976Z",
+    "updatedAt": "2025-08-06T17:04:48.976Z",
     "metrics": {
-      "totalNodes": 22,
-      "team2Nodes": 22
+      "totalNodes": 18,
+      "totalEdges": 17
     },
-    "testType": "team-collaboration-real-data",
-    "sourceExample": "05-team-collaboration-ko.ts"
+    "testType": "example-26-verification",
+    "sourceExample": "26-playground-edge-verification.ts"
   },
-  "team2": {
-    "nodes": [
-      {
-        "id": "agent_0_copy_1",
-        "type": "agent",
-        "level": 1,
-        "status": "running",
-        "data": {
-          "eventType": "execution.start",
-          "sourceId": "conv_1754355069273_fkngwlfro",
-          "executionId": "unknown",
-          "agentNumber": 0,
-          "copyNumber": 1,
-          "label": "Agent 0 Copy 1",
-          "reservedThinkingId": "thinking_agent_0_copy_1"
-        },
-        "timestamp": "2025-08-05T00:51:09.274Z",
-        "connections": [
-          {
-            "fromId": "agent_0_copy_1",
-            "toId": "user_message_conv_1754355069273_fkngwlfro",
-            "type": "receives",
-            "label": "receives input"
-          }
-        ],
-        "metadata": {
-          "agentNumber": 0,
-          "copyNumber": 1,
-          "standardStructure": {
-            "agentId": "agent_0_copy_1",
-            "thinkingId": "thinking_agent_0_copy_1"
-          }
-        }
-      },
-      {
-        "id": "user_message_conv_1754355069273_fkngwlfro",
-        "type": "user_message",
-        "level": 0,
-        "status": "completed",
-        "data": {
-          "eventType": "user.message",
-          "sourceId": "conv_1754355069273_fkngwlfro",
-          "parameters": {
-            "input": "카페 창업 계획서를 작성해주세요. 반드시 다음 두 부분을 모두 포함해야 합니다: 시장 분석, 메뉴 구성. 각각을 별도로 작성해주세요."
-          },
-          "label": "User Message"
-        },
-        "timestamp": "2025-08-05T00:51:09.275Z",
-        "connections": [
-          {
-            "fromId": "user_message_conv_1754355069273_fkngwlfro",
-            "toId": "thinking_agent_0_copy_1_1754355069273_fk_round1",
-            "type": "processes",
-            "label": "triggers thinking"
-          }
-        ]
-      },
-      {
-        "id": "thinking_agent_0_copy_1_1754355069273_fk_round1",
-        "type": "agent_thinking",
-        "parentId": "agent_0_copy_1",
-        "level": 2,
-        "status": "running",
-        "data": {
-          "eventType": "assistant.message_start",
-          "sourceId": "conv_1754355069273_fkngwlfro",
-          "sourceType": "agent",
-          "agentNumber": 0,
-          "round": 1,
-          "label": "Agent 0 Thinking Round 1"
-        },
-        "timestamp": "2025-08-05T00:51:09.276Z",
-        "connections": [
-          {
-            "fromId": "agent_0_copy_1",
-            "toId": "thinking_agent_0_copy_1_1754355069273_fk_round1",
-            "type": "processes",
-            "label": "processes"
-          },
-          {
-            "fromId": "thinking_agent_0_copy_1_1754355069273_fk_round1",
-            "toId": "tool_call_call_QieLYs7IXvIxRHHADLZjJ73d",
-            "type": "executes",
-            "label": "executes assignTask"
-          },
-          {
-            "fromId": "thinking_agent_0_copy_1_1754355069273_fk_round1",
-            "toId": "tool_call_call_B45ROut2Ceagw40UGvenA3Ek",
-            "type": "executes",
-            "label": "executes assignTask"
-          }
-        ]
-      },
-      {
-        "id": "tool_call_call_QieLYs7IXvIxRHHADLZjJ73d",
-        "type": "tool_call",
-        "parentId": "thinking_agent_0_copy_1_1754355069273_fk_round1",
-        "level": 3,
-        "status": "running",
-        "data": {
-          "eventType": "tool_call_start",
-          "toolName": "unknown_tool",
-          "executionId": "call_QieLYs7IXvIxRHHADLZjJ73d",
-          "parameters": {
-            "jobDescription": "카페 창업을 위한 시장 분석을 작성해 주세요. 시장 규모, 경쟁사 분석, 고객 세분화 및 트렌드 등을 포함하여 카페의 성공 가능성을 평가할 수 있는 정보를 제공해야 합니다.",
-            "agentTemplate": "domain_researcher",
-            "priority": "high",
-            "context": "카페 창업을 고려하고 있는 예비 창업자를 위한 자료로, 시장 상황을 명확히 이해할 수 있도록 구체적인 데이터와 인사이트를 포함해야 합니다."
-          }
-        },
-        "timestamp": "2025-08-05T00:51:14.650Z",
-        "connections": [
-          {
-            "fromId": "tool_call_call_QieLYs7IXvIxRHHADLZjJ73d",
-            "toId": "agent_3_copy_1",
-            "type": "creates",
-            "label": "creates agent"
-          }
-        ]
-      },
-      {
-        "id": "tool_call_call_B45ROut2Ceagw40UGvenA3Ek",
-        "type": "tool_call",
-        "parentId": "thinking_agent_0_copy_1_1754355069273_fk_round1",
-        "level": 3,
-        "status": "running",
-        "data": {
-          "eventType": "tool_call_start",
-          "toolName": "unknown_tool",
-          "executionId": "call_B45ROut2Ceagw40UGvenA3Ek",
-          "parameters": {
-            "jobDescription": "카페의 메뉴 구성을 작성해 주세요. 다양한 음료와 디저트 옵션을 포함하고, 각 메뉴 항목의 특징 및 가격대를 제안해야 합니다.",
-            "agentTemplate": "creative_ideator",
-            "priority": "high",
-            "context": "고객의 다양한 취향을 반영한 메뉴를 구성하며, 경쟁력을 갖춘 가격대와 함께 트렌디한 아이템도 포함해야 합니다."
-          }
-        },
-        "timestamp": "2025-08-05T00:51:14.652Z",
-        "connections": [
-          {
-            "fromId": "tool_call_call_B45ROut2Ceagw40UGvenA3Ek",
-            "toId": "agent_4_copy_1",
-            "type": "creates",
-            "label": "creates agent"
-          }
-        ]
-      },
-      {
-        "id": "agent_1_copy_1",
-        "type": "agent",
-        "level": 4,
-        "status": "running",
-        "data": {
-          "eventType": "execution.start",
-          "sourceId": "agent-1754355074649-leqha7uay",
-          "executionId": "unknown",
-          "agentNumber": 1,
-          "copyNumber": 1,
-          "label": "Agent 1 Copy 1",
-          "reservedThinkingId": "thinking_agent_1_copy_1"
-        },
-        "timestamp": "2025-08-05T00:51:14.656Z",
-        "connections": [],
-        "metadata": {
-          "agentNumber": 1,
-          "copyNumber": 1,
-          "standardStructure": {
-            "agentId": "agent_1_copy_1",
-            "thinkingId": "thinking_agent_1_copy_1"
-          }
-        }
-      },
-      {
-        "id": "thinking_agent_1_copy_1_agent-1754355074_round1",
-        "type": "agent_thinking",
-        "parentId": "agent_1_copy_1",
-        "level": 5,
-        "status": "running",
-        "data": {
-          "eventType": "assistant.message_start",
-          "sourceId": "agent-1754355074649-leqha7uay",
-          "sourceType": "team",
-          "agentNumber": 1,
-          "round": 1,
-          "label": "Agent 1 Thinking Round 1"
-        },
-        "timestamp": "2025-08-05T00:51:14.656Z",
-        "connections": [
-          {
-            "fromId": "agent_1_copy_1",
-            "toId": "thinking_agent_1_copy_1_agent-1754355074_round1",
-            "type": "processes",
-            "label": "processes"
-          }
-        ]
-      },
-      {
-        "id": "response_agent-1754355074649-leqha7uay_1754355074656",
-        "type": "response",
-        "parentId": "agent_1_copy_1",
-        "level": 3,
-        "status": "completed",
-        "data": {
-          "eventType": "assistant.message_complete",
-          "sourceId": "agent-1754355074649-leqha7uay",
-          "sourceType": "agent",
-          "agentNumber": 1,
-          "label": "Agent 1 Response"
-        },
-        "timestamp": "2025-08-05T00:51:14.656Z",
-        "connections": [
-          {
-            "fromId": "thinking_agent_1_copy_1_agent-1754355074_round1",
-            "toId": "response_agent-1754355074649-leqha7uay_1754355074656",
-            "type": "return",
-            "label": "Agent 1 result"
-          }
-        ]
-      },
-      {
-        "id": "agent_2_copy_1",
-        "type": "agent",
-        "level": 4,
-        "status": "running",
-        "data": {
-          "eventType": "execution.start",
-          "sourceId": "agent-1754355074652-gc40znbxz",
-          "executionId": "unknown",
-          "agentNumber": 2,
-          "copyNumber": 1,
-          "label": "Agent 2 Copy 1",
-          "reservedThinkingId": "thinking_agent_2_copy_1"
-        },
-        "timestamp": "2025-08-05T00:51:14.657Z",
-        "connections": [],
-        "metadata": {
-          "agentNumber": 2,
-          "copyNumber": 1,
-          "standardStructure": {
-            "agentId": "agent_2_copy_1",
-            "thinkingId": "thinking_agent_2_copy_1"
-          }
-        }
-      },
-      {
-        "id": "thinking_agent_2_copy_1_agent-1754355074_round1",
-        "type": "agent_thinking",
-        "parentId": "agent_2_copy_1",
-        "level": 5,
-        "status": "running",
-        "data": {
-          "eventType": "assistant.message_start",
-          "sourceId": "agent-1754355074652-gc40znbxz",
-          "sourceType": "team",
-          "agentNumber": 2,
-          "round": 1,
-          "label": "Agent 2 Thinking Round 1"
-        },
-        "timestamp": "2025-08-05T00:51:14.657Z",
-        "connections": [
-          {
-            "fromId": "agent_2_copy_1",
-            "toId": "thinking_agent_2_copy_1_agent-1754355074_round1",
-            "type": "processes",
-            "label": "processes"
-          }
-        ]
-      },
-      {
-        "id": "response_agent-1754355074652-gc40znbxz_1754355074657",
-        "type": "response",
-        "parentId": "agent_2_copy_1",
-        "level": 3,
-        "status": "completed",
-        "data": {
-          "eventType": "assistant.message_complete",
-          "sourceId": "agent-1754355074652-gc40znbxz",
-          "sourceType": "agent",
-          "agentNumber": 2,
-          "label": "Agent 2 Response"
-        },
-        "timestamp": "2025-08-05T00:51:14.657Z",
-        "connections": [
-          {
-            "fromId": "thinking_agent_2_copy_1_agent-1754355074_round1",
-            "toId": "response_agent-1754355074652-gc40znbxz_1754355074657",
-            "type": "return",
-            "label": "Agent 2 result"
-          }
-        ]
-      },
-      {
-        "id": "agent_3_copy_1",
-        "type": "agent",
-        "level": 4,
-        "status": "running",
-        "data": {
-          "eventType": "execution.start",
-          "sourceId": "conv_1754355074650_ajms7ue",
-          "executionId": "unknown",
-          "agentNumber": 3,
-          "copyNumber": 1,
-          "label": "Agent 3 Copy 1",
-          "reservedThinkingId": "thinking_agent_3_copy_1"
-        },
-        "timestamp": "2025-08-05T00:51:14.653Z",
-        "connections": [
-          {
-            "fromId": "agent_3_copy_1",
-            "toId": "user_message_conv_1754355074650_ajms7ue",
-            "type": "receives",
-            "label": "receives input"
-          }
-        ],
-        "metadata": {
-          "agentNumber": 3,
-          "copyNumber": 1,
-          "standardStructure": {
-            "agentId": "agent_3_copy_1",
-            "thinkingId": "thinking_agent_3_copy_1"
-          }
-        }
-      },
-      {
-        "id": "user_message_conv_1754355074650_ajms7ue",
-        "type": "user_message",
-        "level": 0,
-        "status": "completed",
-        "data": {
-          "eventType": "user.message",
-          "sourceId": "conv_1754355074650_ajms7ue",
-          "parameters": {
-            "input": "Task: 카페 창업을 위한 시장 분석을 작성해 주세요. 시장 규모, 경쟁사 분석, 고객 세분화 및 트렌드 등을 포함하여 카페의 성공 가능성을 평가할 수 있는 정보를 제공해야 합니다.\\n\\nContext: 카페 창업을 고려하고 있는 예비 창업자를 위한 자료로, 시장 상황을 명확히 이해할 수 있도록 구체적인 데이터와 인사이트를 포함해야 합니다.\\n\\nPriority: high\\n\\nPlease complete this task thoroughly and provide a comprehensive response."
-          },
-          "label": "User Message"
-        },
-        "timestamp": "2025-08-05T00:51:14.653Z",
-        "connections": [
-          {
-            "fromId": "user_message_conv_1754355074650_ajms7ue",
-            "toId": "thinking_agent_3_copy_1_1754355074650_aj_round1",
-            "type": "processes",
-            "label": "triggers thinking"
-          }
-        ]
-      },
-      {
-        "id": "agent_4_copy_1",
-        "type": "agent",
-        "level": 4,
-        "status": "running",
-        "data": {
-          "eventType": "execution.start",
-          "sourceId": "conv_1754355074652_d2kzxwc",
-          "executionId": "unknown",
-          "agentNumber": 4,
-          "copyNumber": 1,
-          "label": "Agent 4 Copy 1",
-          "reservedThinkingId": "thinking_agent_4_copy_1"
-        },
-        "timestamp": "2025-08-05T00:51:14.653Z",
-        "connections": [
-          {
-            "fromId": "agent_4_copy_1",
-            "toId": "user_message_conv_1754355074652_d2kzxwc",
-            "type": "receives",
-            "label": "receives input"
-          }
-        ],
-        "metadata": {
-          "agentNumber": 4,
-          "copyNumber": 1,
-          "standardStructure": {
-            "agentId": "agent_4_copy_1",
-            "thinkingId": "thinking_agent_4_copy_1"
-          }
-        }
-      },
-      {
-        "id": "user_message_conv_1754355074652_d2kzxwc",
-        "type": "user_message",
-        "level": 0,
-        "status": "completed",
-        "data": {
-          "eventType": "user.message",
-          "sourceId": "conv_1754355074652_d2kzxwc",
-          "parameters": {
-            "input": "Task: 카페의 메뉴 구성을 작성해 주세요. 다양한 음료와 디저트 옵션을 포함하고, 각 메뉴 항목의 특징 및 가격대를 제안해야 합니다.\\n\\nContext: 고객의 다양한 취향을 반영한 메뉴를 구성하며, 경쟁력을 갖춘 가격대와 함께 트렌디한 아이템도 포함해야 합니다.\\n\\nPriority: high\\n\\nPlease complete this task thoroughly and provide a comprehensive response."
-          },
-          "label": "User Message"
-        },
-        "timestamp": "2025-08-05T00:51:14.654Z",
-        "connections": [
-          {
-            "fromId": "user_message_conv_1754355074652_d2kzxwc",
-            "toId": "thinking_agent_4_copy_1_1754355074652_d2_round1",
-            "type": "processes",
-            "label": "triggers thinking"
-          }
-        ]
-      },
-      {
-        "id": "thinking_agent_3_copy_1_1754355074650_aj_round1",
-        "type": "agent_thinking",
-        "parentId": "agent_3_copy_1",
-        "level": 5,
-        "status": "running",
-        "data": {
-          "eventType": "assistant.message_start",
-          "sourceId": "conv_1754355074650_ajms7ue",
-          "sourceType": "agent",
-          "agentNumber": 3,
-          "round": 1,
-          "label": "Agent 3 Thinking Round 1"
-        },
-        "timestamp": "2025-08-05T00:51:14.654Z",
-        "connections": [
-          {
-            "fromId": "agent_3_copy_1",
-            "toId": "thinking_agent_3_copy_1_1754355074650_aj_round1",
-            "type": "processes",
-            "label": "processes"
-          }
-        ]
-      },
-      {
-        "id": "thinking_agent_4_copy_1_1754355074652_d2_round1",
-        "type": "agent_thinking",
-        "parentId": "agent_4_copy_1",
-        "level": 5,
-        "status": "running",
-        "data": {
-          "eventType": "assistant.message_start",
-          "sourceId": "conv_1754355074652_d2kzxwc",
-          "sourceType": "agent",
-          "agentNumber": 4,
-          "round": 1,
-          "label": "Agent 4 Thinking Round 1"
-        },
-        "timestamp": "2025-08-05T00:51:14.654Z",
-        "connections": [
-          {
-            "fromId": "agent_4_copy_1",
-            "toId": "thinking_agent_4_copy_1_1754355074652_d2_round1",
-            "type": "processes",
-            "label": "processes"
-          }
-        ]
-      },
-      {
-        "id": "response_conv_1754355074652_d2kzxwc_1754355093997",
-        "type": "response",
-        "parentId": "agent_4_copy_1",
-        "level": 1,
-        "status": "completed",
-        "data": {
-          "eventType": "assistant.message_complete",
-          "sourceId": "conv_1754355074652_d2kzxwc",
-          "sourceType": "agent",
-          "result": {
-            "success": true,
-            "data": "## 카페 메뉴 구성\n\n### 음료 메뉴\n\n1. **스페셜티 커피**\n   - **드립 커피** - 5,000원\n     - 원두의 신선함이 살아있는 핸드 드립 커피. 깊은 풍미와..."
-          },
-          "agentNumber": 4,
-          "label": "Agent 4 Response"
-        },
-        "timestamp": "2025-08-05T00:51:33.995Z",
-        "connections": [
-          {
-            "fromId": "thinking_agent_4_copy_1_1754355074652_d2_round1",
-            "toId": "response_conv_1754355074652_d2kzxwc_1754355093997",
-            "type": "return",
-            "label": "Agent 4 result"
-          }
-        ]
-      },
-      {
-        "id": "tool_result_for_thinking_agent_0_copy_1_1754355069273_fk_round1",
-        "type": "tool_result",
-        "parentId": "thinking_agent_0_copy_1_1754355069273_fk_round1",
-        "level": 3,
-        "status": "running",
-        "data": {
-          "eventType": "task.aggregation_start",
-          "sourceId": "thinking_agent_0_copy_1_1754355069273_fk_round1",
-          "sourceType": "agent",
-          "label": "Tool Results for Agent 0",
-          "description": "Aggregating results for thinking node thinking_agent_0_copy_1_1754355069273_fk_round1"
-        },
-        "timestamp": "2025-08-05T00:51:34.014Z",
-        "connections": []
-      },
-      {
-        "id": "response_conv_1754355074650_ajms7ue_1754355096904",
-        "type": "response",
-        "parentId": "agent_3_copy_1",
-        "level": 1,
-        "status": "completed",
-        "data": {
-          "eventType": "assistant.message_complete",
-          "sourceId": "conv_1754355074650_ajms7ue",
-          "sourceType": "agent",
-          "result": {
-            "success": true,
-            "data": "카페 창업을 위한 시장 분석\n\n### 1. 시장 규모\n\n#### 1.1. 카페 시장 현황\n- **전 세계 카페 시장 규모**: 2023년 기준, 전 세계 카페 시장 규모는 약 45..."
-          },
-          "agentNumber": 3,
-          "label": "Agent 3 Response"
-        },
-        "timestamp": "2025-08-05T00:51:36.902Z",
-        "connections": [
-          {
-            "fromId": "thinking_agent_3_copy_1_1754355074650_aj_round1",
-            "toId": "response_conv_1754355074650_ajms7ue_1754355096904",
-            "type": "return",
-            "label": "Agent 3 result"
-          }
-        ]
-      },
-      {
-        "id": "tool_response_call_QieLYs7IXvIxRHHADLZjJ73d",
-        "type": "tool_call_response",
-        "parentId": "tool_call_call_QieLYs7IXvIxRHHADLZjJ73d",
-        "level": 2,
-        "status": "completed",
-        "data": {
-          "eventType": "tool_call_complete",
-          "sourceId": "conv_1754355069273_fkngwlfro",
-          "executionId": "call_QieLYs7IXvIxRHHADLZjJ73d",
-          "result": {
-            "success": true,
-            "data": "Task completed successfully by agent-1754355074649-leqha7uay.\n\nResult:\n카페 창업을 위한 시장 분석\n\n### 1. 시장 규모\n\n#### 1.1. 카페 시장 현황\n- **전 세계 카페 시장 규모**: 2023년 기준, 전 세계 카페 시장 규모는 약 4500억 달러에 달하며, 연평균 성장률(CAGR)은 4-5%로 예상되고 있습니다.\n- **한국 카페 시장**: 한국의 카페 시장 규모는 약 5조 원에 달하며, 이는 매년 5-7% 성장하고 있습니다. 특히, 2020년대 초반부터 코로나19로 인해 배달 및 테이크아웃 수요가 증가하면서 시장이 더욱 확장되었습니다.\n\n#### 1.2. 시장 세분화\n- **프랜차이즈 vs. 독립 카페**: 프랜차이즈 카페가 시장의 60% 이상을 차지하고 있으며, 독립 카페는 개성과 차별화를 통해 성장하고 있습니다.\n- **음료 종류**: 커피, 차, 주스, 디저트 등 다양한 음료와 식사가 제공되며, 최근에는 비건 및 건강 지향적인 메뉴가 주목받고 있습니다.\n\n### 2. 경쟁사 분석\n\n#### 2.1. 주요 경쟁사\n- **프랜차이즈 카페**: 스타벅스, 이디야, 커피빈 등 대형 프랜차이즈가 시장의 대부분을 차지하고 있으며, 브랜드 인지도와 안정적인 품질로 고객을 유치하고 있습니다.\n- **독립 카페**: 지역 특색을 살린 독립 카페들이 증가하고 있으며, 소비자들은 독창적인 메뉴와 분위기를 선호합니다. 예를 들어, '카페 드롭탑', '카페24'와 같은 브랜드가 있습니다.\n\n#### 2.2. 경쟁 분석\n- **가격**: 프랜차이즈 카페는 가격이 다소 비쌀 수 있지만, 품질과 서비스에서 신뢰를 얻고 있습니다. 독립 카페는 가격 경쟁력을 갖추고, 독특한 경험을 제공하여 고객을 유치합니다.\n- **서비스 및 경험**: 고객 경험을 중시하는 경향이 있으며, 인테리어와 분위기, 고객 서비스가 중요한 요소로 작용합니다.\n\n### 3. 고객 세분화\n\n#### 3.1. 주요 고객층\n- **학생 및 젊은 직장인**: 공부나 회의 장소로 카페를 이용하며, Wi-Fi와 전원 시설이 중요한 요소입니다.\n- **가족 단위 고객**: 여유로운 분위기와 다양한 메뉴를 선호하며, 어린이를 위한 메뉴나 공간이 필요합니다.\n- **건강 지향 고객**: 비건, 저칼로리, 유기농 음료 및 디저트를 찾는 고객층이 증가하고 있습니다.\n\n#### 3.2. 고객의 요구\n- **품질**: 고급 원두와 신선한 재료를 사용한 음료.\n- **경험**: 인스타그램에 올릴 수 있는 독특한 인테리어와 메뉴.\n- **편의성**: 배달 서비스와 모바일 주문 시스템.\n\n### 4. 트렌드 분석\n\n#### 4.1. 지속 가능한 카페\n- 환경 문제에 대한 인식이 높아지면서, 지속 가능한 재료 사용과 친환경적인 운영 방식이 중요해지고 있습니다.\n\n#### 4.2. 디지털화\n- 모바일 주문 및 결제 시스템, 소셜 미디어 마케팅이 필수적입니다. 고객과의 소통을 위한 SNS 활용이 중요합니다.\n\n#### 4.3. 건강 및 웰빙\n- 건강을 중시하는 소비자들이 증가하면서, 저당, 저칼로리, 유기농 제품에 대한 수요가 증가하고 있습니다.\n\n### 5. 성공 가능성 평가\n\n#### 5.1. 기회\n- 독립 카페의 경우, 차별화된 메뉴와 독특한 경험을 제공함으로써 소비자들의 관심을 끌 수 있습니다.\n- 지속 가능한 경영을 통해 환경 친화적인 브랜드 이미지를 구축할 수 있습니다.\n\n#### 5.2. 위협\n- 대형 프랜차이즈와의 가격 경쟁에서 어려움을 겪을 수 있으며, 시장 포화 상태로 인해 신규 진입이 어려울 수 있습니다.\n\n#### 5.3. 결론\n카페 창업은 시장 규모와 성장 가능성이 크지만, 경쟁이 치열하고 소비자의 요구가 다양해지고 있습니다. 성공적인 카페를 운영하기 위해서는 차별화된 메뉴, 독창적인 경험, 그리고 지속 가능한 경영 전략이 필수적입니다. 또한, 디지털 마케팅과 고객 소통을 강화하여 소비자와의 관계를 구축하는 것이 중요합니다.\n\nExecution time: 22267ms\nTokens used: 543, Agent executions: 1, Success rate: 100.0%"
-          },
-          "toolName": "assignTask"
-        },
-        "timestamp": "2025-08-05T00:51:36.917Z",
-        "connections": [
-          {
-            "fromId": "tool_call_call_QieLYs7IXvIxRHHADLZjJ73d",
-            "toId": "tool_response_call_QieLYs7IXvIxRHHADLZjJ73d",
-            "type": "result",
-            "label": "tool result"
-          },
-          {
-            "fromId": "tool_response_call_QieLYs7IXvIxRHHADLZjJ73d",
-            "toId": "tool_result_for_thinking_agent_0_copy_1_1754355069273_fk_round1",
-            "type": "result"
-          }
-        ]
-      },
-      {
-        "id": "tool_response_call_B45ROut2Ceagw40UGvenA3Ek",
-        "type": "tool_call_response",
-        "parentId": "tool_call_call_B45ROut2Ceagw40UGvenA3Ek",
-        "level": 2,
-        "status": "completed",
-        "data": {
-          "eventType": "tool_call_complete",
-          "sourceId": "conv_1754355069273_fkngwlfro",
-          "executionId": "call_B45ROut2Ceagw40UGvenA3Ek",
-          "result": {
-            "success": true,
-            "data": "Task completed successfully by agent-1754355074652-gc40znbxz.\n\nResult:\n## 카페 메뉴 구성\n\n### 음료 메뉴\n\n1. **스페셜티 커피**\n   - **드립 커피** - 5,000원\n     - 원두의 신선함이 살아있는 핸드 드립 커피. 깊은 풍미와 깔끔한 맛이 특징이며, 다양한 원두 선택 가능.\n   - **카푸치노** - 6,500원\n     - 부드러운 우유 거품과 진한 에스프레소의 조화. 바닐라 시럽 추가 가능.\n   - **아메리카노** - 4,500원\n     - 진한 에스프레소에 뜨거운 물을 추가한 클래식한 메뉴. 아이스 아메리카노로 변경 가능.\n\n2. **티(Tea) 메뉴**\n   - **다즐링 블랙티** - 5,500원\n     - 신선하고 암울한 향이 매력적인 다즐링 블랙티. 스트레이트 또는 레몬 추가 가능.\n   - **허브차 세트** - 6,000원\n     - 카모마일, 페퍼민트 등 다양한 허브차를 즐길 수 있는 세트. 기분 전환에 좋은 옵션.\n\n3. **시즌 한정 음료**\n   - **호박 라떼** - 7,000원\n     - 부드러운 호박 퓨레와 스파이스가 조화를 이루는 따뜻한 음료. 가을 한정 메뉴.\n   - **딸기 요거트 스무디** - 8,000원\n     - 신선한 딸기와 요거트를 블렌딩하여 만든 상큼한 음료. 여름 한정 메뉴.\n\n4. **탄산 음료**\n   - **수제 레몬 에이드** - 5,500원\n     - 신선한 레몬즙을 사용하여 만든 상큼한 에이드. 탄산의 기분 좋은 청량감.\n   - **자몽 스파클링** - 6,500원\n     - 자몽과 탄산수의 조화로 상큼하고 고급스러운 맛을 느낄 수 있는 음료.\n\n### 디저트 메뉴\n\n1. **케이크**\n   - **레드벨벳 케이크** - 6,000원\n     - 부드러운 식감과 달콤한 크림치즈 프로스팅이 어우러진 인기 디저트.\n   - **초코 무스 케이크** - 6,500원\n     - 진한 초콜릿 맛을 자랑하는 무스 케이크. 초콜릿 사랑하는 이들에게 추천.\n\n2. **쿠키 및 패스츄리**\n   - **초코칩 쿠키** - 2,500원\n     - 바삭한 식감과 고소한 초콜릿이 풍부한 쿠키. 따뜻하게 데워서 제공.\n   - **크로와상** - 3,500원\n     - 고급 버터로 만들어진 바삭하고 부드러운 크로와상. 커피와 함께 즐기기 좋은 조합.\n\n3. **제철 과일 디저트**\n   - **과일 타르트** - 6,000원\n     - 신선한 제철 과일로 장식한 크림 타르트. 건강하고 상큼한 디저트.\n   - **망고 푸딩** - 5,500원\n     - 부드러운 망고 퓨레와 코코넛 크림으로 만든 푸딩. 여름에 특히 인기.\n\n### 추가 옵션 및 제안\n- **음료 리필**: 일부 음료에 대해 리필 서비스를 제공하여 고객 만족도를 높임.\n- **세트 메뉴**: 음료 + 디저트 세트로 할인 혜택 제공 (예: 음료 + 쿠키 세트 8,000원).\n- **비건 옵션**: 비건 커피, 비건 디저트 메뉴 추가로 다양한 고객층 유치.\n\n### 결론\n이 메뉴 구성은 다양한 고객의 취향을 반영하며, 트렌디한 아이템을 포함하고 있습니다. 가격대는 경쟁력을 갖추고 있어 많은 고객이 부담 없이 즐길 수 있습니다.\n\nExecution time: 19359ms\nTokens used: 447, Agent executions: 1, Success rate: 100.0%"
-          },
-          "toolName": "assignTask"
-        },
-        "timestamp": "2025-08-05T00:51:36.917Z",
-        "connections": [
-          {
-            "fromId": "tool_call_call_B45ROut2Ceagw40UGvenA3Ek",
-            "toId": "tool_response_call_B45ROut2Ceagw40UGvenA3Ek",
-            "type": "result",
-            "label": "tool result"
-          },
-          {
-            "fromId": "tool_response_call_B45ROut2Ceagw40UGvenA3Ek",
-            "toId": "tool_result_for_thinking_agent_0_copy_1_1754355069273_fk_round1",
-            "type": "result"
-          }
-        ]
-      }
-    ],
-    "nodeIds": [
-      "agent_0_copy_1",
-      "user_message_conv_1754355069273_fkngwlfro",
-      "thinking_agent_0_copy_1_1754355069273_fk_round1",
-      "tool_call_call_QieLYs7IXvIxRHHADLZjJ73d",
-      "tool_call_call_B45ROut2Ceagw40UGvenA3Ek",
-      "agent_1_copy_1",
-      "thinking_agent_1_copy_1_agent-1754355074_round1",
-      "response_agent-1754355074649-leqha7uay_1754355074656",
-      "agent_2_copy_1",
-      "thinking_agent_2_copy_1_agent-1754355074_round1",
-      "response_agent-1754355074652-gc40znbxz_1754355074657",
-      "agent_3_copy_1",
-      "user_message_conv_1754355074650_ajms7ue",
-      "agent_4_copy_1",
-      "user_message_conv_1754355074652_d2kzxwc",
-      "thinking_agent_3_copy_1_1754355074650_aj_round1",
-      "thinking_agent_4_copy_1_1754355074652_d2_round1",
-      "response_conv_1754355074652_d2kzxwc_1754355093997",
-      "tool_result_for_thinking_agent_0_copy_1_1754355069273_fk_round1",
-      "response_conv_1754355074650_ajms7ue_1754355096904",
-      "tool_response_call_QieLYs7IXvIxRHHADLZjJ73d",
-      "tool_response_call_B45ROut2Ceagw40UGvenA3Ek"
-    ]
-  },
-  "allNodes": [
+  "__workflowType": "UniversalWorkflowStructure",
+  "id": "example-26-edge-verification",
+  "name": "Example 26 Edge Verification Result",
+  "nodes": [
     {
       "id": "agent_0_copy_1",
       "type": "agent",
-      "level": 1,
-      "status": "running",
       "data": {
         "eventType": "execution.start",
-        "sourceId": "conv_1754355069273_fkngwlfro",
+        "sourceId": "conv_1754499843580_y4lprnct7",
         "executionId": "unknown",
         "agentNumber": 0,
         "copyNumber": 1,
         "label": "Agent 0 Copy 1",
         "reservedThinkingId": "thinking_agent_0_copy_1"
       },
-      "timestamp": "2025-08-05T00:51:09.274Z",
-      "connections": [
-        {
-          "fromId": "agent_0_copy_1",
-          "toId": "user_message_conv_1754355069273_fkngwlfro",
-          "type": "receives",
-          "label": "receives input"
-        }
-      ],
-      "metadata": {
-        "agentNumber": 0,
-        "copyNumber": 1,
-        "standardStructure": {
-          "agentId": "agent_0_copy_1",
-          "thinkingId": "thinking_agent_0_copy_1"
-        }
-      }
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "style": {
+        "type": "default",
+        "variant": "primary"
+      },
+      "createdAt": "2025-08-06T17:04:03.609Z",
+      "updatedAt": "2025-08-06T17:04:03.609Z",
+      "timestamp": 1754499843609
     },
     {
-      "id": "user_message_conv_1754355069273_fkngwlfro",
+      "id": "user_message_conv_1754499843580_y4lprnct7",
       "type": "user_message",
-      "level": 0,
-      "status": "completed",
       "data": {
         "eventType": "user.message",
-        "sourceId": "conv_1754355069273_fkngwlfro",
+        "sourceId": "conv_1754499843580_y4lprnct7",
         "parameters": {
-          "input": "카페 창업 계획서를 작성해주세요. 반드시 다음 두 부분을 모두 포함해야 합니다: 시장 분석, 메뉴 구성. 각각을 별도로 작성해주세요."
+          "input": "카페 창업 계획서를 작성해주세요. 반드시 다음 두 부분을 모두 포함해야 합니다: 1) 시장 분석 (경쟁사, 타겟 고객, 트렌드) 2) 메뉴 구성 (음료 3개, 디저트 2개, 가격대) 각각을 별도의 팀원이 작성해주세요."
         },
         "label": "User Message"
       },
-      "timestamp": "2025-08-05T00:51:09.275Z",
-      "connections": [
-        {
-          "fromId": "user_message_conv_1754355069273_fkngwlfro",
-          "toId": "thinking_agent_0_copy_1_1754355069273_fk_round1",
-          "type": "processes",
-          "label": "triggers thinking"
-        }
-      ]
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "style": {
+        "type": "default",
+        "variant": "primary"
+      },
+      "createdAt": "2025-08-06T17:04:03.611Z",
+      "updatedAt": "2025-08-06T17:04:03.611Z",
+      "timestamp": 1754499843611
     },
     {
-      "id": "thinking_agent_0_copy_1_1754355069273_fk_round1",
+      "id": "thinking_agent_0_copy_1_1754499843580_y4_round1",
       "type": "agent_thinking",
-      "parentId": "agent_0_copy_1",
-      "level": 2,
-      "status": "running",
       "data": {
         "eventType": "assistant.message_start",
-        "sourceId": "conv_1754355069273_fkngwlfro",
+        "sourceId": "conv_1754499843580_y4lprnct7",
         "sourceType": "agent",
         "agentNumber": 0,
         "round": 1,
         "label": "Agent 0 Thinking Round 1"
       },
-      "timestamp": "2025-08-05T00:51:09.276Z",
-      "connections": [
-        {
-          "fromId": "agent_0_copy_1",
-          "toId": "thinking_agent_0_copy_1_1754355069273_fk_round1",
-          "type": "processes",
-          "label": "processes"
-        },
-        {
-          "fromId": "thinking_agent_0_copy_1_1754355069273_fk_round1",
-          "toId": "tool_call_call_QieLYs7IXvIxRHHADLZjJ73d",
-          "type": "executes",
-          "label": "executes assignTask"
-        },
-        {
-          "fromId": "thinking_agent_0_copy_1_1754355069273_fk_round1",
-          "toId": "tool_call_call_B45ROut2Ceagw40UGvenA3Ek",
-          "type": "executes",
-          "label": "executes assignTask"
-        }
-      ]
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "style": {
+        "type": "default",
+        "variant": "primary"
+      },
+      "createdAt": "2025-08-06T17:04:03.612Z",
+      "updatedAt": "2025-08-06T17:04:03.612Z",
+      "timestamp": 1754499843612
     },
     {
-      "id": "tool_call_call_QieLYs7IXvIxRHHADLZjJ73d",
+      "id": "tool_call_call_TOus3JOtIQf7W385Y6CQtY5y",
       "type": "tool_call",
-      "parentId": "thinking_agent_0_copy_1_1754355069273_fk_round1",
-      "level": 3,
-      "status": "running",
       "data": {
         "eventType": "tool_call_start",
         "toolName": "unknown_tool",
-        "executionId": "call_QieLYs7IXvIxRHHADLZjJ73d",
+        "executionId": "call_TOus3JOtIQf7W385Y6CQtY5y",
         "parameters": {
-          "jobDescription": "카페 창업을 위한 시장 분석을 작성해 주세요. 시장 규모, 경쟁사 분석, 고객 세분화 및 트렌드 등을 포함하여 카페의 성공 가능성을 평가할 수 있는 정보를 제공해야 합니다.",
+          "jobDescription": "카페 창업을 위한 시장 분석을 포함하는 보고서를 작성한다. 이 보고서에는 경쟁사 분석, 타겟 고객 정의, 현재의 카페 트렌드에 대한 정보가 포함되어야 한다.",
           "agentTemplate": "domain_researcher",
           "priority": "high",
-          "context": "카페 창업을 고려하고 있는 예비 창업자를 위한 자료로, 시장 상황을 명확히 이해할 수 있도록 구체적인 데이터와 인사이트를 포함해야 합니다."
+          "context": "카페 창업을 위한 기초 데이터로 활용될 예정이며, 각 요소에 대해 가능한 구체적이고 실질적인 정보를 제공해야 한다."
         }
       },
-      "timestamp": "2025-08-05T00:51:14.650Z",
-      "connections": [
-        {
-          "fromId": "tool_call_call_QieLYs7IXvIxRHHADLZjJ73d",
-          "toId": "agent_3_copy_1",
-          "type": "creates",
-          "label": "creates agent"
-        }
-      ]
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "style": {
+        "type": "default",
+        "variant": "primary"
+      },
+      "createdAt": "2025-08-06T17:04:09.272Z",
+      "updatedAt": "2025-08-06T17:04:09.272Z",
+      "timestamp": 1754499849272
     },
     {
-      "id": "tool_call_call_B45ROut2Ceagw40UGvenA3Ek",
+      "id": "tool_call_call_nY8upf6kf5OwGTTIyeQ64rWI",
       "type": "tool_call",
-      "parentId": "thinking_agent_0_copy_1_1754355069273_fk_round1",
-      "level": 3,
-      "status": "running",
       "data": {
         "eventType": "tool_call_start",
         "toolName": "unknown_tool",
-        "executionId": "call_B45ROut2Ceagw40UGvenA3Ek",
+        "executionId": "call_nY8upf6kf5OwGTTIyeQ64rWI",
         "parameters": {
-          "jobDescription": "카페의 메뉴 구성을 작성해 주세요. 다양한 음료와 디저트 옵션을 포함하고, 각 메뉴 항목의 특징 및 가격대를 제안해야 합니다.",
+          "jobDescription": "카페의 메뉴 구성을 작성한다. 메뉴에는 음료 3개, 디저트 2개가 포함되어야 하며, 각 메뉴 항목의 가격대를 제시한다.",
           "agentTemplate": "creative_ideator",
           "priority": "high",
-          "context": "고객의 다양한 취향을 반영한 메뉴를 구성하며, 경쟁력을 갖춘 가격대와 함께 트렌디한 아이템도 포함해야 합니다."
+          "context": "고객의 선호도와 시장 트렌드를 반영하여 메뉴를 구성해야 한다. 가격대는 경쟁사와 유사하게 설정할 것."
         }
       },
-      "timestamp": "2025-08-05T00:51:14.652Z",
-      "connections": [
-        {
-          "fromId": "tool_call_call_B45ROut2Ceagw40UGvenA3Ek",
-          "toId": "agent_4_copy_1",
-          "type": "creates",
-          "label": "creates agent"
-        }
-      ]
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "style": {
+        "type": "default",
+        "variant": "primary"
+      },
+      "createdAt": "2025-08-06T17:04:09.273Z",
+      "updatedAt": "2025-08-06T17:04:09.273Z",
+      "timestamp": 1754499849273
     },
     {
       "id": "agent_1_copy_1",
       "type": "agent",
-      "level": 4,
-      "status": "running",
       "data": {
         "eventType": "execution.start",
-        "sourceId": "agent-1754355074649-leqha7uay",
+        "sourceId": "conv_1754499849183_je70n9l",
         "executionId": "unknown",
         "agentNumber": 1,
         "copyNumber": 1,
         "label": "Agent 1 Copy 1",
         "reservedThinkingId": "thinking_agent_1_copy_1"
       },
-      "timestamp": "2025-08-05T00:51:14.656Z",
-      "connections": [],
-      "metadata": {
-        "agentNumber": 1,
-        "copyNumber": 1,
-        "standardStructure": {
-          "agentId": "agent_1_copy_1",
-          "thinkingId": "thinking_agent_1_copy_1"
-        }
-      }
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "style": {
+        "type": "default",
+        "variant": "primary"
+      },
+      "createdAt": "2025-08-06T17:04:09.273Z",
+      "updatedAt": "2025-08-06T17:04:09.273Z",
+      "timestamp": 1754499849273
     },
     {
-      "id": "thinking_agent_1_copy_1_agent-1754355074_round1",
-      "type": "agent_thinking",
-      "parentId": "agent_1_copy_1",
-      "level": 5,
-      "status": "running",
+      "id": "user_message_conv_1754499849183_je70n9l",
+      "type": "user_message",
       "data": {
-        "eventType": "assistant.message_start",
-        "sourceId": "agent-1754355074649-leqha7uay",
-        "sourceType": "team",
-        "agentNumber": 1,
-        "round": 1,
-        "label": "Agent 1 Thinking Round 1"
+        "eventType": "user.message",
+        "sourceId": "conv_1754499849183_je70n9l",
+        "parameters": {
+          "input": "Task: 카페 창업을 위한 시장 분석을 포함하는 보고서를 작성한다. 이 보고서에는 경쟁사 분석, 타겟 고객 정의, 현재의 카페 트렌드에 대한 정보가 포함되어야 한다.\\n\\nContext: 카페 창업을 위한 기초 데이터로 활용될 예정이며, 각 요소에 대해 가능한 구체적이고 실질적인 정보를 제공해야 한다.\\n\\nPriority: high\\n\\nPlease complete this task thoroughly and provide a comprehensive response."
+        },
+        "label": "User Message"
       },
-      "timestamp": "2025-08-05T00:51:14.656Z",
-      "connections": [
-        {
-          "fromId": "agent_1_copy_1",
-          "toId": "thinking_agent_1_copy_1_agent-1754355074_round1",
-          "type": "processes",
-          "label": "processes"
-        }
-      ]
-    },
-    {
-      "id": "response_agent-1754355074649-leqha7uay_1754355074656",
-      "type": "response",
-      "parentId": "agent_1_copy_1",
-      "level": 3,
-      "status": "completed",
-      "data": {
-        "eventType": "assistant.message_complete",
-        "sourceId": "agent-1754355074649-leqha7uay",
-        "sourceType": "agent",
-        "agentNumber": 1,
-        "label": "Agent 1 Response"
+      "position": {
+        "x": 0,
+        "y": 0
       },
-      "timestamp": "2025-08-05T00:51:14.656Z",
-      "connections": [
-        {
-          "fromId": "thinking_agent_1_copy_1_agent-1754355074_round1",
-          "toId": "response_agent-1754355074649-leqha7uay_1754355074656",
-          "type": "return",
-          "label": "Agent 1 result"
-        }
-      ]
+      "style": {
+        "type": "default",
+        "variant": "primary"
+      },
+      "createdAt": "2025-08-06T17:04:09.275Z",
+      "updatedAt": "2025-08-06T17:04:09.275Z",
+      "timestamp": 1754499849275
     },
     {
       "id": "agent_2_copy_1",
       "type": "agent",
-      "level": 4,
-      "status": "running",
       "data": {
         "eventType": "execution.start",
-        "sourceId": "agent-1754355074652-gc40znbxz",
+        "sourceId": "conv_1754499849189_eeexy15",
         "executionId": "unknown",
         "agentNumber": 2,
         "copyNumber": 1,
         "label": "Agent 2 Copy 1",
         "reservedThinkingId": "thinking_agent_2_copy_1"
       },
-      "timestamp": "2025-08-05T00:51:14.657Z",
-      "connections": [],
-      "metadata": {
-        "agentNumber": 2,
-        "copyNumber": 1,
-        "standardStructure": {
-          "agentId": "agent_2_copy_1",
-          "thinkingId": "thinking_agent_2_copy_1"
-        }
-      }
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "style": {
+        "type": "default",
+        "variant": "primary"
+      },
+      "createdAt": "2025-08-06T17:04:09.275Z",
+      "updatedAt": "2025-08-06T17:04:09.275Z",
+      "timestamp": 1754499849275
     },
     {
-      "id": "thinking_agent_2_copy_1_agent-1754355074_round1",
+      "id": "user_message_conv_1754499849189_eeexy15",
+      "type": "user_message",
+      "data": {
+        "eventType": "user.message",
+        "sourceId": "conv_1754499849189_eeexy15",
+        "parameters": {
+          "input": "Task: 카페의 메뉴 구성을 작성한다. 메뉴에는 음료 3개, 디저트 2개가 포함되어야 하며, 각 메뉴 항목의 가격대를 제시한다.\\n\\nContext: 고객의 선호도와 시장 트렌드를 반영하여 메뉴를 구성해야 한다. 가격대는 경쟁사와 유사하게 설정할 것.\\n\\nPriority: high\\n\\nPlease complete this task thoroughly and provide a comprehensive response."
+        },
+        "label": "User Message"
+      },
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "style": {
+        "type": "default",
+        "variant": "primary"
+      },
+      "createdAt": "2025-08-06T17:04:09.277Z",
+      "updatedAt": "2025-08-06T17:04:09.277Z",
+      "timestamp": 1754499849277
+    },
+    {
+      "id": "thinking_agent_1_copy_1_1754499849183_je_round1",
       "type": "agent_thinking",
-      "parentId": "agent_2_copy_1",
-      "level": 5,
-      "status": "running",
       "data": {
         "eventType": "assistant.message_start",
-        "sourceId": "agent-1754355074652-gc40znbxz",
-        "sourceType": "team",
+        "sourceId": "conv_1754499849183_je70n9l",
+        "sourceType": "agent",
+        "agentNumber": 1,
+        "round": 1,
+        "label": "Agent 1 Thinking Round 1"
+      },
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "style": {
+        "type": "default",
+        "variant": "primary"
+      },
+      "createdAt": "2025-08-06T17:04:09.278Z",
+      "updatedAt": "2025-08-06T17:04:09.278Z",
+      "timestamp": 1754499849278
+    },
+    {
+      "id": "thinking_agent_2_copy_1_1754499849189_ee_round1",
+      "type": "agent_thinking",
+      "data": {
+        "eventType": "assistant.message_start",
+        "sourceId": "conv_1754499849189_eeexy15",
+        "sourceType": "agent",
         "agentNumber": 2,
         "round": 1,
         "label": "Agent 2 Thinking Round 1"
       },
-      "timestamp": "2025-08-05T00:51:14.657Z",
-      "connections": [
-        {
-          "fromId": "agent_2_copy_1",
-          "toId": "thinking_agent_2_copy_1_agent-1754355074_round1",
-          "type": "processes",
-          "label": "processes"
-        }
-      ]
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "style": {
+        "type": "default",
+        "variant": "primary"
+      },
+      "createdAt": "2025-08-06T17:04:09.279Z",
+      "updatedAt": "2025-08-06T17:04:09.279Z",
+      "timestamp": 1754499849279
     },
     {
-      "id": "response_agent-1754355074652-gc40znbxz_1754355074657",
+      "id": "response_conv_1754499849189_eeexy15_1754499858433",
       "type": "response",
-      "parentId": "agent_2_copy_1",
-      "level": 3,
-      "status": "completed",
       "data": {
         "eventType": "assistant.message_complete",
-        "sourceId": "agent-1754355074652-gc40znbxz",
+        "sourceId": "conv_1754499849189_eeexy15",
         "sourceType": "agent",
+        "result": {
+          "success": true,
+          "data": "카페 메뉴 구성안\n\n**음료 (3종)**\n\n1. **아메리카노**\n   - 설명: 깊고 진한 커피의 맛을 즐길 수 있는 기본 음료로, 시원한 얼음과 함께 제공하면 여름철에도 인기...."
+        },
         "agentNumber": 2,
         "label": "Agent 2 Response"
       },
-      "timestamp": "2025-08-05T00:51:14.657Z",
-      "connections": [
-        {
-          "fromId": "thinking_agent_2_copy_1_agent-1754355074_round1",
-          "toId": "response_agent-1754355074652-gc40znbxz_1754355074657",
-          "type": "return",
-          "label": "Agent 2 result"
-        }
-      ]
-    },
-    {
-      "id": "agent_3_copy_1",
-      "type": "agent",
-      "level": 4,
-      "status": "running",
-      "data": {
-        "eventType": "execution.start",
-        "sourceId": "conv_1754355074650_ajms7ue",
-        "executionId": "unknown",
-        "agentNumber": 3,
-        "copyNumber": 1,
-        "label": "Agent 3 Copy 1",
-        "reservedThinkingId": "thinking_agent_3_copy_1"
+      "position": {
+        "x": 0,
+        "y": 0
       },
-      "timestamp": "2025-08-05T00:51:14.653Z",
-      "connections": [
-        {
-          "fromId": "agent_3_copy_1",
-          "toId": "user_message_conv_1754355074650_ajms7ue",
-          "type": "receives",
-          "label": "receives input"
-        }
-      ],
-      "metadata": {
-        "agentNumber": 3,
-        "copyNumber": 1,
-        "standardStructure": {
-          "agentId": "agent_3_copy_1",
-          "thinkingId": "thinking_agent_3_copy_1"
-        }
-      }
-    },
-    {
-      "id": "user_message_conv_1754355074650_ajms7ue",
-      "type": "user_message",
-      "level": 0,
-      "status": "completed",
-      "data": {
-        "eventType": "user.message",
-        "sourceId": "conv_1754355074650_ajms7ue",
-        "parameters": {
-          "input": "Task: 카페 창업을 위한 시장 분석을 작성해 주세요. 시장 규모, 경쟁사 분석, 고객 세분화 및 트렌드 등을 포함하여 카페의 성공 가능성을 평가할 수 있는 정보를 제공해야 합니다.\\n\\nContext: 카페 창업을 고려하고 있는 예비 창업자를 위한 자료로, 시장 상황을 명확히 이해할 수 있도록 구체적인 데이터와 인사이트를 포함해야 합니다.\\n\\nPriority: high\\n\\nPlease complete this task thoroughly and provide a comprehensive response."
-        },
-        "label": "User Message"
+      "style": {
+        "type": "default",
+        "variant": "primary"
       },
-      "timestamp": "2025-08-05T00:51:14.653Z",
-      "connections": [
-        {
-          "fromId": "user_message_conv_1754355074650_ajms7ue",
-          "toId": "thinking_agent_3_copy_1_1754355074650_aj_round1",
-          "type": "processes",
-          "label": "triggers thinking"
-        }
-      ]
+      "createdAt": "2025-08-06T17:04:18.433Z",
+      "updatedAt": "2025-08-06T17:04:18.433Z",
+      "timestamp": 1754499858433
     },
     {
-      "id": "agent_4_copy_1",
-      "type": "agent",
-      "level": 4,
-      "status": "running",
-      "data": {
-        "eventType": "execution.start",
-        "sourceId": "conv_1754355074652_d2kzxwc",
-        "executionId": "unknown",
-        "agentNumber": 4,
-        "copyNumber": 1,
-        "label": "Agent 4 Copy 1",
-        "reservedThinkingId": "thinking_agent_4_copy_1"
-      },
-      "timestamp": "2025-08-05T00:51:14.653Z",
-      "connections": [
-        {
-          "fromId": "agent_4_copy_1",
-          "toId": "user_message_conv_1754355074652_d2kzxwc",
-          "type": "receives",
-          "label": "receives input"
-        }
-      ],
-      "metadata": {
-        "agentNumber": 4,
-        "copyNumber": 1,
-        "standardStructure": {
-          "agentId": "agent_4_copy_1",
-          "thinkingId": "thinking_agent_4_copy_1"
-        }
-      }
-    },
-    {
-      "id": "user_message_conv_1754355074652_d2kzxwc",
-      "type": "user_message",
-      "level": 0,
-      "status": "completed",
-      "data": {
-        "eventType": "user.message",
-        "sourceId": "conv_1754355074652_d2kzxwc",
-        "parameters": {
-          "input": "Task: 카페의 메뉴 구성을 작성해 주세요. 다양한 음료와 디저트 옵션을 포함하고, 각 메뉴 항목의 특징 및 가격대를 제안해야 합니다.\\n\\nContext: 고객의 다양한 취향을 반영한 메뉴를 구성하며, 경쟁력을 갖춘 가격대와 함께 트렌디한 아이템도 포함해야 합니다.\\n\\nPriority: high\\n\\nPlease complete this task thoroughly and provide a comprehensive response."
-        },
-        "label": "User Message"
-      },
-      "timestamp": "2025-08-05T00:51:14.654Z",
-      "connections": [
-        {
-          "fromId": "user_message_conv_1754355074652_d2kzxwc",
-          "toId": "thinking_agent_4_copy_1_1754355074652_d2_round1",
-          "type": "processes",
-          "label": "triggers thinking"
-        }
-      ]
-    },
-    {
-      "id": "thinking_agent_3_copy_1_1754355074650_aj_round1",
-      "type": "agent_thinking",
-      "parentId": "agent_3_copy_1",
-      "level": 5,
-      "status": "running",
-      "data": {
-        "eventType": "assistant.message_start",
-        "sourceId": "conv_1754355074650_ajms7ue",
-        "sourceType": "agent",
-        "agentNumber": 3,
-        "round": 1,
-        "label": "Agent 3 Thinking Round 1"
-      },
-      "timestamp": "2025-08-05T00:51:14.654Z",
-      "connections": [
-        {
-          "fromId": "agent_3_copy_1",
-          "toId": "thinking_agent_3_copy_1_1754355074650_aj_round1",
-          "type": "processes",
-          "label": "processes"
-        }
-      ]
-    },
-    {
-      "id": "thinking_agent_4_copy_1_1754355074652_d2_round1",
-      "type": "agent_thinking",
-      "parentId": "agent_4_copy_1",
-      "level": 5,
-      "status": "running",
-      "data": {
-        "eventType": "assistant.message_start",
-        "sourceId": "conv_1754355074652_d2kzxwc",
-        "sourceType": "agent",
-        "agentNumber": 4,
-        "round": 1,
-        "label": "Agent 4 Thinking Round 1"
-      },
-      "timestamp": "2025-08-05T00:51:14.654Z",
-      "connections": [
-        {
-          "fromId": "agent_4_copy_1",
-          "toId": "thinking_agent_4_copy_1_1754355074652_d2_round1",
-          "type": "processes",
-          "label": "processes"
-        }
-      ]
-    },
-    {
-      "id": "response_conv_1754355074652_d2kzxwc_1754355093997",
-      "type": "response",
-      "parentId": "agent_4_copy_1",
-      "level": 1,
-      "status": "completed",
-      "data": {
-        "eventType": "assistant.message_complete",
-        "sourceId": "conv_1754355074652_d2kzxwc",
-        "sourceType": "agent",
-        "result": {
-          "success": true,
-          "data": "## 카페 메뉴 구성\n\n### 음료 메뉴\n\n1. **스페셜티 커피**\n   - **드립 커피** - 5,000원\n     - 원두의 신선함이 살아있는 핸드 드립 커피. 깊은 풍미와..."
-        },
-        "agentNumber": 4,
-        "label": "Agent 4 Response"
-      },
-      "timestamp": "2025-08-05T00:51:33.995Z",
-      "connections": [
-        {
-          "fromId": "thinking_agent_4_copy_1_1754355074652_d2_round1",
-          "toId": "response_conv_1754355074652_d2kzxwc_1754355093997",
-          "type": "return",
-          "label": "Agent 4 result"
-        }
-      ]
-    },
-    {
-      "id": "tool_result_for_thinking_agent_0_copy_1_1754355069273_fk_round1",
+      "id": "tool_result_for_thinking_agent_0_copy_1_1754499843580_y4_round1",
       "type": "tool_result",
-      "parentId": "thinking_agent_0_copy_1_1754355069273_fk_round1",
-      "level": 3,
-      "status": "running",
       "data": {
         "eventType": "task.aggregation_start",
-        "sourceId": "thinking_agent_0_copy_1_1754355069273_fk_round1",
+        "sourceId": "thinking_agent_0_copy_1_1754499843580_y4_round1",
         "sourceType": "agent",
         "label": "Tool Results for Agent 0",
-        "description": "Aggregating results for thinking node thinking_agent_0_copy_1_1754355069273_fk_round1"
+        "description": "Aggregating results for thinking node thinking_agent_0_copy_1_1754499843580_y4_round1"
       },
-      "timestamp": "2025-08-05T00:51:34.014Z",
-      "connections": []
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "style": {
+        "type": "default",
+        "variant": "primary"
+      },
+      "createdAt": "2025-08-06T17:04:18.446Z",
+      "updatedAt": "2025-08-06T17:04:18.446Z",
+      "timestamp": 1754499858446
     },
     {
-      "id": "response_conv_1754355074650_ajms7ue_1754355096904",
+      "id": "response_conv_1754499849183_je70n9l_1754499872985",
       "type": "response",
-      "parentId": "agent_3_copy_1",
-      "level": 1,
-      "status": "completed",
       "data": {
         "eventType": "assistant.message_complete",
-        "sourceId": "conv_1754355074650_ajms7ue",
+        "sourceId": "conv_1754499849183_je70n9l",
         "sourceType": "agent",
         "result": {
           "success": true,
-          "data": "카페 창업을 위한 시장 분석\n\n### 1. 시장 규모\n\n#### 1.1. 카페 시장 현황\n- **전 세계 카페 시장 규모**: 2023년 기준, 전 세계 카페 시장 규모는 약 45..."
+          "data": "# 카페 창업을 위한 시장 분석 보고서\n\n## 1. 서론\n카페 산업은 최근 몇 년간 빠르게 성장하고 있으며, 소비자들의 다양한 요구에 부응하기 위해 지속적으로 변화하고 있습니다. ..."
         },
-        "agentNumber": 3,
-        "label": "Agent 3 Response"
+        "agentNumber": 1,
+        "label": "Agent 1 Response"
       },
-      "timestamp": "2025-08-05T00:51:36.902Z",
-      "connections": [
-        {
-          "fromId": "thinking_agent_3_copy_1_1754355074650_aj_round1",
-          "toId": "response_conv_1754355074650_ajms7ue_1754355096904",
-          "type": "return",
-          "label": "Agent 3 result"
-        }
-      ]
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "style": {
+        "type": "default",
+        "variant": "primary"
+      },
+      "createdAt": "2025-08-06T17:04:32.985Z",
+      "updatedAt": "2025-08-06T17:04:32.985Z",
+      "timestamp": 1754499872985
     },
     {
-      "id": "tool_response_call_QieLYs7IXvIxRHHADLZjJ73d",
+      "id": "tool_response_call_TOus3JOtIQf7W385Y6CQtY5y",
       "type": "tool_call_response",
-      "parentId": "tool_call_call_QieLYs7IXvIxRHHADLZjJ73d",
-      "level": 2,
-      "status": "completed",
       "data": {
         "eventType": "tool_call_complete",
-        "sourceId": "conv_1754355069273_fkngwlfro",
-        "executionId": "call_QieLYs7IXvIxRHHADLZjJ73d",
+        "sourceId": "conv_1754499843580_y4lprnct7",
+        "executionId": "call_TOus3JOtIQf7W385Y6CQtY5y",
         "result": {
           "success": true,
-          "data": "Task completed successfully by agent-1754355074649-leqha7uay.\n\nResult:\n카페 창업을 위한 시장 분석\n\n### 1. 시장 규모\n\n#### 1.1. 카페 시장 현황\n- **전 세계 카페 시장 규모**: 2023년 기준, 전 세계 카페 시장 규모는 약 4500억 달러에 달하며, 연평균 성장률(CAGR)은 4-5%로 예상되고 있습니다.\n- **한국 카페 시장**: 한국의 카페 시장 규모는 약 5조 원에 달하며, 이는 매년 5-7% 성장하고 있습니다. 특히, 2020년대 초반부터 코로나19로 인해 배달 및 테이크아웃 수요가 증가하면서 시장이 더욱 확장되었습니다.\n\n#### 1.2. 시장 세분화\n- **프랜차이즈 vs. 독립 카페**: 프랜차이즈 카페가 시장의 60% 이상을 차지하고 있으며, 독립 카페는 개성과 차별화를 통해 성장하고 있습니다.\n- **음료 종류**: 커피, 차, 주스, 디저트 등 다양한 음료와 식사가 제공되며, 최근에는 비건 및 건강 지향적인 메뉴가 주목받고 있습니다.\n\n### 2. 경쟁사 분석\n\n#### 2.1. 주요 경쟁사\n- **프랜차이즈 카페**: 스타벅스, 이디야, 커피빈 등 대형 프랜차이즈가 시장의 대부분을 차지하고 있으며, 브랜드 인지도와 안정적인 품질로 고객을 유치하고 있습니다.\n- **독립 카페**: 지역 특색을 살린 독립 카페들이 증가하고 있으며, 소비자들은 독창적인 메뉴와 분위기를 선호합니다. 예를 들어, '카페 드롭탑', '카페24'와 같은 브랜드가 있습니다.\n\n#### 2.2. 경쟁 분석\n- **가격**: 프랜차이즈 카페는 가격이 다소 비쌀 수 있지만, 품질과 서비스에서 신뢰를 얻고 있습니다. 독립 카페는 가격 경쟁력을 갖추고, 독특한 경험을 제공하여 고객을 유치합니다.\n- **서비스 및 경험**: 고객 경험을 중시하는 경향이 있으며, 인테리어와 분위기, 고객 서비스가 중요한 요소로 작용합니다.\n\n### 3. 고객 세분화\n\n#### 3.1. 주요 고객층\n- **학생 및 젊은 직장인**: 공부나 회의 장소로 카페를 이용하며, Wi-Fi와 전원 시설이 중요한 요소입니다.\n- **가족 단위 고객**: 여유로운 분위기와 다양한 메뉴를 선호하며, 어린이를 위한 메뉴나 공간이 필요합니다.\n- **건강 지향 고객**: 비건, 저칼로리, 유기농 음료 및 디저트를 찾는 고객층이 증가하고 있습니다.\n\n#### 3.2. 고객의 요구\n- **품질**: 고급 원두와 신선한 재료를 사용한 음료.\n- **경험**: 인스타그램에 올릴 수 있는 독특한 인테리어와 메뉴.\n- **편의성**: 배달 서비스와 모바일 주문 시스템.\n\n### 4. 트렌드 분석\n\n#### 4.1. 지속 가능한 카페\n- 환경 문제에 대한 인식이 높아지면서, 지속 가능한 재료 사용과 친환경적인 운영 방식이 중요해지고 있습니다.\n\n#### 4.2. 디지털화\n- 모바일 주문 및 결제 시스템, 소셜 미디어 마케팅이 필수적입니다. 고객과의 소통을 위한 SNS 활용이 중요합니다.\n\n#### 4.3. 건강 및 웰빙\n- 건강을 중시하는 소비자들이 증가하면서, 저당, 저칼로리, 유기농 제품에 대한 수요가 증가하고 있습니다.\n\n### 5. 성공 가능성 평가\n\n#### 5.1. 기회\n- 독립 카페의 경우, 차별화된 메뉴와 독특한 경험을 제공함으로써 소비자들의 관심을 끌 수 있습니다.\n- 지속 가능한 경영을 통해 환경 친화적인 브랜드 이미지를 구축할 수 있습니다.\n\n#### 5.2. 위협\n- 대형 프랜차이즈와의 가격 경쟁에서 어려움을 겪을 수 있으며, 시장 포화 상태로 인해 신규 진입이 어려울 수 있습니다.\n\n#### 5.3. 결론\n카페 창업은 시장 규모와 성장 가능성이 크지만, 경쟁이 치열하고 소비자의 요구가 다양해지고 있습니다. 성공적인 카페를 운영하기 위해서는 차별화된 메뉴, 독창적인 경험, 그리고 지속 가능한 경영 전략이 필수적입니다. 또한, 디지털 마케팅과 고객 소통을 강화하여 소비자와의 관계를 구축하는 것이 중요합니다.\n\nExecution time: 22267ms\nTokens used: 543, Agent executions: 1, Success rate: 100.0%"
+          "data": "Task completed successfully by agent-1754499849179-jsqgqfqn4.\n\nResult:\n# 카페 창업을 위한 시장 분석 보고서\n\n## 1. 서론\n카페 산업은 최근 몇 년간 빠르게 성장하고 있으며, 소비자들의 다양한 요구에 부응하기 위해 지속적으로 변화하고 있습니다. 본 보고서는 카페 창업을 위한 시장 분석을 통해 경쟁사 분석, 타겟 고객 정의, 현재의 카페 트렌드에 대한 정보를 제공합니다.\n\n## 2. 경쟁사 분석\n\n### 2.1. 주요 경쟁사\n1. **스타벅스**\n   - **위치**: 도심 및 주요 상업지구\n   - **특징**: 프리미엄 커피, 다양한 음료 및 디저트, 편안한 분위기\n   - **강점**: 브랜드 인지도, 충성 고객층, 글로벌 네트워크\n\n2. **이디야 커피**\n   - **위치**: 전국적으로 분포\n   - **특징**: 합리적인 가격, 다양한 메뉴\n   - **강점**: 가격 경쟁력, 지역 밀착형 마케팅\n\n3. **카페베네**\n   - **위치**: 대도시 및 대학가\n   - **특징**: 아늑한 인테리어, 다양한 디저트\n   - **강점**: 독특한 메뉴 구성, 젊은 고객층 유치\n\n### 2.2. SWOT 분석\n- **강점**: \n  - 독창적인 메뉴 개발 가능\n  - 지역 사회와의 밀접한 관계\n- **약점**: \n  - 초기 투자 비용\n  - 브랜드 인지도 부족\n- **기회**: \n  - 건강 및 웰빙 트렌드에 맞춘 메뉴 개발\n  - 배달 서비스 및 온라인 판매 확대\n- **위협**: \n  - 대형 프랜차이즈의 가격 경쟁\n  - 변화하는 소비자 취향\n\n## 3. 타겟 고객 정의\n\n### 3.1. 고객 세분화\n1. **젊은 층 (20대 초반 ~ 30대 중반)**\n   - **특징**: 트렌드에 민감하고 소셜 미디어 활용 빈도가 높음\n   - **선호 메뉴**: 스페셜티 커피, 비건 및 건강식\n\n2. **직장인 (30대 중반 ~ 50대 초반)**\n   - **특징**: 업무 중 커피 소비, 회의 및 네트워킹 장소로 활용\n   - **선호 메뉴**: 고급 커피, 간편한 스낵\n\n3. **가족 단위 고객**\n   - **특징**: 주말에 가족과 함께 방문\n   - **선호 메뉴**: 디저트, 아동 메뉴\n\n### 3.2. 고객 니즈\n- 편안한 분위기와 인테리어\n- 무료 Wi-Fi 및 전원 공급\n- 다양한 메뉴 선택지\n\n## 4. 현재의 카페 트렌드\n\n### 4.1. 건강 및 웰빙\n- 소비자들이 건강을 중시함에 따라, 저칼로리, 비건, 유기농 메뉴의 수요가 증가하고 있습니다. 슈퍼푸드와 같은 건강 재료를 활용한 음료 및 디저트가 인기를 끌고 있습니다.\n\n### 4.2. 지속 가능성\n- 환경 문제에 대한 관심이 높아짐에 따라, 재사용 가능한 컵, 생분해성 포장재 사용 등이 중요해지고 있습니다. 소비자들은 지속 가능한 경영을 하는 브랜드에 더 많은 호감을 느끼고 있습니다.\n\n### 4.3. 경험 중심의 카페\n- 단순한 음료 제공을 넘어, 고객에게 특별한 경험을 제공하는 카페가 증가하고 있습니다. 예를 들어, 바리스타와의 소통, 커피 제조 체험, 다양한 문화 행사 개최 등이 이에 해당합니다.\n\n### 4.4. 디지털화\n- 온라인 주문 및 배달 서비스의 확대, 소셜 미디어를 통한 마케팅 강화가 필수적입니다. 특히, 모바일 앱을 통한 주문 및 결제 시스템이 소비자에게 편리함을 제공합니다.\n\n## 5. 결론\n카페 창업을 위해서는 경쟁사 분석, 타겟 고객 정의, 현재의 트렌드를 종합적으로 고려해야 합니다. 소비자들의 변화하는 요구에 맞춰 메뉴와 서비스를 지속적으로 개선하고, 브랜드의 독창성을 강조하는 것이 중요합니다. 이 보고서에 제시된 정보는 카페 창업을 위한 기초 데이터로 활용될 수 있으며, 성공적인 비즈니스를 위한 전략 수립에 기여할 것입니다.\n\nExecution time: 23817ms\nTokens used: 517, Agent executions: 1, Success rate: 100.0%"
         },
         "toolName": "assignTask"
       },
-      "timestamp": "2025-08-05T00:51:36.917Z",
-      "connections": [
-        {
-          "fromId": "tool_call_call_QieLYs7IXvIxRHHADLZjJ73d",
-          "toId": "tool_response_call_QieLYs7IXvIxRHHADLZjJ73d",
-          "type": "result",
-          "label": "tool result"
-        },
-        {
-          "fromId": "tool_response_call_QieLYs7IXvIxRHHADLZjJ73d",
-          "toId": "tool_result_for_thinking_agent_0_copy_1_1754355069273_fk_round1",
-          "type": "result"
-        }
-      ]
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "style": {
+        "type": "default",
+        "variant": "primary"
+      },
+      "createdAt": "2025-08-06T17:04:33.000Z",
+      "updatedAt": "2025-08-06T17:04:33.000Z",
+      "timestamp": 1754499873000
     },
     {
-      "id": "tool_response_call_B45ROut2Ceagw40UGvenA3Ek",
+      "id": "tool_response_call_nY8upf6kf5OwGTTIyeQ64rWI",
       "type": "tool_call_response",
-      "parentId": "tool_call_call_B45ROut2Ceagw40UGvenA3Ek",
-      "level": 2,
-      "status": "completed",
       "data": {
         "eventType": "tool_call_complete",
-        "sourceId": "conv_1754355069273_fkngwlfro",
-        "executionId": "call_B45ROut2Ceagw40UGvenA3Ek",
+        "sourceId": "conv_1754499843580_y4lprnct7",
+        "executionId": "call_nY8upf6kf5OwGTTIyeQ64rWI",
         "result": {
           "success": true,
-          "data": "Task completed successfully by agent-1754355074652-gc40znbxz.\n\nResult:\n## 카페 메뉴 구성\n\n### 음료 메뉴\n\n1. **스페셜티 커피**\n   - **드립 커피** - 5,000원\n     - 원두의 신선함이 살아있는 핸드 드립 커피. 깊은 풍미와 깔끔한 맛이 특징이며, 다양한 원두 선택 가능.\n   - **카푸치노** - 6,500원\n     - 부드러운 우유 거품과 진한 에스프레소의 조화. 바닐라 시럽 추가 가능.\n   - **아메리카노** - 4,500원\n     - 진한 에스프레소에 뜨거운 물을 추가한 클래식한 메뉴. 아이스 아메리카노로 변경 가능.\n\n2. **티(Tea) 메뉴**\n   - **다즐링 블랙티** - 5,500원\n     - 신선하고 암울한 향이 매력적인 다즐링 블랙티. 스트레이트 또는 레몬 추가 가능.\n   - **허브차 세트** - 6,000원\n     - 카모마일, 페퍼민트 등 다양한 허브차를 즐길 수 있는 세트. 기분 전환에 좋은 옵션.\n\n3. **시즌 한정 음료**\n   - **호박 라떼** - 7,000원\n     - 부드러운 호박 퓨레와 스파이스가 조화를 이루는 따뜻한 음료. 가을 한정 메뉴.\n   - **딸기 요거트 스무디** - 8,000원\n     - 신선한 딸기와 요거트를 블렌딩하여 만든 상큼한 음료. 여름 한정 메뉴.\n\n4. **탄산 음료**\n   - **수제 레몬 에이드** - 5,500원\n     - 신선한 레몬즙을 사용하여 만든 상큼한 에이드. 탄산의 기분 좋은 청량감.\n   - **자몽 스파클링** - 6,500원\n     - 자몽과 탄산수의 조화로 상큼하고 고급스러운 맛을 느낄 수 있는 음료.\n\n### 디저트 메뉴\n\n1. **케이크**\n   - **레드벨벳 케이크** - 6,000원\n     - 부드러운 식감과 달콤한 크림치즈 프로스팅이 어우러진 인기 디저트.\n   - **초코 무스 케이크** - 6,500원\n     - 진한 초콜릿 맛을 자랑하는 무스 케이크. 초콜릿 사랑하는 이들에게 추천.\n\n2. **쿠키 및 패스츄리**\n   - **초코칩 쿠키** - 2,500원\n     - 바삭한 식감과 고소한 초콜릿이 풍부한 쿠키. 따뜻하게 데워서 제공.\n   - **크로와상** - 3,500원\n     - 고급 버터로 만들어진 바삭하고 부드러운 크로와상. 커피와 함께 즐기기 좋은 조합.\n\n3. **제철 과일 디저트**\n   - **과일 타르트** - 6,000원\n     - 신선한 제철 과일로 장식한 크림 타르트. 건강하고 상큼한 디저트.\n   - **망고 푸딩** - 5,500원\n     - 부드러운 망고 퓨레와 코코넛 크림으로 만든 푸딩. 여름에 특히 인기.\n\n### 추가 옵션 및 제안\n- **음료 리필**: 일부 음료에 대해 리필 서비스를 제공하여 고객 만족도를 높임.\n- **세트 메뉴**: 음료 + 디저트 세트로 할인 혜택 제공 (예: 음료 + 쿠키 세트 8,000원).\n- **비건 옵션**: 비건 커피, 비건 디저트 메뉴 추가로 다양한 고객층 유치.\n\n### 결론\n이 메뉴 구성은 다양한 고객의 취향을 반영하며, 트렌디한 아이템을 포함하고 있습니다. 가격대는 경쟁력을 갖추고 있어 많은 고객이 부담 없이 즐길 수 있습니다.\n\nExecution time: 19359ms\nTokens used: 447, Agent executions: 1, Success rate: 100.0%"
+          "data": "Task completed successfully by agent-1754499849185-8skz05mj1.\n\nResult:\n카페 메뉴 구성안\n\n**음료 (3종)**\n\n1. **아메리카노**\n   - 설명: 깊고 진한 커피의 맛을 즐길 수 있는 기본 음료로, 시원한 얼음과 함께 제공하면 여름철에도 인기.\n   - 가격대: 4,500원 ~ 5,000원\n\n2. **그린티 라떼**\n   - 설명: 부드러운 우유와 고소한 말차의 조화로, 달콤하면서도 건강한 느낌을 주는 음료. 비건 옵션 가능.\n   - 가격대: 5,500원 ~ 6,000원\n\n3. **딸기 스무디**\n   - 설명: 신선한 딸기를 사용하여 상큼하고 시원한 맛을 제공하는 음료. 여름철 특히 추천.\n   - 가격대: 6,000원 ~ 6,500원\n\n**디저트 (2종)**\n\n1. **초코 브라우니**\n   - 설명: 촉촉하고 진한 초콜릿 맛을 자랑하는 브라우니로, 바닐라 아이스크림과 함께 제공.\n   - 가격대: 4,000원 ~ 4,500원\n\n2. **크림치즈 케이크**\n   - 설명: 부드러운 크림치즈와 바삭한 크러스트가 어우러져 환상적인 맛을 자랑하는 디저트. 차와 함께 즐기기 좋음.\n   - 가격대: 5,000원 ~ 5,500원\n\n**메뉴 구성 이유:**\n- **고객 선호도 반영**: 커피와 다양한 음료, 디저트의 조화롭게 구성하여 고객의 다양한 기호를 만족시킬 수 있도록 하였습니다.\n- **시장 트렌드 고려**: 건강과 웰빙을 중시하는 소비자들을 위해 그린티 라떼와 신선한 과일 스무디를 포함하였고, 디저트 역시 맛과 질감을 고려하여 구성하였습니다.\n- **경쟁력 있는 가격대**: 가격대는 주변 카페와 유사하게 설정하여 경쟁력을 유지하도록 하였습니다.\n\n위의 메뉴는 고객의 기대에 부응하고, 카페의 특성을 잘 반영한 구성으로, 향후 고객 피드백을 통해 지속적으로 개선해나갈 수 있습니다.\n\nExecution time: 9259ms\nTokens used: 275, Agent executions: 1, Success rate: 100.0%"
         },
         "toolName": "assignTask"
       },
-      "timestamp": "2025-08-05T00:51:36.917Z",
-      "connections": [
-        {
-          "fromId": "tool_call_call_B45ROut2Ceagw40UGvenA3Ek",
-          "toId": "tool_response_call_B45ROut2Ceagw40UGvenA3Ek",
-          "type": "result",
-          "label": "tool result"
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "style": {
+        "type": "default",
+        "variant": "primary"
+      },
+      "createdAt": "2025-08-06T17:04:33.005Z",
+      "updatedAt": "2025-08-06T17:04:33.005Z",
+      "timestamp": 1754499873005
+    },
+    {
+      "id": "thinking_agent_0_copy_1_1754499843580_y4_round2",
+      "type": "agent_thinking",
+      "data": {
+        "eventType": "assistant.message_start",
+        "sourceId": "conv_1754499843580_y4lprnct7",
+        "sourceType": "agent",
+        "agentNumber": 0,
+        "round": 2,
+        "label": "Agent 0 Thinking Round 2"
+      },
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "style": {
+        "type": "default",
+        "variant": "primary"
+      },
+      "createdAt": "2025-08-06T17:04:33.055Z",
+      "updatedAt": "2025-08-06T17:04:33.055Z",
+      "timestamp": 1754499873055
+    },
+    {
+      "id": "response_conv_1754499843580_y4lprnct7_1754499873560",
+      "type": "response",
+      "data": {
+        "eventType": "assistant.message_complete",
+        "sourceId": "conv_1754499843580_y4lprnct7",
+        "sourceType": "agent",
+        "result": {
+          "success": true,
+          "data": "Final response for Round 2"
         },
-        {
-          "fromId": "tool_response_call_B45ROut2Ceagw40UGvenA3Ek",
-          "toId": "tool_result_for_thinking_agent_0_copy_1_1754355069273_fk_round1",
-          "type": "result"
-        }
-      ]
+        "agentNumber": 0,
+        "label": "Agent 0 Response"
+      },
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "style": {
+        "type": "default",
+        "variant": "primary"
+      },
+      "createdAt": "2025-08-06T17:04:33.560Z",
+      "updatedAt": "2025-08-06T17:04:33.560Z",
+      "timestamp": 1754499873560
     }
-  ]
+  ],
+  "edges": [
+    {
+      "id": "edge_user_message_conv_1754499843580_y4lprnct7_to_agent_0_copy_1_0",
+      "source": "user_message_conv_1754499843580_y4lprnct7",
+      "target": "agent_0_copy_1",
+      "type": "receives",
+      "label": "receives input",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#666666"
+      },
+      "data": {
+        "executionOrder": 0,
+        "extensions": {
+          "robota": {
+            "originalType": "receives",
+            "originalConnection": {
+              "fromId": "user_message_conv_1754499843580_y4lprnct7",
+              "toId": "agent_0_copy_1",
+              "type": "receives",
+              "label": "receives input"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-06T17:04:03.611Z",
+      "updatedAt": "2025-08-06T17:04:03.611Z",
+      "timestamp": 1754499843611
+    },
+    {
+      "id": "edge_thinking_agent_0_copy_1_1754499843580_y4_round1_to_agent_0_copy_1_1",
+      "source": "thinking_agent_0_copy_1_1754499843580_y4_round1",
+      "target": "agent_0_copy_1",
+      "type": "processes",
+      "label": "Agent 0 processes",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#666666"
+      },
+      "data": {
+        "executionOrder": 1,
+        "extensions": {
+          "robota": {
+            "originalType": "processes",
+            "originalConnection": {
+              "fromId": "thinking_agent_0_copy_1_1754499843580_y4_round1",
+              "toId": "agent_0_copy_1",
+              "type": "processes",
+              "label": "Agent 0 processes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-06T17:04:03.612Z",
+      "updatedAt": "2025-08-06T17:04:03.612Z",
+      "timestamp": 1754499843612
+    },
+    {
+      "id": "edge_tool_call_call_TOus3JOtIQf7W385Y6CQtY5y_to_thinking_agent_0_copy_1_1754499843580_y4_round1_2",
+      "source": "tool_call_call_TOus3JOtIQf7W385Y6CQtY5y",
+      "target": "thinking_agent_0_copy_1_1754499843580_y4_round1",
+      "type": "executes",
+      "label": "executes assignTask",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#666666"
+      },
+      "data": {
+        "executionOrder": 2,
+        "extensions": {
+          "robota": {
+            "originalType": "executes",
+            "originalConnection": {
+              "fromId": "tool_call_call_TOus3JOtIQf7W385Y6CQtY5y",
+              "toId": "thinking_agent_0_copy_1_1754499843580_y4_round1",
+              "type": "executes",
+              "label": "executes assignTask"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-06T17:04:09.270Z",
+      "updatedAt": "2025-08-06T17:04:09.270Z",
+      "timestamp": 1754499849270
+    },
+    {
+      "id": "edge_tool_call_call_nY8upf6kf5OwGTTIyeQ64rWI_to_thinking_agent_0_copy_1_1754499843580_y4_round1_3",
+      "source": "tool_call_call_nY8upf6kf5OwGTTIyeQ64rWI",
+      "target": "thinking_agent_0_copy_1_1754499843580_y4_round1",
+      "type": "executes",
+      "label": "executes assignTask",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#666666"
+      },
+      "data": {
+        "executionOrder": 3,
+        "extensions": {
+          "robota": {
+            "originalType": "executes",
+            "originalConnection": {
+              "fromId": "tool_call_call_nY8upf6kf5OwGTTIyeQ64rWI",
+              "toId": "thinking_agent_0_copy_1_1754499843580_y4_round1",
+              "type": "executes",
+              "label": "executes assignTask"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-06T17:04:09.271Z",
+      "updatedAt": "2025-08-06T17:04:09.271Z",
+      "timestamp": 1754499849271
+    },
+    {
+      "id": "edge_agent_1_copy_1_to_tool_call_call_TOus3JOtIQf7W385Y6CQtY5y_4",
+      "source": "agent_1_copy_1",
+      "target": "tool_call_call_TOus3JOtIQf7W385Y6CQtY5y",
+      "type": "creates",
+      "label": "creates agent",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#666666"
+      },
+      "data": {
+        "executionOrder": 4,
+        "extensions": {
+          "robota": {
+            "originalType": "creates",
+            "originalConnection": {
+              "fromId": "agent_1_copy_1",
+              "toId": "tool_call_call_TOus3JOtIQf7W385Y6CQtY5y",
+              "type": "creates",
+              "label": "creates agent"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-06T17:04:09.273Z",
+      "updatedAt": "2025-08-06T17:04:09.273Z",
+      "timestamp": 1754499849273
+    },
+    {
+      "id": "edge_user_message_conv_1754499849183_je70n9l_to_agent_1_copy_1_5",
+      "source": "user_message_conv_1754499849183_je70n9l",
+      "target": "agent_1_copy_1",
+      "type": "receives",
+      "label": "receives input",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#666666"
+      },
+      "data": {
+        "executionOrder": 5,
+        "extensions": {
+          "robota": {
+            "originalType": "receives",
+            "originalConnection": {
+              "fromId": "user_message_conv_1754499849183_je70n9l",
+              "toId": "agent_1_copy_1",
+              "type": "receives",
+              "label": "receives input"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-06T17:04:09.275Z",
+      "updatedAt": "2025-08-06T17:04:09.275Z",
+      "timestamp": 1754499849275
+    },
+    {
+      "id": "edge_agent_2_copy_1_to_tool_call_call_nY8upf6kf5OwGTTIyeQ64rWI_6",
+      "source": "agent_2_copy_1",
+      "target": "tool_call_call_nY8upf6kf5OwGTTIyeQ64rWI",
+      "type": "creates",
+      "label": "creates agent",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#666666"
+      },
+      "data": {
+        "executionOrder": 6,
+        "extensions": {
+          "robota": {
+            "originalType": "creates",
+            "originalConnection": {
+              "fromId": "agent_2_copy_1",
+              "toId": "tool_call_call_nY8upf6kf5OwGTTIyeQ64rWI",
+              "type": "creates",
+              "label": "creates agent"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-06T17:04:09.275Z",
+      "updatedAt": "2025-08-06T17:04:09.275Z",
+      "timestamp": 1754499849275
+    },
+    {
+      "id": "edge_user_message_conv_1754499849189_eeexy15_to_agent_2_copy_1_7",
+      "source": "user_message_conv_1754499849189_eeexy15",
+      "target": "agent_2_copy_1",
+      "type": "receives",
+      "label": "receives input",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#666666"
+      },
+      "data": {
+        "executionOrder": 7,
+        "extensions": {
+          "robota": {
+            "originalType": "receives",
+            "originalConnection": {
+              "fromId": "user_message_conv_1754499849189_eeexy15",
+              "toId": "agent_2_copy_1",
+              "type": "receives",
+              "label": "receives input"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-06T17:04:09.277Z",
+      "updatedAt": "2025-08-06T17:04:09.277Z",
+      "timestamp": 1754499849277
+    },
+    {
+      "id": "edge_thinking_agent_1_copy_1_1754499849183_je_round1_to_agent_1_copy_1_8",
+      "source": "thinking_agent_1_copy_1_1754499849183_je_round1",
+      "target": "agent_1_copy_1",
+      "type": "processes",
+      "label": "Agent 1 processes",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#666666"
+      },
+      "data": {
+        "executionOrder": 8,
+        "extensions": {
+          "robota": {
+            "originalType": "processes",
+            "originalConnection": {
+              "fromId": "thinking_agent_1_copy_1_1754499849183_je_round1",
+              "toId": "agent_1_copy_1",
+              "type": "processes",
+              "label": "Agent 1 processes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-06T17:04:09.278Z",
+      "updatedAt": "2025-08-06T17:04:09.278Z",
+      "timestamp": 1754499849278
+    },
+    {
+      "id": "edge_thinking_agent_2_copy_1_1754499849189_ee_round1_to_agent_2_copy_1_9",
+      "source": "thinking_agent_2_copy_1_1754499849189_ee_round1",
+      "target": "agent_2_copy_1",
+      "type": "processes",
+      "label": "Agent 2 processes",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#666666"
+      },
+      "data": {
+        "executionOrder": 9,
+        "extensions": {
+          "robota": {
+            "originalType": "processes",
+            "originalConnection": {
+              "fromId": "thinking_agent_2_copy_1_1754499849189_ee_round1",
+              "toId": "agent_2_copy_1",
+              "type": "processes",
+              "label": "Agent 2 processes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-06T17:04:09.279Z",
+      "updatedAt": "2025-08-06T17:04:09.279Z",
+      "timestamp": 1754499849279
+    },
+    {
+      "id": "edge_response_conv_1754499849189_eeexy15_1754499858433_to_thinking_agent_2_copy_1_1754499849189_ee_round1_10",
+      "source": "response_conv_1754499849189_eeexy15_1754499858433",
+      "target": "thinking_agent_2_copy_1_1754499849189_ee_round1",
+      "type": "return",
+      "label": "Agent 2 result",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#666666"
+      },
+      "data": {
+        "executionOrder": 10,
+        "extensions": {
+          "robota": {
+            "originalType": "return",
+            "originalConnection": {
+              "fromId": "response_conv_1754499849189_eeexy15_1754499858433",
+              "toId": "thinking_agent_2_copy_1_1754499849189_ee_round1",
+              "type": "return",
+              "label": "Agent 2 result"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-06T17:04:18.433Z",
+      "updatedAt": "2025-08-06T17:04:18.433Z",
+      "timestamp": 1754499858433
+    },
+    {
+      "id": "edge_response_conv_1754499849183_je70n9l_1754499872985_to_thinking_agent_1_copy_1_1754499849183_je_round1_11",
+      "source": "response_conv_1754499849183_je70n9l_1754499872985",
+      "target": "thinking_agent_1_copy_1_1754499849183_je_round1",
+      "type": "return",
+      "label": "Agent 1 result",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#666666"
+      },
+      "data": {
+        "executionOrder": 11,
+        "extensions": {
+          "robota": {
+            "originalType": "return",
+            "originalConnection": {
+              "fromId": "response_conv_1754499849183_je70n9l_1754499872985",
+              "toId": "thinking_agent_1_copy_1_1754499849183_je_round1",
+              "type": "return",
+              "label": "Agent 1 result"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-06T17:04:32.985Z",
+      "updatedAt": "2025-08-06T17:04:32.985Z",
+      "timestamp": 1754499872985
+    },
+    {
+      "id": "edge_tool_response_call_TOus3JOtIQf7W385Y6CQtY5y_to_tool_call_call_TOus3JOtIQf7W385Y6CQtY5y_12",
+      "source": "tool_response_call_TOus3JOtIQf7W385Y6CQtY5y",
+      "target": "tool_call_call_TOus3JOtIQf7W385Y6CQtY5y",
+      "type": "result",
+      "label": "tool result",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#666666"
+      },
+      "data": {
+        "executionOrder": 12,
+        "extensions": {
+          "robota": {
+            "originalType": "result",
+            "originalConnection": {
+              "fromId": "tool_response_call_TOus3JOtIQf7W385Y6CQtY5y",
+              "toId": "tool_call_call_TOus3JOtIQf7W385Y6CQtY5y",
+              "type": "result",
+              "label": "tool result"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-06T17:04:33.000Z",
+      "updatedAt": "2025-08-06T17:04:33.000Z",
+      "timestamp": 1754499873000
+    },
+    {
+      "id": "edge_tool_response_call_nY8upf6kf5OwGTTIyeQ64rWI_to_tool_call_call_nY8upf6kf5OwGTTIyeQ64rWI_13",
+      "source": "tool_response_call_nY8upf6kf5OwGTTIyeQ64rWI",
+      "target": "tool_call_call_nY8upf6kf5OwGTTIyeQ64rWI",
+      "type": "result",
+      "label": "tool result",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#666666"
+      },
+      "data": {
+        "executionOrder": 13,
+        "extensions": {
+          "robota": {
+            "originalType": "result",
+            "originalConnection": {
+              "fromId": "tool_response_call_nY8upf6kf5OwGTTIyeQ64rWI",
+              "toId": "tool_call_call_nY8upf6kf5OwGTTIyeQ64rWI",
+              "type": "result",
+              "label": "tool result"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-06T17:04:33.005Z",
+      "updatedAt": "2025-08-06T17:04:33.005Z",
+      "timestamp": 1754499873005
+    },
+    {
+      "id": "edge_thinking_agent_0_copy_1_1754499843580_y4_round2_to_agent_0_copy_1_14",
+      "source": "thinking_agent_0_copy_1_1754499843580_y4_round2",
+      "target": "agent_0_copy_1",
+      "type": "processes",
+      "label": "Agent 0 processes",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#666666"
+      },
+      "data": {
+        "executionOrder": 14,
+        "extensions": {
+          "robota": {
+            "originalType": "processes",
+            "originalConnection": {
+              "fromId": "thinking_agent_0_copy_1_1754499843580_y4_round2",
+              "toId": "agent_0_copy_1",
+              "type": "processes",
+              "label": "Agent 0 processes"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-06T17:04:33.055Z",
+      "updatedAt": "2025-08-06T17:04:33.055Z",
+      "timestamp": 1754499873055
+    },
+    {
+      "id": "edge_response_conv_1754499843580_y4lprnct7_1754499873560_to_thinking_agent_0_copy_1_1754499843580_y4_round2_15",
+      "source": "response_conv_1754499843580_y4lprnct7_1754499873560",
+      "target": "thinking_agent_0_copy_1_1754499843580_y4_round2",
+      "type": "return",
+      "label": "Agent 0 result",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#666666"
+      },
+      "data": {
+        "executionOrder": 15,
+        "extensions": {
+          "robota": {
+            "originalType": "return",
+            "originalConnection": {
+              "fromId": "response_conv_1754499843580_y4lprnct7_1754499873560",
+              "toId": "thinking_agent_0_copy_1_1754499843580_y4_round2",
+              "type": "return",
+              "label": "Agent 0 result"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-06T17:04:33.560Z",
+      "updatedAt": "2025-08-06T17:04:33.560Z",
+      "timestamp": 1754499873560
+    },
+    {
+      "id": "edge_thinking_agent_0_copy_1_1754499843580_y4_round2_to_response_conv_1754499843580_y4lprnct7_1754499873560_16",
+      "source": "thinking_agent_0_copy_1_1754499843580_y4_round2",
+      "target": "response_conv_1754499843580_y4lprnct7_1754499873560",
+      "type": "return",
+      "label": "generates response",
+      "style": {
+        "type": "default",
+        "animated": false,
+        "strokeColor": "#666666"
+      },
+      "data": {
+        "executionOrder": 16,
+        "extensions": {
+          "robota": {
+            "originalType": "return",
+            "originalConnection": {
+              "fromId": "thinking_agent_0_copy_1_1754499843580_y4_round2",
+              "toId": "response_conv_1754499843580_y4lprnct7_1754499873560",
+              "type": "return",
+              "label": "generates response"
+            }
+          }
+        }
+      },
+      "createdAt": "2025-08-06T17:04:33.560Z",
+      "updatedAt": "2025-08-06T17:04:33.560Z",
+      "timestamp": 1754499873560
+    }
+  ],
+  "layout": {
+    "algorithm": "hierarchical",
+    "direction": "TB",
+    "spacing": {
+      "nodeSpacing": 200,
+      "levelSpacing": 150
+    },
+    "alignment": {
+      "horizontal": "center",
+      "vertical": "top"
+    }
+  }
 }

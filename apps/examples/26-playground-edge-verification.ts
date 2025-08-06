@@ -141,8 +141,9 @@ async function testPlaygroundEdgeConnections() {
                     data: node.data,
                     position: { x: 0, y: 0 }, // 기본 위치
                     style: { type: 'default', variant: 'primary' },
-                    createdAt: node.timestamp.toISOString(),
-                    updatedAt: node.timestamp.toISOString()
+                    createdAt: new Date(node.timestamp).toISOString(),
+                    updatedAt: new Date(node.timestamp).toISOString(),
+                    timestamp: node.timestamp  // Rule 10, 11 준수를 위한 timestamp 필드 보존
                 })),
                 edges: workflowData.edges,
                 metadata: {

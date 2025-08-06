@@ -10,6 +10,7 @@ import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
 import type { WorkflowData } from '../interfaces/workflow-converter';
 import { WORKFLOW_NODE_TYPES, WorkflowNodeType, isValidWorkflowNodeType } from '../constants/workflow-node-types';
 import type { UniversalWorkflowEdge } from './workflow-converter/universal-types';
+import { NodeEdgeManager } from './node-edge-manager';
 
 /**
  * Agent 표준 구성 요소 구조
@@ -81,7 +82,7 @@ export interface WorkflowNode extends Record<string, unknown> {
     level: number;
     status: WorkflowNodeStatus;
     data: WorkflowNodeData;
-    timestamp: Date;
+    timestamp: number; // Creation timestamp for sequential order validation
     connections: WorkflowConnection[];
 }
 
@@ -169,8 +170,11 @@ export interface WorkflowNodeUpdate {
 export class WorkflowEventSubscriber extends ActionTrackingEventService {
     private workflowLogger: SimpleLogger;
     private nodeUpdateCallbacks: ((update: WorkflowNodeUpdate) => void)[] = [];
-    private nodeMap = new Map<string, WorkflowNode>(); // Node 캐시
-    private edges: UniversalWorkflowEdge[] = []; // 🎯 직접 edges 배열 관리
+    private nodeMap = new Map<string, WorkflowNode>(); // Node 캐시 (기존 호환성)
+    private edges: UniversalWorkflowEdge[] = []; // 🎯 직접 edges 배열 관리 (기존 호환성)
+
+    // 🔒 NodeEdgeManager: 순서 보장 및 무결성 관리
+    private nodeEdgeManager: NodeEdgeManager;
     private agentRound1ThinkingMap = new Map<string, string>(); // sourceId -> round1ThinkingId
     private agentCounter = 0; // Agent 번호 시스템: Agent 0, Agent 1, Agent 2...
     private agentNumberMap = new Map<string, number>(); // sourceId → Agent 번호 매핑
@@ -199,6 +203,10 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
     // ExecutionId-based mapping system for wildcard elimination (핵심 연결 문제 해결)
     private executionToThinkingMap = new Map<string, string>(); // executionId → thinking node ID
 
+    // 🎯 Fork Pattern 순차 처리 시스템 (Rule 11 Sequential Order 준수)
+    private pendingForkEdges = new Map<string, Array<{ fromNode: WorkflowNode, toNode: WorkflowNode, type: WorkflowConnectionType, label?: string }>>(); // thinking node ID → pending edges
+    private forkCompletionTimers = new Map<string, NodeJS.Timeout>(); // thinking node ID → completion timer
+
     // [RACE-CONDITION-FIX] 경쟁 상태 해결을 위한 큐
     private pendingThinkingEvents = new Map<string, ServiceEventData>(); // key: previousThinkingNodeId
 
@@ -206,6 +214,10 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
         super(); // ActionTrackingEventService 생성자와 호환 (baseEventService 기본값 사용)
         this.workflowLogger = logger || SilentLogger;
         this.agentCopyManager = new AgentCopyManager(this.workflowLogger);
+
+        // 🔒 NodeEdgeManager 초기화: 순서 보장 및 무결성 관리
+        this.nodeEdgeManager = new NodeEdgeManager(this.workflowLogger);
+
         this.workflowLogger.info('🏗️ [WorkflowEventSubscriber] Constructor called - Instance created');
         this.workflowLogger.debug('WorkflowEventSubscriber initialized');
     }
@@ -449,26 +461,41 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Tool Call Start 이벤트 처리 → tool_call Node 생성 및 thinking 연결
      */
     private handleToolCallStart(data: ServiceEventData): void {
-        const node = this.createUniversalToolCallNode(data);
-        this.emitNodeUpdate('create', node);
-
         const sourceAgent = String(data.sourceId || 'unknown');
         const thinkingNodeId = this.agentToThinkingMap.get(sourceAgent);
 
-        if (thinkingNodeId) {
-            // 🎯 [Fork/Join] Tool Call ID와 Thinking Node ID 매핑 저장
-            const finalToolCallId = String(data.executionId || data.metadata?.toolCallId as string || `generated_${Date.now()}`);
-            if (finalToolCallId) {
-                this.toolCallToThinkingMap.set(finalToolCallId, thinkingNodeId);
-                this.workflowLogger.debug(`[FORK-JOIN-MAPPING] Mapped tool call ${finalToolCallId} to thinking node ${thinkingNodeId}`);
-            }
-
-            const thinkingNode = this.nodeMap.get(thinkingNodeId);
-            if (thinkingNode) {
-                this.connectNodes(thinkingNode, node, 'executes', `executes ${data.toolName || 'tool'}`);
-            }
-        } else {
+        if (!thinkingNodeId) {
             this.workflowLogger.debug(`⚠️ [THINKING-TOOL-CONNECTION] No thinking node found for agent ${sourceAgent}`);
+            return;
+        }
+
+        // 🎯 [Fork/Join] Tool Call ID와 Thinking Node ID 매핑 저장
+        const finalToolCallId = String(data.executionId || data.metadata?.toolCallId as string || `generated_${Date.now()}`);
+        if (finalToolCallId) {
+            this.toolCallToThinkingMap.set(finalToolCallId, thinkingNodeId);
+            this.workflowLogger.debug(`[FORK-JOIN-MAPPING] Mapped tool call ${finalToolCallId} to thinking node ${thinkingNodeId}`);
+        }
+
+        // 🔒 NodeEdgeManager를 통한 정석 노드 생성 + 연결
+        const nodeWithoutTimestamp = this.createToolCallNodeWithoutTimestamp(data);
+
+        try {
+            // 🎯 Source(thinking) Node 존재 확인 후 Target(tool_call) Node 생성 + Edge 생성
+            const finalNode = this.nodeEdgeManager.addNode(
+                nodeWithoutTimestamp,
+                thinkingNodeId,
+                'executes',
+                `executes ${data.toolName || 'tool'}`
+            );
+
+            // 기존 시스템과 호환성을 위한 동기화
+            this.syncWithLegacySystems(finalNode);
+
+            this.workflowLogger.debug(`🔒 [NODE-MANAGER] Tool call created with enforced order: ${thinkingNodeId} → ${finalNode.id}`);
+
+        } catch (error) {
+            this.workflowLogger.error(`🚨 [ORDER-VIOLATION] Failed to create tool_call with proper order:`, error);
+            throw error; // 순서 위반 시 즉시 실패
         }
 
         // 🎯 Agent 0의 tool call 추적 (assignTask 등)
@@ -821,7 +848,8 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Node 생성 메서드들
      */
     private createUserMessageNode(data: ServiceEventData): WorkflowNode {
-        return {
+        // 🔒 NodeEdgeManager를 통한 정석 user_message node 생성
+        const nodeWithoutTimestamp: Omit<WorkflowNode, 'timestamp'> = {
             id: `user_message_${data.sourceId}`,
             type: WORKFLOW_NODE_TYPES.USER_MESSAGE,
             level: 0,
@@ -832,21 +860,43 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 parameters: data.parameters,
                 label: 'User Message'
             },
-            timestamp: data.timestamp || new Date(),
             connections: []
         };
+
+        // 🎯 user_message는 agent 노드에 연결되어야 함 (agent → user_message 순서)
+        const agentNodeId = this.agentNodeIdMap.get(String(data.sourceId));
+        if (!agentNodeId) {
+            throw new Error(`❌ [AGENT-MISSING] No agent node found for sourceId: ${data.sourceId}. Agent must be created before user_message.`);
+        }
+
+        try {
+            // 🎯 Agent 노드에 연결하여 user_message 노드 생성
+            const finalNode = this.nodeEdgeManager.addNode(
+                nodeWithoutTimestamp,
+                agentNodeId,
+                'receives',
+                'receives input'
+            );
+
+            // 기존 시스템과 호환성을 위한 동기화
+            this.syncWithLegacySystems(finalNode);
+
+            this.workflowLogger.debug(`🔒 [NODE-MANAGER] User message created with proper order: ${agentNodeId} → ${finalNode.id}`);
+
+            return finalNode;
+
+        } catch (error) {
+            this.workflowLogger.error(`🚨 [ORDER-VIOLATION] Failed to create user_message node with proper order:`, error);
+            throw error; // 순서 위반 시 즉시 실패
+        }
     }
 
     private createAgentNode(data: ServiceEventData): WorkflowNode {
         const agentNumber = this.assignAgentNumber(String(data.sourceId || 'unknown'));
         const agentStructure = this.agentCopyManager.createAgentCopy(agentNumber, String(data.sourceId));
 
-        this.agentNodeIdMap.set(String(data.sourceId), agentStructure.agentId);
-
-        this.workflowLogger.debug(`🎯 [AGENT-COPY] Created Agent ${agentNumber} Copy ${agentStructure.copyNumber} for sourceId: ${data.sourceId}`);
-        this.workflowLogger.debug(`🔧 [AGENT-ID-MAPPING] Stored mapping: ${data.sourceId} → ${agentStructure.agentId}`);
-
-        return {
+        // 🔒 NodeEdgeManager를 통한 정석 Agent node 생성
+        const nodeWithoutTimestamp: Omit<WorkflowNode, 'timestamp'> = {
             id: agentStructure.agentId,
             type: WORKFLOW_NODE_TYPES.AGENT,
             level: agentNumber === 0 ? 1 : 4,
@@ -860,7 +910,6 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 label: `Agent ${agentNumber} Copy ${agentStructure.copyNumber}`,
                 reservedThinkingId: agentStructure.thinkingId
             },
-            timestamp: data.timestamp || new Date(),
             connections: [],
             metadata: {
                 agentNumber: agentNumber,
@@ -871,6 +920,33 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 }
             }
         };
+
+        try {
+            // 🎯 Agent node는 parentNodeId가 있을 경우에만 연결
+            const parentNodeId = data.parentNodeId ? String(data.parentNodeId) : undefined;
+            const finalNode = this.nodeEdgeManager.addNode(
+                nodeWithoutTimestamp,
+                parentNodeId,
+                parentNodeId ? 'creates' : undefined,
+                parentNodeId ? 'creates agent' : undefined
+            );
+
+            // 🎯 [AGENT-ID-MAPPING] Mapping 저장
+            this.agentNodeIdMap.set(String(data.sourceId), agentStructure.agentId);
+
+            // 기존 시스템과 호환성을 위한 동기화
+            this.syncWithLegacySystems(finalNode);
+
+            this.workflowLogger.debug(`🎯 [AGENT-COPY] Created Agent ${agentNumber} Copy ${agentStructure.copyNumber} for sourceId: ${data.sourceId}`);
+            this.workflowLogger.debug(`🔧 [AGENT-ID-MAPPING] Stored mapping: ${data.sourceId} → ${agentStructure.agentId}`);
+            this.workflowLogger.debug(`🔒 [NODE-MANAGER] Agent node created with enforced order: ${finalNode.id}`);
+
+            return finalNode;
+
+        } catch (error) {
+            this.workflowLogger.error(`🚨 [ORDER-VIOLATION] Failed to create agent node with proper order:`, error);
+            throw error; // 순서 위반 시 즉시 실패
+        }
     }
 
     /**
@@ -911,42 +987,8 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
         this.workflowLogger.debug(`🎯 [SEQUENTIAL-THINKING] Agent ${data.sourceId} Round ${round} → Thinking ${sequentialThinkingId}`);
         this.workflowLogger.debug(`🔧 [AGENT-COPY] Using Agent Copy ID: ${agentNodeId}`);
 
-        const connections: WorkflowConnection[] = [];
-
-        // 🎯 [CONNECTION-FIX] 연결 로직을 직접 edges 시스템으로 통일
-        // 노드를 먼저 생성한 후 연결을 설정해야 하므로, 노드 생성 후에 연결 생성
-
-        this.agentToThinkingMap.set(String(data.sourceId), sequentialThinkingId);
-
-        // 🎯 [ROUND1-TRACKING] Round 1 thinking node는 별도로 추적
-        if (round === 1) {
-            this.agentRound1ThinkingMap.set(String(data.sourceId), sequentialThinkingId);
-            this.workflowLogger.debug(`🔧 [ROUND1-TRACKING] Stored Round 1 thinking: ${data.sourceId} → ${sequentialThinkingId}`);
-        }
-
-        // 🎯 [MAIN-AGENT-FIX] Round 2 thinking의 경우 수동으로 assistant.message_complete 이벤트 생성
-        if (round === 2 && !String(data.sourceId).includes('copy')) {
-            this.workflowLogger.debug(`🔧 [MAIN-AGENT-FIX] Detected Round 2 thinking for main agent: ${data.sourceId}`);
-            // ExecutionService가 정상 종료되지 않는 경우를 대비해 수동으로 이벤트 발생
-            setTimeout(() => {
-                this.workflowLogger.debug(`🔧 [MAIN-AGENT-FIX] Manually triggering assistant.message_complete for: ${data.sourceId}`);
-                this.handleAssistantMessageComplete({
-                    sourceType: 'agent',
-                    sourceId: data.sourceId,
-                    timestamp: new Date(),
-                    result: {
-                        success: true,
-                        data: 'Final response for Round 2'
-                    },
-                    metadata: {
-                        round: 2,
-                        manually_triggered: true
-                    }
-                });
-            }, 500);
-        }
-
-        return {
+        // 🔒 NodeEdgeManager를 통한 정석 thinking node 생성
+        const nodeWithoutTimestamp: Omit<WorkflowNode, 'timestamp'> = {
             id: sequentialThinkingId,
             type: WORKFLOW_NODE_TYPES.AGENT_THINKING,
             parentId: agentNodeId,
@@ -960,9 +1002,60 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 round: round,
                 label: `Agent ${agentNumber} Thinking Round ${round}`
             },
-            timestamp: data.timestamp || new Date(),
-            connections: connections
+            connections: []
         };
+
+        try {
+            // 🎯 NodeEdgeManager를 통한 thinking node 생성 (agent → thinking 연결)
+            const finalNode = this.nodeEdgeManager.addNode(
+                nodeWithoutTimestamp,
+                agentNodeId, // agent node를 parent로 연결
+                'processes',
+                `Agent ${agentNumber} processes`
+            );
+
+            // 🎯 [CONNECTION-FIX] agentToThinkingMap 설정
+            this.agentToThinkingMap.set(String(data.sourceId), sequentialThinkingId);
+
+            // 🎯 [ROUND1-TRACKING] Round 1 thinking node는 별도로 추적
+            if (round === 1) {
+                this.agentRound1ThinkingMap.set(String(data.sourceId), sequentialThinkingId);
+                this.workflowLogger.debug(`🔧 [ROUND1-TRACKING] Stored Round 1 thinking: ${data.sourceId} → ${sequentialThinkingId}`);
+            }
+
+            // 기존 시스템과 호환성을 위한 동기화
+            this.syncWithLegacySystems(finalNode);
+
+            this.workflowLogger.debug(`🔒 [NODE-MANAGER] Thinking node created with enforced order: ${agentNodeId} → ${finalNode.id}`);
+
+            // 🎯 [MAIN-AGENT-FIX] Round 2 thinking의 경우 수동으로 assistant.message_complete 이벤트 생성
+            if (round === 2 && !String(data.sourceId).includes('copy')) {
+                this.workflowLogger.debug(`🔧 [MAIN-AGENT-FIX] Detected Round 2 thinking for main agent: ${data.sourceId}`);
+                // ExecutionService가 정상 종료되지 않는 경우를 대비해 수동으로 이벤트 발생
+                setTimeout(() => {
+                    this.workflowLogger.debug(`🔧 [MAIN-AGENT-FIX] Manually triggering assistant.message_complete for: ${data.sourceId}`);
+                    this.handleAssistantMessageComplete({
+                        sourceType: 'agent',
+                        sourceId: data.sourceId,
+                        timestamp: new Date(),
+                        result: {
+                            success: true,
+                            data: 'Final response for Round 2'
+                        },
+                        metadata: {
+                            round: 2,
+                            manually_triggered: true
+                        }
+                    });
+                }, 500);
+            }
+
+            return finalNode;
+
+        } catch (error) {
+            this.workflowLogger.error(`🚨 [ORDER-VIOLATION] Failed to create thinking node with proper order:`, error);
+            throw error; // 순서 위반 시 즉시 실패
+        }
     }
 
     private createUniversalToolCallNode(data: ServiceEventData): WorkflowNode {
@@ -987,9 +1080,55 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 executionId: String(data.executionId || 'unknown'),
                 parameters: data.parameters
             },
-            timestamp: data.timestamp || new Date(),
+            timestamp: Date.now(),
             connections: []
         };
+    }
+
+    /**
+     * 🔒 NodeEdgeManager용 timestamp 없는 노드 생성
+     */
+    private createToolCallNodeWithoutTimestamp(data: ServiceEventData): Omit<WorkflowNode, 'timestamp'> {
+        const directParentId = data.metadata?.directParentId as string;
+        if (!directParentId) {
+            throw new Error(`❌ [DIRECT-MAPPING] No directParentId provided in tool_call_start event`);
+        }
+
+        const toolCallId = data.metadata?.toolCallId as string;
+        const finalToolCallId = data.executionId || toolCallId || `generated_${Date.now()}`;
+        this.workflowLogger.debug(`🎯 [TOOL-CALL] Creating tool call ${finalToolCallId} with parent ${directParentId}`);
+
+        return {
+            id: `tool_call_${finalToolCallId}`,
+            type: WORKFLOW_NODE_TYPES.TOOL_CALL,
+            parentId: directParentId,
+            level: data.executionLevel || 2,
+            status: 'running',
+            data: {
+                eventType: 'tool_call_start',
+                toolName: String(data.toolName || 'unknown_tool'),
+                executionId: String(data.executionId || 'unknown'),
+                parameters: data.parameters
+            },
+            connections: []
+        };
+    }
+
+    /**
+     * 🔒 기존 시스템과 호환성을 위한 동기화
+     */
+    private syncWithLegacySystems(node: WorkflowNode): void {
+        // 기존 nodeMap과 동기화 (호환성)
+        this.nodeMap.set(node.id, node);
+
+        // 기존 edges와 동기화 (호환성)
+        const managerEdges = this.nodeEdgeManager.getAllEdges();
+        this.edges = [...managerEdges];
+
+        // workflow update callback 호출 (호환성)
+        this.emitNodeUpdate('create', node);
+
+        this.workflowLogger.debug(`🔄 [LEGACY-SYNC] Synced node ${node.id} with legacy systems`);
     }
 
     private createAgentResponseNode(data: ServiceEventData): WorkflowNode {
@@ -1002,17 +1141,10 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
         if (!thinkingNodeId) {
             throw new Error(`❌ [STANDARD-STRUCTURE] No thinking node found for Agent ${data.sourceId}`);
         }
-        const responseNodeId = `response_${String(data.sourceId)}_${new Date().getTime()}`;
-        this.workflowLogger.debug(`🎯 [DYNAMIC-RESPONSE] Creating dynamic response node ${responseNodeId} for agent ${data.sourceId}`);
-        const connections: WorkflowConnection[] = [{
-            fromId: thinkingNodeId,
-            toId: responseNodeId,
-            type: 'return' as const,
-            label: `Agent ${agentNumber} result`
-        }];
-        this.workflowLogger.debug(`✅ [DYNAMIC-RESPONSE] Connection created: ${thinkingNodeId} → ${responseNodeId}`);
 
-        return {
+        // 🔒 NodeEdgeManager를 통한 정석 response node 생성
+        const responseNodeId = `response_${String(data.sourceId)}_${new Date().getTime()}`;
+        const nodeWithoutTimestamp: Omit<WorkflowNode, 'timestamp'> = {
             id: responseNodeId,
             type: WORKFLOW_NODE_TYPES.RESPONSE,
             parentId: agentNodeId,
@@ -1026,9 +1158,29 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 agentNumber: agentNumber,
                 label: `Agent ${agentNumber} Response`
             },
-            timestamp: data.timestamp || new Date(),
-            connections: connections
+            connections: []
         };
+
+        try {
+            // 🎯 thinking 노드에 연결하여 response 노드 생성
+            const finalNode = this.nodeEdgeManager.addNode(
+                nodeWithoutTimestamp,
+                thinkingNodeId,
+                'return',
+                `Agent ${agentNumber} result`
+            );
+
+            // 기존 시스템과 호환성을 위한 동기화
+            this.syncWithLegacySystems(finalNode);
+
+            this.workflowLogger.debug(`🔒 [NODE-MANAGER] Response created with proper order: ${thinkingNodeId} → ${finalNode.id}`);
+
+            return finalNode;
+
+        } catch (error) {
+            this.workflowLogger.error(`🚨 [ORDER-VIOLATION] Failed to create response node with proper order:`, error);
+            throw error; // 순서 위반 시 즉시 실패
+        }
     }
 
     private async createToolResultNode(data: ServiceEventData, parentThinkingNodeId: string): Promise<WorkflowNode> {
@@ -1046,7 +1198,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 label: `Tool Results for Agent 0`,
                 description: `Aggregating results for thinking node ${parentThinkingNodeId}`
             },
-            timestamp: data.timestamp || new Date(),
+            timestamp: Date.now(),
             connections: []
         };
         return node;
@@ -1060,10 +1212,13 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
 
     private createToolCallResponseNode(data: ServiceEventData): WorkflowNode {
         const finalExecutionId = data.executionId || data.metadata?.executionId || `generated_${Date.now()}`;
-        return {
+        const toolCallNodeId = `tool_call_${finalExecutionId}`;
+
+        // 🔒 NodeEdgeManager를 통한 정석 tool_call_response node 생성
+        const nodeWithoutTimestamp: Omit<WorkflowNode, 'timestamp'> = {
             id: `tool_response_${finalExecutionId}`,
             type: WORKFLOW_NODE_TYPES.TOOL_CALL_RESPONSE,
-            parentId: `tool_call_${finalExecutionId}`,
+            parentId: toolCallNodeId,
             level: data.executionLevel || 3,
             status: 'completed',
             data: {
@@ -1073,14 +1228,29 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 result: data.result,
                 toolName: String(data.toolName || 'unknown_tool')
             },
-            timestamp: data.timestamp || new Date(),
-            connections: [{
-                fromId: `tool_call_${finalExecutionId}`,
-                toId: `tool_response_${finalExecutionId}`,
-                type: 'result' as const,
-                label: 'tool result'
-            }]
+            connections: []
         };
+
+        try {
+            // 🎯 tool_call 노드에 연결하여 tool_response 노드 생성
+            const finalNode = this.nodeEdgeManager.addNode(
+                nodeWithoutTimestamp,
+                toolCallNodeId,
+                'result',
+                'tool result'
+            );
+
+            // 기존 시스템과 호환성을 위한 동기화
+            this.syncWithLegacySystems(finalNode);
+
+            this.workflowLogger.debug(`🔒 [NODE-MANAGER] Tool response created with proper order: ${toolCallNodeId} → ${finalNode.id}`);
+
+            return finalNode;
+
+        } catch (error) {
+            this.workflowLogger.error(`🚨 [ORDER-VIOLATION] Failed to create tool_response node with proper order:`, error);
+            throw error; // 순서 위반 시 즉시 실패
+        }
     }
 
     private connectToolCallToAgent(data: ServiceEventData): void {
@@ -1217,7 +1387,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 label: 'Agent Integration Instance',
                 description: 'Dedicated instance for response integration and final processing'
             },
-            timestamp: data.timestamp || new Date(),
+            timestamp: Date.now(),
             connections: []
         };
     }
@@ -1244,7 +1414,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 label: 'Final Integration Thinking',
                 description: 'Final processing and result consolidation'
             },
-            timestamp: data.timestamp || new Date(),
+            timestamp: Date.now(),
             connections: connections
         };
     }
@@ -1302,7 +1472,8 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                     }
                 },
                 createdAt: new Date(),
-                updatedAt: new Date()
+                updatedAt: new Date(),
+                timestamp: Date.now() // Creation timestamp for sequential order validation
             };
 
             this.edges.push(newEdge);
@@ -1356,5 +1527,101 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
             totalEdges: this.edges.length,
             edgesByType
         };
+    }
+
+    /**
+     * Fork 패턴에서 엣지를 큐에 추가하고 완료 타이머 설정 (Rule 11 Sequential Order 준수)
+     * + 실시간 플레이그라운드 업데이트
+     */
+    private addToForkEdgeQueue(thinkingNodeId: string, fromNode: WorkflowNode, toNode: WorkflowNode, type: WorkflowConnectionType, label?: string): void {
+        // 🎯 1️⃣ 즉시 실시간 업데이트 (플레이그라운드용)
+        this.emitRealTimeEdgeUpdate(fromNode, toNode, type, label);
+
+        // 🎯 2️⃣ 큐에 추가 (Rule 11 준수용)
+        if (!this.pendingForkEdges.has(thinkingNodeId)) {
+            this.pendingForkEdges.set(thinkingNodeId, []);
+        }
+        this.pendingForkEdges.get(thinkingNodeId)!.push({ fromNode, toNode, type, label });
+
+        this.workflowLogger.debug(`🎯 [FORK-HYBRID] Added edge to queue + real-time update: ${fromNode.id} → ${toNode.id} (thinking: ${thinkingNodeId})`);
+
+        // 🎯 3️⃣ 기존 타이머 취소하고 새 타이머 설정 (debounce)
+        if (this.forkCompletionTimers.has(thinkingNodeId)) {
+            clearTimeout(this.forkCompletionTimers.get(thinkingNodeId)!);
+        }
+
+        // 50ms 대기 후 최종 정리 (timestamp 순서 보장)
+        this.forkCompletionTimers.set(thinkingNodeId, setTimeout(() => {
+            this.processForkEdges(thinkingNodeId);
+        }, 50));
+    }
+
+    /**
+     * Fork 완료 감지 시 대기 중인 엣지 큐 정리 (중복 생성 방지)
+     * 실제 엣지는 이미 emitRealTimeEdgeUpdate에서 생성되었으므로 정리만 수행
+     */
+    private processForkEdges(thinkingNodeId: string): void {
+        const pendingEdges = this.pendingForkEdges.get(thinkingNodeId);
+        if (pendingEdges && pendingEdges.length > 0) {
+            this.workflowLogger.debug(`🎯 [FORK-CLEANUP] Cleaning up ${pendingEdges.length} processed edges for thinking: ${thinkingNodeId}`);
+            // ❌ 중복 생성 방지: connectNodes 호출하지 않음
+            // ✅ 엣지는 이미 emitRealTimeEdgeUpdate에서 올바른 timestamp로 생성됨
+            this.workflowLogger.debug(`✅ [FORK-COMPLETE] Fork pattern completed for thinking: ${thinkingNodeId} (no duplicate creation)`);
+        }
+
+        // 정리
+        this.pendingForkEdges.delete(thinkingNodeId);
+        this.forkCompletionTimers.delete(thinkingNodeId);
+    }
+
+    /**
+     * 실시간 엣지 생성 (플레이그라운드 즉시 표시 + 영구 엣지 생성)
+     * timestamp 무결성을 유지하면서 즉시 시각화
+     */
+    private emitRealTimeEdgeUpdate(fromNode: WorkflowNode, toNode: WorkflowNode, type: WorkflowConnectionType, label?: string): void {
+        // 중복 연결 방지 체크
+        const existingEdge = this.edges.find(edge =>
+            edge.source === fromNode.id &&
+            edge.target === toNode.id &&
+            edge.type === type
+        );
+
+        if (!existingEdge) {
+            // 🎯 영구 엣지 즉시 생성 (timestamp 무결성 보장)
+            const newEdge: UniversalWorkflowEdge = {
+                id: `edge_${fromNode.id}_to_${toNode.id}_${this.edges.length}`,
+                source: fromNode.id,
+                target: toNode.id,
+                type: type,
+                label: label || type,
+                style: {
+                    type: 'default',
+                    animated: false,
+                    strokeColor: '#666666'
+                },
+                data: {
+                    executionOrder: this.edges.length,
+                    extensions: {
+                        robota: {
+                            originalType: type,
+                            originalConnection: { fromId: fromNode.id, toId: toNode.id, type, label }
+                        }
+                    }
+                },
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                timestamp: Date.now() // 🔒 절대 수정되지 않는 무결성 timestamp
+            };
+
+            this.edges.push(newEdge);
+
+            // 기존 node.connections도 호환성을 위해 유지
+            if (!fromNode.connections.some(c => c.toId === toNode.id)) {
+                fromNode.connections.push({ fromId: fromNode.id, toId: toNode.id, type, label });
+                this.emitNodeUpdate('update', fromNode); // 즉시 플레이그라운드 업데이트
+            }
+
+            this.workflowLogger.debug(`⚡ [REAL-TIME-PERMANENT] Created permanent edge: ${fromNode.id} → ${toNode.id} (${type})`);
+        }
     }
 }

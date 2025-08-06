@@ -237,7 +237,7 @@ export class WorkflowToUniversalConverter extends BaseWorkflowConverter<Workflow
                     clickable: true
                 },
 
-                createdAt: node.timestamp || new Date(),
+                createdAt: typeof node.timestamp === 'number' ? new Date(node.timestamp) : (node.timestamp || new Date()),
                 updatedAt: new Date()
             };
 

@@ -261,6 +261,7 @@ export interface UniversalWorkflowEdge {
     // Timestamps
     createdAt: Date;
     updatedAt: Date;
+    timestamp?: number; // Creation timestamp for sequential order validation
 }
 
 /**
