@@ -25,7 +25,7 @@ class WorkflowAutomation {
     private readonly examplesDir = path.resolve(__dirname, '..');
     private readonly webPublicDir = path.resolve(__dirname, '../../web/public');
     private readonly dataDir = path.resolve(__dirname, '../data');
-    private readonly targetFileName = 'perfect-playground-data.json';
+    private readonly targetFileName = 'real-workflow-data.json';
 
     async run(): Promise<void> {
         console.log('🚀 Starting Automated Workflow Generation and Verification');

@@ -31,7 +31,7 @@ export const LAYOUT_PRESETS: Record<string, LayoutConfig> = {
         align: 'UL',
         nodesep: 40,
         edgesep: 15,
-        ranksep: 60, // Reduced from 80 to 60 for tighter vertical spacing
+        ranksep: 42, // Reduced to 70% of original spacing (60 → 42)
         marginx: 40,
         marginy: 40
     },
@@ -53,7 +53,7 @@ export const LAYOUT_PRESETS: Record<string, LayoutConfig> = {
         align: 'UL',
         nodesep: 25,
         edgesep: 8,
-        ranksep: 40, // Reduced from 50 to 40 for very tight vertical spacing
+        ranksep: 28, // Reduced to 70% of original spacing (40 → 28)
         marginx: 25,
         marginy: 25
     },
