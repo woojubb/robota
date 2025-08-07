@@ -129,10 +129,14 @@ async function testPlaygroundEdgeConnections() {
             console.log('\n📊 Final Edge Verification Results:');
             console.log('================================================================================');
 
-            // 🎯 핵심 수정: 변환 과정 제거, WorkflowEventSubscriber에서 직접 데이터 사용
+            // 🚀 컨버터 우회: NodeEdgeManager에서 직접 edges 사용 (실시간 데이터 생성 목표)
             console.log('🔄 Getting direct workflow data from WorkflowEventSubscriber...');
             const workflowData = workflowSubscriber.getWorkflowData();
             const connectionSummary = workflowSubscriber.getConnectionSummary();
+
+            // 🎯 NodeEdgeManager에서 올바른 timestamp를 가진 edges 직접 사용
+            const nodeEdgeManagerEdges = workflowSubscriber.getNodeEdgeManagerEdges();
+            console.log(`🚀 NodeEdgeManager edges: ${nodeEdgeManagerEdges.length} (bypassing converter)`);
 
             const universalWorkflow = {
                 __workflowType: "UniversalWorkflowStructure" as const,
@@ -146,10 +150,10 @@ async function testPlaygroundEdgeConnections() {
                     updatedAt: new Date(node.timestamp).toISOString(),
                     timestamp: node.timestamp  // Rule 10, 11 준수를 위한 timestamp 필드 보존
                 })),
-                edges: workflowData.edges,
+                edges: nodeEdgeManagerEdges, // 🚀 NodeEdgeManager edges 직접 사용 (레거시 제거)
                 metadata: {
                     totalNodes: connectionSummary.totalNodes,
-                    totalEdges: connectionSummary.totalEdges,
+                    totalEdges: nodeEdgeManagerEdges.length, // NodeEdgeManager edges 개수 사용
                     edgesByType: connectionSummary.edgesByType,
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString()
@@ -182,6 +186,15 @@ async function testPlaygroundEdgeConnections() {
             fs.writeFileSync(outputPath, JSON.stringify(perfectPlaygroundData, null, 2));
             console.log(`\n💾 Perfect playground data saved to: ${outputPath}`);
             console.log(`📊 Ready for Playground: ${perfectPlaygroundData.nodes?.length || 0} nodes, ${perfectPlaygroundData.edges?.length || 0} edges`);
+
+            // 🔍 검증 스크립트를 위한 별도 형식 저장
+            const verificationData = {
+                nodes: perfectPlaygroundData.nodes || [],
+                edges: perfectPlaygroundData.edges || []
+            };
+            const verificationPath = path.join('data', 'real-workflow-data.json');
+            fs.writeFileSync(verificationPath, JSON.stringify(verificationData, null, 2));
+            console.log(`\n💾 Verification data saved to: ${verificationPath}`);
 
             console.log('\n🎯 Test completed. Results ready for Playground verification.');
 
@@ -324,16 +337,24 @@ async function verifyEdgeConnections(workflow: UniversalWorkflowStructure): Prom
 // ===== 🎯 Playground Test 데이터 생성 =====
 
 async function generatePlaygroundTestData(workflow: UniversalWorkflowStructure): Promise<any> {
-    console.log('🎯 Generating Playground Test Data...');
+    console.log('🎯 Generating PURE NodeEdgeManager Playground Test Data...');
 
     try {
+        // 🚀 PURE NodeEdgeManager 데이터 필터링: 올바른 ID 패턴만 허용  
+        const pureNodeEdgeManagerEdges = workflow.edges.filter(edge =>
+            edge.id.includes('_to_') && // NodeEdgeManager ID 패턴: edge_sourceId_to_targetId_N
+            edge.id.match(/^edge_.+_to_.+_\d+$/) // 정확한 NodeEdgeManager ID 패턴
+        );
+
+        console.log(`🔍 Edge filtering: ${workflow.edges.length} total → ${pureNodeEdgeManagerEdges.length} pure NodeEdgeManager`);
+
         // 기본 구조는 playground 테스트와 동일하게 유지
         const testData = {
             __workflowType: 'UniversalWorkflowStructure' as const,
-            id: 'example-26-edge-verification',
-            name: 'Example 26 Edge Verification Result',
+            id: 'example-26-pure-nodemanager',
+            name: 'Example 26 Pure NodeEdgeManager Result',
             nodes: workflow.nodes,
-            edges: workflow.edges,
+            edges: pureNodeEdgeManagerEdges, // 🚀 PURE NodeEdgeManager edges ONLY
             layout: {
                 algorithm: 'hierarchical',
                 direction: 'TB' as const,

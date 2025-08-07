@@ -310,6 +310,7 @@ export type { ExecutionNode } from './services/event-service';
 export {
     WorkflowEventSubscriber,
     RealTimeWorkflowBuilder, // Domain-neutral workflow builder (no React-Flow dependencies)
+    NodeEdgeManager, // 🚀 Phase 1: Node/Edge 생성 순서 보장 시스템
     // RealTimeDiagramGenerator // MOVED to apps/web for domain separation
 } from './services';
 export type {

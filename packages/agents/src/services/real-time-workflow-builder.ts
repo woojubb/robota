@@ -307,22 +307,10 @@ export class RealTimeWorkflowBuilder {
             this.logger.warn(`🚨 [WILDCARD-PREVENTION] Skipping invalid parentId: ${node.parentId} for node: ${node.id}`);
         }
 
-        // 🔧 NODE CONNECTIONS 추출: WorkflowEventSubscriber에서 생성한 연결들을 workflow.connections로 복사
-        if (node.connections && Array.isArray(node.connections)) {
-            node.connections.forEach(connection => {
-                // 중복 연결 방지 검사
-                const isDuplicate = this.currentWorkflow.connections.some(existing =>
-                    existing.fromId === connection.fromId &&
-                    existing.toId === connection.toId &&
-                    existing.type === connection.type
-                );
-
-                if (!isDuplicate) {
-                    this.currentWorkflow.connections.push(connection);
-                    this.logger.debug(`🔗 [NODE-CONNECTIONS] Added connection: ${connection.fromId} → ${connection.toId} (${connection.type})`);
-                }
-            });
-        }
+        // 🚀 CONVERTER BYPASS: Skip WorkflowConnection collection
+        // NodeEdgeManager handles all edge creation directly
+        // Removing converter dependency as per user's real-time data generation goal
+        this.logger.debug(`🚀 [CONVERTER-BYPASS] Skipping WorkflowConnection collection for node: ${node.id}`);
 
         // 특별한 연결 규칙들
         this.applySpecialConnectionRules(node);
@@ -355,7 +343,7 @@ export class RealTimeWorkflowBuilder {
             case WORKFLOW_NODE_TYPES.TOOL_CALL: return 'executes';
             case WORKFLOW_NODE_TYPES.TOOL_CALL_RESPONSE: return 'result';
             case WORKFLOW_NODE_TYPES.RESPONSE: return 'return'; // 도메인 중립적 통일
-            case WORKFLOW_NODE_TYPES.TOOL_RESULT: return 'consolidates';
+            case WORKFLOW_NODE_TYPES.TOOL_RESULT: return 'analyze';
             default: return 'result';
         }
     }
@@ -371,14 +359,14 @@ export class RealTimeWorkflowBuilder {
             'processes': 'processes',
             'continues': 'continues thinking',
             'executes': 'executes',
-            'calls': 'calls',
+
             'creates': 'creates',
             'triggers': 'triggers message',
             'branch': 'branches to',
             'result': 'returns result',
             'analyze': 'analyzes',
             'return': 'returns to',
-            'consolidates': 'consolidates',
+
             'integrates': 'integrates',
             'finalizes': 'finalizes',
             'final': 'generates',
@@ -430,7 +418,7 @@ export class RealTimeWorkflowBuilder {
             const connection: WorkflowConnection = {
                 fromId: subResponseNode.id,
                 toId: finalResponseNode.id,
-                type: 'consolidates',
+                type: 'analyze',
                 label: 'consolidates into final response'
             };
 
@@ -601,17 +589,58 @@ export class RealTimeWorkflowBuilder {
                 includeDebug: false
             };
 
-            const universalResult = await this.universalConverter.convert(
-                this.currentWorkflow,
-                conversionOptions
-            );
+            // 🚀 CONVERTER BYPASS: Use NodeEdgeManager edges directly
+            const nodeEdgeManagerEdges = this.workflowSubscriber.getNodeEdgeManagerEdges();
+            this.logger.debug(`🚀 [CONVERTER-BYPASS] Using NodeEdgeManager edges: ${nodeEdgeManagerEdges.length} (skipping converter)`);
 
-            if (!universalResult.success || !universalResult.data) {
-                this.logger.error('Failed to convert workflow to Universal format', {
-                    error: universalResult.errors
-                });
-                return null;
-            }
+            // Basic conversion without converter dependency
+            const universalNodes = this.currentWorkflow.nodes.map((node, index) => ({
+                id: node.id,
+                type: node.type,
+                parentId: node.parentId,
+                level: Math.floor(index / 3), // Basic level assignment
+                position: {
+                    x: 0,
+                    y: 0,
+                    level: Math.floor(index / 3),
+                    order: index % 3
+                },
+                visualState: {
+                    status: (node.status as 'pending' | 'running' | 'completed' | 'error' | 'skipped') || 'completed',
+                    emphasis: 'normal' as const,
+                    lastUpdated: new Date(node.timestamp)
+                },
+                data: {
+                    label: node.data?.label || node.id,
+                    description: node.data?.description || '',
+                    ...node.data
+                },
+                createdAt: new Date(node.timestamp).toISOString(),
+                updatedAt: new Date(node.timestamp).toISOString(),
+                timestamp: node.timestamp
+            }));
+
+            const universalResult = {
+                success: true,
+                data: {
+                    __workflowType: "UniversalWorkflowStructure" as const,
+                    id: `workflow-${Date.now()}`,
+                    name: 'Real-time Generated Workflow',
+                    nodes: universalNodes,
+                    edges: nodeEdgeManagerEdges, // 🚀 Direct NodeEdgeManager edges usage
+                    layout: {
+                        direction: 'TB' as const,
+                        spacing: { x: 200, y: 100 },
+                        algorithm: 'hierarchical' as const
+                    },
+                    metadata: {
+                        ...this.currentWorkflow.metadata,
+                        totalNodes: universalNodes.length,
+                        totalEdges: nodeEdgeManagerEdges.length,
+                        workflowType: 'real-time-generation'
+                    }
+                } as unknown as UniversalWorkflowStructure
+            };
 
             // STEP 8.2.3: 외부 Store 노드들과 병합
             if (this.externalStore) {
