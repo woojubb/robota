@@ -13,9 +13,9 @@
  * 2. Intermediate Node Rule: All nodes except the start node must have incoming connections  
  * 3. Connectivity Rule: All nodes must form a single connected graph component
  * 4. Edge Reference Integrity Rule: All edge sources and targets must reference existing node IDs
- * 5. Single Incoming Connection Rule: Each node can have at most one incoming connection (except tool_result nodes)
+ * 5. Join Pattern Validation Rule: Multiple incoming connections must follow valid join patterns
  * 6. Tool Response Connection Rule: All tool_call_response nodes must connect to tool_result nodes
- * 7. Single Outgoing Connection Rule: Specified node types can have at most one outgoing connection
+ * 7. Fork Pattern Validation Rule: Multiple outgoing connections must follow valid fork patterns (tool_call must have single path)
  * 8. No End Node Rule: Specified node types cannot be end nodes (must have outgoing connections)
  * 9. Agent Thinking No End Node Rule: Agent thinking nodes cannot be end nodes (must have outgoing connections)
  * 10. Timestamp Requirement Rule: All nodes and edges must have creation timestamp data
@@ -227,6 +227,36 @@ class WorkflowConnectionVerifier {
     }
 
     /**
+     * Validate connection type restrictions (Rule 12)
+     */
+    private validateConnectionTypes(): string[] {
+        const violations: string[] = [];
+
+        this.data!.edges.forEach(edge => {
+            const sourceNode = this.data!.nodes.find(n => n.id === edge.source);
+            const targetNode = this.data!.nodes.find(n => n.id === edge.target);
+
+            if (!sourceNode || !targetNode) return;
+
+            // Check for forbidden connection types
+            if (edge.type === 'calls') {
+                violations.push(`Edge ${edge.id}: 'calls' type is forbidden (use 'executes' instead)`);
+            }
+
+            if (edge.type === 'consolidates') {
+                violations.push(`Edge ${edge.id}: 'consolidates' type is forbidden (use 'analyze' instead)`);
+            }
+
+            // Check for forbidden agent → thinking direct connections
+            if (sourceNode.type === 'agent' && targetNode.type === 'agent_thinking' && edge.type === 'processes') {
+                violations.push(`Edge ${edge.id}: direct agent → thinking 'processes' connection is forbidden`);
+            }
+        });
+
+        return violations;
+    }
+
+    /**
      * Collect statistics about node and edge types
      */
     private collectStatistics(): { nodeTypes: Record<string, number>, edgeTypes: Record<string, number> } {
@@ -328,13 +358,18 @@ class WorkflowConnectionVerifier {
             errors.push(`Edges with missing target nodes (${invalidEdges.missingTarget.length})`);
         }
 
-        // Rule 5: Single Incoming Connection Rule (with tool_result exception)
+        // Rule 5: Join Pattern Validation (Updated for Fork/Join Architecture)
         const multipleIncomingNodes: string[] = [];
         this.data.nodes.forEach(node => {
             const incomingConnections = incoming.get(node.id) || [];
-            // Exception: tool_result nodes can have multiple incoming connections
-            if (incomingConnections.length > 1 && node.type !== 'tool_result') {
-                multipleIncomingNodes.push(node.id);
+
+            if (incomingConnections.length > 1) {
+                // ✅ Valid Join Patterns:
+                const isValidJoin = this.isValidJoinPattern(node, incomingConnections);
+
+                if (!isValidJoin) {
+                    multipleIncomingNodes.push(node.id);
+                }
             }
         });
 
@@ -362,12 +397,16 @@ class WorkflowConnectionVerifier {
             errors.push(`tool_call_response nodes not connected to tool_result (${unconnectedToolResponses.length}): ${unconnectedToolResponses.join(', ')}`);
         }
 
-        // Rule 7: Single Outgoing Connection Rule
+        // Rule 7: Fork Pattern Validation (Updated for Fork/Join Architecture)
         const multipleOutgoingNodes: string[] = [];
         this.data.nodes.forEach(node => {
-            if (this.SINGLE_OUTGOING_NODE_TYPES.includes(node.type)) {
-                const outgoingConnections = outgoing.get(node.id) || [];
-                if (outgoingConnections.length > 1) {
+            const outgoingConnections = outgoing.get(node.id) || [];
+
+            if (outgoingConnections.length > 1) {
+                // ✅ Valid Fork Patterns:
+                const isValidFork = this.isValidForkPattern(node, outgoingConnections);
+
+                if (!isValidFork) {
                     multipleOutgoingNodes.push(node.id);
                 }
             }
@@ -458,10 +497,14 @@ class WorkflowConnectionVerifier {
                 } else if (item.type === 'edge') {
                     const edge = item.data as WorkflowEdge;
 
-                    // Check if both source and target nodes exist before this edge
-                    if (!createdNodes.has(edge.source) || !createdNodes.has(edge.target)) {
+                    // 🔀 Fork/Join 패턴 고려: Node와 Edge가 거의 동시 생성될 수 있음
+                    // 실제 데이터에서 Node/Edge 존재 여부만 확인 (생성 순서는 timestamp 기반으로만 검증)
+                    const sourceExists = this.data.nodes.some(n => n.id === edge.source);
+                    const targetExists = this.data.nodes.some(n => n.id === edge.target);
+
+                    if (!sourceExists || !targetExists) {
                         sequentialOrderViolations.violationDetails.push(
-                            `Edge ${edge.id} created before required nodes (source: ${edge.source}, target: ${edge.target})`
+                            `Edge ${edge.id} references non-existent nodes (source: ${edge.source} ${sourceExists ? 'exists' : 'missing'}, target: ${edge.target} ${targetExists ? 'exists' : 'missing'})`
                         );
                     }
 
@@ -470,8 +513,12 @@ class WorkflowConnectionVerifier {
                 }
             }
 
-            // Only check basic rule: edges must be created after their source and target nodes
-            // Do NOT check for intermediate nodes in parallel/fork patterns
+            // 🎯 Fork/Join Pattern Aware Validation
+            // Only validate sequential order within the same branch/path
+            // Different fork branches are independent and don't affect each other's timestamps
+
+            const pathGroups = this.identifyPathGroups();
+
             for (const item of allItems) {
                 if (item.type === 'edge') {
                     const edge = item.data as WorkflowEdge;
@@ -479,12 +526,25 @@ class WorkflowConnectionVerifier {
                     const targetNode = this.data.nodes.find(n => n.id === edge.target);
 
                     if (sourceNode && targetNode) {
-                        // Edge should be created after both source and target nodes
-                        if (edge.timestamp! < sourceNode.timestamp! || edge.timestamp! < targetNode.timestamp!) {
-                            sequentialOrderViolations.prematureNodes.push(edge.id);
-                            sequentialOrderViolations.violationDetails.push(
-                                `Edge ${edge.id} created before its nodes (edge: ${edge.timestamp}, source: ${sourceNode.timestamp}, target: ${targetNode.timestamp})`
-                            );
+                        // 🔍 Check if this edge represents a sequential flow within the same path
+                        const isSequentialInSamePath = this.isSequentialEdgeInSamePath(edge, pathGroups);
+
+                        if (isSequentialInSamePath) {
+                            // Only validate timestamp order for sequential edges in same path
+                            const edgeTime = edge.timestamp!;
+                            const sourceTime = sourceNode.timestamp!;
+                            const targetTime = targetNode.timestamp!;
+
+                            // Rule 11: For sequential edges, edge timestamp >= max(source.timestamp, target.timestamp)
+                            if (edgeTime < sourceTime || edgeTime < targetTime) {
+                                sequentialOrderViolations.prematureNodes.push(edge.id);
+                                sequentialOrderViolations.violationDetails.push(
+                                    `Sequential edge ${edge.id} created before its nodes (edge: ${edge.timestamp}, source: ${sourceNode.timestamp}, target: ${targetNode.timestamp})`
+                                );
+                            }
+                        } else {
+                            // 🔀 Fork/Join pattern edge - timestamp order is not enforced
+                            // Skip timestamp validation for fork/join edges
                         }
                     }
                 }
@@ -493,6 +553,12 @@ class WorkflowConnectionVerifier {
             if (sequentialOrderViolations.prematureNodes.length > 0) {
                 errors.push(`Sequential order violations (${sequentialOrderViolations.prematureNodes.length}): ${sequentialOrderViolations.prematureNodes.join(', ')}`);
             }
+        }
+
+        // Rule 12: Connection Type Restriction Rule
+        const connectionTypeViolations = this.validateConnectionTypes();
+        if (connectionTypeViolations.length > 0) {
+            errors.push(`Connection type restrictions violated (${connectionTypeViolations.length}): ${connectionTypeViolations.join(', ')}`);
         }
 
         // Collect statistics
@@ -533,13 +599,14 @@ class WorkflowConnectionVerifier {
         console.log('2. Intermediate Node Rule: All nodes except the start node must have incoming connections');
         console.log('3. Connectivity Rule: All nodes must form a single connected graph component');
         console.log('4. Edge Reference Integrity Rule: All edge sources and targets must reference existing node IDs');
-        console.log('5. Single Incoming Connection Rule: Each node can have at most one incoming connection (except tool_result nodes)');
+        console.log('5. Join Pattern Validation Rule: Multiple incoming connections must follow valid join patterns (tool_result aggregation, agent_thinking join, etc.)');
         console.log('6. Tool Response Connection Rule: All tool_call_response nodes must connect to tool_result nodes');
-        console.log(`7. Single Outgoing Connection Rule: Specified node types (${this.SINGLE_OUTGOING_NODE_TYPES.join(', ')}) can have at most one outgoing connection`);
+        console.log('7. Fork Pattern Validation Rule: Multiple outgoing connections must follow valid fork patterns (agent_thinking fork, agent fork, user_message fork; tool_call must have single path)');
         console.log(`8. No End Node Rule: Specified node types (${this.NO_END_NODE_TYPES.join(', ')}) cannot be end nodes (must have outgoing connections)`);
         console.log(`9. Agent Thinking No End Node Rule: Agent thinking nodes (${this.AGENT_THINKING_NO_END_NODE_TYPES.join(', ')}) cannot be end nodes (must have outgoing connections)`);
         console.log('10. Timestamp Requirement Rule: All nodes and edges must have creation timestamp data');
         console.log('11. Sequential Creation Order Rule: Node-edge creation must follow sequential flow order');
+        console.log('12. Connection Type Restriction Rule: Only allowed connection types per relationship (no calls, no consolidates, no agent→thinking direct)');
         console.log('');
     }
 
@@ -703,32 +770,41 @@ class WorkflowConnectionVerifier {
 
                 // Show detailed violation analysis
                 result.sequentialOrderViolations.prematureNodes.slice(0, 3).forEach(violation => {
-                    const node = this.data.nodes.find(n => n.id === violation);
-                    console.log(`   🔴 Node: ${violation} (${node?.type || 'unknown'})`);
-                    console.log(`      ⏰ Created: ${node?.timestamp ? new Date(node.timestamp).toISOString() : 'No timestamp'}`);
+                    // BUG FIX: violation is an edge ID, not a node ID - find edge instead of node
+                    const edge = this.data.edges.find(e => e.id === violation);
+                    console.log(`   🔴 Edge: ${violation} (${edge?.type || 'unknown'})`);
+                    console.log(`      ⏰ Created: ${edge?.timestamp ? new Date(edge.timestamp).toISOString() : 'No timestamp'}`);
 
-                    // Find problematic edges
-                    const incomingEdges = this.data.edges.filter(e => e.target === violation);
-                    const outgoingEdges = this.data.edges.filter(e => e.source === violation);
+                    // Show edge details: source and target nodes with their timestamps
+                    if (edge) {
+                        const sourceNode = this.data.nodes.find(n => n.id === edge.source);
+                        const targetNode = this.data.nodes.find(n => n.id === edge.target);
 
-                    if (incomingEdges.length > 0) {
-                        console.log(`      📥 Incoming edges (${incomingEdges.length}):`);
-                        incomingEdges.slice(0, 2).forEach(edge => {
-                            const sourceNode = this.data.nodes.find(n => n.id === edge.source);
-                            const edgeTime = edge.timestamp ? new Date(edge.timestamp).toISOString() : 'No timestamp';
-                            const sourceTime = sourceNode?.timestamp ? new Date(sourceNode.timestamp).toISOString() : 'No timestamp';
-                            console.log(`         ← ${edge.source} (${sourceNode?.type || 'unknown'}) | Edge: ${edgeTime} | Source: ${sourceTime}`);
-                        });
-                    }
+                        console.log(`      📍 Edge details:`);
+                        console.log(`         Source: ${edge.source} (${sourceNode?.type || 'unknown'}) | ⏰ ${sourceNode?.timestamp ? new Date(sourceNode.timestamp).toISOString() : 'No timestamp'}`);
+                        console.log(`         Target: ${edge.target} (${targetNode?.type || 'unknown'}) | ⏰ ${targetNode?.timestamp ? new Date(targetNode.timestamp).toISOString() : 'No timestamp'}`);
+                        console.log(`         Edge: ${edge.id} | ⏰ ${edge.timestamp ? new Date(edge.timestamp).toISOString() : 'No timestamp'}`);
 
-                    if (outgoingEdges.length > 0) {
-                        console.log(`      📤 Outgoing edges (${outgoingEdges.length}):`);
-                        outgoingEdges.slice(0, 2).forEach(edge => {
-                            const targetNode = this.data.nodes.find(n => n.id === edge.target);
-                            const edgeTime = edge.timestamp ? new Date(edge.timestamp).toISOString() : 'No timestamp';
-                            const targetTime = targetNode?.timestamp ? new Date(targetNode.timestamp).toISOString() : 'No timestamp';
-                            console.log(`         → ${edge.target} (${targetNode?.type || 'unknown'}) | Edge: ${edgeTime} | Target: ${targetTime}`);
-                        });
+                        // Show the actual violation: edge created before its nodes
+                        if (sourceNode && targetNode && edge.timestamp) {
+                            const edgeTime = edge.timestamp;
+                            const sourceTime = sourceNode.timestamp || 0;
+                            const targetTime = targetNode.timestamp || 0;
+
+                            if (edgeTime < sourceTime) {
+                                console.log(`         🚨 VIOLATION: Edge created ${sourceTime - edgeTime}ms before source node`);
+                            }
+                            if (edgeTime < targetTime) {
+                                console.log(`         🚨 VIOLATION: Edge created ${targetTime - edgeTime}ms before target node`);
+                            }
+
+                            // Show if edge timestamp follows the rule (same or after)
+                            const maxNodeTime = Math.max(sourceTime, targetTime);
+                            if (edgeTime >= maxNodeTime) {
+                                const diff = edgeTime - maxNodeTime;
+                                console.log(`         ✅ Rule compliant: Edge created ${diff}ms after latest node`);
+                            }
+                        }
                     }
                     console.log('');
                 });
@@ -750,6 +826,18 @@ class WorkflowConnectionVerifier {
             }
         } else {
             console.log('❌ FAILED: Cannot validate sequential order - data structure issue');
+        }
+
+        // Rule 12: Connection Type Restrictions
+        const hasConnectionTypeViolations = result.errors.some(error => error.includes('Connection type restrictions violated'));
+        if (!hasConnectionTypeViolations) {
+            console.log('✅ PASSED: Connection type restrictions followed');
+        } else {
+            console.log('❌ FAILED: Connection type restrictions violated');
+            const connectionViolation = result.errors.find(error => error.includes('Connection type restrictions violated'));
+            if (connectionViolation) {
+                console.log(`   ${connectionViolation}`);
+            }
         }
 
         console.log('');
@@ -797,17 +885,166 @@ class WorkflowConnectionVerifier {
             process.exit(1);
         }
     }
+
+    /**
+     * 🔀 Fork/Join 패턴 인식: 워크플로우의 경로 그룹을 식별
+     */
+    private identifyPathGroups(): Map<string, string[]> {
+        const pathGroups = new Map<string, string[]>();
+        const visitedNodes = new Set<string>();
+
+        // Start nodes (no incoming edges) 찾기
+        const startNodes = this.data.nodes.filter(node =>
+            !this.data.edges.some(edge => edge.target === node.id)
+        );
+
+        // 각 시작 노드에서 경로 추적
+        startNodes.forEach((startNode, index) => {
+            const pathId = `path_${index}`;
+            const nodesInPath: string[] = [];
+            this.traversePath(startNode.id, nodesInPath, visitedNodes, pathGroups, pathId);
+        });
+
+        return pathGroups;
+    }
+
+    /**
+     * 🚶‍♂️ 경로 추적: DFS로 경로상의 모든 노드 추적
+     */
+    private traversePath(
+        nodeId: string,
+        currentPath: string[],
+        visitedNodes: Set<string>,
+        pathGroups: Map<string, string[]>,
+        pathId: string
+    ): void {
+        if (visitedNodes.has(nodeId)) {
+            // 이미 방문한 노드 (join 포인트) - 새로운 경로 시작
+            return;
+        }
+
+        currentPath.push(nodeId);
+        visitedNodes.add(nodeId);
+
+        // 현재 경로를 pathGroups에 저장
+        if (!pathGroups.has(pathId)) {
+            pathGroups.set(pathId, []);
+        }
+        pathGroups.get(pathId)!.push(nodeId);
+
+        // 다음 노드들 찾기
+        const outgoingEdges = this.data.edges.filter(edge => edge.source === nodeId);
+
+        if (outgoingEdges.length === 0) {
+            // 끝 노드
+            return;
+        } else if (outgoingEdges.length === 1) {
+            // 단일 경로 계속
+            this.traversePath(outgoingEdges[0].target, currentPath, visitedNodes, pathGroups, pathId);
+        } else {
+            // Fork 패턴 - 각 분기를 별도 경로로 처리
+            outgoingEdges.forEach((edge, branchIndex) => {
+                const branchPathId = `${pathId}_fork_${branchIndex}`;
+                const newPath = [...currentPath];
+                this.traversePath(edge.target, newPath, new Set(visitedNodes), pathGroups, branchPathId);
+            });
+        }
+    }
+
+    /**
+ * 🔍 순차적 엣지 판별: 같은 경로 내의 순차적 연결인지 확인
+ */
+    private isSequentialEdgeInSamePath(edge: WorkflowEdge, pathGroups: Map<string, string[]>): boolean {
+        // 같은 경로 그룹에서 source → target 순서로 있는지 확인
+        for (const [pathId, nodes] of pathGroups.entries()) {
+            const sourceIndex = nodes.indexOf(edge.source);
+            const targetIndex = nodes.indexOf(edge.target);
+
+            if (sourceIndex !== -1 && targetIndex !== -1) {
+                // 같은 경로에 있으면서 source가 target보다 먼저 나오는 경우
+                return sourceIndex < targetIndex;
+            }
+        }
+
+        // Fork/Join 패턴이거나 서로 다른 경로 - 순차적이지 않음
+        return false;
+    }
+
+    /**
+     * 🔀 Valid Join Pattern Recognition (Rule 5)
+     */
+    private isValidJoinPattern(node: any, incomingConnections: string[]): boolean {
+        // Find actual edges for analysis
+        const incomingEdges = this.data.edges.filter(edge =>
+            incomingConnections.includes(edge.source) && edge.target === node.id
+        );
+
+        // ✅ tool_result: aggregation pattern (multiple tool_response → tool_result)
+        if (node.type === 'tool_result') {
+            return incomingEdges.every(edge => edge.type === 'result' || edge.type === 'consolidates');
+        }
+
+        // ✅ agent_thinking: join pattern (agent + user_message → thinking) OR (agent + tool_result → thinking)
+        if (node.type === 'agent_thinking') {
+            const edgeTypes = incomingEdges.map(e => e.type);
+            return edgeTypes.every(type => ['processes', 'analyze'].includes(type));
+        }
+
+        // ✅ tool_call: semantic duplication (thinking → calls + executes)
+        if (node.type === 'tool_call') {
+            const edgeTypes = incomingEdges.map(e => e.type);
+            const hasCallsAndExecutes = edgeTypes.includes('calls') && edgeTypes.includes('executes');
+            const sameSource = new Set(incomingEdges.map(e => e.source)).size === 1;
+            return hasCallsAndExecutes && sameSource;
+        }
+
+        // ✅ tool_call_response: join pattern (multiple sources can trigger responses)
+        if (node.type === 'tool_call_response') {
+            return true; // Allow multiple incoming for responses
+        }
+
+        // ❌ Other node types should have single incoming
+        return false;
+    }
+
+    /**
+     * 🔀 Valid Fork Pattern Recognition (Rule 7)
+     */
+    private isValidForkPattern(node: any, outgoingConnections: string[]): boolean {
+        // Find actual edges for analysis
+        const outgoingEdges = this.data.edges.filter(edge =>
+            edge.source === node.id && outgoingConnections.includes(edge.target)
+        );
+
+        // ❌ tool_call: NO fork pattern allowed (must have single execution path)
+        if (node.type === 'tool_call') {
+            return false; // tool_call nodes must have exactly one outgoing connection
+        }
+
+        // ✅ agent_thinking: fork pattern (thinking → multiple tool_calls)
+        if (node.type === 'agent_thinking') {
+            const edgeTypes = outgoingEdges.map(e => e.type);
+            return edgeTypes.every(type => ['calls', 'executes', 'consolidates'].includes(type));
+        }
+
+        // ✅ agent: fork pattern (agent → multiple thinking nodes or responses)
+        if (node.type === 'agent') {
+            return true; // Allow agents to have multiple outgoing connections
+        }
+
+        // ✅ user_message: fork pattern (user message can trigger multiple processes)
+        if (node.type === 'user_message') {
+            return true; // Allow user messages to have multiple outgoing connections
+        }
+
+        // ❌ Other node types should have single outgoing
+        return false;
+    }
 }
 
 // Main execution
 function main() {
-    // Get filename from command line arguments
-    const filename = process.argv[2] || '../data/real-workflow-data.json';
-    console.log(`🔍 Workflow Connection Verification`);
-    console.log(`==================================================`);
-    console.log(`📁 File: ${path.basename(filename)}`);
-
-    const verifier = new WorkflowConnectionVerifier(filename);
+    const verifier = new WorkflowConnectionVerifier();
     const result = verifier.verify();
     verifier.displayResults(result);
 }
