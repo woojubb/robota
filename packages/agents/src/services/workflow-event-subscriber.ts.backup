@@ -551,16 +551,9 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Agent Creation Complete 이벤트 처리 → ID 매핑
      */
     private handleAgentCreationComplete(data: ServiceEventData): void {
-        this.workflowLogger.debug(`🔔 [AGENT-CREATION-COMPLETE] Processing with parentExecutionId: ${data.parentExecutionId}, sourceId: ${data.sourceId}`);
-        
         if (data.parentExecutionId && data.sourceId) {
             this.toolCallToAgentMap.set(data.parentExecutionId, String(data.sourceId));
             this.workflowLogger.debug(`[ID-UNIFICATION] Tool call ${data.parentExecutionId} → Agent ${data.sourceId}`);
-
-            // 🔗 [TOOL-AGENT-CONNECTION] tool_call → agent 연결 생성
-            this.connectToolCallToAgent(data);
-        } else {
-            this.workflowLogger.debug(`⚠️ [AGENT-CREATION-COMPLETE] Missing parentExecutionId or sourceId: parentExecutionId=${data.parentExecutionId}, sourceId=${data.sourceId}`);
         }
 
         const conversationId = data.result?.conversationId as string;
@@ -775,7 +768,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
 
     /**
  * [수정] Tool Call Complete 이벤트 처리 → task.aggregation_start 이벤트 발생
-     */
+ */
     private handleToolCallComplete(data: ServiceEventData): void {
         const responseNode = this.createToolCallResponseNode(data);
         this.emitNodeUpdate('create', responseNode);
@@ -1227,30 +1220,21 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
     }
 
     private connectToolCallToAgent(data: ServiceEventData): void {
-        // parentExecutionId는 실제로 tool call ID (예: call_O1co8MrKSUBCaSIrh1Oh3eAK)
         const toolCallNodeId = `tool_call_${data.parentExecutionId}`;
-
-        // sourceId를 이용해 agent node ID 찾기
-        const agentNodeId = this.agentNodeIdMap.get(String(data.sourceId));
-
-        if (!agentNodeId) {
-            this.workflowLogger.warn(`⚠️ [TOOL-AGENT-FAIL] No agent node found for sourceId: ${data.sourceId}`);
-            return;
-        }
-
+        const agentNodeId = `agent_${data.sourceId}`;
         const toolCallNode = this.nodeMap.get(toolCallNodeId);
-        const agentNode = this.nodeMap.get(agentNodeId);
-
-        if (toolCallNode && agentNode) {
+        if (toolCallNode) {
             // 🚀 Rule 11 Sequential Order: Direct NodeEdgeManager usage
             try {
                 const edge = this.nodeEdgeManager.addEdge(toolCallNodeId, agentNodeId, 'creates', 'creates agent');
+                // 📦 레거시 호환성: 기존 edges 배열과 동기화 (임시)
+                if (!this.edges.find(e => e.id === edge.id)) {
+                    this.edges.push(edge);
+                }
                 this.workflowLogger.debug(`🔗 [TOOL-AGENT] Connected ${toolCallNodeId} → ${agentNodeId} via NodeEdgeManager`);
             } catch (error) {
                 this.workflowLogger.warn(`⚠️ [TOOL-AGENT-FAIL] Failed to connect ${toolCallNodeId} → ${agentNodeId}: ${error}`);
             }
-        } else {
-            this.workflowLogger.warn(`⚠️ [TOOL-AGENT-FAIL] Nodes not found - toolCall: ${!!toolCallNode}, agent: ${!!agentNode}`);
         }
     }
 
