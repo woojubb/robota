@@ -281,8 +281,9 @@ export class WorkflowToUniversalConverter extends BaseWorkflowConverter<Workflow
                 },
 
                 createdAt: new Date(),
-                updatedAt: new Date(),
-                timestamp: Date.now() // timestamp는 number 타입으로 통일
+                updatedAt: new Date()
+                // 🚀 Rule 11 Sequential Order: Preserve original edge timestamps from NodeEdgeManager
+                // Do NOT overwrite timestamps - they must maintain creation order integrity
             };
 
             universalEdges.push(universalEdge);

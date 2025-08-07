@@ -196,22 +196,38 @@ where the task_coordinator template automatically handles team collaboration wit
 
         // Try to extract workflow data from the event service
         // Note: This is a simplified approach - we'll get whatever workflow data was generated
+        // 📊 Extracting actual generated workflow data...
+        console.log(chalk.blue(`\n📊 Extracting real workflow data from NodeEdgeManager...`));
+
+        // Get real workflow data from team2's WorkflowEventSubscriber
+        const team2Subscriber = team2.getWorkflowSubscriber();
+        if (!team2Subscriber) {
+            throw new Error('❌ No WorkflowEventSubscriber found in team2');
+        }
+
+        // Extract nodes and edges from NodeEdgeManager
+        const nodeManager = team2Subscriber['nodeEdgeManager']; // Access through property
+        if (!nodeManager) {
+            throw new Error('❌ No NodeEdgeManager found in WorkflowEventSubscriber');
+        }
+
+        const exportedData = nodeManager.exportForJSON();
         const workflowData = {
             metadata: {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 metrics: {
-                    totalNodes: 0,
-                    totalEdges: 0
+                    totalNodes: exportedData.nodes.length,
+                    totalEdges: exportedData.edges.length
                 },
                 testType: "team-collaboration-real-data",
                 sourceExample: "05-team-collaboration.ts"
             },
-            nodes: [],
-            edges: []
+            nodes: exportedData.nodes,
+            edges: exportedData.edges
         };
 
-        console.log(chalk.blue(`\n📋 Generated workflow data (placeholder)`));
+        console.log(chalk.blue(`📋 Generated workflow data: ${exportedData.nodes.length} nodes, ${exportedData.edges.length} edges`));
 
         // Note: For now, save placeholder data - the actual workflow data  
         // will be captured by the WorkflowEventSubscriber during execution
