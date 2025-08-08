@@ -176,29 +176,11 @@ export class DefaultExternalWorkflowStore implements ExternalWorkflowStore {
     }
 
     /**
-     * User Input 노드 추가 헬퍼
+     * ❌ User Input 노드 추가 비활성화 - 이벤트 시스템이 자동으로 노드 생성
      */
     addUserInputNode(inputData: ManualUserInputData): void {
-        const userInputNode: UniversalWorkflowNode = {
-            id: inputData.id,
-            type: 'user_input',
-            level: 0,
-            position: { x: 100, y: 350, level: 0, order: 1 },
-            data: {
-                label: 'User Input',
-                content: inputData.content
-            },
-            visualState: {
-                status: 'completed',
-                emphasis: 'normal',
-                lastUpdated: new Date()
-            },
-            createdAt: new Date(),
-            updatedAt: new Date()
-        };
-
-        this.addNode(userInputNode);
-        this.logger.info(`User Input node added: ${inputData.content.substring(0, 50)}...`);
+        console.log('🎯 [EVENT-SYSTEM-ONLY] User Input node creation disabled - event system will handle');
+        // 인위적 노드 생성 제거됨
     }
 
     /**

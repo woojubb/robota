@@ -190,12 +190,13 @@ export class PlaygroundExecutor {
         // Create PlaygroundEventService that connects to historyPlugin
         const basePlaygroundEventService = createPlaygroundEventService(this.historyPlugin);
 
-        // Wrap with ActionTrackingEventService for automatic hierarchy tracking
-        this.eventService = new ActionTrackingEventService(basePlaygroundEventService);
-
         // STEP 7.1.1: Create WorkflowEventSubscriber
         this.workflowSubscriber = new WorkflowEventSubscriber(this.logger);
         console.log('🏗️ [STEP 7.1.1] WorkflowEventSubscriber created:', !!this.workflowSubscriber);
+
+        // 🎯 26번 예제 구조: ActionTrackingEventService with WorkflowEventSubscriber
+        this.eventService = new ActionTrackingEventService(this.workflowSubscriber);
+        console.log('🎯 [26-STRUCTURE] ActionTrackingEventService created with WorkflowEventSubscriber');
 
         // STEP 8.3.2: Create ExternalWorkflowStore
         this.externalWorkflowStore = new DefaultExternalWorkflowStore(this.logger);
@@ -216,8 +217,68 @@ export class PlaygroundExecutor {
         console.log('🔗 [CONNECTION] External Store → SDK Store trigger connected');
         console.log('🔧 [STEP 7.1.2] Workflow system ready');
 
+        // 🎯 26번 예제 구조: 워크플로우 실시간 업데이트 구독
+        this.setupWorkflowSubscription();
+
         // PlaygroundExecutor is ready immediately
         // WebSocket will be connected lazily when needed
+    }
+
+    /**
+     * 🎯 26번 예제 구조: 워크플로우 실시간 업데이트 구독 설정
+     */
+    private setupWorkflowSubscription(): void {
+        let updateCount = 0;
+
+        this.workflowBuilder.subscribeToUniversalUpdates((workflow) => {
+            updateCount++;
+
+            console.log(`📊 [26-STRUCTURE] Workflow Update #${updateCount}:`, {
+                nodeCount: workflow.nodes.length,
+                edgeCount: workflow.edges.length,
+                workflowType: workflow.__workflowType
+            });
+
+            // 🎯 플레이그라운드 UI에 실시간 업데이트 전달
+            if (workflow.nodes.length > 0) {
+                console.log(`🔗 [26-STRUCTURE] Live nodes: ${workflow.nodes.map(n => `${n.id}(${n.type})`).join(', ')}`);
+
+                if (workflow.edges && workflow.edges.length > 0) {
+                    console.log(`🔗 [26-STRUCTURE] Live edges: ${workflow.edges.length} connections`);
+                    workflow.edges.forEach(edge => {
+                        const sourceExists = workflow.nodes.some(n => n.id === edge.source);
+                        const targetExists = workflow.nodes.some(n => n.id === edge.target);
+                        const status = sourceExists && targetExists ? '✅' : '❌';
+                        console.log(`   ${status} ${edge.source} → ${edge.target} (${edge.type || 'default'})`);
+                    });
+                }
+            }
+
+            // 🎯 플레이그라운드 UI로 실시간 업데이트 전달
+            if (this.uiUpdateCallback) {
+                this.uiUpdateCallback(workflow);
+            }
+        });
+
+        console.log('🎯 [26-STRUCTURE] Workflow subscription setup completed');
+    }
+
+    // 🎯 UI 업데이트 콜백 저장소
+    private uiUpdateCallback: ((workflow: any) => void) | null = null;
+
+    /**
+     * 🎯 플레이그라운드 UI가 워크플로우 업데이트를 구독할 수 있는 메서드
+     */
+    subscribeToWorkflowUpdates(callback: (workflow: any) => void): void {
+        console.log('🎯 [UI-SUBSCRIPTION] Playground UI subscribed to workflow updates');
+        this.uiUpdateCallback = callback;
+    }
+
+    /**
+     * 🎯 26번 예제 구조: 현재 워크플로우 데이터 반환
+     */
+    getCurrentWorkflow(): any {
+        return this.workflowBuilder.getCurrentWorkflow();
     }
 
     /**
@@ -253,15 +314,37 @@ export class PlaygroundExecutor {
             // Create AI providers with remote executor
             const aiProviders = this.createProvidersWithExecutor();
 
-            // Create actual Robota agent with plugins and EventService
+            // 🎯 26번 예제 구조: Context-bound EventService 사용
+            console.log('🚀 [26-STRUCTURE] Creating agent with context-bound EventService');
+
+            // Generate execution context for agent
+            const agentContext = {
+                executionId: `agent_${Date.now()}`,
+                rootExecutionId: `agent_${Date.now()}`,
+                executionLevel: 0, // Agent level
+                executionPath: [],
+                sourceType: 'agent' as const,
+                sourceId: config.name,
+                toolName: 'agent',
+                parameters: {}
+            };
+
+            // Create context-bound EventService
+            const contextBoundEventService = this.eventService.createContextBoundInstance &&
+                typeof this.eventService.createContextBoundInstance === 'function'
+                ? this.eventService.createContextBoundInstance(agentContext)
+                : this.eventService;
+
             this.currentAgent = new Robota({
                 name: config.name,
                 aiProviders: aiProviders as any,
                 defaultModel: config.defaultModel,
                 plugins: [this.historyPlugin as any, this.statisticsPlugin as any],
                 tools: (config.tools || []) as any,
-                eventService: this.eventService // ActionTrackingEventService implements EventService
+                eventService: contextBoundEventService // Context-bound EventService 사용
             });
+
+            console.log('🚀 [26-STRUCTURE] Agent created with context-bound EventService');
 
             this.setMode('agent');
 
@@ -285,20 +368,73 @@ export class PlaygroundExecutor {
             // Create AI providers with remote executor
             const aiProviders = this.createProvidersWithExecutor();
 
-            // STEP 7.1.5: Create team using WorkflowEventSubscriber for SDK Workflow system
-            console.log('🚀 [STEP 7.1.5] Creating team with WorkflowEventSubscriber');
+            // 🎯 26번 예제 구조: Context-bound EventService 사용
+            console.log('🚀 [26-STRUCTURE] Creating team with context-bound EventService');
+
+            const testConversationId = `test_conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const baseExecutionId = `conv_${Date.now()}`;
+            // Generate execution context for team
+            const teamContext = {
+                executionId: testConversationId,
+                rootExecutionId: testConversationId,
+                executionLevel: 0, // Team level
+                executionPath: [],
+                sourceType: 'team' as const,
+                sourceId: baseExecutionId,
+                toolName: 'team',
+                parameters: {}
+            };
+
+            // Create context-bound EventService
+            const contextBoundEventService = this.eventService.createContextBoundInstance &&
+                typeof this.eventService.createContextBoundInstance === 'function'
+                ? this.eventService.createContextBoundInstance(teamContext)
+                : this.eventService;
 
             this.currentTeam = createTeam({
                 aiProviders: aiProviders,
-                maxMembers: config.maxMembers || 5,
-                maxTokenLimit: 8000,
-                debug: false, // Disable debug to reduce console output
-                logger: this.logger,
-                // 핵심: WorkflowEventSubscriber 사용
-                eventService: this.workflowSubscriber
+                eventService: contextBoundEventService, // 26번과 동일한 순서
+                logger: this.logger
+                // 🎯 26번과 동일: maxMembers, maxTokenLimit, debug 제거
             });
 
-            console.log('🚀 [STEP 7.1.5] Team created with Workflow system');
+            console.log('🚀 [26-STRUCTURE] Team created with context-bound EventService');
+
+            // 🔍 Team 초기화 디버깅
+            console.log('🔍 [TEAM-DEBUG] Team Details:', {
+                teamExists: !!this.currentTeam,
+                teamName: this.currentTeam?.name,
+                teamType: typeof this.currentTeam,
+                hasExecuteMethod: typeof this.currentTeam?.execute === 'function',
+                teamMethods: this.currentTeam ? Object.getOwnPropertyNames(Object.getPrototypeOf(this.currentTeam)) : []
+            });
+
+            // 🔍 Team tools 디버깅 - TeamContainer의 내부 teamAgent 접근
+            try {
+                // TeamContainer는 내부적으로 teamAgent를 가지고 있음
+                const teamAgent = (this.currentTeam as any)?.teamAgent;
+                if (teamAgent && typeof teamAgent.getAvailableTools === 'function') {
+                    const tools = teamAgent.getAvailableTools();
+                    console.log('🔍 [TEAM-TOOLS] Team agent available tools:', tools.map((t: any) => t.name || t.toolName || 'unnamed'));
+                    const hasAssignTask = tools.some((t: any) => (t.name || t.toolName) === 'assignTask');
+                    console.log('🔍 [TEAM-TOOLS] Has assignTask tool:', hasAssignTask);
+
+                    // assignTask tool 상세 정보
+                    const assignTaskTool = tools.find((t: any) => (t.name || t.toolName) === 'assignTask');
+                    if (assignTaskTool) {
+                        console.log('🔍 [TEAM-TOOLS] assignTask tool details:', {
+                            name: assignTaskTool.name || assignTaskTool.toolName,
+                            description: assignTaskTool.description,
+                            hasHandler: typeof assignTaskTool.handler === 'function',
+                            schema: assignTaskTool.schema
+                        });
+                    }
+                } else {
+                    console.log('🔍 [TEAM-TOOLS] Cannot access team agent tools');
+                }
+            } catch (error) {
+                console.log('🔍 [TEAM-TOOLS] Error checking tools:', error);
+            }
 
             this.setMode('team');
 
@@ -315,6 +451,7 @@ export class PlaygroundExecutor {
 
     /**
      * Execute a prompt (Facade method)
+     * 🚫 DEPRECATED: Use execute() method instead for 26번 compatibility
      */
     async run(prompt: string): Promise<PlaygroundExecutionResult> {
         const startTime = Date.now();
@@ -372,7 +509,74 @@ export class PlaygroundExecutor {
     }
 
     /**
+     * 🎯 26번 예제와 동일한 단순 실행 구조
+     */
+    async execute(prompt: string, onChunk?: (chunk: string) => void): Promise<PlaygroundExecutionResult> {
+        console.log('🚀 [26-DIRECT-EXECUTION] Direct team execution - same as example 26');
+
+        // 🔍 [DEBUG] 현재 상태 확인
+        console.log('🔍 [MODE-DEBUG] Current state:', {
+            mode: this.mode,
+            hasCurrentTeam: !!this.currentTeam,
+            hasCurrentAgent: !!this.currentAgent,
+            teamType: this.currentTeam?.constructor.name,
+            agentType: this.currentAgent?.constructor.name
+        });
+
+        const startTime = Date.now();
+
+        try {
+            let result: string;
+
+            if (this.mode === 'team' && this.currentTeam) {
+                // 🎯 26번과 동일: 직접 team.execute() 호출
+                console.log('🎯 [26-STRUCTURE] Direct team.execute() call');
+                result = await this.currentTeam.execute(prompt);
+            } else if (this.mode === 'agent' && this.currentAgent) {
+                // 🎯 Agent도 동일하게 직접 호출
+                console.log('🎯 [26-STRUCTURE] Direct agent.run() call');
+                result = await this.currentAgent.run(prompt);
+            } else {
+                console.error('❌ [MODE-ERROR] No active executor found:', {
+                    mode: this.mode,
+                    hasTeam: !!this.currentTeam,
+                    hasAgent: !!this.currentAgent
+                });
+                throw new Error('No active team or agent to execute prompt');
+            }
+
+            const duration = Date.now() - startTime;
+
+            // 스트리밍 콜백이 있으면 한 번에 전체 결과 전달
+            if (onChunk) {
+                onChunk(result);
+            }
+
+            return {
+                success: true,
+                response: result,
+                duration: duration,
+                visualizationData: this.getVisualizationData()
+            };
+
+        } catch (error) {
+            const duration = Date.now() - startTime;
+            console.error('❌ [26-DIRECT-EXECUTION] Execution failed:', error);
+
+            const executionResult: PlaygroundExecutionResult = {
+                success: false,
+                response: 'Execution failed',
+                duration: duration,
+                error: error instanceof Error ? error : new Error(String(error)),
+                visualizationData: this.getVisualizationData()
+            };
+            throw executionResult.error;
+        }
+    }
+
+    /**
      * Execute with streaming response (Facade method)
+     * 🚫 DEPRECATED: Use execute() method instead for 26번 compatibility
      */
     async *runStream(prompt: string): AsyncGenerator<string, PlaygroundExecutionResult> {
         const startTime = Date.now();
@@ -828,9 +1032,10 @@ export class PlaygroundExecutor {
     private createProvidersWithExecutor(): any[] {
         const remoteExecutor = this.createRemoteExecutor();
 
-        // Create actual providers with executor injection
+        // 🎯 26번 예제와 동일: model 명시적 지정
         const openaiProvider = new OpenAIProvider({
-            executor: remoteExecutor
+            executor: remoteExecutor,
+            model: 'gpt-4o-mini'  // 26번과 동일한 모델
             // No API key needed - executor handles remote calls
         });
 
@@ -848,6 +1053,16 @@ export class PlaygroundExecutor {
     private setMode(mode: PlaygroundMode): void {
         console.log(`🔧 [MODE] Setting mode to:`, mode);
         console.log(`🔧 [MODE] Previous mode:`, this.mode);
+
+        // 🔍 [DEBUG] Mode 변경 추적
+        const stack = new Error().stack?.split('\n').slice(1, 4).join('\n');
+        console.log('🔍 [MODE-TRACE] Call stack:', stack);
+        console.log('🔍 [MODE-STATE] Current state:', {
+            hasCurrentTeam: !!this.currentTeam,
+            hasCurrentAgent: !!this.currentAgent,
+            newMode: mode
+        });
+
         this.mode = mode;
         console.log(`🔧 [MODE] Mode set successfully to:`, this.mode);
         this.logDebug('Mode changed', { mode });

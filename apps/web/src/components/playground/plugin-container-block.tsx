@@ -300,7 +300,6 @@ function IndividualPluginBlock({
                                     checked={pluginBlock.isEnabled}
                                     onCheckedChange={handleToggleEnabled}
                                     disabled={!isEditable}
-                                    size="sm"
                                 />
 
                                 {isEditable && (
@@ -370,7 +369,7 @@ function IndividualPluginBlock({
                                     <div className="space-y-3">
                                         {Object.entries(pluginBlock.options).map(([key, value]) => {
                                             const availablePlugin = AVAILABLE_PLUGINS.find(p => p.name === pluginBlock.plugin.name);
-                                            const optionConfig = availablePlugin?.options[key];
+                                            const optionConfig = availablePlugin?.options[key as keyof typeof availablePlugin.options];
 
                                             if (!optionConfig) return null;
 

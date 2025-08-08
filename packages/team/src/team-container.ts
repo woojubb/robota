@@ -15,6 +15,7 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { createTaskAssignmentFacade } from './task-assignment/index.js';
 import { SubAgentEventRelay } from './services/sub-agent-event-relay.js';
+import { TOOL_EVENTS } from './events/constants.js';
 // AgentDelegationTool removed - using createTaskAssignmentFacade only
 
 import {
@@ -476,32 +477,28 @@ export class TeamContainer {
             const shouldAllowDelegation = params.allowFurtherDelegation === true; // Default to false
             const delegationTools = shouldAllowDelegation ? [this.createAssignTaskTool()] : [];
 
-            const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+            // 🎯 [CONVERSATION-ID-FIX] Use agentId-based conversationId to ensure uniqueness and prevent Agent ID collision
+            const conversationId = `conv_${agentId.split('-').slice(1).join('_')}`;
 
-            // Anonymous EventService Proxy to inject context
-            const originalEventService = this.eventService;
-            const parentNodeId = `tool_call_${context.executionId}`; // This is the parent node for the new agent
-            const directParentIdForToolCall = context.parentExecutionId; // This is the thinking node
-
-            const scopedEventService: EventService = {
-                emit: (eventName, data) => {
-                    const enhancedData = { ...data, parentNodeId };
-
-                    // 🎯 [DEBUG] parentNodeId 주입 로깅
-                    if (eventName === 'execution.start') {
-                        console.log(`🔗 [PARENT-INJECTION] execution.start: parentNodeId=${parentNodeId} for sourceId=${enhancedData.sourceId}`);
-                    }
-
-                    // 🎯 [CONNECTION-FIX] Inject directParentId into tool_call_start events
-                    if (eventName === 'tool_call_start' && directParentIdForToolCall) {
-                        enhancedData.metadata = {
-                            ...enhancedData.metadata,
-                            directParentId: directParentIdForToolCall,
-                        };
-                    }
-                    originalEventService.emit(eventName, enhancedData);
-                },
+            // 🎯 [CONTEXT-BINDING] Create execution context for child agent
+            const parentToolCallId = context.executionId || `generated_${Date.now()}`; // This is the assignTask tool call ID
+            const childExecutionContext: ToolExecutionContext = {
+                executionId: agentId,
+                parentExecutionId: parentToolCallId,
+                rootExecutionId: context.rootExecutionId || context.executionId,
+                executionLevel: agentLevel,
+                executionPath: [...(context.executionPath || []), parentToolCallId],
+                sourceType: 'agent',
+                sourceId: agentId,
+                toolName: 'assignTask',
+                parameters: params as any
             };
+
+            // 🎯 [CONTEXT-BINDING] Create context-bound EventService using the new pattern
+            const scopedEventService = 'createContextBoundInstance' in this.eventService &&
+                typeof this.eventService.createContextBoundInstance === 'function'
+                ? this.eventService.createContextBoundInstance(childExecutionContext)
+                : new SubAgentEventRelay(this.eventService, parentToolCallId);
 
             if (params.agentTemplate) {
                 // Create from template
@@ -538,43 +535,64 @@ export class TeamContainer {
                     tools: [...delegationTools, ...(this.options.baseRobotaOptions.tools || [])],
                     conversationId: conversationId,
                     eventService: scopedEventService, // Inject the scoped event service
+                    // 🎯 [CONTEXT-INJECTION] Pass execution context to child agent
+                    executionContext: {
+                        executionId: agentId,
+                        parentExecutionId: parentToolCallId,
+                        rootExecutionId: context.rootExecutionId || context.executionId,
+                        executionLevel: agentLevel,
+                        executionPath: [...(context.executionPath || []), parentToolCallId],
+                        sourceType: 'agent',
+                        sourceId: agentId,
+                        toolName: 'assignTask',
+                        parameters: params as any
+                    }
                 };
 
                 this.logger?.info(`🎯 [assignTask] Creating temporaryAgent from template: ${params.agentTemplate}`);
                 temporaryAgent = new Robota(tempAgentConfig);
                 this.logger?.info(`🎯 [assignTask] temporaryAgent created successfully: ${temporaryAgent.name}`);
 
-                // 5. Emit agent creation complete event
-                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                    this.eventService.emit('agent.creation_complete', {
-                        sourceType: 'team',
-                        sourceId: agentId,
-                        taskDescription: `Created ${params.agentTemplate} agent successfully`,
-                        result: {
-                            success: true,
-                            agentId: agentId,
-                            agentName: temporaryAgent.name,
-                            template: params.agentTemplate,
-                            provider: template.config.provider,
-                            model: template.config.model,
-                            conversationId: conversationId
-                        },
-                        // 🔧 FIXED: Team events should have tool call as parent
+                // 4.5. Emit tool event: Agent execution started
+                scopedEventService.emit(TOOL_EVENTS.AGENT_EXECUTION_STARTED, {
+                    sourceType: 'tool',
+                    sourceId: context.executionId || 'unknown',
+                    agentId: agentId,
+                    parentExecutionId: parentToolCallId,
+                    timestamp: new Date(),
+                    metadata: {
+                        phase: 'agent_execution_start',
+                        jobDescription: params.jobDescription,
+                        agentTemplate: params.agentTemplate
+                    }
+                });
 
-                        parentExecutionId: parentExecutionId,
-                        executionLevel: agentLevel, // Team level + 1
+                // 4.6. Agent created and ready for execution
+                // execution.start event will be naturally triggered when agent executes in common path
+                this.logger?.info(`🎯 [assignTask] Template agent created and ready for execution`);
 
-                        metadata: {
-                            phase: 'agent_creation',
-                            agentTemplate: params.agentTemplate,
-                            agentId: agentId,
-                            provider: template.config.provider,
-                            model: template.config.model,
-                            hasEventService: !!tempAgentConfig.eventService,
-                            toolsCount: tempAgentConfig.tools?.length || 0
-                        }
-                    });
-                }
+                // 4.7. Emit sub-agent creation complete event through SubAgentEventRelay
+                // This ensures WorkflowEventSubscriber receives the event and creates tool_call → agent connections
+                scopedEventService.emit('agent.creation_complete', {
+                    sourceType: 'agent',
+                    sourceId: agentId,  // Sub Agent's ID for proper node mapping
+                    timestamp: new Date(),
+                    result: {
+                        success: true,
+                        agentId: agentId,
+                        agentName: temporaryAgent.name,
+                        conversationId: conversationId
+                    },
+                    parentExecutionId: parentToolCallId, // Connect to assignTask tool call
+                    metadata: {
+                        phase: 'sub_agent_creation_complete',
+                        template: params.agentTemplate,
+                        relayedViaSubAgentEventService: true
+                    }
+                });
+
+                // 5. Note: agent.creation_complete event already emitted via scopedEventService above
+                // This ensures single, consistent event emission for workflow tracking
             } else {
                 // Create dynamic agent
                 let systemMessage = `You are a specialist agent created to handle this specific task: ${params.jobDescription}. ${params.context || ''}`;
@@ -596,11 +614,42 @@ export class TeamContainer {
                     tools: [...delegationTools, ...(this.options.baseRobotaOptions.tools || [])],
                     conversationId: conversationId,
                     eventService: scopedEventService, // Inject the scoped event service
+                    // 🎯 [CONTEXT-INJECTION] Pass execution context to dynamic agent (consistent with template path)
+                    executionContext: {
+                        executionId: agentId,
+                        parentExecutionId: parentToolCallId,
+                        rootExecutionId: context.rootExecutionId || context.executionId,
+                        executionLevel: agentLevel,
+                        executionPath: [...(context.executionPath || []), parentToolCallId],
+                        sourceType: 'agent',
+                        sourceId: agentId,
+                        toolName: 'assignTask',
+                        parameters: params as any
+                    }
                 };
 
                 this.logger?.info(`🎯 [assignTask] Creating dynamic temporaryAgent`);
                 temporaryAgent = new Robota(dynamicAgentConfig);
                 this.logger?.info(`🎯 [assignTask] Dynamic temporaryAgent created successfully: ${temporaryAgent.name}`);
+
+                // 🎯 [CONSISTENCY] Emit agent creation complete event for dynamic path (consistent with template path)
+                scopedEventService.emit('agent.creation_complete', {
+                    sourceType: 'agent',
+                    sourceId: agentId,
+                    timestamp: new Date(),
+                    result: {
+                        success: true,
+                        agentId: agentId,
+                        agentName: temporaryAgent.name,
+                        conversationId: conversationId
+                    },
+                    parentExecutionId: parentToolCallId,
+                    metadata: {
+                        phase: 'sub_agent_creation_complete',
+                        template: 'dynamic',
+                        relayedViaSubAgentEventService: true
+                    }
+                });
             }
 
 
@@ -672,6 +721,32 @@ export class TeamContainer {
                 });
             }
 
+            // 🎯 [EVENT-ORDER-FIX] 8. assignTask 완료 시점에서 tool_call_response 생성
+            // 이제 실제 도구 결과가 준비되었으므로 tool_call_response 노드 생성
+            console.log(`🔥 [DEBUG-TOOL-RESPONSE-READY] About to emit tool.call_response_ready for ${parentToolCallId}`);
+            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                console.log(`🔥 [DEBUG-TOOL-RESPONSE-READY] EventService exists, emitting event`);
+                this.eventService.emit('tool.call_response_ready', {
+                    sourceType: 'tool',
+                    sourceId: `tool_response_${parentToolCallId}`,
+                    toolName: 'assignTask',
+                    timestamp: new Date(),
+                    result: {
+                        success: true,
+                        data: result
+                    },
+                    rootExecutionId: context.rootExecutionId,
+                    executionLevel: 2, // Tool level
+                    executionPath: context.executionPath || [],
+                    metadata: {
+                        executionId: parentToolCallId,
+                        success: true,
+                        agentId: agentId,
+                        phase: 'tool_response_ready' // 🎯 실제 도구 결과 준비 완료
+                    }
+                });
+            }
+
             // 8. Emit task aggregation start event (with timing adjustment to ensure tool_call_complete events are processed first)
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                 // Add small delay to ensure tool_call_complete events are processed first
@@ -702,6 +777,8 @@ export class TeamContainer {
                     }
                 });
             }
+
+            // Agent execution result is already stored in 'result' variable
 
             // Get execution stats from the temporary agent's analytics plugin
             const agentAnalyticsPlugin = temporaryAgent.getPlugin('ExecutionAnalyticsPlugin') as ExecutionAnalyticsPlugin | null;
@@ -767,9 +844,9 @@ export class TeamContainer {
                 startTime: new Date(startTime),
                 endTime: new Date(Date.now()),
                 duration: taskDuration,
-                result: result,
+                result: result || 'Agent execution completed',
                 success: true,
-                tokensUsed: this.estimateTokenUsage(taskPrompt, result),
+                tokensUsed: this.estimateTokenUsage(taskPrompt, result || ''),
                 executionStats: {
                     agentExecutions: executionStats && 'totalExecutions' in executionStats ? Number(executionStats.totalExecutions) : 0,
                     agentAverageDuration: executionStats && 'averageDuration' in executionStats ? Number(executionStats.averageDuration) : 0,
@@ -779,11 +856,11 @@ export class TeamContainer {
             this.delegationHistory.push(delegationRecord);
 
             const returnValue = {
-                result,
+                result: result || 'Agent execution completed',
                 agentId: agentId,
                 metadata: {
                     executionTime: taskDuration,
-                    tokensUsed: this.estimateTokenUsage(taskPrompt, result),
+                    tokensUsed: this.estimateTokenUsage(taskPrompt, result || ''),
                     agentExecutions: executionStats && 'totalExecutions' in executionStats ? Number(executionStats.totalExecutions) : 0,
                     agentAverageDuration: executionStats && 'averageDuration' in executionStats ? Number(executionStats.averageDuration) : 0,
                     agentSuccessRate: executionStats && 'successRate' in executionStats ? Number(executionStats.successRate) : 0,

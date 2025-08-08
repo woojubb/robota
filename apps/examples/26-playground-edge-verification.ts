@@ -98,9 +98,27 @@ async function testPlaygroundEdgeConnections() {
         const testConversationId = `test_conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         console.log(`   Generated conversation ID: ${testConversationId}`);
 
+        // 🎯 [CONTEXT-BINDING] Main team uses context-bound EventService for full automation
+        const mainTeamContext = {
+            executionId: testConversationId,
+            rootExecutionId: testConversationId,
+            executionLevel: 0, // Team level
+            executionPath: [],
+            sourceType: 'team' as const,
+            sourceId: testConversationId,
+            toolName: 'main',
+            parameters: {}
+        };
+
+        // Create context-bound EventService for main team
+        const contextBoundEventService = baseEventService.createContextBoundInstance &&
+            typeof baseEventService.createContextBoundInstance === 'function'
+            ? baseEventService.createContextBoundInstance(mainTeamContext)
+            : baseEventService;
+
         const team = createTeam({
             aiProviders: [provider],
-            eventService: baseEventService,
+            eventService: contextBoundEventService,
             logger: console
         });
         console.log('✅ Team created with Edge-focused WorkflowBuilder');
@@ -112,10 +130,11 @@ async function testPlaygroundEdgeConnections() {
         const startTime = Date.now();
 
         const result = await team.execute(
-            '카페 창업 계획서를 작성해주세요. 반드시 다음 두 부분을 모두 포함해야 합니다: ' +
-            '1) 시장 분석 (경쟁사, 타겟 고객, 트렌드) ' +
-            '2) 메뉴 구성 (음료 3개, 디저트 2개, 가격대) ' +
-            '각각을 별도의 팀원이 작성해주세요.'
+            '카페 창업 계획서를 작성해주세요. ' +
+            '🚨 MANDATORY DELEGATION REQUIRED: 다음 두 부분을 반드시 별도의 전문가에게 위임해야 합니다: ' +
+            '1) 시장 분석 (경쟁사, 타겟 고객, 트렌드) - 시장조사 전문가에게 assignTask로 위임 ' +
+            '2) 메뉴 구성 (음료 3개, 디저트 2개, 가격대) - 메뉴기획 전문가에게 assignTask로 위임 ' +
+            'YOU MUST use assignTask tool to delegate these tasks. DO NOT attempt to do the analysis yourself.'
         );
 
         const duration = Date.now() - startTime;

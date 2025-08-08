@@ -9,7 +9,7 @@
  */
 
 import { SimpleLogger, DefaultConsoleLogger } from '../utils/simple-logger';
-import type { ToolParameters, ToolResult } from '../interfaces/tool';
+import type { ToolParameters, ToolResult, ToolExecutionContext } from '../interfaces/tool';
 import type { LoggerData, MetadataValue } from '../interfaces/types';
 
 // Step 1: ❌ Can't assign MetadataValue to string directly (type mismatch)
@@ -33,32 +33,35 @@ function hasMetadataProperty(obj: any, prop: string): boolean {
  * Service event types for unified tracking across Team/Agent/Tool
  * Extended for detailed block tree visualization
  */
+// 🎯 [EVENT-CONSTANTS] Import constants to build type union
+import { EXECUTION_EVENTS, TOOL_EVENTS } from './execution-service';
+
 export type ServiceEventType =
-    | 'user.message'              // User message received
-    | 'assistant.message_start'   // Assistant response generation started
-    | 'assistant.message_complete' // Assistant response generation completed
-    | 'execution.start'           // Agent/Team execution started
-    | 'execution.complete'        // Agent/Team execution completed
-    | 'execution.error'           // Agent/Team execution failed
-    | 'tool_call_start'           // Tool execution started
-    | 'tool_call_complete'        // Tool execution completed
-    | 'tool_call_error'           // Tool execution failed
-    | 'tool_results_to_llm'       // Tool results presented to LLM
-    | 'task.assigned'             // Team task assignment
-    | 'task.completed'            // Team task completion
-    | 'team.analysis_start'       // Team job analysis started
-    | 'team.analysis_complete'    // Team job analysis completed
-    | 'agent.creation_start'      // Agent creation process started
-    | 'agent.creation_complete'   // Agent creation process completed
-    | 'agent.execution_start'     // Individual agent execution started
-    | 'agent.execution_complete'  // Individual agent execution completed
-    // 🗑️ Sub tool events removed - unified into standard tool_call events for domain neutrality
-    | 'task.aggregation_start'    // Task result aggregation started
-    | 'task.aggregation_complete' // Task result aggregation completed
+    // Execution events
+    | typeof EXECUTION_EVENTS[keyof typeof EXECUTION_EVENTS]
+    // Tool events  
+    | typeof TOOL_EVENTS[keyof typeof TOOL_EVENTS]
+    // Agent events
+    | 'agent.creation_start'
+    | 'agent.creation_complete'
+    | 'agent.execution_start'
+    | 'agent.execution_complete'
+    // Task events
+    | 'task.assigned'
+    | 'task.completed'
+    | 'task.aggregation_start'
+    | 'task.aggregation_complete'
+    // Team events
+    | 'team.analysis_start'
+    | 'team.analysis_complete'
+    // Tool-specific events
+    | 'tool.agent_execution_started'
+    | 'tool.agent_execution_completed'
+    | 'tool.call_response_ready'  // 🎯 [EVENT-ORDER-FIX] 새로운 이벤트 타입 추가
     // Agent Integration Instance events for Playground-level connection quality
-    | 'agent.integration_start'     // Agent Integration Instance creation started
-    | 'agent.integration_complete'  // Agent Integration Instance processing completed
-    | 'response.integration';       // Response integration into Agent Integration Instance
+    | 'agent.integration_start'
+    | 'agent.integration_complete'
+    | 'response.integration';
 
 /**
  * Service event data structure with hierarchical tracking information
@@ -179,6 +182,15 @@ export interface EventService {
      * @returns Bound emit function with automatic parent/level context
      */
     createBoundEmit?(executionId: string): (eventType: ServiceEventType, data: ServiceEventData) => void;
+
+    /**
+     * Optional: Create new EventService instance with injected context (Duck Typing detection)
+     * Returns a new EventService that inherits from this one but has additional context
+     * 
+     * @param executionContext - Context to inject into the new instance
+     * @returns New EventService instance with context binding
+     */
+    createContextBoundInstance?(executionContext: ToolExecutionContext): EventService;
 }
 
 /**
@@ -296,16 +308,19 @@ export class ActionTrackingEventService implements EventService {
     private readonly baseEventService: EventService;
     private readonly executionHierarchy: Map<string, ExecutionNode> = new Map();
     private readonly logger: SimpleLogger;
+    private readonly executionContext?: ToolExecutionContext; // 🎯 [CONTEXT-INJECTION] Store execution context for hierarchy tracking
 
-    constructor(baseEventService?: EventService, logger?: SimpleLogger) {
+    constructor(baseEventService?: EventService, logger?: SimpleLogger, executionContext?: ToolExecutionContext) {
         this.baseEventService = baseEventService || new SilentEventService();
         this.logger = logger || DefaultConsoleLogger;
+        this.executionContext = executionContext; // 🎯 [CONTEXT-INJECTION] Store context for hierarchy enrichment
     }
 
     /**
      * Standard emit method - forwards to base service with enriched hierarchy data
      */
     emit(eventType: ServiceEventType, data: ServiceEventData): void {
+        // 🎯 [DOMAIN-NEUTRAL] EventService는 도메인 독립적 - 단순히 hierarchy context 전달만 수행
         const enrichedData = this.enrichWithHierarchy(data);
         this.baseEventService.emit(eventType, enrichedData);
     }
@@ -360,7 +375,30 @@ export class ActionTrackingEventService implements EventService {
     }
 
     /**
-     * Enrich event data with hierarchical context information
+     * 🎯 [CONTEXT-BINDING] Create new EventService instance with injected context
+     * This enables automatic context propagation through the event system
+     * 
+     * @param executionContext - Context to inject into the new instance
+     * @returns New EventService instance with context binding
+     */
+    createContextBoundInstance(executionContext: ToolExecutionContext): EventService {
+        this.logger.debug('🎯 [CONTEXT-BINDING] Creating context-bound EventService instance', {
+            executionId: executionContext.executionId,
+            parentExecutionId: executionContext.parentExecutionId,
+            executionLevel: executionContext.executionLevel
+        });
+
+        // Create new ActionTrackingEventService instance that inherits from this one
+        // but has the provided context injected
+        return new ActionTrackingEventService(
+            this.baseEventService, // 🎯 같은 baseEventService 계승하여 일관된 통로 유지
+            this.logger,
+            executionContext // 🎯 새 인스턴스에 context 주입
+        );
+    }
+
+    /**
+     * Enrich event data with hierarchical context information and injected execution context
      */
     private enrichWithHierarchy(data: ServiceEventData): ServiceEventData {
         const executionId = this.findExecutionId(data);
@@ -369,12 +407,33 @@ export class ActionTrackingEventService implements EventService {
             executionId,
             hasExecutionId: !!executionId,
             hierarchySize: this.executionHierarchy.size,
-            dataKeys: Object.keys(data)
+            dataKeys: Object.keys(data),
+            hasInjectedContext: !!this.executionContext
         });
 
+        // 🎯 [CONTEXT-AUTOMATION] 주입된 execution context를 자동으로 payload에 추가
+        let enrichedData = { ...data };
+
+        if (this.executionContext) {
+            enrichedData = {
+                ...enrichedData,
+                // 기존 값이 없을 때만 injected context 값 사용
+                executionLevel: enrichedData.executionLevel ?? this.executionContext.executionLevel,
+                parentExecutionId: enrichedData.parentExecutionId ?? this.executionContext.parentExecutionId,
+                rootExecutionId: enrichedData.rootExecutionId ?? this.executionContext.rootExecutionId,
+                executionPath: enrichedData.executionPath ?? this.executionContext.executionPath,
+            };
+
+            this.logger.debug('🎯 [CONTEXT-AUTOMATION] Injected context applied to event', {
+                injectedLevel: this.executionContext.executionLevel,
+                injectedParent: this.executionContext.parentExecutionId,
+                injectedRoot: this.executionContext.rootExecutionId
+            });
+        }
+
         if (!executionId) {
-            this.logger.debug('⚠️ [ActionTrackingEventService] No executionId found, returning original data');
-            return data;
+            this.logger.debug('⚠️ [ActionTrackingEventService] No executionId found, returning context-enriched data');
+            return enrichedData;
         }
 
         const node = this.executionHierarchy.get(executionId);
@@ -390,15 +449,16 @@ export class ActionTrackingEventService implements EventService {
 
         if (!node) {
             this.logger.debug('⚠️ [ActionTrackingEventService] No hierarchy node found for executionId:', executionId);
-            return data;
+            return enrichedData;
         }
 
-        const enrichedData = {
-            ...data,
-            executionLevel: data.executionLevel ?? node.level,
-            parentExecutionId: data.parentExecutionId ?? node.parentId,
-            rootExecutionId: data.rootExecutionId ?? this.findRootId(executionId),
-            executionPath: data.executionPath ?? this.buildExecutionPath(executionId),
+        // 🎯 [HIERARCHY-AUTOMATION] hierarchy 정보로 추가 보강 (기존 값 우선)
+        enrichedData = {
+            ...enrichedData,
+            executionLevel: enrichedData.executionLevel ?? node.level,
+            parentExecutionId: enrichedData.parentExecutionId ?? node.parentId,
+            rootExecutionId: enrichedData.rootExecutionId ?? this.findRootId(executionId),
+            executionPath: enrichedData.executionPath ?? this.buildExecutionPath(executionId),
             // 🎯 중요: metadata 보존 (tool_call의 directParentId 등)
             ...(data.metadata && { metadata: data.metadata })
         };
@@ -407,7 +467,8 @@ export class ActionTrackingEventService implements EventService {
             originalLevel: data.executionLevel,
             enrichedLevel: enrichedData.executionLevel,
             originalParent: data.parentExecutionId,
-            enrichedParent: enrichedData.parentExecutionId
+            enrichedParent: enrichedData.parentExecutionId,
+            contextSource: this.executionContext ? 'injected+hierarchy' : 'hierarchy-only'
         });
 
         return enrichedData;
