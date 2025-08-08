@@ -3,7 +3,7 @@ import type { BasePlugin, BasePluginOptions, PluginStats } from '../abstracts/ba
 import type { BaseTool } from '../abstracts/base-tool';
 import type { BaseModule } from '../abstracts/base-module';
 import type { UtilLogLevel } from '../utils/logger';
-import type { ToolExecutionResult } from './tool';
+import type { ToolExecutionResult, ToolExecutionContext } from './tool'; // 🎯 [CONTEXT-INJECTION] Import ToolExecutionContext
 import type { Metadata, ConfigValue } from './types';
 import type { EventService } from '../services/event-service';
 
@@ -162,6 +162,9 @@ export interface AgentConfig {
 
     // Event tracking
     eventService?: EventService;
+
+    // 🎯 [CONTEXT-INJECTION] Execution context for hierarchical agent management
+    executionContext?: ToolExecutionContext;
 }
 
 /**

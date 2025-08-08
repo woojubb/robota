@@ -493,7 +493,9 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
 
         // Agent Creation Event Listener
         const handleAgentCreated = (event: any) => {
-            console.log('🤖 Agent creation completed:', event);
+            console.log('🎯 [EVENT-SYSTEM-ONLY] Agent creation event received - handled by event system:', event);
+            // ❌ 임의 노드 생성 제거됨 - 이벤트 시스템이 자동으로 노드 생성
+            return;
 
             if (!currentWorkflowRef.current) return;
 
@@ -889,41 +891,20 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'SET_EXECUTING', payload: true });
             dispatch({ type: 'SET_ERROR', payload: null });
 
-            // STEP 9.1.3: SDK Store에 User Input 노드 추가 (Manual Store 제거)
+            console.log('🎯 [26-EXAMPLE-STRUCTURE] Executing prompt via real workflow system');
             const timestamp = Date.now();
             const userInputNodeId = `user-input-${timestamp}`;
 
             const externalStore = state.executor?.getExternalWorkflowStore();
             if (externalStore) {
-                externalStore.addUserInputNode({
-                    id: userInputNodeId,
-                    content: prompt
-                });
-                console.log('🏪 [STEP 9.1.3] User Input node added to SDK Store (via External Store)');
+                // ❌ 인위적 User Input 노드 생성 제거됨 - 이벤트 시스템이 자동으로 노드 생성
+                console.log('🎯 [EVENT-SYSTEM-ONLY] User input processing - no artificial node creation');
+                // ❌ 인위적 노드/엣지 생성 관련 코드 제거됨
 
-                // 모드에 따른 연결 edge 추가
-                const nodes = externalStore.getNodes();
-                let targetNodeId = null;
-                let targetNodeType = '';
+                // ❌ 인위적 Edge 생성 로직 제거됨
 
-                if (state.mode === 'team') {
-                    // Team 모드: Team 노드 찾기
-                    const teamNode = nodes.find(node => node.type === 'team');
-                    if (teamNode) {
-                        targetNodeId = teamNode.id;
-                        targetNodeType = 'Team';
-                    }
-                } else if (state.mode === 'agent') {
-                    // Agent 모드: Agent 노드 찾기
-                    const agentNode = nodes.find(node => node.type === 'agent');
-                    if (agentNode) {
-                        targetNodeId = agentNode.id;
-                        targetNodeType = 'Agent';
-                    }
-                }
-
-                // 연결 edge 추가
-                if (targetNodeId) {
+                // ❌ 인위적 Edge 추가 제거됨
+                if (false) {
                     const edgeId = `edge-input-${state.mode}-${timestamp}`;
                     externalStore.addEdge({
                         id: edgeId,
@@ -968,23 +949,12 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                 });
             }
 
-            // Process stream (PlaygroundExecutor handles statistics automatically)
-            console.log(`🚀 [Team/Agent Execution] Starting ${state.mode} mode execution with prompt:`, prompt.substring(0, 100));
-            let fullResponse = '';
+            // 🎯 26번 예제 구조: 단순한 executor.execute 호출
+            console.log('🚀 [26-EXAMPLE-STRUCTURE] Starting execution with prompt:', prompt.substring(0, 100));
 
-            for await (const chunk of state.executor.runStream(prompt)) {
-                fullResponse += chunk;
-                onChunk(chunk);
-            }
+            const result = await state.executor.execute(prompt, onChunk);
 
-            console.log(`✅ [Team/Agent Execution] ${state.mode} mode execution completed. Response length:`, fullResponse.length);
-            console.log(`📝 [Team/Agent Execution] Actual response content:`, fullResponse.substring(0, 300));
-
-            const result: PlaygroundExecutionResult = {
-                success: true,
-                response: fullResponse,
-                duration: 0 // Duration tracked by PlaygroundStatisticsPlugin
-            };
+            console.log('✅ [26-EXAMPLE-STRUCTURE] Execution completed');
 
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: result });
 
