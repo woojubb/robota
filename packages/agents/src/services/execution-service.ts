@@ -5,11 +5,37 @@ import { ToolExecutionService } from './tool-execution-service';
 import type { AIProviderManagerInterface } from '../interfaces/manager';
 import type { ToolManagerInterface } from '../interfaces/manager';
 import { ConversationHistory } from '../managers/conversation-history-manager';
+import { ToolExecutionContext } from '../interfaces/tool'; // 🎯 [CONTEXT-INJECTION] Import ToolExecutionContext
 import { BaseAIProvider } from '../abstracts/base-ai-provider';
 import { Logger, createLogger } from '../utils/logger';
 import { ChatOptions, ToolCall } from '../interfaces/provider';
 import { EventService, SilentEventService } from './event-service';
 import type { ToolExecutionBatchContext } from './tool-execution-service';
+
+/**
+ * 🎯 [EVENT-CONSTANTS] ExecutionService owned events
+ * All events emitted by ExecutionService must use these constants
+ */
+// 🎯 [EVENT-PREFIX-UNIFICATION] ExecutionService 소유 이벤트 - 모든 이벤트에 execution. 접두어 통일
+export const EXECUTION_EVENTS = {
+    START: 'execution.start',
+    COMPLETE: 'execution.complete',
+    ERROR: 'execution.error',
+    ASSISTANT_MESSAGE_START: 'execution.assistant_message_start',
+    ASSISTANT_MESSAGE_COMPLETE: 'execution.assistant_message_complete',
+    USER_MESSAGE: 'execution.user_message',
+    TOOL_RESULTS_TO_LLM: 'execution.tool_results_to_llm'
+} as const;
+
+/**
+ * 🎯 [EVENT-CONSTANTS] Tool events - Separate ownership
+ * Tools are responsible for their own lifecycle events
+ */
+export const TOOL_EVENTS = {
+    CALL_START: 'tool.call_start',
+    CALL_COMPLETE: 'tool.call_complete',
+    CALL_ERROR: 'tool.call_error'
+} as const;
 
 // Step 1: ❌ Can't use Error.executionId (not in Error interface)
 // Step 2: ❌ Can't extend Error interface (TypeScript limitation)  
@@ -89,12 +115,14 @@ export class ExecutionService {
     private plugins: BasePlugin[] = [];
     private logger: Logger;
     private eventService: EventService;
+    private executionContext?: ToolExecutionContext; // 🎯 [CONTEXT-INJECTION] Parent execution context
 
     constructor(
         aiProviders: AIProviderManagerInterface,
         tools: ToolManagerInterface,
         conversationHistory: ConversationHistory,
-        eventService?: EventService
+        eventService?: EventService,
+        executionContext?: ToolExecutionContext // 🎯 [CONTEXT-INJECTION] Accept parent context
     ) {
         this.toolExecutionService = new ToolExecutionService(tools as any);
         this.aiProviders = aiProviders;
@@ -103,6 +131,7 @@ export class ExecutionService {
         this.plugins = [];
         this.logger = createLogger('ExecutionService');
         this.eventService = eventService || new SilentEventService();
+        this.executionContext = executionContext; // 🎯 [CONTEXT-INJECTION] Store parent context
     }
 
     /**
@@ -157,6 +186,8 @@ export class ExecutionService {
         config: AgentConfig,
         context?: Partial<ExecutionContext>
     ): Promise<ExecutionResult> {
+        // 🎯 [EXECUTION-DEBUG] ExecutionService.execute 호출 확인
+        console.log(`🚀 [EXECUTION-DEBUG] ExecutionService.execute started for agent: ${context?.conversationId}`);
         const executionId = this.generateExecutionId();
         const startTime = new Date();
         const conversationId = context?.conversationId || executionId;
@@ -180,9 +211,11 @@ export class ExecutionService {
         });
 
         // Emit execution start event
+        console.log(`📢 [EXECUTION-START-EMIT] About to emit execution.start for agent: ${fullContext.conversationId || executionId}`);
         if (this.eventService && !(this.eventService instanceof SilentEventService)) {
             const rootId = fullContext.conversationId || executionId;
-            this.eventService.emit('execution.start', {
+            console.log(`📢 [EXECUTION-START-EMIT] Emitting execution.start for agent: ${rootId}`);
+            this.eventService.emit(EXECUTION_EVENTS.START, {
                 sourceType: 'agent',
                 sourceId: rootId,
                 timestamp: startTime,
@@ -254,7 +287,7 @@ export class ExecutionService {
                 // Emit user message event as the starting point
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                     const rootId = fullContext.conversationId || executionId;
-                    this.eventService.emit('user.message', {
+                    this.eventService.emit(EXECUTION_EVENTS.USER_MESSAGE, {
                         sourceType: 'agent',
                         sourceId: rootId,
                         timestamp: new Date(),
@@ -304,6 +337,8 @@ export class ExecutionService {
             while (currentRound < maxRounds) {
                 currentRound++;
 
+                // 🎯 [ROUND-DEBUG] Round 시작 명확히 로깅
+                this.logger.info(`🔄 [ROUND-DEBUG] Starting Round ${currentRound} for agent ${fullContext.conversationId}`);
                 this.logger.debug(`🔄 [ROUND-${currentRound}] Starting execution round ${currentRound}`, {
                     executionId,
                     conversationId: fullContext.conversationId,
@@ -371,8 +406,9 @@ export class ExecutionService {
                 };
 
                 // Emit assistant message start event for each thinking phase
+                console.log(`🔄 [ROUND-DEBUG] Agent ${rootId} Round ${currentRound} - About to emit assistant_message_start`);
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                    this.eventService.emit('assistant.message_start', {
+                    this.eventService.emit(EXECUTION_EVENTS.ASSISTANT_MESSAGE_START, {
                         sourceType: 'agent',
                         sourceId: rootId,
                         timestamp: new Date(),
@@ -447,12 +483,70 @@ export class ExecutionService {
                     responseContent: assistantResponse.content?.substring(0, 100) + '...'
                 });
 
+                // 🎯 [ROUND2-DEBUG] Round 2에서 AI 응답 상세 분석
+                if (currentRound === 2) {
+                    this.logger.info(`🔍 [ROUND2-DEBUG] Round 2 AI Response for agent ${fullContext.conversationId}:`);
+                    this.logger.info(`🔍 [ROUND2-DEBUG] - Content: ${assistantResponse.content?.substring(0, 200)}...`);
+                    this.logger.info(`🔍 [ROUND2-DEBUG] - Tool Calls: ${assistantResponse.toolCalls?.length || 0}`);
+                    if (assistantResponse.toolCalls && assistantResponse.toolCalls.length > 0) {
+                        this.logger.info(`🔍 [ROUND2-DEBUG] - Tool Call Details: ${JSON.stringify(assistantResponse.toolCalls.map(tc => ({ id: tc.id, name: tc.function?.name })))}`);
+                    }
+                }
+
                 if (!assistantResponse.toolCalls || assistantResponse.toolCalls.length === 0) {
                     // No tools to execute, we're done
-                    this.logger.debug(`[RULE-9-DEBUG] Round ${currentRound} completed - no tool calls, breaking loop`);
+                    this.logger.info(`🔄 [ROUND-DEBUG] Round ${currentRound} ENDING - no tool calls for agent ${fullContext.conversationId}`);
+                    this.logger.debug(`[AGENT-FLOW-CONTROL] Round ${currentRound} completed - no tool calls, execution finished for agent ${fullContext.conversationId}`);
+
+                    // 🎯 [VERIFICATION] ExecutionService 흐름 제어 로직 검증
+                    this.logger.info(`🔍 [EXECUTION-VERIFICATION] Agent ${fullContext.conversationId} - Round ${currentRound} - No tool calls detected`);
+                    this.logger.info(`🔍 [EXECUTION-VERIFICATION] ExecutionContext exists: ${!!this.executionContext}`);
+                    if (this.executionContext) {
+                        this.logger.info(`🔍 [EXECUTION-VERIFICATION] Parent ID: ${this.executionContext.parentExecutionId || 'none'}`);
+                        this.logger.info(`🔍 [EXECUTION-VERIFICATION] Execution Level: ${this.executionContext.executionLevel || 'none'}`);
+                    }
+
+                    // 🎯 [CONTEXT-AWARE-CONTROL] Parent context를 고려한 실행 제어
+                    const isSubAgent = this.executionContext && this.executionContext.parentExecutionId;
+                    if (isSubAgent) {
+                        this.logger.info(`🎯 [AGENT-FLOW-CONTROL] Agent ${fullContext.conversationId} is a child agent (parent: ${this.executionContext?.parentExecutionId}) - ending at Round ${currentRound} without tool calls`);
+                    } else {
+                        this.logger.info(`🎯 [AGENT-FLOW-CONTROL] Agent ${fullContext.conversationId} is a root agent - ending at Round ${currentRound} without tool calls`);
+                    }
+
+                    // 🎯 [EVENT-ORTHODOXY] 이벤트는 정석으로 발생 - 조건부 억제 없음
+                    // ExecutionService는 assistant response 완료 시 무조건 이벤트 발생
+                    // 핸들러에서 context를 보고 처리 여부 결정
+                    if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                        this.logger.info(`🔧 [EVENT-ORTHODOXY] Emitting assistant_message_complete for Round ${currentRound} completion (no tool calls)`);
+                        this.eventService.emit(EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE, {
+                            sourceType: 'agent',
+                            sourceId: fullContext.conversationId || executionId,
+                            timestamp: new Date(),
+                            result: {
+                                success: true,
+                                data: assistantResponse.content?.substring(0, 100) + '...' || 'Round completed'
+                            },
+                            // Hierarchical tracking information
+                            rootExecutionId: fullContext.conversationId || executionId,
+                            executionLevel: 1, // Assistant message completion is Level 1
+                            executionPath: [fullContext.conversationId || executionId],
+                            metadata: {
+                                executionId,
+                                round: currentRound,
+                                completed: true,
+                                reason: 'no_tool_calls'
+                            }
+                        });
+                    }
+
+                    this.logger.info(`🔍 [EXECUTION-VERIFICATION] Breaking execution loop - should prevent Round ${currentRound + 1}`);
                     break;
                 }
 
+                // 🎯 [ROUND-DEBUG] Round 계속 - tool calls 있음
+                this.logger.info(`🔄 [ROUND-DEBUG] Round ${currentRound} CONTINUING - ${assistantResponse.toolCalls.length} tool calls for agent ${fullContext.conversationId}`);
+                this.logger.info(`🔄 [ROUND-DEBUG] Main Agent check: isMainAgent=${!fullContext.conversationId?.includes('copy')}, conversationId=${fullContext.conversationId}`);
                 this.logger.debug('Tool calls detected, executing tools', {
                     toolCallCount: assistantResponse.toolCalls.length,
                     round: currentRound,
@@ -494,7 +588,7 @@ export class ExecutionService {
                             (this.eventService as any).trackExecution(toolCall.id, thinkingNodeId, 2);
                         }
 
-                        this.eventService.emit('tool_call_start', {
+                        this.eventService.emit(TOOL_EVENTS.CALL_START, {
                             sourceType: 'agent',
                             sourceId: fullContext.conversationId || executionId,
                             executionId: toolCall.id, // 🎯 tool call ID를 executionId로 설정
@@ -519,10 +613,12 @@ export class ExecutionService {
 
                 const toolSummary = await this.toolExecutionService.executeTools(toolContext);
 
-                // Emit tool_call_complete events for each completed tool
+                // 🎯 [EVENT-ORDER-FIX] tool.call_complete는 이제 "도구 호출만 완료된 상태"를 의미
+                // tool_call_response 노드는 실제 도구 결과가 준비된 시점에서 생성
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                     for (const result of toolSummary.results) {
-                        this.eventService.emit('tool_call_complete', {
+                        // 🔧 [PHASE-1] 도구 호출 완료 이벤트 - 아직 결과 노드 생성하지 않음
+                        this.eventService.emit(TOOL_EVENTS.CALL_COMPLETE, {
                             sourceType: 'agent',
                             sourceId: fullContext.conversationId || executionId,
                             toolName: result.toolName,
@@ -538,7 +634,8 @@ export class ExecutionService {
                             metadata: {
                                 executionId: result.executionId,
                                 success: result.success,
-                                round: currentRound
+                                round: currentRound,
+                                phase: 'tool_call_only' // 🎯 도구 호출만 완료, 결과 노드는 아직 미생성
                             }
                         });
                     }
@@ -610,7 +707,7 @@ export class ExecutionService {
                 // Emit tool results to LLM event
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                     const rootId = fullContext.conversationId || executionId;
-                    this.eventService.emit('tool_results_to_llm', {
+                    this.eventService.emit(EXECUTION_EVENTS.TOOL_RESULTS_TO_LLM, {
                         sourceType: 'agent',
                         sourceId: rootId,
                         timestamp: new Date(),
@@ -635,6 +732,7 @@ export class ExecutionService {
                 // The AI will see the tool results and can either:
                 // 1. Call more tools if needed
                 // 2. Provide a final response without tool calls
+                this.logger.info(`🔄 [ROUND-DEBUG] Round ${currentRound} COMPLETED - continuing to Round ${currentRound + 1} for agent ${fullContext.conversationId}`);
             }
 
             // Check if we hit the round limit
@@ -691,46 +789,28 @@ export class ExecutionService {
 
             // Emit assistant message complete event
             const rootId = fullContext.conversationId || executionId;
-            this.logger.debug(`[MAIN-AGENT-DEBUG] Ensuring assistant.message_complete for: ${rootId}`, {
+            this.logger.debug(`[MAIN-AGENT-DEBUG] Ensuring execution.assistant_message_complete for: ${rootId}`, {
                 rounds: currentRound,
                 responseLength: result.response.length,
                 isMainAgent: !rootId?.includes('copy'),
                 eventServiceAvailable: !!(this.eventService && !(this.eventService instanceof SilentEventService))
             });
 
-            this.logger.debug(`[RULE-9-DEBUG] Emitting assistant.message_complete event for sourceId: ${rootId}`, {
+            this.logger.debug(`[RULE-9-DEBUG] Emitting execution.assistant_message_complete event for sourceId: ${rootId}`, {
                 rounds: currentRound,
                 responseLength: result.response.length,
                 eventServiceType: this.eventService?.constructor.name
             });
 
-            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                this.eventService.emit('assistant.message_complete', {
-                    sourceType: 'agent',
-                    sourceId: rootId,
-                    timestamp: new Date(),
-                    result: {
-                        success: true,
-                        data: result.response.substring(0, 100) + '...'
-                    },
-                    // Hierarchical tracking information
-                    rootExecutionId: rootId,
-                    executionLevel: 1, // Assistant message completion is Level 1
-                    executionPath: [rootId],
-                    metadata: {
-                        executionId,
-                        responseLength: result.response.length,
-                        tokensUsed: result.tokensUsed,
-                        rounds: currentRound,
-                        conversationId: fullContext.conversationId
-                    }
-                });
-            }
+            // 🎯 [DUPLICATE-EMIT-FIX] Remove duplicate assistant_message_complete emission
+            // The round-specific emit (Line 519) already handles assistant completion
+            // This global completion emit was causing duplicate response nodes
+            this.logger.info(`🔧 [DUPLICATE-EMIT-FIX] Skipping duplicate assistant_message_complete emission - already emitted per round`);
 
             // Emit execution complete event
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                 const rootId = fullContext.conversationId || executionId;
-                this.eventService.emit('execution.complete', {
+                this.eventService.emit(EXECUTION_EVENTS.COMPLETE, {
                     sourceType: 'agent',
                     sourceId: rootId,
                     timestamp: new Date(),
@@ -775,7 +855,7 @@ export class ExecutionService {
             // Emit execution error event
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                 const rootId = fullContext.conversationId || executionId;
-                this.eventService.emit('execution.error', {
+                this.eventService.emit(EXECUTION_EVENTS.ERROR, {
                     sourceType: 'agent',
                     sourceId: rootId,
                     timestamp: new Date(),
@@ -969,7 +1049,7 @@ export class ExecutionService {
                                 directParentId: streamingThinkingNodeId
                             }
                         };
-                        this.eventService.emit('tool_call_start', eventData);
+                        this.eventService.emit(TOOL_EVENTS.CALL_START, eventData);
                     }
                 }
 
@@ -978,7 +1058,7 @@ export class ExecutionService {
                 // Emit tool_call_complete events for each completed tool (streaming)
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                     for (const result of toolSummary.results) {
-                        this.eventService.emit('tool_call_complete', {
+                        this.eventService.emit(TOOL_EVENTS.CALL_COMPLETE, {
                             sourceType: 'agent',
                             sourceId: context?.conversationId || executionId,
                             toolName: result.toolName,

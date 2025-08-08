@@ -1,0 +1,54 @@
+---
+alwaysApply: true
+---
+# Event Ownership and Prefix System
+
+## 🎯 Event Prefix Rules
+Each event MUST have a clear prefix indicating its owner:
+
+### Standard Prefixes
+- **`execution.*`** - Owned by ExecutionService
+  - `execution.start`, `execution.complete`, `execution.error`
+- **`tool.*`** - Owned by Tool implementations
+  - `tool.start`, `tool.complete`, `tool.error`, `tool.agent_execution_started`
+- **`agent.*`** - Owned by Agent instances
+  - `agent.creation_start`, `agent.creation_complete`, `agent.thinking_start`
+- **`assistant.*`** - Owned by LLM/Assistant services
+  - `assistant.message_start`, `assistant.message_complete`
+- **`user.*`** - Owned by User interaction services
+  - `user.message`, `user.input`
+- **`task.*`** - Owned by Task management services
+  - `task.assigned`, `task.completed`, `task.aggregation_start`
+- **`team.*`** - Owned by Team coordination services
+  - `team.analysis_start`, `team.analysis_complete`
+
+## 🚫 Violations
+- **Cross-ownership**: ExecutionService emitting `tool.*` events
+- **Generic prefixes**: Using `event.*` or `workflow.*` without specific ownership
+- **Missing prefixes**: Events without clear ownership indication
+
+## ✅ Implementation Requirements
+- Define event constants in the owning module
+- Export constants for use by event handlers
+- Import specific event constants rather than using string literals
+- Document which component owns each event type
+
+## 🔧 Event Constant Pattern
+```typescript
+// In ExecutionService module
+export const EXECUTION_EVENTS = {
+    START: 'execution.start',
+    COMPLETE: 'execution.complete',
+    ERROR: 'execution.error'
+} as const;
+
+// In event handlers
+import { EXECUTION_EVENTS } from '../services/execution-service';
+this.eventService.on(EXECUTION_EVENTS.START, handler);
+```
+
+## 📋 Migration Guidelines
+- Audit all existing events for proper ownership
+- Move event definitions to owning modules
+- Update event handlers to use imported constants
+- Ensure event prefix matches the emitting component

@@ -9,7 +9,7 @@ import { Tools } from '../managers/tool-manager';
 import { AgentFactory } from '../managers/agent-factory';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ExecutionService } from '../services/execution-service';
-import { EventService, SilentEventService } from '../services/event-service';
+import { EventService, SilentEventService, ActionTrackingEventService } from '../services/event-service';
 
 
 import { BaseTool } from '../abstracts/base-tool';
@@ -208,8 +208,15 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
         this.eventEmitter = this.createEventEmitterInstance();
         this.moduleRegistry = this.createModuleRegistryInstance();
 
-        // Initialize EventService (use provided or default to SilentEventService)
-        this.eventService = config.eventService || new SilentEventService();
+        // 🎯 [CONTEXT-BINDING] Initialize EventService with context support
+        // If parent provided context-bound EventService, use it directly
+        // Otherwise, create ActionTrackingEventService for context capabilities
+        if (config.eventService) {
+            this.eventService = config.eventService; // Use injected context-bound EventService
+        } else {
+            // Create ActionTrackingEventService for default context capabilities
+            this.eventService = new ActionTrackingEventService(new SilentEventService(), undefined, config.executionContext);
+        }
 
         // Store config for async initialization
         this.config = config;
@@ -369,11 +376,15 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
             }
 
             // NOW initialize ExecutionService after all managers are set up
+            // 🎯 [CONTEXT-INJECTION] Extract execution context from config if available
+            const executionContext = this.config.executionContext as ToolExecutionContext | undefined;
+
             this.executionService = new ExecutionService(
                 this.aiProviders,
                 this.tools,
                 this.conversationHistory,
-                this.eventService
+                this.eventService,
+                executionContext // 🎯 [CONTEXT-INJECTION] Pass execution context to ExecutionService
             );
 
             // Register plugins with ExecutionService after it's created

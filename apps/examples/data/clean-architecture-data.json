@@ -1,0 +1,418 @@
+{
+  "__workflowType": "CleanArchitectureWorkflow",
+  "nodes": [
+    {
+      "id": "agent_0_copy_1",
+      "type": "agent",
+      "level": 1,
+      "status": "running",
+      "data": {
+        "sourceId": "conv_1754630460588_k9zv8ayyz",
+        "agentNumber": 0,
+        "label": "Agent 0"
+      },
+      "timestamp": 1754630460617
+    },
+    {
+      "id": "user_message_conv_1754630460588_k9zv8ayyz",
+      "type": "user_message",
+      "level": 0,
+      "status": "completed",
+      "data": {
+        "sourceId": "conv_1754630460588_k9zv8ayyz",
+        "label": "User Message"
+      },
+      "timestamp": 1754630460617
+    },
+    {
+      "id": "thinking_agent_0_copy_1_1754630460618_round1",
+      "type": "agent_thinking",
+      "level": 2,
+      "status": "running",
+      "data": {
+        "sourceId": "conv_1754630460588_k9zv8ayyz",
+        "round": 1,
+        "label": "Thinking Round 1"
+      },
+      "timestamp": 1754630460618
+    },
+    {
+      "id": "tool_call_call_WpD6R18dkhIMatgp9bcDs6KD",
+      "type": "tool_call",
+      "level": 2,
+      "status": "running",
+      "data": {
+        "toolName": "assignTask",
+        "executionId": "call_WpD6R18dkhIMatgp9bcDs6KD",
+        "parameters": {
+          "jobDescription": "시장 분석을 위한 경쟁사 분석, 타겟 고객 정의, 현재 카페 트렌드 조사 등.",
+          "context": "카페 창업을 위한 시장 분석으로, 주로 지역 내 경쟁 카페와 고객의 선호도를 중심으로 분석이 필요합니다.",
+          "priority": "high",
+          "agentTemplate": "domain_researcher",
+          "allowFurtherDelegation": false
+        }
+      },
+      "timestamp": 1754630464668
+    },
+    {
+      "id": "tool_call_call_SgsPRWZ8GBed2slffoTDzR1U",
+      "type": "tool_call",
+      "level": 2,
+      "status": "running",
+      "data": {
+        "toolName": "assignTask",
+        "executionId": "call_SgsPRWZ8GBed2slffoTDzR1U",
+        "parameters": {
+          "jobDescription": "카페 메뉴 구성: 음료 3개, 디저트 2개 선택 및 가격대 설정.",
+          "context": "고객의 선호도를 반영하여 독창적이고 매력적인 메뉴를 구성해야 합니다. 가격대는 시장 분석 결과를 고려하여 설정합니다.",
+          "priority": "high",
+          "agentTemplate": "creative_ideator",
+          "allowFurtherDelegation": false
+        }
+      },
+      "timestamp": 1754630464668
+    },
+    {
+      "id": "agent_1_copy_1",
+      "type": "agent",
+      "level": 1,
+      "status": "running",
+      "data": {
+        "sourceId": "conv_1754630464432_jxenk93",
+        "agentNumber": 1,
+        "label": "Agent 1"
+      },
+      "timestamp": 1754630464668
+    },
+    {
+      "id": "user_message_conv_1754630464432_jxenk93",
+      "type": "user_message",
+      "level": 0,
+      "status": "completed",
+      "data": {
+        "sourceId": "conv_1754630464432_jxenk93",
+        "label": "User Message"
+      },
+      "timestamp": 1754630475640
+    },
+    {
+      "id": "agent_2_copy_1",
+      "type": "agent",
+      "level": 1,
+      "status": "running",
+      "data": {
+        "sourceId": "conv_1754630464440_bigdfzh",
+        "agentNumber": 2,
+        "label": "Agent 2"
+      },
+      "timestamp": 1754630464668
+    },
+    {
+      "id": "user_message_conv_1754630464440_bigdfzh",
+      "type": "user_message",
+      "level": 0,
+      "status": "completed",
+      "data": {
+        "sourceId": "conv_1754630464440_bigdfzh",
+        "label": "User Message"
+      },
+      "timestamp": 1754630470080
+    },
+    {
+      "id": "thinking_agent_1_copy_1_1754630464668_round1",
+      "type": "agent_thinking",
+      "level": 2,
+      "status": "running",
+      "data": {
+        "sourceId": "conv_1754630464432_jxenk93",
+        "round": 1,
+        "label": "Thinking Round 1"
+      },
+      "timestamp": 1754630464668
+    },
+    {
+      "id": "thinking_agent_2_copy_1_1754630464668_round1",
+      "type": "agent_thinking",
+      "level": 2,
+      "status": "running",
+      "data": {
+        "sourceId": "conv_1754630464440_bigdfzh",
+        "round": 1,
+        "label": "Thinking Round 1"
+      },
+      "timestamp": 1754630464668
+    },
+    {
+      "id": "agent_response_agent_2_copy_1_1754630470079",
+      "type": "response",
+      "level": 1,
+      "status": "completed",
+      "data": {
+        "sourceId": "conv_1754630464440_bigdfzh",
+        "agentNumber": 2
+      },
+      "timestamp": 1754630470079
+    },
+    {
+      "id": "agent_3_copy_1",
+      "type": "agent",
+      "level": 1,
+      "status": "running",
+      "data": {
+        "sourceId": "conv_1754630464440_bigdfzh",
+        "agentNumber": 3,
+        "label": "Agent 3"
+      },
+      "timestamp": 1754630470080
+    },
+    {
+      "id": "thinking_agent_3_copy_1_1754630470080_round2",
+      "type": "agent_thinking",
+      "level": 2,
+      "status": "running",
+      "data": {
+        "sourceId": "conv_1754630464440_bigdfzh",
+        "round": 2,
+        "label": "Thinking Round 2"
+      },
+      "timestamp": 1754630470080
+    },
+    {
+      "id": "agent_response_agent_1_copy_1_1754630475640",
+      "type": "response",
+      "level": 1,
+      "status": "completed",
+      "data": {
+        "sourceId": "conv_1754630464432_jxenk93",
+        "agentNumber": 1
+      },
+      "timestamp": 1754630475640
+    },
+    {
+      "id": "agent_4_copy_1",
+      "type": "agent",
+      "level": 1,
+      "status": "running",
+      "data": {
+        "sourceId": "conv_1754630464432_jxenk93",
+        "agentNumber": 4,
+        "label": "Agent 4"
+      },
+      "timestamp": 1754630475640
+    },
+    {
+      "id": "thinking_agent_4_copy_1_1754630475640_round2",
+      "type": "agent_thinking",
+      "level": 2,
+      "status": "running",
+      "data": {
+        "sourceId": "conv_1754630464432_jxenk93",
+        "round": 2,
+        "label": "Thinking Round 2"
+      },
+      "timestamp": 1754630475640
+    },
+    {
+      "id": "tool_result_1754630482586",
+      "type": "tool_result",
+      "level": 3,
+      "status": "completed",
+      "data": {
+        "sourceId": "agent-1754630464435-rarjejsww",
+        "label": "Tool Result"
+      },
+      "timestamp": 1754630482586
+    },
+    {
+      "id": "tool_result_1754630492443",
+      "type": "tool_result",
+      "level": 3,
+      "status": "completed",
+      "data": {
+        "sourceId": "agent-1754630464428-3fi6nceye",
+        "label": "Tool Result"
+      },
+      "timestamp": 1754630492443
+    },
+    {
+      "id": "tool_response_undefined",
+      "type": "tool_call_response",
+      "level": 3,
+      "status": "completed",
+      "data": {
+        "result": {
+          "success": true,
+          "data": "Task completed successfully by agent-1754630464435-rarjejsww.\n\nResult:\n고객의 선호도를 반영하여 독창적이고 매력적인 카페 메뉴를 구성해보겠습니다. 시장 분석 결과를 바탕으로 가격대도 설정하였습니다. 다음은 제안하는 음료 및 디저트 메뉴입니다.\n\n### 음료 메뉴\n\n1. **시즌 과일 아이스 블렌드**  \n   - 가격: 6,500원  \n   - 설명: 제철 과일을 활용한 신선한 아이스 블렌드 음료. 상큼하고 달콤한 맛이 여름철 더위를 잊게 해줍니다. (예: 딸기, 망고, 키위 등)\n\n2. **카라멜 마끼아또**  \n   - 가격: 5,500원  \n   - 설명: 부드러운 에스프레소와 스팀 밀크 위에 풍부한 카라멜 소스를 얹어 만든 달콤한 음료. 커피와 디저트를 동시에 즐길 수 있는 매력적인 선택.\n\n3. **허브 티 (로즈마리 & 레몬그라스)**  \n   - 가격: 4,500원  \n   - 설명: 상쾌한 로즈마리와 레몬그라스의 조화를 이룬 허브 티. 카페인 걱정 없이 가볍게 즐길 수 있는 건강한 음료.\n\n### 디저트 메뉴\n\n1. **말차 치즈케이크**  \n   - 가격: 6,000원  \n   - 설명: 일본의 전통 말차와 부드러운 치즈의 조화가 이루어진 디저트. 고소한 맛과 함께 녹차의 쌉싸름함이 특별한 경험을 선사합니다.\n\n2. **프레시 베리 타르트**  \n   - 가격: 5,500원  \n   - 설명: 신선한 베리(블루베리, 라즈베리, 딸기)를 가득 올린 버터 크러스트 타르트. 상큼한 맛과 바삭한 식감이 완벽한 조화를 이룹니다.\n\n### 메뉴 디자인\n- **음료와 디저트의 조화**: 음료와 디저트를 함께 선택할 수 있는 세트 메뉴(예: 음료 + 디저트)로 구성하여 고객의 구매를 유도할 수 있습니다.\n- **시즌 한정 메뉴**: 계절에 따라 음료와 디저트를 변경하여 고객의 호기심과 관심을 유지합니다. 예를 들어, 여름에는 과일 아이스 블렌드, 겨울에는 핫초코와 스페셜 쿠키를 제공하는 방식입니다.\n\n### 가격대 설정\n- 음료 가격은 4,500원에서 6,500원으로 설정하여, 시장에서 경쟁력 있는 가격대를 유지합니다.\n- 디저트는 5,500원에서 6,000원으로 설정하여 고급스러움과 합리적인 가격을 동시에 제공합니다.\n\n이러한 구성으로 카페 메뉴를 운영하시면 독창성과 매력으로 고객의 마음을 사로잡을 수 있을 것입니다. 추가적인 피드백이나 수정 사항이 필요하시면 언제든지 말씀해 주세요!\n\nExecution time: 18149ms\nTokens used: 341, Agent executions: 3, Success rate: 100.0%"
+        },
+        "toolName": "assignTask"
+      },
+      "timestamp": 1754630492443
+    },
+    {
+      "id": "thinking_agent_0_copy_1_1754630492443_round2",
+      "type": "agent_thinking",
+      "level": 2,
+      "status": "running",
+      "data": {
+        "sourceId": "conv_1754630460588_k9zv8ayyz",
+        "round": 2,
+        "label": "Thinking Round 2"
+      },
+      "timestamp": 1754630492443
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_agent_0_copy_1_to_user_message_conv_1754630460588_k9zv8ayyz_0",
+      "source": "agent_0_copy_1",
+      "target": "user_message_conv_1754630460588_k9zv8ayyz",
+      "type": "receives",
+      "label": "user input",
+      "timestamp": 1754630460617
+    },
+    {
+      "id": "edge_agent_0_copy_1_to_thinking_agent_0_copy_1_1754630460618_round1_1",
+      "source": "agent_0_copy_1",
+      "target": "thinking_agent_0_copy_1_1754630460618_round1",
+      "type": "processes",
+      "label": "thinking process",
+      "timestamp": 1754630460618
+    },
+    {
+      "id": "edge_thinking_agent_0_copy_1_1754630460618_round1_to_tool_call_call_WpD6R18dkhIMatgp9bcDs6KD_2",
+      "source": "thinking_agent_0_copy_1_1754630460618_round1",
+      "target": "tool_call_call_WpD6R18dkhIMatgp9bcDs6KD",
+      "type": "executes",
+      "label": "tool execution",
+      "timestamp": 1754630464668
+    },
+    {
+      "id": "edge_thinking_agent_0_copy_1_1754630460618_round1_to_tool_call_call_SgsPRWZ8GBed2slffoTDzR1U_3",
+      "source": "thinking_agent_0_copy_1_1754630460618_round1",
+      "target": "tool_call_call_SgsPRWZ8GBed2slffoTDzR1U",
+      "type": "executes",
+      "label": "tool execution",
+      "timestamp": 1754630464668
+    },
+    {
+      "id": "edge_tool_call_call_WpD6R18dkhIMatgp9bcDs6KD_to_agent_1_copy_1_4",
+      "source": "tool_call_call_WpD6R18dkhIMatgp9bcDs6KD",
+      "target": "agent_1_copy_1",
+      "type": "creates",
+      "label": "agent creation",
+      "timestamp": 1754630464668
+    },
+    {
+      "id": "edge_agent_1_copy_1_to_user_message_conv_1754630464432_jxenk93_5",
+      "source": "agent_1_copy_1",
+      "target": "user_message_conv_1754630464432_jxenk93",
+      "type": "receives",
+      "label": "user input",
+      "timestamp": 1754630464668
+    },
+    {
+      "id": "edge_tool_call_call_SgsPRWZ8GBed2slffoTDzR1U_to_agent_2_copy_1_6",
+      "source": "tool_call_call_SgsPRWZ8GBed2slffoTDzR1U",
+      "target": "agent_2_copy_1",
+      "type": "creates",
+      "label": "agent creation",
+      "timestamp": 1754630464668
+    },
+    {
+      "id": "edge_agent_2_copy_1_to_user_message_conv_1754630464440_bigdfzh_7",
+      "source": "agent_2_copy_1",
+      "target": "user_message_conv_1754630464440_bigdfzh",
+      "type": "receives",
+      "label": "user input",
+      "timestamp": 1754630464668
+    },
+    {
+      "id": "edge_agent_1_copy_1_to_thinking_agent_1_copy_1_1754630464668_round1_8",
+      "source": "agent_1_copy_1",
+      "target": "thinking_agent_1_copy_1_1754630464668_round1",
+      "type": "processes",
+      "label": "thinking process",
+      "timestamp": 1754630464668
+    },
+    {
+      "id": "edge_agent_2_copy_1_to_thinking_agent_2_copy_1_1754630464668_round1_9",
+      "source": "agent_2_copy_1",
+      "target": "thinking_agent_2_copy_1_1754630464668_round1",
+      "type": "processes",
+      "label": "thinking process",
+      "timestamp": 1754630464668
+    },
+    {
+      "id": "edge_thinking_agent_2_copy_1_1754630464668_round1_to_agent_response_agent_2_copy_1_1754630470079_10",
+      "source": "thinking_agent_2_copy_1_1754630464668_round1",
+      "target": "agent_response_agent_2_copy_1_1754630470079",
+      "type": "return",
+      "label": "agent response",
+      "timestamp": 1754630470079
+    },
+    {
+      "id": "edge_tool_call_call_SgsPRWZ8GBed2slffoTDzR1U_to_agent_3_copy_1_11",
+      "source": "tool_call_call_SgsPRWZ8GBed2slffoTDzR1U",
+      "target": "agent_3_copy_1",
+      "type": "creates",
+      "label": "agent creation",
+      "timestamp": 1754630470080
+    },
+    {
+      "id": "edge_agent_3_copy_1_to_user_message_conv_1754630464440_bigdfzh_12",
+      "source": "agent_3_copy_1",
+      "target": "user_message_conv_1754630464440_bigdfzh",
+      "type": "receives",
+      "label": "user input",
+      "timestamp": 1754630470080
+    },
+    {
+      "id": "edge_agent_3_copy_1_to_thinking_agent_3_copy_1_1754630470080_round2_13",
+      "source": "agent_3_copy_1",
+      "target": "thinking_agent_3_copy_1_1754630470080_round2",
+      "type": "processes",
+      "label": "thinking process",
+      "timestamp": 1754630470080
+    },
+    {
+      "id": "edge_thinking_agent_1_copy_1_1754630464668_round1_to_agent_response_agent_1_copy_1_1754630475640_14",
+      "source": "thinking_agent_1_copy_1_1754630464668_round1",
+      "target": "agent_response_agent_1_copy_1_1754630475640",
+      "type": "return",
+      "label": "agent response",
+      "timestamp": 1754630475640
+    },
+    {
+      "id": "edge_tool_call_call_WpD6R18dkhIMatgp9bcDs6KD_to_agent_4_copy_1_15",
+      "source": "tool_call_call_WpD6R18dkhIMatgp9bcDs6KD",
+      "target": "agent_4_copy_1",
+      "type": "creates",
+      "label": "agent creation",
+      "timestamp": 1754630475640
+    },
+    {
+      "id": "edge_agent_4_copy_1_to_user_message_conv_1754630464432_jxenk93_16",
+      "source": "agent_4_copy_1",
+      "target": "user_message_conv_1754630464432_jxenk93",
+      "type": "receives",
+      "label": "user input",
+      "timestamp": 1754630475640
+    },
+    {
+      "id": "edge_agent_4_copy_1_to_thinking_agent_4_copy_1_1754630475640_round2_17",
+      "source": "agent_4_copy_1",
+      "target": "thinking_agent_4_copy_1_1754630475640_round2",
+      "type": "processes",
+      "label": "thinking process",
+      "timestamp": 1754630475640
+    },
+    {
+      "id": "edge_agent_0_copy_1_to_thinking_agent_0_copy_1_1754630492443_round2_18",
+      "source": "agent_0_copy_1",
+      "target": "thinking_agent_0_copy_1_1754630492443_round2",
+      "type": "processes",
+      "label": "thinking process",
+      "timestamp": 1754630492443
+    }
+  ]
+}

@@ -34,11 +34,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Bot, Users, Zap, MessageSquare, MessageCircle, Settings, Wrench, LayoutGrid, RefreshCw } from 'lucide-react';
+import { Bot, Users, Zap, MessageSquare, MessageCircle, Settings, Wrench, LayoutGrid, RefreshCw, Clipboard } from 'lucide-react';
 import type {
-    UniversalWorkflowStructure,
-    UniversalWorkflowNode,
-    UniversalWorkflowEdge
+    UniversalWorkflowStructure
 } from '@robota-sdk/agents';
 import { SimpleReactFlowConverter } from '@/lib/workflow-visualization';
 import {
@@ -700,6 +698,38 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
         applyAutoLayout(suggestedLayout);
     }, [nodes, edges, applyAutoLayout]);
 
+    // 🔍 Data Dump 기능 - 현재 workflow 데이터를 클립보드에 복사
+    const handleDataDump = useCallback(async () => {
+        try {
+            const dumpData = {
+                timestamp: new Date().toISOString(),
+                workflow: workflow,
+                reactFlowNodes: nodes,
+                reactFlowEdges: edges,
+                totalNodes: nodes.length,
+                totalEdges: edges.length,
+                nodeTypes: [...new Set(nodes.map(n => n.type))],
+                edgeTypes: [...new Set(edges.map(e => e.type))]
+            };
+
+            const jsonString = JSON.stringify(dumpData, null, 2);
+            await navigator.clipboard.writeText(jsonString);
+
+            console.log('📋 [DATA-DUMP] Workflow data copied to clipboard');
+            console.log('📊 Summary:', {
+                nodes: dumpData.totalNodes,
+                edges: dumpData.totalEdges,
+                types: dumpData.nodeTypes
+            });
+
+            // Toast 알림 (선택사항)
+            alert(`✅ Workflow data copied to clipboard!\nNodes: ${dumpData.totalNodes}, Edges: ${dumpData.totalEdges}`);
+        } catch (error) {
+            console.error('❌ Failed to copy workflow data:', error);
+            alert('❌ Failed to copy workflow data to clipboard');
+        }
+    }, [workflow, nodes, edges]);
+
     // Convert workflow to React-Flow format
     useEffect(() => {
         const convertWorkflow = async () => {
@@ -721,10 +751,10 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
                 const reactFlowData = await converter.convert(workflow);
 
                 // 🧪 [DEBUG] React-Flow 데이터 출력
-                console.log('🧪 [REACT-FLOW-DATA] === 완전한 데이터 덤프 ===');
-                console.log('📊 [WORKFLOW-INPUT]:', JSON.stringify(workflow, null, 2));
-                console.log('🔵 [NODES]:', JSON.stringify(reactFlowData.nodes, null, 2));
-                console.log('🔗 [EDGES]:', JSON.stringify(reactFlowData.edges, null, 2));
+                // console.log('🧪 [REACT-FLOW-DATA] === 완전한 데이터 덤프 ===');
+                // console.log('📊 [WORKFLOW-INPUT]:', JSON.stringify(workflow, null, 2));
+                // console.log('🔵 [NODES]:', JSON.stringify(reactFlowData.nodes, null, 2));
+                // console.log('🔗 [EDGES]:', JSON.stringify(reactFlowData.edges, null, 2));
                 console.log('🧪 [REACT-FLOW-DATA] === 덤프 완료 ===');
 
                 // Apply auto layout if enabled
@@ -774,8 +804,20 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
                         Workflow Visualization
                     </CardTitle>
 
-                    {/* Auto Layout Controls */}
+                    {/* Auto Layout Controls + Data Dump */}
                     <div className="flex items-center gap-2">
+                        {/* Data Dump Button */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleDataDump}
+                            className="flex items-center gap-2"
+                            title="Copy current workflow data to clipboard"
+                        >
+                            <Clipboard className="h-4 w-4" />
+                            Dump Data
+                        </Button>
+
                         <Select
                             value={selectedLayout}
                             onValueChange={(value: keyof typeof LAYOUT_PRESETS) => handleApplyLayout(value)}

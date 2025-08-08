@@ -70,7 +70,7 @@ export class SubAgentEventRelay extends ActionTrackingEventService {
 
                 // 🎯 Agent Copy 시스템 통합: 독립적인 ID 생성 제거
                 // WorkflowEventSubscriber의 표준 Agent Copy 시스템에서 예약된 ID 사용
-                if (eventType === 'assistant.message_start') {
+                if (eventType === 'execution.assistant_message_start') {
                     // 표준 Agent Copy 시스템에서 thinking ID가 예약되어 제공됨
                     // SubAgentEventRelay는 단순히 이벤트를 전달만 함
                     enrichedData = {
