@@ -24,7 +24,8 @@ import {
     Users,
     AlertCircle,
     CheckCircle,
-    Loader2
+    Loader2,
+    Menu
 } from 'lucide-react';
 
 // Context and Hooks
@@ -474,7 +475,7 @@ function SystemStatusPanel() {
 // Main Content Component (requires PlaygroundProvider)
 function PlaygroundContent() {
     const { state } = usePlayground();
-    const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
+    const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
     const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
     const { activeModal, isModalOpen, openModal, closeModal, toggleModal } = useModal();
 
@@ -489,12 +490,6 @@ function PlaygroundContent() {
 
                 <div className="flex items-center gap-3">
                     {/* Modal Trigger Buttons */}
-                    <button
-                        onClick={() => toggleModal('configuration')}
-                        className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
-                    >
-                        Configuration
-                    </button>
 
                     <button
                         onClick={() => toggleModal('chat')}
@@ -530,12 +525,15 @@ function PlaygroundContent() {
                 )}
 
                 {/* Toggle Buttons */}
-                <button
-                    onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
-                    className="absolute top-4 left-4 z-20 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded shadow-md transition-colors"
-                >
-                    {leftSidebarOpen ? '← Close' : 'Left →'}
-                </button>
+                {!leftSidebarOpen && (
+                    <button
+                        onClick={() => setLeftSidebarOpen(true)}
+                        className="absolute top-4 left-4 z-20 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded shadow-md transition-colors"
+                        title="Open Configuration"
+                    >
+                        <Menu className="h-5 w-5" />
+                    </button>
+                )}
 
                 <button
                     onClick={() => setRightSidebarOpen(!rightSidebarOpen)}
@@ -544,12 +542,20 @@ function PlaygroundContent() {
                     {rightSidebarOpen ? 'Close →' : '← Right'}
                 </button>
 
-                {/* Left Sidebar - Overlay */}
-                <div className={`absolute left-0 top-0 w-80 h-full bg-gray-50 border-r border-gray-200 z-10 shadow-lg transition-transform duration-300 ${leftSidebarOpen ? 'transform translate-x-0' : 'transform -translate-x-full'
+                {/* Left Sidebar - Configuration */}
+                <div className={`absolute left-0 top-0 w-80 h-full bg-white border-r border-gray-200 z-10 shadow-lg transition-transform duration-300 overflow-y-auto ${leftSidebarOpen ? 'transform translate-x-0' : 'transform -translate-x-full'
                     }`}>
                     <div className="p-4">
-                        <h3 className="font-semibold mb-4">Left Sidebar</h3>
-                        <p className="text-sm text-gray-600">Configuration and controls will go here</p>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-semibold text-gray-800">Configuration</h3>
+                            <button
+                                onClick={() => setLeftSidebarOpen(false)}
+                                className="text-gray-400 hover:text-gray-600 text-xl"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <ConfigurationPanel />
                     </div>
                 </div>
 
@@ -570,17 +576,7 @@ function PlaygroundContent() {
 
             {/* Modal System */}
 
-            {/* Configuration Modal */}
-            <Modal
-                isOpen={isModalOpen('configuration')}
-                onClose={closeModal}
-                title="Configuration"
-                size="xl"
-            >
-                <div className="p-6">
-                    <ConfigurationPanel />
-                </div>
-            </Modal>
+            {/* Configuration moved to Left Sidebar */}
 
             {/* Chat Modal */}
             <Modal

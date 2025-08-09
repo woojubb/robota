@@ -53,7 +53,7 @@ interface WorkflowVisualizationProps {
 }
 
 // Base Node Template Types
-type NodeType = 'agent' | 'team' | 'toolCall' | 'agentResponse' | 'tool' | 'userInput';
+type NodeType = 'agent' | 'team' | 'toolCall' | 'agentResponse' | 'tool' | 'user_message' | 'agent_thinking' | 'response' | 'tool_call' | 'tool_call_response' | 'tool_result';
 
 interface BaseNodeTemplateProps {
     nodeType: NodeType;
@@ -87,7 +87,7 @@ const BaseNodeTemplate = ({
 }: BaseNodeTemplateProps) => {
     return (
         <div
-            className="bg-white"
+            className="w-40 p-3 bg-gray-50 rounded-lg text-sm font-medium"
             data-status={data.status}
             data-node-type={nodeType}
         >
@@ -406,42 +406,29 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                 sourceId: "agent-output"
             }}
         >
-            <div className="px-3 py-1.5">
-                <div className="flex items-center gap-2">
-                    <Bot className={styles.icon} />
-                    <div className="text-sm font-semibold">{data.label}</div>
+            <div>
+                <div className="font-semibold text-gray-800 mb-1">
+                    {data.label || 'Agent'}
                 </div>
                 {data.taskName && (
-                    <div className="mt-1 text-xs text-gray-600 max-w-[150px] truncate">
-                        {data.taskName}
+                    <div className="text-xs text-gray-600 truncate">
+                        {typeof data.taskName === 'string' ? data.taskName : JSON.stringify(data.taskName)}
                     </div>
                 )}
                 {data.level && data.level > 0 && (
-                    <Badge className="mt-1 text-xs bg-gray-100 text-gray-700">
-                        Level {data.level}
-                    </Badge>
+                    <div className="text-xs text-gray-500 mt-1">
+                        Level {typeof data.level === 'number' || typeof data.level === 'string' ? data.level : JSON.stringify(data.level)}
+                    </div>
                 )}
                 {data.status && (
-                    <Badge className={`mt-1 text-xs ${styles.badge}`}>
-                        {data.status}
-                    </Badge>
+                    <div className="text-xs text-gray-500 mt-1">
+                        {typeof data.status === 'string' ? data.status : JSON.stringify(data.status)}
+                    </div>
                 )}
 
-                {/* Tool Slots - 사용 가능한 도구들 표시 */}
-                {data.toolSlots && data.toolSlots.length > 0 && (
-                    <div className="mt-2 border-t pt-2">
-                        <div className="text-xs text-gray-500 mb-1">Tools:</div>
-                        <div className="flex flex-wrap gap-1">
-                            {data.toolSlots.map((tool: string, index: number) => (
-                                <div
-                                    key={index}
-                                    className="flex items-center gap-1 px-2 py-1 bg-gray-50 border border-gray-200 rounded text-xs"
-                                >
-                                    <Wrench className="h-3 w-3 text-gray-600" />
-                                    <span className="text-gray-700">{tool}</span>
-                                </div>
-                            ))}
-                        </div>
+                {data.toolSlots && Array.isArray(data.toolSlots) && data.toolSlots.length > 0 && (
+                    <div className="text-xs text-gray-500 mt-1">
+                        Tools: {data.toolSlots.map(tool => typeof tool === 'string' ? tool : JSON.stringify(tool)).join(', ')}
                     </div>
                 )}
             </div>
@@ -499,20 +486,19 @@ const TeamNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => {
                 sourceId: "team-output"
             }}
         >
-            <div className="px-3 py-1.5">
-                <div className="flex items-center gap-2">
-                    <Users className={styles.icon} />
-                    <div className="text-sm font-semibold">{data.label}</div>
+            <div>
+                <div className="font-semibold text-gray-800 mb-1">
+                    {data.label || 'Team'}
                 </div>
                 {data.memberCount && (
-                    <Badge className={`mt-1 text-xs ${styles.badge}`}>
-                        {data.memberCount} members
-                    </Badge>
+                    <div className="text-xs text-gray-600 truncate">
+                        {typeof data.memberCount === 'number' || typeof data.memberCount === 'string' ? data.memberCount : JSON.stringify(data.memberCount)} members
+                    </div>
                 )}
                 {data.status && (
-                    <Badge className={`mt-1 text-xs ${styles.badge}`}>
-                        {data.status}
-                    </Badge>
+                    <div className="text-xs text-gray-500 mt-1">
+                        {typeof data.status === 'string' ? data.status : JSON.stringify(data.status)}
+                    </div>
                 )}
             </div>
         </BaseNodeTemplate>
@@ -532,10 +518,9 @@ const ToolNode = ({ data }: { data: any }) => {
                 source: false
             }}
         >
-            <div className="px-3 py-1.5">
-                <div className="flex items-center gap-2">
-                    <Zap className="h-3 w-3 text-purple-600" />
-                    <div className="text-xs font-medium">{data.label}</div>
+            <div>
+                <div className="font-semibold text-gray-800 mb-1">
+                    {data.label || 'Tool'}
                 </div>
             </div>
         </BaseNodeTemplate>
@@ -543,27 +528,171 @@ const ToolNode = ({ data }: { data: any }) => {
 };
 
 /**
- * Custom Node Component for User Input
+ * Custom Node Component for User Message
  */
-const UserInputNode = ({ data }: { data: any }) => {
+const UserMessageNode = ({ data }: { data: any }) => {
     return (
         <BaseNodeTemplate
-            nodeType="userInput"
+            nodeType="user_message"
             data={data}
             handles={{
-                target: false,
+                target: true,
                 source: true,
-                sourceId: "user-output"
+                targetId: "user-message-input",
+                sourceId: "user-message-output"
             }}
         >
-            <div className="px-3 py-1.5">
-                <div className="flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-purple-600" />
-                    <div className="text-sm font-semibold">User Input</div>
+            <div>
+                <div className="font-semibold text-gray-800 mb-1">
+                    User Message
                 </div>
                 {data.message && (
-                    <div className="mt-1 text-xs text-gray-600 max-w-[200px] truncate">
-                        {data.message}
+                    <div className="text-xs text-gray-600 truncate">
+                        {typeof data.message === 'string' ? data.message : JSON.stringify(data.message)}
+                    </div>
+                )}
+            </div>
+        </BaseNodeTemplate>
+    );
+};
+
+/**
+ * Custom Node Component for Agent Thinking
+ */
+const AgentThinkingNode = ({ data }: { data: any }) => {
+    return (
+        <BaseNodeTemplate
+            nodeType="agent_thinking"
+            data={data}
+            handles={{
+                target: true,
+                source: true,
+                targetId: "thinking-input",
+                sourceId: "thinking-output"
+            }}
+        >
+            <div>
+                <div className="font-semibold text-gray-800 mb-1">
+                    Agent Thinking
+                </div>
+                {data.content && (
+                    <div className="text-xs text-gray-600 truncate">
+                        {typeof data.content === 'string' ? data.content : JSON.stringify(data.content)}
+                    </div>
+                )}
+            </div>
+        </BaseNodeTemplate>
+    );
+};
+
+/**
+ * Custom Node Component for Response
+ */
+const ResponseNode = ({ data }: { data: any }) => {
+    return (
+        <BaseNodeTemplate
+            nodeType="response"
+            data={data}
+            handles={{
+                target: true,
+                source: true,
+                targetId: "response-input",
+                sourceId: "response-output"
+            }}
+        >
+            <div>
+                <div className="font-semibold text-gray-800 mb-1">
+                    Response
+                </div>
+                {data.content && (
+                    <div className="text-xs text-gray-600 truncate">
+                        {typeof data.content === 'string' ? data.content : JSON.stringify(data.content)}
+                    </div>
+                )}
+            </div>
+        </BaseNodeTemplate>
+    );
+};
+
+/**
+ * Custom Node Component for Tool Call
+ */
+const ToolCallNode = ({ data }: { data: any }) => {
+    return (
+        <BaseNodeTemplate
+            nodeType="tool_call"
+            data={data}
+            handles={{
+                target: true,
+                source: true,
+                targetId: "tool-call-input",
+                sourceId: "tool-call-output"
+            }}
+        >
+            <div>
+                <div className="font-semibold text-gray-800 mb-1">
+                    Tool Call
+                </div>
+                {data.toolName && (
+                    <div className="text-xs text-gray-600 truncate">
+                        {typeof data.toolName === 'string' ? data.toolName : JSON.stringify(data.toolName)}
+                    </div>
+                )}
+            </div>
+        </BaseNodeTemplate>
+    );
+};
+
+/**
+ * Custom Node Component for Tool Call Response
+ */
+const ToolCallResponseNode = ({ data }: { data: any }) => {
+    return (
+        <BaseNodeTemplate
+            nodeType="tool_call_response"
+            data={data}
+            handles={{
+                target: true,
+                source: true,
+                targetId: "tool-call-response-input",
+                sourceId: "tool-call-response-output"
+            }}
+        >
+            <div>
+                <div className="font-semibold text-gray-800 mb-1">
+                    Tool Call Response
+                </div>
+                {data.result && (
+                    <div className="text-xs text-gray-600 truncate">
+                        {typeof data.result === 'string' ? data.result : JSON.stringify(data.result)}
+                    </div>
+                )}
+            </div>
+        </BaseNodeTemplate>
+    );
+};
+
+/**
+ * Custom Node Component for Tool Result
+ */
+const ToolResultNode = ({ data }: { data: any }) => {
+    return (
+        <BaseNodeTemplate
+            nodeType="tool_result"
+            data={data}
+            handles={{
+                target: true,
+                source: false,
+                targetId: "tool-result-input"
+            }}
+        >
+            <div>
+                <div className="font-semibold text-gray-800 mb-1">
+                    Tool Result
+                </div>
+                {data.value && (
+                    <div className="text-xs text-gray-600 truncate">
+                        {typeof data.value === 'string' ? data.value : JSON.stringify(data.value)}
                     </div>
                 )}
             </div>
@@ -587,14 +716,13 @@ const AgentResponseNode = ({ data, sourcePosition, targetPosition }: NodeProps<a
                 targetId: "response-input"
             }}
         >
-            <div className="px-3 py-1.5">
-                <div className="flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4 text-teal-600" />
-                    <div className="text-sm font-semibold">Agent Response</div>
+            <div>
+                <div className="font-semibold text-gray-800 mb-1">
+                    Agent Response
                 </div>
                 {data.response && (
-                    <div className="mt-1 text-xs text-gray-600 max-w-[200px] truncate">
-                        {data.response}
+                    <div className="text-xs text-gray-600 truncate">
+                        {typeof data.response === 'string' ? data.response : JSON.stringify(data.response)}
                     </div>
                 )}
             </div>
@@ -603,9 +731,9 @@ const AgentResponseNode = ({ data, sourcePosition, targetPosition }: NodeProps<a
 };
 
 /**
- * Custom Node Component for Tool Calls
+ * Custom Node Component for Tool Calls (Legacy)
  */
-const ToolCallNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => {
+const LegacyToolCallNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => {
     return (
         <BaseNodeTemplate
             nodeType="toolCall"
@@ -619,20 +747,19 @@ const ToolCallNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) 
                 sourceId: "tool-output"
             }}
         >
-            <div className="px-3 py-1.5">
-                <div className="flex items-center gap-2">
-                    <Settings className="h-3 w-3 text-orange-600" />
-                    <div className="text-xs font-semibold">Tool Call</div>
+            <div>
+                <div className="font-semibold text-gray-800 mb-1">
+                    Tool Call
                 </div>
                 {data.toolName && (
-                    <div className="mt-1 text-xs text-gray-600 max-w-[150px] truncate">
-                        {data.toolName}
+                    <div className="text-xs text-gray-600 truncate">
+                        {typeof data.toolName === 'string' ? data.toolName : JSON.stringify(data.toolName)}
                     </div>
                 )}
                 {data.status && (
-                    <Badge className="mt-1 text-xs bg-orange-100 text-orange-800">
-                        {data.status}
-                    </Badge>
+                    <div className="text-xs text-gray-500 mt-1">
+                        {typeof data.status === 'string' ? data.status : JSON.stringify(data.status)}
+                    </div>
                 )}
             </div>
         </BaseNodeTemplate>
@@ -646,10 +773,15 @@ const nodeTypes = {
     agent: AgentNode as any,
     team: TeamNode as any,
     tool: ToolNode as any,
-    userInput: UserInputNode as any,
+    user_message: UserMessageNode as any,
+    agent_thinking: AgentThinkingNode as any,
+    response: ResponseNode as any,
+    tool_call: ToolCallNode as any,
+    tool_call_response: ToolCallResponseNode as any,
+    tool_result: ToolResultNode as any,
     agentResponse: AgentResponseNode as any,
-    toolCall: ToolCallNode as any
-    // subAgent 제거 - 모든 Agent는 동일한 'agent' 타입 사용
+    toolCall: LegacyToolCallNode as any
+    // userInput 제거 - 레거시 타입
 };
 
 function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualizationProps) {
