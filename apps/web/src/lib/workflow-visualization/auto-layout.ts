@@ -25,48 +25,48 @@ export interface LayoutConfig {
  * Default layout configurations for different scenarios
  */
 export const LAYOUT_PRESETS: Record<string, LayoutConfig> = {
-    // Vertical workflow layout (default) - optimized for dynamic node heights
+    // Vertical workflow layout (default) - balanced spacing regardless of max node height
     vertical: {
         rankdir: 'TB',
         align: 'UL',
-        nodesep: 50, // Increased for better separation between nodes
-        edgesep: 20, // Increased to prevent edge overlaps
-        ranksep: 80, // Increased to accommodate varying node heights
-        marginx: 40,
-        marginy: 40
+        nodesep: 70, // Moderate fixed spacing
+        edgesep: 25, // Fixed edge spacing
+        ranksep: 140, // Reasonable vertical spacing
+        marginx: 50,
+        marginy: 50
     },
 
     // Horizontal workflow layout - optimized for wide displays
     horizontal: {
         rankdir: 'LR',
         align: 'UL',
-        nodesep: 35, // Increased for better vertical separation
-        edgesep: 20, // Increased to prevent edge overlaps
-        ranksep: 150, // Increased to accommodate node width
-        marginx: 40,
-        marginy: 40
+        nodesep: 60, // Fixed vertical separation
+        edgesep: 25, // Fixed edge spacing
+        ranksep: 220, // Horizontal spacing for content width
+        marginx: 50,
+        marginy: 50
     },
 
-    // Compact layout for dense workflows - still readable with dynamic heights
+    // Compact layout for dense workflows - tight but readable spacing
     compact: {
         rankdir: 'TB',
         align: 'UL',
-        nodesep: 35, // Increased from 25 to prevent overlaps
-        edgesep: 15, // Increased from 8 to prevent edge overlaps
-        ranksep: 60, // Increased from 28 to accommodate varying heights
-        marginx: 25,
-        marginy: 25
+        nodesep: 50, // Compact but sufficient spacing
+        edgesep: 20, // Minimal edge spacing
+        ranksep: 100, // Tight vertical spacing
+        marginx: 30,
+        marginy: 30
     },
 
-    // Spacious layout for presentations - wider spacing
+    // Spacious layout for presentations - generous but not excessive spacing
     spacious: {
         rankdir: 'TB',
         align: 'UL',
-        nodesep: 80, // Increased for more breathing room
-        edgesep: 25, // Increased for cleaner edge routing
-        ranksep: 120, // Sufficient space for tall nodes
-        marginx: 60,
-        marginy: 60
+        nodesep: 100, // Generous spacing
+        edgesep: 30, // Comfortable edge spacing
+        ranksep: 200, // Spacious but reasonable vertical spacing
+        marginx: 70,
+        marginy: 70
     }
 };
 
@@ -88,40 +88,56 @@ const HANDLE_OFFSET = {
 };
 
 /**
- * Calculate dynamic node height based on content
+ * Calculate dynamic node height based on content - more flexible sizing
  */
 function calculateNodeHeight(node: Node): number {
     const data = node.data;
     let estimatedHeight = 60; // base height for header
 
-    // Add height for content preview
+    // Add height for content preview - limited to keep nodes compact
     if (data.userPrompt || data.userMessageContent || data.assistantMessage || data.contentPreview) {
         const content = data.userPrompt || data.userMessageContent || data.assistantMessage || data.contentPreview || '';
-        const lines = Math.ceil(content.length / 60); // rough estimate of line wrapping at 60 chars
-        estimatedHeight += Math.min(lines * 16, 48); // max 3 lines for preview (16px per line)
+
+        // Truncate content to keep nodes at reasonable height
+        const maxContentLength = 120; // Limit content to ~120 characters
+        const truncatedContent = content.length > maxContentLength ? content.substring(0, maxContentLength) + '...' : content;
+
+        // Calculate lines based on truncated content
+        const charsPerLine = 40; // Slightly tighter character wrapping
+        const lines = Math.ceil(truncatedContent.length / charsPerLine);
+
+        // Limit to maximum 3 lines for compact display
+        const lineHeight = 16; // Slightly smaller line height
+        const maxLines = 3; // Keep it compact at 3 lines max
+        const contentHeight = Math.min(lines * lineHeight, maxLines * lineHeight);
+
+        estimatedHeight += contentHeight;
     }
 
-    // Add height for badges/indicators
+    // Add height for badges/indicators - more compact
     const hasIndicators = (
         data.hasQuestions || data.containsUrgency || data.hasCodeBlocks ||
         data.hasLinks || data.isError || data.hasStructuredData ||
         data.aiProvider || data.availableTools || data.toolSlots
     );
     if (hasIndicators) {
-        estimatedHeight += 24; // space for badge row
+        estimatedHeight += 20; // reduced space for badge row
     }
 
-    // Add extra height for complex nodes
+    // Add extra height for complex nodes - more compact
     if (node.type === 'agent' && (data.availableTools || data.toolSlots)) {
-        estimatedHeight += 20; // extra space for tool info
+        estimatedHeight += 18; // reduced extra space for tool info
     }
 
     if (node.type === 'tool_call_response' && data.toolName) {
-        estimatedHeight += 20; // extra space for tool details
+        estimatedHeight += 18; // reduced extra space for tool details
     }
 
-    // Ensure minimum and maximum heights
-    return Math.max(80, Math.min(estimatedHeight, 160));
+    // Compact height limits - keep nodes reasonably sized
+    const minHeight = 70; // Slightly reduced minimum
+    const maxHeight = 200; // Reduced from 1000px to 200px for more compact display
+
+    return Math.max(minHeight, Math.min(estimatedHeight, maxHeight));
 }
 
 /**
@@ -153,10 +169,13 @@ export function applyDagreLayout(
     useActualDimensions = false
 ): { nodes: Node[]; edges: Edge[] } {
 
+    // Keep a copy of the original edges, as we might modify them for layout
+    const originalEdges = [...edges];
+
     // Create new dagre graph
     const dagreGraph = new dagre.graphlib.Graph();
 
-    // Configure graph
+    // Configure graph with provided (fixed) spacing only
     dagreGraph.setDefaultEdgeLabel(() => ({}));
     dagreGraph.setGraph({
         rankdir: config.rankdir,
@@ -177,15 +196,41 @@ export function applyDagreLayout(
         });
     });
 
-    // Add edges to dagre graph
+    // Add original edges to the graph
     edges.forEach((edge) => {
         dagreGraph.setEdge(edge.source, edge.target);
+    });
+
+    // For nodes with multiple parents, introduce a dummy node to guide the layout
+    const childToParents = new Map<string, string[]>();
+    edges.forEach((e) => {
+        const parents = childToParents.get(e.target) || [];
+        parents.push(e.source);
+        childToParents.set(e.target, parents);
+    });
+
+    childToParents.forEach((parents, childId) => {
+        if (parents.length > 1) {
+            const dummyNodeId = `dummy-join-for-${childId}`;
+
+            // Add a small, invisible dummy node
+            dagreGraph.setNode(dummyNodeId, { width: 1, height: 1 });
+
+            // Reroute edges from parents to the dummy node
+            parents.forEach(parentId => {
+                dagreGraph.removeEdge(parentId, childId);
+                dagreGraph.setEdge(parentId, dummyNodeId);
+            });
+
+            // Connect the dummy node to the original child
+            dagreGraph.setEdge(dummyNodeId, childId);
+        }
     });
 
     // Run layout algorithm
     dagre.layout(dagreGraph);
 
-    // Update node positions based on layout results with handle positioning
+    // Update node positions based on layout results, ignoring dummy nodes
     const layoutedNodes: Node[] = nodes.map((node) => {
         const nodeWithPosition = dagreGraph.node(node.id);
         const dimensions = getNodeDimensions(node, useActualDimensions);
@@ -202,16 +247,11 @@ export function applyDagreLayout(
         return {
             ...node,
             position: { x, y },
-            // Set dynamic handle positions based on layout direction
             sourcePosition,
             targetPosition,
-            // Let Tailwind classes handle styling - no forced width
             style: {
                 ...node.style
-                // width removed - let Tailwind w-40 handle width
-                // height removed - let content determine natural height
             },
-            // Add computed dimensions and handle positions to data
             data: {
                 ...node.data,
                 computedWidth: dimensions.width,
@@ -224,7 +264,7 @@ export function applyDagreLayout(
 
     return {
         nodes: layoutedNodes,
-        edges: edges // Edges don't need position updates
+        edges: originalEdges // Return the original edges for correct rendering
     };
 }
 
@@ -364,27 +404,50 @@ export function validateLayoutResult(
 }
 
 /**
- * 노드 크기 기반 최적 간격 계산
+ * 노드 크기 기반 최적 간격 계산 - 긴 노드 높이에 최적화
  */
 export function calculateOptimalSpacing(nodes: Node[]): Partial<LayoutConfig> {
     if (nodes.length === 0) return {};
 
-    // 평균 노드 크기 계산
-    const avgWidth = nodes.reduce((sum, node) =>
-        sum + (node.data?.computedWidth || 200), 0) / nodes.length;
-    const avgHeight = nodes.reduce((sum, node) =>
-        sum + (node.data?.computedHeight || 80), 0) / nodes.length;
+    // 실제 노드 크기 계산 (actualWidth/Height 우선, 없으면 계산)
+    let totalWidth = 0;
+    let totalHeight = 0;
+    let maxHeight = 0;
 
-    // 크기에 따른 동적 간격 조정
-    const nodesep = Math.max(40, avgWidth * 0.2);
-    const ranksep = Math.max(60, avgHeight * 1.2);
-    const edgesep = Math.max(15, avgWidth * 0.1);
+    nodes.forEach(node => {
+        const width = node.data?.actualWidth || node.data?.computedWidth || getNodeDimensions(node).width;
+        const height = node.data?.actualHeight || node.data?.computedHeight || getNodeDimensions(node).height;
+
+        totalWidth += width;
+        totalHeight += height;
+        maxHeight = Math.max(maxHeight, height);
+    });
+
+    const avgWidth = totalWidth / nodes.length;
+    const avgHeight = totalHeight / nodes.length;
+
+    // 기본 간격은 일정하게 유지하되, 평균 높이만 고려
+    const avgHeightFactor = Math.max(1.0, avgHeight / 100); // 평균 높이 기준 스케일링
+
+    // 노드 간 수평 간격은 고정값 사용 (너무 넓어지지 않도록)
+    const nodesep = Math.max(60, Math.min(100, avgWidth * 0.3));
+
+    // 랭크 간 간격은 평균 높이 기준으로만 조정 (최대 높이 무시)
+    const ranksep = Math.max(120, avgHeight * 1.2 + 40);
+
+    // 엣지 간격은 고정값 사용
+    const edgesep = Math.max(25, Math.min(35, avgWidth * 0.15));
+
+    // 매우 긴 노드들을 위한 추가 여백 - 1000px 높이 대응
+    const extraMargin = maxHeight > 500 ? 80 : maxHeight > 200 ? 40 : 0;
+
+    console.log(`🔧 Optimal spacing calculated: avgHeight=${avgHeight.toFixed(1)}, maxHeight=${maxHeight}, ranksep=${ranksep.toFixed(1)}`);
 
     return {
-        nodesep,
-        ranksep,
-        edgesep,
-        marginx: Math.max(40, avgWidth * 0.3),
-        marginy: Math.max(40, avgHeight * 0.5)
+        nodesep: Math.round(nodesep),
+        ranksep: Math.round(ranksep),
+        edgesep: Math.round(edgesep),
+        marginx: Math.max(50, avgWidth * 0.4) + extraMargin,
+        marginy: Math.max(50, avgHeight * 0.6) + extraMargin
     };
 }

@@ -480,9 +480,9 @@ function PlaygroundContent() {
     const { activeModal, isModalOpen, openModal, closeModal, toggleModal } = useModal();
 
     return (
-        <div>
+        <div className="h-full flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white flex-shrink-0">
                 <div>
                     <h1 className="text-2xl font-bold">Robota Playground</h1>
                     <p className="text-sm text-gray-600">Build, test, and deploy intelligent agents</p>
@@ -512,7 +512,7 @@ function PlaygroundContent() {
             </div>
 
             {/* Main Visualization Layout with Overlay Sidebars */}
-            <div className="relative h-96 overflow-hidden">
+            <div className="relative flex-1 overflow-hidden">
                 {/* Background Overlay */}
                 {(leftSidebarOpen || rightSidebarOpen) && (
                     <div
