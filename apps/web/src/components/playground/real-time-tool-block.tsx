@@ -108,6 +108,7 @@ const getStatusColors = (state: RealTimeBlockMetadata['visualState']) => {
     };
 
     const stateOverrides = {
+        pending: 'ring-2 ring-gray-200 shadow-sm',
         in_progress: 'ring-2 ring-blue-200 shadow-sm',
         error: 'ring-2 ring-red-200 shadow-sm',
         completed: 'shadow-sm'

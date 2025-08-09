@@ -108,7 +108,7 @@ const AVAILABLE_PLUGINS = [
         options: {
             enabled: { type: 'boolean', default: true, description: 'Enable plugin' },
             maxEvents: { type: 'number', default: 1000, description: 'Maximum events to store' },
-            strategy: { type: 'select', options: ['auto', 'silent', 'verbose'], default: 'auto' }
+            strategy: { type: 'select', options: ['auto', 'silent', 'verbose'], default: 'auto', description: 'Logging strategy' }
         }
     },
     {
@@ -118,7 +118,7 @@ const AVAILABLE_PLUGINS = [
         priority: 5,
         options: {
             enabled: { type: 'boolean', default: true, description: 'Enable plugin' },
-            logLevel: { type: 'select', options: ['debug', 'info', 'warn', 'error'], default: 'info' },
+            logLevel: { type: 'select', options: ['debug', 'info', 'warn', 'error'], default: 'info', description: 'Log level' },
             logToConsole: { type: 'boolean', default: false, description: 'Log to console' }
         }
     },
