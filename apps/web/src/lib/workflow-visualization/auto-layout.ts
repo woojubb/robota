@@ -71,17 +71,11 @@ export const LAYOUT_PRESETS: Record<string, LayoutConfig> = {
 };
 
 /**
- * Node dimensions based on type with precise measurements
+ * Unified node dimensions - all nodes have same size for consistency
  */
-const NODE_DIMENSIONS = {
-    default: { width: 200, height: 80 },
-    agent: { width: 220, height: 100 },
-    agent_thinking: { width: 200, height: 80 },
-    tool_call: { width: 180, height: 70 },
-    tool_call_response: { width: 180, height: 70 },
-    user_message: { width: 160, height: 60 },
-    merge_results: { width: 200, height: 80 },
-    response: { width: 180, height: 70 }
+const UNIFIED_NODE_DIMENSIONS = {
+    width: 160, // Matches Tailwind w-40
+    height: 80  // Reasonable default height
 };
 
 /**
@@ -94,10 +88,10 @@ const HANDLE_OFFSET = {
 };
 
 /**
- * Get node dimensions based on type
+ * Get unified node dimensions - all nodes same size
  */
 function getNodeDimensions(nodeType?: string): { width: number; height: number } {
-    return NODE_DIMENSIONS[nodeType as keyof typeof NODE_DIMENSIONS] || NODE_DIMENSIONS.default;
+    return UNIFIED_NODE_DIMENSIONS;
 }
 
 /**
@@ -161,10 +155,10 @@ export function applyDagreLayout(
             // Set dynamic handle positions based on layout direction
             sourcePosition,
             targetPosition,
-            // Ensure nodes have proper width for React Flow (height auto)
+            // Let Tailwind classes handle styling - no forced width
             style: {
-                ...node.style,
-                width: dimensions.width
+                ...node.style
+                // width removed - let Tailwind w-40 handle width
                 // height removed - let content determine natural height
             },
             // Add computed dimensions and handle positions to data

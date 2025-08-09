@@ -30,16 +30,13 @@ import type {
  * Maps Universal Workflow node types to React-Flow custom node types
  */
 const SDK_TO_REACTFLOW_TYPE_MAP: Record<string, string> = {
-    'tool_call': 'toolCall',
-    'agent_thinking': 'agent',
-    'final_response': 'agentResponse',
+    // Keep original types to match CSS classes - no mapping needed for new types
+    // Legacy mappings only for old data compatibility
+    'final_response': 'response',
     'sub_agent': 'agent',
-    'user_input': 'userInput',
-    'merge_results': 'agentResponse',
-    'agent': 'agent',
-    'team': 'team',
-    'tool': 'tool',
-    'output': 'agentResponse'
+    'merge_results': 'response',
+    'output': 'response'
+    // All current types (agent, agent_thinking, user_message, tool_call, tool_call_response, tool_result, response) pass through as-is
 };
 
 /**
