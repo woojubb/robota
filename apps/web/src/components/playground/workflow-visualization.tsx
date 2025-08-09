@@ -40,6 +40,7 @@ import type {
 } from '@robota-sdk/agents';
 import { SimpleReactFlowConverter } from '@/lib/workflow-visualization';
 import {
+    applyDagreLayout,
     layoutExistingFlow,
     LAYOUT_PRESETS,
     suggestOptimalLayout,
@@ -87,7 +88,7 @@ const BaseNodeTemplate = ({
 }: BaseNodeTemplateProps) => {
     return (
         <div
-            className="w-40 p-3 bg-gray-50 rounded-lg text-sm font-medium"
+            className="w-48 p-2.5 bg-gray-50 rounded-lg text-sm font-medium"
             data-status={data.status}
             data-node-type={nodeType}
         >
@@ -247,74 +248,36 @@ const DynamicDagreLayout = ({
             nodesWithDimensions.every((node: any) => node.width && node.height);
 
         if (allNodesHaveDimensions && !hasAppliedLayout && nodes.length > 0) {
-            console.log('🎯 Applying dynamic Dagre layout with actual node dimensions');
+            console.log('🎯 Applying unified Dagre layout with actual node dimensions');
 
             try {
-                // Dagre 그래프 생성
-                const dagreGraph = new dagre.graphlib.Graph();
-                dagreGraph.setDefaultEdgeLabel(() => ({}));
-                dagreGraph.setGraph({
-                    rankdir: layoutConfig.rankdir,
-                    align: layoutConfig.align,
-                    nodesep: layoutConfig.nodesep,
-                    edgesep: layoutConfig.edgesep,
-                    ranksep: layoutConfig.ranksep,
-                    marginx: layoutConfig.marginx,
-                    marginy: layoutConfig.marginy
-                });
-
-                // 실제 측정된 크기로 노드 설정
-                nodesWithDimensions.forEach((nodeInternal: any) => {
-                    if (nodeInternal && nodeInternal.id) {
-                        dagreGraph.setNode(nodeInternal.id, {
-                            width: nodeInternal.width || 200,
-                            height: nodeInternal.height || 80
-                        });
-                    }
-                });
-
-                // 엣지 설정
-                edges.forEach((edge) => {
-                    dagreGraph.setEdge(edge.source, edge.target);
-                });
-
-                // Dagre 레이아웃 실행
-                dagre.layout(dagreGraph);
-
-                // 레이아웃 결과를 React Flow 노드에 적용
-                const isHorizontal = layoutConfig.rankdir === 'LR' || layoutConfig.rankdir === 'RL';
-                const sourcePos = isHorizontal ? Position.Right : Position.Bottom;
-                const targetPos = isHorizontal ? Position.Left : Position.Top;
-
-                const layoutedNodes = nodes.map((node) => {
-                    const nodeWithPosition = dagreGraph.node(node.id);
+                // 실제 측정된 크기를 노드 데이터에 업데이트
+                const nodesWithRealDimensions = nodes.map((node) => {
                     const nodeInternal = nodeInternals.get(node.id);
-
                     return {
                         ...node,
-                        position: {
-                            x: nodeWithPosition.x - (nodeInternal?.width || 200) / 2,
-                            y: nodeWithPosition.y - (nodeInternal?.height || 80) / 2
-                        },
-                        sourcePosition: sourcePos,
-                        targetPosition: targetPos,
                         data: {
                             ...node.data,
-                            computedWidth: nodeInternal?.width || 200,
-                            computedHeight: nodeInternal?.height || 80,
-                            sourcePosition: sourcePos,
-                            targetPosition: targetPos
+                            actualWidth: nodeInternal?.width || 192,
+                            actualHeight: nodeInternal?.height || 80
                         }
                     };
                 });
+
+                // 통합된 레이아웃 함수 사용 (실제 크기 반영)
+                const { nodes: layoutedNodes } = applyDagreLayout(
+                    nodesWithRealDimensions,
+                    edges,
+                    layoutConfig,
+                    true // useActualDimensions flag
+                );
 
                 setNodes(layoutedNodes);
                 setHasAppliedLayout(true);
                 onLayoutComplete?.();
             } catch (error) {
-                console.error('❌ Dynamic Dagre layout failed:', error);
-                // Fallback to simple layout without nodeInternals
-                console.log('🔄 Falling back to basic layout without node dimensions');
+                console.error('❌ Unified Dagre layout failed:', error);
+                console.log('🔄 Falling back to estimated dimensions');
                 setHasAppliedLayout(true); // Prevent retry loop
             }
         }
@@ -324,6 +287,11 @@ const DynamicDagreLayout = ({
     const resetLayout = useCallback(() => {
         setHasAppliedLayout(false);
     }, []);
+
+    // 레이아웃 설정이 변경되면 재적용
+    useEffect(() => {
+        setHasAppliedLayout(false);
+    }, [layoutConfig]);
 
     // 외부에서 재레이아웃 트리거할 수 있도록 노출
     useEffect(() => {
@@ -406,30 +374,46 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                 sourceId: "agent-output"
             }}
         >
-            <div>
-                <div className="font-semibold text-gray-800 mb-1">
-                    {data.label || 'Agent'}
+            <div className="space-y-1.5">
+                {/* Simple header */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                        <Bot className="h-3 w-3 text-blue-600" />
+                        <span className="text-sm font-medium text-gray-800">
+                            {data.label || `Agent ${data.agentNumber || 0}`}
+                        </span>
+                        {data.copyNumber && data.copyNumber > 1 && (
+                            <Badge variant="outline" className="text-xs">
+                                Copy {data.copyNumber}
+                            </Badge>
+                        )}
+                    </div>
                 </div>
-                {data.taskName && (
-                    <div className="text-xs text-gray-600 truncate">
-                        {typeof data.taskName === 'string' ? data.taskName : JSON.stringify(data.taskName)}
-                    </div>
-                )}
-                {data.level && data.level > 0 && (
-                    <div className="text-xs text-gray-500 mt-1">
-                        Level {typeof data.level === 'number' || typeof data.level === 'string' ? data.level : JSON.stringify(data.level)}
-                    </div>
-                )}
-                {data.status && (
-                    <div className="text-xs text-gray-500 mt-1">
-                        {typeof data.status === 'string' ? data.status : JSON.stringify(data.status)}
-                    </div>
-                )}
 
-                {data.toolSlots && Array.isArray(data.toolSlots) && data.toolSlots.length > 0 && (
-                    <div className="text-xs text-gray-500 mt-1">
-                        Tools: {data.toolSlots.map(tool => typeof tool === 'string' ? tool : JSON.stringify(tool)).join(', ')}
-                    </div>
+                {/* Essential info only */}
+                <div className="flex items-center gap-1">
+                    {data.aiProvider && (
+                        <Badge className={`text-xs ${data.aiProvider === 'openai' ? 'bg-green-50 text-green-700' :
+                            data.aiProvider === 'anthropic' ? 'bg-purple-50 text-purple-700' :
+                                data.aiProvider === 'google' ? 'bg-blue-50 text-blue-700' :
+                                    'bg-gray-50 text-gray-700'
+                            } border-0`}>
+                            {data.aiProvider}
+                        </Badge>
+                    )}
+                    {(data.availableTools || data.toolSlots || data.hasTools) && (
+                        <Badge variant="outline" className="text-xs">
+                            <Wrench className="h-2.5 w-2.5 mr-0.5" />
+                            {data.toolCount || (data.availableTools && data.availableTools.length) || (data.toolSlots && data.toolSlots.length) || 1}
+                        </Badge>
+                    )}
+                </div>
+
+                {/* Status if present */}
+                {data.status && (
+                    <Badge className={`${styles.badge} text-xs`}>
+                        {typeof data.status === 'string' ? data.status : JSON.stringify(data.status)}
+                    </Badge>
                 )}
             </div>
         </BaseNodeTemplate>
@@ -531,6 +515,25 @@ const ToolNode = ({ data }: { data: any }) => {
  * Custom Node Component for User Message
  */
 const UserMessageNode = ({ data }: { data: any }) => {
+    // Extract rich data from the new structure
+    const userPrompt = data.userPrompt || data.userMessageContent || data.message || 'No content';
+    const messageLength = data.messageLength || userPrompt.length;
+    const wordCount = data.wordCount || 0;
+    const contentPreview = data.contentPreview || (userPrompt.length > 60 ? userPrompt.substring(0, 60) + '...' : userPrompt);
+    const hasQuestions = data.hasQuestions || false;
+    const containsUrgency = data.containsUrgency || false;
+    const estimatedComplexity = data.estimatedComplexity || 'medium';
+
+    // Get complexity color
+    const getComplexityColor = (complexity: string) => {
+        switch (complexity) {
+            case 'high': return 'text-red-600';
+            case 'medium': return 'text-yellow-600';
+            case 'low': return 'text-green-600';
+            default: return 'text-gray-600';
+        }
+    };
+
     return (
         <BaseNodeTemplate
             nodeType="user_message"
@@ -542,15 +545,31 @@ const UserMessageNode = ({ data }: { data: any }) => {
                 sourceId: "user-message-output"
             }}
         >
-            <div>
-                <div className="font-semibold text-gray-800 mb-1">
-                    User Message
+            <div className="space-y-1.5">
+                {/* Simple header */}
+                <div className="flex items-center gap-1.5">
+                    <MessageSquare className="h-3 w-3 text-blue-600" />
+                    <span className="text-sm font-medium text-gray-800">User Message</span>
                 </div>
-                {data.message && (
-                    <div className="text-xs text-gray-600 truncate">
-                        {typeof data.message === 'string' ? data.message : JSON.stringify(data.message)}
-                    </div>
-                )}
+
+                {/* Content preview - shorter */}
+                <div className="text-xs text-gray-600 leading-relaxed">
+                    {contentPreview}
+                </div>
+
+                {/* Only essential indicators */}
+                <div className="flex gap-1">
+                    {containsUrgency && (
+                        <Badge variant="outline" className="text-xs bg-red-50 text-red-700">
+                            🚨
+                        </Badge>
+                    )}
+                    {hasQuestions && (
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
+                            ?
+                        </Badge>
+                    )}
+                </div>
             </div>
         </BaseNodeTemplate>
     );
@@ -589,6 +608,37 @@ const AgentThinkingNode = ({ data }: { data: any }) => {
  * Custom Node Component for Response
  */
 const ResponseNode = ({ data }: { data: any }) => {
+    // Extract rich response data
+    const assistantMessage = data.assistantMessage || data.content || 'No response';
+    const responseLength = data.responseLength || assistantMessage.length;
+    const wordCount = data.wordCount || 0;
+    const contentPreview = data.contentPreview || (assistantMessage.length > 80 ? assistantMessage.substring(0, 80) + '...' : assistantMessage);
+    const responseTime = data.responseTime || 0;
+    const agentNumber = data.agentNumber || 0;
+
+    // Response metrics
+    const responseMetrics = data.responseMetrics || {};
+    const estimatedReadTime = responseMetrics.estimatedReadTime || Math.ceil(wordCount / 200) || 1;
+    const hasCodeBlocks = responseMetrics.hasCodeBlocks || false;
+    const hasLinks = responseMetrics.hasLinks || false;
+    const complexity = responseMetrics.complexity || 'medium';
+
+    // Response characteristics
+    const responseCharacteristics = data.responseCharacteristics || {};
+    const hasQuestions = responseCharacteristics.hasQuestions || false;
+    const isError = responseCharacteristics.isError || false;
+    const containsNumbers = responseCharacteristics.containsNumbers || false;
+
+    // Get complexity color
+    const getComplexityColor = (complexity: string) => {
+        switch (complexity) {
+            case 'high': return 'text-red-600';
+            case 'medium': return 'text-yellow-600';
+            case 'low': return 'text-green-600';
+            default: return 'text-gray-600';
+        }
+    };
+
     return (
         <BaseNodeTemplate
             nodeType="response"
@@ -600,15 +650,38 @@ const ResponseNode = ({ data }: { data: any }) => {
                 sourceId: "response-output"
             }}
         >
-            <div>
-                <div className="font-semibold text-gray-800 mb-1">
-                    Response
+            <div className="space-y-1.5">
+                {/* Simple header */}
+                <div className="flex items-center gap-1.5">
+                    <MessageCircle className="h-3 w-3 text-green-600" />
+                    <span className="text-sm font-medium text-gray-800">
+                        Agent {agentNumber} Response
+                    </span>
                 </div>
-                {data.content && (
-                    <div className="text-xs text-gray-600 truncate">
-                        {typeof data.content === 'string' ? data.content : JSON.stringify(data.content)}
-                    </div>
-                )}
+
+                {/* Content preview - shorter */}
+                <div className="text-xs text-gray-600 leading-relaxed">
+                    {contentPreview}
+                </div>
+
+                {/* Only essential indicators */}
+                <div className="flex gap-1">
+                    {hasCodeBlocks && (
+                        <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700">
+                            📝
+                        </Badge>
+                    )}
+                    {hasLinks && (
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
+                            🔗
+                        </Badge>
+                    )}
+                    {isError && (
+                        <Badge variant="outline" className="text-xs bg-red-50 text-red-700">
+                            ⚠️
+                        </Badge>
+                    )}
+                </div>
             </div>
         </BaseNodeTemplate>
     );
@@ -647,6 +720,58 @@ const ToolCallNode = ({ data }: { data: any }) => {
  * Custom Node Component for Tool Call Response
  */
 const ToolCallResponseNode = ({ data }: { data: any }) => {
+    // Extract rich tool response data
+    const toolName = data.toolName || 'unknown_tool';
+    const toolResult = data.toolResult || (data.result && data.result.data) || 'No result';
+    const toolExecutionTime = data.toolExecutionTime || 0;
+    const toolStatus = data.toolStatus || 'success';
+    const resultLength = data.resultLength || toolResult.length;
+    const resultPreview = data.resultPreview || (toolResult.length > 80 ? toolResult.substring(0, 80) + '...' : toolResult);
+
+    // Tool details
+    const toolDetails = data.toolDetails || {};
+    const toolDescription = toolDetails.description || 'Tool execution';
+    const outputType = toolDetails.outputType || 'text';
+
+    // Execution metrics
+    const executionMetrics = data.executionMetrics || (data.result && data.result.executionMetrics) || {};
+    const duration = executionMetrics.duration || toolExecutionTime;
+    const complexity = executionMetrics.complexity || 'medium';
+    const hasStructuredData = executionMetrics.hasStructuredData || false;
+    const hasCodeBlocks = executionMetrics.hasCodeBlocks || false;
+    const containsNumbers = executionMetrics.containsNumbers || false;
+
+    // Agent statistics
+    const agentStatistics = data.agentStatistics;
+    const agentId = executionMetrics.agentId;
+
+    // Get status styles
+    const getStatusStyles = (status: string) => {
+        switch (status.toLowerCase()) {
+            case 'success':
+                return { color: 'text-green-600', bg: 'bg-green-50' };
+            case 'error':
+            case 'failed':
+                return { color: 'text-red-600', bg: 'bg-red-50' };
+            case 'running':
+                return { color: 'text-orange-600', bg: 'bg-orange-50' };
+            default:
+                return { color: 'text-gray-600', bg: 'bg-gray-50' };
+        }
+    };
+
+    // Get complexity color
+    const getComplexityColor = (complexity: string) => {
+        switch (complexity) {
+            case 'high': return 'text-red-600';
+            case 'medium': return 'text-yellow-600';
+            case 'low': return 'text-green-600';
+            default: return 'text-gray-600';
+        }
+    };
+
+    const statusStyles = getStatusStyles(toolStatus);
+
     return (
         <BaseNodeTemplate
             nodeType="tool_call_response"
@@ -658,15 +783,50 @@ const ToolCallResponseNode = ({ data }: { data: any }) => {
                 sourceId: "tool-call-response-output"
             }}
         >
-            <div>
-                <div className="font-semibold text-gray-800 mb-1">
-                    Tool Call Response
-                </div>
-                {data.result && (
-                    <div className="text-xs text-gray-600 truncate">
-                        {typeof data.result === 'string' ? data.result : JSON.stringify(data.result)}
+            <div className="space-y-1.5">
+                {/* Simple header */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                        <Wrench className="h-3 w-3 text-purple-600" />
+                        <span className="text-sm font-medium text-gray-800">
+                            Tool Response
+                        </span>
                     </div>
-                )}
+                    <Badge className={`text-xs ${statusStyles.bg} ${statusStyles.color} border-0`}>
+                        {toolStatus}
+                    </Badge>
+                </div>
+
+                {/* Tool name */}
+                <div className="flex items-center gap-1">
+                    <Badge variant="outline" className="text-xs">
+                        {toolName}
+                    </Badge>
+                    {duration > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                            {duration}ms
+                        </Badge>
+                    )}
+                </div>
+
+                {/* Result preview - shorter */}
+                <div className="text-xs text-gray-600 leading-relaxed">
+                    {resultPreview}
+                </div>
+
+                {/* Only essential indicators */}
+                <div className="flex gap-1">
+                    {hasStructuredData && (
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
+                            📊
+                        </Badge>
+                    )}
+                    {hasCodeBlocks && (
+                        <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700">
+                            📝
+                        </Badge>
+                    )}
+                </div>
             </div>
         </BaseNodeTemplate>
     );
@@ -766,6 +926,36 @@ const LegacyToolCallNode = ({ data, sourcePosition, targetPosition }: NodeProps<
     );
 };
 
+/**
+ * Placeholder Node Component for simple visualization
+ * - No handles (connections disabled)
+ * - Dotted border styling
+ * - Minimal content display
+ */
+const PlaceholderNode = ({ data }: { data: any }) => {
+    const label = data.label || data.name || 'Placeholder';
+    const description = data.description || data.content || '';
+
+    return (
+        <div
+            className="w-48 p-2.5 bg-gray-50 rounded-lg text-sm font-medium border-2 border-dashed border-gray-300"
+            data-node-type="placeholder"
+        >
+            <div className="flex items-center gap-2 mb-1">
+                <span className="text-gray-700 font-medium">{label}</span>
+            </div>
+
+            {description && (
+                <div className="text-xs text-gray-500 mt-1">
+                    {description.length > 80 ? description.substring(0, 80) + '...' : description}
+                </div>
+            )}
+
+            {/* No handles - placeholder nodes don't connect */}
+        </div>
+    );
+};
+
 // SubAgentNode 제거 - Agent 노드 타입으로 통일
 
 // Node types for React-Flow
@@ -780,7 +970,8 @@ const nodeTypes = {
     tool_call_response: ToolCallResponseNode as any,
     tool_result: ToolResultNode as any,
     agentResponse: AgentResponseNode as any,
-    toolCall: LegacyToolCallNode as any
+    toolCall: LegacyToolCallNode as any,
+    placeholder: PlaceholderNode as any
     // userInput 제거 - 레거시 타입
 };
 
@@ -793,33 +984,24 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
     const [currentLayoutConfig, setCurrentLayoutConfig] = useState<LayoutConfig>(LAYOUT_PRESETS.compact);
     const { fitView } = useReactFlow();
 
-    // Apply layout using DynamicDagreLayout
-    const handleApplyLayout = useCallback((presetName: keyof typeof LAYOUT_PRESETS) => {
-        setSelectedLayout(presetName);
-        setCurrentLayoutConfig(LAYOUT_PRESETS[presetName]);
-        // 레이아웃 재설정 트리거
-        if ((window as any).__resetDagreLayout) {
-            (window as any).__resetDagreLayout();
-        }
-    }, []);
-
-    // Legacy auto layout function (fallback)
+    // 레이아웃 적용 함수 - DynamicDagreLayout 컴포넌트를 통해서만 처리
     const applyAutoLayout = useCallback((layoutPreset?: keyof typeof LAYOUT_PRESETS) => {
         if (nodes.length === 0) return;
 
         const layoutToUse = layoutPreset || selectedLayout;
-        const { nodes: layoutedNodes, edges: layoutedEdges } = layoutExistingFlow(
-            nodes,
-            edges,
-            layoutToUse
-        );
+        setSelectedLayout(layoutToUse);
+        setCurrentLayoutConfig(LAYOUT_PRESETS[layoutToUse]);
 
-        setNodes(layoutedNodes);
-        setEdges(layoutedEdges);
+        // DynamicDagreLayout 컴포넌트를 통해 레이아웃 적용
+        setTimeout(() => {
+            (window as any).__resetDagreLayout?.();
+        }, 50);
+    }, [nodes.length, selectedLayout]);
 
-        // Fit view after layout with a slight delay
-        setTimeout(() => fitView({ duration: 500, padding: 0.1 }), 100);
-    }, [nodes, edges, selectedLayout, setNodes, setEdges, fitView]);
+    // Apply layout using unified system
+    const handleApplyLayout = useCallback((presetName: keyof typeof LAYOUT_PRESETS) => {
+        applyAutoLayout(presetName);
+    }, [applyAutoLayout]);
 
     // Auto-suggest optimal layout
     const suggestAndApplyOptimalLayout = useCallback(() => {
@@ -848,7 +1030,7 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
             console.log('📊 Summary:', {
                 nodes: dumpData.totalNodes,
                 edges: dumpData.totalEdges,
-                types: dumpData.nodeTypes
+                hasWorkflow: !!dumpData.workflow
             });
 
             // Toast 알림 (선택사항)
@@ -867,7 +1049,7 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
                 setNodes([
                     {
                         id: 'welcome',
-                        type: 'default',
+                        type: 'placeholder',
                         position: { x: 250, y: 100 },
                         data: { label: 'Create Agent or Team to start' },
                     }

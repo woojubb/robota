@@ -210,16 +210,44 @@ export class ExecutionService {
             hasContext: !!context
         });
 
+        // Get current provider info and tools for rich data
+        const currentInfo = this.aiProviders.getCurrentProvider();
+        const provider = currentInfo ? this.aiProviders.getProvider(currentInfo.provider) : null;
+        const availableTools = this.tools.getTools();
+
         // Emit execution start event
         console.log(`📢 [EXECUTION-START-EMIT] About to emit execution.start for agent: ${fullContext.conversationId || executionId}`);
         if (this.eventService && !(this.eventService instanceof SilentEventService)) {
             const rootId = fullContext.conversationId || executionId;
             console.log(`📢 [EXECUTION-START-EMIT] Emitting execution.start for agent: ${rootId}`);
+
+            // 🎯 [RICH-DATA] Collect AI provider and tool information
+            const aiProviderInfo = provider ? {
+                providerName: currentInfo?.provider || 'unknown',
+                model: (provider as any).model || (provider as any).modelName || 'unknown',
+                temperature: (provider as any).temperature || undefined,
+                maxTokens: (provider as any).maxTokens || undefined,
+                apiEndpoint: (provider as any).apiEndpoint || undefined
+            } : null;
+
+            const toolsInfo = availableTools.map((tool: any) => ({
+                name: tool.name,
+                description: tool.description || 'No description',
+                parameters: tool.parameters ? Object.keys(tool.parameters.properties || {}) : []
+            }));
+
             this.eventService.emit(EXECUTION_EVENTS.START, {
                 sourceType: 'agent',
                 sourceId: rootId,
                 timestamp: startTime,
-                parameters: { input },
+                                parameters: { 
+                    input,
+                    // 🎯 [RICH-DATA] Enhanced agent data
+                    agentConfiguration: aiProviderInfo,
+                    availableTools: toolsInfo as any,
+                    toolCount: toolsInfo.length,
+                    hasTools: toolsInfo.length > 0
+                },
                 // Hierarchical tracking information
                 rootExecutionId: rootId,
                 executionLevel: 1, // Agent level execution
@@ -229,7 +257,15 @@ export class ExecutionService {
                     method: 'execute',
                     inputLength: input.length,
                     conversationId: fullContext.conversationId,
-                    messageCount: messages.length
+                    messageCount: messages.length,
+                    // 🎯 [RICH-DATA] Additional agent metadata
+                    aiProvider: aiProviderInfo?.providerName || 'unknown',
+                    model: aiProviderInfo?.model || 'unknown',
+                    toolsAvailable: toolsInfo.map((t: any) => t.name),
+                    agentCapabilities: {
+                        canUseTools: toolsInfo.length > 0,
+                        supportedActions: toolsInfo.map((t: any) => t.name)
+                    }
                 }
             });
         }
@@ -287,11 +323,23 @@ export class ExecutionService {
                 // Emit user message event as the starting point
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                     const rootId = fullContext.conversationId || executionId;
+
+                    // 🎯 [RICH-DATA] Enhanced user message event with detailed content
+                    const timestamp = new Date();
                     this.eventService.emit(EXECUTION_EVENTS.USER_MESSAGE, {
                         sourceType: 'agent',
                         sourceId: rootId,
-                        timestamp: new Date(),
-                        parameters: { input },
+                        timestamp: timestamp,
+                        parameters: {
+                            input,
+                            // 🎯 Rich data for user message node
+                            userPrompt: input,
+                            userMessageContent: input,
+                            messageLength: input.length,
+                            wordCount: input.split(/\s+/).filter(word => word.length > 0).length,
+                            characterCount: input.length,
+                            messageTimestamp: timestamp.toISOString()
+                        },
                         // Hierarchical tracking information
                         rootExecutionId: rootId,
                         executionLevel: 0, // User message is Level 0
@@ -300,7 +348,12 @@ export class ExecutionService {
                             executionId,
                             messageRole: 'user',
                             inputLength: input.length,
-                            conversationId: fullContext.conversationId
+                            conversationId: fullContext.conversationId,
+                            // 🎯 Additional rich metadata
+                            messageType: 'user_input',
+                            hasQuestions: input.includes('?'),
+                            containsUrgency: /urgent|urgent|급함|긴급|asap/i.test(input),
+                            estimatedComplexity: input.length > 200 ? 'high' : input.length > 50 ? 'medium' : 'low'
                         }
                     });
                 }
@@ -312,14 +365,10 @@ export class ExecutionService {
                 metadata: (context?.metadata || {}) as Metadata
             });
 
-            // Get current provider info
-            const currentInfo = this.aiProviders.getCurrentProvider();
+            // Use already retrieved provider info from rich data collection above
             if (!currentInfo) {
                 throw new Error('No AI provider configured');
             }
-
-            // Get actual provider instance
-            const provider = this.aiProviders.getProvider(currentInfo.provider);
             if (!provider) {
                 throw new Error(`AI provider '${currentInfo.provider}' not found`);
             }
@@ -539,13 +588,38 @@ export class ExecutionService {
                     // 핸들러에서 context를 보고 처리 여부 결정
                     if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                         this.logger.info(`🔧 [EVENT-ORTHODOXY] Emitting assistant_message_complete for Round ${currentRound} completion (no tool calls)`);
+
+                        // 🎯 [RICH-DATA] Collect detailed response information
+                        const responseContent = assistantResponse.content || 'No response';
+                        const responseStartTime = assistantResponse.timestamp || new Date();
+                        const responseDuration = new Date().getTime() - responseStartTime.getTime();
+
                         this.eventService.emit(EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE, {
                             sourceType: 'agent',
                             sourceId: fullContext.conversationId || executionId,
                             timestamp: new Date(),
+                            parameters: {
+                                // 🎯 [RICH-DATA] Enhanced response data
+                                assistantMessage: responseContent,
+                                responseLength: responseContent.length,
+                                wordCount: responseContent.split(/\s+/).filter(word => word.length > 0).length,
+                                responseTime: responseDuration,
+                                contentPreview: responseContent.length > 200
+                                    ? responseContent.substring(0, 200) + '...'
+                                    : responseContent
+                            },
                             result: {
                                 success: true,
-                                data: assistantResponse.content?.substring(0, 100) + '...' || 'Round completed'
+                                data: responseContent.substring(0, 100) + '...' || 'Round completed',
+                                // 🎯 [RICH-DATA] Additional result data
+                                fullResponse: responseContent,
+                                responseMetrics: {
+                                    length: responseContent.length,
+                                    estimatedReadTime: Math.ceil(responseContent.split(/\s+/).length / 200), // words per minute
+                                    hasCodeBlocks: /```/.test(responseContent),
+                                    hasLinks: /https?:\/\//.test(responseContent),
+                                    complexity: responseContent.length > 1000 ? 'high' : responseContent.length > 300 ? 'medium' : 'low'
+                                }
                             },
                             // Hierarchical tracking information
                             rootExecutionId: fullContext.conversationId || executionId,
@@ -555,7 +629,14 @@ export class ExecutionService {
                                 executionId,
                                 round: currentRound,
                                 completed: true,
-                                reason: 'no_tool_calls'
+                                reason: 'no_tool_calls',
+                                // 🎯 [RICH-DATA] Additional metadata
+                                responseCharacteristics: {
+                                    hasQuestions: responseContent.includes('?'),
+                                    isError: /error|fail|wrong/i.test(responseContent),
+                                    isComplete: /complete|done|finish/i.test(responseContent),
+                                    containsNumbers: /\d/.test(responseContent)
+                                }
                             }
                         });
                     }

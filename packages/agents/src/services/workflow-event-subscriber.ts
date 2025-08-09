@@ -692,6 +692,13 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
             throw new Error(`❌ [STANDARD-STRUCTURE] No agent copy found for sourceId: ${data.sourceId}`);
         }
 
+        // 🎯 [RICH-DATA] Extract rich response data from event
+        const params = data.parameters || {};
+        const result = data.result || {};
+        const metadata = data.metadata || {};
+        const responseContent = (params as any).assistantMessage || (result as any).fullResponse || 'No response';
+        const responseLength = (params as any).responseLength || responseContent.length;
+
         const responseNodeId = `agent_response_${agentNodeId}_${Date.now()}`;
         const node = this.nodeEdgeManager.addNode({
             id: responseNodeId,
@@ -702,7 +709,34 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 sourceId: data.sourceId,
                 executionId: data.executionId,
                 agentNumber: agentNumber,
-                metadata: data.metadata || {},
+                // 🎯 [RICH-DATA] Enhanced agent response node data
+                label: `Agent ${agentNumber} Response (${responseLength} chars)`,
+                assistantMessage: responseContent,
+                responseLength: responseLength,
+                wordCount: (params as any).wordCount || responseContent.split(/\s+/).filter((word: any) => word.length > 0).length,
+                responseTime: (params as any).responseTime || 0,
+                contentPreview: (params as any).contentPreview || (responseContent.length > 200
+                    ? responseContent.substring(0, 200) + '...'
+                    : responseContent),
+                // Response metrics
+                responseMetrics: (result as any).responseMetrics || {
+                    length: responseLength,
+                    estimatedReadTime: Math.ceil(responseContent.split(/\s+/).length / 200),
+                    hasCodeBlocks: /```/.test(responseContent),
+                    hasLinks: /https?:\/\//.test(responseContent),
+                    complexity: responseLength > 1000 ? 'high' : responseLength > 300 ? 'medium' : 'low'
+                },
+                // Response characteristics
+                responseCharacteristics: metadata.responseCharacteristics || {
+                    hasQuestions: responseContent.includes('?'),
+                    isError: /error|fail|wrong/i.test(responseContent),
+                    isComplete: /complete|done|finish/i.test(responseContent),
+                    containsNumbers: /\d/.test(responseContent)
+                },
+                // Round information
+                round: metadata.round || 1,
+                completionReason: metadata.reason || 'unknown',
+                metadata: metadata,
                 extensions: {
                     robota: {
                         originalEvent: data,
@@ -1086,6 +1120,13 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
      * Node 생성 메서드들
      */
     private createUserMessageNode(data: ServiceEventData): WorkflowNode {
+        // 🎯 [RICH-DATA] Extract rich data from event parameters
+        const params = data.parameters || {};
+        const userPrompt = (params as any).userPrompt || (params as any).input || 'No content';
+        const messageLength = (params as any).messageLength || userPrompt.length;
+        const wordCount = (params as any).wordCount || userPrompt.split(/\s+/).filter((word: any) => word.length > 0).length;
+        const metadata = data.metadata || {};
+
         // 🚀 NEW: NodeEdgeManager를 통한 노드 생성 (user_message는 일반적으로 root node이므로 parent 없음)
         const node = this.nodeEdgeManager.addNode({
             id: `user_message_${data.sourceId}`,
@@ -1096,7 +1137,22 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 eventType: 'execution.user_message',
                 sourceId: data.sourceId,
                 parameters: data.parameters,
-                label: 'User Message'
+                // 🎯 [RICH-DATA] Enhanced user message node data
+                label: `User Message (${messageLength} chars)`,
+                userPrompt: userPrompt,
+                userMessageContent: userPrompt,
+                messageLength: messageLength,
+                wordCount: wordCount,
+                characterCount: (params as any).characterCount || messageLength,
+                messageTimestamp: (params as any).messageTimestamp || new Date().toISOString(),
+                messageType: (metadata as any).messageType || 'user_input',
+                hasQuestions: (metadata as any).hasQuestions || false,
+                containsUrgency: (metadata as any).containsUrgency || false,
+                estimatedComplexity: (metadata as any).estimatedComplexity || 'medium',
+                // Display preview for UI
+                contentPreview: userPrompt.length > 100
+                    ? userPrompt.substring(0, 100) + '...'
+                    : userPrompt
             },
             connections: []
         });
@@ -1113,6 +1169,12 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
         this.workflowLogger.debug(`🎯 [AGENT-COPY] Created Agent ${agentNumber} Copy ${agentStructure.copyNumber} for sourceId: ${data.sourceId}`);
         this.workflowLogger.debug(`🔧 [AGENT-ID-MAPPING] Stored mapping: ${data.sourceId} → ${agentStructure.agentId}`);
 
+        // 🎯 [RICH-DATA] Extract rich agent data from event
+        const params = data.parameters || {};
+        const metadata = data.metadata || {};
+        const agentConfig = (params as any).agentConfiguration || {};
+        const availableTools = (params as any).availableTools || [];
+
         // 🚀 NEW: NodeEdgeManager를 통한 노드 생성 (parentNodeId는 필요한 경우에만)
         const parentNodeId = data.parentNodeId ? String(data.parentNodeId) : undefined;
         const node = this.nodeEdgeManager.addNode({
@@ -1126,8 +1188,29 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 executionId: String(data.executionId || 'unknown'),
                 agentNumber: agentNumber,
                 copyNumber: agentStructure.copyNumber,
-                label: `Agent ${agentNumber} Copy ${agentStructure.copyNumber}`,
-                reservedThinkingId: agentStructure.thinkingId
+                // 🎯 [RICH-DATA] Enhanced agent node data
+                label: `Agent ${agentNumber} Copy ${agentStructure.copyNumber} (${(agentConfig as any).model || 'unknown model'})`,
+                reservedThinkingId: agentStructure.thinkingId,
+                // AI Provider information
+                aiProvider: (agentConfig as any).providerName || (metadata as any).aiProvider || 'unknown',
+                model: (agentConfig as any).model || (metadata as any).model || 'unknown',
+                temperature: (agentConfig as any).temperature,
+                maxTokens: (agentConfig as any).maxTokens,
+                // Tool information
+                availableTools: (availableTools as any).map((tool: any) => tool.name),
+                toolCount: (params as any).toolCount || (availableTools as any).length || 0,
+                hasTools: (params as any).hasTools || (availableTools as any).length > 0,
+                // Capabilities
+                agentCapabilities: (metadata as any).agentCapabilities || {
+                    canUseTools: (availableTools as any).length > 0,
+                    supportedActions: (availableTools as any).map((tool: any) => tool.name)
+                },
+                // Rich tool details for UI
+                toolDetails: (availableTools as any).map((tool: any) => ({
+                    name: tool.name,
+                    description: tool.description,
+                    parameterCount: tool.parameters ? tool.parameters.length : 0
+                }))
             },
             connections: [],
             metadata: {
@@ -1136,7 +1219,10 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 standardStructure: {
                     agentId: agentStructure.agentId,
                     thinkingId: agentStructure.thinkingId
-                }
+                },
+                // 🎯 [RICH-DATA] Additional metadata
+                originalEventData: data,
+                configurationSnapshot: agentConfig
             }
         }, parentNodeId, parentNodeId ? 'creates' as WorkflowConnectionType : undefined, parentNodeId ? 'creates agent' : undefined);
 
@@ -1318,6 +1404,14 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
     private createToolCallResponseNode(data: ServiceEventData): WorkflowNode {
         const finalExecutionId = data.executionId || data.metadata?.executionId || `generated_${Date.now()}`;
 
+        // 🎯 [RICH-DATA] Extract rich tool response data from event
+        const params = data.parameters || {};
+        const result = data.result || {};
+        const metadata = data.metadata || {};
+        const toolResult = (params as any).toolResult || (result as any).data || 'No result';
+        const toolName = (params as any).toolDetails?.name || data.toolName || 'unknown_tool';
+        const executionTime = (params as any).toolExecutionTime || 0;
+
         // 🎯 [NODE-CREATION-FIX] NodeEdgeManager를 통한 노드 생성으로 nodeMap 등록 보장
         const node = this.nodeEdgeManager.addNode({
             id: `tool_response_${finalExecutionId}`,
@@ -1330,7 +1424,37 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 sourceId: data.sourceId,
                 executionId: String(finalExecutionId),
                 result: data.result,
-                toolName: String(data.toolName || 'unknown_tool')
+                // 🎯 [RICH-DATA] Enhanced tool response node data
+                label: `Tool Response: ${toolName} (${executionTime}ms)`,
+                toolName: toolName,
+                toolResult: toolResult,
+                toolExecutionTime: executionTime,
+                toolStatus: (params as any).toolStatus || 'success',
+                resultLength: (params as any).resultLength || toolResult.length,
+                resultPreview: (params as any).resultPreview || (toolResult.length > 300
+                    ? toolResult.substring(0, 300) + '...'
+                    : toolResult),
+                // Tool details
+                toolDetails: (params as any).toolDetails || {
+                    name: toolName,
+                    description: 'Tool execution',
+                    outputType: 'text'
+                },
+                // Execution metrics
+                executionMetrics: (result as any).executionMetrics || {
+                    duration: executionTime,
+                    complexity: toolResult.length > 1000 ? 'high' : toolResult.length > 300 ? 'medium' : 'low',
+                    hasStructuredData: /\{|\[/.test(toolResult),
+                    hasCodeBlocks: /```/.test(toolResult),
+                    containsNumbers: /\d/.test(toolResult)
+                },
+                // Agent statistics (if available)
+                agentStatistics: (params as any).agentStatistics,
+                // Tool metadata
+                toolMetadata: (metadata as any).toolMetadata || {
+                    toolType: 'unknown',
+                    executionSuccess: true
+                }
             },
             connections: []
         }); // 🎯 [RULE-7-FIX] parentNodeId 제거 - tool_call과 자동 연결 방지
