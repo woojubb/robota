@@ -726,57 +726,32 @@ export class TeamContainer {
             console.log(`🔥 [DEBUG-TOOL-RESPONSE-READY] About to emit tool.call_response_ready for ${parentToolCallId}`);
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                 console.log(`🔥 [DEBUG-TOOL-RESPONSE-READY] EventService exists, emitting event`);
-                this.eventService.emit('tool.call_response_ready', {
-                    sourceType: 'tool',
-                    sourceId: `tool_response_${parentToolCallId}`,
-                    toolName: 'assignTask',
-                    timestamp: new Date(),
-                    result: {
-                        success: true,
-                        data: result
-                    },
-                    rootExecutionId: context.rootExecutionId,
-                    executionLevel: 2, // Tool level
-                    executionPath: context.executionPath || [],
-                    metadata: {
-                        executionId: parentToolCallId,
-                        success: true,
-                        agentId: agentId,
-                        phase: 'tool_response_ready' // 🎯 실제 도구 결과 준비 완료
-                    }
-                });
-            }
-
-            // 8. Emit task aggregation start event (with timing adjustment to ensure tool_call_complete events are processed first)
-            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                // Add small delay to ensure tool_call_complete events are processed first
-                await new Promise(resolve => setTimeout(resolve, 10));
-
-                // Use the actual agent ID instead of 'task-aggregator'
-                const actualSourceId = String(context?.sourceId || agentId);
-                this.eventService.emit('task.aggregation_start', {
-                    sourceType: 'agent',
-                    sourceId: actualSourceId,
-                    taskDescription: 'Starting result aggregation and synthesis',
-                    parameters: {
-                        agentResults: [{
+                // 🎯 Rule 2: Event order guarantee from source - emit in next microtask
+                queueMicrotask(() => {
+                    this.eventService.emit('tool.call_response_ready', {
+                        sourceType: 'tool',
+                        sourceId: `tool_response_${parentToolCallId}`,
+                        toolName: 'assignTask',
+                        timestamp: new Date(),
+                        result: {
+                            success: true,
+                            data: result
+                        },
+                        rootExecutionId: context.rootExecutionId,
+                        executionLevel: 2, // Tool level
+                        executionPath: context.executionPath || [],
+                        metadata: {
+                            executionId: parentToolCallId,
+                            success: true,
                             agentId: agentId,
-                            agentTemplate: params.agentTemplate,
-                            resultLength: result.length
-                        }]
-                    } as any,
-                    // 🔧 FIXED: Team events should have tool call as parent
-
-                    parentExecutionId: parentExecutionId,
-                    executionLevel: agentLevel, // Team level + 1
-
-                    metadata: {
-                        phase: 'task_aggregation',
-                        agentCount: 1,
-                        aggregationMethod: 'single_agent_result'
-                    }
+                            phase: 'tool_response_ready' // 🎯 실제 도구 결과 준비 완료
+                        }
+                    });
+                    this.logger?.debug(`🔥 [DEBUG-TOOL-RESPONSE-READY] Emitted tool.call_response_ready for ${parentToolCallId} via microtask`);
                 });
             }
+
+            // 8. Aggregation start is now owned by coordinator after all tool responses are ready
 
             // Agent execution result is already stored in 'result' variable
 

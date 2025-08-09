@@ -74,10 +74,20 @@ export class HttpClient {
      */
     async chat(messages: BasicMessage[], provider: string, model: string, tools?: any[]): Promise<ResponseMessage> {
         const requestData = {
-            messages: messages.map(msg => ({
-                role: msg.role,
-                content: msg.content
-            })),
+            messages: messages.map(msg => {
+                const base: any = {
+                    role: msg.role,
+                    content: msg.content
+                };
+                const anyMsg = msg as any;
+                if (msg.role === 'assistant' && anyMsg.toolCalls && Array.isArray(anyMsg.toolCalls)) {
+                    base.toolCalls = anyMsg.toolCalls;
+                }
+                if (msg.role === 'tool' && anyMsg.toolCallId) {
+                    base.toolCallId = anyMsg.toolCallId;
+                }
+                return base;
+            }),
             provider,
             model,
             ...(tools && tools.length > 0 && { tools })
@@ -85,15 +95,36 @@ export class HttpClient {
 
         this.logger.info('🔧 [HTTP-CLIENT] Non-streaming request tools:', tools?.length || 0);
 
-        const response = await this.post<typeof requestData, { content: string; provider?: string; model?: string }>(
-            '/chat',
-            requestData
-        );
+        // Server responds with shape: { success: boolean, data: UniversalMessage, provider, model }
+        const response = await this.post<typeof requestData, DefaultRequestData>('/chat', requestData);
+
+        // Extract assistant message preserving toolCalls if present
+        const responseData = response.data as DefaultRequestData;
+        const dataMessage = (responseData && typeof responseData === 'object' && 'data' in responseData)
+            ? (responseData['data'] as DefaultRequestData)
+            : undefined;
+
+        const assistantMessage: any = {
+            role: (dataMessage && typeof dataMessage === 'object' && 'role' in dataMessage)
+                ? (dataMessage as any).role
+                : 'assistant',
+            content: (dataMessage && typeof dataMessage === 'object' && 'content' in dataMessage)
+                ? (dataMessage as any).content
+                : extractContent(response)
+        };
+
+        // Preserve toolCalls when available (array of tool call fragments)
+        if (dataMessage && typeof dataMessage === 'object' && 'toolCalls' in dataMessage) {
+            const tc = (dataMessage as any).toolCalls;
+            if (Array.isArray(tc)) {
+                assistantMessage.toolCalls = tc;
+            }
+        }
 
         return toResponseMessage(
-            { role: 'assistant', content: extractContent(response) },
-            response.data.provider,
-            response.data.model
+            assistantMessage,
+            (responseData && (responseData as any).provider) ? (responseData as any).provider : undefined,
+            (responseData && (responseData as any).model) ? (responseData as any).model : undefined
         );
     }
 

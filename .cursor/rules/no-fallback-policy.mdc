@@ -1,78 +1,35 @@
 ---
 alwaysApply: true
-description: "No Fallback Policy - Proper Solution Implementation"
 ---
+# No Fallback Policy (Strict)
 
-# No Fallback Policy - Proper Solution Implementation
+This rule is always applied. Fallback logic is prohibited. There must be a single, correct, verifiable path. Temporary/dummy/shortcut implementations are not allowed.
 
-## 🚫 금지된 패턴들
+## Prohibited Patterns
+- Any conditional or branching that silently switches to an alternative path when the primary path fails:
+  - `if (failed) { useAlternative(); }`
+  - `try { primary(); } catch { secondary(); }`
+  - `const result = primary() || fallback();`
+- Masking errors to proceed with alternative flows
+- "Temporary" shims, stubs, or dummy data to “keep things working”
 
-### Fallback 메커니즘 금지
-- **절대 금지**: "연결이 실패할 수 있다"는 가정 하에 fallback 로직 구현
-- **절대 금지**: 임시 대안책이나 우회 방법으로 문제 해결
-- **절대 금지**: "실패 시 다른 방법으로" 패턴
-- **절대 금지**: try-catch로 오류를 숨기고 대안 실행
+## Required Approach
+1. Root-cause analysis and proper fix in the main path
+2. Single authoritative flow with proper validation and types
+3. If an alternative handling is truly needed, redesign so that it becomes the new main path with clear architectural justification and tests
 
-### 불확실한 가정 금지
-```typescript
-// ❌ 금지된 패턴
-if (connection.failed) {
-  // fallback to alternative method
-  useAlternativeConnection();
-}
+## Acceptance Criteria
+- No fallback branches in production code
+- Input validation and error propagation are explicit and actionable
+- Types are strict; no `any`/`unknown` without documented justification
+- Event-driven flows follow declared constants; no hardcoded event names
 
-// ❌ 금지된 패턴  
-try {
-  connectPrimary();
-} catch {
-  connectSecondary(); // fallback
-}
+## Code Review Checklist
+- No `try/catch` that swaps to a different implementation
+- No logical OR fallbacks for core behavior
+- Clear errors instead of silent alternatives
+- Tests cover the single correct path
 
-// ❌ 금지된 패턴
-const result = await primaryMethod() || await fallbackMethod();
-```
-
-## ✅ 올바른 접근 방식
-
-### 1. 근본 원인 해결
-- **연결 실패 원인 분석**: 왜 연결이 안 되는지 근본 원인 파악
-- **환경 문제 해결**: 연결이 안 되는 환경 자체를 수정
-- **정석적 구현**: 표준적이고 확실한 방법으로 구현
-
-### 2. 확실한 연결 보장
-```typescript
-// ✅ 올바른 패턴
-async function establishConnection(): Promise<Connection> {
-  // 1. 연결 전제조건 검증
-  validateConnectionRequirements();
-  
-  // 2. 정석적인 연결 방법 사용
-  const connection = await createStandardConnection(config);
-  
-  // 3. 연결 성공 확인
-  if (!connection.isActive()) {
-    throw new Error('Connection failed - check environment configuration');
-  }
-  
-  return connection;
-}
-```
-
-## 🎯 구현 원칙
-
-### 원칙 1: 문제의 근본 해결
-- 문제가 발생하는 **근본 원인을 찾아 해결**
-- 증상만 처리하는 임시방편 금지
-- 환경이나 설정 문제라면 그것부터 수정
-
-### 원칙 2: 예측 가능한 동작
-- 모든 연결과 동작이 **확실하고 예측 가능**해야 함
-- "아마도", "혹시", "만약에" 같은 불확실성 제거
-- 명확한 입력 → 명확한 출력 보장
-
-### 원칙 3: 표준 방법 사용
-- 업계 표준이나 프레임워크 권장 방법 사용
-- 독자적인 우회 방법 대신 정석적 구현
-- 문서화된 Best Practice 준수
-
-**기억하세요**: Fallback 기능은 문제 해결을 방해하는 심각한 오류를 만들어냅니다. 정석적인 해결책만이 진정한 해결책입니다.
+## References
+- Execution and event services: [packages/agents/src/services/execution-service.ts](mdc:packages/agents/src/services/execution-service.ts), [packages/agents/src/services/event-service.ts](mdc:packages/agents/src/services/event-service.ts)
+- Workflow subscriber: [packages/agents/src/services/workflow-event-subscriber.ts](mdc:packages/agents/src/services/workflow-event-subscriber.ts)

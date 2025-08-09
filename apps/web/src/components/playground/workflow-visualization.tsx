@@ -701,15 +701,12 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
     // 🔍 Data Dump 기능 - 현재 workflow 데이터를 클립보드에 복사
     const handleDataDump = useCallback(async () => {
         try {
+            // Single source of truth: dump only workflow (UI derives reactFlow data)
             const dumpData = {
                 timestamp: new Date().toISOString(),
-                workflow: workflow,
-                reactFlowNodes: nodes,
-                reactFlowEdges: edges,
-                totalNodes: nodes.length,
-                totalEdges: edges.length,
-                nodeTypes: [...new Set(nodes.map(n => n.type))],
-                edgeTypes: [...new Set(edges.map(e => e.type))]
+                workflow,
+                totalNodes: workflow?.nodes?.length ?? 0,
+                totalEdges: workflow?.edges?.length ?? 0
             };
 
             const jsonString = JSON.stringify(dumpData, null, 2);
@@ -728,7 +725,7 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
             console.error('❌ Failed to copy workflow data:', error);
             alert('❌ Failed to copy workflow data to clipboard');
         }
-    }, [workflow, nodes, edges]);
+    }, [workflow]);
 
     // Convert workflow to React-Flow format
     useEffect(() => {
