@@ -728,14 +728,57 @@ export class TeamContainer {
                 console.log(`🔥 [DEBUG-TOOL-RESPONSE-READY] EventService exists, emitting event`);
                 // 🎯 Rule 2: Event order guarantee from source - emit in next microtask
                 queueMicrotask(() => {
+                    // 🎯 [RICH-DATA] Collect detailed tool execution information
+                    const taskDurationSoFar = Date.now() - startTime;
+                    const resultLength = result.length;
+                    const executionStats = agentAnalyticsPlugin?.getAggregatedStats();
+
                     this.eventService.emit('tool.call_response_ready', {
                         sourceType: 'tool',
                         sourceId: `tool_response_${parentToolCallId}`,
                         toolName: 'assignTask',
                         timestamp: new Date(),
+                        parameters: {
+                            // 🎯 [RICH-DATA] Enhanced tool response data
+                            toolResult: result,
+                            toolExecutionTime: taskDurationSoFar,
+                            toolStatus: 'success',
+                            resultLength: resultLength,
+                            resultPreview: resultLength > 300
+                                ? result.substring(0, 300) + '...'
+                                : result,
+                            // Tool execution details
+                            toolDetails: {
+                                name: 'assignTask',
+                                description: 'Assigns a task to a specialized agent',
+                                inputParameters: {
+                                    jobDescription: params.jobDescription,
+                                    agentTemplate: params.agentTemplate
+                                } as any,
+                                outputType: 'text'
+                            },
+                            // Agent execution statistics
+                            agentStatistics: executionStats ? {
+                                tokensUsed: (executionStats as any).tokensUsed,
+                                executionCount: (executionStats as any).executionCount,
+                                averageResponseTime: (executionStats as any).averageResponseTime,
+                                totalExecutionTime: (executionStats as any).totalExecutionTime
+                            } : undefined
+                        },
                         result: {
                             success: true,
-                            data: result
+                            data: result,
+                            // 🎯 [RICH-DATA] Enhanced result information
+                            fullResult: result,
+                            executionMetrics: {
+                                duration: taskDurationSoFar,
+                                resultSize: resultLength,
+                                agentId: agentId,
+                                complexity: resultLength > 1000 ? 'high' : resultLength > 300 ? 'medium' : 'low',
+                                hasStructuredData: /\{|\[/.test(result),
+                                hasCodeBlocks: /```/.test(result),
+                                containsNumbers: /\d/.test(result)
+                            }
                         },
                         rootExecutionId: context.rootExecutionId,
                         executionLevel: 2, // Tool level
@@ -744,7 +787,14 @@ export class TeamContainer {
                             executionId: parentToolCallId,
                             success: true,
                             agentId: agentId,
-                            phase: 'tool_response_ready' // 🎯 실제 도구 결과 준비 완료
+                            phase: 'tool_response_ready', // 🎯 실제 도구 결과 준비 완료
+                            // 🎯 [RICH-DATA] Additional metadata
+                            toolMetadata: {
+                                toolType: 'agent_delegation',
+                                delegatedAgentTemplate: params.agentTemplate,
+                                taskComplexity: params.jobDescription.length > 200 ? 'high' : 'medium',
+                                executionSuccess: true
+                            }
                         }
                     });
                     this.logger?.debug(`🔥 [DEBUG-TOOL-RESPONSE-READY] Emitted tool.call_response_ready for ${parentToolCallId} via microtask`);
