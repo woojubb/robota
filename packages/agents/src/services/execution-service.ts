@@ -398,12 +398,32 @@ export class ExecutionService {
 
                 // Delegate entire execution to provider
                 const availableTools = this.tools.getTools();
+
+                // 🔍 [TOOL-FLOW] ExecutionService.execute() - Tool schemas from ToolManager
+                console.log('🔍 [TOOL-FLOW] ExecutionService.execute() - Retrieved tool schemas:', {
+                    count: availableTools.length,
+                    schemas: availableTools.map(s => ({
+                        name: s.name,
+                        description: s.description,
+                        hasParameters: !!s.parameters,
+                        parameterKeys: s.parameters?.properties ? Object.keys(s.parameters.properties) : []
+                    }))
+                });
+
                 const chatOptions: ChatOptions = {
                     model: config.defaultModel.model,
                     ...(config.defaultModel.maxTokens !== undefined && { maxTokens: config.defaultModel.maxTokens }),
                     ...(config.defaultModel.temperature !== undefined && { temperature: config.defaultModel.temperature }),
                     ...(availableTools.length > 0 && { tools: availableTools })
                 };
+
+                // 🔍 [TOOL-FLOW] ExecutionService.execute() - Final chatOptions with tools
+                console.log('🔍 [TOOL-FLOW] ExecutionService.execute() - ChatOptions prepared for provider:', {
+                    model: chatOptions.model,
+                    hasTools: !!chatOptions.tools,
+                    toolsCount: chatOptions.tools?.length || 0,
+                    toolNames: chatOptions.tools?.map((t: any) => t.name) || []
+                });
 
                 // Emit assistant message start event for each thinking phase
                 console.log(`🔄 [ROUND-DEBUG] Agent ${rootId} Round ${currentRound} - About to emit assistant_message_start`);
@@ -582,6 +602,10 @@ export class ExecutionService {
                         (this.eventService as any).trackExecution(thinkingNodeId, fullContext.conversationId || executionId, 1);
                     }
 
+                    // 🎯 Batch metadata for aggregation-after-all-tools
+                    const expectedCountForBatch = assistantResponse.toolCalls.length;
+                    const batchId = `${thinkingNodeId}`;
+
                     for (const toolCall of assistantResponse.toolCalls) {
                         // 🎯 각 tool call을 hierarchy에 등록
                         if ('trackExecution' in this.eventService) {
@@ -605,7 +629,10 @@ export class ExecutionService {
                                 executionId: executionId,
                                 round: currentRound,
                                 // Direct thinking node reference for immediate connection
-                                directParentId: thinkingNodeId
+                                directParentId: thinkingNodeId,
+                                // 🎯 Batch aggregation metadata
+                                batchId,
+                                expectedCount: expectedCountForBatch
                             }
                         });
                     }
@@ -936,10 +963,29 @@ export class ExecutionService {
             this.logger.debug('🔍 [EXECUTION-SERVICE] config.tools exists:', { exists: !!config.tools });
             this.logger.debug('🔍 [EXECUTION-SERVICE] config.tools.length > 0:', { hasTools: config.tools && config.tools.length > 0 });
 
+            // 🔍 [TOOL-FLOW] ExecutionService.executeStream() - Tool schemas from ToolManager
+            console.log('🔍 [TOOL-FLOW] ExecutionService.executeStream() - Retrieved tool schemas:', {
+                count: toolSchemas.length,
+                schemas: toolSchemas.map(s => ({
+                    name: s.name,
+                    description: s.description,
+                    hasParameters: !!s.parameters,
+                    parameterKeys: s.parameters?.properties ? Object.keys(s.parameters.properties) : []
+                }))
+            });
+
             const chatOptions: ChatOptions = {
                 model: config.defaultModel.model,
                 ...(config.tools && config.tools.length > 0 && { tools: this.tools.getTools() })
             };
+
+            // 🔍 [TOOL-FLOW] ExecutionService.executeStream() - Final chatOptions with tools
+            console.log('🔍 [TOOL-FLOW] ExecutionService.executeStream() - ChatOptions prepared for provider:', {
+                model: chatOptions.model,
+                hasTools: !!chatOptions.tools,
+                toolsCount: chatOptions.tools?.length || 0,
+                toolNames: chatOptions.tools?.map((t: any) => t.name) || []
+            });
 
             this.logger.debug('🔍 [EXECUTION-SERVICE] Final chatOptions has tools:', { hasTools: !!chatOptions.tools });
             this.logger.debug('🔍 [EXECUTION-SERVICE] Final chatOptions.tools length:', { length: chatOptions.tools?.length || 0 });
@@ -956,6 +1002,7 @@ export class ExecutionService {
 
             // Collect streaming chunks and tool calls
             for await (const chunk of stream) {
+                console.log('🔍 [EXECUTION-SERVICE-CHUNK]', JSON.stringify(chunk));
                 if (chunk.content) {
                     fullResponse += chunk.content;
                     yield { chunk: chunk.content, isComplete: false };

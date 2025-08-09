@@ -110,6 +110,15 @@ export class SimpleRemoteExecutor implements ExecutorInterface {
     async *executeChatStream(request: StreamExecutionRequest): AsyncIterable<UniversalMessage> {
         this.logger.debug('🔍 [REMOTE-EXECUTOR] executeChatStream called');
 
+        // 🔍 [TOOL-FLOW] RemoteExecutor.executeChatStream() - Request with tools
+        console.log('🔍 [TOOL-FLOW] RemoteExecutor.executeChatStream() - Sending to server:', {
+            provider: request.provider,
+            model: request.model,
+            hasTools: !!request.tools,
+            toolsCount: request.tools?.length || 0,
+            toolNames: request.tools?.map((t: any) => t.name) || []
+        });
+
         try {
             const stream = this.httpClient.chatStream(
                 request.messages,

@@ -70,6 +70,19 @@ export class ToolRegistry implements ToolRegistryInterface {
      * Get tool schemas
      */
     getSchemas(): ToolSchema[] {
+        const tools = this.getAll();
+
+        // 🔍 [TOOL-FLOW] ToolRegistry.getSchemas() - Extracting schemas from tools
+        console.log('🔍 [TOOL-FLOW] ToolRegistry.getSchemas() - Tools before schema extraction:', {
+            count: tools.length,
+            tools: tools.map(t => ({
+                name: t.schema?.name ?? 'unnamed',
+                hasSchema: !!t.schema,
+                schemaType: typeof t.schema,
+                toolType: t.constructor?.name || 'unknown'
+            }))
+        });
+
         return this.getAll().map(tool => tool.schema);
     }
 
