@@ -229,6 +229,8 @@ export class PlaygroundExecutor {
      */
     private setupWorkflowSubscription(): void {
         let updateCount = 0;
+        let scheduled = false;
+        let lastWorkflow: any = null;
 
         this.workflowBuilder.subscribeToUniversalUpdates((workflow) => {
             updateCount++;
@@ -239,25 +241,25 @@ export class PlaygroundExecutor {
                 workflowType: workflow.__workflowType
             });
 
-            // 🎯 플레이그라운드 UI에 실시간 업데이트 전달
-            if (workflow.nodes.length > 0) {
-                console.log(`🔗 [26-STRUCTURE] Live nodes: ${workflow.nodes.map(n => `${n.id}(${n.type})`).join(', ')}`);
-
-                if (workflow.edges && workflow.edges.length > 0) {
-                    console.log(`🔗 [26-STRUCTURE] Live edges: ${workflow.edges.length} connections`);
-                    workflow.edges.forEach(edge => {
-                        const sourceExists = workflow.nodes.some(n => n.id === edge.source);
-                        const targetExists = workflow.nodes.some(n => n.id === edge.target);
-                        const status = sourceExists && targetExists ? '✅' : '❌';
-                        console.log(`   ${status} ${edge.source} → ${edge.target} (${edge.type || 'default'})`);
-                    });
+            // Snapshot coalescing: batch multiple rapid updates into one microtask
+            lastWorkflow = workflow;
+            if (!this.uiUpdateCallback) return;
+            if (scheduled) return;
+            scheduled = true;
+            queueMicrotask(() => {
+                try {
+                    const snapshot = (globalThis as any).structuredClone
+                        ? (globalThis as any).structuredClone(lastWorkflow)
+                        : JSON.parse(JSON.stringify(lastWorkflow));
+                    this.uiUpdateCallback!(snapshot);
+                } catch {
+                    // Fallback to JSON clone if structuredClone unavailable
+                    const snapshot = JSON.parse(JSON.stringify(lastWorkflow));
+                    this.uiUpdateCallback!(snapshot);
+                } finally {
+                    scheduled = false;
                 }
-            }
-
-            // 🎯 플레이그라운드 UI로 실시간 업데이트 전달
-            if (this.uiUpdateCallback) {
-                this.uiUpdateCallback(workflow);
-            }
+            });
         });
 
         console.log('🎯 [26-STRUCTURE] Workflow subscription setup completed');
@@ -523,6 +525,47 @@ export class PlaygroundExecutor {
             agentType: this.currentAgent?.constructor.name
         });
 
+        // 🔍 [TOOL-DEBUG] Team Agent tools 확인
+        try {
+            const teamAgent = (this.currentTeam as any)?.teamAgent;
+            if (teamAgent) {
+                console.log('🔍 [TOOL-DEBUG] TeamAgent found:', {
+                    name: teamAgent.name,
+                    isInitialized: teamAgent.isFullyInitialized,
+                    hasToolsManager: !!teamAgent.tools,
+                    availableMethods: Object.getOwnPropertyNames(Object.getPrototypeOf(teamAgent))
+                });
+
+                // Robota Agent의 올바른 방법 사용
+                if (teamAgent.tools && typeof teamAgent.tools.getTools === 'function') {
+                    const tools = teamAgent.tools.getTools();
+                    console.log('🔍 [TOOL-DEBUG] Team agent tools:', tools.map((t: any) => ({
+                        name: t.name || t.toolName,
+                        description: t.description,
+                        hasSchema: !!t.schema
+                    })));
+
+                    // assignTask tool 특별 확인
+                    const assignTaskTool = tools.find((t: any) => (t.name || t.toolName) === 'assignTask');
+                    if (assignTaskTool) {
+                        console.log('🔍 [TOOL-DEBUG] assignTask tool found:', {
+                            name: assignTaskTool.name || assignTaskTool.toolName,
+                            description: assignTaskTool.description,
+                            schemaKeys: assignTaskTool.schema ? Object.keys(assignTaskTool.schema) : 'no schema'
+                        });
+                    } else {
+                        console.log('❌ [TOOL-DEBUG] assignTask tool NOT FOUND!');
+                    }
+                } else {
+                    console.log('❌ [TOOL-DEBUG] TeamAgent tools manager not available');
+                }
+            } else {
+                console.log('❌ [TOOL-DEBUG] TeamAgent not found in currentTeam');
+            }
+        } catch (error) {
+            console.log('🔍 [TOOL-DEBUG] Error checking tools:', error);
+        }
+
         const startTime = Date.now();
 
         try {
@@ -532,6 +575,35 @@ export class PlaygroundExecutor {
                 // 🎯 26번과 동일: 직접 team.execute() 호출
                 console.log('🎯 [26-STRUCTURE] Direct team.execute() call');
                 result = await this.currentTeam.execute(prompt);
+
+                // 🔍 [TOOL-DEBUG] 실행 후 Team Agent tools 확인 (초기화 완료 후)
+                try {
+                    const teamAgent = (this.currentTeam as any)?.teamAgent;
+                    if (teamAgent && teamAgent.isFullyInitialized) {
+                        const tools = teamAgent.tools.getTools();
+                        console.log('🔍 [TOOL-FLOW] Team agent tools after execution:', tools.map((t: any) => ({
+                            name: t.name || t.toolName,
+                            description: t.description,
+                            hasSchema: !!t.schema
+                        })));
+
+                        const assignTaskTool = tools.find((t: any) => (t.name || t.toolName) === 'assignTask');
+                        console.log('🔍 [TOOL-FLOW] assignTask tool detailed analysis:', {
+                            found: !!assignTaskTool,
+                            details: assignTaskTool ? {
+                                name: assignTaskTool.name,
+                                description: assignTaskTool.description,
+                                schemaType: typeof assignTaskTool.schema,
+                                schemaContent: assignTaskTool.schema,
+                                schemaKeys: assignTaskTool.schema ? Object.keys(assignTaskTool.schema) : 'no schema',
+                                toolType: assignTaskTool.constructor?.name,
+                                hasParameters: !!(assignTaskTool.schema?.parameters)
+                            } : 'NOT FOUND'
+                        });
+                    }
+                } catch (error) {
+                    console.log('🔍 [POST-EXECUTION-TOOLS] Error:', error);
+                }
             } else if (this.mode === 'agent' && this.currentAgent) {
                 // 🎯 Agent도 동일하게 직접 호출
                 console.log('🎯 [26-STRUCTURE] Direct agent.run() call');

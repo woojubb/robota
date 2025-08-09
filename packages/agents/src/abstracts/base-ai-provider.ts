@@ -256,6 +256,15 @@ export abstract class BaseAIProvider<TConfig = ProviderConfig, TMessage = Univer
         options?: ChatOptions
     ): AsyncIterable<TResponse> {
         if (this.executor && this.executor.executeChatStream && options?.model) {
+            // 🔍 [TOOL-FLOW] BaseAIProvider.executeStreamViaExecutorOrDirect() - Preparing executor request
+            console.log('🔍 [TOOL-FLOW] BaseAIProvider.executeStreamViaExecutorOrDirect() - Executor request:', {
+                provider: this.name,
+                model: options.model,
+                hasTools: !!options.tools,
+                toolsCount: options.tools?.length || 0,
+                toolNames: options.tools?.map((t: any) => t.name) || []
+            });
+            
             // Use executor for remote/proxied streaming execution
             const stream = this.executor.executeChatStream({
                 messages: messages as UniversalMessage[],

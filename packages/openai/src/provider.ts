@@ -144,7 +144,19 @@ export class OpenAIProvider extends BaseAIProvider {
      * Generate streaming response using UniversalMessage
      */
     override async *chatStream(messages: UniversalMessage[], options?: ChatOptions): AsyncIterable<UniversalMessage> {
+        // 🔍 [TOOL-FLOW] OpenAIProvider.chatStream() - Received options from ExecutionService
+        console.log('🔍 [TOOL-FLOW] OpenAIProvider.chatStream() - Options received:', {
+            model: options?.model,
+            hasTools: !!options?.tools,
+            toolsCount: options?.tools?.length || 0,
+            toolNames: options?.tools?.map((t: any) => t.name) || [],
+            temperature: options?.temperature,
+            maxTokens: options?.maxTokens
+        });
+
         if (this.executor) {
+            // 🔍 [TOOL-FLOW] OpenAIProvider.chatStream() - Using executor path
+            console.log('🔍 [TOOL-FLOW] OpenAIProvider.chatStream() - Delegating to executor');
             try {
                 yield* this.executeStreamViaExecutorOrDirect(messages, options);
                 return;
