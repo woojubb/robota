@@ -66,8 +66,8 @@ export interface ChatInputHookReturn {
     insertAtCursor: (text: string) => void;
 
     // Message Management
-    sendMessage: (message?: string) => Promise<void>;
-    sendStreamingMessage: (message?: string) => Promise<void>;
+    sendMessage: (message?: string) => Promise<any>;
+    sendStreamingMessage: (message?: string) => Promise<any>;
     retryLastMessage: () => Promise<void>;
 
     // Chat History

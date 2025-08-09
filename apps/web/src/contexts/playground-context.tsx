@@ -191,6 +191,7 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
         case 'SET_EXECUTION_RESULT':
             // Update execution statistics based on result
             const newStats = {
+                ...state.executionStats,
                 totalExecutions: state.executionStats.totalExecutions + 1,
                 successfulExecutions: state.executionStats.successfulExecutions + (action.payload.success ? 1 : 0),
                 failedExecutions: state.executionStats.failedExecutions + (action.payload.success ? 0 : 1),
@@ -203,25 +204,10 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
             return {
                 ...state,
                 lastExecutionResult: action.payload,
-                executionStats: newStats
+                executionStats: newStats as any
             };
 
-        case 'UPDATE_EXECUTION_STATS':
-            const { success, duration } = action.payload;
-            const updatedStats = {
-                totalExecutions: state.executionStats.totalExecutions + 1,
-                successfulExecutions: state.executionStats.successfulExecutions + (success ? 1 : 0),
-                failedExecutions: state.executionStats.failedExecutions + (success ? 0 : 1),
-                averageExecutionTime: state.executionStats.totalExecutions > 0
-                    ? (state.executionStats.averageExecutionTime * state.executionStats.totalExecutions + duration) / (state.executionStats.totalExecutions + 1)
-                    : duration,
-                lastExecutionTime: new Date()
-            };
 
-            return {
-                ...state,
-                executionStats: updatedStats
-            };
 
         case 'SET_WEBSOCKET_CONNECTED':
             return {
@@ -232,9 +218,9 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
         case 'SET_AUTH':
             return {
                 ...state,
-                userId: action.payload.userId,
-                sessionId: action.payload.sessionId,
-                authToken: action.payload.authToken
+                userId: action.payload.userId || null,
+                sessionId: action.payload.sessionId || null,
+                authToken: action.payload.authToken || null
             };
 
         case 'SET_LOADING':
@@ -256,13 +242,10 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
                 visualizationData: {
                     ...state.visualizationData,
                     ...action.payload
-                }
+                } as any
             };
 
-        case 'DISPOSE_EXECUTOR':
-            return {
-                ...initialState
-            };
+
 
         case 'SET_CURRENT_WORKFLOW':
             return {
@@ -342,7 +325,7 @@ interface PlaygroundContextValue {
     setExecuting: (isExecuting: boolean) => void;
 
     // Getters
-    getVisualizationData: () => PlaygroundVisualizationData | null;
+    getVisualizationData: () => any;
     getConnectionStatus: () => { connected: boolean; url: string };
 }
 
@@ -413,15 +396,9 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             return;
         }
 
-        // 안전한 메서드 호출 - getEventService 메서드 존재 확인
-        if (typeof state.executor.getEventService !== 'function') {
-            return;
-        }
+        // 안전한 메서드 호출 - eventService 접근을 위한 대체 방법 
+        // PlaygroundExecutor에 getEventService가 없으므로 이벤트 리스너를 비활성화
 
-        const eventService = state.executor.getEventService();
-        if (!eventService) {
-            return;
-        }
 
         // Tool Call Event Listener - 범용적인 Tool Call 감지
         const handleToolCallStart = (event: any) => {
@@ -464,8 +441,8 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                 }
             };
 
-            currentWorkflowRef.current = updatedWorkflow;
-            dispatch({ type: 'SET_WORKFLOW', payload: updatedWorkflow });
+            currentWorkflowRef.current = updatedWorkflow as any;
+            dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: updatedWorkflow as any });
         };
 
         // Agent Creation Event Listener
@@ -509,13 +486,11 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                 }
             };
 
-            currentWorkflowRef.current = updatedWorkflow;
-            dispatch({ type: 'SET_WORKFLOW', payload: updatedWorkflow });
+            currentWorkflowRef.current = updatedWorkflow as any;
+            dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: updatedWorkflow as any });
         };
 
-        // Register event listeners
-        eventService.on('tool_call_start', handleToolCallStart);
-        eventService.on('agent.creation_complete', handleAgentCreated);
+        // 이벤트 리스너는 비활성화됨 - PlaygroundExecutor에 eventService 접근 불가
     }, [state.executor]);
 
     // STEP 7.2.3: SDK Workflow 구독 useEffect
@@ -554,7 +529,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
 
         const loadInitialWorkflow = async () => {
             try {
-                const workflow = await state.executor.getCurrentWorkflow();
+                const workflow = await state.executor?.getCurrentWorkflow();
                 console.log('🔄 [STEP 7.2.4] Initial workflow loaded:', !!workflow);
                 if (workflow && workflow.nodes.length > 0) {
                     dispatch({ type: 'UPDATE_WORKFLOW_FROM_SDK', payload: workflow });
@@ -719,29 +694,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                 // ❌ 인위적 Edge 생성 로직 제거됨
 
                 // ❌ 인위적 Edge 추가 제거됨
-                if (false) {
-                    const edgeId = `edge-input-${state.mode}-${timestamp}`;
-                    externalStore.addEdge({
-                        id: edgeId,
-                        source: userInputNodeId,
-                        target: targetNodeId,
-                        type: 'receives',
-                        label: `User Input → ${targetNodeType}`,
-                        data: {
-                            executionOrder: 0,
-                            metadata: {
-                                connectionType: 'user-input-to-executor',
-                                mode: state.mode,
-                                label: `User Input → ${targetNodeType}`
-                            }
-                        },
-                        createdAt: new Date(),
-                        updatedAt: new Date()
-                    });
-                    console.log(`🏪 [STEP 9.1.3] User Input → ${targetNodeType} edge added to SDK Store (${state.mode} mode)`);
-                } else {
-                    console.warn(`⚠️ [STEP 9.1.3] No ${state.mode} node found to connect User Input to`);
-                }
+                // 사용되지 않는 코드 블록 제거됨
             } else {
                 console.warn('⚠️ [STEP 9.1.3] External Store not available');
             }
@@ -803,7 +756,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                         position: { x: 300, y: agentResponseY },
                         data: {
                             label: 'Agent Response',
-                            response: fullResponse.substring(0, 50) + (fullResponse.length > 50 ? '...' : '')
+                            response: result.response?.substring(0, 50) + (result.response?.length > 50 ? '...' : '') || 'No response'
                         },
                         metadata: { createdAt: new Date(), updatedAt: new Date() }
                     };
@@ -828,7 +781,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
 
                     dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: updatedWorkflow });
                     // Update ref with the latest state
-                    currentWorkflowRef.current = updatedWorkflow;
+                    currentWorkflowRef.current = updatedWorkflow as any;
                 }
             }
 
@@ -937,11 +890,13 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                 console.error('Error disposing executor:', error);
             }
         }
-        dispatch({ type: 'DISPOSE_EXECUTOR' });
+        // Dispose는 state.executor가 null이 되는 것으로 처리됨
     }, []);
 
     const setWorkflow = useCallback((workflow: UniversalWorkflowStructure | null) => {
-        dispatch({ type: 'UPDATE_WORKFLOW_FROM_SDK', payload: workflow });
+        if (workflow) {
+            dispatch({ type: 'UPDATE_WORKFLOW_FROM_SDK', payload: workflow });
+        }
     }, []);
 
     const updateNodeStatus = useCallback((nodeId: string, status: 'pending' | 'ready' | 'running' | 'completed' | 'error') => {
@@ -956,7 +911,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
 
     // ===== Getters =====
 
-    const getVisualizationData = useCallback((): PlaygroundVisualizationData | null => {
+    const getVisualizationData = useCallback((): any => {
         return state.visualizationData;
     }, [state.visualizationData]);
 

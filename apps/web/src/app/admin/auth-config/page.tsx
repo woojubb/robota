@@ -1,11 +1,13 @@
 'use client';
 
+import dynamic from 'next/dynamic';
+import { Suspense } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { getAuthConfig, getEnabledProviders, isSocialLoginEnabled } from '@/lib/auth/auth-config';
 import { CheckCircle, XCircle, Settings } from 'lucide-react';
 
-export default function AuthConfigPage() {
+function AuthConfigContent() {
     const config = getAuthConfig();
     const enabledProviders = getEnabledProviders();
     const socialLoginEnabled = isSocialLoginEnabled();
@@ -178,4 +180,14 @@ export default function AuthConfigPage() {
             </div>
         </div>
     );
+}
+
+// Force this page to be rendered on client-side only to avoid SSR issues
+const DynamicAuthConfigContent = dynamic(() => Promise.resolve(AuthConfigContent), {
+    ssr: false,
+    loading: () => <div>Loading...</div>
+});
+
+export default function AuthConfigPage() {
+    return <DynamicAuthConfigContent />;
 } 

@@ -15,11 +15,11 @@
 
 import { useMemo, useCallback } from 'react';
 import { usePlayground } from '@/contexts/playground-context';
-import type { ConversationEvent, PlaygroundVisualizationData } from '@/lib/playground/robota-executor';
+import type { ConversationEvent, VisualizationData } from '@/lib/playground/robota-executor';
 
 export interface PlaygroundDataHookReturn {
     // Visualization Data
-    visualizationData: PlaygroundVisualizationData | null;
+    visualizationData: VisualizationData | null;
     conversationEvents: ConversationEvent[];
 
     // Computed Data

@@ -515,11 +515,16 @@ const ToolNode = ({ data }: { data: any }) => {
  * Custom Node Component for User Message
  */
 const UserMessageNode = ({ data }: { data: any }) => {
-    // Extract rich data from the new structure
+    // Extract rich data from the new structure - limited for compact display
     const userPrompt = data.userPrompt || data.userMessageContent || data.message || 'No content';
     const messageLength = data.messageLength || userPrompt.length;
     const wordCount = data.wordCount || 0;
-    const contentPreview = data.contentPreview || (userPrompt.length > 60 ? userPrompt.substring(0, 60) + '...' : userPrompt);
+
+    // Truncate content to maximum 120 characters for compact display
+    const maxContentLength = 120;
+    const contentPreview = userPrompt.length > maxContentLength
+        ? userPrompt.substring(0, maxContentLength) + '...'
+        : userPrompt;
     const hasQuestions = data.hasQuestions || false;
     const containsUrgency = data.containsUrgency || false;
     const estimatedComplexity = data.estimatedComplexity || 'medium';
@@ -552,8 +557,8 @@ const UserMessageNode = ({ data }: { data: any }) => {
                     <span className="text-sm font-medium text-gray-800">User Message</span>
                 </div>
 
-                {/* Content preview - shorter */}
-                <div className="text-xs text-gray-600 leading-relaxed">
+                {/* Content preview - compact with height limit */}
+                <div className="text-xs text-gray-600 leading-relaxed max-h-12 overflow-y-auto">
                     {contentPreview}
                 </div>
 
@@ -608,11 +613,16 @@ const AgentThinkingNode = ({ data }: { data: any }) => {
  * Custom Node Component for Response
  */
 const ResponseNode = ({ data }: { data: any }) => {
-    // Extract rich response data
+    // Extract rich response data - limited for compact display
     const assistantMessage = data.assistantMessage || data.content || 'No response';
     const responseLength = data.responseLength || assistantMessage.length;
     const wordCount = data.wordCount || 0;
-    const contentPreview = data.contentPreview || (assistantMessage.length > 80 ? assistantMessage.substring(0, 80) + '...' : assistantMessage);
+
+    // Truncate content to maximum 120 characters for compact display
+    const maxContentLength = 120;
+    const contentPreview = assistantMessage.length > maxContentLength
+        ? assistantMessage.substring(0, maxContentLength) + '...'
+        : assistantMessage;
     const responseTime = data.responseTime || 0;
     const agentNumber = data.agentNumber || 0;
 
@@ -659,8 +669,8 @@ const ResponseNode = ({ data }: { data: any }) => {
                     </span>
                 </div>
 
-                {/* Content preview - shorter */}
-                <div className="text-xs text-gray-600 leading-relaxed">
+                {/* Content preview - compact with height limit */}
+                <div className="text-xs text-gray-600 leading-relaxed max-h-12 overflow-y-auto">
                     {contentPreview}
                 </div>
 
@@ -720,13 +730,18 @@ const ToolCallNode = ({ data }: { data: any }) => {
  * Custom Node Component for Tool Call Response
  */
 const ToolCallResponseNode = ({ data }: { data: any }) => {
-    // Extract rich tool response data
+    // Extract rich tool response data - limited for compact display
     const toolName = data.toolName || 'unknown_tool';
     const toolResult = data.toolResult || (data.result && data.result.data) || 'No result';
     const toolExecutionTime = data.toolExecutionTime || 0;
     const toolStatus = data.toolStatus || 'success';
     const resultLength = data.resultLength || toolResult.length;
-    const resultPreview = data.resultPreview || (toolResult.length > 80 ? toolResult.substring(0, 80) + '...' : toolResult);
+
+    // Truncate result to maximum 120 characters for compact display
+    const maxResultLength = 120;
+    const resultPreview = toolResult.length > maxResultLength
+        ? toolResult.substring(0, maxResultLength) + '...'
+        : toolResult;
 
     // Tool details
     const toolDetails = data.toolDetails || {};
@@ -809,8 +824,8 @@ const ToolCallResponseNode = ({ data }: { data: any }) => {
                     )}
                 </div>
 
-                {/* Result preview - shorter */}
-                <div className="text-xs text-gray-600 leading-relaxed">
+                {/* Result preview - compact with height limit */}
+                <div className="text-xs text-gray-600 leading-relaxed max-h-12 overflow-y-auto">
                     {resultPreview}
                 </div>
 
@@ -842,8 +857,9 @@ const ToolResultNode = ({ data }: { data: any }) => {
             data={data}
             handles={{
                 target: true,
-                source: false,
-                targetId: "tool-result-input"
+                source: true, // Enable outgoing handle for tool result nodes
+                targetId: "tool-result-input",
+                sourceId: "tool-result-output"
             }}
         >
             <div>
@@ -1169,7 +1185,7 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
                 </div>
             </CardHeader>
             <CardContent>
-                <div style={{ width: '100%', height: '400px' }}>
+                <div className="w-full h-[calc(100vh-250px)]">
                     <ReactFlow
                         nodes={nodes}
                         edges={edges}

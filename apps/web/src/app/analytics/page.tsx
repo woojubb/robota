@@ -19,8 +19,6 @@ import {
     PieChart,
     Pie,
     Cell,
-    LineChart,
-    Line,
     ResponsiveContainer,
     Area,
     AreaChart
@@ -28,15 +26,10 @@ import {
 import {
     Activity,
     DollarSign,
-    TrendingUp,
-    Users,
     Clock,
     AlertTriangle,
     Download,
     Zap,
-    BarChart3,
-    PieChart as PieChartIcon,
-    Calendar,
     RefreshCw
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'

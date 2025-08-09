@@ -14,7 +14,7 @@
  * - Drag & drop for agent ordering
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -296,13 +296,17 @@ export function TeamConfigurationBlock({
     onDragStart,
     validationErrors = []
 }: TeamConfigurationBlockProps) {
-    const [isEditing, setIsEditing] = useState(false);
     const [editedConfig, setEditedConfig] = useState<PlaygroundTeamConfig>(config);
     const [activeTab, setActiveTab] = useState('overview');
 
     // Validation state
     const hasErrors = validationErrors.length > 0;
     const isValid = !hasErrors && editedConfig.name.trim().length > 0 && editedConfig.agents.length > 0;
+
+    // Sync config when props change
+    useEffect(() => {
+        setEditedConfig(config);
+    }, [config]);
 
     // Status indicators
     const statusIcon = useMemo(() => {
@@ -312,15 +316,14 @@ export function TeamConfigurationBlock({
         return <Info className="h-4 w-4 text-gray-400" />;
     }, [isExecuting, hasErrors, isValid]);
 
-    // Handle configuration updates
+    // Handle configuration updates with auto-save
     const handleConfigUpdate = useCallback((updates: Partial<PlaygroundTeamConfig>) => {
+        if (isExecuting) return; // Prevent changes during execution
+
         const newConfig = { ...editedConfig, ...updates };
         setEditedConfig(newConfig);
-
-        if (!isEditing) {
-            onConfigChange(newConfig);
-        }
-    }, [editedConfig, isEditing, onConfigChange]);
+        onConfigChange(newConfig); // Auto-save immediately
+    }, [editedConfig, isExecuting, onConfigChange]);
 
     // Handle workflow updates
     const handleWorkflowUpdate = useCallback((field: string, value: string | number | boolean) => {
@@ -365,17 +368,7 @@ export function TeamConfigurationBlock({
         handleConfigUpdate({ agents: newAgents });
     }, [editedConfig.agents, handleConfigUpdate]);
 
-    // Save edited configuration
-    const handleSave = useCallback(() => {
-        onConfigChange(editedConfig);
-        setIsEditing(false);
-    }, [editedConfig, onConfigChange]);
 
-    // Cancel editing
-    const handleCancel = useCallback(() => {
-        setEditedConfig(config);
-        setIsEditing(false);
-    }, [config]);
 
     return (
         <Card
@@ -395,73 +388,52 @@ export function TeamConfigurationBlock({
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Users className="h-5 w-5 text-purple-600" />
-                        {isEditing ? (
-                            <Input
-                                value={editedConfig.name}
-                                onChange={(e) => handleConfigUpdate({ name: e.target.value })}
-                                className="h-6 text-sm font-semibold"
-                                placeholder="Team Name"
-                            />
-                        ) : (
-                            <CardTitle className="text-sm font-semibold">
-                                {config.name}
-                            </CardTitle>
-                        )}
+                        <Input
+                            value={editedConfig.name}
+                            onChange={(e) => handleConfigUpdate({ name: e.target.value })}
+                            className="h-6 text-sm font-semibold border-none p-0 focus-visible:ring-0"
+                            placeholder="Team Name"
+                            disabled={isExecuting}
+                        />
                         {statusIcon}
                     </div>
 
                     <div className="flex items-center gap-1">
-                        {/* Action Buttons */}
+                        {/* Single Play/Stop Button */}
                         {isExecuting ? (
                             <Button
                                 size="sm"
                                 variant="destructive"
-                                onClick={onStop}
-                                className="h-7 w-7 p-0"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onStop?.();
+                                }}
+                                className="h-7 px-3 text-xs"
                             >
-                                <Pause className="h-3 w-3" />
+                                <Pause className="h-3 w-3 mr-1" />
+                                Stop
                             </Button>
                         ) : (
                             <Button
                                 size="sm"
-                                variant="outline"
-                                onClick={() => onExecute?.(config)}
-                                disabled={!isValid || isExecuting}
-                                className="h-7 w-7 p-0"
+                                variant="default"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onExecute?.(editedConfig);
+                                }}
+                                disabled={!isValid}
+                                className="h-7 px-3 text-xs"
                             >
-                                <Play className="h-3 w-3" />
+                                <Play className="h-3 w-3 mr-1" />
+                                Play
                             </Button>
                         )}
 
-                        {isEditing ? (
+                        {/* Copy/Delete buttons (only when not executing) */}
+                        {!isExecuting && (
                             <>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={handleSave}
-                                    className="h-7 px-2 text-xs"
-                                >
-                                    Save
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={handleCancel}
-                                    className="h-7 px-2 text-xs"
-                                >
-                                    Cancel
-                                </Button>
-                            </>
-                        ) : (
-                            <>
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setIsEditing(true)}
-                                    className="h-7 w-7 p-0"
-                                >
-                                    <Edit3 className="h-3 w-3" />
-                                </Button>
                                 <Button
                                     size="sm"
                                     variant="ghost"
@@ -542,7 +514,7 @@ export function TeamConfigurationBlock({
                                 <Select
                                     value={editedConfig.workflow?.coordinator || 'round-robin'}
                                     onValueChange={(value) => handleWorkflowUpdate('coordinator', value)}
-                                    disabled={!isEditing}
+                                    disabled={isExecuting}
                                 >
                                     <SelectTrigger className="h-8 text-xs">
                                         <SelectValue />
@@ -568,7 +540,7 @@ export function TeamConfigurationBlock({
                                     onChange={(e) => handleWorkflowUpdate('maxDepth', parseInt(e.target.value))}
                                     placeholder="3"
                                     className="h-8 text-xs"
-                                    disabled={!isEditing}
+                                    disabled={isExecuting}
                                     min={1}
                                     max={10}
                                 />
@@ -580,7 +552,7 @@ export function TeamConfigurationBlock({
                     <TabsContent value="agents" className="space-y-3 mt-3">
                         <div className="flex items-center justify-between">
                             <Label className="text-xs font-medium">Team Agents ({editedConfig.agents.length})</Label>
-                            {isEditing && (
+                            {!isExecuting && (
                                 <Button
                                     size="sm"
                                     variant="outline"
@@ -597,9 +569,7 @@ export function TeamConfigurationBlock({
                             <div className="text-center py-6 text-xs text-gray-500">
                                 <Bot className="h-8 w-8 mx-auto mb-2 opacity-50" />
                                 <p>No agents in this team</p>
-                                {isEditing && (
-                                    <p className="mt-1">Click "Add Agent" to get started</p>
-                                )}
+                                <p className="mt-1">Click "Add Agent" to get started</p>
                             </div>
                         ) : (
                             <ScrollArea className="max-h-96 w-full">
@@ -609,7 +579,7 @@ export function TeamConfigurationBlock({
                                             <AgentConfigurationBlock
                                                 config={agent}
                                                 onConfigChange={(updatedAgent) => handleAgentUpdate(index, updatedAgent)}
-                                                onDelete={isEditing ? () => handleAgentRemove(index) : undefined}
+                                                onDelete={!isExecuting ? () => handleAgentRemove(index) : undefined}
                                                 className="text-xs"
                                             />
                                             {index < editedConfig.agents.length - 1 && (
@@ -634,7 +604,7 @@ export function TeamConfigurationBlock({
                                     onChange={(e) => handleConfigUpdate({ description: e.target.value } as Partial<PlaygroundTeamConfig>)}
                                     placeholder="Describe the purpose of this team..."
                                     className="min-h-[60px] text-xs resize-none"
-                                    disabled={!isEditing}
+                                    disabled={isExecuting}
                                 />
                             </div>
 
@@ -647,7 +617,7 @@ export function TeamConfigurationBlock({
                                         onChange={(e) => handleWorkflowUpdate('timeout', parseInt(e.target.value))}
                                         placeholder="300"
                                         className="h-8 text-xs"
-                                        disabled={!isEditing}
+                                        disabled={isExecuting}
                                         min={30}
                                         max={3600}
                                     />
@@ -661,7 +631,7 @@ export function TeamConfigurationBlock({
                                         onChange={(e) => handleWorkflowUpdate('retries', parseInt(e.target.value))}
                                         placeholder="3"
                                         className="h-8 text-xs"
-                                        disabled={!isEditing}
+                                        disabled={isExecuting}
                                         min={0}
                                         max={10}
                                     />
@@ -673,7 +643,7 @@ export function TeamConfigurationBlock({
                                     <Switch
                                         checked={(editedConfig.workflow as unknown as { enableLogging?: boolean })?.enableLogging !== false}
                                         onCheckedChange={(checked) => handleWorkflowUpdate('enableLogging', checked)}
-                                        disabled={!isEditing}
+                                        disabled={isExecuting}
                                     />
                                     <Label className="text-xs">Enable Team Logging</Label>
                                 </div>
@@ -682,7 +652,7 @@ export function TeamConfigurationBlock({
                                     <Switch
                                         checked={(editedConfig.workflow as unknown as { enableMetrics?: boolean })?.enableMetrics !== false}
                                         onCheckedChange={(checked) => handleWorkflowUpdate('enableMetrics', checked)}
-                                        disabled={!isEditing}
+                                        disabled={isExecuting}
                                     />
                                     <Label className="text-xs">Enable Performance Metrics</Label>
                                 </div>

@@ -277,21 +277,21 @@ function IndividualToolBlock({
                                         <div className="flex items-center gap-2">
                                             <Label className="text-xs text-gray-600">
                                                 {key}
-                                                {toolBlock.tool.schema?.parameters?.required?.includes(key) && <span className="text-red-500">*</span>}
+                                                {(toolBlock.tool as any).schema?.parameters?.required?.includes(key) && <span className="text-red-500">*</span>}
                                             </Label>
-                                            {toolBlock.tool.schema?.parameters?.required?.includes(key) && (
+                                            {(toolBlock.tool as any).schema?.parameters?.required?.includes(key) && (
                                                 <Badge variant="outline" className="text-xs px-1 py-0">
                                                     Required
                                                 </Badge>
                                             )}
                                         </div>
                                         <ToolParameterInput
-                                            parameter={paramConfig}
+                                            parameter={paramConfig as any}
                                             value={toolBlock.parameters[key]}
                                             onChange={(value) => handleParameterChange(key, value)}
                                             disabled={!isEditable || !toolBlock.isEnabled}
                                         />
-                                        <p className="text-xs text-gray-400">{paramConfig.description}</p>
+                                        <p className="text-xs text-gray-400">{(paramConfig as any).description}</p>
                                     </div>
                                 ))}
                             </div>

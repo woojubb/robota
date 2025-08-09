@@ -11,24 +11,18 @@ import { Switch } from '@/components/ui/switch'
 import {
     CreditCard,
     Download,
-    Calendar,
     AlertTriangle,
-    CheckCircle,
     TrendingUp,
-    Users,
     Zap,
     Crown,
     Star,
     ArrowUpRight,
-    Clock,
     DollarSign,
     FileText,
-    Settings,
-    Bell,
-    Shield
+    Settings
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
-import { PRICING_PLANS, getPlanById } from '@/lib/billing/plans'
+import { getPlanById } from '@/lib/billing/plans'
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils'
 import { UserSubscription, BillingInvoice, UsageAlert } from '@/types/billing'
 
@@ -286,15 +280,15 @@ export default function BillingPage() {
                 <div className="space-y-4">
                     {alerts.filter(alert => !alert.acknowledged).map((alert) => (
                         <Card key={alert.id} className={`border-l-4 ${alert.severity === 'critical' ? 'border-l-red-500 bg-red-50' :
-                                alert.severity === 'warning' ? 'border-l-yellow-500 bg-yellow-50' :
-                                    'border-l-blue-500 bg-blue-50'
+                            alert.severity === 'warning' ? 'border-l-yellow-500 bg-yellow-50' :
+                                'border-l-blue-500 bg-blue-50'
                             }`}>
                             <CardContent className="p-4">
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-start gap-3">
                                         <AlertTriangle className={`h-5 w-5 mt-0.5 ${alert.severity === 'critical' ? 'text-red-500' :
-                                                alert.severity === 'warning' ? 'text-yellow-500' :
-                                                    'text-blue-500'
+                                            alert.severity === 'warning' ? 'text-yellow-500' :
+                                                'text-blue-500'
                                             }`} />
                                         <div>
                                             <h3 className="font-semibold">{alert.title}</h3>
