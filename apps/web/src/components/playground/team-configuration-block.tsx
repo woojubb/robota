@@ -323,7 +323,7 @@ export function TeamConfigurationBlock({
     }, [editedConfig, isEditing, onConfigChange]);
 
     // Handle workflow updates
-    const handleWorkflowUpdate = useCallback((field: string, value: string | number) => {
+    const handleWorkflowUpdate = useCallback((field: string, value: string | number | boolean) => {
         handleConfigUpdate({
             workflow: {
                 ...editedConfig.workflow,
@@ -355,14 +355,10 @@ export function TeamConfigurationBlock({
                 model: 'gpt-4',
                 temperature: 0.7,
                 maxTokens: 2000,
-                systemMessage: 'You are a helpful AI assistant.'
+                systemMessage: ''
             },
             tools: [],
-            plugins: [],
-            metadata: {
-                createdAt: new Date().toISOString(),
-                version: '1.0.0'
-            }
+            plugins: []
         };
 
         const newAgents = [...editedConfig.agents, newAgent];
@@ -615,7 +611,6 @@ export function TeamConfigurationBlock({
                                                 onConfigChange={(updatedAgent) => handleAgentUpdate(index, updatedAgent)}
                                                 onDelete={isEditing ? () => handleAgentRemove(index) : undefined}
                                                 className="text-xs"
-                                                validationErrors={[]}
                                             />
                                             {index < editedConfig.agents.length - 1 && (
                                                 <div className="flex justify-center py-1">

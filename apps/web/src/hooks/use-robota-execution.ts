@@ -289,31 +289,26 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
     // Configuration helpers
     const getDefaultAgentConfig = useCallback((): PlaygroundAgentConfig => {
         return {
-            name: 'Default Agent',
+            name: 'New Agent',
             aiProviders: [],
             defaultModel: {
                 provider: 'openai',
                 model: 'gpt-4',
                 temperature: 0.7,
                 maxTokens: 2000,
-                systemMessage: 'You are a helpful AI assistant.'
+                systemMessage: ''
             },
             tools: [],
-            plugins: [],
-            metadata: {
-                createdAt: new Date().toISOString(),
-                version: '1.0.0'
-            }
+            plugins: []
         };
     }, []);
 
     const getDefaultTeamConfig = useCallback((): PlaygroundTeamConfig => {
         return {
-            name: 'Default Team',
+            name: 'New Team',
             agents: [getDefaultAgentConfig()],
             workflow: {
-                coordinator: 'round-robin',
-                maxDepth: 3
+                coordinator: 'round-robin'
             }
         };
     }, [getDefaultAgentConfig]);

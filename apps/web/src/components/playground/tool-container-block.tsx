@@ -108,7 +108,7 @@ function ToolParameterInput({
     onChange,
     disabled = false
 }: {
-    parameter: { type: string; required: boolean; description: string; default?: unknown };
+    parameter: { type: string; description?: string; default?: unknown };
     value: unknown;
     onChange: (value: unknown) => void;
     disabled?: boolean;
@@ -223,7 +223,6 @@ function IndividualToolBlock({
                                     checked={toolBlock.isEnabled}
                                     onCheckedChange={handleToggleEnabled}
                                     disabled={!isEditable}
-                                    size="sm"
                                 />
 
                                 {isEditable && (
@@ -273,14 +272,14 @@ function IndividualToolBlock({
                             {/* Tool Parameters */}
                             <div className="space-y-2">
                                 <Label className="text-xs font-medium">Parameters</Label>
-                                {Object.entries(toolBlock.tool.parameters || {}).map(([key, paramConfig]) => (
+                                {Object.entries((toolBlock.tool as any).schema?.parameters?.properties || {}).map(([key, paramConfig]) => (
                                     <div key={key} className="space-y-1">
                                         <div className="flex items-center gap-2">
                                             <Label className="text-xs text-gray-600">
                                                 {key}
-                                                {paramConfig.required && <span className="text-red-500">*</span>}
+                                                {toolBlock.tool.schema?.parameters?.required?.includes(key) && <span className="text-red-500">*</span>}
                                             </Label>
-                                            {paramConfig.required && (
+                                            {toolBlock.tool.schema?.parameters?.required?.includes(key) && (
                                                 <Badge variant="outline" className="text-xs px-1 py-0">
                                                     Required
                                                 </Badge>

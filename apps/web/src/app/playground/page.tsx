@@ -11,31 +11,17 @@
  * - Tool and Plugin management
  */
 
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import {
     Play,
-    Pause,
     Square,
-    Settings,
     Plus,
     Bot,
     Users,
-    Zap,
-    Puzzle,
-    MessageCircle,
-    MessageSquare,
-    Activity,
-    Wifi,
-    WifiOff,
     AlertCircle,
     CheckCircle,
     Loader2
@@ -43,33 +29,26 @@ import {
 
 // Context and Hooks
 import { PlaygroundProvider, usePlayground } from '@/contexts/playground-context';
-import { usePlaygroundData } from '@/hooks/use-playground-data';
 import { useRobotaExecution } from '@/hooks/use-robota-execution';
-import { useWebSocketConnection } from '@/hooks/use-websocket-connection';
 import { useChatInput } from '@/hooks/use-chat-input';
-import { useBlockTracking } from '@/hooks/use-block-tracking';
 import { usePlaygroundStatistics } from '@/hooks/use-playground-statistics';
+import { useModal } from '@/hooks/use-modal';
 
 
 
 // Visual Components
 import { AgentConfigurationBlock } from '@/components/playground/agent-configuration-block';
 import { TeamConfigurationBlock } from '@/components/playground/team-configuration-block';
-import { ToolContainerBlock } from '@/components/playground/tool-container-block';
-import { PluginContainerBlock } from '@/components/playground/plugin-container-block';
-import { AuthDebug } from '@/components/debug/auth-debug';
 import { WorkflowVisualization } from '@/components/playground/workflow-visualization';
+import { Modal } from '@/components/ui/modal';
 
 // Types
 import type {
     PlaygroundAgentConfig,
-    PlaygroundTeamConfig,
-    PlaygroundExecutionResult
+    PlaygroundTeamConfig
 } from '@/lib/playground/robota-executor';
 import type {
-    UniversalWorkflowStructure,
-    UniversalWorkflowNode,
-    UniversalWorkflowEdge
+    UniversalWorkflowStructure
 } from '@robota-sdk/agents';
 
 // Configuration Panel Component
@@ -175,28 +154,21 @@ function ConfigurationPanel() {
     }, [state.isExecuting, isAgentRunning]);
 
     return (
-        <Card className="h-full">
-            <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Settings className="h-4 w-4" />
-                    Configuration
-                </CardTitle>
+        <div className="space-y-4">
+            <Tabs value={activeConfigTab} onValueChange={(value) => setActiveConfigTab(value as 'agent' | 'team')}>
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="agent" className="flex items-center gap-1 text-xs">
+                        <Bot className="h-3 w-3" />
+                        Agent
+                    </TabsTrigger>
+                    <TabsTrigger value="team" className="flex items-center gap-1 text-xs">
+                        <Users className="h-3 w-3" />
+                        Team
+                    </TabsTrigger>
+                </TabsList>
+            </Tabs>
 
-                <Tabs value={activeConfigTab} onValueChange={(value) => setActiveConfigTab(value as 'agent' | 'team')}>
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="agent" className="flex items-center gap-1 text-xs">
-                            <Bot className="h-3 w-3" />
-                            Agent
-                        </TabsTrigger>
-                        <TabsTrigger value="team" className="flex items-center gap-1 text-xs">
-                            <Users className="h-3 w-3" />
-                            Team
-                        </TabsTrigger>
-                    </TabsList>
-                </Tabs>
-            </CardHeader>
-
-            <CardContent className="pt-0">
+            <div>
                 <Tabs value={activeConfigTab}>
                     {/* Agent Configuration */}
                     <TabsContent value="agent" className="space-y-3 mt-0">
@@ -253,55 +225,13 @@ function ConfigurationPanel() {
                                     Create Team
                                 </Button>
 
-                                {/* STEP 7.1.3: Test getCurrentWorkflow 버튼 */}
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={async () => {
-                                        console.log('🧪 [TEST] Manual workflow load triggered');
-                                        const workflow = await state.executor?.getCurrentWorkflow();
-                                        console.log('🧪 [TEST] Manual workflow load completed', workflow);
-                                    }}
-                                    className="flex items-center gap-2 ml-2"
-                                >
-                                    Test getCurrentWorkflow
-                                </Button>
 
-                                {/* STEP 7.1.4: Test Workflow Subscription 버튼 */}
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                        state.executor?.subscribeToWorkflowUpdates((workflow) => {
-                                            console.log('🧪 [TEST] Subscription callback:', workflow);
-                                        });
-                                        console.log('🧪 [TEST] Subscription set up completed');
-                                    }}
-                                    className="flex items-center gap-2 ml-2 mt-2"
-                                >
-                                    Test Workflow Subscription
-                                </Button>
-
-                                {/* STEP 7.2.4: Load Current Workflow 테스트 버튼 */}
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={async () => {
-                                        console.log('🧪 [TEST] Manual workflow load triggered');
-                                        const workflow = await state.executor?.getCurrentWorkflow();
-                                        console.log('🧪 [TEST] Manual workflow load completed:', !!workflow);
-                                        // Note: 실제 업데이트는 SDK subscription을 통해 자동으로 처리됨
-                                    }}
-                                    className="flex items-center gap-2 ml-2 mt-2"
-                                >
-                                    Load Current Workflow
-                                </Button>
                             </div>
                         )}
                     </TabsContent>
                 </Tabs>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 }
 
@@ -343,26 +273,20 @@ function ChatInputPanel() {
     }, [handleSendMessage]);
 
     return (
-        <Card className="h-full flex flex-col">
-            <CardHeader className="pb-3 flex-shrink-0">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4" />
-                    Chat Input
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                        {state.mode === 'agent' ? 'Agent Mode' : 'Team Mode'}
+        <div className="space-y-4">
+            <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">
+                    {state.mode === 'agent' ? 'Agent Mode' : 'Team Mode'}
+                </Badge>
+                {isExecuting && (
+                    <Badge variant="secondary" className="text-xs animate-pulse">
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Executing
                     </Badge>
-                    {isExecuting && (
-                        <Badge variant="secondary" className="text-xs animate-pulse">
-                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                            Executing
-                        </Badge>
-                    )}
-                </div>
-            </CardHeader>
+                )}
+            </div>
 
-            <CardContent className="flex-1 flex flex-col gap-3 min-h-0 pt-0">
+            <div className="flex flex-col gap-3">
                 {/* Input Section */}
                 <div className="flex-shrink-0 space-y-3">
                     {/* Controls */}
@@ -439,17 +363,8 @@ function ChatInputPanel() {
                         </div>
                     )}
                 </div>
-
-                {/* Empty space for future features */}
-                <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-                    <div className="text-center">
-                        <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                        <p>Chat history removed</p>
-                        <p className="text-xs">Focus on Block Tree</p>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 }
 
@@ -469,162 +384,240 @@ function SystemStatusPanel() {
     } = usePlaygroundStatistics();
 
     return (
-        <Card>
-            <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Activity className="h-4 w-4" />
-                    System Status
-                </CardTitle>
-            </CardHeader>
-
-            <CardContent className="pt-0 space-y-2">
-                {/* Compact Status Grid */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                    {/* Connection Status */}
-                    <div className="flex items-center gap-1">
-                        {state.isInitialized ? (
-                            <>
-                                <CheckCircle className="h-3 w-3 text-green-500" />
-                                <span className="text-green-600">Ready</span>
-                            </>
-                        ) : (
-                            <>
-                                <AlertCircle className="h-3 w-3 text-orange-500" />
-                                <span className="text-orange-600">Init...</span>
-                            </>
-                        )}
-                    </div>
-
-                    {/* Execution Status */}
-                    <div className="flex items-center gap-1">
-                        {state.isExecuting || isActive ? (
-                            <>
-                                <Loader2 className="h-3 w-3 text-blue-500 animate-spin" />
-                                <span className="text-blue-600">Running</span>
-                            </>
-                        ) : chatExecutions > 0 ? (
-                            <>
-                                <CheckCircle className="h-3 w-3 text-green-500" />
-                                <span className="text-green-600">Idle</span>
-                            </>
-                        ) : (
-                            <>
-                                <AlertCircle className="h-3 w-3 text-gray-500" />
-                                <span className="text-gray-600">Ready</span>
-                            </>
-                        )}
-                    </div>
+        <div className="space-y-2">
+            {/* Compact Status Grid */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+                {/* Connection Status */}
+                <div className="flex items-center gap-1">
+                    {state.isInitialized ? (
+                        <>
+                            <CheckCircle className="h-3 w-3 text-green-500" />
+                            <span className="text-green-600">Ready</span>
+                        </>
+                    ) : (
+                        <>
+                            <AlertCircle className="h-3 w-3 text-orange-500" />
+                            <span className="text-orange-600">Init...</span>
+                        </>
+                    )}
                 </div>
 
-                {/* Enhanced Statistics */}
-                <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
-                    <div>Total: {chatExecutions}</div>
-                    <div>Success: {Math.round(successRate)}%</div>
-                    <div>Agent: {agentExecutions}</div>
-                    <div>Team: {teamExecutions}</div>
+                {/* Execution Status */}
+                <div className="flex items-center gap-1">
+                    {state.isExecuting || isActive ? (
+                        <>
+                            <Loader2 className="h-3 w-3 text-blue-500 animate-spin" />
+                            <span className="text-blue-600">Running</span>
+                        </>
+                    ) : chatExecutions > 0 ? (
+                        <>
+                            <CheckCircle className="h-3 w-3 text-green-500" />
+                            <span className="text-green-600">Idle</span>
+                        </>
+                    ) : (
+                        <>
+                            <AlertCircle className="h-3 w-3 text-gray-500" />
+                            <span className="text-gray-600">Ready</span>
+                        </>
+                    )}
                 </div>
+            </div>
 
-                {/* Response Time */}
-                {averageResponseTime > 0 && (
-                    <div className="text-xs text-gray-500 text-center">
-                        Avg Response: {formattedResponseTime}
-                    </div>
-                )}
+            {/* Enhanced Statistics */}
+            <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
+                <div>Total: {chatExecutions}</div>
+                <div>Success: {Math.round(successRate)}%</div>
+                <div>Agent: {agentExecutions}</div>
+                <div>Team: {teamExecutions}</div>
+            </div>
 
-                {/* Error Count - Only when present */}
-                {errorCount > 0 && (
-                    <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
-                        <div className="flex items-center gap-1 font-medium">
-                            <AlertCircle className="h-3 w-3" />
-                            Errors: {errorCount}
-                        </div>
-                    </div>
-                )}
+            {/* Response Time */}
+            {averageResponseTime > 0 && (
+                <div className="text-xs text-gray-500 text-center">
+                    Avg Response: {formattedResponseTime}
+                </div>
+            )}
 
-                {/* Current Error Display */}
-                {state.error && (
-                    <div className="p-2 bg-orange-50 border border-orange-200 rounded text-xs text-orange-700">
-                        <div className="flex items-center gap-1 font-medium">
-                            <AlertCircle className="h-3 w-3" />
-                            Current Error
-                        </div>
-                        <div className="mt-1 truncate" title={state.error}>
-                            {state.error}
-                        </div>
+            {/* Error Count - Only when present */}
+            {errorCount > 0 && (
+                <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                    <div className="flex items-center gap-1 font-medium">
+                        <AlertCircle className="h-3 w-3" />
+                        Errors: {errorCount}
                     </div>
-                )}
+                </div>
+            )}
 
-                {/* Loading State */}
-                {isLoading && (
-                    <div className="text-xs text-gray-400 text-center">
-                        Loading statistics...
+            {/* Current Error Display */}
+            {state.error && (
+                <div className="p-2 bg-orange-50 border border-orange-200 rounded text-xs text-orange-700">
+                    <div className="flex items-center gap-1 font-medium">
+                        <AlertCircle className="h-3 w-3" />
+                        Current Error
                     </div>
-                )}
-            </CardContent>
-        </Card>
+                    <div className="mt-1 truncate" title={state.error}>
+                        {state.error}
+                    </div>
+                </div>
+            )}
+
+            {/* Loading State */}
+            {isLoading && (
+                <div className="text-xs text-gray-400 text-center">
+                    Loading statistics...
+                </div>
+            )}
+        </div>
     );
 }
 
 // Main Content Component (requires PlaygroundProvider)
 function PlaygroundContent() {
     const { state } = usePlayground();
+    const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
+    const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
+    const { activeModal, isModalOpen, openModal, closeModal, toggleModal } = useModal();
 
     return (
-        <div className="container mx-auto p-6 min-h-screen flex flex-col space-y-6">
+        <div>
             {/* Header */}
-            <div className="flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
                 <div>
-                    <h1 className="text-3xl font-bold">Robota Playground</h1>
-                    <p className="text-gray-600">Build, test, and deploy intelligent agents</p>
+                    <h1 className="text-2xl font-bold">Robota Playground</h1>
+                    <p className="text-sm text-gray-600">Build, test, and deploy intelligent agents</p>
                 </div>
-                <Badge variant={state.isInitialized ? "default" : "secondary"}>
-                    {state.isInitialized ? "Ready" : "Initializing"}
-                </Badge>
+
+                <div className="flex items-center gap-3">
+                    {/* Modal Trigger Buttons */}
+                    <button
+                        onClick={() => toggleModal('configuration')}
+                        className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
+                    >
+                        Configuration
+                    </button>
+
+                    <button
+                        onClick={() => toggleModal('chat')}
+                        className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded transition-colors"
+                    >
+                        Chat
+                    </button>
+
+                    <button
+                        onClick={() => toggleModal('systemStatus')}
+                        className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded transition-colors"
+                    >
+                        Status
+                    </button>
+
+                    <Badge variant={state.isInitialized ? "default" : "secondary"}>
+                        {state.isInitialized ? "Ready" : "Initializing"}
+                    </Badge>
+                </div>
             </div>
 
-            {/* Top Row - Configuration Banner */}
-            <div className="flex-shrink-0">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <ConfigurationPanel />
-                    <SystemStatusPanel />
-                    <AuthDebug />
-                </div>
-            </div>
+            {/* Main Visualization Layout with Overlay Sidebars */}
+            <div className="relative h-96 overflow-hidden">
+                {/* Background Overlay */}
+                {(leftSidebarOpen || rightSidebarOpen) && (
+                    <div
+                        className="absolute inset-0 bg-gray-800/10 z-5"
+                        onClick={() => {
+                            setLeftSidebarOpen(false);
+                            setRightSidebarOpen(false);
+                        }}
+                    />
+                )}
 
-            {/* STEP 7.2.1: Workflow System Status */}
-            <div className="flex-shrink-0">
-                <div className="bg-gray-100 p-4 rounded mb-4">
-                    <h3 className="font-bold">🔄 Workflow System Status</h3>
-                    <div id="workflow-status">
-                        <p>📊 Current Workflow: <span id="workflow-nodes-count">0</span> nodes</p>
-                        <p>📡 SDK Subscription: <span id="sdk-subscription-status">Not Connected</span></p>
-                        <p>🕐 Last Update: <span id="last-workflow-update">Never</span></p>
-                        <p>🔧 Tool Calls Detected: <span id="tool-calls-count">0</span></p>
-                        <p>🤖 Agents Created: <span id="agents-created-count">0</span></p>
+                {/* Toggle Buttons */}
+                <button
+                    onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
+                    className="absolute top-4 left-4 z-20 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded shadow-md transition-colors"
+                >
+                    {leftSidebarOpen ? '← Close' : 'Left →'}
+                </button>
+
+                <button
+                    onClick={() => setRightSidebarOpen(!rightSidebarOpen)}
+                    className="absolute top-4 right-4 z-20 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded shadow-md transition-colors"
+                >
+                    {rightSidebarOpen ? 'Close →' : '← Right'}
+                </button>
+
+                {/* Left Sidebar - Overlay */}
+                <div className={`absolute left-0 top-0 w-80 h-full bg-gray-50 border-r border-gray-200 z-10 shadow-lg transition-transform duration-300 ${leftSidebarOpen ? 'transform translate-x-0' : 'transform -translate-x-full'
+                    }`}>
+                    <div className="p-4">
+                        <h3 className="font-semibold mb-4">Left Sidebar</h3>
+                        <p className="text-sm text-gray-600">Configuration and controls will go here</p>
                     </div>
+                </div>
 
-                    {/* STEP 12.0.1: Test 버튼 UI 컴포넌트 추가 */}
-                    <div className="mt-4 pt-4 border-t border-gray-300">
-                        <h4 className="font-semibold mb-2">🧪 Visual Verification Tests</h4>
-                        <div className="flex gap-2 flex-wrap">
-                            <WorkflowTestButtons />
-                        </div>
+                {/* Right Sidebar - Overlay */}
+                <div className={`absolute right-0 top-0 w-80 h-full bg-gray-50 border-l border-gray-200 z-10 shadow-lg transition-transform duration-300 ${rightSidebarOpen ? 'transform translate-x-0' : 'transform translate-x-full'
+                    }`}>
+                    <div className="p-4">
+                        <h3 className="font-semibold mb-4">Right Sidebar</h3>
+                        <p className="text-sm text-gray-600">Additional tools and information will go here</p>
                     </div>
                 </div>
-            </div>
 
-            {/* Main Content - Chat + Workflow */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow min-h-0">
-                {/* Left Column - Chat Input (1/3 width) */}
-                <div className="lg:col-span-1 min-h-0">
-                    <ChatInputPanel />
-                </div>
-
-                {/* Right Column - Workflow Visualization (2/3 width) */}
-                <div className="lg:col-span-2 min-h-0">
+                {/* Center Column - Full Width Workflow Visualization */}
+                <div className="w-full h-full">
                     <WorkflowVisualization workflow={state.sdkWorkflow || undefined} />
                 </div>
             </div>
+
+            {/* Modal System */}
+
+            {/* Configuration Modal */}
+            <Modal
+                isOpen={isModalOpen('configuration')}
+                onClose={closeModal}
+                title="Configuration"
+                size="xl"
+            >
+                <div className="p-6">
+                    <ConfigurationPanel />
+                </div>
+            </Modal>
+
+            {/* Chat Modal */}
+            <Modal
+                isOpen={isModalOpen('chat')}
+                onClose={closeModal}
+                title="Chat Input"
+                size="lg"
+            >
+                <div className="p-6">
+                    <ChatInputPanel />
+                </div>
+            </Modal>
+
+            {/* System Status Modal */}
+            <Modal
+                isOpen={isModalOpen('systemStatus')}
+                onClose={closeModal}
+                title="System Status"
+                size="lg"
+            >
+                <div className="p-6 space-y-6">
+                    <SystemStatusPanel />
+
+                    <div className="border-t pt-6">
+                        <h3 className="font-bold mb-4">🔄 Workflow System Status</h3>
+                        <div className="bg-gray-100 p-4 rounded">
+                            <div id="workflow-status" className="space-y-2">
+                                <p>📊 Current Workflow: <span id="workflow-nodes-count">0</span> nodes</p>
+                                <p>📡 SDK Subscription: <span id="sdk-subscription-status">Not Connected</span></p>
+                                <p>🕐 Last Update: <span id="last-workflow-update">Never</span></p>
+                                <p>🔧 Tool Calls Detected: <span id="tool-calls-count">0</span></p>
+                                <p>🤖 Agents Created: <span id="agents-created-count">0</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }
