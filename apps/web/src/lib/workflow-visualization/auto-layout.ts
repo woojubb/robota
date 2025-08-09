@@ -25,13 +25,13 @@ export interface LayoutConfig {
  * Default layout configurations for different scenarios
  */
 export const LAYOUT_PRESETS: Record<string, LayoutConfig> = {
-    // Vertical workflow layout (default) - optimized for edge connections
+    // Vertical workflow layout (default) - optimized for dynamic node heights
     vertical: {
         rankdir: 'TB',
         align: 'UL',
-        nodesep: 40,
-        edgesep: 15,
-        ranksep: 42, // Reduced to 70% of original spacing (60 → 42)
+        nodesep: 50, // Increased for better separation between nodes
+        edgesep: 20, // Increased to prevent edge overlaps
+        ranksep: 80, // Increased to accommodate varying node heights
         marginx: 40,
         marginy: 40
     },
@@ -40,20 +40,20 @@ export const LAYOUT_PRESETS: Record<string, LayoutConfig> = {
     horizontal: {
         rankdir: 'LR',
         align: 'UL',
-        nodesep: 25,
-        edgesep: 15,
-        ranksep: 120,
+        nodesep: 35, // Increased for better vertical separation
+        edgesep: 20, // Increased to prevent edge overlaps
+        ranksep: 150, // Increased to accommodate node width
         marginx: 40,
         marginy: 40
     },
 
-    // Compact layout for dense workflows - tighter spacing
+    // Compact layout for dense workflows - still readable with dynamic heights
     compact: {
         rankdir: 'TB',
         align: 'UL',
-        nodesep: 25,
-        edgesep: 8,
-        ranksep: 28, // Reduced to 70% of original spacing (40 → 28)
+        nodesep: 35, // Increased from 25 to prevent overlaps
+        edgesep: 15, // Increased from 8 to prevent edge overlaps
+        ranksep: 60, // Increased from 28 to accommodate varying heights
         marginx: 25,
         marginy: 25
     },
@@ -62,20 +62,20 @@ export const LAYOUT_PRESETS: Record<string, LayoutConfig> = {
     spacious: {
         rankdir: 'TB',
         align: 'UL',
-        nodesep: 60,
-        edgesep: 20,
-        ranksep: 120,
+        nodesep: 80, // Increased for more breathing room
+        edgesep: 25, // Increased for cleaner edge routing
+        ranksep: 120, // Sufficient space for tall nodes
         marginx: 60,
         marginy: 60
     }
 };
 
 /**
- * Unified node dimensions - all nodes have same size for consistency
+ * Base node dimensions - used as starting point for calculations
  */
-const UNIFIED_NODE_DIMENSIONS = {
-    width: 160, // Matches Tailwind w-40
-    height: 80  // Reasonable default height
+const BASE_NODE_DIMENSIONS = {
+    width: 192, // Matches current w-48 (48 * 4px)
+    height: 80  // Base minimum height
 };
 
 /**
@@ -88,10 +88,59 @@ const HANDLE_OFFSET = {
 };
 
 /**
- * Get unified node dimensions - all nodes same size
+ * Calculate dynamic node height based on content
  */
-function getNodeDimensions(nodeType?: string): { width: number; height: number } {
-    return UNIFIED_NODE_DIMENSIONS;
+function calculateNodeHeight(node: Node): number {
+    const data = node.data;
+    let estimatedHeight = 60; // base height for header
+
+    // Add height for content preview
+    if (data.userPrompt || data.userMessageContent || data.assistantMessage || data.contentPreview) {
+        const content = data.userPrompt || data.userMessageContent || data.assistantMessage || data.contentPreview || '';
+        const lines = Math.ceil(content.length / 60); // rough estimate of line wrapping at 60 chars
+        estimatedHeight += Math.min(lines * 16, 48); // max 3 lines for preview (16px per line)
+    }
+
+    // Add height for badges/indicators
+    const hasIndicators = (
+        data.hasQuestions || data.containsUrgency || data.hasCodeBlocks ||
+        data.hasLinks || data.isError || data.hasStructuredData ||
+        data.aiProvider || data.availableTools || data.toolSlots
+    );
+    if (hasIndicators) {
+        estimatedHeight += 24; // space for badge row
+    }
+
+    // Add extra height for complex nodes
+    if (node.type === 'agent' && (data.availableTools || data.toolSlots)) {
+        estimatedHeight += 20; // extra space for tool info
+    }
+
+    if (node.type === 'tool_call_response' && data.toolName) {
+        estimatedHeight += 20; // extra space for tool details
+    }
+
+    // Ensure minimum and maximum heights
+    return Math.max(80, Math.min(estimatedHeight, 160));
+}
+
+/**
+ * Get dynamic node dimensions based on content and actual measurements
+ */
+function getNodeDimensions(node: Node, useActualDimensions = false): { width: number; height: number } {
+    // Use actual measured dimensions if available
+    if (useActualDimensions && node.data.actualWidth && node.data.actualHeight) {
+        return {
+            width: node.data.actualWidth,
+            height: node.data.actualHeight
+        };
+    }
+
+    // Fallback to calculated dimensions
+    return {
+        width: BASE_NODE_DIMENSIONS.width,
+        height: calculateNodeHeight(node)
+    };
 }
 
 /**
@@ -100,7 +149,8 @@ function getNodeDimensions(nodeType?: string): { width: number; height: number }
 export function applyDagreLayout(
     nodes: Node[],
     edges: Edge[],
-    config: LayoutConfig = LAYOUT_PRESETS.vertical
+    config: LayoutConfig = LAYOUT_PRESETS.vertical,
+    useActualDimensions = false
 ): { nodes: Node[]; edges: Edge[] } {
 
     // Create new dagre graph
@@ -118,9 +168,9 @@ export function applyDagreLayout(
         marginy: config.marginy
     });
 
-    // Add nodes to dagre graph
+    // Add nodes to dagre graph with dynamic dimensions
     nodes.forEach((node) => {
-        const dimensions = getNodeDimensions(node.type);
+        const dimensions = getNodeDimensions(node, useActualDimensions);
         dagreGraph.setNode(node.id, {
             width: dimensions.width,
             height: dimensions.height
@@ -138,7 +188,7 @@ export function applyDagreLayout(
     // Update node positions based on layout results with handle positioning
     const layoutedNodes: Node[] = nodes.map((node) => {
         const nodeWithPosition = dagreGraph.node(node.id);
-        const dimensions = getNodeDimensions(node.type);
+        const dimensions = getNodeDimensions(node, useActualDimensions);
 
         // Determine handle positions based on layout direction
         const isHorizontal = config.rankdir === 'LR' || config.rankdir === 'RL';
@@ -218,6 +268,7 @@ export function convertUniversalToReactFlowWithLayout(
 
 /**
  * Apply layout to existing React Flow nodes and edges
+ * @deprecated Use applyDagreLayout directly for better control
  */
 export function layoutExistingFlow(
     nodes: Node[],
