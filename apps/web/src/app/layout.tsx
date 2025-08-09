@@ -75,9 +75,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className="h-full">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased h-full`}
       >
         <ThemeProvider
           attribute="class"
@@ -88,7 +88,7 @@ export default function RootLayout({
           <AccessibilityProvider>
             <AuthProvider>
               <SkipToContent />
-              <main id="main-content">
+              <main id="main-content" className="h-full">
                 {children}
               </main>
               <GoogleAnalytics />
