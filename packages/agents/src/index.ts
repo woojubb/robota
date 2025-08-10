@@ -304,6 +304,9 @@ export {
     ActionTrackingEventService
 } from './services/event-service';
 
+// ContextualEventService - New standard EventService with context-binding
+export { ContextualEventService, SilentContextualEventService } from './services/contextual-event/contextual-event-service';
+
 export type { ExecutionNode } from './services/event-service';
 
 // Workflow Services (Phase 2)

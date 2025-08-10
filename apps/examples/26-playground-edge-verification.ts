@@ -17,15 +17,17 @@ import path from 'path';
 // Load environment variables
 dotenv.config();
 import {
-    ActionTrackingEventService,
-    RealTimeWorkflowBuilder,
-    WorkflowEventSubscriber,
+    ContextualEventService,
     DefaultConsoleLogger
 } from '@robota-sdk/agents';
+import {
+    CoreWorkflowBuilder,
+    WorkflowEventSubscriber
+} from '@robota-sdk/workflow';
 import type {
     UniversalWorkflowStructure,
     WorkflowUpdate
-} from '@robota-sdk/agents';
+} from '@robota-sdk/workflow';
 
 // ===== 🔍 Playground 연결 검증 전용 테스트 =====
 
@@ -34,53 +36,28 @@ async function testPlaygroundEdgeConnections() {
     console.log('🎯 Focus: React-Flow source/target connections for visual verification');
 
     try {
-        // 1. WorkflowEventSubscriber 생성 (로거 포함으로 Agent Copy 로그 확인)
-        console.log('\n1. Creating WorkflowEventSubscriber...');
-        const workflowSubscriber = new WorkflowEventSubscriber(DefaultConsoleLogger);
-        console.log('✅ WorkflowEventSubscriber created with logging enabled');
+        // 1. ContextualEventService 생성 (새로운 아키텍처)
+        console.log('\n1. Creating ContextualEventService...');
+        const baseEventService = new ContextualEventService({
+            logger: DefaultConsoleLogger,
+            contextExtractors: [
+                // Agent context extractor will be configured by createTeam
+            ]
+        });
+        console.log('✅ ContextualEventService created with logging enabled');
 
-        // 2. Enhanced EventService with WorkflowEventSubscriber 생성
-        console.log('\n2. Creating Enhanced EventService...');
-        const baseEventService = new ActionTrackingEventService(workflowSubscriber);
-        console.log('✅ ActionTrackingEventService created');
+        // 2. 새로운 WorkflowEventSubscriber와 CoreWorkflowBuilder 생성
+        console.log('\n2. Creating new WorkflowEventSubscriber...');
+        const workflowSubscriber = new WorkflowEventSubscriber({
+            logger: DefaultConsoleLogger
+        });
 
-        // 3. RealTimeWorkflowBuilder 생성 (로거 포함으로 CONNECTION 로그 확인)
-        console.log('\n3. Creating RealTimeWorkflowBuilder...');
-        const workflowBuilder = new RealTimeWorkflowBuilder(workflowSubscriber, DefaultConsoleLogger);
-        console.log('✅ RealTimeWorkflowBuilder created with logging enabled');
+        // ✅ WorkflowEventSubscriber가 내부적으로 workflowBuilder를 관리하므로 별도 생성 불필요
+        console.log('\n3. WorkflowEventSubscriber will manage internal CoreWorkflowBuilder...');
 
-        // 4. 🔍 Edge 연결 중심 Workflow 업데이트 구독
+        // 4. 🔍 Edge 연결 중심 Workflow 업데이트 구독 변수
         let finalWorkflow: UniversalWorkflowStructure | null = null;
         let edgeUpdatesCount = 0;
-
-        workflowBuilder.subscribeToUniversalUpdates((workflow: UniversalWorkflowStructure) => {
-            edgeUpdatesCount++;
-
-            console.log(`📊 Edge Update #${edgeUpdatesCount}:`, {
-                nodeCount: workflow.nodes.length,
-                edgeCount: workflow.edges.length,
-                workflowType: workflow.__workflowType
-            });
-
-            finalWorkflow = workflow;
-
-            // 🔗 실시간 연결 상태 모니터링 (playground 검증 대상)
-            if (workflow.nodes.length > 2) {
-                console.log(`\n🔗 Edge Update #${edgeUpdatesCount} - Connection Status:`);
-
-                workflow.nodes.forEach(node => {
-                    console.log(`   Node: ${node.id} (${node.type}) - "${node.data.label || 'No label'}"`);
-                });
-
-                console.log('\n🔗 Current Edge Connections:');
-                (workflow.edges || []).forEach(edge => {
-                    const sourceExists = workflow.nodes.some(n => n.id === edge.source);
-                    const targetExists = workflow.nodes.some(n => n.id === edge.target);
-                    const status = sourceExists && targetExists ? '✅' : '❌';
-                    console.log(`   ${status} Edge: ${edge.source} → ${edge.target} (${edge.type || 'default'})`);
-                });
-            }
-        });
 
         // 5. AI Provider 설정 (실제 API 키로 완전한 워크플로우 생성)
         console.log('\n4. Creating AI providers...');
@@ -110,18 +87,69 @@ async function testPlaygroundEdgeConnections() {
             parameters: {}
         };
 
-        // Create context-bound EventService for main team
-        const contextBoundEventService = baseEventService.createContextBoundInstance &&
-            typeof baseEventService.createContextBoundInstance === 'function'
-            ? baseEventService.createContextBoundInstance(mainTeamContext)
-            : baseEventService;
+        // Create context-bound EventService for main team (ContextualEventService)
+        const contextBoundEventService = baseEventService.createChild(mainTeamContext);
 
         const team = createTeam({
             aiProviders: [provider],
             eventService: contextBoundEventService,
             logger: console
         });
-        console.log('✅ Team created with Edge-focused WorkflowBuilder');
+        console.log('✅ Team created with ContextualEventService');
+
+        // 4. team의 ContextualEventService에서 발생하는 이벤트를 WorkflowEventSubscriber로 전달
+        console.log('\n4. Connecting team EventService to WorkflowEventSubscriber...');
+
+        // 루트 인젝션: 루트 baseEventService에서 모든 이벤트를 브로드캐스트
+        const rootEventService: any = (baseEventService as any).baseEventService ?? baseEventService;
+        const rootOriginalEmit = rootEventService.emit.bind(rootEventService);
+        rootEventService.emit = function (eventType: any, data: any) {
+            rootOriginalEmit(eventType, data);
+            workflowSubscriber.processEvent(eventType, data);
+        };
+
+        console.log('✅ WorkflowEventSubscriber connected to team EventService');
+
+        // 5. WorkflowBuilder와 WorkflowEventSubscriber 연결
+        console.log('\n5. Connecting WorkflowBuilder to WorkflowEventSubscriber...');
+        workflowSubscriber.subscribeToWorkflowUpdates((update: WorkflowUpdate) => {
+            // WorkflowEventSubscriber에서 온 업데이트를 WorkflowBuilder에 직접 적용하지 않음
+            // WorkflowEventSubscriber가 내부적으로 WorkflowBuilder를 관리함
+            console.log(`🔄 WorkflowEventSubscriber Update: ${update.action} ${update.node.type}`);
+        });
+
+        // 6. Workflow 업데이트 구독 (새로운 API)
+        workflowSubscriber.subscribeToWorkflowUpdates((update: WorkflowUpdate) => {
+            edgeUpdatesCount++;
+
+            const currentSnapshot = workflowSubscriber.getWorkflowSnapshot();
+            console.log(`📊 Edge Update #${edgeUpdatesCount}:`, {
+                nodeCount: currentSnapshot.nodes.length,
+                edgeCount: currentSnapshot.edges.length,
+                updateType: update.action
+            });
+
+            // Convert to Universal format for compatibility
+            const workflow = workflowSubscriber.exportWorkflow();
+            finalWorkflow = workflow;
+
+            // 🔗 실시간 연결 상태 모니터링 (playground 검증 대상)
+            if (workflow.nodes.length > 2) {
+                console.log(`\n🔗 Edge Update #${edgeUpdatesCount} - Connection Status:`);
+
+                workflow.nodes.forEach(node => {
+                    console.log(`   Node: ${node.id} (${node.type}) - "${node.data.label || 'No label'}"`);
+                });
+
+                console.log('\n🔗 Current Edge Connections:');
+                (workflow.edges || []).forEach(edge => {
+                    const sourceExists = workflow.nodes.some(n => n.id === edge.source);
+                    const targetExists = workflow.nodes.some(n => n.id === edge.target);
+                    const status = sourceExists && targetExists ? '✅' : '❌';
+                    console.log(`   ${status} Edge: ${edge.source} → ${edge.target} (${edge.type || 'default'})`);
+                });
+            }
+        });
 
         // 7. 🔍 Edge 연결 테스트를 위한 복잡한 워크플로우 실행
         console.log('\n6. Executing edge-focused workflow test...');
@@ -142,24 +170,26 @@ async function testPlaygroundEdgeConnections() {
 
         // 8. 🔍 최종 Edge 연결 검증 (Playground 전송 대상)
         console.log('\n7. Final Edge Connection Analysis...');
-        const currentWorkflow = workflowBuilder.getCurrentWorkflow();
+        const currentWorkflow = workflowSubscriber.exportWorkflow();
 
         if (currentWorkflow) {
             console.log('\n📊 Final Edge Verification Results:');
             console.log('================================================================================');
 
-            // 🚀 컨버터 우회: NodeEdgeManager에서 직접 edges 사용 (실시간 데이터 생성 목표)
-            console.log('🔄 Getting direct workflow data from WorkflowEventSubscriber...');
-            const workflowData = workflowSubscriber.getWorkflowData();
-            const connectionSummary = workflowSubscriber.getConnectionSummary();
+            // 🚀 새로운 workflow 패키지에서 직접 데이터 가져오기
+            console.log('🔄 Getting workflow data from WorkflowEventSubscriber...');
+            const allNodes = workflowSubscriber.getAllNodes();
+            const allEdges = workflowSubscriber.getAllEdges();
+            console.log(`🚀 Direct access: ${allNodes.length} nodes, ${allEdges.length} edges`);
 
-            // 🎯 NodeEdgeManager에서 올바른 timestamp를 가진 edges 직접 사용
-            const nodeEdgeManagerEdges = workflowSubscriber.getNodeEdgeManagerEdges();
-            console.log(`🚀 NodeEdgeManager edges: ${nodeEdgeManagerEdges.length} (bypassing converter)`);
+            const workflowData = {
+                nodes: allNodes,
+                edges: allEdges
+            };
 
             const universalWorkflow = {
                 __workflowType: "UniversalWorkflowStructure" as const,
-                nodes: workflowData.nodes.map(node => ({
+                nodes: (workflowData.nodes || []).map(node => ({
                     id: node.id,
                     type: node.type,
                     data: node.data,
@@ -169,17 +199,24 @@ async function testPlaygroundEdgeConnections() {
                     updatedAt: new Date(node.timestamp).toISOString(),
                     timestamp: node.timestamp  // Rule 10, 11 준수를 위한 timestamp 필드 보존
                 })),
-                edges: nodeEdgeManagerEdges, // 🚀 NodeEdgeManager edges 직접 사용 (레거시 제거)
+                edges: (workflowData.edges || []).map(edge => ({
+                    id: edge.id,
+                    source: edge.source,
+                    target: edge.target,
+                    type: edge.type,
+                    data: edge.data,
+                    style: { color: '#666', width: 2 }
+                })),
                 metadata: {
-                    totalNodes: connectionSummary.totalNodes,
-                    totalEdges: nodeEdgeManagerEdges.length, // NodeEdgeManager edges 개수 사용
-                    edgesByType: connectionSummary.edgesByType,
+                    totalNodes: workflowData.nodes?.length || 0,
+                    totalEdges: workflowData.edges?.length || 0,
+                    edgesByType: {},
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString()
                 }
             };
 
-            console.log(`✅ Direct data retrieved: ${connectionSummary.totalNodes} nodes → ${connectionSummary.totalEdges} edges`);
+            console.log(`✅ Workflow data retrieved: ${workflowData.nodes?.length || 0} nodes → ${workflowData.edges?.length || 0} edges`);
             console.log(`🔍 UniversalWorkflow debug: nodes=${universalWorkflow.nodes?.length || 0}, edges=${universalWorkflow.edges?.length || 0}`);
 
             // 🔍 Edge 연결 중심 검증
@@ -206,10 +243,10 @@ async function testPlaygroundEdgeConnections() {
             console.log(`\n💾 Perfect playground data saved to: ${outputPath}`);
             console.log(`📊 Ready for Playground: ${perfectPlaygroundData.nodes?.length || 0} nodes, ${perfectPlaygroundData.edges?.length || 0} edges`);
 
-            // 🔍 검증 스크립트를 위한 별도 형식 저장
+            // 🔍 검증 스크립트를 위한 원본 데이터 저장 (source of truth, no transform)
             const verificationData = {
-                nodes: perfectPlaygroundData.nodes || [],
-                edges: perfectPlaygroundData.edges || []
+                nodes: allNodes,
+                edges: allEdges
             };
             const verificationPath = path.join('data', 'real-workflow-data.json');
             fs.writeFileSync(verificationPath, JSON.stringify(verificationData, null, 2));

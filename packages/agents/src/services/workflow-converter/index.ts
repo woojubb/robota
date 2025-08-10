@@ -1,5 +1,11 @@
 /**
+ * ⚠️ LEGACY CODE - DELETE AFTER MIGRATION COMPLETE ⚠️
+ * 
  * Workflow to Universal Converter
+ * 
+ * 🔄 MIGRATION STATUS: Being replaced by @robota-sdk/workflow package
+ * 📁 NEW LOCATION: packages/workflow/src/services/workflow-builder.ts (exportToUniversal method)
+ * 🗑️ DELETE TARGET: This entire directory after migration verification
  * 
  * Converts existing WorkflowStructure to UniversalWorkflowStructure format.
  * Follows Robota SDK architecture principles with dependency injection and logging.

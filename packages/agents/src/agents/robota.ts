@@ -10,6 +10,7 @@ import { AgentFactory } from '../managers/agent-factory';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ExecutionService } from '../services/execution-service';
 import { EventService, SilentEventService, ActionTrackingEventService } from '../services/event-service';
+import { ContextualEventService } from '../services/contextual-event/contextual-event-service';
 
 
 import { BaseTool } from '../abstracts/base-tool';
@@ -208,14 +209,20 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
         this.eventEmitter = this.createEventEmitterInstance();
         this.moduleRegistry = this.createModuleRegistryInstance();
 
-        // 🎯 [CONTEXT-BINDING] Initialize EventService with context support
-        // If parent provided context-bound EventService, use it directly
-        // Otherwise, create ActionTrackingEventService for context capabilities
+        // 🎯 [CONTEXTUAL-EVENT-SERVICE] Initialize with new ContextualEventService
+        // If parent provided EventService, use it directly
+        // Otherwise, create ContextualEventService with workflow-compatible extractors
         if (config.eventService) {
-            this.eventService = config.eventService; // Use injected context-bound EventService
+            this.eventService = config.eventService; // Use injected EventService
         } else {
-            // Create ActionTrackingEventService for default context capabilities
-            this.eventService = new ActionTrackingEventService(new SilentEventService(), undefined, config.executionContext);
+            // Create basic ContextualEventService if no parent EventService provided
+            // Note: In team environments, this should be provided by createTeam()
+            this.eventService = new ContextualEventService({
+                baseEventService: new SilentEventService(),
+                logger: this.logger,
+                executionContext: config.executionContext
+                // contextExtractors should be provided by the team/application level
+            } as any); // Config constructor overload
         }
 
         // Store config for async initialization
@@ -232,6 +239,16 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
             defaultProvider: config.defaultModel.provider,
             defaultModel: config.defaultModel.model
         });
+
+        // 🆕 [AGENT-CREATED-EVENT] Agent 생성 완료 이벤트 발생
+        if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+            this.eventService.emit('agent.created', {
+                sourceType: 'agent',
+                sourceId: this.conversationId,
+                timestamp: new Date()
+                // 🎯 parentExecutionId, executionLevel 등은 ContextualEventService가 자동 주입
+            });
+        }
     }
 
     /**

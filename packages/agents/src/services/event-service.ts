@@ -30,38 +30,14 @@ function hasMetadataProperty(obj: any, prop: string): boolean {
 }
 
 /**
- * Service event types for unified tracking across Team/Agent/Tool
- * Extended for detailed block tree visualization
+ * Service event types for unified tracking
+ * 
+ * IMPORTANT: EventService is domain-neutral infrastructure.
+ * It does NOT know about specific events from other packages.
+ * Event names follow the pattern: '{owner}.{event}' where owner
+ * is the package/component that emits the event.
  */
-// 🎯 [EVENT-CONSTANTS] Import constants to build type union
-import { EXECUTION_EVENTS, TOOL_EVENTS } from './execution-service';
-
-export type ServiceEventType =
-    // Execution events
-    | typeof EXECUTION_EVENTS[keyof typeof EXECUTION_EVENTS]
-    // Tool events  
-    | typeof TOOL_EVENTS[keyof typeof TOOL_EVENTS]
-    // Agent events
-    | 'agent.creation_start'
-    | 'agent.creation_complete'
-    | 'agent.execution_start'
-    | 'agent.execution_complete'
-    // Task events
-    | 'task.assigned'
-    | 'task.completed'
-    | 'task.aggregation_start'
-    | 'task.aggregation_complete'
-    // Team events
-    | 'team.analysis_start'
-    | 'team.analysis_complete'
-    // Tool-specific events
-    | 'tool.agent_execution_started'
-    | 'tool.agent_execution_completed'
-    | 'tool.call_response_ready'  // 🎯 [EVENT-ORDER-FIX] 새로운 이벤트 타입 추가
-    // Agent Integration Instance events for Playground-level connection quality
-    | 'agent.integration_start'
-    | 'agent.integration_complete'
-    | 'response.integration';
+export type ServiceEventType = string;
 
 /**
  * Service event data structure with hierarchical tracking information

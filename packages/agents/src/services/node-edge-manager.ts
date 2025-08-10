@@ -1,3 +1,11 @@
+/**
+ * ⚠️ LEGACY CODE - DELETE AFTER MIGRATION COMPLETE ⚠️
+ * 
+ * 🔄 MIGRATION STATUS: Being replaced by @robota-sdk/workflow package
+ * 📁 NEW LOCATION: packages/workflow/src/services/node-edge-manager.ts
+ * 🗑️ DELETE TARGET: This entire file after migration verification
+ */
+
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger.js';
 import type { UniversalWorkflowEdge } from './workflow-converter/universal-types.js';
 import type { WorkflowNodeType } from '../constants/workflow-node-types.js';

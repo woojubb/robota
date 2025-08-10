@@ -1,9 +1,9 @@
 import {
-    ActionTrackingEventService,
     EventService,
     ServiceEventType,
     ServiceEventData
 } from '@robota-sdk/agents';
+import { ContextualEventService } from '@robota-sdk/agents';
 
 /**
  * SubAgentEventRelay - Event relay for Sub-Agent to Parent connection
@@ -12,7 +12,7 @@ import {
  * automatically enriching events with parent execution information for proper hierarchy.
  * 
  * Key Features:
- * - Inherits from ActionTrackingEventService for automatic hierarchy tracking
+ * - Inherits from ContextualEventService for automatic hierarchy tracking
  * - Automatically adds parentExecutionId to all Sub-Agent events  
  * - Maintains proper execution levels for nested agent calls
  * - Preserves Robota object purity (no metadata pollution)
@@ -29,7 +29,7 @@ import {
  * });
  * ```
  */
-export class SubAgentEventRelay extends ActionTrackingEventService {
+export class SubAgentEventRelay extends ContextualEventService {
     private readonly parentEventService: EventService;
     private readonly parentToolCallId: string;
 
@@ -44,7 +44,20 @@ export class SubAgentEventRelay extends ActionTrackingEventService {
         parentEventService: EventService,
         parentToolCallId: string
     ) {
-        super();
+        // Initialize ContextualEventService with parent's context
+        // No need to re-define extractors - they are inherited from parent
+        super({
+            baseEventService: parentEventService,
+            executionContext: {
+                executionId: parentToolCallId,
+                sourceType: 'team',
+                sourceId: parentToolCallId,
+                parentExecutionId: parentToolCallId,
+                executionLevel: 2  // Tool level (team=1, tool=2)
+            }
+            // contextExtractors inherited from parentEventService automatically
+        });
+
         this.parentEventService = parentEventService;
         this.parentToolCallId = parentToolCallId;
     }
@@ -61,11 +74,12 @@ export class SubAgentEventRelay extends ActionTrackingEventService {
         // Process event asynchronously to prevent blocking
         setTimeout(() => {
             try {
+                // Parent injects the correct parentExecutionId; do not override if already provided
                 let enrichedData: ServiceEventData = {
                     ...data,
-                    parentExecutionId: this.parentToolCallId,  // 🔑 Connect to assignTask
-                    executionLevel: (data.executionLevel || 0) + 1,  // 🔑 Nested level
-                    sourceType: 'agent'  // 🔑 Unified domain-neutral agent type (no sub-agent)
+                    parentExecutionId: data.parentExecutionId || this.parentToolCallId,
+                    executionLevel: (data.executionLevel || 0) + 1,
+                    sourceType: 'agent'
                 };
 
                 // 🎯 Agent Copy 시스템 통합: 독립적인 ID 생성 제거
