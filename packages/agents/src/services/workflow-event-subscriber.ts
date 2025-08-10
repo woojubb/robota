@@ -387,7 +387,11 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 this.handleToolResultAggregationStart(data);
                 break;
             case TEAM_EVENTS.AGGREGATION_COMPLETE:
-                await this.handleToolResultAggregationComplete(data);
+                // Attach batch prevIds to enable join connections from tool_response nodes
+                await this.handleToolResultAggregationComplete({
+                    ...data,
+                    prevIds: this.collectToolResponseIdsForAggregation(data)
+                });
                 break;
             // 🗑️ subtool events removed - unified into standard tool_call events for domain neutrality
         }
@@ -1095,6 +1099,23 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 }
             }
         }
+    }
+
+    /**
+     * Collect all tool_response node ids that belong to the same thinking batch
+     */
+    private collectToolResponseIdsForAggregation(data: ServiceEventData): string[] {
+        const parentThinkingNodeId = this.agentToThinkingMap.get(String(data.sourceId));
+        if (!parentThinkingNodeId) return [];
+
+        const responseIds: string[] = [];
+        for (const [toolCallId, thinkingId] of this.toolCallToThinkingMap.entries()) {
+            if (thinkingId === parentThinkingNodeId) {
+                const responseId = `tool_response_${toolCallId}`;
+                if (this.nodeEdgeManager.hasNode(responseId)) responseIds.push(responseId);
+            }
+        }
+        return responseIds;
     }
 
 

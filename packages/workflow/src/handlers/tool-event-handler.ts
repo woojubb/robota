@@ -16,6 +16,7 @@ import type {
 import type { WorkflowNode } from '../interfaces/workflow-node.js';
 import type { WorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES, type WorkflowNodeType } from '../constants/workflow-types.js';
+import { WorkflowState } from '../services/workflow-state.js';
 import { HandlerPriority as Priority } from '../interfaces/event-handler.js';
 
 /**
@@ -57,6 +58,20 @@ export class ToolEventHandler implements EventHandler {
             switch (eventType) {
                 case 'tool.call_start':
                     const toolCallNode = this.createToolCallNode(eventData);
+                    // 메타: parentId/prevId 반영
+                    if ((eventData as any).parentId) toolCallNode.parentId = String((eventData as any).parentId);
+                    // Prefer explicit prevId; then directParentId (thinking), then last assistant_message_start, then parentExecutionId
+                    const directParentId = (eventData as any).metadata?.directParentId as string | undefined;
+                    const assistantStart = WorkflowState.getLastAssistantStart(eventData.parentExecutionId || eventData.executionId);
+                    const agentNodeId = WorkflowState.getAgentForExecution(eventData.executionId);
+                    (toolCallNode.data as any).prevId = (eventData as any).prevId || directParentId || assistantStart || (eventData as any).parentExecutionId || agentNodeId;
+                    (toolCallNode.data as any).prevEdgeType = 'executes';
+                    // Persist mapping for later aggregation tool_result
+                    WorkflowState.setToolCallContext(String(eventData.executionId || (eventData as any).parameters?.toolCallId || ''), {
+                        thinkingId: directParentId || assistantStart,
+                        // Use original agent execution id from metadata if provided
+                        mainExecutionId: String((eventData as any).metadata?.executionId || eventData.parentExecutionId || '')
+                    });
 
                     // ✅ Parent is execution node (round owner)
                     if (eventData.parentExecutionId) {
@@ -68,17 +83,20 @@ export class ToolEventHandler implements EventHandler {
                     break;
 
                 case 'tool.call_complete':
-                    const toolCompleteNode = this.createToolCallCompleteNode(eventData);
-                    updates.push({ action: 'create', node: toolCompleteNode });
+                    // Do not create a separate node for call_complete in minimal graph
                     break;
 
                 case 'tool.call_error':
                     const toolErrorNode = this.createToolCallErrorNode(eventData);
+                    if ((eventData as any).parentId) toolErrorNode.parentId = String((eventData as any).parentId);
+                    (toolErrorNode.data as any).prevId = (eventData as any).prevId;
                     updates.push({ action: 'create', node: toolErrorNode });
                     break;
 
                 case 'tool.call_response_ready':
                     const toolResponseNode = this.createToolResponseNode(eventData);
+                    if ((eventData as any).parentId) toolResponseNode.parentId = String((eventData as any).parentId);
+                    (toolResponseNode.data as any).prevId = (eventData as any).prevId;
 
                     // ✅ Tool response는 tool call에 연결
                     if (eventData.toolCallId) {

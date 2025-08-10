@@ -16,6 +16,7 @@ import type {
 import type { WorkflowNode } from '../interfaces/workflow-node.js';
 import type { WorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
+import { WorkflowState } from '../services/workflow-state.js';
 import { HandlerPriority as Priority } from '../interfaces/event-handler.js';
 
 /**
@@ -56,44 +57,95 @@ export class ExecutionEventHandler implements EventHandler {
 
             switch (eventType) {
                 case 'execution.start':
-                    const executionStartNode = this.createExecutionStartNode(eventData);
-                    updates.push({ action: 'create', node: executionStartNode });
-                    this.executionNodeMap.set(String(eventData.executionId), executionStartNode.id);
+                    // Do not create execution node here; AgentEventHandler creates agent node instead
                     break;
 
                 case 'execution.complete':
-                    const executionCompleteNode = this.createExecutionCompleteNode(eventData);
-                    updates.push({ action: 'create', node: executionCompleteNode });
+                    // Do not create a node for execution complete (minimal graph)
                     break;
 
                 case 'execution.error':
                     const executionErrorNode = this.createExecutionErrorNode(eventData);
+                    if ((eventData as any).parentId) executionErrorNode.parentId = String((eventData as any).parentId);
+                    (executionErrorNode.data as any).prevId = (eventData as any).prevId;
                     updates.push({ action: 'create', node: executionErrorNode });
                     break;
 
                 case 'execution.assistant_message_start':
-                    const assistantStartNode = this.createAssistantMessageStartNode(eventData);
-                    updates.push({ action: 'create', node: assistantStartNode });
-                    this.assistantMessageMap.set(String(eventData.executionId), assistantStartNode.id);
+                    // AgentEventHandler will create the thinking node; skip assistant_message node
+                    // Maintain internal mapping to allow fallbacks if needed
                     break;
 
                 case 'execution.assistant_message_complete':
-                    const assistantCompleteNode = this.createAssistantMessageCompleteNode(eventData);
-                    updates.push({ action: 'create', node: assistantCompleteNode });
+                    // AgentEventHandler will create the response node; skip assistant_message node
                     break;
 
                 case 'user.message':
-                    const userMessageNode = this.createUserMessageNode(eventData);
-                    // Parent from context only
-                    if (eventData.parentExecutionId) {
-                        userMessageNode.parentId = String(eventData.parentExecutionId);
+                    {
+                        const userMessageNode = this.createUserMessageNode(eventData);
+                        if ((eventData as any).parentId) userMessageNode.parentId = String((eventData as any).parentId);
+                        // Prefer agent node as receiver of user message
+                        const agentNodeForExec = WorkflowState.getAgentForExecution(String(eventData.executionId || ''))
+                            || WorkflowState.getAgentForRoot(String(eventData.rootExecutionId || eventData.sourceId || ''));
+                        (userMessageNode.data as any).prevId = agentNodeForExec || (eventData as any).prevId;
+                        (userMessageNode.data as any).prevEdgeType = 'receives';
+                        // Parent from context only
+                        if (eventData.parentExecutionId) {
+                            userMessageNode.parentId = String(eventData.parentExecutionId);
+                        }
+                        updates.push({ action: 'create', node: userMessageNode });
+                        this.userMessageNodeMap.set(String(eventData.sourceId), userMessageNode.id);
+                        // Record last user message under multiple context keys for robust lookup
+                        {
+                            const keys = [
+                                String(eventData.executionId || ''),
+                                String(eventData.parentExecutionId || ''),
+                                String(eventData.rootExecutionId || ''),
+                                String(eventData.sourceId || ''),
+                                String(eventData?.metadata?.executionId || ''),
+                                String(eventData?.metadata?.conversationId || '')
+                            ].filter(Boolean);
+                            for (const key of keys) {
+                                WorkflowState.setLastUserMessage(key, userMessageNode.id);
+                            }
+                        }
+                        break;
                     }
-                    updates.push({ action: 'create', node: userMessageNode });
-                    this.userMessageNodeMap.set(String(eventData.sourceId), userMessageNode.id);
-                    break;
+
+                case 'execution.user_message':
+                    {
+                        const userMessageNode = this.createUserMessageNode(eventData);
+                        if ((eventData as any).parentId) userMessageNode.parentId = String((eventData as any).parentId);
+                        const agentNodeForExec2 = WorkflowState.getAgentForExecution(String(eventData.executionId || ''))
+                            || WorkflowState.getAgentForRoot(String(eventData.rootExecutionId || eventData.sourceId || ''));
+                        (userMessageNode.data as any).prevId = agentNodeForExec2 || (eventData as any).prevId;
+                        (userMessageNode.data as any).prevEdgeType = 'receives';
+                        if (eventData.parentExecutionId) {
+                            userMessageNode.parentId = String(eventData.parentExecutionId);
+                        }
+                        updates.push({ action: 'create', node: userMessageNode });
+                        this.userMessageNodeMap.set(String(eventData.sourceId), userMessageNode.id);
+                        // Record last user message under multiple context keys for robust lookup
+                        {
+                            const keys = [
+                                String(eventData.executionId || ''),
+                                String(eventData.parentExecutionId || ''),
+                                String(eventData.rootExecutionId || ''),
+                                String(eventData.sourceId || ''),
+                                String(eventData?.metadata?.executionId || ''),
+                                String(eventData?.metadata?.conversationId || '')
+                            ].filter(Boolean);
+                            for (const key of keys) {
+                                WorkflowState.setLastUserMessage(key, userMessageNode.id);
+                            }
+                        }
+                        break;
+                    }
 
                 case 'user.input':
                     const userInputNode = this.createUserInputNode(eventData);
+                    if ((eventData as any).parentId) userInputNode.parentId = String((eventData as any).parentId);
+                    (userInputNode.data as any).prevId = (eventData as any).prevId;
                     updates.push({ action: 'create', node: userInputNode });
                     break;
 

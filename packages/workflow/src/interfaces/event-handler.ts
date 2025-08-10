@@ -39,6 +39,25 @@ export interface EventData {
     rootExecutionId?: string;
     executionLevel?: number;
 
+    /**
+     * Branch anchor identifier (common parent for a fork)
+     * Handlers should set node.parentId = parentId (metadata only; edges are prev-based)
+     */
+    parentId?: string;
+
+    /**
+     * Previous node identifier (immediately preceding node in the flow)
+     * Subscriber builds edges using prevId → node.id to guarantee single inbound
+     */
+    prevId?: string;
+
+    /**
+     * Previous node identifiers (batch join). When provided, the subscriber will
+     * create one inbound edge per id in prevIds, enabling fork-join connections
+     * (e.g., connecting many tool_response nodes to a single aggregation node).
+     */
+    prevIds?: string[];
+
     // Event payload (flexible)
     parameters?: Record<string, unknown>;
     result?: Record<string, unknown>;

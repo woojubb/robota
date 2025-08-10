@@ -17,6 +17,7 @@ import type { WorkflowNode } from '../interfaces/workflow-node.js';
 import type { WorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
 import { HandlerPriority as Priority } from '../interfaces/event-handler.js';
+import { WorkflowState } from '../services/workflow-state.js';
 
 /**
  * TeamEventHandler - Handles team collaboration events
@@ -27,6 +28,9 @@ export class TeamEventHandler implements EventHandler {
     readonly patterns = ['team.*'];
 
     private logger: SimpleLogger;
+    // Collect tool_response node ids per thinking to support proper join aggregation
+    private toolResponsesByThinking: Map<string, Set<string>> = new Map();
+    private thinkingToToolResultId = new Map<string, string>(); // Ensure single tool_result per thinking
 
     // Mapping state for team operations
     private agentNumberCounter = 0;
@@ -57,56 +61,111 @@ export class TeamEventHandler implements EventHandler {
 
             switch (eventType) {
                 case 'team.analysis_start':
-                    const analysisNode = this.createAnalysisStartNode(eventData);
-                    updates.push({ action: 'create', node: analysisNode });
+                    // No node creation for analysis start (domain-neutral minimal graph)
                     break;
 
                 case 'team.analysis_complete':
-                    const analysisCompleteNode = this.createAnalysisCompleteNode(eventData);
-                    updates.push({ action: 'create', node: analysisCompleteNode });
+                    // No node creation for analysis complete
                     break;
 
                 case 'team.task_assigned':
-                    const taskNode = this.createTaskAssignedNode(eventData);
-                    updates.push({ action: 'create', node: taskNode });
-                    this.taskNodeIdMap.set(String(eventData.sourceId), taskNode.id);
+                    // No node creation for task assigned
+                    // this.taskNodeIdMap.set(String(eventData.sourceId), taskNode.id);
                     break;
 
                 case 'team.task_completed':
-                    const taskCompleteNode = this.createTaskCompletedNode(eventData);
-                    updates.push({ action: 'create', node: taskCompleteNode });
+                    // No node creation for task completed
                     break;
 
                 case 'team.agent_creation_start':
-                    const agentCreationStartNode = this.createAgentCreationStartNode(eventData);
-                    updates.push({ action: 'create', node: agentCreationStartNode });
+                    // No node creation for creation start
                     break;
 
                 case 'team.agent_creation_complete':
-                    const agentCreationCompleteNode = this.createAgentCreationCompleteNode(eventData);
-                    updates.push({ action: 'create', node: agentCreationCompleteNode });
+                    // No node creation for creation complete
                     break;
 
                 case 'team.agent_execution_start':
+                    // No node creation for generic start (avoid duplicates)
+                    break;
                 case 'team.agent_execution_started':
-                    const agentExecStartNode = this.createAgentExecutionStartNode(eventData);
-                    updates.push({ action: 'create', node: agentExecStartNode });
+                    // Do not create a node for team.agent_execution_started (avoid duplicate paths)
                     break;
 
                 case 'team.agent_execution_complete':
-                    const agentExecCompleteNode = this.createAgentExecutionCompleteNode(eventData);
-                    updates.push({ action: 'create', node: agentExecCompleteNode });
+                    // No node creation for complete
                     break;
 
                 case 'team.tool_response_ready':
                     // ✅ Team 도메인에서 발생하는 tool response ready 처리 (올바른 소유권)
                     const toolCallResponseNode = this.createToolCallResponseNode(eventData);
+                    if ((eventData as any).parentId) toolCallResponseNode.parentId = String((eventData as any).parentId);
+                    (toolCallResponseNode.data as any).prevId = (eventData as any).prevId;
                     updates.push({ action: 'create', node: toolCallResponseNode });
+                    // Collect per-thinking for later aggregation join
+                    {
+                        const toolCallId = String(eventData.parentExecutionId || eventData.executionId || '');
+                        const toolCtx = WorkflowState.getToolCallContext(toolCallId);
+                        const thinkingId = String(toolCtx?.thinkingId || toolCallId);
+                        const set = this.toolResponsesByThinking.get(thinkingId) || new Set<string>();
+                        set.add(toolCallResponseNode.id);
+                        this.toolResponsesByThinking.set(thinkingId, set);
+                        // If tool_result already exists for this thinking, append this response immediately
+                        const existingToolResultId = this.thinkingToToolResultId.get(thinkingId);
+                        if (existingToolResultId) {
+                            const updateNode: WorkflowNode = {
+                                id: existingToolResultId,
+                                type: WORKFLOW_NODE_TYPES.TOOL_RESULT,
+                                level: 2,
+                                status: 'running',
+                                timestamp: Date.now(),
+                                data: { prevIds: Array.from(set) },
+                                connections: []
+                            } as unknown as WorkflowNode;
+                            updates.push({ action: 'update', node: updateNode });
+                        }
+                    }
                     break;
 
                 case 'team.aggregation_complete':
-                    const aggregationNode = this.createAggregationCompleteNode(eventData);
-                    updates.push({ action: 'create', node: aggregationNode });
+                    // Create tool_result aggregation node instead of generic aggregation
+                    if (!eventData.parentExecutionId) {
+                        break;
+                    }
+                    // parentExecutionId is toolCallId in our event flow; resolve thinking and main exec
+                    const toolCallId = String(eventData.parentExecutionId);
+                    const toolCtx = WorkflowState.getToolCallContext(toolCallId);
+                    const thinkingId = String(toolCtx?.thinkingId || toolCallId);
+                    const collectedSet = this.toolResponsesByThinking.get(thinkingId) || new Set<string>();
+                    const prevIds = Array.from(collectedSet);
+                    const existingToolResultId = this.thinkingToToolResultId.get(thinkingId);
+                    if (existingToolResultId) {
+                        // Update existing tool_result node by appending prevIds
+                        const updateNode: WorkflowNode = {
+                            id: existingToolResultId,
+                            type: WORKFLOW_NODE_TYPES.TOOL_RESULT,
+                            level: 2,
+                            status: 'running',
+                            timestamp: Date.now(),
+                            data: { prevIds },
+                            connections: []
+                        } as unknown as WorkflowNode;
+                        updates.push({ action: 'update', node: updateNode });
+                    } else {
+                        const toolResultNode = this.createToolResultNode(thinkingId, String(eventData.sourceId));
+                        if (prevIds.length > 0) {
+                            (toolResultNode.data as any).prevIds = prevIds;
+                        }
+                        updates.push({ action: 'create', node: toolResultNode });
+                        this.thinkingToToolResultId.set(thinkingId, toolResultNode.id);
+                    }
+                    // Persist last aggregation (tool_result) for both thinking scope and main execution scope
+                    const savedId = this.thinkingToToolResultId.get(thinkingId) as string;
+                    WorkflowState.setLastAggregation(thinkingId, savedId);
+                    if (toolCtx?.mainExecutionId) {
+                        WorkflowState.setLastAggregation(String(toolCtx.mainExecutionId), savedId);
+                    }
+                    // Keep collected responses until round changes (do not clear to allow accumulation)
                     break;
 
                 default:
@@ -474,6 +533,40 @@ export class TeamEventHandler implements EventHandler {
         };
     }
 
+    /**
+     * Create tool result aggregation node (domain-neutral join node)
+     */
+    private createToolResultNode(thinkingNodeId: string, sourceId: string): WorkflowNode {
+        const nodeId = `tool_result_${thinkingNodeId}_${Date.now()}`;
+
+        return {
+            id: nodeId,
+            type: WORKFLOW_NODE_TYPES.TOOL_RESULT,
+            level: 2,
+            status: 'running',
+            timestamp: Date.now(),
+            data: {
+                sourceId: sourceId,
+                sourceType: 'team',
+                parentThinkingNodeId: thinkingNodeId,
+                label: 'Tool Result Aggregation',
+                description: 'Aggregating tool call results',
+                aggregationInfo: {
+                    parentThinking: thinkingNodeId,
+                    status: 'aggregating'
+                },
+                extensions: {
+                    robota: {
+                        handlerType: 'team',
+                        isAggregation: true,
+                        parentThinkingNodeId: thinkingNodeId
+                    }
+                }
+            },
+            connections: []
+        };
+    }
+
     // =================================================================
     // Helper Methods
     // =================================================================
@@ -506,7 +599,9 @@ export class TeamEventHandler implements EventHandler {
      */
     private createToolCallResponseNode(data: EventData): WorkflowNode {
         const executionId = data.executionId || data.sourceId;
-        const nodeId = `tool_response_call_${executionId}`;
+        // Prefer parentExecutionId (tool_call id) to guarantee uniqueness per tool call
+        const toolCallId = data.parentExecutionId ? String(data.parentExecutionId) : String(executionId);
+        const nodeId = `tool_response_call_${toolCallId}`;
 
         const toolName = String(data.parameters?.toolName || data.result?.toolName || 'assignTask');
         const result = data.result || {};
