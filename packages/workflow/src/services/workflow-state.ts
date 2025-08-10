@@ -15,6 +15,8 @@ class WorkflowStateStore {
     private agentNodeByRoot = new Map<string, string>();
     // Map toolCallId → { thinkingId: string, mainExecutionId: string }
     private toolCallContextById = new Map<string, { thinkingId?: string; mainExecutionId?: string }>();
+    // Map mainExecutionId → tool call count (for response timing decisions)
+    private toolCallCountByMainExecution = new Map<string, number>();
 
     setLastAggregation(executionId: string, aggregationNodeId: string): void {
         if (!executionId || !aggregationNodeId) return;
@@ -43,6 +45,7 @@ class WorkflowStateStore {
         this.agentNodeByExecution.clear();
         this.toolCallContextById.clear();
         this.agentNodeByRoot.clear();
+        this.toolCallCountByMainExecution.clear();
     }
 
     setAgentForExecution(executionId: string, agentNodeId: string): void {
@@ -84,6 +87,18 @@ class WorkflowStateStore {
     getToolCallContext(toolCallId?: string): { thinkingId?: string; mainExecutionId?: string } | undefined {
         if (!toolCallId) return undefined;
         return this.toolCallContextById.get(String(toolCallId));
+    }
+
+    incrementToolCallCount(mainExecutionId?: string): void {
+        if (!mainExecutionId) return;
+        const key = String(mainExecutionId);
+        const current = this.toolCallCountByMainExecution.get(key) || 0;
+        this.toolCallCountByMainExecution.set(key, current + 1);
+    }
+
+    getToolCallCount(mainExecutionId?: string): number {
+        if (!mainExecutionId) return 0;
+        return this.toolCallCountByMainExecution.get(String(mainExecutionId)) || 0;
     }
 }
 
