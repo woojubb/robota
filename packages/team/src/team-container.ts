@@ -350,6 +350,7 @@ export class TeamContainer {
                 parameters: params as any,
                 // Tool call is the parent of this sub-agent
                 parentExecutionId: parentExecutionId,
+                prevId: parentExecutionId,
                 executionLevel: agentLevel,
                 metadata: {
                     phase: 'job_analysis',
@@ -370,6 +371,7 @@ export class TeamContainer {
                     selectedTemplate: params.agentTemplate
                 },
                 parentExecutionId: parentExecutionId,
+                prevId: parentExecutionId,
                 executionLevel: agentLevel,
                 metadata: {
                     phase: 'job_analysis_complete',
@@ -396,6 +398,7 @@ export class TeamContainer {
                 },
                 // Hierarchical tracking information
                 parentExecutionId: parentExecutionId,
+                prevId: parentExecutionId,
                 executionLevel: agentLevel,
                 metadata: {
                     agentId,
@@ -452,6 +455,7 @@ export class TeamContainer {
                     // 🔧 FIXED: Team events should have tool call as parent
 
                     parentExecutionId: parentExecutionId,
+                    prevId: parentExecutionId,
                     executionLevel: agentLevel, // Team level + 1
 
                     metadata: {
@@ -670,6 +674,7 @@ export class TeamContainer {
                     // 🔧 FIXED: Team events should have tool call as parent
 
                     parentExecutionId: parentExecutionId,
+                    prevId: parentExecutionId,
                     executionLevel: agentLevel, // Team level + 1
 
                     metadata: {
@@ -709,6 +714,7 @@ export class TeamContainer {
                     // 🔧 FIXED: Team events should have tool call as parent
 
                     parentExecutionId: parentExecutionId,
+                    prevId: parentExecutionId,
                     executionLevel: agentLevel, // Team level + 1
 
                     metadata: {
@@ -738,6 +744,8 @@ export class TeamContainer {
                         sourceId: `tool_response_${parentToolCallId}`,
                         toolName: 'assignTask',
                         timestamp: new Date(),
+                        // Ensure proper linkage to the originating tool_call (for unique IDs and parenting)
+                        parentExecutionId: parentToolCallId,
                         parameters: {
                             // 🎯 [RICH-DATA] Enhanced tool response data
                             toolResult: result,
@@ -781,6 +789,8 @@ export class TeamContainer {
                             }
                         },
                         rootExecutionId: context.rootExecutionId,
+                        // Link tool_response inbound from the main agent response of this root execution
+                        prevId: `response_agent_0_${context.rootExecutionId || context.executionId}`,
                         executionLevel: 2, // Tool level
                         executionPath: context.executionPath || [],
                         metadata: {
@@ -824,6 +834,7 @@ export class TeamContainer {
                     // 🔧 FIXED: Team events should have tool call as parent
 
                     parentExecutionId: parentExecutionId,
+                    prevId: parentExecutionId,
                     executionLevel: agentLevel, // Team level + 1
 
                     metadata: {

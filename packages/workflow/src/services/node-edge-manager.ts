@@ -205,7 +205,8 @@ export class NodeEdgeManager {
             id: edge.id,
             source: edge.source,
             target: edge.target,
-            timestamp: edge.timestamp,
+            // Allow explicit timestamp override when provided
+            timestamp: updates.timestamp !== undefined ? updates.timestamp : edge.timestamp,
             updatedAt: new Date(),
         };
 
@@ -226,7 +227,7 @@ export class NodeEdgeManager {
         }
 
         // Remove associated edges
-        this.edges = this.edges.filter(edge => 
+        this.edges = this.edges.filter(edge =>
             edge.source !== nodeId && edge.target !== nodeId
         );
 

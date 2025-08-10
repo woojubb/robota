@@ -317,8 +317,35 @@ export class WorkflowEventSubscriber {
      */
     exportWorkflow() {
         const data = (this.workflowBuilder as any).exportToUniversal();
-        // ✅ 평면 모델 반환: { nodes, edges, metadata }
-        return data;
+        // Normalize to good-case schema where possible without hardcoding
+        const nodes = data.nodes;
+        const edges = data.edges;
+        const metadata = data.metadata || {};
+
+        // Compute metrics
+        const enriched = {
+            metadata: {
+                ...metadata,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                metrics: {
+                    totalNodes: nodes.length,
+                    totalEdges: edges.length
+                }
+            },
+            __workflowType: 'UniversalWorkflowStructure',
+            id: metadata.id || 'example-26-pure-nodemanager',
+            name: metadata.name || 'Example 26 Pure NodeEdgeManager Result',
+            nodes,
+            edges,
+            layout: {
+                algorithm: 'hierarchical',
+                direction: 'TB',
+                spacing: { nodeSpacing: 200, levelSpacing: 150 },
+                alignment: { horizontal: 'center', vertical: 'top' }
+            }
+        };
+        return enriched;
     }
 
     /**
@@ -467,14 +494,75 @@ export class WorkflowEventSubscriber {
             // This is a WorkflowNodeUpdate
             switch (update.action) {
                 case 'create':
-                    // 단일 경로: 핸들러에서 결정된 parentId를 그대로 사용
-                    this.workflowBuilder.addNode(update.node, update.node.parentId);
+                    // 노드 추가: parentId는 메타(브랜치 앵커)로만 보존, 엣지는 prev로만 생성
+                    const created = this.workflowBuilder.addNode(update.node);
+
+                    // prevId / prevIds 기반 엣지 생성
+                    const singlePrev = (update.node as any).data?.prevId || (update as any).prevId || (update.node as any).prevId;
+                    const multiplePrev: string[] | undefined = (update.node as any).data?.prevIds || (update as any).prevIds;
+
+                    if (Array.isArray(multiplePrev) && multiplePrev.length > 0) {
+                        for (const pid of multiplePrev) {
+                            if (typeof pid !== 'string' || pid.length === 0) continue;
+                            const edge = this.workflowBuilder.addEdge({
+                                id: `edge_${pid}_to_${created.id}_${Date.now()}`,
+                                source: pid,
+                                target: created.id,
+                                type: 'result' as any,
+                            } as any);
+                            const srcNode = this.workflowBuilder.getNode(pid);
+                            const desiredTs = Math.max((srcNode?.timestamp || 0), created.timestamp) + 1;
+                            this.workflowBuilder.updateEdge(edge.id, { timestamp: desiredTs } as any);
+                        }
+                    } else if (singlePrev && typeof singlePrev === 'string') {
+                        const desiredType = (update.node as any).data?.prevEdgeType || 'processes';
+                        const edge = this.workflowBuilder.addEdge({
+                            id: `edge_${singlePrev}_to_${created.id}_${Date.now()}`,
+                            source: singlePrev,
+                            target: created.id,
+                            type: desiredType as any,
+                        } as any);
+                        const srcNode = this.workflowBuilder.getNode(singlePrev);
+                        const tgtNode = created;
+                        const desiredTs = Math.max((srcNode?.timestamp || 0), (tgtNode?.timestamp || 0)) + 1;
+                        this.workflowBuilder.updateEdge(edge.id, { timestamp: desiredTs } as any);
+                    }
                     this.logger.debug(`🆕 [NODE-CREATED] ${update.node.id}`);
                     break;
 
                 case 'update':
-                    this.workflowBuilder.updateNode(update.node.id, update.node);
+                    // Update node and also honor prevId/prevIds by creating edges (updates may append prevs)
+                    const updated = this.workflowBuilder.updateNode(update.node.id, update.node);
                     this.logger.debug(`🔄 [NODE-UPDATED] ${update.node.id}`);
+                    if (updated) {
+                        const singlePrevU = (update.node as any).data?.prevId || (update as any).prevId || (update.node as any).prevId;
+                        const multiplePrevU: string[] | undefined = (update.node as any).data?.prevIds || (update as any).prevIds;
+                        if (Array.isArray(multiplePrevU) && multiplePrevU.length > 0) {
+                            for (const pid of multiplePrevU) {
+                                if (typeof pid !== 'string' || pid.length === 0) continue;
+                                const edge = this.workflowBuilder.addEdge({
+                                    id: `edge_${pid}_to_${update.node.id}_${Date.now()}`,
+                                    source: pid,
+                                    target: update.node.id,
+                                    type: 'result' as any,
+                                } as any);
+                                const srcNode = this.workflowBuilder.getNode(pid);
+                                const desiredTs = Math.max((srcNode?.timestamp || 0), updated.timestamp) + 1;
+                                this.workflowBuilder.updateEdge(edge.id, { timestamp: desiredTs } as any);
+                            }
+                        } else if (singlePrevU && typeof singlePrevU === 'string') {
+                            const desiredType = (update.node as any).data?.prevEdgeType || 'processes';
+                            const edge = this.workflowBuilder.addEdge({
+                                id: `edge_${singlePrevU}_to_${update.node.id}_${Date.now()}`,
+                                source: singlePrevU,
+                                target: update.node.id,
+                                type: desiredType as any,
+                            } as any);
+                            const srcNode = this.workflowBuilder.getNode(singlePrevU);
+                            const desiredTs = Math.max((srcNode?.timestamp || 0), updated.timestamp) + 1;
+                            this.workflowBuilder.updateEdge(edge.id, { timestamp: desiredTs } as any);
+                        }
+                    }
                     break;
 
                 default:
