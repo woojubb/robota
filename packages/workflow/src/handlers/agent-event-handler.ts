@@ -11,6 +11,7 @@ import { HandlerPriority } from '../interfaces/event-handler.js';
 import type { WorkflowNode } from '../interfaces/workflow-node.js';
 import type { WorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
+import { WorkflowState } from '../services/workflow-state.js';
 
 /**
  * Agent Event Handler
@@ -19,7 +20,7 @@ import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
 export class AgentEventHandler implements EventHandler {
     readonly name = 'AgentEventHandler';
     readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = ['agent.*', 'execution.assistant_message_start', 'execution.assistant_message_complete'];
+    readonly patterns = ['agent.*', 'execution.start', 'execution.assistant_message_start', 'execution.assistant_message_complete'];
 
     private logger: SimpleLogger;
     private agentNodeIdMap = new Map<string, string>(); // sourceId → agentNodeId
@@ -34,6 +35,7 @@ export class AgentEventHandler implements EventHandler {
 
     canHandle(eventType: string): boolean {
         return eventType.startsWith('agent.') ||
+            eventType === 'execution.start' ||
             eventType === 'execution.assistant_message_start' ||
             eventType === 'execution.assistant_message_complete';
     }
@@ -57,16 +59,88 @@ export class AgentEventHandler implements EventHandler {
 
             switch (eventType) {
                 case 'agent.created':
+                    // Do not create standalone agent nodes (domain-neutral minimal graph)
+                    // Keep internal mapping only if needed later
+                    break;
+
+                case 'execution.start': {
+                    // Create agent node for this execution only if not already created by team flow
+                    const existing = this.agentNodeIdMap.get(String(data.sourceId));
+                    if (existing) {
+                        if (data.executionId) {
+                            WorkflowState.setAgentForExecution(String(data.executionId), existing);
+                        }
+                        break;
+                    }
                     const agentNode = this.createAgentNode(data);
+                    // Link from parentExecutionId (tool_call) when present to reflect 'creates' relationship
+                    if (data.parentExecutionId) {
+                        (agentNode.data as any).prevId = String(data.parentExecutionId);
+                        (agentNode.data as any).prevEdgeType = 'creates';
+                        (agentNode as any).parentId = String(data.parentExecutionId);
+                    }
                     updates.push({ action: 'create', node: agentNode });
                     this.agentNodeIdMap.set(String(data.sourceId), agentNode.id);
-                    // Register agent node for this source
+                    if (data.executionId) {
+                        WorkflowState.setAgentForExecution(String(data.executionId), agentNode.id);
+                    }
+                    if (data.rootExecutionId || data.sourceId) {
+                        WorkflowState.setAgentForRoot(String(data.rootExecutionId || data.sourceId), agentNode.id);
+                    }
+                    // Register for cross-handler reference
                     {
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const subscriber = (this as any).subscriber as { registerNode?: (k: string, id: string) => void } | undefined;
                         subscriber?.registerNode?.(`agentFor:${String(data.sourceId)}`, agentNode.id);
                     }
                     break;
+                }
+
+                case 'execution.assistant_message_start': {
+                    // Create thinking node and record it to WorkflowState for tool.prev resolution
+                    const thinkingNode = this.createAgentThinkingNode(data);
+                    // Prefer provided prev, otherwise chain from last aggregation
+                    const providedPrev = (data as any).prevId as string | undefined;
+                    const fallbackPrev = WorkflowState.getLastAggregation(data.parentExecutionId || data.executionId);
+                    // Prefer last aggregation to chain rounds; otherwise provided prev (usually execution)
+                    (thinkingNode.data as any).prevId = fallbackPrev || providedPrev || (data as any).parentExecutionId;
+                    // Edge type: if coming from aggregation (tool_result) use 'analyze', else 'processes'
+                    (thinkingNode.data as any).prevEdgeType = fallbackPrev ? 'analyze' : 'processes';
+                    // If prev is agent node (first creation), prefer linking via user_message when available
+                    if (!fallbackPrev) {
+                        const candidates = [
+                            String(data.executionId || ''),
+                            String(data.parentExecutionId || ''),
+                            String((data as any).rootExecutionId || ''),
+                            String(data.sourceId || '')
+                        ].filter(Boolean);
+                        let lastUser: string | undefined;
+                        for (const key of candidates) {
+                            lastUser = WorkflowState.getLastUserMessage(key);
+                            if (lastUser) break;
+                        }
+                        if (lastUser) {
+                            (thinkingNode.data as any).prevId = lastUser;
+                            (thinkingNode.data as any).prevEdgeType = 'processes';
+                        }
+                    }
+                    updates.push({ action: 'create', node: thinkingNode });
+                    // Save for subsequent tool calls
+                    WorkflowState.setLastAssistantStart(String(data.parentExecutionId || data.executionId), thinkingNode.id);
+                    break;
+                }
+
+                case 'execution.assistant_message_complete': {
+                    const responseNode = this.createAgentResponseNode(data);
+                    // Prefer explicit prev; otherwise link to the last assistant start
+                    const providedPrev = (data as any).prevId as string | undefined;
+                    const assistantStart = WorkflowState.getLastAssistantStart(data.parentExecutionId || data.executionId);
+                    // Prefer assistant start to avoid execution → response direct edges
+                    (responseNode.data as any).prevId = assistantStart || providedPrev || (data as any).parentExecutionId;
+                    (responseNode.data as any).prevEdgeType = 'return';
+                    updates.push({ action: 'create', node: responseNode });
+                    break;
+                }
 
                 // execution.* events are handled by ExecutionEventHandler
 
@@ -130,7 +204,7 @@ export class AgentEventHandler implements EventHandler {
             status: 'running',
             timestamp: Date.now(), // Node creation time for ordering
             data: {
-                eventType: 'agent.created',
+                eventType: 'execution.start',
                 sourceId: data.sourceId,
                 sourceType: 'agent',
                 agentNumber: agentNumber,

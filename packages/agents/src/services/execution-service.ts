@@ -332,6 +332,7 @@ export class ExecutionService {
                         sourceType: 'agent',
                         sourceId: rootId,
                         timestamp: timestamp,
+                        prevId: executionId,
                         parameters: {
                             input,
                             // 🎯 Rich data for user message node
@@ -484,6 +485,8 @@ export class ExecutionService {
                         sourceType: 'agent',
                         sourceId: rootId,
                         timestamp: new Date(),
+                        executionId,
+                        prevId: executionId,
                         parameters: {
                             round: currentRound,
                             messageCount: conversationMessages.length
@@ -602,6 +605,8 @@ export class ExecutionService {
                             sourceType: 'agent',
                             sourceId: fullContext.conversationId || executionId,
                             timestamp: new Date(),
+                            executionId,
+                            prevId: executionId,
                             parameters: {
                                 // 🎯 [RICH-DATA] Enhanced response data
                                 assistantMessage: responseContent,
@@ -657,6 +662,9 @@ export class ExecutionService {
                             sourceType: 'agent',
                             sourceId: rootId,
                             timestamp: new Date(),
+                            executionId,
+                            // Connect from the start of this assistant turn
+                            prevId: `assistant_message_start_${executionId}_${currentRound}`,
                             parameters: {
                                 assistantMessage: responseContent,
                                 responseLength: responseContent.length
@@ -733,12 +741,14 @@ export class ExecutionService {
                             executionId: toolCall.id, // 🎯 tool call ID를 executionId로 설정
                             toolName: toolCall.function?.name,
                             timestamp: new Date(),
+                            // Prefer thinking node as prev anchor for fork correctness
+                            prevId: thinkingNodeId,
                             parameters: JSON.parse(toolCall.function?.arguments || '{}'),
                             rootExecutionId: fullContext.conversationId || executionId,
                             executionLevel: 2, // Tool level
                             executionPath: [fullContext.conversationId || executionId, executionId],
-                            // Parent is the execution node (round owner)
-                            parentExecutionId: executionId,
+                            // Parent is the thinking node (round fork anchor)
+                            parentExecutionId: thinkingNodeId,
                             metadata: {
                                 toolCallId: toolCall.id,
                                 executionId: executionId,
@@ -765,6 +775,8 @@ export class ExecutionService {
                             sourceId: fullContext.conversationId || executionId,
                             toolName: result.toolName,
                             timestamp: new Date(),
+                            executionId: result.executionId,
+                            prevId: result.executionId,
                             result: {
                                 success: result.success,
                                 data: result.success ? result.result : undefined,
