@@ -135,7 +135,6 @@ export class AgentEventHandler implements EventHandler {
                     // Prefer explicit prev; otherwise link to the last assistant start
                     const providedPrev = (data as any).prevId as string | undefined;
                     const assistantStart = WorkflowState.getLastAssistantStart(data.parentExecutionId || data.executionId);
-                    // Prefer assistant start to avoid execution → response direct edges
                     (responseNode.data as any).prevId = assistantStart || providedPrev || (data as any).parentExecutionId;
                     (responseNode.data as any).prevEdgeType = 'return';
                     updates.push({ action: 'create', node: responseNode });

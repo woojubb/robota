@@ -72,6 +72,8 @@ export class ToolEventHandler implements EventHandler {
                         // Use original agent execution id from metadata if provided
                         mainExecutionId: String((eventData as any).metadata?.executionId || eventData.parentExecutionId || '')
                     });
+                    // Increment tool-call count for the main execution to allow response timing control
+                    WorkflowState.incrementToolCallCount(String((eventData as any).metadata?.executionId || eventData.parentExecutionId || ''));
 
                     // ✅ Parent is execution node (round owner)
                     if (eventData.parentExecutionId) {
