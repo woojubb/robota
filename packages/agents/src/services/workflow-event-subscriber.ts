@@ -1,5 +1,11 @@
 /**
+ * ⚠️ LEGACY CODE - DELETE AFTER MIGRATION COMPLETE ⚠️
+ * 
  * WorkflowEventSubscriber - Real-time event subscriber
+ * 
+ * 🔄 MIGRATION STATUS: Being replaced by @robota-sdk/workflow package
+ * 📁 NEW LOCATION: packages/workflow/src/services/workflow-event-subscriber.ts
+ * 🗑️ DELETE TARGET: This entire file after migration verification
  *
  * Architectural Rules (MUST FOLLOW):
  * 1) No pre-creation: Never create a node that cannot be connected immediately.
@@ -25,28 +31,26 @@ import { WORKFLOW_NODE_TYPES, WorkflowNodeType, isValidWorkflowNodeType } from '
 import type { UniversalWorkflowEdge } from './workflow-converter/universal-types';
 import { NodeEdgeManager } from './node-edge-manager.js';
 import { EXECUTION_EVENTS, TOOL_EVENTS } from './execution-service.js'; // 🎯 [EVENT-CONSTANTS] Import ExecutionService and Tool events
+import { AGENT_EVENTS } from '../agents/constants.js'; // 🎯 [EVENT-CONSTANTS] Import Agent events from agents package
 
-// 🎯 [EVENT-CONSTANTS] Import Agent events from team package
-const AGENT_EVENTS = {
-    CREATION_START: 'agent.creation_start',
-    CREATION_COMPLETE: 'agent.creation_complete',
-    EXECUTION_START: 'agent.execution_start',
-    EXECUTION_COMPLETE: 'agent.execution_complete'
-} as const;
-
-// 🎯 [EVENT-CONSTANTS] Task events
-const TASK_EVENTS = {
-    ASSIGNED: 'task.assigned',
-    COMPLETED: 'task.completed',
-    AGGREGATION_START: 'task.aggregation_start',
-    AGGREGATION_COMPLETE: 'task.aggregation_complete'
-} as const;
-
-// 🎯 [EVENT-CONSTANTS] Team events
+// 🎯 [EVENT-CONSTANTS] Team events - temporarily defined here to avoid circular dependency
+// These should match the constants in packages/team/src/events/constants.ts
 const TEAM_EVENTS = {
     ANALYSIS_START: 'team.analysis_start',
-    ANALYSIS_COMPLETE: 'team.analysis_complete'
+    ANALYSIS_COMPLETE: 'team.analysis_complete',
+    TASK_ASSIGNED: 'team.task_assigned',
+    TASK_COMPLETED: 'team.task_completed',
+    AGENT_CREATION_START: 'team.agent_creation_start',
+    AGENT_CREATION_COMPLETE: 'team.agent_creation_complete',
+    AGENT_EXECUTION_START: 'team.agent_execution_start',
+    AGENT_EXECUTION_STARTED: 'team.agent_execution_started',
+    AGENT_EXECUTION_COMPLETE: 'team.agent_execution_complete',
+    TOOL_RESPONSE_READY: 'team.tool_response_ready',
+    AGGREGATION_COMPLETE: 'team.aggregation_complete'
 } as const;
+
+// Note: Legacy event names (agent.creation_start, task.assigned, etc.) are being migrated
+// to proper ownership-based names (team.agent_creation_start, team.task_assigned, etc.)
 
 /**
  * Agent 표준 구성 요소 구조
@@ -337,20 +341,26 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
             case TOOL_EVENTS.CALL_COMPLETE:
                 this.handleToolCallComplete(data);
                 break;
-            case 'tool.call_response_ready':
+            case TEAM_EVENTS.TOOL_RESPONSE_READY:
                 this.handleToolCallResponseReady(data);
                 break;
-            case AGENT_EVENTS.CREATION_START:
+            // Team-emitted agent lifecycle events
+            case TEAM_EVENTS.AGENT_CREATION_START:
                 this.handleAgentCreationStart(data);
                 break;
-            case AGENT_EVENTS.CREATION_COMPLETE:
+            case TEAM_EVENTS.AGENT_CREATION_COMPLETE:
                 this.handleAgentCreationComplete(data);
                 break;
-            case AGENT_EVENTS.EXECUTION_START:
+            case TEAM_EVENTS.AGENT_EXECUTION_START:
                 this.handleAgentExecutionStart(data);
                 break;
-            case AGENT_EVENTS.EXECUTION_COMPLETE:
+            case TEAM_EVENTS.AGENT_EXECUTION_COMPLETE:
                 this.handleAgentExecutionComplete(data);
+                break;
+
+            // Agent-emitted events
+            case AGENT_EVENTS.CREATED:
+                this.handleAgentCreated(data);
                 break;
             // Agent Integration Instance events for Playground-level connection quality
             case 'agent.integration_start':
@@ -363,7 +373,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 this.handleResponseIntegration(data);
                 break;
 
-            case TASK_EVENTS.ASSIGNED:
+            case TEAM_EVENTS.TASK_ASSIGNED:
                 this.handleTaskAssigned(data);
                 break;
             case TEAM_EVENTS.ANALYSIS_START:
@@ -372,10 +382,11 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
             case TEAM_EVENTS.ANALYSIS_COMPLETE:
                 this.handleTeamAnalysisComplete(data);
                 break;
-            case TASK_EVENTS.AGGREGATION_START:
+            // Note: These events will be migrated to proper ownership
+            case 'task.aggregation_start':  // Legacy event name
                 this.handleToolResultAggregationStart(data);
                 break;
-            case TASK_EVENTS.AGGREGATION_COMPLETE:
+            case TEAM_EVENTS.AGGREGATION_COMPLETE:
                 await this.handleToolResultAggregationComplete(data);
                 break;
             // 🗑️ subtool events removed - unified into standard tool_call events for domain neutrality
@@ -917,7 +928,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
             const expected = (this as any)._batchExpected.get(batchKey);
             if (expected && completed === expected) {
                 this.workflowLogger.debug(`[BATCH-AGGREGATION] All tool responses ready for ${batchKey} (${completed}/${expected}). Emitting task.aggregation_start once.`);
-                this.emit(TASK_EVENTS.AGGREGATION_START, {
+                this.emit('task.aggregation_start', {  // Legacy event name - to be migrated
                     sourceType: 'tool',
                     sourceId: responseNode.id,
                     parentExecutionId: parentToolCallId,
@@ -1106,6 +1117,39 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
 
     private handleAgentCreationStart(data: ServiceEventData): void {
         this.updateNodeStatus(data.sourceId, 'running');
+    }
+
+    /**
+     * 🆕 [NEW-AGENT-CREATED] Agent instance created event handler
+     */
+    private handleAgentCreated(data: ServiceEventData): void {
+        this.workflowLogger.debug('🆕 [NEW-AGENT-CREATED]', {
+            agentId: data.sourceId,
+            parentExecutionId: data.parentExecutionId,
+            executionLevel: data.executionLevel
+        });
+
+        // Agent 노드 생성
+        const agentNode = this.createAgentNode(data);
+        this.emitNodeUpdate('create', agentNode);
+
+        // parentExecutionId가 있으면 자동 연결
+        if (data.parentExecutionId) {
+            try {
+                this.nodeEdgeManager.addEdge(data.parentExecutionId, agentNode.id, 'creates');
+                this.workflowLogger.debug('🔗 [AUTO-CONNECTION]', {
+                    from: data.parentExecutionId,
+                    to: agentNode.id,
+                    type: 'creates'
+                });
+            } catch (error) {
+                this.workflowLogger.warn('🚫 [CONNECTION-FAILED] Cannot connect to parent', {
+                    parentExecutionId: data.parentExecutionId,
+                    agentId: agentNode.id,
+                    error: error instanceof Error ? error.message : String(error)
+                });
+            }
+        }
     }
 
     private handleAgentExecutionStart(data: ServiceEventData): void {

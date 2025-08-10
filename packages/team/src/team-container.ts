@@ -15,7 +15,7 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { createTaskAssignmentFacade } from './task-assignment/index.js';
 import { SubAgentEventRelay } from './services/sub-agent-event-relay.js';
-import { TOOL_EVENTS } from './events/constants.js';
+import { TEAM_EVENTS, TOOL_EVENTS } from './events/constants.js';
 // AgentDelegationTool removed - using createTaskAssignmentFacade only
 
 import {
@@ -382,7 +382,7 @@ export class TeamContainer {
 
         // 3. Emit task assigned event
         if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-            this.eventService.emit('task.assigned', {
+            this.eventService.emit(TEAM_EVENTS.TASK_ASSIGNED, {
                 sourceType: 'team',
                 sourceId: agentId,
                 executionId: toolExecutionId,
@@ -440,7 +440,7 @@ export class TeamContainer {
 
             // 4. Emit agent creation start event
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                this.eventService.emit('agent.creation_start', {
+                this.eventService.emit(TEAM_EVENTS.AGENT_CREATION_START, {
                     sourceType: 'team',
                     sourceId: agentId,
                     taskDescription: `Creating ${params.agentTemplate} agent`,
@@ -554,8 +554,8 @@ export class TeamContainer {
                 this.logger?.info(`🎯 [assignTask] temporaryAgent created successfully: ${temporaryAgent.name}`);
 
                 // 4.5. Emit tool event: Agent execution started
-                scopedEventService.emit(TOOL_EVENTS.AGENT_EXECUTION_STARTED, {
-                    sourceType: 'tool',
+                scopedEventService.emit(TEAM_EVENTS.AGENT_EXECUTION_STARTED, {
+                    sourceType: 'team',  // Team is emitting this
                     sourceId: context.executionId || 'unknown',
                     agentId: agentId,
                     parentExecutionId: parentToolCallId,
@@ -573,8 +573,8 @@ export class TeamContainer {
 
                 // 4.7. Emit sub-agent creation complete event through SubAgentEventRelay
                 // This ensures WorkflowEventSubscriber receives the event and creates tool_call → agent connections
-                scopedEventService.emit('agent.creation_complete', {
-                    sourceType: 'agent',
+                scopedEventService.emit(TEAM_EVENTS.AGENT_CREATION_COMPLETE, {
+                    sourceType: 'team',  // Team is emitting this, not agent
                     sourceId: agentId,  // Sub Agent's ID for proper node mapping
                     timestamp: new Date(),
                     result: {
@@ -633,8 +633,8 @@ export class TeamContainer {
                 this.logger?.info(`🎯 [assignTask] Dynamic temporaryAgent created successfully: ${temporaryAgent.name}`);
 
                 // 🎯 [CONSISTENCY] Emit agent creation complete event for dynamic path (consistent with template path)
-                scopedEventService.emit('agent.creation_complete', {
-                    sourceType: 'agent',
+                scopedEventService.emit(TEAM_EVENTS.AGENT_CREATION_COMPLETE, {
+                    sourceType: 'team',  // Team is emitting this
                     sourceId: agentId,
                     timestamp: new Date(),
                     result: {
@@ -658,7 +658,7 @@ export class TeamContainer {
 
             // 6. Emit agent execution start event
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                this.eventService.emit('agent.execution_start', {
+                this.eventService.emit(TEAM_EVENTS.AGENT_EXECUTION_START, {
                     sourceType: 'team',
                     sourceId: agentId,
                     taskDescription: `Starting execution of: ${params.jobDescription}`,
@@ -701,7 +701,7 @@ export class TeamContainer {
 
             // 7. Emit agent execution complete event
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                this.eventService.emit('agent.execution_complete', {
+                this.eventService.emit(TEAM_EVENTS.AGENT_EXECUTION_COMPLETE, {
                     sourceType: 'team',
                     sourceId: agentId,
                     taskDescription: `Completed execution: ${params.jobDescription}`,
@@ -723,7 +723,7 @@ export class TeamContainer {
 
             // 🎯 [EVENT-ORDER-FIX] 8. assignTask 완료 시점에서 tool_call_response 생성
             // 이제 실제 도구 결과가 준비되었으므로 tool_call_response 노드 생성
-            console.log(`🔥 [DEBUG-TOOL-RESPONSE-READY] About to emit tool.call_response_ready for ${parentToolCallId}`);
+            console.log(`🔥 [DEBUG-TOOL-RESPONSE-READY] About to emit ${TEAM_EVENTS.TOOL_RESPONSE_READY} for ${parentToolCallId}`);
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                 console.log(`🔥 [DEBUG-TOOL-RESPONSE-READY] EventService exists, emitting event`);
                 // 🎯 Rule 2: Event order guarantee from source - emit in next microtask
@@ -733,8 +733,8 @@ export class TeamContainer {
                     const resultLength = result.length;
                     const executionStats = agentAnalyticsPlugin?.getAggregatedStats();
 
-                    this.eventService.emit('tool.call_response_ready', {
-                        sourceType: 'tool',
+                    this.eventService.emit(TEAM_EVENTS.TOOL_RESPONSE_READY, {
+                        sourceType: 'team',  // Team is emitting this
                         sourceId: `tool_response_${parentToolCallId}`,
                         toolName: 'assignTask',
                         timestamp: new Date(),
@@ -797,7 +797,7 @@ export class TeamContainer {
                             }
                         }
                     });
-                    this.logger?.debug(`🔥 [DEBUG-TOOL-RESPONSE-READY] Emitted tool.call_response_ready for ${parentToolCallId} via microtask`);
+                    this.logger?.debug(`🔥 [DEBUG-TOOL-RESPONSE-READY] Emitted ${TEAM_EVENTS.TOOL_RESPONSE_READY} for ${parentToolCallId} via microtask`);
                 });
             }
 
@@ -816,8 +816,8 @@ export class TeamContainer {
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                 // Use the actual agent ID instead of 'task-aggregator'
                 const actualSourceId = String(context?.sourceId || agentId);
-                this.eventService.emit('task.aggregation_complete', {
-                    sourceType: 'agent',
+                this.eventService.emit(TEAM_EVENTS.AGGREGATION_COMPLETE, {
+                    sourceType: 'team',  // Team is emitting this, not agent
                     sourceId: actualSourceId,
                     taskDescription: 'Result aggregation and synthesis completed',
                     result: { success: true, data: `Synthesized result from ${params.agentTemplate} agent` },
@@ -838,7 +838,7 @@ export class TeamContainer {
 
             // 10. Emit task completed event
             if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                this.eventService.emit('task.completed', {
+                this.eventService.emit(TEAM_EVENTS.TASK_COMPLETED, {
                     sourceType: 'team',
                     sourceId: agentId,
                     timestamp: new Date(),

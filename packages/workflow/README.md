@@ -1,0 +1,54 @@
+# @robota-sdk/workflow
+
+Event-driven workflow visualization system for Robota SDK - real-time workflow building and graph management.
+
+## Overview
+
+The Workflow package provides domain-neutral workflow visualization capabilities for the Robota SDK ecosystem. It converts real-time events from agents, teams, and tools into visual workflow graphs with nodes and edges.
+
+## Features
+
+- **Real-time Workflow Building**: Converts events to visual workflow components instantly
+- **Domain-neutral Architecture**: Extensible handler system for different event types
+- **Type-safe Design**: Full TypeScript support with strict type checking
+- **Plugin System**: Extensible architecture for custom workflow components
+- **Graph Management**: Automatic node/edge creation with validation and ordering
+
+## Installation
+
+```bash
+npm install @robota-sdk/workflow
+# or
+pnpm add @robota-sdk/workflow
+# or
+yarn add @robota-sdk/workflow
+```
+
+## Quick Start
+
+```typescript
+import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
+
+const subscriber = new WorkflowEventSubscriber();
+
+// Subscribe to workflow updates
+subscriber.subscribeToWorkflowEvents((update) => {
+  console.log('Workflow updated:', update);
+});
+
+// Get current workflow data
+const { nodes, edges } = subscriber.getWorkflowData();
+```
+
+## Documentation
+
+- [Architecture](./ARCHITECTURE.md) - Detailed architectural design
+- [Development Plan](./DEVELOPMENT_PLAN.md) - Development roadmap and tasks
+
+## Development Status
+
+🚧 **In Development** - This package is currently under active development.
+
+## License
+
+MIT
