@@ -1,5 +1,7 @@
 import { TeamContainer } from './team-container';
 import type { TeamContainerOptions, TeamOptions } from './types';
+import { ContextualEventService, SilentEventService, Robota } from '@robota-sdk/agents';
+import { SilentContextualEventService } from '@robota-sdk/agents';
 
 /**
  * Create a Multi-Agent Team with Template-Based Configuration
@@ -75,6 +77,41 @@ export function createTeam(options: TeamOptions): TeamContainer {
     const defaultProvider = options.aiProviders[0]!;
     const defaultModel = getDefaultModelForProvider(defaultProvider.name) || 'gpt-4o-mini';
 
+    // Create ContextualEventService with all necessary context extractors
+    // This will be inherited by all team components automatically
+    const eventService = options.eventService || new ContextualEventService({
+        baseEventService: new SilentContextualEventService(),
+        contextExtractors: [
+            // Agent context extractor for Robota instances
+            {
+                ctor: Robota,
+                extract: (source: any) => ({
+                    executionId: source.conversationId,
+                    sourceType: 'agent',
+                    sourceId: source.conversationId,
+                    metadata: {
+                        agentName: source.name,
+                        agentType: 'robota'
+                    }
+                })
+            },
+            // Team context extractor for TeamContainer instances  
+            {
+                name: 'TeamContainer',
+                extract: (source: any) => ({
+                    executionId: source.id || source.teamId || 'team_unknown',
+                    sourceType: 'team',
+                    sourceId: source.id || source.teamId || 'team_unknown',
+                    metadata: {
+                        teamName: source.name || 'team',
+                        teamType: 'collaboration'
+                    }
+                })
+            }
+            // Tool extractors can be added here as needed for workflow-event-subscriber
+        ]
+    });
+
     // Convert to full TeamContainerOptions using new API format
     const fullOptions: TeamContainerOptions = {
         baseRobotaOptions: {
@@ -88,11 +125,11 @@ export function createTeam(options: TeamOptions): TeamContainer {
         },
         maxMembers: options.maxMembers || 5,
         debug: options.debug || false,
+        eventService, // Use the configured ContextualEventService
         ...(options.customTemplates && { customTemplates: options.customTemplates }),
         ...(options.leaderTemplate && { leaderTemplate: options.leaderTemplate }),
         ...(options.logger && { logger: options.logger }),
-        ...(options.toolHooks && { toolHooks: options.toolHooks }),
-        ...(options.eventService && { eventService: options.eventService })
+        ...(options.toolHooks && { toolHooks: options.toolHooks })
     };
 
     return new TeamContainer(fullOptions);

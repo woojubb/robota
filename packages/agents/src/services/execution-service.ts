@@ -240,7 +240,8 @@ export class ExecutionService {
                 sourceType: 'agent',
                 sourceId: rootId,
                 timestamp: startTime,
-                                parameters: { 
+                executionId: executionId,
+                parameters: {
                     input,
                     // 🎯 [RICH-DATA] Enhanced agent data
                     agentConfiguration: aiProviderInfo,
@@ -250,6 +251,7 @@ export class ExecutionService {
                 },
                 // Hierarchical tracking information
                 rootExecutionId: rootId,
+                parentExecutionId: this.executionContext?.parentExecutionId,
                 executionLevel: 1, // Agent level execution
                 executionPath: [rootId],
                 metadata: {
@@ -342,6 +344,7 @@ export class ExecutionService {
                         },
                         // Hierarchical tracking information
                         rootExecutionId: rootId,
+                        parentExecutionId: this.executionContext?.parentExecutionId,
                         executionLevel: 0, // User message is Level 0
                         executionPath: [rootId],
                         metadata: {
@@ -487,6 +490,7 @@ export class ExecutionService {
                         },
                         // Hierarchical tracking information
                         rootExecutionId: rootId,
+                        parentExecutionId: executionId, // Parent is execution node
                         executionLevel: 1, // Assistant message is Level 1
                         executionPath: [rootId],
                         metadata: {
@@ -623,6 +627,7 @@ export class ExecutionService {
                             },
                             // Hierarchical tracking information
                             rootExecutionId: fullContext.conversationId || executionId,
+                            parentExecutionId: executionId, // Parent is execution node for this round
                             executionLevel: 1, // Assistant message completion is Level 1
                             executionPath: [fullContext.conversationId || executionId],
                             metadata: {
@@ -643,6 +648,35 @@ export class ExecutionService {
 
                     this.logger.info(`🔍 [EXECUTION-VERIFICATION] Breaking execution loop - should prevent Round ${currentRound + 1}`);
                     break;
+                } else {
+                    // Emit assistant_message_complete for this assistant turn that triggered tool calls
+                    if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                        const rootId = fullContext.conversationId || executionId;
+                        const responseContent = assistantResponse.content || '';
+                        this.eventService.emit(EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE, {
+                            sourceType: 'agent',
+                            sourceId: rootId,
+                            timestamp: new Date(),
+                            parameters: {
+                                assistantMessage: responseContent,
+                                responseLength: responseContent.length
+                            },
+                            result: {
+                                success: true,
+                                data: responseContent.substring(0, 100) + '...'
+                            },
+                            rootExecutionId: rootId,
+                            parentExecutionId: executionId,
+                            executionLevel: 1,
+                            executionPath: [rootId],
+                            metadata: {
+                                executionId,
+                                round: currentRound,
+                                completed: true,
+                                reason: 'tool_calls_triggered'
+                            }
+                        });
+                    }
                 }
 
                 // 🎯 [ROUND-DEBUG] Round 계속 - tool calls 있음
@@ -703,8 +737,8 @@ export class ExecutionService {
                             rootExecutionId: fullContext.conversationId || executionId,
                             executionLevel: 2, // Tool level
                             executionPath: [fullContext.conversationId || executionId, executionId],
-                            // Direct parent ID provision (no mapping/inference needed)
-                            parentExecutionId: thinkingNodeId,
+                            // Parent is the execution node (round owner)
+                            parentExecutionId: executionId,
                             metadata: {
                                 toolCallId: toolCall.id,
                                 executionId: executionId,

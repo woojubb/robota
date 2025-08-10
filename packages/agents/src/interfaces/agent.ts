@@ -12,6 +12,8 @@ import type { EventService } from '../services/event-service';
  */
 export type MessageMetadata = Record<string, string | number | boolean | Date>;
 
+
+
 /**
  * Base message interface for agent communication
  */
