@@ -578,6 +578,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
         const expectedCount = Number((data.metadata as any)?.expectedCount ?? 0);
         const batchId = String(((data.metadata as any)?.batchId ?? thinkingNodeId) || 'unknown_batch');
 
+        // Create tool_call node first WITHOUT immediate parent connection to avoid edge-order violations
         const node = this.nodeEdgeManager.addNode({
             id: `tool_call_${finalExecutionId}`,
             type: WORKFLOW_NODE_TYPES.TOOL_CALL,
@@ -598,7 +599,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 }
             },
             connections: []
-        }, directParentId, 'executes' as WorkflowConnectionType, 'tool_call');
+        });
 
         this.emitNodeUpdate('create', node as any);
 
@@ -614,7 +615,7 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
 
             const thinkingNode = this.nodeMap.get(thinkingNodeId);
             if (thinkingNode) {
-                // 🎯 [FORK-PATTERN] Fork 패턴 감지 시 큐를 사용한 지연 처리 (Rule 11 Sequential Order 준수)
+                // Connect now that both nodes exist
                 this.addToForkEdgeQueue(thinkingNodeId, thinkingNode, node, 'executes', `executes ${data.toolName || 'tool'}`);
             }
         } else {

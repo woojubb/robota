@@ -654,37 +654,8 @@ export class ExecutionService {
                     this.logger.info(`🔍 [EXECUTION-VERIFICATION] Breaking execution loop - should prevent Round ${currentRound + 1}`);
                     break;
                 } else {
-                    // Emit assistant_message_complete for this assistant turn that triggered tool calls
-                    if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                        const rootId = fullContext.conversationId || executionId;
-                        const responseContent = assistantResponse.content || '';
-                        this.eventService.emit(EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE, {
-                            sourceType: 'agent',
-                            sourceId: rootId,
-                            timestamp: new Date(),
-                            executionId,
-                            // Connect from the start of this assistant turn
-                            prevId: `assistant_message_start_${executionId}_${currentRound}`,
-                            parameters: {
-                                assistantMessage: responseContent,
-                                responseLength: responseContent.length
-                            },
-                            result: {
-                                success: true,
-                                data: responseContent.substring(0, 100) + '...'
-                            },
-                            rootExecutionId: rootId,
-                            parentExecutionId: executionId,
-                            executionLevel: 1,
-                            executionPath: [rootId],
-                            metadata: {
-                                executionId,
-                                round: currentRound,
-                                completed: true,
-                                reason: 'tool_calls_triggered'
-                            }
-                        });
-                    }
+                    // Tools are triggered in this round. Do not emit assistant_message_complete yet.
+                    // Completion will be emitted when a subsequent assistant turn finishes without tool calls.
                 }
 
                 // 🎯 [ROUND-DEBUG] Round 계속 - tool calls 있음
