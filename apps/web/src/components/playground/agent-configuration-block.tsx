@@ -50,6 +50,7 @@ export interface AgentConfigurationBlockProps {
     onConfigChange: (config: PlaygroundAgentConfig) => void;
     onExecute?: (config: PlaygroundAgentConfig) => void;
     onStop?: () => void;
+    onOpenChat?: (config: PlaygroundAgentConfig) => void;
     onDuplicate?: (config: PlaygroundAgentConfig) => void;
     onDelete?: (config: PlaygroundAgentConfig) => void;
     className?: string;
@@ -65,6 +66,7 @@ export function AgentConfigurationBlock({
     onConfigChange,
     onExecute,
     onStop,
+    onOpenChat,
     onDuplicate,
     onDelete,
     className = ''
@@ -146,22 +148,23 @@ export function AgentConfigurationBlock({
                     </div>
 
                     <div className="flex items-center gap-1">
+                        {/* Chat Button - opens chat input modal/panel */}
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onOpenChat?.(editedConfig);
+                            }}
+                            className="h-7 px-3 text-xs"
+                            type="button"
+                        >
+                            Chat
+                        </Button>
+
                         {/* Play/Stop Button */}
-                        {isExecuting ? (
-                            <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    onStop?.();
-                                }}
-                                className="h-7 px-3 text-xs"
-                            >
-                                <Square className="h-3 w-3 mr-1" />
-                                Stop
-                            </Button>
-                        ) : (
+                        {!isExecuting && (
                             <Button
                                 size="sm"
                                 variant="default"
