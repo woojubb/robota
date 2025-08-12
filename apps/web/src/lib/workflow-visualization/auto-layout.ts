@@ -135,7 +135,7 @@ function calculateNodeHeight(node: Node): number {
 
     // Compact height limits - keep nodes reasonably sized
     const minHeight = 70; // Slightly reduced minimum
-    const maxHeight = 200; // Reduced from 1000px to 200px for more compact display
+    const maxHeight = 400; // Allow taller nodes while keeping an upper bound for layout calculations
 
     return Math.max(minHeight, Math.min(estimatedHeight, maxHeight));
 }
@@ -426,22 +426,19 @@ export function calculateOptimalSpacing(nodes: Node[]): Partial<LayoutConfig> {
     const avgWidth = totalWidth / nodes.length;
     const avgHeight = totalHeight / nodes.length;
 
-    // 기본 간격은 일정하게 유지하되, 평균 높이만 고려
-    const avgHeightFactor = Math.max(1.0, avgHeight / 100); // 평균 높이 기준 스케일링
-
-    // 노드 간 수평 간격은 고정값 사용 (너무 넓어지지 않도록)
+    // Horizontal spacing: keep within a reasonable fixed bound
     const nodesep = Math.max(60, Math.min(100, avgWidth * 0.3));
 
-    // 랭크 간 간격은 평균 높이 기준으로만 조정 (최대 높이 무시)
-    const ranksep = Math.max(120, avgHeight * 1.2 + 40);
+    // Vertical spacing (rank separation): tighten using average height only
+    // Clamp to avoid excessive gaps for tall nodes while preventing overcrowding
+    const unclampedRanksep = avgHeight * 0.4 + 40; // softer scaling than previous 1.2x
+    const ranksep = Math.max(90, Math.min(220, unclampedRanksep));
 
-    // 엣지 간격은 고정값 사용
+    // Edge separation: small fixed window
     const edgesep = Math.max(25, Math.min(35, avgWidth * 0.15));
 
-    // 매우 긴 노드들을 위한 추가 여백 - 1000px 높이 대응
+    // Margins scale mildly with average dimensions
     const extraMargin = maxHeight > 500 ? 80 : maxHeight > 200 ? 40 : 0;
-
-    console.log(`🔧 Optimal spacing calculated: avgHeight=${avgHeight.toFixed(1)}, maxHeight=${maxHeight}, ranksep=${ranksep.toFixed(1)}`);
 
     return {
         nodesep: Math.round(nodesep),

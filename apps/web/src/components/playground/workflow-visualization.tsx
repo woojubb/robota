@@ -24,6 +24,7 @@ import {
     ReactFlowProvider,
     EdgeTypes,
     BaseEdge,
+    getBezierPath,
     getStraightPath,
     useReactFlow,
     NodeProps,
@@ -45,6 +46,7 @@ import {
     layoutExistingFlow,
     LAYOUT_PRESETS,
     suggestOptimalLayout,
+    calculateOptimalSpacing,
     type LayoutConfig
 } from '@/lib/workflow-visualization/auto-layout';
 
@@ -117,24 +119,39 @@ const BaseNodeTemplate = ({
 // STEP 12.0.3: 시각적 구분 시스템 - Custom Edge Components
 
 /**
- * 정상 연결 Edge (초록색)
+ * 정상 연결 Edge (부드러운 초록색 곡선 + 은은한 외곽선)
  */
-const ConnectedEdge = ({ id, sourceX, sourceY, targetX, targetY }: any) => {
-    const [edgePath] = getStraightPath({
+const ConnectedEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition }: any) => {
+    const [edgePath] = getBezierPath({
         sourceX,
         sourceY,
         targetX,
         targetY,
+        sourcePosition: sourcePosition ?? Position.Bottom,
+        targetPosition: targetPosition ?? Position.Top,
     });
 
     return (
-        <BaseEdge
-            path={edgePath}
-            style={{
-                stroke: '#10b981', // green-500
-                strokeWidth: 2,
-            }}
-        />
+        // Outline layer (under) - light and subtle
+        <>
+            <BaseEdge
+                path={edgePath}
+                style={{
+                    stroke: '#a7f3d0', // emerald-200 (subtle outline)
+                    strokeWidth: 4,
+                    strokeLinecap: 'round',
+                }}
+            />
+            {/* Main layer (over) */}
+            <BaseEdge
+                path={edgePath}
+                style={{
+                    stroke: '#34d399', // emerald-400 (softer green)
+                    strokeWidth: 2,
+                    strokeLinecap: 'round',
+                }}
+            />
+        </>
     );
 };
 
@@ -265,11 +282,15 @@ const DynamicDagreLayout = ({
                     };
                 });
 
-                // 통합된 레이아웃 함수 사용 (실제 크기 반영)
+                // 동적 간격 계산을 현재 레이아웃 설정에 병합
+                const dynamicOverrides = calculateOptimalSpacing(nodesWithRealDimensions);
+                const mergedConfig = { ...layoutConfig, ...dynamicOverrides };
+
+                // 통합된 레이아웃 함수 사용 (실제 크기 반영 + 동적 간격)
                 const { nodes: layoutedNodes } = applyDagreLayout(
                     nodesWithRealDimensions,
                     edges,
-                    layoutConfig,
+                    mergedConfig,
                     true // useActualDimensions flag
                 );
 
@@ -311,6 +332,8 @@ const DynamicDagreLayout = ({
  * Edge Types 정의 - 연결 상태 시각적 구분
  */
 const edgeTypes: EdgeTypes = {
+    // Use our styled edge as the default renderer so all unspecified edges get the style
+    default: ConnectedEdge,
     connected: ConnectedEdge,        // ✅ 정상 연결 (초록색)
     missing: MissingEdge,            // ❌ 누락 연결 (빨간색 점선)
     toolCall: ToolCallEdge,          // 🔧 Tool Call (오렌지색)
