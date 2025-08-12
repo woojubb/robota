@@ -3,45 +3,75 @@
  * 
  * These events are emitted by team functionality and can be consumed by
  * any event handler, including WorkflowEventSubscriber.
+ * 
+ * IMPORTANT: All events emitted within team package MUST use 'team.*' prefix
+ * to maintain clear event ownership and prevent architectural violations.
  */
 
-// Tool execution events
-export const TOOL_EVENTS = {
-    /** Tool call starts agent creation process */
-    AGENT_CREATION_REQUESTED: 'tool.agent_creation_requested',
-    /** Tool completed agent creation */
-    AGENT_CREATION_COMPLETED: 'tool.agent_creation_completed',
-    /** Tool started agent execution */
-    AGENT_EXECUTION_STARTED: 'tool.agent_execution_started',
-    /** Tool completed agent execution */
-    AGENT_EXECUTION_COMPLETED: 'tool.agent_execution_completed'
-} as const;
-
-// Team analysis events
+// Team events - All events emitted by TeamContainer
 export const TEAM_EVENTS = {
     /** Team analysis started */
     ANALYSIS_START: 'team.analysis_start',
     /** Team analysis completed */
-    ANALYSIS_COMPLETE: 'team.analysis_complete'
+    ANALYSIS_COMPLETE: 'team.analysis_complete',
+
+    // Task management (emitted by team)
+    /** Team assigns task to agent */
+    TASK_ASSIGNED: 'team.task_assigned',
+    /** Team completes task */
+    TASK_COMPLETED: 'team.task_completed',
+
+    // Agent lifecycle management by team
+    /** Team starts agent creation */
+    AGENT_CREATION_START: 'team.agent_creation_start',
+    /** Team completes agent creation */
+    AGENT_CREATION_COMPLETE: 'team.agent_creation_complete',
+    /** Team starts agent execution */
+    AGENT_EXECUTION_START: 'team.agent_execution_start',
+    /** Team reports agent execution started (from tool context) */
+    AGENT_EXECUTION_STARTED: 'team.agent_execution_started',
+    /** Team completes agent execution */
+    AGENT_EXECUTION_COMPLETE: 'team.agent_execution_complete',
+
+    // Tool response handling by team
+    /** Team's tool response is ready */
+    TOOL_RESPONSE_READY: 'team.tool_response_ready',
+
+    // Aggregation by team
+    /** Team completes result aggregation */
+    AGGREGATION_COMPLETE: 'team.aggregation_complete'
 } as const;
 
-// Task management events
+// Legacy constants - TO BE REMOVED after migration
+// These were incorrectly named and violate event ownership rules
+export const TOOL_EVENTS = {
+    /** @deprecated Use TEAM_EVENTS.AGENT_CREATION_START */
+    AGENT_CREATION_REQUESTED: 'tool.agent_creation_requested',
+    /** @deprecated Use TEAM_EVENTS.AGENT_CREATION_COMPLETE */
+    AGENT_CREATION_COMPLETED: 'tool.agent_creation_completed',
+    /** @deprecated Use TEAM_EVENTS.AGENT_EXECUTION_STARTED */
+    AGENT_EXECUTION_STARTED: 'tool.agent_execution_started',
+    /** @deprecated Use TEAM_EVENTS.AGENT_EXECUTION_COMPLETE */
+    AGENT_EXECUTION_COMPLETED: 'tool.agent_execution_completed'
+} as const;
+
 export const TASK_EVENTS = {
-    /** Task assigned to agent */
+    /** @deprecated Use TEAM_EVENTS.TASK_ASSIGNED */
     ASSIGNED: 'task.assigned',
-    /** Task completed by agent */
+    /** @deprecated Use TEAM_EVENTS.TASK_COMPLETED */
     COMPLETED: 'task.completed'
 } as const;
 
-// Agent lifecycle events
 export const AGENT_EVENTS = {
-    /** Agent creation process started */
+    /** @deprecated These should not be emitted by team - violates ownership */
     CREATION_START: 'agent.creation_start',
-    /** Agent creation process completed */
+    /** @deprecated These should not be emitted by team - violates ownership */
     CREATION_COMPLETE: 'agent.creation_complete',
-    /** Agent execution started */
+    /** @deprecated Use agents package constant */
+    CREATED: 'agent.created',
+    /** @deprecated These should not be emitted by team - violates ownership */
     EXECUTION_START: 'agent.execution_start',
-    /** Agent execution completed */
+    /** @deprecated These should not be emitted by team - violates ownership */
     EXECUTION_COMPLETE: 'agent.execution_complete'
 } as const;
 
