@@ -56,6 +56,7 @@ export interface TeamConfigurationBlockProps {
     isActive?: boolean;
     isExecuting?: boolean;
     onConfigChange: (config: PlaygroundTeamConfig) => void;
+    onOpenChat?: (config: PlaygroundTeamConfig) => void;
     onDuplicate?: (config: PlaygroundTeamConfig) => void;
     onDelete?: (config: PlaygroundTeamConfig) => void;
     onExecute?: (config: PlaygroundTeamConfig) => void;
@@ -286,6 +287,7 @@ export function TeamConfigurationBlock({
     isActive = false,
     isExecuting = false,
     onConfigChange,
+    onOpenChat,
     onDuplicate,
     onDelete,
     onExecute,
@@ -399,22 +401,22 @@ export function TeamConfigurationBlock({
                     </div>
 
                     <div className="flex items-center gap-1">
+                        {/* Chat Button - opens chat input modal/panel */}
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onOpenChat?.(editedConfig);
+                            }}
+                            className="h-7 px-3 text-xs"
+                        >
+                            Chat
+                        </Button>
+
                         {/* Single Play/Stop Button */}
-                        {isExecuting ? (
-                            <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    onStop?.();
-                                }}
-                                className="h-7 px-3 text-xs"
-                            >
-                                <Pause className="h-3 w-3 mr-1" />
-                                Stop
-                            </Button>
-                        ) : (
+                        {!isExecuting && (
                             <Button
                                 size="sm"
                                 variant="default"

@@ -6,7 +6,7 @@
  * Integrates React-Flow to visualize workflow structures in the playground
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ReactFlow,
     Node,
@@ -33,8 +33,9 @@ import '@xyflow/react/dist/style.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Modal } from '@/components/ui/modal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Bot, Users, Zap, MessageSquare, MessageCircle, Settings, Wrench, LayoutGrid, RefreshCw, Clipboard } from 'lucide-react';
+import { Bot, MessageSquare, MessageCircle, Settings, Wrench, LayoutGrid, RefreshCw, Clipboard } from 'lucide-react';
 import type {
     UniversalWorkflowStructure
 } from '@robota-sdk/agents';
@@ -46,11 +47,11 @@ import {
     suggestOptimalLayout,
     type LayoutConfig
 } from '@/lib/workflow-visualization/auto-layout';
-import dagre from 'dagre';
 
 interface WorkflowVisualizationProps {
     workflow?: UniversalWorkflowStructure;
     className?: string;
+    onAgentNodeClick?: (nodeId: string, data: any) => void;
 }
 
 // Base Node Template Types
@@ -388,6 +389,36 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                             </Badge>
                         )}
                     </div>
+                    <div className="flex items-center gap-1">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (typeof (data as any).__onChat === 'function') {
+                                    (data as any).__onChat();
+                                }
+                            }}
+                            title="Open chat"
+                        >
+                            <MessageCircle className="h-3 w-3" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (typeof (data as any).__onEdit === 'function') {
+                                    (data as any).__onEdit();
+                                }
+                            }}
+                            title="Edit agent"
+                        >
+                            <Settings className="h-3 w-3" />
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Essential info only */}
@@ -596,7 +627,7 @@ const AgentThinkingNode = ({ data }: { data: any }) => {
             }}
         >
             <div>
-                <div className="font-semibold text-gray-800 mb-1">
+                <div className="font-semibold text-gray-800 mb-1 text-center">
                     Agent Thinking
                 </div>
                 {data.content && (
@@ -713,11 +744,11 @@ const ToolCallNode = ({ data }: { data: any }) => {
             }}
         >
             <div>
-                <div className="font-semibold text-gray-800 mb-1">
+                <div className="font-semibold text-gray-800 mb-1 text-center">
                     Tool Call
                 </div>
                 {data.toolName && (
-                    <div className="text-xs text-gray-600 truncate">
+                    <div className="text-xs text-gray-600 truncate text-center">
                         {typeof data.toolName === 'string' ? data.toolName : JSON.stringify(data.toolName)}
                     </div>
                 )}
@@ -802,8 +833,7 @@ const ToolCallResponseNode = ({ data }: { data: any }) => {
                 {/* Simple header */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
-                        <Wrench className="h-3 w-3 text-purple-600" />
-                        <span className="text-sm font-medium text-gray-800">
+                        <span className="text-sm font-medium text-gray-800 text-center">
                             Tool Response
                         </span>
                     </div>
@@ -863,7 +893,7 @@ const ToolResultNode = ({ data }: { data: any }) => {
             }}
         >
             <div>
-                <div className="font-semibold text-gray-800 mb-1">
+                <div className="font-semibold text-gray-800 mb-1 text-center">
                     Tool Result
                 </div>
                 {data.value && (
@@ -893,7 +923,7 @@ const AgentResponseNode = ({ data, sourcePosition, targetPosition }: NodeProps<a
             }}
         >
             <div>
-                <div className="font-semibold text-gray-800 mb-1">
+                <div className="font-semibold text-gray-800 mb-1 text-center">
                     Agent Response
                 </div>
                 {data.response && (
@@ -924,7 +954,7 @@ const LegacyToolCallNode = ({ data, sourcePosition, targetPosition }: NodeProps<
             }}
         >
             <div>
-                <div className="font-semibold text-gray-800 mb-1">
+                <div className="font-semibold text-gray-800 mb-1 text-center">
                     Tool Call
                 </div>
                 {data.toolName && (
@@ -991,14 +1021,105 @@ const nodeTypes = {
     // userInput 제거 - 레거시 타입
 };
 
-function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualizationProps) {
+function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }: WorkflowVisualizationProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [converter] = useState(() => new SimpleReactFlowConverter());
     const [selectedLayout, setSelectedLayout] = useState<keyof typeof LAYOUT_PRESETS>('compact');
     const [isAutoLayoutEnabled, setIsAutoLayoutEnabled] = useState(true);
     const [currentLayoutConfig, setCurrentLayoutConfig] = useState<LayoutConfig>(LAYOUT_PRESETS.compact);
-    const { fitView } = useReactFlow();
+    const { fitView, setCenter, getZoom } = useReactFlow();
+    const [isInfoOpen, setIsInfoOpen] = useState(false);
+    const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+
+    // Progressive reveal runner refs
+    const runIdRef = useRef(0);
+    const timerRef = useRef<number | null>(null);
+    const displayedNodeIdsRef = useRef<Set<string>>(new Set());
+    const displayedEdgeIdsRef = useRef<Set<string>>(new Set());
+    const revealQueueRef = useRef<string[]>([]);
+    const pendingEdgesRef = useRef<Edge[]>([]);
+    const nodesByIdRef = useRef<Map<string, Node>>(new Map());
+
+    const clearTimer = useCallback(() => {
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+    }, []);
+
+    const canShowEdge = useCallback((e: Edge) => {
+        return displayedNodeIdsRef.current.has(e.source as string) && displayedNodeIdsRef.current.has(e.target as string);
+    }, []);
+
+    const processNext = useCallback((runId: number) => {
+        if (runIdRef.current !== runId) return;
+
+        const nextId = revealQueueRef.current.shift();
+        if (!nextId) return; // queue empty
+
+        const node = nodesByIdRef.current.get(nextId);
+        if (!node) {
+            // continue to next if missing
+            timerRef.current = window.setTimeout(() => processNext(runId), 500);
+            return;
+        }
+
+        setNodes((prev) => {
+            // Avoid duplicate append
+            if (prev.some((n) => n.id === node.id)) return prev;
+            return [...prev, node];
+        });
+        displayedNodeIdsRef.current.add(nextId);
+
+        // Center camera to the newly revealed node on every step
+        {
+            const zoom = getZoom();
+            // Defer to next tick to ensure node is in state
+            window.setTimeout(() => {
+                const pos = (node as any).position;
+                if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
+                    setCenter(pos.x, pos.y, { duration: 600, zoom });
+                }
+            }, 0);
+        }
+
+        // Move addable edges from pending to displayed (dedup by id)
+        const addable: Edge[] = [];
+        const addableIds = new Set<string>();
+        const remain: Edge[] = [];
+        const remainIds = new Set<string>();
+        for (const e of pendingEdgesRef.current) {
+            if (!displayedEdgeIdsRef.current.has(e.id) && canShowEdge(e)) {
+                if (!addableIds.has(e.id)) {
+                    addable.push(e);
+                    addableIds.add(e.id);
+                }
+            } else {
+                if (!remainIds.has(e.id)) {
+                    remain.push(e);
+                    remainIds.add(e.id);
+                }
+            }
+        }
+        pendingEdgesRef.current = remain;
+        if (addable.length > 0) {
+            setEdges((prev) => {
+                const existing = new Set(prev.map((e) => e.id));
+                const seen = new Set<string>();
+                const filtered = addable.filter((e) => {
+                    if (existing.has(e.id)) return false;
+                    if (seen.has(e.id)) return false; // guard duplicates within this batch
+                    seen.add(e.id);
+                    return true;
+                });
+                return filtered.length ? [...prev, ...filtered] : prev;
+            });
+            addable.forEach((e) => displayedEdgeIdsRef.current.add(e.id));
+        }
+
+        timerRef.current = window.setTimeout(() => processNext(runId), 500);
+    }, [canShowEdge, setNodes, setEdges, getZoom, setCenter]);
 
     // 레이아웃 적용 함수 - DynamicDagreLayout 컴포넌트를 통해서만 처리
     const applyAutoLayout = useCallback((layoutPreset?: keyof typeof LAYOUT_PRESETS) => {
@@ -1009,9 +1130,9 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
         setCurrentLayoutConfig(LAYOUT_PRESETS[layoutToUse]);
 
         // DynamicDagreLayout 컴포넌트를 통해 레이아웃 적용
-        setTimeout(() => {
-            (window as any).__resetDagreLayout?.();
-        }, 50);
+        // setTimeout(() => {
+        //     (window as any).__resetDagreLayout?.();
+        // }, 50);
     }, [nodes.length, selectedLayout]);
 
     // Apply layout using unified system
@@ -1057,19 +1178,20 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
         }
     }, [workflow]);
 
-    // Convert workflow to React-Flow format
+    // Convert workflow to React-Flow format with progressive reveal (500ms)
     useEffect(() => {
         const convertWorkflow = async () => {
             if (!workflow) {
                 // Show empty state with sample nodes
-                setNodes([
-                    {
-                        id: 'welcome',
-                        type: 'placeholder',
-                        position: { x: 250, y: 100 },
-                        data: { label: 'Create Agent or Team to start' },
-                    }
-                ]);
+                // Reset internal states for a clean slate
+                clearTimer();
+                runIdRef.current += 1;
+                displayedNodeIdsRef.current.clear();
+                displayedEdgeIdsRef.current.clear();
+                revealQueueRef.current = [];
+                pendingEdgesRef.current = [];
+                nodesByIdRef.current = new Map();
+                setNodes([]);
                 setEdges([]);
                 return;
             }
@@ -1084,22 +1206,95 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
                 // console.log('🔗 [EDGES]:', JSON.stringify(reactFlowData.edges, null, 2));
                 console.log('🧪 [REACT-FLOW-DATA] === 덤프 완료 ===');
 
-                // Apply auto layout if enabled
+                // Determine target graph (pre-layout when enabled)
+                let targetNodes: Node[] = reactFlowData.nodes;
+                let targetEdges: Edge[] = reactFlowData.edges;
+
                 if (isAutoLayoutEnabled && reactFlowData.nodes.length > 0) {
                     const { nodes: layoutedNodes, edges: layoutedEdges } = layoutExistingFlow(
                         reactFlowData.nodes,
                         reactFlowData.edges,
                         selectedLayout
                     );
-                    setNodes(layoutedNodes);
-                    setEdges(layoutedEdges);
-
-                    // Fit view after layout
-                    setTimeout(() => fitView({ duration: 800, padding: 0.1 }), 200);
-                } else {
-                    setNodes(reactFlowData.nodes);
-                    setEdges(reactFlowData.edges);
+                    targetNodes = layoutedNodes;
+                    targetEdges = layoutedEdges;
                 }
+
+                // Attach callbacks to agent nodes (chat/edit)
+                const augmentCallbacks = (list: Node[]): Node[] =>
+                    list.map((n) =>
+                        n.type === 'agent'
+                            ? {
+                                ...n,
+                                data: {
+                                    ...n.data,
+                                    __onChat: () => {
+                                        onAgentNodeClick?.(n.id, (n as any).data);
+                                    },
+                                    __onEdit: () => {
+                                        setSelectedNode(n);
+                                        setIsInfoOpen(true);
+                                    },
+                                },
+                            }
+                            : n
+                    );
+
+                targetNodes = augmentCallbacks(targetNodes);
+
+                // Prepare progressive reveal
+                // 1) Update lookup and queue new node ids in original order
+                nodesByIdRef.current = new Map(targetNodes.map((n) => [n.id, n] as const));
+
+                const newIds = targetNodes
+                    .map((n) => n.id)
+                    .filter((id) => !displayedNodeIdsRef.current.has(id));
+                if (newIds.length > 0) revealQueueRef.current.push(...newIds);
+
+                // 2) Classify edges: addable now vs pending
+                const addNow: Edge[] = [];
+                const addNowIds = new Set<string>();
+                const pending: Edge[] = [];
+                const pendingIds = new Set<string>(pendingEdgesRef.current.map((e) => e.id));
+                for (const e of targetEdges) {
+                    if (displayedEdgeIdsRef.current.has(e.id)) continue;
+                    if (canShowEdge(e)) {
+                        if (!addNowIds.has(e.id)) {
+                            addNow.push(e);
+                            addNowIds.add(e.id);
+                        }
+                    } else {
+                        if (!pendingIds.has(e.id)) {
+                            pending.push(e);
+                            pendingIds.add(e.id);
+                        }
+                    }
+                }
+                if (addNow.length > 0) {
+                    setEdges((prev) => {
+                        const existing = new Set(prev.map((e) => e.id));
+                        const seen = new Set<string>();
+                        const filtered = addNow.filter((e) => {
+                            if (existing.has(e.id)) return false;
+                            if (seen.has(e.id)) return false;
+                            seen.add(e.id);
+                            return true;
+                        });
+                        return filtered.length ? [...prev, ...filtered] : prev;
+                    });
+                    addNow.forEach((e) => displayedEdgeIdsRef.current.add(e.id));
+                }
+                // merge pending with existing pending
+                if (pending.length > 0) pendingEdgesRef.current.push(...pending);
+
+                // 3) Start/continue runner for this snapshot
+                clearTimer();
+                runIdRef.current += 1;
+                const runId = runIdRef.current;
+                processNext(runId);
+
+                // Optional: center to last target node when all revealed (kept minimal to avoid jumps)
+                // We keep current behavior minimal; user can manually trigger fit/center via controls.
             } catch (error) {
                 console.error('Failed to convert workflow:', error);
                 setNodes([
@@ -1115,105 +1310,149 @@ function WorkflowVisualizationContent({ workflow, className }: WorkflowVisualiza
         };
 
         convertWorkflow();
-    }, [workflow, converter, isAutoLayoutEnabled, selectedLayout, fitView, setNodes, setEdges]);
+        return () => {
+            clearTimer();
+        };
+    }, [workflow, converter, isAutoLayoutEnabled, selectedLayout, fitView, setNodes, setEdges, clearTimer, processNext, canShowEdge]);
 
     const onConnect = useCallback(
         (params: Connection) => setEdges((eds) => addEdge(params, eds)),
         [setEdges]
     );
 
+    const handleNodeClick = useCallback((_: any, node: Node) => {
+        setSelectedNode(node);
+        setIsInfoOpen(true);
+    }, []);
+
     return (
-        <Card className={className}>
-            <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                        <Bot className="h-5 w-5" />
-                        Workflow Visualization
-                    </CardTitle>
+        <>
+            <Card className={className}>
+                <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            <Bot className="h-5 w-5" />
+                            Workflow Visualization
+                        </CardTitle>
 
-                    {/* Auto Layout Controls + Data Dump */}
-                    <div className="flex items-center gap-2">
-                        {/* Data Dump Button */}
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleDataDump}
-                            className="flex items-center gap-2"
-                            title="Copy current workflow data to clipboard"
-                        >
-                            <Clipboard className="h-4 w-4" />
-                            Dump Data
-                        </Button>
+                        {/* Auto Layout Controls + Data Dump */}
+                        <div className="flex items-center gap-2">
+                            {/* Data Dump Button */}
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleDataDump}
+                                className="flex items-center gap-2"
+                                title="Copy current workflow data to clipboard"
+                            >
+                                <Clipboard className="h-4 w-4" />
+                                Dump Data
+                            </Button>
 
-                        <Select
-                            value={selectedLayout}
-                            onValueChange={(value: keyof typeof LAYOUT_PRESETS) => handleApplyLayout(value)}
-                        >
-                            <SelectTrigger className="w-32">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="vertical">Vertical</SelectItem>
-                                <SelectItem value="horizontal">Horizontal</SelectItem>
-                                <SelectItem value="compact">Compact</SelectItem>
-                                <SelectItem value="spacious">Spacious</SelectItem>
-                            </SelectContent>
-                        </Select>
+                            <Select
+                                value={selectedLayout}
+                                onValueChange={(value: keyof typeof LAYOUT_PRESETS) => handleApplyLayout(value)}
+                            >
+                                <SelectTrigger className="w-32">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="vertical">Vertical</SelectItem>
+                                    <SelectItem value="horizontal">Horizontal</SelectItem>
+                                    <SelectItem value="compact">Compact</SelectItem>
+                                    <SelectItem value="spacious">Spacious</SelectItem>
+                                </SelectContent>
+                            </Select>
 
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleApplyLayout(selectedLayout)}
-                            disabled={nodes.length === 0}
-                            className="flex items-center gap-1"
-                        >
-                            <LayoutGrid className="h-4 w-4" />
-                            Layout
-                        </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleApplyLayout(selectedLayout)}
+                                disabled={nodes.length === 0}
+                                className="flex items-center gap-1"
+                            >
+                                <LayoutGrid className="h-4 w-4" />
+                                Layout
+                            </Button>
 
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={suggestAndApplyOptimalLayout}
-                            disabled={nodes.length === 0}
-                            className="flex items-center gap-1"
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={suggestAndApplyOptimalLayout}
+                                disabled={nodes.length === 0}
+                                className="flex items-center gap-1"
+                            >
+                                <RefreshCw className="h-4 w-4" />
+                                Auto
+                            </Button>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="w-full h-[calc(100vh-250px)]">
+                        <ReactFlow
+                            nodes={nodes}
+                            edges={edges}
+                            onNodesChange={onNodesChange}
+                            onEdgesChange={onEdgesChange}
+                            onConnect={onConnect}
+                            onNodeClick={handleNodeClick}
+                            nodeTypes={nodeTypes}
+                            edgeTypes={edgeTypes}
+                            attributionPosition="bottom-left"
                         >
-                            <RefreshCw className="h-4 w-4" />
-                            Auto
-                        </Button>
+                            {/* 동적 Dagre 레이아웃 컴포넌트 */}
+                            <DynamicDagreLayout
+                                layoutConfig={currentLayoutConfig}
+                                onLayoutComplete={() => {
+                                    console.log('✅ Dynamic layout applied successfully');
+                                    // Fit view after layout completion
+                                    // setTimeout(() => fitView({ duration: 500, padding: 0.1 }), 100);
+                                }}
+                            />
+
+                            <Controls />
+                            <MiniMap />
+                            <Background variant={BackgroundVariant.Dots} />
+                        </ReactFlow>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Node Info Modal */}
+            <Modal
+                isOpen={isInfoOpen}
+                onClose={() => setIsInfoOpen(false)}
+                title="Node Info"
+                size="md"
+            >
+                <div className="p-6 space-y-3">
+                    {selectedNode && (
+                        <div className="space-y-2 text-sm">
+                            <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs">{String(selectedNode.type)}</Badge>
+                                <span className="font-medium">{(selectedNode as any).data?.label || (selectedNode as any).data?.name || selectedNode.id}</span>
+                            </div>
+                            <div className="grid grid-cols-2 text-xs text-gray-600">
+                                <div>ID:</div>
+                                <div className="truncate" title={selectedNode.id}>{selectedNode.id}</div>
+                                <div>Type:</div>
+                                <div>{String(selectedNode.type)}</div>
+                            </div>
+                            <div className="text-xs bg-gray-50 p-2 rounded border max-h-64 overflow-auto">
+                                <pre className="whitespace-pre-wrap">{JSON.stringify((selectedNode as any).data, null, 2)}</pre>
+                            </div>
+                        </div>
+                    )}
+                    {!selectedNode && (
+                        <div className="text-xs text-gray-500">No node selected</div>
+                    )}
+                    <div className="flex justify-end">
+                        <Button size="sm" variant="outline" onClick={() => setIsInfoOpen(false)}>Close</Button>
                     </div>
                 </div>
-            </CardHeader>
-            <CardContent>
-                <div className="w-full h-[calc(100vh-250px)]">
-                    <ReactFlow
-                        nodes={nodes}
-                        edges={edges}
-                        onNodesChange={onNodesChange}
-                        onEdgesChange={onEdgesChange}
-                        onConnect={onConnect}
-                        nodeTypes={nodeTypes}
-                        edgeTypes={edgeTypes}
-                        fitView
-                        attributionPosition="bottom-left"
-                    >
-                        {/* 동적 Dagre 레이아웃 컴포넌트 */}
-                        <DynamicDagreLayout
-                            layoutConfig={currentLayoutConfig}
-                            onLayoutComplete={() => {
-                                console.log('✅ Dynamic layout applied successfully');
-                                // Fit view after layout completion
-                                setTimeout(() => fitView({ duration: 500, padding: 0.1 }), 100);
-                            }}
-                        />
-
-                        <Controls />
-                        <MiniMap />
-                        <Background variant={BackgroundVariant.Dots} />
-                    </ReactFlow>
-                </div>
-            </CardContent>
-        </Card>
+            </Modal>
+        </>
     );
 }
 
@@ -1221,6 +1460,8 @@ export function WorkflowVisualization(props: WorkflowVisualizationProps) {
     return (
         <ReactFlowProvider>
             <WorkflowVisualizationContent {...props} />
+            {/* Node Info Modal */}
+            {/* Placed outside to avoid re-mounting ReactFlow; uses portal modal */}
         </ReactFlowProvider>
     );
 }
