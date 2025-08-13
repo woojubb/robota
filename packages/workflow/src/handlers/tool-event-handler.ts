@@ -14,6 +14,8 @@ import type {
     HandlerPriority
 } from '../interfaces/event-handler.js';
 import type { WorkflowNode } from '../interfaces/workflow-node.js';
+import type { WorkflowEdge } from '../interfaces/workflow-edge.js';
+import { EdgeUtils } from '../interfaces/workflow-edge.js';
 import type { WorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES, type WorkflowNodeType } from '../constants/workflow-types.js';
 import { WorkflowState } from '../services/workflow-state.js';
@@ -58,30 +60,24 @@ export class ToolEventHandler implements EventHandler {
             switch (eventType) {
                 case 'tool.call_start':
                     const toolCallNode = this.createToolCallNode(eventData);
-                    // 메타: parentId/prevId 반영
                     if ((eventData as any).parentId) toolCallNode.parentId = String((eventData as any).parentId);
-                    // Prefer explicit prevId; then directParentId (thinking), then last assistant_message_start, then parentExecutionId
-                    const directParentId = (eventData as any).metadata?.directParentId as string | undefined;
-                    const assistantStart = WorkflowState.getLastAssistantStart(eventData.parentExecutionId || eventData.executionId);
-                    const agentNodeId = WorkflowState.getAgentForExecution(eventData.executionId);
-                    (toolCallNode.data as any).prevId = (eventData as any).prevId || directParentId || assistantStart || (eventData as any).parentExecutionId || agentNodeId;
-                    (toolCallNode.data as any).prevEdgeType = 'executes';
-                    // Persist mapping for later aggregation tool_result
-                    WorkflowState.setToolCallContext(String(eventData.executionId || (eventData as any).parameters?.toolCallId || ''), {
-                        thinkingId: directParentId || assistantStart,
-                        // Use original agent execution id from metadata if provided
-                        mainExecutionId: String((eventData as any).metadata?.executionId || eventData.parentExecutionId || '')
-                    });
-                    // Increment tool-call count for the main execution to allow response timing control
-                    WorkflowState.incrementToolCallCount(String((eventData as any).metadata?.executionId || eventData.parentExecutionId || ''));
-
-                    // ✅ Parent is execution node (round owner)
                     if (eventData.parentExecutionId) {
                         toolCallNode.parentId = String(eventData.parentExecutionId);
                         this.logger.debug(`🔗 [TOOL-CALL-PARENT] Setting parent: ${toolCallNode.parentId} for tool call: ${toolCallNode.id}`);
                     }
-
                     updates.push({ action: 'create', node: toolCallNode });
+                    // Explicit edge: thinking → tool_call ('executes')
+                    const parentThinking = (eventData as any).metadata?.directParentId || (eventData as any).parentExecutionId;
+                    if (parentThinking) {
+                        const edge: WorkflowEdge = {
+                            id: EdgeUtils.generateId(String(parentThinking), toolCallNode.id, 'executes' as any),
+                            source: String(parentThinking),
+                            target: toolCallNode.id,
+                            type: 'executes' as any,
+                            timestamp: Date.now()
+                        } as any;
+                        updates.push({ action: 'create', edge } as any);
+                    }
                     break;
 
                 case 'tool.call_complete':
@@ -95,23 +91,35 @@ export class ToolEventHandler implements EventHandler {
                     updates.push({ action: 'create', node: toolErrorNode });
                     break;
 
-                case 'tool.call_response_ready':
+                case 'tool.call_response_ready': {
                     const toolResponseNode = this.createToolResponseNode(eventData);
                     if ((eventData as any).parentId) toolResponseNode.parentId = String((eventData as any).parentId);
-                    (toolResponseNode.data as any).prevId = (eventData as any).prevId;
 
-                    // ✅ Tool response는 tool call에 연결
-                    if (eventData.toolCallId) {
-                        const execId = String(eventData.toolCallId);
-                        toolResponseNode.parentId = execId;
-                        this.logger.debug(`🔗 [TOOL-RESPONSE-PARENT] Setting parent: ${toolResponseNode.parentId} for tool response: ${toolResponseNode.id}`);
-                    } else if (eventData.parentExecutionId) {
-                        toolResponseNode.parentId = String(eventData.parentExecutionId);
-                        this.logger.debug(`🔗 [TOOL-RESPONSE-PARENT] Setting parent: ${toolResponseNode.parentId} for tool response: ${toolResponseNode.id}`);
+                    // Path-Only: derive response id from path tail execution segment
+                    const execTail = (eventData as any).path?.slice?.(-1)?.[0];
+                    const agentResponseId = execTail ? `response_${execTail}` : undefined;
+                    if (!agentResponseId) {
+                        throw new Error('[ToolEventHandler] tool.call_response_ready missing path tail for response resolution');
                     }
-
+                    // Aggregation context (groupPath from parent path)
+                    const groupPath = (eventData as any).path?.slice?.(0, -1)?.join?.('.');
                     updates.push({ action: 'create', node: toolResponseNode });
+                    // Explicit edge: agent_response → tool_response ('result')
+                    const edgeToResponse: WorkflowEdge = {
+                        id: EdgeUtils.generateId(agentResponseId, toolResponseNode.id, 'result' as any),
+                        source: agentResponseId,
+                        target: toolResponseNode.id,
+                        type: 'result' as any,
+                        timestamp: Date.now()
+                    } as any;
+                    updates.push({ action: 'create', edge: edgeToResponse } as any);
+                    try {
+                        if (groupPath) {
+                            WorkflowState.addToolResponseForGroup(groupPath, toolResponseNode.id);
+                        }
+                    } catch { /* ignore state collection errors */ }
                     break;
+                }
 
                 case 'tool.agent_execution_started':
                     const agentExecNode = this.createAgentExecutionStartedNode(eventData);
