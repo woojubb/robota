@@ -8,6 +8,8 @@ export type ModalType =
     | 'systemStatus'
     | 'authDebug'
     | 'workflowStatus'
+    | 'createAgent'
+    | 'createTeam'
     | null;
 
 export interface UseModalReturn {

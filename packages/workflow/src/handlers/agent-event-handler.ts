@@ -9,6 +9,8 @@ import type {
 } from '../interfaces/event-handler.js';
 import { HandlerPriority } from '../interfaces/event-handler.js';
 import type { WorkflowNode } from '../interfaces/workflow-node.js';
+import type { WorkflowEdge } from '../interfaces/workflow-edge.js';
+import { EdgeUtils } from '../interfaces/workflow-edge.js';
 import type { WorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
 import { WorkflowState } from '../services/workflow-state.js';
@@ -73,16 +75,42 @@ export class AgentEventHandler implements EventHandler {
                         break;
                     }
                     const agentNode = this.createAgentNode(data);
-                    // Link from parentExecutionId (tool_call) when present to reflect 'creates' relationship
                     if (data.parentExecutionId) {
-                        (agentNode.data as any).prevId = String(data.parentExecutionId);
-                        (agentNode.data as any).prevEdgeType = 'creates';
                         (agentNode as any).parentId = String(data.parentExecutionId);
                     }
                     updates.push({ action: 'create', node: agentNode });
+                    // Explicit edge creation (no prevId)
+                    const rootId = String((data as any).rootExecutionId || data.sourceId || '');
+                    let edgeSource: string | undefined;
+                    let edgeType: any = 'receives';
+                    if (data.parentExecutionId) {
+                        edgeSource = String(data.parentExecutionId);
+                        edgeType = 'creates';
+                    } else {
+                        const rootUser = WorkflowState.getRootUserMessage(rootId);
+                        if (rootUser) edgeSource = rootUser;
+                        if (!edgeSource) {
+                            const lastUser = WorkflowState.getLastUserMessage(rootId) || WorkflowState.getLastUserMessage(String(data.executionId || ''));
+                            if (lastUser) edgeSource = lastUser;
+                        }
+                    }
+                    if (edgeSource) {
+                        const edge: WorkflowEdge = {
+                            id: EdgeUtils.generateId(edgeSource, agentNode.id, edgeType),
+                            source: edgeSource,
+                            target: agentNode.id,
+                            type: edgeType,
+                            timestamp: Date.now()
+                        } as any;
+                        updates.push({ action: 'create', edge } as any);
+                    }
                     this.agentNodeIdMap.set(String(data.sourceId), agentNode.id);
                     if (data.executionId) {
                         WorkflowState.setAgentForExecution(String(data.executionId), agentNode.id);
+                    }
+                    // Link delegated agent execution to its creating tool_call for precise response→tool_response mapping
+                    if (data.executionId && data.parentExecutionId) {
+                        WorkflowState.setToolCallForAgentExecution(String(data.executionId), String(data.parentExecutionId));
                     }
                     if (data.rootExecutionId || data.sourceId) {
                         WorkflowState.setAgentForRoot(String(data.rootExecutionId || data.sourceId), agentNode.id);
@@ -99,45 +127,56 @@ export class AgentEventHandler implements EventHandler {
                 case 'execution.assistant_message_start': {
                     // Create thinking node and record it to WorkflowState for tool.prev resolution
                     const thinkingNode = this.createAgentThinkingNode(data);
-                    // Prefer provided prev, otherwise chain from last aggregation
-                    const providedPrev = (data as any).prevId as string | undefined;
-                    const fallbackPrev = WorkflowState.getLastAggregation(data.parentExecutionId || data.executionId);
-                    // Prefer last aggregation to chain rounds; otherwise provided prev (usually execution)
-                    (thinkingNode.data as any).prevId = fallbackPrev || providedPrev || (data as any).parentExecutionId;
-                    // Edge type: if coming from aggregation (tool_result) use 'analyze', else 'processes'
-                    (thinkingNode.data as any).prevEdgeType = fallbackPrev ? 'analyze' : 'processes';
-                    // If prev is agent node (first creation), prefer linking via user_message when available
-                    if (!fallbackPrev) {
-                        const candidates = [
-                            String(data.executionId || ''),
-                            String(data.parentExecutionId || ''),
-                            String((data as any).rootExecutionId || ''),
-                            String(data.sourceId || '')
-                        ].filter(Boolean);
-                        let lastUser: string | undefined;
-                        for (const key of candidates) {
-                            lastUser = WorkflowState.getLastUserMessage(key);
-                            if (lastUser) break;
-                        }
-                        if (lastUser) {
-                            (thinkingNode.data as any).prevId = lastUser;
-                            (thinkingNode.data as any).prevEdgeType = 'processes';
-                        }
-                    }
                     updates.push({ action: 'create', node: thinkingNode });
+                    // Explicit edge: from last aggregation → thinking (analyze) OR user_message → thinking (processes)
+                    const fallbackPrev = WorkflowState.getLastAggregation(data.parentExecutionId || data.executionId);
+                    let sourceForThinking: string | undefined = fallbackPrev;
+                    let typeForThinking: any = fallbackPrev ? 'analyze' : 'processes';
+                    if (!sourceForThinking) {
+                        const rootId = String((data as any).rootExecutionId || data.sourceId || '');
+                        sourceForThinking = WorkflowState.getRootUserMessage(rootId)
+                            || WorkflowState.getLastUserMessage(rootId)
+                            || WorkflowState.getLastUserMessage(String(data.executionId || ''));
+                    }
+                    if (sourceForThinking) {
+                        const edge: WorkflowEdge = {
+                            id: EdgeUtils.generateId(sourceForThinking, thinkingNode.id, typeForThinking),
+                            source: sourceForThinking,
+                            target: thinkingNode.id,
+                            type: typeForThinking,
+                            timestamp: Date.now()
+                        } as any;
+                        updates.push({ action: 'create', edge } as any);
+                    }
                     // Save for subsequent tool calls
                     WorkflowState.setLastAssistantStart(String(data.parentExecutionId || data.executionId), thinkingNode.id);
+                    // Also expose thinking → last response mapping anchor reset
+                    WorkflowState.setLastResponseForThinking(thinkingNode.id, '');
+                    // Record latest thinking for this source to allow response to link back even if start event wasn't captured by WorkflowState
+                    try {
+                        const roundKey = this.createThinkingRoundKey(data, (thinkingNode as any)?.timestamp ?? Date.now());
+                        this.agentToThinkingMap.set(roundKey, thinkingNode.id);
+                    } catch { }
                     break;
                 }
 
                 case 'execution.assistant_message_complete': {
                     const responseNode = this.createAgentResponseNode(data);
-                    // Prefer explicit prev; otherwise link to the last assistant start
-                    const providedPrev = (data as any).prevId as string | undefined;
-                    const assistantStart = WorkflowState.getLastAssistantStart(data.parentExecutionId || data.executionId);
-                    (responseNode.data as any).prevId = assistantStart || providedPrev || (data as any).parentExecutionId;
-                    (responseNode.data as any).prevEdgeType = 'return';
                     updates.push({ action: 'create', node: responseNode });
+                    // Explicit edge: thinking → response ('return')
+                    const thinkingForResponse =
+                        WorkflowState.getLastAssistantStart(data.executionId) ||
+                        WorkflowState.getLastAssistantStart(data.parentExecutionId || undefined);
+                    if (thinkingForResponse) {
+                        const edge: WorkflowEdge = {
+                            id: EdgeUtils.generateId(thinkingForResponse, responseNode.id, 'return' as any),
+                            source: thinkingForResponse,
+                            target: responseNode.id,
+                            type: 'return' as any,
+                            timestamp: Date.now()
+                        } as any;
+                        updates.push({ action: 'create', edge } as any);
+                    }
                     break;
                 }
 
@@ -259,7 +298,8 @@ export class AgentEventHandler implements EventHandler {
 
     private createAgentResponseNode(data: any): WorkflowNode {
         const agentNumber = this.agentNumberMap.get(String(data.sourceId)) || 0;
-        const responseId = `response_agent_${agentNumber}_${data.executionId || Date.now()}`;
+        // Path-Only: standardize response id to be deterministic by executionId
+        const responseId = `response_${data.executionId || Date.now()}`;
 
         return {
             id: responseId,

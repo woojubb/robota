@@ -97,75 +97,12 @@ export class TeamEventHandler implements EventHandler {
                     break;
 
                 case 'team.tool_response_ready':
-                    // ✅ Team 도메인에서 발생하는 tool response ready 처리 (올바른 소유권)
-                    const toolCallResponseNode = this.createToolCallResponseNode(eventData);
-                    if ((eventData as any).parentId) toolCallResponseNode.parentId = String((eventData as any).parentId);
-                    (toolCallResponseNode.data as any).prevId = (eventData as any).prevId;
-                    updates.push({ action: 'create', node: toolCallResponseNode });
-                    // Collect per-thinking for later aggregation join
-                    {
-                        const toolCallId = String(eventData.parentExecutionId || eventData.executionId || '');
-                        const toolCtx = WorkflowState.getToolCallContext(toolCallId);
-                        const thinkingId = String(toolCtx?.thinkingId || toolCallId);
-                        const set = this.toolResponsesByThinking.get(thinkingId) || new Set<string>();
-                        set.add(toolCallResponseNode.id);
-                        this.toolResponsesByThinking.set(thinkingId, set);
-                        // If tool_result already exists for this thinking, append this response immediately
-                        const existingToolResultId = this.thinkingToToolResultId.get(thinkingId);
-                        if (existingToolResultId) {
-                            const updateNode: WorkflowNode = {
-                                id: existingToolResultId,
-                                type: WORKFLOW_NODE_TYPES.TOOL_RESULT,
-                                level: 2,
-                                status: 'running',
-                                timestamp: Date.now(),
-                                data: { prevIds: Array.from(set) },
-                                connections: []
-                            } as unknown as WorkflowNode;
-                            updates.push({ action: 'update', node: updateNode });
-                        }
-                    }
+                    // 🚫 Phase-out: Do not create nodes from team.* for tool responses anymore
+                    // Intentionally no-op to avoid duplicate creation. Tool responses are handled by ToolEventHandler.
                     break;
 
                 case 'team.aggregation_complete':
-                    // Create tool_result aggregation node instead of generic aggregation
-                    if (!eventData.parentExecutionId) {
-                        break;
-                    }
-                    // parentExecutionId is toolCallId in our event flow; resolve thinking and main exec
-                    const toolCallId = String(eventData.parentExecutionId);
-                    const toolCtx = WorkflowState.getToolCallContext(toolCallId);
-                    const thinkingId = String(toolCtx?.thinkingId || toolCallId);
-                    const collectedSet = this.toolResponsesByThinking.get(thinkingId) || new Set<string>();
-                    const prevIds = Array.from(collectedSet);
-                    const existingToolResultId = this.thinkingToToolResultId.get(thinkingId);
-                    if (existingToolResultId) {
-                        // Update existing tool_result node by appending prevIds
-                        const updateNode: WorkflowNode = {
-                            id: existingToolResultId,
-                            type: WORKFLOW_NODE_TYPES.TOOL_RESULT,
-                            level: 2,
-                            status: 'running',
-                            timestamp: Date.now(),
-                            data: { prevIds },
-                            connections: []
-                        } as unknown as WorkflowNode;
-                        updates.push({ action: 'update', node: updateNode });
-                    } else {
-                        const toolResultNode = this.createToolResultNode(thinkingId, String(eventData.sourceId));
-                        if (prevIds.length > 0) {
-                            (toolResultNode.data as any).prevIds = prevIds;
-                        }
-                        updates.push({ action: 'create', node: toolResultNode });
-                        this.thinkingToToolResultId.set(thinkingId, toolResultNode.id);
-                    }
-                    // Persist last aggregation (tool_result) for both thinking scope and main execution scope
-                    const savedId = this.thinkingToToolResultId.get(thinkingId) as string;
-                    WorkflowState.setLastAggregation(thinkingId, savedId);
-                    if (toolCtx?.mainExecutionId) {
-                        WorkflowState.setLastAggregation(String(toolCtx.mainExecutionId), savedId);
-                    }
-                    // Keep collected responses until round changes (do not clear to allow accumulation)
+                    // 🚫 Phase-out: Do not create tool_result here. Execution domain will create aggregation.
                     break;
 
                 default:

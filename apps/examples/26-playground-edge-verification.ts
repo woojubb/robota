@@ -103,9 +103,10 @@ async function testPlaygroundEdgeConnections() {
         // 루트 인젝션: 루트 baseEventService에서 모든 이벤트를 브로드캐스트
         const rootEventService: any = (baseEventService as any).baseEventService ?? baseEventService;
         const rootOriginalEmit = rootEventService.emit.bind(rootEventService);
+        // Forward events to subscriber immediately without additional sequencing (natural order is already guaranteed)
         rootEventService.emit = function (eventType: any, data: any) {
             rootOriginalEmit(eventType, data);
-            workflowSubscriber.processEvent(eventType, data);
+            void workflowSubscriber.processEvent(eventType, data);
         };
 
         console.log('✅ WorkflowEventSubscriber connected to team EventService');

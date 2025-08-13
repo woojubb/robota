@@ -14,6 +14,8 @@ import type {
     HandlerPriority
 } from '../interfaces/event-handler.js';
 import type { WorkflowNode } from '../interfaces/workflow-node.js';
+import type { WorkflowEdge } from '../interfaces/workflow-edge.js';
+import { EdgeUtils } from '../interfaces/workflow-edge.js';
 import type { WorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
 import { WorkflowState } from '../services/workflow-state.js';
@@ -56,6 +58,72 @@ export class ExecutionEventHandler implements EventHandler {
             let success = true;
 
             switch (eventType) {
+                case 'execution.tool_results_ready': {
+                    // Create tool_result aggregation for the provided thinking context
+                    // Inputs are expected to include metadata.thinkingId or parentExecutionId referencing thinking context
+                    const thinkingId = String((eventData as any).metadata?.thinkingId || (eventData as any).thinkingId || (eventData as any).parentThinkingNodeId || '');
+                    const mainExec = String((eventData as any).parentExecutionId || (eventData as any).executionId || '');
+                    if (!thinkingId) {
+                        // Nothing to do without thinking context
+                        break;
+                    }
+                    const responseIds = WorkflowState.getToolResponsesForThinking(thinkingId);
+                    if (!responseIds || responseIds.length === 0) {
+                        // Nothing to aggregate – do not create a dangling tool_result
+                        break;
+                    }
+                    // Build tool_result node
+                    const nodeId = `tool_result_${thinkingId}_${Date.now()}`;
+                    const toolResultNode: WorkflowNode = {
+                        id: nodeId,
+                        type: WORKFLOW_NODE_TYPES.TOOL_RESULT,
+                        level: 2,
+                        status: 'running',
+                        timestamp: Date.now(),
+                        data: {
+                            sourceId: String(eventData.sourceId || 'execution'),
+                            sourceType: 'execution',
+                            parentThinkingNodeId: thinkingId,
+                            label: 'Tool Result Aggregation',
+                            description: 'Aggregating tool call results',
+                            prevIds: responseIds,
+                            aggregationInfo: {
+                                parentThinking: thinkingId,
+                                toolCallsCount: responseIds.length,
+                                status: 'aggregating'
+                            },
+                            extensions: {
+                                robota: {
+                                    handlerType: 'execution',
+                                    isAggregation: true,
+                                    parentThinkingNodeId: thinkingId
+                                }
+                            }
+                        },
+                        connections: []
+                    } as unknown as WorkflowNode;
+                    // Do not link tool_result directly from thinking; aggregation joins come from tool_response only
+                    updates.push({ action: 'create', node: toolResultNode });
+                    // Explicit join edges: tool_response[*] → tool_result ('result')
+                    for (const rid of responseIds) {
+                        const edge: WorkflowEdge = {
+                            id: EdgeUtils.generateId(rid, nodeId, 'result' as any),
+                            source: rid,
+                            target: nodeId,
+                            type: 'result' as any,
+                            timestamp: Date.now()
+                        } as any;
+                        updates.push({ action: 'create', edge } as any);
+                    }
+                    // Persist last aggregation for linking next thinking
+                    WorkflowState.setLastAggregation(thinkingId, nodeId);
+                    if (mainExec) {
+                        WorkflowState.setLastAggregation(String(mainExec), nodeId);
+                    }
+                    // Optionally clear collected responses for this thinking (next rounds will recollect)
+                    WorkflowState.clearToolResponsesForThinking(thinkingId);
+                    break;
+                }
                 case 'execution.start':
                     // Do not create execution node here; AgentEventHandler creates agent node instead
                     break;
@@ -84,17 +152,24 @@ export class ExecutionEventHandler implements EventHandler {
                     {
                         const userMessageNode = this.createUserMessageNode(eventData);
                         if ((eventData as any).parentId) userMessageNode.parentId = String((eventData as any).parentId);
-                        // Prefer agent node as receiver of user message
-                        const agentNodeForExec = WorkflowState.getAgentForExecution(String(eventData.executionId || ''))
-                            || WorkflowState.getAgentForRoot(String(eventData.rootExecutionId || eventData.sourceId || ''));
-                        (userMessageNode.data as any).prevId = agentNodeForExec || (eventData as any).prevId;
-                        (userMessageNode.data as any).prevEdgeType = 'receives';
-                        // Parent from context only
                         if (eventData.parentExecutionId) {
                             userMessageNode.parentId = String(eventData.parentExecutionId);
                         }
                         updates.push({ action: 'create', node: userMessageNode });
                         this.userMessageNodeMap.set(String(eventData.sourceId), userMessageNode.id);
+                        // Explicit edge: agent → user_message ('receives')
+                        const agentNodeForExec = WorkflowState.getAgentForExecution(String(eventData.executionId || ''))
+                            || WorkflowState.getAgentForRoot(String(eventData.rootExecutionId || eventData.sourceId || ''));
+                        if (agentNodeForExec) {
+                            const edge: WorkflowEdge = {
+                                id: EdgeUtils.generateId(agentNodeForExec, userMessageNode.id, 'receives' as any),
+                                source: agentNodeForExec,
+                                target: userMessageNode.id,
+                                type: 'receives' as any,
+                                timestamp: Date.now()
+                            } as any;
+                            updates.push({ action: 'create', edge } as any);
+                        }
                         // Record last user message under multiple context keys for robust lookup
                         {
                             const keys = [
@@ -116,15 +191,34 @@ export class ExecutionEventHandler implements EventHandler {
                     {
                         const userMessageNode = this.createUserMessageNode(eventData);
                         if ((eventData as any).parentId) userMessageNode.parentId = String((eventData as any).parentId);
-                        const agentNodeForExec2 = WorkflowState.getAgentForExecution(String(eventData.executionId || ''))
-                            || WorkflowState.getAgentForRoot(String(eventData.rootExecutionId || eventData.sourceId || ''));
-                        (userMessageNode.data as any).prevId = agentNodeForExec2 || (eventData as any).prevId;
-                        (userMessageNode.data as any).prevEdgeType = 'receives';
                         if (eventData.parentExecutionId) {
                             userMessageNode.parentId = String(eventData.parentExecutionId);
                         }
                         updates.push({ action: 'create', node: userMessageNode });
                         this.userMessageNodeMap.set(String(eventData.sourceId), userMessageNode.id);
+                        const rootId = String(eventData.rootExecutionId || eventData.sourceId || '');
+                        // Register as root user_message if not set yet for this root
+                        if (rootId) {
+                            WorkflowState.setRootUserMessage(rootId, userMessageNode.id);
+                        }
+                        // Also register this user message as an anchor for the current thinking if provided
+                        const thinkingIdForRound = String((eventData as any)?.metadata?.thinkingId || '');
+                        if (thinkingIdForRound) {
+                            WorkflowState.setUserAnchorForThinking(thinkingIdForRound, userMessageNode.id);
+                        }
+                        // Explicit edge: agent → user_message ('receives')
+                        const agentNodeForExec2 = WorkflowState.getAgentForExecution(String(eventData.executionId || ''))
+                            || WorkflowState.getAgentForRoot(rootId);
+                        if (agentNodeForExec2) {
+                            const edge: WorkflowEdge = {
+                                id: EdgeUtils.generateId(agentNodeForExec2, userMessageNode.id, 'receives' as any),
+                                source: agentNodeForExec2,
+                                target: userMessageNode.id,
+                                type: 'receives' as any,
+                                timestamp: Date.now()
+                            } as any;
+                            updates.push({ action: 'create', edge } as any);
+                        }
                         // Record last user message under multiple context keys for robust lookup
                         {
                             const keys = [

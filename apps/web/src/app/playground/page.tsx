@@ -816,6 +816,8 @@ function PlaygroundContent() {
 function WorkflowTestButtons() {
     const { state, setWorkflow } = usePlayground();
 
+    // No sanitization or mutation: UI displays workflow exactly as produced by SDK (Example 26 parity)
+
     // 🎯 실제 SDK 데이터 주입
     const handleLoadRealData = useCallback(() => {
         console.log('🎯 [REAL-DATA] Loading actual SDK workflow data from Example 25...');

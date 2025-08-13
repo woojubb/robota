@@ -24,7 +24,8 @@ export const EXECUTION_EVENTS = {
     ASSISTANT_MESSAGE_START: 'execution.assistant_message_start',
     ASSISTANT_MESSAGE_COMPLETE: 'execution.assistant_message_complete',
     USER_MESSAGE: 'execution.user_message',
-    TOOL_RESULTS_TO_LLM: 'execution.tool_results_to_llm'
+    TOOL_RESULTS_TO_LLM: 'execution.tool_results_to_llm',
+    TOOL_RESULTS_READY: 'execution.tool_results_ready'
 } as const;
 
 /**
@@ -34,7 +35,8 @@ export const EXECUTION_EVENTS = {
 export const TOOL_EVENTS = {
     CALL_START: 'tool.call_start',
     CALL_COMPLETE: 'tool.call_complete',
-    CALL_ERROR: 'tool.call_error'
+    CALL_ERROR: 'tool.call_error',
+    CALL_RESPONSE_READY: 'tool.call_response_ready'
 } as const;
 
 // Step 1: ❌ Can't use Error.executionId (not in Error interface)
@@ -116,6 +118,7 @@ export class ExecutionService {
     private logger: Logger;
     private eventService: EventService;
     private executionContext?: ToolExecutionContext; // 🎯 [CONTEXT-INJECTION] Parent execution context
+    private lastResponseExecutionId?: string; // Track last response ID for tool_response linking
 
     constructor(
         aiProviders: AIProviderManagerInterface,
@@ -601,6 +604,9 @@ export class ExecutionService {
                         const responseStartTime = assistantResponse.timestamp || new Date();
                         const responseDuration = new Date().getTime() - responseStartTime.getTime();
 
+                        // Store response execution ID for tool_response linking
+                        this.lastResponseExecutionId = executionId;
+
                         this.eventService.emit(EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE, {
                             sourceType: 'agent',
                             sourceId: fullContext.conversationId || executionId,
@@ -632,7 +638,10 @@ export class ExecutionService {
                             },
                             // Hierarchical tracking information
                             rootExecutionId: fullContext.conversationId || executionId,
-                            parentExecutionId: executionId, // Parent is execution node for this round
+                            // If this ExecutionService was invoked by a tool (delegated agent),
+                            // preserve the invoking tool_call ID as parentExecutionId so that
+                            // downstream handlers can map response → tool_call accurately.
+                            parentExecutionId: this.executionContext?.parentExecutionId || executionId,
                             executionLevel: 1, // Assistant message completion is Level 1
                             executionPath: [fullContext.conversationId || executionId],
                             metadata: {
@@ -736,13 +745,14 @@ export class ExecutionService {
 
                 const toolSummary = await this.toolExecutionService.executeTools(toolContext);
 
+                // (non-streaming) response_ready emit handled below with thinkingNodeId context
+
                 // 🎯 [EVENT-ORDER-FIX] tool.call_complete는 이제 "도구 호출만 완료된 상태"를 의미
                 // tool_call_response 노드는 실제 도구 결과가 준비된 시점에서 생성
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                     for (const result of toolSummary.results) {
-                        // 🔧 [PHASE-1] 도구 호출 완료 이벤트 - 아직 결과 노드 생성하지 않음
-                        this.eventService.emit(TOOL_EVENTS.CALL_COMPLETE, {
-                            sourceType: 'agent',
+                        const payload = {
+                            sourceType: 'agent' as const,
                             sourceId: fullContext.conversationId || executionId,
                             toolName: result.toolName,
                             timestamp: new Date(),
@@ -754,15 +764,22 @@ export class ExecutionService {
                                 error: result.success ? undefined : (result.error ?? 'Unknown error')
                             },
                             rootExecutionId: fullContext.conversationId || executionId,
-                            executionLevel: 2, // Tool level
+                            executionLevel: 2 as const,
                             executionPath: [fullContext.conversationId || executionId, executionId],
                             metadata: {
                                 executionId: result.executionId,
                                 success: result.success,
                                 round: currentRound,
-                                phase: 'tool_call_only' // 🎯 도구 호출만 완료, 결과 노드는 아직 미생성
-                            }
-                        });
+                                // thinking context (parent is thinkingNodeId)
+                                directParentId: thinkingNodeId,
+                                // Provide delegated agent response execution id hint when available
+                                responseExecutionId: this.lastResponseExecutionId
+                            },
+                            // Provide parentExecutionId = thinking node so handler can connect properly
+                            parentExecutionId: thinkingNodeId
+                        };
+                        // Emit response-ready to drive response node creation immediately
+                        this.eventService.emit(TOOL_EVENTS.CALL_RESPONSE_READY, payload);
                     }
                 }
 
@@ -829,9 +846,30 @@ export class ExecutionService {
                     });
                 }
 
-                // Emit tool results to LLM event
+                // Emit tool results ready (join trigger) and then delivery to LLM
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                     const rootId = fullContext.conversationId || executionId;
+                    // 1) Join trigger for workflow aggregation
+                    this.eventService.emit(EXECUTION_EVENTS.TOOL_RESULTS_READY, {
+                        sourceType: 'agent',
+                        sourceId: rootId,
+                        timestamp: new Date(),
+                        // thinking context for this round
+                        thinkingId: thinkingNodeId,
+                        // Hierarchical tracking
+                        rootExecutionId: rootId,
+                        parentExecutionId: executionId,
+                        executionLevel: 1,
+                        executionPath: [rootId],
+                        metadata: {
+                            executionId,
+                            round: currentRound,
+                            conversationId: fullContext.conversationId,
+                            thinkingId: thinkingNodeId
+                        }
+                    });
+
+                    // 2) Delivery to LLM (unchanged purpose)
                     this.eventService.emit(EXECUTION_EVENTS.TOOL_RESULTS_TO_LLM, {
                         sourceType: 'agent',
                         sourceId: rootId,
@@ -1278,6 +1316,28 @@ export class ExecutionService {
                         toolCall.function.name,
                         metadata
                     );
+                }
+
+                // After all tool responses are emitted and recorded, trigger aggregation join
+                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                    const rootId = context?.conversationId || executionId;
+                    this.eventService.emit(EXECUTION_EVENTS.TOOL_RESULTS_READY, {
+                        sourceType: 'agent',
+                        sourceId: rootId,
+                        timestamp: new Date(),
+                        thinkingId: streamingThinkingNodeId,
+                        rootExecutionId: rootId,
+                        parentExecutionId: executionId,
+                        executionLevel: 1,
+                        executionPath: [rootId],
+                        metadata: {
+                            executionId,
+                            toolsExecuted: toolSummary.results.map(r => r.toolName || 'unknown'),
+                            round: 1, // streaming path has no explicit rounds; use 1 as placeholder context
+                            conversationId: rootId,
+                            thinkingId: streamingThinkingNodeId
+                        }
+                    });
                 }
             }
 

@@ -39,6 +39,9 @@ export interface EventData {
     rootExecutionId?: string;
     executionLevel?: number;
 
+    // Path-first context (immutable, extended on delegation/fork)
+    path?: string[];
+
     /**
      * Branch anchor identifier (common parent for a fork)
      * Handlers should set node.parentId = parentId (metadata only; edges are prev-based)

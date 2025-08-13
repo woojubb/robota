@@ -11,6 +11,7 @@ import {
     ReactFlow,
     Node,
     Edge,
+    type NodeChange,
     Controls,
     MiniMap,
     Background,
@@ -1051,9 +1052,15 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }:
     const [selectedLayout, setSelectedLayout] = useState<keyof typeof LAYOUT_PRESETS>('compact');
     const [isAutoLayoutEnabled, setIsAutoLayoutEnabled] = useState(true);
     const [currentLayoutConfig, setCurrentLayoutConfig] = useState<LayoutConfig>(LAYOUT_PRESETS.compact);
-    const { fitView, setCenter, getZoom } = useReactFlow();
+    const { fitView, setCenter, getZoom, getNode } = useReactFlow() as any;
     const [isInfoOpen, setIsInfoOpen] = useState(false);
     const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+
+    // Centering control state
+    const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
+    const [layoutReady, setLayoutReady] = useState(false);
+    const rafForCenterRef = useRef<number | null>(null);
+    const nodeInternals = useStore((state: any) => state.nodeInternals);
 
     // Progressive reveal runner refs
     const runIdRef = useRef(0);
@@ -1063,6 +1070,7 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }:
     const revealQueueRef = useRef<string[]>([]);
     const pendingEdgesRef = useRef<Edge[]>([]);
     const nodesByIdRef = useRef<Map<string, Node>>(new Map());
+    const lastAddedNodeIdRef = useRef<string | null>(null);
 
     const clearTimer = useCallback(() => {
         if (timerRef.current) {
@@ -1094,18 +1102,10 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }:
             return [...prev, node];
         });
         displayedNodeIdsRef.current.add(nextId);
+        lastAddedNodeIdRef.current = nextId;
 
-        // Center camera to the newly revealed node on every step
-        {
-            const zoom = getZoom();
-            // Defer to next tick to ensure node is in state
-            window.setTimeout(() => {
-                const pos = (node as any).position;
-                if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
-                    setCenter(pos.x, pos.y, { duration: 600, zoom });
-                }
-            }, 0);
-        }
+        // Defer centering via state + effect to ensure layout and measurement are ready
+        setFocusNodeId(nextId);
 
         // Move addable edges from pending to displayed (dedup by id)
         const addable: Edge[] = [];
@@ -1142,7 +1142,7 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }:
         }
 
         timerRef.current = window.setTimeout(() => processNext(runId), 500);
-    }, [canShowEdge, setNodes, setEdges, getZoom, setCenter]);
+    }, [canShowEdge, setNodes, setEdges, setFocusNodeId]);
 
     // 레이아웃 적용 함수 - DynamicDagreLayout 컴포넌트를 통해서만 처리
     const applyAutoLayout = useCallback((layoutPreset?: keyof typeof LAYOUT_PRESETS) => {
@@ -1171,6 +1171,84 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }:
         setSelectedLayout(suggestedLayout);
         applyAutoLayout(suggestedLayout);
     }, [nodes, edges, applyAutoLayout]);
+
+    // Center the most recently added node when React Flow reports node updates (dimensions/position)
+    const handleNodesChange = useCallback((changes: NodeChange[]) => {
+        onNodesChange(changes);
+
+        const lastId = lastAddedNodeIdRef.current;
+        if (!lastId || !changes || changes.length === 0) return;
+
+        const hasRelevantUpdate = changes.some(
+            (c: any) => c && c.id === lastId && (c.type === 'dimensions' || c.type === 'position')
+        );
+        if (!hasRelevantUpdate) return;
+
+        // Use latest RF node (ensures measured width/height and final position)
+        const rfNode = typeof (getNode as any) === 'function' ? (getNode as any)(lastId) : null;
+        if (!rfNode || typeof rfNode?.position?.x !== 'number' || typeof rfNode?.position?.y !== 'number') return;
+
+        const width = rfNode.width ?? rfNode?.data?.actualWidth ?? rfNode?.data?.computedWidth ?? 192;
+        const height = rfNode.height ?? rfNode?.data?.actualHeight ?? rfNode?.data?.computedHeight ?? 80;
+
+        if (typeof width !== 'number' || typeof height !== 'number') return;
+
+        const centerX = rfNode.position.x + width / 2;
+        const centerY = rfNode.position.y + height / 2;
+        const zoom = typeof getZoom === 'function' ? getZoom() : 1;
+        setCenter(centerX, centerY, { duration: 600, zoom });
+    }, [onNodesChange, getNode, getZoom, setCenter]);
+
+    // Centering effect: run when focus target is set. Uses a short RAF loop
+    // to wait for actual measurement if it's not yet available.
+    useEffect(() => {
+        if (!focusNodeId) return;
+
+        let attempts = 0;
+        const maxAttempts = 16; // ~16 frames ≈ 250ms at 60fps
+
+        const tryCenter = () => {
+            attempts += 1;
+            // Prefer React Flow store node (ensures latest position + measured size)
+            const rfNode = typeof getNode === 'function' ? getNode(focusNodeId) : null;
+            const positionedNode = rfNode || nodesByIdRef.current.get(focusNodeId);
+            const pos = (positionedNode as any)?.position;
+
+            // Fallback to computed dimensions if actual not measured yet
+            const width = (rfNode?.width ?? (positionedNode as any)?.data?.actualWidth ?? (positionedNode as any)?.data?.computedWidth ?? 192);
+            const height = (rfNode?.height ?? (positionedNode as any)?.data?.actualHeight ?? (positionedNode as any)?.data?.computedHeight ?? 80);
+
+            if (
+                pos && typeof pos.x === 'number' && typeof pos.y === 'number' &&
+                typeof width === 'number' && typeof height === 'number'
+            ) {
+                const centerX = pos.x + width / 2;
+                const centerY = pos.y + height / 2;
+                const zoom = typeof getZoom === 'function' ? getZoom() : 1;
+
+                setCenter(centerX, centerY, { duration: 600, zoom });
+                return; // success; stop loop
+            }
+
+            if (attempts < maxAttempts) {
+                rafForCenterRef.current = requestAnimationFrame(tryCenter);
+            }
+        };
+
+        if (rafForCenterRef.current) cancelAnimationFrame(rafForCenterRef.current);
+        rafForCenterRef.current = requestAnimationFrame(tryCenter);
+
+        return () => {
+            if (rafForCenterRef.current) cancelAnimationFrame(rafForCenterRef.current);
+        };
+    }, [focusNodeId, nodeInternals, getZoom, setCenter]);
+
+    // Cleanup pending RAF on unmount
+    useEffect(() => {
+        return () => {
+            if (rafForCenterRef.current) cancelAnimationFrame(rafForCenterRef.current);
+        };
+    }, []);
 
     // 🔍 Data Dump 기능 - 현재 workflow 데이터를 클립보드에 복사
     const handleDataDump = useCallback(async () => {
@@ -1416,7 +1494,7 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }:
                         <ReactFlow
                             nodes={nodes}
                             edges={edges}
-                            onNodesChange={onNodesChange}
+                            onNodesChange={handleNodesChange}
                             onEdgesChange={onEdgesChange}
                             onConnect={onConnect}
                             onNodeClick={handleNodeClick}
@@ -1428,9 +1506,7 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }:
                             <DynamicDagreLayout
                                 layoutConfig={currentLayoutConfig}
                                 onLayoutComplete={() => {
-                                    console.log('✅ Dynamic layout applied successfully');
-                                    // Fit view after layout completion
-                                    // setTimeout(() => fitView({ duration: 500, padding: 0.1 }), 100);
+                                    setLayoutReady(true);
                                 }}
                             />
 
