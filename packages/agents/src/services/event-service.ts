@@ -285,17 +285,36 @@ export class ActionTrackingEventService implements EventService {
     private readonly executionHierarchy: Map<string, ExecutionNode> = new Map();
     private readonly logger: SimpleLogger;
     private readonly executionContext?: ToolExecutionContext; // 🎯 [CONTEXT-INJECTION] Store execution context for hierarchy tracking
+    // 🎯 [PREFIX-OWNERSHIP] Optional owner prefix for event name validation (e.g., 'execution', 'tool', 'agent')
+    private readonly ownerPrefix?: string;
+    // 🎯 [PREFIX-OWNERSHIP] Whether to strictly enforce prefix validation (default: true)
+    private readonly strictPrefix: boolean;
 
-    constructor(baseEventService?: EventService, logger?: SimpleLogger, executionContext?: ToolExecutionContext) {
+    constructor(baseEventService?: EventService, logger?: SimpleLogger, executionContext?: ToolExecutionContext, options?: { ownerPrefix?: string; strictPrefix?: boolean }) {
         this.baseEventService = baseEventService || new SilentEventService();
         this.logger = logger || DefaultConsoleLogger;
         this.executionContext = executionContext; // 🎯 [CONTEXT-INJECTION] Store context for hierarchy enrichment
+        this.ownerPrefix = options?.ownerPrefix;
+        this.strictPrefix = options?.strictPrefix ?? true;
     }
 
     /**
      * Standard emit method - forwards to base service with enriched hierarchy data
      */
     emit(eventType: ServiceEventType, data: ServiceEventData): void {
+        // 🎯 [PREFIX-OWNERSHIP] Validate event name against ownerPrefix when provided
+        if (this.ownerPrefix) {
+            const expected = `${this.ownerPrefix}.`;
+            if (!String(eventType).startsWith(expected)) {
+                const message = `[EVENT-PREFIX-VALIDATION] Expected prefix '${expected}' but received '${String(eventType)}' (owner=${this.ownerPrefix})`;
+                if (this.strictPrefix) {
+                    throw new Error(message);
+                } else {
+                    this.logger.warn(message);
+                }
+            }
+        }
+
         // 🎯 [DOMAIN-NEUTRAL] EventService는 도메인 독립적 - 단순히 hierarchy context 전달만 수행
         const enrichedData = this.enrichWithHierarchy(data);
         this.baseEventService.emit(eventType, enrichedData);
@@ -369,7 +388,28 @@ export class ActionTrackingEventService implements EventService {
         return new ActionTrackingEventService(
             this.baseEventService, // 🎯 같은 baseEventService 계승하여 일관된 통로 유지
             this.logger,
-            executionContext // 🎯 새 인스턴스에 context 주입
+            executionContext, // 🎯 새 인스턴스에 context 주입
+            { ownerPrefix: this.ownerPrefix, strictPrefix: this.strictPrefix }
+        );
+    }
+
+    /**
+     * Backward-compatible alias for creating a context-bound child instance
+     * Matches legacy createChild(...) semantics used in examples/tests
+     */
+    createChild(childContext: ToolExecutionContext): EventService {
+        return this.createContextBoundInstance(childContext);
+    }
+
+    /**
+     * 🎯 [PREFIX-BINDING] Clone this EventService with (optional) new ownerPrefix and/or execution context
+     */
+    clone(options?: { ownerPrefix?: string; strictPrefix?: boolean; executionContext?: ToolExecutionContext }): EventService {
+        return new ActionTrackingEventService(
+            this.baseEventService,
+            this.logger,
+            options?.executionContext ?? this.executionContext,
+            { ownerPrefix: options?.ownerPrefix ?? this.ownerPrefix, strictPrefix: options?.strictPrefix ?? this.strictPrefix }
         );
     }
 

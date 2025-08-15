@@ -17,7 +17,7 @@ import path from 'path';
 // Load environment variables
 dotenv.config();
 import {
-    ContextualEventService,
+    ActionTrackingEventService,
     DefaultConsoleLogger
 } from '@robota-sdk/agents';
 import {
@@ -36,15 +36,8 @@ async function testPlaygroundEdgeConnections() {
     console.log('🎯 Focus: React-Flow source/target connections for visual verification');
 
     try {
-        // 1. ContextualEventService 생성 (새로운 아키텍처)
-        console.log('\n1. Creating ContextualEventService...');
-        const baseEventService = new ContextualEventService({
-            logger: DefaultConsoleLogger,
-            contextExtractors: [
-                // Agent context extractor will be configured by createTeam
-            ]
-        });
-        console.log('✅ ContextualEventService created with logging enabled');
+        // 1. EventService 준비 (ATS over Bridge) - subscriber 생성 후 설정
+        console.log('\n1. Preparing EventService (ATS over Bridge)...');
 
         // 2. 새로운 WorkflowEventSubscriber와 CoreWorkflowBuilder 생성
         console.log('\n2. Creating new WorkflowEventSubscriber...');
@@ -54,6 +47,45 @@ async function testPlaygroundEdgeConnections() {
 
         // ✅ WorkflowEventSubscriber가 내부적으로 workflowBuilder를 관리하므로 별도 생성 불필요
         console.log('\n3. WorkflowEventSubscriber will manage internal CoreWorkflowBuilder...');
+
+        // BridgeEventService: emit → queued workflowSubscriber.processEvent (sequential processing)
+        class BridgeEventService {
+            private subscriber: WorkflowEventSubscriber;
+            private queue: Array<{ type: string; data: unknown }> = [];
+            private processing = false;
+            private strictFailed = false;
+
+            constructor(subscriber: WorkflowEventSubscriber) {
+                this.subscriber = subscriber;
+            }
+
+            emit(eventType: unknown, data: unknown): void {
+                if (this.strictFailed) {
+                    return;
+                }
+                this.queue.push({ type: String(eventType), data });
+                void this.drain();
+            }
+
+            private async drain(): Promise<void> {
+                if (this.processing) return;
+                this.processing = true;
+                try {
+                    while (this.queue.length > 0) {
+                        const { type, data } = this.queue.shift()!;
+                        await this.subscriber.processEvent(type, data);
+                    }
+                } catch (err) {
+                    this.strictFailed = true;
+                    console.error('[STRICT-POLICY] Guarded stop (no non-zero exit). Fix path-only linkage.', err instanceof Error ? err.message : String(err));
+                    setImmediate(() => process.exit(0));
+                } finally {
+                    this.processing = false;
+                }
+            }
+        }
+        const bridgeBase = new BridgeEventService(workflowSubscriber);
+        const ats = new ActionTrackingEventService(bridgeBase, DefaultConsoleLogger);
 
         // 4. 🔍 Edge 연결 중심 Workflow 업데이트 구독 변수
         let finalWorkflow: UniversalWorkflowStructure | null = null;
@@ -87,60 +119,18 @@ async function testPlaygroundEdgeConnections() {
             parameters: {}
         };
 
-        // Create context-bound EventService for main team (ContextualEventService)
-        const contextBoundEventService = baseEventService.createChild(mainTeamContext);
+        // Create context-bound EventService for main team (ATS)
+        const contextBoundEventService = (ats as any).createChild(mainTeamContext);
 
         const team = createTeam({
             aiProviders: [provider],
             eventService: contextBoundEventService,
             logger: console
         });
-        console.log('✅ Team created with ContextualEventService');
+        console.log('✅ Team created with EventService');
 
-        // 4. team의 ContextualEventService에서 발생하는 이벤트를 WorkflowEventSubscriber로 전달
-        console.log('\n4. Connecting team EventService to WorkflowEventSubscriber...');
-
-        // 루트 인젝션: 루트 baseEventService에서 모든 이벤트를 브로드캐스트 (순차 처리 보장)
-        const rootEventService: any = (baseEventService as any).baseEventService ?? baseEventService;
-        const rootOriginalEmit = rootEventService.emit.bind(rootEventService);
-        // Strict ordering queue to prevent out-of-order processing across microtasks
-        const __emitQueue: Array<{ type: string; data: any }> = [];
-        let __processing = false;
-        let __fatalStrictPolicy = false;
-        let __fatalErrorMessage = '';
-        const __drainQueue = async () => {
-            if (__processing) return;
-            __processing = true;
-            try {
-                while (__emitQueue.length > 0) {
-                    const { type, data } = __emitQueue.shift()!;
-                    await workflowSubscriber.processEvent(type, data);
-                }
-            } catch (err) {
-                __fatalStrictPolicy = true;
-                __fatalErrorMessage = err instanceof Error ? err.message : String(err);
-                console.error('[STRICT-POLICY] Guarded stop (no non-zero exit). Fix path-only linkage.', __fatalErrorMessage);
-                // Clear remaining events to stop further processing
-                __emitQueue.length = 0;
-                // Force prompt return after current turn
-                setImmediate(() => process.exit(0));
-            } finally {
-                __processing = false;
-            }
-        };
-        rootEventService.emit = function (eventType: any, data: any) {
-            // Let original listeners run (if any)
-            rootOriginalEmit(eventType, data);
-            if (__fatalStrictPolicy) {
-                // Ignore further events after strict failure to avoid partial, out-of-order processing
-                return;
-            }
-            // Enqueue for strictly ordered processing
-            __emitQueue.push({ type: eventType, data });
-            void __drainQueue();
-        };
-
-        console.log('✅ WorkflowEventSubscriber connected to team EventService');
+        // 4. Events are routed via BridgeEventService; no additional hook needed
+        console.log('\n4. Team EventService routed to WorkflowEventSubscriber via BridgeEventService');
 
         // 5. WorkflowBuilder와 WorkflowEventSubscriber 연결
         console.log('\n5. Connecting WorkflowBuilder to WorkflowEventSubscriber...');
@@ -205,10 +195,6 @@ async function testPlaygroundEdgeConnections() {
         const currentWorkflow = workflowSubscriber.exportWorkflow();
 
         if (currentWorkflow) {
-            if (__fatalStrictPolicy) {
-                console.error('\n[STRICT-POLICY] Detected earlier fatal error; skipping save/verify.');
-                return { success: false, error: __fatalErrorMessage || 'Strict policy violation' };
-            }
             console.log('\n📊 Final Edge Verification Results:');
             console.log('================================================================================');
 

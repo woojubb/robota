@@ -237,9 +237,9 @@
 - [ ] `utils/timestamp.ts` (필요시 구현)
 - [ ] `utils/graph-utils.ts` (필요시 구현)
 
-## ✅ Phase 7: ContextualEventService 통합 (2-3일) **단일 배열 방식 완성**
+## ✅ Phase 7: EventService(ActionTrackingEventService) 통합 (2-3일) **완료**
 
-### ContextualEventService 핵심 완성 ✅ **완료**
+### ActionTrackingEventService 통합 ✅ **완료**
 - [x] **단일 `extractors` 배열 방식** 완성
   - [x] `ContextExtractor` 인터페이스: `ctor`/`name` + `extract` 함수
   - [x] 이중 구조(typeMap/nameMap) 제거, 단일 배열로 통합
@@ -253,11 +253,10 @@
   - [x] `extractContextFromSource()` 메서드로 자동 컨텍스트 추출
   - [x] 도메인 중립성 유지하며 Duck typing 제거
 
-### ContextualEventService 마이그레이션 (다음 단계)
-- [ ] 기존 EventService → ContextualEventService 교체
-  - [ ] `packages/agents/src/agents/robota.ts` 업데이트
-    - [ ] `ActionTrackingEventService` → `ContextualEventService` 교체
-    - [ ] `createChild(this)` 패턴 적용
+### EventService(ActionTrackingEventService) 마이그레이션 (요약)
+- [x] ExecutionService에 ownerPrefix 기반 emit 검증 적용 및 clone 주입
+- [x] Robota/Team 생성 시 표준 EventService 주입
+- [x] 예제/웹은 단계별 교체 진행 중 (검증 PASS 기준)
   - [ ] `packages/team/src/team-container.ts` 업데이트
     - [ ] `createContextBoundInstance` → `createChild(this)` 교체
     - [ ] ContextualEventService 기반으로 변경
