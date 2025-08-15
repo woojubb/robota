@@ -5,6 +5,49 @@ import { PluginError } from '../utils/errors';
 import type { TimerId } from '../utils';
 
 /**
+ * Local event constants to avoid hardcoded strings in emit calls
+ */
+const EXEC_EVENTS = {
+    START: 'execution.start',
+    COMPLETE: 'execution.complete',
+    ERROR: 'execution.error',
+    HIERARCHY: 'execution.hierarchy',
+    REALTIME: 'execution.realtime'
+} as const;
+
+const CONV_EVENTS = {
+    START: 'conversation.start',
+    COMPLETE: 'conversation.complete',
+    ERROR: 'conversation.error'
+} as const;
+
+const TOOL_EVENTS_LOCAL = {
+    BEFORE: 'tool.beforeExecute',
+    AFTER: 'tool.afterExecute',
+    SUCCESS: 'tool.success',
+    ERROR: 'tool.error',
+    REALTIME: 'tool.realtime'
+} as const;
+
+const PLUGIN_EVENTS = {
+    ERROR: 'plugin.error'
+} as const;
+
+const MODULE_EVENTS = {
+    INIT_START: 'module.initialize.start',
+    INIT_COMPLETE: 'module.initialize.complete',
+    INIT_ERROR: 'module.initialize.error',
+    EXEC_START: 'module.execution.start',
+    EXEC_COMPLETE: 'module.execution.complete',
+    EXEC_ERROR: 'module.execution.error',
+    DISPOSE_START: 'module.dispose.start',
+    DISPOSE_COMPLETE: 'module.dispose.complete',
+    DISPOSE_ERROR: 'module.dispose.error',
+    REGISTERED: 'module.registered',
+    UNREGISTERED: 'module.unregistered'
+} as const;
+
+/**
  * Event types that can be emitted
  * Enhanced with hierarchical execution tracking events
  */
@@ -220,13 +263,13 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
         this.pluginOptions = {
             enabled: options.enabled ?? true,
             events: options.events ?? [
-                'execution.start',
-                'execution.complete',
-                'execution.error',
-                'tool.beforeExecute',
-                'tool.afterExecute',
-                'tool.success',
-                'tool.error'
+                EXEC_EVENTS.START,
+                EXEC_EVENTS.COMPLETE,
+                EXEC_EVENTS.ERROR,
+                TOOL_EVENTS_LOCAL.BEFORE,
+                TOOL_EVENTS_LOCAL.AFTER,
+                TOOL_EVENTS_LOCAL.SUCCESS,
+                TOOL_EVENTS_LOCAL.ERROR
             ],
             maxListeners: options.maxListeners ?? 100,
             async: options.async ?? true,
@@ -261,7 +304,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
      * Before execution starts
      */
     override async beforeExecution(context: BaseExecutionContext): Promise<void> {
-        await this.emit('execution.start', {
+        await this.emit(EXEC_EVENTS.START, {
             executionId: context.executionId,
             sessionId: context.sessionId,
             userId: context.userId,
@@ -276,7 +319,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
      * After execution completes
      */
     override async afterExecution(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> {
-        await this.emit('execution.complete', {
+        await this.emit(EXEC_EVENTS.COMPLETE, {
             executionId: context.executionId,
             sessionId: context.sessionId,
             userId: context.userId,
@@ -293,7 +336,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
      * Before conversation starts
      */
     override async beforeConversation(context: BaseExecutionContext): Promise<void> {
-        await this.emit('conversation.start', {
+        await this.emit(CONV_EVENTS.START, {
             executionId: context.executionId,
             sessionId: context.sessionId,
             userId: context.userId,
@@ -312,7 +355,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
      * After conversation completes
      */
     override async afterConversation(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> {
-        await this.emit('conversation.complete', {
+        await this.emit(CONV_EVENTS.COMPLETE, {
             executionId: context.executionId,
             sessionId: context.sessionId,
             userId: context.userId,
@@ -337,7 +380,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
             toolData ? [toolData] : [];
 
         for (const toolCall of toolCalls) {
-            await this.emit('tool.beforeExecute', {
+            await this.emit(TOOL_EVENTS_LOCAL.BEFORE, {
                 executionId: context.executionId,
                 sessionId: context.sessionId,
                 userId: context.userId,
@@ -357,7 +400,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
         // Handle tool results from BaseExecutionResult
         if (toolResults.toolCalls && toolResults.toolCalls.length > 0) {
             for (const toolCall of toolResults.toolCalls) {
-                const eventType = toolCall.result === null ? 'tool.error' : 'tool.success';
+                const eventType = toolCall.result === null ? TOOL_EVENTS_LOCAL.ERROR : TOOL_EVENTS_LOCAL.SUCCESS;
 
                 await this.emit(eventType, {
                     executionId: context.executionId,
@@ -373,7 +416,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
                 });
 
                 // Also emit generic afterExecute event
-                await this.emit('tool.afterExecute', {
+                await this.emit(TOOL_EVENTS_LOCAL.AFTER, {
                     executionId: context.executionId,
                     sessionId: context.sessionId,
                     userId: context.userId,
@@ -402,7 +445,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
      * TODO: Consider standardized error context interface
      */
     override async onError(error: Error, context?: ErrorContext): Promise<void> {
-        await this.emit('execution.error', {
+        await this.emit(EXEC_EVENTS.ERROR, {
             executionId: context?.executionId,
             sessionId: context?.sessionId,
             userId: context?.userId,
@@ -565,7 +608,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
                     });
 
                     // Emit plugin error event
-                    await this.emit('plugin.error', {
+                    await this.emit(PLUGIN_EVENTS.ERROR, {
                         error: error instanceof Error ? error : new Error(String(error)),
                         data: {
                             handlerId: handler.id,

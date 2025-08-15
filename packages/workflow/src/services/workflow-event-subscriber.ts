@@ -23,7 +23,7 @@ import { NodeEdgeManager } from './node-edge-manager.js';
 import { CoreWorkflowBuilder } from './workflow-builder.js';
 import { AgentEventHandler } from '../handlers/agent-event-handler.js';
 import { ToolEventHandler } from '../handlers/tool-event-handler.js';
-import { TeamEventHandler } from '../handlers/team-event-handler.js';
+
 import { ExecutionEventHandler } from '../handlers/execution-event-handler.js';
 
 /**
@@ -152,6 +152,12 @@ export class WorkflowEventSubscriber {
         } catch (error) {
             this.stats.errorsEncountered++;
             this.logger.error(`❌ [EVENT-PROCESSING-ERROR] Failed to process ${eventType}:`, error);
+            // Strict policy: propagate errors to callers to stop further processing
+            const strictMsg =
+                `[STRICT-POLICY] Event processing aborted for '${eventType}'. ` +
+                `You MUST fix the emitter/handler to respect PATH-ONLY architecture and atomic edge creation. ` +
+                `No fallback, no waiting, no helper states. Stop masking; correct the design.`;
+            throw new Error(strictMsg);
         }
     }
 
@@ -363,16 +369,14 @@ export class WorkflowEventSubscriber {
         // Register all default event handlers
         const agentHandler = new AgentEventHandler(this.logger);
         const toolHandler = new ToolEventHandler(this.logger);
-        const teamHandler = new TeamEventHandler(this.logger);
         const executionHandler = new ExecutionEventHandler(this.logger);
 
         this.registerEventHandler(agentHandler);
         this.registerEventHandler(toolHandler);
-        this.registerEventHandler(teamHandler);
         this.registerEventHandler(executionHandler);
 
         this.logger.debug('🔧 [DEFAULT-HANDLERS] Initialized all default event handlers', {
-            handlersRegistered: ['AgentEventHandler', 'ToolEventHandler', 'TeamEventHandler', 'ExecutionEventHandler']
+            handlersRegistered: ['AgentEventHandler', 'ToolEventHandler', 'ExecutionEventHandler']
         });
     }
 
@@ -476,12 +480,19 @@ export class WorkflowEventSubscriber {
             } catch (error) {
                 this.logger.error(`❌ [UPDATE-APPLICATION-ERROR] Failed to apply update:`, error);
                 errors.push(`Failed to apply update: ${error instanceof Error ? error.message : String(error)}`);
+                // Strict policy: stop processing remaining updates immediately
+                break;
             }
         }
 
         // Log summary
         if (errors.length > 0) {
-            this.logger.warn(`⚠️ [EVENT-PROCESSING-WARNINGS] ${eventType} had ${errors.length} errors:`, errors);
+            // Strict policy: escalate errors to abort the event processing with guidance
+            const strictMsg =
+                `[WORKFLOW-EVENT-SUBSCRIBER] ${eventType} failed with ${errors.length} error(s): ${errors.join('; ')}. ` +
+                `[STRICT-POLICY] Fix the order and path-only linkage. Do NOT continue after edge failures. ` +
+                `Atomic node+edge creation is mandatory; redesign the flow rather than adding fallbacks.`;
+            throw new Error(strictMsg);
         } else {
             this.logger.debug(`✅ [EVENT-PROCESSING-SUCCESS] ${eventType} processed successfully`, {
                 updatesApplied: allUpdates.length
@@ -500,7 +511,7 @@ export class WorkflowEventSubscriber {
                     break;
 
                 case 'update':
-                    // Update node and also honor prevId/prevIds by creating edges (updates may append prevs)
+                    // Update node only; no implicit prev-based edges (path-only)
                     const updated = this.workflowBuilder.updateNode(update.node.id, update.node);
                     this.logger.debug(`🔄 [NODE-UPDATED] ${update.node.id}`);
                     // No implicit edge creation

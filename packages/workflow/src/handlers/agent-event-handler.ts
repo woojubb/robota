@@ -15,6 +15,13 @@ import type { WorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
 import { WorkflowState } from '../services/workflow-state.js';
 
+// 🎯 [EVENT-CONSTANTS] Import execution events from ExecutionService
+const EXECUTION_EVENTS = {
+    START: 'execution.start',
+    ASSISTANT_MESSAGE_START: 'execution.assistant_message_start',
+    ASSISTANT_MESSAGE_COMPLETE: 'execution.assistant_message_complete'
+} as const;
+
 /**
  * Agent Event Handler
  * Handles all agent-related events: creation, execution, thinking, responses
@@ -22,7 +29,7 @@ import { WorkflowState } from '../services/workflow-state.js';
 export class AgentEventHandler implements EventHandler {
     readonly name = 'AgentEventHandler';
     readonly priority = HandlerPriority.HIGHEST;
-    readonly patterns = ['agent.*', 'execution.start', 'execution.assistant_message_start', 'execution.assistant_message_complete'];
+    readonly patterns = ['agent.*', EXECUTION_EVENTS.START, EXECUTION_EVENTS.ASSISTANT_MESSAGE_START, EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE];
 
     private logger: SimpleLogger;
     private agentNodeIdMap = new Map<string, string>(); // sourceId → agentNodeId
@@ -37,9 +44,9 @@ export class AgentEventHandler implements EventHandler {
 
     canHandle(eventType: string): boolean {
         return eventType.startsWith('agent.') ||
-            eventType === 'execution.start' ||
-            eventType === 'execution.assistant_message_start' ||
-            eventType === 'execution.assistant_message_complete';
+            eventType === EXECUTION_EVENTS.START ||
+            eventType === EXECUTION_EVENTS.ASSISTANT_MESSAGE_START ||
+            eventType === EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE;
     }
 
 
@@ -65,7 +72,7 @@ export class AgentEventHandler implements EventHandler {
                     // Keep internal mapping only if needed later
                     break;
 
-                case 'execution.start': {
+                case EXECUTION_EVENTS.START: {
                     // Create agent node for this execution only if not already created by team flow
                     const existing = this.agentNodeIdMap.get(String(data.sourceId));
                     if (existing) {
@@ -87,12 +94,9 @@ export class AgentEventHandler implements EventHandler {
                         edgeSource = String(data.parentExecutionId);
                         edgeType = 'creates';
                     } else {
-                        const rootUser = WorkflowState.getRootUserMessage(rootId);
-                        if (rootUser) edgeSource = rootUser;
-                        if (!edgeSource) {
-                            const lastUser = WorkflowState.getLastUserMessage(rootId) || WorkflowState.getLastUserMessage(String(data.executionId || ''));
-                            if (lastUser) edgeSource = lastUser;
-                        }
+                        // [PATH-ONLY] Use path to derive edge source
+                        const lastUser = WorkflowState.getLastUserMessage(rootId) || WorkflowState.getLastUserMessage(String(data.executionId || ''));
+                        if (lastUser) edgeSource = lastUser;
                     }
                     if (edgeSource) {
                         const edge: WorkflowEdge = {
@@ -108,10 +112,7 @@ export class AgentEventHandler implements EventHandler {
                     if (data.executionId) {
                         WorkflowState.setAgentForExecution(String(data.executionId), agentNode.id);
                     }
-                    // Link delegated agent execution to its creating tool_call for precise response→tool_response mapping
-                    if (data.executionId && data.parentExecutionId) {
-                        WorkflowState.setToolCallForAgentExecution(String(data.executionId), String(data.parentExecutionId));
-                    }
+                    // [PATH-ONLY] Removed mapping storage - delegated agent execution to tool_call linkage is handled via path
                     if (data.rootExecutionId || data.sourceId) {
                         WorkflowState.setAgentForRoot(String(data.rootExecutionId || data.sourceId), agentNode.id);
                     }
@@ -124,9 +125,13 @@ export class AgentEventHandler implements EventHandler {
                     break;
                 }
 
-                case 'execution.assistant_message_start': {
-                    // Create thinking node and record it to WorkflowState for tool.prev resolution
-                    const thinkingNode = this.createAgentThinkingNode(data);
+                case EXECUTION_EVENTS.ASSISTANT_MESSAGE_START: {
+                    // Create thinking node (path-only ID if provided)
+                    const pathArr = (data as any)?.path as string[] | undefined;
+                    const pathThinkingId = Array.isArray(pathArr) && pathArr.length >= 2
+                        ? String(pathArr[1])
+                        : undefined;
+                    const thinkingNode = this.createAgentThinkingNode(data, pathThinkingId);
                     updates.push({ action: 'create', node: thinkingNode });
                     // Explicit edge: from last aggregation → thinking (analyze) OR user_message → thinking (processes)
                     const fallbackPrev = WorkflowState.getLastAggregation(data.parentExecutionId || data.executionId);
@@ -134,8 +139,7 @@ export class AgentEventHandler implements EventHandler {
                     let typeForThinking: any = fallbackPrev ? 'analyze' : 'processes';
                     if (!sourceForThinking) {
                         const rootId = String((data as any).rootExecutionId || data.sourceId || '');
-                        sourceForThinking = WorkflowState.getRootUserMessage(rootId)
-                            || WorkflowState.getLastUserMessage(rootId)
+                        sourceForThinking = WorkflowState.getLastUserMessage(rootId)
                             || WorkflowState.getLastUserMessage(String(data.executionId || ''));
                     }
                     if (sourceForThinking) {
@@ -148,10 +152,7 @@ export class AgentEventHandler implements EventHandler {
                         } as any;
                         updates.push({ action: 'create', edge } as any);
                     }
-                    // Save for subsequent tool calls
-                    WorkflowState.setLastAssistantStart(String(data.parentExecutionId || data.executionId), thinkingNode.id);
-                    // Also expose thinking → last response mapping anchor reset
-                    WorkflowState.setLastResponseForThinking(thinkingNode.id, '');
+                    // [PATH-ONLY] Removed state storage - thinking nodes are tracked via path
                     // Record latest thinking for this source to allow response to link back even if start event wasn't captured by WorkflowState
                     try {
                         const roundKey = this.createThinkingRoundKey(data, (thinkingNode as any)?.timestamp ?? Date.now());
@@ -160,23 +161,63 @@ export class AgentEventHandler implements EventHandler {
                     break;
                 }
 
-                case 'execution.assistant_message_complete': {
-                    const responseNode = this.createAgentResponseNode(data);
+                case EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE: {
+                    // Path-only response creation: path = [root, thinkingId, responseExecId]
+                    const pathArr = (data as any)?.path as string[] | undefined;
+                    if (!Array.isArray(pathArr) || pathArr.length < 2) {
+                        return {
+                            success: false,
+                            updates: [],
+                            errors: [`[PATH-ONLY] Invalid path for ${EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE}: ${JSON.stringify(pathArr)}`]
+                        };
+                    }
+                    const thinkingId = String(pathArr[pathArr.length - 2]);
+                    const responseId = String(pathArr[pathArr.length - 1] || data.executionId || data.sourceId);
+
+                    // Strict path-only: thinking node MUST exist (no fallback creation)
+                    const nodesAccessor: any[] = (this as any).subscriber?.getAllNodes?.() || [];
+                    const thinkingExists = nodesAccessor.some(n => n?.id === thinkingId);
+                    if (!thinkingExists) {
+                        return {
+                            success: false,
+                            updates: [],
+                            errors: [`[PATH-ONLY] thinking node '${thinkingId}' not found. Must be created by ${EXECUTION_EVENTS.ASSISTANT_MESSAGE_START} first. No fallback creation allowed.`]
+                        };
+                    }
+
+                    const responseNode: WorkflowNode = {
+                        id: responseId,
+                        type: WORKFLOW_NODE_TYPES.RESPONSE,
+                        level: (data.executionLevel || 1) + 2,
+                        status: 'completed',
+                        timestamp: Date.now(),
+                        data: {
+                            eventType: EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE,
+                            sourceId: String(data.sourceId),
+                            sourceType: 'agent',
+                            agentNumber: this.agentNumberMap.get(String(data.sourceId)) || 0,
+                            label: `Agent Response`,
+                            description: 'Agent response and output',
+                            extensions: { robota: { originalEvent: data } }
+                        },
+                        connections: []
+                    } as any;
+
                     updates.push({ action: 'create', node: responseNode });
-                    // Explicit edge: thinking → response ('return')
-                    const thinkingForResponse =
-                        WorkflowState.getLastAssistantStart(data.executionId) ||
-                        WorkflowState.getLastAssistantStart(data.parentExecutionId || undefined);
-                    if (thinkingForResponse) {
+
+                    if (thinkingId) {
                         const edge: WorkflowEdge = {
-                            id: EdgeUtils.generateId(thinkingForResponse, responseNode.id, 'return' as any),
-                            source: thinkingForResponse,
-                            target: responseNode.id,
+                            id: EdgeUtils.generateId(thinkingId, responseId, 'return' as any),
+                            source: thinkingId,
+                            target: responseId,
                             type: 'return' as any,
                             timestamp: Date.now()
                         } as any;
                         updates.push({ action: 'create', edge } as any);
                     }
+
+                    // Path-only: no WorkflowState mappings needed
+
                     break;
                 }
 
@@ -222,7 +263,7 @@ export class AgentEventHandler implements EventHandler {
             executionLevel: data.executionLevel
         });
 
-        // For execution.start events, create agent node
+        // For execution start events, create agent node
         return this.createAgentNode(data);
     }
 
@@ -242,7 +283,7 @@ export class AgentEventHandler implements EventHandler {
             status: 'running',
             timestamp: Date.now(), // Node creation time for ordering
             data: {
-                eventType: 'execution.start',
+                eventType: EXECUTION_EVENTS.START,
                 sourceId: data.sourceId,
                 sourceType: 'agent',
                 agentNumber: agentNumber,
@@ -263,12 +304,12 @@ export class AgentEventHandler implements EventHandler {
         };
     }
 
-    private createAgentThinkingNode(data: any): WorkflowNode {
+    private createAgentThinkingNode(data: any, overrideId?: string): WorkflowNode {
         const agentNumber = this.agentNumberMap.get(String(data.sourceId)) || 0;
         const providedThinkingId = data?.metadata?.thinkingNodeId as string | undefined;
         const agentNodeId = this.agentNodeIdMap.get(String(data.sourceId));
         const fallbackThinkingId = agentNodeId ? `thinking_${agentNodeId}` : `thinking_agent_${agentNumber}`;
-        const thinkingId = providedThinkingId || fallbackThinkingId;
+        const thinkingId = overrideId || providedThinkingId || fallbackThinkingId;
 
         return {
             id: thinkingId,
@@ -277,7 +318,7 @@ export class AgentEventHandler implements EventHandler {
             status: 'running',
             timestamp: Date.now(), // Node creation time for ordering
             data: {
-                eventType: 'execution.assistant_message_start',
+                eventType: EXECUTION_EVENTS.ASSISTANT_MESSAGE_START,
                 sourceId: data.sourceId,
                 sourceType: 'agent',
                 agentNumber: agentNumber,
@@ -298,8 +339,9 @@ export class AgentEventHandler implements EventHandler {
 
     private createAgentResponseNode(data: any): WorkflowNode {
         const agentNumber = this.agentNumberMap.get(String(data.sourceId)) || 0;
-        // Path-Only: standardize response id to be deterministic by executionId
-        const responseId = `response_${data.executionId || Date.now()}`;
+        // Path-Only: response id = path tail (required)
+        const tail = Array.isArray(data.path) && data.path.length > 0 ? String(data.path[data.path.length - 1]) : String(data.executionId || '');
+        const responseId = tail;
 
         return {
             id: responseId,
@@ -308,7 +350,7 @@ export class AgentEventHandler implements EventHandler {
             status: 'completed',
             timestamp: Date.now(), // Node creation time for ordering
             data: {
-                eventType: 'execution.assistant_message_complete',
+                eventType: EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE,
                 sourceId: data.sourceId,
                 sourceType: 'agent',
                 agentNumber: agentNumber,

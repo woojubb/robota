@@ -44,22 +44,12 @@ export interface EventData {
 
     /**
      * Branch anchor identifier (common parent for a fork)
-     * Handlers should set node.parentId = parentId (metadata only; edges are prev-based)
+     * Path-only architecture: parentId is metadata only; edges are derived from path
      */
     parentId?: string;
 
-    /**
-     * Previous node identifier (immediately preceding node in the flow)
-     * Subscriber builds edges using prevId → node.id to guarantee single inbound
-     */
-    prevId?: string;
-
-    /**
-     * Previous node identifiers (batch join). When provided, the subscriber will
-     * create one inbound edge per id in prevIds, enabling fork-join connections
-     * (e.g., connecting many tool_response nodes to a single aggregation node).
-     */
-    prevIds?: string[];
+    // [REMOVED] prevId/prevIds are not used in path-only architecture.
+    // Edge connectivity MUST be derived solely from immutable event.path values.
 
     // Event payload (flexible)
     parameters?: Record<string, unknown>;

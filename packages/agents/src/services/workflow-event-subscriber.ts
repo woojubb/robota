@@ -387,10 +387,8 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
                 this.handleToolResultAggregationStart(data);
                 break;
             case TEAM_EVENTS.AGGREGATION_COMPLETE:
-                // Attach batch prevIds to enable join connections from tool_response nodes
                 await this.handleToolResultAggregationComplete({
-                    ...data,
-                    prevIds: this.collectToolResponseIdsForAggregation(data)
+                    ...data
                 });
                 break;
             // 🗑️ subtool events removed - unified into standard tool_call events for domain neutrality
@@ -715,7 +713,11 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
         const responseContent = (params as any).assistantMessage || (result as any).fullResponse || 'No response';
         const responseLength = (params as any).responseLength || responseContent.length;
 
-        const responseNodeId = `agent_response_${agentNodeId}_${Date.now()}`;
+        // Path-Only: response node id = path tail (executionId of the responding agent)
+        const tail = Array.isArray((data as any).path) && (data as any).path.length > 0
+            ? String((data as any).path[(data as any).path.length - 1])
+            : String(data.executionId || `agent_response_${agentNodeId}_${Date.now()}`);
+        const responseNodeId = tail;
         const node = this.nodeEdgeManager.addNode({
             id: responseNodeId,
             type: WORKFLOW_NODE_TYPES.RESPONSE,
@@ -893,20 +895,44 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
         // 🎯 Direct node creation without defensive validation
         // Trust that the event order is correct by design
         const parentToolCallId = String(data.metadata?.executionId || data.executionId || '').trim();
-        const toolCallNodeId = parentToolCallId ? `tool_call_${parentToolCallId}` : '';
+        let toolCallNodeId = '';
+        if (parentToolCallId) {
+            const candidate1 = `call_${parentToolCallId}`;
+            const candidate2 = `tool_call_${parentToolCallId}`;
+            if (this.nodeMap.has(candidate1)) toolCallNodeId = candidate1;
+            else if (this.nodeMap.has(candidate2)) toolCallNodeId = candidate2;
+        }
 
-        // Find the agent created by this tool_call
-        const edgesNow = this.nodeEdgeManager.getAllEdges();
-        const createdEdge = edgesNow.find(e => e.source === toolCallNodeId && e.type === 'creates');
-        const agentNodeId = createdEdge?.target || '';
-        const agentResponseId = this.findLatestResponseByAgent(agentNodeId);
+        // Path-Only: resolve agent response id from path.tail (must already exist)
+        const agentResponseId = Array.isArray((data as any).path) && (data as any).path.length > 0
+            ? String((data as any).path[(data as any).path.length - 1])
+            : '';
+        if (!agentResponseId) {
+            throw new Error('[WorkflowEventSubscriber] tool.call_response_ready missing path.tail for agent response id');
+        }
+        if (!this.nodeMap.has(agentResponseId)) {
+            throw new Error(`[WorkflowEventSubscriber] agent_response node not found for id: ${agentResponseId} (enforce path-only order)`);
+        }
 
-        // Create tool_response node
+        // Preconditions: tool_call must exist to avoid root tool_response
+        if (!toolCallNodeId) {
+            this.workflowLogger.warn(`[TOOL-RESPONSE-SKIP] Missing tool_call node for ${parentToolCallId}; skip tool_response creation.`);
+            return;
+        }
+
+        // Create tool_response node with atomic edge linking
         const responseNode = this.createToolCallResponseNode(data);
-
-        // Connect agent_response → tool_response
-        // If connection fails, let NodeEdgeManager throw - this is a design error
-        this.nodeEdgeManager.addEdge(agentResponseId || '', responseNode.id, 'result', 'produces tool result');
+        try {
+            // Primary link
+            this.nodeEdgeManager.addEdge(agentResponseId, responseNode.id, 'result', 'produces tool result');
+            // Secondary link to ensure non-root classification
+            this.nodeEdgeManager.addEdge(toolCallNodeId, responseNode.id, 'result', 'tool call result');
+        } catch (err) {
+            // Rollback node creation on any edge failure to avoid root tool_response
+            this.nodeEdgeManager.removeNode(responseNode.id);
+            this.workflowLogger.warn(`[TOOL-RESPONSE-ROLLBACK] Rolling back tool_response ${responseNode.id} due to edge failure: ${err instanceof Error ? err.message : String(err)}`);
+            return;
+        }
 
         this.workflowLogger.debug(`✅ [TOOL-RESPONSE-CREATED] Tool response node created and linked: ${responseNode.id}`);
 
@@ -933,7 +959,8 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
             const expected = (this as any)._batchExpected.get(batchKey);
             if (expected && completed === expected) {
                 this.workflowLogger.debug(`[BATCH-AGGREGATION] All tool responses ready for ${batchKey} (${completed}/${expected}). Emitting task.aggregation_start once.`);
-                this.emit('task.aggregation_start', {  // Legacy event name - to be migrated
+                const TASK_EVENTS = { AGGREGATION_START: 'task.aggregation_start' } as const;
+                this.emit(TASK_EVENTS.AGGREGATION_START as any, {  // Legacy event name - now via constant
                     sourceType: 'tool',
                     sourceId: responseNode.id,
                     parentExecutionId: parentToolCallId,
@@ -1409,7 +1436,14 @@ export class WorkflowEventSubscriber extends ActionTrackingEventService {
         if (!thinkingNodeId) {
             throw new Error(`❌ [STANDARD-STRUCTURE] No thinking node found for Agent ${data.sourceId}`);
         }
-        const responseNodeId = `response_${String(data.sourceId)}_${new Date().getTime()}`;
+        // Path-Only: response id = path tail
+        const pathTail = Array.isArray((data as any).path) && (data as any).path.length > 0
+            ? String((data as any).path[(data as any).path.length - 1])
+            : String(data.executionId || '');
+        if (!pathTail) {
+            throw new Error('[WorkflowEventSubscriber] assistant_message_complete missing path.tail');
+        }
+        const responseNodeId = pathTail;
         this.workflowLogger.debug(`🎯 [DYNAMIC-RESPONSE] Creating dynamic response node ${responseNodeId} for agent ${data.sourceId}`);
         const connections: WorkflowConnection[] = [{
             fromId: thinkingNodeId,

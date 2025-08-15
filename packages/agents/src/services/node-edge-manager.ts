@@ -33,6 +33,7 @@ export class NodeEdgeManager {
     private logger: SimpleLogger;
     private nodeMap = new Map<string, WorkflowNode>();
     private edges: UniversalWorkflowEdge[] = [];
+    // Natural timestamps only; no artificial adjustments
 
     constructor(logger: SimpleLogger = SilentLogger) {
         this.logger = logger;
@@ -108,8 +109,8 @@ export class NodeEdgeManager {
             return existingEdge;
         }
 
-        // 🚀 Natural Timestamp: Edge gets timestamp at actual creation moment
-        const edgeTimestamp = Date.now(); // Natural creation time
+        // Natural timestamp for edge creation
+        const edgeTimestamp = Date.now();
 
         const edge: UniversalWorkflowEdge = {
             id: `edge_${sourceId}_to_${targetId}_${this.edges.length}`,
@@ -188,5 +189,17 @@ export class NodeEdgeManager {
             nodeCount: this.nodeMap.size,
             edgeCount: this.edges.length
         };
+    }
+
+    // Safe removal utilities for atomic operations
+    removeNode(nodeId: string): void {
+        if (!this.nodeMap.has(nodeId)) return;
+        // Remove edges attached to this node
+        this.edges = this.edges.filter(e => e.source !== nodeId && e.target !== nodeId);
+        this.nodeMap.delete(nodeId);
+    }
+
+    removeEdgeByEndpoints(sourceId: string, targetId: string, type?: string): void {
+        this.edges = this.edges.filter(e => !(e.source === sourceId && e.target === targetId && (!type || e.type === type)));
     }
 }

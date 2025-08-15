@@ -1,12 +1,9 @@
-// Workflow shared in-memory state (domain-neutral)
-// Stores minimal linkage hints computed from prior events to help handlers
-// choose correct prev connections without relying on domain-specific IDs.
+// Workflow shared in-memory state (domain-neutral, path-only compliant)
+// Minimal state for join barriers and basic execution tracking only
 
 class WorkflowStateStore {
     // Map executionId (or parentExecutionId) → last aggregation nodeId
     private lastAggregationByExecution = new Map<string, string>();
-    // Map executionId → last assistant_message_start nodeId
-    private lastAssistantStartByExecution = new Map<string, string>();
     // Map executionId → last user_message nodeId
     private lastUserMessageByExecution = new Map<string, string>();
     // Map executionId → agent node id
@@ -19,23 +16,13 @@ class WorkflowStateStore {
     private toolCallCountByMainExecution = new Map<string, number>();
     // Map thinkingNodeId -> Set of tool_response node ids collected for that thinking (legacy)
     private toolResponsesByThinking = new Map<string, Set<string>>();
-    // === Path-Only join barrier (preferred) ===
+    // === Path-Only join barrier (essential) ===
     // groupPath (thinking scope path) → expected branch paths
     private expectedBranchesByGroupPath = new Map<string, Set<string>>();
     // groupPath (thinking scope path) → collected branch paths
     private collectedBranchesByGroupPath = new Map<string, Set<string>>();
     // groupPath (thinking scope path) → collected tool_response node ids (ordered by arrival)
     private toolResponseIdsByGroupPath = new Map<string, string[]>();
-    // Map thinkingNodeId -> user_message node id to use as anchor for spawned agents
-    private userAnchorByThinking = new Map<string, string>();
-    // Map rootExecutionId -> root user_message node id (single start node anchor)
-    private rootUserMessageByRoot = new Map<string, string>();
-    // Map toolCallId -> agent response node id (for response → tool_response linking)
-    private agentResponseByToolCall = new Map<string, string>();
-    // Map thinkingNodeId -> last agent response node id
-    private lastResponseByThinking = new Map<string, string>();
-    // Map agent executionId -> toolCallId (for precise mapping)
-    private toolCallByAgentExecution = new Map<string, string>();
 
     setLastAggregation(executionId: string, aggregationNodeId: string): void {
         if (!executionId || !aggregationNodeId) return;
@@ -47,19 +34,10 @@ class WorkflowStateStore {
         return this.lastAggregationByExecution.get(String(executionId));
     }
 
-    setLastAssistantStart(executionId: string, assistantStartNodeId: string): void {
-        if (!executionId || !assistantStartNodeId) return;
-        this.lastAssistantStartByExecution.set(String(executionId), String(assistantStartNodeId));
-    }
 
-    getLastAssistantStart(executionId?: string): string | undefined {
-        if (!executionId) return undefined;
-        return this.lastAssistantStartByExecution.get(String(executionId));
-    }
 
     clear(): void {
         this.lastAggregationByExecution.clear();
-        this.lastAssistantStartByExecution.clear();
         this.lastUserMessageByExecution.clear();
         this.agentNodeByExecution.clear();
         this.toolCallContextById.clear();
@@ -69,11 +47,6 @@ class WorkflowStateStore {
         this.expectedBranchesByGroupPath.clear();
         this.collectedBranchesByGroupPath.clear();
         this.toolResponseIdsByGroupPath.clear();
-        this.userAnchorByThinking.clear();
-        this.rootUserMessageByRoot.clear();
-        this.agentResponseByToolCall.clear();
-        this.lastResponseByThinking.clear();
-        this.toolCallByAgentExecution.clear();
         // no pending queues under no-fallback policy
     }
 
@@ -195,65 +168,7 @@ class WorkflowStateStore {
         this.toolResponseIdsByGroupPath.delete(key);
     }
 
-    // === User anchor mapping for thinking → spawned agents ===
-    setUserAnchorForThinking(thinkingNodeId?: string, userMessageNodeId?: string): void {
-        if (!thinkingNodeId || !userMessageNodeId) return;
-        this.userAnchorByThinking.set(String(thinkingNodeId), String(userMessageNodeId));
-    }
 
-    getUserAnchorForThinking(thinkingNodeId?: string): string | undefined {
-        if (!thinkingNodeId) return undefined;
-        return this.userAnchorByThinking.get(String(thinkingNodeId));
-    }
-
-    // === Root user message anchor per rootExecutionId ===
-    setRootUserMessage(rootExecutionId?: string, userMessageNodeId?: string): void {
-        if (!rootExecutionId || !userMessageNodeId) return;
-        const key = String(rootExecutionId);
-        if (!this.rootUserMessageByRoot.has(key)) {
-            this.rootUserMessageByRoot.set(key, String(userMessageNodeId));
-        }
-    }
-
-    getRootUserMessage(rootExecutionId?: string): string | undefined {
-        if (!rootExecutionId) return undefined;
-        return this.rootUserMessageByRoot.get(String(rootExecutionId));
-    }
-
-    // === Tool call → agent response mapping ===
-    setAgentResponseForToolCall(toolCallId?: string, responseNodeId?: string): void {
-        if (!toolCallId || !responseNodeId) return;
-        this.agentResponseByToolCall.set(String(toolCallId), String(responseNodeId));
-    }
-
-    getAgentResponseForToolCall(toolCallId?: string): string | undefined {
-        if (!toolCallId) return undefined;
-        return this.agentResponseByToolCall.get(String(toolCallId));
-    }
-
-    // === Last response per thinking ===
-    setLastResponseForThinking(thinkingNodeId?: string, responseNodeId?: string): void {
-        if (!thinkingNodeId || !responseNodeId) return;
-        this.lastResponseByThinking.set(String(thinkingNodeId), String(responseNodeId));
-    }
-
-    getLastResponseForThinking(thinkingNodeId?: string): string | undefined {
-        if (!thinkingNodeId) return undefined;
-        return this.lastResponseByThinking.get(String(thinkingNodeId));
-    }
-
-    // (Removed pending queue methods under no-fallback policy)
-
-    // === Agent execution → Tool call mapping ===
-    setToolCallForAgentExecution(agentExecutionId?: string, toolCallId?: string): void {
-        if (!agentExecutionId || !toolCallId) return;
-        this.toolCallByAgentExecution.set(String(agentExecutionId), String(toolCallId));
-    }
-
-    getToolCallForAgentExecution(agentExecutionId?: string): string | undefined {
-        if (!agentExecutionId) return undefined;
-        return this.toolCallByAgentExecution.get(String(agentExecutionId));
-    }
 }
 
 export const WorkflowState = new WorkflowStateStore();

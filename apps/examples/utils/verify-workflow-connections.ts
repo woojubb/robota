@@ -121,7 +121,7 @@ class WorkflowConnectionVerifier {
     private readonly SINGLE_OUTGOING_NODE_TYPES = ['tool_call'];
 
     // Configuration for no end node rule
-    private readonly NO_END_NODE_TYPES = ['tool_call_response'];
+    private readonly NO_END_NODE_TYPES = ['tool_call_response', 'tool_response'];
 
     // Configuration for agent thinking no end node rule
     private readonly AGENT_THINKING_NO_END_NODE_TYPES = ['agent_thinking'];
@@ -380,7 +380,7 @@ class WorkflowConnectionVerifier {
         // Rule 6: Tool Response Connection Rule
         const unconnectedToolResponses: string[] = [];
         this.data.nodes.forEach(node => {
-            if (node.type === 'tool_call_response') {
+            if (node.type === 'tool_call_response' || node.type === 'tool_response') {
                 const outgoingConnections = outgoing.get(node.id) || [];
                 const connectsToToolResult = outgoingConnections.some(targetId => {
                     const targetNode = this.data!.nodes.find(n => n.id === targetId);
@@ -469,8 +469,7 @@ class WorkflowConnectionVerifier {
         }
 
         // Rule 11: Sequential Creation Order Rule
-        // Only validates single-path sequential flows (Node A → Edge A-B → Node B → Edge B-C → Node C)
-        // Does NOT validate parallel/fork patterns where multiple nodes are created simultaneously
+        // Validates single-path sequential flows and required fork-join order in a domain-neutral way
         const sequentialOrderViolations = {
             prematureNodes: [] as string[],
             violationDetails: [] as string[]
@@ -481,79 +480,44 @@ class WorkflowConnectionVerifier {
             sequentialOrderViolations.violationDetails.push('Cannot validate sequential order: missing timestamps detected');
             errors.push('Sequential order validation failed: missing timestamps detected');
         } else {
-            // Sort all nodes and edges by timestamp for sequential analysis
-            const allItems = [
-                ...this.data.nodes.map(n => ({ type: 'node', id: n.id, timestamp: n.timestamp!, data: n })),
-                ...this.data.edges.map(e => ({ type: 'edge', id: e.id, timestamp: e.timestamp!, data: e }))
-            ].sort((a, b) => a.timestamp - b.timestamp);
-
-            // Track which nodes have been created
-            const createdNodes = new Set<string>();
-            const connectedNodes = new Set<string>();
-
-            for (const item of allItems) {
-                if (item.type === 'node') {
-                    createdNodes.add(item.id);
-                } else if (item.type === 'edge') {
-                    const edge = item.data as WorkflowEdge;
-
-                    // 🔀 Fork/Join 패턴 고려: Node와 Edge가 거의 동시 생성될 수 있음
-                    // 실제 데이터에서 Node/Edge 존재 여부만 확인 (생성 순서는 timestamp 기반으로만 검증)
-                    const sourceExists = this.data.nodes.some(n => n.id === edge.source);
-                    const targetExists = this.data.nodes.some(n => n.id === edge.target);
-
-                    if (!sourceExists || !targetExists) {
-                        sequentialOrderViolations.violationDetails.push(
-                            `Edge ${edge.id} references non-existent nodes (source: ${edge.source} ${sourceExists ? 'exists' : 'missing'}, target: ${edge.target} ${targetExists ? 'exists' : 'missing'})`
-                        );
-                    }
-
-                    connectedNodes.add(edge.source);
-                    connectedNodes.add(edge.target);
+            // Domain-neutral sequential rule (no artificial timestamp constraints):
+            // For every edge, require edge.timestamp >= max(source.timestamp, target.timestamp)
+            for (const edge of this.data!.edges) {
+                const sourceNode = this.data!.nodes.find(n => n.id === edge.source) || null;
+                const targetNode = this.data!.nodes.find(n => n.id === edge.target) || null;
+                if (!sourceNode || !targetNode) continue;
+                const sourceTime = sourceNode.timestamp;
+                const targetTime = targetNode.timestamp;
+                const edgeTime = edge.timestamp;
+                if (typeof sourceTime !== 'number' || typeof targetTime !== 'number' || typeof edgeTime !== 'number') {
+                    sequentialOrderViolations.prematureNodes.push(edge.id);
+                    sequentialOrderViolations.violationDetails.push(`Missing timestamps for strict order on edge ${edge.id}`);
+                    continue;
+                }
+                const latestNodeTime = Math.max(sourceTime, targetTime);
+                if (edgeTime < latestNodeTime) {
+                    sequentialOrderViolations.prematureNodes.push(edge.id);
+                    sequentialOrderViolations.violationDetails.push(
+                        `Order violation on edge ${edge.id}: edge (${edgeTime}) before latest node time (${latestNodeTime})`
+                    );
                 }
             }
-
-            // 🎯 Fork/Join Pattern Aware Validation
-            // Only validate sequential order within the same branch/path
-            // Different fork branches are independent and don't affect each other's timestamps
-
-            const pathGroups = this.identifyPathGroups();
-
-            for (const item of allItems) {
-                if (item.type === 'edge') {
-                    const edge = item.data as WorkflowEdge;
-                    const sourceNode = this.data.nodes.find(n => n.id === edge.source);
-                    const targetNode = this.data.nodes.find(n => n.id === edge.target);
-
-                    if (sourceNode && targetNode) {
-                        // 🔍 Check if this edge represents a sequential flow within the same path
-                        const isSequentialInSamePath = this.isSequentialEdgeInSamePath(edge, pathGroups);
-
-                        if (isSequentialInSamePath) {
-                            // Only validate timestamp order for sequential edges in same path
-                            const edgeTime = edge.timestamp!;
-                            const sourceTime = sourceNode.timestamp!;
-                            const targetTime = targetNode.timestamp!;
-
-                            // Rule 11: For sequential edges, edge timestamp >= max(source.timestamp, target.timestamp)
-                            if (edgeTime < sourceTime || edgeTime < targetTime) {
-                                sequentialOrderViolations.prematureNodes.push(edge.id);
-                                sequentialOrderViolations.violationDetails.push(
-                                    `Sequential edge ${edge.id} created before its nodes (edge: ${edge.timestamp}, source: ${sourceNode.timestamp}, target: ${targetNode.timestamp})`
-                                );
-                            }
-                        } else {
-                            // 🔀 Fork/Join pattern edge - timestamp order is not enforced
-                            // Skip timestamp validation for fork/join edges
-                        }
-                    }
-                }
-            }
-
             if (sequentialOrderViolations.prematureNodes.length > 0) {
                 errors.push(`Sequential order violations (${sequentialOrderViolations.prematureNodes.length}): ${sequentialOrderViolations.prematureNodes.join(', ')}`);
             }
+
+            // Extra fork-join checks required by user specification (still domain-neutral via types and edges):
+            // 1) Agent Response (delegated agents) must exist before its Tool Response and be connected via 'result'
+            // 2) Tool Result must exist after all Tool Responses under the same thinking path and connect from each via 'result'
+            // 3) Next Agent 0 Thinking (round 2) must be after Tool Result and connected via 'analyze'
+            const violationsFJ = this.validateForkJoinTemporalOrder();
+            if (violationsFJ.length > 0) {
+                violationsFJ.forEach(v => sequentialOrderViolations.violationDetails.push(v));
+                errors.push(`Fork/Join temporal order violations (${violationsFJ.length})`);
+            }
         }
+
+        // Domain-neutral: no extra fork/join-specific temporal checks
 
         // Rule 12: Connection Type Restriction Rule
         const connectionTypeViolations = this.validateConnectionTypes();
@@ -661,8 +625,8 @@ class WorkflowConnectionVerifier {
         } else {
             console.log(`❌ FAILED: ${result.multipleIncomingNodes.length} nodes have multiple incoming connections (excluding tool_result)`);
             result.multipleIncomingNodes.slice(0, 5).forEach(nodeId => {
-                const node = this.data.nodes.find(n => n.id === nodeId);
-                const incomingEdges = this.data.edges.filter(e => e.target === nodeId);
+                const node = this.data!.nodes.find(n => n.id === nodeId);
+                const incomingEdges = this.data!.edges.filter(e => e.target === nodeId);
                 console.log(`   🔴 Node: ${nodeId} (${node?.type || 'unknown'}) - ${incomingEdges.length} incoming connections`);
                 incomingEdges.slice(0, 3).forEach(edge => {
                     console.log(`      ← From: ${edge.source} (${edge.type || 'no-type'})`);
@@ -681,12 +645,12 @@ class WorkflowConnectionVerifier {
         } else {
             console.log(`❌ FAILED: ${result.unconnectedToolResponses.length} tool_call_response nodes not connected to tool_result`);
             result.unconnectedToolResponses.slice(0, 5).forEach(nodeId => {
-                const node = this.data.nodes.find(n => n.id === nodeId);
-                const outgoingEdges = this.data.edges.filter(e => e.source === nodeId);
+                const node = this.data!.nodes.find(n => n.id === nodeId);
+                const outgoingEdges = this.data!.edges.filter(e => e.source === nodeId);
                 console.log(`   🔴 Node: ${nodeId} (${node?.type || 'unknown'}) - ${outgoingEdges.length} outgoing connections`);
                 if (outgoingEdges.length > 0) {
                     outgoingEdges.slice(0, 3).forEach(edge => {
-                        const targetNode = this.data.nodes.find(n => n.id === edge.target);
+                        const targetNode = this.data!.nodes.find(n => n.id === edge.target);
                         console.log(`      → To: ${edge.target} (${targetNode?.type || 'unknown'}) - NOT tool_result`);
                     });
                 } else {
@@ -703,11 +667,11 @@ class WorkflowConnectionVerifier {
         } else {
             console.log(`❌ FAILED: ${result.multipleOutgoingNodes.length} nodes have multiple outgoing connections`);
             result.multipleOutgoingNodes.slice(0, 5).forEach(nodeId => {
-                const node = this.data.nodes.find(n => n.id === nodeId);
-                const outgoingEdges = this.data.edges.filter(e => e.source === nodeId);
+                const node = this.data!.nodes.find(n => n.id === nodeId);
+                const outgoingEdges = this.data!.edges.filter(e => e.source === nodeId);
                 console.log(`   🔴 Node: ${nodeId} (${node?.type || 'unknown'}) - ${outgoingEdges.length} outgoing connections`);
                 outgoingEdges.slice(0, 3).forEach(edge => {
-                    const targetNode = this.data.nodes.find(n => n.id === edge.target);
+                    const targetNode = this.data!.nodes.find(n => n.id === edge.target);
                     console.log(`      → To: ${edge.target} (${targetNode?.type || 'unknown'}) via ${edge.type || 'no-type'}`);
                 });
                 if (outgoingEdges.length > 3) {
@@ -724,7 +688,7 @@ class WorkflowConnectionVerifier {
         } else {
             console.log(`❌ FAILED: ${result.invalidEndNodes.length} nodes are invalid end nodes (must have outgoing connections)`);
             result.invalidEndNodes.slice(0, 5).forEach(nodeId => {
-                const node = this.data.nodes.find(n => n.id === nodeId);
+                const node = this.data!.nodes.find(n => n.id === nodeId);
                 console.log(`   🔴 Node: ${nodeId} (${node?.type || 'unknown'}) - End node (no outgoing connections)`);
                 console.log(`      ⚠️  This node type (${node?.type}) must have at least one outgoing connection`);
             });
@@ -738,7 +702,7 @@ class WorkflowConnectionVerifier {
         } else {
             console.log(`❌ FAILED: ${result.invalidAgentThinkingEndNodes.length} agent thinking nodes are end nodes`);
             result.invalidAgentThinkingEndNodes.slice(0, 5).forEach(nodeId => {
-                const node = this.data.nodes.find(n => n.id === nodeId);
+                const node = this.data!.nodes.find(n => n.id === nodeId);
                 console.log(`   🔴 Node: ${nodeId} (${node?.type || 'unknown'}) - Agent thinking end node`);
                 console.log(`      ⚠️  Agent thinking nodes must connect to response nodes`);
             });
@@ -770,35 +734,34 @@ class WorkflowConnectionVerifier {
 
                 // Show detailed violation analysis
                 result.sequentialOrderViolations.prematureNodes.slice(0, 3).forEach(violation => {
-                    // BUG FIX: violation is an edge ID, not a node ID - find edge instead of node
-                    const edge = this.data.edges.find(e => e.id === violation);
-                    console.log(`   🔴 Edge: ${violation} (${edge?.type || 'unknown'})`);
-                    console.log(`      ⏰ Created: ${edge?.timestamp ? new Date(edge.timestamp).toISOString() : 'No timestamp'}`);
+                    const edge = this.data!.edges.find(e => e.id === violation);
+                    const edgeType = edge && edge.type ? edge.type : 'unknown';
+                    console.log(`   🔴 Edge: ${violation} (${edgeType})`);
+                    const edgeCreated = edge && typeof edge.timestamp === 'number' ? new Date(edge.timestamp).toISOString() : 'No timestamp';
+                    console.log(`      ⏰ Created: ${edgeCreated}`);
 
-                    // Show edge details: source and target nodes with their timestamps
                     if (edge) {
-                        const sourceNode = this.data.nodes.find(n => n.id === edge.source);
-                        const targetNode = this.data.nodes.find(n => n.id === edge.target);
+                        const sourceNode = this.data!.nodes.find(n => n.id === edge.source);
+                        const targetNode = this.data!.nodes.find(n => n.id === edge.target);
 
                         console.log(`      📍 Edge details:`);
-                        console.log(`         Source: ${edge.source} (${sourceNode?.type || 'unknown'}) | ⏰ ${sourceNode?.timestamp ? new Date(sourceNode.timestamp).toISOString() : 'No timestamp'}`);
-                        console.log(`         Target: ${edge.target} (${targetNode?.type || 'unknown'}) | ⏰ ${targetNode?.timestamp ? new Date(targetNode.timestamp).toISOString() : 'No timestamp'}`);
-                        console.log(`         Edge: ${edge.id} | ⏰ ${edge.timestamp ? new Date(edge.timestamp).toISOString() : 'No timestamp'}`);
+                        const sourceTimeIso = sourceNode && typeof sourceNode.timestamp === 'number' ? new Date(sourceNode.timestamp).toISOString() : 'No timestamp';
+                        const targetTimeIso = targetNode && typeof targetNode.timestamp === 'number' ? new Date(targetNode.timestamp).toISOString() : 'No timestamp';
+                        console.log(`         Source: ${edge.source} (${sourceNode ? sourceNode.type : 'unknown'}) | ⏰ ${sourceTimeIso}`);
+                        console.log(`         Target: ${edge.target} (${targetNode ? targetNode.type : 'unknown'}) | ⏰ ${targetTimeIso}`);
+                        const edgeTimeIso = typeof edge.timestamp === 'number' ? new Date(edge.timestamp).toISOString() : 'No timestamp';
+                        console.log(`         Edge: ${edge.id} | ⏰ ${edgeTimeIso}`);
 
-                        // Show the actual violation: edge created before its nodes
-                        if (sourceNode && targetNode && edge.timestamp) {
+                        if (sourceNode && typeof sourceNode.timestamp === 'number' && targetNode && typeof targetNode.timestamp === 'number' && typeof edge.timestamp === 'number') {
                             const edgeTime = edge.timestamp;
-                            const sourceTime = sourceNode.timestamp || 0;
-                            const targetTime = targetNode.timestamp || 0;
-
+                            const sourceTime = sourceNode.timestamp;
+                            const targetTime = targetNode.timestamp;
                             if (edgeTime < sourceTime) {
                                 console.log(`         🚨 VIOLATION: Edge created ${sourceTime - edgeTime}ms before source node`);
                             }
                             if (edgeTime < targetTime) {
                                 console.log(`         🚨 VIOLATION: Edge created ${targetTime - edgeTime}ms before target node`);
                             }
-
-                            // Show if edge timestamp follows the rule (same or after)
                             const maxNodeTime = Math.max(sourceTime, targetTime);
                             if (edgeTime >= maxNodeTime) {
                                 const diff = edgeTime - maxNodeTime;
@@ -894,8 +857,8 @@ class WorkflowConnectionVerifier {
         const visitedNodes = new Set<string>();
 
         // Start nodes (no incoming edges) 찾기
-        const startNodes = this.data.nodes.filter(node =>
-            !this.data.edges.some(edge => edge.target === node.id)
+        const startNodes = this.data!.nodes.filter(node =>
+            !this.data!.edges.some(edge => edge.target === node.id)
         );
 
         // 각 시작 노드에서 경로 추적
@@ -933,7 +896,7 @@ class WorkflowConnectionVerifier {
         pathGroups.get(pathId)!.push(nodeId);
 
         // 다음 노드들 찾기
-        const outgoingEdges = this.data.edges.filter(edge => edge.source === nodeId);
+        const outgoingEdges = this.data!.edges.filter(edge => edge.source === nodeId);
 
         if (outgoingEdges.length === 0) {
             // 끝 노드
@@ -975,7 +938,7 @@ class WorkflowConnectionVerifier {
      */
     private isValidJoinPattern(node: any, incomingConnections: string[]): boolean {
         // Find actual edges for analysis
-        const incomingEdges = this.data.edges.filter(edge =>
+        const incomingEdges = this.data!.edges.filter(edge =>
             incomingConnections.includes(edge.source) && edge.target === node.id
         );
 
@@ -986,13 +949,17 @@ class WorkflowConnectionVerifier {
 
         // ✅ agent_thinking: join pattern (agent + user_message → thinking) OR (agent + tool_result → thinking)
         if (node.type === 'agent_thinking') {
-            const edgeTypes = incomingEdges.map(e => e.type);
+            const edgeTypes = incomingEdges
+                .map(e => e.type)
+                .filter((t): t is string => typeof t === 'string');
             return edgeTypes.every(type => ['processes', 'analyze'].includes(type));
         }
 
         // ✅ tool_call: semantic duplication (thinking → calls + executes)
         if (node.type === 'tool_call') {
-            const edgeTypes = incomingEdges.map(e => e.type);
+            const edgeTypes = incomingEdges
+                .map(e => e.type)
+                .filter((t): t is string => typeof t === 'string');
             const hasCallsAndExecutes = edgeTypes.includes('calls') && edgeTypes.includes('executes');
             const sameSource = new Set(incomingEdges.map(e => e.source)).size === 1;
             return hasCallsAndExecutes && sameSource;
@@ -1012,7 +979,7 @@ class WorkflowConnectionVerifier {
      */
     private isValidForkPattern(node: any, outgoingConnections: string[]): boolean {
         // Find actual edges for analysis
-        const outgoingEdges = this.data.edges.filter(edge =>
+        const outgoingEdges = this.data!.edges.filter(edge =>
             edge.source === node.id && outgoingConnections.includes(edge.target)
         );
 
@@ -1023,7 +990,9 @@ class WorkflowConnectionVerifier {
 
         // ✅ agent_thinking: fork pattern (thinking → multiple tool_calls)
         if (node.type === 'agent_thinking') {
-            const edgeTypes = outgoingEdges.map(e => e.type);
+            const edgeTypes = outgoingEdges
+                .map(e => e.type)
+                .filter((t): t is string => typeof t === 'string');
             return edgeTypes.every(type => ['calls', 'executes', 'consolidates'].includes(type));
         }
 
@@ -1039,6 +1008,71 @@ class WorkflowConnectionVerifier {
 
         // ❌ Other node types should have single outgoing
         return false;
+    }
+
+    /**
+     * Enforce temporal order: All tool_response under a thinking must be created before tool_result,
+     * and tool_result must be created before the next agent_thinking (via analyze edge).
+     */
+    private validateForkJoinTemporalOrder(): string[] {
+        const violations: string[] = [];
+        const nodes = this.data!.nodes;
+        const edges = this.data!.edges;
+
+        // Index helpers
+        const nodeById = new Map(nodes.map(n => [n.id, n] as const));
+        const edgesFrom = new Map<string, WorkflowEdge[]>();
+        edges.forEach(e => {
+            const arr = edgesFrom.get(e.source) || [];
+            arr.push(e);
+            edgesFrom.set(e.source, arr);
+        });
+
+        // Find all tool_result nodes and their parent thinking
+        const toolResults = nodes.filter(n => n.type === 'tool_result');
+        for (const tr of toolResults) {
+            const parentThinkingId = (tr as any).data?.parentThinkingNodeId as string | undefined;
+            if (!parentThinkingId) continue;
+            const parentThinking = nodeById.get(parentThinkingId);
+            if (!parentThinking) continue;
+
+            // Collect tool_responses that belong to this thinking via originalEvent.path parentPath equality
+            const toolResponses = nodes.filter(n => n.type === 'tool_call_response' && this.belongsToThinking(n, parentThinkingId));
+
+            // 1) All tool_response must be created before tool_result
+            for (const resp of toolResponses) {
+                if (typeof resp.timestamp === 'number' && typeof tr.timestamp === 'number') {
+                    if (resp.timestamp >= tr.timestamp) {
+                        violations.push(`Tool response '${resp.id}' (⏰ ${resp.timestamp}) was created after tool_result '${tr.id}' (⏰ ${tr.timestamp}) for thinking '${parentThinkingId}'`);
+                    }
+                }
+            }
+
+            // 2) tool_result must be created before next agent_thinking (analyze edge target)
+            const analyzeEdges = (edgesFrom.get(tr.id) || []).filter((e: WorkflowEdge) => e.type === 'analyze');
+            for (const ae of analyzeEdges) {
+                const nextThinking = nodeById.get(ae.target);
+                if (nextThinking && typeof tr.timestamp === 'number' && typeof nextThinking.timestamp === 'number') {
+                    if (tr.timestamp >= nextThinking.timestamp) {
+                        violations.push(`Tool result '${tr.id}' (⏰ ${tr.timestamp}) was created after or at same time as next thinking '${nextThinking.id}' (⏰ ${nextThinking.timestamp})`);
+                    }
+                }
+            }
+        }
+
+        return violations;
+    }
+
+    /**
+     * Check if a tool_response node belongs to the specified thinking by comparing
+     * its originalEvent.path parentPath with [root, thinkingId].
+     */
+    private belongsToThinking(node: WorkflowNode, thinkingId: string): boolean {
+        const pathArr = ((node as any).data?.extensions?.robota?.originalEvent?.path ?? (node as any).data?.path) as unknown;
+        if (!Array.isArray(pathArr) || pathArr.length < 2) return false;
+        const parentPath = pathArr.slice(0, -1);
+        // ParentPath must end with the thinkingId (root can vary)
+        return parentPath[parentPath.length - 1] === thinkingId;
     }
 }
 

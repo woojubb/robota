@@ -8,7 +8,7 @@ import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { AgentFactory } from '../managers/agent-factory';
 import { ConversationHistory } from '../managers/conversation-history-manager';
-import { ExecutionService } from '../services/execution-service';
+import { ExecutionService, EXECUTION_EVENTS } from '../services/execution-service';
 import { EventService, SilentEventService, ActionTrackingEventService } from '../services/event-service';
 import { ContextualEventService } from '../services/contextual-event/contextual-event-service';
 
@@ -286,9 +286,9 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
         return new EventEmitterPlugin({
             enabled: true,
             events: [
-                'execution.start',
-                'execution.complete',
-                'execution.error',
+                EXECUTION_EVENTS.START,
+                EXECUTION_EVENTS.COMPLETE,
+                EXECUTION_EVENTS.ERROR,
                 'module.initialize.start',
                 'module.initialize.complete',
                 'module.initialize.error',

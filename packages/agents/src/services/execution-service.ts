@@ -118,7 +118,8 @@ export class ExecutionService {
     private logger: Logger;
     private eventService: EventService;
     private executionContext?: ToolExecutionContext; // 🎯 [CONTEXT-INJECTION] Parent execution context
-    private lastResponseExecutionId?: string; // Track last response ID for tool_response linking
+    // Path-only: remove lastResponseExecutionId tracking
+    private lastResponseExecutionId?: string | undefined;
 
     constructor(
         aiProviders: AIProviderManagerInterface,
@@ -335,7 +336,6 @@ export class ExecutionService {
                         sourceType: 'agent',
                         sourceId: rootId,
                         timestamp: timestamp,
-                        prevId: executionId,
                         parameters: {
                             input,
                             // 🎯 Rich data for user message node
@@ -351,6 +351,7 @@ export class ExecutionService {
                         parentExecutionId: this.executionContext?.parentExecutionId,
                         executionLevel: 0, // User message is Level 0
                         executionPath: [rootId],
+                        path: [rootId],
                         metadata: {
                             executionId,
                             messageRole: 'user',
@@ -489,7 +490,6 @@ export class ExecutionService {
                         sourceId: rootId,
                         timestamp: new Date(),
                         executionId,
-                        prevId: executionId,
                         parameters: {
                             round: currentRound,
                             messageCount: conversationMessages.length
@@ -499,6 +499,7 @@ export class ExecutionService {
                         parentExecutionId: executionId, // Parent is execution node
                         executionLevel: 1, // Assistant message is Level 1
                         executionPath: [rootId],
+                        path: [rootId, thinkingNodeId],
                         metadata: {
                             executionId,
                             round: currentRound,
@@ -604,15 +605,13 @@ export class ExecutionService {
                         const responseStartTime = assistantResponse.timestamp || new Date();
                         const responseDuration = new Date().getTime() - responseStartTime.getTime();
 
-                        // Store response execution ID for tool_response linking
-                        this.lastResponseExecutionId = executionId;
-
                         this.eventService.emit(EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE, {
                             sourceType: 'agent',
                             sourceId: fullContext.conversationId || executionId,
                             timestamp: new Date(),
                             executionId,
-                            prevId: executionId,
+                            // path-only: [root, thinkingId, responseExecId] for deterministic thinking→response linking
+                            path: [rootId, thinkingNodeId, executionId],
                             parameters: {
                                 // 🎯 [RICH-DATA] Enhanced response data
                                 assistantMessage: responseContent,
@@ -721,12 +720,11 @@ export class ExecutionService {
                             executionId: toolCall.id, // 🎯 tool call ID를 executionId로 설정
                             toolName: toolCall.function?.name,
                             timestamp: new Date(),
-                            // Prefer thinking node as prev anchor for fork correctness
-                            prevId: thinkingNodeId,
                             parameters: JSON.parse(toolCall.function?.arguments || '{}'),
                             rootExecutionId: fullContext.conversationId || executionId,
                             executionLevel: 2, // Tool level
                             executionPath: [fullContext.conversationId || executionId, executionId],
+                            path: [fullContext.conversationId || executionId, thinkingNodeId, toolCall.id],
                             // Parent is the thinking node (round fork anchor)
                             parentExecutionId: thinkingNodeId,
                             metadata: {
@@ -751,13 +749,14 @@ export class ExecutionService {
                 // tool_call_response 노드는 실제 도구 결과가 준비된 시점에서 생성
                 if (this.eventService && !(this.eventService instanceof SilentEventService)) {
                     for (const result of toolSummary.results) {
+                        // Path-only: tail = delegatedAgentExecutionId (response node ID)
+                        const delegatedExecId = this.extractDelegatedAgentExecutionId(result);
                         const payload = {
                             sourceType: 'agent' as const,
                             sourceId: fullContext.conversationId || executionId,
                             toolName: result.toolName,
                             timestamp: new Date(),
                             executionId: result.executionId,
-                            prevId: result.executionId,
                             result: {
                                 success: result.success,
                                 data: result.success ? result.result : undefined,
@@ -766,16 +765,17 @@ export class ExecutionService {
                             rootExecutionId: fullContext.conversationId || executionId,
                             executionLevel: 2 as const,
                             executionPath: [fullContext.conversationId || executionId, executionId],
+                            // Path-only: group by thinking; tail = tool call id (handler will resolve response via parentExecutionId)
+                            path: [fullContext.conversationId || executionId, thinkingNodeId, delegatedExecId],
                             metadata: {
                                 executionId: result.executionId,
                                 success: result.success,
                                 round: currentRound,
                                 // thinking context (parent is thinkingNodeId)
                                 directParentId: thinkingNodeId,
-                                // Provide delegated agent response execution id hint when available
-                                responseExecutionId: this.lastResponseExecutionId
+                                // No extra correlation ids; path-only
                             },
-                            // Provide parentExecutionId = thinking node so handler can connect properly
+                            // Provide parentExecutionId = thinking node (agent.response has parentExecutionId mapped to this tool call via execution.start path)
                             parentExecutionId: thinkingNodeId
                         };
                         // Emit response-ready to drive response node creation immediately
@@ -861,6 +861,7 @@ export class ExecutionService {
                         parentExecutionId: executionId,
                         executionLevel: 1,
                         executionPath: [rootId],
+                        path: [rootId, thinkingNodeId],
                         metadata: {
                             executionId,
                             round: currentRound,
@@ -882,6 +883,7 @@ export class ExecutionService {
                         rootExecutionId: rootId,
                         executionLevel: 1, // Tool results presentation is Level 1
                         executionPath: [rootId],
+                        path: [rootId, thinkingNodeId],
                         metadata: {
                             executionId,
                             toolsExecuted: toolSummary.results.map(r => r.toolName || 'unknown'),
@@ -1498,5 +1500,45 @@ export class ExecutionService {
             startTime: context.startTime.toISOString(),
             messageCount: context.messages.length
         };
+    }
+
+    /**
+     * Extract delegated agent execution ID from tool result
+     * For path.tail in tool.call_response_ready events
+     */
+    private extractDelegatedAgentExecutionId(result: any): string {
+        // CRITICAL: path.tail must be the actual response node ID that was created by the delegated agent
+        // Since assignTask is third-party, we need to find the response node that was created
+        // The response node should have been created by execution.assistant_message_complete from the delegated agent
+
+        // For now, we'll extract from the tool result data structure
+        // The delegated agent's execution should be recorded in the result
+
+        let delegatedExecId = '';
+
+        // Look for execution metadata in different possible locations
+        if (result.result?.metadata?.executionId) {
+            delegatedExecId = String(result.result.metadata.executionId);
+        } else if (result.result?.executionId) {
+            delegatedExecId = String(result.result.executionId);
+        } else if (result.agentExecutionId) {
+            delegatedExecId = String(result.agentExecutionId);
+        } else {
+            // Last resort: log the structure and use tool call ID (will fail validation)
+            this.logger.warn(`[PATH-ONLY] Cannot find delegated agent execution ID in result structure:`, {
+                resultKeys: Object.keys(result),
+                resultResultKeys: result.result ? Object.keys(result.result) : 'no result',
+                resultMetadata: result.result?.metadata
+            });
+            delegatedExecId = String(result.executionId || '');
+        }
+
+        this.logger.debug(`[PATH-ONLY] Extracted delegated agent execution ID: ${delegatedExecId}`, {
+            toolName: result.toolName,
+            toolCallId: result.executionId,
+            delegatedExecId
+        });
+
+        return delegatedExecId;
     }
 }

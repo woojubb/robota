@@ -36,20 +36,20 @@ Path 주입 보증 및 클론 요건 (Required)
 - execution.assistant_message_complete (Delegated/Owner Agent Response)
   - path (tail에 agent execution 세그먼트 추가)
 - tool.call_response_ready
-  - path (동일 브랜치의 경로로 판정; 핸들러는 path로 response 노드를 유도)
+  - path = [root, thinkingId, delegatedAgentExecutionId] (tail 필수)
+  - tail 누락/불명확 시 emit 금지(즉시 throw)
 - execution.tool_results_ready (단 1회/그룹)
   - path (thinking 스코프의 경로)
 
 Path-First 정책과 메타데이터 최소화
-- 원칙: 그래프 상의 위계·부모·스코프 결정은 우선적으로 executionPath로 유도한다.
+- 원칙: 그래프 상의 위계·부모·스코프 결정은 오직 path(계층 배열)로 유도한다.
 - 원칙: 용어는 단순히 path로 통일한다(“execution” 의미 없음).
 - 이벤트 서비스는 재-클론(위임/포크)될 때마다 path를 불변 배열로 확장한다.
 - 핸들러는 노드 생성/엣지 연결 시, 별도 임시 상태 없이 path로 다음을 유도한다.
   - parentPath = path.slice(0, -1)
-  - 동일 경로 판정: startsWith(상위 path)
-  - groupId(thinkingId) = path 내 최신 thinking 세그먼트(또는 parentExecutionId)
-  - branchId(toolCallId) = path의 해당 fork 세그먼트(권장: 명시 전달, 부재 시 path tail에서 유추)
-  - 상위 흐름(upper flow)의 “다음 노드” 판단: path 상위 세그먼트의 후속 단계로 배치 (tool_result는 상위 흐름의 다음 단계)
+  - 동일 부모 판정: A.parentPath와 B.parentPath 배열 요소/순서가 완전히 동일할 때
+  - 분기/합류 표기: 별도 id 사용 금지. 오직 path의 계층 구조로만 판단한다.
+  - 상위 흐름(upper flow)의 “다음 노드” 판단: parentPath 단위의 계층 이동 규칙으로만 유도 (tool_result는 상위 흐름의 다음 단계)
 - 메타데이터 최소화 규칙:
   - 노드 구성에 꼭 필요한 값만 보관: id, type, timestamp, label 정도
   - prev/parent 등 연결 정보는 노드 data에 중복 보관하지 않고, 엣지로만 표현한다(생성 시 동시 연결).
@@ -65,16 +65,11 @@ Path-First 정책과 메타데이터 최소화
 - tool_call은 단일 out(creates)만 갖는다.
 - agent_thinking은 End Node가 될 수 없다(반드시 다음 단계로 이어짐).
 
-결정적 ID / 상관관계 규칙 (Deterministic & Correlation)
-- ID는 결정적이며 도메인 상태 혼입 금지:
-  - Response Node: response_${executionId}
-  - Tool Call Node: tool_call_${toolCallId}
-  - Thinking Node: thinking_${sourceId}_round${round}
-- 상관관계 인덱스(선택/보조):
-  - toolResponsesByGroup[groupPath] = toolResponseNodeIds[]
-  - expectedByGroup[groupPath] = Set<branchPath>
-  - collectedByGroup[groupPath] = Set<branchPath>
-  - 참고: 본 설계에서 핸들러는 path로만 동작한다. 인덱스는 서비스/검증/통계 등 보조 목적이며 연결 판단에는 개입하지 않는다.
+ID 규칙 (Path-derived)
+- ID는 path로부터 직접 유도하며 도메인 규칙/접두사 금지:
+  - 모든 이벤트성 노드의 id = 해당 이벤트의 path 마지막 세그먼트(= path.tail)
+  - 부모-자식 관계는 parentPath(= path.slice(0, -1)) 동일성으로만 판정
+  - 'response_', 'tool_call_' 등의 문자열 접두사 사용 금지
 - groupId 규칙:
   - 각 thinking(또는 fork 단위)마다 유일한 groupId를 부여한다.
   - 중첩 fork는 각자 고유 groupId를 갖는다(트리 구조).
@@ -83,27 +78,20 @@ Path-First 정책과 메타데이터 최소화
 실시간 Fork 알고리즘 (n-way, 중첩 허용)
 - tool.call_start 수신 즉시:
   - tool_call 노드 생성 + thinking → tool_call(executes) 엣지 동시 생성
-  - expectedByGroup[groupId]++
-  - toolCallByAgentExecId[agentExecId] = toolCallId (delegation 상관관계용)
 
 Delegated Agent Response 처리
 - execution.assistant_message_complete 수신 즉시:
   - response 노드 생성 + thinking → response(return) 엣지 동시 생성
-  - responseByExecId[executionId] = responseNodeId
-  - (필요 시) toolCallByAgentExecId 보정/등록
 
-실시간 Join 알고리즘 (When-All, 지연·타이머 금지, Path-Only)
+- 실시간 Join 알고리즘 (No-Barrier, Path-Only, 즉시·원자성)
 - tool.call_response_ready 수신 즉시:
-  - response 노드 유도: path tail의 agent execution 세그먼트를 NodeIdResolver로 `response_${execId}`로 변환
-  - tool_response 노드 생성 + 유도된 response → tool_response(result) 엣지 동시 생성
-  - toolResponsesByGroup[groupPath].push(tool_responseId)
-  - collectedByGroup[groupPath]++
-  - 만약 collected === expected에 “도달한 바로 그 순간”이라면:
-    - tool_results_ready 이벤트를 단 한 번 발생시킨다(중복 금지, 소유자: ExecutionService).
-    - tool_result 노드 생성 + 모든 tool_response → tool_result(result) 엣지 동시 생성
-    - tool_result는 상위 흐름(해당 thinking을 소유한 흐름)의 “다음 노드”로 간주한다.
-      - thinking → tool_result 엣지는 만들지 않는다(3-way out 방지 규칙 일관성 유지).
-      - 이어지는 상위 흐름의 다음 단계가 thinking 시작이라면, 다음 라운드 thinking 생성 + tool_result → thinking(analyze) 엣지 동시 생성.
+  - response 노드 유도: response 노드 id = path.tail(= delegatedAgentExecutionId)
+  - tool_response 노드 생성 + response → tool_response(result) 엣지 동시 생성
+- ExecutionService는 동일 thinking 라운드에 대해 모든 tool.call_response_ready emit 직후, 단 1회 `execution.tool_results_ready`를 즉시 발생한다(카운팅/대기/재확인 금지).
+- execution.tool_results_ready 수신 즉시:
+  - tool_result 노드 생성
+  - 현재까지 생성된 노드 중 node.path.slice(0, -1) === thinkingPath 인 모든 tool_response를 수집하여 tool_response[*] → tool_result(result) 엣지를 동시 생성
+  - 필요 시 tool_result → (다음 라운드)thinking(analyze) 엣지를 동시 생성 (thinking 직접 연결 금지 원칙 유지)
 
 중첩 Fork/Join (Multi-level)
 - 각 fork 단위는 고유 groupId를 갖고 독립적으로 join된다.
@@ -127,10 +115,10 @@ Delegated Agent Response 처리
 - 모든 엣지 소스/타깃 유효
 
 적용 지침 (코드 반영 요점)
-- WorkflowState: expectedBranchesByGroupPath(Set), collectedBranchesByGroupPath(Set), toolResponseIdsByGroupPath(string[])만 유지 (path 기준)
-- AgentEventHandler: path 기반으로 thinking → response(return) 엣지 동시 생성 (추가 인덱스 불필요)
-- ToolEventHandler: path tail로 response 노드 유도 → response → tool_response(result) 엣지 동시 생성, collected===expected 시 tool_results_ready 1회 발행 후 tool_result 생성 및 analyze 수행
-- ExecutionService: 모든 이벤트에 path 자동 주입, 클론 시 tail(required) 검증. expected/collected를 groupPath 기준으로 관리하고 조건 충족 순간에만 tool_results_ready 1회 emit
+- WorkflowState: 조인 카운팅/배리어 상태 금지. 핸들러 로직은 상태 없이 path만 사용.
+- AgentEventHandler: path 기반으로 thinking → response(return) 엣지 동시 생성. 매핑/보조 상태 불사용.
+- ToolEventHandler: path.tail로 response 노드 유도 → response → tool_response(result) 엣지 동시 생성. 매핑/보조 상태 불사용.
+- ExecutionService: 모든 이벤트에 path 자동 주입, 클론 시 tail(required) 검증. 동일 thinking 내 도구 응답 emit 직후 1회 `execution.tool_results_ready` 즉시 emit.
 
 경로(Path)와 상위 흐름(Upper Flow)
 - 모든 이벤트에는 경로(executionPath)를 포함하고, 포크/중첩 시 경로는 불변으로 확장된다.
@@ -201,6 +189,44 @@ Delegated Agent Response 처리
 - 메타데이터 최소화: 핸들러는 path만 사용. 기타 메타는 비사용(서비스/통계용 보조 데이터).
 
 비고
+
+## 구현 정합성 개선 계획 (2025-08-14)
+
+본 섹션은 규칙 위반 가능 지점을 제거하고 완전한 path-only/원자성/no-fallback을 보장하기 위한 구체적인 수정 방법을 명시한다. 아래 항목은 모두 적용되어야 하며, 적용 후 예제 26 검증 스크립트를 통과해야 한다.
+
+1) AgentEventHandler: 응답 시 보정 금지 (no-fallback)
+- 현재: `execution.assistant_message_complete` 처리에서 path상 thinking 노드가 없을 경우 즉시 생성·연결하는 보정 로직이 있을 수 있음.
+- 수정: 보정 로직을 제거한다. thinking 노드는 오직 `execution.assistant_message_start`에서만 생성할 수 있다. 응답 시 path의 thinking 세그먼트가 가리키는 노드가 존재하지 않으면 즉시 에러로 중단한다(원자성·fail-fast).
+
+2) ToolEventHandler: tool.call_response_ready의 path.tail 사용 강제
+- 원칙: 본 문서의 규칙(38~41행)대로 `tool.call_response_ready` 이벤트의 `path.tail`은 반드시 위임된 에이전트의 응답 실행 ID(delegatedAgentExecutionId)여야 한다.
+- 현재: parentExecutionId(=tool_callId)를 이용하여 응답을 탐색하는 우회가 남아 있을 수 있음.
+- 수정: 핸들러는 `path.tail`을 응답 노드 ID로 직접 사용한다. `responseId = path[path.length-1]`로 결정하고, 즉시 `response → tool_response(result)` 엣지를 원자적으로 생성한다. parentExecutionId 기반 추정/매핑은 모두 제거한다.
+
+3) WorkflowState 슬림화(상태 의존 제거)
+- 금지 목록에 따라 다음 상태/API를 제거한다(135~149행 항목 준수):
+  - toolCallByAgentExecution (set/get)
+  - agentResponseByToolCall (set/get)
+  - lastAssistantStart (set/get)
+  - lastResponseByThinking (set/get)
+  - userAnchorByThinking (set/get)
+  - rootUserMessageByRoot (set/get)
+- 조인 관련 최소 구조만 유지: expectedBranchesByGroupPath, collectedBranchesByGroupPath, toolResponseIdsByGroupPath.
+
+4) 이벤트 상수화 (하드코딩 문자열 사용 금지)
+- 소유자 모듈에서 선언한 상수만 사용한다. 예: `EXECUTION_EVENTS`, `TOOL_EVENTS`, `AGENT_EVENTS`.
+- 핸들러 내 모든 문자열 비교(`'execution.assistant_message_start'`, `'execution.assistant_message_complete'`, `'tool.call_response_ready'` 등)를 상수 import 사용으로 교체한다.
+
+5) prevId 제거
+- team 도메인 이벤트 payload에 남아있는 `prevId` 필드를 모두 제거한다. 연결 판단은 오직 path와 생성 시점의 원자적 엣지로 표현한다.
+
+6) ExecutionService: path 자동 주입·검증 강화
+- 모든 emit 전에 path 존재를 검증하고, 클론/위임 시 tail(required) 누락 시 즉시 throw하여 emit을 금지한다(24~29행 규칙 엄격 준수).
+- 동일 thinking 스코프에서 모든 `tool.call_response_ready`가 발생한 직후, 단 1회 `execution.tool_results_ready`를 즉시 emit한다(대기/재확인/카운팅 큐 금지). expected/collected는 groupPath 기반 Set으로만 관리한다(86~95행, 155~156행).
+
+적용 후 기대 효과
+- 순수 path-only로 부모/응답/조인 관계를 결정하며, 임시 보정/추론/대기는 완전히 제거된다.
+- 각 이벤트 처리 내에서 노드와 엣지가 동시에(원자적으로) 생성되어, 검증 스크립트의 모든 규칙(단일 시작 노드, 단일 연결 컴포넌트, 응답→tool_response→tool_result→다음 thinking 순서, timestamp/순차성/타입 제약)을 일관되게 만족한다.
 - 본 규칙은 리팩토링이 아니라 “실시간·원자적 포크/조인”을 구현하기 위한 실행 규격이다.
 - 구현 세부는 모듈 내부에서 자유로우나, 외부 관찰 결과는 본 규칙을 만족해야 한다.
 

@@ -59,20 +59,16 @@ export class ExecutionEventHandler implements EventHandler {
 
             switch (eventType) {
                 case 'execution.tool_results_ready': {
-                    // Create tool_result aggregation for the provided thinking context
-                    // Inputs are expected to include metadata.thinkingId or parentExecutionId referencing thinking context
-                    const thinkingId = String((eventData as any).metadata?.thinkingId || (eventData as any).thinkingId || (eventData as any).parentThinkingNodeId || '');
-                    const mainExec = String((eventData as any).parentExecutionId || (eventData as any).executionId || '');
-                    if (!thinkingId) {
-                        // Nothing to do without thinking context
-                        break;
-                    }
-                    const responseIds = WorkflowState.getToolResponsesForThinking(thinkingId);
-                    if (!responseIds || responseIds.length === 0) {
-                        // Nothing to aggregate – do not create a dangling tool_result
-                        break;
-                    }
-                    // Build tool_result node
+                    // Path-only: thinking scope = eventData.path
+                    const parentPath = Array.isArray((eventData as any).path) ? (eventData as any).path : [];
+                    const thinkingId = String(parentPath[parentPath.length - 1] || '');
+                    if (!thinkingId) break;
+                    // Collect existing tool_response nodes by checking originalEvent.path prefix match
+                    const nodesAccessor: any = (this as any).subscriber?.getAllNodes?.() || [];
+                    const toolResponses = nodesAccessor.filter((n: any) => n?.type === WORKFLOW_NODE_TYPES.TOOL_RESPONSE &&
+                        Array.isArray(n?.data?.extensions?.robota?.originalEvent?.path) &&
+                        n.data.extensions.robota.originalEvent.path.slice(0, -1).join('\u0000') === parentPath.join('\u0000'));
+                    if (toolResponses.length === 0) break;
                     const nodeId = `tool_result_${thinkingId}_${Date.now()}`;
                     const toolResultNode: WorkflowNode = {
                         id: nodeId,
@@ -86,42 +82,21 @@ export class ExecutionEventHandler implements EventHandler {
                             parentThinkingNodeId: thinkingId,
                             label: 'Tool Result Aggregation',
                             description: 'Aggregating tool call results',
-                            prevIds: responseIds,
-                            aggregationInfo: {
-                                parentThinking: thinkingId,
-                                toolCallsCount: responseIds.length,
-                                status: 'aggregating'
-                            },
-                            extensions: {
-                                robota: {
-                                    handlerType: 'execution',
-                                    isAggregation: true,
-                                    parentThinkingNodeId: thinkingId
-                                }
-                            }
+                            extensions: { robota: { originalEvent: eventData } }
                         },
                         connections: []
                     } as unknown as WorkflowNode;
-                    // Do not link tool_result directly from thinking; aggregation joins come from tool_response only
                     updates.push({ action: 'create', node: toolResultNode });
-                    // Explicit join edges: tool_response[*] → tool_result ('result')
-                    for (const rid of responseIds) {
+                    for (const tr of toolResponses) {
                         const edge: WorkflowEdge = {
-                            id: EdgeUtils.generateId(rid, nodeId, 'result' as any),
-                            source: rid,
+                            id: EdgeUtils.generateId(tr.id, nodeId, 'result' as any),
+                            source: tr.id,
                             target: nodeId,
                             type: 'result' as any,
                             timestamp: Date.now()
                         } as any;
                         updates.push({ action: 'create', edge } as any);
                     }
-                    // Persist last aggregation for linking next thinking
-                    WorkflowState.setLastAggregation(thinkingId, nodeId);
-                    if (mainExec) {
-                        WorkflowState.setLastAggregation(String(mainExec), nodeId);
-                    }
-                    // Optionally clear collected responses for this thinking (next rounds will recollect)
-                    WorkflowState.clearToolResponsesForThinking(thinkingId);
                     break;
                 }
                 case 'execution.start':
@@ -135,7 +110,7 @@ export class ExecutionEventHandler implements EventHandler {
                 case 'execution.error':
                     const executionErrorNode = this.createExecutionErrorNode(eventData);
                     if ((eventData as any).parentId) executionErrorNode.parentId = String((eventData as any).parentId);
-                    (executionErrorNode.data as any).prevId = (eventData as any).prevId;
+                    // [PATH-ONLY] prevId is no longer used; edges are created explicitly
                     updates.push({ action: 'create', node: executionErrorNode });
                     break;
 
@@ -146,6 +121,11 @@ export class ExecutionEventHandler implements EventHandler {
 
                 case 'execution.assistant_message_complete':
                     // AgentEventHandler will create the response node; skip assistant_message node
+                    break;
+
+                case 'execution.tool_results_to_llm':
+                    // Domain-neutral: delivery event to LLM, no graph mutation required
+                    // Treat as successfully handled to avoid strict-policy aborts
                     break;
 
                 case 'user.message':
@@ -197,15 +177,7 @@ export class ExecutionEventHandler implements EventHandler {
                         updates.push({ action: 'create', node: userMessageNode });
                         this.userMessageNodeMap.set(String(eventData.sourceId), userMessageNode.id);
                         const rootId = String(eventData.rootExecutionId || eventData.sourceId || '');
-                        // Register as root user_message if not set yet for this root
-                        if (rootId) {
-                            WorkflowState.setRootUserMessage(rootId, userMessageNode.id);
-                        }
-                        // Also register this user message as an anchor for the current thinking if provided
-                        const thinkingIdForRound = String((eventData as any)?.metadata?.thinkingId || '');
-                        if (thinkingIdForRound) {
-                            WorkflowState.setUserAnchorForThinking(thinkingIdForRound, userMessageNode.id);
-                        }
+                        // [PATH-ONLY] Removed state storage - user message anchoring is handled via path
                         // Explicit edge: agent → user_message ('receives')
                         const agentNodeForExec2 = WorkflowState.getAgentForExecution(String(eventData.executionId || ''))
                             || WorkflowState.getAgentForRoot(rootId);
@@ -239,7 +211,7 @@ export class ExecutionEventHandler implements EventHandler {
                 case 'user.input':
                     const userInputNode = this.createUserInputNode(eventData);
                     if ((eventData as any).parentId) userInputNode.parentId = String((eventData as any).parentId);
-                    (userInputNode.data as any).prevId = (eventData as any).prevId;
+                    // [PATH-ONLY] prevId is no longer used; edges are created explicitly
                     updates.push({ action: 'create', node: userInputNode });
                     break;
 
