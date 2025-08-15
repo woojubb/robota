@@ -338,9 +338,9 @@
 /* Response icon removed for cleaner design */
 
 /* === TOOL RESPONSES === */
-.react-flow__node-tool_call_response {
-  border: 2px solid #dc2626;
-  /* red-600 */
+.react-flow__node-tool_response {
+  border: 2px solid #22c55e;
+  /* green-500 (same as response node) */
 }
 
 /* Tool call response icon removed for cleaner design */

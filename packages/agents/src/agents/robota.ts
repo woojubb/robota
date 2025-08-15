@@ -242,11 +242,20 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
 
         // Agent creation event
         if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+            const toolNames: string[] = Array.isArray(this.config.tools)
+                ? this.config.tools
+                    .map((t: any) => t?.schema?.name ?? t?.name ?? t?.toolName)
+                    .filter((n: unknown): n is string => typeof n === 'string' && n.length > 0)
+                : [];
+
             this.eventService.emit(AGENT_EVENTS.CREATED as any, {
                 sourceType: 'agent',
                 sourceId: this.conversationId,
-                timestamp: new Date()
+                timestamp: new Date(),
                 // Context will be injected by ActionTrackingEventService if available
+                parameters: {
+                    tools: toolNames
+                }
             });
         }
     }

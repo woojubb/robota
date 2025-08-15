@@ -335,6 +335,10 @@ export class AgentEventHandler implements EventHandler {
                 copyNumber: copyNumber,
                 label: `Agent ${agentNumber}`,
                 description: 'AI Agent instance',
+                // Optional tools list propagated from agent.created event (if provided)
+                ...(Array.isArray(data?.parameters?.tools) && data.parameters.tools.length > 0
+                    ? { tools: [...data.parameters.tools] as string[] }
+                    : {}),
                 // 🎯 Preserve original event timestamp from EventService
                 originalEventTimestamp: data.timestamp, // Original event occurrence time
                 reservedThinkingId: `thinking_${agentId}`,
