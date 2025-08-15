@@ -5,6 +5,7 @@
 - 노드 생성과 엣지 연결은 항상 같은 이벤트에서 원자적으로 동시에 수행한다.
 - 임시 처리(보류/큐/재연결/후속보정), 타이머 대기, 하드코딩 이벤트명은 모두 금지한다.
 - 다중/중첩 fork가 가능하며, 각 fork 단위로 여러 번 join이 일어나도 항상 즉시·원자적으로 처리한다.
+- team.* 이벤트는 사용하지 않는다. TEAM_EVENTS는 존재하지 않으며, team에서 이벤트를 emit하지 않는다(제3자 컴포넌트).
 
 용어
 - Thinking: execution.assistant_message_start
@@ -66,14 +67,10 @@ Path-First 정책과 메타데이터 최소화
 - agent_thinking은 End Node가 될 수 없다(반드시 다음 단계로 이어짐).
 
 ID 규칙 (Path-derived)
-- ID는 path로부터 직접 유도하며 도메인 규칙/접두사 금지:
+- ID는 path로부터 직접 유도한다.
   - 모든 이벤트성 노드의 id = 해당 이벤트의 path 마지막 세그먼트(= path.tail)
   - 부모-자식 관계는 parentPath(= path.slice(0, -1)) 동일성으로만 판정
-  - 'response_', 'tool_call_' 등의 문자열 접두사 사용 금지
-- groupId 규칙:
-  - 각 thinking(또는 fork 단위)마다 유일한 groupId를 부여한다.
-  - 중첩 fork는 각자 고유 groupId를 갖는다(트리 구조).
-  - join은 groupId 단위로 독립 수행되며, 상위 group으로 전파되지 않는다(필요 시 상위에서 별도 join 이벤트가 발생해야 상위 join이 실행됨).
+  - 접두사 존재 여부와 무관하게 로직은 path만으로 판단한다.
 
 실시간 Fork 알고리즘 (n-way, 중첩 허용)
 - tool.call_start 수신 즉시:
@@ -87,7 +84,7 @@ Delegated Agent Response 처리
 - tool.call_response_ready 수신 즉시:
   - response 노드 유도: response 노드 id = path.tail(= delegatedAgentExecutionId)
   - tool_response 노드 생성 + response → tool_response(result) 엣지 동시 생성
-- ExecutionService는 동일 thinking 라운드에 대해 모든 tool.call_response_ready emit 직후, 단 1회 `execution.tool_results_ready`를 즉시 발생한다(카운팅/대기/재확인 금지).
+- ExecutionService는 동일 thinking 라운드에서 여러 tool.call_response_ready를 발생시킨 직후, 단 1회 `execution.tool_results_ready`를 즉시 발생한다(카운팅/대기/재확인 금지). 준비 여부는 path 그룹 스캔으로 유도하며 배리어 상태는 사용하지 않는다.
 - execution.tool_results_ready 수신 즉시:
   - tool_result 노드 생성
   - 현재까지 생성된 노드 중 node.path.slice(0, -1) === thinkingPath 인 모든 tool_response를 수집하여 tool_response[*] → tool_result(result) 엣지를 동시 생성
@@ -133,28 +130,59 @@ Delegated Agent Response 처리
     - Join 표기: 동일 thinking 경로 하위에서 expected/collected가 충족되면 상위 path로 복귀하여 tool_result 생성
 
 작업 목록 (Refactor Checklist)
-- [ ] 핸들러에서 groupId/branchId/responseExecutionId 사용 제거 (path-only로 전환)
-- [ ] `packages/workflow/src/services/workflow-state.ts`에서 다음 상태·API 제거
-    - [ ] toolCallByAgentExecution (set/get)
-    - [ ] agentResponseByToolCall (set/get)
-    - [ ] lastAssistantStart (set/get)
-    - [ ] lastResponseByThinking (set/get)
-    - [ ] userAnchorByThinking (set/get)
-    - [ ] rootUserMessageByRoot (set/get)
-    - [ ] 기타 보류/임시 큐(pendingToolResponsesByToolCall 등) 전부 제거
-- [ ] `WorkflowState`에 최소 조인 배리어만 남기기
-    - [ ] expectedBranchesByGroupPath: Map<string, Set<string>>
-    - [ ] collectedBranchesByGroupPath: Map<string, Set<string>>
-    - [ ] toolResponseIdsByGroupPath: Map<string, string[]>
-- [ ] `AgentEventHandler`를 path-only로 수정 (thinking → response(return) 즉시 연결, 추가 인덱스 금지)
-- [ ] `ToolEventHandler`를 path-only로 수정 (path tail로 response 유도, response → tool_response(result) 즉시 연결)
-- [ ] `ExecutionEventHandler`에서 tool_results_ready 처리 시 tool_result 생성 및 tool_response* → tool_result(result) 즉시 연결, 필요 시 tool_result → next thinking(analyze)
-- [ ] `packages/agents/src/services/execution-service.ts`에 path 자동 주입/검증 추가
-    - [ ] 모든 emit 전에 path 존재 검증
-    - [ ] clone/위임 시 tail(required) 미제공 시 에러 throw 및 흐름 중단
-    - [ ] expected/collected를 groupPath 기준으로 관리하고 조건 충족 시점에 1회 tool_results_ready emit
-- [ ] 하드코딩 이벤트명 여부 재점검(모두 상수로 교체)
-- [ ] 예제 26 및 중첩 fork 케이스 검증 스크립트 통과
+- [ ] 핸들러에서 groupId/branchId/responseExecutionId 사용 제거(유지 시에도 핸들러는 무시) 및 path-only 전환
+- [ ] `packages/workflow/src/services/workflow-state.ts`에서 보류/임시 큐/배리어 관련 상태·API 제거
+- [ ] `AgentEventHandler` path-only 유지(생성 즉시 thinking → response(return) 원자 연결)
+- [ ] `ToolEventHandler` path-only 유지(path.tail 기반 response 식별 → response → tool_response(result) 원자 연결)
+- [ ] `ExecutionEventHandler`에서 tool_results_ready 처리 시 tool_result 생성 및 tool_response* → tool_result(result) 동시 연결, 필요 시 tool_result → next thinking(analyze)
+- [ ] `packages/agents/src/services/execution-service.ts`에 path 자동 주입/검증 강화(emit 전 path 검증, 클론 tail(required) 누락 시 즉시 throw)
+- [x] 하드코딩 이벤트명 제거(모든 emit/on은 상수 기반). team.* 이벤트 제거 정책 준수
+- [x] 예제 26 및 중첩 fork 케이스 검증 스크립트 통과
+
+### 에이전트 ↔ ExecutionService 이벤트 소유권 정비
+- [ ] execution.* 이벤트의 단일 소유권을 `ExecutionService`로 고정한다. 다른 모듈/플러그인은 execution.*를 emit하지 않는다.
+- [ ] `packages/agents/src/plugins/event-emitter-plugin.ts`에서 execution.*/tool.* 이벤트 emit 기능을 제거하거나 기본 비활성화한다(Listener-only 또는 module./plugin. 범위로 한정).
+- [x] `packages/agents/src/agents/robota.ts`에서 `EXECUTION_EVENTS` import/의존 제거 및 플러그인 설정에서 execution.* 이벤트 나열을 삭제한다.
+- [x] `packages/agents/src/agents/robota.ts`의 `'agent.created'` 하드코딩 문자열을 `AGENT_EVENTS.CREATED` 상수로 교체한다(Agent 소유 이벤트는 Agent가 emit 가능).
+- [ ] 코드베이스 전역에서 `emit('execution.` 패턴이 `execution-service.ts` 외부에 존재하지 않음을 검사하고 발견 시 이전 구조로 이관한다.
+- [ ] 이벤트 소유권 위반을 방지하기 위해 ESLint/검증 스크립트에 "execution.* emit 금지(ExecutionService 외)" 룰을 추가한다(빌드 실패 유도).
+
+## EventService Prefix Injection 모델(제안)
+
+목표
+- EventService를 생성/클론할 때 소유자 접두어(ownerPrefix)를 주입하고, 해당 서비스에서 발생시키는 모든 이벤트명이 이 접두어로 시작하는지 검증한다.
+- 라이브러리(프로젝트 사용자)는 접두어 관리/검증을 의식하지 않아도 된다. 상수 기반 API를 그대로 사용한다.
+
+설계
+- 소유자 접두어: `'execution' | 'tool' | 'agent' | 'team'` (team.*는 현재 정책상 미사용)
+- 생성/클론 시그니처(개념):
+  - `new EventService({ ownerPrefix: 'execution', strict: true })`
+  - `eventService.clone({ ownerPrefix: 'tool' })`
+- 검증 방법: EventService.emit 내부에서 `eventName.startsWith(ownerPrefix + '.')` 검사. 불일치 시 즉시 에러 throw (개발용 진단 메시지 포함).
+- 이벤트명 조합 방침: 런타임 문자열 조합 금지. 기존처럼 소유 모듈에서 선언형 상수를 export/import 하여 사용. EventService는 상수로 전달된 이벤트명을 검증만 수행.
+- 핸들러 주입 단순성 유지: 핸들러는 기존과 동일하게 등록(import한 상수로 on/emit). 접두어 검증은 EventService 내부에서만 수행되어, 핸들러/호출부의 복잡도 증가 없음.
+
+적용 흐름 예시
+- Tool → Sub Agent 생성 시:
+  - Tool이 자식 객체(Agent)를 만들 때 `eventService.clone({ ownerPrefix: 'agent' })`로 복제하여 자식에 주입.
+  - 자식(Agent)은 자신의 `AGENT_EVENTS.*`만 emit 가능(검증으로 강제).
+- Execution 레이어:
+  - 최상위 Agent가 생성 시점에 `ownerPrefix: 'execution'`으로 주입된 EventService를 보유(또는 상위에서 주입).
+  - ExecutionService는 `EXECUTION_EVENTS.*`만 emit 가능.
+
+SDK/개발 단계 한정 검증
+- 기본: `strict: true`로 검증 활성. 불일치 시 상세 원인/수정 가이드를 포함한 에러 메시지로 즉시 중단.
+- 배포 모드: 동일 로직 유지 가능(권장). 단, 사용자는 상수만 사용하므로 추가 부담 없음.
+
+단계적 도입 계획
+- [ ] EventService 생성자/clone API에 `ownerPrefix` 옵션 추가 및 내부 검증 구현
+- [ ] 상위 컨테이너에서 하위 객체 생성 시 `clone({ ownerPrefix })` 체인 적용(agents/tool/team 레이어)
+- [ ] 기존 emit 호출부에서 상수만 전달하는지 재검토(문자열 조합 제거 확인)
+- [ ] 검증 에러 메시지 표준화: "[EVENT-PREFIX-VALIDATION] Expected prefix 'execution.' but received 'tool.*' (owner=execution)"
+
+비고
+- 이 모델은 상수 기반 설계를 보완하는 안전장치로, 접두어 소유권을 런타임에서 확정해 이벤트 소유자/경계가 흐려지는 문제를 방지한다.
+- 핸들러/모듈 주입 구조는 그대로 유지된다(간단한 주입/등록 패턴 보존).
 
 예시 시퀀스(2갈래 포크)
 1) Agent 1 response 생성 → Tool Response(for Agent 1) 즉시 생성 및 Agent 1 response에 result 엣지로 연결
@@ -174,11 +202,11 @@ Delegated Agent Response 처리
 
 일관성 점검 체크리스트 (Self-Consistency)
 - 접두어/소유권 규칙과 충돌 없음 (execution.*, tool.*)
-- join은 groupId 단위로 When-All 조건(cllct == exp)에 즉시 1회 트리거됨
+- 배리어/카운팅 없이 path 그룹 스캔으로 단 1회 join 트리거됨
 - tool_result는 상위 흐름의 다음 노드로만 간주되며 thinking과 직접 연결하지 않음
-- ID 규칙은 결정적이며 상관관계 인덱스로 직접 조회 가능(추측/후보정 불필요)
-- 중첩 포크는 독립 groupId로 조인되며 path를 통해 상위 위계 추적 가능
- - 모든 이벤트는 path를 포함해야 하며, 이벤트 서비스가 미주입/무효 tail을 검증해 즉시 실패시킨다(emit 금지, 흐름 중단)
+- ID 규칙은 결정적이며, 로직은 접두사에 의존하지 않음(추측/후보정 불필요)
+- 중첩 포크는 parentPath 기준으로 조인되며 path를 통해 상위 위계 추적 가능
+  - 모든 이벤트는 path를 포함해야 하며, 이벤트 서비스가 미주입/무효 tail을 검증해 즉시 실패시킨다(emit 금지, 흐름 중단)
 
 검증 결과 (Feasibility Review)
 - Path-Only 전환: 구현 가능(높음). 전제는 모든 이벤트에 path 자동 주입 및 클론 시 tail 필수 제공.

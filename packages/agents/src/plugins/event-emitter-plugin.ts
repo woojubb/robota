@@ -7,12 +7,12 @@ import type { TimerId } from '../utils';
 /**
  * Local event constants to avoid hardcoded strings in emit calls
  */
-const EXEC_EVENTS = {
-    START: 'execution.start',
-    COMPLETE: 'execution.complete',
-    ERROR: 'execution.error',
-    HIERARCHY: 'execution.hierarchy',
-    REALTIME: 'execution.realtime'
+import { AGENT_EVENTS } from '../agents/constants';
+
+const AGENT_EXEC_EVENTS = {
+    START: AGENT_EVENTS.EXECUTION_START,
+    COMPLETE: AGENT_EVENTS.EXECUTION_COMPLETE,
+    ERROR: AGENT_EVENTS.EXECUTION_ERROR
 } as const;
 
 const CONV_EVENTS = {
@@ -53,6 +53,9 @@ const MODULE_EVENTS = {
  */
 export type EventType =
     // 🔄 Existing event types (unchanged for backward compatibility)
+    | 'agent.execution_start'
+    | 'agent.execution_complete'
+    | 'agent.execution_error'
     | 'execution.start'
     | 'execution.complete'
     | 'execution.error'
@@ -263,9 +266,9 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
         this.pluginOptions = {
             enabled: options.enabled ?? true,
             events: options.events ?? [
-                EXEC_EVENTS.START,
-                EXEC_EVENTS.COMPLETE,
-                EXEC_EVENTS.ERROR,
+                AGENT_EXEC_EVENTS.START,
+                AGENT_EXEC_EVENTS.COMPLETE,
+                AGENT_EXEC_EVENTS.ERROR,
                 TOOL_EVENTS_LOCAL.BEFORE,
                 TOOL_EVENTS_LOCAL.AFTER,
                 TOOL_EVENTS_LOCAL.SUCCESS,
@@ -304,7 +307,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
      * Before execution starts
      */
     override async beforeExecution(context: BaseExecutionContext): Promise<void> {
-        await this.emit(EXEC_EVENTS.START, {
+        await this.emit(AGENT_EXEC_EVENTS.START, {
             executionId: context.executionId,
             sessionId: context.sessionId,
             userId: context.userId,
@@ -319,7 +322,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
      * After execution completes
      */
     override async afterExecution(context: BaseExecutionContext, result: BaseExecutionResult): Promise<void> {
-        await this.emit(EXEC_EVENTS.COMPLETE, {
+        await this.emit(AGENT_EXEC_EVENTS.COMPLETE, {
             executionId: context.executionId,
             sessionId: context.sessionId,
             userId: context.userId,
@@ -445,7 +448,7 @@ export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, Ev
      * TODO: Consider standardized error context interface
      */
     override async onError(error: Error, context?: ErrorContext): Promise<void> {
-        await this.emit(EXEC_EVENTS.ERROR, {
+        await this.emit(AGENT_EXEC_EVENTS.ERROR, {
             executionId: context?.executionId,
             sessionId: context?.sessionId,
             userId: context?.userId,

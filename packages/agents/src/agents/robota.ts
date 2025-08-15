@@ -8,9 +8,9 @@ import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { AgentFactory } from '../managers/agent-factory';
 import { ConversationHistory } from '../managers/conversation-history-manager';
-import { ExecutionService, EXECUTION_EVENTS } from '../services/execution-service';
+import { ExecutionService } from '../services/execution-service';
+import { AGENT_EVENTS } from './constants';
 import { EventService, SilentEventService, ActionTrackingEventService } from '../services/event-service';
-import { ContextualEventService } from '../services/contextual-event/contextual-event-service';
 
 
 import { BaseTool } from '../abstracts/base-tool';
@@ -209,20 +209,20 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
         this.eventEmitter = this.createEventEmitterInstance();
         this.moduleRegistry = this.createModuleRegistryInstance();
 
-        // 🎯 [CONTEXTUAL-EVENT-SERVICE] Initialize with new ContextualEventService
+        // Initialize EventService
         // If parent provided EventService, use it directly
-        // Otherwise, create ContextualEventService with workflow-compatible extractors
+        // Otherwise, create ActionTrackingEventService with proper ownerPrefix
         if (config.eventService) {
             this.eventService = config.eventService; // Use injected EventService
         } else {
-            // Create basic ContextualEventService if no parent EventService provided
-            // Note: In team environments, this should be provided by createTeam()
-            this.eventService = new ContextualEventService({
-                baseEventService: new SilentEventService(),
-                logger: this.logger,
-                executionContext: config.executionContext
-                // contextExtractors should be provided by the team/application level
-            } as any); // Config constructor overload
+            // Create ActionTrackingEventService if no parent EventService provided
+            // Owner enforced to 'agent' for agent-owned events
+            this.eventService = new ActionTrackingEventService(
+                new SilentEventService(),
+                undefined,
+                config.executionContext as any,
+                { ownerPrefix: 'agent' }
+            );
         }
 
         // Store config for async initialization
@@ -240,13 +240,13 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
             defaultModel: config.defaultModel.model
         });
 
-        // 🆕 [AGENT-CREATED-EVENT] Agent 생성 완료 이벤트 발생
+        // Agent creation event
         if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-            this.eventService.emit('agent.created', {
+            this.eventService.emit(AGENT_EVENTS.CREATED as any, {
                 sourceType: 'agent',
                 sourceId: this.conversationId,
                 timestamp: new Date()
-                // 🎯 parentExecutionId, executionLevel 등은 ContextualEventService가 자동 주입
+                // Context will be injected by ActionTrackingEventService if available
             });
         }
     }
@@ -286,9 +286,6 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
         return new EventEmitterPlugin({
             enabled: true,
             events: [
-                EXECUTION_EVENTS.START,
-                EXECUTION_EVENTS.COMPLETE,
-                EXECUTION_EVENTS.ERROR,
                 'module.initialize.start',
                 'module.initialize.complete',
                 'module.initialize.error',

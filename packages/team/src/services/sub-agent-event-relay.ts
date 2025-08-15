@@ -3,7 +3,7 @@ import {
     ServiceEventType,
     ServiceEventData
 } from '@robota-sdk/agents';
-import { ContextualEventService } from '@robota-sdk/agents';
+import { ActionTrackingEventService } from '@robota-sdk/agents';
 
 /**
  * SubAgentEventRelay - Event relay for Sub-Agent to Parent connection
@@ -12,7 +12,7 @@ import { ContextualEventService } from '@robota-sdk/agents';
  * automatically enriching events with parent execution information for proper hierarchy.
  * 
  * Key Features:
- * - Inherits from ContextualEventService for automatic hierarchy tracking
+ * - Inherits from ActionTrackingEventService for automatic hierarchy tracking
  * - Automatically adds parentExecutionId to all Sub-Agent events  
  * - Maintains proper execution levels for nested agent calls
  * - Preserves Robota object purity (no metadata pollution)
@@ -29,7 +29,7 @@ import { ContextualEventService } from '@robota-sdk/agents';
  * });
  * ```
  */
-export class SubAgentEventRelay extends ContextualEventService {
+export class SubAgentEventRelay extends ActionTrackingEventService {
     private readonly parentEventService: EventService;
     private readonly parentToolCallId: string;
 
@@ -44,19 +44,16 @@ export class SubAgentEventRelay extends ContextualEventService {
         parentEventService: EventService,
         parentToolCallId: string
     ) {
-        // Initialize ContextualEventService with parent's context
-        // No need to re-define extractors - they are inherited from parent
-        super({
-            baseEventService: parentEventService,
-            executionContext: {
-                executionId: parentToolCallId,
-                sourceType: 'team',
-                sourceId: parentToolCallId,
-                parentExecutionId: parentToolCallId,
-                executionLevel: 2  // Tool level (team=1, tool=2)
-            }
-            // contextExtractors inherited from parentEventService automatically
-        });
+        // Initialize ActionTrackingEventService with parent's context and enforced prefix 'agent'
+        super(parentEventService as any, undefined, {
+            executionId: parentToolCallId,
+            parentExecutionId: parentToolCallId,
+            rootExecutionId: parentToolCallId,
+            executionLevel: 2,
+            executionPath: [parentToolCallId],
+            sourceType: 'agent',
+            sourceId: parentToolCallId
+        } as any, { ownerPrefix: 'agent' });
 
         this.parentEventService = parentEventService;
         this.parentToolCallId = parentToolCallId;
@@ -70,7 +67,7 @@ export class SubAgentEventRelay extends ContextualEventService {
      * @param eventType - Type of event to emit
      * @param data - Event data
      */
-    emit(eventType: ServiceEventType, data: ServiceEventData): void {
+    override emit(eventType: ServiceEventType, data: ServiceEventData): void {
         // Synchronous forward to preserve strict ordering (no microtask deferral)
         try {
             const enrichedData: ServiceEventData = {
@@ -84,23 +81,5 @@ export class SubAgentEventRelay extends ContextualEventService {
         } catch (error) {
             console.error(`[SubAgentEventRelay] Error processing event ${eventType}:`, error);
         }
-    }
-
-    /**
-     * Subscribe to events (delegate to parent)
-     * @param eventType - Event type to subscribe to  
-     * @param handler - Event handler function
-     */
-    on(eventType: ServiceEventType, handler: (data: ServiceEventData) => void): void {
-        this.parentEventService.on(eventType, handler);
-    }
-
-    /**
-     * Unsubscribe from events (delegate to parent)
-     * @param eventType - Event type to unsubscribe from
-     * @param handler - Event handler function to remove
-     */
-    off(eventType: ServiceEventType, handler: (data: ServiceEventData) => void): void {
-        this.parentEventService.off(eventType, handler);
     }
 }

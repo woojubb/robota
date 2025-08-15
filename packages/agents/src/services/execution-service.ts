@@ -9,7 +9,7 @@ import { ToolExecutionContext } from '../interfaces/tool'; // 🎯 [CONTEXT-INJE
 import { BaseAIProvider } from '../abstracts/base-ai-provider';
 import { Logger, createLogger } from '../utils/logger';
 import { ChatOptions, ToolCall } from '../interfaces/provider';
-import { EventService, SilentEventService } from './event-service';
+import { EventService, SilentEventService, ActionTrackingEventService } from './event-service';
 import type { ToolExecutionBatchContext } from './tool-execution-service';
 
 /**
@@ -116,7 +116,9 @@ export class ExecutionService {
     private conversationHistory: ConversationHistory;
     private plugins: BasePlugin[] = [];
     private logger: Logger;
-    private eventService: EventService;
+    private baseEventService: EventService;
+    private execEventService: EventService;
+    private toolEventService: EventService;
     private executionContext?: ToolExecutionContext; // 🎯 [CONTEXT-INJECTION] Parent execution context
     // Path-only: remove lastResponseExecutionId tracking
     private lastResponseExecutionId?: string | undefined;
@@ -134,8 +136,22 @@ export class ExecutionService {
         this.conversationHistory = conversationHistory;
         this.plugins = [];
         this.logger = createLogger('ExecutionService');
-        this.eventService = eventService || new SilentEventService();
+        this.baseEventService = eventService || new SilentEventService();
         this.executionContext = executionContext; // 🎯 [CONTEXT-INJECTION] Store parent context
+
+        // 🎯 Event ownership enforcement via prefixed clones
+        // Prefer clone if available; otherwise wrap with ActionTrackingEventService
+        const maybeClone = (svc: EventService, ownerPrefix: 'execution' | 'tool'): EventService => {
+            const svcAny = svc as any;
+            if (svcAny && typeof svcAny.clone === 'function') {
+                return svcAny.clone({ ownerPrefix, executionContext: this.executionContext });
+            }
+            // Wrap base service to enforce prefix while preserving forwarding behavior
+            return new ActionTrackingEventService(svc, undefined, this.executionContext, { ownerPrefix });
+        };
+
+        this.execEventService = maybeClone(this.baseEventService, 'execution');
+        this.toolEventService = maybeClone(this.baseEventService, 'tool');
     }
 
     /**
@@ -221,7 +237,7 @@ export class ExecutionService {
 
         // Emit execution start event
         console.log(`📢 [EXECUTION-START-EMIT] About to emit execution.start for agent: ${fullContext.conversationId || executionId}`);
-        if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+        if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
             const rootId = fullContext.conversationId || executionId;
             console.log(`📢 [EXECUTION-START-EMIT] Emitting execution.start for agent: ${rootId}`);
 
@@ -240,7 +256,7 @@ export class ExecutionService {
                 parameters: tool.parameters ? Object.keys(tool.parameters.properties || {}) : []
             }));
 
-            this.eventService.emit(EXECUTION_EVENTS.START, {
+            this.execEventService.emit(EXECUTION_EVENTS.START, {
                 sourceType: 'agent',
                 sourceId: rootId,
                 timestamp: startTime,
@@ -327,12 +343,12 @@ export class ExecutionService {
                 conversationSession.addUserMessage(input, { executionId });
 
                 // Emit user message event as the starting point
-                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
                     const rootId = fullContext.conversationId || executionId;
 
                     // 🎯 [RICH-DATA] Enhanced user message event with detailed content
                     const timestamp = new Date();
-                    this.eventService.emit(EXECUTION_EVENTS.USER_MESSAGE, {
+                    this.execEventService.emit(EXECUTION_EVENTS.USER_MESSAGE, {
                         sourceType: 'agent',
                         sourceId: rootId,
                         timestamp: timestamp,
@@ -484,8 +500,8 @@ export class ExecutionService {
 
                 // Emit assistant message start event for each thinking phase
                 console.log(`🔄 [ROUND-DEBUG] Agent ${rootId} Round ${currentRound} - About to emit assistant_message_start`);
-                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                    this.eventService.emit(EXECUTION_EVENTS.ASSISTANT_MESSAGE_START, {
+                if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
+                    this.execEventService.emit(EXECUTION_EVENTS.ASSISTANT_MESSAGE_START, {
                         sourceType: 'agent',
                         sourceId: rootId,
                         timestamp: new Date(),
@@ -597,7 +613,7 @@ export class ExecutionService {
                     // 🎯 [EVENT-ORTHODOXY] 이벤트는 정석으로 발생 - 조건부 억제 없음
                     // ExecutionService는 assistant response 완료 시 무조건 이벤트 발생
                     // 핸들러에서 context를 보고 처리 여부 결정
-                    if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                    if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
                         this.logger.info(`🔧 [EVENT-ORTHODOXY] Emitting assistant_message_complete for Round ${currentRound} completion (no tool calls)`);
 
                         // 🎯 [RICH-DATA] Collect detailed response information
@@ -605,7 +621,7 @@ export class ExecutionService {
                         const responseStartTime = assistantResponse.timestamp || new Date();
                         const responseDuration = new Date().getTime() - responseStartTime.getTime();
 
-                        this.eventService.emit(EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE, {
+                        this.execEventService.emit(EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE, {
                             sourceType: 'agent',
                             sourceId: fullContext.conversationId || executionId,
                             timestamp: new Date(),
@@ -698,10 +714,10 @@ export class ExecutionService {
                 };
 
                 // Emit tool_call_start events for each tool with direct parent provision
-                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
                     // 🎯 ActionTrackingEventService에 hierarchy 등록
-                    if ('trackExecution' in this.eventService) {
-                        (this.eventService as any).trackExecution(thinkingNodeId, fullContext.conversationId || executionId, 1);
+                    if ('trackExecution' in this.execEventService) {
+                        (this.execEventService as any).trackExecution(thinkingNodeId, fullContext.conversationId || executionId, 1);
                     }
 
                     // 🎯 Batch metadata for aggregation-after-all-tools
@@ -710,11 +726,11 @@ export class ExecutionService {
 
                     for (const toolCall of assistantResponse.toolCalls) {
                         // 🎯 각 tool call을 hierarchy에 등록
-                        if ('trackExecution' in this.eventService) {
-                            (this.eventService as any).trackExecution(toolCall.id, thinkingNodeId, 2);
+                        if ('trackExecution' in this.toolEventService) {
+                            (this.toolEventService as any).trackExecution(toolCall.id, thinkingNodeId, 2);
                         }
 
-                        this.eventService.emit(TOOL_EVENTS.CALL_START, {
+                        this.toolEventService.emit(TOOL_EVENTS.CALL_START, {
                             sourceType: 'agent',
                             sourceId: fullContext.conversationId || executionId,
                             executionId: toolCall.id, // 🎯 tool call ID를 executionId로 설정
@@ -747,7 +763,7 @@ export class ExecutionService {
 
                 // 🎯 [EVENT-ORDER-FIX] tool.call_complete는 이제 "도구 호출만 완료된 상태"를 의미
                 // tool_call_response 노드는 실제 도구 결과가 준비된 시점에서 생성
-                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
                     for (const result of toolSummary.results) {
                         // Path-only: tail = delegatedAgentExecutionId (response node ID)
                         const delegatedExecId = this.extractDelegatedAgentExecutionId(result);
@@ -779,7 +795,7 @@ export class ExecutionService {
                             parentExecutionId: thinkingNodeId
                         };
                         // Emit response-ready to drive response node creation immediately
-                        this.eventService.emit(TOOL_EVENTS.CALL_RESPONSE_READY, payload);
+                        this.toolEventService.emit(TOOL_EVENTS.CALL_RESPONSE_READY, payload);
                     }
                 }
 
@@ -847,10 +863,10 @@ export class ExecutionService {
                 }
 
                 // Emit tool results ready (join trigger) and then delivery to LLM
-                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
                     const rootId = fullContext.conversationId || executionId;
                     // 1) Join trigger for workflow aggregation
-                    this.eventService.emit(EXECUTION_EVENTS.TOOL_RESULTS_READY, {
+                    this.execEventService.emit(EXECUTION_EVENTS.TOOL_RESULTS_READY, {
                         sourceType: 'agent',
                         sourceId: rootId,
                         timestamp: new Date(),
@@ -871,7 +887,7 @@ export class ExecutionService {
                     });
 
                     // 2) Delivery to LLM (unchanged purpose)
-                    this.eventService.emit(EXECUTION_EVENTS.TOOL_RESULTS_TO_LLM, {
+                    this.execEventService.emit(EXECUTION_EVENTS.TOOL_RESULTS_TO_LLM, {
                         sourceType: 'agent',
                         sourceId: rootId,
                         timestamp: new Date(),
@@ -958,13 +974,13 @@ export class ExecutionService {
                 rounds: currentRound,
                 responseLength: result.response.length,
                 isMainAgent: !rootId?.includes('copy'),
-                eventServiceAvailable: !!(this.eventService && !(this.eventService instanceof SilentEventService))
+                eventServiceAvailable: !!(this.baseEventService && !(this.baseEventService instanceof SilentEventService))
             });
 
             this.logger.debug(`[RULE-9-DEBUG] Emitting execution.assistant_message_complete event for sourceId: ${rootId}`, {
                 rounds: currentRound,
                 responseLength: result.response.length,
-                eventServiceType: this.eventService?.constructor.name
+                eventServiceType: (this.execEventService as any)?.constructor?.name
             });
 
             // 🎯 [DUPLICATE-EMIT-FIX] Remove duplicate assistant_message_complete emission
@@ -973,9 +989,9 @@ export class ExecutionService {
             this.logger.info(`🔧 [DUPLICATE-EMIT-FIX] Skipping duplicate assistant_message_complete emission - already emitted per round`);
 
             // Emit execution complete event
-            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+            if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
                 const rootId = fullContext.conversationId || executionId;
-                this.eventService.emit(EXECUTION_EVENTS.COMPLETE, {
+                this.execEventService.emit(EXECUTION_EVENTS.COMPLETE, {
                     sourceType: 'agent',
                     sourceId: rootId,
                     timestamp: new Date(),
@@ -1018,9 +1034,9 @@ export class ExecutionService {
             });
 
             // Emit execution error event
-            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+            if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
                 const rootId = fullContext.conversationId || executionId;
-                this.eventService.emit(EXECUTION_EVENTS.ERROR, {
+                this.execEventService.emit(EXECUTION_EVENTS.ERROR, {
                     sourceType: 'agent',
                     sourceId: rootId,
                     timestamp: new Date(),
@@ -1213,7 +1229,7 @@ export class ExecutionService {
                 const streamingThinkingNodeId = `thinking_agent_${Date.now()}_${executionId}`;
 
                 // Emit tool_call_start events for each tool (streaming) with direct parent provision
-                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
                     for (const toolCall of toolCalls) {
                         const eventData = {
                             sourceType: 'agent' as const,
@@ -1234,16 +1250,16 @@ export class ExecutionService {
                                 directParentId: streamingThinkingNodeId
                             }
                         };
-                        this.eventService.emit(TOOL_EVENTS.CALL_START, eventData);
+                        this.toolEventService.emit(TOOL_EVENTS.CALL_START, eventData);
                     }
                 }
 
                 const toolSummary = await this.toolExecutionService.executeTools(toolContext);
 
                 // Emit tool_call_complete events for each completed tool (streaming)
-                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
                     for (const result of toolSummary.results) {
-                        this.eventService.emit(TOOL_EVENTS.CALL_COMPLETE, {
+                        this.toolEventService.emit(TOOL_EVENTS.CALL_COMPLETE, {
                             sourceType: 'agent',
                             sourceId: context?.conversationId || executionId,
                             toolName: result.toolName,
@@ -1321,9 +1337,9 @@ export class ExecutionService {
                 }
 
                 // After all tool responses are emitted and recorded, trigger aggregation join
-                if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
                     const rootId = context?.conversationId || executionId;
-                    this.eventService.emit(EXECUTION_EVENTS.TOOL_RESULTS_READY, {
+                    this.execEventService.emit(EXECUTION_EVENTS.TOOL_RESULTS_READY, {
                         sourceType: 'agent',
                         sourceId: rootId,
                         timestamp: new Date(),

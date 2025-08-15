@@ -7,6 +7,12 @@
 export const AGENT_EVENTS = {
     /** Agent instance has been created and initialized */
     CREATED: 'agent.created',
+    /** Agent execution lifecycle - start */
+    EXECUTION_START: 'agent.execution_start',
+    /** Agent execution lifecycle - complete */
+    EXECUTION_COMPLETE: 'agent.execution_complete',
+    /** Agent execution lifecycle - error */
+    EXECUTION_ERROR: 'agent.execution_error',
     /** Agent aggregation process completed */
     AGGREGATION_COMPLETE: 'agent.aggregation_complete'
 } as const;

@@ -304,8 +304,9 @@ export {
     ActionTrackingEventService
 } from './services/event-service';
 
-// ContextualEventService - New standard EventService with context-binding
-export { ContextualEventService, SilentContextualEventService } from './services/contextual-event/contextual-event-service';
+// ContextualEventService (deprecated) - re-exported to ActionTrackingEventService for migration compatibility
+export { ActionTrackingEventService as ContextualEventService } from './services/event-service';
+export { ActionTrackingEventService as SilentContextualEventService } from './services/event-service';
 
 export type { ExecutionNode } from './services/event-service';
 

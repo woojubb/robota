@@ -1,5 +1,6 @@
 import type { EventService, ServiceEventData } from '../services/event-service';
 import { EXECUTION_EVENTS, TOOL_EVENTS } from '../services/execution-service';
+import { AGENT_EVENTS } from '../agents/constants';
 
 // Local task events (legacy) kept as constants to avoid magic strings in code
 const TASK_EVENTS = {
@@ -74,9 +75,9 @@ export class ExecutionProxy<T extends object = object> {
         // Agent execution methods
         if (this.config.sourceType === 'agent') {
             this.configureMethod('run', {
-                startEvent: EXECUTION_EVENTS.START,
-                completeEvent: EXECUTION_EVENTS.COMPLETE,
-                errorEvent: EXECUTION_EVENTS.ERROR,
+                startEvent: AGENT_EVENTS.EXECUTION_START,
+                completeEvent: AGENT_EVENTS.EXECUTION_COMPLETE,
+                errorEvent: AGENT_EVENTS.EXECUTION_ERROR,
                 extractMetadata: (target, methodName, args) => ({
                     inputLength: args[0]?.length || 0,
                     conversationId: target.conversationId,
@@ -86,9 +87,9 @@ export class ExecutionProxy<T extends object = object> {
             });
 
             this.configureMethod('runStream', {
-                startEvent: EXECUTION_EVENTS.START,
-                completeEvent: EXECUTION_EVENTS.COMPLETE,
-                errorEvent: EXECUTION_EVENTS.ERROR,
+                startEvent: AGENT_EVENTS.EXECUTION_START,
+                completeEvent: AGENT_EVENTS.EXECUTION_COMPLETE,
+                errorEvent: AGENT_EVENTS.EXECUTION_ERROR,
                 extractMetadata: (target, methodName, args) => ({
                     inputLength: args[0]?.length || 0,
                     conversationId: target.conversationId,

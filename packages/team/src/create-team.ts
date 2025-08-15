@@ -1,7 +1,6 @@
 import { TeamContainer } from './team-container';
 import type { TeamContainerOptions, TeamOptions } from './types';
-import { ContextualEventService, SilentEventService, Robota } from '@robota-sdk/agents';
-import { SilentContextualEventService } from '@robota-sdk/agents';
+import { ActionTrackingEventService, SilentEventService, Robota } from '@robota-sdk/agents';
 
 /**
  * Create a Multi-Agent Team with Template-Based Configuration
@@ -77,40 +76,9 @@ export function createTeam(options: TeamOptions): TeamContainer {
     const defaultProvider = options.aiProviders[0]!;
     const defaultModel = getDefaultModelForProvider(defaultProvider.name) || 'gpt-4o-mini';
 
-    // Create ContextualEventService with all necessary context extractors
-    // This will be inherited by all team components automatically
-    const eventService = options.eventService || new ContextualEventService({
-        baseEventService: new SilentContextualEventService(),
-        contextExtractors: [
-            // Agent context extractor for Robota instances
-            {
-                ctor: Robota,
-                extract: (source: any) => ({
-                    executionId: source.conversationId,
-                    sourceType: 'agent',
-                    sourceId: source.conversationId,
-                    metadata: {
-                        agentName: source.name,
-                        agentType: 'robota'
-                    }
-                })
-            },
-            // Team context extractor for TeamContainer instances  
-            {
-                name: 'TeamContainer',
-                extract: (source: any) => ({
-                    executionId: source.id || source.teamId || 'team_unknown',
-                    sourceType: 'team',
-                    sourceId: source.id || source.teamId || 'team_unknown',
-                    metadata: {
-                        teamName: source.name || 'team',
-                        teamType: 'collaboration'
-                    }
-                })
-            }
-            // Tool extractors can be added here as needed for workflow-event-subscriber
-        ]
-    });
+    // Create EventService (ActionTrackingEventService)
+    // Context extractors are not used; context should be passed explicitly when needed
+    const eventService = options.eventService || new ActionTrackingEventService(new SilentEventService());
 
     // Convert to full TeamContainerOptions using new API format
     const fullOptions: TeamContainerOptions = {
