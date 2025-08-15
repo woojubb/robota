@@ -22,7 +22,7 @@ export * from './services/workflow-event-subscriber.js';
 
 // Handlers
 export * from './handlers/agent-event-handler.js';
-export * from './handlers/team-event-handler.js';
+// [PATH-ONLY] TeamEventHandler removed - team should not emit events
 export * from './handlers/tool-event-handler.js';
 export * from './handlers/execution-event-handler.js';
 

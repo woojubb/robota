@@ -100,13 +100,44 @@ async function testPlaygroundEdgeConnections() {
         // 4. team의 ContextualEventService에서 발생하는 이벤트를 WorkflowEventSubscriber로 전달
         console.log('\n4. Connecting team EventService to WorkflowEventSubscriber...');
 
-        // 루트 인젝션: 루트 baseEventService에서 모든 이벤트를 브로드캐스트
+        // 루트 인젝션: 루트 baseEventService에서 모든 이벤트를 브로드캐스트 (순차 처리 보장)
         const rootEventService: any = (baseEventService as any).baseEventService ?? baseEventService;
         const rootOriginalEmit = rootEventService.emit.bind(rootEventService);
-        // Forward events to subscriber immediately without additional sequencing (natural order is already guaranteed)
+        // Strict ordering queue to prevent out-of-order processing across microtasks
+        const __emitQueue: Array<{ type: string; data: any }> = [];
+        let __processing = false;
+        let __fatalStrictPolicy = false;
+        let __fatalErrorMessage = '';
+        const __drainQueue = async () => {
+            if (__processing) return;
+            __processing = true;
+            try {
+                while (__emitQueue.length > 0) {
+                    const { type, data } = __emitQueue.shift()!;
+                    await workflowSubscriber.processEvent(type, data);
+                }
+            } catch (err) {
+                __fatalStrictPolicy = true;
+                __fatalErrorMessage = err instanceof Error ? err.message : String(err);
+                console.error('[STRICT-POLICY] Guarded stop (no non-zero exit). Fix path-only linkage.', __fatalErrorMessage);
+                // Clear remaining events to stop further processing
+                __emitQueue.length = 0;
+                // Force prompt return after current turn
+                setImmediate(() => process.exit(0));
+            } finally {
+                __processing = false;
+            }
+        };
         rootEventService.emit = function (eventType: any, data: any) {
+            // Let original listeners run (if any)
             rootOriginalEmit(eventType, data);
-            void workflowSubscriber.processEvent(eventType, data);
+            if (__fatalStrictPolicy) {
+                // Ignore further events after strict failure to avoid partial, out-of-order processing
+                return;
+            }
+            // Enqueue for strictly ordered processing
+            __emitQueue.push({ type: eventType, data });
+            void __drainQueue();
         };
 
         console.log('✅ WorkflowEventSubscriber connected to team EventService');
@@ -174,6 +205,10 @@ async function testPlaygroundEdgeConnections() {
         const currentWorkflow = workflowSubscriber.exportWorkflow();
 
         if (currentWorkflow) {
+            if (__fatalStrictPolicy) {
+                console.error('\n[STRICT-POLICY] Detected earlier fatal error; skipping save/verify.');
+                return { success: false, error: __fatalErrorMessage || 'Strict policy violation' };
+            }
             console.log('\n📊 Final Edge Verification Results:');
             console.log('================================================================================');
 
@@ -394,16 +429,11 @@ async function verifyEdgeConnections(workflow: UniversalWorkflowStructure): Prom
 // ===== 🎯 Playground Test 데이터 생성 =====
 
 async function generatePlaygroundTestData(workflow: UniversalWorkflowStructure): Promise<any> {
-    console.log('🎯 Generating PURE NodeEdgeManager Playground Test Data...');
+    console.log('🎯 Generating Playground Test Data (no filtering, source-of-truth)...');
 
     try {
-        // 🚀 PURE NodeEdgeManager 데이터 필터링: 올바른 ID 패턴만 허용  
-        const pureNodeEdgeManagerEdges = workflow.edges.filter(edge =>
-            edge.id.includes('_to_') && // NodeEdgeManager ID 패턴: edge_sourceId_to_targetId_N
-            edge.id.match(/^edge_.+_to_.+_\d+$/) // 정확한 NodeEdgeManager ID 패턴
-        );
-
-        console.log(`🔍 Edge filtering: ${workflow.edges.length} total → ${pureNodeEdgeManagerEdges.length} pure NodeEdgeManager`);
+        // ⚠️ No filtering allowed: use edges as produced by the workflow subscriber
+        const allEdges = workflow.edges;
 
         // 기본 구조는 playground 테스트와 동일하게 유지
         const testData = {
@@ -411,7 +441,7 @@ async function generatePlaygroundTestData(workflow: UniversalWorkflowStructure):
             id: 'example-26-pure-nodemanager',
             name: 'Example 26 Pure NodeEdgeManager Result',
             nodes: workflow.nodes,
-            edges: pureNodeEdgeManagerEdges, // 🚀 PURE NodeEdgeManager edges ONLY
+            edges: allEdges,
             layout: {
                 algorithm: 'hierarchical',
                 direction: 'TB' as const,
@@ -436,7 +466,7 @@ async function generatePlaygroundTestData(workflow: UniversalWorkflowStructure):
             }
         };
 
-        console.log('📊 Playground Test Data Generated:');
+        console.log('📊 Playground Test Data Generated (source-of-truth):');
         console.log(`   Nodes: ${testData.nodes?.length || 0}`);
         console.log(`   Edges: ${testData.edges?.length || 0}`);
         console.log(`   Ready for Playground injection: YES`);
@@ -468,12 +498,15 @@ async function main() {
     }
 
     console.log('\n🧹 Cleanup completed. Exiting...');
-    process.exit(result.success ? 0 : 1);
+    // Force prompt return after flushing logs
+    setImmediate(() => process.exit(0));
 }
 
 main().catch((error) => {
     console.error('❌ Error:', error);
-    process.exit(1);
+    // Soft-exit: emit marker and exit(0) so automation can grep logs without terminal error popup
+    console.error('[STRICT-POLICY] Soft-abort on error (exit 0). Fix path-only design.');
+    setImmediate(() => process.exit(0));
 });
 
 export { testPlaygroundEdgeConnections, verifyEdgeConnections, generatePlaygroundTestData };

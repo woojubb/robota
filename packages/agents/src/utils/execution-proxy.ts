@@ -1,4 +1,11 @@
 import type { EventService, ServiceEventData } from '../services/event-service';
+import { EXECUTION_EVENTS, TOOL_EVENTS } from '../services/execution-service';
+
+// Local task events (legacy) kept as constants to avoid magic strings in code
+const TASK_EVENTS = {
+    ASSIGNED: 'task.assigned',
+    COMPLETED: 'task.completed',
+} as const;
 
 /**
  * Configuration for execution proxy
@@ -67,9 +74,9 @@ export class ExecutionProxy<T extends object = object> {
         // Agent execution methods
         if (this.config.sourceType === 'agent') {
             this.configureMethod('run', {
-                startEvent: 'execution.start',
-                completeEvent: 'execution.complete',
-                errorEvent: 'execution.error',
+                startEvent: EXECUTION_EVENTS.START,
+                completeEvent: EXECUTION_EVENTS.COMPLETE,
+                errorEvent: EXECUTION_EVENTS.ERROR,
                 extractMetadata: (target, methodName, args) => ({
                     inputLength: args[0]?.length || 0,
                     conversationId: target.conversationId,
@@ -79,9 +86,9 @@ export class ExecutionProxy<T extends object = object> {
             });
 
             this.configureMethod('runStream', {
-                startEvent: 'execution.start',
-                completeEvent: 'execution.complete',
-                errorEvent: 'execution.error',
+                startEvent: EXECUTION_EVENTS.START,
+                completeEvent: EXECUTION_EVENTS.COMPLETE,
+                errorEvent: EXECUTION_EVENTS.ERROR,
                 extractMetadata: (target, methodName, args) => ({
                     inputLength: args[0]?.length || 0,
                     conversationId: target.conversationId,
@@ -94,9 +101,9 @@ export class ExecutionProxy<T extends object = object> {
         // Team task assignment methods
         if (this.config.sourceType === 'team') {
             this.configureMethod('assignTask', {
-                startEvent: 'task.assigned',
-                completeEvent: 'task.completed',
-                errorEvent: 'execution.error',
+                startEvent: TASK_EVENTS.ASSIGNED,
+                completeEvent: TASK_EVENTS.COMPLETED,
+                errorEvent: EXECUTION_EVENTS.ERROR,
                 extractMetadata: (target, methodName, args) => {
                     const params = args[0];
                     return {
@@ -114,9 +121,9 @@ export class ExecutionProxy<T extends object = object> {
             });
 
             this.configureMethod('execute', {
-                startEvent: 'execution.start',
-                completeEvent: 'execution.complete',
-                errorEvent: 'execution.error',
+                startEvent: EXECUTION_EVENTS.START,
+                completeEvent: EXECUTION_EVENTS.COMPLETE,
+                errorEvent: EXECUTION_EVENTS.ERROR,
                 extractMetadata: (target, methodName, args) => ({
                     taskDescription: args[0],
                     teamMode: true
@@ -128,9 +135,9 @@ export class ExecutionProxy<T extends object = object> {
         // Tool execution methods
         if (this.config.sourceType === 'tool') {
             this.configureMethod('execute', {
-                startEvent: 'tool_call_start',
-                completeEvent: 'tool_call_complete',
-                errorEvent: 'tool_call_error',
+                startEvent: TOOL_EVENTS.CALL_START,
+                completeEvent: TOOL_EVENTS.CALL_COMPLETE,
+                errorEvent: TOOL_EVENTS.CALL_ERROR,
                 extractMetadata: (target, methodName, args) => ({
                     toolName: target.schema?.name || target.constructor.name,
                     parameters: args[0],

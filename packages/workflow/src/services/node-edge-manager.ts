@@ -77,7 +77,11 @@ export class NodeEdgeManager {
         const targetNode = this.nodeMap.get(targetId);
 
         if (!sourceNode || !targetNode) {
-            throw new Error(`❌ [EDGE-ORDER-VIOLATION] Cannot create edge: source '${sourceId}' (${!sourceNode ? 'missing' : 'ok'}), target '${targetId}' (${!targetNode ? 'missing' : 'ok'}).`);
+            throw new Error(
+                `❌ [EDGE-ORDER-VIOLATION] Cannot create edge: source '${sourceId}' (${!sourceNode ? 'missing' : 'ok'}), target '${targetId}' (${!targetNode ? 'missing' : 'ok'}). ` +
+                `STRICT POLICY: Edge creation must be atomic and sequential. Fix the emitter/handler to satisfy PATH-ONLY relationships. ` +
+                `No fallback, no retries, no suppression — stop and correct the design.`
+            );
         }
 
         const existingEdge = this.edges.find(edge =>

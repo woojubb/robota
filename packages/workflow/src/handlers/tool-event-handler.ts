@@ -21,6 +21,15 @@ import { WORKFLOW_NODE_TYPES, type WorkflowNodeType } from '../constants/workflo
 import { WorkflowState } from '../services/workflow-state.js';
 import { HandlerPriority as Priority } from '../interfaces/event-handler.js';
 
+// 🎯 [EVENT-CONSTANTS] Tool events
+const TOOL_EVENTS = {
+    CALL_START: 'tool.call_start',
+    CALL_COMPLETE: 'tool.call_complete',
+    CALL_ERROR: 'tool.call_error',
+    CALL_RESPONSE_READY: 'tool.call_response_ready',
+    AGENT_EXECUTION_STARTED: 'tool.agent_execution_started'
+} as const;
+
 /**
  * ToolEventHandler - Handles tool call and response events
  */
@@ -31,10 +40,7 @@ export class ToolEventHandler implements EventHandler {
 
     private logger: SimpleLogger;
 
-    // Mapping state for tool operations
-    private toolCallToThinkingMap = new Map<string, string>(); // tool_call_id → thinking_node_id
-    private thinkingToToolResultMap = new Map<string, string>(); // thinking_node_id → tool_result_node_id
-    private toolResponseMap = new Map<string, string>(); // tool_call_id → tool_response_id
+    // Path-only: internal mappings removed (use path for relationships)
 
     constructor(logger: SimpleLogger = SilentLogger) {
         this.logger = logger;
@@ -58,7 +64,7 @@ export class ToolEventHandler implements EventHandler {
             let success = true;
 
             switch (eventType) {
-                case 'tool.call_start':
+                case TOOL_EVENTS.CALL_START:
                     const toolCallNode = this.createToolCallNode(eventData);
                     if ((eventData as any).parentId) toolCallNode.parentId = String((eventData as any).parentId);
                     if (eventData.parentExecutionId) {
@@ -66,6 +72,7 @@ export class ToolEventHandler implements EventHandler {
                         this.logger.debug(`🔗 [TOOL-CALL-PARENT] Setting parent: ${toolCallNode.parentId} for tool call: ${toolCallNode.id}`);
                     }
                     updates.push({ action: 'create', node: toolCallNode });
+                    // Path-only: no state mappings needed
                     // Explicit edge: thinking → tool_call ('executes')
                     const parentThinking = (eventData as any).metadata?.directParentId || (eventData as any).parentExecutionId;
                     if (parentThinking) {
@@ -80,48 +87,79 @@ export class ToolEventHandler implements EventHandler {
                     }
                     break;
 
-                case 'tool.call_complete':
+                case TOOL_EVENTS.CALL_COMPLETE:
                     // Do not create a separate node for call_complete in minimal graph
                     break;
 
-                case 'tool.call_error':
+                case TOOL_EVENTS.CALL_ERROR:
                     const toolErrorNode = this.createToolCallErrorNode(eventData);
                     if ((eventData as any).parentId) toolErrorNode.parentId = String((eventData as any).parentId);
-                    (toolErrorNode.data as any).prevId = (eventData as any).prevId;
+                    // [PATH-ONLY] prevId is no longer used; edges are created explicitly
                     updates.push({ action: 'create', node: toolErrorNode });
                     break;
 
-                case 'tool.call_response_ready': {
-                    const toolResponseNode = this.createToolResponseNode(eventData);
-                    if ((eventData as any).parentId) toolResponseNode.parentId = String((eventData as any).parentId);
-
-                    // Path-Only: derive response id from path tail execution segment
-                    const execTail = (eventData as any).path?.slice?.(-1)?.[0];
-                    const agentResponseId = execTail ? `response_${execTail}` : undefined;
-                    if (!agentResponseId) {
-                        throw new Error('[ToolEventHandler] tool.call_response_ready missing path tail for response resolution');
+                case TOOL_EVENTS.CALL_RESPONSE_READY: {
+                    // Path-only with tool call ID translation to response ID
+                    const pathArr = (eventData as any)?.path as string[] | undefined;
+                    if (!Array.isArray(pathArr) || pathArr.length < 1) {
+                        return {
+                            success: false,
+                            updates: [],
+                            errors: [`[PATH-ONLY] Invalid path for ${TOOL_EVENTS.CALL_RESPONSE_READY}: ${JSON.stringify(pathArr)}`]
+                        };
                     }
-                    // Aggregation context (groupPath from parent path)
-                    const groupPath = (eventData as any).path?.slice?.(0, -1)?.join?.('.');
+
+                    const pathTail = String(pathArr[pathArr.length - 1]); // Could be tool call ID or response ID
+                    if (!pathTail) {
+                        return {
+                            success: false,
+                            updates: [],
+                            errors: [`[PATH-ONLY] Empty path.tail for ${TOOL_EVENTS.CALL_RESPONSE_READY}.`]
+                        };
+                    }
+
+                    const nodesAccessor: any[] = (this as any).subscriber?.getAllNodes?.() || [];
+
+                    // Try to find response node directly by path.tail
+                    let responseNode = nodesAccessor.find(n => n?.id === pathTail && n?.type === WORKFLOW_NODE_TYPES.RESPONSE);
+
+                    // If path.tail is a tool call ID, find the associated response node
+                    if (!responseNode && pathTail.startsWith('call_')) {
+                        // Find response node that has this tool call as parentExecutionId
+                        responseNode = nodesAccessor.find(n =>
+                            n?.type === WORKFLOW_NODE_TYPES.RESPONSE &&
+                            String((n as any)?.data?.extensions?.robota?.originalEvent?.parentExecutionId || '') === pathTail
+                        );
+
+                        this.logger.debug(`[PATH-TRANSLATION] Tool call ID '${pathTail}' → response node '${responseNode?.id || 'not found'}'`);
+                    }
+
+                    if (!responseNode) {
+                        return {
+                            success: false,
+                            updates: [],
+                            errors: [`[PATH-ONLY] Cannot find agent_response node for path.tail '${pathTail}'. Expected response node or valid tool call mapping.`]
+                        };
+                    }
+
+                    // Create tool_response node
+                    const toolResponseNode = this.createToolResponseNode(eventData);
                     updates.push({ action: 'create', node: toolResponseNode });
-                    // Explicit edge: agent_response → tool_response ('result')
-                    const edgeToResponse: WorkflowEdge = {
-                        id: EdgeUtils.generateId(agentResponseId, toolResponseNode.id, 'result' as any),
-                        source: agentResponseId,
+
+                    // Atomic edge: agent_response → tool_response ('result')
+                    const edgeFromResponse: WorkflowEdge = {
+                        id: EdgeUtils.generateId(responseNode.id, toolResponseNode.id, 'result' as any),
+                        source: responseNode.id,
                         target: toolResponseNode.id,
                         type: 'result' as any,
                         timestamp: Date.now()
                     } as any;
-                    updates.push({ action: 'create', edge: edgeToResponse } as any);
-                    try {
-                        if (groupPath) {
-                            WorkflowState.addToolResponseForGroup(groupPath, toolResponseNode.id);
-                        }
-                    } catch { /* ignore state collection errors */ }
+                    updates.push({ action: 'create', edge: edgeFromResponse } as any);
+
                     break;
                 }
 
-                case 'tool.agent_execution_started':
+                case TOOL_EVENTS.AGENT_EXECUTION_STARTED:
                     const agentExecNode = this.createAgentExecutionStartedNode(eventData);
                     updates.push({ action: 'create', node: agentExecNode });
                     break;
@@ -164,7 +202,7 @@ export class ToolEventHandler implements EventHandler {
         const executionId = data.executionId || data.sourceId;
         const nodeId = String(executionId); // Use executionId as node id (parent will reference this directly)
 
-        const toolName = String(data.parameters?.toolName || data.parameters?.name || 'unknown_tool');
+        const toolName = String((data as any)?.toolName || data.parameters?.toolName || data.parameters?.name || 'unknown_tool');
         const toolType = this.getToolTypeFromName(toolName);
 
         return {
@@ -272,16 +310,15 @@ export class ToolEventHandler implements EventHandler {
     }
 
     private createToolResponseNode(data: EventData): WorkflowNode {
-        const executionId = data.executionId || data.sourceId;
-        const nodeId = `tool_response_call_${executionId}`;
+        // Prefer tool call id for response node id; keep current naming for compatibility
+        const toolCallId = String(data.executionId || data.parentExecutionId || data.sourceId);
+        const nodeId = `tool_response_call_${toolCallId}`;
 
         const toolName = String(data.parameters?.toolName || data.result?.toolName || 'unknown_tool');
         const result = data.result || {};
         const responseContent = String(result.content || result.output || result.response || 'Tool response');
 
-        // Store mapping for tool call → response relationship
-        const toolCallId = String(executionId);
-        this.toolResponseMap.set(toolCallId, nodeId);
+        // Path-only: no mappings stored
 
         return {
             id: nodeId,
@@ -292,7 +329,7 @@ export class ToolEventHandler implements EventHandler {
             data: {
                 sourceId: String(data.sourceId),
                 sourceType: 'tool',
-                executionId: String(executionId),
+                executionId: String(toolCallId),
                 parentExecutionId: data.parentExecutionId,
                 toolName: toolName,
                 label: `${toolName} Response`,
@@ -380,49 +417,13 @@ export class ToolEventHandler implements EventHandler {
         return toolTypeMap[toolName] || WORKFLOW_NODE_TYPES.TOOL_CALL;
     }
 
-    /**
-     * Get tool response node ID for a given tool call ID
-     */
-    getToolResponseId(toolCallId: string): string | undefined {
-        return this.toolResponseMap.get(toolCallId);
-    }
-
-    /**
-     * Get all tool calls for a thinking node
-     */
-    getToolCallsForThinking(thinkingNodeId: string): string[] {
-        const toolCalls: string[] = [];
-        for (const [toolCallId, thinkingId] of this.toolCallToThinkingMap.entries()) {
-            if (thinkingId === thinkingNodeId) {
-                toolCalls.push(toolCallId);
-            }
-        }
-        return toolCalls;
-    }
-
-    /**
-     * Associate tool call with thinking node
-     */
-    associateToolCallWithThinking(toolCallId: string, thinkingNodeId: string): void {
-        this.toolCallToThinkingMap.set(toolCallId, thinkingNodeId);
-        this.logger.debug(`🔗 [TOOL-HANDLER] Associated ${toolCallId} with thinking ${thinkingNodeId}`);
-    }
-
-    /**
-     * Get thinking node for tool call
-     */
-    getThinkingForToolCall(toolCallId: string): string | undefined {
-        return this.toolCallToThinkingMap.get(toolCallId);
-    }
+    // Path-only: mapping methods removed (use path for relationships)
 
     /**
      * Create tool result aggregation node
      */
     createToolResultNode(thinkingNodeId: string, sourceId: string): WorkflowNode {
         const nodeId = `tool_result_${thinkingNodeId}_${Date.now()}`;
-
-        // Store mapping
-        this.thinkingToToolResultMap.set(thinkingNodeId, nodeId);
 
         return {
             id: nodeId,
@@ -438,7 +439,6 @@ export class ToolEventHandler implements EventHandler {
                 description: 'Aggregating tool call results',
                 aggregationInfo: {
                     parentThinking: thinkingNodeId,
-                    toolCallsCount: this.getToolCallsForThinking(thinkingNodeId).length,
                     status: 'aggregating'
                 },
                 extensions: {
@@ -457,9 +457,7 @@ export class ToolEventHandler implements EventHandler {
      * Clear handler state (useful for testing and cleanup)
      */
     clear(): void {
-        this.toolCallToThinkingMap.clear();
-        this.thinkingToToolResultMap.clear();
-        this.toolResponseMap.clear();
+        // Path-only: no internal state to clear
         this.logger.debug('🧹 [TOOL-HANDLER] Handler state cleared');
     }
 }

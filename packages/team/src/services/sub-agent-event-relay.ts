@@ -71,51 +71,19 @@ export class SubAgentEventRelay extends ContextualEventService {
      * @param data - Event data
      */
     emit(eventType: ServiceEventType, data: ServiceEventData): void {
-        // Process event asynchronously to prevent blocking
-        setTimeout(() => {
-            try {
-                // Parent injects the correct parentExecutionId; do not override if already provided
-                let enrichedData: ServiceEventData = {
-                    ...data,
-                    parentExecutionId: data.parentExecutionId || this.parentToolCallId,
-                    executionLevel: (data.executionLevel || 0) + 1,
-                    sourceType: 'agent'
-                };
+        // Synchronous forward to preserve strict ordering (no microtask deferral)
+        try {
+            const enrichedData: ServiceEventData = {
+                ...data,
+                parentExecutionId: data.parentExecutionId || this.parentToolCallId,
+                executionLevel: (data.executionLevel || 0) + 1,
+                sourceType: 'agent'
+            };
 
-                // 🎯 Agent Copy 시스템 통합: 독립적인 ID 생성 제거
-                // WorkflowEventSubscriber의 표준 Agent Copy 시스템에서 예약된 ID 사용
-                if (eventType === 'execution.assistant_message_start') {
-                    // 표준 Agent Copy 시스템에서 thinking ID가 예약되어 제공됨
-                    // SubAgentEventRelay는 단순히 이벤트를 전달만 함
-                    enrichedData = {
-                        ...enrichedData,
-                        metadata: {
-                            ...data.metadata,
-                            // 🎯 표준 시스템 통합: 독립적인 thinkingNodeId 생성 제거
-                            // WorkflowEventSubscriber에서 예약된 ID 사용
-                        }
-                    };
-                }
-
-                if (eventType === 'tool_call_start') {
-                    // 🎯 표준 Agent Copy 시스템 통합: 독립적인 매핑 제거
-                    // WorkflowEventSubscriber에서 agentToThinkingMap 사용
-                    enrichedData = {
-                        ...enrichedData,
-                        metadata: {
-                            ...data.metadata,
-                            // 🎯 표준 시스템 통합: WorkflowEventSubscriber의 agentToThinkingMap 사용
-                            // SubAgentEventRelay의 독립적인 executionToThinkingMap 제거
-                        }
-                    };
-                }
-
-                // Forward to parent EventService for unified hierarchy
-                this.parentEventService.emit(eventType, enrichedData);
-            } catch (error) {
-                console.error(`[SubAgentEventRelay] Error processing event ${eventType}:`, error);
-            }
-        }, 0);
+            this.parentEventService.emit(eventType, enrichedData);
+        } catch (error) {
+            console.error(`[SubAgentEventRelay] Error processing event ${eventType}:`, error);
+        }
     }
 
     /**

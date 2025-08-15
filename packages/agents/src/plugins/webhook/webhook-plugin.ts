@@ -21,6 +21,25 @@ import type {
     WebhookRequest
 } from './types';
 
+// Local event constants for webhook usage (kept internal to plugin)
+const EXEC_EVENTS = {
+    START: 'execution.start',
+    COMPLETE: 'execution.complete',
+    ERROR: 'execution.error'
+} as const;
+
+const CONV_EVENTS = {
+    COMPLETE: 'conversation.complete'
+} as const;
+
+const TOOL_EVENTS_LOCAL = {
+    EXECUTED: 'tool.executed'
+} as const;
+
+const ERROR_EVENTS = {
+    OCCURRED: 'error.occurred'
+} as const;
+
 /**
  * Webhook Plugin using Facade Pattern
  * Provides a clean interface for webhook functionality
@@ -52,7 +71,7 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
         // Set default options
         this.pluginOptions = {
             enabled: options.enabled ?? true,
-            events: ['execution.complete', 'conversation.complete', 'tool.executed', 'error.occurred'],
+            events: [EXEC_EVENTS.COMPLETE, CONV_EVENTS.COMPLETE, TOOL_EVENTS_LOCAL.EXECUTED, ERROR_EVENTS.OCCURRED],
             defaultTimeout: 5000,
             defaultRetries: 3,
             async: true,
@@ -95,7 +114,7 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
         const webhookResult = WebhookTransformer.resultToWebhook(result);
         const eventData = WebhookTransformer.createExecutionData(webhookContext, webhookResult);
 
-        await this.sendWebhook('execution.complete', eventData);
+        await this.sendWebhook(EXEC_EVENTS.COMPLETE as any, eventData);
     }
 
     /**
@@ -106,7 +125,7 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
         const webhookResult = WebhookTransformer.resultToWebhook(result);
         const eventData = WebhookTransformer.createConversationData(webhookContext, webhookResult);
 
-        await this.sendWebhook('conversation.complete', eventData);
+        await this.sendWebhook(CONV_EVENTS.COMPLETE as any, eventData);
     }
 
     /**
@@ -134,7 +153,7 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
                     duration: toolResults.duration
                 };
                 const eventData = WebhookTransformer.createToolData(webhookContext, toolData);
-                await this.sendWebhook('tool.executed', eventData);
+                await this.sendWebhook(TOOL_EVENTS_LOCAL.EXECUTED as any, eventData);
             }
         }
     }
@@ -155,8 +174,8 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
 
         const errorEventData = WebhookTransformer.createErrorData(webhookContext, error);
 
-        await this.sendWebhook('error.occurred', errorEventData);
-        await this.sendWebhook('execution.error', errorEventData);
+        await this.sendWebhook(ERROR_EVENTS.OCCURRED as any, errorEventData);
+        await this.sendWebhook(EXEC_EVENTS.ERROR as any, errorEventData);
     }
 
     /**
@@ -312,8 +331,8 @@ export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPlugi
 
             if (endpoint.events) {
                 const validEvents: WebhookEventType[] = [
-                    'execution.start', 'execution.complete', 'execution.error',
-                    'conversation.complete', 'tool.executed', 'error.occurred', 'custom'
+                    EXEC_EVENTS.START, EXEC_EVENTS.COMPLETE, EXEC_EVENTS.ERROR,
+                    CONV_EVENTS.COMPLETE, TOOL_EVENTS_LOCAL.EXECUTED, ERROR_EVENTS.OCCURRED, 'custom'
                 ];
 
                 for (const event of endpoint.events) {

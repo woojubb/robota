@@ -15,7 +15,8 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { createTaskAssignmentFacade } from './task-assignment/index.js';
 import { SubAgentEventRelay } from './services/sub-agent-event-relay.js';
-import { TEAM_EVENTS, TOOL_EVENTS } from './events/constants.js';
+// [PATH-ONLY] Team is third-party. Remove team.* events entirely.
+// import { TEAM_EVENTS, TOOL_EVENTS } from './events/constants.js';
 // AgentDelegationTool removed - using createTaskAssignmentFacade only
 
 import {
@@ -341,75 +342,13 @@ export class TeamContainer {
         const toolLevel = context?.executionLevel || 2; // Default tool level
         const agentLevel = toolLevel + 1; // Sub-agent is one level deeper
 
-        // 1. Emit team analysis start event with hierarchy info
-        if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-            this.eventService.emit('team.analysis_start', {
-                sourceType: 'team',
-                sourceId: agentId,
-                taskDescription: params.jobDescription,
-                parameters: params as any,
-                // Tool call is the parent of this sub-agent
-                parentExecutionId: parentExecutionId,
-                prevId: parentExecutionId,
-                executionLevel: agentLevel,
-                metadata: {
-                    phase: 'job_analysis',
-                    agentTemplate: params.agentTemplate,
-                    priority: params.priority
-                }
-            });
-        }
+        // 1. Team analysis start event removed (third-party must not emit events)
 
-        // 2. Emit team analysis complete event
-        if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-            this.eventService.emit('team.analysis_complete', {
-                sourceType: 'team',
-                sourceId: agentId,
-                taskDescription: `Job analysis completed for: ${params.jobDescription}`,
-                parameters: {
-                    analysisResult: 'Task requirements analyzed and agent template selected',
-                    selectedTemplate: params.agentTemplate
-                },
-                parentExecutionId: parentExecutionId,
-                prevId: parentExecutionId,
-                executionLevel: agentLevel,
-                metadata: {
-                    phase: 'job_analysis_complete',
-                    selectedTemplate: params.agentTemplate
-                }
-            });
-        }
+        // 2. Team analysis complete event removed
 
 
 
-        // 3. Emit task assigned event
-        if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-            this.eventService.emit(TEAM_EVENTS.TASK_ASSIGNED, {
-                sourceType: 'team',
-                sourceId: agentId,
-                executionId: toolExecutionId,
-                timestamp: new Date(),
-                taskDescription: params.jobDescription,
-                parameters: {
-                    jobDescription: params.jobDescription,
-                    agentTemplate: params.agentTemplate,
-                    priority: params.priority,
-                    context: params.context
-                },
-                // Hierarchical tracking information
-                parentExecutionId: parentExecutionId,
-                prevId: parentExecutionId,
-                executionLevel: agentLevel,
-                metadata: {
-                    agentId,
-                    agentTemplate: params.agentTemplate,
-                    priority: params.priority,
-                    startTime: startTime,
-                    allowFurtherDelegation: params.allowFurtherDelegation,
-                    directParentId: context.parentExecutionId // 🎯 Pass parent thinking node ID
-                }
-            });
-        }
+        // 3. Team task_assigned event removed
 
         try {
 
@@ -441,32 +380,7 @@ export class TeamContainer {
 
             this.logger?.info(`📊 Agent slot reserved - Active: ${this.activeAgentsCount}, Total: ${this.totalAgentsCreated}, Max: ${this.options.maxMembers || 'unlimited'}`);
 
-            // 4. Emit agent creation start event
-            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                this.eventService.emit(TEAM_EVENTS.AGENT_CREATION_START, {
-                    sourceType: 'team',
-                    sourceId: agentId,
-                    taskDescription: `Creating ${params.agentTemplate} agent`,
-                    parameters: {
-                        agentTemplate: params.agentTemplate,
-                        agentId: agentId,
-                        allowFurtherDelegation: params.allowFurtherDelegation
-                    },
-                    // 🔧 FIXED: Team events should have tool call as parent
-
-                    parentExecutionId: parentExecutionId,
-                    prevId: parentExecutionId,
-                    executionLevel: agentLevel, // Team level + 1
-
-                    metadata: {
-                        phase: 'agent_creation',
-                        agentTemplate: params.agentTemplate,
-                        agentId: agentId,
-                        activeAgents: this.activeAgentsCount,
-                        totalCreated: this.totalAgentsCreated
-                    }
-                });
-            }
+            // 4. Team agent_creation_start event removed
 
             // Create dedicated analytics plugin instance for this temporary agent (instance-specific)
             const taskAnalyticsPlugin = new ExecutionAnalyticsPlugin({
@@ -557,8 +471,8 @@ export class TeamContainer {
                 temporaryAgent = new Robota(tempAgentConfig);
                 this.logger?.info(`🎯 [assignTask] temporaryAgent created successfully: ${temporaryAgent.name}`);
 
-                // 4.5. Emit tool event: Agent execution started
-                scopedEventService.emit(TEAM_EVENTS.AGENT_EXECUTION_STARTED, {
+                // 4.5. Team agent_execution_started event removed
+                /* if (TEAM_EVENTS_ENABLED) scopedEventService.emit(TEAM_EVENTS.AGENT_EXECUTION_STARTED, {
                     sourceType: 'team',  // Team is emitting this
                     sourceId: context.executionId || 'unknown',
                     agentId: agentId,
@@ -569,15 +483,14 @@ export class TeamContainer {
                         jobDescription: params.jobDescription,
                         agentTemplate: params.agentTemplate
                     }
-                });
+                }); */
 
                 // 4.6. Agent created and ready for execution
                 // execution.start event will be naturally triggered when agent executes in common path
                 this.logger?.info(`🎯 [assignTask] Template agent created and ready for execution`);
 
-                // 4.7. Emit sub-agent creation complete event through SubAgentEventRelay
-                // This ensures WorkflowEventSubscriber receives the event and creates tool_call → agent connections
-                scopedEventService.emit(TEAM_EVENTS.AGENT_CREATION_COMPLETE, {
+                // 4.7. Team agent_creation_complete event removed
+                /* if (TEAM_EVENTS_ENABLED) scopedEventService.emit(TEAM_EVENTS.AGENT_CREATION_COMPLETE, {
                     sourceType: 'team',  // Team is emitting this, not agent
                     sourceId: agentId,  // Sub Agent's ID for proper node mapping
                     timestamp: new Date(),
@@ -593,7 +506,7 @@ export class TeamContainer {
                         template: params.agentTemplate,
                         relayedViaSubAgentEventService: true
                     }
-                });
+                }); */
 
                 // 5. Note: agent.creation_complete event already emitted via scopedEventService above
                 // This ensures single, consistent event emission for workflow tracking
@@ -636,8 +549,8 @@ export class TeamContainer {
                 temporaryAgent = new Robota(dynamicAgentConfig);
                 this.logger?.info(`🎯 [assignTask] Dynamic temporaryAgent created successfully: ${temporaryAgent.name}`);
 
-                // 🎯 [CONSISTENCY] Emit agent creation complete event for dynamic path (consistent with template path)
-                scopedEventService.emit(TEAM_EVENTS.AGENT_CREATION_COMPLETE, {
+                // 🎯 Team agent_creation_complete event removed (dynamic path)
+                /* if (TEAM_EVENTS_ENABLED) scopedEventService.emit(TEAM_EVENTS.AGENT_CREATION_COMPLETE, {
                     sourceType: 'team',  // Team is emitting this
                     sourceId: agentId,
                     timestamp: new Date(),
@@ -653,16 +566,16 @@ export class TeamContainer {
                         template: 'dynamic',
                         relayedViaSubAgentEventService: true
                     }
-                });
+                }); */
             }
 
 
             // Agent created successfully, execute the task
             this.logger?.info(`📊 Agent created - Active: ${this.activeAgentsCount}, Total: ${this.totalAgentsCreated}`);
 
-            // 6. Emit agent execution start event
-            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                this.eventService.emit(TEAM_EVENTS.AGENT_EXECUTION_START, {
+            // 6. Team agent_execution_start event removed
+            /* if (TEAM_EVENTS_ENABLED && this.eventService && !(this.eventService instanceof SilentEventService)) {
+                // this.eventService.emit(TEAM_EVENTS.AGENT_EXECUTION_START, {
                     sourceType: 'team',
                     sourceId: agentId,
                     taskDescription: `Starting execution of: ${params.jobDescription}`,
@@ -684,7 +597,7 @@ export class TeamContainer {
                         inputJobDescription: params.jobDescription
                     }
                 });
-            }
+            } */
 
             // Execute the task with the temporary agent
             const taskPrompt = this.buildTaskPrompt(params);
@@ -704,9 +617,9 @@ export class TeamContainer {
                 throw error;
             }
 
-            // 7. Emit agent execution complete event
-            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                this.eventService.emit(TEAM_EVENTS.AGENT_EXECUTION_COMPLETE, {
+            // 7. Team agent_execution_complete event removed
+            /* if (TEAM_EVENTS_ENABLED && this.eventService && !(this.eventService instanceof SilentEventService)) {
+                // this.eventService.emit(TEAM_EVENTS.AGENT_EXECUTION_COMPLETE, {
                     sourceType: 'team',
                     sourceId: agentId,
                     taskDescription: `Completed execution: ${params.jobDescription}`,
@@ -725,12 +638,13 @@ export class TeamContainer {
                         executionTime: Date.now() - startTime
                     }
                 });
-            }
+            } */
 
             // 🎯 [EVENT-ORDER-FIX] 8. assignTask 완료 시점에서 tool_call_response 생성
             // 이제 실제 도구 결과가 준비되었으므로 tool_call_response 노드 생성
-            console.log(`🔥 [DEBUG-TOOL-RESPONSE-READY] About to emit ${TEAM_EVENTS.TOOL_RESPONSE_READY} for ${parentToolCallId}`);
-            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+            // Team tool_response_ready emission removed
+            /* console.log(`🔥 [DEBUG-TOOL-RESPONSE-READY] About to emit ${TEAM_EVENTS.TOOL_RESPONSE_READY} for ${parentToolCallId}`);
+            if (TEAM_EVENTS_ENABLED && this.eventService && !(this.eventService instanceof SilentEventService)) {
                 console.log(`🔥 [DEBUG-TOOL-RESPONSE-READY] EventService exists, emitting event`);
                 // 🎯 Rule 2: Event order guarantee from source - emit in next microtask
                 queueMicrotask(() => {
@@ -739,77 +653,77 @@ export class TeamContainer {
                     const resultLength = result.length;
                     const executionStats = agentAnalyticsPlugin?.getAggregatedStats();
 
-                    this.eventService.emit(TEAM_EVENTS.TOOL_RESPONSE_READY, {
-                        sourceType: 'team',  // Team is emitting this
-                        sourceId: `tool_response_${parentToolCallId}`,
-                        toolName: 'assignTask',
-                        timestamp: new Date(),
-                        // Ensure proper linkage to the originating tool_call (for unique IDs and parenting)
-                        parentExecutionId: parentToolCallId,
-                        parameters: {
-                            // 🎯 [RICH-DATA] Enhanced tool response data
-                            toolResult: result,
-                            toolExecutionTime: taskDurationSoFar,
-                            toolStatus: 'success',
-                            resultLength: resultLength,
-                            resultPreview: resultLength > 300
-                                ? result.substring(0, 300) + '...'
-                                : result,
-                            // Tool execution details
-                            toolDetails: {
-                                name: 'assignTask',
-                                description: 'Assigns a task to a specialized agent',
-                                inputParameters: {
-                                    jobDescription: params.jobDescription,
-                                    agentTemplate: params.agentTemplate
-                                } as any,
-                                outputType: 'text'
-                            },
-                            // Agent execution statistics
-                            agentStatistics: executionStats ? {
-                                tokensUsed: (executionStats as any).tokensUsed,
-                                executionCount: (executionStats as any).executionCount,
-                                averageResponseTime: (executionStats as any).averageResponseTime,
-                                totalExecutionTime: (executionStats as any).totalExecutionTime
-                            } : undefined
-                        },
-                        result: {
-                            success: true,
-                            data: result,
-                            // 🎯 [RICH-DATA] Enhanced result information
-                            fullResult: result,
-                            executionMetrics: {
-                                duration: taskDurationSoFar,
-                                resultSize: resultLength,
-                                agentId: agentId,
-                                complexity: resultLength > 1000 ? 'high' : resultLength > 300 ? 'medium' : 'low',
-                                hasStructuredData: /\{|\[/.test(result),
-                                hasCodeBlocks: /```/.test(result),
-                                containsNumbers: /\d/.test(result)
-                            }
-                        },
-                        rootExecutionId: context.rootExecutionId,
-                        // Link tool_response inbound from the main agent response of this root execution
-                        prevId: `response_agent_0_${context.rootExecutionId || context.executionId}`,
-                        executionLevel: 2, // Tool level
-                        executionPath: context.executionPath || [],
-                        metadata: {
-                            executionId: parentToolCallId,
-                            success: true,
-                            agentId: agentId,
-                            phase: 'tool_response_ready', // 🎯 실제 도구 결과 준비 완료
-                            // 🎯 [RICH-DATA] Additional metadata
-                            toolMetadata: {
-                                toolType: 'agent_delegation',
-                                delegatedAgentTemplate: params.agentTemplate,
-                                taskComplexity: params.jobDescription.length > 200 ? 'high' : 'medium',
-                                executionSuccess: true
-                            }
-                        }
-                    });
-                    this.logger?.debug(`🔥 [DEBUG-TOOL-RESPONSE-READY] Emitted ${TEAM_EVENTS.TOOL_RESPONSE_READY} for ${parentToolCallId} via microtask`);
+                    // this.eventService.emit(TEAM_EVENTS.TOOL_RESPONSE_READY, {
+                    //     sourceType: 'team',  // Team is emitting this
+                    //     sourceId: `tool_response_${parentToolCallId}`,
+                    //     toolName: 'assignTask',
+                    //     timestamp: new Date(),
+                    //     // Ensure proper linkage to the originating tool_call (for unique IDs and parenting)
+                    //     parentExecutionId: parentToolCallId,
+                    //     parameters: {
+                    //         // 🎯 [RICH-DATA] Enhanced tool response data
+                    //         toolResult: result,
+                    //         toolExecutionTime: taskDurationSoFar,
+                    //         toolStatus: 'success',
+                    //         resultLength: resultLength,
+                    //         resultPreview: resultLength > 300
+                    //             ? result.substring(0, 300) + '...'
+                    //             : result,
+                    //         // Tool execution details
+                    //         toolDetails: {
+                    //             name: 'assignTask',
+                    //             description: 'Assigns a task to a specialized agent',
+                    //             inputParameters: {
+                    //                 jobDescription: params.jobDescription,
+                    //                 agentTemplate: params.agentTemplate
+                    //             } as any,
+                    //             outputType: 'text'
+                    //         },
+                    //         // Agent execution statistics
+                    //         agentStatistics: executionStats ? {
+                    //             tokensUsed: (executionStats as any).tokensUsed,
+                    //             executionCount: (executionStats as any).executionCount,
+                    //             averageResponseTime: (executionStats as any).averageResponseTime,
+                    //             totalExecutionTime: (executionStats as any).totalExecutionTime
+                    //         } : undefined
+                    //     },
+                    //     result: {
+                    //         success: true,
+                    //         data: result,
+                    //         // 🎯 [RICH-DATA] Enhanced result information
+                    //         fullResult: result,
+                    //         executionMetrics: {
+                    //             duration: taskDurationSoFar,
+                    //             resultSize: resultLength,
+                    //             agentId: agentId,
+                    //             complexity: resultLength > 1000 ? 'high' : resultLength > 300 ? 'medium' : 'low',
+                    //             hasStructuredData: /\{|\[/.test(result),
+                    //             hasCodeBlocks: /```/.test(result),
+                    //             containsNumbers: /\d/.test(result)
+                    //         }
+                    //     },
+                    //     rootExecutionId: context.rootExecutionId,
+                    //     // Link tool_response inbound from the main agent response of this root execution
+                    //     prevId: `response_agent_0_${context.rootExecutionId || context.executionId}`,
+                    //     executionLevel: 2, // Tool level
+                    //     executionPath: context.executionPath || [],
+                    //     metadata: {
+                    //         executionId: parentToolCallId,
+                    //         success: true,
+                    //         agentId: agentId,
+                    //         phase: 'tool_response_ready', // 🎯 실제 도구 결과 준비 완료
+                    //         // 🎯 [RICH-DATA] Additional metadata
+                    //         toolMetadata: {
+                    //             toolType: 'agent_delegation',
+                    //             delegatedAgentTemplate: params.agentTemplate,
+                    //             taskComplexity: params.jobDescription.length > 200 ? 'high' : 'medium',
+                    //             executionSuccess: true
+                    //         }
+                    //     }
+                    // });
+                    // this.logger?.debug(`🔥 [DEBUG-TOOL-RESPONSE-READY] Emitted ${TEAM_EVENTS.TOOL_RESPONSE_READY} for ${parentToolCallId} via microtask`);
                 });
-            }
+            } */
 
             // 8. Aggregation start is now owned by coordinator after all tool responses are ready
 
@@ -822,11 +736,11 @@ export class TeamContainer {
 
             this.logger?.info(`✅ Task completed by agent ${agentId} (${taskDuration}ms)`);
 
-            // 9. Emit task aggregation complete event
-            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+            // 9. Team aggregation_complete event removed
+            /* if (TEAM_EVENTS_ENABLED && this.eventService && !(this.eventService instanceof SilentEventService)) {
                 // Use the actual agent ID instead of 'task-aggregator'
                 const actualSourceId = String(context?.sourceId || agentId);
-                this.eventService.emit(TEAM_EVENTS.AGGREGATION_COMPLETE, {
+                // this.eventService.emit(TEAM_EVENTS.AGGREGATION_COMPLETE, {
                     sourceType: 'team',  // Team is emitting this, not agent
                     sourceId: actualSourceId,
                     taskDescription: 'Result aggregation and synthesis completed',
@@ -845,11 +759,11 @@ export class TeamContainer {
                         aggregationDuration: 50 // Simulated aggregation time
                     }
                 });
-            }
+            } */
 
-            // 10. Emit task completed event
-            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
-                this.eventService.emit(TEAM_EVENTS.TASK_COMPLETED, {
+            // 10. Team task_completed event removed
+            /* if (TEAM_EVENTS_ENABLED && this.eventService && !(this.eventService instanceof SilentEventService)) {
+                // this.eventService.emit(TEAM_EVENTS.TASK_COMPLETED, {
                     sourceType: 'team',
                     sourceId: agentId,
                     timestamp: new Date(),
@@ -868,7 +782,7 @@ export class TeamContainer {
                         resultLength: result.length
                     }
                 });
-            }
+            } */
 
             const delegationRecord: TaskDelegationRecord = {
                 id: uuidv4(),
