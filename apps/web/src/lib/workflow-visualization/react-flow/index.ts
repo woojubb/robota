@@ -116,20 +116,26 @@ export class SimpleReactFlowConverter {
      * Pure data transformation - styling delegated to React-Flow
      */
     private convertEdges(universalEdges: UniversalWorkflowEdge[]): ReactFlowEdge[] {
-        return universalEdges.map(universalEdge => ({
-            id: universalEdge.id,
-            source: universalEdge.source,
-            target: universalEdge.target,
-            type: 'default',
-            data: {
-                // Generate basic label from source/target
-                label: `${universalEdge.source} → ${universalEdge.target}`,
-                // Pass through all Universal data
-                ...universalEdge.data,
-                // Include metadata for reference
-                metadata: universalEdge.metadata
-            }
-        }));
+        return universalEdges.map(universalEdge => {
+            const edgeType = (universalEdge as any).type || 'default';
+            return {
+                id: universalEdge.id,
+                source: universalEdge.source,
+                target: universalEdge.target,
+                // Preserve edge type from Universal edge (e.g., receives, continues, processes, return, executes, result, analyze)
+                type: String(edgeType) as any,
+                data: {
+                    // Generate basic label from source/target (keep minimal)
+                    label: `${universalEdge.source} → ${universalEdge.target}`,
+                    // Pass through all Universal data
+                    ...universalEdge.data,
+                    // Preserve connection semantics for UI logic if needed
+                    connectionType: String(edgeType),
+                    // Include metadata for reference
+                    metadata: universalEdge.metadata
+                }
+            } as ReactFlowEdge;
+        });
     }
 }
 

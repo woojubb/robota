@@ -259,3 +259,74 @@ SDK/개발 단계 한정 검증
 - 구현 세부는 모듈 내부에서 자유로우나, 외부 관찰 결과는 본 규칙을 만족해야 한다.
 
 
+
+### Continued Conversation (Response → Next User Message → Thinking) Path-Only 계획 (2025-08-15)
+
+목표
+- 동일 루트 경로(rootPath) 내에서 대화가 이어질 때, 항상 다음 순서로 연결되도록 보장한다:
+  1) response → 2) user_message → 3) agent_thinking → 4) response … (반복)
+- 첫 user_message만 agent → user_message(Receives)로 연결되고, 이후부터는 “바로 이전 Response(또는 상위 흐름의 종료점)”에서 user_message로 연결된다.
+- 모든 결정은 오직 path만으로 수행하며, 보조 상태/대기/후속보정/하드코딩 금지.
+
+핵심 불변식
+- 모든 user_message 노드의 id는 해당 이벤트의 `path.tail`로 결정한다.
+- 첫 대화: `agent(root) → user_message` (‘receives’)
+- 이어지는 대화: `response(last in same rootPath upper-flow) → user_message` (edge type: ‘continues’)
+- thinking은 항상 직전 user_message로부터 ‘processes’ 타입으로 연결되어야 한다(동일 이벤트 처리 흐름 내 원자성 유지).
+
+단계별 계획 (코드 반영 순서)
+1) ExecutionService: path 주입 규칙 강화 (user_message)
+   - 현재: execution.user_message에 `path: [rootId]`만 주입되는 케이스 존재
+   - 변경: 각 user_message마다 고유 tail(= executionId) 추가하여 `path = [rootId, executionId]`로 보장
+   - 검증: emit 직전 path 존재/형식 검증, 누락 시 즉시 throw (No-Fallback)
+
+2) ExecutionEventHandler: user_message ID/에지 생성 규칙 갱신
+   - ID 규칙: `node.id = path[path.length - 1]` (sourceId 금지)
+   - 연결 규칙(원자성): 동일 rootPath 내 상위 흐름의 최신 종료점에서 user_message로 즉시 연결
+     - 최신 종료점 결정: parentPath(= path.slice(0, -1))가 rootPath와 동일한 노드들 중, 가장 최근의 ‘response’(우선) 혹은 ‘tool_result’(대화 상위 흐름의 종료점) 선택
+     - 연결 타입: ‘continues’ (신규), 첫 user_message만 예외적으로 agent → user_message ‘receives’ 유지
+   - 허용 인덱스: Subscriber Path Map(읽기 전용)으로 parentPath 일치 노드 집합 조회 (명확 키 매칭만, 보조 상태 금지)
+
+3) ExecutionEventHandler: assistant_message_start(Thinking) 연결 규칙 정비
+   - 동일 rootPath 내에서 가장 최근 user_message(parentPath == rootPath)를 찾아 `user_message → thinking`을 ‘processes’로 즉시 연결
+   - 만약 동일 parentPath의 user_message가 없다면 즉시 오류(설계 위반)로 중단 (No-Fallback)
+
+4) AgentEventHandler: response 생성 시 기존 원자성 유지
+   - thinking → response는 ‘return’으로 즉시 연결 (현행 Path-Only 규칙 유지)
+   - response 생성 시 추가 보정/대기/후속 연결 금지
+
+5) Edge 타입 컨벤션 정리 (문서화)
+   - agent → user_message: ‘receives’ (최초 1회)
+   - response → user_message: ‘continues’ (이어진 대화)
+   - user_message → agent_thinking: ‘processes’
+   - agent_thinking → response: ‘return’
+   - response → tool_response: ‘result’ (ToolEventHandler 규칙 유지)
+   - tool_response[*] → tool_result: ‘result’ (Join 규칙 유지)
+   - tool_result → (다음 라운드)agent_thinking: ‘analyze’ (필요 시)
+
+6) 예외/결함 처리 (Strict)
+   - path 누락, tail 중복/형식 오류, parentPath 상에서 연결 대상 미발견 시 즉시 throw (로그 + 중단)
+   - 임시/후속 보정, 대기, 재시도 금지
+
+7) 검증/테스트
+   - 예제 27 (single-agent-continued-chat):
+     - 두 번째 run() 수행 시 user_message가 새 path.tail로 생성되고,
+     - response(last) → user_message(continues) → thinking(processes) 순으로 이어짐을 확인
+   - 예제 26 (team): 기존 검증 스크립트 통과 + 중첩 fork/join 시 상위 흐름 복귀 이후에도 동일 규칙 유지 확인
+
+8) 점진적 적용/호환성
+   - 실행 이벤트 path가 이미 올바르게 주입된 케이스부터 적용
+   - path 미주입 환경은 허용하지 않으며, 발견 시 설계 위반으로 실패 처리 (가이드 메시지 제공)
+
+체크리스트
+- [ ] ExecutionService(user_message) path = [rootId, executionId] 보장
+- [ ] ExecutionEventHandler.user_message → id = path.tail, response(last) → user_message(continues) 연결
+- [ ] ExecutionEventHandler.assistant_message_start → user_message(last same root) → thinking(processes)
+- [ ] Subscriber Path Map 사용 범위 최소화(읽기 전용·명확 키)
+- [ ] Edge 타입 컨벤션 반영 및 문서화
+- [ ] 예제 27/26 재검증 (Strict 정책 위반 0)
+
+설계 근거
+- Path-Only: parentPath 동일성만으로 상위/하위 흐름 유도
+- 원자성: 각 이벤트 처리 내에서 노드/엣지를 동시에 생성
+- No-Fallback: 누락/혼선 시 즉시 실패로 문제 가시화

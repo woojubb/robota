@@ -146,8 +146,8 @@ export class AgentEventHandler implements EventHandler {
                 case EXECUTION_EVENTS.ASSISTANT_MESSAGE_START: {
                     // Determine scope-local aggregation (Path-Only) BEFORE creating the thinking node, to set a strictly increasing timestamp
                     const pathArr = (data as any)?.path as string[] | undefined;
-                    const pathThinkingId = Array.isArray(pathArr) && pathArr.length >= 2
-                        ? String(pathArr[1])
+                    const pathThinkingId = Array.isArray(pathArr) && pathArr.length >= 1
+                        ? String(pathArr[pathArr.length - 1])
                         : undefined;
 
                     let sourceForThinking: string | undefined;
@@ -355,10 +355,9 @@ export class AgentEventHandler implements EventHandler {
 
     private createAgentThinkingNode(data: any, overrideId?: string, forcedTimestamp?: number): WorkflowNode {
         const agentNumber = this.agentNumberMap.get(String(data.sourceId)) || 0;
-        const providedThinkingId = data?.metadata?.thinkingNodeId as string | undefined;
-        const agentNodeId = this.agentNodeIdMap.get(String(data.sourceId));
-        const fallbackThinkingId = agentNodeId ? `thinking_${agentNodeId}` : `thinking_agent_${agentNumber}`;
-        const thinkingId = overrideId || providedThinkingId || fallbackThinkingId;
+        // Path-Only: thinkingId = path.tail (event.path에서 마지막 원소)
+        const pathArr = (data as any)?.path as string[] | undefined;
+        const thinkingId = overrideId || (Array.isArray(pathArr) && pathArr.length > 0 ? String(pathArr[pathArr.length - 1]) : `thinking_unknown_${Date.now()}`);
 
         return {
             id: thinkingId,
