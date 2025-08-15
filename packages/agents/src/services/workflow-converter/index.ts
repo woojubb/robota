@@ -15,7 +15,10 @@ import { BaseWorkflowConverter } from '../../abstracts/base-workflow-converter';
 import type { WorkflowStructure } from '../real-time-workflow-builder';
 import type { WorkflowData } from '../../interfaces/workflow-converter';
 import { NodeTypeMapping, EdgeTypeMapping, WorkflowStatusMapping, EdgeStyleMapping, NodeIconMapping, NodeColorMapping, EdgeColorMapping } from './types';
-import type { WorkflowNode, WorkflowConnection } from '../workflow-event-subscriber';
+// Avoid legacy subscriber dependency; define minimal local types
+type WorkflowConnectionType = string;
+interface WorkflowConnection { fromId: string; toId: string; type: WorkflowConnectionType; label?: string }
+interface WorkflowNode { id: string; type: string; parentId?: string; level?: number; status?: string; data: any; timestamp?: number }
 import type {
     UniversalWorkflowStructure,
     UniversalWorkflowNode,

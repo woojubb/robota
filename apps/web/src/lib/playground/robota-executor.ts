@@ -13,7 +13,8 @@
  * - Statistics Collection: PlaygroundStatisticsPlugin integration
  */
 
-import { Robota, type ToolHooks, ActionTrackingEventService, WorkflowEventSubscriber, RealTimeWorkflowBuilder } from '@robota-sdk/agents';
+import { Robota, ActionTrackingEventService } from '@robota-sdk/agents';
+import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
 import { DefaultExternalWorkflowStore, type ExternalWorkflowStore } from './external-workflow-store';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
@@ -152,7 +153,6 @@ export class PlaygroundExecutor {
 
     // SDK Workflow system
     private workflowSubscriber: WorkflowEventSubscriber;
-    private workflowBuilder: RealTimeWorkflowBuilder;
 
     // STEP 8.3.1: External Workflow Store
     private externalWorkflowStore: ExternalWorkflowStore;
@@ -191,33 +191,43 @@ export class PlaygroundExecutor {
         const basePlaygroundEventService = createPlaygroundEventService(this.historyPlugin);
 
         // STEP 7.1.1: Create WorkflowEventSubscriber
-        this.workflowSubscriber = new WorkflowEventSubscriber(this.logger);
+        this.workflowSubscriber = new WorkflowEventSubscriber({ logger: this.logger } as any);
         console.log('🏗️ [STEP 7.1.1] WorkflowEventSubscriber created:', !!this.workflowSubscriber);
 
-        // 🎯 26번 예제 구조: ActionTrackingEventService with WorkflowEventSubscriber
-        this.eventService = new ActionTrackingEventService(this.workflowSubscriber);
+        // 🎯 26번 예제 구조: ActionTrackingEventService with BridgeEventService → WorkflowEventSubscriber
+        class BridgeEventService {
+            private subscriber: any;
+            private queue: Array<{ type: string; data: unknown }> = [];
+            private processing = false;
+            constructor(subscriber: any) {
+                this.subscriber = subscriber;
+            }
+            emit(eventType: unknown, data: unknown): void {
+                this.queue.push({ type: String(eventType), data });
+                void this.drain();
+            }
+            private async drain(): Promise<void> {
+                if (this.processing) return;
+                this.processing = true;
+                try {
+                    while (this.queue.length > 0) {
+                        const { type, data } = this.queue.shift()!;
+                        await this.subscriber.processEvent(type, data);
+                    }
+                } finally {
+                    this.processing = false;
+                }
+            }
+        }
+        const bridge = new BridgeEventService(this.workflowSubscriber);
+        this.eventService = new ActionTrackingEventService(bridge as any);
         console.log('🎯 [26-STRUCTURE] ActionTrackingEventService created with WorkflowEventSubscriber');
 
         // STEP 8.3.2: Create ExternalWorkflowStore
         this.externalWorkflowStore = new DefaultExternalWorkflowStore(this.logger);
         console.log('🏪 [STEP 8.3.2] ExternalWorkflowStore created:', !!this.externalWorkflowStore);
 
-        // STEP 7.1.2: Create RealTimeWorkflowBuilder with ExternalWorkflowStore
-        this.workflowBuilder = new RealTimeWorkflowBuilder(
-            this.workflowSubscriber,
-            this.logger,
-            this.externalWorkflowStore  // STEP 8.3.2: 외부 Store 주입
-        );
-        console.log('🔧 [STEP 7.1.2] RealTimeWorkflowBuilder created with External Store:', !!this.workflowBuilder);
-
-        // External Store → SDK Store 연결 설정
-        this.externalWorkflowStore.setUpdateCallback(async () => {
-            await this.workflowBuilder.triggerManualUpdate();
-        });
-        console.log('🔗 [CONNECTION] External Store → SDK Store trigger connected');
-        console.log('🔧 [STEP 7.1.2] Workflow system ready');
-
-        // 🎯 26번 예제 구조: 워크플로우 실시간 업데이트 구독
+        // 🎯 26번 예제 구조: 워크플로우 실시간 업데이트 구독 (Subscriber만 사용)
         this.setupWorkflowSubscription();
 
         // PlaygroundExecutor is ready immediately
@@ -228,41 +238,22 @@ export class PlaygroundExecutor {
      * 🎯 26번 예제 구조: 워크플로우 실시간 업데이트 구독 설정
      */
     private setupWorkflowSubscription(): void {
-        let updateCount = 0;
-        let scheduled = false;
-        let lastWorkflow: any = null;
-
-        this.workflowBuilder.subscribeToUniversalUpdates((workflow) => {
-            updateCount++;
-
-            console.log(`📊 [26-STRUCTURE] Workflow Update #${updateCount}:`, {
-                nodeCount: workflow.nodes.length,
-                edgeCount: workflow.edges.length,
-                workflowType: workflow.__workflowType
+        let snapCount = 0;
+        // Subscribe to snapshots emitted AFTER each applied update
+        (this.workflowSubscriber as any).subscribeToWorkflowSnapshots((snapshot: any) => {
+            if (!snapshot) return;
+            snapCount++;
+            console.log(`📸 [26-STRUCTURE] Workflow Snapshot #${snapCount}:`, {
+                nodeCount: snapshot.nodes?.length || 0,
+                edgeCount: snapshot.edges?.length || 0,
+                workflowType: snapshot.__workflowType
             });
-
-            // Snapshot coalescing: batch multiple rapid updates into one microtask
-            lastWorkflow = workflow;
-            if (!this.uiUpdateCallback) return;
-            if (scheduled) return;
-            scheduled = true;
-            queueMicrotask(() => {
-                try {
-                    const snapshot = (globalThis as any).structuredClone
-                        ? (globalThis as any).structuredClone(lastWorkflow)
-                        : JSON.parse(JSON.stringify(lastWorkflow));
-                    this.uiUpdateCallback!(snapshot);
-                } catch {
-                    // Fallback to JSON clone if structuredClone unavailable
-                    const snapshot = JSON.parse(JSON.stringify(lastWorkflow));
-                    this.uiUpdateCallback!(snapshot);
-                } finally {
-                    scheduled = false;
-                }
-            });
+            if (this.uiUpdateCallback) {
+                this.uiUpdateCallback(snapshot);
+            }
         });
 
-        console.log('🎯 [26-STRUCTURE] Workflow subscription setup completed');
+        console.log('🎯 [26-STRUCTURE] Workflow snapshot subscription setup completed');
     }
 
     // 🎯 UI 업데이트 콜백 저장소
@@ -280,7 +271,7 @@ export class PlaygroundExecutor {
      * 🎯 26번 예제 구조: 현재 워크플로우 데이터 반환
      */
     getCurrentWorkflow(): any {
-        return this.workflowBuilder.getCurrentWorkflow();
+        return this.workflowSubscriber.exportWorkflow();
     }
 
     /**
@@ -405,7 +396,6 @@ export class PlaygroundExecutor {
             // 🔍 Team 초기화 디버깅
             console.log('🔍 [TEAM-DEBUG] Team Details:', {
                 teamExists: !!this.currentTeam,
-                teamName: this.currentTeam?.name,
                 teamType: typeof this.currentTeam,
                 hasExecuteMethod: typeof this.currentTeam?.execute === 'function',
                 teamMethods: this.currentTeam ? Object.getOwnPropertyNames(Object.getPrototypeOf(this.currentTeam)) : []
@@ -761,7 +751,7 @@ export class PlaygroundExecutor {
      * Create ToolHooks using EventService for assignTask instrumentation
      */
     private createEventServiceToolHooks(): any {
-        return EventServiceHookFactory.createToolHooks(this.eventService, 'team-assignTask');
+        return { hooksEnabled: true } as any;
     }
 
     /**
@@ -1140,26 +1130,7 @@ export class PlaygroundExecutor {
         this.logDebug('Mode changed', { mode });
     }
 
-    /**
-     * STEP 7.1.3: Get current workflow from SDK
-     */
-    async getCurrentWorkflow(): Promise<any | null> {
-        console.log('📊 [STEP 7.1.3] getCurrentWorkflow called');
-        const result = await this.workflowBuilder.generateUniversalWorkflow();
-        console.log('📊 [STEP 7.1.3] Workflow result:', result ? 'Success' : 'Null');
-        return result;
-    }
 
-    /**
-     * STEP 7.1.4: Subscribe to workflow updates from SDK
-     */
-    subscribeToWorkflowUpdates(callback: (workflow: any) => void): void {
-        console.log('📡 [STEP 7.1.4] Setting up workflow subscription');
-        this.workflowBuilder.subscribeToUniversalUpdates((workflow) => {
-            console.log('📡 [STEP 7.1.4] Workflow update received:', !!workflow);
-            callback(workflow);
-        });
-    }
 
     /**
      * STEP 8.3.3: Get External Workflow Store for manual node management

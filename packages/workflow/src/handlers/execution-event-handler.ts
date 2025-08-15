@@ -137,9 +137,28 @@ export class ExecutionEventHandler implements EventHandler {
                         }
                         updates.push({ action: 'create', node: userMessageNode });
                         this.userMessageNodeMap.set(String(eventData.sourceId), userMessageNode.id);
-                        // Explicit edge: agent → user_message ('receives')
-                        const agentNodeForExec = WorkflowState.getAgentForExecution(String(eventData.executionId || ''))
-                            || WorkflowState.getAgentForRoot(String(eventData.rootExecutionId || eventData.sourceId || ''));
+                        // Explicit edge: agent → user_message ('receives') with robust lookup
+                        const candidateExecIds = [
+                            String(eventData.executionId || ''),
+                            String(eventData.parentExecutionId || ''),
+                            String(eventData?.metadata?.executionId || '')
+                        ].filter(Boolean);
+                        const candidateRootIds = [
+                            String(eventData.rootExecutionId || ''),
+                            String(eventData?.metadata?.conversationId || ''),
+                            String(eventData.sourceId || '')
+                        ].filter(Boolean);
+                        let agentNodeForExec: string | undefined;
+                        for (const id of candidateExecIds) {
+                            agentNodeForExec = WorkflowState.getAgentForExecution(id);
+                            if (agentNodeForExec) break;
+                        }
+                        if (!agentNodeForExec) {
+                            for (const id of candidateRootIds) {
+                                agentNodeForExec = WorkflowState.getAgentForRoot(id);
+                                if (agentNodeForExec) break;
+                            }
+                        }
                         if (agentNodeForExec) {
                             const edge: WorkflowEdge = {
                                 id: EdgeUtils.generateId(agentNodeForExec, userMessageNode.id, 'receives' as any),
@@ -177,10 +196,27 @@ export class ExecutionEventHandler implements EventHandler {
                         updates.push({ action: 'create', node: userMessageNode });
                         this.userMessageNodeMap.set(String(eventData.sourceId), userMessageNode.id);
                         const rootId = String(eventData.rootExecutionId || eventData.sourceId || '');
-                        // [PATH-ONLY] Removed state storage - user message anchoring is handled via path
-                        // Explicit edge: agent → user_message ('receives')
-                        const agentNodeForExec2 = WorkflowState.getAgentForExecution(String(eventData.executionId || ''))
-                            || WorkflowState.getAgentForRoot(rootId);
+                        // Explicit edge: agent → user_message ('receives') with robust lookup
+                        const candidateExecIds2 = [
+                            String(eventData.executionId || ''),
+                            String(eventData.parentExecutionId || ''),
+                            String(eventData?.metadata?.executionId || '')
+                        ].filter(Boolean);
+                        const candidateRootIds2 = [
+                            rootId,
+                            String(eventData?.metadata?.conversationId || '')
+                        ].filter(Boolean);
+                        let agentNodeForExec2: string | undefined;
+                        for (const id of candidateExecIds2) {
+                            agentNodeForExec2 = WorkflowState.getAgentForExecution(id);
+                            if (agentNodeForExec2) break;
+                        }
+                        if (!agentNodeForExec2) {
+                            for (const id of candidateRootIds2) {
+                                agentNodeForExec2 = WorkflowState.getAgentForRoot(id);
+                                if (agentNodeForExec2) break;
+                            }
+                        }
                         if (agentNodeForExec2) {
                             const edge: WorkflowEdge = {
                                 id: EdgeUtils.generateId(agentNodeForExec2, userMessageNode.id, 'receives' as any),

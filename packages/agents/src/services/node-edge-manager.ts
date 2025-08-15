@@ -9,11 +9,26 @@
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger.js';
 import type { UniversalWorkflowEdge } from './workflow-converter/universal-types.js';
 import type { WorkflowNodeType } from '../constants/workflow-node-types.js';
-import type {
-    WorkflowNodeStatus,
-    WorkflowConnection,
-    WorkflowConnectionType
-} from './workflow-event-subscriber.js';
+// Minimal local replicas of types to avoid coupling to legacy subscriber
+type WorkflowNodeStatus = 'pending' | 'running' | 'completed' | 'error';
+interface WorkflowConnection { fromId: string; toId: string; type: WorkflowConnectionType; label?: string }
+type WorkflowConnectionType =
+    | 'has_tools'
+    | 'contains'
+    | 'receives'
+    | 'processes'
+    | 'continues'
+    | 'executes'
+    | 'creates'
+    | 'triggers'
+    | 'branch'
+    | 'result'
+    | 'analyze'
+    | 'return'
+    | 'final'
+    | 'deliver'
+    | 'integrates'
+    | 'finalizes';
 
 // 단순화된 타입 정의 (Phase 1 임시)
 interface WorkflowNode extends Record<string, unknown> {

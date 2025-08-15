@@ -4,7 +4,6 @@ import "./globals.css";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { AuthProvider } from "@/contexts/auth-context";
 import { Toaster } from "@/components/ui/sonner";
-import { GoogleAnalytics } from "@/components/analytics/google-analytics";
 import { SkipToContent } from "@/components/ui/accessibility";
 import { AccessibilityProvider } from "@/providers/accessibility-provider";
 import { AuthDebug } from "@/components/debug/auth-debug";
@@ -91,7 +90,6 @@ export default function RootLayout({
               <main id="main-content" className="h-full">
                 {children}
               </main>
-              <GoogleAnalytics />
               <Toaster />
               <AuthDebug />
             </AuthProvider>

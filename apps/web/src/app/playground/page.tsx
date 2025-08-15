@@ -56,7 +56,7 @@ import type {
 
 // Configuration Panel Component
 function ConfigurationPanel({ onOpenChat }: { onOpenChat: (type: 'agent' | 'team', name: string) => void }) {
-    const { state, updateNodeStatus, updateAgentConfig, updateTeamConfig } = usePlayground();
+    const { state, updateAgentConfig, updateTeamConfig } = usePlayground();
     const {
         currentMode,
         currentAgentConfig,
@@ -82,14 +82,6 @@ function ConfigurationPanel({ onOpenChat }: { onOpenChat: (type: 'agent' | 'team
         try {
             console.log('Activating agent lock (no creation)...');
 
-            // Update agent node status to 'ready' (without affecting global execution state)
-            if (state.currentWorkflow && state.currentWorkflow.nodes.length > 0) {
-                const agentNode = state.currentWorkflow.nodes.find(node => node.type === 'agent');
-                if (agentNode) {
-                    updateNodeStatus(agentNode.id, 'ready');
-                }
-            }
-
             // Lock this agent card (by index)
             setLockedAgents((prev) => {
                 const next = new Set(prev);
@@ -100,19 +92,11 @@ function ConfigurationPanel({ onOpenChat }: { onOpenChat: (type: 'agent' | 'team
         } catch (error) {
             console.error('Failed to activate agent:', error);
         }
-    }, [updateNodeStatus, state.currentWorkflow]);
+    }, [state.currentWorkflow]);
 
     const handleExecuteTeamAt = useCallback(async (index: number, config: PlaygroundTeamConfig) => {
         try {
             console.log('Activating team lock (no creation)...');
-
-            // Update team node status to 'ready' (without affecting global execution state)
-            if (state.currentWorkflow && state.currentWorkflow.nodes.length > 0) {
-                const teamNode = state.currentWorkflow.nodes.find(node => node.type === 'team');
-                if (teamNode) {
-                    updateNodeStatus(teamNode.id, 'ready');
-                }
-            }
 
             // Lock this team card (by index)
             setLockedTeams((prev) => {
@@ -124,7 +108,7 @@ function ConfigurationPanel({ onOpenChat }: { onOpenChat: (type: 'agent' | 'team
         } catch (error) {
             console.error('Failed to activate team:', error);
         }
-    }, [updateNodeStatus, state.currentWorkflow]);
+    }, [state.currentWorkflow]);
 
     const handleStopExecution = useCallback(() => {
         console.log('Stopping execution (no-op for per-entity lock)');
@@ -184,7 +168,7 @@ function ConfigurationPanel({ onOpenChat }: { onOpenChat: (type: 'agent' | 'team
 
 // Chat Input Component - Input Only (No Chat History)
 function ChatInputPanel({ onClose }: { onClose: () => void }) {
-    const { state } = usePlayground();
+    const { state, setWorkflow } = usePlayground();
     const { executePrompt, executeStreamPrompt, isExecuting } = useRobotaExecution();
     const {
         inputState,
@@ -424,7 +408,7 @@ function SystemStatusPanel() {
 
 // Main Content Component (requires PlaygroundProvider)
 function PlaygroundContent() {
-    const { state } = usePlayground();
+    const { state, setWorkflow } = usePlayground();
     const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
     const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
     const { activeModal, isModalOpen, openModal, closeModal, toggleModal } = useModal();
@@ -472,6 +456,22 @@ function PlaygroundContent() {
                         className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded transition-colors"
                     >
                         Status
+                    </button>
+
+                    <button
+                        onClick={async () => {
+                            try {
+                                if (state.executor && typeof state.executor.getCurrentWorkflow === 'function') {
+                                    const wf = await state.executor.getCurrentWorkflow();
+                                    if (wf) setWorkflow(wf as unknown as UniversalWorkflowStructure);
+                                }
+                            } catch (e) {
+                                console.error('Failed to refresh snapshot:', e);
+                            }
+                        }}
+                        className="px-3 py-1 bg-gray-700 hover:bg-gray-800 text-white text-sm rounded transition-colors"
+                    >
+                        Snapshot
                     </button>
 
                     <Badge variant={state.isInitialized ? "default" : "secondary"}>
