@@ -40,8 +40,9 @@ export function createAssignTaskTool(
             const validatedParams = toolParametersSchema.parse(parameters);
             const result = await executor(convertToAssignTaskParams(validatedParams), context);
 
-            // Return formatted string result for LLM consumption
-            return formatResultForLLM(result);
+            // Return only pure result content (no prefixed/suffixed strings)
+            // Structured metadata should be carried separately in event payloads, not concatenated into strings
+            return result.result;
         }
     );
 
@@ -97,6 +98,7 @@ function createToolDescription(availableTemplates: TemplateInfo[]): string {
 /**
  * Format AssignTaskResult for LLM consumption
  */
+// 안쓰는 것이니 차후에 삭제 필요
 export function formatResultForLLM(result: AssignTaskResult): string {
     const baseResult = `Task completed successfully by ${result.agentId}.\n\nResult:\n${result.result}`;
 

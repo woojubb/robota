@@ -58,7 +58,7 @@ interface WorkflowVisualizationProps {
 }
 
 // Base Node Template Types
-type NodeType = 'agent' | 'team' | 'toolCall' | 'agentResponse' | 'tool' | 'user_message' | 'agent_thinking' | 'response' | 'tool_call' | 'tool_call_response' | 'tool_result';
+type NodeType = 'agent' | 'team' | 'toolCall' | 'agentResponse' | 'tool' | 'user_message' | 'agent_thinking' | 'response' | 'tool_call' | 'tool_call_response' | 'tool_response' | 'tool_result';
 
 interface BaseNodeTemplateProps {
     nodeType: NodeType;
@@ -470,6 +470,28 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                         {typeof data.status === 'string' ? data.status : JSON.stringify(data.status)}
                     </Badge>
                 )}
+
+                {/* Tools list (from agent.created parameters) */}
+                {(() => {
+                    const tools: string[] = Array.isArray(data.tools)
+                        ? data.tools
+                        : (data.extensions?.robota?.originalEvent?.parameters?.tools as string[] | undefined) || [];
+                    if (!tools || tools.length === 0) return null;
+                    const visible = tools.slice(0, 3);
+                    const remain = tools.length - visible.length;
+                    return (
+                        <div className="flex flex-wrap gap-1 items-center">
+                            {visible.map((tool) => (
+                                <Badge key={tool} variant="outline" className="text-[10px]">
+                                    <Wrench className="h-2.5 w-2.5 mr-0.5" />{tool}
+                                </Badge>
+                            ))}
+                            {remain > 0 && (
+                                <span className="text-[10px] text-gray-500">+{remain}</span>
+                            )}
+                        </div>
+                    );
+                })()}
             </div>
         </BaseNodeTemplate>
     );
@@ -568,31 +590,22 @@ const ToolNode = ({ data }: { data: any }) => {
 
 /**
  * Custom Node Component for User Message
+ * Minimal display: just the user prompt content
  */
 const UserMessageNode = ({ data }: { data: any }) => {
-    // Extract rich data from the new structure - limited for compact display
-    const userPrompt = data.userPrompt || data.userMessageContent || data.message || 'No content';
-    const messageLength = data.messageLength || userPrompt.length;
-    const wordCount = data.wordCount || 0;
+    // Extract user prompt from multiple possible paths
+    const userPrompt = data.parameters?.userPrompt ||
+        data.parameters?.userMessageContent ||
+        data.userPrompt ||
+        data.userMessageContent ||
+        data.message ||
+        'No content';
 
-    // Truncate content to maximum 120 characters for compact display
-    const maxContentLength = 120;
+    // Truncate content to 80 characters for minimal display
+    const maxContentLength = 80;
     const contentPreview = userPrompt.length > maxContentLength
         ? userPrompt.substring(0, maxContentLength) + '...'
         : userPrompt;
-    const hasQuestions = data.hasQuestions || false;
-    const containsUrgency = data.containsUrgency || false;
-    const estimatedComplexity = data.estimatedComplexity || 'medium';
-
-    // Get complexity color
-    const getComplexityColor = (complexity: string) => {
-        switch (complexity) {
-            case 'high': return 'text-red-600';
-            case 'medium': return 'text-yellow-600';
-            case 'low': return 'text-green-600';
-            default: return 'text-gray-600';
-        }
-    };
 
     return (
         <BaseNodeTemplate
@@ -605,30 +618,16 @@ const UserMessageNode = ({ data }: { data: any }) => {
                 sourceId: "user-message-output"
             }}
         >
-            <div className="space-y-1.5">
-                {/* Simple header */}
-                <div className="flex items-center gap-1.5">
-                    <MessageSquare className="h-3 w-3 text-blue-600" />
-                    <span className="text-sm font-medium text-gray-800">User Message</span>
+            <div className="space-y-1">
+                {/* Minimal header */}
+                <div className="flex items-center gap-1">
+                    <MessageSquare className="h-3 w-3 text-blue-500" />
+                    <span className="text-xs font-medium text-gray-700">User</span>
                 </div>
 
-                {/* Content preview - compact with height limit */}
-                <div className="text-xs text-gray-600 leading-relaxed max-h-12 overflow-y-auto">
+                {/* User prompt content - essential information */}
+                <div className="text-xs text-gray-800 leading-tight">
                     {contentPreview}
-                </div>
-
-                {/* Only essential indicators */}
-                <div className="flex gap-1">
-                    {containsUrgency && (
-                        <Badge variant="outline" className="text-xs bg-red-50 text-red-700">
-                            🚨
-                        </Badge>
-                    )}
-                    {hasQuestions && (
-                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
-                            ?
-                        </Badge>
-                    )}
                 </div>
             </div>
         </BaseNodeTemplate>
@@ -666,43 +665,23 @@ const AgentThinkingNode = ({ data }: { data: any }) => {
 
 /**
  * Custom Node Component for Response
+ * Minimal display: just the assistant message content
  */
 const ResponseNode = ({ data }: { data: any }) => {
-    // Extract rich response data - limited for compact display
-    const assistantMessage = data.assistantMessage || data.content || 'No response';
-    const responseLength = data.responseLength || assistantMessage.length;
-    const wordCount = data.wordCount || 0;
+    // Extract assistant message from multiple possible paths
+    const assistantMessage = data.parameters?.assistantMessage ||
+        data.extensions?.robota?.originalEvent?.parameters?.assistantMessage ||
+        data.assistantMessage ||
+        data.content ||
+        'No response';
 
-    // Truncate content to maximum 120 characters for compact display
-    const maxContentLength = 120;
+    const agentNumber = data.agentNumber || 0;
+
+    // Truncate content to 100 characters for minimal display
+    const maxContentLength = 100;
     const contentPreview = assistantMessage.length > maxContentLength
         ? assistantMessage.substring(0, maxContentLength) + '...'
         : assistantMessage;
-    const responseTime = data.responseTime || 0;
-    const agentNumber = data.agentNumber || 0;
-
-    // Response metrics
-    const responseMetrics = data.responseMetrics || {};
-    const estimatedReadTime = responseMetrics.estimatedReadTime || Math.ceil(wordCount / 200) || 1;
-    const hasCodeBlocks = responseMetrics.hasCodeBlocks || false;
-    const hasLinks = responseMetrics.hasLinks || false;
-    const complexity = responseMetrics.complexity || 'medium';
-
-    // Response characteristics
-    const responseCharacteristics = data.responseCharacteristics || {};
-    const hasQuestions = responseCharacteristics.hasQuestions || false;
-    const isError = responseCharacteristics.isError || false;
-    const containsNumbers = responseCharacteristics.containsNumbers || false;
-
-    // Get complexity color
-    const getComplexityColor = (complexity: string) => {
-        switch (complexity) {
-            case 'high': return 'text-red-600';
-            case 'medium': return 'text-yellow-600';
-            case 'low': return 'text-green-600';
-            default: return 'text-gray-600';
-        }
-    };
 
     return (
         <BaseNodeTemplate
@@ -715,37 +694,18 @@ const ResponseNode = ({ data }: { data: any }) => {
                 sourceId: "response-output"
             }}
         >
-            <div className="space-y-1.5">
-                {/* Simple header */}
-                <div className="flex items-center gap-1.5">
-                    <MessageCircle className="h-3 w-3 text-green-600" />
-                    <span className="text-sm font-medium text-gray-800">
-                        Agent {agentNumber} Response
+            <div className="space-y-1">
+                {/* Minimal header */}
+                <div className="flex items-center gap-1">
+                    <MessageCircle className="h-3 w-3 text-green-500" />
+                    <span className="text-xs font-medium text-gray-700">
+                        Response {agentNumber > 0 ? agentNumber : ''}
                     </span>
                 </div>
 
-                {/* Content preview - compact with height limit */}
-                <div className="text-xs text-gray-600 leading-relaxed max-h-12 overflow-y-auto">
+                {/* Assistant message content - essential information */}
+                <div className="text-xs text-gray-800 leading-tight">
                     {contentPreview}
-                </div>
-
-                {/* Only essential indicators */}
-                <div className="flex gap-1">
-                    {hasCodeBlocks && (
-                        <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700">
-                            📝
-                        </Badge>
-                    )}
-                    {hasLinks && (
-                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
-                            🔗
-                        </Badge>
-                    )}
-                    {isError && (
-                        <Badge variant="outline" className="text-xs bg-red-50 text-red-700">
-                            ⚠️
-                        </Badge>
-                    )}
                 </div>
             </div>
         </BaseNodeTemplate>
@@ -783,64 +743,25 @@ const ToolCallNode = ({ data }: { data: any }) => {
 
 /**
  * Custom Node Component for Tool Call Response
+ * Minimal display: tool name and result preview
  */
 const ToolCallResponseNode = ({ data }: { data: any }) => {
-    // Extract rich tool response data - limited for compact display
-    const toolName = data.toolName || 'unknown_tool';
-    const toolResult = data.toolResult || (data.result && data.result.data) || 'No result';
-    const toolExecutionTime = data.toolExecutionTime || 0;
-    const toolStatus = data.toolStatus || 'success';
-    const resultLength = data.resultLength || toolResult.length;
+    // Extract tool response data from multiple possible paths
+    const toolName = data.toolName || data.parameters?.toolName || 'Tool';
+    const toolResult = data.result?.data ||
+        data.parameters?.result?.data ||
+        data.toolResult ||
+        'No result';
 
-    // Truncate result to maximum 120 characters for compact display
-    const maxResultLength = 120;
+    const success = data.result?.success ||
+        data.parameters?.result?.success ||
+        data.success !== false;
+
+    // Truncate result to 80 characters for minimal display
+    const maxResultLength = 80;
     const resultPreview = toolResult.length > maxResultLength
         ? toolResult.substring(0, maxResultLength) + '...'
         : toolResult;
-
-    // Tool details
-    const toolDetails = data.toolDetails || {};
-    const toolDescription = toolDetails.description || 'Tool execution';
-    const outputType = toolDetails.outputType || 'text';
-
-    // Execution metrics
-    const executionMetrics = data.executionMetrics || (data.result && data.result.executionMetrics) || {};
-    const duration = executionMetrics.duration || toolExecutionTime;
-    const complexity = executionMetrics.complexity || 'medium';
-    const hasStructuredData = executionMetrics.hasStructuredData || false;
-    const hasCodeBlocks = executionMetrics.hasCodeBlocks || false;
-    const containsNumbers = executionMetrics.containsNumbers || false;
-
-    // Agent statistics
-    const agentStatistics = data.agentStatistics;
-    const agentId = executionMetrics.agentId;
-
-    // Get status styles
-    const getStatusStyles = (status: string) => {
-        switch (status.toLowerCase()) {
-            case 'success':
-                return { color: 'text-green-600', bg: 'bg-green-50' };
-            case 'error':
-            case 'failed':
-                return { color: 'text-red-600', bg: 'bg-red-50' };
-            case 'running':
-                return { color: 'text-orange-600', bg: 'bg-orange-50' };
-            default:
-                return { color: 'text-gray-600', bg: 'bg-gray-50' };
-        }
-    };
-
-    // Get complexity color
-    const getComplexityColor = (complexity: string) => {
-        switch (complexity) {
-            case 'high': return 'text-red-600';
-            case 'medium': return 'text-yellow-600';
-            case 'low': return 'text-green-600';
-            default: return 'text-gray-600';
-        }
-    };
-
-    const statusStyles = getStatusStyles(toolStatus);
 
     return (
         <BaseNodeTemplate
@@ -853,48 +774,66 @@ const ToolCallResponseNode = ({ data }: { data: any }) => {
                 sourceId: "tool-call-response-output"
             }}
         >
-            <div className="space-y-1.5">
-                {/* Simple header */}
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-medium text-gray-800 text-center">
-                            Tool Response
-                        </span>
-                    </div>
-                    <Badge className={`text-xs ${statusStyles.bg} ${statusStyles.color} border-0`}>
-                        {toolStatus}
-                    </Badge>
-                </div>
-
-                {/* Tool name */}
+            <div className="space-y-1">
+                {/* Minimal header */}
                 <div className="flex items-center gap-1">
-                    <Badge variant="outline" className="text-xs">
-                        {toolName}
-                    </Badge>
-                    {duration > 0 && (
-                        <Badge variant="outline" className="text-xs">
-                            {duration}ms
-                        </Badge>
-                    )}
+                    <Wrench className="h-3 w-3 text-purple-500" />
+                    <span className="text-xs font-medium text-gray-700">{toolName}</span>
+                    <div className={`w-2 h-2 rounded-full ${success ? 'bg-green-400' : 'bg-red-400'}`} />
                 </div>
 
-                {/* Result preview - compact with height limit */}
-                <div className="text-xs text-gray-600 leading-relaxed max-h-12 overflow-y-auto">
+                {/* Tool result preview - essential information */}
+                <div className="text-xs text-gray-800 leading-tight">
                     {resultPreview}
                 </div>
+            </div>
+        </BaseNodeTemplate>
+    );
+};
 
-                {/* Only essential indicators */}
-                <div className="flex gap-1">
-                    {hasStructuredData && (
-                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
-                            📊
-                        </Badge>
-                    )}
-                    {hasCodeBlocks && (
-                        <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700">
-                            📝
-                        </Badge>
-                    )}
+/**
+ * Custom Node Component for Tool Response
+ * Minimal display: just the tool response content (following response node pattern)
+ */
+const ToolResponseNode = ({ data }: { data: any }) => {
+    // Extract tool response from multiple possible paths
+    const toolResponse = data.parameters?.result?.data ||
+        data.result?.data ||
+        data.response?.data ||
+        data.content ||
+        'No response';
+
+    const toolName = data.toolName || data.parameters?.toolName || '';
+
+    // Truncate content to 100 characters for minimal display (same as ResponseNode)
+    const maxContentLength = 100;
+    const contentPreview = toolResponse.length > maxContentLength
+        ? toolResponse.substring(0, maxContentLength) + '...'
+        : toolResponse;
+
+    return (
+        <BaseNodeTemplate
+            nodeType="tool_response"
+            data={data}
+            handles={{
+                target: true,
+                source: true,
+                targetId: "tool-response-input",
+                sourceId: "tool-response-output"
+            }}
+        >
+            <div className="space-y-1">
+                {/* Minimal header */}
+                <div className="flex items-center gap-1">
+                    <MessageCircle className="h-3 w-3 text-green-500" />
+                    <span className="text-xs font-medium text-gray-700">
+                        Tool Response {toolName && `(${toolName})`}
+                    </span>
+                </div>
+
+                {/* Tool response content - essential information */}
+                <div className="text-xs text-gray-800 leading-tight">
+                    {contentPreview}
                 </div>
             </div>
         </BaseNodeTemplate>
@@ -1038,11 +977,178 @@ const nodeTypes = {
     response: ResponseNode as any,
     tool_call: ToolCallNode as any,
     tool_call_response: ToolCallResponseNode as any,
+    tool_response: ToolResponseNode as any,
     tool_result: ToolResultNode as any,
     agentResponse: AgentResponseNode as any,
     toolCall: LegacyToolCallNode as any,
     placeholder: PlaceholderNode as any
     // userInput 제거 - 레거시 타입
+};
+
+// Specialized content rendering for different node types
+const renderNodeContent = (node: Node): React.ReactElement | null => {
+    const data = (node as any).data;
+    const nodeType = String(node.type);
+
+    switch (nodeType) {
+        case 'agent': {
+            const tools: string[] = Array.isArray(data.tools)
+                ? data.tools
+                : (data.extensions?.robota?.originalEvent?.parameters?.tools as string[] | undefined) || [];
+            return (
+                <div className="space-y-3">
+                    <div className="border-l-4 border-blue-500 pl-3">
+                        <h3 className="text-sm font-medium text-gray-900 mb-2">Agent</h3>
+                        {/* Tools */}
+                        {tools.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                                {tools.map((tool: string) => (
+                                    <Badge key={tool} variant="outline" className="text-xs">
+                                        <Wrench className="h-3 w-3 mr-1" />{tool}
+                                    </Badge>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-xs text-gray-500">No tools</div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+        case 'user_message':
+            return (
+                <div className="space-y-3">
+                    <div className="border-l-4 border-blue-500 pl-3">
+                        <h3 className="text-sm font-medium text-gray-900 mb-2">User Prompt</h3>
+                        <div className="text-sm text-gray-800 bg-blue-50 p-3 rounded">
+                            {data.parameters?.userPrompt ||
+                                data.parameters?.userMessageContent ||
+                                data.userPrompt ||
+                                data.userMessageContent ||
+                                data.message ||
+                                'No content available'}
+                        </div>
+                        {data.parameters?.messageLength && (
+                            <div className="text-xs text-gray-500 mt-2">
+                                Length: {data.parameters.messageLength} characters
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+
+        case 'response':
+            return (
+                <div className="space-y-3">
+                    <div className="border-l-4 border-green-500 pl-3">
+                        <h3 className="text-sm font-medium text-gray-900 mb-2">Assistant Response</h3>
+                        <div className="text-sm text-gray-800 bg-green-50 p-3 rounded max-h-48 overflow-y-auto">
+                            {data.parameters?.assistantMessage ||
+                                data.extensions?.robota?.originalEvent?.parameters?.assistantMessage ||
+                                data.assistantMessage ||
+                                data.content ||
+                                'No response available'}
+                        </div>
+                        <div className="flex gap-4 text-xs text-gray-500 mt-2">
+                            {data.parameters?.responseLength && (
+                                <span>Length: {data.parameters.responseLength} characters</span>
+                            )}
+                            {data.parameters?.wordCount && (
+                                <span>Words: {data.parameters.wordCount}</span>
+                            )}
+                            {data.agentNumber > 0 && (
+                                <span>Agent: {data.agentNumber}</span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+
+        case 'tool_call_response':
+            const toolName = data.toolName || data.parameters?.toolName || 'Tool';
+            const toolResult = data.result?.data ||
+                data.parameters?.result?.data ||
+                data.toolResult ||
+                'No result available';
+            const toolSuccess = data.result?.success ||
+                data.parameters?.result?.success ||
+                data.success !== false;
+
+            return (
+                <div className="space-y-3">
+                    <div className="border-l-4 border-purple-500 pl-3">
+                        <h3 className="text-sm font-medium text-gray-900 mb-2">Tool Response</h3>
+
+                        {/* Tool info */}
+                        <div className="flex items-center gap-2 mb-3">
+                            <Badge variant="outline" className="text-xs">
+                                {toolName}
+                            </Badge>
+                            <div className={`flex items-center gap-1 text-xs ${toolSuccess ? 'text-green-600' : 'text-red-600'}`}>
+                                <div className={`w-2 h-2 rounded-full ${toolSuccess ? 'bg-green-400' : 'bg-red-400'}`} />
+                                {toolSuccess ? 'Success' : 'Failed'}
+                            </div>
+                        </div>
+
+                        {/* Tool result */}
+                        <div className="text-sm text-gray-800 bg-purple-50 p-3 rounded max-h-48 overflow-y-auto">
+                            {toolResult}
+                        </div>
+
+                        {/* Additional metrics if available */}
+                        <div className="flex gap-4 text-xs text-gray-500 mt-2">
+                            {data.parameters?.metadata?.executionId && (
+                                <span>ID: {data.parameters.metadata.executionId.substring(0, 8)}...</span>
+                            )}
+                            {data.parameters?.executionLevel && (
+                                <span>Level: {data.parameters.executionLevel}</span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+
+        case 'tool_response':
+            return (
+                <div className="space-y-3">
+                    <div className="border-l-4 border-green-500 pl-3">
+                        <h3 className="text-sm font-medium text-gray-900 mb-2">Tool Response</h3>
+                        <div className="text-sm text-gray-800 bg-green-50 p-3 rounded max-h-48 overflow-y-auto">
+                            {data.parameters?.result?.data ||
+                                data.result?.data ||
+                                data.response?.data ||
+                                data.content ||
+                                'No response available'}
+                        </div>
+                        <div className="flex gap-4 text-xs text-gray-500 mt-2">
+                            {data.parameters?.responseLength && (
+                                <span>Length: {data.parameters.responseLength} characters</span>
+                            )}
+                            {data.toolName && (
+                                <span>Tool: {data.toolName}</span>
+                            )}
+                            {data.parameters?.toolName && (
+                                <span>Tool: {data.parameters.toolName}</span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+
+        default:
+            // For other node types, show basic info if available
+            const basicInfo = data.description || data.label;
+            if (basicInfo) {
+                return (
+                    <div className="space-y-2">
+                        <div className="text-sm text-gray-700 p-3 bg-gray-50 rounded">
+                            {basicInfo}
+                        </div>
+                    </div>
+                );
+            }
+            return null;
+    }
 };
 
 function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }: WorkflowVisualizationProps) {
@@ -1522,29 +1628,42 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }:
             <Modal
                 isOpen={isInfoOpen}
                 onClose={() => setIsInfoOpen(false)}
-                title="Node Info"
-                size="md"
+                title="Node Details"
+                size="lg"
             >
-                <div className="p-6 space-y-3">
+                <div className="p-6 space-y-4">
                     {selectedNode && (
-                        <div className="space-y-2 text-sm">
+                        <div className="space-y-4">
+                            {/* Header */}
                             <div className="flex items-center gap-2">
                                 <Badge variant="outline" className="text-xs">{String(selectedNode.type)}</Badge>
                                 <span className="font-medium">{(selectedNode as any).data?.label || (selectedNode as any).data?.name || selectedNode.id}</span>
                             </div>
-                            <div className="grid grid-cols-2 text-xs text-gray-600">
+
+                            {/* Basic Info */}
+                            <div className="grid grid-cols-2 text-sm text-gray-600 gap-2">
                                 <div>ID:</div>
-                                <div className="truncate" title={selectedNode.id}>{selectedNode.id}</div>
+                                <div className="truncate font-mono text-xs" title={selectedNode.id}>{selectedNode.id}</div>
                                 <div>Type:</div>
                                 <div>{String(selectedNode.type)}</div>
                             </div>
-                            <div className="text-xs bg-gray-50 p-2 rounded border max-h-64 overflow-auto">
-                                <pre className="whitespace-pre-wrap">{JSON.stringify((selectedNode as any).data, null, 2)}</pre>
-                            </div>
+
+                            {/* Specialized Content Rendering */}
+                            {renderNodeContent(selectedNode)}
+
+                            {/* Raw Data (Collapsible) */}
+                            <details className="border rounded">
+                                <summary className="px-3 py-2 bg-gray-50 text-sm font-medium cursor-pointer hover:bg-gray-100">
+                                    Raw Data
+                                </summary>
+                                <div className="p-3 text-xs bg-gray-50 max-h-64 overflow-auto">
+                                    <pre className="whitespace-pre-wrap text-gray-700">{JSON.stringify((selectedNode as any).data, null, 2)}</pre>
+                                </div>
+                            </details>
                         </div>
                     )}
                     {!selectedNode && (
-                        <div className="text-xs text-gray-500">No node selected</div>
+                        <div className="text-sm text-gray-500">No node selected</div>
                     )}
                     <div className="flex justify-end">
                         <Button size="sm" variant="outline" onClick={() => setIsInfoOpen(false)}>Close</Button>
