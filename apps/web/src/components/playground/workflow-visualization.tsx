@@ -38,6 +38,8 @@ import { Badge } from '@/components/ui/badge';
 import { Modal } from '@/components/ui/modal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Bot, MessageSquare, MessageCircle, Settings, Wrench, LayoutGrid, RefreshCw, Clipboard } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type {
     UniversalWorkflowStructure
 } from '@robota-sdk/agents';
@@ -1038,16 +1040,34 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
             );
 
         case 'response':
+            const assistantMessage = data.parameters?.assistantMessage ||
+                data.extensions?.robota?.originalEvent?.parameters?.assistantMessage ||
+                data.assistantMessage ||
+                data.content ||
+                'No response available';
             return (
                 <div className="space-y-3">
                     <div className="border-l-4 border-green-500 pl-3">
                         <h3 className="text-sm font-medium text-gray-900 mb-2">Assistant Response</h3>
-                        <div className="text-sm text-gray-800 bg-green-50 p-3 rounded max-h-48 overflow-y-auto">
-                            {data.parameters?.assistantMessage ||
-                                data.extensions?.robota?.originalEvent?.parameters?.assistantMessage ||
-                                data.assistantMessage ||
-                                data.content ||
-                                'No response available'}
+                        <div className="text-sm text-gray-800 bg-green-50 p-3 rounded max-h-64 overflow-y-auto">
+                            <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                    p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                    code: ({ children, className }) => (
+                                        <code className={`${className} bg-gray-100 px-1 py-0.5 rounded text-xs`}>
+                                            {children}
+                                        </code>
+                                    ),
+                                    pre: ({ children }) => (
+                                        <pre className="bg-gray-100 p-2 rounded text-xs overflow-x-auto">
+                                            {children}
+                                        </pre>
+                                    )
+                                }}
+                            >
+                                {assistantMessage}
+                            </ReactMarkdown>
                         </div>
                         <div className="flex gap-4 text-xs text-gray-500 mt-2">
                             {data.parameters?.responseLength && (
@@ -1109,16 +1129,34 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
             );
 
         case 'tool_response':
+            const toolResponseData = data.parameters?.result?.data ||
+                data.result?.data ||
+                data.response?.data ||
+                data.content ||
+                'No response available';
             return (
                 <div className="space-y-3">
                     <div className="border-l-4 border-green-500 pl-3">
                         <h3 className="text-sm font-medium text-gray-900 mb-2">Tool Response</h3>
-                        <div className="text-sm text-gray-800 bg-green-50 p-3 rounded max-h-48 overflow-y-auto">
-                            {data.parameters?.result?.data ||
-                                data.result?.data ||
-                                data.response?.data ||
-                                data.content ||
-                                'No response available'}
+                        <div className="text-sm text-gray-800 bg-green-50 p-3 rounded max-h-64 overflow-y-auto">
+                            <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                    p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                    code: ({ children, className }) => (
+                                        <code className={`${className} bg-gray-100 px-1 py-0.5 rounded text-xs`}>
+                                            {children}
+                                        </code>
+                                    ),
+                                    pre: ({ children }) => (
+                                        <pre className="bg-gray-100 p-2 rounded text-xs overflow-x-auto">
+                                            {children}
+                                        </pre>
+                                    )
+                                }}
+                            >
+                                {toolResponseData}
+                            </ReactMarkdown>
                         </div>
                         <div className="flex gap-4 text-xs text-gray-500 mt-2">
                             {data.parameters?.responseLength && (
@@ -1634,30 +1672,28 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }:
                 <div className="p-6 space-y-4">
                     {selectedNode && (
                         <div className="space-y-4">
-                            {/* Header */}
-                            <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="text-xs">{String(selectedNode.type)}</Badge>
-                                <span className="font-medium">{(selectedNode as any).data?.label || (selectedNode as any).data?.name || selectedNode.id}</span>
-                            </div>
-
-                            {/* Basic Info */}
-                            <div className="grid grid-cols-2 text-sm text-gray-600 gap-2">
-                                <div>ID:</div>
-                                <div className="truncate font-mono text-xs" title={selectedNode.id}>{selectedNode.id}</div>
-                                <div>Type:</div>
-                                <div>{String(selectedNode.type)}</div>
+                            {/* Header - Simplified */}
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-xs">{String(selectedNode.type)}</Badge>
+                                    <span className="font-medium">{(selectedNode as any).data?.label || (selectedNode as any).data?.name || 'Node'}</span>
+                                </div>
+                                <div className="text-xs text-gray-500 font-mono">
+                                    {selectedNode.id.substring(0, 8)}...
+                                </div>
                             </div>
 
                             {/* Specialized Content Rendering */}
                             {renderNodeContent(selectedNode)}
 
-                            {/* Raw Data (Collapsible) */}
+                            {/* Raw Data (Compact) */}
                             <details className="border rounded">
-                                <summary className="px-3 py-2 bg-gray-50 text-sm font-medium cursor-pointer hover:bg-gray-100">
-                                    Raw Data
+                                <summary className="px-3 py-2 bg-gray-50 text-sm font-medium cursor-pointer hover:bg-gray-100 flex items-center justify-between">
+                                    <span>Raw Data</span>
+                                    <span className="text-xs text-gray-500">Click to expand</span>
                                 </summary>
-                                <div className="p-3 text-xs bg-gray-50 max-h-64 overflow-auto">
-                                    <pre className="whitespace-pre-wrap text-gray-700">{JSON.stringify((selectedNode as any).data, null, 2)}</pre>
+                                <div className="p-3 text-xs bg-gray-50 max-h-48 overflow-auto">
+                                    <pre className="whitespace-pre-wrap text-gray-700 leading-relaxed">{JSON.stringify((selectedNode as any).data, null, 2)}</pre>
                                 </div>
                             </details>
                         </div>
