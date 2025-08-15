@@ -98,19 +98,11 @@ export class WorkflowEventSubscriber {
             this.registerEventHandler(handler);
         });
 
-        // Subscribe to workflow updates: apply stats, notify update, then snapshot subscribers
+        // Subscribe to workflow updates: apply stats and notify legacy update subscribers
+        // Note: Snapshot emission moved to processHandlerResults for atomic batch completion
         this.workflowBuilder.subscribe((update) => {
             this.updateStatistics(update);
             this.notifyWorkflowUpdateSubscribers(update);
-            // Snapshot after the update is actually applied (queue processed moment)
-            if (this.workflowSnapshotSubscribers.size > 0) {
-                try {
-                    const snapshot = this.exportWorkflow();
-                    this.notifyWorkflowSnapshotSubscribers(snapshot);
-                } catch (error) {
-                    this.logger.error('❌ [WORKFLOW-SNAPSHOT-ERROR] Failed to export workflow snapshot:', error);
-                }
-            }
         });
 
         this.logger.debug('🏗️ [WORKFLOW-EVENT-SUBSCRIBER] Initialized', {
@@ -522,6 +514,17 @@ export class WorkflowEventSubscriber {
             this.logger.debug(`✅ [EVENT-PROCESSING-SUCCESS] ${eventType} processed successfully`, {
                 updatesApplied: allUpdates.length
             });
+
+            // Emit snapshot ONLY after all updates for this event are successfully applied
+            if (this.workflowSnapshotSubscribers.size > 0 && allUpdates.length > 0) {
+                try {
+                    const snapshot = this.exportWorkflow();
+                    this.notifyWorkflowSnapshotSubscribers(snapshot);
+                    this.logger.debug(`📸 [WORKFLOW-SNAPSHOT] Emitted after ${eventType} with ${allUpdates.length} updates`);
+                } catch (error) {
+                    this.logger.error('❌ [WORKFLOW-SNAPSHOT-ERROR] Failed to export workflow snapshot:', error);
+                }
+            }
         }
     }
 
