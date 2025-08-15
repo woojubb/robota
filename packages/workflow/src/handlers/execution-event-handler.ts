@@ -188,6 +188,16 @@ export class ExecutionEventHandler implements EventHandler {
 
                 case 'execution.user_message':
                     {
+                        const pathArr = (eventData as any)?.path as string[] | undefined;
+                        if (!Array.isArray(pathArr) || pathArr.length < 2) {
+                            return {
+                                success: false,
+                                updates: [],
+                                errors: [`[PATH-ONLY] Invalid path for execution.user_message: ${JSON.stringify(pathArr)}`]
+                            };
+                        }
+                        const rootId = String(pathArr[0]);
+                        const execId = String(pathArr[1]);
                         const userMessageNode = this.createUserMessageNode(eventData);
                         if ((eventData as any).parentId) userMessageNode.parentId = String((eventData as any).parentId);
                         if (eventData.parentExecutionId) {
@@ -195,52 +205,57 @@ export class ExecutionEventHandler implements EventHandler {
                         }
                         updates.push({ action: 'create', node: userMessageNode });
                         this.userMessageNodeMap.set(String(eventData.sourceId), userMessageNode.id);
-                        const rootId = String(eventData.rootExecutionId || eventData.sourceId || '');
-                        // Explicit edge: agent → user_message ('receives') with robust lookup
-                        const candidateExecIds2 = [
-                            String(eventData.executionId || ''),
-                            String(eventData.parentExecutionId || ''),
-                            String(eventData?.metadata?.executionId || '')
-                        ].filter(Boolean);
-                        const candidateRootIds2 = [
-                            rootId,
-                            String(eventData?.metadata?.conversationId || '')
-                        ].filter(Boolean);
-                        let agentNodeForExec2: string | undefined;
-                        for (const id of candidateExecIds2) {
-                            agentNodeForExec2 = WorkflowState.getAgentForExecution(id);
-                            if (agentNodeForExec2) break;
-                        }
-                        if (!agentNodeForExec2) {
-                            for (const id of candidateRootIds2) {
-                                agentNodeForExec2 = WorkflowState.getAgentForRoot(id);
-                                if (agentNodeForExec2) break;
+
+                        // Path-Only connection logic: parentPath based filtering
+                        let sourceNodeForConnection: string | undefined;
+                        let edgeType = 'receives';
+
+                        const parentPath = pathArr.slice(0, -1).join('/');
+
+                        // Try to find the most recent response or tool_result node in the same parentPath scope
+                        const allNodes = (this as any).subscriber?.getAllNodes?.() || [];
+                        const candidateSourceNodes = allNodes
+                            .filter((node: any) => {
+                                const nodePath = Array.isArray(node.data?.extensions?.robota?.originalEvent?.path)
+                                    ? node.data.extensions.robota.originalEvent.path.join('/')
+                                    : '';
+                                return (node.type === 'response' || node.type === 'tool_result') && nodePath.startsWith(parentPath);
+                            })
+                            .sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0));
+
+                        if (candidateSourceNodes.length > 0) {
+                            sourceNodeForConnection = candidateSourceNodes[0].id;
+                            edgeType = 'continues';
+                        } else {
+                            // First message in this root/sub-flow: connect to agent
+                            const rootId = String(pathArr[0]);
+                            let agentNodeForExec: string | undefined;
+                            const nodesAccessor: any[] = allNodes;
+                            agentNodeForExec = nodesAccessor.find(n => n.type === 'agent' && n.data?.sourceId === rootId)?.id;
+
+                            if (!agentNodeForExec) {
+                                // Fallback to WorkflowState if direct scan fails (e.g., agent not yet in allNodes)
+                                agentNodeForExec = WorkflowState.getAgentForRoot(rootId);
                             }
+                            sourceNodeForConnection = agentNodeForExec;
+                            edgeType = 'receives';
                         }
-                        if (agentNodeForExec2) {
+
+                        if (sourceNodeForConnection) {
                             const edge: WorkflowEdge = {
-                                id: EdgeUtils.generateId(agentNodeForExec2, userMessageNode.id, 'receives' as any),
-                                source: agentNodeForExec2,
+                                id: EdgeUtils.generateId(sourceNodeForConnection, userMessageNode.id, edgeType as any),
+                                source: sourceNodeForConnection,
                                 target: userMessageNode.id,
-                                type: 'receives' as any,
+                                type: edgeType,
                                 timestamp: Date.now()
                             } as any;
                             updates.push({ action: 'create', edge } as any);
                         }
-                        // Record last user message under multiple context keys for robust lookup
-                        {
-                            const keys = [
-                                String(eventData.executionId || ''),
-                                String(eventData.parentExecutionId || ''),
-                                String(eventData.rootExecutionId || ''),
-                                String(eventData.sourceId || ''),
-                                String(eventData?.metadata?.executionId || ''),
-                                String(eventData?.metadata?.conversationId || '')
-                            ].filter(Boolean);
-                            for (const key of keys) {
-                                WorkflowState.setLastUserMessage(key, userMessageNode.id);
-                            }
-                        }
+
+                        // Record last user message for root and exec for thinking linkage
+                        WorkflowState.setLastUserMessage(rootId, userMessageNode.id);
+                        WorkflowState.setLastUserMessage(execId, userMessageNode.id);
+
                         break;
                     }
 
@@ -492,7 +507,11 @@ export class ExecutionEventHandler implements EventHandler {
     }
 
     private createUserMessageNode(data: EventData): WorkflowNode {
-        const nodeId = String(data.sourceId);
+        // Generate unique node ID for each user message to support continued conversations
+        const executionId = data.executionId || data.metadata?.executionId;
+        const nodeId = executionId
+            ? `${data.sourceId}_user_${executionId}`
+            : `${data.sourceId}_user_${Date.now()}`;
         const messageContent = String(data.parameters?.content || data.parameters?.message || 'User message');
 
         return {

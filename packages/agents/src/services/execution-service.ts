@@ -366,8 +366,9 @@ export class ExecutionService {
                         rootExecutionId: rootId,
                         parentExecutionId: this.executionContext?.parentExecutionId,
                         executionLevel: 0, // User message is Level 0
-                        executionPath: [rootId],
-                        path: [rootId],
+                        // Path-Only: user message must include unique execution segment
+                        executionPath: [rootId, executionId],
+                        path: [rootId, executionId],
                         metadata: {
                             executionId,
                             messageRole: 'user',
@@ -421,8 +422,9 @@ export class ExecutionService {
 
                 // 🎯 라운드 시작 시점에 해당 라운드의 thinking ID를 생성
                 const rootId = fullContext.conversationId || executionId;
-                const conversationId = String(rootId).replace('conv_', '').substring(0, 16);
-                const thinkingNodeId = `thinking_agent_0_copy_1_${conversationId}_round${currentRound}`;
+                // Path-only stable thinking id: conversation-level round (next assistant turn)
+                const assistantMessageCount = (conversationSession.getMessages() || []).filter(m => m.role === 'assistant').length;
+                const thinkingNodeId = `thinking_${rootId}_round${assistantMessageCount + 1}`;
 
                 // Get messages from conversation history
                 const conversationMessages = conversationSession.getMessages();

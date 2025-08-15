@@ -59,6 +59,59 @@ interface WorkflowVisualizationProps {
     onAgentNodeClick?: (nodeId: string, data: any) => void;
 }
 
+// Unified Chat System
+type ChatNodeType = 'agent' | 'response';
+
+/**
+ * Extract Agent ID from node data based on node type
+ */
+const extractAgentId = (nodeData: any, nodeType: ChatNodeType): string | null => {
+    if (nodeType === 'agent') {
+        return nodeData.sourceId || nodeData.conversationId || null;
+    } else if (nodeType === 'response') {
+        return nodeData.extensions?.robota?.originalEvent?.rootExecutionId || null;
+    }
+    return null;
+};
+
+/**
+ * Unified Chat Button Component
+ * Used by both Agent and Response nodes
+ */
+const ChatButton = ({
+    nodeData,
+    nodeType,
+    onChatOpen
+}: {
+    nodeData: any;
+    nodeType: ChatNodeType;
+    onChatOpen?: (agentId: string, nodeData: any) => void;
+}) => {
+    const handleChatClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const agentId = extractAgentId(nodeData, nodeType);
+        if (agentId && onChatOpen) {
+            onChatOpen(agentId, nodeData);
+        }
+    };
+
+    const title = nodeType === 'agent'
+        ? "Chat with agent"
+        : "Continue chat from this response";
+
+    return (
+        <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 p-0"
+            onClick={handleChatClick}
+            title={title}
+        >
+            <MessageCircle className="h-3 w-3" />
+        </Button>
+    );
+};
+
 // Base Node Template Types
 type NodeType = 'agent' | 'team' | 'toolCall' | 'agentResponse' | 'tool' | 'user_message' | 'agent_thinking' | 'response' | 'tool_call' | 'tool_call_response' | 'tool_response' | 'tool_result';
 
@@ -343,7 +396,9 @@ const edgeTypes: EdgeTypes = {
     recursiveAgent: RecursiveAgentEdge, // 🔄 재귀 Agent (보라색)
 
     // 실제 SDK에서 생성되는 타입들 매핑
-    processes: ConnectedEdge,        // 🎯 Agent → Agent Thinking (실제 SDK)
+    processes: ConnectedEdge,        // user_message → agent_thinking
+    continues: ConnectedEdge,        // response → user_message
+    return: ConnectedEdge,           // agent_thinking → response
     contains: ConnectedEdge,         // Team → Agent
     receives: ConnectedEdge,         // User Input → Agent
     thinks: ConnectedEdge,           // Agent → Agent Thinking
@@ -416,20 +471,11 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                         )}
                     </div>
                     <div className="flex items-center gap-1">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 p-0"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (typeof (data as any).__onChat === 'function') {
-                                    (data as any).__onChat();
-                                }
-                            }}
-                            title="Open chat"
-                        >
-                            <MessageCircle className="h-3 w-3" />
-                        </Button>
+                        <ChatButton
+                            nodeData={data}
+                            nodeType="agent"
+                            onChatOpen={(data as any).__onChat}
+                        />
                         <Button
                             variant="ghost"
                             size="icon"
@@ -697,12 +743,21 @@ const ResponseNode = ({ data }: { data: any }) => {
             }}
         >
             <div className="space-y-1">
-                {/* Minimal header */}
-                <div className="flex items-center gap-1">
-                    <MessageCircle className="h-3 w-3 text-green-500" />
-                    <span className="text-xs font-medium text-gray-700">
-                        Response {agentNumber > 0 ? agentNumber : ''}
-                    </span>
+                {/* Header with chat button */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                        <MessageCircle className="h-3 w-3 text-green-500" />
+                        <span className="text-xs font-medium text-gray-700">
+                            Response {agentNumber > 0 ? agentNumber : ''}
+                        </span>
+                    </div>
+                    <div className="flex gap-1">
+                        <ChatButton
+                            nodeData={data}
+                            nodeType="response"
+                            onChatOpen={(data as any).__onChat}
+                        />
+                    </div>
                 </div>
 
                 {/* Assistant message content - essential information */}
@@ -1465,25 +1520,38 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }:
                     targetEdges = layoutedEdges;
                 }
 
-                // Attach callbacks to agent nodes (chat/edit)
+                // Unified chat handler for all node types
+                const handleUnifiedChat = (agentId: string, nodeData: any) => {
+                    // Use the extracted agent ID to open chat with the correct agent
+                    onAgentNodeClick?.(agentId, nodeData);
+                };
+
+                // Attach callbacks to agent and response nodes (chat/edit)
                 const augmentCallbacks = (list: Node[]): Node[] =>
-                    list.map((n) =>
-                        n.type === 'agent'
-                            ? {
+                    list.map((n) => {
+                        if (n.type === 'agent') {
+                            return {
                                 ...n,
                                 data: {
                                     ...n.data,
-                                    __onChat: () => {
-                                        onAgentNodeClick?.(n.id, (n as any).data);
-                                    },
+                                    __onChat: handleUnifiedChat,
                                     __onEdit: () => {
                                         setSelectedNode(n);
                                         setIsInfoOpen(true);
                                     },
                                 },
-                            }
-                            : n
-                    );
+                            };
+                        } else if (n.type === 'response') {
+                            return {
+                                ...n,
+                                data: {
+                                    ...n.data,
+                                    __onChat: handleUnifiedChat,
+                                },
+                            };
+                        }
+                        return n;
+                    });
 
                 targetNodes = augmentCallbacks(targetNodes);
 
