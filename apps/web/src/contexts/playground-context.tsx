@@ -741,14 +741,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                 console.warn('⚠️ [STEP 9.1.3] External Store not available');
             }
 
-            // Update node status to 'running' for current workflow
-            if (state.currentWorkflow && state.currentWorkflow.nodes.length > 0) {
-                // Find the main agent node (first agent-type node)
-                const agentNode = state.currentWorkflow.nodes.find(node => node.type === 'agent');
-                if (agentNode) {
-                    dispatch({ type: 'UPDATE_NODE_STATUS', payload: { nodeId: agentNode.id, status: 'running' } });
-                }
-            }
+            // SDK owns workflow updates; no manual node status mutation
 
             // Record UI interaction - streaming chat send
             if (typeof state.executor.recordPlaygroundAction === 'function') {
@@ -768,64 +761,9 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
 
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: result });
 
-            // Update node status to 'completed' for current workflow
-            if (state.currentWorkflow && state.currentWorkflow.nodes.length > 0) {
-                // Find the main agent node (first agent-type node)
-                const agentNode = state.currentWorkflow.nodes.find(node => node.type === 'agent');
-                if (agentNode) {
-                    dispatch({ type: 'UPDATE_NODE_STATUS', payload: { nodeId: agentNode.id, status: 'completed' } });
-                }
-            }
+            // SDK owns workflow updates; no manual node status mutation
 
-            // Add Agent Response node when response is completed
-            if (currentWorkflowRef.current) {
-                const timestamp = Date.now();
-                const responseNodeId = `agent-response-${timestamp}`;
-
-                // Find the main node to connect from (Team first, then Agent)
-                const teamNode = currentWorkflowRef.current.nodes.find(node => node.type === 'team');
-                const mainNode = teamNode || currentWorkflowRef.current.nodes.find(node => node.type === 'agent');
-                if (mainNode) {
-                    // Calculate position for Agent Response node
-                    const existingNodes = currentWorkflowRef.current.nodes;
-                    const maxY = Math.max(...existingNodes.map(node => node.position.y || 0));
-                    const agentResponseY = maxY + 150;
-
-                    // Create Agent Response node
-                    const agentResponseNode: any = {
-                        id: responseNodeId,
-                        type: 'agentResponse',
-                        position: { x: 300, y: agentResponseY },
-                        data: {
-                            label: 'Agent Response',
-                            response: result.response?.substring(0, 50) + (result.response?.length > 50 ? '...' : '') || 'No response'
-                        },
-                        metadata: { createdAt: new Date(), updatedAt: new Date() }
-                    };
-
-                    // Create edge: Team (or Agent) → Agent Response
-                    const mainToResponseEdge: any = {
-                        id: `edge-response-${timestamp}`,
-                        source: mainNode.id,
-                        target: responseNodeId,
-                        sourceHandle: teamNode ? 'team-output' : 'agent-output',
-                        targetHandle: 'response-input',
-                        data: {},
-                        metadata: { createdAt: new Date(), updatedAt: new Date() }
-                    };
-
-                    // Update workflow with Agent Response node (keeping all existing nodes including User Input)
-                    const updatedWorkflow = {
-                        ...currentWorkflowRef.current,
-                        nodes: [...currentWorkflowRef.current.nodes, agentResponseNode],
-                        edges: [...currentWorkflowRef.current.edges, mainToResponseEdge]
-                    };
-
-                    dispatch({ type: 'SET_CURRENT_WORKFLOW', payload: updatedWorkflow });
-                    // Update ref with the latest state
-                    currentWorkflowRef.current = updatedWorkflow as any;
-                }
-            }
+            // SDK owns workflow graph; do not add artificial response nodes/edges
 
             // Sync conversation history from executor (central source of truth)
             // Get all events from PlaygroundHistoryPlugin (EventService events)
@@ -893,13 +831,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: errorResult });
             dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Execution failed' });
 
-            // Update node status to 'error' for current workflow
-            if (state.currentWorkflow && state.currentWorkflow.nodes.length > 0) {
-                const agentNode = state.currentWorkflow.nodes.find(node => node.type === 'agent');
-                if (agentNode) {
-                    dispatch({ type: 'UPDATE_NODE_STATUS', payload: { nodeId: agentNode.id, status: 'error' } });
-                }
-            }
+            // SDK owns workflow updates; no manual node status mutation
 
             return errorResult;
         } finally {

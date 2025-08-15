@@ -1218,17 +1218,17 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }:
             const width = (rfNode?.width ?? (positionedNode as any)?.data?.actualWidth ?? (positionedNode as any)?.data?.computedWidth ?? 192);
             const height = (rfNode?.height ?? (positionedNode as any)?.data?.actualHeight ?? (positionedNode as any)?.data?.computedHeight ?? 80);
 
-            if (
-                pos && typeof pos.x === 'number' && typeof pos.y === 'number' &&
-                typeof width === 'number' && typeof height === 'number'
-            ) {
-                const centerX = pos.x + width / 2;
-                const centerY = pos.y + height / 2;
-                const zoom = typeof getZoom === 'function' ? getZoom() : 1;
+            // if (
+            //     pos && typeof pos.x === 'number' && typeof pos.y === 'number' &&
+            //     typeof width === 'number' && typeof height === 'number'
+            // ) {
+            //     const centerX = pos.x + width / 2;
+            //     const centerY = pos.y + height / 2;
+            //     const zoom = typeof getZoom === 'function' ? getZoom() : 1;
 
-                setCenter(centerX, centerY, { duration: 600, zoom });
-                return; // success; stop loop
-            }
+            //     setCenter(centerX, centerY, { duration: 600, zoom });
+            //     return; // success; stop loop
+            // }
 
             if (attempts < maxAttempts) {
                 rafForCenterRef.current = requestAnimationFrame(tryCenter);

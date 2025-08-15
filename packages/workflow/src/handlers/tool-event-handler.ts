@@ -26,8 +26,7 @@ const TOOL_EVENTS = {
     CALL_START: 'tool.call_start',
     CALL_COMPLETE: 'tool.call_complete',
     CALL_ERROR: 'tool.call_error',
-    CALL_RESPONSE_READY: 'tool.call_response_ready',
-    AGENT_EXECUTION_STARTED: 'tool.agent_execution_started'
+    CALL_RESPONSE_READY: 'tool.call_response_ready'
 } as const;
 
 /**
@@ -159,10 +158,7 @@ export class ToolEventHandler implements EventHandler {
                     break;
                 }
 
-                case TOOL_EVENTS.AGENT_EXECUTION_STARTED:
-                    const agentExecNode = this.createAgentExecutionStartedNode(eventData);
-                    updates.push({ action: 'create', node: agentExecNode });
-                    break;
+                // tool.agent_execution_started removed by Decision Gate (6.5)
 
                 default:
                     this.logger.warn(`⚠️ [TOOL-HANDLER] Unknown event type: ${eventType}`);
@@ -362,41 +358,7 @@ export class ToolEventHandler implements EventHandler {
         };
     }
 
-    private createAgentExecutionStartedNode(data: EventData): WorkflowNode {
-        const nodeId = `agent_execution_started_${String(data.sourceId)}_${Date.now()}`;
-
-        return {
-            id: nodeId,
-            type: WORKFLOW_NODE_TYPES.AGENT,
-            level: 1,
-            status: 'running',
-            timestamp: Date.now(),
-            data: {
-                sourceId: String(data.sourceId),
-                sourceType: 'tool',
-                executionId: data.executionId,
-                parentExecutionId: data.parentExecutionId,
-                label: 'Agent Execution Started',
-                description: 'Agent execution started via tool',
-                eventType: data.eventType,
-                parameters: data.parameters || {},
-                metadata: data.metadata || {},
-                agentInfo: {
-                    agentId: String(data.sourceId),
-                    startedVia: 'tool',
-                    parentTool: String(data.parameters?.parentToolName || 'unknown')
-                },
-                extensions: {
-                    robota: {
-                        originalEvent: data,
-                        handlerType: 'tool',
-                        triggeredByTool: true
-                    }
-                }
-            },
-            connections: []
-        };
-    }
+    // createAgentExecutionStartedNode removed by Decision Gate (6.5)
 
     // =================================================================
     // Helper Methods

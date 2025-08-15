@@ -229,6 +229,9 @@ export { WebhookPlugin, WebhookEventType, WebhookPayload, WebhookEndpoint, Webho
  */
 export { Robota } from './agents/robota';
 
+// Agent event constants (public API) - used by workflow handlers
+export { AGENT_EVENTS } from './agents/constants';
+
 // ===== PROVIDER COMPATIBILITY NOTICE =====
 /**
  * **Important**: Provider implementations are no longer re-exported to prevent circular dependencies.
@@ -312,23 +315,9 @@ export type { ExecutionNode } from './services/event-service';
 
 // Workflow Services (Phase 2)
 export {
-    WorkflowEventSubscriber,
     RealTimeWorkflowBuilder, // Domain-neutral workflow builder (no React-Flow dependencies)
-    NodeEdgeManager, // 🚀 Phase 1: Node/Edge 생성 순서 보장 시스템
+    NodeEdgeManager // 🚀 Phase 1: Node/Edge 생성 순서 보장 시스템
     // RealTimeDiagramGenerator // MOVED to apps/web for domain separation
-} from './services';
-export type {
-    WorkflowNode,
-    WorkflowNodeUpdate,
-    WorkflowConnection,
-    WorkflowNodeType,
-    WorkflowConnectionType,
-    WorkflowNodeStatus,
-    WorkflowNodeData,
-    WorkflowStructure,
-    WorkflowBranch,
-    WorkflowMetadata,
-    WorkflowUpdate
 } from './services';
 
 // Universal Workflow System (Phase 1 - Additional Types)

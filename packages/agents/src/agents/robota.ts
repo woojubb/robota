@@ -482,6 +482,15 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
 
 
         try {
+            // Emit agent execution start (agent-owned event)
+            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                this.eventService.emit(AGENT_EVENTS.EXECUTION_START as any, {
+                    sourceType: 'agent',
+                    sourceId: this.conversationId,
+                    timestamp: new Date()
+                } as any);
+            }
+
             this.logger.debug('Starting Robota execution', {
                 inputLength: input.length,
                 conversationId: this.conversationId,
@@ -524,6 +533,15 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
 
 
 
+            // Emit agent execution complete (agent-owned event)
+            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                this.eventService.emit(AGENT_EVENTS.EXECUTION_COMPLETE as any, {
+                    sourceType: 'agent',
+                    sourceId: this.conversationId,
+                    timestamp: new Date()
+                } as any);
+            }
+
             return result.response;
 
         } catch (error) {
@@ -531,6 +549,15 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
                 error: error instanceof Error ? error.message : String(error),
                 conversationId: this.conversationId
             });
+            // Emit agent execution error (agent-owned event)
+            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                this.eventService.emit(AGENT_EVENTS.EXECUTION_ERROR as any, {
+                    sourceType: 'agent',
+                    sourceId: this.conversationId,
+                    timestamp: new Date(),
+                    error: error instanceof Error ? error : new Error(String(error))
+                } as any);
+            }
             throw error;
         }
     }
@@ -583,6 +610,15 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
         await this.ensureFullyInitialized();
 
         try {
+            // Emit agent execution start (agent-owned event) for streaming
+            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                this.eventService.emit(AGENT_EVENTS.EXECUTION_START as any, {
+                    sourceType: 'agent',
+                    sourceId: this.conversationId,
+                    timestamp: new Date()
+                } as any);
+            }
+
             this.logger.debug('Starting Robota streaming execution', {
                 inputLength: input.length,
                 conversationId: this.conversationId,
@@ -621,7 +657,25 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
                 error: error instanceof Error ? error.message : String(error),
                 conversationId: this.conversationId
             });
+            // Emit agent execution error (agent-owned event) for streaming
+            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                this.eventService.emit(AGENT_EVENTS.EXECUTION_ERROR as any, {
+                    sourceType: 'agent',
+                    sourceId: this.conversationId,
+                    timestamp: new Date(),
+                    error: error instanceof Error ? error : new Error(String(error))
+                } as any);
+            }
             throw error;
+        } finally {
+            // Emit agent execution complete (agent-owned event) at end of streaming
+            if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+                this.eventService.emit(AGENT_EVENTS.EXECUTION_COMPLETE as any, {
+                    sourceType: 'agent',
+                    sourceId: this.conversationId,
+                    timestamp: new Date()
+                } as any);
+            }
         }
     }
 

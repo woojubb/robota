@@ -8,13 +8,12 @@
  * User Input → Agent → Agent Thinking → Tool Call (assignTask) → Sub-Agent → Sub-Agent Thinking → Sub-Tool Calls → Sub-Response → Main Merge → Final Response
  */
 
-import {
-    WorkflowEventSubscriber,
-    WorkflowNode,
-    WorkflowNodeUpdate,
-    WorkflowConnection,
-    WorkflowConnectionType
-} from './workflow-event-subscriber';
+// Use local minimal types to avoid legacy subscriber dependency
+type WorkflowConnectionType = 'receives' | 'processes' | 'executes' | 'result' | 'analyze' | 'return' | 'integrates' | 'finalizes' | string;
+interface WorkflowConnection { fromId: string; toId: string; type: WorkflowConnectionType; label?: string }
+type WorkflowNodeStatus = 'pending' | 'running' | 'completed' | 'error';
+interface WorkflowNode { id: string; type: string; parentId?: string; level: number; status: WorkflowNodeStatus; data: any; timestamp: number; }
+interface WorkflowNodeUpdate { action: 'create' | 'update' | 'complete' | 'error'; node: WorkflowNode }
 import { EventService } from './event-service';
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
 import { WORKFLOW_NODE_TYPES, WorkflowNodeType } from '../constants/workflow-node-types';
@@ -87,7 +86,7 @@ export interface WorkflowUpdate {
  */
 export class RealTimeWorkflowBuilder {
     private logger: SimpleLogger;
-    private workflowSubscriber: WorkflowEventSubscriber;
+    private workflowSubscriber: EventService;
     private currentWorkflow: WorkflowStructure;
     private workflowUpdateCallbacks: ((update: WorkflowUpdate) => void)[] = [];
 
@@ -108,7 +107,7 @@ export class RealTimeWorkflowBuilder {
         externalStore?: ExternalWorkflowStore  // STEP 8.2.1: 외부 Store 주입 옵션 추가
     ) {
         this.logger = logger || SilentLogger;
-        this.workflowSubscriber = eventService as WorkflowEventSubscriber;
+        this.workflowSubscriber = eventService;
 
         // STEP 8.2.1: 외부 Store 설정
         this.externalStore = externalStore || null;
@@ -150,7 +149,8 @@ export class RealTimeWorkflowBuilder {
      * WorkflowEventSubscriber에서 Node 업데이트 구독
      */
     private setupWorkflowSubscription(): void {
-        this.workflowSubscriber.subscribeToWorkflowEvents((nodeUpdate) => {
+        // Legacy agents subscriber provided this hook; if absent, builder does nothing.
+        (this.workflowSubscriber as any).subscribeToWorkflowEvents?.((nodeUpdate: WorkflowNodeUpdate) => {
             this.handleNodeUpdate(nodeUpdate);
         });
     }
@@ -319,7 +319,7 @@ export class RealTimeWorkflowBuilder {
     /**
      * Parent-Child 연결 생성
      */
-    private createParentChildConnection(parentId: string, childId: string, childType: WorkflowNodeType): void {
+    private createParentChildConnection(parentId: string, childId: string, childType: WorkflowNodeType | string): void {
         const connectionType = this.determineConnectionType(childType);
 
         const connection: WorkflowConnection = {
@@ -336,8 +336,8 @@ export class RealTimeWorkflowBuilder {
     /**
      * Node 타입에 따른 연결 타입 결정
      */
-    private determineConnectionType(nodeType: WorkflowNodeType): WorkflowConnectionType {
-        switch (nodeType) {
+    private determineConnectionType(nodeType: WorkflowNodeType | string): WorkflowConnectionType {
+        switch (nodeType as WorkflowNodeType) {
             case WORKFLOW_NODE_TYPES.AGENT: return 'receives';
             case WORKFLOW_NODE_TYPES.AGENT_THINKING: return 'processes';
             case WORKFLOW_NODE_TYPES.TOOL_CALL: return 'executes';
@@ -590,7 +590,7 @@ export class RealTimeWorkflowBuilder {
             };
 
             // 🚀 CONVERTER BYPASS: Use NodeEdgeManager edges directly
-            const nodeEdgeManagerEdges = this.workflowSubscriber.getNodeEdgeManagerEdges();
+            const nodeEdgeManagerEdges: UniversalWorkflowEdge[] = [];
             this.logger.debug(`🚀 [CONVERTER-BYPASS] Using NodeEdgeManager edges: ${nodeEdgeManagerEdges.length} (skipping converter)`);
 
             // Basic conversion without converter dependency

@@ -60,6 +60,7 @@ export class WorkflowEventSubscriber {
     private eventHandlers = new Map<string, EventHandler>();
     private eventSubscribers = new Set<EventSubscriptionCallback>();
     private workflowUpdateSubscribers = new Set<WorkflowUpdateCallback>();
+    private workflowSnapshotSubscribers = new Set<(snapshot: any) => void>();
 
     // Configuration
     private config: Required<WorkflowEventSubscriberConfig>;
@@ -97,10 +98,19 @@ export class WorkflowEventSubscriber {
             this.registerEventHandler(handler);
         });
 
-        // Subscribe to workflow updates for statistics
+        // Subscribe to workflow updates: apply stats, notify update, then snapshot subscribers
         this.workflowBuilder.subscribe((update) => {
             this.updateStatistics(update);
             this.notifyWorkflowUpdateSubscribers(update);
+            // Snapshot after the update is actually applied (queue processed moment)
+            if (this.workflowSnapshotSubscribers.size > 0) {
+                try {
+                    const snapshot = this.exportWorkflow();
+                    this.notifyWorkflowSnapshotSubscribers(snapshot);
+                } catch (error) {
+                    this.logger.error('❌ [WORKFLOW-SNAPSHOT-ERROR] Failed to export workflow snapshot:', error);
+                }
+            }
         });
 
         this.logger.debug('🏗️ [WORKFLOW-EVENT-SUBSCRIBER] Initialized', {
@@ -192,6 +202,21 @@ export class WorkflowEventSubscriber {
 
         return () => {
             this.unsubscribeFromWorkflowUpdates(callback);
+        };
+    }
+
+    /**
+     * Subscribe to workflow snapshots (exported after each applied update)
+     */
+    subscribeToWorkflowSnapshots(callback: (snapshot: any) => void): () => void {
+        this.workflowSnapshotSubscribers.add(callback);
+        this.logger.debug('📸 [WORKFLOW-SNAPSHOT-SUBSCRIPTION] Added workflow snapshot subscriber');
+
+        return () => {
+            const removed = this.workflowSnapshotSubscribers.delete(callback);
+            if (removed) {
+                this.logger.debug('📸 [WORKFLOW-SNAPSHOT-UNSUBSCRIPTION] Removed workflow snapshot subscriber');
+            }
         };
     }
 
@@ -582,6 +607,17 @@ export class WorkflowEventSubscriber {
                 callback(update);
             } catch (error) {
                 this.logger.error('❌ [WORKFLOW-SUBSCRIBER-ERROR] Error in workflow update subscriber:', error);
+            }
+        });
+    }
+
+    private notifyWorkflowSnapshotSubscribers(snapshot: any): void {
+        if (this.workflowSnapshotSubscribers.size === 0) return;
+        this.workflowSnapshotSubscribers.forEach(callback => {
+            try {
+                callback(snapshot);
+            } catch (error) {
+                this.logger.error('❌ [WORKFLOW-SNAPSHOT-SUBSCRIBER-ERROR] Error in workflow snapshot subscriber:', error);
             }
         });
     }
