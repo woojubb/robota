@@ -14,7 +14,9 @@ export const AGENT_EVENTS = {
     /** Agent execution lifecycle - error */
     EXECUTION_ERROR: 'agent.execution_error',
     /** Agent aggregation process completed */
-    AGGREGATION_COMPLETE: 'agent.aggregation_complete'
+    AGGREGATION_COMPLETE: 'agent.aggregation_complete',
+    /** Agent configuration (e.g., tools) has been updated by the agent */
+    CONFIG_UPDATED: 'agent.config_updated'
 } as const;
 
 export type AgentEventType = typeof AGENT_EVENTS[keyof typeof AGENT_EVENTS];

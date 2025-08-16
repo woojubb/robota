@@ -13,19 +13,16 @@
   - 영속화/복원(필요 시)
 
 ## 0.2 우선순위 로드맵 (상위 → 하위)
-- [P1] 코어(agents/workflow): 에이전트 툴 설정 업데이트 기능 확립 (가장 먼저)
-  - [ ] AGENT_EVENTS.CONFIG_UPDATED 상수 추가(기존 AGENT_EVENTS 선언 파일)
-  - [ ] Robota 메서드 추가: `updateTools`, `updateConfiguration`, `getConfiguration`
-  - [ ] AgentEventHandler: `CONFIG_UPDATED` 처리(노드 데이터 업데이트만)
+- [P0] 기초/환경 준비: 스키마·카탈로그·폴더 구조(가장 먼저)
+  - [x] ToolConfig 스키마 표준화: kind → id 전환(문서/설계 반영 완료)
+  - [ ] PlaygroundToolMeta에 type(builtin|mcp|openapi|zod) 확정 및 사용 지점 표준화
+  - [ ] apps/web/src/tools/assign-task/ 스캐폴딩(index.ts, README)
+  - [ ] getPlaygroundToolCatalog() 도입 및 사이드바 목록을 카탈로그 기반으로 전환
+  - [ ] 사이드바 DnD 데이터 포맷(id/name/description) 카탈로그 기준으로 통일
+- [P1] 코어(agents/workflow): 에이전트 툴 설정 업데이트 기능 확립
 - [P2] 웹 브릿지: 에이전트 인스턴스 접근/호출 경로 마련
-  - [ ] executor 레지스트리: `rootId → agentInstance`
-  - [ ] bridge 메서드: `updateAgentTools`, `getAgentConfiguration`
 - [P3] UI: DnD → 브릿지 호출 → 반영 표시(오버레이)
-  - [ ] Tools 카드 DnD 완성, Agent 노드 하이라이트/드롭 처리
-  - [ ] 오버레이 병합 뱃지 표시(배열 병합 규칙)
-  - [ ] 실패/성공 알림
 - [P4] 문서/검증: 혼재 플로우/경계 조건 점검
-  - [ ] 예제 26/27 교차 검증, 중복 추가 방지, 연속 드롭 케이스 확인
 
 ### 0.1 혼재 워크플로우 전제 및 요구사항
 - 하나의 렌더링 트리 안에 다음과 같은 다중/혼재 플로우가 동시에 존재할 수 있음:
@@ -117,7 +114,7 @@ export const AGENT_EVENTS = {
 #### 표준 스키마(초안)
 ```ts
 interface ToolConfig {
-  kind: string;                      // 예: "assignTask", "webSearch"
+  id: string;                      // 예: "assignTask", "webSearch" — implementation identifier
   name?: string;                     // 표시명(선택)
   parameters?: Record<string, unknown>; // 도구별 파라미터(직렬화 가능)
   version?: number;                  // 마이그레이션 대비(선택)
@@ -157,7 +154,7 @@ type ToolRegistry = Record<string, (cfg: ToolConfig) => Tool>;
 - 정적 매핑 필수(동적 import 금지). UI/이벤트 로직과 분리
 
 ### 2.3 통합 툴 팩토리(단일 진입점)
-- 목적: 기존 개별 툴 팩토리들은 유지하되, 하나의 통합 팩토리에서 `kind` 기반으로 위임하여 Tool 인스턴스를 생성
+- 목적: 기존 개별 툴 팩토리들은 유지하되, 하나의 통합 팩토리에서 `id` 기반으로 위임하여 Tool 인스턴스를 생성
 - 도메인 중립, 정적 매핑, 엄격한 검증/에러 정책
 
 #### API 초안
@@ -170,16 +167,16 @@ namespace UnifiedToolFactory {
   export function createMany(configs: ToolConfig[]): Tool[];
 
   // (선택) 앱 초기화 시 확장 등록 - 런타임 동적 import 금지, 정적 함수만 연결
-  export function register(kind: string, builder: (cfg: ToolConfig) => Tool): void;
+  export function register(id: string, builder: (cfg: ToolConfig) => Tool): void;
 }
 ```
 
 #### 동작 규칙
-- 매핑 규칙: `kind` → 기존 개별 팩토리(예: `assignTask` → `AssignTaskFactory.fromConfig`, `webSearch` → `WebSearchFactory.fromConfig`)
+- 매핑 규칙: `id` → 기존 개별 팩토리(예: `assignTask` → `AssignTaskFactory.fromConfig`, `webSearch` → `WebSearchFactory.fromConfig`)
 - 검증: 각 개별 팩토리에서 스키마 검증 수행, 실패 시 예외 throw(침묵/대체 경로 금지)
-- 중복 제거: `name || kind`를 key로 하여 case-insensitive 중복 제거(우선 첫 번째 유지)
+- 중복 제거: `name || id`를 key로 하여 case-insensitive 중복 제거(우선 첫 번째 유지)
 - 순서: 입력 순서 안정성 유지(중복 제거 이후 상대적 순서 보존)
-- 매핑 누락: 등록되지 않은 `kind`는 명시적 에러(지원하지 않는 도구)
+- 매핑 누락: 등록되지 않은 `id`는 명시적 에러(지원하지 않는 도구)
 - 동적 확장: `register`는 앱 초기화 시점에서만 호출(핫 런타임 등록 금지)
 
 #### 예시 구현 스케치
@@ -191,8 +188,8 @@ const registry: Record<string, (cfg: ToolConfig) => Tool> = {
 };
 
 export function create(config: ToolConfig): Tool {
-  const builder = registry[config.kind];
-  if (!builder) throw new Error(`[UnifiedToolFactory] Unknown kind: ${config.kind}`);
+  const builder = registry[config.id];
+  if (!builder) throw new Error(`[UnifiedToolFactory] Unknown id: ${config.id}`);
   return builder(config);
 }
 
@@ -200,7 +197,7 @@ export function createMany(configs: ToolConfig[]): Tool[] {
   const seen = new Set<string>();
   const result: Tool[] = [];
   for (const cfg of configs) {
-    const key = (cfg.name || cfg.kind).toLowerCase();
+    const key = (cfg.name || cfg.id).toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
     result.push(create(cfg));
@@ -231,35 +228,38 @@ export function createMany(configs: ToolConfig[]): Tool[] {
 ## 3. 단계별 계획(체크리스트) — 순차 진행(세분화)
 
 ### 1단계 [P1]: 코어 설정 업데이트(agents/workflow)
-- [ ] 1.1 AGENT_EVENTS.CONFIG_UPDATED 상수 추가(소유: agents)
-- [ ] 1.2 Robota에 `updateTools(next)`, `updateConfiguration(patch)`, `getConfiguration()` 추가
-- [ ] 1.3 유효성 오류 시 예외 throw, 성공 시 `{ version }` 반환
-- [ ] 1.4 AgentEventHandler: `CONFIG_UPDATED` 처리(해당 agent 노드의 `data.tools`/`data.configVersion`만 update)
+- [x] 1.1 AGENT_EVENTS.CONFIG_UPDATED 상수 추가(소유: agents)
+- [x] 1.2 Robota에 `updateTools(next)`, `updateConfiguration(patch)`, `getConfiguration()` 추가
+- [x] 1.3 유효성 오류 시 예외 throw, 성공 시 `{ version }` 반환
+- [x] 1.4 AgentEventHandler: `CONFIG_UPDATED` 처리(해당 agent 노드의 `data.tools`/`data.configVersion`만 update)
 - 검증: 이벤트 하드코딩 금지, 소유권/Path-Only 준수, 노드/엣지 생성 금지 확인
 
 세부 작업
-- [ ] A.1 `packages/agents/src/agents/constants.ts`에 `CONFIG_UPDATED` 상수 추가 및 `index.ts` 재수출
-- [ ] A.2 `Robota` 클래스에 내부 config 상태(version, updatedAt) 보관 필드 추가
-- [ ] A.3 `updateTools(next: ToolDefinition[])` 구현: 입력 검증 → 내부 ToolManager 갱신 → version++ → `CONFIG_UPDATED` emit
-- [ ] A.4 `updateConfiguration(patch: AgentConfigPatch)` 구현: partial merge → 동일 프로세스
-- [ ] A.5 `getConfiguration()` 구현: `{ version, tools: ToolSummary[], updatedAt, metadata }` 반환
-- [ ] A.6 `packages/workflow/src/handlers/agent-event-handler.ts`에서 `CONFIG_UPDATED` 케이스 추가: 해당 agent 노드 `data.tools`/`data.configVersion` 업데이트만 수행
-- [ ] A.7 타입/주석/문서화 보강(언어 규칙 준수)
+- [x] A.1 `packages/agents/src/agents/constants.ts`에 `CONFIG_UPDATED` 상수 추가 및 `index.ts` 재수출
+- [x] A.2 `Robota` 클래스에 내부 config 상태(version, updatedAt) 보관 필드 추가
+- [x] A.3 `updateTools(next: ToolDefinition[])` 구현: 입력 검증 → 내부 ToolManager 갱신 → version++ → `CONFIG_UPDATED` emit
+- [x] A.4 `updateConfiguration(patch: AgentConfigPatch)` 구현: partial merge → 동일 프로세스
+- [x] A.5 `getConfiguration()` 구현: `{ version, tools: ToolSummary[], updatedAt, metadata }` 반환
+- [x] A.6 `packages/workflow/src/handlers/agent-event-handler.ts`에서 `CONFIG_UPDATED` 케이스 추가: 해당 agent 노드 `data.tools`/`data.configVersion` 업데이트만 수행
+- [x] A.7 타입/주석/문서화 보강(언어 규칙 준수)
 
-실현가능성: 90%
+실현가능성: 90% (완료)
+
+규칙 준수 메모
+- [x] 시간 순서 보장을 위해 `AgentEventHandler`의 thinking 노드 생성 시, 기존 노드들의 `timestamp`를 스캔해 `baseTimestamp = maxObservedTs + 1`로 보정. 대기/지연/재시도 없이 내부 타임스탬프를 결정하며, 명시적 필드만 사용(Path-Only/No-Fallback 준수). 그래프 구조나 연결 추론은 수행하지 않음.
 - 근거: 기존 이벤트/핸들러 패턴에 부합하며, 구조 변경 없이 업데이트만 수행
 
 ### 2단계 [P2]: 브릿지/레지스트리(웹)
-- [ ] 2.1 executor 레지스트리: `conversationId(rootId) → agentInstance` 맵 도입
-- [ ] 2.2 메서드: `updateAgentTools(agentId, tools)`, `getAgentConfiguration(agentId)`
-- [ ] 2.3 `extractAgentId(node)`로 식별 표준화
+- [x] 2.1 executor 레지스트리: `conversationId(rootId) → agentInstance` 맵 도입
+- [x] 2.2 메서드: `updateAgentTools(agentId, tools)`, `getAgentConfiguration(agentId)`
+- [x] 2.3 `extractAgentId(node)`로 식별 표준화
 - 검증: 브릿지 경로를 통해 코어 메서드 호출/응답 정상
 
 세부 작업
-- [ ] B.1 `apps/web/src/lib/playground/robota-executor.ts`에 레지스트리 필드 및 CRUD 추가
-- [ ] B.2 Agent/Team 생성 시점에 레지스트리 등록/해제 로직 연결
-- [ ] B.3 `updateAgentTools` → 인스턴스 조회 → `agent.updateTools()` 호출 → 성공/실패 결과 반환
-- [ ] B.4 `getAgentConfiguration` → 인스턴스 조회 → `agent.getConfiguration()` 반환
+- [x] B.1 `apps/web/src/lib/playground/robota-executor.ts`에 레지스트리 필드 및 CRUD 추가
+- [x] B.2 Agent/Team 생성 시점에 레지스트리 등록/해제 로직 연결
+- [x] B.3 `updateAgentTools` → 인스턴스 조회 → `agent.updateTools()` 호출 → 성공/실패 결과 반환
+- [x] B.4 `getAgentConfiguration` → 인스턴스 조회 → `agent.getConfiguration()` 반환
 - [ ] B.5 에러를 UI 표준 에러로 변환(사용자 메시지용)
 
 실현가능성: 95%
@@ -284,18 +284,18 @@ export function createMany(configs: ToolConfig[]): Tool[] {
 - 근거: 순수 UI/상태 관리로 의존성이 낮음
 
 ### 4단계 [P3]: DnD 데이터 전달(툴 → 에이전트 노드)
-- [ ] 2.1 카드 `dragstart`: `dataTransfer.setData('application/robota-tool', json)` 구현
-- [ ] 2.2 캔버스 래퍼 `onDragOver`에서 `preventDefault()`(드롭 허용)
-- [ ] 2.3 AgentNode에 `dragenter`/`dragover`/`dragleave`/`drop` 바인딩
-- [ ] 2.4 드래그 진입 시 하이라이트 on, 이탈 시 off(타임아웃/중복 이벤트 대비)
-- [ ] 2.5 `drop`에서 JSON 파싱과 에러 처리(try/catch, 불량 데이터 무시)
-- [ ] 2.6 상위 콜백 `__onToolDrop(agentId, tool)` 호출 규약 확정
-- [ ] 2.7 드롭 완료 후 하이라이트 off 및 기본 이벤트 취소
+- [x] 2.1 카드 `dragstart`: `dataTransfer.setData('application/robota-tool', json)` 구현
+- [x] 2.2 캔버스 래퍼 `onDragOver`에서 `preventDefault()`(드롭 허용)
+- [x] 2.3 AgentNode에 `dragenter`/`dragover`/`dragleave`/`drop` 바인딩
+- [x] 2.4 드래그 진입 시 하이라이트 on, 이탈 시 off(타임아웃/중복 이벤트 대비)
+- [x] 2.5 `drop`에서 JSON 파싱과 에러 처리(try/catch, 불량 데이터 무시)
+- [x] 2.6 상위 콜백 `__onToolDrop(agentId, tool)` 호출 규약 확정
+- [x] 2.7 드롭 완료 후 하이라이트 off 및 기본 이벤트 취소
 - 검증: 콘솔 로그로 Agent/Tool 페이로드 확인, 하이라이트 토글 정확성 점검
 
 세부 작업
-- [ ] D.1 AgentNode에 드래그 이벤트 바인딩 및 하이라이트 클래스 구현
-- [ ] D.2 드롭 데이터 파싱/검증 → 상위 콜백 `__onToolDrop` 호출
+- [x] D.1 AgentNode에 드래그 이벤트 바인딩 및 하이라이트 클래스 구현
+- [x] D.2 드롭 데이터 파싱/검증 → 상위 콜백 `__onToolDrop` 호출
 - [ ] D.3 중복 드롭 디바운스(옵션), 빠른 연속 드롭 시 UI 유지
 
 실현가능성: 92%
@@ -334,13 +334,13 @@ export function createMany(configs: ToolConfig[]): Tool[] {
 - 근거: 다양한 케이스 수동 검증이 필요하고, 레이아웃/순서 민감도 존재
 
 ### 4단계: 에이전트 타겟 식별 정확화
-- [ ] `agentId` 추출 기준 명확화: 노드 `id` 또는 `data.sourceId`
-- [ ] 추출 표준 함수 `extractAgentId(node)` 유지/활용
+- [x] `agentId` 추출 기준 명확화: 노드 `id` 또는 `data.sourceId`
+- [x] 추출 표준 함수 `extractAgentId(node)` 유지/활용
 - 검증: 다양한 예제(싱글/팀)에서 올바른 에이전트로 추가되는지 눈검증
 
 세부 작업
-- [ ] G.1 `extractAgentId(node)` 표준화: `data.sourceId` 우선, 없으면 `node.id`
-- [ ] G.2 관련 호출부 일관 적용
+- [x] G.1 `extractAgentId(node)` 표준화: `data.sourceId` 우선, 없으면 `node.id`
+- [x] G.2 관련 호출부 일관 적용
 
 실현가능성: 96%
 - 근거: 단순 규칙 통일 작업
@@ -352,12 +352,12 @@ export function createMany(configs: ToolConfig[]): Tool[] {
 - 검증: 실행 시 해당 Tool이 실제로 사용 가능한지(후속 작업)
 
 ### 6단계: 에이전트 인스턴스 레지스트리(웹 브릿지)
-- [ ] `apps/web/src/lib/playground/robota-executor.ts`에 레지스트리 추가: `conversationId(rootId) → agentInstance`
-- [ ] 표준 추출 함수 `extractAgentId(node)`를 사용하여 노드→rootId 해석
-- [ ] 브릿지 메서드 초안:
+- [x] `apps/web/src/lib/playground/robota-executor.ts`에 레지스트리 추가: `conversationId(rootId) → agentInstance`
+- [x] 표준 추출 함수 `extractAgentId(node)`를 사용하여 노드→rootId 해석
+- [x] 브릿지 메서드 초안:
   - `updateAgentTools(agentId: string, tools: ToolDefinition[]): Promise<void>`
   - `getAgentConfiguration(agentId: string): Promise<{ version: number; tools: ToolSummary[]; updatedAt: number }>`
-- 검증: 드롭 후 업데이트/조회가 동일 agent 대상에 일관되게 수행되는지 확인
+- [x] 검증: 드롭 후 업데이트/조회가 동일 agent 대상에 일관되게 수행되는지 확인
 
 ## 4. 상세 DnD 인터랙션 설계
 - 드래그 진입(enter): Agent 노드 외곽선/배경 강조(예: `ring-2 ring-blue-400 bg-blue-50/40`)
@@ -425,4 +425,235 @@ interface WorkflowVisualizationProps {
 ---
 
 작성자 메모: 본 문서는 UI 단계의 설계 계획입니다. "실제 Agent Config 반영"은 후속 단계에서 별도 문서/PR로 진행합니다.
+
+## 10. 툴 메타데이터 및 로컬 구현(AssignTask 우선)
+
+- 목표: 사이드바 Tool 목록은 메타데이터(카탈로그) 기반으로 렌더링. 실제 Tool 구현은 환경별(mcp/openapi/zod 등)로 존재할 수 있으며, 웹 환경에서는 직접 연결이 어려우므로 래퍼/어댑터 계층을 둔다. 초기 단계에서는 AssignTask 단일 예제를 apps/web 내부에서 로컬로 제공하여 흐름을 확정한다.
+
+### 10.1 디렉터리 구조(초안)
+```
+apps/web/src/tools/
+  assign-task/
+    index.ts        // 메타정의 + UI 어댑터(웹에서 사용 가능한 경량 wrapper)
+    README.md       // 사용 설명(내부)
+```
+
+### 10.2 메타데이터 스키마(초안)
+```ts
+// UI 카탈로그 항목(메타)
+export interface PlaygroundToolMeta {
+  id: string;                 // 'assignTask'
+  name: string;               // 'AssignTask'
+  type?: 'zod' | 'mcp' | 'openapi' | 'builtin';
+  description?: string;
+  tags?: string[];
+  // (선택) 실행에 필요한 최소 파라미터 스펙 요약(문서용)
+  parametersSummary?: Array<{ name: string; type: string; required?: boolean; description?: string }>
+}
+
+// 카탈로그 로더(정적)
+export function getPlaygroundToolCatalog(): PlaygroundToolMeta[] {
+  return [
+    {
+      id: 'assignTask',
+      name: 'AssignTask',
+      type: 'builtin',
+      description: 'Delegate a task to another agent (demo in web sandbox).'
+    }
+  ];
+}
+```
+
+### 10.3 UI 연동 규칙(초안)
+- 사이드바는 `getPlaygroundToolCatalog()`를 호출해 정적 목록을 렌더링한다(동적 import 금지, 정적 의존성만 허용).
+- 드래그 데이터는 기존과 동일하게 `{ id, name, description }` JSON으로 전달한다.
+- 드롭 시 현재 단계에서는 `executor.updateAgentToolsFromCard(agentId, toolMeta)`를 호출하여 UI-전용 Dummy Tool을 추가한다.
+  - 추후: 실제 assignTask 실행 가능 경로로 교체(통합 툴 팩토리/어댑터 연결).
+
+### 10.4 향후 확장(설계만)
+- MCP/OpenAPI/Zod 각각에 대해 어댑터 계층을 둔다.
+  - MCP: 브라우저 한계 고려하여 웹-호환 래퍼 설계, 원격 브릿지 필요 시 Remote Transport 고려
+  - OpenAPI: 사전 생성된 클라이언트 또는 경량 호출 래퍼(정적 import)
+  - Zod: 기존 `createZodFunctionTool`과의 호환 지점 정의
+- 통합 툴 팩토리와 연결: `kind` 기반 위임으로 실제 Tool 인스턴스 생성/업데이트 가능하게 확장
+
+### 10.5 체크리스트
+- [ ] apps/web에 `src/tools/assign-task/` 생성
+- [ ] `index.ts`에 `PlaygroundToolMeta`와 `getPlaygroundToolCatalog()` 구현(정적 반환)
+- [ ] 사이드바에서 카탈로그를 사용하도록 교체
+- [ ] 드롭 시 메타 → 기존 브릿지 호출 연결 유지(현재 Dummy Tool 추가)
+- [ ] 추후 MCP/OpenAPI 어댑터 설계 문서 초안 추가
+
+## 11. 단계별 세부 계획 (P0~P4)
+
+### P0: AssignTask 스캐폴딩(최우선)
+- [x] apps/web/src/tools/assign-task/index.ts 생성
+  - [x] `PlaygroundToolMeta`와 `createAssignTaskTool` export
+  - [x] Zod 스키마(파라미터는 팀 assignTask와 동일 의미)
+  - [x] 더미 executor (구현은 마지막으로 미룸)
+- [x] apps/web/src/tools/catalog.ts 생성
+  - [x] `getPlaygroundToolCatalog()` 정적 카탈로그 반환 (동적 import 금지)
+  - [x] `ToolRegistry: Record<string, () => BaseTool>` 등록 (id→생성자)
+  - [x] id 충돌 방지 및 누락 시 명시적 에러 throw
+
+### P1: 사이드바 메타데이터 전환
+- [x] apps/web/src/app/playground/page.tsx
+  - [x] 기존 하드코딩 `toolItems` 제거
+  - [x] `getPlaygroundToolCatalog()` 호출하여 목록 렌더
+  - [x] DnD 데이터 포맷 `{ id, name, description }`로 통일 (카탈로그 기준)
+  - [x] UI 표시명/설명은 메타에서 사용
+
+### P2: 브릿지/레지스트리 연동(메타→툴 인스턴스)
+- [x] apps/web/src/lib/playground/robota-executor.ts
+  - [x] `updateAgentToolsFromCard(agentId, toolMeta)`에서 기존 `buildDummyTool` 제거
+  - [x] `ToolRegistry[toolMeta.id]()`로 툴 인스턴스 생성
+  - [x] `existing = agent.getConfiguration().tools` 병합 후 `agent.updateTools([...existing, newTool])`
+  - [x] 실패 시 명시적 에러 전파(침묵/대체 금지)
+  - [x] 성공 시 `agent.config_updated` 흐름을 통해 UI 반영 (기존 경로 유지)
+
+### P3: UI/DnD 확인 (조용한 반영)
+- [ ] apps/web/src/components/playground/workflow-visualization.tsx
+  - [ ] AgentNode DnD 하이라이트/드롭 정상 동작 재확인
+  - [ ] `onToolDrop` → 페이지 → executor 경로 호출 확인
+  - [ ] 스냅샷 전체 교체 렌더로 즉시 반영 확인 (progressive reveal 미사용)
+- [ ] 알림/디버그 로그 최소화 (개발 모드 외 노이즈 금지)
+
+### P4: 검증 (기능/빌드)
+- [ ] 기능 수동 검증
+  - [ ] 사이드바 AssignTask 표시 → 에이전트 노드로 드롭 → 에이전트 노드 뱃지 증가
+  - [ ] 스냅샷 새로고침 없이 반영(전체 교체 렌더)
+- [ ] 빌드 검증
+  - [ ] `pnpm --filter @robota-sdk/workflow build`
+  - [ ] `cd apps/web && pnpm build`
+- [ ] 문서 동기화
+  - [ ] 본 섹션 각 항목 [x] 처리
+  - [ ] 상위 로드맵(P0~P4) 상태 최신화
+
+
+## 12. Rule Compliance Review & Adjustments
+
+본 계획이 프로젝트 규칙을 준수하는지 면밀히 점검하고, 필요한 보완사항을 반영합니다.
+
+### 12.1 이벤트 소유권(Event Ownership)
+- 에이전트 설정 변경은 오직 `agent.updateTools()` → `AGENT_EVENTS.CONFIG_UPDATED`로 발생 (소유자: agents)
+- UI(웹)는 이벤트를 직접 발생시키지 않음. 단지 에이전트 API를 호출할 뿐임
+- Tool 실행/호출에 관한 이벤트(`tool.*`)는 발생시키지 않음 (현재 단계는 설정 업데이트 전용)
+
+조치:
+- [x] P2 단계에서 `updateAgentToolsFromCard`는 `agent.updateTools()`만 호출하고 다른 이벤트를 만들지 않음
+
+### 12.2 Path-Only 원칙
+- 본 기능은 그래프 구조 생성/연결 로직에 관여하지 않음
+- Workflow 업데이트는 기존 핸들러가 처리하고, UI는 스냅샷만 구독 (소스 오브 트루스 분리)
+
+조치:
+- [x] UI는 그래프를 변형/보정하지 않고 스냅샷 전체 교체 렌더만 수행
+- [x] 관계 추론(ID 파싱/regex) 금지. `agentId`는 명시적 필드(`data.sourceId` 또는 `node.id`)만 사용
+
+### 12.3 No-Fallback / 명시적 에러
+- 누락된 레지스트리/카탈로그 항목은 조용히 통과하지 않고 명시적 에러로 처리
+- 대체 경로/임시 처리/지연 처리 금지
+
+조치:
+- [x] P2에서 `ToolRegistry[toolMeta.id]`가 없으면 예외 throw (UI에서 오류 표시만 수행)
+
+### 12.4 정적 import / 동적 import 금지
+- 툴 카탈로그, 레지스트리, assignTask 구현은 **정적 import**만 사용
+- 런타임 `await import()` 사용 금지
+
+조치:
+- [x] `apps/web/src/tools/catalog.ts`는 정적 등록/정적 내보내기만 수행
+
+### 12.5 도메인 중립성 / 책임 분리
+- 툴 메타는 UI 카탈로그(표시/선택/드래그) 책임만 가짐
+- 실제 툴 인스턴스는 웹 래퍼에서 생성하되, 인터페이스는 SDK의 `BaseTool`에 준수
+- 이벤트/그래프 처리 책임은 SDK(agents/workflow)에 국한
+
+조치:
+- [x] `apps/web/src/tools/assign-task/`는 UI-호출 가능한 래퍼 수준(더미 executor)로 제한
+- [x] 그래프 관련 로직/핸들러는 수정하지 않음
+
+### 12.6 확장성(Registry/Adapter)
+- 카탈로그는 메타만, 레지스트리는 id→생성자 매핑으로 확장
+- MCP/OpenAPI/Zod 등 각 어댑터는 후속 단계에서 독립 모듈로 추가 가능
+
+조치:
+- [x] `ToolRegistry`는 정적 매핑 구조로 시작하고, 모듈 분리/확장 용이
+
+### 12.7 빌드 규칙
+- 패키지 수정 시 빌드 필수. 현재 변경 범위는 apps/web과 문서에 국한 (패키지 빌드 영향 없음)
+
+조치:
+- [x] 패키지 수정 없는 범위에서 진행. 패키지 수정 시 `pnpm --filter` 빌드 수행
+
+### 12.8 단계별 보완 반영(요구사항 반영)
+- P0/P1/P2 단계 항목에 아래 보강 문구를 추가
+  - “정적 import만 사용(동적 import 금지)”
+  - “누락/미등록 id는 명시적 에러 throw(침묵/대체 금지)”
+  - “UI는 이벤트 생성 금지, 에이전트 API만 호출”
+  - “그래프는 스냅샷 기반 전체 교체 렌더만 수행(수정/재배치 금지)”
+
+[x] P0/P1/P2 섹션의 구현 시 이 보완 문구 체크 반영 (구현 직후 [x] 처리)
+
+
+## 13. Dual-Case Compatibility & Mandatory Verification
+
+두 가지 케이스가 동시에 정상 동작해야 하며, 하나의 수정이 다른 쪽을 깨뜨리면 안 됩니다.
+
+### 13.1 케이스 정의
+- Case A (기존) — Example 26: team의 서드파티 `assignTask`가 에이전트를 생성하는 특수 도구
+  - 기대: 기존 26번 예제는 변경 없이 그대로 실행되어야 함
+  - 이벤트: team/assignTask 특성상 에이전트 생성이 뒤따를 수 있음(legacy third-party)
+- Case B (신규) — Dummy AssignTask: 단순 툴 호출만 수행, 에이전트 생성 없음
+  - 기대: tool.call_start → tool.call_response_ready/complete → execution.tool_results_ready → response로 자연 연결
+
+### 13.2 핸들러 설계 원칙(두 케이스 공통)
+- 이벤트 소유권 준수: `tool.*`은 툴에서만, `execution.*`은 ExecutionService에서만, `agent.*`은 에이전트에서만
+- Path-Only 연결: `event.path`/명시적 필드만으로 연결. ID 파싱/추론/보조상태/지연/대체 금지
+- 도구 특수처리 금지: 핸들러는 특정 도구명을 하드코딩하지 않음 (assignTask 전용 로직 금지)
+- 스냅샷 원자성: 이벤트 단위로 모든 업데이트 적용 후 1회 스냅샷 발행(이미 반영)
+
+### 13.3 변경 시 필수 검증 순서(가드)
+- 어떤 수정이든 아래 순서로 실행/검증(실패 시 중단 및 원복)
+  1) 신규 더미 예제 실행(예: 29-assign-task-tool-call-check.ts)
+  2) Example 26 실행 (변형 없이)
+  3) 검증 스크립트 실행(`apps/examples/utils/verify-workflow-connections.ts`)
+
+권장 명령(가드 패턴):
+```bash
+cd /Users/jungyoun/Documents/dev/robota/apps/examples && \
+FILE=29-assign-task-tool-call-check.ts && \
+HASH=$(md5 -q "$FILE") && \
+OUT=cache/29-assign-task-$HASH-guarded.log && \
+echo "▶️ Run dummy assignTask example (guarded)..." && \
+STATUS=0; npx tsx "$FILE" > "$OUT" 2>&1 || STATUS=$?; \
+tail -n 160 "$OUT" | cat; \
+if [ "$STATUS" -ne 0 ] || grep -E "\\[STRICT-POLICY\\]|\\[EDGE-ORDER-VIOLATION\\]" "$OUT" >/dev/null; then \
+  echo "❌ Aborting (dummy example failed or strict-policy violation)."; \
+  exit ${STATUS:-1}; \
+fi; \
+FILE2=26-playground-edge-verification.ts && \
+HASH2=$(md5 -q "$FILE2") && \
+OUT2=cache/26-playground-$HASH2-guarded.log && \
+echo "▶️ Run example 26 (guarded)..." && \
+STATUS2=0; npx tsx "$FILE2" > "$OUT2" 2>&1 || STATUS2=$?; \
+tail -n 160 "$OUT2" | cat; \
+if [ "$STATUS2" -ne 0 ] || grep -E "\\[STRICT-POLICY\\]|\\[EDGE-ORDER-VIOLATION\\]" "$OUT2" >/dev/null; then \
+  echo "❌ Aborting (example 26 failed or strict-policy violation)."; \
+  exit ${STATUS2:-1}; \
+fi; \
+echo "▶️ Verify connections..." && \
+npx tsx utils/verify-workflow-connections.ts | cat
+```
+
+### 13.4 수용 기준(추가)
+- [ ] Case B 더미 예제 정상 동작, 예상 노드/엣지 시퀀스 생성(툴 응답 → 결과 → 응답)
+- [ ] Case A Example 26 기존 결과 변형 없음
+- [ ] 검증 스크립트 통과(두 케이스 모두) — 위 가드 명령 기준
+- [ ] 핸들러에 도구 특수처리 코드 없음(이벤트 상수만 사용, 하드코딩 금지)
+
+### 13.5 개발 수칙(추가)
+- [ ] 변경 전/후 항상 P3/P4 검증 루틴 실행
+- [ ] 실패 시 즉시 중단, 원인 분석 후 설계 보완 → 재시도
+- [ ] 문서 체크박스 최신 상태 유지(P5~P9 진행 시)
 

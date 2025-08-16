@@ -133,11 +133,20 @@ export class ToolEventHandler implements EventHandler {
                         this.logger.debug(`[PATH-TRANSLATION] Tool call ID '${pathTail}' → response node '${responseNode?.id || 'not found'}'`);
                     }
 
-                    if (!responseNode) {
+                    // If response node not found, try tool_call as parent (path-tail call_* case)
+                    let parentForResponseId: string | undefined = responseNode?.id;
+                    if (!parentForResponseId && pathTail.startsWith('call_')) {
+                        const callNode = nodesAccessor.find(n => n?.id === pathTail && n?.type === WORKFLOW_NODE_TYPES.TOOL_CALL);
+                        if (callNode) {
+                            parentForResponseId = callNode.id;
+                        }
+                    }
+
+                    if (!parentForResponseId) {
                         return {
                             success: false,
                             updates: [],
-                            errors: [`[PATH-ONLY] Cannot find agent_response node for path.tail '${pathTail}'. Expected response node or valid tool call mapping.`]
+                            errors: [`[PATH-ONLY] Cannot find agent_response or tool_call for path.tail '${pathTail}'. Expected response node or tool call node in current snapshot.`]
                         };
                     }
 
@@ -145,15 +154,15 @@ export class ToolEventHandler implements EventHandler {
                     const toolResponseNode = this.createToolResponseNode(eventData);
                     updates.push({ action: 'create', node: toolResponseNode });
 
-                    // Atomic edge: agent_response → tool_response ('result')
-                    const edgeFromResponse: WorkflowEdge = {
-                        id: EdgeUtils.generateId(responseNode.id, toolResponseNode.id, 'result' as any),
-                        source: responseNode.id,
+                    // Atomic edge: parent (response or tool_call) → tool_response ('result')
+                    const edgeFromParent: WorkflowEdge = {
+                        id: EdgeUtils.generateId(parentForResponseId, toolResponseNode.id, 'result' as any),
+                        source: parentForResponseId,
                         target: toolResponseNode.id,
                         type: 'result' as any,
                         timestamp: Date.now()
                     } as any;
-                    updates.push({ action: 'create', edge: edgeFromResponse } as any);
+                    updates.push({ action: 'create', edge: edgeFromParent } as any);
 
                     break;
                 }

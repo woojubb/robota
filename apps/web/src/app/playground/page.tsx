@@ -44,6 +44,7 @@ import { AgentConfigurationBlock } from '@/components/playground/agent-configura
 import { TeamConfigurationBlock } from '@/components/playground/team-configuration-block';
 import { WorkflowVisualization } from '@/components/playground/workflow-visualization';
 import { Modal } from '@/components/ui/modal';
+import { getPlaygroundToolCatalog } from '@/tools/catalog';
 
 // Types
 import type {
@@ -417,11 +418,8 @@ function PlaygroundContent() {
     const [teamDraft, setTeamDraft] = useState<PlaygroundTeamConfig | null>(null);
     const [selectedChatTarget, setSelectedChatTarget] = useState<{ type: 'agent' | 'team'; name: string } | null>(null);
 
-    const toolItems = [
-        { id: 'assignTask', name: 'AssignTask', description: 'Delegate a task to an agent' },
-        { id: 'webSearch', name: 'WebSearch', description: 'Search the web for information' },
-        { id: 'notebook', name: 'Notebook', description: 'Store structured notes' }
-    ];
+    // Catalog-driven tool list (static imports only)
+    const toolItems = getPlaygroundToolCatalog();
 
     return (
         <div className="h-full flex flex-col">
@@ -490,6 +488,31 @@ function PlaygroundContent() {
                         onAgentNodeClick={(nodeId, data) => {
                             setSelectedChatTarget({ type: 'agent', name: data?.label || data?.name || 'Agent' });
                             openModal('chat');
+                        }}
+                        onToolDrop={async (agentId, tool) => {
+                            try {
+                                if (!state.executor || typeof (state.executor as any).updateAgentToolsFromCard !== 'function') {
+                                    console.error('Executor not ready for tool update');
+                                    return;
+                                }
+                                // Ensure subscription once
+                                try {
+                                    if ((state as any).__subscribed !== true && typeof (state.executor as any).subscribeToWorkflowUpdates === 'function') {
+                                        (state.executor as any).subscribeToWorkflowUpdates((data: any) => setWorkflow(data));
+                                        (state as any).__subscribed = true;
+                                    }
+                                } catch { }
+                                await (state.executor as any).updateAgentToolsFromCard(agentId, tool);
+                                // Force refresh snapshot for immediate UI reflect
+                                try {
+                                    if (typeof (state.executor as any).getCurrentWorkflow === 'function') {
+                                        const wf = (state.executor as any).getCurrentWorkflow();
+                                        if (wf) setWorkflow(wf);
+                                    }
+                                } catch { }
+                            } catch (err: any) {
+                                console.error('Failed to update agent tools', err);
+                            }
                         }}
                     />
                 </div>

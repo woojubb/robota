@@ -14,3 +14,6 @@ export type {
 
 // Internal types (not exported publicly)
 // AssignTaskParams, AssignTaskResult are for internal use only 
+
+// Local dummy tool for example-driven verification
+export { createAssignTaskDummyTool } from './tools/assign-task-dummy';

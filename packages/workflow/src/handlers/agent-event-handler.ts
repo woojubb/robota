@@ -143,6 +143,41 @@ export class AgentEventHandler implements EventHandler {
                     break;
                 }
 
+                case AGENT_EVENTS.CONFIG_UPDATED: {
+                    // Update-only: reflect tools/version on the existing agent node
+                    let existingId = this.agentNodeIdMap.get(String(data.sourceId));
+                    if (!existingId) {
+                        // Path-Only allowed scan: find agent node with matching sourceId in explicit fields
+                        try {
+                            const nodesAccessor: any[] = (this as any).subscriber?.getAllNodes?.() || [];
+                            const found = nodesAccessor.find(n => n?.type === WORKFLOW_NODE_TYPES.AGENT && String(n?.data?.sourceId) === String(data.sourceId));
+                            if (found?.id) existingId = String(found.id);
+                        } catch { /* ignore */ }
+                        if (!existingId) {
+                            break;
+                        }
+                    }
+                    // Merge with existing node to avoid dropping fields
+                    try {
+                        const nodesAccessor: any[] = (this as any).subscriber?.getAllNodes?.() || [];
+                        const existingNode = nodesAccessor.find(n => String(n?.id) === String(existingId));
+                        if (existingNode) {
+                            const merged: WorkflowNode = {
+                                ...existingNode,
+                                timestamp: Date.now(),
+                                data: {
+                                    ...(existingNode.data || {}),
+                                    extensions: { robota: { originalEvent: data } },
+                                    tools: Array.isArray(data.parameters?.tools) ? data.parameters.tools : (existingNode.data?.tools),
+                                    configVersion: typeof data.version === 'number' ? data.version : (existingNode.data as any)?.configVersion
+                                }
+                            } as any;
+                            updates.push({ action: 'update', node: merged } as any);
+                        }
+                    } catch { /* ignore */ }
+                    break;
+                }
+
                 case EXECUTION_EVENTS.ASSISTANT_MESSAGE_START: {
                     // Determine scope-local aggregation (Path-Only) BEFORE creating the thinking node, to set a strictly increasing timestamp
                     const pathArr = (data as any)?.path as string[] | undefined;
@@ -156,6 +191,12 @@ export class AgentEventHandler implements EventHandler {
 
                     try {
                         const nodesAccessor: any[] = (this as any).subscriber?.getAllNodes?.() || [];
+                        // Ensure strictly increasing timestamp across relevant scope
+                        let maxObservedTs = 0;
+                        for (const n of nodesAccessor) {
+                            const ts = Number(n?.timestamp || 0);
+                            if (ts > maxObservedTs) maxObservedTs = ts;
+                        }
                         const parentExecId = String((data as any)?.parentExecutionId || (data as any)?.executionId || '');
                         let latestAgg: { id: string; ts: number } | undefined;
                         if (parentExecId) {
@@ -178,6 +219,8 @@ export class AgentEventHandler implements EventHandler {
                             // Ensure thinking timestamp is strictly after aggregation
                             baseTimestamp = Math.max(baseTimestamp, latestAgg.ts + 1);
                         }
+                        // Guard against equal-timestamp collisions even if aggregation not detected
+                        baseTimestamp = Math.max(baseTimestamp, maxObservedTs + 1);
                     } catch { /* read-only scan; ignore errors */ }
 
                     // Create thinking node with monotonic timestamp (no external waits; purely internal ordering)
