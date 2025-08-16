@@ -699,7 +699,7 @@ const AgentThinkingNode = ({ data }: { data: any }) => {
         >
             <div>
                 <div className="font-semibold text-gray-800 mb-1 text-center">
-                    Agent Thinking
+                    Agent is thinking...
                 </div>
                 {data.content && (
                     <div className="text-xs text-gray-600 truncate">
@@ -1042,6 +1042,63 @@ const nodeTypes = {
     // userInput 제거 - 레거시 타입
 };
 
+// Local child component to show Agent details with mock endpoint generation
+const AgentDetailsContent = ({ data, node }: { data: any; node: any }) => {
+    const [endpoint, setEndpoint] = React.useState<string | null>(null);
+    const handleGenerateEndpoint = () => {
+        const base = typeof window !== 'undefined' ? window.location.origin : 'https://example.com';
+        const id = String(node?.id || data?.sourceId || 'agent');
+        const token = Math.random().toString(36).slice(2, 10);
+        const url = `${base}/api/agents/${encodeURIComponent(id)}/${token}`;
+        setEndpoint(url);
+        console.info(`[PLAYGROUND] Mock API endpoint created: ${url}`);
+    };
+
+    const tools: string[] = Array.isArray(data?.tools)
+        ? data.tools
+        : (data?.extensions?.robota?.originalEvent?.parameters?.tools as string[] | undefined) || [];
+
+    return (
+        <div className="space-y-3">
+            <div className="border-l-4 border-blue-500 pl-3">
+                <h3 className="text-sm font-medium text-gray-900 mb-2">Agent</h3>
+                {tools.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                        {tools.map((tool: string) => (
+                            <Badge key={tool} variant="outline" className="text-xs">
+                                <Wrench className="h-3 w-3 mr-1" />{tool}
+                            </Badge>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-xs text-gray-500">No tools</div>
+                )}
+
+                <div className="mt-3 space-y-2">
+                    <Button
+                        size="sm"
+                        onClick={() => {
+                            if (endpoint) {
+                                setEndpoint(null);
+                                console.info('[PLAYGROUND] Mock API endpoint revoked');
+                            } else {
+                                handleGenerateEndpoint();
+                            }
+                        }}
+                    >
+                        {endpoint ? 'Revoke endpoint' : 'Generate API endpoint'}
+                    </Button>
+                    {endpoint && (
+                        <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1 break-all">
+                            Created: {endpoint}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // Specialized content rendering for different node types
 const renderNodeContent = (node: Node): React.ReactElement | null => {
     const data = (node as any).data;
@@ -1049,27 +1106,8 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
 
     switch (nodeType) {
         case 'agent': {
-            const tools: string[] = Array.isArray(data.tools)
-                ? data.tools
-                : (data.extensions?.robota?.originalEvent?.parameters?.tools as string[] | undefined) || [];
             return (
-                <div className="space-y-3">
-                    <div className="border-l-4 border-blue-500 pl-3">
-                        <h3 className="text-sm font-medium text-gray-900 mb-2">Agent</h3>
-                        {/* Tools */}
-                        {tools.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                                {tools.map((tool: string) => (
-                                    <Badge key={tool} variant="outline" className="text-xs">
-                                        <Wrench className="h-3 w-3 mr-1" />{tool}
-                                    </Badge>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-xs text-gray-500">No tools</div>
-                        )}
-                    </div>
-                </div>
+                <AgentDetailsContent data={data} node={node as any} />
             );
         }
         case 'user_message':
@@ -1640,7 +1678,7 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }:
 
     return (
         <>
-            <Card className={className}>
+            <Card className={`${className} h-full flex flex-col`}>
                 <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-lg flex items-center gap-2">
@@ -1701,8 +1739,8 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }:
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent>
-                    <div className="w-full h-[calc(100vh-250px)]">
+                <CardContent className="flex-1 min-h-0 p-0">
+                    <div className="w-full h-full min-h-0">
                         <ReactFlow
                             nodes={nodes}
                             edges={edges}

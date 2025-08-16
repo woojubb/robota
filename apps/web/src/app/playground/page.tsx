@@ -420,13 +420,13 @@ function PlaygroundContent() {
     return (
         <div className="h-full flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white flex-shrink-0">
+            <div className="flex items-center justify-between p-2 border-b border-gray-200 bg-white flex-shrink-0">
                 <div>
-                    <h1 className="text-2xl font-bold">Robota Playground</h1>
-                    <p className="text-sm text-gray-600">Build, test, and deploy intelligent agents</p>
+                    <h1 className="text-xl font-semibold leading-tight">Robota Playground</h1>
+                    <p className="text-xs text-gray-600">Build, test, and deploy intelligent agents</p>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                     {/* Global Chat button removed; Chat opens from per-entity panels */}
 
                     <button
@@ -435,7 +435,7 @@ function PlaygroundContent() {
                             setAgentDraft(cfg);
                             openModal('createAgent');
                         }}
-                        className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
+                        className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors"
                     >
                         Create Agent
                     </button>
@@ -446,36 +446,13 @@ function PlaygroundContent() {
                             setTeamDraft(cfg);
                             openModal('createTeam');
                         }}
-                        className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded transition-colors"
+                        className="px-2 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded transition-colors"
                     >
                         Create Team
                     </button>
 
-                    <button
-                        onClick={() => toggleModal('systemStatus')}
-                        className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded transition-colors"
-                    >
-                        Status
-                    </button>
-
-                    <button
-                        onClick={async () => {
-                            try {
-                                if (state.executor && typeof state.executor.getCurrentWorkflow === 'function') {
-                                    const wf = await state.executor.getCurrentWorkflow();
-                                    if (wf) setWorkflow(wf as unknown as UniversalWorkflowStructure);
-                                }
-                            } catch (e) {
-                                console.error('Failed to refresh snapshot:', e);
-                            }
-                        }}
-                        className="px-3 py-1 bg-gray-700 hover:bg-gray-800 text-white text-sm rounded transition-colors"
-                    >
-                        Snapshot
-                    </button>
-
                     <Badge variant={state.isInitialized ? "default" : "secondary"}>
-                        {state.isInitialized ? "Ready" : "Initializing"}
+                        <span className="text-xs">{state.isInitialized ? "Ready" : "Initializing"}</span>
                     </Badge>
                 </div>
             </div>
@@ -494,6 +471,7 @@ function PlaygroundContent() {
                 )}
 
                 {/* Toggle Buttons */}
+                {/**
                 {!leftSidebarOpen && (
                     <button
                         onClick={() => setLeftSidebarOpen(true)}
@@ -510,6 +488,7 @@ function PlaygroundContent() {
                 >
                     {rightSidebarOpen ? 'Close →' : '← Right'}
                 </button>
+                */}
 
                 {/* Left Sidebar - Configuration */}
                 <div className={`absolute left-0 top-0 w-80 h-full bg-white border-r border-gray-200 z-10 shadow-lg transition-transform duration-300 overflow-y-auto ${leftSidebarOpen ? 'transform translate-x-0' : 'transform -translate-x-full'
