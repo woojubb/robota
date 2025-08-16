@@ -646,7 +646,9 @@ function PlaygroundContent() {
                                     >
                                         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                                         <SelectContent>
+                                            <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
                                             <SelectItem value="gpt-4">GPT-4</SelectItem>
+                                            <SelectItem value="gpt-4o">GPT-4o</SelectItem>
                                             <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
                                             <SelectItem value="claude-3-opus">Claude 3 Opus</SelectItem>
                                             <SelectItem value="claude-3-sonnet">Claude 3 Sonnet</SelectItem>
@@ -672,14 +674,68 @@ function PlaygroundContent() {
                             </div>
 
                             <div className="space-y-1">
-                                <Label className="text-xs">System Message</Label>
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs">System Message</Label>
+                                    <Select
+                                        onValueChange={(value) => {
+                                            const templates = {
+                                                'task_coordinator': `You are a Team Coordinator that manages collaborative work through intelligent task delegation.
+
+CORE PRINCIPLES:
+- Respond in the same language as the user's input
+- For simple, single-component tasks, handle them directly yourself
+- For complex or multi-faceted tasks, delegate to specialized team members
+- Each delegated task must be self-contained and understandable without context
+- Always synthesize and integrate results from team members into your final response
+
+AVAILABLE ROLES:
+- Coordinators: Can break down complex tasks and manage workflows
+- Specialists: Focus on specific domains and can handle targeted tasks efficiently
+
+DELEGATION BEST PRACTICES:
+- Create clear, standalone instructions for each specialist
+- Avoid overlapping tasks between different team members
+- Select appropriate specialist templates based on task requirements
+- Ensure each delegated task is complete and actionable
+- Handle final synthesis and coordination yourself
+
+Your goal is to coordinate effectively while leveraging specialist expertise for optimal results.`,
+                                                'general_assistant': `You are a helpful AI assistant. You provide accurate, helpful, and thoughtful responses to user queries. You can help with a wide variety of tasks including analysis, writing, problem-solving, and creative work.`,
+                                                'creative_ideator': `You are a Creative Ideator specializing in innovative thinking and creative problem-solving. You excel at brainstorming, generating unique ideas, and approaching challenges from unconventional angles. Focus on creativity, originality, and out-of-the-box solutions.`,
+                                                'analytical_specialist': `You are an Analytical Specialist focused on data analysis, logical reasoning, and systematic problem-solving. You excel at breaking down complex problems, analyzing information methodically, and providing evidence-based conclusions.`,
+                                                'technical_expert': `You are a Technical Expert with deep knowledge in software development, system architecture, and technical problem-solving. You provide detailed technical guidance, code reviews, and architectural recommendations.`
+                                            };
+
+                                            if (value && templates[value as keyof typeof templates]) {
+                                                setAgentDraft({
+                                                    ...agentDraft,
+                                                    defaultModel: {
+                                                        ...agentDraft.defaultModel,
+                                                        systemMessage: templates[value as keyof typeof templates]
+                                                    }
+                                                });
+                                            }
+                                        }}
+                                    >
+                                        <SelectTrigger className="h-6 text-xs w-auto">
+                                            <SelectValue placeholder="Use template" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="task_coordinator">Team Coordinator (Delegation)</SelectItem>
+                                            <SelectItem value="general_assistant">General Assistant</SelectItem>
+                                            <SelectItem value="creative_ideator">Creative Ideator</SelectItem>
+                                            <SelectItem value="analytical_specialist">Analytical Specialist</SelectItem>
+                                            <SelectItem value="technical_expert">Technical Expert</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                                 <Textarea
                                     value={agentDraft.defaultModel.systemMessage || ''}
                                     onChange={(e) => setAgentDraft({
                                         ...agentDraft,
                                         defaultModel: { ...agentDraft.defaultModel, systemMessage: e.target.value }
                                     })}
-                                    className="min-h-[60px] text-xs resize-none"
+                                    className="min-h-[100px] text-xs resize-none"
                                     placeholder="You are a helpful AI assistant..."
                                 />
                             </div>

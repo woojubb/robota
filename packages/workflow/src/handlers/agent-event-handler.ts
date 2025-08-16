@@ -162,12 +162,27 @@ export class AgentEventHandler implements EventHandler {
                         const nodesAccessor: any[] = (this as any).subscriber?.getAllNodes?.() || [];
                         const existingNode = nodesAccessor.find(n => String(n?.id) === String(existingId));
                         if (existingNode) {
+                            // Preserve existing originalEvent data and merge with new data
+                            const existingOriginalEvent = existingNode.data?.extensions?.robota?.originalEvent || {};
+                            const mergedOriginalEvent = {
+                                ...existingOriginalEvent,
+                                ...data,
+                                parameters: {
+                                    ...(existingOriginalEvent.parameters || {}),
+                                    ...(data.parameters || {})
+                                }
+                            };
+
                             const merged: WorkflowNode = {
                                 ...existingNode,
                                 timestamp: Date.now(),
                                 data: {
                                     ...(existingNode.data || {}),
-                                    extensions: { robota: { originalEvent: data } },
+                                    extensions: {
+                                        robota: {
+                                            originalEvent: mergedOriginalEvent
+                                        }
+                                    },
                                     tools: Array.isArray(data.parameters?.tools) ? data.parameters.tools : (existingNode.data?.tools),
                                     configVersion: typeof data.version === 'number' ? data.version : (existingNode.data as any)?.configVersion
                                 }

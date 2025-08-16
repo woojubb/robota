@@ -1,4 +1,27 @@
-import type { AgentConfig as RobotaAgentConfig, AgentTemplate, AIProvider, EventService } from '@robota-sdk/agents';
+import type { AgentConfig as RobotaAgentConfig, AIProvider, EventService } from '@robota-sdk/agents';
+
+/**
+ * Team-specific agent template configuration
+ */
+export interface TeamAgentTemplateConfig {
+    model: string;
+    provider: string;
+    systemMessage: string;
+    temperature: number;
+    maxTokens?: number;
+}
+
+/**
+ * Team-specific agent template interface
+ */
+export interface AgentTemplate {
+    id: string;
+    name: string;
+    description: string;
+    category: string;
+    tags: string[];
+    config: TeamAgentTemplateConfig;
+}
 
 /**
  * Interface for template information

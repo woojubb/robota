@@ -267,8 +267,13 @@ export class ExecutionService {
                     agentConfiguration: aiProviderInfo,
                     availableTools: toolsInfo as any,
                     toolCount: toolsInfo.length,
-                    hasTools: toolsInfo.length > 0
-                },
+                    hasTools: toolsInfo.length > 0,
+                    systemMessage: config.defaultModel.systemMessage,
+                    provider: config.defaultModel.provider,
+                    model: config.defaultModel.model,
+                    temperature: config.defaultModel.temperature,
+                    maxTokens: config.defaultModel.maxTokens
+                } as any,
                 // Hierarchical tracking information
                 rootExecutionId: rootId,
                 parentExecutionId: this.executionContext?.parentExecutionId,

@@ -15,5 +15,10 @@ export type {
 // Internal types (not exported publicly)
 // AssignTaskParams, AssignTaskResult are for internal use only 
 
-// Local dummy tool for example-driven verification
-export { createAssignTaskDummyTool } from './tools/assign-task-dummy';
+// AssignTask tool implementation
+export { createAssignTaskTool } from './assign-task/index';
+export type { AssignTaskConfig, AssignTaskParams, AssignTaskResult } from './assign-task/index';
+
+// Tool description utilities (for consistent descriptions across environments)
+export { createToolDescription } from './task-assignment/tool-factory';
+export type { TemplateInfo } from './types';

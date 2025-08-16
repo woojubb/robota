@@ -82,8 +82,9 @@ export function convertToAssignTaskParams(validated: DynamicAssignTaskSchemaType
 
 /**
  * Create tool description with available templates
+ * @public - Exported for use in playground and other environments
  */
-function createToolDescription(availableTemplates: TemplateInfo[]): string {
+export function createToolDescription(availableTemplates: TemplateInfo[]): string {
     const baseDescription = `Assign a specialized task to a temporary expert agent. Use this when the task requires specific expertise, complex analysis, or when breaking down work into specialized components would be beneficial. The expert agent will be created, complete the task, and be automatically cleaned up.`;
 
     const delegationGuidance = `Set allowFurtherDelegation=true ONLY for extremely complex tasks requiring multiple different areas of expertise, otherwise keep false for direct execution.`;

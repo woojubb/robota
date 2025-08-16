@@ -1,6 +1,5 @@
 import type { FunctionTool } from '@robota-sdk/agents';
-import { ASSIGN_TASK_META, type PlaygroundToolMeta } from './assign-task/index';
-import { createAssignTaskDummyTool } from '@robota-sdk/team';
+import { ASSIGN_TASK_META, createAssignTaskTool, type PlaygroundToolMeta } from './assign-task/index';
 
 // Static tool catalog (UI-only metadata)
 export function getPlaygroundToolCatalog(): PlaygroundToolMeta[] {
@@ -9,8 +8,8 @@ export function getPlaygroundToolCatalog(): PlaygroundToolMeta[] {
 
 // Static tool registry (id -> factory)
 export const ToolRegistry: Record<string, () => FunctionTool> = {
-    // Route assignTask to team dummy tool to match example behavior (no agent creation)
-    assignTask: createAssignTaskDummyTool
+    // Use the shared assignTask implementation from team package
+    assignTask: createAssignTaskTool
 };
 
 

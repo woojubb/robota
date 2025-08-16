@@ -293,8 +293,8 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
             aiProviders: [],
             defaultModel: {
                 provider: 'openai',
-                model: 'gpt-4',
-                temperature: 0.7,
+                model: 'gpt-4o-mini',
+                temperature: 0.6,
                 maxTokens: 2000,
                 systemMessage: ''
             },
