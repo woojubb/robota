@@ -436,12 +436,39 @@ export class PlaygroundExecutor {
         if (!agent) {
             throw new Error(`agent not found: ${agentId}`);
         }
+
         // Create tool from static ToolRegistry (no dynamic imports)
         const factory = (ToolRegistry as any)[card.id];
         if (typeof factory !== 'function') {
             throw new Error(`Unknown tool id: ${card.id}`);
         }
-        const newTool = factory();
+
+        // Special handling for assignTask - inject current AI providers
+        let newTool;
+        if (card.id === 'assignTask') {
+            // Get current AI providers from this executor
+            const currentProviders = this.createProvidersWithExecutor();
+
+            // Create assignTask with proper AI providers
+            const { createAssignTaskTool } = await import('../../tools/assign-task/index');
+            newTool = createAssignTaskTool();
+
+            // Inject AI providers into the tool's config if possible
+            if (newTool && typeof newTool === 'object' && 'config' in newTool) {
+                (newTool as any).config = {
+                    ...(newTool as any).config,
+                    baseRobotaOptions: {
+                        ...((newTool as any).config?.baseRobotaOptions || {}),
+                        aiProviders: currentProviders
+                    }
+                };
+            }
+
+            console.log('🎯 [assignTask] Created with AI providers:', currentProviders.map((p: any) => p.name));
+        } else {
+            newTool = factory();
+        }
+
         const existing: any[] = ((agent as any).config?.tools as any[]) || [];
         const result = await agent.updateTools([...
             existing,
@@ -661,6 +688,15 @@ export class PlaygroundExecutor {
             if (this.mode === 'team' && this.currentTeam) {
                 // 🎯 26번과 동일: 직접 team.execute() 호출
                 console.log('🎯 [26-STRUCTURE] Direct team.execute() call');
+                // Team 설정 로그
+                try {
+                    const snapshot = (this.currentTeam as any)?.getDebugSnapshot?.();
+                    if (snapshot) {
+                        console.log('[PLAYGROUND-CONFIG][TEAM]', snapshot);
+                    }
+                } catch (e) {
+                    console.log('[PLAYGROUND-CONFIG][TEAM] failed to read config', String(e));
+                }
                 result = await this.currentTeam.execute(prompt);
 
                 // 🔍 [TOOL-DEBUG] 실행 후 Team Agent tools 확인 (초기화 완료 후)
@@ -694,6 +730,23 @@ export class PlaygroundExecutor {
             } else if (this.mode === 'agent' && this.currentAgent) {
                 // 🎯 Agent도 동일하게 직접 호출
                 console.log('🎯 [26-STRUCTURE] Direct agent.run() call');
+                // Agent 설정 로그
+                try {
+                    const agentConfig: any = (this.currentAgent as any).config || {};
+                    const defaultModel = agentConfig.defaultModel || {};
+                    const tools = Array.isArray(agentConfig.tools) ? agentConfig.tools : [];
+                    console.log('[PLAYGROUND-CONFIG][AGENT]', {
+                        name: agentConfig.name || (this.currentAgent as any).name,
+                        provider: defaultModel.provider,
+                        model: defaultModel.model,
+                        temperature: defaultModel.temperature,
+                        maxTokens: defaultModel.maxTokens,
+                        systemMessage: defaultModel.systemMessage,
+                        tools: tools.map((t: any) => t?.name || t?.toolName || t?.constructor?.name || 'unknown')
+                    });
+                } catch (e) {
+                    console.log('[PLAYGROUND-CONFIG][AGENT] failed to read config', String(e));
+                }
                 result = await this.currentAgent.run(prompt);
             } else {
                 console.error('❌ [MODE-ERROR] No active executor found:', {
@@ -1306,6 +1359,8 @@ class PlaygroundTeamInstance {
             throw new Error(`Team initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
+
+
 
     async execute(prompt: string): Promise<{ response: string; toolsExecuted?: string[] }> {
         if (!this.isInitialized) {

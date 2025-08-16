@@ -603,6 +603,31 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                     </div>
                 )}
 
+                {/* System Message Preview */}
+                {(() => {
+                    const systemMessage = data?.systemMessage ||
+                        data?.defaultModel?.systemMessage ||
+                        data?.extensions?.robota?.originalEvent?.parameters?.systemMessage ||
+                        data?.extensions?.robota?.originalEvent?.parameters?.defaultModel?.systemMessage;
+
+                    if (systemMessage && typeof systemMessage === 'string') {
+                        const truncated = systemMessage.length > 80
+                            ? systemMessage.substring(0, 80) + '...'
+                            : systemMessage;
+
+                        return (
+                            <div className="mt-1 p-1.5 bg-gray-50 rounded text-[10px] text-gray-600 border-l-2 border-blue-300" data-nodrop="true">
+                                <div className="flex items-center gap-1 mb-0.5">
+                                    <MessageSquare className="h-2.5 w-2.5" />
+                                    <span className="font-medium">System:</span>
+                                </div>
+                                <div className="leading-tight">{truncated}</div>
+                            </div>
+                        );
+                    }
+                    return null;
+                })()}
+
                 {/* Status if present */}
                 {data.status && (
                     <Badge className={`${styles.badge} text-xs`} data-nodrop="true">
@@ -1128,21 +1153,59 @@ const AgentDetailsContent = ({ data, node }: { data: any; node: any }) => {
         ? data.tools
         : (data?.extensions?.robota?.originalEvent?.parameters?.tools as string[] | undefined) || [];
 
+    // Extract system message from various possible locations
+    const systemMessage = data?.systemMessage ||
+        data?.defaultModel?.systemMessage ||
+        data?.extensions?.robota?.originalEvent?.parameters?.systemMessage ||
+        data?.extensions?.robota?.originalEvent?.parameters?.defaultModel?.systemMessage;
+
+    // Extract model information
+    const modelInfo = data?.defaultModel || data?.extensions?.robota?.originalEvent?.parameters?.defaultModel;
+
     return (
         <div className="space-y-3">
             <div className="border-l-4 border-blue-500 pl-3">
-                <h3 className="text-sm font-medium text-gray-900 mb-2">Agent</h3>
-                {tools.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                        {tools.map((tool: string) => (
-                            <Badge key={tool} variant="outline" className="text-xs">
-                                <Wrench className="h-3 w-3 mr-1" />{tool}
-                            </Badge>
-                        ))}
+                <h3 className="text-sm font-medium text-gray-900 mb-2">Agent Configuration</h3>
+
+                {/* Model Information */}
+                {modelInfo && (
+                    <div className="mb-3">
+                        <h4 className="text-xs font-medium text-gray-700 mb-1">Model</h4>
+                        <div className="flex gap-2 text-xs">
+                            <Badge variant="outline">{modelInfo.provider || 'Unknown'}</Badge>
+                            <Badge variant="outline">{modelInfo.model || 'Unknown'}</Badge>
+                            {modelInfo.temperature && (
+                                <Badge variant="outline">temp: {modelInfo.temperature}</Badge>
+                            )}
+                        </div>
                     </div>
-                ) : (
-                    <div className="text-xs text-gray-500">No tools</div>
                 )}
+
+                {/* System Message */}
+                {systemMessage && (
+                    <div className="mb-3">
+                        <h4 className="text-xs font-medium text-gray-700 mb-1">System Message</h4>
+                        <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded max-h-32 overflow-y-auto">
+                            {systemMessage}
+                        </div>
+                    </div>
+                )}
+
+                {/* Tools */}
+                <div className="mb-3">
+                    <h4 className="text-xs font-medium text-gray-700 mb-1">Tools</h4>
+                    {tools.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                            {tools.map((tool: string) => (
+                                <Badge key={tool} variant="outline" className="text-xs">
+                                    <Wrench className="h-3 w-3 mr-1" />{tool}
+                                </Badge>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-xs text-gray-500">No tools</div>
+                    )}
+                </div>
 
                 <div className="mt-3 space-y-2">
                     <Button

@@ -258,8 +258,13 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
                 timestamp: new Date(),
                 // Context will be injected by ActionTrackingEventService if available
                 parameters: {
-                    tools: toolNames
-                }
+                    tools: toolNames,
+                    systemMessage: this.config.defaultModel.systemMessage,
+                    provider: this.config.defaultModel.provider,
+                    model: this.config.defaultModel.model,
+                    temperature: this.config.defaultModel.temperature,
+                    maxTokens: this.config.defaultModel.maxTokens
+                } as any
             });
         }
     }
@@ -318,8 +323,13 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
                 sourceId: this.conversationId,
                 timestamp: new Date(this.configUpdatedAt),
                 parameters: {
-                    tools: toolNames
-                },
+                    tools: toolNames,
+                    systemMessage: this.config.defaultModel.systemMessage,
+                    provider: this.config.defaultModel.provider,
+                    model: this.config.defaultModel.model,
+                    temperature: this.config.defaultModel.temperature,
+                    maxTokens: this.config.defaultModel.maxTokens
+                } as any,
                 version: this.configVersion,
                 executionLevel: 0,
                 rootExecutionId: this.conversationId

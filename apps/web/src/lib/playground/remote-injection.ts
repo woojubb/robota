@@ -253,44 +253,57 @@ function addPlaygroundSetup(code: string, config: PlaygroundConfig): string {
   const setupCode = `
 // Playground setup (auto-injected)
 if (typeof window !== 'undefined') {
-  // Setup Robota SDK mock
+  // Setup Robota SDK bridge to real executor
   window.__ROBOTA_SDK__ = window.__ROBOTA_SDK__ || {
     agents: {
-      // Support both Agent and Robota class names
-      Agent: class MockAgent {
+      // Support both Agent and Robota class names - bridge to real PlaygroundExecutor
+      Agent: class PlaygroundAgentBridge {
         constructor(options) { 
           this.options = options;
-          this.name = options?.name || 'MockAgent';
-          console.log('Mock Agent created with options:', options);
+          this.name = options?.name || 'PlaygroundAgent';
+          console.log('🚀 PlaygroundAgent bridge created with options:', options);
+          
+          // Create real agent via PlaygroundExecutor
+          if (window.__ROBOTA_PLAYGROUND_EXECUTOR__) {
+            window.__ROBOTA_PLAYGROUND_EXECUTOR__.createAgent(options).catch(console.error);
+          }
         }
         setSystemMessage(message) { 
           console.log('System message set:', message);
+          if (this.options?.defaultModel) {
+            this.options.defaultModel.systemMessage = message;
+          }
           return this;
         }
         async run(input, options) {
-          console.log('Agent.run() called with input:', input);
+          console.log('🚀 PlaygroundAgent.run() called with input:', input);
           if (window.__ROBOTA_PLAYGROUND_EXECUTOR__) {
             try {
-              const response = await window.__ROBOTA_PLAYGROUND_EXECUTOR__.executeChat({
-                messages: [{ role: 'user', content: input }],
-                provider: this.options?.defaultModel?.provider || 'openai',
-                model: this.options?.defaultModel?.model || 'gpt-3.5-turbo'
-              });
-              return response.content;
+              const result = await window.__ROBOTA_PLAYGROUND_EXECUTOR__.run(input);
+              return result.response;
             } catch (error) {
-              console.error('Remote execution failed:', error);
-              return 'Error: Remote execution failed';
+              console.error('PlaygroundExecutor execution failed:', error);
+              return 'Error: Execution failed';
             }
           }
-          return \`Mock response to: \${input}\`;
+          return \`No executor available for: \${input}\`;
         }
         async* runStream(input, options) {
-          console.log('Agent.runStream() called with input:', input);
-          const response = await this.run(input, options);
-          const words = response.split(' ');
-          for (const word of words) {
-            yield word + ' ';
-            await new Promise(resolve => setTimeout(resolve, 100));
+          console.log('🚀 PlaygroundAgent.runStream() called with input:', input);
+          if (window.__ROBOTA_PLAYGROUND_EXECUTOR__) {
+            try {
+              const result = await window.__ROBOTA_PLAYGROUND_EXECUTOR__.run(input);
+              const words = result.response.split(' ');
+              for (const word of words) {
+                yield word + ' ';
+                await new Promise(resolve => setTimeout(resolve, 100));
+              }
+            } catch (error) {
+              console.error('PlaygroundExecutor stream failed:', error);
+              yield 'Error: Stream failed';
+            }
+          } else {
+            yield 'No executor available';
           }
         }
         getStats() {
@@ -305,31 +318,32 @@ if (typeof window !== 'undefined') {
           return [];
         }
         async destroy() {
-          console.log('Agent destroyed');
+          console.log('PlaygroundAgent destroyed');
         }
       },
-      Robota: class MockRobota {
+      Robota: class PlaygroundRobotaBridge {
         constructor(options) { 
           this.options = options;
-          this.name = options?.name || 'MockRobota';
-          console.log('Mock Robota created with options:', options);
+          this.name = options?.name || 'PlaygroundRobota';
+          console.log('🚀 PlaygroundRobota bridge created with options:', options);
+          
+          // Create real agent via PlaygroundExecutor
+          if (window.__ROBOTA_PLAYGROUND_EXECUTOR__) {
+            window.__ROBOTA_PLAYGROUND_EXECUTOR__.createAgent(options).catch(console.error);
+          }
         }
         async run(input, options) {
-          console.log('Robota.run() called with input:', input);
+          console.log('🚀 PlaygroundRobota.run() called with input:', input);
           if (window.__ROBOTA_PLAYGROUND_EXECUTOR__) {
             try {
-              const response = await window.__ROBOTA_PLAYGROUND_EXECUTOR__.executeChat({
-                messages: [{ role: 'user', content: input }],
-                provider: this.options?.defaultModel?.provider || 'openai',
-                model: this.options?.defaultModel?.model || 'gpt-3.5-turbo'
-              });
-              return response.content;
+              const result = await window.__ROBOTA_PLAYGROUND_EXECUTOR__.run(input);
+              return result.response;
             } catch (error) {
-              console.error('Remote execution failed:', error);
-              return 'Error: Remote execution failed';
+              console.error('PlaygroundExecutor execution failed:', error);
+              return 'Error: Execution failed';
             }
           }
-          return \`Mock response to: \${input}\`;
+          return \`No executor available for: \${input}\`;
         }
         async* runStream(input, options) {
           console.log('Robota.runStream() called with input:', input);

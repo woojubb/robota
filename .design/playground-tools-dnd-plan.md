@@ -15,10 +15,10 @@
 ## 0.2 우선순위 로드맵 (상위 → 하위)
 - [P0] 기초/환경 준비: 스키마·카탈로그·폴더 구조(가장 먼저)
   - [x] ToolConfig 스키마 표준화: kind → id 전환(문서/설계 반영 완료)
-  - [ ] PlaygroundToolMeta에 type(builtin|mcp|openapi|zod) 확정 및 사용 지점 표준화
-  - [ ] apps/web/src/tools/assign-task/ 스캐폴딩(index.ts, README)
-  - [ ] getPlaygroundToolCatalog() 도입 및 사이드바 목록을 카탈로그 기반으로 전환
-  - [ ] 사이드바 DnD 데이터 포맷(id/name/description) 카탈로그 기준으로 통일
+  - [x] PlaygroundToolMeta에 type(builtin|mcp|openapi|zod) 확정 및 사용 지점 표준화
+  - [x] apps/web/src/tools/assign-task/ 스캐폴딩(index.ts, README)
+  - [x] getPlaygroundToolCatalog() 도입 및 사이드바 목록을 카탈로그 기반으로 전환
+  - [x] 사이드바 DnD 데이터 포맷(id/name/description) 카탈로그 기준으로 통일
 - [P1] 코어(agents/workflow): 에이전트 툴 설정 업데이트 기능 확립
 - [P2] 웹 브릿지: 에이전트 인스턴스 접근/호출 경로 마련
 - [P3] UI: DnD → 브릿지 호출 → 반영 표시(오버레이)
@@ -512,22 +512,22 @@ export function getPlaygroundToolCatalog(): PlaygroundToolMeta[] {
   - [x] 성공 시 `agent.config_updated` 흐름을 통해 UI 반영 (기존 경로 유지)
 
 ### P3: UI/DnD 확인 (조용한 반영)
-- [ ] apps/web/src/components/playground/workflow-visualization.tsx
-  - [ ] AgentNode DnD 하이라이트/드롭 정상 동작 재확인
-  - [ ] `onToolDrop` → 페이지 → executor 경로 호출 확인
-  - [ ] 스냅샷 전체 교체 렌더로 즉시 반영 확인 (progressive reveal 미사용)
-- [ ] 알림/디버그 로그 최소화 (개발 모드 외 노이즈 금지)
+- [x] apps/web/src/components/playground/workflow-visualization.tsx
+  - [x] AgentNode DnD 하이라이트/드롭 정상 동작 재확인
+  - [x] `onToolDrop` → 페이지 → executor 경로 호출 확인
+  - [x] 스냅샷 전체 교체 렌더로 즉시 반영 확인 (progressive reveal 미사용)
+- [x] 알림/디버그 로그 최소화 (개발 모드 외 노이즈 금지)
 
 ### P4: 검증 (기능/빌드)
-- [ ] 기능 수동 검증
-  - [ ] 사이드바 AssignTask 표시 → 에이전트 노드로 드롭 → 에이전트 노드 뱃지 증가
-  - [ ] 스냅샷 새로고침 없이 반영(전체 교체 렌더)
-- [ ] 빌드 검증
-  - [ ] `pnpm --filter @robota-sdk/workflow build`
-  - [ ] `cd apps/web && pnpm build`
-- [ ] 문서 동기화
-  - [ ] 본 섹션 각 항목 [x] 처리
-  - [ ] 상위 로드맵(P0~P4) 상태 최신화
+- [x] 기능 수동 검증
+  - [x] 사이드바 AssignTask 표시 → 에이전트 노드로 드롭 → 에이전트 노드 뱃지 증가
+  - [x] 스냅샷 새로고침 없이 반영(전체 교체 렌더)
+- [x] 빌드 검증
+  - [x] `pnpm --filter @robota-sdk/workflow build`
+  - [x] `cd apps/web && pnpm build`
+- [x] 문서 동기화
+  - [x] 본 섹션 각 항목 [x] 처리
+  - [x] 상위 로드맵(P0~P4) 상태 최신화
 
 
 ## 12. Rule Compliance Review & Adjustments
