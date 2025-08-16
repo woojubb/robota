@@ -46,7 +46,7 @@ export const ASSIGN_TASK_META: PlaygroundToolMeta = {
  * Uses the shared assignTask implementation from team package
  * Provides a basic config to enable real agent creation in playground
  */
-export function createAssignTaskTool(): FunctionTool {
+export function createAssignTaskTool(eventService?: any, aiProviders?: any[]): FunctionTool {
     // Create a basic config for playground use
     // This enables real agent creation instead of dummy responses
     const playgroundConfig = {
@@ -227,14 +227,15 @@ export function createAssignTaskTool(): FunctionTool {
         ],
         baseRobotaOptions: {
             name: 'playground-base',
-            aiProviders: [], // Note: This will be populated dynamically at runtime
+            aiProviders: aiProviders || [], // Use provided aiProviders or empty array as fallback
             defaultModel: {
                 provider: 'openai',
                 model: 'gpt-4o-mini',
                 maxTokens: 4000
             }
         },
-        maxMembers: 3
+        maxMembers: 3,
+        eventService: eventService // Pass EventService to enable real agent creation
     };
 
     // Use the team package's assignTask implementation with config

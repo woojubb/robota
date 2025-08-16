@@ -443,28 +443,17 @@ export class PlaygroundExecutor {
             throw new Error(`Unknown tool id: ${card.id}`);
         }
 
-        // Special handling for assignTask - inject current AI providers
+        // Special handling for assignTask - inject current AI providers and EventService
         let newTool;
         if (card.id === 'assignTask') {
             // Get current AI providers from this executor
             const currentProviders = this.createProvidersWithExecutor();
 
-            // Create assignTask with proper AI providers
+            // Create assignTask with proper AI providers and EventService
             const { createAssignTaskTool } = await import('../../tools/assign-task/index');
-            newTool = createAssignTaskTool();
+            newTool = createAssignTaskTool(this.eventService, currentProviders);
 
-            // Inject AI providers into the tool's config if possible
-            if (newTool && typeof newTool === 'object' && 'config' in newTool) {
-                (newTool as any).config = {
-                    ...(newTool as any).config,
-                    baseRobotaOptions: {
-                        ...((newTool as any).config?.baseRobotaOptions || {}),
-                        aiProviders: currentProviders
-                    }
-                };
-            }
-
-            console.log('🎯 [assignTask] Created with AI providers:', currentProviders.map((p: any) => p.name));
+            console.log('🎯 [assignTask] Created with AI providers and EventService:', currentProviders.map((p: any) => p.name));
         } else {
             newTool = factory();
         }
