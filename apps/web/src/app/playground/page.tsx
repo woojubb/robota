@@ -410,12 +410,18 @@ function SystemStatusPanel() {
 function PlaygroundContent() {
     const { state, setWorkflow } = usePlayground();
     const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
-    const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
+    const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
     const { activeModal, isModalOpen, openModal, closeModal, toggleModal } = useModal();
     const { createAgent, createTeam, getDefaultAgentConfig, getDefaultTeamConfig } = useRobotaExecution();
     const [agentDraft, setAgentDraft] = useState<PlaygroundAgentConfig | null>(null);
     const [teamDraft, setTeamDraft] = useState<PlaygroundTeamConfig | null>(null);
     const [selectedChatTarget, setSelectedChatTarget] = useState<{ type: 'agent' | 'team'; name: string } | null>(null);
+
+    const toolItems = [
+        { id: 'assignTask', name: 'AssignTask', description: 'Delegate a task to an agent' },
+        { id: 'webSearch', name: 'WebSearch', description: 'Search the web for information' },
+        { id: 'notebook', name: 'Notebook', description: 'Store structured notes' }
+    ];
 
     return (
         <div className="h-full flex flex-col">
@@ -457,67 +463,28 @@ function PlaygroundContent() {
                 </div>
             </div>
 
-            {/* Main Visualization Layout with Overlay Sidebars */}
-            <div className="relative flex-1 overflow-hidden">
-                {/* Background Overlay */}
-                {(leftSidebarOpen || rightSidebarOpen) && (
-                    <div
-                        className="absolute inset-0 bg-gray-800/10 z-5"
-                        onClick={() => {
-                            setLeftSidebarOpen(false);
-                            setRightSidebarOpen(false);
-                        }}
-                    />
-                )}
-
-                {/* Toggle Buttons */}
-                {/**
-                {!leftSidebarOpen && (
-                    <button
-                        onClick={() => setLeftSidebarOpen(true)}
-                        className="absolute top-4 left-4 z-20 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded shadow-md transition-colors"
-                        title="Open Configuration"
-                    >
-                        <Menu className="h-5 w-5" />
-                    </button>
-                )}
-
-                <button
-                    onClick={() => setRightSidebarOpen(!rightSidebarOpen)}
-                    className="absolute top-4 right-4 z-20 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded shadow-md transition-colors"
-                >
-                    {rightSidebarOpen ? 'Close →' : '← Right'}
-                </button>
-                */}
-
-                {/* Left Sidebar - Configuration */}
-                <div className={`absolute left-0 top-0 w-80 h-full bg-white border-r border-gray-200 z-10 shadow-lg transition-transform duration-300 overflow-y-auto ${leftSidebarOpen ? 'transform translate-x-0' : 'transform -translate-x-full'
-                    }`}>
-                    <div className="p-4">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="font-semibold text-gray-800">Configuration</h3>
-                            <button
-                                onClick={() => setLeftSidebarOpen(false)}
-                                className="text-gray-400 hover:text-gray-600 text-xl"
-                            >
-                                ×
-                            </button>
+            {/* Main Visualization Layout with Inline Sidebars */}
+            <div className="flex flex-1 overflow-hidden">
+                {/* Left Sidebar - Configuration (inline) */}
+                {leftSidebarOpen && (
+                    <div className="w-80 h-full bg-white border-r border-gray-200 z-10 shadow-lg overflow-y-auto">
+                        <div className="p-4">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="font-semibold text-gray-800">Configuration</h3>
+                                <button
+                                    onClick={() => setLeftSidebarOpen(false)}
+                                    className="text-gray-400 hover:text-gray-600 text-xl"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                            <ConfigurationPanel onOpenChat={(type, name) => { setSelectedChatTarget({ type, name }); openModal('chat'); }} />
                         </div>
-                        <ConfigurationPanel onOpenChat={(type, name) => { setSelectedChatTarget({ type, name }); openModal('chat'); }} />
                     </div>
-                </div>
+                )}
 
-                {/* Right Sidebar - Overlay */}
-                <div className={`absolute right-0 top-0 w-80 h-full bg-gray-50 border-l border-gray-200 z-10 shadow-lg transition-transform duration-300 ${rightSidebarOpen ? 'transform translate-x-0' : 'transform translate-x-full'
-                    }`}>
-                    <div className="p-4">
-                        <h3 className="font-semibold mb-4">Right Sidebar</h3>
-                        <p className="text-sm text-gray-600">Additional tools and information will go here</p>
-                    </div>
-                </div>
-
-                {/* Center Column - Full Width Workflow Visualization */}
-                <div className="w-full h-full">
+                {/* Center Column - Workflow Visualization */}
+                <div className="flex-1 h-full">
                     <WorkflowVisualization
                         workflow={state.sdkWorkflow || undefined}
                         onAgentNodeClick={(nodeId, data) => {
@@ -525,6 +492,37 @@ function PlaygroundContent() {
                             openModal('chat');
                         }}
                     />
+                </div>
+
+                {/* Right Sidebar - Tools (inline) */}
+                <div className="w-80 h-full bg-gray-50 border-l border-gray-200 z-10 shadow-lg overflow-y-auto">
+                    <div className="p-4 h-full flex flex-col">
+                        <h3 className="font-semibold mb-3">Tools</h3>
+                        <div className="space-y-2 overflow-auto pr-1">
+                            {toolItems.map((tool) => (
+                                <div
+                                    key={tool.id}
+                                    className="border rounded bg-white p-3 cursor-grab select-none"
+                                    draggable
+                                    onDragStart={(e) => {
+                                        e.dataTransfer.setData('application/robota-tool', JSON.stringify(tool));
+                                    }}
+                                    title="Drag into the canvas to add"
+                                >
+                                    <div className="text-sm font-medium">{tool.name}</div>
+                                    <div className="text-xs text-gray-500">{tool.description}</div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-3">
+                            <button
+                                onClick={() => alert('Add Tool (UI only)')}
+                                className="w-full px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded"
+                            >
+                                + Add Tool
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
