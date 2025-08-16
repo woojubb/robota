@@ -57,6 +57,7 @@ interface WorkflowVisualizationProps {
     workflow?: UniversalWorkflowStructure;
     className?: string;
     onAgentNodeClick?: (nodeId: string, data: any) => void;
+    onToolDrop?: (agentId: string, tool: { id: string; name: string; description?: string }) => void;
 }
 
 // Unified Chat System
@@ -150,6 +151,32 @@ const BaseNodeTemplate = ({
             className="w-48 p-2.5 bg-gray-50 rounded-lg text-sm font-medium"
             data-status={data.status}
             data-node-type={nodeType}
+            onDragEnter={(e) => {
+                if (e.dataTransfer.types.includes('application/robota-tool')) {
+                    (e.currentTarget as HTMLElement).classList.add('ring-2', 'ring-blue-400');
+                }
+            }}
+            onDragOver={(e) => {
+                if (e.dataTransfer.types.includes('application/robota-tool')) {
+                    e.preventDefault();
+                }
+            }}
+            onDragLeave={(e) => {
+                (e.currentTarget as HTMLElement).classList.remove('ring-2', 'ring-blue-400');
+            }}
+            onDrop={(e) => {
+                (e.currentTarget as HTMLElement).classList.remove('ring-2', 'ring-blue-400');
+                const raw = e.dataTransfer.getData('application/robota-tool');
+                if (!raw) return;
+                try {
+                    const tool = JSON.parse(raw);
+                    const agentId = (data && (data.sourceId || data.conversationId)) as string | undefined;
+                    const onToolDrop = (data as any).__onToolDrop as undefined | ((agentId: string, tool: any) => void);
+                    if (agentId && typeof onToolDrop === 'function') {
+                        onToolDrop(agentId, tool);
+                    }
+                } catch { /* ignore */ }
+            }}
         >
             {children}
 
@@ -443,6 +470,15 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
 
     const styles = getStatusStyles(data.status);
 
+    // DnD interaction state
+    const [isDropping, setIsDropping] = React.useState(false);
+    const hoverCounterRef = React.useRef(0);
+    const isToolMime = (e: React.DragEvent) => Array.from(e.dataTransfer.types || []).includes('application/robota-tool');
+    const isInNoDrop = (target: EventTarget | null) => {
+        const el = target as HTMLElement | null;
+        return !!el?.closest?.('[data-nodrop="true"]');
+    };
+
     return (
         <BaseNodeTemplate
             nodeType="agent"
@@ -456,7 +492,46 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                 sourceId: "agent-output"
             }}
         >
-            <div className="space-y-1.5">
+            <div
+                className={`relative space-y-1.5 min-h-16 p-2 rounded-md ${isDropping ? 'ring-2 ring-blue-500 bg-blue-50/40' : ''}`}
+                onDragEnter={(e) => {
+                    if (!isToolMime(e) || isInNoDrop(e.target)) return;
+                    hoverCounterRef.current += 1;
+                    setIsDropping(true);
+                }}
+                onDragOver={(e) => {
+                    if (!isToolMime(e) || isInNoDrop(e.target)) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
+                }}
+                onDragLeave={(e) => {
+                    if (!isToolMime(e)) return;
+                    hoverCounterRef.current = Math.max(0, hoverCounterRef.current - 1);
+                    if (hoverCounterRef.current === 0) setIsDropping(false);
+                }}
+                onDrop={(e) => {
+                    if (!isToolMime(e)) return;
+                    e.preventDefault();
+                    hoverCounterRef.current = 0;
+                    setIsDropping(false);
+                    const raw = e.dataTransfer.getData('application/robota-tool');
+                    if (!raw) return;
+                    try {
+                        const tool = JSON.parse(raw);
+                        const agentId = (data && (data.sourceId || data.conversationId)) as string | undefined;
+                        const onToolDrop = (data as any).__onToolDrop as undefined | ((agentId: string, tool: any) => void);
+                        if (agentId && typeof onToolDrop === 'function') {
+                            onToolDrop(agentId, tool);
+                        }
+                    } catch { /* ignore */ }
+                }}
+            >
+                {/* Overlay during drop */}
+                {isDropping && (
+                    <div className="pointer-events-none absolute inset-0 border-2 border-dashed border-blue-400 flex items-center justify-center rounded-md">
+                        <span className="text-xs font-medium text-blue-700 bg-white/70 px-2 py-0.5 rounded">Drop tool to add</span>
+                    </div>
+                )}
                 {/* Simple header */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
@@ -470,7 +545,7 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                             </Badge>
                         )}
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1" data-nodrop="true">
                         <ChatButton
                             nodeData={data}
                             nodeType="agent"
@@ -496,50 +571,45 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                 {/* Essential info only */}
                 <div className="flex items-center gap-1">
                     {data.aiProvider && (
-                        <Badge className={`text-xs ${data.aiProvider === 'openai' ? 'bg-green-50 text-green-700' :
-                            data.aiProvider === 'anthropic' ? 'bg-purple-50 text-purple-700' :
-                                data.aiProvider === 'google' ? 'bg-blue-50 text-blue-700' :
-                                    'bg-gray-50 text-gray-700'
-                            } border-0`}>
+                        <Badge className={`${styles.badge} text-xs`} data-nodrop="true">
                             {data.aiProvider}
                         </Badge>
                     )}
-                    {(data.availableTools || data.toolSlots || data.hasTools) && (
-                        <Badge variant="outline" className="text-xs">
-                            <Wrench className="h-2.5 w-2.5 mr-0.5" />
-                            {data.toolCount || (data.availableTools && data.availableTools.length) || (data.toolSlots && data.toolSlots.length) || 1}
-                        </Badge>
-                    )}
+                    {(() => {
+                        const toolsArr = Array.isArray(data.tools) ? (data.tools as string[]) : [];
+                        const computedCount = toolsArr.length > 0
+                            ? toolsArr.length
+                            : (data.toolCount || (data.availableTools && data.availableTools.length) || (data.toolSlots && data.toolSlots.length) || 0);
+                        return computedCount > 0 ? (
+                            <Badge variant="outline" className="text-xs" data-nodrop="true">
+                                <Wrench className="h-2.5 w-2.5 mr-0.5" />
+                                {computedCount}
+                            </Badge>
+                        ) : null;
+                    })()}
                 </div>
+
+                {/* Tool preview (from data.tools) */}
+                {Array.isArray(data.tools) && (data.tools as string[]).length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1" data-nodrop="true">
+                        {(data.tools as string[]).slice(0, 3).map((t: string) => (
+                            <Badge key={t} variant="outline" className="text-[10px]" data-nodrop="true">
+                                {t}
+                            </Badge>
+                        ))}
+                        {(data.tools as string[]).length > 3 && (
+                            <span className="text-[10px] text-gray-500" data-nodrop="true">+{(data.tools as string[]).length - 3} more</span>
+                        )}
+                    </div>
+                )}
 
                 {/* Status if present */}
                 {data.status && (
-                    <Badge className={`${styles.badge} text-xs`}>
+                    <Badge className={`${styles.badge} text-xs`} data-nodrop="true">
                         {typeof data.status === 'string' ? data.status : JSON.stringify(data.status)}
                     </Badge>
                 )}
-
-                {/* Tools list (from agent.created parameters) */}
-                {(() => {
-                    const tools: string[] = Array.isArray(data.tools)
-                        ? data.tools
-                        : (data.extensions?.robota?.originalEvent?.parameters?.tools as string[] | undefined) || [];
-                    if (!tools || tools.length === 0) return null;
-                    const visible = tools.slice(0, 3);
-                    const remain = tools.length - visible.length;
-                    return (
-                        <div className="flex flex-wrap gap-1 items-center">
-                            {visible.map((tool) => (
-                                <Badge key={tool} variant="outline" className="text-[10px]">
-                                    <Wrench className="h-2.5 w-2.5 mr-0.5" />{tool}
-                                </Badge>
-                            ))}
-                            {remain > 0 && (
-                                <span className="text-[10px] text-gray-500">+{remain}</span>
-                            )}
-                        </div>
-                    );
-                })()}
+                {/* rest of content remains droppable */}
             </div>
         </BaseNodeTemplate>
     );
@@ -1282,7 +1352,7 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
     }
 };
 
-function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }: WorkflowVisualizationProps) {
+function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, onToolDrop }: WorkflowVisualizationProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [converter] = useState(() => new SimpleReactFlowConverter());
@@ -1577,6 +1647,11 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }:
                                         setSelectedNode(n);
                                         setIsInfoOpen(true);
                                     },
+                                    __onToolDrop: (agentId: string, tool: any) => {
+                                        if (typeof onToolDrop === 'function') {
+                                            onToolDrop(agentId, tool);
+                                        }
+                                    }
                                 },
                             };
                         } else if (n.type === 'response') {
@@ -1593,59 +1668,11 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }:
 
                 targetNodes = augmentCallbacks(targetNodes);
 
-                // Prepare progressive reveal
-                // 1) Update lookup and queue new node ids in original order
-                nodesByIdRef.current = new Map(targetNodes.map((n) => [n.id, n] as const));
+                // Full replacement render: reflect snapshot exactly (no dedup/filter/delay)
+                setNodes(targetNodes);
+                setEdges(targetEdges);
+                return;
 
-                const newIds = targetNodes
-                    .map((n) => n.id)
-                    .filter((id) => !displayedNodeIdsRef.current.has(id));
-                if (newIds.length > 0) revealQueueRef.current.push(...newIds);
-
-                // 2) Classify edges: addable now vs pending
-                const addNow: Edge[] = [];
-                const addNowIds = new Set<string>();
-                const pending: Edge[] = [];
-                const pendingIds = new Set<string>(pendingEdgesRef.current.map((e) => e.id));
-                for (const e of targetEdges) {
-                    if (displayedEdgeIdsRef.current.has(e.id)) continue;
-                    if (canShowEdge(e)) {
-                        if (!addNowIds.has(e.id)) {
-                            addNow.push(e);
-                            addNowIds.add(e.id);
-                        }
-                    } else {
-                        if (!pendingIds.has(e.id)) {
-                            pending.push(e);
-                            pendingIds.add(e.id);
-                        }
-                    }
-                }
-                if (addNow.length > 0) {
-                    setEdges((prev) => {
-                        const existing = new Set(prev.map((e) => e.id));
-                        const seen = new Set<string>();
-                        const filtered = addNow.filter((e) => {
-                            if (existing.has(e.id)) return false;
-                            if (seen.has(e.id)) return false;
-                            seen.add(e.id);
-                            return true;
-                        });
-                        return filtered.length ? [...prev, ...filtered] : prev;
-                    });
-                    addNow.forEach((e) => displayedEdgeIdsRef.current.add(e.id));
-                }
-                // merge pending with existing pending
-                if (pending.length > 0) pendingEdgesRef.current.push(...pending);
-
-                // 3) Start/continue runner for this snapshot
-                clearTimer();
-                runIdRef.current += 1;
-                const runId = runIdRef.current;
-                processNext(runId);
-
-                // Optional: center to last target node when all revealed (kept minimal to avoid jumps)
-                // We keep current behavior minimal; user can manually trigger fit/center via controls.
             } catch (error) {
                 console.error('Failed to convert workflow:', error);
                 setNodes([

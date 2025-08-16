@@ -148,6 +148,10 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
     private isFullyInitialized = false;
     private startTime: number;
 
+    // Configuration update state
+    private configVersion: number = 1;
+    private configUpdatedAt: number = Date.now();
+
     /**
      * Creates a new Robota agent instance with the new aiProviders array design.
      * 
@@ -258,6 +262,101 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
                 }
             });
         }
+    }
+
+    /**
+     * Update tools for this agent instance.
+     * Rebuilds the Tools registry atomically and emits CONFIG_UPDATED event.
+     */
+    public async updateTools(next: BaseTool[]): Promise<{ version: number }> {
+        await this.ensureFullyInitialized();
+
+        if (!Array.isArray(next)) {
+            throw new ConfigurationError('updateTools: next must be an array of BaseTool');
+        }
+
+        // Rebuild tool registry atomically
+        const registry = this.tools.getRegistry();
+        registry.clear();
+
+        const toolNames: string[] = [];
+        for (const tool of next) {
+            if (!(tool instanceof BaseTool)) {
+                throw new ConfigurationError('updateTools: all items must be BaseTool instances');
+            }
+            // Inject EventService into BaseTool if available
+            if (this.eventService) {
+                tool.setEventService(this.eventService);
+            }
+            // Adapter executor consistent with initialization
+            const toolExecutor = async (parameters: BaseToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
+                const finalContext: ToolExecutionContext = context || {
+                    executionId: `tool-exec-${Date.now()}`,
+                    sourceId: this.conversationId,
+                    sourceType: 'agent',
+                    executionLevel: 2,
+                    toolName: tool.schema.name,
+                    parameters: parameters,
+                };
+                const result = await tool.execute(parameters, finalContext);
+                return result.data ?? result;
+            };
+            this.tools.addTool(tool.schema, toolExecutor);
+            const nm = tool?.schema?.name ?? (tool as any)?.name ?? (tool as any)?.toolName;
+            if (typeof nm === 'string' && nm.length > 0) toolNames.push(nm);
+        }
+
+        // Update config snapshot
+        this.config.tools = next;
+        this.configVersion += 1;
+        this.configUpdatedAt = Date.now();
+
+        // Emit agent.config_updated
+        if (this.eventService && !(this.eventService instanceof SilentEventService)) {
+            this.eventService.emit(AGENT_EVENTS.CONFIG_UPDATED as any, {
+                sourceType: 'agent',
+                sourceId: this.conversationId,
+                timestamp: new Date(this.configUpdatedAt),
+                parameters: {
+                    tools: toolNames
+                },
+                version: this.configVersion,
+                executionLevel: 0,
+                rootExecutionId: this.conversationId
+            });
+        }
+
+        return { version: this.configVersion };
+    }
+
+    /**
+     * Update configuration partially. Currently supports tools.
+     */
+    public async updateConfiguration(patch: Partial<AgentConfig>): Promise<{ version: number }> {
+        if (patch.tools) {
+            return this.updateTools(patch.tools as any);
+        }
+        // Extendable: merge other fields with validation in future
+        throw new ConfigurationError('updateConfiguration: only tools patch is supported at this time');
+    }
+
+    /**
+     * Read-only configuration overview for UI.
+     */
+    public async getConfiguration(): Promise<{ version: number; tools: Array<{ name: string; parameters?: string[] }>; updatedAt: number; metadata?: Record<string, unknown> }> {
+        await this.ensureFullyInitialized();
+        const schemas = this.tools.getTools();
+        const tools = schemas.map(s => ({
+            name: s.name,
+            parameters: s.parameters && (s.parameters as any).properties ? Object.keys((s.parameters as any).properties) : undefined
+        }));
+        return {
+            version: this.configVersion,
+            tools,
+            updatedAt: this.configUpdatedAt,
+            metadata: undefined
+        };
+
     }
 
     /**

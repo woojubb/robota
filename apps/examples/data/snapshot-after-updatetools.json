@@ -1,0 +1,83 @@
+{
+  "metadata": {
+    "nodeCount": 1,
+    "edgeCount": 0,
+    "createdAt": "2025-08-16T17:27:10.583Z",
+    "version": "1.0.0",
+    "builderConfig": {
+      "autoTimestamp": true,
+      "validateConnections": true,
+      "maxNodes": 1000,
+      "maxEdges": 2000,
+      "logger": {}
+    },
+    "format": "universal-workflow",
+    "updatedAt": "2025-08-16T17:27:10.583Z",
+    "metrics": {
+      "totalNodes": 1,
+      "totalEdges": 0
+    }
+  },
+  "__workflowType": "UniversalWorkflowStructure",
+  "id": "example-26-pure-nodemanager",
+  "name": "Example 26 Pure NodeEdgeManager Result",
+  "nodes": [
+    {
+      "id": "agent_0_copy_1",
+      "type": "agent",
+      "level": 1,
+      "status": "running",
+      "timestamp": 1755365230175,
+      "data": {
+        "eventType": "execution.start",
+        "sourceId": "conv_1755365230173_cfeehc9x3",
+        "sourceType": "agent",
+        "agentNumber": 0,
+        "copyNumber": 1,
+        "label": "Agent 0",
+        "description": "AI Agent instance",
+        "originalEventTimestamp": "2025-08-16T17:27:10.173Z",
+        "reservedThinkingId": "thinking_agent_0_copy_1",
+        "extensions": {
+          "robota": {
+            "originalEvent": {
+              "eventType": "agent.config_updated",
+              "timestamp": "2025-08-16T17:27:10.380Z",
+              "sourceType": "agent",
+              "sourceId": "conv_1755365230173_cfeehc9x3",
+              "rootExecutionId": "conv_1755365230173_cfeehc9x3",
+              "executionLevel": 0,
+              "parameters": {
+                "tools": [
+                  "calculate"
+                ]
+              },
+              "version": 2,
+              "executionPath": [
+                "mapping-conv_1755365230173_cfeehc9x3"
+              ]
+            }
+          }
+        },
+        "tools": [
+          "calculate"
+        ],
+        "configVersion": 2
+      },
+      "connections": []
+    }
+  ],
+  "edges": [],
+  "layout": {
+    "algorithm": "hierarchical",
+    "direction": "TB",
+    "spacing": {
+      "nodeSpacing": 200,
+      "levelSpacing": 150
+    },
+    "alignment": {
+      "horizontal": "center",
+      "vertical": "top"
+    }
+  }
+}

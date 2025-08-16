@@ -19,6 +19,9 @@ import { DefaultExternalWorkflowStore, type ExternalWorkflowStore } from './exte
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
 import { createTeam, type TeamOptions, type TeamContainer } from '@robota-sdk/team';
+import { AGENT_EVENTS } from '@robota-sdk/agents';
+import { FunctionTool } from '@robota-sdk/agents';
+// Note: local interface ToolSchema is defined below for browser-only runtime use.
 import {
     PlaygroundHistoryPlugin,
     ConversationEvent,
@@ -35,6 +38,7 @@ import { PlaygroundWebSocketClient } from './websocket-client';
 import { RemoteExecutor } from '@robota-sdk/remote';
 import { PlaygroundEventService, createPlaygroundEventService } from './playground-event-service';
 import { createBlockTrackingHooks } from './block-tracking/block-hooks';
+import { ToolRegistry } from '@/tools/catalog';
 
 
 
@@ -144,6 +148,8 @@ export class PlaygroundExecutor {
     private mode: 'agent' | 'team' | null = null;
     private currentAgent: Robota | null = null;
     private currentTeam: TeamContainer | null = null;
+    // Registry: rootId(conversationId) → agent instance
+    private agentRegistry: Map<string, Robota> = new Map();
 
     // Playground-specific plugins
     private historyPlugin: PlaygroundHistoryPlugin;
@@ -199,11 +205,16 @@ export class PlaygroundExecutor {
             private subscriber: any;
             private queue: Array<{ type: string; data: unknown }> = [];
             private processing = false;
-            constructor(subscriber: any) {
+            private onEmitHook?: (type: string, data: any) => void;
+            constructor(subscriber: any, onEmitHook?: (type: string, data: any) => void) {
                 this.subscriber = subscriber;
+                this.onEmitHook = onEmitHook;
             }
             emit(eventType: unknown, data: unknown): void {
                 this.queue.push({ type: String(eventType), data });
+                try {
+                    if (this.onEmitHook) this.onEmitHook(String(eventType), data as any);
+                } catch { /* ignore hook errors */ }
                 void this.drain();
             }
             private async drain(): Promise<void> {
@@ -219,7 +230,17 @@ export class PlaygroundExecutor {
                 }
             }
         }
-        const bridge = new BridgeEventService(this.workflowSubscriber);
+        const bridge = new BridgeEventService(this.workflowSubscriber, (type, data) => {
+            // Register agent instance on agent.created events for precise targeting
+            try {
+                if (type === AGENT_EVENTS.CREATED) {
+                    const sourceId = (data as any)?.sourceId;
+                    if (typeof sourceId === 'string' && this.currentAgent) {
+                        this.agentRegistry.set(sourceId, this.currentAgent);
+                    }
+                }
+            } catch { /* best-effort */ }
+        });
         this.eventService = new ActionTrackingEventService(bridge as any);
         console.log('🎯 [26-STRUCTURE] ActionTrackingEventService created with WorkflowEventSubscriber');
 
@@ -337,6 +358,14 @@ export class PlaygroundExecutor {
                 eventService: contextBoundEventService // Context-bound EventService 사용
             });
 
+            // Immediate registry registration with conversationId/root id
+            try {
+                const convId = (this.currentAgent as any).conversationId || config.name;
+                if (typeof convId === 'string') {
+                    this.agentRegistry.set(convId, this.currentAgent);
+                }
+            } catch { /* ignore */ }
+
             console.log('🚀 [26-STRUCTURE] Agent created with context-bound EventService');
 
             this.setMode('agent');
@@ -351,6 +380,74 @@ export class PlaygroundExecutor {
         } catch (error) {
             throw error;
         }
+    }
+
+    /**
+     * Update tools on a specific agent instance by rootId(conversationId).
+     * Strict: if agent not found in registry, throws.
+     */
+    async updateAgentTools(agentId: string, tools: BaseTool[]): Promise<{ version: number }> {
+        if (!agentId || typeof agentId !== 'string') {
+            throw new Error('updateAgentTools: invalid agentId');
+        }
+        const agent = this.agentRegistry.get(agentId);
+        if (!agent) {
+            throw new Error(`updateAgentTools: agent not found for id ${agentId}`);
+        }
+        return agent.updateTools(tools as any);
+    }
+
+    /**
+     * Read current configuration of an agent by rootId(conversationId).
+     */
+    async getAgentConfiguration(agentId: string): Promise<{ version: number; tools: Array<{ name: string; parameters?: string[] }>; updatedAt: number; metadata?: Record<string, unknown> }> {
+        if (!agentId || typeof agentId !== 'string') {
+            throw new Error('getAgentConfiguration: invalid agentId');
+        }
+        const agent = this.agentRegistry.get(agentId);
+        if (!agent) {
+            throw new Error(`getAgentConfiguration: agent not found for id ${agentId}`);
+        }
+        return agent.getConfiguration() as any;
+    }
+
+    /** Build a simple dummy FunctionTool using JSON schema that returns a fixed or echoed result */
+    private buildDummyTool(name: string, description?: string): any {
+        const schema: ToolSchema = {
+            name,
+            description: description || 'Dummy tool (returns echo) for Playground',
+            parameters: {
+                type: 'object',
+                properties: {
+                    value: { type: 'string', description: 'Value to echo' }
+                }
+            }
+        } as any;
+        const executor = async (params: any) => {
+            const val = params && typeof params.value === 'string' ? params.value : `ok:${name}`;
+            return { success: true, data: val } as any;
+        };
+        return new FunctionTool(schema as any, executor as any);
+    }
+
+    /** Convenience: from UI card ({ id, name, description }) append tool from registry and update agent */
+    async updateAgentToolsFromCard(agentId: string, card: { id: string; name: string; description?: string }): Promise<{ version: number }> {
+        const agent = this.agentRegistry.get(agentId);
+        if (!agent) {
+            throw new Error(`agent not found: ${agentId}`);
+        }
+        // Create tool from static ToolRegistry (no dynamic imports)
+        const factory = (ToolRegistry as any)[card.id];
+        if (typeof factory !== 'function') {
+            throw new Error(`Unknown tool id: ${card.id}`);
+        }
+        const newTool = factory();
+        const existing: any[] = ((agent as any).config?.tools as any[]) || [];
+        const result = await agent.updateTools([...
+            existing,
+            newTool
+        ] as any);
+        return result;
     }
 
     /**
