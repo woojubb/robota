@@ -187,6 +187,18 @@ async function testPlaygroundEdgeConnections() {
             'YOU MUST use assignTask tool to delegate these tasks. DO NOT attempt to do the analysis yourself.'
         );
 
+        /*
+
+        translate to english: 
+Please write a cafe business plan. 
+🚨 MANDATORY DELEGATION REQUIRED: You must delegate the following two parts to separate specialists:
+1) Market analysis (competitors, target customers, trends) - delegate to market research specialist using assignTask 
+2) Menu composition (3 beverages, 2 desserts, price range) - delegate to menu planning specialist using assignTask 
+
+YOU MUST use assignTask tool to delegate these tasks. DO NOT attempt to do the analysis yourself.
+
+        */
+
         const duration = Date.now() - startTime;
         console.log('\n✅ Edge test execution completed');
 
