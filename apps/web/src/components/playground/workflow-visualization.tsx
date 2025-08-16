@@ -1740,7 +1740,23 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick }:
                     </div>
                 </CardHeader>
                 <CardContent className="flex-1 min-h-0 p-0">
-                    <div className="w-full h-full min-h-0">
+                    <div className="w-full h-full min-h-0"
+                        onDragOver={(e) => {
+                            if (e.dataTransfer.types.includes('application/robota-tool')) {
+                                e.preventDefault();
+                            }
+                        }}
+                        onDrop={(e) => {
+                            const data = e.dataTransfer.getData('application/robota-tool');
+                            if (data) {
+                                try {
+                                    const tool = JSON.parse(data);
+                                    console.info('[PLAYGROUND] Tool dropped:', tool);
+                                    // Future: create a tool_call node at drop position
+                                } catch { }
+                            }
+                        }}
+                    >
                         <ReactFlow
                             nodes={nodes}
                             edges={edges}
