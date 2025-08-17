@@ -1,0 +1,40 @@
+---
+alwaysApply: true
+---
+# No Duplicate Prevention Anti-Pattern
+
+## 🚫 Prohibited Practices
+- **Never implement duplicate prevention logic** that filters or skips processing
+- **Never add "deduplication" layers** that hide underlying design issues
+- **Never use conditional logic** to prevent "duplicate" events from processing
+
+## ✅ Correct Approach
+- **Design systems that don't generate duplicates** in the first place
+- **Each event should have a single, clear owner** responsible for emitting it
+- **If duplicates occur, treat them as bugs** that must be fixed at the source
+- **Allow duplicates to surface** so they can be properly debugged and resolved
+
+## 🎯 Event Ownership Principle
+- Events must have clear prefixes indicating their owner (e.g., `execution.`, `tool.`, `agent.`)
+- Only the owning component should emit events with its prefix
+- Event handlers should not assume or prevent duplicate emissions
+
+## 🔧 Debugging Benefits
+- Duplicates in output indicate real architectural problems
+- Visible duplicates make debugging easier than hidden prevention logic
+- Root cause analysis requires seeing the actual problem, not masked symptoms
+
+## ❌ Anti-Pattern Example
+```typescript
+// BAD: Hiding duplicates
+if (existingResponses.length > 0) {
+    return; // Skip duplicate
+}
+```
+
+## ✅ Correct Pattern Example
+```typescript
+// GOOD: Let duplicates surface for debugging
+this.workflowLogger.warn(`🐛 [DUPLICATE-DETECTED] Multiple responses for ${sourceId} - investigate root cause`);
+// Continue processing to make the issue visible
+```

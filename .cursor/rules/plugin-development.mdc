@@ -1,8 +1,8 @@
 ---
+description: "Plugin system development patterns and guidelines"
 globs: packages/agents/src/plugins/**/*.ts
 ---
-
-# Plugin Development Guidelines
+# Plugin Development Patterns
 
 ## Required Plugin Structure
 All plugins must extend `BasePlugin<TOptions, TStats>` with these requirements:

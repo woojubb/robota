@@ -1,0 +1,56 @@
+---
+alwaysApply: true
+---
+# Core Architecture Principles
+
+## 🚫 Prohibited Patterns
+- **Ambiguous Features**: Libraries never make policy decisions without explicit configuration
+- **Arbitrary Decisions**: Provide clear APIs for external policy control
+- **Temporary Workarounds**: All type errors must be resolved through proper design
+- **Blind Type Assertions**: Use type guards and proper constraints instead
+
+## 🏗️ Design Patterns
+
+### Dependency Direction
+- **Upward Only**: Lower layers import from higher layers (services → abstracts → interfaces)
+- **No Lateral**: Same-level modules avoid cross-imports
+- **No Downward**: Higher layers never import from lower layers
+
+### Type Architecture
+- **Composition Over Inheritance**: Build complex types by composing base types
+- **Constraint-Based Generics**: Use proper type constraints instead of `unknown`
+- **Single Source of Truth**: One canonical definition per concept
+- **Feature Ownership**: Each feature manages its own types, shares only cross-cutting concerns
+
+## 📋 Universal Validation Process
+
+### Before Any/Unknown Types (4-Step Process)
+1. **Specific Types**: Can this be `string | number | boolean` or union of known types?
+2. **Existing Types**: Can this use/extend existing interfaces with legitimate connection?
+3. **Interface Definition**: Can I define specific interface properties?
+4. **Design Improvement**: Can I redesign to avoid any/unknown entirely?
+
+Only proceed to any/unknown if ALL steps fail with documented technical justification.
+
+## 🔧 Implementation Standards
+
+### Dependency Injection
+- All services receive logger via constructor injection
+- Default to `SilentLogger` (production-safe)
+- Use proper interface segregation
+
+### Error Handling
+- Return descriptive errors instead of arbitrary cleanup
+- Use Result patterns for error propagation
+- Validate inputs and provide actionable feedback
+
+### Code Organization
+- **Facade Pattern**: Keep core classes simple with essential methods only
+- **Interface Segregation**: Depend only on necessary functions
+- **Single Responsibility**: Each module has one clear purpose
+
+## 🎯 Success Criteria
+- No circular dependencies between modules
+- Clear ownership for every type and module
+- All imports have architectural justification
+- Type errors resolved through proper design, not workarounds

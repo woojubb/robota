@@ -1,0 +1,99 @@
+---
+alwaysApply: true
+description: "Example execution caching system to prevent unnecessary LLM API calls and reduce costs"
+---
+
+# Example Execution Caching System
+
+## 🎯 Purpose
+Prevent unnecessary LLM API calls during example testing by implementing a robust caching system that saves execution results and reuses them when files haven't changed.
+
+## 📋 Cache Implementation Rules
+
+### 1. Cache File Management
+- **Cache Directory**: `apps/examples/cache/`
+- **Cache File Format**: `{example-name}-{hash}.json`
+- **Hash Generation**: MD5 of source file content + dependency versions
+- **Cache Expiry**: 24 hours or when source files change
+
+### 2. Cache Structure
+```typescript
+interface CacheEntry {
+  timestamp: number;
+  sourceFileHash: string;
+  dependencyVersions: Record<string, string>;
+  executionResult: {
+    nodes: WorkflowNode[];
+    edges: WorkflowEdge[];
+    logs: string[];
+    metadata: ExecutionMetadata;
+  };
+  success: boolean;
+  errorMessage?: string;
+}
+```
+
+### 3. Cache Check Process
+```typescript
+// Before LLM execution
+const cacheKey = generateCacheKey(sourceFile, dependencies);
+const cachedResult = loadFromCache(cacheKey);
+
+if (cachedResult && !isExpired(cachedResult) && !hasSourceChanged(cachedResult)) {
+  console.log('🚀 Using cached result (no LLM calls)');
+  return cachedResult.executionResult;
+}
+
+// Execute with LLM and cache result
+const result = await executeLLMWorkflow();
+saveToCache(cacheKey, result);
+```
+
+### 4. Cache Invalidation Triggers
+- Source file modification (detected via file hash)
+- Package dependency version changes
+- Cache age > 24 hours
+- Explicit cache clear command
+
+### 5. Cost-Saving Implementation
+- **Pre-execution Check**: Always check cache before LLM calls
+- **Partial Results**: Cache intermediate results for debugging
+- **Smart Filtering**: Use cached results for log analysis and filtering
+- **Development Mode**: Flag to force cache usage during development
+
+### 6. Cache Commands
+```bash
+# Clear all cache
+pnpm run cache:clear
+
+# Clear specific example cache
+pnpm run cache:clear --example=26-playground-edge-verification
+
+# Show cache stats
+pnpm run cache:stats
+
+# Force cache usage (skip LLM)
+pnpm run example:cached 26-playground-edge-verification
+```
+
+### 7. File References
+- Cache implementation: [apps/examples/utils/cache-manager.ts](mdc:apps/examples/utils/cache-manager.ts)
+- Example wrapper: [apps/examples/utils/cached-executor.ts](mdc:apps/examples/utils/cached-executor.ts)
+- Cache storage: [apps/examples/cache/](mdc:apps/examples/cache/)
+
+## 🚨 Critical Requirements
+1. **NEVER** skip cache check before LLM calls
+2. **ALWAYS** save successful results to cache
+3. **VALIDATE** cache integrity before use
+4. **LOG** cache hit/miss for debugging
+5. **RESPECT** cache expiry to ensure freshness
+
+## 💰 Cost Impact
+- **Expected Savings**: 80-90% reduction in LLM API calls during development
+- **Cache Hit Rate**: Target >90% for repeated example runs
+- **Development Speed**: 10x faster execution for cached results
+
+## 🔧 Implementation Priority
+1. **High**: Basic file-based caching with hash validation
+2. **Medium**: Dependency version tracking
+3. **Low**: Advanced cache analytics and optimization

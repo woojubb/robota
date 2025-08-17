@@ -1,0 +1,76 @@
+---
+description: "Edge transfer debugging rules for workflow connection issues"
+globs: packages/agents/src/services/real-time-workflow-builder.ts,packages/agents/src/services/workflow-event-subscriber.ts
+---
+
+# Edge Transfer Debugging Rules
+
+## 🔍 Current Issue Context
+Agent Copy system works perfectly (✅) but workflow.edges remains 0 despite node.connections being populated.
+
+## 📋 Debugging Priority Order
+
+### 1. RealTimeWorkflowBuilder Logger Issue
+**Problem**: `🔗 [NODE-CONNECTIONS]` logs not appearing despite extraction logic existing
+**Check**: RealTimeWorkflowBuilder uses SilentLogger instead of ConsoleLogger
+
+```typescript
+// Current issue pattern in [real-time-workflow-builder.ts](mdc:packages/agents/src/services/real-time-workflow-builder.ts)
+const workflowBuilder = new RealTimeWorkflowBuilder(workflowSubscriber); // No logger passed
+```
+
+**Required Fix**: Pass DefaultConsoleLogger to RealTimeWorkflowBuilder constructor
+
+### 2. Connection Extraction Timing
+**Problem**: establishConnections() may not be called for Agent Copy nodes
+**Check**: Verify node.connections exist when establishConnections() is called
+
+```typescript
+// Debug pattern needed in establishConnections()
+console.log(`🔧 [DEBUG] Node ${node.id} has ${node.connections?.length || 0} connections`);
+```
+
+### 3. Workflow Structure Integrity
+**Problem**: currentWorkflow.connections vs final workflow.edges mismatch
+**Check**: Verify connections persist through workflow building pipeline
+
+## 🎯 Specific Debugging Steps
+
+### Step 1: Logger Fix
+```typescript
+// In examples/26-playground-edge-verification.ts
+const workflowBuilder = new RealTimeWorkflowBuilder(workflowSubscriber, DefaultConsoleLogger);
+```
+
+### Step 2: Connection Validation
+```typescript
+// Add to establishConnections() in real-time-workflow-builder.ts
+if (node.connections && node.connections.length > 0) {
+  this.logger.debug(`🔧 [DEBUG] Processing ${node.connections.length} connections for ${node.id}`);
+  // ... existing extraction logic
+}
+```
+
+### Step 3: Workflow Pipeline Verification
+```typescript
+// Add to getCurrentWorkflow() in real-time-workflow-builder.ts
+this.logger.debug(`📊 [PIPELINE] Final workflow: ${this.currentWorkflow.nodes.length} nodes, ${this.currentWorkflow.connections.length} edges`);
+```
+
+## 🚨 Critical Success Criteria
+
+1. **NODE-CONNECTIONS logs appear**: Confirms extraction logic executes
+2. **workflow.connections > 0**: Confirms connections are added to workflow
+3. **workflow.edges > 0**: Confirms final pipeline success
+4. **Cached execution**: Use cached results for rapid debugging iteration
+
+## 📁 File References
+- Main builder: [packages/agents/src/services/real-time-workflow-builder.ts](mdc:packages/agents/src/services/real-time-workflow-builder.ts)
+- Event subscriber: [packages/agents/src/services/workflow-event-subscriber.ts](mdc:packages/agents/src/services/workflow-event-subscriber.ts)
+- Test example: [apps/examples/26-playground-edge-verification.ts](mdc:apps/examples/26-playground-edge-verification.ts)
+
+## 🔄 Cache-Optimized Debugging
+Since Agent Copy system works, use cached results to focus on edge transfer:
+1. Cache current successful Agent Copy execution
+2. Iterate on RealTimeWorkflowBuilder fixes using cached data
+3. Only re-execute LLM when core logic changes

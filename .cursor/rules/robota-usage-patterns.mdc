@@ -1,4 +1,7 @@
-# Robota SDK Usage Patterns
+---
+description: "Robota SDK specific usage patterns and best practices"
+---
+# SDK Usage Patterns
 
 ## Correct Robota Constructor Pattern
 
