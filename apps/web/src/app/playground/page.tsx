@@ -525,7 +525,7 @@ function PlaygroundContent() {
                             {toolItems.map((tool) => (
                                 <div
                                     key={tool.id}
-                                    className="border rounded bg-white p-3 cursor-grab select-none"
+                                    className="border rounded bg-white p-3 cursor-grab select-none max-h-[100px] overflow-y-auto"
                                     draggable
                                     onDragStart={(e) => {
                                         e.dataTransfer.setData('application/robota-tool', JSON.stringify(tool));

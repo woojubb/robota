@@ -6,7 +6,7 @@
  * Integrates React-Flow to visualize workflow structures in the playground
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import {
     ReactFlow,
     Node,
@@ -44,6 +44,10 @@ import type {
     UniversalWorkflowStructure
 } from '@robota-sdk/agents';
 import { SimpleReactFlowConverter } from '@/lib/workflow-visualization';
+import {
+    useReactFlowProgressiveReveal,
+    type ReactFlowProgressiveRevealConfig
+} from '@/lib/workflow-visualization/react-flow/progressive-reveal-wrapper';
 import {
     applyDagreLayout,
     layoutExistingFlow,
@@ -151,32 +155,6 @@ const BaseNodeTemplate = ({
             className="w-48 p-2.5 bg-gray-50 rounded-lg text-sm font-medium"
             data-status={data.status}
             data-node-type={nodeType}
-            onDragEnter={(e) => {
-                if (e.dataTransfer.types.includes('application/robota-tool')) {
-                    (e.currentTarget as HTMLElement).classList.add('ring-2', 'ring-blue-400');
-                }
-            }}
-            onDragOver={(e) => {
-                if (e.dataTransfer.types.includes('application/robota-tool')) {
-                    e.preventDefault();
-                }
-            }}
-            onDragLeave={(e) => {
-                (e.currentTarget as HTMLElement).classList.remove('ring-2', 'ring-blue-400');
-            }}
-            onDrop={(e) => {
-                (e.currentTarget as HTMLElement).classList.remove('ring-2', 'ring-blue-400');
-                const raw = e.dataTransfer.getData('application/robota-tool');
-                if (!raw) return;
-                try {
-                    const tool = JSON.parse(raw);
-                    const agentId = (data && (data.sourceId || data.conversationId)) as string | undefined;
-                    const onToolDrop = (data as any).__onToolDrop as undefined | ((agentId: string, tool: any) => void);
-                    if (agentId && typeof onToolDrop === 'function') {
-                        onToolDrop(agentId, tool);
-                    }
-                } catch { /* ignore */ }
-            }}
         >
             {children}
 
@@ -474,10 +452,6 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
     const [isDropping, setIsDropping] = React.useState(false);
     const hoverCounterRef = React.useRef(0);
     const isToolMime = (e: React.DragEvent) => Array.from(e.dataTransfer.types || []).includes('application/robota-tool');
-    const isInNoDrop = (target: EventTarget | null) => {
-        const el = target as HTMLElement | null;
-        return !!el?.closest?.('[data-nodrop="true"]');
-    };
 
     return (
         <BaseNodeTemplate
@@ -495,12 +469,12 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
             <div
                 className={`relative space-y-1.5 min-h-16 p-2 rounded-md ${isDropping ? 'ring-2 ring-blue-500 bg-blue-50/40' : ''}`}
                 onDragEnter={(e) => {
-                    if (!isToolMime(e) || isInNoDrop(e.target)) return;
+                    if (!isToolMime(e)) return;
                     hoverCounterRef.current += 1;
                     setIsDropping(true);
                 }}
                 onDragOver={(e) => {
-                    if (!isToolMime(e) || isInNoDrop(e.target)) return;
+                    if (!isToolMime(e)) return;
                     e.preventDefault();
                     e.dataTransfer.dropEffect = 'copy';
                 }}
@@ -545,7 +519,7 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                             </Badge>
                         )}
                     </div>
-                    <div className="flex items-center gap-1" data-nodrop="true">
+                    <div className="flex items-center gap-1">
                         <ChatButton
                             nodeData={data}
                             nodeType="agent"
@@ -616,7 +590,7 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
                             : systemMessage;
 
                         return (
-                            <div className="mt-1 p-1.5 bg-gray-50 rounded text-[10px] text-gray-600 border-l-2 border-blue-300" data-nodrop="true">
+                            <div className="mt-1 p-1.5 bg-gray-50 rounded text-[10px] text-gray-600 border-l-2 border-blue-300">
                                 <div className="flex items-center gap-1 mb-0.5">
                                     <MessageSquare className="h-2.5 w-2.5" />
                                     <span className="font-medium">System:</span>
@@ -630,7 +604,7 @@ const AgentNode = ({ data, sourcePosition, targetPosition }: NodeProps<any>) => 
 
                 {/* Status if present */}
                 {data.status && (
-                    <Badge className={`${styles.badge} text-xs`} data-nodrop="true">
+                    <Badge className={`${styles.badge} text-xs`}>
                         {typeof data.status === 'string' ? data.status : JSON.stringify(data.status)}
                     </Badge>
                 )}
@@ -1185,7 +1159,7 @@ const AgentDetailsContent = ({ data, node }: { data: any; node: any }) => {
                 {systemMessage && (
                     <div className="mb-3">
                         <h4 className="text-xs font-medium text-gray-700 mb-1">System Message</h4>
-                        <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded max-h-32 overflow-y-auto">
+                        <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded overflow-y-auto">
                             {systemMessage}
                         </div>
                     </div>
@@ -1275,7 +1249,7 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
                 <div className="space-y-3">
                     <div className="border-l-4 border-green-500 pl-3">
                         <h3 className="text-sm font-medium text-gray-900 mb-2">Assistant Response</h3>
-                        <div className="text-sm text-gray-800 bg-green-50 p-3 rounded max-h-64 overflow-y-auto">
+                        <div className="text-sm text-gray-800 bg-green-50 p-3 rounded max-h-96 overflow-y-auto">
                             <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
                                 components={{
@@ -1337,7 +1311,7 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
                         </div>
 
                         {/* Tool result */}
-                        <div className="text-sm text-gray-800 bg-purple-50 p-3 rounded max-h-48 overflow-y-auto">
+                        <div className="text-sm text-gray-800 bg-purple-50 p-3 rounded max-h-64 overflow-y-auto">
                             {toolResult}
                         </div>
 
@@ -1364,7 +1338,7 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
                 <div className="space-y-3">
                     <div className="border-l-4 border-green-500 pl-3">
                         <h3 className="text-sm font-medium text-gray-900 mb-2">Tool Response</h3>
-                        <div className="text-sm text-gray-800 bg-green-50 p-3 rounded max-h-64 overflow-y-auto">
+                        <div className="text-sm text-gray-800 bg-green-50 p-3 rounded max-h-96 overflow-y-auto">
                             <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
                                 components={{
@@ -1432,87 +1406,43 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
     const rafForCenterRef = useRef<number | null>(null);
     const nodeInternals = useStore((state: any) => state.nodeInternals);
 
-    // Progressive reveal runner refs
-    const runIdRef = useRef(0);
-    const timerRef = useRef<number | null>(null);
-    const displayedNodeIdsRef = useRef<Set<string>>(new Set());
-    const displayedEdgeIdsRef = useRef<Set<string>>(new Set());
-    const revealQueueRef = useRef<string[]>([]);
-    const pendingEdgesRef = useRef<Edge[]>([]);
-    const nodesByIdRef = useRef<Map<string, Node>>(new Map());
+    // Progressive Reveal Configuration
+    const [isProgressiveRevealEnabled, setIsProgressiveRevealEnabled] = useState(true);
+    const [fullTargetNodes, setFullTargetNodes] = useState<Node[]>([]);
+    const [fullTargetEdges, setFullTargetEdges] = useState<Edge[]>([]);
     const lastAddedNodeIdRef = useRef<string | null>(null);
+    const hasAppliedMeasuredLayoutRef = useRef(false);
 
-    const clearTimer = useCallback(() => {
-        if (timerRef.current) {
-            clearTimeout(timerRef.current);
-            timerRef.current = null;
+    // Track node data changes for re-measurement
+    const nodeDataHash = useMemo(() => {
+        return JSON.stringify(fullTargetNodes.map(n => ({
+            id: n.id,
+            tools: n.data.tools,
+            systemMessage: n.data.systemMessage,
+            contentPreview: n.data.contentPreview
+        })));
+    }, [fullTargetNodes]);
+
+    // Reset measurement flag when node data changes
+    useEffect(() => {
+        if (hasAppliedMeasuredLayoutRef.current) {
+            hasAppliedMeasuredLayoutRef.current = false;
         }
-    }, []);
+    }, [nodeDataHash]);
 
-    const canShowEdge = useCallback((e: Edge) => {
-        return displayedNodeIdsRef.current.has(e.source as string) && displayedNodeIdsRef.current.has(e.target as string);
-    }, []);
+    // Progressive Reveal Configuration
+    const progressiveRevealConfig: ReactFlowProgressiveRevealConfig = {
+        enabled: isProgressiveRevealEnabled,
+        intervalMs: 500,
+        bundleSize: 1
+    };
 
-    const processNext = useCallback((runId: number) => {
-        if (runIdRef.current !== runId) return;
-
-        const nextId = revealQueueRef.current.shift();
-        if (!nextId) return; // queue empty
-
-        const node = nodesByIdRef.current.get(nextId);
-        if (!node) {
-            // continue to next if missing
-            timerRef.current = window.setTimeout(() => processNext(runId), 500);
-            return;
-        }
-
-        setNodes((prev) => {
-            // Avoid duplicate append
-            if (prev.some((n) => n.id === node.id)) return prev;
-            return [...prev, node];
-        });
-        displayedNodeIdsRef.current.add(nextId);
-        lastAddedNodeIdRef.current = nextId;
-
-        // Defer centering via state + effect to ensure layout and measurement are ready
-        setFocusNodeId(nextId);
-
-        // Move addable edges from pending to displayed (dedup by id)
-        const addable: Edge[] = [];
-        const addableIds = new Set<string>();
-        const remain: Edge[] = [];
-        const remainIds = new Set<string>();
-        for (const e of pendingEdgesRef.current) {
-            if (!displayedEdgeIdsRef.current.has(e.id) && canShowEdge(e)) {
-                if (!addableIds.has(e.id)) {
-                    addable.push(e);
-                    addableIds.add(e.id);
-                }
-            } else {
-                if (!remainIds.has(e.id)) {
-                    remain.push(e);
-                    remainIds.add(e.id);
-                }
-            }
-        }
-        pendingEdgesRef.current = remain;
-        if (addable.length > 0) {
-            setEdges((prev) => {
-                const existing = new Set(prev.map((e) => e.id));
-                const seen = new Set<string>();
-                const filtered = addable.filter((e) => {
-                    if (existing.has(e.id)) return false;
-                    if (seen.has(e.id)) return false; // guard duplicates within this batch
-                    seen.add(e.id);
-                    return true;
-                });
-                return filtered.length ? [...prev, ...filtered] : prev;
-            });
-            addable.forEach((e) => displayedEdgeIdsRef.current.add(e.id));
-        }
-
-        timerRef.current = window.setTimeout(() => processNext(runId), 500);
-    }, [canShowEdge, setNodes, setEdges, setFocusNodeId]);
+    // Progressive Reveal Hook
+    const progressiveReveal = useReactFlowProgressiveReveal({
+        nodes: fullTargetNodes,
+        edges: fullTargetEdges,
+        config: progressiveRevealConfig
+    });
 
     // 레이아웃 적용 함수 - DynamicDagreLayout 컴포넌트를 통해서만 처리
     const applyAutoLayout = useCallback((layoutPreset?: keyof typeof LAYOUT_PRESETS) => {
@@ -1581,7 +1511,7 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
             attempts += 1;
             // Prefer React Flow store node (ensures latest position + measured size)
             const rfNode = typeof getNode === 'function' ? getNode(focusNodeId) : null;
-            const positionedNode = rfNode || nodesByIdRef.current.get(focusNodeId);
+            const positionedNode = rfNode;
             const pos = (positionedNode as any)?.position;
 
             // Fallback to computed dimensions if actual not measured yet
@@ -1649,33 +1579,25 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
         }
     }, [workflow]);
 
-    // Convert workflow to React-Flow format with progressive reveal (500ms)
+    // Convert workflow to React-Flow format
     useEffect(() => {
         const convertWorkflow = async () => {
             if (!workflow) {
-                // Show empty state with sample nodes
-                // Reset internal states for a clean slate
-                clearTimer();
-                runIdRef.current += 1;
-                displayedNodeIdsRef.current.clear();
-                displayedEdgeIdsRef.current.clear();
-                revealQueueRef.current = [];
-                pendingEdgesRef.current = [];
-                nodesByIdRef.current = new Map();
+                // Reset states for empty workflow
+                setFullTargetNodes([]);
+                setFullTargetEdges([]);
                 setNodes([]);
                 setEdges([]);
+                hasAppliedMeasuredLayoutRef.current = false;
                 return;
             }
 
             try {
-                const reactFlowData = await converter.convert(workflow);
+                // Reset measured layout flag for new workflow
+                hasAppliedMeasuredLayoutRef.current = false;
 
-                // 🧪 [DEBUG] React-Flow 데이터 출력
-                // console.log('🧪 [REACT-FLOW-DATA] === 완전한 데이터 덤프 ===');
-                // console.log('📊 [WORKFLOW-INPUT]:', JSON.stringify(workflow, null, 2));
-                // console.log('🔵 [NODES]:', JSON.stringify(reactFlowData.nodes, null, 2));
-                // console.log('🔗 [EDGES]:', JSON.stringify(reactFlowData.edges, null, 2));
-                console.log('🧪 [REACT-FLOW-DATA] === 덤프 완료 ===');
+                const reactFlowData = await converter.convert(workflow);
+                console.log('🧪 [REACT-FLOW-DATA] Conversion completed');
 
                 // Determine target graph (pre-layout when enabled)
                 let targetNodes: Node[] = reactFlowData.nodes;
@@ -1693,7 +1615,6 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
 
                 // Unified chat handler for all node types
                 const handleUnifiedChat = (agentId: string, nodeData: any) => {
-                    // Use the extracted agent ID to open chat with the correct agent
                     onAgentNodeClick?.(agentId, nodeData);
                 };
 
@@ -1731,10 +1652,9 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
 
                 targetNodes = augmentCallbacks(targetNodes);
 
-                // Full replacement render: reflect snapshot exactly (no dedup/filter/delay)
-                setNodes(targetNodes);
-                setEdges(targetEdges);
-                return;
+                // Store full target data for Progressive Reveal
+                setFullTargetNodes(targetNodes);
+                setFullTargetEdges(targetEdges);
 
             } catch (error) {
                 console.error('Failed to convert workflow:', error);
@@ -1751,10 +1671,177 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
         };
 
         convertWorkflow();
-        return () => {
-            clearTimer();
+    }, [workflow, converter, isAutoLayoutEnabled, selectedLayout, onAgentNodeClick, onToolDrop]);
+
+    // Apply measured layout once nodes are rendered and Progressive Reveal is complete
+    useEffect(() => {
+        if (!isAutoLayoutEnabled || fullTargetNodes.length === 0 || hasAppliedMeasuredLayoutRef.current) {
+            return;
+        }
+
+        // Wait for Progressive Reveal to complete
+        if (isProgressiveRevealEnabled && !progressiveReveal.isComplete) {
+            return;
+        }
+
+        // Wait for nodes to be rendered and measured
+        const applyMeasuredLayout = () => {
+            requestAnimationFrame(() => {
+                // Check if nodeInternals is available
+                if (!nodeInternals || typeof nodeInternals.get !== 'function') {
+                    console.log('📏 [AUTO-LAYOUT] nodeInternals not ready yet');
+                    return;
+                }
+
+                const measuredNodes = fullTargetNodes.map(node => {
+                    const internalNode = nodeInternals.get(node.id);
+                    if (internalNode && internalNode.width && internalNode.height) {
+                        return {
+                            ...node,
+                            data: {
+                                ...node.data,
+                                actualWidth: internalNode.width,
+                                actualHeight: internalNode.height
+                            }
+                        };
+                    }
+                    return node;
+                });
+
+                // Check if we have actual measurements
+                const hasMeasurements = measuredNodes.some(n =>
+                    n.data.actualWidth && n.data.actualHeight
+                );
+
+                if (hasMeasurements) {
+                    console.log('📏 [AUTO-LAYOUT] Applying measured layout with actual dimensions');
+
+                    // Re-apply layout with actual dimensions
+                    const layoutedData = applyDagreLayout(
+                        measuredNodes,
+                        fullTargetEdges,
+                        LAYOUT_PRESETS[selectedLayout],
+                        true // useActualDimensions = true
+                    );
+
+                    // Update full target nodes with measured layout
+                    setFullTargetNodes(layoutedData.nodes);
+                    hasAppliedMeasuredLayoutRef.current = true;
+                }
+            });
         };
-    }, [workflow, converter, isAutoLayoutEnabled, selectedLayout, fitView, setNodes, setEdges, clearTimer, processNext, canShowEdge]);
+
+        // Delay to ensure nodes are rendered and retry if needed
+        let attempts = 0;
+        const maxAttempts = 10;
+
+        const tryApplyLayout = () => {
+            if (attempts >= maxAttempts) {
+                console.log('📏 [AUTO-LAYOUT] Max attempts reached, giving up');
+                return;
+            }
+
+            attempts++;
+            applyMeasuredLayout();
+
+            // If not applied yet, retry
+            if (!hasAppliedMeasuredLayoutRef.current && attempts < maxAttempts) {
+                setTimeout(tryApplyLayout, 200);
+            }
+        };
+
+        const timeoutId = setTimeout(tryApplyLayout, 300);
+
+        return () => clearTimeout(timeoutId);
+    }, [nodeInternals, fullTargetNodes.length, fullTargetEdges, isAutoLayoutEnabled, selectedLayout, isProgressiveRevealEnabled, progressiveReveal.isComplete]);
+
+    // Apply Progressive Reveal incremental actions to React Flow
+    useEffect(() => {
+        if (!isProgressiveRevealEnabled) {
+            // Immediate display when Progressive Reveal is disabled
+            setNodes(fullTargetNodes);
+            setEdges(fullTargetEdges);
+            return;
+        }
+
+        // Handle Progressive Reveal actions
+        switch (progressiveReveal.action) {
+            case 'init':
+                // Do nothing; wait for add_node actions
+                break;
+
+            case 'add_node':
+                if (progressiveReveal.nodeToAdd) {
+                    // Add new node incrementally
+                    setNodes(prev => {
+                        // Check if node already exists to avoid duplicates
+                        if (prev.some(n => n.id === progressiveReveal.nodeToAdd!.id)) {
+                            return prev;
+                        }
+                        console.log('➕ [PROGRESSIVE] Adding node:', progressiveReveal.nodeToAdd!.id);
+                        return [...prev, progressiveReveal.nodeToAdd!];
+                    });
+
+                    // Add new edges if any
+                    if (progressiveReveal.edgesToAdd && progressiveReveal.edgesToAdd.length > 0) {
+                        setEdges(prev => {
+                            const existingEdgeIds = new Set(prev.map(e => e.id));
+                            const newEdges = progressiveReveal.edgesToAdd!.filter(e => !existingEdgeIds.has(e.id));
+                            if (newEdges.length > 0) {
+                                console.log('🔗 [PROGRESSIVE] Adding edges:', newEdges.map(e => e.id));
+                                return [...prev, ...newEdges];
+                            }
+                            return prev;
+                        });
+                    }
+
+                    // Set focus for centering
+                    lastAddedNodeIdRef.current = progressiveReveal.nodeToAdd.id;
+                    setFocusNodeId(progressiveReveal.nodeToAdd.id);
+                }
+                break;
+
+            case 'complete':
+                console.log('✅ [PROGRESSIVE] All nodes revealed');
+                break;
+        }
+    }, [
+        isProgressiveRevealEnabled,
+        progressiveReveal.action,
+        progressiveReveal.nodeToAdd?.id,
+        progressiveReveal.edgesToAdd?.length,
+        progressiveReveal.isComplete,
+        fullTargetNodes,
+        fullTargetEdges
+    ]);
+
+    // Reconcile updates for already-rendered nodes (e.g., tools list changes)
+    useEffect(() => {
+        if (!isProgressiveRevealEnabled) return;
+        if (fullTargetNodes.length === 0) return;
+
+        setNodes((prev) => {
+            if (prev.length === 0) return prev;
+
+            const map = new Map(fullTargetNodes.map((n) => [n.id, n]));
+            let changed = false;
+            const next = prev.map((n) => {
+                const updated = map.get(n.id);
+                if (!updated) return n;
+                // If data reference changed, merge to reflect updated config (e.g., tools)
+                if (updated.data !== n.data || updated.type !== n.type) {
+                    changed = true;
+                    return {
+                        ...n,
+                        type: updated.type ?? n.type,
+                        data: { ...n.data, ...updated.data }
+                    } as Node;
+                }
+                return n;
+            });
+            return changed ? next : prev;
+        });
+    }, [fullTargetNodes, isProgressiveRevealEnabled, setNodes]);
 
     const onConnect = useCallback(
         (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -1814,6 +1901,15 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
                             >
                                 <LayoutGrid className="h-4 w-4" />
                                 Layout
+                            </Button>
+
+                            <Button
+                                onClick={() => setIsProgressiveRevealEnabled(!isProgressiveRevealEnabled)}
+                                variant={isProgressiveRevealEnabled ? "default" : "outline"}
+                                size="sm"
+                                title={isProgressiveRevealEnabled ? "Disable Progressive Reveal (Show all at once)" : "Enable Progressive Reveal (Show nodes sequentially)"}
+                            >
+                                {isProgressiveRevealEnabled ? "Sequential" : "Immediate"}
                             </Button>
 
                             <Button
@@ -1904,7 +2000,7 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
                                     <span>Raw Data</span>
                                     <span className="text-xs text-gray-500">Click to expand</span>
                                 </summary>
-                                <div className="p-3 text-xs bg-gray-50 max-h-48 overflow-auto">
+                                <div className="p-3 text-xs bg-gray-50 max-h-64 overflow-auto">
                                     <pre className="whitespace-pre-wrap text-gray-700 leading-relaxed">{JSON.stringify((selectedNode as any).data, null, 2)}</pre>
                                 </div>
                             </details>

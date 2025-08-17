@@ -94,21 +94,21 @@ function calculateNodeHeight(node: Node): number {
     const data = node.data;
     let estimatedHeight = 60; // base height for header
 
-    // Add height for content preview - limited to keep nodes compact
+    // Add height for content preview - allow more content for better visibility
     if (data.userPrompt || data.userMessageContent || data.assistantMessage || data.contentPreview) {
         const content = data.userPrompt || data.userMessageContent || data.assistantMessage || data.contentPreview || '';
 
-        // Truncate content to keep nodes at reasonable height
-        const maxContentLength = 120; // Limit content to ~120 characters
+        // Allow more content to be visible
+        const maxContentLength = 300; // Increased to show more content
         const truncatedContent = content.length > maxContentLength ? content.substring(0, maxContentLength) + '...' : content;
 
         // Calculate lines based on truncated content
         const charsPerLine = 40; // Slightly tighter character wrapping
         const lines = Math.ceil(truncatedContent.length / charsPerLine);
 
-        // Limit to maximum 3 lines for compact display
-        const lineHeight = 16; // Slightly smaller line height
-        const maxLines = 3; // Keep it compact at 3 lines max
+        // Allow more lines for better readability
+        const lineHeight = 18; // Standard line height
+        const maxLines = 8; // Allow up to 8 lines
         const contentHeight = Math.min(lines * lineHeight, maxLines * lineHeight);
 
         estimatedHeight += contentHeight;
@@ -124,18 +124,33 @@ function calculateNodeHeight(node: Node): number {
         estimatedHeight += 20; // reduced space for badge row
     }
 
-    // Add extra height for complex nodes - more compact
-    if (node.type === 'agent' && (data.availableTools || data.toolSlots)) {
-        estimatedHeight += 18; // reduced extra space for tool info
+    // Add extra height for complex nodes - properly account for tools and system message
+    if (node.type === 'agent') {
+        // Add height for tools list
+        if (data.tools && Array.isArray(data.tools)) {
+            const toolsCount = data.tools.length;
+            const toolsHeight = Math.min(toolsCount * 30, 150); // 30px per tool, max 150px
+            estimatedHeight += toolsHeight;
+        }
+
+        // Add height for system message
+        if (data.systemMessage) {
+            const messageLines = Math.ceil(data.systemMessage.length / 60); // ~60 chars per line
+            const systemMessageHeight = Math.min(messageLines * 18, 200); // 18px per line, max 200px
+            estimatedHeight += systemMessageHeight;
+        }
+
+        // Add extra spacing for section headers
+        estimatedHeight += 40; // Space for "Model", "System Message", "Tools" headers
     }
 
     if (node.type === 'tool_call_response' && data.toolName) {
         estimatedHeight += 18; // reduced extra space for tool details
     }
 
-    // Compact height limits - keep nodes reasonably sized
+    // Height limits - allow taller nodes for full content display
     const minHeight = 70; // Slightly reduced minimum
-    const maxHeight = 400; // Allow taller nodes while keeping an upper bound for layout calculations
+    const maxHeight = 800; // Increased to accommodate tools and system prompts
 
     return Math.max(minHeight, Math.min(estimatedHeight, maxHeight));
 }
@@ -160,6 +175,29 @@ function getNodeDimensions(node: Node, useActualDimensions = false): { width: nu
 }
 
 /**
+ * Calculate dynamic ranksep based on actual node heights
+ */
+function calculateDynamicRanksep(nodes: Node[], config: LayoutConfig, useActualDimensions: boolean): number {
+    const BASE_GAP = 50; // Minimum gap between ranks
+    let maxNodeHeight = 0;
+
+    // Find the maximum node height
+    nodes.forEach(node => {
+        const dims = getNodeDimensions(node, useActualDimensions);
+        maxNodeHeight = Math.max(maxNodeHeight, dims.height);
+    });
+
+    // If we have actual dimensions and tall nodes, use dynamic spacing
+    if (useActualDimensions && maxNodeHeight > 200) {
+        // For tall nodes, ensure enough space
+        return Math.max(config.ranksep, BASE_GAP);
+    }
+
+    // Otherwise use the configured ranksep
+    return config.ranksep;
+}
+
+/**
  * Apply Dagre layout to React Flow nodes and edges
  */
 export function applyDagreLayout(
@@ -175,14 +213,17 @@ export function applyDagreLayout(
     // Create new dagre graph
     const dagreGraph = new dagre.graphlib.Graph();
 
-    // Configure graph with provided (fixed) spacing only
+    // Calculate dynamic ranksep based on node heights
+    const dynamicRanksep = calculateDynamicRanksep(nodes, config, useActualDimensions);
+
+    // Configure graph with dynamic spacing
     dagreGraph.setDefaultEdgeLabel(() => ({}));
     dagreGraph.setGraph({
         rankdir: config.rankdir,
         align: config.align,
         nodesep: config.nodesep,
         edgesep: config.edgesep,
-        ranksep: config.ranksep,
+        ranksep: dynamicRanksep,
         marginx: config.marginx,
         marginy: config.marginy
     });
@@ -230,19 +271,82 @@ export function applyDagreLayout(
     // Run layout algorithm
     dagre.layout(dagreGraph);
 
-    // Update node positions based on layout results, ignoring dummy nodes
+    // Baseline normalization per rank to honor node heights and keep constant inter-rank spacing
+    // Group nodes by rank coordinate (center y for TB/BT, center x for LR/RL)
+    type RankGroup = {
+        key: number; // original center coordinate used for grouping
+        nodeIds: string[];
+        maxExtent: number; // max height for TB/BT, max width for LR/RL
+    };
+
+    const isHorizontal = config.rankdir === 'LR' || config.rankdir === 'RL';
+    const groupMap = new Map<number, RankGroup>();
+    const COORD_EPSILON = 1; // tolerance for grouping by coordinate
+
+    // Build groups with max extent
+    nodes.forEach((node) => {
+        const np: any = dagreGraph.node(node.id);
+        if (!np) return;
+        const dims = getNodeDimensions(node, useActualDimensions);
+        const center = isHorizontal ? np.x : np.y;
+        // Quantize to reduce floating noise for grouping
+        const key = Math.round(center / COORD_EPSILON) * COORD_EPSILON;
+        const group = groupMap.get(key) || { key, nodeIds: [], maxExtent: 0 };
+        group.nodeIds.push(node.id);
+        group.maxExtent = Math.max(group.maxExtent, isHorizontal ? dims.width : dims.height);
+        groupMap.set(key, group);
+    });
+
+    // Sort groups by original coordinate order (top-to-bottom or left-to-right)
+    const groups = Array.from(groupMap.values()).sort((a, b) => a.key - b.key);
+
+    // Compute new centers with constant spacing based on config.ranksep
+    const newCenterByNodeId = new Map<string, { x: number; y: number }>();
+    let prevBaseline = NaN; // bottom (TB) or right (LR) baseline of previous rank
+
+    for (let i = 0; i < groups.length; i++) {
+        const g = groups[i];
+
+        // Determine this group's new baseline start based on previous group's baseline + ranksep
+        let newGroupCenterCoord: number;
+        if (i === 0) {
+            // Anchor first group near its original center to reduce drift
+            newGroupCenterCoord = g.key;
+            const baseline = isHorizontal
+                ? newGroupCenterCoord + g.maxExtent / 2
+                : newGroupCenterCoord + g.maxExtent / 2;
+            prevBaseline = baseline;
+        } else {
+            const newTopOrLeft = prevBaseline + dynamicRanksep; // dynamic gap between groups
+            newGroupCenterCoord = newTopOrLeft + g.maxExtent / 2;
+            prevBaseline = newTopOrLeft + g.maxExtent; // update baseline for next rank
+        }
+
+        // Assign new centers for nodes in this group
+        g.nodeIds.forEach((id) => {
+            const np: any = dagreGraph.node(id);
+            if (!np) return;
+            const dimsNode = nodes.find((n) => n.id === id)!;
+            const dims = getNodeDimensions(dimsNode, useActualDimensions);
+            const originalCenterOther = isHorizontal ? np.y : np.x; // keep cross-axis center
+            const xCenter = isHorizontal ? newGroupCenterCoord : originalCenterOther;
+            const yCenter = isHorizontal ? originalCenterOther : newGroupCenterCoord;
+            newCenterByNodeId.set(id, { x: xCenter, y: yCenter });
+        });
+    }
+
+    // Update node positions based on normalized centers
     const layoutedNodes: Node[] = nodes.map((node) => {
-        const nodeWithPosition = dagreGraph.node(node.id);
-        const dimensions = getNodeDimensions(node, useActualDimensions);
+        const np: any = dagreGraph.node(node.id);
+        const dims = getNodeDimensions(node, useActualDimensions);
 
         // Determine handle positions based on layout direction
-        const isHorizontal = config.rankdir === 'LR' || config.rankdir === 'RL';
         const sourcePosition = isHorizontal ? 'right' : 'bottom';
         const targetPosition = isHorizontal ? 'left' : 'top';
 
-        // Calculate position with proper centering (Dagre uses center-center, React Flow uses top-left)
-        const x = nodeWithPosition.x - dimensions.width / 2;
-        const y = nodeWithPosition.y - dimensions.height / 2;
+        const newCenter = newCenterByNodeId.get(node.id) || { x: np.x, y: np.y };
+        const x = newCenter.x - dims.width / 2;
+        const y = newCenter.y - dims.height / 2;
 
         return {
             ...node,
@@ -254,8 +358,8 @@ export function applyDagreLayout(
             },
             data: {
                 ...node.data,
-                computedWidth: dimensions.width,
-                computedHeight: dimensions.height,
+                computedWidth: dims.width,
+                computedHeight: dims.height,
                 sourcePosition,
                 targetPosition
             }
