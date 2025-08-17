@@ -1396,7 +1396,7 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
     const [selectedLayout, setSelectedLayout] = useState<keyof typeof LAYOUT_PRESETS>('compact');
     const [isAutoLayoutEnabled, setIsAutoLayoutEnabled] = useState(true);
     const [currentLayoutConfig, setCurrentLayoutConfig] = useState<LayoutConfig>(LAYOUT_PRESETS.compact);
-    const { fitView, setCenter, getZoom, getNode } = useReactFlow() as any;
+    const { fitView, setCenter, getZoom, getNode, updateNodeInternals } = useReactFlow() as any;
     const [isInfoOpen, setIsInfoOpen] = useState(false);
     const [selectedNode, setSelectedNode] = useState<Node | null>(null);
 
@@ -1413,22 +1413,7 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
     const lastAddedNodeIdRef = useRef<string | null>(null);
     const hasAppliedMeasuredLayoutRef = useRef(false);
 
-    // Track node data changes for re-measurement
-    const nodeDataHash = useMemo(() => {
-        return JSON.stringify(fullTargetNodes.map(n => ({
-            id: n.id,
-            tools: n.data.tools,
-            systemMessage: n.data.systemMessage,
-            contentPreview: n.data.contentPreview
-        })));
-    }, [fullTargetNodes]);
-
-    // Reset measurement flag when node data changes
-    useEffect(() => {
-        if (hasAppliedMeasuredLayoutRef.current) {
-            hasAppliedMeasuredLayoutRef.current = false;
-        }
-    }, [nodeDataHash]);
+    // Intentionally not reacting to node data changes
 
     // Progressive Reveal Configuration
     const progressiveRevealConfig: ReactFlowProgressiveRevealConfig = {
@@ -1497,6 +1482,12 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
         const centerY = rfNode.position.y + height / 2;
         const zoom = typeof getZoom === 'function' ? getZoom() : 1;
         setCenter(centerX, centerY, { duration: 600, zoom });
+
+        // React only to actual size changes for relayout
+        const hasDimensionChange = changes.some((c: any) => c && c.type === 'dimensions');
+        if (hasDimensionChange) {
+            hasAppliedMeasuredLayoutRef.current = false;
+        }
     }, [onNodesChange, getNode, getZoom, setCenter]);
 
     // Centering effect: run when focus target is set. Uses a short RAF loop
@@ -1689,7 +1680,6 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
             requestAnimationFrame(() => {
                 // Check if nodeInternals is available
                 if (!nodeInternals || typeof nodeInternals.get !== 'function') {
-                    console.log('📏 [AUTO-LAYOUT] nodeInternals not ready yet');
                     return;
                 }
 
@@ -1708,13 +1698,11 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
                     return node;
                 });
 
-                // Check if we have actual measurements
-                const hasMeasurements = measuredNodes.some(n =>
-                    n.data.actualWidth && n.data.actualHeight
-                );
+                // Check if ALL nodes have actual measurements
+                const allMeasured = measuredNodes.every(n => n.data.actualWidth && n.data.actualHeight);
 
-                if (hasMeasurements) {
-                    console.log('📏 [AUTO-LAYOUT] Applying measured layout with actual dimensions');
+                if (allMeasured) {
+
 
                     // Re-apply layout with actual dimensions
                     const layoutedData = applyDagreLayout(
@@ -1726,6 +1714,8 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
 
                     // Update full target nodes with measured layout
                     setFullTargetNodes(layoutedData.nodes);
+                    // Also update rendered nodes so measured positions are applied
+                    setNodes(layoutedData.nodes);
                     hasAppliedMeasuredLayoutRef.current = true;
                 }
             });
@@ -1737,7 +1727,6 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
 
         const tryApplyLayout = () => {
             if (attempts >= maxAttempts) {
-                console.log('📏 [AUTO-LAYOUT] Max attempts reached, giving up');
                 return;
             }
 
@@ -1829,12 +1818,18 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
                 const updated = map.get(n.id);
                 if (!updated) return n;
                 // If data reference changed, merge to reflect updated config (e.g., tools)
-                if (updated.data !== n.data || updated.type !== n.type) {
+                if (
+                    updated.data !== n.data ||
+                    updated.type !== n.type ||
+                    (updated.position?.x !== n.position?.x) ||
+                    (updated.position?.y !== n.position?.y)
+                ) {
                     changed = true;
                     return {
                         ...n,
                         type: updated.type ?? n.type,
-                        data: { ...n.data, ...updated.data }
+                        data: { ...n.data, ...updated.data },
+                        position: updated.position ?? n.position
                     } as Node;
                 }
                 return n;

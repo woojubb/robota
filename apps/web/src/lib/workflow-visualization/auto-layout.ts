@@ -178,23 +178,9 @@ function getNodeDimensions(node: Node, useActualDimensions = false): { width: nu
  * Calculate dynamic ranksep based on actual node heights
  */
 function calculateDynamicRanksep(nodes: Node[], config: LayoutConfig, useActualDimensions: boolean): number {
-    const BASE_GAP = 50; // Minimum gap between ranks
-    let maxNodeHeight = 0;
-
-    // Find the maximum node height
-    nodes.forEach(node => {
-        const dims = getNodeDimensions(node, useActualDimensions);
-        maxNodeHeight = Math.max(maxNodeHeight, dims.height);
-    });
-
-    // If we have actual dimensions and tall nodes, use dynamic spacing
-    if (useActualDimensions && maxNodeHeight > 200) {
-        // For tall nodes, ensure enough space
-        return Math.max(config.ranksep, BASE_GAP);
-    }
-
-    // Otherwise use the configured ranksep
-    return config.ranksep;
+    // With edge-based layout, we use a fixed gap
+    // This is kept for compatibility but not actively used in the new layout
+    return 100; // Fixed edge gap
 }
 
 /**
@@ -271,69 +257,111 @@ export function applyDagreLayout(
     // Run layout algorithm
     dagre.layout(dagreGraph);
 
-    // Baseline normalization per rank to honor node heights and keep constant inter-rank spacing
-    // Group nodes by rank coordinate (center y for TB/BT, center x for LR/RL)
-    type RankGroup = {
-        key: number; // original center coordinate used for grouping
-        nodeIds: string[];
-        maxExtent: number; // max height for TB/BT, max width for LR/RL
-    };
-
+    // Edge-based normalization for consistent edge lengths
+    const FIXED_EDGE_GAP = 100; // Target edge length in pixels
     const isHorizontal = config.rankdir === 'LR' || config.rankdir === 'RL';
-    const groupMap = new Map<number, RankGroup>();
-    const COORD_EPSILON = 1; // tolerance for grouping by coordinate
 
-    // Build groups with max extent
-    nodes.forEach((node) => {
-        const np: any = dagreGraph.node(node.id);
-        if (!np) return;
-        const dims = getNodeDimensions(node, useActualDimensions);
-        const center = isHorizontal ? np.x : np.y;
-        // Quantize to reduce floating noise for grouping
-        const key = Math.round(center / COORD_EPSILON) * COORD_EPSILON;
-        const group = groupMap.get(key) || { key, nodeIds: [], maxExtent: 0 };
-        group.nodeIds.push(node.id);
-        group.maxExtent = Math.max(group.maxExtent, isHorizontal ? dims.width : dims.height);
-        groupMap.set(key, group);
-    });
+    // Edge-based layout calculation
 
-    // Sort groups by original coordinate order (top-to-bottom or left-to-right)
-    const groups = Array.from(groupMap.values()).sort((a, b) => a.key - b.key);
+    // Step 1: Calculate node depths (levels) in the graph
+    const nodeDepths = new Map<string, number>();
+    const visited = new Set<string>();
 
-    // Compute new centers with constant spacing based on config.ranksep
-    const newCenterByNodeId = new Map<string, { x: number; y: number }>();
-    let prevBaseline = NaN; // bottom (TB) or right (LR) baseline of previous rank
+    function calculateDepth(nodeId: string, depth: number = 0) {
+        if (visited.has(nodeId)) return;
+        visited.add(nodeId);
 
-    for (let i = 0; i < groups.length; i++) {
-        const g = groups[i];
+        nodeDepths.set(nodeId, Math.max(nodeDepths.get(nodeId) || 0, depth));
 
-        // Determine this group's new baseline start based on previous group's baseline + ranksep
-        let newGroupCenterCoord: number;
-        if (i === 0) {
-            // Anchor first group near its original center to reduce drift
-            newGroupCenterCoord = g.key;
-            const baseline = isHorizontal
-                ? newGroupCenterCoord + g.maxExtent / 2
-                : newGroupCenterCoord + g.maxExtent / 2;
-            prevBaseline = baseline;
-        } else {
-            const newTopOrLeft = prevBaseline + dynamicRanksep; // dynamic gap between groups
-            newGroupCenterCoord = newTopOrLeft + g.maxExtent / 2;
-            prevBaseline = newTopOrLeft + g.maxExtent; // update baseline for next rank
-        }
-
-        // Assign new centers for nodes in this group
-        g.nodeIds.forEach((id) => {
-            const np: any = dagreGraph.node(id);
-            if (!np) return;
-            const dimsNode = nodes.find((n) => n.id === id)!;
-            const dims = getNodeDimensions(dimsNode, useActualDimensions);
-            const originalCenterOther = isHorizontal ? np.y : np.x; // keep cross-axis center
-            const xCenter = isHorizontal ? newGroupCenterCoord : originalCenterOther;
-            const yCenter = isHorizontal ? originalCenterOther : newGroupCenterCoord;
-            newCenterByNodeId.set(id, { x: xCenter, y: yCenter });
+        // Calculate depth for child nodes
+        edges.filter(e => e.source === nodeId).forEach(edge => {
+            calculateDepth(edge.target, depth + 1);
         });
     }
+
+    // Find root nodes (nodes without parents) and start depth calculation
+    nodes.forEach(node => {
+        const hasParent = edges.some(e => e.target === node.id);
+        if (!hasParent) {
+            calculateDepth(node.id, 0);
+        }
+    });
+
+    // Step 2: Calculate new positions based on parent-child relationships
+    const newCenterByNodeId = new Map<string, { x: number; y: number }>();
+    const nodePositions = new Map<string, number>(); // Store calculated positions
+
+    // Group nodes by depth
+    const depthGroups = new Map<number, string[]>();
+    nodeDepths.forEach((depth, nodeId) => {
+        const group = depthGroups.get(depth) || [];
+        group.push(nodeId);
+        depthGroups.set(depth, group);
+    });
+
+    // Process nodes depth by depth
+    const sortedDepths = Array.from(depthGroups.keys()).sort((a, b) => a - b);
+
+    sortedDepths.forEach(depth => {
+        const nodesAtDepth = depthGroups.get(depth) || [];
+
+        nodesAtDepth.forEach(nodeId => {
+            const np: any = dagreGraph.node(nodeId);
+            if (!np) return;
+
+            const node = nodes.find(n => n.id === nodeId)!;
+            const dims = getNodeDimensions(node, useActualDimensions);
+
+            if (depth === 0) {
+                // Root nodes keep their Dagre positions
+                newCenterByNodeId.set(nodeId, { x: np.x, y: np.y });
+                nodePositions.set(nodeId, isHorizontal ? np.x : np.y);
+            } else {
+                // Child nodes are positioned relative to their parents
+                const parentEdges = edges.filter(e => e.target === nodeId);
+
+                let newPosition: number;
+
+                if (parentEdges.length === 1) {
+                    // Single parent: position directly below/after parent
+                    const parentId = parentEdges[0].source;
+                    const parentNode = nodes.find(n => n.id === parentId)!;
+                    const parentDims = getNodeDimensions(parentNode, useActualDimensions);
+                    const parentPos = nodePositions.get(parentId) || 0;
+
+                    // Calculate position: parent edge + fixed gap + half of child size
+                    const parentEdge = parentPos + (isHorizontal ? parentDims.width : parentDims.height) / 2;
+                    newPosition = parentEdge + FIXED_EDGE_GAP + (isHorizontal ? dims.width : dims.height) / 2;
+
+                    // Debug removed in production
+                } else {
+                    // Multiple parents: position after the lowest/rightmost parent
+                    let maxParentEdge = -Infinity;
+
+                    parentEdges.forEach(edge => {
+                        const parentId = edge.source;
+                        const parentNode = nodes.find(n => n.id === parentId)!;
+                        const parentDims = getNodeDimensions(parentNode, useActualDimensions);
+                        const parentPos = nodePositions.get(parentId) || 0;
+                        const parentEdge = parentPos + (isHorizontal ? parentDims.width : parentDims.height) / 2;
+                        maxParentEdge = Math.max(maxParentEdge, parentEdge);
+                    });
+
+                    newPosition = maxParentEdge + FIXED_EDGE_GAP + (isHorizontal ? dims.width : dims.height) / 2;
+                }
+
+                // Store the new position
+                nodePositions.set(nodeId, newPosition);
+
+                // Set new center coordinates
+                if (isHorizontal) {
+                    newCenterByNodeId.set(nodeId, { x: newPosition, y: np.y });
+                } else {
+                    newCenterByNodeId.set(nodeId, { x: np.x, y: newPosition });
+                }
+            }
+        });
+    });
 
     // Update node positions based on normalized centers
     const layoutedNodes: Node[] = nodes.map((node) => {
@@ -365,6 +393,8 @@ export function applyDagreLayout(
             }
         };
     });
+
+    // Debug removed in production
 
     return {
         nodes: layoutedNodes,
