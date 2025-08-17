@@ -34,10 +34,14 @@ Worker 실행 시스템 관련 설계 문서
 - 플랫폼별 지원 전략
 
 ### 🖥️ **robota-saas-website/**
-Robota SaaS 웹사이트 관련 설계
+Robota SaaS 웹사이트 및 워크플로우 관련 통합 설계
 - 웹사이트 아키텍처
-- 기능 명세서
+- 기능 명세서  
 - UI/UX 설계
+- 워크플로우 스펙 및 오픈 태스크
+- Path-Only Fork/Join 규칙
+- 플레이그라운드 Tools DnD 설계
+- Agent 이벤트 정규화 체크리스트
 
 ### 📝 **planning/**
 전체적인 프로젝트 계획 문서
