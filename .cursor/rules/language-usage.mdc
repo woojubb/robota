@@ -1,0 +1,12 @@
+---
+alwaysApply: true
+---
+# Language Usage Policy
+
+- Code and comments: English only
+- Conversations with the user (chat responses): Korean only
+- Documents in `.design/`: Korean only
+- Documents in all other folders: English only
+
+Notes:
+- This rule applies across the workspace. Follow it for all new edits and reviews.
