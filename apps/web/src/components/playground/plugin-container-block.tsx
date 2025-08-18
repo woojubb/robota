@@ -20,10 +20,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -33,9 +31,6 @@ import {
     Settings,
     Activity,
     BarChart3,
-    Play,
-    Pause,
-    Edit3,
     Trash2,
     ChevronDown,
     ChevronRight,
@@ -43,13 +38,10 @@ import {
     CheckCircle,
     Info,
     Search,
-    Filter,
     TrendingUp,
     Clock,
     Database,
-    Globe,
-    Shield,
-    Zap
+    Shield
 } from 'lucide-react';
 import type { BasePlugin } from '@robota-sdk/agents';
 

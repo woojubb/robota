@@ -6,7 +6,7 @@
  * Integrates React-Flow to visualize workflow structures in the playground
  */
 
-import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ReactFlow,
     Node,

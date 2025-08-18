@@ -86,3 +86,30 @@ function process<T extends { id: string }>(data: T): ProcessResult<T>
 - Duplicate `Record<string, ...>` declarations
 - Blind type assertions without validation
 - Over-centralization of feature-specific types
+
+## 🔒 Immutable Strict Policy (Do not relax)
+
+- These standards are non-negotiable in production code and MUST NOT be weakened or bypassed.
+- Configuration files that enforce strict typing are protected; do not change their semantics without explicit approval.
+
+### Prohibited Types and Annotations
+
+- Explicit `any`, `unknown`, and `{}` types are prohibited in production code.
+- TypeScript ignore directives (`// @ts-ignore`, `// @ts-nocheck`) are prohibited.
+- Blind type assertions are prohibited unless justified under the approved exceptions policy.
+
+### Allowed Patterns (Reinforced)
+
+- Prefer specific interfaces, union types, branded types, constrained generics, and proper type guards.
+- Use composition over inheritance for complex type modeling.
+
+### Test Files Only (Limited Exception)
+
+- In `**/*.test.ts` and `**/*.spec.ts` files only, `any`/`unknown` may be used for mocks when necessary.
+- This exception MUST NOT leak into production modules.
+
+### Enforcement and CI
+
+- Builds must fail on type violations; do not add temporary shims to pass builds.
+- Linting is required in CI; do not disable rules to bypass errors.
+- All PRs must pass strict type checking with zero errors.

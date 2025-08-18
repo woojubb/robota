@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Script from 'next/script';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { GA_TRACKING_ID, initGA, trackPageView, setUserId, isGAEnabled } from '@/lib/analytics/google-analytics';
+import { GA_TRACKING_ID, trackPageView, setUserId, isGAEnabled } from '@/lib/analytics/google-analytics';
 import { initWebVitals, observePerformance } from '@/lib/analytics/web-vitals';
 import { useAuth } from '@/contexts/auth-context';
 
