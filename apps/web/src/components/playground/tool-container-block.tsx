@@ -21,28 +21,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
     Zap,
     Plus,
-    Minus,
-    Settings,
-    Code,
     Play,
-    Eye,
-    Edit3,
     Trash2,
     ChevronDown,
     ChevronRight,
     AlertCircle,
     CheckCircle,
     Info,
-    Search,
-    Filter
+    Search
 } from 'lucide-react';
 import type { BaseTool } from '@/lib/playground/robota-executor';
 

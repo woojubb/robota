@@ -5,18 +5,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import {
     GitBranch,
-    Layers,
     Activity,
-    ChevronDown,
-    ChevronUp,
-    RotateCcw,
-    Filter,
-    Search,
-    Eye,
-    EyeOff
+    RotateCcw
 } from 'lucide-react';
 import { RealTimeToolBlock } from './real-time-tool-block';
 import type {

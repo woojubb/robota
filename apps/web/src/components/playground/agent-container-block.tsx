@@ -22,7 +22,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
     Bot,
@@ -32,13 +31,10 @@ import {
     Edit3,
     Trash2,
     Play,
-    Pause,
     CheckCircle,
-    AlertCircle,
     Info,
     Crown,
     Shield,
-    Users,
     Zap,
     Puzzle,
     GripVertical

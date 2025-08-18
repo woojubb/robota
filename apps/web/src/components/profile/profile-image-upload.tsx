@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Camera, Upload, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { uploadProfileImage, validateImageFile, extractFileNameFromUrl, deleteProfileImage } from '@/lib/firebase/storage-service';

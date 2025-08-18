@@ -96,3 +96,29 @@ private handleAssignTaskAgentCreation(data: ServiceEventData): void {
 - **발생이 우선**: 적절한 이벤트 발생이 처리보다 중요
 - **정확한 정의**: Tool이 어떤 이벤트를 발생시키는지 명확히 정의
 - **처리는 별개**: 이벤트 처리 방식은 사용자 선택
+
+## 🧭 Event Emission Implementation (Single Source) — Anti-Patterns Removal
+
+### Single Authoritative Emission Points
+
+- Execution lifecycle events are emitted inside `ExecutionService.execute` (or its proxy wrapper), not from UI or agent methods.
+- Tool call events are emitted inside `ToolExecutionService.executeTool` and must also invoke `ToolHooks.onStart/onComplete/onError` when available.
+- `ExecutionProxy` may wrap `run/runStream` to emit `execution.*` consistently, but constructor-time method wrapping MUST NOT replace core service emissions.
+
+### Explicit Prohibitions
+
+- Do not emit events directly inside `Robota.run` or `TeamContainer.assignTask`.
+- Do not rely on constructor-time method replacement to inject emits.
+- Never hardcode event names; import constants from the owning module (see `event-constants-mandatory.mdc`).
+
+### Ownership and Prefix Validation
+
+- `execution.*` → Emitted by ExecutionService (or its proxy integration).
+- `tool.*` → Emitted by tool implementations or ToolExecutionService.
+- `agent.*` → Emitted by agent instances where appropriate.
+- `task.*` → Emitted by task management components.
+
+### Hook Invocation Requirement
+
+- When a tool executes, ensure `ToolHooks` are actually called in sequence: `onStart` → run → `onComplete` (or `onError`).
+- Hooks are an addition to, not a replacement for, event emissions.
