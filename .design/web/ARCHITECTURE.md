@@ -62,6 +62,17 @@ Robota SaaS 플랫폼은 **실시간 워크플로우 시각화**를 핵심으로
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### ✅ Playground / Workflow 레이어 분리(웹)
+- 목적: Playground 구현과 사용처 분리, 향후 라이브러리화 용이성 확보
+- 구조:
+  - `apps/web/src/playground`: Playground 기능 레이어(services/state/hooks/components)
+  - `apps/web/src/workflow`: Workflow 뷰/어댑터 레이어(components/core/utils)
+  - `apps/web/src/app/playground/page.tsx`: 분리된 `PlaygroundApp`만 import하여 렌더
+- 원칙:
+  - 정적 import만 허용(동적 import 금지)
+  - 이벤트명은 상수 사용(하드코딩 금지)
+  - Path-Only/소스-오브-트루스: 표시용 변환 외 순서/간선/타임스탬프 변경 금지
+
 ### **Robota SDK 통합 레이어**
 ```
 ┌─────────────────────────────────────────────────────────────┐

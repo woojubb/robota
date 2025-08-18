@@ -1,3 +1,9 @@
+import { PlaygroundApp } from '@/playground';
+
+export default function PlaygroundPage() {
+  return <PlaygroundApp />;
+}
+
 'use client';
 
 /**

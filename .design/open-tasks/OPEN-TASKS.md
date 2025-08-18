@@ -33,3 +33,14 @@
 - [ ] 연속 대화 샘플(예: 27) 시퀀스/연결 규칙 준수
 
 
+## G. Playground / Workflow 레이어 분리(웹)
+- [ ] `apps/web/src/playground/`와 `apps/web/src/workflow/` 베이스 폴더 생성
+- [ ] `playground/components/PlaygroundApp.tsx`, `workflow/components/WorkflowView.tsx` 추가
+- [ ] `playground/index.ts`, `workflow/index.ts`로 외부 공개 표면 정리
+- [ ] `src/lib/playground/*` → `playground/core|services|state|hooks|components`로 이전
+- [ ] `playground/services/WorkflowBridgeService.ts`, `PlaygroundEventService.ts` 도입
+- [ ] `workflow/core/adapters/SubscriberAdapter.ts`, `workflow/utils/converters.ts` 도입
+- [ ] `app/playground/page.tsx`에서 `PlaygroundApp`만 import하여 렌더
+- [ ] 마이그레이션 완료 후 `src/lib/playground/*` 경로 import 제거
+- [ ] 정적 import 강제, 이벤트 상수 사용(하드코딩 금지) 확인
+- [ ] converters/adapters에서 Path-Only/소스-오브-트루스 준수 재검증
