@@ -35,12 +35,34 @@
 
 ## G. Playground / Workflow 레이어 분리(웹)
 - [ ] `apps/web/src/playground/`와 `apps/web/src/workflow/` 베이스 폴더 생성
-- [ ] `playground/components/PlaygroundApp.tsx`, `workflow/components/WorkflowView.tsx` 추가
+- [x] `playground/components/PlaygroundApp.tsx`, `workflow/components/WorkflowView.tsx` 추가
 - [ ] `playground/index.ts`, `workflow/index.ts`로 외부 공개 표면 정리
-- [ ] `src/lib/playground/*` → `playground/core|services|state|hooks|components`로 이전
+- [x] `playground/services/index.ts`에서 기존 구현 re-export (점진 이전 준비)
+- [ ] `src/lib/playground/*` → `playground/core|services|state|hooks|components`로 코드 이전
 - [ ] `playground/services/WorkflowBridgeService.ts`, `PlaygroundEventService.ts` 도입
 - [ ] `workflow/core/adapters/SubscriberAdapter.ts`, `workflow/utils/converters.ts` 도입
-- [ ] `app/playground/page.tsx`에서 `PlaygroundApp`만 import하여 렌더
+- [x] `app/playground/page.tsx`에서 `PlaygroundApp`만 import하여 렌더
 - [ ] 마이그레이션 완료 후 `src/lib/playground/*` 경로 import 제거
 - [ ] 정적 import 강제, 이벤트 상수 사용(하드코딩 금지) 확인
 - [ ] converters/adapters에서 Path-Only/소스-오브-트루스 준수 재검증
+
+## H. Pricing 기능 제거 (무료 플랫폼 전환)
+- [ ] Phase 1: Pricing UI 컴포넌트 및 페이지 제거
+  - [ ] `/pricing` 라우트 및 관련 컴포넌트 삭제
+  - [ ] Header/Navigation에서 Pricing 링크 제거
+  - [ ] 모든 "Upgrade" 프롬프트 및 버튼 제거
+  - [ ] Dashboard에서 Plan 정보 섹션 제거
+- [ ] Phase 2: Billing 로직 및 API 엔드포인트 제거
+  - [ ] `/api/v1/billing/*`, `/api/v1/subscriptions/*` 엔드포인트 삭제
+  - [ ] `types/billing.ts` 및 관련 타입 제거
+  - [ ] `lib/billing/plans.ts`에서 paid plan 제거 (free만 유지)
+  - [ ] Firebase billing 컬렉션 사용 중단
+- [ ] Phase 3: 사용량 제한을 무료 크레딧 시스템으로 전환
+  - [ ] `UserCredit` 타입 단순화 및 월간 무료 할당량 시스템
+  - [ ] Plan 기반 → 크레딧 기반 제한 로직 변경
+  - [ ] Usage Dashboard에서 "Plan limits" → "Free usage limits" 변경
+  - [ ] 제한 도달 시 친화적 메시지 (업그레이드 언급 제거)
+- [ ] Phase 4: 설정 및 문서 업데이트
+  - [ ] Stripe 관련 환경 변수 제거
+  - [ ] API 문서에서 billing 엔드포인트 제거
+  - [ ] 사용하지 않는 billing 관련 타입 및 테스트 정리

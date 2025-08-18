@@ -2,8 +2,10 @@
 
 import React from 'react';
 import { WorkflowView } from '@/workflow';
+import { usePlayground } from '../hooks/usePlayground';
 
 export function PlaygroundApp(): JSX.Element {
+  const { ready } = usePlayground();
   return (
     <div className="w-full h-full min-h-[60vh] flex flex-col">
       <header className="px-4 py-2 border-b">
@@ -11,7 +13,9 @@ export function PlaygroundApp(): JSX.Element {
         <p className="text-sm text-muted-foreground">Interactive workflow visualization and controls</p>
       </header>
       <main className="flex-1 overflow-auto">
-        <WorkflowView />
+        {ready ? <WorkflowView /> : (
+          <div className="p-4 text-sm text-muted-foreground">Initializing playground...</div>
+        )}
       </main>
     </div>
   );
