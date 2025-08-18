@@ -365,3 +365,88 @@ class RobotaCodeGenerator {
 - **Seamless Integration**: UI 설정이 실제 Robota Instance에 즉시 반영
 
 **현재 Playground는 혁신적인 Block Coding 시각화를 통해 AI Agent 개발의 새로운 패러다임을 제시하고 있습니다.** 🚀✨ 
+
+---
+
+## 🧭 Playground 분리 설계 (apps/web 내부)
+
+### 목표
+- Playground 구현과 사용처(페이지)를 분리하여 재사용성과 유지보수성 향상
+- `Workflow` 래퍼(뷰/어댑터)를 별도 폴더로 분리하여 의존성 방향성을 명확히 함
+- Next.js 페이지는 분리된 컴포넌트를 import만 하도록 단순화
+
+### 폴더 구조 제안 (apps/web/src)
+```
+app/
+  playground/
+    page.tsx                 # 페이지 진입: 분리된 PlaygroundApp만 import해서 렌더
+
+playground/                  # Playground 기능(도메인 독립) 레이어
+  core/                      # 타입/상수/어댑터(플랫폼 독립)
+    types.ts
+    constants.ts
+    adapters/
+      WorkflowAdapter.ts     # @robota-sdk/workflow 래퍼 인터페이스 (UI-agnostic)
+  services/                  # 이벤트/브릿지/ATS 연동
+    PlaygroundEventService.ts
+    WorkflowBridgeService.ts # BridgeEventService/ATS 브릿지 책임
+  state/                     # 상태관리(zustand/context)
+    store.ts
+    selectors.ts
+  hooks/                     # UI 훅(서비스/상태 조합)
+    usePlayground.ts
+    useWorkflowSync.ts
+  components/                # 프리젠테이션 컴포넌트
+    PlaygroundApp.tsx        # 최상위 컴포넌트 (페이지에서 import)
+    Canvas.tsx
+    Sidebar.tsx
+    Toolbar.tsx
+    Panels/
+      AgentsPanel.tsx
+      ToolsPanel.tsx
+      LogsPanel.tsx
+  index.ts                   # 외부 공개 표면(PlaygroundApp 등 export)
+
+workflow/                    # Workflow 뷰 & 래퍼(Playground와 분리)
+  core/
+    types.ts                 # 뷰에서 쓰는 워크플로우 표시용 타입
+    adapters/
+      SubscriberAdapter.ts   # WorkflowEventSubscriber ⟷ UI 뷰 데이터 변환 래퍼
+  components/
+    WorkflowView.tsx         # 그래프/플로우 캔버스 뷰
+    NodeRenderers/
+    EdgeRenderers/
+  utils/
+    converters.ts            # UniversalWorkflow ↔ 뷰 모델 변환 (소스-오브-트루스 불변)
+  index.ts                   # 외부 공개 표면(WorkflowView 등 export)
+```
+
+### 마이그레이션 단계
+1) 디렉터리 생성 및 진입점 분리
+- `src/playground/`에 `components/PlaygroundApp.tsx` 추가, `src/workflow/`에 `components/WorkflowView.tsx` 추가
+- 각 폴더 `index.ts`에서 필요한 컴포넌트/타입 export
+
+2) 기존 Playground 코드 이동 (점진)
+- `src/lib/playground/*` → 역할별로 `playground/core|services|state|hooks|components`로 이전
+- 임시 호환: 필요한 경우 `lib/playground/index.ts`에서 신규 경로 re-export 후 점진 제거
+
+3) Workflow 뷰/래퍼 분리
+- Subscriber 직접 사용, Universal 변환, 노드/엣지 렌더링 등 뷰 관련 코드는 전부 `src/workflow/`로 이동
+- `SubscriberAdapter.ts`에서 subscriber 이벤트를 UI 친화적 모델로 변환
+
+4) Next.js 페이지 연결
+```tsx
+// apps/web/src/app/playground/page.tsx
+import { PlaygroundApp } from '@/playground';
+export default function PlaygroundPage() { return <PlaygroundApp />; }
+```
+
+### 레이어 원칙
+- 의존성 방향: playground → workflow(뷰) 사용은 가능, 뷰는 playground 서비스 구현에 의존 금지(단방향)
+- 정적 import만 허용(동적 import 금지), 이벤트명은 상수 사용(하드코딩 금지)
+- Path-Only / 소스-오브-트루스: 변환은 뷰 모델만 만들고 원본 순서/타임스탬프/간선은 변경 금지
+
+### 성공 기준
+- `app/playground/page.tsx`는 `PlaygroundApp`만 import
+- Playground 구현(services/state/hooks)과 Workflow 뷰(components) 분리 완료
+- 기존 `lib/playground` 참조 제거, 신규 레이어로 대체
