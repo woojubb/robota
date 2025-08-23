@@ -874,10 +874,15 @@ const ToolCallNode = ({ data }: { data: any }) => {
 const ToolCallResponseNode = ({ data }: { data: any }) => {
     // Extract tool response data from multiple possible paths
     const toolName = data.toolName || data.parameters?.toolName || 'Tool';
-    const toolResult = data.result?.data ||
+    const rawToolResult = data.result?.data ||
         data.parameters?.result?.data ||
         data.toolResult ||
         'No result';
+
+    // Convert object to string if necessary
+    const toolResult = typeof rawToolResult === 'string'
+        ? rawToolResult
+        : JSON.stringify(rawToolResult, null, 2);
 
     const success = data.result?.success ||
         data.parameters?.result?.success ||
@@ -923,11 +928,16 @@ const ToolCallResponseNode = ({ data }: { data: any }) => {
  */
 const ToolResponseNode = ({ data }: { data: any }) => {
     // Extract tool response from multiple possible paths
-    const toolResponse = data.parameters?.result?.data ||
+    const rawToolResponse = data.parameters?.result?.data ||
         data.result?.data ||
         data.response?.data ||
         data.content ||
         'No response';
+
+    // Convert object to string if necessary for safe rendering
+    const toolResponse = typeof rawToolResponse === 'string'
+        ? rawToolResponse
+        : JSON.stringify(rawToolResponse, null, 2);
 
     const toolName = data.toolName || data.parameters?.toolName || '';
 
@@ -1286,10 +1296,16 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
 
         case 'tool_call_response':
             const toolName = data.toolName || data.parameters?.toolName || 'Tool';
-            const toolResult = data.result?.data ||
+            const rawToolResult = data.result?.data ||
                 data.parameters?.result?.data ||
                 data.toolResult ||
                 'No result available';
+
+            // Convert object to string if necessary
+            const toolResult = typeof rawToolResult === 'string'
+                ? rawToolResult
+                : JSON.stringify(rawToolResult, null, 2);
+
             const toolSuccess = data.result?.success ||
                 data.parameters?.result?.success ||
                 data.success !== false;
@@ -1312,7 +1328,9 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
 
                         {/* Tool result */}
                         <div className="text-sm text-gray-800 bg-purple-50 p-3 rounded max-h-64 overflow-y-auto">
-                            {toolResult}
+                            <pre className="whitespace-pre-wrap font-mono text-xs">
+                                {toolResult}
+                            </pre>
                         </div>
 
                         {/* Additional metrics if available */}
@@ -1329,11 +1347,17 @@ const renderNodeContent = (node: Node): React.ReactElement | null => {
             );
 
         case 'tool_response':
-            const toolResponseData = data.parameters?.result?.data ||
+            const rawToolResponseData = data.parameters?.result?.data ||
                 data.result?.data ||
                 data.response?.data ||
                 data.content ||
                 'No response available';
+
+            // Convert object to string if necessary for safe rendering
+            const toolResponseData = typeof rawToolResponseData === 'string'
+                ? rawToolResponseData
+                : JSON.stringify(rawToolResponseData, null, 2);
+
             return (
                 <div className="space-y-3">
                     <div className="border-l-4 border-green-500 pl-3">
