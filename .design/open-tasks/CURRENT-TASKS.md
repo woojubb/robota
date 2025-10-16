@@ -84,16 +84,183 @@ npx tsx utils/verify-workflow-connections.ts | cat
   - [ ] Path-Only 원칙에 맞게 단순화
 
 ### A-3. 이벤트 소유권 정비
-- [ ] `execution.*` 이벤트의 단일 소유권을 `ExecutionService`로 고정
-- [ ] 타 모듈 emit 금지 확인 (전역 검사)
-- [ ] ESLint 룰 추가: "ExecutionService 외 `execution.*` emit 금지"
+**목표**: 이벤트 접두어를 원천적으로 보호하여 잘못된 소유권 사용 방지
 
-### A-4. EventService Prefix Injection (도입 제안)
-- [ ] EventService 생성자/clone API에 `ownerPrefix` 옵션 추가
-- [ ] 상위 컨테이너 → 하위 객체 생성 시 `clone({ ownerPrefix })` 체인
-- [ ] 검증 에러 메시지 표준화
+#### 현재 문제점
+```typescript
+// ❌ 현재: 어디서든 execution.* 이벤트를 발생시킬 수 있음
+someService.emit('execution.start', data);  // 잘못된 소유권
+toolService.emit('execution.complete', data);  // 잘못된 소유권
+```
 
-### A-5. Continued Conversation Path-Only
+#### 해결 방안: Prefix Injection via Clone Pattern
+**주입(Injection) 패턴 기반**: EventService를 외부에서 주입받고, clone 시 `ownerPrefix` 추가
+
+```typescript
+// 1️⃣ Robota Agent 생성 - 외부에서 EventService 주입
+const agent = new Robota({
+  name: 'MyAgent',
+  eventService: workflowEventSubscriber,  // 외부에서 생성된 EventService 주입
+  // ...
+});
+
+// 2️⃣ ExecutionService - 주입받은 EventService를 clone하면서 ownerPrefix 추가
+class ExecutionService {
+  constructor(
+    aiProviders: AIProviderManagerInterface,
+    tools: ToolManagerInterface,
+    conversationHistory: ConversationHistory,
+    eventService?: EventService,  // ✅ 외부에서 주입받음
+    executionContext?: ToolExecutionContext
+  ) {
+    this.baseEventService = eventService || new SilentEventService();
+    
+    // 🎯 핵심: clone 시 ownerPrefix 주입
+    const maybeClone = (svc: EventService, ownerPrefix: 'execution' | 'tool'): EventService => {
+      const svcAny = svc as any;
+      if (svcAny && typeof svcAny.clone === 'function') {
+        // clone 메서드가 있으면 ownerPrefix와 함께 clone
+        return svcAny.clone({ ownerPrefix, executionContext });
+      }
+      // 없으면 ActionTrackingEventService로 감싸서 ownerPrefix 주입
+      return new ActionTrackingEventService(svc, undefined, executionContext, { ownerPrefix });
+    };
+    
+    // execution.* 전용 EventService
+    this.execEventService = maybeClone(this.baseEventService, 'execution');
+    // tool.* 전용 EventService  
+    this.toolEventService = maybeClone(this.baseEventService, 'tool');
+  }
+  
+  async execute() {
+    // 접두어 없이 나머지 부분만 사용
+    this.execEventService.emit('start', data);      // 내부적으로 'execution.start'로 변환
+    this.execEventService.emit('complete', data);   // 내부적으로 'execution.complete'로 변환
+  }
+}
+
+// 3️⃣ Tool 구현체 - 동일 패턴 적용
+class MyTool extends BaseTool {
+  constructor(eventService?: EventService) {
+    const toolEventService = eventService 
+      ? eventService.clone?.({ ownerPrefix: 'tool' }) || eventService
+      : new SilentEventService();
+    
+    this.eventService = toolEventService;
+  }
+  
+  async execute() {
+    // 접두어 없이 나머지 부분만 사용
+    this.eventService.emit('call_start', data);     // 내부적으로 'tool.call_start'로 변환
+    this.eventService.emit('call_complete', data);  // 내부적으로 'tool.call_complete'로 변환
+  }
+}
+```
+
+#### ActionTrackingEventService 내부 구현 (이미 완료)
+```typescript
+// packages/agents/src/services/event-service.ts
+export class ActionTrackingEventService implements EventService {
+  private readonly ownerPrefix?: string;
+  private readonly strictPrefix: boolean;
+
+  constructor(
+    baseEventService?: EventService, 
+    logger?: SimpleLogger, 
+    executionContext?: ToolExecutionContext, 
+    options?: { ownerPrefix?: string; strictPrefix?: boolean }
+  ) {
+    this.baseEventService = baseEventService || new SilentEventService();
+    this.ownerPrefix = options?.ownerPrefix;
+    this.strictPrefix = options?.strictPrefix ?? true;
+  }
+
+  emit(eventType: string, data: any): void {
+    let fullEventType = eventType;
+    
+    // 🎯 접두어 자동 추가
+    if (this.ownerPrefix && !eventType.includes('.')) {
+      fullEventType = `${this.ownerPrefix}.${eventType}`;
+    }
+    
+    // 🎯 접두어 검증 (다른 접두어 사용 시 에러)
+    if (this.ownerPrefix && this.strictPrefix && eventType.includes('.')) {
+      const [prefix] = eventType.split('.');
+      if (prefix !== this.ownerPrefix) {
+        throw new Error(
+          `[EVENT-PREFIX-VIOLATION] Cannot emit '${eventType}'. ` +
+          `This EventService owns '${this.ownerPrefix}.*' events only.`
+        );
+      }
+    }
+    
+    // 실제 이벤트 발생
+    this.baseEventService.emit(fullEventType, data);
+  }
+  
+  // clone 메서드 지원
+  clone(options?: { ownerPrefix?: string; executionContext?: ToolExecutionContext }): EventService {
+    return new ActionTrackingEventService(
+      this.baseEventService,
+      this.logger,
+      options?.executionContext || this.executionContext,
+      { 
+        ownerPrefix: options?.ownerPrefix || this.ownerPrefix,
+        strictPrefix: this.strictPrefix
+      }
+    );
+  }
+}
+```
+
+#### 주요 흐름
+```
+1. 최상위: WorkflowEventSubscriber (모든 이벤트 수신)
+           ↓ (주입)
+2. Robota: eventService로 받음
+           ↓ (주입)
+3. ExecutionService: 받은 eventService를 clone
+   - execEventService = clone({ ownerPrefix: 'execution' })
+   - toolEventService = clone({ ownerPrefix: 'tool' })
+           ↓
+4. 각 서비스에서 emit 시:
+   - this.execEventService.emit('start', data) → 'execution.start'
+   - this.toolEventService.emit('call_start', data) → 'tool.call_start'
+```
+
+#### 장점
+1. **원천 차단**: clone 시점에 접두어가 고정되어 변경 불가
+2. **주입 패턴 유지**: 기존 DI 구조를 해치지 않음
+3. **간결한 코드**: emit 시 `start` 대신 `execution.start` 반복 불필요
+4. **명확한 소유권**: 각 서비스가 자신의 접두어만 사용
+5. **Workflow 추적 호환**: WorkflowEventSubscriber가 모든 이벤트 수신 가능
+
+#### 구현 체크리스트
+- [x] `ActionTrackingEventService`에 `ownerPrefix` 옵션 추가 (이미 완료)
+- [x] `emit()` 메서드에서 접두어 자동 추가 로직 구현 (이미 완료)
+- [x] 잘못된 접두어 사용 시 에러 throw (이미 완료)
+- [x] `ExecutionService`에 `maybeClone` 패턴 적용 (이미 완료)
+- [ ] `Agent` (Robota)에서 자체 이벤트 발생 시 `ownerPrefix: 'agent'` 적용
+- [ ] `Tool` 기본 클래스에 `ownerPrefix: 'tool'` 패턴 적용
+- [ ] 기존 emit 호출부 수정 (접두어 제거)
+  ```typescript
+  // Before
+  this.execEventService.emit('execution.start', data);
+  
+  // After  
+  this.execEventService.emit('start', data);  // 'execution.' 자동 추가
+  ```
+- [ ] 타 모듈의 `execution.*` emit 전역 검사 및 제거
+- [ ] ESLint 룰 추가: "하드코딩된 접두어 사용 금지"
+- [ ] 단위 테스트 작성 (접두어 검증, 에러 케이스)
+- [ ] 통합 테스트: 예제 26 가드 실행 및 검증
+
+#### 참고 코드 위치
+- `packages/agents/src/services/execution-service.ts` (line 142-154): maybeClone 구현
+- `packages/agents/src/services/event-service.ts` (line 283-299): ActionTrackingEventService 생성자
+- `packages/agents/src/agents/robota.ts` (line 514-520): EventService 주입
+
+### A-4. Continued Conversation Path-Only
 - [ ] ExecutionService(user_message) path = [rootId, executionId] 보장
 - [ ] `response(last) → user_message(continues) → thinking(processes)` 시퀀스
 - [ ] 예제 27 재검증
