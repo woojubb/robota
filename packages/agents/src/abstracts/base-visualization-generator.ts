@@ -12,8 +12,8 @@
  * - Type safety: Constraint-based generics with proper validation
  */
 
-import type { SimpleLogger } from '../utils/simple-logger';
-import { SilentLogger } from '../utils/simple-logger';
+import type { AbstractLogger } from '../utils/abstract-logger';
+import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
 import type { 
     UniversalWorkflowStructure, 
     UniversalWorkflowNode, 
@@ -32,7 +32,7 @@ export interface BaseVisualizationConfig {
     platformConfig?: UniversalPlatformConfig;
     
     /** Logger instance for debugging */
-    logger?: SimpleLogger;
+    logger?: AbstractLogger;
     
     /** Additional metadata for the visualization */
     // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, runtime-dynamic
@@ -90,11 +90,11 @@ export abstract class BaseVisualizationGenerator<
     TOutput = string
 > {
     protected readonly config: TConfig;
-    protected readonly logger: SimpleLogger;
+    protected readonly logger: AbstractLogger;
 
     constructor(config: TConfig) {
         this.config = config;
-        this.logger = config.logger || SilentLogger;
+        this.logger = config.logger || DEFAULT_ABSTRACT_LOGGER;
         
         // Validate configuration during construction
         this.validateConfiguration(config);

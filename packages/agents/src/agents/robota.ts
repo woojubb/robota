@@ -13,10 +13,10 @@ import { AGENT_EVENTS } from './constants';
 import { EventService, SilentEventService, ActionTrackingEventService } from '../services/event-service';
 
 
-import { BaseTool } from '../abstracts/base-tool';
+import { AbstractTool } from '../abstracts/abstract-tool';
 import { Logger, createLogger, setGlobalLogLevel } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
-import type { BaseToolParameters } from '../abstracts/base-tool';
+import type { AbstractToolParameters } from '../abstracts/abstract-tool';
 import type { ToolExecutionData, ToolParameters, ToolExecutionContext } from '../interfaces/tool';
 import type { ModuleResultData, ModuleExecutionContext } from '../abstracts/base-module';
 
@@ -273,11 +273,11 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
      * Update tools for this agent instance.
      * Rebuilds the Tools registry atomically and emits CONFIG_UPDATED event.
      */
-    public async updateTools(next: BaseTool[]): Promise<{ version: number }> {
+    public async updateTools(next: AbstractTool[]): Promise<{ version: number }> {
         await this.ensureFullyInitialized();
 
         if (!Array.isArray(next)) {
-            throw new ConfigurationError('updateTools: next must be an array of BaseTool');
+            throw new ConfigurationError('updateTools: next must be an array of AbstractTool');
         }
 
         // Rebuild tool registry atomically
@@ -286,15 +286,15 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
 
         const toolNames: string[] = [];
         for (const tool of next) {
-            if (!(tool instanceof BaseTool)) {
-                throw new ConfigurationError('updateTools: all items must be BaseTool instances');
+            if (!(tool instanceof AbstractTool)) {
+                throw new ConfigurationError('updateTools: all items must be AbstractTool instances');
             }
-            // Inject EventService into BaseTool if available
+            // Inject EventService into AbstractTool if available
             if (this.eventService) {
                 tool.setEventService(this.eventService);
             }
             // Adapter executor consistent with initialization
-            const toolExecutor = async (parameters: BaseToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
+            const toolExecutor = async (parameters: AbstractToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
                 const finalContext: ToolExecutionContext = context || {
                     executionId: `tool-exec-${Date.now()}`,
                     sourceId: this.conversationId,
@@ -482,14 +482,14 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
             // Register tools
             if (this.config.tools) {
                 for (const tool of this.config.tools) {
-                    // Inject EventService into BaseTool if available
-                    if (tool instanceof BaseTool && this.eventService) {
+                    // Inject EventService into AbstractTool if available
+                    if (tool instanceof AbstractTool && this.eventService) {
                         tool.setEventService(this.eventService);
                     }
 
-                    // Convert BaseTool to ToolSchema and executor
+                    // Convert AbstractTool to ToolSchema and executor
                     // Create an adapter to convert ToolResult to ToolExecutionData
-                    const toolExecutor = async (parameters: BaseToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
+                    const toolExecutor = async (parameters: AbstractToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
                         // 🎯 FIXED: Ensure context is always a valid ToolExecutionContext
                         const finalContext: ToolExecutionContext = context || {
                             executionId: `tool-exec-${Date.now()}`,
@@ -1253,9 +1253,9 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
      * 
      * @example
      * ```typescript
-     * import { BaseTool } from '@robota-sdk/agents';
+     * import { AbstractTool } from '@robota-sdk/agents';
      * 
-     * class WeatherTool extends BaseTool {
+     * class WeatherTool extends AbstractTool {
      *   name = 'get_weather';
      *   description = 'Get current weather for a location';
      *   
@@ -1282,7 +1282,7 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
      * robota.registerTool(new WeatherTool());
      * ```
      */
-    registerTool(tool: BaseTool): void {
+    registerTool(tool: AbstractTool): void {
         // Check if tool is already registered to prevent duplicates
         if (this.tools.hasTool(tool.schema.name)) {
             this.logger.warn('Tool already registered, skipping', { toolName: tool.schema.name });
@@ -1290,7 +1290,7 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
         }
 
         // Create an adapter to convert ToolResult to ToolExecutionData
-        const toolExecutor = async (parameters: BaseToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
+        const toolExecutor = async (parameters: AbstractToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
             // 🎯 FIXED: Ensure context is always a valid ToolExecutionContext
             const finalContext: ToolExecutionContext = context || {
                 executionId: `tool-exec-${Date.now()}`,

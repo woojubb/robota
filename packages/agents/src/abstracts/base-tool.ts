@@ -3,6 +3,7 @@ import type { ToolSchema } from '../interfaces/provider';
 import type { SimpleLogger } from '../utils/simple-logger';
 import { SilentLogger } from '../utils/simple-logger';
 import type { EventService } from '../services/event-service';
+import { ActionTrackingEventService, SilentEventService } from '../services/event-service';
 // EventServiceHookFactory removed - simplified architecture
 
 // ToolHooks interface removed - simplified architecture using EventService directly
@@ -113,16 +114,45 @@ export abstract class BaseTool<TParameters = BaseToolParameters, TResult = ToolR
      * @param options - Configuration options for the tool
      */
     constructor(options: BaseToolOptions = {}) {
-        this.eventService = options.eventService;
+        // 🎯 [PREFIX-INJECTION] Apply ownerPrefix='tool' pattern
+        // Clone eventService with ownerPrefix if clone method exists
+        // Otherwise wrap with ActionTrackingEventService to enforce 'tool.*' prefix
+        if (options.eventService) {
+            const svcAny = options.eventService as any;
+            if (svcAny && typeof svcAny.clone === 'function') {
+                this.eventService = svcAny.clone({ ownerPrefix: 'tool' });
+            } else {
+                this.eventService = new ActionTrackingEventService(
+                    options.eventService,
+                    undefined,
+                    undefined,
+                    { ownerPrefix: 'tool' }
+                );
+            }
+        } else {
+            this.eventService = undefined;
+        }
         this.logger = options.logger || SilentLogger;
     }
 
     /**
      * Set EventService for post-construction injection
+     * 🎯 [PREFIX-INJECTION] Automatically applies ownerPrefix='tool'
      * @param eventService - EventService instance to use for event emission
      */
     setEventService(eventService: EventService): void {
-        this.eventService = eventService;
+        // Apply ownerPrefix='tool' pattern (same as constructor)
+        const svcAny = eventService as any;
+        if (svcAny && typeof svcAny.clone === 'function') {
+            this.eventService = svcAny.clone({ ownerPrefix: 'tool' });
+        } else {
+            this.eventService = new ActionTrackingEventService(
+                eventService,
+                undefined,
+                undefined,
+                { ownerPrefix: 'tool' }
+            );
+        }
     }
 
     /**

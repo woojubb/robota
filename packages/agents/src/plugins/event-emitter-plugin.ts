@@ -6,13 +6,12 @@ import type { TimerId } from '../utils';
 
 /**
  * Local event constants to avoid hardcoded strings in emit calls
+ * EventEmitterPlugin is a separate event system with full event names
  */
-import { AGENT_EVENTS } from '../agents/constants';
-
 const AGENT_EXEC_EVENTS = {
-    START: AGENT_EVENTS.EXECUTION_START,
-    COMPLETE: AGENT_EVENTS.EXECUTION_COMPLETE,
-    ERROR: AGENT_EVENTS.EXECUTION_ERROR
+    START: 'agent.execution_start',
+    COMPLETE: 'agent.execution_complete',
+    ERROR: 'agent.execution_error'
 } as const;
 
 const CONV_EVENTS = {

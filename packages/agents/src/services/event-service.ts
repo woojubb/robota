@@ -300,24 +300,23 @@ export class ActionTrackingEventService implements EventService {
 
     /**
      * Standard emit method - forwards to base service with enriched hierarchy data
+     * 
+     * 🎯 [PREFIX-INJECTION] Automatic prefix injection:
+     * - If ownerPrefix is set, ALWAYS prepends the prefix to eventType
+     * - Event constants should be defined WITHOUT prefix (e.g., 'created', not 'agent.created')
+     * - This ensures strict ownership and prevents prefix errors
      */
     emit(eventType: ServiceEventType, data: ServiceEventData): void {
-        // 🎯 [PREFIX-OWNERSHIP] Validate event name against ownerPrefix when provided
+        let fullEventType = eventType;
+        
+        // 🎯 [PREFIX-OWNERSHIP] Always prepend prefix when ownerPrefix is set
         if (this.ownerPrefix) {
-            const expected = `${this.ownerPrefix}.`;
-            if (!String(eventType).startsWith(expected)) {
-                const message = `[EVENT-PREFIX-VALIDATION] Expected prefix '${expected}' but received '${String(eventType)}' (owner=${this.ownerPrefix})`;
-                if (this.strictPrefix) {
-                    throw new Error(message);
-                } else {
-                    this.logger.warn(message);
-                }
-            }
+            fullEventType = `${this.ownerPrefix}.${eventType}`;
         }
 
         // 🎯 [DOMAIN-NEUTRAL] EventService는 도메인 독립적 - 단순히 hierarchy context 전달만 수행
         const enrichedData = this.enrichWithHierarchy(data);
-        this.baseEventService.emit(eventType, enrichedData);
+        this.baseEventService.emit(fullEventType, enrichedData);
     }
 
     /**

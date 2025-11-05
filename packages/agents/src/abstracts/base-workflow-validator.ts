@@ -15,7 +15,8 @@ import {
     ValidationSeverity
 } from '../interfaces/workflow-validator';
 import type { WorkflowData, WorkflowConfig } from '../interfaces/workflow-converter';
-import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
+import type { AbstractLogger } from '../utils/abstract-logger';
+import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
 
 /**
  * Base validator options following BaseModule pattern
@@ -25,7 +26,7 @@ export interface BaseWorkflowValidatorOptions {
     enabled?: boolean;
 
     /** Custom logger instance */
-    logger?: SimpleLogger;
+    logger?: AbstractLogger;
 
     /** Validator-specific configuration */
     config?: WorkflowConfig;
@@ -84,7 +85,7 @@ export abstract class BaseWorkflowValidator<TWorkflowData extends WorkflowData>
     public enabled: boolean;
 
     /** Logger instance with dependency injection */
-    protected readonly logger: SimpleLogger;
+    protected readonly logger: AbstractLogger;
 
     /** Validator configuration */
     protected readonly config: WorkflowConfig;
@@ -113,7 +114,7 @@ export abstract class BaseWorkflowValidator<TWorkflowData extends WorkflowData>
      */
     constructor(options: BaseWorkflowValidatorOptions = {}) {
         this.enabled = options.enabled ?? true;
-        this.logger = options.logger || SilentLogger;
+        this.logger = options.logger || DEFAULT_ABSTRACT_LOGGER;
         this.config = options.config || {};
         this.defaultOptions = options.defaultOptions || {};
 

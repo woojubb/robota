@@ -170,6 +170,8 @@ export {
     StderrLogger
 } from './utils/simple-logger';
 
+export { AbstractLogger } from './utils/abstract-logger';
+
 // ===== PLUGIN SYSTEM EXPORTS =====
 /**
  * Core plugins providing essential functionality through lifecycle hooks.
