@@ -1,6 +1,6 @@
 import type { ToolInterface, ToolResult, ToolExecutionContext, ToolParameters } from '../../interfaces/tool';
 import type { ToolSchema } from '../../interfaces/provider';
-import { BaseTool, type BaseToolOptions } from '../../abstracts/base-tool';
+import { AbstractTool, type AbstractToolOptions } from '../../abstracts/abstract-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
 import { logger as _logger } from '../../utils/logger';
 
@@ -70,14 +70,14 @@ interface MCPExecutionResult {
  * MCP (Model Context Protocol) tool implementation
  * Executes tools via the Model Context Protocol
  * 
- * @extends BaseTool<ToolParameters, ToolResult>
+ * @extends AbstractTool<ToolParameters, ToolResult>
  */
-export class MCPTool extends BaseTool<ToolParameters, ToolResult> implements ToolInterface {
+export class MCPTool extends AbstractTool<ToolParameters, ToolResult> implements ToolInterface {
     readonly schema: ToolSchema;
     private readonly mcpConfig: MCPConfig;
     private connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error' = 'disconnected';
 
-    constructor(config: MCPConfig, schema: ToolSchema, options: BaseToolOptions = {}) {
+    constructor(config: MCPConfig, schema: ToolSchema, options: AbstractToolOptions = {}) {
         super(options);
         this.mcpConfig = {
             timeout: 30000,

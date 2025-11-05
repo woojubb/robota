@@ -1,24 +1,33 @@
-/**
- * Simple logger interface compatible with console object
- * Used for browser compatibility and special environments
- */
-export interface SimpleLogger {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    debug(...args: any[]): void;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    info(...args: any[]): void;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    warn(...args: any[]): void;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    error(...args: any[]): void;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    log(...args: any[]): void;
-    group?(label?: string): void;
-    groupEnd?(): void;
-}
+import type { AbstractLogger } from './abstract-logger';
 
 /**
- * Silent logger that does nothing (default implementation)
+ * Simple logger type - convenience alias for AbstractLogger
+ * 
+ * This is a type alias that extends AbstractLogger for backward compatibility
+ * and convenience. It provides the same interface as AbstractLogger.
+ * 
+ * TYPE HIERARCHY:
+ * AbstractLogger (interface) ← Base type
+ *     ↓
+ * SimpleLogger (alias) ← This type
+ *     ↓
+ * SilentLogger, ConsoleLogger (implementations)
+ */
+export type SimpleLogger = AbstractLogger;
+
+/**
+ * Silent logger that does nothing (concrete implementation)
+ * 
+ * This is the default Null Object Pattern implementation.
+ * Use this in concrete classes when no specific logger is provided.
+ * 
+ * @example
+ * ```typescript
+ * // ✅ CORRECT: Use in concrete classes
+ * class MyService {
+ *   constructor(private logger: SimpleLogger = SilentLogger) {}
+ * }
+ * ```
  */
 export const SilentLogger: SimpleLogger = {
     debug: () => { },

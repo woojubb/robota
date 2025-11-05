@@ -16,7 +16,8 @@ import type {
     UniversalWorkflowEdge,
     UniversalLayoutConfig
 } from '../services/workflow-converter/universal-types';
-import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
+import type { AbstractLogger } from '../utils/abstract-logger';
+import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
 
 /**
  * Base layout engine options following BaseModule pattern
@@ -26,7 +27,7 @@ export interface BaseLayoutEngineOptions {
     enabled?: boolean;
 
     /** Custom logger instance */
-    logger?: SimpleLogger;
+    logger?: AbstractLogger;
 
     /** Engine-specific configuration */
     config?: WorkflowConfig;
@@ -67,7 +68,7 @@ export abstract class BaseLayoutEngine implements LayoutEngineInterface {
     public enabled: boolean;
 
     /** Logger instance with dependency injection */
-    protected readonly logger: SimpleLogger;
+    protected readonly logger: AbstractLogger;
 
     /** Engine configuration */
     protected readonly config: WorkflowConfig;
@@ -88,7 +89,7 @@ export abstract class BaseLayoutEngine implements LayoutEngineInterface {
      */
     constructor(options: BaseLayoutEngineOptions = {}) {
         this.enabled = options.enabled ?? true;
-        this.logger = options.logger || SilentLogger;
+        this.logger = options.logger || DEFAULT_ABSTRACT_LOGGER;
         this.config = options.config || {};
 
         this.logger.debug(`${this.constructor.name} initialized`, {
@@ -420,7 +421,7 @@ export abstract class BaseLayoutEngine implements LayoutEngineInterface {
         originalNodes: UniversalWorkflowNode[],
         edges: UniversalWorkflowEdge[],
         config: UniversalLayoutConfig,
-        _logger: SimpleLogger
+        _logger: AbstractLogger
     ): LayoutCalculationResult {
         const now = new Date();
         const processingTime = now.getTime() - startTime;
@@ -453,7 +454,7 @@ export abstract class BaseLayoutEngine implements LayoutEngineInterface {
         startTime: number,
         nodes: UniversalWorkflowNode[],
         edges: UniversalWorkflowEdge[],
-        _logger: SimpleLogger
+        _logger: AbstractLogger
     ): LayoutCalculationResult {
         const now = new Date();
         const processingTime = now.getTime() - startTime;

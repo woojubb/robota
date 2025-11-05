@@ -1,6 +1,6 @@
 import type { FunctionTool as IFunctionTool, ToolResult, ToolExecutionContext, ParameterValidationResult, ToolExecutor, ToolExecutionData, ToolParameters, ToolParameterValue } from '../../interfaces/tool';
 import type { ToolSchema, ParameterSchema } from '../../interfaces/provider';
-import { BaseTool, type BaseToolOptions } from '../../abstracts/base-tool';
+import { AbstractTool, type AbstractToolOptions } from '../../abstracts/abstract-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
 
 // Import from Facade pattern modules for type safety
@@ -13,13 +13,13 @@ import { zodToJsonSchema } from './function-tool/schema-converter';
  * Function tool implementation
  * Wraps a JavaScript function as a tool with schema validation
  * 
- * @extends BaseTool<ToolParameters, ToolResult>
+ * @extends AbstractTool<ToolParameters, ToolResult>
  */
-export class FunctionTool extends BaseTool<ToolParameters, ToolResult> implements IFunctionTool {
+export class FunctionTool extends AbstractTool<ToolParameters, ToolResult> implements IFunctionTool {
     readonly schema: ToolSchema;
     readonly fn: ToolExecutor;
 
-    constructor(schema: ToolSchema, fn: ToolExecutor, options: BaseToolOptions = {}) {
+    constructor(schema: ToolSchema, fn: ToolExecutor, options: AbstractToolOptions = {}) {
         super(options);
         this.schema = schema;
         this.fn = fn;
@@ -252,7 +252,7 @@ export function createZodFunctionTool(
     description: string,
     zodSchema: ZodSchema,
     fn: ToolExecutor,
-    options?: BaseToolOptions
+    options?: AbstractToolOptions
 ): FunctionTool {
     // Use comprehensive Zod to JSON schema conversion
     const parameters = zodToJsonSchema(zodSchema);

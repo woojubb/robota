@@ -1,7 +1,7 @@
 import type { ToolInterface, ToolResult, ToolExecutionContext, OpenAPIToolConfig, ToolParameters, ToolParameterValue } from '../../interfaces/tool';
 import type { ToolSchema, ParameterSchema } from '../../interfaces/provider';
 import type { OpenAPIV3 } from 'openapi-types';
-import { BaseTool, type BaseToolOptions } from '../../abstracts/base-tool';
+import { AbstractTool, type AbstractToolOptions } from '../../abstracts/abstract-tool';
 import { ToolExecutionError, ValidationError } from '../../utils/errors';
 import { logger as _logger } from '../../utils/logger';
 
@@ -16,16 +16,16 @@ type HTTPMethod = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'option
  * OpenAPI tool implementation
  * Executes API calls based on OpenAPI 3.0 specifications
  * 
- * @extends BaseTool<ToolParameters, ToolResult>
+ * @extends AbstractTool<ToolParameters, ToolResult>
  */
-export class OpenAPITool extends BaseTool<ToolParameters, ToolResult> implements ToolInterface {
+export class OpenAPITool extends AbstractTool<ToolParameters, ToolResult> implements ToolInterface {
     readonly schema: ToolSchema;
     private readonly apiSpec: OpenAPIV3.Document;
     private readonly operationId: string;
     private readonly baseURL: string;
     private readonly config: OpenAPIToolConfig;
 
-    constructor(config: OpenAPIToolConfig, options: BaseToolOptions = {}) {
+    constructor(config: OpenAPIToolConfig, options: AbstractToolOptions = {}) {
         super(options);
         this.config = config;
         this.apiSpec = config.spec as OpenAPIV3.Document;

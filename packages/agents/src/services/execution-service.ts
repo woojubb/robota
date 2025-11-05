@@ -17,26 +17,39 @@ import type { ToolExecutionBatchContext } from './tool-execution-service';
  * All events emitted by ExecutionService must use these constants
  */
 // 🎯 [EVENT-PREFIX-UNIFICATION] ExecutionService 소유 이벤트 - 모든 이벤트에 execution. 접두어 통일
+/**
+ * 🎯 [PREFIX-INJECTION] Execution event constants WITHOUT prefix
+ * The EventService with ownerPrefix='execution' will automatically convert:
+ *   'start' → 'execution.start'
+ *   'complete' → 'execution.complete'
+ *   etc.
+ */
 export const EXECUTION_EVENTS = {
-    START: 'execution.start',
-    COMPLETE: 'execution.complete',
-    ERROR: 'execution.error',
-    ASSISTANT_MESSAGE_START: 'execution.assistant_message_start',
-    ASSISTANT_MESSAGE_COMPLETE: 'execution.assistant_message_complete',
-    USER_MESSAGE: 'execution.user_message',
-    TOOL_RESULTS_TO_LLM: 'execution.tool_results_to_llm',
-    TOOL_RESULTS_READY: 'execution.tool_results_ready'
+    START: 'start',
+    COMPLETE: 'complete',
+    ERROR: 'error',
+    ASSISTANT_MESSAGE_START: 'assistant_message_start',
+    ASSISTANT_MESSAGE_COMPLETE: 'assistant_message_complete',
+    USER_MESSAGE: 'user_message',
+    TOOL_RESULTS_TO_LLM: 'tool_results_to_llm',
+    TOOL_RESULTS_READY: 'tool_results_ready'
 } as const;
 
 /**
  * 🎯 [EVENT-CONSTANTS] Tool events - Separate ownership
  * Tools are responsible for their own lifecycle events
+ * 
+ * 🎯 [PREFIX-INJECTION] These constants define only the event name without prefix.
+ * The EventService with ownerPrefix='tool' will automatically convert:
+ *   'call_start' → 'tool.call_start'
+ *   'call_complete' → 'tool.call_complete'
+ *   etc.
  */
 export const TOOL_EVENTS = {
-    CALL_START: 'tool.call_start',
-    CALL_COMPLETE: 'tool.call_complete',
-    CALL_ERROR: 'tool.call_error',
-    CALL_RESPONSE_READY: 'tool.call_response_ready'
+    CALL_START: 'call_start',
+    CALL_COMPLETE: 'call_complete',
+    CALL_ERROR: 'call_error',
+    CALL_RESPONSE_READY: 'call_response_ready'
 } as const;
 
 // Step 1: ❌ Can't use Error.executionId (not in Error interface)
