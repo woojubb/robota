@@ -190,6 +190,8 @@ npx tsx utils/verify-workflow-connections.ts | cat
 ### A-3. 이벤트 소유권 정비
 **목표**: 이벤트 접두어를 원천적으로 보호하여 잘못된 소유권 사용 방지
 
+> **중요**: 접두어 자동 부착/검증은 `ActionTrackingEventService` 같이 `EventService`를 확장한 구현에서만 제공된다. `EventService` 인터페이스의 기본 기능으로 간주하지 말고, Robota/ExecutionService/Tool 구현에서 반드시 이 확장 서비스를 주입하거나 clone하여 사용해야 한다. 기본 EventService를 직접 사용할 경우에는 접두어 검증이 수행되지 않으므로, 모든 emit 지점은 ownerPrefix 주입이 된 ActionTrackingEventService 인스턴스를 사용하도록 계획에 포함한다.
+
 #### 현재 문제점
 ```typescript
 // ❌ 현재: 어디서든 execution.* 이벤트를 발생시킬 수 있음
