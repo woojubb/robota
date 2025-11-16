@@ -1,4 +1,4 @@
-import type { BasePluginOptions } from '../../abstracts/base-plugin';
+import type { BasePluginOptions } from '../../abstracts/abstract-plugin';
 
 /**
  * Event types that can be emitted

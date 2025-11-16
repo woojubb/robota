@@ -1,5 +1,5 @@
-import { BaseManager } from '../abstracts/base-manager';
-import { BasePlugin } from '../abstracts/base-plugin';
+import { AbstractManager } from '../abstracts/abstract-manager';
+import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { Logger, createLogger } from '../utils/logger';
 import { PluginError, ConfigurationError } from '../utils/errors';
 
@@ -7,11 +7,11 @@ import { PluginError, ConfigurationError } from '../utils/errors';
  * Plugin lifecycle events
  */
 export interface PluginLifecycleEvents {
-    beforeInitialize?: (plugin: BasePlugin) => Promise<void> | void;
-    afterInitialize?: (plugin: BasePlugin) => Promise<void> | void;
-    beforeDestroy?: (plugin: BasePlugin) => Promise<void> | void;
-    afterDestroy?: (plugin: BasePlugin) => Promise<void> | void;
-    onError?: (plugin: BasePlugin, error: Error) => Promise<void> | void;
+    beforeInitialize?: (plugin: AbstractPlugin) => Promise<void> | void;
+    afterInitialize?: (plugin: AbstractPlugin) => Promise<void> | void;
+    beforeDestroy?: (plugin: AbstractPlugin) => Promise<void> | void;
+    afterDestroy?: (plugin: AbstractPlugin) => Promise<void> | void;
+    onError?: (plugin: AbstractPlugin, error: Error) => Promise<void> | void;
 }
 
 /**
@@ -51,7 +51,7 @@ export interface PluginsManagerInterface {
     /**
      * Register a plugin with optional configuration
      */
-    register(plugin: BasePlugin, options?: PluginRegistrationOptions): Promise<void>;
+    register(plugin: AbstractPlugin, options?: PluginRegistrationOptions): Promise<void>;
 
     /**
      * Unregister a plugin by name
@@ -71,12 +71,12 @@ export interface PluginsManagerInterface {
     /**
      * Get plugin by name
      */
-    getPlugin<T extends BasePlugin = BasePlugin>(name: string): T | null;
+    getPlugin<T extends AbstractPlugin = AbstractPlugin>(name: string): T | null;
 
     /**
      * Get all registered plugins
      */
-    getPlugins(): BasePlugin[];
+    getPlugins(): AbstractPlugin[];
 
     /**
      * Get plugin names
@@ -104,8 +104,8 @@ export interface PluginsManagerInterface {
  * Instance-based for isolation
  * @internal
  */
-export class Plugins extends BaseManager implements PluginsManagerInterface {
-    private plugins = new Map<string, BasePlugin>();
+export class Plugins extends AbstractManager implements PluginsManagerInterface {
+    private plugins = new Map<string, AbstractPlugin>();
     private pluginOptions = new Map<string, PluginRegistrationOptions>();
     private initializationOrder: string[] = [];
     private lifecycleEvents: PluginLifecycleEvents;
@@ -118,7 +118,7 @@ export class Plugins extends BaseManager implements PluginsManagerInterface {
     }
 
     /**
-     * Actual initialization logic - required by BaseManager
+     * Actual initialization logic - required by AbstractManager
      */
     protected async doInitialize(): Promise<void> {
         this.logger.debug('Plugins manager initializing');
@@ -126,7 +126,7 @@ export class Plugins extends BaseManager implements PluginsManagerInterface {
     }
 
     /**
-     * Actual disposal logic - required by BaseManager
+     * Actual disposal logic - required by AbstractManager
      */
     protected async doDispose(): Promise<void> {
         this.logger.debug('Plugins manager disposing');
@@ -152,7 +152,7 @@ export class Plugins extends BaseManager implements PluginsManagerInterface {
     /**
      * Register a plugin with optional configuration
      */
-    async register(plugin: BasePlugin, options: PluginRegistrationOptions = {}): Promise<void> {
+    async register(plugin: AbstractPlugin, options: PluginRegistrationOptions = {}): Promise<void> {
         const pluginName = plugin.name;
 
         if (this.plugins.has(pluginName)) {
@@ -268,7 +268,7 @@ export class Plugins extends BaseManager implements PluginsManagerInterface {
     /**
      * Get plugin by name with type safety
      */
-    getPlugin<T extends BasePlugin = BasePlugin>(name: string): T | null {
+    getPlugin<T extends AbstractPlugin = AbstractPlugin>(name: string): T | null {
         const plugin = this.plugins.get(name);
         return plugin ? (plugin as T) : null;
     }
@@ -276,7 +276,7 @@ export class Plugins extends BaseManager implements PluginsManagerInterface {
     /**
      * Get all registered plugins
      */
-    getPlugins(): BasePlugin[] {
+    getPlugins(): AbstractPlugin[] {
         return Array.from(this.plugins.values());
     }
 

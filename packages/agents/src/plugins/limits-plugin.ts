@@ -1,4 +1,4 @@
-import { BasePlugin, BaseExecutionContext, BaseExecutionResult, PluginCategory, PluginPriority } from '../abstracts/base-plugin';
+import { AbstractPlugin, BaseExecutionContext, BaseExecutionResult, PluginCategory, PluginPriority } from '../abstracts/abstract-plugin';
 import { Logger, createLogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
 import type {
@@ -45,7 +45,7 @@ export type PluginExecutionResult = {
  * Plugin for rate limiting and resource control
  * Enforces limits on token usage, request frequency, and costs
  */
-export class LimitsPlugin extends BasePlugin<LimitsPluginOptions, PluginLimitsStatusData> {
+export class LimitsPlugin extends AbstractPlugin<LimitsPluginOptions, PluginLimitsStatusData> {
     name = 'LimitsPlugin';
     version = '1.0.0';
 

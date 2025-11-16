@@ -5,7 +5,7 @@ import type {
 } from '../interfaces/executor';
 import type { UniversalMessage, AssistantMessage } from '../managers/conversation-history-manager';
 import type { ChatOptions } from '../interfaces/provider';
-import { BaseExecutor } from '../abstracts/base-executor';
+import { AbstractExecutor } from '../abstracts/abstract-executor';
 
 /**
  * Local executor that directly delegates to AI provider instances
@@ -30,7 +30,7 @@ import { BaseExecutor } from '../abstracts/base-executor';
  * });
  * ```
  */
-export class LocalExecutor extends BaseExecutor {
+export class LocalExecutor extends AbstractExecutor {
     readonly name = 'local';
     readonly version = '1.0.0';
 

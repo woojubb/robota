@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { Robota } from './robota';
 import type { AgentConfig } from '../interfaces/agent';
-import { BaseAgent } from '../abstracts/base-agent';
+import { AbstractAgent } from '../abstracts/abstract-agent';
 import type { AgentInterface } from '../interfaces/agent';
-import { BasePlugin } from '../abstracts/base-plugin';
+import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { BaseTool } from '../abstracts/base-tool';
-import { BaseAIProvider } from '../abstracts/base-ai-provider';
+import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
 import type { ToolSchema, ChatOptions } from '../interfaces/provider';
 import type { ToolParameters, ToolResult } from '../interfaces/tool';
 import type { UniversalMessage } from '../managers/conversation-history-manager';
@@ -13,7 +13,7 @@ import type { UniversalMessage } from '../managers/conversation-history-manager'
 import { ConfigurationError, ValidationError } from '../utils/errors';
 
 // Mock AI Provider for testing
-class MockAIProvider extends BaseAIProvider {
+class MockAIProvider extends AbstractAIProvider {
     readonly name = 'mock-provider';
     readonly version = '1.0.0';
 
@@ -39,7 +39,7 @@ class MockAIProvider extends BaseAIProvider {
 }
 
 // Second Mock AI Provider for multi-provider testing
-class MockAIProvider2 extends BaseAIProvider {
+class MockAIProvider2 extends AbstractAIProvider {
     readonly name = 'mock-provider-2';
     readonly version = '1.0.0';
 
@@ -99,7 +99,7 @@ class MockTool extends BaseTool {
 }
 
 // Mock Plugin for testing
-class MockPlugin extends BasePlugin {
+class MockPlugin extends AbstractPlugin {
     name = 'mock-plugin';
     version = '1.0.0';
 
@@ -150,7 +150,7 @@ describe('Robota Class - New Configuration API', () => {
         it('should create instance with new configuration format', () => {
             const robota = new Robota(config);
 
-            expect(robota).toBeInstanceOf(BaseAgent);
+            expect(robota).toBeInstanceOf(AbstractAgent);
             expect(robota).toBeInstanceOf(Robota);
             expect(robota.name).toBe('Test Robota');
         });
@@ -295,10 +295,10 @@ describe('Robota Class - New Configuration API', () => {
     });
 
     describe('Basic Architecture', () => {
-        it('should extend BaseAgent and implement AgentInterface', () => {
+        it('should extend AbstractAgent and implement AgentInterface', () => {
             const robota = new Robota(config);
 
-            expect(robota).toBeInstanceOf(BaseAgent);
+            expect(robota).toBeInstanceOf(AbstractAgent);
             expect(robota).toBeInstanceOf(Robota);
 
             // Check AgentInterface implementation

@@ -15,7 +15,7 @@ import type {
 } from '@robota-sdk/agents';
 
 import {
-    BaseVisualizationGenerator,
+    AbstractVisualizationGenerator,
     SilentLogger
 } from '@robota-sdk/agents';
 
@@ -66,7 +66,7 @@ export interface MermaidVisualizationConfig extends BaseVisualizationConfig {
  * 
  * Extends BaseVisualizationGenerator with Mermaid-specific implementation
  */
-export class RealTimeMermaidGenerator extends BaseVisualizationGenerator<MermaidVisualizationConfig, string> {
+export class RealTimeMermaidGenerator extends AbstractVisualizationGenerator<MermaidVisualizationConfig, string> {
 
     constructor(config?: Partial<MermaidVisualizationConfig>) {
         // Create complete configuration with defaults

@@ -76,7 +76,7 @@ export interface AggregatedPerformanceStats {
     };
 }
 
-import type { BasePluginOptions } from '../../abstracts/base-plugin';
+import type { BasePluginOptions } from '../../abstracts/abstract-plugin';
 
 /**
  * Configuration options for performance plugin

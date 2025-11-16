@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { GoogleProviderOptions } from './types';
-import { BaseAIProvider } from '@robota-sdk/agents';
+import { AbstractAIProvider } from '@robota-sdk/agents';
 import type {
     UniversalMessage,
     ChatOptions,
@@ -23,7 +23,7 @@ import type {
  * 
  * @public
  */
-export class GoogleProvider extends BaseAIProvider {
+export class GoogleProvider extends AbstractAIProvider {
     override readonly name = 'google';
     override readonly version = '1.0.0';
 

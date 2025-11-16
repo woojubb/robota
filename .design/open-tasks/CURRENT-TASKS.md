@@ -48,6 +48,110 @@
 - [ ] Agent 핸들러 등에 적용
 - [ ] `getAllNodes()` 직접 스캔과 결과 동등성 검증
 
+#### 단계 9: base-* → abstract-* 마이그레이션 (신규)
+- [ ] 1차 스캔: `packages/agents/src/abstracts/base-*.ts` 전수 조사 후 사용 빈도 낮은 순으로 우선순위 확정<br/>(후보: `base-plugin.ts`, `base-module.ts`, `base-executor.ts`, `base-ai-provider.ts`, `base-tool-manager.ts`, `base-workflow-runner.ts`)
+- [ ] 파일별 계획 수립: 
+  - [ ] `abstract-*.ts` 신규 생성 + 파일 상단에 “ABSTRACT CLASS” 주석 추가
+  - [ ] `DEFAULT_ABSTRACT_LOGGER` 기본값 적용, 추상 타입만 참조하도록 점검
+  - [ ] EventService, ownerPrefix, DIP 위반 여부 코드 리뷰
+- [ ] 참조 교체 단계:
+  - [ ] 관련 import/타입을 `abstract-*`로 전환 (Path-Only 검증)
+  - [ ] 예제/서비스에서 `ActionTrackingEventService` 직접 참조 금지 확인
+- [ ] 품질 게이트:
+  - [ ] `pnpm --filter @robota-sdk/agents build`
+  - [ ] `cd apps/examples && npx tsx 10-agents-basic-usage.ts` (로그 가드 규칙 준수)
+  - [ ] 필요한 경우 Guarded Example 26 재검증
+  - [ ] `.design/open-tasks/CURRENT-TASKS.md` 체크박스 `[x]` 업데이트
+- [ ] `base-*` 파일 제거: 모든 참조 교체/빌드 통과 후 개별 파일 삭제
+- [ ] 로그/문서: 변경된 추상 클래스 목록과 진행 현황을 CURRENT-TASKS에 주기적으로 반영
+- [x] 1차 완료 항목: `base-plugin.ts → abstract-plugin.ts` (Plugins manager & 모든 plugin 구현체 `AbstractPlugin` 상속 전환, guard 빌드/예제 통과)
+- [x] 2차 완료 항목: `base-module.ts → abstract-module.ts`
+  - [x] `base-module.ts` 구조/의존성 분석 및 import 사용처 목록화 (`Robota`, module registries 등)
+  - [x] `packages/agents/src/abstracts/abstract-module.ts` 신규 생성 + 상단 "ABSTRACT CLASS" 주석, `DEFAULT_ABSTRACT_LOGGER` 기본 주입
+  - [x] `ModuleExecutionContext`, `ModuleStats` 등 기존 타입/인터페이스를 그대로 이전하고, 클래스명 `AbstractModule`로 명확화
+  - [x] 모든 구현/매니저에서 `BaseModule` import를 `AbstractModule`로 전환, 타입 정의(`AgentConfig.modules`) 업데이트
+  - [x] `base-module.ts`는 임시 re-export 스텁 + "안쓰는 것이니 차후에 삭제 필요" 주석만 남기고 최종 삭제 전까지 유지
+  - [x] 검증: `pnpm --filter @robota-sdk/agents build`, `apps/examples && npx tsx 10-agents-basic-usage.ts` 로그 가드 실행 (필요 시 26번 예제 가드 준비)
+  - [x] 문서 업데이트 및 체크박스 반영 후 다음 `base-*` 대상 선정
+- [x] 3차 완료 항목: `base-executor.ts → abstract-executor.ts`
+  - [x] 사용 빈도 및 import 의존성 조사 (`ExecutionService`, executor registry 등)
+  - [x] `abstract-executor.ts` 신규 생성 + "ABSTRACT CLASS" 주석, `DEFAULT_ABSTRACT_LOGGER` 기본값 적용
+  - [x] Executor 추상 인터페이스/타입을 그대로 이전하고 DIP 위반 여부 재검토
+  - [x] 모든 구현부에서 `BaseExecutor` import를 `AbstractExecutor`로 전환
+  - [x] 기존 파일은 임시 re-export 스텁으로 유지, 최종 삭제 전까지 "안쓰는 것이니..." 주석 부착
+  - [x] 검증: `pnpm --filter @robota-sdk/agents build`, `apps/examples && npx tsx 10-agents-basic-usage.ts`
+  - [x] CURRENT-TASKS 업데이트 후 다음 대상 선정
+- [x] 4차 완료 항목: `base-ai-provider.ts → abstract-ai-provider.ts`
+  - [x] 사용 빈도 및 import 의존성 조사 (AIProviders 매니저, provider 구현체 등)
+  - [x] `abstract-ai-provider.ts` 신규 생성 + "ABSTRACT CLASS" 주석, `DEFAULT_ABSTRACT_LOGGER` 기본값 적용
+  - [x] Provider 공용 타입/메서드를 그대로 이전하고 DIP 준수 여부 검토
+  - [x] 모든 구현부에서 `BaseAIProvider`/`BaseProvider` import를 `AbstractAIProvider`로 전환
+  - [x] 기존 파일은 임시 re-export 스텁 + "안쓰는 것이니..." 주석만 유지
+  - [x] 검증: `pnpm --filter @robota-sdk/agents build`, `apps/examples && npx tsx 10-agents-basic-usage.ts`, provider별 build(OpenAI/Google/Anthropic)
+  - [x] CURRENT-TASKS 업데이트 후 다음 대상 선정
+- [ ] 5차 진행 예정: `base-tool-manager.ts → abstract-tool-manager.ts`
+  - [ ] (파일 미존재) 현재 `tool-manager.ts`가 직접 구현되어 있어 `base-tool-manager.ts` 없음 → 참고용으로 기록만 유지
+  - [ ] 향후 필요 시 tool manager 추상화 범위 정의
+- [x] 6차 완료 항목: `base-provider.ts → abstract-provider.ts`
+  - [x] 사용 빈도 및 import 의존성 조사 (Provider registry/manager 등)
+  - [x] `abstract-provider.ts` 신규 생성 + "ABSTRACT CLASS" 주석, `DEFAULT_ABSTRACT_LOGGER` 적용
+  - [x] Provider 베이스 메서드/상태 이전 및 DIP 준수 여부 검토
+  - [x] 모든 구현부에서 `BaseProvider` import를 `AbstractProvider`로 전환
+  - [x] 기존 파일은 임시 re-export 스텁 + "안쓰는 것이니..." 주석 유지
+  - [x] 검증: `pnpm --filter @robota-sdk/agents build`, `apps/examples && npx tsx 10-agents-basic-usage.ts`
+  - [x] CURRENT-TASKS 업데이트 후 다음 대상 선정
+- [x] 7차 완료 항목: `base-workflow-converter.ts → abstract-workflow-converter.ts`
+  - [x] 사용 빈도 및 import 의존성 조사 (Workflow converter 구현체 등)
+  - [x] `abstract-workflow-converter.ts` 신규 생성 + "ABSTRACT CLASS" 주석, `DEFAULT_ABSTRACT_LOGGER` 적용
+  - [x] 공용 헬퍼/통계/검증 메서드 이전 및 DIP 준수 여부 검토
+  - [x] 모든 구현부에서 `BaseWorkflowConverter` import를 `AbstractWorkflowConverter`로 전환
+  - [x] 기존 파일은 임시 re-export 스텁 + "안쓰는 것이니..." 주석 유지
+  - [x] 검증: `pnpm --filter @robota-sdk/agents build`, `apps/examples && npx tsx 10-agents-basic-usage.ts`
+  - [x] CURRENT-TASKS 업데이트 후 다음 대상 선정
+- [x] 8차 완료 항목: `base-workflow-validator.ts → abstract-workflow-validator.ts`
+  - [x] 사용 빈도 및 import 의존성 조사 (Workflow validator 구현체 등)
+  - [x] `abstract-workflow-validator.ts` 신규 생성 + "ABSTRACT CLASS" 주석, `DEFAULT_ABSTRACT_LOGGER` 적용
+  - [x] 공용 헬퍼/통계/룰 관리 로직 이전 및 DIP 준수 여부 검토
+  - [x] 모든 구현부에서 `BaseWorkflowValidator` import를 `AbstractWorkflowValidator`로 전환
+  - [x] 기존 파일은 임시 re-export 스텁 + "안쓰는 것이니..." 주석 유지
+  - [x] 검증: `pnpm --filter @robota-sdk/agents build`, `apps/examples && npx tsx 10-agents-basic-usage.ts`
+  - [x] CURRENT-TASKS 업데이트 후 다음 대상 선정
+- [x] 9차 완료 항목: `base-visualization-generator.ts → abstract-visualization-generator.ts`
+  - [x] 사용 빈도 및 import 의존성 조사 (Mermaid generator 등)
+  - [x] `abstract-visualization-generator.ts` 신규 생성 + "ABSTRACT CLASS" 주석, `DEFAULT_ABSTRACT_LOGGER` 적용
+  - [x] 공용 템플릿 메서드/헬퍼 이전 및 DIP 준수 여부 검토
+  - [x] 모든 구현부에서 `BaseVisualizationGenerator` import를 `AbstractVisualizationGenerator`로 전환
+  - [x] 기존 파일은 임시 re-export 스텁 + "안쓰는 것이니..." 주석 유지
+  - [x] 검증: `pnpm --filter @robota-sdk/agents build`, `apps/examples && npx tsx 10-agents-basic-usage.ts`
+  - [x] CURRENT-TASKS 업데이트 후 다음 대상 선정
+- [x] 10차 완료 항목: `base-layout-engine.ts → abstract-layout-engine.ts`
+  - [x] 사용 빈도 및 import 의존성 조사 (layout engine 구현체 등)
+  - [x] `abstract-layout-engine.ts` 신규 생성 + "ABSTRACT CLASS" 주석, `DEFAULT_ABSTRACT_LOGGER` 적용
+  - [x] 공용 템플릿/통계 로직 이전 및 DIP 준수 여부 검토
+  - [x] 모든 구현부에서 `BaseLayoutEngine` import를 `AbstractLayoutEngine`으로 전환
+  - [x] 기존 파일은 임시 re-export 스텁 + "안쓰는 것이니..." 주석 유지
+  - [x] 검증: `pnpm --filter @robota-sdk/agents build`, `apps/examples && npx tsx 10-agents-basic-usage.ts`
+  - [x] CURRENT-TASKS 업데이트 후 다음 대상 선정
+- [x] 11차 완료 항목: `base-tool.ts → abstract-tool.ts`
+  - [x] 기존 `abstract-tool.ts` 구조 재검토, "ABSTRACT CLASS" 주석 및 `DEFAULT_ABSTRACT_LOGGER` 기본 주입 정책 위반 여부 점검
+  - [x] `BaseTool` import 사용처 전수 조사 (`FunctionTool`, `MCPTool`, `Robota`, Playground executor 등) 후 `AbstractTool`로 명시 전환 여부 확인
+  - [x] `base-tool.ts`가 재-export 스텁(`안쓰는 것이니...`) 형태로만 남아있음을 검증하고 불필요 로직 제거 여부 재확인
+  - [x] 검증: `pnpm --filter @robota-sdk/agents build`, `apps/examples && npx tsx 10-agents-basic-usage.ts`
+  - [x] CURRENT-TASKS 업데이트 및 다음 대상(Manager/Agent)으로 진행
+- [x] 12차 완료 항목: `base-manager.ts → abstract-manager.ts`
+  - [x] `AbstractManager`(초기 버전) 기능 점검 후 `BaseManager` 잔여 구현 제거 및 재-export 스텁화
+  - [x] `Tools`, `Plugins`, `AIProviders`, `ModuleRegistry` 등 매니저 구현에서 `AbstractManager` 상속 여부 확인
+  - [x] `base-manager.ts` 상단 "안쓰는 것이니..." 주석 유지 + 재-export만 남도록 정리
+  - [x] 검증: `pnpm --filter @robota-sdk/agents build`, `apps/examples && npx tsx 10-agents-basic-usage.ts`
+  - [x] CURRENT-TASKS 업데이트 후 Agent 단계로 이동
+- [x] 13차 완료 항목: `base-agent.ts → abstract-agent.ts`
+  - [x] `packages/agents/src/abstracts/abstract-agent.ts` 신규 생성, "ABSTRACT CLASS" 주석 및 기존 공용 로직 이전
+  - [x] `Robota` 및 관련 테스트(`robota.test.ts`)를 `AbstractAgent` 기반으로 업데이트하고 DIP 위반 여부 점검
+  - [x] `base-agent.ts`는 재-export 스텁 + "안쓰는 것이니..." 주석으로 축소, 향후 삭제 준비
+  - [x] 검증: `pnpm --filter @robota-sdk/agents build`, `apps/examples && npx tsx 10-agents-basic-usage.ts`
+  - [x] CURRENT-TASKS 체크박스 반영 및 남은 Agent Event Normalization 작업 재정비
+
+
 ### 검증 명령어
 ```bash
 pnpm --filter @robota-sdk/workflow build && \

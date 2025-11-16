@@ -62,7 +62,7 @@ export interface AggregatedUsageStats {
     };
 }
 
-import type { BasePluginOptions } from '../../abstracts/base-plugin';
+import type { BasePluginOptions } from '../../abstracts/abstract-plugin';
 
 /**
  * Configuration options for usage plugin

@@ -1,7 +1,7 @@
-import { BaseAgent } from '../abstracts/base-agent';
+import { AbstractAgent } from '../abstracts/abstract-agent';
 import { Message, AgentConfig, RunOptions, AgentInterface } from '../interfaces/agent';
-import { BasePlugin } from '../abstracts/base-plugin';
-import { BaseModule } from '../abstracts/base-module';
+import { AbstractPlugin } from '../abstracts/abstract-plugin';
+import { AbstractModule } from '../abstracts/abstract-module';
 import { ModuleRegistry } from '../managers/module-registry';
 import { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
 import { AIProviders } from '../managers/ai-provider-manager';
@@ -18,7 +18,7 @@ import { Logger, createLogger, setGlobalLogLevel } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
 import type { AbstractToolParameters } from '../abstracts/abstract-tool';
 import type { ToolExecutionData, ToolParameters, ToolExecutionContext } from '../interfaces/tool';
-import type { ModuleResultData, ModuleExecutionContext } from '../abstracts/base-module';
+import type { ModuleResultData, ModuleExecutionContext } from '../abstracts/abstract-module';
 
 /**
  * Reusable type definitions for Robota agent
@@ -70,7 +70,7 @@ export type AgentStatsMetadata = Record<string, string | number | boolean | Date
  * 
  * @public
  * @class
- * @extends BaseAgent<AgentConfig, RunOptions, Message>
+ * @extends AbstractAgent<AgentConfig, RunOptions, Message>
  * @implements AgentInterface
  * 
  * @example Basic Usage
@@ -120,7 +120,7 @@ export type AgentStatsMetadata = Record<string, string | number | boolean | Date
  * }
  * ```
  */
-export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implements AgentInterface {
+export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> implements AgentInterface {
     /** The name of this agent instance */
     public readonly name: string;
     /** The version of the Robota agent implementation */
@@ -871,7 +871,7 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
      * robota.addPlugin(new PerformancePlugin({ trackMemory: true }));
      * ```
      */
-    addPlugin(plugin: BasePlugin): void {
+    addPlugin(plugin: AbstractPlugin): void {
         this.executionService.registerPlugin(plugin);
         this.logger.debug('Plugin added', { pluginName: plugin.name });
     }
@@ -903,7 +903,7 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
     /**
      * Get a specific plugin by name with type safety.
      * 
-     * @template T - The expected plugin type extending BasePlugin
+     * @template T - The expected plugin type extending AbstractPlugin
      * @param pluginName - The name of the plugin to retrieve
      * @returns The plugin instance if found, null otherwise
      * 
@@ -918,7 +918,7 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
      * }
      * ```
      */
-    getPlugin<T extends BasePlugin = BasePlugin>(pluginName: string): T | null {
+    getPlugin<T extends AbstractPlugin = AbstractPlugin>(pluginName: string): T | null {
         return this.executionService.getPlugin<T>(pluginName);
     }
 
@@ -936,7 +936,7 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
      * });
      * ```
      */
-    getPlugins(): BasePlugin[] {
+    getPlugins(): AbstractPlugin[] {
         return this.executionService.getPlugins();
     }
 
@@ -959,7 +959,7 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
      * @param module - The module instance to register
      * @param options - Registration options
      */
-    async registerModule(module: BaseModule, options?: { autoInitialize?: boolean; validateDependencies?: boolean }): Promise<void> {
+    async registerModule(module: AbstractModule, options?: { autoInitialize?: boolean; validateDependencies?: boolean }): Promise<void> {
         await this.ensureFullyInitialized();
 
         await this.moduleRegistry.registerModule(module, {
@@ -997,7 +997,7 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
      * @param moduleName - Name of the module to retrieve
      * @returns The module instance or null if not found
      */
-    getModule<T extends BaseModule = BaseModule>(moduleName: string): T | null {
+    getModule<T extends AbstractModule = AbstractModule>(moduleName: string): T | null {
         if (!this.isFullyInitialized) {
             return null;
         }
@@ -1009,7 +1009,7 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
      * @param moduleType - Type of modules to retrieve
      * @returns Array of modules matching the type
      */
-    getModulesByType<T extends BaseModule = BaseModule>(moduleType: string): T[] {
+    getModulesByType<T extends AbstractModule = AbstractModule>(moduleType: string): T[] {
         if (!this.isFullyInitialized) {
             return [];
         }
@@ -1020,7 +1020,7 @@ export class Robota extends BaseAgent<AgentConfig, RunOptions, Message> implemen
      * Get all registered modules
      * @returns Array of all registered modules
      */
-    getModules(): BaseModule[] {
+    getModules(): AbstractModule[] {
         if (!this.isFullyInitialized) {
             return [];
         }

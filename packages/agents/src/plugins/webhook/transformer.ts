@@ -3,7 +3,7 @@
  * Converts base plugin types to webhook-specific types safely
  */
 
-import type { BaseExecutionContext, BaseExecutionResult } from '../../abstracts/base-plugin';
+import type { BaseExecutionContext, BaseExecutionResult } from '../../abstracts/abstract-plugin';
 import type { LoggerData, UniversalValue } from '../../interfaces/types';
 import type {
     WebhookExecutionContext,

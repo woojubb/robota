@@ -1,4 +1,4 @@
-import { BasePlugin, PluginCategory, PluginPriority } from '../../abstracts/base-plugin';
+import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 
@@ -14,7 +14,7 @@ import { toErrorContext, createPluginErrorContext } from './context-adapter';
  * Plugin for handling errors with configurable strategies
  * Provides error recovery, retry mechanisms, and circuit breaker patterns
  */
-export class ErrorHandlingPlugin extends BasePlugin<ErrorHandlingPluginOptions, ErrorHandlingPluginStats> {
+export class ErrorHandlingPlugin extends AbstractPlugin<ErrorHandlingPluginOptions, ErrorHandlingPluginStats> {
     name = 'ErrorHandlingPlugin';
     version = '1.0.0';
 

@@ -1,6 +1,6 @@
 import type { AIProviderManagerInterface } from '../interfaces/manager';
 import type { AIProvider } from '../interfaces/provider';
-import { BaseManager } from '../abstracts/base-manager';
+import { AbstractManager } from '../abstracts/abstract-manager';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { Validator } from '../utils/validation';
 import { logger } from '../utils/logger';
@@ -11,7 +11,7 @@ import { logger } from '../utils/logger';
  * Instance-based for isolated provider management
  * @internal
  */
-export class AIProviders extends BaseManager implements AIProviderManagerInterface {
+export class AIProviders extends AbstractManager implements AIProviderManagerInterface {
     private providers = new Map<string, AIProvider>();
     private currentProvider: string | undefined;
     private currentModel: string | undefined;

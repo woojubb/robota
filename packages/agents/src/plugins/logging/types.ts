@@ -26,7 +26,7 @@ export interface LogEntry {
     };
 }
 
-import type { BasePluginOptions } from '../../abstracts/base-plugin';
+import type { BasePluginOptions } from '../../abstracts/abstract-plugin';
 import type { SimpleLogger } from '../../utils/simple-logger';
 
 /**

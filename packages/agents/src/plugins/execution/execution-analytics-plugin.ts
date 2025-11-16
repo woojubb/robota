@@ -1,4 +1,4 @@
-import { BasePlugin, PluginCategory, PluginPriority, type ErrorContext } from '../../abstracts/base-plugin';
+import { AbstractPlugin, PluginCategory, PluginPriority, type ErrorContext } from '../../abstracts/abstract-plugin';
 import { Logger, createLogger } from '../../utils/logger';
 import type { RunOptions } from '../../interfaces/agent';
 import type { UniversalMessage } from '../../managers/conversation-history-manager';
@@ -17,7 +17,7 @@ import type {
  * Plugin for tracking execution analytics automatically
  * Integrates with agent lifecycle to track performance without manual intervention
  */
-export class ExecutionAnalyticsPlugin extends BasePlugin<ExecutionAnalyticsOptions, ExecutionAnalyticsPluginStats> {
+export class ExecutionAnalyticsPlugin extends AbstractPlugin<ExecutionAnalyticsOptions, ExecutionAnalyticsPluginStats> {
     name = 'ExecutionAnalyticsPlugin';
     version = '1.0.0';
 

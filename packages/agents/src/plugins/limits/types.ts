@@ -1,4 +1,4 @@
-import type { BasePluginOptions } from '../../abstracts/base-plugin';
+import type { BasePluginOptions } from '../../abstracts/abstract-plugin';
 
 /**
  * Rate limiting strategies
