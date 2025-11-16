@@ -61,7 +61,7 @@ export interface AggregatedExecutionStats {
     };
 }
 
-import type { BasePluginOptions, PluginStats } from '../../abstracts/base-plugin';
+import type { BasePluginOptions, PluginStats } from '../../abstracts/abstract-plugin';
 
 /**
  * Plugin options

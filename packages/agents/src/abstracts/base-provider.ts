@@ -1,20 +1,4 @@
-/**
- * Base abstract class for providers
- */
-export abstract class BaseProvider {
-    abstract readonly name: string;
+// 안쓰는 것이니 차후에 삭제 필요
+export * from './abstract-provider';
+export { AbstractProvider as BaseProvider } from './abstract-provider';
 
-    protected initialized = false;
-
-    async initialize(): Promise<void> {
-        this.initialized = true;
-    }
-
-    async dispose(): Promise<void> {
-        this.initialized = false;
-    }
-
-    isInitialized(): boolean {
-        return this.initialized;
-    }
-} 

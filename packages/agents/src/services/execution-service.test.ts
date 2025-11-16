@@ -3,7 +3,7 @@ import { ExecutionService } from './execution-service';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
-import { BaseAIProvider } from '../abstracts/base-ai-provider';
+import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
 import type { UniversalMessage } from '../managers/conversation-history-manager';
 import type { AgentConfig, Message } from '../interfaces/agent';
 import type { ChatOptions } from '../interfaces/provider';
@@ -28,7 +28,7 @@ vi.mock('../utils/logger', () => ({
 }));
 
 // Create a mock class that extends BaseAIProvider
-class MockAIProvider extends BaseAIProvider {
+class MockAIProvider extends AbstractAIProvider {
     readonly name = 'mock-provider';
     readonly version = '1.0.0';
 

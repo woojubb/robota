@@ -1,4 +1,4 @@
-import { BasePlugin, PluginCategory, PluginPriority } from '../../abstracts/base-plugin';
+import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import type { EventType, EventData } from '../event-emitter-plugin';
@@ -21,7 +21,7 @@ import {
  * Plugin for tracking usage statistics
  * Collects and stores usage data including tokens, costs, performance metrics
  */
-export class UsagePlugin extends BasePlugin<UsagePluginOptions, UsagePluginStats> {
+export class UsagePlugin extends AbstractPlugin<UsagePluginOptions, UsagePluginStats> {
     name = 'UsagePlugin';
     version = '1.0.0';
 

@@ -1,4 +1,4 @@
-import { BasePlugin, PluginCategory, PluginPriority } from '../../abstracts/base-plugin';
+import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
 import { Logger, createLogger } from '../../utils/logger';
 import { SimpleLogger, SilentLogger } from '../../utils/simple-logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
@@ -41,7 +41,7 @@ export interface LoggingContextData extends Record<string, string | number | boo
  * Plugin for logging agent operations
  * Supports multiple logging strategies: console, file, remote, silent
  */
-export class LoggingPlugin extends BasePlugin<LoggingPluginOptions, LoggingPluginStats> {
+export class LoggingPlugin extends AbstractPlugin<LoggingPluginOptions, LoggingPluginStats> {
     name = 'LoggingPlugin';
     version = '1.0.0';
 

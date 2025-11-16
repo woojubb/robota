@@ -1,7 +1,7 @@
 import type { ToolManagerInterface } from '../interfaces/manager';
 import type { ToolSchema } from '../interfaces/provider';
 import type { ToolInterface, ToolExecutor, ToolExecutionData, ToolParameters, ToolExecutionContext } from '../interfaces/tool';
-import { BaseManager } from '../abstracts/base-manager';
+import { AbstractManager } from '../abstracts/abstract-manager';
 import { ToolRegistry } from '../tools/registry/tool-registry';
 import { FunctionTool } from '../tools/implementations/function-tool';
 import { ToolExecutionError } from '../utils/errors';
@@ -13,7 +13,7 @@ import { logger } from '../utils/logger';
  * Instance-based for isolated tool management
  * @internal
  */
-export class Tools extends BaseManager implements ToolManagerInterface {
+export class Tools extends AbstractManager implements ToolManagerInterface {
     private registry: ToolRegistry;
     private allowedTools?: string[];
 

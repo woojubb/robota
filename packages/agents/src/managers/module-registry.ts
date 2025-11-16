@@ -1,9 +1,9 @@
 import {
-    BaseModule,
+    AbstractModule,
     BaseModuleOptions,
     ModuleExecutionContext,
     ModuleExecutionResult
-} from '../abstracts/base-module';
+} from '../abstracts/abstract-module';
 import { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
 import { ModuleTypeRegistry } from './module-type-registry';
 import { Logger, createLogger } from '../utils/logger';
@@ -63,7 +63,7 @@ export interface ModuleExecutionStats {
  * - Error handling and recovery
  */
 export class ModuleRegistry {
-    private modules = new Map<string, BaseModule>();
+    private modules = new Map<string, AbstractModule>();
     private moduleOptions = new Map<string, BaseModuleOptions>();
     private moduleStatuses = new Map<string, ModuleStatus>();
     private moduleStats = new Map<string, ModuleExecutionStats>();
@@ -88,7 +88,7 @@ export class ModuleRegistry {
      * Register a module instance
      */
     async registerModule(
-        module: BaseModule,
+        module: AbstractModule,
         options: ModuleRegistrationOptions = {}
     ): Promise<void> {
         if (this.isDisposing) {
@@ -384,7 +384,7 @@ export class ModuleRegistry {
     /**
      * Get a module by name
      */
-    getModule<T extends BaseModule = BaseModule>(moduleName: string): T | null {
+    getModule<T extends AbstractModule = AbstractModule>(moduleName: string): T | null {
         const module = this.modules.get(moduleName);
         return module ? (module as T) : null;
     }
@@ -392,7 +392,7 @@ export class ModuleRegistry {
     /**
      * Get modules by type
      */
-    getModulesByType<T extends BaseModule = BaseModule>(moduleType: string): T[] {
+    getModulesByType<T extends AbstractModule = AbstractModule>(moduleType: string): T[] {
         const modules: T[] = [];
 
         for (const module of this.modules.values()) {
@@ -407,7 +407,7 @@ export class ModuleRegistry {
     /**
      * Get all registered modules
      */
-    getAllModules(): BaseModule[] {
+    getAllModules(): AbstractModule[] {
         return Array.from(this.modules.values());
     }
 
@@ -580,7 +580,7 @@ export class ModuleRegistry {
     /**
      * Validate a module before registration
      */
-    private validateModule(module: BaseModule): void {
+    private validateModule(module: AbstractModule): void {
         if (!module.name || module.name.trim() === '') {
             throw new ConfigurationError('Module name is required');
         }
@@ -612,7 +612,7 @@ export class ModuleRegistry {
     /**
      * Validate module dependencies
      */
-    private async validateModuleDependencies(module: BaseModule): Promise<void> {
+    private async validateModuleDependencies(module: AbstractModule): Promise<void> {
         const moduleType = module.getModuleType();
 
         if (!moduleType.dependencies || moduleType.dependencies.length === 0) {

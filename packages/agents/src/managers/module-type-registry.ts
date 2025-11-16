@@ -2,7 +2,7 @@ import {
     ModuleTypeDescriptor,
     ModuleCategory,
     ModuleLayer
-} from '../abstracts/base-module';
+} from '../abstracts/abstract-module';
 import { Logger, createLogger } from '../utils/logger';
 import { ConfigurationError } from '../utils/errors';
 

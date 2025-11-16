@@ -360,6 +360,7 @@ export { BaseWorkflowConverter } from './abstracts/base-workflow-converter';
 export { BaseLayoutEngine } from './abstracts/base-layout-engine';
 export { BaseWorkflowValidator } from './abstracts/base-workflow-validator';
 export { BaseVisualizationGenerator } from './abstracts/base-visualization-generator';
+export { AbstractVisualizationGenerator } from './abstracts/abstract-visualization-generator';
 
 // Base Visualization Types
 export type {

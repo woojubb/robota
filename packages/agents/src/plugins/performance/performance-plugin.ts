@@ -1,4 +1,4 @@
-import { BasePlugin, PluginCategory, PluginPriority } from '../../abstracts/base-plugin';
+import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
 import type { EventType, EventData } from '../event-emitter-plugin';
@@ -17,7 +17,7 @@ import { NodeSystemMetricsCollector } from './collectors/system-metrics-collecto
  * Plugin for monitoring performance metrics
  * Collects system and application performance data
  */
-export class PerformancePlugin extends BasePlugin<PerformancePluginOptions, PerformancePluginStats> {
+export class PerformancePlugin extends AbstractPlugin<PerformancePluginOptions, PerformancePluginStats> {
     name = 'PerformancePlugin';
     version = '1.0.0';
 

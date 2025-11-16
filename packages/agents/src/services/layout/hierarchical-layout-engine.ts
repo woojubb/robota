@@ -5,7 +5,7 @@
  * Arranges nodes in levels based on their hierarchical relationships.
  */
 
-import { BaseLayoutEngine } from '../../abstracts/base-layout-engine';
+import { AbstractLayoutEngine } from '../../abstracts/abstract-layout-engine';
 import type {
     UniversalWorkflowNode,
     UniversalWorkflowEdge,
@@ -57,7 +57,7 @@ interface PositionedNode {
  * - Handles node sizing and spacing automatically
  * - Prevents overlaps and optimizes readability
  */
-export class HierarchicalLayoutEngine extends BaseLayoutEngine {
+export class HierarchicalLayoutEngine extends AbstractLayoutEngine {
     readonly name = 'HierarchicalLayoutEngine';
     readonly version = '1.0.0';
     readonly algorithm = 'hierarchical';

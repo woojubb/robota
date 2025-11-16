@@ -1,12 +1,11 @@
 import { Message, AgentConfig, AssistantMessage, ToolMessage } from '../interfaces/agent';
 import { PluginContext, Metadata } from '../interfaces/types';
-import { BasePlugin } from '../abstracts/base-plugin';
+import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { ToolExecutionService } from './tool-execution-service';
 import type { AIProviderManagerInterface } from '../interfaces/manager';
 import type { ToolManagerInterface } from '../interfaces/manager';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ToolExecutionContext } from '../interfaces/tool'; // 🎯 [CONTEXT-INJECTION] Import ToolExecutionContext
-import { BaseAIProvider } from '../abstracts/base-ai-provider';
 import { Logger, createLogger } from '../utils/logger';
 import { ChatOptions, ToolCall } from '../interfaces/provider';
 import { EventService, SilentEventService, ActionTrackingEventService } from './event-service';
@@ -127,7 +126,7 @@ export class ExecutionService {
     private aiProviders: AIProviderManagerInterface;
     private tools: ToolManagerInterface;
     private conversationHistory: ConversationHistory;
-    private plugins: BasePlugin[] = [];
+    private plugins: AbstractPlugin[] = [];
     private logger: Logger;
     private baseEventService: EventService;
     private execEventService: EventService;
@@ -170,7 +169,7 @@ export class ExecutionService {
     /**
      * Register a plugin
      */
-    registerPlugin(plugin: BasePlugin): void {
+    registerPlugin(plugin: AbstractPlugin): void {
         this.plugins.push(plugin);
         this.logger.debug('Plugin registered', {
             pluginName: plugin.name,
@@ -198,7 +197,7 @@ export class ExecutionService {
     /**
      * Get a plugin by name
      */
-    getPlugin<T extends BasePlugin = BasePlugin>(pluginName: string): T | null {
+    getPlugin<T extends AbstractPlugin = AbstractPlugin>(pluginName: string): T | null {
         const plugin = this.plugins.find(p => p.name === pluginName);
         return plugin as T | null;
     }
@@ -206,7 +205,7 @@ export class ExecutionService {
     /**
      * Get all registered plugins
      */
-    getPlugins(): BasePlugin[] {
+    getPlugins(): AbstractPlugin[] {
         return [...this.plugins];
     }
 
@@ -1456,7 +1455,7 @@ export class ExecutionService {
                 }
 
                 // Use type assertion to access the hook methods
-                const pluginWithHooks = plugin as BasePlugin & PluginHooks;
+                const pluginWithHooks = plugin as AbstractPlugin & PluginHooks;
 
                 // Call the appropriate hook method with correct parameters
                 switch (hookName) {

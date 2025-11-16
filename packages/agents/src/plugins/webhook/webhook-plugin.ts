@@ -3,7 +3,7 @@
  * Coordinates webhook functionality through clean, separated components
  */
 
-import { BasePlugin, PluginCategory, PluginPriority, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext } from '../../abstracts/base-plugin';
+import { AbstractPlugin, PluginCategory, PluginPriority, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext } from '../../abstracts/abstract-plugin';
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError } from '../../utils/errors';
 import type { TimerId } from '../../utils';
@@ -44,7 +44,7 @@ const ERROR_EVENTS = {
  * Webhook Plugin using Facade Pattern
  * Provides a clean interface for webhook functionality
  */
-export class WebhookPlugin extends BasePlugin<WebhookPluginOptions, WebhookPluginStats> {
+export class WebhookPlugin extends AbstractPlugin<WebhookPluginOptions, WebhookPluginStats> {
     name = 'WebhookPlugin';
     version = '1.0.0';
 

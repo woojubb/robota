@@ -32,7 +32,7 @@ export interface ErrorHandlingContextData {
     [key: string]: string | number | boolean | undefined;
 }
 
-import type { BasePluginOptions } from '../../abstracts/base-plugin';
+import type { BasePluginOptions } from '../../abstracts/abstract-plugin';
 
 /**
  * Configuration options for error handling plugin

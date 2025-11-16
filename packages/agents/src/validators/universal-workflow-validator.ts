@@ -5,7 +5,7 @@
  * Implements comprehensive validation rules for universal workflow format.
  */
 
-import { BaseWorkflowValidator } from '../abstracts/base-workflow-validator';
+import { AbstractWorkflowValidator } from '../abstracts/abstract-workflow-validator';
 import type { UniversalWorkflowStructure } from '../services/workflow-converter/universal-types';
 import type { WorkflowData } from '../interfaces/workflow-converter';
 import type {
@@ -42,7 +42,7 @@ export const UNIVERSAL_WORKFLOW_VALIDATION_RULES = {
  * - Position and layout validation
  * - Metadata completeness checking
  */
-export class UniversalWorkflowValidator extends BaseWorkflowValidator<UniversalWorkflowStructure> {
+export class UniversalWorkflowValidator extends AbstractWorkflowValidator<UniversalWorkflowStructure> {
     readonly name = 'UniversalWorkflowValidator';
     readonly version = '1.0.0';
     readonly dataFormat = 'universal-workflow';

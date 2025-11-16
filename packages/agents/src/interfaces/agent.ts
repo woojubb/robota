@@ -1,7 +1,7 @@
 import type { ProviderConfigValue, AIProvider } from './provider';
-import type { BasePlugin, BasePluginOptions, PluginStats } from '../abstracts/base-plugin';
+import type { AbstractPlugin, BasePluginOptions, PluginStats } from '../abstracts/abstract-plugin';
 import type { AbstractTool } from '../abstracts/abstract-tool';
-import type { BaseModule } from '../abstracts/base-module';
+import type { AbstractModule } from '../abstracts/abstract-module';
 import type { UtilLogLevel } from '../utils/logger';
 import type { ToolExecutionResult, ToolExecutionContext } from './tool'; // 🎯 [CONTEXT-INJECTION] Import ToolExecutionContext
 import type { Metadata, ConfigValue } from './types';
@@ -118,10 +118,10 @@ export interface AgentConfig {
 
     // Tools and plugins
     tools?: AbstractTool[];
-    plugins?: Array<BasePlugin<BasePluginOptions, PluginStats>>;
+    plugins?: Array<AbstractPlugin<BasePluginOptions, PluginStats>>;
 
     // Modules for extended functionality
-    modules?: BaseModule[];
+    modules?: AbstractModule[];
 
     // System configuration
     systemMessage?: string;

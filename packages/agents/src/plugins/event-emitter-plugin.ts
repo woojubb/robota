@@ -1,4 +1,4 @@
-import { BasePlugin, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext, PluginCategory, PluginPriority } from '../abstracts/base-plugin';
+import { AbstractPlugin, type BaseExecutionContext, type BaseExecutionResult, type ErrorContext, PluginCategory, PluginPriority } from '../abstracts/abstract-plugin';
 import type { ToolExecutionContext, ToolParameters, ToolResult } from '../interfaces/tool';
 import { Logger, createLogger } from '../utils/logger';
 import { PluginError } from '../utils/errors';
@@ -203,7 +203,7 @@ interface EventHandler {
     filter?: (event: EventData) => boolean;
 }
 
-import type { BasePluginOptions } from '../abstracts/base-plugin';
+import type { BasePluginOptions } from '../abstracts/abstract-plugin';
 
 /**
  * Event emitter configuration
@@ -243,7 +243,7 @@ export interface EventEmitterPluginStats {
  * Plugin for event detection and propagation
  * Emits events during agent execution lifecycle
  */
-export class EventEmitterPlugin extends BasePlugin<EventEmitterPluginOptions, EventEmitterPluginStats> {
+export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions, EventEmitterPluginStats> {
     name = 'EventEmitterPlugin';
     version = '1.0.0';
 

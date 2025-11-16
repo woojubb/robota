@@ -1,5 +1,5 @@
 import { Message } from '../../interfaces/agent';
-import type { BasePluginOptions } from '../../abstracts/base-plugin';
+import type { BasePluginOptions } from '../../abstracts/abstract-plugin';
 
 /**
  * Storage strategy for conversation history

@@ -3,12 +3,12 @@ import { AgentFactory, type AgentFactoryOptions, type AgentLifecycleEvents } fro
 import type { AgentInterface, AgentConfig, AgentTemplate } from '../interfaces/agent';
 import { ConfigurationError, ValidationError } from '../utils/errors';
 import { Robota } from '../agents/robota';
-import { BaseAIProvider } from '../abstracts/base-ai-provider';
+import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
 import type { UniversalMessage } from './conversation-history-manager';
 import type { ChatOptions } from '../interfaces/provider';
 
 // Mock AI Provider for testing
-class MockAIProvider extends BaseAIProvider {
+class MockAIProvider extends AbstractAIProvider {
     readonly name = 'mock-provider';
     readonly version = '1.0.0';
 

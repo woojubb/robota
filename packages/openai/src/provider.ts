@@ -3,7 +3,7 @@ import type { OpenAIProviderOptions } from './types';
 import type {
     OpenAIError
 } from './types/api-types';
-import { BaseAIProvider } from '@robota-sdk/agents';
+import { AbstractAIProvider } from '@robota-sdk/agents';
 import type {
     UniversalMessage,
     ChatOptions,
@@ -13,7 +13,7 @@ import type {
 } from '@robota-sdk/agents';
 import type { PayloadLogger } from './interfaces/payload-logger';
 import { OpenAIResponseParser } from './parsers/response-parser';
-import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
+import { SilentLogger } from '@robota-sdk/agents';
 
 /**
  * OpenAI provider implementation for Robota
@@ -23,7 +23,7 @@ import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
  * 
  * @public
  */
-export class OpenAIProvider extends BaseAIProvider {
+export class OpenAIProvider extends AbstractAIProvider {
     override readonly name = 'openai';
     override readonly version = '1.0.0';
 
@@ -31,10 +31,9 @@ export class OpenAIProvider extends BaseAIProvider {
     private readonly options: OpenAIProviderOptions;
     private readonly payloadLogger: PayloadLogger | undefined;
     private readonly responseParser: OpenAIResponseParser;
-    private readonly logger: SimpleLogger;
 
     constructor(options: OpenAIProviderOptions) {
-        super();
+        super(options.logger || SilentLogger);
         this.options = options;
 
         // Set executor if provided
@@ -59,7 +58,6 @@ export class OpenAIProvider extends BaseAIProvider {
             }
         }
 
-        this.logger = options.logger || SilentLogger;
         this.responseParser = new OpenAIResponseParser(this.logger);
 
         // Initialize payload logger with backward compatibility

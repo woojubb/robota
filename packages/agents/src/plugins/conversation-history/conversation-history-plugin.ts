@@ -1,4 +1,4 @@
-import { BasePlugin, PluginCategory, PluginPriority } from '../../abstracts/base-plugin';
+import { AbstractPlugin, PluginCategory, PluginPriority } from '../../abstracts/abstract-plugin';
 import { Message } from '../../interfaces/agent';
 import { Logger, createLogger } from '../../utils/logger';
 import { PluginError, ConfigurationError } from '../../utils/errors';
@@ -19,7 +19,7 @@ import {
  * Plugin for managing conversation history
  * Saves and loads conversation history using configurable storage strategies
  */
-export class ConversationHistoryPlugin extends BasePlugin<ConversationHistoryPluginOptions, ConversationHistoryPluginStats> {
+export class ConversationHistoryPlugin extends AbstractPlugin<ConversationHistoryPluginOptions, ConversationHistoryPluginStats> {
     name = 'ConversationHistoryPlugin';
     version = '1.0.0';
 

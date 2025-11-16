@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { AnthropicProviderOptions } from './types';
-import { BaseAIProvider } from '@robota-sdk/agents';
+import { AbstractAIProvider } from '@robota-sdk/agents';
 import type {
     UniversalMessage as RobotaUniversalMessage,
     ChatOptions as RobotaChatOptions,
@@ -27,7 +27,7 @@ type AssistantMessage = RobotaAssistantMessage;
  * 
  * @public
  */
-export class AnthropicProvider extends BaseAIProvider {
+export class AnthropicProvider extends AbstractAIProvider {
     override readonly name = 'anthropic';
     override readonly version = '1.0.0';
 
