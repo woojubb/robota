@@ -25,6 +25,7 @@
         "playground:generate": "tsx 26-playground-edge-verification.ts && mv perfect-playground-data.json data/ && echo '✅ Data generated in data/perfect-playground-data.json'",
         "playground:deploy": "cp data/perfect-playground-data.json ../web/public/perfect-playground-data.json && echo '✅ Data deployed to playground'",
         "playground:quick": "pnpm playground:generate && pnpm verify:workflow && pnpm playground:deploy",
+        "scenario": "tsx utils/run-scenario.ts",
         "lint": "eslint . --ext .ts,.tsx",
         "lint:fix": "eslint . --ext .ts,.tsx --fix",
         "check-types": "tsc --noEmit"

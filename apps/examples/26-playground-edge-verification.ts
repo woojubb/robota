@@ -20,6 +20,7 @@ import {
     ActionTrackingEventService,
     DefaultConsoleLogger
 } from '@robota-sdk/agents';
+import type { AIProvider } from '@robota-sdk/agents';
 import {
     CoreWorkflowBuilder,
     WorkflowEventSubscriber
@@ -28,6 +29,8 @@ import type {
     UniversalWorkflowStructure,
     WorkflowUpdate
 } from '@robota-sdk/workflow';
+import { ScenarioStore } from './utils/scenario-store';
+import { createScenarioMockProvider, createScenarioRecordingProvider } from './lib/scenario-provider';
 
 // ===== 🔍 Playground 연결 검증 전용 테스트 =====
 
@@ -93,12 +96,41 @@ async function testPlaygroundEdgeConnections() {
 
         // 5. AI Provider 설정 (실제 API 키로 완전한 워크플로우 생성)
         console.log('\n4. Creating AI providers...');
-        const provider = new OpenAIProvider({
+        const scenarioStore = new ScenarioStore();
+        const recordScenarioId = process.env.SCENARIO_RECORD_ID;
+        const mockScenarioId = process.env.SCENARIO_PLAY_ID;
+        const scenarioStrategy = (process.env.SCENARIO_PLAY_STRATEGY as 'hash' | 'sequential') || 'hash';
+
+        if (recordScenarioId && mockScenarioId) {
+            throw new Error('SCENARIO_RECORD_ID and SCENARIO_PLAY_ID cannot be used at the same time.');
+        }
+
+        let provider: AIProvider = new OpenAIProvider({
             apiKey: process.env.OPENAI_API_KEY,
             model: 'gpt-4o-mini',
             logger: console
         });
-        console.log('   Using real OpenAI provider for complete workflow generation');
+
+        if (recordScenarioId) {
+            console.log(`   📝 Recording scenario responses for "${recordScenarioId}"`);
+            provider = createScenarioRecordingProvider(provider, {
+                scenarioId: recordScenarioId,
+                store: scenarioStore,
+                tags: ['example-26'],
+                metadata: {
+                    example: '26-playground-edge-verification'
+                }
+            });
+        } else if (mockScenarioId) {
+            console.log(`   🎭 Replaying scenario "${mockScenarioId}" (strategy=${scenarioStrategy})`);
+            provider = createScenarioMockProvider({
+                scenarioId: mockScenarioId,
+                store: scenarioStore,
+                strategy: scenarioStrategy
+            });
+        } else {
+            console.log('   Using real OpenAI provider for complete workflow generation');
+        }
 
         // 6. Team 생성 with WorkflowEventSubscriber
         console.log('\n5. Creating team with WorkflowEventSubscriber...');
