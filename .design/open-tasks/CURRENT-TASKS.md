@@ -25,6 +25,26 @@
     - [ ] 기존 Agent 노드 없을 때만 "임시 생성" (하위 호환용)
 - [ ] 빌드/가드/검증 실행
 - [ ] Agent 노드 수 점검(중복 증가 없음)
+- [ ] Guard 실패 피드백 기반 이론 재검증
+  - [ ] 실패 요약: 예제 26 Guard 검증에서 다중 start node, 컴포넌트 단절, thinking↔tool_result timestamp 충돌로 불합격
+  - [ ] 가설 1 (다중 start node): assignTask로 파생된 conversation user_message 노드가 상위 thinking/tool_call과 연결되지 않아 root가 3개로 분리됨 → parentExecutionId 기반 엣지 생성 규칙 보강 필요
+  - [ ] 가설 2 (컴포넌트 단절): WorkflowState/agentNodeIdMap이 하위 conversation의 agent를 상위 루트와 매칭하지 못해 독립 그래프가 유지됨 → execution_start 상태 전이 시 conversationIdToAgentIdMap/WorkflowState 동시 갱신 필요
+  - [ ] 가설 3 (timestamp 충돌): tool_result와 thinking_round2 timestamp가 동일하게 부여되어 sequential order 위반 → tool_result 생성 시 parent thinking timestamp보다 항상 작거나 같아야 한다는 조건을 명시하고, thinking_round2 생성 시 `max(previousTimestamp)+1` 규칙을 적용하도록 시뮬레이션 계획 수립
+  - [ ] 계획 검증 절차:
+    - [ ] `data/real-workflow-data.json`을 기준으로 각 가설을 실제 노드/엣지에서 확인 (start node 수, component 수, timestamp 비교)
+    - [ ] Guard 로그와 WorkflowState 업데이트 로그를 대조하여 어떤 이벤트에서 분기가 벌어졌는지 문서화
+    - [ ] Path-only 규칙과 충돌하는 지점을 체크리스트화하고, 수정 필요 포인트를 순서대로 나열
+  - [ ] 검증 결과 기록:
+    - [ ] 각 가설별로 “충분히 재현됨/추가 데이터 필요” 여부 판단
+    - [ ] 필요한 경우 추가 가설(예: agent_thinking ↔ tool_response 연결 누락)을 문서에 보강
+    - [ ] 이후 코드 설계 시 참조할 수 있도록 시사점 요약
+  - [ ] 세부 세분화:
+    - [ ] 가설 1 재현 로그 캡처: guard output 중 start node 관련 구간을 `.design` 문서에 붙여넣고 원인 분석
+    - [ ] parentExecutionId → previous edge 생성 규칙 초안 작성
+    - [ ] 가설 2 확인을 위해 WorkflowState agent 매핑 스냅샷을 수집(가능 시 run 중 로그), conversationIdToAgentIdMap 상태 기록
+    - [ ] 가설 3에서 문제가 되는 tool_result / thinking_round2 페어를 표로 정리 (timestamp, sourceId, path)
+    - [ ] 각 가설에 대해 “수정 시 필요한 코드 위치”를 미리 지정 (예: agent-event-handler.ts, execution-event-handler.ts 등)
+  - [ ] TODO: 위 가설을 기반으로 Path-only 연결/타임라인 이론을 재정의하고, 코드 수정 전에 문서 내 시퀀스 다이어그램/표로 검증
 - [ ] 단계 3 상세 실행 계획:
   - [x] 이벤트 흐름 및 영향 범위 재구성: emit 지점·payload 필드·연쇄 이벤트 문서화
     - Robota `run/runStream`이 ActionTrackingEventService(ownerPrefix='agent')를 통해 `AGENT_EVENTS.EXECUTION_START`를 실행 시작 직전에 emit하며 payload에는 `sourceType`, `sourceId(=conversationId)`, `timestamp`만 포함됨. ExecutionProxy도 동일 이벤트를 감싼 상태라 중복 emit 가능성 존재.
@@ -75,10 +95,45 @@
       - Priority 1 섹션 하단 “작업 진행 기록” 영역에 중요한 전환점(예: 상태 전이 로직 확정, Guarded 검증 완료)을 날짜와 함께 bullet로 누적.
       - Guarded 예제 실행 결과(성공/실패)와 로그 파일 위치를 진행 기록에 링크 형태로 남겨 재현 가능성 확보.
       - 단계 6.5/6.6로 넘어갈 때, 단계 3의 완료 항목들에 `[x]` 표시 후 “다음 단계로 전환” 주석을 남겨 문서 내 단계간 추적이 가능하도록 유지.
+- [ ] 단계 3 이론 시뮬레이션 기록
+  - [ ] assignTask fork 케이스 이벤트 시퀀스(루트 user_message → thinking → tool_call → 하위 agent user_message/ thinking/ response → tool_result → 상위 thinking_round2 → response)를 표로 작성
+  - [ ] 각 단계에서 요구되는 Path-only 연결 조건과 WorkflowState 업데이트 요건을 명확히 정의
+  - [ ] 타임스탬프 증가 규칙(각 노드/엣지 생성 시점)이 sequential rule을 만족하는지 가상 시뮬레이션
+  - [ ] 시뮬레이션 결과를 기반으로 코드 수정 시나리오를 도출하고, Guard 재실행 전에 문서에서 검증 완료 표시
+  - [ ] 세부 체크리스트:
+    - [ ] 이벤트 순서도를 ASCII 다이어그램 또는 표 형태로 작성
+    - [ ] 각 이벤트에서 생성되는 노드 ID, edge 타입, timestamp 공식을 명시
+    - [ ] WorkflowState 변화(Agent mapping, thinking map) 로그를 단계별로 예측
+    - [ ] “start node 1개/단일 컴포넌트/순차 timestamp”의 충족 여부를 표 형태로 검증
+    - [ ] 예상 결과를 `.design` 문서에 요약하여 코드 작성 전 리뷰 가능 상태로 유지
+  - [ ] 추가 세분화 항목:
+    - [ ] 시뮬레이션용 변수 정의(예: rootExecutionId R0, toolCallIds T1/T2 등)로 일관된 표기법 확립
+    - [ ] Fork 단계별 Edge 규칙을 명시 (user_message→thinking: processes, thinking→tool_call: invokes 등)
+    - [ ] Join 단계에서 tool_result→thinking_round2 edge 타입/조건을 도출하고 timestamp 공식(`toolResultTs + ε`)을 문서화
+    - [ ] 시나리오별(예제 26, 27) 차이점을 비교하여 공통 규칙/특수 규칙 구분
+    - [ ] 시뮬레이션 결과에 따른 “필수 수정 포인트” 리스트업
 - [ ] 단계 3 구현/검증 순서 제안:
   - [ ] (1) `agent-event-handler.ts` 코드 업데이트: 재활용 로직, 상태 업데이트, WorkflowState 재연결, 임시 생성 블록 분리(TODO 주석/경고 로그 포함).
   - [ ] (2) 빌드 및 Guarded 예제 26 실행: workflow → team → agents 순으로 빌드, Guarded 스크립트 실행 후 Agent 노드 수/경고 로그/STRICT-POLICY 위반 여부 확인.
   - [ ] (3) 결과 문서화: Guard 로그 요약, 임시 생성 사용 여부, 예제 데이터 diff 등을 CURRENT-TASKS 진행 기록에 반영하고 단계 6.5 준비 상황을 업데이트.
+- [ ] Mock AI Provider + Recorder 구축
+  - [ ] Mock Provider: `AbstractAIProvider`를 상속하는 `MockAIProvider` 구현, 사전 정의된 응답 시퀀스를 즉시 반환하도록 구성
+  - [ ] Recorder 래퍼: 실제 provider를 감싸서 `execute`/`executeStream` 결과를 시나리오 JSON으로 기록 (dev/test 플래그 기반)
+  - [ ] Scenario 저장소: `apps/examples/scenarios/<scenarioId>.json` 형태로 입력/출력 기록 + metadata 관리
+  - [ ] Provider 선택 로직: Agent/ExecutionService 옵션에 `useMockProvider`, `recordProviderResponses` 추가하여 wiring
+  - [ ] 예제 26 시나리오 생성 및 Mock 실행 검증: 실제 provider로 기록한 뒤 Mock 모드에서 재실행, Guarded 검증 통과 확인
+  - [ ] 세부 실행 단계:
+    - [ ] 시나리오 JSON 스키마 확정 (prompt hash, response text/stream, metadata)
+    - [ ] Recorder 옵션 플래그 설계 (`AgentConfig.mockScenarioId`, `recordScenarioId` 등)
+    - [ ] 저장 경로/파일명 규칙 정의 및 README 문서화
+    - [ ] Mock Provider가 시나리오 데이터를 못 찾았을 때 즉시 실패하도록 예외 정책 정의(No-fallback 유지)
+    - [ ] CI/로컬 실행 시나리오: `pnpm test:scenario --scenario=26` 명령 초안 작성
+  - [ ] 추가 세분화:
+    - [ ] Mock Provider 응답 시퀀스 로더 구현 계획 (파일→메모리→provider)
+    - [ ] Recorder가 파일에 append 시 concurrency/ordering을 어떻게 보장할지 결정 (예: timestamp-based filename)
+    - [ ] Scenario 관리 CLI 초안 (`pnpm scenario:record`, `pnpm scenario:play`)
+    - [ ] 예제별 기본 시나리오 목록 정의 및 문서화
+    - [ ] Mock Provider 사용 시 Guarded 실행 절차(옵션 플래그, 환경변수 등) 문서화
 
 #### 단계 6.5: 단일 전환 단계 (Decision Gate)
 - [ ] Agent 핸들러: `agent.execution_start`는 상태 전이만 (노드 생성 절대 금지)
