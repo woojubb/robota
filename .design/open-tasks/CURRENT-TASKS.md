@@ -44,6 +44,10 @@
     - [ ] 가설 2 확인을 위해 WorkflowState agent 매핑 스냅샷을 수집(가능 시 run 중 로그), conversationIdToAgentIdMap 상태 기록
     - [ ] 가설 3에서 문제가 되는 tool_result / thinking_round2 페어를 표로 정리 (timestamp, sourceId, path)
     - [ ] 각 가설에 대해 “수정 시 필요한 코드 위치”를 미리 지정 (예: agent-event-handler.ts, execution-event-handler.ts 등)
+  - [ ] 현재 재현 결과 (예제 26 데이터 기준):
+    - [ ] Start node 3개: `conv_1763563902829_59dfmhiij_user_exec_1763563902832_isgu3ldaj`, `conv_1763563909829_gggnfzuo2_user_exec_1763563909833_ijsfkk0kz`, `conv_1763563909831_r52ig6fdh_user_exec_1763563909834_6r1ajis1m` → parentExecutionId가 존재하지만 연결 edge 부재
+    - [ ] 분리 컴포넌트: 상위 루트(`conv_1763563902829...`)와 두 하위 assignTask 결과 루트가 edge 없이 독립 → tool_call → user_message edge 필요
+    - [ ] Timestamp 충돌: `tool_result_thinking_conv_1763563902829_59dfmhiij_round1_1763563934615` timestamp 1763563934615, `thinking_conv_1763563902829_59dfmhiij_round2` 동일 1763563934615 → thinking이 tool_result보다 더 늦게 생성되어야 함
   - [ ] TODO: 위 가설을 기반으로 Path-only 연결/타임라인 이론을 재정의하고, 코드 수정 전에 문서 내 시퀀스 다이어그램/표로 검증
 - [ ] 단계 3 상세 실행 계획:
   - [x] 이벤트 흐름 및 영향 범위 재구성: emit 지점·payload 필드·연쇄 이벤트 문서화
@@ -116,24 +120,106 @@
   - [ ] (1) `agent-event-handler.ts` 코드 업데이트: 재활용 로직, 상태 업데이트, WorkflowState 재연결, 임시 생성 블록 분리(TODO 주석/경고 로그 포함).
   - [ ] (2) 빌드 및 Guarded 예제 26 실행: workflow → team → agents 순으로 빌드, Guarded 스크립트 실행 후 Agent 노드 수/경고 로그/STRICT-POLICY 위반 여부 확인.
   - [ ] (3) 결과 문서화: Guard 로그 요약, 임시 생성 사용 여부, 예제 데이터 diff 등을 CURRENT-TASKS 진행 기록에 반영하고 단계 6.5 준비 상황을 업데이트.
-- [ ] Mock AI Provider + Recorder 구축
-  - [ ] Mock Provider: `AbstractAIProvider`를 상속하는 `MockAIProvider` 구현, 사전 정의된 응답 시퀀스를 즉시 반환하도록 구성
-  - [ ] Recorder 래퍼: 실제 provider를 감싸서 `execute`/`executeStream` 결과를 시나리오 JSON으로 기록 (dev/test 플래그 기반)
-  - [ ] Scenario 저장소: `apps/examples/scenarios/<scenarioId>.json` 형태로 입력/출력 기록 + metadata 관리
-  - [ ] Provider 선택 로직: Agent/ExecutionService 옵션에 `useMockProvider`, `recordProviderResponses` 추가하여 wiring
-  - [ ] 예제 26 시나리오 생성 및 Mock 실행 검증: 실제 provider로 기록한 뒤 Mock 모드에서 재실행, Guarded 검증 통과 확인
-  - [ ] 세부 실행 단계:
-    - [ ] 시나리오 JSON 스키마 확정 (prompt hash, response text/stream, metadata)
-    - [ ] Recorder 옵션 플래그 설계 (`AgentConfig.mockScenarioId`, `recordScenarioId` 등)
-    - [ ] 저장 경로/파일명 규칙 정의 및 README 문서화
-    - [ ] Mock Provider가 시나리오 데이터를 못 찾았을 때 즉시 실패하도록 예외 정책 정의(No-fallback 유지)
-    - [ ] CI/로컬 실행 시나리오: `pnpm test:scenario --scenario=26` 명령 초안 작성
+- [x] Mock AI Provider + Recorder 구축
+  - [x] Mock Provider: `ScenarioMockAIProvider`가 `mockScenarioId`/`strategy(hash|sequential)` 기반으로 즉시 응답 재생, 데이터 누락 시 즉시 실패하도록 예외 처리(`SCENARIO_DEBUG_HASH_MISS` 플래그로 디버그 지원)
+  - [x] Recorder 래퍼: `ScenarioRecordingProvider`가 실제 provider를 감싸 `chat`/`chatStream`/`generateResponse` 출력 전체를 JSON Step으로 append (dev 환경에서만 활성화)
+  - [x] Scenario 저장소: `apps/examples/scenarios/<scenarioId>.json` 파일 구조 정리, step별 `requestHash`·metadata·tags를 보존하고 timestamp를 epoch(ms)로 직렬화
+  - [x] Provider 선택 로직: 예제 26 실행 스크립트에서 `SCENARIO_RECORD_ID`/`SCENARIO_PLAY_ID`/`SCENARIO_PLAY_STRATEGY` env 플래그로 Recorder/Playback을 명확히 분기 (동시 설정 시 에러)
+  - [x] 예제 26 시나리오 생성 및 Mock 실행 검증: `pnpm scenario record 26-playground-edge-verification.ts mandatory-delegation` → `pnpm scenario play ...` (hash & sequential) 모두 Guarded 검증 PASS (로그: `apps/examples/cache/26-playground-edge-verification-*-guarded.log`)
+  - [x] 세부 실행 단계:
+    - [x] 시나리오 JSON 스키마 확정: `ScenarioMessageSnapshot`/`ScenarioToolCallSnapshot`로 요청·응답을 저장하고 `requestHash`를 metadata-free payload 기준으로 계산(모든 timestamp는 epoch 숫자로 보관)
+    - [x] Recorder 옵션 플래그: 예제 26 CLI/가드 스크립트에서 `SCENARIO_RECORD_ID`와 `SCENARIO_PLAY_ID` 환경변수로 제어, 동시에 설정하면 예외 발생
+    - [x] 저장 경로/파일명 규칙: 기본 디렉터리를 `apps/examples/scenarios/`로 고정(`.gitkeep` 유지), 파일명은 `<scenarioId>.json`
+    - [x] Mock Provider 데이터 미존재 시 즉시 실패하도록 에러 정책 정의(No-fallback 유지, hash miss 시 env 플래그 기반 디버그 로그)
+    - [ ] CI/로컬 실행 시나리오 문서화(`pnpm test:scenario` 명령 초안)는 추후 README 업데이트에서 처리
+  - [ ] Tool/Agent/환경 전체 재생 요구사항 보완 (새로 도출)
+    - [ ] AgentConfig/ToolRegistry 스냅샷: 예제 실행 시 사용한 provider 목록, tool 구성, plugin 옵션, 시스템 메타데이터를 scenario 헤더에 기록해 playback 시 동일 환경을 복구
+    - [ ] Tool 호출 Recorder/Mock: Tool 실행 전후를 래핑하여 `tool.call_start` 입력/결과/중간 context를 기록하고, playback 시 Tool mock이 해당 결과를 즉시 반환하도록 구성 (Tool 내부 LLM 호출 시 Provider mock 체인 연동)
+    - [ ] Nested Agent/Provider 체인 추적: assignTask 등 새로운 Agent를 생성하는 Tool이 scenario context를 파생 전달하도록 ExecutionService를 확장, 하위 Agent도 Recorder/Mock 설정을 이어받게 함
+    - [ ] Verification 플로우 확장: “실제 Provider/Tool 호출이 0회인지”를 검증하는 scenario 테스트 명령을 추가하고, Guarded 예제 26을 순수 playback 모드로 통과시키는 체크리스트 수립
+  - [ ] Tool/Agent Recorder 확장 실행 계획
+    - [ ] 1단계 – 설계 문서화: Tool 호출 시 필요한 입력/출력 필드, AgentConfig 스냅샷 스키마, nested Agent context 전달 규칙을 `.design` 문서에 정의
+      - [ ] 2단계 – Recorder/Mock 동시 구현: ToolRecorder와 ToolMock을 한 번에 도입해, “기록만 존재” 상태를 만들지 않고 곧바로 playback이 가능한 구조로 구축
+      - [ ] 3단계 – End-to-End 검증: 새로운 scenario 테스트 명령(예: `pnpm scenario verify 26 ...`)으로 record → playback 전 과정을 실행하고 Guarded 예제 + scenario 검사까지 자동화
+    - [ ] 세부 설계 (WIP)
+      - [ ] 환경 스냅샷(ScenarioEnvironment)
+        - [ ] AgentConfig: `id`, `name`, provider 목록(우선순위 포함), tool 목록, plugin/options, system message 등 런타임 설정 전체를 JSON 스냅샷으로 저장
+        - [ ] ToolRegistry: tool id, handler 경로, provider 의존성, 추가 metadata(예: assignTask 템플릿) — Tool 구성도 전부 JSON에 포함
+        - [ ] ExecutionContext: rootExecutionId, scenarioId, recorder/mock 플래그
+        - [ ] 저장 방식: scenario 파일 최상단 `environment` 섹션에 단 한 번 기록, playback 시 아예 동일 Agent/Tool 구성을 부트스트랩
+      - [ ] Tool Recorder
+        - [ ] 위치: ToolRegistry(or ToolExecutor)에서 Tool 인스턴스를 resolve한 뒤 실행하기 직전
+        - [ ] Step 구조: `toolCallId`, `toolName`, `input`, `context`(executionId, parent, agentId), `toolConfigSnapshot`, `timestamp`
+        - [ ] 결과: 성공/실패 여부, 반환 payload, nested agent 실행 trace id
+        - [ ] nested agent로 넘어갈 때 scenario context를 주입(예: `ScenarioContext.child('agent', childId)` 형태)
+      - [ ] Tool Mock
+        - [ ] ToolRegistry가 playback 모드일 때 실제 Tool 대신 `ScenarioMockTool`을 반환
+        - [ ] 입력 hash(or 순차 id)로 recorded step을 찾고, 결과 payload를 즉시 반환
+        - [ ] nested agent 실행이 필요하면 해당 step에 기록된 child context를 사용해 ExecutionService에 scenario context를 전달
+      - [ ] context 전파 규칙
+        - [ ] ExecutionService가 Agent를 생성할 때 현재 scenario context를 복제해 child agent에 주입
+        - [ ] Provider Recorder/Mock는 기존대로 context만 받으면 자동으로 동작하므로, Tool mock → Agent → Provider로 이어지는 체인이 완성
+      - [ ] 검증/감시
+        - [ ] playback 모드에서 실제 Tool/Provider 호출이 발생하면 즉시 예외
+        - [ ] scenario step 소비 여부(tracking) → replay 후 미사용 step 존재 시 실패 처리
   - [ ] 추가 세분화:
     - [ ] Mock Provider 응답 시퀀스 로더 구현 계획 (파일→메모리→provider)
     - [ ] Recorder가 파일에 append 시 concurrency/ordering을 어떻게 보장할지 결정 (예: timestamp-based filename)
     - [ ] Scenario 관리 CLI 초안 (`pnpm scenario:record`, `pnpm scenario:play`)
     - [ ] 예제별 기본 시나리오 목록 정의 및 문서화
     - [ ] Mock Provider 사용 시 Guarded 실행 절차(옵션 플래그, 환경변수 등) 문서화
+    - [ ] Recorder/Playback 모드 구분 명시:
+      - [ ] `recordScenarioId` 설정 시: 실제 AI Provider를 호출하고 응답을 저장, Mock Provider는 단순 래퍼 역할
+      - [ ] `mockScenarioId` 설정 시: 저장된 응답만 재생하고 실제 Provider 호출 금지(데이터 미존재 시 즉시 실패)
+      - [ ] 두 옵션이 동시에 설정되지 않도록 검증 로직 포함
+  - [x] 1) 시나리오 JSON 스키마 세부 정의
+    - [ ] 루트 구조: `{ "scenarioId": string, "version": 1, "steps": Step[] }`
+    - [ ] Step 필드:
+      - [ ] `stepId`: `"agent-exec-1"`, `"tool-call-2"` 등 명시적 식별자
+      - [ ] `request`: provider 호출 입력(payload, metadata, executionId, conversationId, temperature 등)
+      - [ ] `response`: LLM/Tool 결과 전체(텍스트, tokens, usage, streamChunks 배열)
+      - [ ] `timestamp`: epoch number, 순차 검증용
+      - [ ] `tags`: `["assignTask","round1"]` 등 필터용
+    - [ ] Stream 대응: `response.stream` 배열(각 chunk content + index)와 `response.final` 동시 저장
+    - [ ] Hash 필드: `requestHash`(prompt 기반 md5)로 입력 동일성 검증
+    - [ ] 파일 예시: `apps/examples/scenarios/26-guard-round1.json`
+  - [x] 2) Recorder 래퍼 설계
+    - [ ] `ScenarioRecordingAIProvider` (decorator) 생성: 내부에 실제 provider 인스턴스 보관
+    - [ ] `recordScenarioId` 제공 시에만 활성화, 없으면 즉시 실제 provider만 반환
+    - [ ] 실행 순서:
+      1. 입력 payload + metadata 수집 → hash 계산
+      2. 실제 provider 실행 → 결과 획득
+      3. `ScenarioStore.append(record)` 호출해 JSON step 추가 (동시에 write lock)
+    - [ ] Recorder 옵션:
+      - [ ] `AgentConfig.recordScenarioId`
+      - [ ] `ScenarioRecordOptions.persistRawPrompt` (PII 포함 시 암호화 고려)
+    - [ ] 실패 시 정책:
+      - [ ] 파일 쓰기 실패 → 테스트 중단 (no-fallback)
+      - [ ] hash 충돌 발생 → 경고 후 기존 step 비교(동일 응답이면 skip, 다르면 오류)
+  - [x] 3) Mock Provider(Playback) 세부 계획
+    - [ ] `MockAIProvider`는 `mockScenarioId` 필수, 없으면 생성 자체를 막음
+    - [ ] ScenarioStore가 메모리에 로드한 steps 배열에서 `requestHash` 또는 `stepId`로 매칭
+    - [ ] 일치 항목 없으면 즉시 예외(`ScenarioMissingError`) 던져 Guard 실패로 이어지게 함
+    - [ ] Stream 응답: 저장된 `response.stream` 배열을 순서대로 yield
+    - [ ] 사용 옵션:
+      - [ ] `AgentConfig.mockScenarioId`
+      - [ ] `AgentConfig.mockStepStrategy`: `sequential`/`byHash` 중 택
+    - [ ] Mock Provider 사용 시 실제 provider 인스턴스 생성 금지(불필요 비용 방지)
+  - [x] 4) Scenario 저장소/CLI/옵션 wiring
+    - [ ] 저장소 구조:
+      - [ ] `apps/examples/scenarios/README.md`에 사용법 정리
+      - [ ] 파일명 규칙: `<example>-<scenario>-v<timestamp>.json`
+      - [ ] `.gitkeep` 유지 + 대형 파일 관리(필요 시 git-lfs 고려)
+    - [ ] ScenarioStore 유틸:
+      - [ ] `ScenarioStore.load(scenarioId)` → steps 배열
+      - [ ] `ScenarioStore.append(scenarioId, step)` → atomic append
+    - [ ] CLI 초안:
+      - [ ] `pnpm scenario:record --example=26 --scenario=mandatory-delegation`
+      - [ ] `pnpm scenario:play --example=26 --scenario=mandatory-delegation`
+  - [ ] Execution wiring:
+    - [x] `apps/examples/26-playground-edge-verification.ts`에서 env 플래그 기반 Recorder/Mock provider 주입 (추후 공용 AgentConfig 옵션으로 승격 예정)
+    - [x] Guarded 예제 실행 스크립트에서 동일 env 플래그를 사용해 record/play 모드 선택
+    - [ ] README에 dev flow 문서화 (Recorder→Playback→Guard 순서)
 
 #### 단계 6.5: 단일 전환 단계 (Decision Gate)
 - [ ] Agent 핸들러: `agent.execution_start`는 상태 전이만 (노드 생성 절대 금지)
@@ -590,4 +676,8 @@ export class ActionTrackingEventService implements EventService {
 2. Fork/Join Path-Only 검증 스크립트 자동화
 3. Tools DnD UI 구현 시작
 4. Pricing 제거 (병렬 작업 가능)
+
+**진행 로그**
+- 2025-11-19: `apps/examples`에 Scenario Recorder/Mock Provider를 구축하고 `mandatory-delegation` 시나리오를 녹화(`pnpm scenario record ...`) 후 Hash/Sequential 재생(`pnpm scenario play ... --strategy=hash|sequential`)까지 Guarded 검증 통과. `apps/examples/scenarios/mandatory-delegation.json`을 기준으로 playback 시연 성공, record/play 모드 전환은 `SCENARIO_RECORD_ID`/`SCENARIO_PLAY_ID` env 플래그로 제어.
+- 2025-11-19: Tool 호출/AgentConfig까지 포함한 풀 파이프라인 재생이 현재 범위 밖인 것을 확인. 환경 스냅샷, Tool Recorder/Mock, nested Agent context, playback 검증 자동화를 새 요구사항으로 문서화하고 단계별 계획을 추가.
 
