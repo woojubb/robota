@@ -25,6 +25,60 @@
     - [ ] 기존 Agent 노드 없을 때만 "임시 생성" (하위 호환용)
 - [ ] 빌드/가드/검증 실행
 - [ ] Agent 노드 수 점검(중복 증가 없음)
+- [ ] 단계 3 상세 실행 계획:
+  - [x] 이벤트 흐름 및 영향 범위 재구성: emit 지점·payload 필드·연쇄 이벤트 문서화
+    - Robota `run/runStream`이 ActionTrackingEventService(ownerPrefix='agent')를 통해 `AGENT_EVENTS.EXECUTION_START`를 실행 시작 직전에 emit하며 payload에는 `sourceType`, `sourceId(=conversationId)`, `timestamp`만 포함됨. ExecutionProxy도 동일 이벤트를 감싼 상태라 중복 emit 가능성 존재.
+    - `agent.created`에서 `agentNodeIdMap`(sourceId→agentNodeId)과 `WorkflowState` 매핑이 초기화되며, 현재 `agent.execution_start` 케이스는 이 맵을 통해 존재하는 노드만 `WorkflowState.setAgentForExecution(executionId)`에 연결하고 상태 필드 갱신은 수행하지 않음.
+    - 노드가 없는 경우 아무 작업도 되지 않아(하위호환 임시 생성 필요) 단계 3의 목표는 이 이벤트를 상태 전이 전용으로 두되, 소스 식별자는 sourceId/path 기반으로만 얻을 수 있음을 확인. downstream 노드/엣지는 영향을 받지 않으므로 상태 갱신과 임시 생성이 충돌하지 않도록 분리해야 함.
+  - [x] 기존 노드 재활용 조건 정의: 탐색 기준(id/path)과 업데이트 대상 필드 목록 확정
+    - 1차 키: `agentNodeIdMap`에 저장된 sourceId↔agentNodeId 매핑. 이벤트 payload에 executionId/path가 없으므로 sourceId가 유일 기준.
+    - 보조 키: `WorkflowState.getAgentForExecution(executionId)`와 `getAgentForRoot(rootExecutionId)`를 사용하되, executionId/rootId가 없는 이벤트는 스킵. Path-only 원칙상 필요 시 `getAllNodes()`를 읽어 `data.sourceId`가 동일한 AGENT 노드를 찾는 read-only 스캔만 허용.
+    - 재활용 시 필수 갱신 대상:
+      - `status`: `running`으로 고정(또는 기존 값이 `error/completed`일 때 상태 전이 로그 남김).
+      - `data.extensions.robota.originalEvent`: 새 이벤트 payload 병합(기존 필드 유지, parameters 부분만 덮어쓰기).
+      - `data.statusHistory` 또는 equivalent timeline 필드가 있다면 append (없으면 유지).
+      - `WorkflowState.setAgentForExecution(executionId, agentNodeId)` 및 `setAgentForRoot(rootExecutionId, agentNodeId)` 재확인.
+    - 다중 매칭 방지: sourceId 기준으로 단일 노드만 허용, 복수 발견 시 `WorkflowState`/map 우선, 추후 PathMapReader 도입 전까지 read-only scan에서 첫번째 일치만 사용.
+  - [x] 임시 생성 하위호환 블록 분리: 실행 조건·필수 필드·TODO 주석으로 단계 6.5 연계
+    - 목적: `agent.created`가 누락되거나 순서가 뒤집힌 레거시 경로에서 Path-only 파이프라인이 끊기지 않도록 “없을 때만 생성” 로직을 유지. 단계 6.5에서 완전 제거 예정임을 주석(`// TODO(step 6.5): remove legacy fallback`)으로 명시.
+    - 조건: `agentNodeIdMap`, `WorkflowState` 및 read-only node 스캔을 모두 시도한 후에도 AGENT 노드를 찾지 못했을 때만 실행. 실행 전 `sourceId` 필수 확인, `executionId/rootExecutionId`가 없으면 최소한 `sourceId` 기반으로 노드 생성.
+    - 생성 데이터: 기존 `createAgentNode` 헬퍼를 사용해 `id`, `status`, `timestamp`, `data.extensions.robota.originalEvent` 등을 동일 방식으로 초기화. 단, `eventType`은 `AGENT_EVENTS.EXECUTION_START`에 따른 상태 전이임을 설명하는 주석 추가.
+    - 상태 동기화: 생성 직후 `agentNodeIdMap`, `WorkflowState.setAgentForExecution`, `setAgentForRoot`를 업데이트하여 downstream 연결과 일관성 유지.
+    - 모니터링: 임시 블록이 실행될 때마다 logger.warn으로 레거시 경로 감지 메시지를 남겨, 단계 6.5 준비 시 레거시 사용 빈도를 파악 가능하도록 계획.
+  - [x] 상태 전이 데이터 변경 시나리오 작성: 갱신 순서, downstream 영향, 예외 케이스 기록
+    - 기본 순서:
+      1. 노드 식별: 재활용 조건에서 확보한 agentNodeId를 기준으로 기존 노드 snapshot 확보(read-only).
+      2. 상태 업데이트: 기존 상태가 `running`이더라도 같은 값으로 idempotent하게 덮어쓰기, `error/completed`였다면 로그에 state regression 경고 남김 후 `running`으로 전환.
+      3. originalEvent 병합: 기존 `extensions.robota.originalEvent`에 새 payload를 깊은 병합(특히 `parameters`/`metadata` 객체는 병합, timestamp 등 core 필드는 최신 값 유지).
+      4. WorkflowState 재연결: `setAgentForExecution(executionId)`, `setAgentForRoot(rootExecutionId)` 호출. executionId가 없을 경우 root 기반만 갱신.
+      5. statusHistory(또는 equivalent) append: 기존 history가 있다면 `[{ eventType: 'agent.execution_start', timestamp, status: 'running' }]` 형태로 추가.
+    - Downstream 영향:
+      - Thinking/response 노드 생성 로직은 `WorkflowState`를 참조하므로, 상태 전이 직후에 WorkflowState 갱신을 완료해야 함.
+      - Path-only Edge 생성 시 agent node id를 참조하는 부분이 없으므로 기존 엣지에는 영향 없음.
+    - 예외 케이스:
+      - 동일 executionId로 반복된 execution_start: idempotent하게 처리(WorkflowState 매핑 덮어쓰기), statusHistory에 중복 항목 남길지 여부는 후속 단계에서 결정(현재는 남기고 logger.debug로 중복 알림).
+      - 노드 snapshot이 없을 때: 임시 생성 블록으로 이관. snapshot이 있으나 data 구조가 누락된 경우, 최소 필드만 업데이트하고 missing 필드는 건드리지 않음(안전한 partial update).
+  - [x] 검증 시나리오/빌드 준비: 노드 수 모니터링 포인트와 Guarded 예제 26 실행 계획 정리
+    - 빌드 순서: `pnpm --filter @robota-sdk/workflow build` → `pnpm --filter @robota-sdk/team build` → `pnpm --filter @robota-sdk/agents build`.
+    - 예제 실행: `apps/examples` 폴더에서 Guarded 실행 스크립트(`FILE=26-playground-edge-verification.ts ...`) 사용, `[STRICT-POLICY]`/`[EDGE-ORDER-VIOLATION]` 발견 시 검증 중단.
+    - 모니터링 포인트:
+      - Guard 로그 tail에서 Agent 노드 생성·상태 전이 경고(logger.warn)가 등장하는지 체크(임시 생성 블록 사용 여부 파악).
+      - 검증 스크립트 출력의 nodes/edges 카운트가 baseline과 동일한지 비교(중복 증가 여부 확인).
+      - 필요 시 `apps/examples/data/real-workflow-data.json`을 diff하여 agent node entries가 증가하지 않았는지 확인.
+    - 실패 대응: 빌드 실패 시 즉시 원인 분석 후 재실행, Guarded 예제 실패 시 로그 파일 위치(`cache/26-playground-edge-verification-*-guarded.log`)와 원인 메시지를 문서에 기록 후 fix 작업.
+  - [x] `.design/open-tasks/CURRENT-TASKS.md` 체크리스트 반영 규칙 및 진행 로그 작성
+    - 체크리스트 업데이트 방식:
+      - 각 세부 항목 완료 시 `[x]` 처리 + 간단히 어떤 분석/작업이 끝났는지 한 줄 요약을 바로 아래 bullet로 기록.
+      - 중간에 범위 변경/추가 요구가 생기면 해당 항목 아래에 indented bullet로 “범위 조정” 메모를 추가.
+      - 향후 코드 구현/빌드 단계가 시작되면 동일 섹션에 “실제 구현” 하위 리스트를 새로 만들어 분리.
+    - 진행 로그 운용:
+      - Priority 1 섹션 하단 “작업 진행 기록” 영역에 중요한 전환점(예: 상태 전이 로직 확정, Guarded 검증 완료)을 날짜와 함께 bullet로 누적.
+      - Guarded 예제 실행 결과(성공/실패)와 로그 파일 위치를 진행 기록에 링크 형태로 남겨 재현 가능성 확보.
+      - 단계 6.5/6.6로 넘어갈 때, 단계 3의 완료 항목들에 `[x]` 표시 후 “다음 단계로 전환” 주석을 남겨 문서 내 단계간 추적이 가능하도록 유지.
+- [ ] 단계 3 구현/검증 순서 제안:
+  - [ ] (1) `agent-event-handler.ts` 코드 업데이트: 재활용 로직, 상태 업데이트, WorkflowState 재연결, 임시 생성 블록 분리(TODO 주석/경고 로그 포함).
+  - [ ] (2) 빌드 및 Guarded 예제 26 실행: workflow → team → agents 순으로 빌드, Guarded 스크립트 실행 후 Agent 노드 수/경고 로그/STRICT-POLICY 위반 여부 확인.
+  - [ ] (3) 결과 문서화: Guard 로그 요약, 임시 생성 사용 여부, 예제 데이터 diff 등을 CURRENT-TASKS 진행 기록에 반영하고 단계 6.5 준비 상황을 업데이트.
 
 #### 단계 6.5: 단일 전환 단계 (Decision Gate)
 - [ ] Agent 핸들러: `agent.execution_start`는 상태 전이만 (노드 생성 절대 금지)
