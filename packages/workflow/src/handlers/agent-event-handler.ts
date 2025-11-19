@@ -125,11 +125,47 @@ export class AgentEventHandler implements EventHandler {
                 }
 
                 case AGENT_EVENTS.EXECUTION_START: {
-                    // Status transition only; no node creation
-                    const existing = this.agentNodeIdMap.get(String(data.sourceId));
-                    if (existing && data.executionId) {
-                        WorkflowState.setAgentForExecution(String(data.executionId), existing);
+                    const sourceId = typeof data?.sourceId !== 'undefined' ? String(data.sourceId) : '';
+                    if (!sourceId) {
+                        this.logger.warn('⚠️ [AGENT-HANDLER] execution_start received without sourceId. Skipping state update.');
+                        break;
                     }
+
+                    const existingAgentNodeId = this.findAgentNodeIdForExecutionStart(data);
+                    if (existingAgentNodeId) {
+                        const updatedNode = this.buildAgentExecutionStateUpdate(existingAgentNodeId, data);
+                        if (updatedNode) {
+                            updates.push({ action: 'update', node: updatedNode } as WorkflowUpdate);
+                        }
+
+                        this.agentNodeIdMap.set(sourceId, existingAgentNodeId);
+                        if (data.executionId) {
+                            WorkflowState.setAgentForExecution(String(data.executionId), existingAgentNodeId);
+                        }
+                        const rootId = this.getRootIdFromEvent(data);
+                        if (rootId) {
+                            WorkflowState.setAgentForRoot(rootId, existingAgentNodeId);
+                        }
+                        break;
+                    }
+
+                    // Legacy fallback path - should be removed in 단계 6.5
+                    const legacyAgentNode = this.createAgentNode({ ...data, executionLevel: data.executionLevel || 1 });
+                    updates.push({ action: 'create', node: legacyAgentNode });
+                    this.agentNodeIdMap.set(sourceId, legacyAgentNode.id);
+                    if (data.executionId) {
+                        WorkflowState.setAgentForExecution(String(data.executionId), legacyAgentNode.id);
+                    }
+                    const fallbackRootId = this.getRootIdFromEvent(data);
+                    if (fallbackRootId) {
+                        WorkflowState.setAgentForRoot(fallbackRootId, legacyAgentNode.id);
+                    }
+                    {
+                        // Keep legacy subscriber mapping for compatibility
+                        const subscriber = (this as any).subscriber as { registerNode?: (key: string, id: string) => void } | undefined;
+                        subscriber?.registerNode?.(`agentFor:${sourceId}`, legacyAgentNode.id);
+                    }
+                    this.logger.warn('⚠️ [AGENT-HANDLER] Legacy execution_start fallback created agent node because agent.created event was missing. TODO(step 6.5): remove legacy fallback.');
                     break;
                 }
 
@@ -409,6 +445,180 @@ export class AgentEventHandler implements EventHandler {
             },
             connections: []
         };
+    }
+
+    private findAgentNodeIdForExecutionStart(eventData: EventData): string | undefined {
+        const sourceId = typeof eventData?.sourceId !== 'undefined' ? String(eventData.sourceId) : undefined;
+        if (sourceId) {
+            const fromMap = this.agentNodeIdMap.get(sourceId);
+            if (fromMap) {
+                return fromMap;
+            }
+        }
+
+        const executionId = typeof eventData?.executionId !== 'undefined' ? String(eventData.executionId) : undefined;
+        if (executionId) {
+            const fromWorkflow = WorkflowState.getAgentForExecution(executionId);
+            if (fromWorkflow) {
+                return fromWorkflow;
+            }
+        }
+
+        const rootId = this.getRootIdFromEvent(eventData);
+        if (rootId) {
+            const fromRoot = WorkflowState.getAgentForRoot(rootId);
+            if (fromRoot) {
+                return fromRoot;
+            }
+        }
+
+        if (sourceId) {
+            try {
+                const nodesAccessor: WorkflowNode[] = (this as any).subscriber?.getAllNodes?.() || [];
+                const found = nodesAccessor.find(node =>
+                    node?.type === WORKFLOW_NODE_TYPES.AGENT &&
+                    String(node?.data?.sourceId) === sourceId
+                );
+                if (found?.id) {
+                    return String(found.id);
+                }
+            } catch {
+                // Ignore read errors; fall back to legacy creation if needed
+            }
+        }
+
+        return undefined;
+    }
+
+    private buildAgentExecutionStateUpdate(agentNodeId: string, eventData: EventData): WorkflowNode | undefined {
+        const snapshot = this.getNodeSnapshot(agentNodeId);
+        if (!snapshot) {
+            this.logger.warn(`⚠️ [AGENT-HANDLER] Unable to find agent node '${agentNodeId}' for execution_start update.`);
+            return undefined;
+        }
+
+        const timestamp = Date.now();
+        const existingExtensions = this.getExtensionsRecord(snapshot);
+        const existingRobotaExtension = this.getRobotaExtension(existingExtensions);
+        const existingOriginalEvent = this.getOriginalEvent(existingRobotaExtension);
+        const mergedOriginalEvent = this.mergeOriginalEvent(existingOriginalEvent, eventData);
+        const statusHistory = this.appendStatusHistory(
+            snapshot.data?.statusHistory,
+            {
+                status: 'running',
+                eventType: `agent.${AGENT_EVENTS.EXECUTION_START}`,
+                timestamp
+            }
+        );
+
+        return {
+            ...snapshot,
+            status: 'running',
+            timestamp,
+            data: {
+                ...(snapshot.data || {}),
+                status: 'running',
+                ...(statusHistory ? { statusHistory } : {}),
+                extensions: this.buildUpdatedExtensions(existingExtensions, mergedOriginalEvent, existingRobotaExtension)
+            }
+        } as WorkflowNode;
+    }
+
+    private getNodeSnapshot(nodeId: string): WorkflowNode | undefined {
+        try {
+            const nodesAccessor: WorkflowNode[] = (this as any).subscriber?.getAllNodes?.() || [];
+            return nodesAccessor.find(node => String(node?.id) === String(nodeId));
+        } catch {
+            return undefined;
+        }
+    }
+
+    private mergeOriginalEvent(existingEvent: unknown, nextEvent: EventData): Record<string, unknown> {
+        const existing = typeof existingEvent === 'object' && existingEvent !== null
+            ? existingEvent as Record<string, unknown>
+            : {};
+        const incoming = nextEvent as Record<string, unknown>;
+
+        const existingParameters = typeof (existing as any)?.parameters === 'object' && (existing as any)?.parameters !== null
+            ? (existing as any).parameters
+            : {};
+        const incomingParameters = typeof (incoming as any)?.parameters === 'object' && (incoming as any)?.parameters !== null
+            ? (incoming as any).parameters
+            : {};
+
+        const mergedParameters = {
+            ...existingParameters,
+            ...incomingParameters
+        };
+
+        const mergedEvent = {
+            ...existing,
+            ...incoming
+        } as Record<string, unknown>;
+
+        if (Object.keys(mergedParameters).length > 0) {
+            (mergedEvent as Record<string, unknown>).parameters = mergedParameters;
+        }
+
+        return mergedEvent;
+    }
+
+    private getExtensionsRecord(node?: WorkflowNode): Record<string, unknown> | undefined {
+        if (!node?.data?.extensions) {
+            return undefined;
+        }
+        const extensions = node.data.extensions as Record<string, unknown>;
+        return extensions;
+    }
+
+    private getRobotaExtension(extensions?: Record<string, unknown>): Record<string, unknown> | undefined {
+        if (!extensions) return undefined;
+        const robota = extensions['robota'];
+        if (robota && typeof robota === 'object') {
+            return robota as Record<string, unknown>;
+        }
+        return undefined;
+    }
+
+    private getOriginalEvent(robotaExtension?: Record<string, unknown>): unknown {
+        if (!robotaExtension) return undefined;
+        return robotaExtension['originalEvent'];
+    }
+
+    private buildUpdatedExtensions(
+        existingExtensions: Record<string, unknown> | undefined,
+        mergedOriginalEvent: Record<string, unknown>,
+        existingRobotaExtension?: Record<string, unknown>
+    ): Record<string, unknown> {
+        const nextExtensions: Record<string, unknown> = {
+            ...(existingExtensions || {})
+        };
+
+        nextExtensions['robota'] = {
+            ...(existingRobotaExtension || {}),
+            originalEvent: mergedOriginalEvent
+        };
+
+        return nextExtensions;
+    }
+
+    private appendStatusHistory(
+        existingHistory: unknown,
+        entry: { status: string; eventType: string; timestamp: number }
+    ): { status: string; eventType: string; timestamp: number }[] | undefined {
+        if (Array.isArray(existingHistory)) {
+            return [...existingHistory, entry];
+        }
+        return undefined;
+    }
+
+    private getRootIdFromEvent(eventData: EventData): string | undefined {
+        const rawRoot = eventData?.rootExecutionId ?? eventData?.conversationId ?? eventData?.sourceId;
+        if (typeof rawRoot === 'undefined' || rawRoot === null) {
+            return undefined;
+        }
+        const rootId = String(rawRoot);
+        return rootId.length > 0 ? rootId : undefined;
     }
 
     private createAgentThinkingNode(data: any, overrideId?: string, forcedTimestamp?: number): WorkflowNode {
