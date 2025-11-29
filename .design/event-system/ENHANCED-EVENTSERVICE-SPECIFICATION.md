@@ -1,343 +1,62 @@
-# 🎯 실시간 워크플로우 시각화 시스템 명세
+# Enhanced EventService 개요
 
-## 📋 시스템 개요
+> 이 문서는 ActionTrackingEventService와 실시간 워크플로우 구독 체계의 핵심 요약입니다. 세부 체크리스트나 구현 계획은 `CURRENT-TASKS.md`에서 관리합니다.
 
-Robota SDK의 **실시간 워크플로우 시각화 시스템**은 AI 에이전트의 실행 과정을 계층적으로 추적하고 실시간으로 시각화하는 완전한 솔루션입니다. EventService 기반 아키텍처를 통해 모든 Agent, Tool, Team 활동을 실시간으로 캡처하고 Mermaid 다이어그램으로 렌더링합니다.
+## 1. 목적
+- 모든 실행 이벤트에 `path`, `ownerPrefix`, `executionLevel` 정보를 일관되게 주입
+- WorkflowEventSubscriber/Builder/MermaidGenerator가 공통 구조를 이해하도록 표준 이벤트 → 노드 매핑 제공
+- Sub-Agent/Tool/Team 이벤트를 한 EventService 계층에서 추적
 
-## 🏗️ 핵심 컴포넌트
+## 2. 주요 컴포넌트
 
-### **1. ActionTrackingEventService**
-```typescript
-export class ActionTrackingEventService extends StructuredEventService {
-    private executionHierarchy = new Map<string, ExecutionNode>();
-    
-    // 계층적 이벤트 추적
-    public emit(eventType: ServiceEventType, data: ServiceEventData): void {
-        this.storeSourceMapping(data);
-        this.trackExecutionLevel(data);
-        super.emit(eventType, data);
-    }
+### ActionTrackingEventService
+- EventService 래퍼로, `emit()` 시 `storeSourceMapping`, `trackExecutionLevel`, `ownerPrefix` 검증 수행
+- `clone({ ownerPrefix, executionContext })`를 지원해 ExecutionService, Tool, Agent가 접두어를 고정한 채 EventService를 사용할 수 있게 함
+- Sub-Agent 이벤트는 `SubAgentEventRelay`를 통해 parent ToolCall 정보와 executionLevel+1을 주입하여 상위 흐름으로 전달
+
+### WorkflowEventSubscriber
+- ActionTrackingEventService를 상속하여 이벤트를 실시간 구독하고 `WorkflowNode`를 생성하는 핸들러 계층
+- 이벤트 타입 → 노드 타입 매핑(예: `execution.assistant_message_start → agent_thinking`)을 단일 테이블로 유지
+- Path-Only 규칙에 따라 parentPath를 계산하고 NodeEdgeManager/WorkflowBuilder에 전달
+
+### RealTimeWorkflowBuilder / RealTimeMermaidGenerator
+- Builder: `nodes`, `connections`, `branches`, `metadata`를 유지하며, 이벤트 처리 시점에 노드/엣지를 원자적으로 추가
+- MermaidGenerator: WorkflowStructure를 기반으로 노드 정의, 연결 정의, 스타일 정의를 생성해 실시간 그래프를 렌더링
+
+## 3. 데이터 구조 요약
+```ts
+interface WorkflowNode {
+  id: string;
+  type: WorkflowNodeType;
+  level: number;
+  data: WorkflowNodeData;
+  timestamp: number;
 }
+
+type WorkflowNodeType =
+  | 'user_input'
+  | 'agent'
+  | 'agent_thinking'
+  | 'tool_call'
+  | 'tool_response'
+  | 'tool_result'
+  | 'final_response';
 ```
+- 노드 타입과 연결 타입(processes, executes, spawn, return, result, analyze 등)은 Path-Only 규칙에 맞게 제한된 집합으로 유지
 
-**주요 기능:**
-- 계층적 이벤트 추적 (Level 0-2)
-- Parent-Child 관계 자동 관리
-- ExecutionNode 자동 생성 및 매핑
+## 4. 실시간 처리 흐름
+1. User → EventService(`ownerPrefix: 'execution'`) → WorkflowEventSubscriber
+2. 이벤트 타입과 path 기반으로 WorkflowNode 생성
+3. RealTimeWorkflowBuilder가 노드/엣지를 원자적으로 추가하고 실행 상태를 업데이트
+4. RealTimeMermaidGenerator/React Flow 구독 계층이 최신 WorkflowStructure를 렌더링
 
-### **2. WorkflowEventSubscriber**
-```typescript
-export class WorkflowEventSubscriber extends ActionTrackingEventService {
-    // 12개 이벤트 타입 처리
-    private eventToNodeMapping = {
-        'user.message': 'user_input',
-        'assistant.message_start': 'agent_thinking',
-        'tool_call_start': 'tool_call',
-        'task.assigned': 'tool_call',
-        'agent.creation_complete': 'sub_agent',
-        'assistant.message_complete': 'final_response',
-        'task.completed': 'sub_response',
-        'task.aggregation_start': 'merge_results',
-        'task.aggregation_complete': 'merge_results',
-        'team.analysis_start': 'agent_thinking',
-        'team.analysis_complete': 'final_response',
-        'tool_results_to_llm': 'agent_thinking'
-    };
-}
-```
+## 5. 필수 규칙
+- EventService는 emit 전에 path, ownerPrefix, strictPrefix, executionContext를 검증한다
+- 모든 emit/on은 선언형 이벤트 상수를 사용한다 (`EXECUTION_EVENTS`, `TOOL_EVENTS`, `AGENT_EVENTS`)
+- Sub-Agent/Tool에서 접두어를 바꾸고 싶으면 반드시 `eventService.clone({ ownerPrefix })`를 호출한다
+- WorkflowSubscriber는 Path-Only 규칙을 따르며, 추측/보류/재시도 로직을 포함하지 않는다
 
-**주요 기능:**
-- 실시간 이벤트 구독 및 처리
-- 이벤트 → WorkflowNode 변환
-- 23개 WorkflowNode 생성
-
-### **3. RealTimeWorkflowBuilder**
-```typescript
-export class RealTimeWorkflowBuilder {
-    private workflow: WorkflowStructure = {
-        nodes: [],
-        connections: [],
-        branches: [],
-        metadata: {}
-    };
-
-    // 34개 Connection 자동 생성
-    private createParentChildConnection(
-        parentId: string, 
-        childId: string, 
-        childType: WorkflowNodeType
-    ): void {
-        const connectionType = this.determineConnectionType(childType);
-        // processes, executes, spawn, return, final, consolidate
-    }
-}
-```
-
-**주요 기능:**
-- 계층적 워크플로우 구조 관리
-- 34개 Connection 자동 생성
-- 브랜치 생성 및 상태 관리
-
-### **4. RealTimeMermaidGenerator**
-```typescript
-export class RealTimeMermaidGenerator {
-    generateMermaidFromWorkflow(workflow: WorkflowStructure): string {
-        const mermaidLines: string[] = ['graph TD'];
-        
-        // 노드 정의 생성
-        const nodeDefinitions = this.generateNodeDefinitions(workflow.nodes);
-        mermaidLines.push(...nodeDefinitions);
-        
-        // 연결 관계 생성
-        const connectionDefinitions = this.generateConnectionDefinitions(
-            workflow.connections, 
-            workflow.nodes
-        );
-        mermaidLines.push(...connectionDefinitions);
-        
-        // 스타일링 적용
-        const styleDefinitions = this.generateStyleDefinitions(workflow.nodes);
-        mermaidLines.push(...styleDefinitions);
-        
-        return mermaidLines.join('\n    ');
-    }
-}
-```
-
-**주요 기능:**
-- WorkflowNode → Mermaid 다이어그램 변환
-- 렌더링 최적화
-- 실시간 스타일링 적용
-
-### **5. SubAgentEventRelay**
-```typescript
-export class SubAgentEventRelay extends ActionTrackingEventService {
-    constructor(
-        private parentEventService: EventService,
-        private parentToolCallId: string
-    ) {
-        super();
-    }
-
-    public override emit(eventType: ServiceEventType, data: ServiceEventData): void {
-        const enrichedData: ServiceEventData = {
-            ...data,
-            parentExecutionId: this.parentToolCallId,
-            executionLevel: (data.executionLevel || 0) + 1,
-            sourceType: 'sub-agent'
-        };
-        
-        this.parentEventService.emit(eventType, enrichedData);
-    }
-}
-```
-
-**주요 기능:**
-- Sub-Agent 이벤트 중계
-- 계층 정보 자동 추가
-- Parent Tool Call 연결
-
-## 📊 데이터 구조 명세
-
-### **WorkflowNode 인터페이스**
-```typescript
-export interface WorkflowNode {
-    id: string;                    // 고유 식별자
-    type: WorkflowNodeType;        // 노드 타입
-    parentId?: string;             // 부모 노드 ID
-    level: number;                 // 계층 레벨 (0-2)
-    status: WorkflowNodeStatus;    // 실행 상태
-    data: WorkflowNodeData;        // 노드별 데이터
-    timestamp: Date;               // 생성 시각
-    connections: WorkflowConnection[]; // 연결 관계
-}
-```
-
-### **지원되는 Node 타입 (12가지)**
-```typescript
-export type WorkflowNodeType =
-    | 'user_input'        // 사용자 입력
-    | 'agent'             // Main Agent
-    | 'agent_thinking'    // Agent 사고 과정
-    | 'tool_call'         // Tool 호출
-    | 'sub_agent'         // Sub-Agent
-    | 'sub_response'      // Sub-Agent 응답
-    | 'merge_results'     // 결과 병합
-    | 'final_response';   // 최종 응답
-```
-
-### **Connection 타입 (6가지)**
-```typescript
-export type WorkflowConnectionType =
-    | 'processes'    // 처리 관계 (Agent → Thinking)
-    | 'executes'     // 실행 관계 (Thinking → Tool Call)
-    | 'spawn'        // 생성 관계 (Tool Call → Sub-Agent)
-    | 'return'       // 반환 관계 (Sub-Response → Main)
-    | 'final'        // 최종 관계 (Response → Output)
-    | 'consolidate'; // 통합 관계 (Multiple → Single)
-```
-
-## 🔄 실시간 처리 흐름
-
-### **1. 이벤트 발생 → Node 생성**
-```
-User Input → ActionTrackingEventService → WorkflowEventSubscriber
-     ↓
-이벤트 타입 매핑 → WorkflowNode 생성 → RealTimeWorkflowBuilder
-     ↓
-계층 구조 관리 → Connection 생성 → 실시간 업데이트 발생
-```
-
-### **2. AssignTask 분기 처리**
-```
-Tool Call (assignTask) → SubAgentEventRelay 생성
-     ↓
-Sub-Agent 생성 → 계층 정보 자동 추가 (Level +1)
-     ↓
-Sub-Agent 실행 → Parent Tool Call로 이벤트 중계
-     ↓
-Sub-Response → Main Agent로 결과 반환
-```
-
-### **3. Mermaid 다이어그램 생성**
-```
-WorkflowStructure → Node 정리 → 연결 관계 생성
-     ↓
-스타일링 적용 → Mermaid 문법 생성 → 렌더링 가능한 결과
-```
-
-## 📈 성능 지표
-
-### **워크플로우 규모**
-- **총 Nodes**: 23개
-- **총 Connections**: 34개
-- **지원 레벨**: 3단계 (Level 0-2)
-- **브랜치 지원**: 무제한
-
-### **실시간 성능**
-- **이벤트 처리 지연**: < 10ms
-- **Node 생성 시간**: < 5ms
-- **Mermaid 생성 시간**: < 50ms
-- **메모리 사용량**: 최적화됨
-
-## 🎯 사용법
-
-### **기본 설정**
-```typescript
-import { 
-    WorkflowEventSubscriber,
-    RealTimeWorkflowBuilder,
-    RealTimeMermaidGenerator
-} from '@robota-sdk/agents';
-
-// 1. 실시간 워크플로우 추적 설정
-const subscriber = new WorkflowEventSubscriber(console);
-const builder = new RealTimeWorkflowBuilder(subscriber);
-const generator = new RealTimeMermaidGenerator(console);
-```
-
-### **Team과 통합**
-```typescript
-import { createTeam } from '@robota-sdk/team';
-
-const team = createTeam({
-    eventService: subscriber, // WorkflowEventSubscriber 주입
-    aiProviders: [provider],
-    defaultProvider: 'openai',
-    templates: {
-        'domain_researcher': {
-            id: 'domain_researcher',
-            description: 'Market analysis specialist'
-        }
-    }
-});
-```
-
-### **실시간 업데이트 구독**
-```typescript
-builder.subscribeToWorkflowUpdates((update) => {
-    console.log(`Workflow Update: ${update.type}`);
-    
-    if (update.changedBranch) {
-        console.log(`Branch: ${update.changedBranch.name} (${update.changedBranch.status})`);
-    }
-    
-    // 실시간 Mermaid 다이어그램 생성
-    const workflow = builder.getCurrentWorkflow();
-    const mermaidDiagram = generator.generateMermaidFromWorkflow(workflow);
-    
-    // UI 업데이트
-    updateDiagram(mermaidDiagram);
-});
-```
-
-### **실행 및 시각화**
-```typescript
-// 복잡한 작업 실행
-const result = await team.execute('카페 창업 계획서 작성: 시장 분석, 메뉴 구성');
-
-// 최종 워크플로우 구조 확인
-const finalWorkflow = builder.getCurrentWorkflow();
-const stats = builder.getWorkflowStats();
-
-console.log(`Total Nodes: ${stats.totalNodes}`);
-console.log(`Total Connections: ${stats.totalConnections}`);
-console.log(`Total Branches: ${stats.totalBranches}`);
-```
-
-## 🔧 고급 기능
-
-### **커스텀 Node 타입 추가**
-```typescript
-// 새로운 이벤트 타입 처리 확장
-subscriber.addEventHandler('custom.event', (data) => {
-    return this.createCustomNode(data);
-});
-```
-
-### **워크플로우 필터링**
-```typescript
-// 특정 타입 Node만 표시
-const filteredNodes = workflow.nodes.filter(node => 
-    ['agent', 'tool_call', 'sub_agent'].includes(node.type)
-);
-```
-
-### **성능 모니터링**
-```typescript
-// 실행 시간 추적
-builder.subscribeToWorkflowUpdates((update) => {
-    if (update.type === 'structure_changed') {
-        const duration = Date.now() - startTime;
-        console.log(`Workflow updated in ${duration}ms`);
-    }
-});
-```
-
-## ✅ 검증된 기능
-
-### **완료된 구현**
-- [x] **23개 WorkflowNode 생성**: 모든 에이전트 실행 단계 커버
-- [x] **34개 Connection 관리**: 완전한 계층적 연결 구조
-- [x] **실시간 업데이트**: 이벤트 발생 즉시 워크플로우 반영
-- [x] **Mermaid 렌더링**: 브라우저에서 즉시 렌더링 가능한 다이어그램
-
-### **AssignTask 분기 구조 지원**
-- [x] **Main Agent**: 시작점 Agent 노드
-- [x] **Tool Call**: assignTask 호출 노드
-- [x] **Sub-Agent**: 위임된 작업 수행 에이전트
-- [x] **Sub-Response**: 서브 에이전트 결과
-- [x] **Merge Results**: 여러 결과 통합
-- [x] **Final Response**: 최종 응답
-
-### **품질 보증**
-- [x] **타입 안전성**: 100% TypeScript 타입 정의
-- [x] **성능 최적화**: 효율적인 메모리 및 처리 성능
-- [x] **에러 처리**: 안정적인 예외 상황 처리
-- [x] **확장성**: 새로운 기능 쉽게 추가 가능
-
-## 🎯 결론
-
-이 실시간 워크플로우 시각화 시스템은 Robota SDK의 AI 에이전트 실행 과정을 완전히 투명하게 만들어주는 혁신적인 솔루션입니다. 개발자는 복잡한 에이전트 상호작용을 실시간으로 시각화하고, 디버깅하고, 최적화할 수 있습니다.
-
-**프로덕션 준비 완료** - 모든 기능이 안정적으로 구현되어 즉시 사용 가능합니다.
+## 6. 참고
+- Fork/Join 규칙: `.design/event-system/workflow-fork-join-rules.md`
+- Path-Only/Atomicity 스펙: `.design/event-system/workflow-spec.md`
+- 실행 계획/체크리스트: `CURRENT-TASKS.md`

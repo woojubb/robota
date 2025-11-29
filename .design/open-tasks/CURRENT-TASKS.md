@@ -6,6 +6,47 @@
 
 ---
 
+## 🚨 Priority 0: .design 문서 최신화/중복 제거 (新增)
+
+### 목적
+- `.design` 전역 문서를 최신 상태로 유지하고, CURRENT-TASKS 단일 소스로 계획을 집중한다.
+- 중복 계획/구버전/비어 있는 섹션을 식별하여 주석으로 표시한 뒤, 실제 내용을 최신 정보로 교체한다.
+
+### 실행 단계
+1. **스코프 매핑**
+   - [ ] `.design` 루트 하위 디렉터리 전수 조사 (open-tasks, event-system, planning, web, remote, robota-saas-website 등)
+   - [ ] 각 파일별 업데이트 시점/주요 주제 요약 작성
+   - [ ] CURRENT-TASKS와 직결되는 문서 우선순위 지정
+
+2. **상태 분류**
+   - [ ] 중복 항목: CURRENT-TASKS와 동일한 체크리스트/플랜이 반복되는 경우
+   - [ ] 구버전 항목: 완료된 사실과 상충하거나 오래된 일정
+   - [ ] 빈 섹션: 템플릿만 존재하고 내용이 비어 있는 경우
+   - [ ] 진행 보류: 실행 계획이 없는 선언적 항목
+
+3. **주석 표시 계획**
+   - [ ] 각 문제 구간 직후 `<!-- TODO: CURRENT-TASKS 중복 → 통합 필요 -->` 형태의 주석 초안 작성 (한국어)
+   - [ ] 주석에는 “무엇이 구식인지/어디로 통합할지/누락 정보”를 간단 요약
+   - [ ] 주석 추가 순서는 Priority 1 관련 문서 → 이벤트 규격 문서 → 웹/원격 계획 문서 순
+
+4. **업데이트 및 주석 제거**
+   - [ ] 주석에 적힌 항목부터 최신 정보로 갱신
+   - [ ] 내용 갱신 직후 해당 주석 삭제
+   - [ ] 갱신 완료한 문서는 README나 CURRENT-TASKS에서 링크 업데이트
+
+5. **검증/보고**
+   - [ ] `rg "<!-- TODO"`로 남은 주석이 없는지 확인
+   - [ ] 최신화된 문서 목록/주요 변경점/후속 TODO를 CURRENT-TASKS 진행 기록에 추가
+
+### 참고 명령어
+```bash
+cd /Users/jungyoun/Documents/dev/robota/.design
+rg "<!-- TODO" -n
+rg "Priority" -g"*.md"
+```
+
+---
+
 ## 🔥 Priority 1: Agent Event Normalization (진행중)
 
 ### 완료된 단계
@@ -18,144 +59,6 @@
 
 ### 남은 작업
 
-#### 단계 3: execution_start 상태 전이 우선 (하위 호환)
-- [ ] `packages/workflow/src/handlers/agent-event-handler.ts`
-  - [ ] `agent.execution_start` 수신 시:
-    - [ ] 기존 Agent 노드 있으면 status=running 등 상태만 갱신
-    - [ ] 기존 Agent 노드 없을 때만 "임시 생성" (하위 호환용)
-- [ ] 빌드/가드/검증 실행
-- [ ] Agent 노드 수 점검(중복 증가 없음)
-- [ ] Guard 실패 피드백 기반 이론 재검증
-  - [ ] 실패 요약: 예제 26 Guard 검증에서 다중 start node, 컴포넌트 단절, thinking↔tool_result timestamp 충돌로 불합격
-  - [ ] 가설 1 (다중 start node): assignTask로 파생된 conversation user_message 노드가 상위 thinking/tool_call과 연결되지 않아 root가 3개로 분리됨 → parentExecutionId 기반 엣지 생성 규칙 보강 필요
-  - [ ] 가설 2 (컴포넌트 단절): WorkflowState/agentNodeIdMap이 하위 conversation의 agent를 상위 루트와 매칭하지 못해 독립 그래프가 유지됨 → execution_start 상태 전이 시 conversationIdToAgentIdMap/WorkflowState 동시 갱신 필요
-  - [ ] 가설 3 (timestamp 충돌): tool_result와 thinking_round2 timestamp가 동일하게 부여되어 sequential order 위반 → tool_result 생성 시 parent thinking timestamp보다 항상 작거나 같아야 한다는 조건을 명시하고, thinking_round2 생성 시 `max(previousTimestamp)+1` 규칙을 적용하도록 시뮬레이션 계획 수립
-  - [ ] 계획 검증 절차:
-    - [ ] `data/real-workflow-data.json`을 기준으로 각 가설을 실제 노드/엣지에서 확인 (start node 수, component 수, timestamp 비교)
-    - [ ] Guard 로그와 WorkflowState 업데이트 로그를 대조하여 어떤 이벤트에서 분기가 벌어졌는지 문서화
-    - [ ] Path-only 규칙과 충돌하는 지점을 체크리스트화하고, 수정 필요 포인트를 순서대로 나열
-  - [ ] 검증 결과 기록:
-    - [ ] 각 가설별로 “충분히 재현됨/추가 데이터 필요” 여부 판단
-    - [ ] 필요한 경우 추가 가설(예: agent_thinking ↔ tool_response 연결 누락)을 문서에 보강
-    - [ ] 이후 코드 설계 시 참조할 수 있도록 시사점 요약
-  - [ ] 세부 세분화:
-    - [ ] 가설 1 재현 로그 캡처: guard output 중 start node 관련 구간을 `.design` 문서에 붙여넣고 원인 분석
-    - [ ] parentExecutionId → previous edge 생성 규칙 초안 작성
-    - [ ] 가설 2 확인을 위해 WorkflowState agent 매핑 스냅샷을 수집(가능 시 run 중 로그), conversationIdToAgentIdMap 상태 기록
-    - [ ] 가설 3에서 문제가 되는 tool_result / thinking_round2 페어를 표로 정리 (timestamp, sourceId, path)
-    - [ ] 각 가설에 대해 “수정 시 필요한 코드 위치”를 미리 지정 (예: agent-event-handler.ts, execution-event-handler.ts 등)
-  - [ ] 현재 재현 결과 (예제 26 데이터 기준):
-    - [ ] Start node 3개: `conv_1763563902829_59dfmhiij_user_exec_1763563902832_isgu3ldaj`, `conv_1763563909829_gggnfzuo2_user_exec_1763563909833_ijsfkk0kz`, `conv_1763563909831_r52ig6fdh_user_exec_1763563909834_6r1ajis1m` → parentExecutionId가 존재하지만 연결 edge 부재
-    - [ ] 분리 컴포넌트: 상위 루트(`conv_1763563902829...`)와 두 하위 assignTask 결과 루트가 edge 없이 독립 → tool_call → user_message edge 필요
-    - [ ] Timestamp 충돌: `tool_result_thinking_conv_1763563902829_59dfmhiij_round1_1763563934615` timestamp 1763563934615, `thinking_conv_1763563902829_59dfmhiij_round2` 동일 1763563934615 → thinking이 tool_result보다 더 늦게 생성되어야 함
-  - [ ] TODO: 위 가설을 기반으로 Path-only 연결/타임라인 이론을 재정의하고, 코드 수정 전에 문서 내 시퀀스 다이어그램/표로 검증
-- [ ] 단계 3 상세 실행 계획:
-  - [x] 이벤트 흐름 및 영향 범위 재구성: emit 지점·payload 필드·연쇄 이벤트 문서화
-    - Robota `run/runStream`이 ActionTrackingEventService(ownerPrefix='agent')를 통해 `AGENT_EVENTS.EXECUTION_START`를 실행 시작 직전에 emit하며 payload에는 `sourceType`, `sourceId(=conversationId)`, `timestamp`만 포함됨. ExecutionProxy도 동일 이벤트를 감싼 상태라 중복 emit 가능성 존재.
-    - `agent.created`에서 `agentNodeIdMap`(sourceId→agentNodeId)과 `WorkflowState` 매핑이 초기화되며, 현재 `agent.execution_start` 케이스는 이 맵을 통해 존재하는 노드만 `WorkflowState.setAgentForExecution(executionId)`에 연결하고 상태 필드 갱신은 수행하지 않음.
-    - 노드가 없는 경우 아무 작업도 되지 않아(하위호환 임시 생성 필요) 단계 3의 목표는 이 이벤트를 상태 전이 전용으로 두되, 소스 식별자는 sourceId/path 기반으로만 얻을 수 있음을 확인. downstream 노드/엣지는 영향을 받지 않으므로 상태 갱신과 임시 생성이 충돌하지 않도록 분리해야 함.
-  - [x] 기존 노드 재활용 조건 정의: 탐색 기준(id/path)과 업데이트 대상 필드 목록 확정
-    - 1차 키: `agentNodeIdMap`에 저장된 sourceId↔agentNodeId 매핑. 이벤트 payload에 executionId/path가 없으므로 sourceId가 유일 기준.
-    - 보조 키: `WorkflowState.getAgentForExecution(executionId)`와 `getAgentForRoot(rootExecutionId)`를 사용하되, executionId/rootId가 없는 이벤트는 스킵. Path-only 원칙상 필요 시 `getAllNodes()`를 읽어 `data.sourceId`가 동일한 AGENT 노드를 찾는 read-only 스캔만 허용.
-    - 재활용 시 필수 갱신 대상:
-      - `status`: `running`으로 고정(또는 기존 값이 `error/completed`일 때 상태 전이 로그 남김).
-      - `data.extensions.robota.originalEvent`: 새 이벤트 payload 병합(기존 필드 유지, parameters 부분만 덮어쓰기).
-      - `data.statusHistory` 또는 equivalent timeline 필드가 있다면 append (없으면 유지).
-      - `WorkflowState.setAgentForExecution(executionId, agentNodeId)` 및 `setAgentForRoot(rootExecutionId, agentNodeId)` 재확인.
-    - 다중 매칭 방지: sourceId 기준으로 단일 노드만 허용, 복수 발견 시 `WorkflowState`/map 우선, 추후 PathMapReader 도입 전까지 read-only scan에서 첫번째 일치만 사용.
-  - [x] 임시 생성 하위호환 블록 분리: 실행 조건·필수 필드·TODO 주석으로 단계 6.5 연계
-    - 목적: `agent.created`가 누락되거나 순서가 뒤집힌 레거시 경로에서 Path-only 파이프라인이 끊기지 않도록 “없을 때만 생성” 로직을 유지. 단계 6.5에서 완전 제거 예정임을 주석(`// TODO(step 6.5): remove legacy fallback`)으로 명시.
-    - 조건: `agentNodeIdMap`, `WorkflowState` 및 read-only node 스캔을 모두 시도한 후에도 AGENT 노드를 찾지 못했을 때만 실행. 실행 전 `sourceId` 필수 확인, `executionId/rootExecutionId`가 없으면 최소한 `sourceId` 기반으로 노드 생성.
-    - 생성 데이터: 기존 `createAgentNode` 헬퍼를 사용해 `id`, `status`, `timestamp`, `data.extensions.robota.originalEvent` 등을 동일 방식으로 초기화. 단, `eventType`은 `AGENT_EVENTS.EXECUTION_START`에 따른 상태 전이임을 설명하는 주석 추가.
-    - 상태 동기화: 생성 직후 `agentNodeIdMap`, `WorkflowState.setAgentForExecution`, `setAgentForRoot`를 업데이트하여 downstream 연결과 일관성 유지.
-    - 모니터링: 임시 블록이 실행될 때마다 logger.warn으로 레거시 경로 감지 메시지를 남겨, 단계 6.5 준비 시 레거시 사용 빈도를 파악 가능하도록 계획.
-  - [x] 상태 전이 데이터 변경 시나리오 작성: 갱신 순서, downstream 영향, 예외 케이스 기록
-    - 기본 순서:
-      1. 노드 식별: 재활용 조건에서 확보한 agentNodeId를 기준으로 기존 노드 snapshot 확보(read-only).
-      2. 상태 업데이트: 기존 상태가 `running`이더라도 같은 값으로 idempotent하게 덮어쓰기, `error/completed`였다면 로그에 state regression 경고 남김 후 `running`으로 전환.
-      3. originalEvent 병합: 기존 `extensions.robota.originalEvent`에 새 payload를 깊은 병합(특히 `parameters`/`metadata` 객체는 병합, timestamp 등 core 필드는 최신 값 유지).
-      4. WorkflowState 재연결: `setAgentForExecution(executionId)`, `setAgentForRoot(rootExecutionId)` 호출. executionId가 없을 경우 root 기반만 갱신.
-      5. statusHistory(또는 equivalent) append: 기존 history가 있다면 `[{ eventType: 'agent.execution_start', timestamp, status: 'running' }]` 형태로 추가.
-    - Downstream 영향:
-      - Thinking/response 노드 생성 로직은 `WorkflowState`를 참조하므로, 상태 전이 직후에 WorkflowState 갱신을 완료해야 함.
-      - Path-only Edge 생성 시 agent node id를 참조하는 부분이 없으므로 기존 엣지에는 영향 없음.
-    - 예외 케이스:
-      - 동일 executionId로 반복된 execution_start: idempotent하게 처리(WorkflowState 매핑 덮어쓰기), statusHistory에 중복 항목 남길지 여부는 후속 단계에서 결정(현재는 남기고 logger.debug로 중복 알림).
-      - 노드 snapshot이 없을 때: 임시 생성 블록으로 이관. snapshot이 있으나 data 구조가 누락된 경우, 최소 필드만 업데이트하고 missing 필드는 건드리지 않음(안전한 partial update).
-  - [x] 검증 시나리오/빌드 준비: 노드 수 모니터링 포인트와 Guarded 예제 26 실행 계획 정리
-    - 빌드 순서: `pnpm --filter @robota-sdk/workflow build` → `pnpm --filter @robota-sdk/team build` → `pnpm --filter @robota-sdk/agents build`.
-    - 예제 실행: `apps/examples` 폴더에서 Guarded 실행 스크립트(`FILE=26-playground-edge-verification.ts ...`) 사용, `[STRICT-POLICY]`/`[EDGE-ORDER-VIOLATION]` 발견 시 검증 중단.
-    - 모니터링 포인트:
-      - Guard 로그 tail에서 Agent 노드 생성·상태 전이 경고(logger.warn)가 등장하는지 체크(임시 생성 블록 사용 여부 파악).
-      - 검증 스크립트 출력의 nodes/edges 카운트가 baseline과 동일한지 비교(중복 증가 여부 확인).
-      - 필요 시 `apps/examples/data/real-workflow-data.json`을 diff하여 agent node entries가 증가하지 않았는지 확인.
-    - 실패 대응: 빌드 실패 시 즉시 원인 분석 후 재실행, Guarded 예제 실패 시 로그 파일 위치(`cache/26-playground-edge-verification-*-guarded.log`)와 원인 메시지를 문서에 기록 후 fix 작업.
-  - [x] `.design/open-tasks/CURRENT-TASKS.md` 체크리스트 반영 규칙 및 진행 로그 작성
-    - 체크리스트 업데이트 방식:
-      - 각 세부 항목 완료 시 `[x]` 처리 + 간단히 어떤 분석/작업이 끝났는지 한 줄 요약을 바로 아래 bullet로 기록.
-      - 중간에 범위 변경/추가 요구가 생기면 해당 항목 아래에 indented bullet로 “범위 조정” 메모를 추가.
-      - 향후 코드 구현/빌드 단계가 시작되면 동일 섹션에 “실제 구현” 하위 리스트를 새로 만들어 분리.
-    - 진행 로그 운용:
-      - Priority 1 섹션 하단 “작업 진행 기록” 영역에 중요한 전환점(예: 상태 전이 로직 확정, Guarded 검증 완료)을 날짜와 함께 bullet로 누적.
-      - Guarded 예제 실행 결과(성공/실패)와 로그 파일 위치를 진행 기록에 링크 형태로 남겨 재현 가능성 확보.
-      - 단계 6.5/6.6로 넘어갈 때, 단계 3의 완료 항목들에 `[x]` 표시 후 “다음 단계로 전환” 주석을 남겨 문서 내 단계간 추적이 가능하도록 유지.
-- [ ] 단계 3 이론 시뮬레이션 기록
-  - [ ] assignTask fork 케이스 이벤트 시퀀스(루트 user_message → thinking → tool_call → 하위 agent user_message/ thinking/ response → tool_result → 상위 thinking_round2 → response)를 표로 작성
-  - [ ] 각 단계에서 요구되는 Path-only 연결 조건과 WorkflowState 업데이트 요건을 명확히 정의
-  - [ ] 타임스탬프 증가 규칙(각 노드/엣지 생성 시점)이 sequential rule을 만족하는지 가상 시뮬레이션
-  - [ ] 시뮬레이션 결과를 기반으로 코드 수정 시나리오를 도출하고, Guard 재실행 전에 문서에서 검증 완료 표시
-  - [ ] 세부 체크리스트:
-    - [ ] 이벤트 순서도를 ASCII 다이어그램 또는 표 형태로 작성
-    - [ ] 각 이벤트에서 생성되는 노드 ID, edge 타입, timestamp 공식을 명시
-    - [ ] WorkflowState 변화(Agent mapping, thinking map) 로그를 단계별로 예측
-    - [ ] “start node 1개/단일 컴포넌트/순차 timestamp”의 충족 여부를 표 형태로 검증
-    - [ ] 예상 결과를 `.design` 문서에 요약하여 코드 작성 전 리뷰 가능 상태로 유지
-  - [ ] 추가 세분화 항목:
-    - [ ] 시뮬레이션용 변수 정의(예: rootExecutionId R0, toolCallIds T1/T2 등)로 일관된 표기법 확립
-    - [ ] Fork 단계별 Edge 규칙을 명시 (user_message→thinking: processes, thinking→tool_call: invokes 등)
-    - [ ] Join 단계에서 tool_result→thinking_round2 edge 타입/조건을 도출하고 timestamp 공식(`toolResultTs + ε`)을 문서화
-    - [ ] 시나리오별(예제 26, 27) 차이점을 비교하여 공통 규칙/특수 규칙 구분
-    - [ ] 시뮬레이션 결과에 따른 “필수 수정 포인트” 리스트업
-- [ ] 단계 3 구현/검증 순서 제안:
-  - [ ] (1) `agent-event-handler.ts` 코드 업데이트: 재활용 로직, 상태 업데이트, WorkflowState 재연결, 임시 생성 블록 분리(TODO 주석/경고 로그 포함).
-  - [ ] (2) 빌드 및 Guarded 예제 26 실행: workflow → team → agents 순으로 빌드, Guarded 스크립트 실행 후 Agent 노드 수/경고 로그/STRICT-POLICY 위반 여부 확인.
-  - [ ] (3) 결과 문서화: Guard 로그 요약, 임시 생성 사용 여부, 예제 데이터 diff 등을 CURRENT-TASKS 진행 기록에 반영하고 단계 6.5 준비 상황을 업데이트.
-- [x] Mock AI Provider + Recorder 구축
-  - [x] Mock Provider: `ScenarioMockAIProvider`가 `mockScenarioId`/`strategy(hash|sequential)` 기반으로 즉시 응답 재생, 데이터 누락 시 즉시 실패하도록 예외 처리(`SCENARIO_DEBUG_HASH_MISS` 플래그로 디버그 지원)
-  - [x] Recorder 래퍼: `ScenarioRecordingProvider`가 실제 provider를 감싸 `chat`/`chatStream`/`generateResponse` 출력 전체를 JSON Step으로 append (dev 환경에서만 활성화)
-  - [x] Scenario 저장소: `apps/examples/scenarios/<scenarioId>.json` 파일 구조 정리, step별 `requestHash`·metadata·tags를 보존하고 timestamp를 epoch(ms)로 직렬화
-  - [x] Provider 선택 로직: 예제 26 실행 스크립트에서 `SCENARIO_RECORD_ID`/`SCENARIO_PLAY_ID`/`SCENARIO_PLAY_STRATEGY` env 플래그로 Recorder/Playback을 명확히 분기 (동시 설정 시 에러)
-  - [x] 예제 26 시나리오 생성 및 Mock 실행 검증: `pnpm scenario record 26-playground-edge-verification.ts mandatory-delegation` → `pnpm scenario play ...` (hash & sequential) 모두 Guarded 검증 PASS (로그: `apps/examples/cache/26-playground-edge-verification-*-guarded.log`)
-  - [x] 세부 실행 단계:
-    - [x] 시나리오 JSON 스키마 확정: `ScenarioMessageSnapshot`/`ScenarioToolCallSnapshot`로 요청·응답을 저장하고 `requestHash`를 metadata-free payload 기준으로 계산(모든 timestamp는 epoch 숫자로 보관)
-    - [x] Recorder 옵션 플래그: 예제 26 CLI/가드 스크립트에서 `SCENARIO_RECORD_ID`와 `SCENARIO_PLAY_ID` 환경변수로 제어, 동시에 설정하면 예외 발생
-    - [x] 저장 경로/파일명 규칙: 기본 디렉터리를 `apps/examples/scenarios/`로 고정(`.gitkeep` 유지), 파일명은 `<scenarioId>.json`
-    - [x] Mock Provider 데이터 미존재 시 즉시 실패하도록 에러 정책 정의(No-fallback 유지, hash miss 시 env 플래그 기반 디버그 로그)
-    - [ ] CI/로컬 실행 시나리오 문서화(`pnpm test:scenario` 명령 초안)는 추후 README 업데이트에서 처리
-  - [ ] Tool/Agent/환경 전체 재생 요구사항 보완 (새로 도출)
-    - [ ] AgentConfig/ToolRegistry 스냅샷: 예제 실행 시 사용한 provider 목록, tool 구성, plugin 옵션, 시스템 메타데이터를 scenario 헤더에 기록해 playback 시 동일 환경을 복구
-    - [ ] Tool 호출 Recorder/Mock: Tool 실행 전후를 래핑하여 `tool.call_start` 입력/결과/중간 context를 기록하고, playback 시 Tool mock이 해당 결과를 즉시 반환하도록 구성 (Tool 내부 LLM 호출 시 Provider mock 체인 연동)
-    - [ ] Nested Agent/Provider 체인 추적: assignTask 등 새로운 Agent를 생성하는 Tool이 scenario context를 파생 전달하도록 ExecutionService를 확장, 하위 Agent도 Recorder/Mock 설정을 이어받게 함
-    - [ ] Verification 플로우 확장: “실제 Provider/Tool 호출이 0회인지”를 검증하는 scenario 테스트 명령을 추가하고, Guarded 예제 26을 순수 playback 모드로 통과시키는 체크리스트 수립
-  - [ ] Tool/Agent Recorder 확장 실행 계획
-    - [ ] 1단계 – 설계 문서화: Tool 호출 시 필요한 입력/출력 필드, AgentConfig 스냅샷 스키마, nested Agent context 전달 규칙을 `.design` 문서에 정의
-      - [ ] 2단계 – Recorder/Mock 동시 구현: ToolRecorder와 ToolMock을 한 번에 도입해, “기록만 존재” 상태를 만들지 않고 곧바로 playback이 가능한 구조로 구축
-      - [ ] 3단계 – End-to-End 검증: 새로운 scenario 테스트 명령(예: `pnpm scenario verify 26 ...`)으로 record → playback 전 과정을 실행하고 Guarded 예제 + scenario 검사까지 자동화
-    - [ ] 세부 설계 (WIP)
-      - [ ] 환경 스냅샷(ScenarioEnvironment)
-        - [ ] AgentConfig: `id`, `name`, provider 목록(우선순위 포함), tool 목록, plugin/options, system message 등 런타임 설정 전체를 JSON 스냅샷으로 저장
-        - [ ] ToolRegistry: tool id, handler 경로, provider 의존성, 추가 metadata(예: assignTask 템플릿) — Tool 구성도 전부 JSON에 포함
-        - [ ] ExecutionContext: rootExecutionId, scenarioId, recorder/mock 플래그
-        - [ ] 저장 방식: scenario 파일 최상단 `environment` 섹션에 단 한 번 기록, playback 시 아예 동일 Agent/Tool 구성을 부트스트랩
-      - [ ] Tool Recorder
-        - [ ] 위치: ToolRegistry(or ToolExecutor)에서 Tool 인스턴스를 resolve한 뒤 실행하기 직전
-        - [ ] Step 구조: `toolCallId`, `toolName`, `input`, `context`(executionId, parent, agentId), `toolConfigSnapshot`, `timestamp`
-        - [ ] 결과: 성공/실패 여부, 반환 payload, nested agent 실행 trace id
-        - [ ] nested agent로 넘어갈 때 scenario context를 주입(예: `ScenarioContext.child('agent', childId)` 형태)
-      - [ ] Tool Mock
-        - [ ] ToolRegistry가 playback 모드일 때 실제 Tool 대신 `ScenarioMockTool`을 반환
-        - [ ] 입력 hash(or 순차 id)로 recorded step을 찾고, 결과 payload를 즉시 반환
-        - [ ] nested agent 실행이 필요하면 해당 step에 기록된 child context를 사용해 ExecutionService에 scenario context를 전달
       - [ ] context 전파 규칙
         - [ ] ExecutionService가 Agent를 생성할 때 현재 scenario context를 복제해 child agent에 주입
         - [ ] Provider Recorder/Mock는 기존대로 context만 받으면 자동으로 동작하므로, Tool mock → Agent → Provider로 이어지는 체인이 완성
@@ -220,6 +123,37 @@
     - [x] `apps/examples/26-playground-edge-verification.ts`에서 env 플래그 기반 Recorder/Mock provider 주입 (추후 공용 AgentConfig 옵션으로 승격 예정)
     - [x] Guarded 예제 실행 스크립트에서 동일 env 플래그를 사용해 record/play 모드 선택
     - [ ] README에 dev flow 문서화 (Recorder→Playback→Guard 순서)
+
+#### 단계 3: execution_start 상태 전이 우선 (하위 호환)
+
+**목표**
+- `agent.execution_start` 이벤트가 기존 Agent 노드의 상태만 전이하도록 정규화한다.
+- Legacy 임시 생성 로직은 “노드를 찾을 수 없을 때만” 작동하도록 격리하고 단계 6.5에서 제거할 준비를 한다.
+
+##### 완료 현황
+- [x] **이벤트 흐름 및 영향 범위 재구성** – emit 지점과 payload 필드를 모두 문서화하여 `agent.created` ↔ `agent.execution_start` 간 의존성을 명확히 했다.
+- [x] **기존 노드 재활용 조건 정의** – `agentNodeIdMap`/`WorkflowState` 매핑을 1차 키로 사용하고, 필요 시 `getAllNodes()`를 read-only로 스캔하여 sourceId가 일치하는 단일 노드만 허용하도록 규칙을 확정했다.
+- [x] **임시 생성 하위호환 블록 분리** – 모든 탐색 경로가 실패했을 때만 fallback을 실행하고, 경고 로그 및 `// TODO(step 6.5)` 주석을 추가하여 제거 대기 상태로 표시했다.
+- [x] **상태 전이 데이터 시나리오 정리** – snapshot 확보 → 상태 갱신 → originalEvent 병합 → WorkflowState 재연결 → history append 순서를 확정하고 예외 케이스(idempotent 처리, partial data)를 정의했다.
+- [x] **검증 시나리오/빌드 준비** – 워크플로우/팀/에이전트 빌드 순서와 Guarded 예제 26 실행 포인트를 정리했으며, 노드/엣지 카운트와 logger.warn 모니터링 기준을 설정했다.
+- [x] **체크리스트 & 진행 로그 운영 규칙** – 완료 항목 요약 방식, 범위 변경 메모, Guard 결과 링크 기록 규칙을 마련했다.
+- [x] **Guard 실패 가설/재현 정리** – start node 3개, 컴포넌트 단절, timestamp 충돌 등 핵심 가설을 실제 데이터로 재현해 원인(부모 엣지 누락, WorkflowState 미스매치, timestamp 규칙 부재)을 문서화했다.
+- [x] **Mock AI Provider + Recorder 구축** – `ScenarioRecordingProvider`/`ScenarioMockAIProvider`와 `apps/examples/scenarios/*.json` 저장소를 완성하고, Guarded 예제 26을 record/play 양 모드로 PASS했다. (환경 변수, hash 기반 매칭, fail-fast 정책 포함)
+
+##### 남은 작업
+1. **이론 시뮬레이션 기록**
+   - [ ] assignTask fork 시나리오(user_message → thinking → tool_call → sub-agent → tool_result → thinking_round2 → response)를 표/다이어그램으로 정리하고 Path-only 조건을 명시한다.
+   - [ ] 각 이벤트의 edge 타입, timestamp 공식, WorkflowState 업데이트 요건을 정의하여 “start node 1개·단일 컴포넌트·순차 timestamp” 조건을 체크한다.
+   - [ ] 시나리오별(예제 26/27) 차이를 비교하고, 필요한 수정 포인트 목록을 `.design` 문서에 요약한다.
+2. **구현/검증 순서**
+   - [ ] `packages/workflow/src/handlers/agent-event-handler.ts`에 상태 재활용 로직, WorkflowState 재연결, legacy fallback 경고를 반영한다.
+   - [ ] `검증 명령어` 섹션 절차대로 build → Guarded 예제 26 실행 후 Agent 노드 수/경고 로그/STRICT-POLICY 위반 여부를 확인한다.
+   - [ ] 결과를 CURRENT-TASKS 진행 기록에 요약하고, 단계 6.5/6.6으로 넘길 준비 상태를 명시한다.
+3. **Scenario Recorder 확장**
+   - [ ] AgentConfig/ToolRegistry/ExecutionContext 스냅샷을 scenario `environment` 섹션에 기록하여 playback 시 동일 구성을 자동 복구한다.
+   - [ ] Tool Recorder/Mock를 동시 도입해 `tool.call_start` 입력·결과를 저장/재생하고, nested agent context를 ExecutionService에 전달하도록 규칙을 정의한다.
+   - [ ] “실제 Provider/Tool 호출 0회”를 검증하는 `pnpm scenario verify ...` 흐름을 문서화하고, README/CI 실행 플로우(Recorder→Playback→Guard)를 작성한다.
+   - [ ] Scenario CLI(`pnpm scenario:record|play`)와 dev 환경 명령을 README에 추가하고, concurrency/파일 관리 정책을 확정한다.
 
 #### 단계 6.5: 단일 전환 단계 (Decision Gate)
 - [ ] Agent 핸들러: `agent.execution_start`는 상태 전이만 (노드 생성 절대 금지)
@@ -676,8 +610,4 @@ export class ActionTrackingEventService implements EventService {
 2. Fork/Join Path-Only 검증 스크립트 자동화
 3. Tools DnD UI 구현 시작
 4. Pricing 제거 (병렬 작업 가능)
-
-**진행 로그**
-- 2025-11-19: `apps/examples`에 Scenario Recorder/Mock Provider를 구축하고 `mandatory-delegation` 시나리오를 녹화(`pnpm scenario record ...`) 후 Hash/Sequential 재생(`pnpm scenario play ... --strategy=hash|sequential`)까지 Guarded 검증 통과. `apps/examples/scenarios/mandatory-delegation.json`을 기준으로 playback 시연 성공, record/play 모드 전환은 `SCENARIO_RECORD_ID`/`SCENARIO_PLAY_ID` env 플래그로 제어.
-- 2025-11-19: Tool 호출/AgentConfig까지 포함한 풀 파이프라인 재생이 현재 범위 밖인 것을 확인. 환경 스냅샷, Tool Recorder/Mock, nested Agent context, playback 검증 자동화를 새 요구사항으로 문서화하고 단계별 계획을 추가.
 
