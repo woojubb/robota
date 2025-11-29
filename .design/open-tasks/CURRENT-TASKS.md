@@ -140,20 +140,71 @@ rg "Priority" -g"*.md"
 - [x] **Guard 실패 가설/재현 정리** – start node 3개, 컴포넌트 단절, timestamp 충돌 등 핵심 가설을 실제 데이터로 재현해 원인(부모 엣지 누락, WorkflowState 미스매치, timestamp 규칙 부재)을 문서화했다.
 - [x] **Mock AI Provider + Recorder 구축** – `ScenarioRecordingProvider`/`ScenarioMockAIProvider`와 `apps/examples/scenarios/*.json` 저장소를 완성하고, Guarded 예제 26을 record/play 양 모드로 PASS했다. (환경 변수, hash 기반 매칭, fail-fast 정책 포함)
 
+##### 시뮬레이션 개요 (실행 흐름 요약)
+- 상세 시뮬레이션 문서는 `.design/event-system/agent-execution-start-stage3.md`에 정리되어 있습니다.
+- 핵심 이벤트/요구 사항 요약:
+
+| 순서 | 이벤트 | 생성/갱신 대상 | 필수 엣지 | Timestamp |
+| --- | --- | --- | --- | --- |
+| 1 | `execution.user_message` | `user_message` 루트 | 없음 | `ts0` |
+| 2 | `execution.assistant_message_start` (round1) | `thinking_round1` | `user_message → thinking (processes)` | `ts0 + 1` |
+| 3 | `tool.call_start` | `tool_call` | `thinking_round1 → tool_call (invokes)` | `ts0 + 2` |
+| 4 | `agent.created` (delegated) | 하위 Agent 노드 | `tool_call → agent (spawn)` | `ts_child` |
+| 5 | `agent.execution_start` | 기존 Agent 노드 상태 전이만 | 엣지 없음 | `ts_child + ε` |
+| 6 | `execution.assistant_message_complete` (delegated) | sub-agent response | `agent_thinking → response (return)` | 증가 |
+| 7 | `tool.call_response_ready` | `tool_response` | `response → tool_response (result)` | parent 증가 |
+| 8 | `execution.tool_results_ready` | `tool_result` | 모든 `tool_response → tool_result (result)` | `parent + ε` |
+| 9 | `execution.assistant_message_start` (round2) | `thinking_round2` | `tool_result → thinking_round2 (analyze)` | `parent + 2ε` |
+| 10 | `execution.assistant_message_complete` (final) | 최종 response | `thinking_round2 → response (return)` | 증가 |
+
+- Timestamp 규칙: 동일 path 내 신규 노드는 직전 노드보다 최소 +1, round2 thinking은 `tool_result`보다 항상 커야 함.
+- WorkflowState 규칙: `agent.created`에서 map을 등록하고, `agent.execution_start`는 동일 sourceId 노드만 갱신(모두 실패 시 fallback + 경고).
+
 ##### 남은 작업
 1. **이론 시뮬레이션 기록**
    - [ ] assignTask fork 시나리오(user_message → thinking → tool_call → sub-agent → tool_result → thinking_round2 → response)를 표/다이어그램으로 정리하고 Path-only 조건을 명시한다.
    - [ ] 각 이벤트의 edge 타입, timestamp 공식, WorkflowState 업데이트 요건을 정의하여 “start node 1개·단일 컴포넌트·순차 timestamp” 조건을 체크한다.
    - [ ] 시나리오별(예제 26/27) 차이를 비교하고, 필요한 수정 포인트 목록을 `.design` 문서에 요약한다.
 2. **구현/검증 순서**
-   - [ ] `packages/workflow/src/handlers/agent-event-handler.ts`에 상태 재활용 로직, WorkflowState 재연결, legacy fallback 경고를 반영한다.
-   - [ ] `검증 명령어` 섹션 절차대로 build → Guarded 예제 26 실행 후 Agent 노드 수/경고 로그/STRICT-POLICY 위반 여부를 확인한다.
-   - [ ] 결과를 CURRENT-TASKS 진행 기록에 요약하고, 단계 6.5/6.6으로 넘길 준비 상태를 명시한다.
-3. **Scenario Recorder 확장**
-   - [ ] AgentConfig/ToolRegistry/ExecutionContext 스냅샷을 scenario `environment` 섹션에 기록하여 playback 시 동일 구성을 자동 복구한다.
-   - [ ] Tool Recorder/Mock를 동시 도입해 `tool.call_start` 입력·결과를 저장/재생하고, nested agent context를 ExecutionService에 전달하도록 규칙을 정의한다.
-   - [ ] “실제 Provider/Tool 호출 0회”를 검증하는 `pnpm scenario verify ...` 흐름을 문서화하고, README/CI 실행 플로우(Recorder→Playback→Guard)를 작성한다.
-   - [ ] Scenario CLI(`pnpm scenario:record|play`)와 dev 환경 명령을 README에 추가하고, concurrency/파일 관리 정책을 확정한다.
+   1. 코드 준비
+      - [ ] `agent-event-handler.ts`에 `updateAgentExecutionState(event)` 헬퍼 추가 (status 갱신, WorkflowState 연동, logger.warn fallback).
+      - [ ] `workflow-state.ts`에 `getOrCreateAgentNode(sourceId)` / `setAgentForExecutionSafe(executionId, agentNodeId)` 등 헬퍼 구현.
+      - [ ] fallback 분기에는 `// TODO(step 6.5): remove legacy fallback` 주석과 `[LEGACY-FALLBACK]` warn 로그를 박고, 사용 시 Scenario 로그에 남기도록 설계.
+   2. 빌드/테스트 스크립트
+      - [ ] 아래 순서를 하나의 shell 스크립트로 작성해 CURRENT-TASKS에 경로를 명시:
+        ```
+        pnpm --filter @robota-sdk/workflow build &&
+        pnpm --filter @robota-sdk/team build &&
+        pnpm --filter @robota-sdk/agents build &&
+        cd apps/examples &&
+        FILE=26-playground-edge-verification.ts && \
+        HASH=$(md5 -q "$FILE") && \
+        OUT=cache/26-playground-edge-verification-$HASH-guarded.log && \
+        STATUS=0; npx tsx "$FILE" > "$OUT" 2>&1 || STATUS=$?
+        ```
+      - [ ] 실패 시 `tail -n 120 "$OUT"`을 첨부하고, STRICT-POLICY/EDGE-ORDER-VIOLATION 존재 여부를 체크하는 명령 포함.
+   3. 결과 보고 포맷
+      - [ ] 진행 기록 섹션에 붙일 표 템플릿:
+        | 날짜 | 빌드 결과 | Guard 결과 | Agent 노드 수 | WARN 로그 | 비고 |
+      - [ ] fallback 경고 발생 시 scenario 로그 파일 경로와 fallback 횟수를 함께 기록.
+   4. 전환 조건 정의
+      - [ ] “fallback warn 0회, Guard PASS 2회 연속”을 단계 6.5 진입 조건으로 명시.
+      - [ ] 조건 충족 시 Priority 1 섹션에 “Stage3 → Stage6.5 hand-off ready” 메모 추가.
+3. **Scenario Recorder 확장** (상세 설계: `.design/event-system/scenario-recorder-expansion.md`)
+   1. 환경 스냅샷
+      - [ ] `ScenarioEnvironment` 인터페이스 정의 (`scenarioId`, `version`, `environment: { agentConfig, toolRegistry, executionContext }`).
+      - [ ] `ScenarioStore.saveEnvironment()` 구현: scenario JSON의 루트에 environment를 1회만 기록하고, playback 시 로드하여 AgentConfig/ToolRegistry를 초기화.
+   2. Tool Recorder/Mock
+      - [ ] `ScenarioToolRecorder` 클래스 작성: Tool 실행 직전에 `recordToolCall(step)` 호출, 결과/오류/childContext 저장.
+      - [ ] `ScenarioToolMock` 클래스 작성: playback 모드에서 step을 sequential/byHash 전략으로 찾아 반환, step 미존재 시 `ScenarioMissingError`.
+   3. CLI/README
+      - [ ] `pnpm scenario:record --example=26 --scenario=mandatory-delegation` 스크립트 추가 (환경 변수 세팅 포함).
+      - [ ] `pnpm scenario:play ...`, `pnpm scenario:verify ...` 명령 작성 및 README에 실행 플로우(Recorder→Playback→Guard) 문서화.
+      - [ ] concurrency/ordering 안내: 동일 scenario에 동시 append 금지, timestamp 기반 파일명 규칙 명시.
+   4. Guard 통합
+      - [ ] Guard 스크립트가 `SCENARIO_RECORD_ID`/`SCENARIO_PLAY_ID`를 감지해 Recorder/Mock를 자동 주입하도록 업데이트.
+      - [ ] playback 모드에서 실제 Provider/Tool 호출 감지 시 즉시 실패하도록 감시 로직 추가 (`assertNoRealCalls()`).
+      - [ ] scenario step 소비 여부 추적 후, 미사용 step이 남으면 “[SCENARIO-UNUSED] …” 경고를 띄우고 실패 처리.
 
 #### 단계 6.5: 단일 전환 단계 (Decision Gate)
 - [ ] Agent 핸들러: `agent.execution_start`는 상태 전이만 (노드 생성 절대 금지)
