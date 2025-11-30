@@ -52,19 +52,44 @@
    - [ ] `.design/event-system` 문서 업데이트 (prefix 제거, ownerPath 규칙)
    - [ ] CURRENT-TASKS 진행 기록 추가 및 전환 조건 명시
 5. **Payload/emit 헬퍼 단순화**
-   - [ ] `emitExecutionEvent`/`emitToolEvent`를 context 생성 전용으로 축소하고 payload에는 이벤트 고유 데이터만 남김
-   - [ ] `ServiceEventData`에서 `rootExecutionId`, `parentExecutionId`, `path`, `thinkingId` 등 ownerPath로 유추 가능한 필드 제거
-   - [ ] 핸들러가 필요한 ID를 가져갈 수 있도록 `getOwnerId(context, ownerType)`·`getNearestSegment(ownerPath, ownerType)` 유틸 정의
-   - [ ] ExecutionService/Tool 구현 전체에서 중복 필드를 제거하고, 변경 후 Guard 예제 26/27을 실행하여 이벤트 구조가 동일한지 검증
+   - [ ] DOM 이벤트 모델처럼 `BaseEventData` + 파생 타입(Execution/Tool/Agent)을 정의하여 필드를 역할별로 분리
+   - [x] `emitExecutionEvent<T extends ExecutionEventData>`/`emitToolEvent<T extends ToolEventData>` 헬퍼를 제네릭으로 재작성하고 context 생성만 담당하도록 축소 (2025-11-30)
+   - [ ] `ServiceEventData`에서 `rootExecutionId`, `parentExecutionId`, `executionLevel`, `path`, `thinkingId` 등 ownerPath로 유추 가능한 필드를 제거
+   - [ ] **ExecutionService 단계**
+     1. [ ] `execution.start`/`user_message`/`assistant_message_*` payload 최소화 (이미 진행 중)  
+     2. [x] Tool emit(`tool.call_*`, `tool_results_*`)에서 context로 이전 가능한 필드 제거 — 2025-11-30 ExecutionService emit helper 개편  
+     3. [x] 스트리밍 모드 emit도 동일하게 정리 — 2025-11-30 ExecutionService emit helper 개편  
+    4. [x] ToolExecutionService 요청에 필요한 계층 정보는 metadata로 유지하되, emit payload와 혼동되지 않도록 주석/타입 분리 — 2025-11-30 ToolExecutionService ownerPath/metadata 리팩터
+   - [ ] **Tool/Agent emit 단계**
+     1. 각 도메인 emit helper를 새 타입으로 업데이트  
+     2. payload에는 고유 데이터만 유지, 계층 정보는 context ownerPath로 전달  
+     3. 필요 시 Agent/Tool 측에서 공통 helper (예: `buildAgentOwnerContext`) 도입
+   - [ ] **Context ownerPath-only 규칙 수립**
+     1. ExecutionService payload에서 `metadata.rootExecutionId`, `metadata.parentExecutionId`, `metadata.executionId`, `metadata.conversationId` 등 ownerPath에서 파생 가능한 필드를 전부 제거  
+     2. ToolExecutionService와 각 Tool 구현에 “context.ownerPath 외에는 계층 정보 제공 금지” 규칙 명시 (ownerType/ownerId/sourceId는 context에서만 제공)  
+     3. 핸들러/검증 코드에 `getNearestOwner(ownerPath, targetType)` 헬퍼 추가 후 `rootExecutionId` 등 기존 필드 의존 제거  
+     4. `.design/event-system/event-payload-normalization.md`에 “context=ownerPath-only, payload=domain data-only” 원칙과 예시 추가  
+     5. Guard 예제 26/27 실행으로 ownerPath-only 설계가 기존 그래프와 동일하게 작동하는지 검증
+   - [ ] **EventService 인스턴스 소유자 고정화 + source 자동화**
+     1. ExecutionService 생성 시 주입받은 EventService 인스턴스가 `ownerType='agent'`, `ownerId=conversationId`를 기본값으로 갖도록 보장 (없으면 `EventService.createChild({ ownerType: 'agent', ownerId: conversationId })` 패턴 추가)  
+     2. ToolExecutionService가 tool-call 시점에 `EventService`를 상속/클론하여 `ownerType='tool'`, `ownerId=toolCallId`를 주입 받은 인스턴스를 사용하게 리팩터  
+     3. `emitExecutionEvent`/`emitToolEvent` helper에서 `context.ownerType/ownerId`를 자동으로 payload `sourceType/sourceId`에 주입하도록 변경(사용자가 별도로 적지 않아도 동일한 값이 들어가도록)  
+     4. `timestamp`도 helper에서 `data.timestamp ?? new Date()`로 자동 채우도록 표준화  
+     5. 위 구조를 `.design/event-system/event-payload-normalization.md` 및 Guard 예제 문서에 “한 EventService 인스턴스는 단일 owner” 규칙으로 명시하고, 전환 체크리스트 작성
+   - [ ] **Workflow 핸들러 단계**
+     1. `ownerPath` 기반 헬퍼(`getNearestOwner(ownerPath, 'execution')`) 작성  
+     2. 기존 `parentExecutionId/rootExecutionId` 참조를 helper 호출로 교체  
+     3. Guard 예제 26/27 실행으로 회귀 테스트
 6. **이벤트 데이터 정규화 수준 평가**
-   - [ ] 이벤트 종류별(payload 구조) 전체 목록 작성: execution.*, agent.*, tool.*, team.* 각각 필드 표로 정리
-   - [ ] 각 필드가 context에서 파생 가능한지 여부를 체크리스트로 표시하고, “payload 필수/선택/제거 가능” 라벨링
-   - [ ] 공통 메타데이터(`metadata`, `parameters`)에 허용되는 키 집합을 정의하고, 자유형 객체가 필요한 경우 사유를 문서화
-   - [ ] 정규화 제안서 작성: 
-     - [ ] 기본 스키마 초안(JSON Schema 수준)과 예시 payload 추가
-     - [ ] context로 이동할 필드, payload에 유지할 필드 목록을 대응표로 작성
+   - [x] 이벤트 종류별(payload 구조) 전체 목록 작성: execution.*, agent.*, tool.*, team.* 각각 필드 표로 정리
+   - [x] 각 필드가 context에서 파생 가능한지 여부를 체크리스트로 표시하고, “payload 필수/선택/제거 가능” 라벨링
+   - [x] 공통 메타데이터(`metadata`, `parameters`)에 허용되는 키 집합을 정의하고, 자유형 객체가 필요한 경우 사유를 문서화
+    - [ ] 정규화 제안서 작성: 
+      - [x] 기본 스키마 초안(JSON Schema 수준)과 예시 payload 추가
+      - [x] context로 이동할 필드, payload에 유지할 필드 목록을 대응표로 작성
    - [ ] Guard 예제 26/27 실행 전후 비교로 정규화가 Node/Edge 생성에 미치는 영향 평가
-   - [ ] 평가 결과를 `.design/event-system` 폴더에 별도 문서로 정리하고 CURRENT-TASKS에 링크
+   - [x] 평가 결과를 `.design/event-system` 폴더에 별도 문서로 정리하고 CURRENT-TASKS에 링크
+     - 문서: `.design/event-system/event-payload-normalization.md`
 
 ---
 

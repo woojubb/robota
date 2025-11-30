@@ -64,8 +64,11 @@ export interface EventContext {
 /**
  * Service event data structure with hierarchical tracking information
  */
-export interface ServiceEventData {
-    /** Source type: agent, team, or tool (sub-agent removed for domain neutrality) */
+export interface BaseEventData {
+    /** Event type identifier (e.g., execution.start) */
+    eventType?: ServiceEventType;
+
+    /** Source type: agent, team, or tool */
     sourceType: 'agent' | 'team' | 'tool';
 
     /** Source identifier (agent ID, team ID, etc.) */
@@ -74,52 +77,56 @@ export interface ServiceEventData {
     /** Event timestamp (auto-generated if not provided) */
     timestamp?: Date;
 
-    // Hierarchical tracking information (extracted from ToolExecutionContext)
-    /** Parent execution ID for hierarchical tracking */
-    parentExecutionId?: string;
-
-    /** Root execution ID (Team/Agent level) */
-    rootExecutionId?: string;
-
-    /** Execution depth level (0: Team, 1: Agent, 2: Tool) */
-    executionLevel?: number;
-
-    /** Execution path array for complete hierarchy */
-    executionPath?: string[];
-
-    // Event-specific data
-    /** Tool name for tool-related events */
-    toolName?: string;
-
-    /** Parameters passed to tool/agent */
-    parameters?: ToolParameters;
-
-    /** Result from tool/agent execution */
-    result?: ToolResult;
-
-    /** Error message for error events */
-    error?: string;
-
-    /** Task description for task events */
-    taskDescription?: string;
-
     /** Additional metadata */
     metadata?: LoggerData;
 
-    // Agent Integration Instance specific data (for Playground-level connection quality)
-    /** Integration instance identifier for result consolidation */
-    integrationId?: string;
+    /** @deprecated Use EventContext.ownerPath to derive hierarchy */
+    executionLevel?: number;
+    /** @deprecated Use EventContext.ownerPath to derive hierarchy */
+    parentExecutionId?: string;
+    /** @deprecated Use EventContext.ownerPath to derive hierarchy */
+    rootExecutionId?: string;
+    /** @deprecated Use EventContext.ownerPath to derive hierarchy */
+    executionPath?: string[];
+    /** @deprecated Use domain-specific payload fields instead */
+    toolName?: string;
+    /** @deprecated Use domain-specific payload fields instead */
+    parameters?: ToolParameters | Record<string, unknown>;
+    /** @deprecated Use domain-specific payload fields instead */
+    result?: ToolResult;
+    /** @deprecated Use domain-specific payload fields instead */
+    error?: string;
+    /** @deprecated Use domain-specific payload fields instead */
+    taskDescription?: string;
+    /** @deprecated Migrate to AgentEventData.statusHistory */
+    statusHistory?: Array<{ status: string; eventType: string; timestamp: number }>;
+    /** Legacy context attachment (EventServiceHookFactory) */
+    context?: Record<string, unknown>;
 
-    /** Source response IDs being integrated */
-    sourceResponseIds?: string[];
-
-    /** Integration processing level (3: Integration Instance level) */
-    integrationLevel?: number;
-
-    /** Allow additional properties for extensibility */
-    // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, generic-constraint
+    /** Allow forward-compat extension fields */
     [key: string]: unknown;
 }
+
+export interface ExecutionEventData extends BaseEventData {
+    parameters?: Record<string, unknown>;
+    result?: ToolResult;
+}
+
+export interface ToolEventData extends BaseEventData {
+    toolName?: string;
+    parameters?: ToolParameters;
+    result?: ToolResult;
+    error?: string;
+}
+
+export interface AgentEventData extends BaseEventData {
+    parameters?: Record<string, unknown>;
+    result?: ToolResult;
+    statusHistory?: Array<{ status: string; eventType: string; timestamp: number }>;
+}
+
+/** @deprecated Use BaseEventData/ExecutionEventData/ToolEventData/AgentEventData instead */
+export type ServiceEventData = BaseEventData;
 
 /**
  * Execution node for hierarchy tracking
@@ -160,7 +167,7 @@ export interface EventService {
      * @param eventType - Type of event to emit
      * @param data - Event data with hierarchical information
      */
-    emit(eventType: ServiceEventType, data: ServiceEventData, context?: EventContext): void;
+    emit<TEvent extends BaseEventData = BaseEventData>(eventType: ServiceEventType, data: TEvent, context?: EventContext): void;
 
     /**
      * Optional: Track execution hierarchy (Duck Typing detection)
@@ -197,7 +204,7 @@ export interface EventService {
  * class now offers the same default implementations for inheritance.
  */
 export abstract class AbstractEventService implements EventService {
-    emit(eventType: ServiceEventType, data: ServiceEventData, context?: EventContext): void {
+    emit<TEvent extends BaseEventData = BaseEventData>(eventType: ServiceEventType, data: TEvent, context?: EventContext): void {
         void eventType;
         void data;
         void context;
@@ -225,7 +232,7 @@ export abstract class AbstractEventService implements EventService {
 }
 
 class DefaultNoopEventService extends AbstractEventService {
-    override emit(eventType: ServiceEventType, data: ServiceEventData, context?: EventContext): void {
+    override emit<TEvent extends BaseEventData = BaseEventData>(eventType: ServiceEventType, data: TEvent, context?: EventContext): void {
         void eventType;
         void data;
         void context;
@@ -249,7 +256,7 @@ export class DefaultEventService extends AbstractEventService {
         this.logger = logger || DefaultConsoleLogger;
     }
 
-    override emit(eventType: ServiceEventType, data: ServiceEventData, context?: EventContext): void {
+    override emit<TEvent extends BaseEventData = BaseEventData>(eventType: ServiceEventType, data: TEvent, context?: EventContext): void {
         const timestamp = data.timestamp || new Date();
         const logData = {
             eventType,
@@ -280,7 +287,7 @@ export class StructuredEventService extends AbstractEventService {
         this.logger = logger || DefaultConsoleLogger;
     }
 
-    override emit(eventType: ServiceEventType, data: ServiceEventData, context?: EventContext): void {
+    override emit<TEvent extends BaseEventData = BaseEventData>(eventType: ServiceEventType, data: TEvent, context?: EventContext): void {
         const timestamp = data.timestamp || new Date();
         const eventId = this.generateEventId();
 

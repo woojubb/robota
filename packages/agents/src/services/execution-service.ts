@@ -8,7 +8,7 @@ import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ToolExecutionContext } from '../interfaces/tool'; // 🎯 [CONTEXT-INJECTION] Import ToolExecutionContext
 import { Logger, createLogger } from '../utils/logger';
 import { ChatOptions, ToolCall } from '../interfaces/provider';
-import { EventService, DEFAULT_EVENT_SERVICE, isDefaultEventService, EventContext, OwnerPathSegment, ServiceEventType, ServiceEventData } from './event-service';
+import { EventService, DEFAULT_EVENT_SERVICE, isDefaultEventService, EventContext, OwnerPathSegment, ServiceEventType, ExecutionEventData, ToolEventData } from './event-service';
 import type { ToolExecutionBatchContext } from './tool-execution-service';
 
 /**
@@ -257,7 +257,6 @@ export class ExecutionService {
                 sourceType: 'agent',
                 sourceId: rootId,
                 timestamp: startTime,
-                executionId: executionId,
                 parameters: {
                     input,
                     agentConfiguration: aiProviderInfo,
@@ -270,10 +269,6 @@ export class ExecutionService {
                     temperature: config.defaultModel.temperature,
                     maxTokens: config.defaultModel.maxTokens
                 } as any,
-                rootExecutionId: rootId,
-                parentExecutionId: this.executionContext?.parentExecutionId,
-                executionLevel: 1,
-                executionPath: [rootId],
                 metadata: {
                     executionId,
                     method: 'execute',
@@ -289,8 +284,7 @@ export class ExecutionService {
                     }
                 }
             },
-            rootId,
-            executionId
+            this.buildExecutionOwnerContext(rootId, executionId)
         );
 
         try {
@@ -360,11 +354,6 @@ export class ExecutionService {
                             characterCount: input.length,
                             messageTimestamp: timestamp.toISOString()
                         },
-                        rootExecutionId: rootId,
-                        parentExecutionId: this.executionContext?.parentExecutionId,
-                        executionLevel: 0,
-                        executionPath: [rootId, executionId],
-                        path: [rootId, executionId],
                         metadata: {
                             executionId,
                             messageRole: 'user',
@@ -376,8 +365,7 @@ export class ExecutionService {
                             estimatedComplexity: input.length > 200 ? 'high' : input.length > 50 ? 'medium' : 'low'
                         }
                     },
-                    rootId,
-                    executionId
+                    this.buildExecutionOwnerContext(rootId, executionId)
                 );
             }
 
@@ -505,16 +493,10 @@ export class ExecutionService {
                         sourceType: 'agent',
                         sourceId: rootId,
                         timestamp: new Date(),
-                        executionId,
                         parameters: {
                             round: currentRound,
                             messageCount: conversationMessages.length
                         },
-                        rootExecutionId: rootId,
-                        parentExecutionId: executionId,
-                        executionLevel: 1,
-                        executionPath: [rootId],
-                        path: [rootId, thinkingNodeId],
                         metadata: {
                             executionId,
                             round: currentRound,
@@ -522,8 +504,7 @@ export class ExecutionService {
                             thinkingNodeId
                         }
                     },
-                    rootId,
-                    executionId
+                    this.buildExecutionOwnerContext(rootId, executionId)
                 );
 
                 const response = await (provider as any).chat(conversationMessages, chatOptions);
@@ -625,8 +606,6 @@ export class ExecutionService {
                             sourceType: 'agent',
                             sourceId: fullContext.conversationId || executionId,
                             timestamp: new Date(),
-                            executionId,
-                            path: [rootId, thinkingNodeId, executionId],
                             parameters: {
                                 assistantMessage: responseContent,
                                 responseLength: responseContent.length,
@@ -648,10 +627,6 @@ export class ExecutionService {
                                     complexity: responseContent.length > 1000 ? 'high' : responseContent.length > 300 ? 'medium' : 'low'
                                 }
                             },
-                            rootExecutionId: fullContext.conversationId || executionId,
-                            parentExecutionId: this.executionContext?.parentExecutionId || executionId,
-                            executionLevel: 1,
-                            executionPath: [fullContext.conversationId || executionId],
                             metadata: {
                                 executionId,
                                 round: currentRound,
@@ -665,8 +640,7 @@ export class ExecutionService {
                                 }
                             }
                         },
-                        fullContext.conversationId || executionId,
-                        executionId
+                        this.buildExecutionOwnerContext(fullContext.conversationId || executionId, executionId)
                     );
 
                     this.logger.info(`🔍 [EXECUTION-VERIFICATION] Breaking execution loop - should prevent Round ${currentRound + 1}`);
@@ -687,17 +661,21 @@ export class ExecutionService {
 
                 // Execute tools
                 // Ensure proper ID hierarchy for tool execution
-                const toolRootId = fullContext.conversationId;
-                const toolParentId = executionId;
-
+                const toolRootId = fullContext.conversationId ?? executionId;
+                const rootForTools = toolRootId;
+                const toolOwnerPathBase = this.buildExecutionOwnerContext(rootForTools, executionId).ownerPath;
                 const toolRequests = this.toolExecutionService.createExecutionRequestsWithContext(
                     assistantResponse.toolCalls,
                     {
-                        parentExecutionId: thinkingNodeId, // 🎯 Use thinkingNodeId as parentExecutionId
-                        rootExecutionId: toolRootId || executionId,
-                        executionLevel: 2, // Tool level (Team=0, Agent=1, Tool=2)
-                        executionPath: [toolRootId || executionId, toolParentId],
-                        conversationId: toolRootId // Pass conversationId explicitly
+                        ownerPathBase: toolOwnerPathBase,
+                        metadataFactory: toolCall => ({
+                            conversationId: toolRootId,
+                            round: currentRound,
+                            directParentId: thinkingNodeId,
+                            batchId,
+                            expectedCount: expectedCountForBatch,
+                            toolCallId: toolCall.id
+                        })
                     }
                 );
                 const toolContext: ToolExecutionBatchContext = {
@@ -710,7 +688,6 @@ export class ExecutionService {
                 // Emit tool_call_start events for each tool with direct parent provision
                 const expectedCountForBatch = assistantResponse.toolCalls.length;
                 const batchId = `${thinkingNodeId}`;
-                const rootForTools = fullContext.conversationId || executionId;
 
                 for (const toolCall of assistantResponse.toolCalls) {
                     this.emitToolEvent(
@@ -722,11 +699,6 @@ export class ExecutionService {
                             toolName: toolCall.function?.name,
                             timestamp: new Date(),
                             parameters: JSON.parse(toolCall.function?.arguments || '{}'),
-                            rootExecutionId: rootForTools,
-                            executionLevel: 2,
-                            executionPath: [rootForTools, executionId],
-                            path: [rootForTools, thinkingNodeId, toolCall.id],
-                            parentExecutionId: thinkingNodeId,
                             metadata: {
                                 toolCallId: toolCall.id,
                                 executionId,
@@ -736,9 +708,7 @@ export class ExecutionService {
                                 expectedCount: expectedCountForBatch
                             }
                         },
-                        rootForTools,
-                        executionId,
-                        toolCall.id
+                        this.buildToolOwnerContext(rootForTools, executionId, toolCall.id)
                     );
                 }
 
@@ -755,30 +725,23 @@ export class ExecutionService {
                         sourceId: rootForTools,
                         toolName: result.toolName,
                         timestamp: new Date(),
-                        executionId: result.executionId,
                         result: {
                             success: result.success,
                             data: result.success ? result.result : undefined,
                             error: result.success ? undefined : (result.error ?? 'Unknown error')
                         },
-                        rootExecutionId: rootForTools,
-                        executionLevel: 2 as const,
-                        executionPath: [rootForTools, executionId],
-                        path: [rootForTools, thinkingNodeId, delegatedExecId],
                         metadata: {
                             executionId: result.executionId,
                             success: result.success,
                             round: currentRound,
                             directParentId: thinkingNodeId
                         },
-                        parentExecutionId: thinkingNodeId
+
                     };
                     this.emitToolEvent(
                         TOOL_EVENTS.CALL_RESPONSE_READY,
                         payload,
-                        rootForTools,
-                        executionId,
-                        result.executionId || delegatedExecId
+                        this.buildToolOwnerContext(rootForTools, executionId, result.executionId || delegatedExecId)
                     );
                 }
 
@@ -853,12 +816,9 @@ export class ExecutionService {
                         sourceType: 'agent',
                         sourceId: toolResultsRootId,
                         timestamp: new Date(),
-                        thinkingId: thinkingNodeId,
-                        rootExecutionId: toolResultsRootId,
-                        parentExecutionId: executionId,
-                        executionLevel: 1,
-                        executionPath: [toolResultsRootId],
-                        path: [toolResultsRootId, thinkingNodeId],
+                        parameters: {
+                            thinkingId: thinkingNodeId
+                        },
                         metadata: {
                             executionId,
                             round: currentRound,
@@ -866,8 +826,7 @@ export class ExecutionService {
                             thinkingId: thinkingNodeId
                         }
                     },
-                    rootId,
-                    executionId
+                    this.buildExecutionOwnerContext(rootId, executionId)
                 );
 
                 this.emitExecutionEvent(
@@ -880,10 +839,6 @@ export class ExecutionService {
                             toolsExecuted: toolsExecuted.length,
                             round: currentRound
                         },
-                        rootExecutionId: toolResultsRootId,
-                        executionLevel: 1,
-                        executionPath: [toolResultsRootId],
-                        path: [toolResultsRootId, thinkingNodeId],
                         metadata: {
                             executionId,
                             toolsExecuted: toolSummary.results.map(r => r.toolName || 'unknown'),
@@ -891,8 +846,7 @@ export class ExecutionService {
                             conversationId: fullContext.conversationId
                         }
                     },
-                    toolResultsRootId,
-                    executionId
+                    this.buildExecutionOwnerContext(toolResultsRootId, executionId)
                 );
 
                 // Continue to next round - let the AI decide if more tools are needed
@@ -986,9 +940,6 @@ export class ExecutionService {
                         success: true,
                         data: result.response.substring(0, 100) + '...'
                     },
-                    rootExecutionId: rootIdComplete,
-                    executionLevel: 1,
-                    executionPath: [rootIdComplete],
                     metadata: {
                         executionId,
                         method: 'execute',
@@ -999,8 +950,7 @@ export class ExecutionService {
                         conversationId: fullContext.conversationId
                     }
                 },
-                rootIdComplete,
-                executionId
+                this.buildExecutionOwnerContext(rootIdComplete, executionId)
             );
 
             return result;
@@ -1029,9 +979,6 @@ export class ExecutionService {
                     sourceId: fullContext.conversationId || executionId,
                     timestamp: new Date(),
                     error: error instanceof Error ? error.message : String(error),
-                    rootExecutionId: fullContext.conversationId || executionId,
-                    executionLevel: 1,
-                    executionPath: [fullContext.conversationId || executionId],
                     metadata: {
                         executionId,
                         method: 'execute',
@@ -1040,8 +987,7 @@ export class ExecutionService {
                         conversationId: fullContext.conversationId
                     }
                 },
-                fullContext.conversationId || executionId,
-                executionId
+                this.buildExecutionOwnerContext(fullContext.conversationId || executionId, executionId)
             );
 
             throw error;
@@ -1198,13 +1144,18 @@ export class ExecutionService {
                 this.logger.debug('🔥 [EXECUTION-SERVICE-STREAM] Executing tools:', { tools: toolCalls.map(tc => tc.function.name) });
 
                 // Execute tools with hierarchical context
+                const streamingRootId = context?.conversationId ?? executionId;
+                const streamingOwnerPathBase = this.buildExecutionOwnerContext(streamingRootId, executionId).ownerPath;
                 const toolRequests = this.toolExecutionService.createExecutionRequestsWithContext(
                     toolCalls,
                     {
-                        parentExecutionId: executionId,
-                        rootExecutionId: context?.conversationId || executionId,
-                        executionLevel: 2, // Tool level (Team=0, Agent=1, Tool=2)
-                        executionPath: [context?.conversationId || executionId, executionId]
+                        ownerPathBase: streamingOwnerPathBase,
+                        metadataFactory: toolCall => ({
+                            conversationId: streamingRootId,
+                            streamMode: true,
+                            directParentId: streamingThinkingNodeId,
+                            toolCallId: toolCall.id
+                        })
                     }
                 );
                 const toolContext: ToolExecutionBatchContext = {
@@ -1218,7 +1169,6 @@ export class ExecutionService {
                 const streamingThinkingNodeId = `thinking_agent_${Date.now()}_${executionId}`;
 
                 // Emit tool_call_start events for each tool (streaming) with direct parent provision
-                const streamingRootId = context?.conversationId || executionId;
                 for (const toolCall of toolCalls) {
                     const eventData = {
                         sourceType: 'agent' as const,
@@ -1226,10 +1176,6 @@ export class ExecutionService {
                         toolName: toolCall.function?.name,
                         timestamp: new Date(),
                         parameters: JSON.parse(toolCall.function?.arguments || '{}'),
-                        rootExecutionId: streamingRootId,
-                        executionLevel: 2,
-                        executionPath: [streamingRootId, executionId],
-                        parentExecutionId: streamingThinkingNodeId,
                         metadata: {
                             toolCallId: toolCall.id,
                             executionId,
@@ -1240,9 +1186,11 @@ export class ExecutionService {
                     this.emitToolEvent(
                         TOOL_EVENTS.CALL_START,
                         eventData,
-                        streamingRootId,
-                        executionId,
-                        toolCall.id || toolCall.function?.name || 'tool'
+                        this.buildToolOwnerContext(
+                            streamingRootId,
+                            executionId,
+                            toolCall.id || toolCall.function?.name || 'tool'
+                        )
                     );
                 }
 
@@ -1262,18 +1210,17 @@ export class ExecutionService {
                                 data: result.success ? result.result : undefined,
                                 error: result.success ? undefined : (result.error ?? 'Unknown error')
                             },
-                            rootExecutionId: streamingRootId,
-                            executionLevel: 2,
-                            executionPath: [streamingRootId, executionId],
                             metadata: {
                                 executionId: result.executionId,
                                 success: result.success,
                                 streamMode: true
                             }
                         },
-                        streamingRootId,
-                        executionId,
-                        result.executionId || result.toolName || 'tool'
+                        this.buildToolOwnerContext(
+                            streamingRootId,
+                            executionId,
+                            result.executionId || result.toolName || 'tool'
+                        )
                     );
                 }
 
@@ -1341,10 +1288,6 @@ export class ExecutionService {
                         sourceId: streamingRoot,
                         timestamp: new Date(),
                         thinkingId: streamingThinkingNodeId,
-                        rootExecutionId: streamingRoot,
-                        parentExecutionId: executionId,
-                        executionLevel: 1,
-                        executionPath: [streamingRoot],
                         metadata: {
                             executionId,
                             toolsExecuted: toolSummary.results.map(r => r.toolName || 'unknown'),
@@ -1353,8 +1296,7 @@ export class ExecutionService {
                             thinkingId: streamingThinkingNodeId
                         }
                     },
-                    streamingRoot,
-                    executionId
+                    this.buildExecutionOwnerContext(streamingRoot, executionId)
                 );
             }
 
@@ -1536,18 +1478,18 @@ export class ExecutionService {
         };
     }
 
-    private emitExecutionEvent(eventType: ServiceEventType, data: ServiceEventData, rootId: string, executionId: string): void {
+    private emitExecutionEvent<TEvent extends ExecutionEventData>(eventType: ServiceEventType, data: TEvent, context: EventContext): void {
         if (isDefaultEventService(this.baseEventService)) {
             return;
         }
-        this.baseEventService.emit(eventType, data, this.buildExecutionOwnerContext(rootId, executionId));
+        this.baseEventService.emit(eventType, data, context);
     }
 
-    private emitToolEvent(eventType: ServiceEventType, data: ServiceEventData, rootId: string, executionId: string, toolCallId: string): void {
+    private emitToolEvent<TEvent extends ToolEventData>(eventType: ServiceEventType, data: TEvent, context: EventContext): void {
         if (isDefaultEventService(this.baseEventService)) {
             return;
         }
-        this.baseEventService.emit(eventType, data, this.buildToolOwnerContext(rootId, executionId, toolCallId));
+        this.baseEventService.emit(eventType, data, context);
     }
 
     /**

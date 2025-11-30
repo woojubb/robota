@@ -1,39 +1,19 @@
-import { ToolExecutionResult, ToolResult, ToolExecutionContext } from '../interfaces/tool';
+import { ToolExecutionResult, ToolResult, ToolExecutionContext, ToolOwnerPathSegment, ToolMetadata } from '../interfaces/tool';
 import type { ToolManagerInterface } from '../interfaces/manager';
 import type { ToolParameters } from '../interfaces/tool';
-import type { LoggerData } from '../interfaces/types';
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
 import { ToolExecutionError, ValidationError } from '../utils/errors';
-
-// Step 1: ❌ Can't assign null to string/number types directly
-// Step 2: ✅ UniversalValue doesn't include null, need proper type conversion
-// Step 3: ✅ Create type guards for safe conversion
-// Step 4: ✅ Provide fallback values for type safety
-function safeStringValue(value: any): string {
-    if (typeof value === 'string') return value;
-    if (value === null || value === undefined) return '';
-    return String(value);
-}
-
-function safeNumberValue(value: any): number {
-    if (typeof value === 'number') return value;
-    if (value === null || value === undefined) return 0;
-    const parsed = Number(value);
-    return isNaN(parsed) ? 0 : parsed;
-}
-
-function safeArrayValue(value: any): string[] {
-    if (Array.isArray(value)) return value.map(String);
-    if (value === null || value === undefined) return [];
-    return [String(value)];
-}
 
 // Add missing types for ExecutionService compatibility
 export interface ToolExecutionRequest {
     toolName: string;
     parameters: ToolParameters;
     executionId?: string;
-    metadata?: LoggerData;
+    metadata?: ToolMetadata;
+    ownerType?: string;
+    ownerId?: string;
+    ownerPath?: ToolOwnerPathSegment[];
+    sourceId?: string;
 }
 
 export interface ToolExecutionBatchContext {
@@ -78,10 +58,10 @@ export class ToolExecutionService {
                 toolName,
                 parameters,
                 executionId: context?.executionId || `${toolName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                parentExecutionId: context?.parentExecutionId,
-                rootExecutionId: context?.rootExecutionId || (context?.metadata?.rootExecutionId as string | undefined),
-                executionLevel: context?.executionLevel || (context?.metadata?.executionLevel as number | undefined),
-                executionPath: context?.executionPath || (context?.metadata?.executionPath as string[] | undefined),
+                ownerType: context?.ownerType || 'tool',
+                ownerId: context?.ownerId || context?.executionId,
+                ownerPath: context?.ownerPath,
+                sourceId: context?.sourceId || context?.executionId,
                 ...context
             };
 
@@ -90,9 +70,8 @@ export class ToolExecutionService {
                 this.logger.info(`[ToolExecutionService] Executing assignTask with context`, {
                     hasContext: !!context,
                     executionId: executionContext.executionId,
-                    parentExecutionId: executionContext.parentExecutionId || 'none',
-                    rootExecutionId: executionContext.rootExecutionId || 'none',
-                    executionLevel: executionContext.executionLevel || 0
+                    ownerPathLength: executionContext.ownerPath?.length || 0,
+                    ownerPath: executionContext.ownerPath
                 });
             }
 
@@ -130,19 +109,20 @@ export class ToolExecutionService {
      */
     createExecutionRequestsWithContext(
         toolCalls: Array<{ id: string; function: { name: string; arguments: string } }>,
-        context: { parentExecutionId: string; rootExecutionId: string; executionLevel: number; executionPath: string[]; conversationId?: string }
+        context: {
+            ownerPathBase: ToolOwnerPathSegment[];
+            metadataFactory?: (toolCall: { id: string; function: { name: string; arguments: string } }) => ToolMetadata | undefined;
+        }
     ): ToolExecutionRequest[] {
         return toolCalls.map(toolCall => ({
             toolName: toolCall.function.name,
             parameters: JSON.parse(toolCall.function.arguments),
             executionId: toolCall.id,
-            metadata: {
-                parentExecutionId: context.parentExecutionId,
-                rootExecutionId: context.rootExecutionId,
-                executionLevel: context.executionLevel,
-                executionPath: context.executionPath,
-                conversationId: context.conversationId || context.rootExecutionId
-            }
+            ownerType: 'tool',
+            ownerId: toolCall.id,
+            sourceId: toolCall.id,
+            ownerPath: [...context.ownerPathBase, { type: 'tool', id: toolCall.id }],
+            metadata: context.metadataFactory ? context.metadataFactory(toolCall) : undefined
         }));
     }
 
@@ -163,10 +143,11 @@ export class ToolExecutionService {
                     toolName: request.toolName,
                     parameters: request.parameters,
                     executionId: request.executionId,
-                    parentExecutionId: safeStringValue(request.metadata?.parentExecutionId) || undefined,
-                    rootExecutionId: safeStringValue(request.metadata?.rootExecutionId) || undefined,
-                    executionLevel: safeNumberValue(request.metadata?.executionLevel),
-                    executionPath: safeArrayValue(request.metadata?.executionPath)
+                    ownerType: request.ownerType || 'tool',
+                    ownerId: request.ownerId || request.executionId,
+                    ownerPath: request.ownerPath,
+                    sourceId: request.sourceId || request.executionId,
+                    metadata: request.metadata
                 }).catch(error => ({
                     toolName: request.toolName || 'unknown',
                     result: null,
@@ -197,10 +178,11 @@ export class ToolExecutionService {
                         toolName: request.toolName,
                         parameters: request.parameters,
                         executionId: request.executionId,
-                        parentExecutionId: safeStringValue(request.metadata?.parentExecutionId) || undefined,
-                        rootExecutionId: safeStringValue(request.metadata?.rootExecutionId) || undefined,
-                        executionLevel: safeNumberValue(request.metadata?.executionLevel),
-                        executionPath: safeArrayValue(request.metadata?.executionPath)
+                        ownerType: request.ownerType || 'tool',
+                        ownerId: request.ownerId || request.executionId,
+                        ownerPath: request.ownerPath,
+                        sourceId: request.sourceId || request.executionId,
+                        metadata: request.metadata
                     });
                     results.push(result);
 

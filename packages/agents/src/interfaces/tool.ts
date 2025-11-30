@@ -76,6 +76,11 @@ export interface ToolExecutionResult {
  * Tool execution context - type-safe context for tool execution
  * Enhanced with hierarchical execution tracking support
  */
+export type ToolOwnerPathSegment = {
+    type: string;
+    id?: string;
+};
+
 export interface ToolExecutionContext {
     toolName: string;
     parameters: ToolParameters;
@@ -111,6 +116,12 @@ export interface ToolExecutionContext {
     // Additional context data - expanded to support new field types  
     // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, generic-constraint
     [key: string]: string | number | boolean | string[] | Date | ToolParameters | ToolMetadata | unknown | undefined;
+
+    /** Owner context propagated from EventService */
+    ownerType?: string;
+    ownerId?: string;
+    ownerPath?: ToolOwnerPathSegment[];
+    sourceId?: string;
 }
 
 /**
