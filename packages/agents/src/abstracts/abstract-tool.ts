@@ -7,7 +7,7 @@
  * for all tools. It follows strict architectural principles:
  * 
  * - Depends ONLY on interfaces (EventService interface, not concrete implementations)
- * - Does NOT import concrete classes (ActionTrackingEventService, SilentEventService, etc.)
+ * - Does NOT import concrete classes (ActionTrackingEventService, DEFAULT_EVENT_SERVICE, etc.)
  * - Uses Dependency Injection for all dependencies
  * - Handles undefined dependencies gracefully (Null Object Pattern)
  * 

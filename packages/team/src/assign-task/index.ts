@@ -6,7 +6,7 @@ import {
     BaseTool,
     SimpleLogger,
     EventService,
-    SilentEventService,
+    DEFAULT_EVENT_SERVICE,
     ToolExecutionContext,
     createFunctionTool
 } from '@robota-sdk/agents';
@@ -166,7 +166,7 @@ async function executeAssignTask(
         const scopedEventService = config.eventService && 'createContextBoundInstance' in config.eventService &&
             typeof config.eventService.createContextBoundInstance === 'function'
             ? config.eventService.createContextBoundInstance(childExecutionContext)
-            : new SubAgentEventRelay(config.eventService || new SilentEventService(), parentToolCallId || context.executionId || 'unknown');
+            : new SubAgentEventRelay(config.eventService || DEFAULT_EVENT_SERVICE, parentToolCallId || context.executionId || 'unknown');
 
         if (params.agentTemplate) {
             // Create from template

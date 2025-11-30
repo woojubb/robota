@@ -229,7 +229,7 @@ export { WebhookPlugin, WebhookEventType, WebhookPayload, WebhookEndpoint, Webho
  * 
  * @public
  */
-export { Robota } from './agents/robota';
+export { Robota } from './core/robota';
 
 // Agent event constants (public API) - used by workflow handlers
 export { AGENT_EVENTS } from './agents/constants';
@@ -303,14 +303,26 @@ export {
     EventService,
     ServiceEventType,
     ServiceEventData,
-    SilentEventService,
+    EventContext,
+    OwnerPathSegment,
+    AbstractEventService,
+    DEFAULT_EVENT_SERVICE,
+    isDefaultEventService,
     DefaultEventService,
     StructuredEventService,
+    /**
+     * @deprecated Use EventService with ownerPath context instead.
+     */
     ActionTrackingEventService
 } from './services/event-service';
 
-// ContextualEventService (deprecated) - re-exported to ActionTrackingEventService for migration compatibility
+/**
+ * @deprecated Replaced by EventService + ownerPath context pipeline.
+ */
 export { ActionTrackingEventService as ContextualEventService } from './services/event-service';
+/**
+ * @deprecated Replaced by EventService + ownerPath context pipeline.
+ */
 export { ActionTrackingEventService as SilentContextualEventService } from './services/event-service';
 
 export type { ExecutionNode } from './services/event-service';

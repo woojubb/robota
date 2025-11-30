@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AgentFactory, type AgentFactoryOptions, type AgentLifecycleEvents } from './agent-factory';
 import type { AgentInterface, AgentConfig, AgentTemplate } from '../interfaces/agent';
 import { ConfigurationError, ValidationError } from '../utils/errors';
-import { Robota } from '../agents/robota';
+import { Robota } from '../core/robota';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
 import type { UniversalMessage } from './conversation-history-manager';
 import type { ChatOptions } from '../interfaces/provider';

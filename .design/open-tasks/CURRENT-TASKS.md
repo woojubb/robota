@@ -6,7 +6,69 @@
 
 ---
 
-## 🚨 Priority 0: .design 문서 최신화/중복 제거 (新增)
+## 🚨 Priority 0: 이벤트 서비스 표준화
+
+### 목표
+- `ActionTrackingEventService`를 완전히 대체하고, `EventService`가 context 기반 ownerPath 구조를 표준으로 사용하도록 리팩터링한다.
+- prefix 기반 로직을 제거하고, 핸들러가 `ownerPath`/공통 필드만으로 이벤트 출처를 판별하도록 한다.
+
+### 작업 항목
+1. **기반 정리**
+   - [x] `ActionTrackingEventService`에 `@deprecated` 주석/문구 추가
+   - [ ] 사용처 목록화 및 제거 계획 수립:
+      - [x] `packages/agents/src/core/robota.ts` (기존 `src/agents/`에서 이동 완료)
+        - [x] `ActionTrackingEventService` 생성 분기 제거, 기본 EventService + ownerType='agent' 주입
+        - [x] agent 이벤트 emit 시 ownerPath 기반 context helper 도입 (필요 시 즉시 계산)
+        - [x] `agentOwnerContext` 필드 제거, helper가 ownerPath를 매번 조합
+        - [x] 파일 경로 이동 및 관련 import 업데이트(`src/core/` 사용)
+      - [x] `packages/agents/src/services/execution-service.ts`
+        - [x] `maybeClone` 로직 대체: ownerType 인자 전달 + ownerPath append
+        - [x] legacy `clone({ ownerPrefix })` 호출 제거
+      - [ ] `packages/team/src/create-team.ts`, `packages/team/src/services/sub-agent-event-relay.ts`
+        - [ ] Team/Relay에서 EventService 생성 시 ownerType='team'/'agent' 명시
+        - [ ] SubAgentEventRelay는 새로운 ownerPath helper로 대체 후 제거 여부 검토
+      - [ ] `apps/web/src/lib/playground/robota-executor.ts`, `apps/examples/26-playground-edge-verification.ts` 등
+        - [ ] Playground 환경에서 EventService를 직접 생성하지 말고 SDK에서 주입받은 것을 사용
+        - [ ] 테스트/예제 코드도 ownerPath 기반 context로 업데이트
+   - [x] 외부 re-export(`ContextualEventService` 등) deprecated 공지 및 향후 제거 계획 추가
+   - [x] 기본 `EventService`에 `emit(eventType, payload, context)` 시그니처 표준화
+   - [ ] `SilentEventService` 제거 및 추상 클래스화
+     - [ ] `EventService`를 interface → `AbstractEventService` 기반 추상 클래스로 승격
+     - [ ] `SilentEventService` 파일 삭제: `AbstractEventService`가 기본 no-op 구현을 내장하고, 필요 시 `DEFAULT_ABSTRACT_EVENT_SERVICE` 상수로 제공
+     - [ ] 모든 DI 지점(Agents/ExecutionService/Tools/Team/Playground)이 디폴트 EventService 생성 시 새 추상 클래스를 사용하도록 전환
+     - [ ] 문서/코드에 "SilentEventService는 deprecated, 추후 삭제" 주석 추가
+2. **Context 구조 도입**
+   - [ ] `OwnerType`, `OwnerPathSegment` 타입 정의 (`type`, `id?`)
+   - [ ] EventService clone 시 `ownerPath`(부모→자식) 자동 append 로직 구현
+   - [ ] emit 호출부 전수 조사: context에 `ownerType`, `sourceId` 등 공통 필드만 넣도록 리팩터링
+   - [ ] EventContext helper 정비
+     - [ ] `buildOwnerContext(ownerType, ownerId, extraSegments?)` 헬퍼 추가로 context 생성 책임 집중
+     - [ ] 각 emit 지점이 parentExecutionId, thinkingId 등 ID 필드를 payload가 아닌 context metadata/segment에만 기록하도록 규칙화
+     - [ ] 핸들러 측에서 `context.ownerPath`만으로 source ID를 복구할 수 있도록 테스트 케이스 추가
+3. **핸들러 업데이트**
+   - [ ] 핸들러에서 prefix 기반 분기를 제거하고 `context.ownerPath`/helper(`getNearestOwner`)로 출처 판별
+   - [ ] Path-only 검증: Guarded 예제 26/27 실행 후 로그/노드 수 점검
+4. **문서 & 검증**
+   - [ ] `.design/event-system` 문서 업데이트 (prefix 제거, ownerPath 규칙)
+   - [ ] CURRENT-TASKS 진행 기록 추가 및 전환 조건 명시
+5. **Payload/emit 헬퍼 단순화**
+   - [ ] `emitExecutionEvent`/`emitToolEvent`를 context 생성 전용으로 축소하고 payload에는 이벤트 고유 데이터만 남김
+   - [ ] `ServiceEventData`에서 `rootExecutionId`, `parentExecutionId`, `path`, `thinkingId` 등 ownerPath로 유추 가능한 필드 제거
+   - [ ] 핸들러가 필요한 ID를 가져갈 수 있도록 `getOwnerId(context, ownerType)`·`getNearestSegment(ownerPath, ownerType)` 유틸 정의
+   - [ ] ExecutionService/Tool 구현 전체에서 중복 필드를 제거하고, 변경 후 Guard 예제 26/27을 실행하여 이벤트 구조가 동일한지 검증
+6. **이벤트 데이터 정규화 수준 평가**
+   - [ ] 이벤트 종류별(payload 구조) 전체 목록 작성: execution.*, agent.*, tool.*, team.* 각각 필드 표로 정리
+   - [ ] 각 필드가 context에서 파생 가능한지 여부를 체크리스트로 표시하고, “payload 필수/선택/제거 가능” 라벨링
+   - [ ] 공통 메타데이터(`metadata`, `parameters`)에 허용되는 키 집합을 정의하고, 자유형 객체가 필요한 경우 사유를 문서화
+   - [ ] 정규화 제안서 작성: 
+     - [ ] 기본 스키마 초안(JSON Schema 수준)과 예시 payload 추가
+     - [ ] context로 이동할 필드, payload에 유지할 필드 목록을 대응표로 작성
+   - [ ] Guard 예제 26/27 실행 전후 비교로 정규화가 Node/Edge 생성에 미치는 영향 평가
+   - [ ] 평가 결과를 `.design/event-system` 폴더에 별도 문서로 정리하고 CURRENT-TASKS에 링크
+
+---
+
+## 🔥 Priority 1: Agent Event Normalization (진행중)
 
 ### 목적
 - `.design` 전역 문서를 최신 상태로 유지하고, CURRENT-TASKS 단일 소스로 계획을 집중한다.
@@ -168,7 +230,14 @@ rg "Priority" -g"*.md"
 2. **구현/검증 순서**
    1. 코드 준비
       - [ ] `agent-event-handler.ts`에 `updateAgentExecutionState(event)` 헬퍼 추가 (status 갱신, WorkflowState 연동, logger.warn fallback).
+        - [ ] 입력 검증: `sourceId` 누락 시 즉시 에러 throw (No fallback).
+        - [ ] `AgentNodeLookupResult` 타입 도입: `{ agentNodeId, sourceId, executionId, rootExecutionId }`.
+        - [ ] `WorkflowState`와 `agentNodeIdMap`에서 재활용 노드를 찾고, 실패 시 `findAgentNodeBySourceId()` read-only 스캔 사용.
+        - [ ] 상태 업데이트 순서: `status→originalEvent merge→statusHistory append→WorkflowState set`.
       - [ ] `workflow-state.ts`에 `getOrCreateAgentNode(sourceId)` / `setAgentForExecutionSafe(executionId, agentNodeId)` 등 헬퍼 구현.
+        - [ ] `getOrCreateAgentNode`는 fallback 시 노드 생성 + logger.warn을 호출하고, 생성 경로에 `// TODO(step 6.5)` 주석 추가.
+        - [ ] `setAgentForExecutionSafe`는 executionId 없을 때 root 기반으로만 갱신하며, 기존 값과 다르면 debug 로그를 남긴다.
+        - [ ] timestamp helper(`ensureTimestampGreater(nodeId)`) 도입 여부 평가 및 필요 시 구현.
       - [ ] fallback 분기에는 `// TODO(step 6.5): remove legacy fallback` 주석과 `[LEGACY-FALLBACK]` warn 로그를 박고, 사용 시 Scenario 로그에 남기도록 설계.
    2. 빌드/테스트 스크립트
       - [ ] 아래 순서를 하나의 shell 스크립트로 작성해 CURRENT-TASKS에 경로를 명시:
@@ -190,7 +259,13 @@ rg "Priority" -g"*.md"
    4. 전환 조건 정의
       - [ ] “fallback warn 0회, Guard PASS 2회 연속”을 단계 6.5 진입 조건으로 명시.
       - [ ] 조건 충족 시 Priority 1 섹션에 “Stage3 → Stage6.5 hand-off ready” 메모 추가.
-3. **Scenario Recorder 확장** (상세 설계: `.design/event-system/scenario-recorder-expansion.md`)
+3. **이벤트 서비스 표준화**
+   - [ ] `ActionTrackingEventService`는 deprecated 처리하고, 기본 `EventService`가 context 기반으로 동작하도록 정리한다.
+   - [ ] emit 시그니처를 `emit(eventType, payload, context)`로 통일하고, context에는 `ownerPath`와 공통 필드(`ownerType`, `sourceId` 등)만 포함한다. 계층별 특수 필드는 허용하지 않는다.
+   - [ ] `ownerPath`는 `Array<{ type: OwnerType; id?: string }>`와 같이 타입/클래스를 명확히 선언하고, EventService clone 시 부모 → 자식 순서로 `{ type: ownerType, id: ownerId }` segment를 append하여 자동 확장한다.
+   - [ ] 각 소유자는 `new EventService({ ownerType: 'execution' })` 또는 `ownerContextProvider`로 자신이 속한 타입을 명시하고, 동일한 context 구조를 유지한다. 필요 시 helper로 `appendOwnerSegment(ownerType, ownerId)` 제공.
+   - [ ] prefix 자동 부착/검증 로직을 제거하고, 이벤트 핸들러는 `context.ownerPath`와 공통 필드를 기반으로 출처를 판별하도록 업데이트한다. path helper(`getNearestOwner(ownerPath, 'execution')`)를 제공해 필요한 ID를 가져온다.
+4. **Scenario Recorder 확장** (상세 설계: `.design/event-system/scenario-recorder-expansion.md`)
    1. 환경 스냅샷
       - [ ] `ScenarioEnvironment` 인터페이스 정의 (`scenarioId`, `version`, `environment: { agentConfig, toolRegistry, executionContext }`).
       - [ ] `ScenarioStore.saveEnvironment()` 구현: scenario JSON의 루트에 environment를 1회만 기록하고, playback 시 로드하여 AgentConfig/ToolRegistry를 초기화.
@@ -661,4 +736,9 @@ export class ActionTrackingEventService implements EventService {
 2. Fork/Join Path-Only 검증 스크립트 자동화
 3. Tools DnD UI 구현 시작
 4. Pricing 제거 (병렬 작업 가능)
+
+**2025-11-30 업데이트**
+- ExecutionService가 ownerPath 기반 `emit(eventType, payload, context)` 패턴으로 전환되었고 `ActionTrackingEventService` clone/ownerPrefix 의존성이 제거되었습니다.
+- 모든 execution/tool 이벤트가 helper(`emitExecutionEvent`, `emitToolEvent`)를 통해 `ownerType`, `ownerPath`를 명시합니다.
+- `maybeClone`/`trackExecution` 레거시 호출과 `toolEventService` 분기가 제거되어 context 누락 케이스를 차단했습니다.
 
