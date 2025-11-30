@@ -39,6 +39,28 @@ function hasMetadataProperty(obj: any, prop: string): boolean {
  */
 export type ServiceEventType = string;
 
+export type OwnerType =
+    | 'execution'
+    | 'agent'
+    | 'tool'
+    | 'team'
+    | 'task'
+    | 'integration'
+    | (string & {});
+
+export interface OwnerPathSegment {
+    type: OwnerType | (string & {});
+    id?: string;
+}
+
+export interface EventContext {
+    ownerType: OwnerType | (string & {});
+    ownerId?: string;
+    ownerPath: OwnerPathSegment[];
+    sourceId?: string;
+    timestamp?: Date;
+}
+
 /**
  * Service event data structure with hierarchical tracking information
  */
@@ -138,7 +160,7 @@ export interface EventService {
      * @param eventType - Type of event to emit
      * @param data - Event data with hierarchical information
      */
-    emit(eventType: ServiceEventType, data: ServiceEventData): void;
+    emit(eventType: ServiceEventType, data: ServiceEventData, context?: EventContext): void;
 
     /**
      * Optional: Track execution hierarchy (Duck Typing detection)
@@ -170,27 +192,64 @@ export interface EventService {
 }
 
 /**
- * Silent event service - No-op implementation (default)
- * Used when no specific event handling is needed
+ * AbstractEventService - base class providing no-op defaults.
+ * Previously SilentEventService handled this behavior; the abstract
+ * class now offers the same default implementations for inheritance.
  */
-export class SilentEventService implements EventService {
-    emit(eventType: ServiceEventType, data: ServiceEventData): void {
-        // No-op: Silent operation for performance
+export abstract class AbstractEventService implements EventService {
+    emit(eventType: ServiceEventType, data: ServiceEventData, context?: EventContext): void {
+        void eventType;
+        void data;
+        void context;
+        // Default: no-op
+    }
+
+    trackExecution(executionId: string, parentExecutionId?: string, level?: number): void {
+        void executionId;
+        void parentExecutionId;
+        void level;
+        // Default: no-op
+    }
+
+    createBoundEmit(executionId: string): (eventType: ServiceEventType, data: ServiceEventData) => void {
+        void executionId;
+        return (eventType: ServiceEventType, data: ServiceEventData): void => {
+            this.emit(eventType, data);
+        };
+    }
+
+    createContextBoundInstance(executionContext: ToolExecutionContext): EventService {
+        void executionContext;
+        return this;
     }
 }
+
+class DefaultNoopEventService extends AbstractEventService {
+    override emit(eventType: ServiceEventType, data: ServiceEventData, context?: EventContext): void {
+        void eventType;
+        void data;
+        void context;
+        // Explicit no-op
+    }
+}
+
+export const DEFAULT_EVENT_SERVICE: EventService = new DefaultNoopEventService();
+
+export const isDefaultEventService = (eventService: EventService): boolean => eventService === DEFAULT_EVENT_SERVICE;
 
 /**
  * Default console event service - Basic logging implementation
  * Useful for development and debugging
  */
-export class DefaultEventService implements EventService {
+export class DefaultEventService extends AbstractEventService {
     private readonly logger: SimpleLogger;
 
     constructor(logger?: SimpleLogger) {
+        super();
         this.logger = logger || DefaultConsoleLogger;
     }
 
-    emit(eventType: ServiceEventType, data: ServiceEventData): void {
+    override emit(eventType: ServiceEventType, data: ServiceEventData, context?: EventContext): void {
         const timestamp = data.timestamp || new Date();
         const logData = {
             eventType,
@@ -199,6 +258,7 @@ export class DefaultEventService implements EventService {
             timestamp: timestamp.toISOString(),
             executionLevel: data.executionLevel,
             executionPath: data.executionPath?.join('→'),
+            ownerContext: context,
             ...(data.toolName && { toolName: data.toolName }),
             ...(data.taskDescription && { taskDescription: data.taskDescription }),
             ...(data.error && { error: data.error })
@@ -212,14 +272,15 @@ export class DefaultEventService implements EventService {
  * Structured event service - Enhanced logging with metadata
  * Provides detailed structured logging for analysis
  */
-export class StructuredEventService implements EventService {
+export class StructuredEventService extends AbstractEventService {
     private readonly logger: SimpleLogger;
 
     constructor(logger?: SimpleLogger) {
+        super();
         this.logger = logger || DefaultConsoleLogger;
     }
 
-    emit(eventType: ServiceEventType, data: ServiceEventData): void {
+    override emit(eventType: ServiceEventType, data: ServiceEventData, context?: EventContext): void {
         const timestamp = data.timestamp || new Date();
         const eventId = this.generateEventId();
 
@@ -238,6 +299,7 @@ export class StructuredEventService implements EventService {
                 rootId: data.rootExecutionId
             },
             payload: {
+                ...(context && { ownerContext: context }),
                 ...(data.toolName && { toolName: data.toolName }),
                 ...(data.parameters && { parameters: data.parameters }),
                 ...(data.result && { result: data.result }),
@@ -256,31 +318,35 @@ export class StructuredEventService implements EventService {
 }
 
 /**
+ * @deprecated This class will be removed once the new ownerPath-based EventService context
+ *             standard is adopted. Please inject the base EventService with context instead
+ *             of relying on ActionTrackingEventService.
+ *
  * ActionTrackingEventService - Enhanced EventService with automatic hierarchy tracking
- * 
+ *
  * Wraps any base EventService and adds automatic hierarchical context to all events.
  * Uses Duck Typing pattern for zero-configuration integration with existing code.
- * 
+ *
  * Key Features:
  * - Automatic parent-child relationship tracking
  * - Execution level inference (Team=0, Agent=1, Tool=2)
  * - Bound emit functions with pre-filled context
  * - Full backward compatibility with base EventService
- * 
+ *
  * @example
  * ```typescript
  * const enhanced = new ActionTrackingEventService(new PlaygroundEventService());
- * 
+ *
  * // Track execution hierarchy
  * enhanced.trackExecution('agent-001', 'team-main', 1);
- * 
+ *
  * // Create bound emit with automatic context
  * const boundEmit = enhanced.createBoundEmit('agent-001');
  * boundEmit('execution.start', { sourceType: 'agent', sourceId: 'agent-001' });
  * // Automatically includes: parentExecutionId: 'team-main', executionLevel: 1
  * ```
  */
-export class ActionTrackingEventService implements EventService {
+export class ActionTrackingEventService extends AbstractEventService {
     private readonly baseEventService: EventService;
     private readonly executionHierarchy: Map<string, ExecutionNode> = new Map();
     private readonly logger: SimpleLogger;
@@ -291,7 +357,8 @@ export class ActionTrackingEventService implements EventService {
     private readonly strictPrefix: boolean;
 
     constructor(baseEventService?: EventService, logger?: SimpleLogger, executionContext?: ToolExecutionContext, options?: { ownerPrefix?: string; strictPrefix?: boolean }) {
-        this.baseEventService = baseEventService || new SilentEventService();
+        super();
+        this.baseEventService = baseEventService || DEFAULT_EVENT_SERVICE;
         this.logger = logger || DefaultConsoleLogger;
         this.executionContext = executionContext; // 🎯 [CONTEXT-INJECTION] Store context for hierarchy enrichment
         this.ownerPrefix = options?.ownerPrefix;
@@ -306,9 +373,9 @@ export class ActionTrackingEventService implements EventService {
      * - Event constants should be defined WITHOUT prefix (e.g., 'created', not 'agent.created')
      * - This ensures strict ownership and prevents prefix errors
      */
-    emit(eventType: ServiceEventType, data: ServiceEventData): void {
+    override emit(eventType: ServiceEventType, data: ServiceEventData, context?: EventContext): void {
         let fullEventType = eventType;
-        
+
         // 🎯 [PREFIX-OWNERSHIP] Always prepend prefix when ownerPrefix is set
         if (this.ownerPrefix) {
             fullEventType = `${this.ownerPrefix}.${eventType}`;
@@ -316,14 +383,14 @@ export class ActionTrackingEventService implements EventService {
 
         // 🎯 [DOMAIN-NEUTRAL] EventService는 도메인 독립적 - 단순히 hierarchy context 전달만 수행
         const enrichedData = this.enrichWithHierarchy(data);
-        this.baseEventService.emit(fullEventType, enrichedData);
+        this.baseEventService.emit(fullEventType, enrichedData, context);
     }
 
     /**
      * Track execution in the hierarchy
      * Registers a new execution node with parent-child relationships
      */
-    trackExecution(executionId: string, parentExecutionId?: string, level?: number): void {
+    override trackExecution(executionId: string, parentExecutionId?: string, level?: number): void {
         // Infer level from parent if not provided
         const inferredLevel = level ?? this.inferLevelFromParent(parentExecutionId);
 
@@ -352,8 +419,8 @@ export class ActionTrackingEventService implements EventService {
      * Create bound emit function with automatic hierarchical context
      * Returns a function that automatically includes parent/level information
      */
-    createBoundEmit(executionId: string): (eventType: ServiceEventType, data: ServiceEventData) => void {
-        return (eventType: ServiceEventType, data: ServiceEventData) => {
+    override createBoundEmit(executionId: string): (eventType: ServiceEventType, data: ServiceEventData, context?: EventContext) => void {
+        return (eventType: ServiceEventType, data: ServiceEventData, context?: EventContext) => {
             const node = this.executionHierarchy.get(executionId);
 
             const enrichedData: ServiceEventData = {
@@ -364,7 +431,7 @@ export class ActionTrackingEventService implements EventService {
                 executionPath: this.buildExecutionPath(executionId)
             };
 
-            this.emit(eventType, enrichedData);
+            this.emit(eventType, enrichedData, context);
         };
     }
 
@@ -375,7 +442,7 @@ export class ActionTrackingEventService implements EventService {
      * @param executionContext - Context to inject into the new instance
      * @returns New EventService instance with context binding
      */
-    createContextBoundInstance(executionContext: ToolExecutionContext): EventService {
+    override createContextBoundInstance(executionContext: ToolExecutionContext): EventService {
         this.logger.debug('🎯 [CONTEXT-BINDING] Creating context-bound EventService instance', {
             executionId: executionContext.executionId,
             parentExecutionId: executionContext.parentExecutionId,

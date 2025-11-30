@@ -251,10 +251,10 @@ workflowSubscriber.registerHandler(new CustomEventHandler({
 ### 기본 사용 (EventService 통합)
 ```typescript
 import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
-import { ActionTrackingEventService, SilentEventService } from '@robota-sdk/agents';
+import { ActionTrackingEventService, DEFAULT_EVENT_SERVICE } from '@robota-sdk/agents';
 
 // EventService 설정
-const rootEventService = new ActionTrackingEventService(new SilentEventService());
+const rootEventService = new ActionTrackingEventService(DEFAULT_EVENT_SERVICE);
 
 // WorkflowEventSubscriber와 통합
 const subscriber = new WorkflowEventSubscriber(rootEventService);

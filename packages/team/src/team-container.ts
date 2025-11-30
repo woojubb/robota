@@ -8,7 +8,7 @@ import {
     BaseTool,
     SimpleLogger,
     EventService,
-    SilentEventService,
+    DEFAULT_EVENT_SERVICE,
     ToolExecutionContext,
     // EventServiceHookFactory removed
 } from '@robota-sdk/agents';
@@ -174,7 +174,7 @@ export class TeamContainer {
         this.options = options;
         this.logger = options.logger;
         this.toolHooks = options.toolHooks; // Direct assignment without explicit undefined
-        this.eventService = options.eventService || new SilentEventService(); // Initialize EventService
+        this.eventService = options.eventService || DEFAULT_EVENT_SERVICE; // Initialize EventService
 
         // Initialize built-in templates
         this.availableTemplates = this.getBuiltinTemplates();

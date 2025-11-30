@@ -1,6 +1,6 @@
 import { TeamContainer } from './team-container';
 import type { TeamContainerOptions, TeamOptions } from './types';
-import { ActionTrackingEventService, SilentEventService, Robota } from '@robota-sdk/agents';
+import { ActionTrackingEventService, DEFAULT_EVENT_SERVICE, Robota } from '@robota-sdk/agents';
 
 /**
  * Create a Multi-Agent Team with Template-Based Configuration
@@ -78,7 +78,7 @@ export function createTeam(options: TeamOptions): TeamContainer {
 
     // Create EventService (ActionTrackingEventService)
     // Context extractors are not used; context should be passed explicitly when needed
-    const eventService = options.eventService || new ActionTrackingEventService(new SilentEventService());
+    const eventService = options.eventService || new ActionTrackingEventService(DEFAULT_EVENT_SERVICE);
 
     // Convert to full TeamContainerOptions using new API format
     const fullOptions: TeamContainerOptions = {

@@ -8,7 +8,7 @@ import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ToolExecutionContext } from '../interfaces/tool'; // 🎯 [CONTEXT-INJECTION] Import ToolExecutionContext
 import { Logger, createLogger } from '../utils/logger';
 import { ChatOptions, ToolCall } from '../interfaces/provider';
-import { EventService, SilentEventService, ActionTrackingEventService } from './event-service';
+import { EventService, DEFAULT_EVENT_SERVICE, isDefaultEventService, EventContext, OwnerPathSegment, ServiceEventType, ServiceEventData } from './event-service';
 import type { ToolExecutionBatchContext } from './tool-execution-service';
 
 /**
@@ -129,9 +129,8 @@ export class ExecutionService {
     private plugins: AbstractPlugin[] = [];
     private logger: Logger;
     private baseEventService: EventService;
-    private execEventService: EventService;
-    private toolEventService: EventService;
     private executionContext?: ToolExecutionContext; // 🎯 [CONTEXT-INJECTION] Parent execution context
+    private ownerPathBase: OwnerPathSegment[];
     // Path-only: remove lastResponseExecutionId tracking
     private lastResponseExecutionId?: string | undefined;
 
@@ -148,22 +147,9 @@ export class ExecutionService {
         this.conversationHistory = conversationHistory;
         this.plugins = [];
         this.logger = createLogger('ExecutionService');
-        this.baseEventService = eventService || new SilentEventService();
+        this.baseEventService = eventService || DEFAULT_EVENT_SERVICE;
         this.executionContext = executionContext; // 🎯 [CONTEXT-INJECTION] Store parent context
-
-        // 🎯 Event ownership enforcement via prefixed clones
-        // Prefer clone if available; otherwise wrap with ActionTrackingEventService
-        const maybeClone = (svc: EventService, ownerPrefix: 'execution' | 'tool'): EventService => {
-            const svcAny = svc as any;
-            if (svcAny && typeof svcAny.clone === 'function') {
-                return svcAny.clone({ ownerPrefix, executionContext: this.executionContext });
-            }
-            // Wrap base service to enforce prefix while preserving forwarding behavior
-            return new ActionTrackingEventService(svc, undefined, this.executionContext, { ownerPrefix });
-        };
-
-        this.execEventService = maybeClone(this.baseEventService, 'execution');
-        this.toolEventService = maybeClone(this.baseEventService, 'tool');
+        this.ownerPathBase = this.buildBaseOwnerPath(executionContext);
     }
 
     /**
@@ -248,34 +234,32 @@ export class ExecutionService {
         const availableTools = this.tools.getTools();
 
         // Emit execution start event
-        console.log(`📢 [EXECUTION-START-EMIT] About to emit execution.start for agent: ${fullContext.conversationId || executionId}`);
-        if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
-            const rootId = fullContext.conversationId || executionId;
-            console.log(`📢 [EXECUTION-START-EMIT] Emitting execution.start for agent: ${rootId}`);
+        const rootId = fullContext.conversationId || executionId;
+        console.log(`📢 [EXECUTION-START-EMIT] Emitting execution.start for agent: ${rootId}`);
 
-            // 🎯 [RICH-DATA] Collect AI provider and tool information
-            const aiProviderInfo = provider ? {
-                providerName: currentInfo?.provider || 'unknown',
-                model: (provider as any).model || (provider as any).modelName || 'unknown',
-                temperature: (provider as any).temperature || undefined,
-                maxTokens: (provider as any).maxTokens || undefined,
-                apiEndpoint: (provider as any).apiEndpoint || undefined
-            } : null;
+        const aiProviderInfo = provider ? {
+            providerName: currentInfo?.provider || 'unknown',
+            model: (provider as any).model || (provider as any).modelName || 'unknown',
+            temperature: (provider as any).temperature || undefined,
+            maxTokens: (provider as any).maxTokens || undefined,
+            apiEndpoint: (provider as any).apiEndpoint || undefined
+        } : null;
 
-            const toolsInfo = availableTools.map((tool: any) => ({
-                name: tool.name,
-                description: tool.description || 'No description',
-                parameters: tool.parameters ? Object.keys(tool.parameters.properties || {}) : []
-            }));
+        const toolsInfo = availableTools.map((tool: any) => ({
+            name: tool.name,
+            description: tool.description || 'No description',
+            parameters: tool.parameters ? Object.keys(tool.parameters.properties || {}) : []
+        }));
 
-            this.execEventService.emit(EXECUTION_EVENTS.START, {
+        this.emitExecutionEvent(
+            EXECUTION_EVENTS.START,
+            {
                 sourceType: 'agent',
                 sourceId: rootId,
                 timestamp: startTime,
                 executionId: executionId,
                 parameters: {
                     input,
-                    // 🎯 [RICH-DATA] Enhanced agent data
                     agentConfiguration: aiProviderInfo,
                     availableTools: toolsInfo as any,
                     toolCount: toolsInfo.length,
@@ -286,10 +270,9 @@ export class ExecutionService {
                     temperature: config.defaultModel.temperature,
                     maxTokens: config.defaultModel.maxTokens
                 } as any,
-                // Hierarchical tracking information
                 rootExecutionId: rootId,
                 parentExecutionId: this.executionContext?.parentExecutionId,
-                executionLevel: 1, // Agent level execution
+                executionLevel: 1,
                 executionPath: [rootId],
                 metadata: {
                     executionId,
@@ -297,7 +280,6 @@ export class ExecutionService {
                     inputLength: input.length,
                     conversationId: fullContext.conversationId,
                     messageCount: messages.length,
-                    // 🎯 [RICH-DATA] Additional agent metadata
                     aiProvider: aiProviderInfo?.providerName || 'unknown',
                     model: aiProviderInfo?.model || 'unknown',
                     toolsAvailable: toolsInfo.map((t: any) => t.name),
@@ -306,8 +288,10 @@ export class ExecutionService {
                         supportedActions: toolsInfo.map((t: any) => t.name)
                     }
                 }
-            });
-        }
+            },
+            rootId,
+            executionId
+        );
 
         try {
             // Get conversation session for this conversation
@@ -359,19 +343,16 @@ export class ExecutionService {
             if (shouldAddInput) {
                 conversationSession.addUserMessage(input, { executionId });
 
-                // Emit user message event as the starting point
-                if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
-                    const rootId = fullContext.conversationId || executionId;
-
-                    // 🎯 [RICH-DATA] Enhanced user message event with detailed content
-                    const timestamp = new Date();
-                    this.execEventService.emit(EXECUTION_EVENTS.USER_MESSAGE, {
+                const rootId = fullContext.conversationId || executionId;
+                const timestamp = new Date();
+                this.emitExecutionEvent(
+                    EXECUTION_EVENTS.USER_MESSAGE,
+                    {
                         sourceType: 'agent',
                         sourceId: rootId,
-                        timestamp: timestamp,
+                        timestamp,
                         parameters: {
                             input,
-                            // 🎯 Rich data for user message node
                             userPrompt: input,
                             userMessageContent: input,
                             messageLength: input.length,
@@ -379,11 +360,9 @@ export class ExecutionService {
                             characterCount: input.length,
                             messageTimestamp: timestamp.toISOString()
                         },
-                        // Hierarchical tracking information
                         rootExecutionId: rootId,
                         parentExecutionId: this.executionContext?.parentExecutionId,
-                        executionLevel: 0, // User message is Level 0
-                        // Path-Only: user message must include unique execution segment
+                        executionLevel: 0,
                         executionPath: [rootId, executionId],
                         path: [rootId, executionId],
                         metadata: {
@@ -391,14 +370,15 @@ export class ExecutionService {
                             messageRole: 'user',
                             inputLength: input.length,
                             conversationId: fullContext.conversationId,
-                            // 🎯 Additional rich metadata
                             messageType: 'user_input',
                             hasQuestions: input.includes('?'),
                             containsUrgency: /urgent|urgent|급함|긴급|asap/i.test(input),
                             estimatedComplexity: input.length > 200 ? 'high' : input.length > 50 ? 'medium' : 'low'
                         }
-                    });
-                }
+                    },
+                    rootId,
+                    executionId
+                );
             }
 
             // Call beforeRun hook on all plugins
@@ -519,8 +499,9 @@ export class ExecutionService {
 
                 // Emit assistant message start event for each thinking phase
                 console.log(`🔄 [ROUND-DEBUG] Agent ${rootId} Round ${currentRound} - About to emit assistant_message_start`);
-                if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
-                    this.execEventService.emit(EXECUTION_EVENTS.ASSISTANT_MESSAGE_START, {
+                this.emitExecutionEvent(
+                    EXECUTION_EVENTS.ASSISTANT_MESSAGE_START,
+                    {
                         sourceType: 'agent',
                         sourceId: rootId,
                         timestamp: new Date(),
@@ -529,21 +510,21 @@ export class ExecutionService {
                             round: currentRound,
                             messageCount: conversationMessages.length
                         },
-                        // Hierarchical tracking information
                         rootExecutionId: rootId,
-                        parentExecutionId: executionId, // Parent is execution node
-                        executionLevel: 1, // Assistant message is Level 1
+                        parentExecutionId: executionId,
+                        executionLevel: 1,
                         executionPath: [rootId],
                         path: [rootId, thinkingNodeId],
                         metadata: {
                             executionId,
                             round: currentRound,
                             conversationId: fullContext.conversationId,
-                            // Use consistent reserved thinking node ID (Ghost Connection eliminated)
-                            thinkingNodeId: thinkingNodeId
+                            thinkingNodeId
                         }
-                    });
-                }
+                    },
+                    rootId,
+                    executionId
+                );
 
                 const response = await (provider as any).chat(conversationMessages, chatOptions);
 
@@ -632,23 +613,21 @@ export class ExecutionService {
                     // 🎯 [EVENT-ORTHODOXY] 이벤트는 정석으로 발생 - 조건부 억제 없음
                     // ExecutionService는 assistant response 완료 시 무조건 이벤트 발생
                     // 핸들러에서 context를 보고 처리 여부 결정
-                    if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
-                        this.logger.info(`🔧 [EVENT-ORTHODOXY] Emitting assistant_message_complete for Round ${currentRound} completion (no tool calls)`);
+                    this.logger.info(`🔧 [EVENT-ORTHODOXY] Emitting assistant_message_complete for Round ${currentRound} completion (no tool calls)`);
 
-                        // 🎯 [RICH-DATA] Collect detailed response information
-                        const responseContent = assistantResponse.content || 'No response';
-                        const responseStartTime = assistantResponse.timestamp || new Date();
-                        const responseDuration = new Date().getTime() - responseStartTime.getTime();
+                    const responseContent = assistantResponse.content || 'No response';
+                    const responseStartTime = assistantResponse.timestamp || new Date();
+                    const responseDuration = new Date().getTime() - responseStartTime.getTime();
 
-                        this.execEventService.emit(EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE, {
+                    this.emitExecutionEvent(
+                        EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE,
+                        {
                             sourceType: 'agent',
                             sourceId: fullContext.conversationId || executionId,
                             timestamp: new Date(),
                             executionId,
-                            // path-only: [root, thinkingId, responseExecId] for deterministic thinking→response linking
                             path: [rootId, thinkingNodeId, executionId],
                             parameters: {
-                                // 🎯 [RICH-DATA] Enhanced response data
                                 assistantMessage: responseContent,
                                 responseLength: responseContent.length,
                                 wordCount: responseContent.split(/\s+/).filter(word => word.length > 0).length,
@@ -660,30 +639,24 @@ export class ExecutionService {
                             result: {
                                 success: true,
                                 data: responseContent.substring(0, 100) + '...' || 'Round completed',
-                                // 🎯 [RICH-DATA] Additional result data
                                 fullResponse: responseContent,
                                 responseMetrics: {
                                     length: responseContent.length,
-                                    estimatedReadTime: Math.ceil(responseContent.split(/\s+/).length / 200), // words per minute
+                                    estimatedReadTime: Math.ceil(responseContent.split(/\s+/).length / 200),
                                     hasCodeBlocks: /```/.test(responseContent),
                                     hasLinks: /https?:\/\//.test(responseContent),
                                     complexity: responseContent.length > 1000 ? 'high' : responseContent.length > 300 ? 'medium' : 'low'
                                 }
                             },
-                            // Hierarchical tracking information
                             rootExecutionId: fullContext.conversationId || executionId,
-                            // If this ExecutionService was invoked by a tool (delegated agent),
-                            // preserve the invoking tool_call ID as parentExecutionId so that
-                            // downstream handlers can map response → tool_call accurately.
                             parentExecutionId: this.executionContext?.parentExecutionId || executionId,
-                            executionLevel: 1, // Assistant message completion is Level 1
+                            executionLevel: 1,
                             executionPath: [fullContext.conversationId || executionId],
                             metadata: {
                                 executionId,
                                 round: currentRound,
                                 completed: true,
                                 reason: 'no_tool_calls',
-                                // 🎯 [RICH-DATA] Additional metadata
                                 responseCharacteristics: {
                                     hasQuestions: responseContent.includes('?'),
                                     isError: /error|fail|wrong/i.test(responseContent),
@@ -691,8 +664,10 @@ export class ExecutionService {
                                     containsNumbers: /\d/.test(responseContent)
                                 }
                             }
-                        });
-                    }
+                        },
+                        fullContext.conversationId || executionId,
+                        executionId
+                    );
 
                     this.logger.info(`🔍 [EXECUTION-VERIFICATION] Breaking execution loop - should prevent Round ${currentRound + 1}`);
                     break;
@@ -733,47 +708,38 @@ export class ExecutionService {
                 };
 
                 // Emit tool_call_start events for each tool with direct parent provision
-                if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
-                    // 🎯 ActionTrackingEventService에 hierarchy 등록
-                    if ('trackExecution' in this.execEventService) {
-                        (this.execEventService as any).trackExecution(thinkingNodeId, fullContext.conversationId || executionId, 1);
-                    }
+                const expectedCountForBatch = assistantResponse.toolCalls.length;
+                const batchId = `${thinkingNodeId}`;
+                const rootForTools = fullContext.conversationId || executionId;
 
-                    // 🎯 Batch metadata for aggregation-after-all-tools
-                    const expectedCountForBatch = assistantResponse.toolCalls.length;
-                    const batchId = `${thinkingNodeId}`;
-
-                    for (const toolCall of assistantResponse.toolCalls) {
-                        // 🎯 각 tool call을 hierarchy에 등록
-                        if ('trackExecution' in this.toolEventService) {
-                            (this.toolEventService as any).trackExecution(toolCall.id, thinkingNodeId, 2);
-                        }
-
-                        this.toolEventService.emit(TOOL_EVENTS.CALL_START, {
+                for (const toolCall of assistantResponse.toolCalls) {
+                    this.emitToolEvent(
+                        TOOL_EVENTS.CALL_START,
+                        {
                             sourceType: 'agent',
-                            sourceId: fullContext.conversationId || executionId,
-                            executionId: toolCall.id, // 🎯 tool call ID를 executionId로 설정
+                            sourceId: rootForTools,
+                            executionId: toolCall.id,
                             toolName: toolCall.function?.name,
                             timestamp: new Date(),
                             parameters: JSON.parse(toolCall.function?.arguments || '{}'),
-                            rootExecutionId: fullContext.conversationId || executionId,
-                            executionLevel: 2, // Tool level
-                            executionPath: [fullContext.conversationId || executionId, executionId],
-                            path: [fullContext.conversationId || executionId, thinkingNodeId, toolCall.id],
-                            // Parent is the thinking node (round fork anchor)
+                            rootExecutionId: rootForTools,
+                            executionLevel: 2,
+                            executionPath: [rootForTools, executionId],
+                            path: [rootForTools, thinkingNodeId, toolCall.id],
                             parentExecutionId: thinkingNodeId,
                             metadata: {
                                 toolCallId: toolCall.id,
-                                executionId: executionId,
+                                executionId,
                                 round: currentRound,
-                                // Direct thinking node reference for immediate connection
                                 directParentId: thinkingNodeId,
-                                // 🎯 Batch aggregation metadata
                                 batchId,
                                 expectedCount: expectedCountForBatch
                             }
-                        });
-                    }
+                        },
+                        rootForTools,
+                        executionId,
+                        toolCall.id
+                    );
                 }
 
                 const toolSummary = await this.toolExecutionService.executeTools(toolContext);
@@ -782,40 +748,38 @@ export class ExecutionService {
 
                 // 🎯 [EVENT-ORDER-FIX] tool.call_complete는 이제 "도구 호출만 완료된 상태"를 의미
                 // tool_call_response 노드는 실제 도구 결과가 준비된 시점에서 생성
-                if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
-                    for (const result of toolSummary.results) {
-                        // Path-only: tail = delegatedAgentExecutionId (response node ID)
-                        const delegatedExecId = this.extractDelegatedAgentExecutionId(result);
-                        const payload = {
-                            sourceType: 'agent' as const,
-                            sourceId: fullContext.conversationId || executionId,
-                            toolName: result.toolName,
-                            timestamp: new Date(),
+                for (const result of toolSummary.results) {
+                    const delegatedExecId = this.extractDelegatedAgentExecutionId(result);
+                    const payload = {
+                        sourceType: 'agent' as const,
+                        sourceId: rootForTools,
+                        toolName: result.toolName,
+                        timestamp: new Date(),
+                        executionId: result.executionId,
+                        result: {
+                            success: result.success,
+                            data: result.success ? result.result : undefined,
+                            error: result.success ? undefined : (result.error ?? 'Unknown error')
+                        },
+                        rootExecutionId: rootForTools,
+                        executionLevel: 2 as const,
+                        executionPath: [rootForTools, executionId],
+                        path: [rootForTools, thinkingNodeId, delegatedExecId],
+                        metadata: {
                             executionId: result.executionId,
-                            result: {
-                                success: result.success,
-                                data: result.success ? result.result : undefined,
-                                error: result.success ? undefined : (result.error ?? 'Unknown error')
-                            },
-                            rootExecutionId: fullContext.conversationId || executionId,
-                            executionLevel: 2 as const,
-                            executionPath: [fullContext.conversationId || executionId, executionId],
-                            // Path-only: group by thinking; tail = tool call id (handler will resolve response via parentExecutionId)
-                            path: [fullContext.conversationId || executionId, thinkingNodeId, delegatedExecId],
-                            metadata: {
-                                executionId: result.executionId,
-                                success: result.success,
-                                round: currentRound,
-                                // thinking context (parent is thinkingNodeId)
-                                directParentId: thinkingNodeId,
-                                // No extra correlation ids; path-only
-                            },
-                            // Provide parentExecutionId = thinking node (agent.response has parentExecutionId mapped to this tool call via execution.start path)
-                            parentExecutionId: thinkingNodeId
-                        };
-                        // Emit response-ready to drive response node creation immediately
-                        this.toolEventService.emit(TOOL_EVENTS.CALL_RESPONSE_READY, payload);
-                    }
+                            success: result.success,
+                            round: currentRound,
+                            directParentId: thinkingNodeId
+                        },
+                        parentExecutionId: thinkingNodeId
+                    };
+                    this.emitToolEvent(
+                        TOOL_EVENTS.CALL_RESPONSE_READY,
+                        payload,
+                        rootForTools,
+                        executionId,
+                        result.executionId || delegatedExecId
+                    );
                 }
 
                 toolsExecuted.push(...toolSummary.results.map(r => r.toolName || 'unknown'));
@@ -882,51 +846,54 @@ export class ExecutionService {
                 }
 
                 // Emit tool results ready (join trigger) and then delivery to LLM
-                if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
-                    const rootId = fullContext.conversationId || executionId;
-                    // 1) Join trigger for workflow aggregation
-                    this.execEventService.emit(EXECUTION_EVENTS.TOOL_RESULTS_READY, {
+                const toolResultsRootId = rootId;
+                this.emitExecutionEvent(
+                    EXECUTION_EVENTS.TOOL_RESULTS_READY,
+                    {
                         sourceType: 'agent',
-                        sourceId: rootId,
+                        sourceId: toolResultsRootId,
                         timestamp: new Date(),
-                        // thinking context for this round
                         thinkingId: thinkingNodeId,
-                        // Hierarchical tracking
-                        rootExecutionId: rootId,
+                        rootExecutionId: toolResultsRootId,
                         parentExecutionId: executionId,
                         executionLevel: 1,
-                        executionPath: [rootId],
-                        path: [rootId, thinkingNodeId],
+                        executionPath: [toolResultsRootId],
+                        path: [toolResultsRootId, thinkingNodeId],
                         metadata: {
                             executionId,
                             round: currentRound,
                             conversationId: fullContext.conversationId,
                             thinkingId: thinkingNodeId
                         }
-                    });
+                    },
+                    rootId,
+                    executionId
+                );
 
-                    // 2) Delivery to LLM (unchanged purpose)
-                    this.execEventService.emit(EXECUTION_EVENTS.TOOL_RESULTS_TO_LLM, {
+                this.emitExecutionEvent(
+                    EXECUTION_EVENTS.TOOL_RESULTS_TO_LLM,
+                    {
                         sourceType: 'agent',
-                        sourceId: rootId,
+                        sourceId: toolResultsRootId,
                         timestamp: new Date(),
                         parameters: {
                             toolsExecuted: toolsExecuted.length,
                             round: currentRound
                         },
-                        // Hierarchical tracking information
-                        rootExecutionId: rootId,
-                        executionLevel: 1, // Tool results presentation is Level 1
-                        executionPath: [rootId],
-                        path: [rootId, thinkingNodeId],
+                        rootExecutionId: toolResultsRootId,
+                        executionLevel: 1,
+                        executionPath: [toolResultsRootId],
+                        path: [toolResultsRootId, thinkingNodeId],
                         metadata: {
                             executionId,
                             toolsExecuted: toolSummary.results.map(r => r.toolName || 'unknown'),
                             round: currentRound,
                             conversationId: fullContext.conversationId
                         }
-                    });
-                }
+                    },
+                    toolResultsRootId,
+                    executionId
+                );
 
                 // Continue to next round - let the AI decide if more tools are needed
                 // The AI will see the tool results and can either:
@@ -993,13 +960,13 @@ export class ExecutionService {
                 rounds: currentRound,
                 responseLength: result.response.length,
                 isMainAgent: !rootId?.includes('copy'),
-                eventServiceAvailable: !!(this.baseEventService && !(this.baseEventService instanceof SilentEventService))
+                eventServiceAvailable: !isDefaultEventService(this.baseEventService)
             });
 
             this.logger.debug(`[RULE-9-DEBUG] Emitting execution.assistant_message_complete event for sourceId: ${rootId}`, {
                 rounds: currentRound,
                 responseLength: result.response.length,
-                eventServiceType: (this.execEventService as any)?.constructor?.name
+                eventServiceType: (this.baseEventService as any)?.constructor?.name
             });
 
             // 🎯 [DUPLICATE-EMIT-FIX] Remove duplicate assistant_message_complete emission
@@ -1008,20 +975,20 @@ export class ExecutionService {
             this.logger.info(`🔧 [DUPLICATE-EMIT-FIX] Skipping duplicate assistant_message_complete emission - already emitted per round`);
 
             // Emit execution complete event
-            if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
-                const rootId = fullContext.conversationId || executionId;
-                this.execEventService.emit(EXECUTION_EVENTS.COMPLETE, {
+            const rootIdComplete = fullContext.conversationId || executionId;
+            this.emitExecutionEvent(
+                EXECUTION_EVENTS.COMPLETE,
+                {
                     sourceType: 'agent',
-                    sourceId: rootId,
+                    sourceId: rootIdComplete,
                     timestamp: new Date(),
                     result: {
                         success: true,
                         data: result.response.substring(0, 100) + '...'
                     },
-                    // Hierarchical tracking information
-                    rootExecutionId: rootId,
-                    executionLevel: 1, // Agent level execution
-                    executionPath: [rootId],
+                    rootExecutionId: rootIdComplete,
+                    executionLevel: 1,
+                    executionPath: [rootIdComplete],
                     metadata: {
                         executionId,
                         method: 'execute',
@@ -1031,8 +998,10 @@ export class ExecutionService {
                         toolsExecuted: result.toolsExecuted,
                         conversationId: fullContext.conversationId
                     }
-                });
-            }
+                },
+                rootIdComplete,
+                executionId
+            );
 
             return result;
 
@@ -1053,17 +1022,16 @@ export class ExecutionService {
             });
 
             // Emit execution error event
-            if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
-                const rootId = fullContext.conversationId || executionId;
-                this.execEventService.emit(EXECUTION_EVENTS.ERROR, {
+            this.emitExecutionEvent(
+                EXECUTION_EVENTS.ERROR,
+                {
                     sourceType: 'agent',
-                    sourceId: rootId,
+                    sourceId: fullContext.conversationId || executionId,
                     timestamp: new Date(),
                     error: error instanceof Error ? error.message : String(error),
-                    // Hierarchical tracking information
-                    rootExecutionId: rootId,
-                    executionLevel: 1, // Agent level execution
-                    executionPath: [rootId],
+                    rootExecutionId: fullContext.conversationId || executionId,
+                    executionLevel: 1,
+                    executionPath: [fullContext.conversationId || executionId],
                     metadata: {
                         executionId,
                         method: 'execute',
@@ -1071,8 +1039,10 @@ export class ExecutionService {
                         duration,
                         conversationId: fullContext.conversationId
                     }
-                });
-            }
+                },
+                fullContext.conversationId || executionId,
+                executionId
+            );
 
             throw error;
         }
@@ -1248,39 +1218,43 @@ export class ExecutionService {
                 const streamingThinkingNodeId = `thinking_agent_${Date.now()}_${executionId}`;
 
                 // Emit tool_call_start events for each tool (streaming) with direct parent provision
-                if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
-                    for (const toolCall of toolCalls) {
-                        const eventData = {
-                            sourceType: 'agent' as const,
-                            sourceId: context?.conversationId || executionId,
-                            toolName: toolCall.function?.name,
-                            timestamp: new Date(),
-                            parameters: JSON.parse(toolCall.function?.arguments || '{}'),
-                            rootExecutionId: context?.conversationId || executionId,
-                            executionLevel: 2, // Tool level
-                            executionPath: [context?.conversationId || executionId, executionId],
-                            // Direct parent ID provision (no mapping/inference needed)
-                            parentExecutionId: streamingThinkingNodeId,
-                            metadata: {
-                                toolCallId: toolCall.id,
-                                executionId: executionId,
-                                streamMode: true,
-                                // Direct thinking node reference for immediate connection
-                                directParentId: streamingThinkingNodeId
-                            }
-                        };
-                        this.toolEventService.emit(TOOL_EVENTS.CALL_START, eventData);
-                    }
+                const streamingRootId = context?.conversationId || executionId;
+                for (const toolCall of toolCalls) {
+                    const eventData = {
+                        sourceType: 'agent' as const,
+                        sourceId: streamingRootId,
+                        toolName: toolCall.function?.name,
+                        timestamp: new Date(),
+                        parameters: JSON.parse(toolCall.function?.arguments || '{}'),
+                        rootExecutionId: streamingRootId,
+                        executionLevel: 2,
+                        executionPath: [streamingRootId, executionId],
+                        parentExecutionId: streamingThinkingNodeId,
+                        metadata: {
+                            toolCallId: toolCall.id,
+                            executionId,
+                            streamMode: true,
+                            directParentId: streamingThinkingNodeId
+                        }
+                    };
+                    this.emitToolEvent(
+                        TOOL_EVENTS.CALL_START,
+                        eventData,
+                        streamingRootId,
+                        executionId,
+                        toolCall.id || toolCall.function?.name || 'tool'
+                    );
                 }
 
                 const toolSummary = await this.toolExecutionService.executeTools(toolContext);
 
                 // Emit tool_call_complete events for each completed tool (streaming)
-                if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
-                    for (const result of toolSummary.results) {
-                        this.toolEventService.emit(TOOL_EVENTS.CALL_COMPLETE, {
+                for (const result of toolSummary.results) {
+                    this.emitToolEvent(
+                        TOOL_EVENTS.CALL_COMPLETE,
+                        {
                             sourceType: 'agent',
-                            sourceId: context?.conversationId || executionId,
+                            sourceId: streamingRootId,
                             toolName: result.toolName,
                             timestamp: new Date(),
                             result: {
@@ -1288,16 +1262,19 @@ export class ExecutionService {
                                 data: result.success ? result.result : undefined,
                                 error: result.success ? undefined : (result.error ?? 'Unknown error')
                             },
-                            rootExecutionId: context?.conversationId || executionId,
-                            executionLevel: 2, // Tool level
-                            executionPath: [context?.conversationId || executionId, executionId],
+                            rootExecutionId: streamingRootId,
+                            executionLevel: 2,
+                            executionPath: [streamingRootId, executionId],
                             metadata: {
                                 executionId: result.executionId,
                                 success: result.success,
                                 streamMode: true
                             }
-                        });
-                    }
+                        },
+                        streamingRootId,
+                        executionId,
+                        result.executionId || result.toolName || 'tool'
+                    );
                 }
 
                 // Add tool results to conversation in the order they were called
@@ -1356,26 +1333,29 @@ export class ExecutionService {
                 }
 
                 // After all tool responses are emitted and recorded, trigger aggregation join
-                if (this.baseEventService && !(this.baseEventService instanceof SilentEventService)) {
-                    const rootId = context?.conversationId || executionId;
-                    this.execEventService.emit(EXECUTION_EVENTS.TOOL_RESULTS_READY, {
+                const streamingRoot = context?.conversationId || executionId;
+                this.emitExecutionEvent(
+                    EXECUTION_EVENTS.TOOL_RESULTS_READY,
+                    {
                         sourceType: 'agent',
-                        sourceId: rootId,
+                        sourceId: streamingRoot,
                         timestamp: new Date(),
                         thinkingId: streamingThinkingNodeId,
-                        rootExecutionId: rootId,
+                        rootExecutionId: streamingRoot,
                         parentExecutionId: executionId,
                         executionLevel: 1,
-                        executionPath: [rootId],
+                        executionPath: [streamingRoot],
                         metadata: {
                             executionId,
                             toolsExecuted: toolSummary.results.map(r => r.toolName || 'unknown'),
-                            round: 1, // streaming path has no explicit rounds; use 1 as placeholder context
-                            conversationId: rootId,
+                            round: 1,
+                            conversationId: streamingRoot,
                             thinkingId: streamingThinkingNodeId
                         }
-                    });
-                }
+                    },
+                    streamingRoot,
+                    executionId
+                );
             }
 
             // Call afterRun hook
@@ -1521,6 +1501,53 @@ export class ExecutionService {
                 });
             }
         }
+    }
+
+    private buildBaseOwnerPath(executionContext?: ToolExecutionContext): OwnerPathSegment[] {
+        const segments: OwnerPathSegment[] = [];
+        if (executionContext?.executionPath?.length) {
+            executionContext.executionPath.forEach(id => segments.push({ type: 'execution', id }));
+        }
+        return segments;
+    }
+
+    private buildExecutionOwnerContext(rootId: string, executionId: string): EventContext {
+        const path: OwnerPathSegment[] = [...this.ownerPathBase];
+        if (rootId) {
+            path.push({ type: 'agent', id: rootId });
+        }
+        path.push({ type: 'execution', id: executionId });
+        return {
+            ownerType: 'execution',
+            ownerId: executionId,
+            ownerPath: path,
+            sourceId: executionId
+        };
+    }
+
+    private buildToolOwnerContext(rootId: string, executionId: string, toolCallId: string): EventContext {
+        const base = this.buildExecutionOwnerContext(rootId, executionId).ownerPath;
+        const path = [...base, { type: 'tool', id: toolCallId }];
+        return {
+            ownerType: 'tool',
+            ownerId: toolCallId,
+            ownerPath: path,
+            sourceId: toolCallId
+        };
+    }
+
+    private emitExecutionEvent(eventType: ServiceEventType, data: ServiceEventData, rootId: string, executionId: string): void {
+        if (isDefaultEventService(this.baseEventService)) {
+            return;
+        }
+        this.baseEventService.emit(eventType, data, this.buildExecutionOwnerContext(rootId, executionId));
+    }
+
+    private emitToolEvent(eventType: ServiceEventType, data: ServiceEventData, rootId: string, executionId: string, toolCallId: string): void {
+        if (isDefaultEventService(this.baseEventService)) {
+            return;
+        }
+        this.baseEventService.emit(eventType, data, this.buildToolOwnerContext(rootId, executionId, toolCallId));
     }
 
     /**
