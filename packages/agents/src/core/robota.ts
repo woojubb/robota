@@ -10,7 +10,7 @@ import { AgentFactory } from '../managers/agent-factory';
 import { ConversationHistory } from '../managers/conversation-history-manager';
 import { ExecutionService } from '../services/execution-service';
 import { AGENT_EVENTS } from '../agents/constants';
-import { EventService, DEFAULT_EVENT_SERVICE, isDefaultEventService, EventContext, OwnerPathSegment } from '../services/event-service';
+import { EventService, DEFAULT_EVENT_SERVICE, isDefaultEventService, EventContext, OwnerPathSegment, AgentEventData } from '../services/event-service';
 
 
 import { AbstractTool } from '../abstracts/abstract-tool';
@@ -241,19 +241,23 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
                     .filter((n: unknown): n is string => typeof n === 'string' && n.length > 0)
                 : [];
 
-            this.eventService.emit(AGENT_EVENTS.CREATED as any, {
-                sourceType: 'agent',
-                sourceId: this.conversationId,
-                timestamp: new Date(),
-                parameters: {
-                    tools: toolNames,
-                    systemMessage: this.config.defaultModel.systemMessage,
-                    provider: this.config.defaultModel.provider,
-                    model: this.config.defaultModel.model,
-                    temperature: this.config.defaultModel.temperature,
-                    maxTokens: this.config.defaultModel.maxTokens
-                } as any
-            }, this.getAgentOwnerContext());
+            this.eventService.emit<AgentEventData>(
+                AGENT_EVENTS.CREATED,
+                {
+                    sourceType: 'agent',
+                    sourceId: this.conversationId,
+                    timestamp: new Date(),
+                    parameters: {
+                        tools: toolNames,
+                        systemMessage: this.config.defaultModel.systemMessage,
+                        provider: this.config.defaultModel.provider,
+                        model: this.config.defaultModel.model,
+                        temperature: this.config.defaultModel.temperature,
+                        maxTokens: this.config.defaultModel.maxTokens
+                    }
+                },
+                this.getAgentOwnerContext()
+            );
         }
     }
 
@@ -306,22 +310,26 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
 
         // Emit agent.config_updated
         if (!isDefaultEventService(this.eventService)) {
-            this.eventService.emit(AGENT_EVENTS.CONFIG_UPDATED as any, {
-                sourceType: 'agent',
-                sourceId: this.conversationId,
-                timestamp: new Date(this.configUpdatedAt),
-                parameters: {
-                    tools: toolNames,
-                    systemMessage: this.config.defaultModel.systemMessage,
-                    provider: this.config.defaultModel.provider,
-                    model: this.config.defaultModel.model,
-                    temperature: this.config.defaultModel.temperature,
-                    maxTokens: this.config.defaultModel.maxTokens
-                } as any,
-                version: this.configVersion,
-                executionLevel: 0,
-                rootExecutionId: this.conversationId
-            }, this.getAgentOwnerContext());
+            this.eventService.emit<AgentEventData>(
+                AGENT_EVENTS.CONFIG_UPDATED,
+                {
+                    sourceType: 'agent',
+                    sourceId: this.conversationId,
+                    timestamp: new Date(this.configUpdatedAt),
+                    parameters: {
+                        tools: toolNames,
+                        systemMessage: this.config.defaultModel.systemMessage,
+                        provider: this.config.defaultModel.provider,
+                        model: this.config.defaultModel.model,
+                        temperature: this.config.defaultModel.temperature,
+                        maxTokens: this.config.defaultModel.maxTokens
+                    },
+                    metadata: {
+                        version: this.configVersion
+                    }
+                },
+                this.getAgentOwnerContext()
+            );
         }
 
         return { version: this.configVersion };
@@ -609,11 +617,15 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
         try {
             // Emit agent execution start (agent-owned event)
             if (!isDefaultEventService(this.eventService)) {
-                this.eventService.emit(AGENT_EVENTS.EXECUTION_START as any, {
-                    sourceType: 'agent',
-                    sourceId: this.conversationId,
-                    timestamp: new Date()
-                } as any, this.getAgentOwnerContext());
+                this.eventService.emit<AgentEventData>(
+                    AGENT_EVENTS.EXECUTION_START,
+                    {
+                        sourceType: 'agent',
+                        sourceId: this.conversationId,
+                        timestamp: new Date()
+                    },
+                    this.getAgentOwnerContext()
+                );
             }
 
             this.logger.debug('Starting Robota execution', {
@@ -660,11 +672,15 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
 
             // Emit agent execution complete (agent-owned event)
             if (!isDefaultEventService(this.eventService)) {
-                this.eventService.emit(AGENT_EVENTS.EXECUTION_COMPLETE as any, {
-                    sourceType: 'agent',
-                    sourceId: this.conversationId,
-                    timestamp: new Date()
-                } as any, this.getAgentOwnerContext());
+                this.eventService.emit<AgentEventData>(
+                    AGENT_EVENTS.EXECUTION_COMPLETE,
+                    {
+                        sourceType: 'agent',
+                        sourceId: this.conversationId,
+                        timestamp: new Date()
+                    },
+                    this.getAgentOwnerContext()
+                );
             }
 
             return result.response;
@@ -676,12 +692,16 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
             });
             // Emit agent execution error (agent-owned event)
             if (!isDefaultEventService(this.eventService)) {
-                this.eventService.emit(AGENT_EVENTS.EXECUTION_ERROR as any, {
-                    sourceType: 'agent',
-                    sourceId: this.conversationId,
-                    timestamp: new Date(),
-                    error: error instanceof Error ? error : new Error(String(error))
-                } as any, this.getAgentOwnerContext());
+                this.eventService.emit<AgentEventData>(
+                    AGENT_EVENTS.EXECUTION_ERROR,
+                    {
+                        sourceType: 'agent',
+                        sourceId: this.conversationId,
+                        timestamp: new Date(),
+                        error: error instanceof Error ? error.message : String(error)
+                    },
+                    this.getAgentOwnerContext()
+                );
             }
             throw error;
         }
@@ -737,11 +757,15 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
         try {
             // Emit agent execution start (agent-owned event) for streaming
             if (!isDefaultEventService(this.eventService)) {
-                this.eventService.emit(AGENT_EVENTS.EXECUTION_START as any, {
-                    sourceType: 'agent',
-                    sourceId: this.conversationId,
-                    timestamp: new Date()
-                } as any, this.getAgentOwnerContext());
+                this.eventService.emit<AgentEventData>(
+                    AGENT_EVENTS.EXECUTION_START,
+                    {
+                        sourceType: 'agent',
+                        sourceId: this.conversationId,
+                        timestamp: new Date()
+                    },
+                    this.getAgentOwnerContext()
+                );
             }
 
             this.logger.debug('Starting Robota streaming execution', {
@@ -784,22 +808,30 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
             });
             // Emit agent execution error (agent-owned event) for streaming
             if (!isDefaultEventService(this.eventService)) {
-                this.eventService.emit(AGENT_EVENTS.EXECUTION_ERROR as any, {
-                    sourceType: 'agent',
-                    sourceId: this.conversationId,
-                    timestamp: new Date(),
-                    error: error instanceof Error ? error : new Error(String(error))
-                } as any, this.getAgentOwnerContext());
+                this.eventService.emit<AgentEventData>(
+                    AGENT_EVENTS.EXECUTION_ERROR,
+                    {
+                        sourceType: 'agent',
+                        sourceId: this.conversationId,
+                        timestamp: new Date(),
+                        error: error instanceof Error ? error.message : String(error)
+                    },
+                    this.getAgentOwnerContext()
+                );
             }
             throw error;
         } finally {
             // Emit agent execution complete (agent-owned event) at end of streaming
             if (!isDefaultEventService(this.eventService)) {
-                this.eventService.emit(AGENT_EVENTS.EXECUTION_COMPLETE as any, {
-                    sourceType: 'agent',
-                    sourceId: this.conversationId,
-                    timestamp: new Date()
-                } as any, this.getAgentOwnerContext());
+                this.eventService.emit<AgentEventData>(
+                    AGENT_EVENTS.EXECUTION_COMPLETE,
+                    {
+                        sourceType: 'agent',
+                        sourceId: this.conversationId,
+                        timestamp: new Date()
+                    },
+                    this.getAgentOwnerContext()
+                );
             }
         }
     }

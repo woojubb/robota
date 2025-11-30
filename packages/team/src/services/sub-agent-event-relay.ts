@@ -1,9 +1,11 @@
 import {
     EventService,
     ServiceEventType,
-    ServiceEventData
+    ServiceEventData,
+    EventContext,
+    OwnerPathSegment,
+    DEFAULT_EVENT_SERVICE
 } from '@robota-sdk/agents';
-import { ActionTrackingEventService } from '@robota-sdk/agents';
 
 /**
  * SubAgentEventRelay - Event relay for Sub-Agent to Parent connection
@@ -29,33 +31,12 @@ import { ActionTrackingEventService } from '@robota-sdk/agents';
  * });
  * ```
  */
-export class SubAgentEventRelay extends ActionTrackingEventService {
+export class SubAgentEventRelay implements EventService {
     private readonly parentEventService: EventService;
     private readonly parentToolCallId: string;
 
-    // 🗑️ executionToThinkingMap 제거: 표준 Agent Copy 시스템 사용
-
-    /**
-     * Constructor for SubAgentEventRelay
-     * @param parentEventService - The parent TeamContainer's EventService
-     * @param parentToolCallId - The assignTask tool call ID that created this Sub-Agent
-     */
-    constructor(
-        parentEventService: EventService,
-        parentToolCallId: string
-    ) {
-        // Initialize ActionTrackingEventService with parent's context and enforced prefix 'agent'
-        super(parentEventService as any, undefined, {
-            executionId: parentToolCallId,
-            parentExecutionId: parentToolCallId,
-            rootExecutionId: parentToolCallId,
-            executionLevel: 2,
-            executionPath: [parentToolCallId],
-            sourceType: 'agent',
-            sourceId: parentToolCallId
-        } as any, { ownerPrefix: 'agent' });
-
-        this.parentEventService = parentEventService;
+    constructor(parentEventService: EventService | undefined, parentToolCallId: string) {
+        this.parentEventService = parentEventService || DEFAULT_EVENT_SERVICE;
         this.parentToolCallId = parentToolCallId;
     }
 
@@ -67,7 +48,7 @@ export class SubAgentEventRelay extends ActionTrackingEventService {
      * @param eventType - Type of event to emit
      * @param data - Event data
      */
-    override emit(eventType: ServiceEventType, data: ServiceEventData): void {
+    emit(eventType: ServiceEventType, data: ServiceEventData, context?: EventContext): void {
         // Synchronous forward to preserve strict ordering (no microtask deferral)
         try {
             const enrichedData: ServiceEventData = {
@@ -77,9 +58,29 @@ export class SubAgentEventRelay extends ActionTrackingEventService {
                 sourceType: 'agent'
             };
 
-            this.parentEventService.emit(eventType, enrichedData);
+            const relayContext = this.buildRelayContext(enrichedData, context);
+
+            this.parentEventService.emit(eventType, enrichedData, relayContext);
         } catch (error) {
             console.error(`[SubAgentEventRelay] Error processing event ${eventType}:`, error);
         }
+    }
+
+    private buildRelayContext(data: ServiceEventData, context?: EventContext): EventContext {
+        const basePath: OwnerPathSegment[] = context?.ownerPath ? [...context.ownerPath] : [];
+        const hasParentSegment = basePath.some(segment => segment.id === this.parentToolCallId);
+        if (!hasParentSegment) {
+            basePath.push({ type: 'tool', id: this.parentToolCallId });
+        }
+
+        const agentId = context?.ownerId || data.sourceId || this.parentToolCallId;
+        basePath.push({ type: 'agent', id: agentId });
+
+        return {
+            ownerType: 'agent',
+            ownerId: agentId,
+            ownerPath: basePath,
+            sourceId: data.sourceId || context?.sourceId || agentId
+        };
     }
 }
