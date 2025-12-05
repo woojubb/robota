@@ -13,7 +13,6 @@ export interface ToolExecutionRequest {
     ownerType?: string;
     ownerId?: string;
     ownerPath?: ToolOwnerPathSegment[];
-    sourceId?: string;
 }
 
 export interface ToolExecutionBatchContext {
@@ -58,10 +57,10 @@ export class ToolExecutionService {
                 toolName,
                 parameters,
                 executionId: context?.executionId || `${toolName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                ownerType: context?.ownerType || 'tool',
-                ownerId: context?.ownerId || context?.executionId,
-                ownerPath: context?.ownerPath,
-                sourceId: context?.sourceId || context?.executionId,
+                ...(context?.ownerType ? { ownerType: context.ownerType } : {}),
+                ...(context?.ownerId ? { ownerId: context.ownerId } : {}),
+                ...(context?.ownerPath ? { ownerPath: context.ownerPath } : {}),
+                ...(context?.sourceId ? { sourceId: context.sourceId } : {}),
                 ...context
             };
 
@@ -120,7 +119,6 @@ export class ToolExecutionService {
             executionId: toolCall.id,
             ownerType: 'tool',
             ownerId: toolCall.id,
-            sourceId: toolCall.id,
             ownerPath: [...context.ownerPathBase, { type: 'tool', id: toolCall.id }],
             metadata: context.metadataFactory ? context.metadataFactory(toolCall) : undefined
         }));
@@ -146,7 +144,6 @@ export class ToolExecutionService {
                     ownerType: request.ownerType || 'tool',
                     ownerId: request.ownerId || request.executionId,
                     ownerPath: request.ownerPath,
-                    sourceId: request.sourceId || request.executionId,
                     metadata: request.metadata
                 }).catch(error => ({
                     toolName: request.toolName || 'unknown',
@@ -181,7 +178,6 @@ export class ToolExecutionService {
                         ownerType: request.ownerType || 'tool',
                         ownerId: request.ownerId || request.executionId,
                         ownerPath: request.ownerPath,
-                        sourceId: request.sourceId || request.executionId,
                         metadata: request.metadata
                     });
                     results.push(result);
