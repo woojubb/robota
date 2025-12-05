@@ -69,34 +69,33 @@ export class AgentEventHandler implements EventHandler {
             switch (eventType) {
                 case AGENT_EVENTS.CREATED: {
                     // Create Agent node on creation event and connect via path-only rules
+                    const pathInfo = this.extractPathInfo(data, AGENT_EVENTS.CREATED);
                     const existing = this.agentNodeIdMap.get(String(data.sourceId));
                     if (existing) {
                         break; // Already created for this sourceId
                     }
-                    const agentNode = this.createAgentNode({ ...data, executionLevel: data.executionLevel || 1 });
-                    // Parent/edge derivation (mirrors prior execution.start behavior)
-                    const rootId = String((data as any).rootExecutionId || data.sourceId || '');
-                    let edgeSource: string | undefined;
-                    let edgeType: any = 'receives';
-                    if (data.parentExecutionId) {
-                        edgeSource = String(data.parentExecutionId);
-                        edgeType = 'creates';
-                    } else {
-                        const lastUser = WorkflowState.getLastUserMessage(rootId) || WorkflowState.getLastUserMessage(String(data.executionId || ''));
-                        if (lastUser) edgeSource = lastUser;
-                    }
+                    const agentNode = this.createAgentNode({ ...data, executionLevel: data.executionLevel || 1 }, pathInfo);
+                    const rootId = pathInfo.rootId || String(data.sourceId || '');
 
                     updates.push({ action: 'create', node: agentNode });
-                    if (edgeSource) {
-                        const edge: WorkflowEdge = {
-                            id: EdgeUtils.generateId(edgeSource, agentNode.id, edgeType),
-                            source: edgeSource,
-                            target: agentNode.id,
-                            type: edgeType,
-                            timestamp: Date.now()
-                        } as any;
-                        updates.push({ action: 'create', edge } as any);
+                    if (!pathInfo.parentId) {
+                        return {
+                            success: false,
+                            updates: [],
+                            errors: [
+                                `[PATH-ONLY] Missing parent segment for ${AGENT_EVENTS.CREATED}. Path=${pathInfo.segments.join(' -> ')}`
+                            ]
+                        };
                     }
+
+                    const edge: WorkflowEdge = {
+                        id: EdgeUtils.generateId(pathInfo.parentId, agentNode.id, 'creates' as any),
+                        source: pathInfo.parentId,
+                        target: agentNode.id,
+                        type: 'creates' as any,
+                        timestamp: Date.now()
+                    } as any;
+                    updates.push({ action: 'create', edge } as any);
 
                     this.agentNodeIdMap.set(String(data.sourceId), agentNode.id);
                     if (data.executionId) {
@@ -131,7 +130,8 @@ export class AgentEventHandler implements EventHandler {
                         break;
                     }
 
-                    const existingAgentNodeId = this.findAgentNodeIdForExecutionStart(data);
+                    const pathInfo = this.extractPathInfo(data, AGENT_EVENTS.EXECUTION_START);
+                    const existingAgentNodeId = this.findAgentNodeIdForExecutionStart(data, pathInfo);
                     if (existingAgentNodeId) {
                         const updatedNode = this.buildAgentExecutionStateUpdate(existingAgentNodeId, data);
                         if (updatedNode) {
@@ -142,31 +142,20 @@ export class AgentEventHandler implements EventHandler {
                         if (data.executionId) {
                             WorkflowState.setAgentForExecution(String(data.executionId), existingAgentNodeId);
                         }
-                        const rootId = this.getRootIdFromEvent(data);
+                        const rootId = pathInfo.rootId || this.getRootIdFromEvent(data);
                         if (rootId) {
                             WorkflowState.setAgentForRoot(rootId, existingAgentNodeId);
                         }
                         break;
                     }
 
-                    // Legacy fallback path - should be removed in 단계 6.5
-                    const legacyAgentNode = this.createAgentNode({ ...data, executionLevel: data.executionLevel || 1 });
-                    updates.push({ action: 'create', node: legacyAgentNode });
-                    this.agentNodeIdMap.set(sourceId, legacyAgentNode.id);
-                    if (data.executionId) {
-                        WorkflowState.setAgentForExecution(String(data.executionId), legacyAgentNode.id);
-                    }
-                    const fallbackRootId = this.getRootIdFromEvent(data);
-                    if (fallbackRootId) {
-                        WorkflowState.setAgentForRoot(fallbackRootId, legacyAgentNode.id);
-                    }
-                    {
-                        // Keep legacy subscriber mapping for compatibility
-                        const subscriber = (this as any).subscriber as { registerNode?: (key: string, id: string) => void } | undefined;
-                        subscriber?.registerNode?.(`agentFor:${sourceId}`, legacyAgentNode.id);
-                    }
-                    this.logger.warn('⚠️ [AGENT-HANDLER] Legacy execution_start fallback created agent node because agent.created event was missing. TODO(step 6.5): remove legacy fallback.');
-                    break;
+                    return {
+                        success: false,
+                        updates: [],
+                        errors: [
+                            `[PATH-ONLY] Missing agent node for ${AGENT_EVENTS.EXECUTION_START} path=${pathInfo.segments.join(' -> ')}`
+                        ]
+                    };
                 }
 
                 case AGENT_EVENTS.EXECUTION_COMPLETE: {
@@ -231,10 +220,8 @@ export class AgentEventHandler implements EventHandler {
 
                 case EXECUTION_EVENTS.ASSISTANT_MESSAGE_START: {
                     // Determine scope-local aggregation (Path-Only) BEFORE creating the thinking node, to set a strictly increasing timestamp
-                    const pathArr = (data as any)?.path as string[] | undefined;
-                    const pathThinkingId = Array.isArray(pathArr) && pathArr.length >= 1
-                        ? String(pathArr[pathArr.length - 1])
-                        : undefined;
+                    const pathInfo = this.extractPathInfo(data, EXECUTION_EVENTS.ASSISTANT_MESSAGE_START);
+                    const pathThinkingId = pathInfo.nodeId;
 
                     let sourceForThinking: string | undefined;
                     let typeForThinking: any = 'processes';
@@ -248,7 +235,7 @@ export class AgentEventHandler implements EventHandler {
                             const ts = Number(n?.timestamp || 0);
                             if (ts > maxObservedTs) maxObservedTs = ts;
                         }
-                        const parentExecId = String((data as any)?.parentExecutionId || (data as any)?.executionId || '');
+                        const parentExecId = pathInfo.parentId || String((data as any)?.executionId || '');
                         let latestAgg: { id: string; ts: number } | undefined;
                         if (parentExecId) {
                             for (const n of nodesAccessor) {
@@ -302,16 +289,16 @@ export class AgentEventHandler implements EventHandler {
 
                 case EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE: {
                     // Path-only response creation: path = [root, thinkingId, responseExecId]
-                    const pathArr = (data as any)?.path as string[] | undefined;
-                    if (!Array.isArray(pathArr) || pathArr.length < 2) {
+                    const pathInfo = this.extractPathInfo(data, EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE);
+                    if (!pathInfo.parentId) {
                         return {
                             success: false,
                             updates: [],
-                            errors: [`[PATH-ONLY] Invalid path for ${EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE}: ${JSON.stringify(pathArr)}`]
+                            errors: [`[PATH-ONLY] Invalid path (missing parent) for ${EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE}: ${pathInfo.segments.join(' -> ')}`]
                         };
                     }
-                    const thinkingId = String(pathArr[pathArr.length - 2]);
-                    const responseId = String(pathArr[pathArr.length - 1] || data.executionId || data.sourceId);
+                    const thinkingId = pathInfo.parentId;
+                    const responseId = pathInfo.nodeId || String(data.executionId || data.sourceId);
 
                     // Strict path-only: thinking node MUST exist (no fallback creation)
                     const nodesAccessor: any[] = (this as any).subscriber?.getAllNodes?.() || [];
@@ -324,23 +311,7 @@ export class AgentEventHandler implements EventHandler {
                         };
                     }
 
-                    const responseNode: WorkflowNode = {
-                        id: responseId,
-                        type: WORKFLOW_NODE_TYPES.RESPONSE,
-                        level: (data.executionLevel || 1) + 2,
-                        status: 'completed',
-                        timestamp: Date.now(),
-                        data: {
-                            eventType: EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE,
-                            sourceId: String(data.sourceId),
-                            sourceType: 'agent',
-                            agentNumber: this.agentNumberMap.get(String(data.sourceId)) || 0,
-                            label: `Agent Response`,
-                            description: 'Agent response and output',
-                            extensions: { robota: { originalEvent: data } }
-                        },
-                        connections: []
-                    } as any;
+                    const responseNode = this.createAgentResponseNode(data, pathInfo);
 
                     updates.push({ action: 'create', node: responseNode });
 
@@ -403,14 +374,15 @@ export class AgentEventHandler implements EventHandler {
         });
 
         // For execution start events, create agent node
-        return this.createAgentNode(data);
+        const pathInfo = this.extractPathInfo(data, AGENT_EVENTS.EXECUTION_START);
+        return this.createAgentNode(data, pathInfo);
     }
 
     // =================================================================
     // Node Creation Helper Methods
     // =================================================================
 
-    private createAgentNode(data: any): WorkflowNode {
+    private createAgentNode(data: any, pathInfo: PathInfo): WorkflowNode {
         const agentNumber = this.assignAgentNumber(String(data.sourceId));
         const copyNumber = this.getNextCopyNumber(agentNumber);
         const agentId = `agent_${agentNumber}_copy_${copyNumber}`;
@@ -427,6 +399,7 @@ export class AgentEventHandler implements EventHandler {
                 sourceType: 'agent',
                 agentNumber: agentNumber,
                 copyNumber: copyNumber,
+                parentExecutionId: pathInfo.parentId,
                 label: `Agent ${agentNumber}`,
                 description: 'AI Agent instance',
                 // Optional tools list propagated from agent.created event (if provided)
@@ -439,6 +412,7 @@ export class AgentEventHandler implements EventHandler {
                 extensions: {
                     robota: {
                         originalEvent: data,
+                        ownerPath: pathInfo.segments,
                         agentNumber: agentNumber
                     }
                 }
@@ -447,7 +421,7 @@ export class AgentEventHandler implements EventHandler {
         };
     }
 
-    private findAgentNodeIdForExecutionStart(eventData: EventData): string | undefined {
+    private findAgentNodeIdForExecutionStart(eventData: EventData, pathInfo: PathInfo): string | undefined {
         const sourceId = typeof eventData?.sourceId !== 'undefined' ? String(eventData.sourceId) : undefined;
         if (sourceId) {
             const fromMap = this.agentNodeIdMap.get(sourceId);
@@ -464,7 +438,7 @@ export class AgentEventHandler implements EventHandler {
             }
         }
 
-        const rootId = this.getRootIdFromEvent(eventData);
+        const rootId = pathInfo.rootId || this.getRootIdFromEvent(eventData);
         if (rootId) {
             const fromRoot = WorkflowState.getAgentForRoot(rootId);
             if (fromRoot) {
@@ -623,9 +597,8 @@ export class AgentEventHandler implements EventHandler {
 
     private createAgentThinkingNode(data: any, overrideId?: string, forcedTimestamp?: number): WorkflowNode {
         const agentNumber = this.agentNumberMap.get(String(data.sourceId)) || 0;
-        // Path-Only: thinkingId = path.tail (event.path에서 마지막 원소)
-        const pathArr = (data as any)?.path as string[] | undefined;
-        const thinkingId = overrideId || (Array.isArray(pathArr) && pathArr.length > 0 ? String(pathArr[pathArr.length - 1]) : `thinking_unknown_${Date.now()}`);
+        const pathInfo = this.extractPathInfo(data, EXECUTION_EVENTS.ASSISTANT_MESSAGE_START);
+        const thinkingId = overrideId || pathInfo.nodeId || `thinking_unknown_${Date.now()}`;
 
         return {
             id: thinkingId,
@@ -645,6 +618,7 @@ export class AgentEventHandler implements EventHandler {
                 extensions: {
                     robota: {
                         originalEvent: data,
+                        ownerPath: pathInfo.segments,
                         agentNumber: agentNumber
                     }
                 }
@@ -653,11 +627,9 @@ export class AgentEventHandler implements EventHandler {
         };
     }
 
-    private createAgentResponseNode(data: any): WorkflowNode {
+    private createAgentResponseNode(data: any, pathInfo: PathInfo): WorkflowNode {
         const agentNumber = this.agentNumberMap.get(String(data.sourceId)) || 0;
-        // Path-Only: response id = path tail (required)
-        const tail = Array.isArray(data.path) && data.path.length > 0 ? String(data.path[data.path.length - 1]) : String(data.executionId || '');
-        const responseId = tail;
+        const responseId = pathInfo.nodeId || String(data.executionId || '');
 
         return {
             id: responseId,
@@ -678,6 +650,7 @@ export class AgentEventHandler implements EventHandler {
                 extensions: {
                     robota: {
                         originalEvent: data,
+                        ownerPath: pathInfo.segments,
                         agentNumber: agentNumber
                     }
                 }
@@ -801,6 +774,28 @@ export class AgentEventHandler implements EventHandler {
         };
     }
 
+    private extractPathInfo(eventData: EventData, contextLabel: string): PathInfo {
+        const candidatePaths: unknown[] = [
+            (eventData as any).path,
+            (eventData as any).ownerPath,
+            (eventData.metadata as any)?.path,
+            (eventData as any)?.extensions?.robota?.originalEvent?.ownerPath,
+            (eventData as any)?.extensions?.robota?.originalEvent?.path
+        ];
+
+        for (const candidate of candidatePaths) {
+            if (Array.isArray(candidate) && candidate.length > 0) {
+                const segments = candidate.map(segment => String(segment));
+                const nodeId = segments[segments.length - 1];
+                const parentId = segments.length > 1 ? segments[segments.length - 2] : undefined;
+                const rootId = segments[0];
+                return { segments, nodeId, parentId, rootId };
+            }
+        }
+
+        throw new Error(`[PATH-ONLY] Missing path data for ${contextLabel}`);
+    }
+
     clear(): void {
         this.agentNodeIdMap.clear();
         this.agentNumberMap.clear();
@@ -808,4 +803,11 @@ export class AgentEventHandler implements EventHandler {
         this.conversationIdToAgentIdMap.clear();
         this.logger.debug('🧹 [AGENT-HANDLER] All mappings cleared');
     }
+}
+
+interface PathInfo {
+    segments: string[];
+    nodeId?: string;
+    parentId?: string;
+    rootId?: string;
 }

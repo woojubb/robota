@@ -24,9 +24,7 @@
       - [x] `packages/agents/src/services/execution-service.ts`
         - [x] `maybeClone` 로직 대체: ownerType 인자 전달 + ownerPath append
         - [x] legacy `clone({ ownerPrefix })` 호출 제거
-      - [ ] `packages/team/src/create-team.ts`, `packages/team/src/services/sub-agent-event-relay.ts`
-        - [ ] Team/Relay에서 EventService 생성 시 ownerType='team'/'agent' 명시
-        - [ ] SubAgentEventRelay는 새로운 ownerPath helper로 대체 후 제거 여부 검토
+      - [ ] `packages/team/*` (deprecated) → 팀 패키지 사용 제거/의존 차단. 삭제 예정이므로 추가 수정 금지.
       - [ ] `apps/web/src/lib/playground/robota-executor.ts`, `apps/examples/26-playground-edge-verification.ts` 등
         - [ ] Playground 환경에서 EventService를 직접 생성하지 말고 SDK에서 주입받은 것을 사용
         - [ ] 테스트/예제 코드도 ownerPath 기반 context로 업데이트
@@ -46,7 +44,7 @@
      - [ ] 각 emit 지점이 parentExecutionId, thinkingId 등 ID 필드를 payload가 아닌 context metadata/segment에만 기록하도록 규칙화
      - [ ] 핸들러 측에서 `context.ownerPath`만으로 source ID를 복구할 수 있도록 테스트 케이스 추가
 3. **핸들러 업데이트**
-   - [ ] 핸들러에서 prefix 기반 분기를 제거하고 `context.ownerPath`/helper(`getNearestOwner`)로 출처 판별
+   - [x] 핸들러에서 prefix 기반 분기를 제거하고 `context.ownerPath` 기반 helper로 출처 판별 — 2025-11-30 Tool/Agent handler path-only refactor
    - [ ] Path-only 검증: Guarded 예제 26/27 실행 후 로그/노드 수 점검
 4. **문서 & 검증**
    - [ ] `.design/event-system` 문서 업데이트 (prefix 제거, ownerPath 규칙)
@@ -59,7 +57,8 @@
      1. [ ] `execution.start`/`user_message`/`assistant_message_*` payload 최소화 (이미 진행 중)  
      2. [x] Tool emit(`tool.call_*`, `tool_results_*`)에서 context로 이전 가능한 필드 제거 — 2025-11-30 ExecutionService emit helper 개편  
      3. [x] 스트리밍 모드 emit도 동일하게 정리 — 2025-11-30 ExecutionService emit helper 개편  
-    4. [x] ToolExecutionService 요청에 필요한 계층 정보는 metadata로 유지하되, emit payload와 혼동되지 않도록 주석/타입 분리 — 2025-11-30 ToolExecutionService ownerPath/metadata 리팩터
+     4. [x] ToolExecutionService 요청에 필요한 계층 정보는 metadata로 유지하되, emit payload와 혼동되지 않도록 주석/타입 분리 — 2025-11-30 ToolExecutionService ownerPath/metadata 리팩터  
+     5. [x] ExecutionService emit 헬퍼 단일화: `emitExecution`/`emitTool` → `emitWithContext`로 공통 처리, 호출부에서는 도메인 데이터만 전달 (2025-12-05)
    - [ ] **Tool/Agent emit 단계**
      1. 각 도메인 emit helper를 새 타입으로 업데이트  
      2. payload에는 고유 데이터만 유지, 계층 정보는 context ownerPath로 전달  
@@ -71,11 +70,12 @@
      4. `.design/event-system/event-payload-normalization.md`에 “context=ownerPath-only, payload=domain data-only” 원칙과 예시 추가  
      5. Guard 예제 26/27 실행으로 ownerPath-only 설계가 기존 그래프와 동일하게 작동하는지 검증
    - [ ] **EventService 인스턴스 소유자 고정화 + source 자동화**
-     1. ExecutionService 생성 시 주입받은 EventService 인스턴스가 `ownerType='agent'`, `ownerId=conversationId`를 기본값으로 갖도록 보장 (없으면 `EventService.createChild({ ownerType: 'agent', ownerId: conversationId })` 패턴 추가)  
-     2. ToolExecutionService가 tool-call 시점에 `EventService`를 상속/클론하여 `ownerType='tool'`, `ownerId=toolCallId`를 주입 받은 인스턴스를 사용하게 리팩터  
-     3. `emitExecutionEvent`/`emitToolEvent` helper에서 `context.ownerType/ownerId`를 자동으로 payload `sourceType/sourceId`에 주입하도록 변경(사용자가 별도로 적지 않아도 동일한 값이 들어가도록)  
-     4. `timestamp`도 helper에서 `data.timestamp ?? new Date()`로 자동 채우도록 표준화  
-     5. 위 구조를 `.design/event-system/event-payload-normalization.md` 및 Guard 예제 문서에 “한 EventService 인스턴스는 단일 owner” 규칙으로 명시하고, 전환 체크리스트 작성
+     1. [x] ExecutionService 실행 시점에 EventService를 `ownerType='agent'`, `ownerId=conversationId`로 바운드하고, 실행 종료/스트리밍 종료 후 scope를 초기화한다.  
+     2. [ ] ToolExecutionService는 각 tool call 마다 `createContextBoundInstance({ ownerType: 'tool', ownerId: toolCallId, ownerPath: parentPath + tool segment })`로 사본을 만들어 전달한다. (ExecutionService 내부 맵 구현 완료 → ToolExecutionService wiring만 남음)  
+     3. [x] `emitExecutionEvent`/`emitToolEvent`/`Robota.emitAgentEvent` helper에서 payload에 `sourceType`, `sourceId`, `timestamp`를 수동 전달하지 않고, owner-bound EventService가 자동으로 채우도록 정리했다.  
+     4. [x] EventService는 내부 `ownerContext`를 통해 `ownerType/sourceId`를 고정하고, `emit` 호출 시 `context.ownerPath`와 병합하여 `ownerPath`를 자동 연장한다. timestamp는 `data.timestamp ?? new Date()`로 일괄 처리하고, payload에는 들어가지 않도록 강제했다.  
+     5. [ ] `.design/event-system/event-payload-normalization.md`에 “EventService 인스턴스=단일 owner, emit helper 자동 source/timestamp” 규칙을 명시하고, Guard 예제 문서에도 동일한 체크리스트를 추가한다.  
+     6. [ ] 완료 조건: `ExecutionService`, `ToolExecutionService`, `Robota`, `SubAgentEventRelay`, `team/create-team` 등 EventService 주입 지점 전부가 owner-context-bound 인스턴스만 사용하며, lint/rg 기준 `sourceType:` 수동 전달이 전부 제거된다. (현재 ExecutionService/Robota/SubAgentRelay 적용 완료, Team/ToolExecutionService 남음)
    - [ ] **Workflow 핸들러 단계**
      1. `ownerPath` 기반 헬퍼(`getNearestOwner(ownerPath, 'execution')`) 작성  
      2. 기존 `parentExecutionId/rootExecutionId` 참조를 helper 호출로 교체  

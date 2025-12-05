@@ -69,16 +69,19 @@ export interface BaseEventData {
     eventType?: ServiceEventType;
 
     /** Source type: agent, team, or tool */
-    sourceType: 'agent' | 'team' | 'tool';
+    sourceType?: 'agent' | 'team' | 'tool';
 
     /** Source identifier (agent ID, team ID, etc.) */
-    sourceId: string;
+    sourceId?: string;
 
     /** Event timestamp (auto-generated if not provided) */
     timestamp?: Date;
 
     /** Additional metadata */
     metadata?: LoggerData;
+
+    /** Derived owner path expressed as string identifiers */
+    path?: string[];
 
     /** @deprecated Use EventContext.ownerPath to derive hierarchy */
     executionLevel?: number;
@@ -243,6 +246,112 @@ class DefaultNoopEventService extends AbstractEventService {
 export const DEFAULT_EVENT_SERVICE: EventService = new DefaultNoopEventService();
 
 export const isDefaultEventService = (eventService: EventService): boolean => eventService === DEFAULT_EVENT_SERVICE;
+
+export interface EventServiceOwnerBinding {
+    ownerType: OwnerType | (string & {});
+    ownerId?: string;
+    ownerPath?: OwnerPathSegment[];
+    sourceType: 'agent' | 'team' | 'tool';
+    sourceId?: string;
+}
+
+const mergeOwnerPathSegments = (base?: OwnerPathSegment[], extension?: OwnerPathSegment[]): OwnerPathSegment[] => {
+    const segments: OwnerPathSegment[] = [];
+    if (base?.length) {
+        segments.push(...base.map(segment => ({ ...segment })));
+    }
+    if (extension?.length) {
+        segments.push(...extension.map(segment => ({ ...segment })));
+    }
+    return segments;
+};
+
+const deriveOwnerPathFromExecutionContext = (executionContext?: ToolExecutionContext): OwnerPathSegment[] => {
+    if (!executionContext) {
+        return [];
+    }
+    if (executionContext.ownerPath?.length) {
+        return executionContext.ownerPath.map(segment => ({ ...segment }));
+    }
+    if (executionContext.executionPath?.length) {
+        return executionContext.executionPath.map(id => ({ type: 'execution', id }));
+    }
+    return [];
+};
+
+class OwnerBoundEventService extends AbstractEventService {
+    constructor(
+        private readonly baseEventService: EventService,
+        private readonly ownerBinding: EventServiceOwnerBinding
+    ) {
+        super();
+    }
+
+    override emit<TEvent extends BaseEventData = BaseEventData>(eventType: ServiceEventType, data: TEvent, context?: EventContext): void {
+        const timestamp = data.timestamp ?? context?.timestamp ?? new Date();
+        const resolvedSourceType = data.sourceType ?? this.ownerBinding.sourceType;
+        const resolvedSourceId = data.sourceId ?? this.ownerBinding.sourceId;
+
+        if (!resolvedSourceType || !resolvedSourceId) {
+            throw new Error('[EVENT-SERVICE] Missing sourceType/sourceId for owner-bound emission');
+        }
+
+        const mergedOwnerPath = mergeOwnerPathSegments(this.ownerBinding.ownerPath, context?.ownerPath);
+        const resolvedContext: EventContext = {
+            ownerType: context?.ownerType ?? this.ownerBinding.ownerType,
+            ownerId: context?.ownerId ?? this.ownerBinding.ownerId ?? resolvedSourceId,
+            ownerPath: mergedOwnerPath,
+            sourceId: context?.sourceId ?? resolvedSourceId,
+            timestamp
+        };
+
+        this.baseEventService.emit(
+            eventType,
+            {
+                ...data,
+                sourceType: resolvedSourceType,
+                sourceId: resolvedSourceId,
+                timestamp
+            } as TEvent,
+            resolvedContext
+        );
+    }
+
+    override trackExecution(executionId: string, parentExecutionId?: string, level?: number): void {
+        this.baseEventService.trackExecution?.(executionId, parentExecutionId, level);
+    }
+
+    override createContextBoundInstance(executionContext: ToolExecutionContext): EventService {
+        const derivedOwnerPath = mergeOwnerPathSegments(this.ownerBinding.ownerPath, deriveOwnerPathFromExecutionContext(executionContext));
+        if (executionContext.executionId) {
+            derivedOwnerPath.push({ type: 'execution', id: executionContext.executionId });
+        }
+        const childOwnerId = executionContext.ownerId || executionContext.executionId || this.ownerBinding.ownerId;
+        const inferredOwnerType = (executionContext.ownerType as OwnerType | (string & {})) || this.ownerBinding.ownerType;
+        const inferredSourceType: 'agent' | 'team' | 'tool' =
+            executionContext.ownerType === 'team'
+                ? 'team'
+                : executionContext.ownerType === 'tool'
+                    ? 'tool'
+                    : this.ownerBinding.sourceType;
+
+        const childBinding: EventServiceOwnerBinding = {
+            ownerType: inferredOwnerType,
+            ownerId: childOwnerId,
+            ownerPath: derivedOwnerPath,
+            sourceType: inferredSourceType,
+            sourceId: executionContext.sourceId || executionContext.executionId || this.ownerBinding.sourceId
+        };
+        return new OwnerBoundEventService(this.baseEventService, childBinding);
+    }
+}
+
+export const bindEventServiceOwner = (eventService: EventService, binding: EventServiceOwnerBinding): EventService => {
+    if (isDefaultEventService(eventService)) {
+        return eventService;
+    }
+    return new OwnerBoundEventService(eventService, binding);
+};
 
 /**
  * Default console event service - Basic logging implementation
@@ -678,8 +787,9 @@ export class ActionTrackingEventService extends AbstractEventService {
         }
 
         // Strategy 5: Search hierarchy by toolName or sourceId pattern
-        if (data.toolName || data.sourceId) {
-            const searchKey = data.toolName || data.sourceId;
+        const searchKeyCandidate = data.toolName ?? data.sourceId;
+        if (searchKeyCandidate) {
+            const searchKey = searchKeyCandidate;
             this.logger.debug('🔍 [ActionTrackingEventService] Searching hierarchy by pattern:', {
                 searchKey,
                 totalHierarchyEntries: this.executionHierarchy.size

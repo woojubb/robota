@@ -4,7 +4,8 @@ import {
     ServiceEventData,
     EventContext,
     OwnerPathSegment,
-    DEFAULT_EVENT_SERVICE
+    DEFAULT_EVENT_SERVICE,
+    bindEventServiceOwner
 } from '@robota-sdk/agents';
 
 /**
@@ -34,6 +35,7 @@ import {
 export class SubAgentEventRelay implements EventService {
     private readonly parentEventService: EventService;
     private readonly parentToolCallId: string;
+    private childEventService?: EventService;
 
     constructor(parentEventService: EventService | undefined, parentToolCallId: string) {
         this.parentEventService = parentEventService || DEFAULT_EVENT_SERVICE;
@@ -49,38 +51,72 @@ export class SubAgentEventRelay implements EventService {
      * @param data - Event data
      */
     emit(eventType: ServiceEventType, data: ServiceEventData, context?: EventContext): void {
-        // Synchronous forward to preserve strict ordering (no microtask deferral)
+        if (this.parentEventService === DEFAULT_EVENT_SERVICE) {
+            return;
+        }
+
         try {
-            const enrichedData: ServiceEventData = {
-                ...data,
-                parentExecutionId: data.parentExecutionId || this.parentToolCallId,
-                executionLevel: (data.executionLevel || 0) + 1,
-                sourceType: 'agent'
-            };
-
-            const relayContext = this.buildRelayContext(enrichedData, context);
-
-            this.parentEventService.emit(eventType, enrichedData, relayContext);
+            const relayContext = this.buildRelayContext(data, context);
+            const childEventService = this.ensureChildEventService(relayContext);
+            childEventService.emit(eventType, data, relayContext);
         } catch (error) {
             console.error(`[SubAgentEventRelay] Error processing event ${eventType}:`, error);
         }
     }
 
+    private ensureChildEventService(context: EventContext): EventService {
+        if (this.childEventService) {
+            return this.childEventService;
+        }
+
+        if (!context.ownerId) {
+            throw new Error('[SubAgentEventRelay] Unable to determine child agent ownerId');
+        }
+
+        this.childEventService = bindEventServiceOwner(this.parentEventService, {
+            ownerType: 'agent',
+            ownerId: context.ownerId,
+            ownerPath: context.ownerPath,
+            sourceType: 'agent',
+            sourceId: context.ownerId
+        });
+
+        return this.childEventService;
+    }
+
     private buildRelayContext(data: ServiceEventData, context?: EventContext): EventContext {
-        const basePath: OwnerPathSegment[] = context?.ownerPath ? [...context.ownerPath] : [];
-        const hasParentSegment = basePath.some(segment => segment.id === this.parentToolCallId);
-        if (!hasParentSegment) {
+        const basePath: OwnerPathSegment[] = context?.ownerPath ? context.ownerPath.map(segment => ({ ...segment })) : [];
+        if (!basePath.some(segment => segment.id === this.parentToolCallId)) {
             basePath.push({ type: 'tool', id: this.parentToolCallId });
         }
 
-        const agentId = context?.ownerId || data.sourceId || this.parentToolCallId;
-        basePath.push({ type: 'agent', id: agentId });
+        const agentId = this.resolveAgentId(data, context);
+        if (!agentId) {
+            throw new Error('[SubAgentEventRelay] Missing agent identifier for relay context');
+        }
+
+        if (!basePath.some(segment => segment.type === 'agent' && segment.id === agentId)) {
+            basePath.push({ type: 'agent', id: agentId });
+        }
 
         return {
             ownerType: 'agent',
             ownerId: agentId,
-            ownerPath: basePath,
-            sourceId: data.sourceId || context?.sourceId || agentId
+            ownerPath: basePath
         };
+    }
+
+    private resolveAgentId(data: ServiceEventData, context?: EventContext): string | undefined {
+        if (context?.ownerId) {
+            return context.ownerId;
+        }
+        if (context?.ownerPath) {
+            const reversed = [...context.ownerPath].reverse();
+            const agentSegment = reversed.find(segment => segment.type === 'agent' && segment.id);
+            if (agentSegment?.id) {
+                return agentSegment.id;
+            }
+        }
+        return data.sourceId;
     }
 }
