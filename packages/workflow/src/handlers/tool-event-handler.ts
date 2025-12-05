@@ -63,52 +63,47 @@ export class ToolEventHandler implements EventHandler {
             let success = true;
 
             switch (eventType) {
-                case TOOL_EVENTS.CALL_START:
-                    const toolCallNode = this.createToolCallNode(eventData);
-                    if ((eventData as any).parentId) toolCallNode.parentId = String((eventData as any).parentId);
-                    if (eventData.parentExecutionId) {
-                        toolCallNode.parentId = String(eventData.parentExecutionId);
-                        this.logger.debug(`🔗 [TOOL-CALL-PARENT] Setting parent: ${toolCallNode.parentId} for tool call: ${toolCallNode.id}`);
-                    }
+                case TOOL_EVENTS.CALL_START: {
+                    const pathInfo = this.extractPathInfo(eventData, TOOL_EVENTS.CALL_START);
+                    const toolCallNode = this.createToolCallNode(eventData, pathInfo);
                     updates.push({ action: 'create', node: toolCallNode });
-                    // Path-only: no state mappings needed
-                    // Explicit edge: thinking → tool_call ('executes')
-                    const parentThinking = (eventData as any).metadata?.directParentId || (eventData as any).parentExecutionId;
-                    if (parentThinking) {
-                        const edge: WorkflowEdge = {
-                            id: EdgeUtils.generateId(String(parentThinking), toolCallNode.id, 'executes' as any),
-                            source: String(parentThinking),
-                            target: toolCallNode.id,
-                            type: 'executes' as any,
-                            timestamp: Date.now()
-                        } as any;
-                        updates.push({ action: 'create', edge } as any);
+
+                    if (!pathInfo.parentId) {
+                        return {
+                            success: false,
+                            updates: [],
+                            errors: [
+                                `[PATH-ONLY] Missing parent segment for ${TOOL_EVENTS.CALL_START}. Path=${pathInfo.segments.join(' -> ')}`
+                            ]
+                        };
                     }
+
+                    const edge: WorkflowEdge = {
+                        id: EdgeUtils.generateId(pathInfo.parentId, toolCallNode.id, 'executes' as any),
+                        source: pathInfo.parentId,
+                        target: toolCallNode.id,
+                        type: 'executes' as any,
+                        timestamp: Date.now()
+                    } as any;
+                    updates.push({ action: 'create', edge } as any);
                     break;
+                }
 
                 case TOOL_EVENTS.CALL_COMPLETE:
                     // Do not create a separate node for call_complete in minimal graph
                     break;
 
-                case TOOL_EVENTS.CALL_ERROR:
-                    const toolErrorNode = this.createToolCallErrorNode(eventData);
-                    if ((eventData as any).parentId) toolErrorNode.parentId = String((eventData as any).parentId);
-                    // [PATH-ONLY] prevId is no longer used; edges are created explicitly
+                case TOOL_EVENTS.CALL_ERROR: {
+                    const pathInfo = this.extractPathInfo(eventData, TOOL_EVENTS.CALL_ERROR);
+                    const toolErrorNode = this.createToolCallErrorNode(eventData, pathInfo);
                     updates.push({ action: 'create', node: toolErrorNode });
                     break;
+                }
 
                 case TOOL_EVENTS.CALL_RESPONSE_READY: {
-                    // Path-only with tool call ID translation to response ID
-                    const pathArr = (eventData as any)?.path as string[] | undefined;
-                    if (!Array.isArray(pathArr) || pathArr.length < 1) {
-                        return {
-                            success: false,
-                            updates: [],
-                            errors: [`[PATH-ONLY] Invalid path for ${TOOL_EVENTS.CALL_RESPONSE_READY}: ${JSON.stringify(pathArr)}`]
-                        };
-                    }
-
-                    const pathTail = String(pathArr[pathArr.length - 1]); // Could be tool call ID or response ID
+                    const pathInfo = this.extractPathInfo(eventData, TOOL_EVENTS.CALL_RESPONSE_READY);
+                    const pathArr = pathInfo.segments;
+                    const pathTail = pathInfo.nodeId; // Usually tool call ID
                     if (!pathTail) {
                         return {
                             success: false,
@@ -151,7 +146,7 @@ export class ToolEventHandler implements EventHandler {
                     }
 
                     // Create tool_response node
-                    const toolResponseNode = this.createToolResponseNode(eventData);
+                    const toolResponseNode = this.createToolResponseNode(eventData, pathInfo);
                     updates.push({ action: 'create', node: toolResponseNode });
 
                     // Atomic edge: parent (response or tool_call) → tool_response ('result')
@@ -203,8 +198,8 @@ export class ToolEventHandler implements EventHandler {
     // Node Creation Methods
     // =================================================================
 
-    private createToolCallNode(data: EventData): WorkflowNode {
-        const executionId = data.executionId || data.sourceId;
+    private createToolCallNode(data: EventData, pathInfo: PathInfo): WorkflowNode {
+        const executionId = pathInfo.nodeId || data.executionId || data.sourceId;
         const nodeId = String(executionId); // Use executionId as node id (parent will reference this directly)
 
         const toolName = String((data as any)?.toolName || data.parameters?.toolName || data.parameters?.name || 'unknown_tool');
@@ -220,7 +215,7 @@ export class ToolEventHandler implements EventHandler {
                 sourceId: String(data.sourceId),
                 sourceType: 'tool',
                 executionId: String(executionId),
-                parentExecutionId: data.parentExecutionId,
+                parentExecutionId: pathInfo.parentId,
                 toolName: toolName,
                 label: `${toolName} Call`,
                 description: `Tool call: ${toolName}`,
@@ -276,8 +271,8 @@ export class ToolEventHandler implements EventHandler {
         };
     }
 
-    private createToolCallErrorNode(data: EventData): WorkflowNode {
-        const executionId = data.executionId || data.sourceId;
+    private createToolCallErrorNode(data: EventData, pathInfo: PathInfo): WorkflowNode {
+        const executionId = pathInfo.nodeId || data.executionId || data.sourceId;
         const nodeId = `tool_call_error_${executionId}`;
 
         const toolName = String(data.parameters?.toolName || 'unknown_tool');
@@ -293,7 +288,7 @@ export class ToolEventHandler implements EventHandler {
                 sourceId: String(data.sourceId),
                 sourceType: 'tool',
                 executionId: String(executionId),
-                parentExecutionId: data.parentExecutionId,
+                parentExecutionId: pathInfo.parentId,
                 toolName: toolName,
                 label: `${toolName} Error`,
                 description: `Tool call error: ${errorMessage}`,
@@ -314,9 +309,9 @@ export class ToolEventHandler implements EventHandler {
         };
     }
 
-    private createToolResponseNode(data: EventData): WorkflowNode {
+    private createToolResponseNode(data: EventData, pathInfo: PathInfo): WorkflowNode {
         // Prefer tool call id for response node id; keep current naming for compatibility
-        const toolCallId = String(data.executionId || data.parentExecutionId || data.sourceId);
+        const toolCallId = pathInfo.nodeId || String(data.executionId || data.parentExecutionId || data.sourceId);
         const nodeId = `tool_response_call_${toolCallId}`;
 
         const toolName = String(data.parameters?.toolName || data.result?.toolName || 'unknown_tool');
@@ -335,7 +330,7 @@ export class ToolEventHandler implements EventHandler {
                 sourceId: String(data.sourceId),
                 sourceType: 'tool',
                 executionId: String(toolCallId),
-                parentExecutionId: data.parentExecutionId,
+                parentExecutionId: pathInfo.parentId,
                 toolName: toolName,
                 label: `${toolName} Response`,
                 description: `Tool response from ${toolName}`,
@@ -388,6 +383,27 @@ export class ToolEventHandler implements EventHandler {
         return toolTypeMap[toolName] || WORKFLOW_NODE_TYPES.TOOL_CALL;
     }
 
+    private extractPathInfo(eventData: EventData, eventLabel: string): PathInfo {
+        const candidatePaths: unknown[] = [
+            (eventData as any).path,
+            (eventData as any).ownerPath,
+            (eventData.metadata as any)?.path,
+            (eventData as any)?.extensions?.robota?.originalEvent?.ownerPath,
+            (eventData as any)?.extensions?.robota?.originalEvent?.path
+        ];
+
+        for (const candidate of candidatePaths) {
+            if (Array.isArray(candidate) && candidate.length > 0) {
+                const segments = candidate.map(segment => String(segment));
+                const nodeId = segments[segments.length - 1];
+                const parentId = segments.length > 1 ? segments[segments.length - 2] : undefined;
+                return { segments, nodeId, parentId };
+            }
+        }
+
+        throw new Error(`[PATH-ONLY] Missing path data for ${eventLabel}`);
+    }
+
     // Path-only: mapping methods removed (use path for relationships)
 
     /**
@@ -431,4 +447,10 @@ export class ToolEventHandler implements EventHandler {
         // Path-only: no internal state to clear
         this.logger.debug('🧹 [TOOL-HANDLER] Handler state cleared');
     }
+}
+
+interface PathInfo {
+    segments: string[];
+    nodeId: string;
+    parentId?: string;
 }
