@@ -29,8 +29,8 @@
 
 ## Context 파생 규칙 요약
 - `ownerPath`는 `[rootExecutionId, executionId, toolCallId?, agentId?]` 순으로 누적되며, handler는 `getNearestOwner(ownerPath, type)` helper로 필요 ID를 조회.
-- `sourceId`, `rootExecutionId`, `parentExecutionId`, `executionLevel`, `executionPath`, `path` → `ownerPath`에서 항상 파생 가능하므로 payload 정규화 1단계에서 제거 후보.
-- `timestamp`는 emit 시 자동 생성 (payload 미전달 시 `new Date()`), context에는 보존할 필요 없음.
+- `sourceId`, `rootExecutionId`, `parentExecutionId`, `executionLevel`, `executionPath`, `path` → `ownerPath`에서 파생 가능하므로 payload 제거 대상.
+- EventService 인스턴스는 단일 owner에 바인딩되며 emit 시 `sourceType/sourceId/timestamp`를 자동 주입한다. 호출부는 도메인 데이터만 전달하고 timestamp를 명시하지 않는다.
 
 ## 다음 단계
 1. 공통 helper (`buildOwnerContext`, `getOwnerIdFromContext`) 정의 및 ExecutionService/Tool/Agent emit 호출부에 적용.
@@ -76,10 +76,10 @@
 ### 필드 분류표
 | 필드 | 이동 위치 | 비고 |
 | --- | --- | --- |
-| `sourceType`, `sourceId` | payload → `source.type`/`source.id` | 단일 구조로 통합 |
+| `sourceType`, `sourceId` | EventService(owner-bound)이 emit 시 자동 주입 | 호출부 미전달 원칙 |
 | `rootExecutionId`, `parentExecutionId`, `executionPath`, `path`, `executionLevel` | context.ownerPath | payload에서 제거 |
 | `toolName`, `parameters`, `result`, `metadata`, `statusHistory`, `agentCapabilities` | payload 유지 | 렌더링/검증용 핵심 데이터 |
-| `timestamp` | payload (기본값 `new Date()`) | context 불필요 |
+| `timestamp` | EventService가 emit 시 자동 생성(`new Date()` 기본) | 호출부 미전달 |
 | `originalEvent` | `extensions.robota.originalEvent` | 변경 없음 |
 
 ### 예시 매핑
@@ -98,7 +98,8 @@
    - 예: Tool 이벤트 → `toolName`, `result.success`; Agent 이벤트 → `statusHistory`, `configVersion`.
 3. **Helper 리팩터링**  
    - `emitExecutionEvent<T extends ExecutionEventData>(...)`, `emitToolEvent<T extends ToolEventData>(...)` 형태로 제너릭을 도입하여 타입 검증.  
-   - helper는 payload 내용에 관여하지 않고 context(ownerPath) 생성에만 집중.
+   - helper는 payload 내용에 관여하지 않고 context(ownerPath) 생성에만 집중.  
+   - ExecutionService/ToolExecutionService/Robota는 owner-bound EventService에 도메인 데이터만 전달하고, 공통 emitWithContext 계층에서 자동 source/timestamp를 주입한다.
 4. **컨텍스트 주도 흐름**  
    - DOM `event.target`처럼, 모든 계층 정보는 `context.ownerPath`에서만 파생.  
    - 핸들러에서 `getOwnerId(ownerPath, 'execution')` 같은 헬퍼를 호출해 ID를 복구.

@@ -295,11 +295,8 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
             const toolExecutor = async (parameters: AbstractToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
                 const finalContext: ToolExecutionContext = context || {
                     executionId: `tool-exec-${Date.now()}`,
-                    sourceId: this.conversationId,
-                    sourceType: 'agent',
-                    executionLevel: 2,
                     toolName: tool.schema.name,
-                    parameters: parameters,
+                    parameters: parameters
                 };
                 const result = await tool.execute(parameters, finalContext);
                 return result.data ?? result;
