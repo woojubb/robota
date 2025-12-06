@@ -187,19 +187,26 @@ const monitoredAgent = new Robota({
 
 ### 🧰 assignTask Tool Collection (team package)
 ```typescript
-import { createAssignTaskRelayTool, listTemplatesTool } from '@robota-sdk/team';
+import { createAssignTaskRelayTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 
-const templates = await listTemplatesTool.execute({});
-const assignTask = createAssignTaskRelayTool({ emit: () => undefined } as any);
+const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
 
-const result = await assignTask.execute({
-    templateId: (templates.data as any)?.templates?.[0]?.id || 'default',
-    jobDescription: 'Research and write about renewable energy trends'
-}, {
-    ownerPath: [{ type: 'tool', id: 'assignTask' }],
-    agentId: 'agent_assign_demo',
-    eventService: { emit: () => undefined }
-} as any);
+const tools = [
+    listTemplatesTool,
+    getTemplateDetailTool,
+    createAssignTaskRelayTool({ emit: () => undefined } as any) // caller must inject ownerPath-bound eventService in real flows
+];
+
+const agent = new Robota({
+    name: 'Assistant',
+    aiProviders: [openaiProvider],
+    defaultModel: { provider: 'openai', model: 'gpt-4' },
+    tools
+});
+
+const result = await agent.run('Research and write about renewable energy trends.');
 ```
 
 ### 🧠 Future: Advanced Planning

@@ -5,7 +5,7 @@ This example demonstrates using different AI providers and models for specialize
 ## Overview
 
 The agent templates example shows how to:
-- Configure specialized agents with different AI providers
+- Configure agents with different AI providers
 - Use provider-specific strengths for optimal task performance
 - Create multi-provider collaboration workflows
 - Template-based agent configurations for reusability
@@ -305,7 +305,7 @@ const coordinatorProvider = new OpenAIProvider({
 
 ### 4. **Multi-Stage Workflow**
 
-Structured handoff between specialized agents:
+Structured handoff between agents:
 
 1. **Research Phase**: Market analysis and data gathering
 2. **Creative Phase**: Innovation and concept development  

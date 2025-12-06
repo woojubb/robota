@@ -627,20 +627,26 @@ const result = await researchChain.execute('Research the impact of AI on educati
 Use the `@robota-sdk/team` package for assignTask MCP tools (legacy team creation removed):
 
 ```typescript
-import { createAssignTaskRelayTool, listTemplatesTool } from '@robota-sdk/team';
+import { createAssignTaskRelayTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 
-const templates = await listTemplatesTool.execute({});
-const assignTask = createAssignTaskRelayTool({ emit: () => undefined } as any);
+const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
 
-const result = await assignTask.execute({
-    templateId: (templates.data as any)?.templates?.[0]?.id || 'default',
-    jobDescription: 'Research the environmental impact of electric vehicles vs gasoline cars.'
-}, {
-    ownerPath: [{ type: 'tool', id: 'assignTask' }],
-    agentId: 'agent_assign_demo',
-    eventService: { emit: () => undefined }
-} as any);
+const tools = [
+    listTemplatesTool,
+    getTemplateDetailTool,
+    createAssignTaskRelayTool({ emit: () => undefined } as any) // caller must inject ownerPath-bound eventService in real flows
+];
 
+const agent = new Robota({
+    name: 'Assistant',
+    aiProviders: [openaiProvider],
+    defaultModel: { provider: 'openai', model: 'gpt-4' },
+    tools
+});
+
+const result = await agent.run('Research the environmental impact of electric vehicles vs gasoline cars.');
 console.log('assignTask result:', result);
 ```
 

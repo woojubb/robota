@@ -82,7 +82,7 @@ const researchSession = sessionManager.createSession({
 Each session can have multiple specialized AI agents:
 
 ```typescript
-// Create specialized agents in the same session
+// Create multiple agents in the same session
 const codingAssistant = await sessionManager.createChat(devSession, {
     name: 'Coding Assistant',
     agentConfig: {
@@ -170,7 +170,7 @@ SessionManager
 ```typescript
 const devSession = sessionManager.createSession({ name: 'Development' });
 
-// Create specialized agents
+// Create multiple agents
 const coder = await sessionManager.createChat(devSession, {
     name: 'Coder',
     agentConfig: {
@@ -250,7 +250,7 @@ const project2 = sessionManager.createSession({
     workspaceId: 'project-beta',
 });
 
-// Each project has its own set of specialized agents
+// Each project has its own set of agents
 const alphaBackend = await sessionManager.createChat(project1, backendConfig);
 const alphaFrontend = await sessionManager.createChat(project1, frontendConfig);
 
@@ -331,7 +331,7 @@ The sessions package is built on top of the agents package:
 
 - **Robota**: Each ChatInstance wraps a Robota agent
 - **AgentFactory**: Used for creating agents with proper configuration
-- **AgentTemplates**: Template system for creating specialized agents
+- **AgentTemplates**: Template system for creating agents
 - **ConversationHistory**: Leverages the agents package history management
 
 ## 🎯 What's NOT Included

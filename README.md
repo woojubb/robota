@@ -103,37 +103,32 @@ const response = await robota.run('Hello! How can I help you today?');
 console.log(response);
 ```
 
-### Multi-Agent Team Collaboration
+### assignTask MCP Tool Collection
 
 ```typescript
-import { createTeam } from '@robota-sdk/team';
+import { createAssignTaskRelayTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
 import { OpenAIProvider } from '@robota-sdk/openai';
-import { AnthropicProvider } from '@robota-sdk/anthropic';
 
 const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
-const anthropicProvider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// Create a team with intelligent delegation capabilities
-const team = await createTeam({
-    aiProviders: [openaiProvider, anthropicProvider],
-    maxMembers: 5,
-    maxTokenLimit: 50000,
-    logger: console,
-    debug: true
+// Tools exposed to the agent (assignTask + template queries)
+const tools = [
+    listTemplatesTool,
+    getTemplateDetailTool,
+    createAssignTaskRelayTool(/* pass bound eventService here */)
+];
+
+const robota = new Robota({
+    name: 'Assistant',
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4'
+    },
+    tools
 });
 
-// The team automatically delegates complex tasks to specialized agents
-const response = await team.execute(`
-    Create a comprehensive business plan for a coffee shop startup. 
-    Include: 1) Market analysis, 2) Menu design, 3) Financial projections
-`);
-
-// Task coordinator intelligently analyzes the request and automatically:
-// - Selects domain_researcher template for market analysis
-// - Selects creative_ideator template for menu design  
-// - Selects fast_executor template for financial projections
-// - Synthesizes all results into a comprehensive business plan
-
+const response = await robota.run('Create a business plan draft for a coffee shop.');
 console.log(response);
 ```
 

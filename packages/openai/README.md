@@ -404,7 +404,7 @@ MIT License - see LICENSE file for details.
 - **[@robota-sdk/agents](../agents/)**: Core agent framework
 - **[@robota-sdk/anthropic](../anthropic/)**: Anthropic Claude provider
 - **[@robota-sdk/google](../google/)**: Google AI provider
-- **[@robota-sdk/team](../team/)**: Multi-agent collaboration
+- **[@robota-sdk/team](../team/)**: assignTask MCP tool collection (legacy team creation removed)
 
 ---
 

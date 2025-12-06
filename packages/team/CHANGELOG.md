@@ -1,4 +1,4 @@
-# @robota-sdk/team
+# @robota-sdk/team (assignTask MCP tool collection; legacy team creation removed)
 
 ## 2.0.9
 

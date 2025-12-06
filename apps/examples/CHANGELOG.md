@@ -49,7 +49,7 @@
   - @robota-sdk/agents@2.0.9
   - @robota-sdk/google@2.0.9
   - @robota-sdk/openai@2.0.9
-  - @robota-sdk/team@2.0.9
+  - @robota-sdk/team@2.0.9 (assignTask MCP tool collection)
 
 ## 1.0.8
 
@@ -120,7 +120,7 @@
   - @robota-sdk/agents@2.0.8
   - @robota-sdk/google@2.0.8
   - @robota-sdk/openai@2.0.8
-  - @robota-sdk/team@2.0.8
+  - @robota-sdk/team@2.0.8 (assignTask MCP tool collection)
 
 ## 1.0.7
 
@@ -142,7 +142,7 @@
   - @robota-sdk/agents@2.0.7
   - @robota-sdk/openai@2.0.7
   - @robota-sdk/google@2.0.7
-  - @robota-sdk/team@2.0.7
+  - @robota-sdk/team@2.0.7 (assignTask MCP tool collection)
 
 ## 1.0.6
 
@@ -163,7 +163,7 @@
   - @robota-sdk/anthropic@2.0.6
   - @robota-sdk/google@2.0.6
   - @robota-sdk/openai@2.0.6
-  - @robota-sdk/team@2.0.6
+  - @robota-sdk/team@2.0.6 (assignTask MCP tool collection)
 
 ## 1.0.5
 
@@ -175,7 +175,7 @@
   - @robota-sdk/agents@2.0.5
   - @robota-sdk/google@2.0.5
   - @robota-sdk/openai@2.0.5
-  - @robota-sdk/team@2.0.5
+  - @robota-sdk/team@2.0.5 (assignTask MCP tool collection)
 
 ## 1.0.4
 
@@ -187,7 +187,7 @@
   - @robota-sdk/agents@2.0.4
   - @robota-sdk/google@2.0.4
   - @robota-sdk/openai@2.0.4
-  - @robota-sdk/team@2.0.4
+  - @robota-sdk/team@2.0.4 (assignTask MCP tool collection)
 
 ## 1.0.3
 
@@ -197,7 +197,7 @@
 - @robota-sdk/openai@2.0.3
 - @robota-sdk/anthropic@2.0.3
 - @robota-sdk/google@2.0.3
-- @robota-sdk/team@2.0.3
+  - @robota-sdk/team@2.0.3 (assignTask MCP tool collection)
 
 ## 1.0.2
 
@@ -209,7 +209,7 @@
   - @robota-sdk/anthropic@2.0.2
   - @robota-sdk/google@2.0.2
   - @robota-sdk/openai@2.0.2
-  - @robota-sdk/team@2.0.2
+  - @robota-sdk/team@2.0.2 (assignTask MCP tool collection)
 
 ## 1.0.1
 
@@ -221,7 +221,7 @@
   - @robota-sdk/anthropic@2.0.1
   - @robota-sdk/google@2.0.1
   - @robota-sdk/openai@2.0.1
-  - @robota-sdk/team@2.0.1
+  - @robota-sdk/team@2.0.1 (assignTask MCP tool collection)
 
 ## 1.0.0
 
@@ -260,7 +260,7 @@
   - @robota-sdk/openai@2.0.0
   - @robota-sdk/anthropic@2.0.0
   - @robota-sdk/google@2.0.0
-  - @robota-sdk/team@2.0.0
+  - @robota-sdk/team@2.0.0 (assignTask MCP tool collection)
 
 ## 0.1.26
 
@@ -273,7 +273,7 @@
   - @robota-sdk/openai@1.0.5
   - @robota-sdk/tools@1.0.5
   - @robota-sdk/core@1.0.5
-  - @robota-sdk/team@1.0.5
+  - @robota-sdk/team@1.0.5 (assignTask MCP tool collection)
   - @robota-sdk/google@1.0.5
 
 ## 0.1.25
@@ -287,7 +287,7 @@
   - @robota-sdk/google@1.0.4
   - @robota-sdk/tools@1.0.4
   - @robota-sdk/sessions@1.0.4
-  - @robota-sdk/team@1.0.4
+  - @robota-sdk/team@1.0.4 (assignTask MCP tool collection)
 
 ## 0.1.24
 

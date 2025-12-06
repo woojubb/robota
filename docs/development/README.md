@@ -110,7 +110,7 @@ pnpm test
 @robota-sdk/openai         # OpenAI provider implementation
 @robota-sdk/anthropic      # Anthropic provider implementation
 @robota-sdk/google         # Google AI provider implementation
-@robota-sdk/team           # Multi-agent collaboration
+@robota-sdk/team           # assignTask MCP tool collection (legacy team creation removed)
 @robota-sdk/sessions       # Session management
 ```
 

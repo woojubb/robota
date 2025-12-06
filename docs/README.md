@@ -40,7 +40,7 @@ A powerful TypeScript library for building AI agents with multi-provider support
 
 - **Multi-Provider Support**: OpenAI, Anthropic, Google AI with seamless switching
 - **Cross-Platform Compatibility**: Node.js, browsers, WebWorkers support
-- **Multi-Agent Teams**: Create collaborative AI teams with specialized roles using `@robota-sdk/team`
+- **assignTask MCP Tools**: Use `@robota-sdk/team` for assignTask tool collection (legacy team creation removed)
 - **Type-Safe Function Calling**: Zod schemas and tool integration
 - **Plugin System**: Extensible architecture with conversation history, analytics, and error handling plugins
 - **Streaming Support**: Real-time responses from all providers
@@ -71,26 +71,32 @@ const response = await robota.run('Hello! How can I help you today?');
 console.log(response);
 ```
 
-### assignTask Tool Collection (team package)
+### assignTask MCP Tool Collection (team package)
 ```typescript
-import { createAssignTaskRelayTool, listTemplatesTool } from '@robota-sdk/team';
+import { createAssignTaskRelayTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 
-// list available templates
-const templates = await listTemplatesTool.execute({});
+const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
 
-// create assignTask tool (eventService is injected by caller in real flows)
-const assignTask = createAssignTaskRelayTool({ emit: () => undefined } as any);
+const tools = [
+    listTemplatesTool,
+    getTemplateDetailTool,
+    // NOTE: eventService must be ownerPath-bound by the caller in real flows
+    createAssignTaskRelayTool({ emit: () => undefined } as any)
+];
 
-// execute assignTask (example; real usage wires ownerPath/eventService from caller)
-const result = await assignTask.execute({
-    templateId: (templates.data as any)?.templates?.[0]?.id || 'default',
-    jobDescription: 'Summarize the advantages of TypeScript for large codebases.'
-}, {
-    ownerPath: [{ type: 'tool', id: 'assignTask' }],
-    agentId: 'agent_assign_demo',
-    eventService: { emit: () => undefined }
-} as any);
+const robota = new Robota({
+    name: 'Assistant',
+    aiProviders: [openaiProvider],
+    defaultModel: {
+        provider: 'openai',
+        model: 'gpt-4'
+    },
+    tools
+});
 
+const result = await robota.run('Summarize the advantages of TypeScript for large codebases.');
 console.log(result);
 ```
 
@@ -164,7 +170,7 @@ npm install @robota-sdk/team
 **assignTask Tool Collection**
 - MCP-style tools: listTemplateCategories, listTemplates, getTemplateDetail, assignTask
 - Built-in templates stored in package JSON
-- No legacy team creation; use Robota agents + assignTask tools instead
+- Legacy team creation removed; use Robota agents + assignTask tools instead
 
 ## Documentation
 
@@ -173,7 +179,7 @@ npm install @robota-sdk/team
 - **[Guide](guide/)** - Core concepts and advanced features
 - **[AI Providers](providers/)** - OpenAI, Anthropic, Google AI configuration
 - **[Examples](examples/)** - Comprehensive examples and tutorials
-- **[Team Collaboration](team.md)** - Multi-agent team setup and workflows
+- **[assignTask Tooling](team.md)** - assignTask MCP tool collection (legacy team creation removed)
 - **[Protocols](protocols/)** - Model Context Protocol and integrations
 
 ### For Developers
