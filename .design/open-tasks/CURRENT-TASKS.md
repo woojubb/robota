@@ -31,10 +31,12 @@
    - [x] 외부 re-export(`ContextualEventService` 등) deprecated 공지 및 향후 제거 계획 추가
    - [x] 기본 `EventService`에 `emit(eventType, payload, context)` 시그니처 표준화
    - [ ] `SilentEventService` 제거 및 추상 클래스화
-     - [ ] `EventService`를 interface → `AbstractEventService` 기반 추상 클래스로 승격
+     - [x] `DEFAULT_ABSTRACT_EVENT_SERVICE` 도입 및 `DEFAULT_EVENT_SERVICE`를 deprecated alias로 전환
+     - [x] DI 기본값을 Abstract no-op으로 교체 (agents/core/robota, execution-service, team container, sub-agent relay, assign-task, create-team)
+     - [ ] Tools/Playground DI 전환 잔여
      - [ ] `SilentEventService` 파일 삭제: `AbstractEventService`가 기본 no-op 구현을 내장하고, 필요 시 `DEFAULT_ABSTRACT_EVENT_SERVICE` 상수로 제공
-     - [ ] 모든 DI 지점(Agents/ExecutionService/Tools/Team/Playground)이 디폴트 EventService 생성 시 새 추상 클래스를 사용하도록 전환
      - [ ] 문서/코드에 "SilentEventService는 deprecated, 추후 삭제" 주석 추가
+     - [ ] Context binder 규약 적용: `bindWithOwnerPath` 단일 헬퍼 도입, createContextBoundInstance 단순화, 필수 필드 미제공 시 throw(노-폴백), prefix/ID 파싱/캐시 금지 규칙 명문화 (문서 추가 완료)
 2. **Context 구조 도입**
    - [ ] `OwnerType`, `OwnerPathSegment` 타입 정의 (`type`, `id?`)
    - [ ] EventService clone 시 `ownerPath`(부모→자식) 자동 append 로직 구현
@@ -755,12 +757,90 @@ export class ActionTrackingEventService implements EventService {
 - Fork/Join Path-Only 기초 완성, 정리 필요
 - Tools DnD UI 작업 대기
 - Pricing 제거는 독립적으로 진행 가능
+- 2025-12-06: DEFAULT_ABSTRACT_EVENT_SERVICE 전환 및 ActionTracking 생성 제거(create-team); agents/team 빌드 성공; 예제 26 실행은 지시사항에 따라 스킵
 
 **다음 단계**:
 1. Agent Event Normalization 단계 3, 6.5, 6.6 완료
 2. Fork/Join Path-Only 검증 스크립트 자동화
 3. Tools DnD UI 구현 시작
 4. Pricing 제거 (병렬 작업 가능)
+
+## 🚫 Priority 0: Team 패키지 완전 제거 (assignTool 기반 대체)
+
+### 목표
+- deprecated 상태인 `@robota-sdk/team` 패키지를 워크스페이스에서 완전히 삭제하고, 모든 소비자를 내부 MCP `assignTool` 기반 흐름으로 마이그레이션한다.
+
+### 작업 항목
+1. **참조 인벤토리 확정 (리스트+담당)**
+   - [ ] 코드 (Web/Playground): `apps/web/src/lib/playground/robota-executor.ts`, `playground-team-integration.ts`, `apps/web/src/tools/assign-task/index.ts`, team 전용 UI/상태
+   - [ ] 코드 (SDK/패키지): `rg "@robota-sdk/team"` 전수 후 경로/분류(코드/예제/문서/설정) 테이블화, SubAgentEventRelay·team prefix 이벤트 의존 식별
+   - [ ] 예제: `apps/examples/05/06/07 team-*`, `26-playground-edge-verification.ts`(및 archive), 기타 team 사용 예제 목록화
+   - [ ] 문서/설정: `docs/**`, `packages/*/docs/**`, README 계열, api-reference(team), 빌드 스크립트, pnpm workspace, tsconfig paths, root/app package.json 의존
+   - 스캔 결과(초안):
+     | 분류 | 주요 경로 |
+     | --- | --- |
+     | 코드-Web/Playground | `apps/web/src/lib/playground/robota-executor.ts`, `apps/web/src/lib/playground/playground-team-integration.ts`, `apps/web/src/tools/assign-task/index.ts` |
+     | 코드-SDK/패키지 | `packages/workflow/DEVELOPMENT_PLAN.md` (의존 명시), `packages/workflow/package.json`, `packages/agents/docs/*` 등 |
+     | 예제 | `apps/examples/05/06/07 team-*`, `apps/examples/26-playground-edge-verification.ts`, `apps/examples/archive/26-...` |
+     | 문서/README | `docs/**` 전역, 루트 `README.md`, `packages/*/README.md`, `packages/team/docs/**` |
+     | 설정 | `package.json` (root build 스크립트), `pnpm-lock.yaml`, `apps/examples/package.json`, `packages/workflow/package.json`, `apps/web/package.json` |
+
+2. **마이그레이션 전략 (team → assignTool MCP) 세부**
+   - Web/Playground:
+     - [ ] `createTeam`/TeamContainer 호출 제거 → Robota 단일 agent + `assignTool` MCP 호출 플로우로 교체
+     - [ ] team 전용 상태/스토어/에러/토글 UI 제거, assignTool 호출 결과 표시로 단순화
+     - [ ] assignTool 호출/응답 표시 플로우를 시퀀스/다이어그램으로 문서화
+     - [ ] 주의: `createTeam`은 `@robota-sdk/team` 내부 팩토리로 assignTask(도구) 주입을 포함하지만 team 패키지 의존을 완전히 제거하지 못하므로, 모든 호출부를 단일 Robota + assignTool(MCP) 직접 호출로 교체해야 함
+     - [ ] 얇은 어댑터(신규 모듈) 설계: 단일 Robota + assignTool 호출만 캡슐화, ownerPath-only/노-폴백/하드코딩 prefix 금지, source/timestamp 자동 주입만 허용
+     - [ ] 요구 표면 캡처: Playground `robota-executor.ts`/`playground-team-integration.ts`가 필요로 하는 기능(생성, execute, 도구 주입/추적)에 맞춰 최소 인터페이스 정의
+       - 생성: aiProviders, eventService 주입으로 세션 생성/초기화
+       - 실행: `execute(prompt)`(string 입력 → string 응답) 단일 엔트리; 히스토리/통계 훅 호출 가능
+       - 도구 주입: assignTool(assignTask MCP FunctionTool) 생성 지원, 필요한 경우 추가 MCP 도구 주입 훅
+       - 추적: blockCollector/toolFactory와 연동 가능한 콜백/옵션 제공(단, ownerPath-only, 노-폴백)
+       - 노출: getTeamContainer/getAvailableTools 같은 team 전용 API는 제거, 최소 어댑터 API로 단순화
+     - [ ] 파일별 교체 계획:
+       - `apps/web/src/lib/playground/robota-executor.ts`: PlaygroundTeamInstance 제거, 어댑터 주입으로 실행/도구 주입/통계/히스토리 훅 연결
+       - `apps/web/src/lib/playground/playground-team-integration.ts`: createTeam 흐름 제거, 어댑터 기반 blockCollector/toolFactory 연동으로 단순화
+       - `apps/web/src/tools/assign-task/index.ts`: `@robota-sdk/team` assignTask 툴 의존 제거 → 어댑터/로컬 MCP assignTask FunctionTool 생성으로 교체
+       - UI 상태/토글/에러 처리: team 전용 분기 제거, assignTask 호출 결과 표시만 남김
+   - 어댑터 설계 초안(메모):
+     - 인터페이스: `createSession({ aiProviders, eventService }): Adapter`, Adapter는 `execute(prompt): Promise<string>` + `injectAssignTaskTool(opts?): FunctionTool`(필요 시) + 선택적 추적 콜백 훅
+     - 규칙: ownerPath-only, source/timestamp 자동 주입, prefix/ID 파싱/캐시/노-폴백 금지
+     - 반환/에러: 명시적 오류 전달, fallback 무
+    - Relay MCP Tool 원칙 (assignTask 포함한 third-party 도구 전반):
+      - ToolExecutionService가 tool 세그먼트까지 포함된 ownerPath 바인딩 eventService를 넘기고, Relay MCP Tool은 추가 clone/context 없이 이를 사용한다.
+      - Relay MCP Tool 내부에서 Robota agent를 생성할 때 전달받은 ownerPath에 `{ type: 'agent', id: agentId }`만 append하여 주입한다. 그 외 세그먼트 추론/파싱/접두어 주입 금지.
+      - 이벤트/계층 정보는 상위 바운드 eventService가 자동 처리하며, payload에 계층/타임스탬프 수동 주입 금지. prefix/ID 파싱/캐시/지연 연결/폴백 금지.
+      - assignTask 등 특정 도구 지식 없이 MCP 스키마/파라미터만으로 처리하며, 템플릿 등 추가 데이터는 외부 주입에 의존한다.
+    - assignTask 취급 원칙 (명문화):
+      - assignTask는 완전한 third-party MCP tool로 간주하며, 에이전트/시스템은 사전 지식이나 특수 분기 없이 도구 스키마/파라미터만으로 처리해야 한다.
+      - 템플릿/매개변수는 MCP tool 파라미터 또는 생성 시 외부 주입으로 전달하며, 호출부가 ownerPath 바인딩된 eventService만 제공한다.
+      - 필요 시 팀 패키지 제거 후 assignTask를 별도 패키지/모듈로 분리하여 third-party 성격을 명확히 한다.
+   - 예제:
+     - [ ] team 전용 예제(05/06/07/26 등) → 폐기 또는 assignTool 기반 재작성 결정안 사전 확정(예: 05/06/07 폐기, 26 재작성 여부 판단)
+     - [ ] guard/검증 스크립트에서 team 의존 경로 제거/스킵 규칙 명시
+   - SDK/에이전트:
+     - [ ] team 전용 헬퍼(SubAgentEventRelay 등) 제거 대상 식별, assignTool 경로로 치환 여부 판단
+   - 이벤트/경로:
+     - [ ] team prefix 이벤트 전면 제거, ownerPath-only 유지
+     - [ ] assignTool 호출이 tool/agent 이벤트만 사용하도록 점검
+
+3. **의존성 제거 (순서 명시)**
+   - [ ] `rg "@robota-sdk/team"` 전수 결과 기반 import 제거 계획 수립 (경로/분류 테이블 활용)
+   - [ ] 코드 치환 → pnpm workspace/root/apps package.json/tsconfig paths 정리 → lockfile 정리 → 빌드 순으로 진행
+   - [ ] 코드 치환: assignTool/Robota 단일 agent 패턴으로 교체
+
+4. **패키지 삭제**
+   - [ ] `packages/team` 디렉터리 삭제(코드/README/docs/CHANGELOG 포함)
+   - [ ] lockfile 정리
+
+5. **검증**
+   - [ ] `pnpm --filter @robota-sdk/agents build` 및 영향 패키지 빌드
+   - [ ] apps/web smoke (team 기능 제거 후 기본 흐름)
+   - [ ] 예제 실행: team 제거 대상은 스킵/삭제, 나머지 예제 정상 동작 확인
+
+6. **차단책**
+   - [ ] 신규 `@robota-sdk/team` import 유입 방지 가이드/체크 추가 (lint/rg 명시, CI/pre-commit에서 `rg "@robota-sdk/team"` 0건 확인)
 
 **2025-11-30 업데이트**
 - ExecutionService가 ownerPath 기반 `emit(eventType, payload, context)` 패턴으로 전환되었고 `ActionTrackingEventService` clone/ownerPrefix 의존성이 제거되었습니다.
