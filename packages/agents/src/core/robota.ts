@@ -12,7 +12,7 @@ import { ExecutionService } from '../services/execution-service';
 import { AGENT_EVENTS } from '../agents/constants';
 import {
     EventService,
-    DEFAULT_EVENT_SERVICE,
+    DEFAULT_ABSTRACT_EVENT_SERVICE,
     isDefaultEventService,
     EventContext,
     OwnerPathSegment,
@@ -224,7 +224,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
         // Initialize EventService
         // If parent provided EventService, use it directly
         // Otherwise, fall back to default no-op EventService
-        this.eventService = config.eventService || DEFAULT_EVENT_SERVICE;
+        this.eventService = config.eventService || DEFAULT_ABSTRACT_EVENT_SERVICE;
         this.eventService = bindEventServiceOwner(this.eventService, {
             ownerType: 'agent',
             ownerId: this.conversationId,

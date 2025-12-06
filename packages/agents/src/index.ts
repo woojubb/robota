@@ -306,8 +306,10 @@ export {
     EventContext,
     OwnerPathSegment,
     AbstractEventService,
+    DEFAULT_ABSTRACT_EVENT_SERVICE,
     DEFAULT_EVENT_SERVICE,
     isDefaultEventService,
+    bindEventServiceOwner,
     DefaultEventService,
     StructuredEventService,
     /**

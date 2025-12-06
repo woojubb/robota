@@ -10,7 +10,7 @@ import { Logger, createLogger } from '../utils/logger';
 import { ChatOptions, ToolCall } from '../interfaces/provider';
 import {
     EventService,
-    DEFAULT_EVENT_SERVICE,
+    DEFAULT_ABSTRACT_EVENT_SERVICE,
     isDefaultEventService,
     EventContext,
     OwnerPathSegment,
@@ -161,7 +161,7 @@ export class ExecutionService {
         this.conversationHistory = conversationHistory;
         this.plugins = [];
         this.logger = createLogger('ExecutionService');
-        this.baseEventService = eventService || DEFAULT_EVENT_SERVICE;
+        this.baseEventService = eventService || DEFAULT_ABSTRACT_EVENT_SERVICE;
         this.executionContext = executionContext; // 🎯 [CONTEXT-INJECTION] Store parent context
         this.ownerPathBase = this.buildBaseOwnerPath(executionContext);
         this.toolEventServices = new Map();

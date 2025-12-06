@@ -1,6 +1,6 @@
 import { TeamContainer } from './team-container';
 import type { TeamContainerOptions, TeamOptions } from './types';
-import { ActionTrackingEventService, DEFAULT_EVENT_SERVICE, Robota } from '@robota-sdk/agents';
+import { DEFAULT_ABSTRACT_EVENT_SERVICE, bindEventServiceOwner } from '@robota-sdk/agents';
 
 /**
  * Create a Multi-Agent Team with Template-Based Configuration
@@ -76,9 +76,15 @@ export function createTeam(options: TeamOptions): TeamContainer {
     const defaultProvider = options.aiProviders[0]!;
     const defaultModel = getDefaultModelForProvider(defaultProvider.name) || 'gpt-4o-mini';
 
-    // Create EventService (ActionTrackingEventService)
-    // Context extractors are not used; context should be passed explicitly when needed
-    const eventService = options.eventService || new ActionTrackingEventService(DEFAULT_EVENT_SERVICE);
+    // Create EventService with a team-bound no-op default for ownerPath consistency
+    const baseEventService = options.eventService || DEFAULT_ABSTRACT_EVENT_SERVICE;
+    const eventService = bindEventServiceOwner(baseEventService, {
+        ownerType: 'team',
+        ownerId: 'team-base',
+        ownerPath: [{ type: 'team', id: 'team-base' }],
+        sourceType: 'team',
+        sourceId: 'team-base'
+    });
 
     // Convert to full TeamContainerOptions using new API format
     const fullOptions: TeamContainerOptions = {
