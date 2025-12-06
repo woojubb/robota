@@ -6,7 +6,6 @@ import {
     type BlockCollectionEvent
 } from '@/lib/playground/block-tracking';
 import { UniversalToolFactory } from '@/lib/playground/universal-tool-factory';
-import { PlaygroundTeamIntegration } from '@/lib/playground/playground-team-integration';
 import type { SimpleLogger } from '@robota-sdk/agents';
 
 /**
@@ -32,9 +31,6 @@ export interface UseBlockTrackingResult {
 
     /** Universal tool factory for creating tracked tools */
     toolFactory: UniversalToolFactory;
-
-    /** Team integration for tracked team operations */
-    teamIntegration: PlaygroundTeamIntegration;
 
     /** Current blocks */
     blocks: BlockMessage[];
@@ -66,7 +62,6 @@ export function useBlockTracking(options: UseBlockTrackingOptions = {}): UseBloc
     // Stable references
     const blockCollectorRef = useRef<PlaygroundBlockCollector | null>(null);
     const toolFactoryRef = useRef<UniversalToolFactory | null>(null);
-    const teamIntegrationRef = useRef<PlaygroundTeamIntegration | null>(null);
 
     // State
     const [blocks, setBlocks] = useState<BlockMessage[]>([]);
@@ -97,12 +92,6 @@ export function useBlockTracking(options: UseBlockTrackingOptions = {}): UseBloc
             });
         }
 
-        if (!teamIntegrationRef.current) {
-            teamIntegrationRef.current = new PlaygroundTeamIntegration({
-                blockCollector: blockCollectorRef.current,
-                logger
-            });
-        }
     }, [logger]);
 
     // Update blocks and stats
@@ -157,7 +146,6 @@ export function useBlockTracking(options: UseBlockTrackingOptions = {}): UseBloc
     return {
         blockCollector: blockCollectorRef.current!,
         toolFactory: toolFactoryRef.current!,
-        teamIntegration: teamIntegrationRef.current!,
         blocks,
         stats,
         clearBlocks,
@@ -199,24 +187,4 @@ export function useTrackedTools(blockTracking: UseBlockTrackingResult) {
 /**
  * Hook for team operations with block tracking
  */
-export function useTrackedTeam(blockTracking: UseBlockTrackingResult) {
-    const { teamIntegration } = blockTracking;
-
-    const createTeam = useCallback(async (options: any) => {
-        return await teamIntegration.createTrackedTeam(options);
-    }, [teamIntegration]);
-
-    const executeTask = useCallback(async (team: any, task: string, options: any = {}) => {
-        return await teamIntegration.executeTeamTask(team, task, options);
-    }, [teamIntegration]);
-
-    const getTeamStats = useCallback(() => {
-        return teamIntegration.getTeamStats();
-    }, [teamIntegration]);
-
-    return {
-        createTeam,
-        executeTask,
-        getTeamStats
-    };
-} 
+// Team tracking hooks removed (team feature removed)

@@ -16,7 +16,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { usePlayground } from '@/contexts/playground-context';
-import type { PlaygroundExecutionResult, PlaygroundAgentConfig, PlaygroundTeamConfig } from '@/lib/playground/robota-executor';
+import type { PlaygroundExecutionResult, PlaygroundAgentConfig } from '@/lib/playground/robota-executor';
 
 export type ExecutionState = 'idle' | 'initializing' | 'running' | 'streaming' | 'error' | 'completed';
 
@@ -29,8 +29,7 @@ export interface RobotaExecutionHookReturn {
 
     // Current Configuration
     currentAgentConfig: PlaygroundAgentConfig | null;
-    currentTeamConfig: PlaygroundTeamConfig | null;
-    currentMode: 'agent' | 'team';
+    currentMode: 'agent';
 
     // Execution Results
     lastResult: PlaygroundExecutionResult | null;
@@ -47,7 +46,6 @@ export interface RobotaExecutionHookReturn {
 
     // Actions
     createAgent: (config: PlaygroundAgentConfig) => Promise<void>;
-    createTeam: (config: PlaygroundTeamConfig) => Promise<void>;
     executePrompt: (prompt: string) => Promise<PlaygroundExecutionResult>;
     executeStreamPrompt: (prompt: string, onChunk?: (chunk: string) => void) => Promise<PlaygroundExecutionResult>;
     retryLastExecution: () => Promise<PlaygroundExecutionResult | null>;
@@ -60,15 +58,13 @@ export interface RobotaExecutionHookReturn {
 
     // Configuration Helpers
     getDefaultAgentConfig: () => PlaygroundAgentConfig;
-    getDefaultTeamConfig: () => PlaygroundTeamConfig;
-    validateConfiguration: (config: PlaygroundAgentConfig | PlaygroundTeamConfig) => { isValid: boolean; errors: string[] };
+    validateConfiguration: (config: PlaygroundAgentConfig) => { isValid: boolean; errors: string[] };
 }
 
 export function useRobotaExecution(): RobotaExecutionHookReturn {
     const {
         state,
         createAgent: contextCreateAgent,
-        createTeam: contextCreateTeam,
         executePrompt: contextExecutePrompt,
         executeStreamPrompt: contextExecuteStreamPrompt
     } = usePlayground();
@@ -88,7 +84,7 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
     // Derived state
     const isExecuting = state.isExecuting || executionState === 'running' || executionState === 'streaming';
     const isStreaming = executionState === 'streaming';
-    const canExecute = state.isInitialized && !isExecuting && Boolean(state.currentAgentConfig || state.currentTeamConfig);
+    const canExecute = state.isInitialized && !isExecuting && Boolean(state.currentAgentConfig);
 
     // Debug log for canExecute (only when values change)
     useEffect(() => {
@@ -96,11 +92,10 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
             isInitialized: state.isInitialized,
             isExecuting: isExecuting,
             hasAgentConfig: !!state.currentAgentConfig,
-            hasTeamConfig: !!state.currentTeamConfig,
             canExecute: canExecute,
             executionState: executionState
         });
-    }, [state.isInitialized, isExecuting, state.currentAgentConfig, state.currentTeamConfig, canExecute, executionState]);
+    }, [state.isInitialized, isExecuting, state.currentAgentConfig, canExecute, executionState]);
 
     // Performance metrics
     const averageExecutionTime = executionHistory.length > 0
@@ -159,22 +154,6 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
             throw error;
         }
     }, [contextCreateAgent]);
-
-    const createTeam = useCallback(async (config: PlaygroundTeamConfig) => {
-        try {
-            setExecutionState('initializing');
-            setLastError(null);
-
-            await contextCreateTeam(config);
-
-            setExecutionState('idle');
-        } catch (error) {
-            setExecutionState('error');
-            setLastError(error instanceof Error ? error : new Error(String(error)));
-            setErrorCount(prev => prev + 1);
-            throw error;
-        }
-    }, [contextCreateTeam]);
 
     const executePrompt = useCallback(async (prompt: string): Promise<PlaygroundExecutionResult> => {
         if (!canExecute) {
@@ -303,45 +282,19 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
         };
     }, []);
 
-    const getDefaultTeamConfig = useCallback((): PlaygroundTeamConfig => {
-        return {
-            name: 'New Team',
-            agents: [getDefaultAgentConfig()],
-            workflow: {
-                coordinator: 'round-robin'
-            }
-        };
-    }, [getDefaultAgentConfig]);
-
-    const validateConfiguration = useCallback((config: PlaygroundAgentConfig | PlaygroundTeamConfig): { isValid: boolean; errors: string[] } => {
+    const validateConfiguration = useCallback((config: PlaygroundAgentConfig): { isValid: boolean; errors: string[] } => {
         const errors: string[] = [];
 
         if (!config.name || config.name.trim().length === 0) {
             errors.push('Name is required');
         }
 
-        if ('aiProviders' in config) {
-            // Agent config validation
-            if (!config.aiProviders || config.aiProviders.length === 0) {
-                errors.push('At least one AI provider is required');
-            }
+        if (!config.aiProviders || config.aiProviders.length === 0) {
+            errors.push('At least one AI provider is required');
+        }
 
-            if (!config.defaultModel || !config.defaultModel.provider || !config.defaultModel.model) {
-                errors.push('Default model configuration is required');
-            }
-        } else {
-            // Team config validation
-            if (!config.agents || config.agents.length === 0) {
-                errors.push('At least one agent is required in a team');
-            }
-
-            // Validate each agent in the team
-            config.agents.forEach((agent, index) => {
-                const agentValidation = validateConfiguration(agent);
-                if (!agentValidation.isValid) {
-                    errors.push(`Agent ${index + 1}: ${agentValidation.errors.join(', ')}`);
-                }
-            });
+        if (!config.defaultModel || !config.defaultModel.provider || !config.defaultModel.model) {
+            errors.push('Default model configuration is required');
         }
 
         return {
@@ -371,7 +324,6 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
 
         // Current Configuration
         currentAgentConfig: state.currentAgentConfig,
-        currentTeamConfig: state.currentTeamConfig,
         currentMode: state.mode,
 
         // Execution Results
@@ -389,7 +341,6 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
 
         // Actions
         createAgent,
-        createTeam,
         executePrompt,
         executeStreamPrompt,
         retryLastExecution,
@@ -402,7 +353,6 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
 
         // Configuration Helpers
         getDefaultAgentConfig,
-        getDefaultTeamConfig,
         validateConfiguration
     };
 } 

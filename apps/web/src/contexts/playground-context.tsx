@@ -14,7 +14,7 @@
  */
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode, useRef } from 'react';
-import { PlaygroundExecutor, type PlaygroundExecutionResult, type PlaygroundAgentConfig, type PlaygroundTeamConfig, type PlaygroundMode, type ConversationEvent, type VisualizationData } from '@/lib/playground/robota-executor';
+import { PlaygroundExecutor, type PlaygroundExecutionResult, type PlaygroundAgentConfig, type PlaygroundMode, type ConversationEvent, type VisualizationData } from '@/lib/playground/robota-executor';
 import { DefaultConsoleLogger } from '@robota-sdk/agents';
 // Import Universal types from their proper location (Feature Ownership principle)
 import type { UniversalWorkflowStructure } from '@robota-sdk/agents';
@@ -31,10 +31,8 @@ export interface PlaygroundState {
     mode: PlaygroundMode;
     // Deprecated single-slot configs (kept for selection-only semantics)
     currentAgentConfig: PlaygroundAgentConfig | null;
-    currentTeamConfig: PlaygroundTeamConfig | null;
     // New multi-entity arrays
     agentConfigs: PlaygroundAgentConfig[];
-    teamConfigs: PlaygroundTeamConfig[];
 
     // Conversation state
     conversationHistory: ConversationEvent[];
@@ -67,7 +65,6 @@ export interface PlaygroundState {
         uiInteractions: 0,
         streamingExecutions: 0,
         agentModeExecutions: 0,
-        teamModeExecutions: 0,
         successRate: 100
     };
 }
@@ -76,11 +73,8 @@ export type PlaygroundAction =
     | { type: 'SET_EXECUTOR'; payload: PlaygroundExecutor | null }
     | { type: 'SET_INITIALIZED'; payload: boolean }
     | { type: 'SET_AGENT_CONFIG'; payload: PlaygroundAgentConfig | null }
-    | { type: 'SET_TEAM_CONFIG'; payload: PlaygroundTeamConfig | null }
     | { type: 'ADD_AGENT_CONFIG'; payload: PlaygroundAgentConfig }
     | { type: 'UPDATE_AGENT_CONFIG'; payload: { index: number; config: PlaygroundAgentConfig } }
-    | { type: 'ADD_TEAM_CONFIG'; payload: PlaygroundTeamConfig }
-    | { type: 'UPDATE_TEAM_CONFIG'; payload: { index: number; config: PlaygroundTeamConfig } }
     | { type: 'SET_EXECUTING'; payload: boolean }
     | { type: 'SET_WEBSOCKET_CONNECTED'; payload: boolean }
     | { type: 'SET_AUTH'; payload: { userId?: string; sessionId?: string; authToken?: string } }
@@ -104,9 +98,7 @@ const initialState: PlaygroundState = {
     isExecuting: false,
     mode: 'agent',
     currentAgentConfig: null,
-    currentTeamConfig: null,
     agentConfigs: [],
-    teamConfigs: [],
     conversationHistory: [],
     lastExecutionResult: null,
     isWebSocketConnected: false,
@@ -131,7 +123,6 @@ const initialState: PlaygroundState = {
         uiInteractions: 0,
         streamingExecutions: 0,
         agentModeExecutions: 0,
-        teamModeExecutions: 0,
         successRate: 100
     }
 };
@@ -172,13 +163,6 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
                 mode: 'agent'
             };
 
-        case 'SET_TEAM_CONFIG':
-            return {
-                ...state,
-                currentTeamConfig: action.payload,
-                mode: 'team'
-            };
-
         case 'ADD_AGENT_CONFIG':
             return {
                 ...state,
@@ -191,20 +175,6 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
             return {
                 ...state,
                 agentConfigs: state.agentConfigs.map((cfg, i) => i === action.payload.index ? action.payload.config : cfg)
-            };
-
-        case 'ADD_TEAM_CONFIG':
-            return {
-                ...state,
-                teamConfigs: [...state.teamConfigs, action.payload],
-                currentTeamConfig: action.payload,
-                mode: 'team'
-            };
-
-        case 'UPDATE_TEAM_CONFIG':
-            return {
-                ...state,
-                teamConfigs: state.teamConfigs.map((cfg, i) => i === action.payload.index ? action.payload.config : cfg)
             };
 
         case 'ADD_CONVERSATION_EVENT':
@@ -352,11 +322,8 @@ interface PlaygroundContextValue {
 
     // Actions
     createAgent: (config: PlaygroundAgentConfig) => Promise<void>;
-    createTeam: (config: PlaygroundTeamConfig) => Promise<void>;
     addAgentConfig: (config: PlaygroundAgentConfig) => void;
-    addTeamConfig: (config: PlaygroundTeamConfig) => void;
     updateAgentConfig: (index: number, config: PlaygroundAgentConfig) => void;
-    updateTeamConfig: (index: number, config: PlaygroundTeamConfig) => void;
     executePrompt: (prompt: string) => Promise<PlaygroundExecutionResult>;
     executeStreamPrompt: (prompt: string, onChunk: (chunk: string) => void) => Promise<PlaygroundExecutionResult>;
     clearHistory: () => void;
@@ -600,27 +567,6 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'SET_LOADING', payload: false });
         } catch (error) {
             dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to create agent' });
-            dispatch({ type: 'SET_LOADING', payload: false });
-            throw error; // Re-throw error so useRobotaExecution can handle it
-        }
-    }, [state.executor, state.isInitialized]);
-
-    const createTeam = useCallback(async (config: PlaygroundTeamConfig) => {
-        if (!state.executor || !state.isInitialized) {
-            throw new Error('Executor not initialized');
-        }
-
-        try {
-            dispatch({ type: 'SET_LOADING', payload: true });
-            await state.executor.createTeam(config);
-            dispatch({ type: 'ADD_TEAM_CONFIG', payload: config });
-
-            // Setup Event Listeners after Team creation
-            setupEventListeners();
-
-            dispatch({ type: 'SET_LOADING', payload: false });
-        } catch (error) {
-            dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to create team' });
             dispatch({ type: 'SET_LOADING', payload: false });
             throw error; // Re-throw error so useRobotaExecution can handle it
         }
@@ -928,11 +874,8 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
     const contextValue: PlaygroundContextValue = {
         state,
         createAgent,
-        createTeam,
         addAgentConfig: (config) => dispatch({ type: 'ADD_AGENT_CONFIG', payload: config }),
-        addTeamConfig: (config) => dispatch({ type: 'ADD_TEAM_CONFIG', payload: config }),
         updateAgentConfig: (index, config) => dispatch({ type: 'UPDATE_AGENT_CONFIG', payload: { index, config } }),
-        updateTeamConfig: (index, config) => dispatch({ type: 'UPDATE_TEAM_CONFIG', payload: { index, config } }),
         executePrompt,
         executeStreamPrompt,
         clearHistory,
@@ -972,7 +915,6 @@ export function usePlaygroundState() {
 export function usePlaygroundActions() {
     const {
         createAgent,
-        createTeam,
         executePrompt,
         executeStreamPrompt,
         clearHistory,
@@ -982,7 +924,6 @@ export function usePlaygroundActions() {
 
     return {
         createAgent,
-        createTeam,
         executePrompt,
         executeStreamPrompt,
         clearHistory,
