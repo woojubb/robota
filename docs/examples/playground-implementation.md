@@ -45,7 +45,6 @@ import { useRobotaExecution } from '@/hooks/use-robota-execution';
 
 const {
   createAgent,
-  createTeam,
   executePrompt,
   executeStreamPrompt,
   canExecute,

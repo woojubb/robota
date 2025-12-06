@@ -71,22 +71,26 @@ const response = await robota.run('Hello! How can I help you today?');
 console.log(response);
 ```
 
-### Multi-Agent Team
+### assignTask Tool Collection (team package)
 ```typescript
-import { createTeam } from '@robota-sdk/team';
-import { OpenAIProvider } from '@robota-sdk/openai';
-import { AnthropicProvider } from '@robota-sdk/anthropic';
+import { createAssignTaskRelayTool, listTemplatesTool } from '@robota-sdk/team';
 
-const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
-const anthropicProvider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
+// list available templates
+const templates = await listTemplatesTool.execute({});
 
-const team = await createTeam({
-    aiProviders: [openaiProvider, anthropicProvider]
-});
+// create assignTask tool (eventService is injected by caller in real flows)
+const assignTask = createAssignTaskRelayTool({ emit: () => undefined } as any);
 
-const result = await team.execute(
-    "Develop a marketing strategy for a new AI-powered fitness app"
-);
+// execute assignTask (example; real usage wires ownerPath/eventService from caller)
+const result = await assignTask.execute({
+    templateId: (templates.data as any)?.templates?.[0]?.id || 'default',
+    jobDescription: 'Summarize the advantages of TypeScript for large codebases.'
+}, {
+    ownerPath: [{ type: 'tool', id: 'assignTask' }],
+    agentId: 'agent_assign_demo',
+    eventService: { emit: () => undefined }
+} as any);
+
 console.log(result);
 ```
 
@@ -122,7 +126,7 @@ npm install @robota-sdk/openai openai
 npm install @robota-sdk/anthropic @anthropic-ai/sdk
 npm install @robota-sdk/google @google/generative-ai
 
-# Team collaboration
+# assignTask tool collection (team package)
 npm install @robota-sdk/team
 ```
 
@@ -157,24 +161,10 @@ npm install @robota-sdk/team
 - 🚀 Fastest response times
 
 ### @robota-sdk/team
-**Collaborative AI Orchestration**
-- 👥 Automatic task delegation to specialized agents
-- 🎯 Role-based agent selection
-- 📊 Team performance analytics
-- 🔄 Cross-provider collaboration
-
-## Team Collaboration Templates
-
-The `@robota-sdk/team` package includes pre-configured agent templates for team collaboration:
-
-- **Task Coordinator** - Analyzes and delegates complex tasks to specialist agents
-- **Domain Researcher** - Deep research and analysis using Anthropic models
-- **Creative Ideator** - Brainstorming and creative solutions with higher temperature settings
-- **Ethical Reviewer** - Evaluates ethical implications with focus on responsible AI
-- **Fast Executor** - Quick task execution using efficient models
-- **Summarizer** - Content summarization and synthesis
-
-*Note: These templates are specifically designed for the team collaboration system and are not standalone agent configurations.*
+**assignTask Tool Collection**
+- MCP-style tools: listTemplateCategories, listTemplates, getTemplateDetail, assignTask
+- Built-in templates stored in package JSON
+- No legacy team creation; use Robota agents + assignTask tools instead
 
 ## Documentation
 

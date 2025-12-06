@@ -328,26 +328,30 @@ const agent = new Robota({
 const response = await agent.run('What is 25 * 7?');
 ```
 
-### Team Collaboration
+### assignTask Tool Collection (team package)
 
-Create a team that intelligently delegates complex tasks:
+Use the `@robota-sdk/team` package for assignTask MCP tools (legacy team creation removed):
 
 ```typescript
-import { createTeam } from '@robota-sdk/team';
+import { createAssignTaskRelayTool, listTemplatesTool } from '@robota-sdk/team';
 
-// Create a team with AI providers
-const team = await createTeam({
-    aiProviders: [openaiProvider, anthropicProvider],
-    maxMembers: 5,
-    debug: true
-});
+// List templates
+const templates = await listTemplatesTool.execute({});
 
-// Team automatically breaks down complex tasks and assigns to specialists
-const result = await team.execute(
-    'Create a comprehensive blog post about quantum computing for beginners'
-);
+// Create assignTask tool (eventService should be provided by caller in real flows)
+const assignTask = createAssignTaskRelayTool({ emit: () => undefined } as any);
 
-console.log('Team result:', result);
+// Execute assignTask (example; no live LLM call implied)
+const result = await assignTask.execute({
+    templateId: (templates.data as any)?.templates?.[0]?.id || 'default',
+    jobDescription: 'Create a comprehensive blog post about quantum computing for beginners'
+}, {
+    ownerPath: [{ type: 'tool', id: 'assignTask' }],
+    agentId: 'agent_assign_demo',
+    eventService: { emit: () => undefined }
+} as any);
+
+console.log('assignTask result:', result);
 ```
 
 ### Performance Monitoring

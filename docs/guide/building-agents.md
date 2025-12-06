@@ -622,56 +622,26 @@ const researchChain = new AgentChain([
 const result = await researchChain.execute('Research the impact of AI on education');
 ```
 
-### Team-Based Collaboration
+### assignTask Tool Collection (team package)
 
-Use the `@robota-sdk/team` package for sophisticated multi-agent workflows:
-
-```typescript
-import { createTeam } from '@robota-sdk/team';
-
-// Create a team optimized for research tasks
-const researchTeam = createTeam({
-    aiProviders: {
-        openai: openaiProvider,
-        anthropic: anthropicProvider
-    },
-    maxMembers: 5,
-    debug: true
-});
-
-// Team automatically coordinates complex research workflow
-const result = await researchTeam.execute(
-    'Research the environmental impact of electric vehicles vs gasoline cars, including lifecycle analysis, manufacturing impact, and long-term sustainability'
-);
-
-console.log('Team research result:', result);
-```
-
-### Development Team Simulation
+Use the `@robota-sdk/team` package for assignTask MCP tools (legacy team creation removed):
 
 ```typescript
-// Create a development-focused team
-const devTeam = createTeam({
-  aiProviders: {
-        openai: openaiProvider,
-        anthropic: anthropicProvider
-    },
-    maxMembers: 8,
-    maxTokenLimit: 100000,
-    debug: true
-});
+import { createAssignTaskRelayTool, listTemplatesTool } from '@robota-sdk/team';
 
-// Team handles complex development tasks intelligently
-const developmentResult = await devTeam.execute(
-    'Design and implement a REST API for user authentication with JWT tokens, password hashing, rate limiting, and comprehensive test coverage'
-);
+const templates = await listTemplatesTool.execute({});
+const assignTask = createAssignTaskRelayTool({ emit: () => undefined } as any);
 
-console.log('Development result:', developmentResult);
+const result = await assignTask.execute({
+    templateId: (templates.data as any)?.templates?.[0]?.id || 'default',
+    jobDescription: 'Research the environmental impact of electric vehicles vs gasoline cars.'
+}, {
+    ownerPath: [{ type: 'tool', id: 'assignTask' }],
+    agentId: 'agent_assign_demo',
+    eventService: { emit: () => undefined }
+} as any);
 
-// Get team performance metrics
-const devStats = devTeam.getStats();
-console.log(`Development team created ${devStats.totalAgentsCreated} specialist agents`);
-console.log(`Total development time: ${devStats.totalExecutionTime}ms`);
+console.log('assignTask result:', result);
 ```
 
 ### Parallel Agent Processing
