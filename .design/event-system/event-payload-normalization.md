@@ -31,6 +31,15 @@
 - `ownerPath`는 `[rootExecutionId, executionId, toolCallId?, agentId?]` 순으로 누적되며, handler는 `getNearestOwner(ownerPath, type)` helper로 필요 ID를 조회.
 - `sourceId`, `rootExecutionId`, `parentExecutionId`, `executionLevel`, `executionPath`, `path` → `ownerPath`에서 파생 가능하므로 payload 제거 대상.
 - EventService 인스턴스는 단일 owner에 바인딩되며 emit 시 `sourceType/sourceId/timestamp`를 자동 주입한다. 호출부는 도메인 데이터만 전달하고 timestamp를 명시하지 않는다.
+- 기본 EventService는 `DEFAULT_ABSTRACT_EVENT_SERVICE` no-op 인스턴스를 사용하고, `DEFAULT_EVENT_SERVICE`는 호환용 deprecated alias로 유지한다. ActionTracking 생성 대신 ownerPath 바운드 인스턴스를 사용한다.
+
+## Context Binder 규약 (제안)
+- 단일 헬퍼: `bindWithOwnerPath(eventService, ctx: ToolExecutionContext & { ownerType: OwnerType; ownerId?: string })`는 ownerPath append + ownerType/ownerId/sourceId/timestamp 자동 주입만 수행한다. 기존 인스턴스는 불변.
+- 엄격 검증: 필수 필드(executionId/ownerType/ownerPath segment)가 없으면 즉시 throw. fallback/no-op 금지.
+- 금지사항: 접두어(prefix) 처리, ID 파싱/regex, dedup/cache/lastX 상태, 지연 연결/재시도, 수동 timestamp/source 주입.
+- payload 최소화: 바운드 EventService 사용 시 payload에 계층/타임스탬프 필드가 들어오면 lint/런타임 가드로 차단하는 것을 검토한다.
+- 타입 제약: ToolExecutionContext는 `ownerPath` 필수, `ownerType` 필수, `ownerId` 선택으로 좁히고, createContextBoundInstance는 이 제약을 요구한다.
+- 적용 순서: (1) binder 헬퍼 추가 및 createContextBoundInstance 단순화 (2) ToolExecutionService/Robota/team 호출부를 binder로 통일하며 수동 계층 필드 제거 (3) 타입 좁히기 및 가드 추가 (4) CURRENT-TASKS 반영.
 
 ## 다음 단계
 1. 공통 helper (`buildOwnerContext`, `getOwnerIdFromContext`) 정의 및 ExecutionService/Tool/Agent emit 호출부에 적용.
