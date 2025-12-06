@@ -243,9 +243,13 @@ class DefaultNoopEventService extends AbstractEventService {
     }
 }
 
-export const DEFAULT_EVENT_SERVICE: EventService = new DefaultNoopEventService();
+// Default no-op instance for safe DI when no EventService is provided.
+export const DEFAULT_ABSTRACT_EVENT_SERVICE: EventService = new DefaultNoopEventService();
 
-export const isDefaultEventService = (eventService: EventService): boolean => eventService === DEFAULT_EVENT_SERVICE;
+/** @deprecated Use DEFAULT_ABSTRACT_EVENT_SERVICE instead. */
+export const DEFAULT_EVENT_SERVICE: EventService = DEFAULT_ABSTRACT_EVENT_SERVICE;
+
+export const isDefaultEventService = (eventService: EventService): boolean => eventService === DEFAULT_ABSTRACT_EVENT_SERVICE;
 
 export interface EventServiceOwnerBinding {
     ownerType: OwnerType | (string & {});

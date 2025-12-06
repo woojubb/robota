@@ -4,7 +4,7 @@ import {
     ServiceEventData,
     EventContext,
     OwnerPathSegment,
-    DEFAULT_EVENT_SERVICE,
+    DEFAULT_ABSTRACT_EVENT_SERVICE,
     bindEventServiceOwner
 } from '@robota-sdk/agents';
 
@@ -38,7 +38,7 @@ export class SubAgentEventRelay implements EventService {
     private childEventService?: EventService;
 
     constructor(parentEventService: EventService | undefined, parentToolCallId: string) {
-        this.parentEventService = parentEventService || DEFAULT_EVENT_SERVICE;
+        this.parentEventService = parentEventService || DEFAULT_ABSTRACT_EVENT_SERVICE;
         this.parentToolCallId = parentToolCallId;
     }
 
@@ -51,7 +51,7 @@ export class SubAgentEventRelay implements EventService {
      * @param data - Event data
      */
     emit(eventType: ServiceEventType, data: ServiceEventData, context?: EventContext): void {
-        if (this.parentEventService === DEFAULT_EVENT_SERVICE) {
+        if (this.parentEventService === DEFAULT_ABSTRACT_EVENT_SERVICE) {
             return;
         }
 
