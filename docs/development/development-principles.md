@@ -184,10 +184,7 @@ describe('Robota Agent', () => {
 
 ```typescript
 // Complex internal implementation hidden behind simple facade
-const team = await createTeam({
-    agents: [agent1, agent2, agent3],
-    workflow: 'sequential'
-});
+// (example updated: team APIs removed; use agent + assignTask tools instead)
 ```
 
 ### 2. Plugin Pattern

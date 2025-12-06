@@ -707,41 +707,31 @@ interface UniversalMessage {
 }
 ```
 
-## Team Collaboration
+## assignTask Tool Collection (team package)
 
-The Robota SDK supports intelligent multi-agent collaboration through the `@robota-sdk/team` package:
+The `@robota-sdk/team` package now provides assignTask MCP tools (no legacy team creation).
 
 ```typescript
-import { createTeam } from '@robota-sdk/team';
+import { createAssignTaskRelayTool, listTemplatesTool } from '@robota-sdk/team';
 
-// Create a team with AI providers
-const team = await createTeam({
-    aiProviders: [openaiProvider, anthropicProvider, googleProvider],
-    maxMembers: 5,
-    maxTokenLimit: 50000,
-    debug: true
-});
+// List templates
+const templates = await listTemplatesTool.execute({});
 
-// Team automatically analyzes tasks and delegates to specialist agents
-const result = await team.execute(
-    'Create a market analysis report for renewable energy including trends, competition, and investment opportunities'
-);
+// Create assignTask tool (eventService injected by caller in real flows)
+const assignTask = createAssignTaskRelayTool({ emit: () => undefined } as any);
 
-console.log('Team result:', result);
+// Execute assignTask (example only; no live LLM call implied)
+const result = await assignTask.execute({
+    templateId: (templates.data as any)?.templates?.[0]?.id || 'default',
+    jobDescription: 'Summarize the advantages of TypeScript.'
+}, {
+    ownerPath: [{ type: 'tool', id: 'assignTask' }],
+    agentId: 'agent_assign_demo',
+    eventService: { emit: () => undefined }
+} as any);
 
-// Get team performance statistics
-const stats = team.getStats();
-console.log(`Team created ${stats.totalAgentsCreated} specialist agents`);
-console.log(`Total execution time: ${stats.totalExecutionTime}ms`);
+console.log(result);
 ```
-
-### Team Features
-
-- **Intelligent Task Analysis**: Team coordinator analyzes complexity and delegates appropriately
-- **Template-Based Specialists**: Pre-configured expert agents (researcher, writer, analyst, etc.)
-- **Cross-Provider Optimization**: Uses optimal AI providers for each task type
-- **Automatic Delegation**: Complex tasks are broken down and distributed
-- **Performance Tracking**: Built-in analytics for team performance monitoring
 
 ## Future: Advanced Planning System
 

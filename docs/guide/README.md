@@ -185,20 +185,21 @@ const monitoredAgent = new Robota({
 });
 ```
 
-### 🤝 Team of Agents
+### 🧰 assignTask Tool Collection (team package)
 ```typescript
-import { createTeam } from '@robota-sdk/team';
+import { createAssignTaskRelayTool, listTemplatesTool } from '@robota-sdk/team';
 
-const team = await createTeam({
-    aiProviders: [openaiProvider, anthropicProvider],
-    maxMembers: 5,
-    debug: true
-});
+const templates = await listTemplatesTool.execute({});
+const assignTask = createAssignTaskRelayTool({ emit: () => undefined } as any);
 
-// Team intelligently delegates to specialist agents
-const result = await team.execute(
-    'Research and write about renewable energy trends'
-);
+const result = await assignTask.execute({
+    templateId: (templates.data as any)?.templates?.[0]?.id || 'default',
+    jobDescription: 'Research and write about renewable energy trends'
+}, {
+    ownerPath: [{ type: 'tool', id: 'assignTask' }],
+    agentId: 'agent_assign_demo',
+    eventService: { emit: () => undefined }
+} as any);
 ```
 
 ### 🧠 Future: Advanced Planning
