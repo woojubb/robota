@@ -12,17 +12,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Bot, Users, Wrench } from 'lucide-react';
-import type { PlaygroundAgentConfig, PlaygroundTeamConfig } from '@/lib/playground/robota-executor';
+import { Bot, Wrench } from 'lucide-react';
+import type { PlaygroundAgentConfig } from '@/lib/playground/robota-executor';
 import { getPlaygroundToolCatalog } from '@/tools/catalog';
 import { ChatInputPanel } from '@/components/playground/chat-input-panel';
 
 function PlaygroundContent(): JSX.Element {
   const { state, setWorkflow } = usePlayground();
-  const { createAgent, createTeam, getDefaultAgentConfig, getDefaultTeamConfig } = useRobotaExecution();
+  const { createAgent, getDefaultAgentConfig } = useRobotaExecution();
   const { activeModal, isModalOpen, openModal, closeModal } = useModal();
   const [agentDraft, setAgentDraft] = useState<PlaygroundAgentConfig | null>(null);
-  const [teamDraft, setTeamDraft] = useState<PlaygroundTeamConfig | null>(null);
 
   // Chat state
   const [chatAgentId, setChatAgentId] = useState<string | null>(null);
@@ -116,26 +115,10 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
     openModal('createAgent');
   };
 
-  const handleCreateTeam = () => {
-    const config = getDefaultTeamConfig();
-    setTeamDraft(config);
-    openModal('createTeam');
-  };
-
-
-
   const handleAgentSubmit = async () => {
     if (agentDraft) {
       await createAgent(agentDraft);
       setAgentDraft(null);
-      closeModal();
-    }
-  };
-
-  const handleTeamSubmit = async () => {
-    if (teamDraft) {
-      await createTeam(teamDraft);
-      setTeamDraft(null);
       closeModal();
     }
   };
@@ -152,10 +135,6 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
           <Button onClick={handleCreateAgent} size="sm" className="bg-blue-500 hover:bg-blue-600">
             <Bot className="h-4 w-4 mr-2" />
             Create Agent
-          </Button>
-          <Button onClick={handleCreateTeam} size="sm" variant="outline">
-            <Users className="h-4 w-4 mr-2" />
-            Create Team
           </Button>
           <Badge variant={state.isInitialized ? "default" : "secondary"}>
             {state.isInitialized ? "Ready" : "Initializing"}
@@ -322,65 +301,6 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
               Cancel
             </Button>
             <Button size="sm" onClick={handleAgentSubmit}>
-              Create
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Create Team Modal */}
-      <Modal
-        isOpen={isModalOpen('createTeam')}
-        onClose={() => {
-          setTeamDraft(null);
-          closeModal();
-        }}
-        title="Create Team"
-        size="lg"
-      >
-        <div className="p-6 space-y-4">
-          {teamDraft && (
-            <div className="space-y-3 text-sm">
-              <div className="space-y-1">
-                <Label className="text-xs">Team Name</Label>
-                <Input
-                  value={teamDraft.name}
-                  onChange={(e) => setTeamDraft({ ...teamDraft, name: e.target.value })}
-                  className="h-8 text-xs"
-                  placeholder="Team Name"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Coordinator Strategy</Label>
-                <Select
-                  value={teamDraft.workflow?.coordinator || 'round-robin'}
-                  onValueChange={(value) => setTeamDraft({
-                    ...teamDraft,
-                    workflow: { ...(teamDraft.workflow || {}), coordinator: value }
-                  })}
-                >
-                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="round-robin">Round Robin</SelectItem>
-                    <SelectItem value="priority">Priority Based</SelectItem>
-                    <SelectItem value="capability">Capability Matching</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setTeamDraft(null);
-                closeModal();
-              }}
-            >
-              Cancel
-            </Button>
-            <Button size="sm" onClick={handleTeamSubmit}>
               Create
             </Button>
           </div>

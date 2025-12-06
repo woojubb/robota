@@ -14,7 +14,6 @@ export * from '@/lib/playground/code-executor';
 export * from '@/lib/playground/config-validation';
 export * from '@/lib/playground/external-workflow-store';
 export * from '@/lib/playground/llm-tracking/llm-tracker';
-export * from '@/lib/playground/playground-team-integration';
 export * from '@/lib/playground/project-manager';
 export * from '@/lib/playground/remote-injection';
 export * from '@/lib/playground/websocket-client';

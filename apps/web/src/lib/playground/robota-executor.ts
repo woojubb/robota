@@ -18,7 +18,6 @@ import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
 import { DefaultExternalWorkflowStore, type ExternalWorkflowStore } from './external-workflow-store';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
-import { createTeam, type TeamOptions, type TeamContainer } from '@robota-sdk/team';
 import { AGENT_EVENTS } from '@robota-sdk/agents';
 import { FunctionTool } from '@robota-sdk/agents';
 // Note: local interface ToolSchema is defined below for browser-only runtime use.
@@ -116,16 +115,6 @@ export interface PlaygroundAgentConfig {
     metadata?: Record<string, unknown>;
 }
 
-export interface PlaygroundTeamConfig {
-    name: string;
-    agents: PlaygroundAgentConfig[];
-    workflow?: {
-        coordinator?: string;
-        maxDepth?: number;
-    };
-    maxMembers?: number; // Added for team initialization
-}
-
 export interface PlaygroundExecutionResult {
     success: boolean;
     response: string;
@@ -136,18 +125,18 @@ export interface PlaygroundExecutionResult {
     visualizationData?: VisualizationData; // ✅ 올바른 타입 이름
 }
 
-export type PlaygroundMode = 'agent' | 'team';
+export type PlaygroundMode = 'agent';
 
 /**
- * Playground executor for managing Robota agents and teams in browser
+ * Playground executor for managing Robota agents in browser (team removed)
  * 
  * Follows Facade Pattern - simple interface with essential methods only
  * Integrates PlaygroundStatisticsPlugin for real-time metrics collection
  */
 export class PlaygroundExecutor {
-    private mode: 'agent' | 'team' | null = null;
+    private mode: 'agent' = 'agent';
     private currentAgent: Robota | null = null;
-    private currentTeam: TeamContainer | null = null;
+    // Team feature removed
     // Registry: rootId(conversationId) → agent instance
     private agentRegistry: Map<string, Robota> = new Map();
 
@@ -454,94 +443,6 @@ export class PlaygroundExecutor {
     }
 
     /**
-     * Create and configure a team (Facade method)
-     */
-    async createTeam(config: PlaygroundTeamConfig): Promise<void> {
-        try {
-            // Create AI providers with remote executor
-            const aiProviders = this.createProvidersWithExecutor();
-
-            // 🎯 26번 예제 구조: Context-bound EventService 사용
-            console.log('🚀 [26-STRUCTURE] Creating team with context-bound EventService');
-
-            const testConversationId = `test_conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            const baseExecutionId = `conv_${Date.now()}`;
-            // Generate execution context for team
-            const teamContext = {
-                executionId: testConversationId,
-                rootExecutionId: testConversationId,
-                executionLevel: 0, // Team level
-                executionPath: [],
-                sourceType: 'team' as const,
-                sourceId: baseExecutionId,
-                toolName: 'team',
-                parameters: {}
-            };
-
-            // Create context-bound EventService
-            const contextBoundEventService = this.eventService.createContextBoundInstance &&
-                typeof this.eventService.createContextBoundInstance === 'function'
-                ? this.eventService.createContextBoundInstance(teamContext)
-                : this.eventService;
-
-            this.currentTeam = createTeam({
-                aiProviders: aiProviders,
-                eventService: contextBoundEventService, // 26번과 동일한 순서
-                logger: this.logger
-                // 🎯 26번과 동일: maxMembers, maxTokenLimit, debug 제거
-            });
-
-            console.log('🚀 [26-STRUCTURE] Team created with context-bound EventService');
-
-            // 🔍 Team 초기화 디버깅
-            console.log('🔍 [TEAM-DEBUG] Team Details:', {
-                teamExists: !!this.currentTeam,
-                teamType: typeof this.currentTeam,
-                hasExecuteMethod: typeof this.currentTeam?.execute === 'function',
-                teamMethods: this.currentTeam ? Object.getOwnPropertyNames(Object.getPrototypeOf(this.currentTeam)) : []
-            });
-
-            // 🔍 Team tools 디버깅 - TeamContainer의 내부 teamAgent 접근
-            try {
-                // TeamContainer는 내부적으로 teamAgent를 가지고 있음
-                const teamAgent = (this.currentTeam as any)?.teamAgent;
-                if (teamAgent && typeof teamAgent.getAvailableTools === 'function') {
-                    const tools = teamAgent.getAvailableTools();
-                    console.log('🔍 [TEAM-TOOLS] Team agent available tools:', tools.map((t: any) => t.name || t.toolName || 'unnamed'));
-                    const hasAssignTask = tools.some((t: any) => (t.name || t.toolName) === 'assignTask');
-                    console.log('🔍 [TEAM-TOOLS] Has assignTask tool:', hasAssignTask);
-
-                    // assignTask tool 상세 정보
-                    const assignTaskTool = tools.find((t: any) => (t.name || t.toolName) === 'assignTask');
-                    if (assignTaskTool) {
-                        console.log('🔍 [TEAM-TOOLS] assignTask tool details:', {
-                            name: assignTaskTool.name || assignTaskTool.toolName,
-                            description: assignTaskTool.description,
-                            hasHandler: typeof assignTaskTool.handler === 'function',
-                            schema: assignTaskTool.schema
-                        });
-                    }
-                } else {
-                    console.log('🔍 [TEAM-TOOLS] Cannot access team agent tools');
-                }
-            } catch (error) {
-                console.log('🔍 [TEAM-TOOLS] Error checking tools:', error);
-            }
-
-            this.setMode('team');
-
-            // Record team creation as UI interaction
-            await this.statisticsPlugin.recordUIInteraction('team_create', {
-                teamName: config.name,
-                agentCount: config.agents.length
-            });
-
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    /**
      * Execute a prompt (Facade method)
      * 🚫 DEPRECATED: Use execute() method instead for 26번 compatibility
      */
@@ -604,133 +505,22 @@ export class PlaygroundExecutor {
      * 🎯 26번 예제와 동일한 단순 실행 구조
      */
     async execute(prompt: string, onChunk?: (chunk: string) => void): Promise<PlaygroundExecutionResult> {
-        console.log('🚀 [26-DIRECT-EXECUTION] Direct team execution - same as example 26');
-
-        // 🔍 [DEBUG] 현재 상태 확인
-        console.log('🔍 [MODE-DEBUG] Current state:', {
-            mode: this.mode,
-            hasCurrentTeam: !!this.currentTeam,
-            hasCurrentAgent: !!this.currentAgent,
-            teamType: this.currentTeam?.constructor.name,
-            agentType: this.currentAgent?.constructor.name
-        });
-
-        // 🔍 [TOOL-DEBUG] Team Agent tools 확인
-        try {
-            const teamAgent = (this.currentTeam as any)?.teamAgent;
-            if (teamAgent) {
-                console.log('🔍 [TOOL-DEBUG] TeamAgent found:', {
-                    name: teamAgent.name,
-                    isInitialized: teamAgent.isFullyInitialized,
-                    hasToolsManager: !!teamAgent.tools,
-                    availableMethods: Object.getOwnPropertyNames(Object.getPrototypeOf(teamAgent))
-                });
-
-                // Robota Agent의 올바른 방법 사용
-                if (teamAgent.tools && typeof teamAgent.tools.getTools === 'function') {
-                    const tools = teamAgent.tools.getTools();
-                    console.log('🔍 [TOOL-DEBUG] Team agent tools:', tools.map((t: any) => ({
-                        name: t.name || t.toolName,
-                        description: t.description,
-                        hasSchema: !!t.schema
-                    })));
-
-                    // assignTask tool 특별 확인
-                    const assignTaskTool = tools.find((t: any) => (t.name || t.toolName) === 'assignTask');
-                    if (assignTaskTool) {
-                        console.log('🔍 [TOOL-DEBUG] assignTask tool found:', {
-                            name: assignTaskTool.name || assignTaskTool.toolName,
-                            description: assignTaskTool.description,
-                            schemaKeys: assignTaskTool.schema ? Object.keys(assignTaskTool.schema) : 'no schema'
-                        });
-                    } else {
-                        console.log('❌ [TOOL-DEBUG] assignTask tool NOT FOUND!');
-                    }
-                } else {
-                    console.log('❌ [TOOL-DEBUG] TeamAgent tools manager not available');
-                }
-            } else {
-                console.log('❌ [TOOL-DEBUG] TeamAgent not found in currentTeam');
-            }
-        } catch (error) {
-            console.log('🔍 [TOOL-DEBUG] Error checking tools:', error);
-        }
+        console.log('🚀 [PLAYGROUND] Direct execution (team mode removed)');
 
         const startTime = Date.now();
 
         try {
             let result: string;
 
-            if (this.mode === 'team' && this.currentTeam) {
-                // 🎯 26번과 동일: 직접 team.execute() 호출
-                console.log('🎯 [26-STRUCTURE] Direct team.execute() call');
-                // Team 설정 로그
-                try {
-                    const snapshot = (this.currentTeam as any)?.getDebugSnapshot?.();
-                    if (snapshot) {
-                        console.log('[PLAYGROUND-CONFIG][TEAM]', snapshot);
-                    }
-                } catch (e) {
-                    console.log('[PLAYGROUND-CONFIG][TEAM] failed to read config', String(e));
-                }
-                result = await this.currentTeam.execute(prompt);
-
-                // 🔍 [TOOL-DEBUG] 실행 후 Team Agent tools 확인 (초기화 완료 후)
-                try {
-                    const teamAgent = (this.currentTeam as any)?.teamAgent;
-                    if (teamAgent && teamAgent.isFullyInitialized) {
-                        const tools = teamAgent.tools.getTools();
-                        console.log('🔍 [TOOL-FLOW] Team agent tools after execution:', tools.map((t: any) => ({
-                            name: t.name || t.toolName,
-                            description: t.description,
-                            hasSchema: !!t.schema
-                        })));
-
-                        const assignTaskTool = tools.find((t: any) => (t.name || t.toolName) === 'assignTask');
-                        console.log('🔍 [TOOL-FLOW] assignTask tool detailed analysis:', {
-                            found: !!assignTaskTool,
-                            details: assignTaskTool ? {
-                                name: assignTaskTool.name,
-                                description: assignTaskTool.description,
-                                schemaType: typeof assignTaskTool.schema,
-                                schemaContent: assignTaskTool.schema,
-                                schemaKeys: assignTaskTool.schema ? Object.keys(assignTaskTool.schema) : 'no schema',
-                                toolType: assignTaskTool.constructor?.name,
-                                hasParameters: !!(assignTaskTool.schema?.parameters)
-                            } : 'NOT FOUND'
-                        });
-                    }
-                } catch (error) {
-                    console.log('🔍 [POST-EXECUTION-TOOLS] Error:', error);
-                }
-            } else if (this.mode === 'agent' && this.currentAgent) {
-                // 🎯 Agent도 동일하게 직접 호출
-                console.log('🎯 [26-STRUCTURE] Direct agent.run() call');
-                // Agent 설정 로그
-                try {
-                    const agentConfig: any = (this.currentAgent as any).config || {};
-                    const defaultModel = agentConfig.defaultModel || {};
-                    const tools = Array.isArray(agentConfig.tools) ? agentConfig.tools : [];
-                    console.log('[PLAYGROUND-CONFIG][AGENT]', {
-                        name: agentConfig.name || (this.currentAgent as any).name,
-                        provider: defaultModel.provider,
-                        model: defaultModel.model,
-                        temperature: defaultModel.temperature,
-                        maxTokens: defaultModel.maxTokens,
-                        systemMessage: defaultModel.systemMessage,
-                        tools: tools.map((t: any) => t?.name || t?.toolName || t?.constructor?.name || 'unknown')
-                    });
-                } catch (e) {
-                    console.log('[PLAYGROUND-CONFIG][AGENT] failed to read config', String(e));
-                }
+            if (this.currentAgent) {
+                console.log('🎯 [AGENT-EXECUTE] Direct agent.run() call');
                 result = await this.currentAgent.run(prompt);
             } else {
                 console.error('❌ [MODE-ERROR] No active executor found:', {
                     mode: this.mode,
-                    hasTeam: !!this.currentTeam,
                     hasAgent: !!this.currentAgent
                 });
-                throw new Error('No active team or agent to execute prompt');
+                throw new Error('No active agent to execute prompt');
             }
 
             const duration = Date.now() - startTime;
@@ -886,9 +676,6 @@ export class PlaygroundExecutor {
     getHistory(): UniversalMessage[] {
         if (this.mode === 'agent' && this.currentAgent) {
             return this.currentAgent.getHistory();
-        } else if (this.mode === 'team' && this.currentTeam) {
-            // ✅ Use TeamContainer's teamAgent getHistory() - follows SDK architecture
-            return (this.currentTeam as any).getHistory();
         }
         return [];
     }
@@ -908,11 +695,6 @@ export class PlaygroundExecutor {
             if (this.currentAgent) {
                 await this.currentAgent.destroy();
                 this.currentAgent = null;
-            }
-
-            if (this.currentTeam) {
-                // TeamContainer doesn't have dispose method
-                this.currentTeam = null;
             }
 
             if (this.websocketClient) {
@@ -943,7 +725,6 @@ export class PlaygroundExecutor {
         console.log('🔍 PlaygroundExecutor.executeChat debug:', {
             mode: this.mode,
             hasAgent: !!this.currentAgent,
-            hasTeam: !!this.currentTeam,
             message: messages[0]?.content?.substring(0, 50) + '...'
         });
 
@@ -963,41 +744,8 @@ export class PlaygroundExecutor {
                     timestamp: new Date()
                 } as UniversalMessage;
 
-            } else if (this.mode === 'team' && this.currentTeam) {
-                console.log('✅ [TEAM] Executing in TEAM mode');
-                console.log('✅ [TEAM] Current team object:', !!this.currentTeam);
-                console.log('✅ [TEAM] User prompt:', messages[0].content);
-
-                // 🎯 Team Level 사용자 메시지 기록
-                this.historyPlugin.recordEvent({
-                    type: 'user_message',
-                    content: messages[0].content || '',
-                    metadata: { level: 'team', action: 'execute_start' }
-                });
-
-                console.log('🔥 [TEAM] About to call team.execute() method with prompt:', messages[0].content);
-                console.log('🔥 [TEAM] Team object type:', this.currentTeam.constructor.name);
-
-                const result = await this.currentTeam.execute(messages[0].content || '');
-
-                console.log('🔥 [TEAM] Team execution completed with result length:', typeof result === 'string' ? result.length : 'non-string');
-                console.log('🔥 [TEAM] Team execution result preview:', typeof result === 'string' ? result.substring(0, 100) + '...' : result);
-
-                // 🎯 Team Level 응답 메시지 기록  
-                this.historyPlugin.recordEvent({
-                    type: 'assistant_response',
-                    content: typeof result === 'string' ? result : JSON.stringify(result),
-                    metadata: { level: 'team', action: 'execute_complete' }
-                });
-
-                response = {
-                    role: 'assistant',
-                    content: typeof result === 'string' ? result : JSON.stringify(result),
-                    timestamp: new Date()
-                } as UniversalMessage;
-
             } else {
-                throw new Error(`No ${this.mode} configured for execution`);
+                throw new Error('No agent configured for execution');
             }
 
             const duration = Date.now() - startTime;
@@ -1046,9 +794,7 @@ export class PlaygroundExecutor {
             console.log('🚀 [CRITICAL] Current execution state:', {
                 mode: this.mode,
                 hasAgent: !!this.currentAgent,
-                hasTeam: !!this.currentTeam,
-                agentType: this.currentAgent?.constructor?.name,
-                teamType: this.currentTeam?.constructor?.name
+                agentType: this.currentAgent?.constructor?.name
             });
 
             // Record execution start
@@ -1073,62 +819,9 @@ export class PlaygroundExecutor {
                     timestamp: new Date()
                 } as UniversalMessage;
 
-            } else if (this.mode === 'team' && this.currentTeam) {
-                console.log('📡 Starting team stream...');
-                const prompt = messages[0].content || '';
-                console.log('🔥 [TEAM-STREAM] About to call currentTeam.executeStream()');
-                console.log('🔥 [TEAM-STREAM] currentTeam type:', this.currentTeam.constructor.name);
-                console.log('🔥 [TEAM-STREAM] currentTeam prototype:', Object.getPrototypeOf(this.currentTeam).constructor.name);
-                console.log('🔥 [TEAM-STREAM] executeStream method exists:', typeof this.currentTeam.executeStream);
-                console.log('🔥 [TEAM-STREAM] currentTeam methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.currentTeam)));
-
-                // ❌ Team Level 사용자 메시지 기록 제거 (PlaygroundTeamInstance에서 이미 기록함)
-                // this.historyPlugin.recordEvent({
-                //     type: 'user_message',
-                //     content: prompt,
-                //     metadata: { level: 'team', action: 'stream_start' }
-                // });
-
-                console.log('🔥 [TEAM-STREAM] Calling executeStream now...');
-                const stream = this.currentTeam.executeStream(prompt);
-                console.log('🔥 [TEAM-STREAM] executeStream called, got stream:', !!stream);
-
-                // 🕵️ Deep object analysis
-                console.log('🕵️ [DEEP-ANALYSIS] currentTeam object details:');
-                console.log('🕵️ Constructor:', this.currentTeam.constructor);
-                console.log('🕵️ Constructor name:', this.currentTeam.constructor.name);
-                console.log('🕵️ Prototype chain:', Object.getPrototypeOf(this.currentTeam));
-                console.log('🕵️ executeStream function:', this.currentTeam.executeStream);
-                console.log('🕵️ executeStream toString:', this.currentTeam.executeStream.toString().substring(0, 200));
-                console.log('🕵️ Is proxy?', typeof Proxy !== 'undefined' && this.currentTeam.constructor === Object);
-                console.log('🔥 [TEAM-STREAM] Starting to iterate over stream...');
-                let fullResponse = '';
-
-                // ✅ ExecutionService와 동일: 청크를 수집만 하고 최종에 한 번만 yield
-                for await (const chunk of stream) {
-                    console.log('🔥 [TEAM-STREAM] Received chunk:', chunk.length, 'chars');
-                    fullResponse += chunk;
-                    // ❌ 각 청크마다 yield하지 않음 (LocalExecutor와 동일하게)
-                }
-                console.log('🔥 [TEAM-STREAM] Stream iteration completed, total response:', fullResponse.length, 'chars');
-
-                // ✅ 최종 완성된 메시지만 한 번 yield
-                yield {
-                    role: 'assistant',
-                    content: fullResponse,
-                    timestamp: new Date()
-                } as UniversalMessage;
-
-                // ❌ Team Level 응답 메시지 기록 제거 (PlaygroundTeamInstance에서 이미 기록함)
-                // this.historyPlugin.recordEvent({
-                //     type: 'assistant_response',
-                //     content: fullResponse,
-                //     metadata: { level: 'team', action: 'stream_complete' }
-                // });
-
             } else {
-                const error = new Error(`No ${this.mode} configured for streaming execution`);
-                console.error('❌ No configured executor:', { mode: this.mode, hasAgent: !!this.currentAgent, hasTeam: !!this.currentTeam });
+                const error = new Error('No agent configured for streaming execution');
+                console.error('❌ No configured executor:', { mode: this.mode, hasAgent: !!this.currentAgent });
                 throw error;
             }
 
@@ -1140,7 +833,6 @@ export class PlaygroundExecutor {
                 executionId,
                 mode: this.mode,
                 hasAgent: !!this.currentAgent,
-                hasTeam: !!this.currentTeam,
                 messagesCount: messages.length,
                 errorMessage: error instanceof Error ? error.message : 'Unknown error',
                 errorStack: error instanceof Error ? error.stack : undefined
@@ -1162,12 +854,7 @@ export class PlaygroundExecutor {
     getLastExecutionId(): string | null {
         // For now, we'll generate a consistent ID based on current state
         // This should be improved to track actual execution IDs
-        if (this.mode === 'team') {
-            return 'team-execution-' + Date.now();
-        } else if (this.mode === 'agent') {
-            return 'agent-execution-' + Date.now();
-        }
-        return null;
+        return 'agent-execution-' + Date.now();
     }
 
     /**
@@ -1246,7 +933,6 @@ export class PlaygroundExecutor {
         const stack = new Error().stack?.split('\n').slice(1, 4).join('\n');
         console.log('🔍 [MODE-TRACE] Call stack:', stack);
         console.log('🔍 [MODE-STATE] Current state:', {
-            hasCurrentTeam: !!this.currentTeam,
             hasCurrentAgent: !!this.currentAgent,
             newMode: mode
         });
@@ -1282,197 +968,4 @@ export class PlaygroundExecutor {
     }
 }
 
-/**
- * Extended Team Instance with Hook Support
- * 
- * Extends the standard TeamContainer functionality to inject Hook-enabled assignTask tools
- * for detailed Team workflow tracking in the Playground environment.
- * 
- * Architectural Compliance:
- * - Facade Pattern: Simple wrapper around TeamContainer
- * - Type Safety: Uses correct TeamOptions
- * - Dependency Injection: Logger and AI provider injection
- * - Single Responsibility: Team execution + Hook integration only
- */
-class PlaygroundTeamInstance {
-    private teamContainer: any = null; // TeamContainer from @robota-sdk/team
-    private isInitialized = false;
-
-    constructor(
-        private config: PlaygroundTeamConfig,
-        private aiProviders: AIProvider[], // Use actual AI providers instead of agents
-        private historyPlugin: PlaygroundHistoryPlugin,
-        private statisticsPlugin: PlaygroundStatisticsPlugin,
-        private eventService: any // PlaygroundEventService
-    ) { }
-
-    async initialize(): Promise<void> {
-        if (this.isInitialized) return;
-
-        try {
-            // Create team using actual Robota Team library
-            const teamOptions: any = { // Robota Team options
-                aiProviders: this.aiProviders,
-                maxMembers: this.config.maxMembers || 5,
-                debug: true,
-                logger: {
-                    debug: (msg: string) => console.log('[Team Debug]', msg),
-                    info: (msg: string) => console.log('[Team Info]', msg),
-                    warn: (msg: string) => console.warn('[Team Warn]', msg),
-                    error: (msg: string) => console.error('[Team Error]', msg)
-                },
-                eventService: this.eventService // Pass EventService from PlaygroundExecutor
-            };
-
-            // Create actual team container using createTeam
-            this.teamContainer = createTeam(teamOptions);
-            this.isInitialized = true;
-
-            console.log('🎯 PlaygroundTeamInstance initialized with Hook support:', this.config.name);
-
-        } catch (error) {
-            console.error('Team initialization failed:', error);
-            throw new Error(`Team initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    }
-
-
-
-    async execute(prompt: string): Promise<{ response: string; toolsExecuted?: string[] }> {
-        if (!this.isInitialized) {
-            await this.initialize();
-        }
-
-        if (!this.teamContainer) {
-            throw new Error('Team not properly initialized');
-        }
-
-        try {
-            console.log('Team executing prompt:', prompt);
-
-            // Record team execution start
-            this.historyPlugin.recordEvent({
-                type: 'user_message', // Use valid event type
-                content: prompt,
-                metadata: { teamName: this.config.name, action: 'execution_start' }
-            });
-
-            // Execute using actual team container
-            const result = await this.teamContainer.execute(prompt);
-
-            // Record team execution success
-            this.historyPlugin.recordEvent({
-                type: 'assistant_response', // Use valid event type
-                content: typeof result === 'string' ? result : (result.response || JSON.stringify(result)),
-                metadata: { teamName: this.config.name, action: 'execution_success' }
-            });
-
-            const response = typeof result === 'string' ? result : (result.response || JSON.stringify(result));
-
-            return {
-                response,
-                toolsExecuted: result.toolsExecuted || []
-            };
-
-        } catch (error) {
-            console.error('Team execution failed:', error);
-
-            // Record team execution error
-            this.historyPlugin.recordEvent({
-                type: 'execution.error', // Use valid event type
-                content: error instanceof Error ? error.message : String(error),
-                metadata: { teamName: this.config.name, action: 'execution_error' }
-            });
-
-            throw new Error(`Team execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    }
-
-    async *executeStream(prompt: string): AsyncGenerator<string, void, undefined> {
-        if (!this.isInitialized) {
-            await this.initialize();
-        }
-
-        if (!this.teamContainer) {
-            throw new Error('Team not properly initialized for streaming');
-        }
-
-        try {
-            console.log('Team streaming prompt:', prompt);
-
-            // 🎯 Phase 2.2: Team Level 이벤트 기록 (Level 0)
-            const teamUserEventId = this.historyPlugin.recordEvent({
-                type: 'user_message',
-                content: prompt,
-                metadata: {
-                    teamName: this.config.name,
-                    action: 'streaming_start',
-                    level: 'team'
-                }
-                // parentEventId 없음 (Level 0: Team level)
-            });
-
-            let fullResponse = '';
-
-            // Execute using actual team container streaming
-            // 🔧 여기서 teamContainer.executeStream이 내부적으로 assignTask를 호출하고
-            // 각 Sub-Agent가 실행되면서 Hook을 통해 계층화된 이벤트들이 자동 기록됨
-            for await (const chunk of this.teamContainer.executeStream(prompt)) {
-                fullResponse += chunk;
-                // ❌ 각 청크마다 yield하지 않음 (PlaygroundExecutor와 일관성 유지)
-            }
-
-            // ✅ 최종 완성된 응답만 한 번 yield
-            yield fullResponse;
-
-            // 🎯 Team Level 응답 이벤트 기록 (Level 0)
-            this.historyPlugin.recordEvent({
-                type: 'assistant_response',
-                content: fullResponse,
-                parentEventId: teamUserEventId, // Team의 user_message와 연결
-                metadata: {
-                    teamName: this.config.name,
-                    action: 'streaming_success',
-                    level: 'team'
-                }
-            });
-
-        } catch (error) {
-            console.error('Team streaming failed:', error);
-
-            // Team Level 에러 이벤트 기록 (Level 0)
-            this.historyPlugin.recordEvent({
-                type: 'execution.error',
-                content: error instanceof Error ? error.message : String(error),
-                metadata: {
-                    teamName: this.config.name,
-                    action: 'streaming_error',
-                    level: 'team'
-                }
-            });
-
-            throw new Error(`Team streaming failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    }
-
-    async dispose(): Promise<void> {
-        try {
-            if (this.teamContainer) {
-                // Call actual team container dispose method
-                await this.teamContainer.dispose();
-                this.teamContainer = null;
-            }
-            this.isInitialized = false;
-        } catch (error) {
-            throw new Error(`Team disposal failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    }
-
-    /**
-     * Get Event Service for external event listening
-     * Used by PlaygroundContext to listen for tool_call_start and agent_created events
-     */
-    getEventService(): ActionTrackingEventService {
-        return this.eventService;
-    }
-} 
+// Team feature removed: legacy team execution code deleted.
