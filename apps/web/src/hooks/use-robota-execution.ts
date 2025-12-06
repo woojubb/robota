@@ -289,12 +289,12 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
             errors.push('Name is required');
         }
 
-        if (!config.aiProviders || config.aiProviders.length === 0) {
-            errors.push('At least one AI provider is required');
-        }
+            if (!config.aiProviders || config.aiProviders.length === 0) {
+                errors.push('At least one AI provider is required');
+            }
 
-        if (!config.defaultModel || !config.defaultModel.provider || !config.defaultModel.model) {
-            errors.push('Default model configuration is required');
+            if (!config.defaultModel || !config.defaultModel.provider || !config.defaultModel.model) {
+                errors.push('Default model configuration is required');
         }
 
         return {

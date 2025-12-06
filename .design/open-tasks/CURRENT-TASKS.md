@@ -821,7 +821,7 @@ export class ActionTrackingEventService implements EventService {
       - 템플릿/매개변수는 MCP tool 파라미터 또는 생성 시 외부 주입으로 전달하며, 호출부가 ownerPath 바인딩된 eventService만 제공한다.
       - 필요 시 팀 패키지 제거 후 assignTask를 별도 패키지/모듈로 분리하여 third-party 성격을 명확히 한다.
    - 예제:
-     - [ ] team 전용 예제(05/06/07/26 등) → 폐기 또는 assignTool 기반 재작성 결정안 사전 확정(예: 05/06/07 폐기, 26 재작성 여부 판단)
+     - [ ] team 전용 예제(05/06/07/26 등) → assignTask tool collection 기반 재작성안 확정 (간단/국문 팀 협업 예제는 assignTask 실행 흐름으로 교체, 필요 시 폐기 여부 결정)
      - [ ] guard/검증 스크립트에서 team 의존 경로 제거/스킵 규칙 명시
    - SDK/에이전트:
      - [ ] team 전용 헬퍼(SubAgentEventRelay 등) 제거 대상 식별, assignTool 경로로 치환 여부 판단
