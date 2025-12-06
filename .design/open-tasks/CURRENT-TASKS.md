@@ -801,8 +801,8 @@ export class ActionTrackingEventService implements EventService {
      - [ ] 파일별 교체 계획:
        - `apps/web/src/lib/playground/robota-executor.ts`: PlaygroundTeamInstance 제거, 어댑터 주입으로 실행/도구 주입/통계/히스토리 훅 연결
        - `apps/web/src/lib/playground/playground-team-integration.ts`: createTeam 흐름 제거, 어댑터 기반 blockCollector/toolFactory 연동으로 단순화
-       - `apps/web/src/tools/assign-task/index.ts`: `@robota-sdk/team` assignTask 툴 의존 제거 → 어댑터/로컬 MCP assignTask FunctionTool 생성으로 교체
-       - UI 상태/토글/에러 처리: team 전용 분기 제거, assignTask 호출 결과 표시만 남김
+        - `apps/web/src/tools/assign-task/index.ts`: Web 폴더의 assign-task 구현 삭제(팀 패키지로 이전), Web은 team 패키지의 Relay MCP 기반 assignTask만 사용
+        - UI 상태/토글/에러 처리: team 전용 분기 제거, assignTask 호출 결과 표시만 남김
    - 어댑터 설계 초안(메모):
      - 인터페이스: `createSession({ aiProviders, eventService }): Adapter`, Adapter는 `execute(prompt): Promise<string>` + `injectAssignTaskTool(opts?): FunctionTool`(필요 시) + 선택적 추적 콜백 훅
      - 규칙: ownerPath-only, source/timestamp 자동 주입, prefix/ID 파싱/캐시/노-폴백 금지
@@ -812,6 +812,9 @@ export class ActionTrackingEventService implements EventService {
       - Relay MCP Tool 내부에서 Robota agent를 생성할 때 전달받은 ownerPath에 `{ type: 'agent', id: agentId }`만 append하여 주입한다. 그 외 세그먼트 추론/파싱/접두어 주입 금지.
       - 이벤트/계층 정보는 상위 바운드 eventService가 자동 처리하며, payload에 계층/타임스탬프 수동 주입 금지. prefix/ID 파싱/캐시/지연 연결/폴백 금지.
       - assignTask 등 특정 도구 지식 없이 MCP 스키마/파라미터만으로 처리하며, 템플릿 등 추가 데이터는 외부 주입에 의존한다.
+      - ownerPath 전달 책임은 호출부(상위) → Relay MCP Tool이 공통적으로 ownerPath를 받아 agent 세그먼트만 append하는 기능을 제공하고, assignTask는 이를 그대로 사용한다(자체 ownerPath 생성/추론 금지).
+      - assignTask를 Tool Collection으로 구성: `listTemplateCategories`(선택), `listTemplates(categoryId?)`, `getTemplateDetail(templateId)`, `assignTask({ templateId, jobDescription, overrides })`와 같이 params를 object로 전달. 단순 환경에서는 list→detail→assign만 사용, 필요 시 category 필터 추가.
+      - assignTask 템플릿은 패키지 내부 json으로 내장(외부 주입 없음). 호출자는 템플릿 정보를 조회 후 모델/provider 등을 파라미터로 주입해 실행.
     - assignTask 취급 원칙 (명문화):
       - assignTask는 완전한 third-party MCP tool로 간주하며, 에이전트/시스템은 사전 지식이나 특수 분기 없이 도구 스키마/파라미터만으로 처리해야 한다.
       - 템플릿/매개변수는 MCP tool 파라미터 또는 생성 시 외부 주입으로 전달하며, 호출부가 ownerPath 바인딩된 eventService만 제공한다.

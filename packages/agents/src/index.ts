@@ -317,6 +317,7 @@ export {
      */
     ActionTrackingEventService
 } from './services/event-service';
+export { RelayMcpTool, type RelayMcpOptions, type RelayMcpContext } from './tools/implementations/relay-mcp-tool';
 
 /**
  * @deprecated Replaced by EventService + ownerPath context pipeline.

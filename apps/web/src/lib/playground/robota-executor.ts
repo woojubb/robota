@@ -437,26 +437,13 @@ export class PlaygroundExecutor {
             throw new Error(`agent not found: ${agentId}`);
         }
 
-        // Create tool from static ToolRegistry (no dynamic imports)
+        // Create tool from static ToolRegistry (eventService injected)
         const factory = (ToolRegistry as any)[card.id];
         if (typeof factory !== 'function') {
             throw new Error(`Unknown tool id: ${card.id}`);
         }
 
-        // Special handling for assignTask - inject current AI providers and EventService
-        let newTool;
-        if (card.id === 'assignTask') {
-            // Get current AI providers from this executor
-            const currentProviders = this.createProvidersWithExecutor();
-
-            // Create assignTask with proper AI providers and EventService
-            const { createAssignTaskTool } = await import('../../tools/assign-task/index');
-            newTool = createAssignTaskTool(this.eventService, currentProviders);
-
-            console.log('🎯 [assignTask] Created with AI providers and EventService:', currentProviders.map((p: any) => p.name));
-        } else {
-            newTool = factory();
-        }
+        const newTool = factory(this.eventService);
 
         const existing: any[] = ((agent as any).config?.tools as any[]) || [];
         const result = await agent.updateTools([...
