@@ -712,25 +712,26 @@ interface UniversalMessage {
 The `@robota-sdk/team` package now provides assignTask MCP tools (no legacy team creation).
 
 ```typescript
-import { createAssignTaskRelayTool, listTemplatesTool } from '@robota-sdk/team';
+import { createAssignTaskRelayTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
+import { Robota } from '@robota-sdk/agents';
+import { OpenAIProvider } from '@robota-sdk/openai';
 
-// List templates
-const templates = await listTemplatesTool.execute({});
+const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
 
-// Create assignTask tool (eventService injected by caller in real flows)
-const assignTask = createAssignTaskRelayTool({ emit: () => undefined } as any);
+const tools = [
+    listTemplatesTool,
+    getTemplateDetailTool,
+    createAssignTaskRelayTool({ emit: () => undefined } as any) // caller must inject ownerPath-bound eventService in real flows
+];
 
-// Execute assignTask (example only; no live LLM call implied)
-const result = await assignTask.execute({
-    templateId: (templates.data as any)?.templates?.[0]?.id || 'default',
-    jobDescription: 'Summarize the advantages of TypeScript.'
-}, {
-    ownerPath: [{ type: 'tool', id: 'assignTask' }],
-    agentId: 'agent_assign_demo',
-    eventService: { emit: () => undefined }
-} as any);
+const agent = new Robota({
+    name: 'Assistant',
+    aiProviders: [openaiProvider],
+    defaultModel: { provider: 'openai', model: 'gpt-4' },
+    tools
+});
 
-console.log(result);
+const result = await agent.run('Summarize the advantages of TypeScript.');
 ```
 
 ## Future: Advanced Planning System

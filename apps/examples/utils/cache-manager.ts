@@ -153,8 +153,7 @@ export class CacheManager {
                 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
                 return {
                     agents: packageJson.dependencies?.['@robota-sdk/agents'] || 'unknown',
-                    // team package now provides assignTask tool collection only
-                    team_assignTask: packageJson.dependencies?.['@robota-sdk/team'] || 'unknown'
+                    team_assignTask: packageJson.dependencies?.['@robota-sdk/team'] || 'unknown' // assignTask MCP tool collection only
                 };
             }
         } catch (error) {

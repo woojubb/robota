@@ -766,25 +766,29 @@ export class ActionTrackingEventService implements EventService {
 3. Tools DnD UI 구현 시작
 4. Pricing 제거 (병렬 작업 가능)
 
-## 🚫 Priority 0: Team 패키지 완전 제거 (assignTool 기반 대체)
+## 🚫 Priority 0: Team 패키지 정리 (assignTask 전용, 특수 Agent 금지)
 
 ### 목표
-- deprecated 상태인 `@robota-sdk/team` 패키지를 워크스페이스에서 완전히 삭제하고, 모든 소비자를 내부 MCP `assignTool` 기반 흐름으로 마이그레이션한다.
+- **절대 규칙**: 모든 Agent/AgentConfig는 평등하며, assignTask는 순수 third-party MCP tool collection일 뿐이다. Agent/Tool/Service 어디에서도 assignTask 전용/특수 Agent 개념을 갖지 않는다.
+- deprecated 상태였던 Team 패키지를 assignTask tool collection 전용으로 축소 유지하고, 모든 소비자를 MCP `assignTask` 흐름으로 마이그레이션한다. (패키지 자체는 assignTask용으로 유지, legacy 팀/협업 기능은 전부 제거)
 
 ### 작업 항목
 1. **참조 인벤토리 확정 (리스트+담당)**
    - [x] 코드 (Web/Playground): `apps/web/src/lib/playground/robota-executor.ts`, `playground-team-integration.ts`, `apps/web/src/tools/assign-task/index.ts`, team 전용 UI/상태 (playground-team-integration 삭제, robota-executor 팀 분기 제거, web 빌드 OK)
-   - [ ] 코드 (SDK/패키지): `rg "@robota-sdk/team"` 전수 후 경로/분류(코드/예제/문서/설정) 테이블화, SubAgentEventRelay·team prefix 이벤트 의존 식별
+   - [x] 코드 (SDK/패키지) 1차 스캔: `rg "@robota-sdk/team"` 결과 확인 → 실제 남은 제거/정정 대상은 주로 문서/예제/설정(코드 의존은 assignTask 목적만 유지)
    - [ ] 예제: `apps/examples/05/06/07 team-*`, `26-playground-edge-verification.ts`(및 archive), 기타 team 사용 예제 목록화
    - [ ] 문서/설정: `docs/**`, `packages/*/docs/**`, README 계열, api-reference(team), 빌드 스크립트, pnpm workspace, tsconfig paths, root/app package.json 의존
-   - 스캔 결과(초안):
-     | 분류 | 주요 경로 |
-     | --- | --- |
-     | 코드-Web/Playground | `apps/web/src/lib/playground/robota-executor.ts`, `apps/web/src/lib/playground/playground-team-integration.ts`, `apps/web/src/tools/assign-task/index.ts` |
-     | 코드-SDK/패키지 | `packages/workflow/DEVELOPMENT_PLAN.md` (의존 명시), `packages/workflow/package.json`, `packages/agents/docs/*` 등 |
-     | 예제 | `apps/examples/05/06/07 team-*`, `apps/examples/26-playground-edge-verification.ts`, `apps/examples/archive/26-...` |
-     | 문서/README | `docs/**` 전역, 루트 `README.md`, `packages/*/README.md`, `packages/team/docs/**` |
-     | 설정 | `package.json` (root build 스크립트), `pnpm-lock.yaml`, `apps/examples/package.json`, `packages/workflow/package.json`, `apps/web/package.json` |
+   - 스캔 결과(정리 필요 대상):
+     - 코드/Web/Playground: 처리 완료
+     - 코드/SDK: `packages/workflow/DEVELOPMENT_PLAN.md` 등 의존 언급만 확인(실제 팀 코드 없음)
+     - 예제: 05/06/07/26 및 archive 정리 필요
+     - 문서/README: 아래 문서들이 여전히 “team=멀티에이전트/협업”으로 표현되어 있어 assignTask MCP-only로 정정 필요
+       - 루트 `README.md` (createTeam import, 팀 자동 위임 설명)
+       - `docs/README.md`, `docs/getting-started/README.md`, `docs/guide/README.md`, `docs/guide/core-concepts.md`, `docs/guide/building-agents.md`, `docs/guide/architecture.md`
+       - `docs/examples/team-collaboration.md`(head note OK, 본문 재점검), `docs/examples/browser-compatibility.md`
+       - `packages/agents/docs/**`, `packages/openai/README.md`, `packages/anthropic/README.md`, `packages/openai/docs/README.md`, `packages/anthropic/docs/README.md`
+       - `packages/agents/docs/packages-docs.md`, `packages/workflow/DEVELOPMENT_PLAN.md` (의존 언급)
+     - 설정/lock: root/package builds, pnpm-lock, apps/examples/package.json, packages/workflow/package.json, apps/web/package.json
 
 2. **마이그레이션 전략 (team → assignTool MCP) 세부**
    - Web/Playground:
@@ -819,7 +823,8 @@ export class ActionTrackingEventService implements EventService {
     - assignTask 취급 원칙 (명문화):
       - assignTask는 완전한 third-party MCP tool로 간주하며, 에이전트/시스템은 사전 지식이나 특수 분기 없이 도구 스키마/파라미터만으로 처리해야 한다.
       - 템플릿/매개변수는 MCP tool 파라미터 또는 생성 시 외부 주입으로 전달하며, 호출부가 ownerPath 바인딩된 eventService만 제공한다.
-      - 필요 시 팀 패키지 제거 후 assignTask를 별도 패키지/모듈로 분리하여 third-party 성격을 명확히 한다.
+      - **Agent 중립 절대 규칙**: Agent/AgentConfig에 assignTask 전용 필드나 특수 Agent 개념을 두지 않는다. `TaskAgent*`, “temporary/specialized agent” 표현 금지. 모든 Agent는 동일한 수명주기/설정 구조를 따른다.
+      - RelayAgent는 도입하지 않는다(선택 사항이지만 현재 불필요). 표준 `Robota` + `RelayMcpTool` 조합만 사용한다.
    - 예제:
      - [ ] team 전용 예제(05/06/07/26 등) 통폐합 → assignTask tool collection 최소 예제로 재작성
        - 유지/신규:
@@ -835,7 +840,11 @@ export class ActionTrackingEventService implements EventService {
          - 결과는 콘솔 요약만, ownerPath-only/노-폴백 준수
      - [ ] guard/검증 스크립트에서 team 의존 경로 제거/스킵 규칙 명시
    - SDK/에이전트:
-     - [ ] team 전용 헬퍼(SubAgentEventRelay 등) 제거 대상 식별, assignTool 경로로 치환 여부 판단
+     - [x] team 전용 헬퍼(SubAgentEventRelay 등) 제거 대상 식별, assignTool 경로로 치환 여부 판단
+     - [x] `packages/team/src/types.ts`를 assignTask 전용 최소 타입만 남기고 정리: `TaskAgentConfig`/특수 에이전트 관련 타입/주석 삭제, 표준 AgentConfig만 사용
+     - [x] `assign-task/**` 구현이 특수 Agent 분기 없이 표준 Agent 생성만 수행하는지 재검증 (ownerPath-only, no-fallback)
+     - [x] 전역 검색 `rg "TaskAgent"` / `rg "TaskAgentConfig"` / `rg "specialized agent"`로 잔여 표현 제거
+     - [x] `pnpm --filter @robota-sdk/team build`로 타입/빌드 검증 (특수 Agent 제거 후)
    - 이벤트/경로:
      - [ ] team prefix 이벤트 전면 제거, ownerPath-only 유지
      - [ ] assignTool 호출이 tool/agent 이벤트만 사용하도록 점검
@@ -845,16 +854,12 @@ export class ActionTrackingEventService implements EventService {
    - [ ] 코드 치환 → pnpm workspace/root/apps package.json/tsconfig paths 정리 → lockfile 정리 → 빌드 순으로 진행
    - [ ] 코드 치환: assignTool/Robota 단일 agent 패턴으로 교체
 
-4. **패키지 삭제**
-   - [ ] `packages/team` 디렉터리 삭제(코드/README/docs/CHANGELOG 포함)
-   - [ ] lockfile 정리
-
-5. **검증**
+4. **검증**
    - [ ] `pnpm --filter @robota-sdk/agents build` 및 영향 패키지 빌드
    - [ ] apps/web smoke (team 기능 제거 후 기본 흐름)
    - [ ] 예제 실행: team 제거 대상은 스킵/삭제, 나머지 예제 정상 동작 확인
 
-6. **차단책**
+5. **차단책**
    - [ ] 신규 `@robota-sdk/team` import 유입 방지 가이드/체크 추가 (lint/rg 명시, CI/pre-commit에서 `rg "@robota-sdk/team"` 0건 확인)
 
 **2025-11-30 업데이트**

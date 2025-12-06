@@ -16,7 +16,7 @@ export interface ChatConfig {
     chatName?: string;
     description?: string;
     robotaConfig: AgentConfig; // Required for creating the agent
-    agentTemplate?: string; // Agent template name for specialized agents
+    agentTemplate?: string; // Optional agent template name
 }
 
 /**

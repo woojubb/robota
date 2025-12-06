@@ -3,7 +3,7 @@
 ## 📅 개발 일정 개요
 - **예상 기간**: 2-3주
 - **우선순위**: 높음
-- **전제조건**: agents, team 패키지 안정화
+- **전제조건**: agents, team(assignTask MCP tool collection) 패키지 안정화
 
 ## ✅ Phase 1: 패키지 초기 설정 (1-2일) **완료됨**
 
@@ -11,7 +11,7 @@
 - [x] `packages/workflow` 디렉토리 생성
 - [x] `package.json` 작성
   - [x] 패키지명: `@robota-sdk/workflow`
-  - [x] 의존성 설정: `@robota-sdk/agents`, `@robota-sdk/team`
+- [x] 의존성 설정: `@robota-sdk/agents`, `@robota-sdk/team` (assignTask MCP tool collection; legacy team creation 제거)
   - [x] TypeScript 설정
   - [x] 빌드 스크립트 설정
 - [x] `tsconfig.json` 작성

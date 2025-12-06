@@ -12,7 +12,7 @@ This document covers the complete browser compatibility implementation across al
 - ✅ `@robota-sdk/anthropic` - Anthropic provider
 - ✅ `@robota-sdk/google` - Google provider
 - ✅ `@robota-sdk/sessions` - Session management
-- ✅ `@robota-sdk/team` - Team collaboration
+- ✅ `@robota-sdk/team` - assignTask MCP tool collection (legacy team creation removed)
 - ✅ `@robota-sdk/tools` - Tool system
 - ✅ `@robota-sdk/core` - Core utilities
 

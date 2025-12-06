@@ -1,48 +1,65 @@
-// Team legacy types removed; team package now provides assignTask tool collection only.
+// Team package now provides assignTask tool collection only. All agents remain neutral and identical.
+
+export interface AssignTaskParams {
+    /** 
+     * Clear, specific description of the job to be completed.
+     */
+    jobDescription: string;
+    /**
+     * Optional template identifier to use when creating the agent.
+     */
+    templateId?: string;
+    /**
+     * Optional override for provider/model/settings.
+     */
+    provider?: string;
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    /** 
+     * Additional context or requirements for the job.
+     */
+    context?: string;
+    /** 
+     * Optional tool requirements for the assigned agent.
+     */
+    requiredTools?: string[];
+    /** 
+     * Whether further delegation is allowed.
+     */
+    allowFurtherDelegation?: boolean;
+}
 
 /**
- * Result from an assigned task with execution metadata (internal use only)
- * 
- * @description
- * Contains the output from a specialized agent along with comprehensive
- * metadata about the task execution including performance metrics,
- * resource usage, and any errors encountered.
- * 
- * @internal This interface is for internal use only.
+ * Result from an assigned task with execution metadata.
  */
 export interface AssignTaskResult {
     /** 
-     * The completed task result content from the specialist agent.
-     * This contains the actual deliverable requested in the job description.
+     * The completed task result content from the assigned agent.
      */
     result: string;
 
     /** 
-     * Unique identifier of the temporary agent that performed the task.
-     * Useful for debugging and tracking which specialist handled the work.
+     * Unique identifier of the agent that performed the task.
      */
     agentId: string;
 
     /** 
-     * Comprehensive metadata about the task execution including
-     * performance metrics, resource usage, and error information.
+     * Execution metadata for the task.
      */
     metadata: {
         /** 
          * Time taken to complete the task in milliseconds.
-         * Includes agent creation, task execution, and cleanup time.
          */
         executionTime: number;
 
         /** 
          * Estimated number of tokens consumed during task execution.
-         * Useful for cost tracking and resource optimization.
          */
         tokensUsed?: number;
 
         /** 
          * List of any errors encountered during task execution.
-         * Empty array indicates successful completion without errors.
          */
         errors?: string[];
 
@@ -61,17 +78,5 @@ export interface AssignTaskResult {
          */
         agentSuccessRate?: number;
     };
-}
-
-/**
- * Configuration for creating a task-specific agent
- */
-export interface TaskAgentConfig {
-    /** Description of the task the agent will perform */
-    taskDescription: string;
-    /** Required tools for the task */
-    requiredTools: string[];
-    /** Agent configuration overrides */
-    agentConfig?: Partial<AgentConfig>;
 }
 

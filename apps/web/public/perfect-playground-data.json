@@ -877,7 +877,7 @@
           "resultPreview": "카페 메뉴 구성은 고객의 취향과 시장 트렌드를 반영하는 매우 중요한 작업입니다. 다음은 음료 3개와 디저트 2개로 구성된 카페 메뉴 제안입니다. 각 품목은 현재 트렌드와 소비자 선호도를 고려하여 선택하였으며, 가격대도 함께 제시하였습니다.\n\n### 음료 메뉴\n\n1. **시즌 과일 스무디**\n   - **설명**: 신선한 시즌 과일과 요거트를 블렌딩하여 만든 건강한 스무디. 단맛과 상큼함이 조화를 이룸.\n   - **가격**: 6,000 - 7,500원\n\n2. **바닐라 라떼**\n   - **설명**: 부드러운 에스프레소와 스팀 밀크...",
           "toolDetails": {
             "name": "assignTask",
-            "description": "Assigns a task to a specialized agent",
+            "description": "Assigns a task to an agent",
             "inputParameters": {
               "jobDescription": "카페 메뉴를 구성하는 작업으로, 음료 3개와 디저트 2개를 포함하고, 각 품목의 가격대를 설정하는 작업.",
               "agentTemplate": "creative_ideator"
@@ -926,7 +926,7 @@
                 "resultPreview": "카페 메뉴 구성은 고객의 취향과 시장 트렌드를 반영하는 매우 중요한 작업입니다. 다음은 음료 3개와 디저트 2개로 구성된 카페 메뉴 제안입니다. 각 품목은 현재 트렌드와 소비자 선호도를 고려하여 선택하였으며, 가격대도 함께 제시하였습니다.\n\n### 음료 메뉴\n\n1. **시즌 과일 스무디**\n   - **설명**: 신선한 시즌 과일과 요거트를 블렌딩하여 만든 건강한 스무디. 단맛과 상큼함이 조화를 이룸.\n   - **가격**: 6,000 - 7,500원\n\n2. **바닐라 라떼**\n   - **설명**: 부드러운 에스프레소와 스팀 밀크...",
                 "toolDetails": {
                   "name": "assignTask",
-                  "description": "Assigns a task to a specialized agent",
+                  "description": "Assigns a task to an agent",
                   "inputParameters": {
                     "jobDescription": "카페 메뉴를 구성하는 작업으로, 음료 3개와 디저트 2개를 포함하고, 각 품목의 가격대를 설정하는 작업.",
                     "agentTemplate": "creative_ideator"
@@ -1084,7 +1084,7 @@
           "resultPreview": "카페 창업을 위한 시장 분석은 성공적인 비즈니스 운영을 위한 중요한 단계입니다. 아래는 경쟁사 분석, 타겟 고객 분석, 현재 트렌드에 대한 정보를 포함한 종합적인 시장 분석입니다.\n\n### 1. 경쟁사 분석\n\n#### A. 지역 내 주요 경쟁사\n- **카페 A**: \n  - 위치: 주요 상업지구\n  - 특징: 프리미엄 커피 및 디저트 전문, 고급스러운 인테리어, 다양한 커피 원두 제공\n  - 가격대: 중상\n  - 고객층: 20대 후반 ~ 40대 초반, 직장인 및 고급 소비자\n\n- **카페 B**:\n  - 위치: 주택가 인근\n  - ...",
           "toolDetails": {
             "name": "assignTask",
-            "description": "Assigns a task to a specialized agent",
+            "description": "Assigns a task to an agent",
             "inputParameters": {
               "jobDescription": "시장 분석을 수행하여 경쟁사, 타겟 고객, 현재 트렌드에 대한 정보를 수집하고 분석하는 작업.",
               "agentTemplate": "domain_researcher"
@@ -1133,7 +1133,7 @@
                 "resultPreview": "카페 창업을 위한 시장 분석은 성공적인 비즈니스 운영을 위한 중요한 단계입니다. 아래는 경쟁사 분석, 타겟 고객 분석, 현재 트렌드에 대한 정보를 포함한 종합적인 시장 분석입니다.\n\n### 1. 경쟁사 분석\n\n#### A. 지역 내 주요 경쟁사\n- **카페 A**: \n  - 위치: 주요 상업지구\n  - 특징: 프리미엄 커피 및 디저트 전문, 고급스러운 인테리어, 다양한 커피 원두 제공\n  - 가격대: 중상\n  - 고객층: 20대 후반 ~ 40대 초반, 직장인 및 고급 소비자\n\n- **카페 B**:\n  - 위치: 주택가 인근\n  - ...",
                 "toolDetails": {
                   "name": "assignTask",
-                  "description": "Assigns a task to a specialized agent",
+                  "description": "Assigns a task to an agent",
                   "inputParameters": {
                     "jobDescription": "시장 분석을 수행하여 경쟁사, 타겟 고객, 현재 트렌드에 대한 정보를 수집하고 분석하는 작업.",
                     "agentTemplate": "domain_researcher"

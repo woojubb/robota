@@ -159,7 +159,7 @@ const robota = new Robota({
 ## Package Ecosystem
 
 ### Integrated Packages
-- **@robota-sdk/team**: Intelligent multi-agent collaboration with template-based expert selection
+- **@robota-sdk/team**: assignTask MCP tool collection (no legacy team creation)
 - **@robota-sdk/openai**: OpenAI provider with GPT-3.5, GPT-4, and streaming support
 - **@robota-sdk/anthropic**: Anthropic provider with Claude 3.5 Sonnet integration
 - **@robota-sdk/google**: Google AI provider with Gemini 1.5 support
