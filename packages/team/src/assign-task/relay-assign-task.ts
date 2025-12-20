@@ -126,12 +126,15 @@ export function createAssignTaskRelayTool(eventService: EventService): RelayMcpT
             if (!ctx?.eventService) {
                 throw new Error('[ASSIGN-TASK] Missing context.eventService');
             }
+            if (!ctx?.baseEventService) {
+                throw new Error('[ASSIGN-TASK] Missing context.baseEventService');
+            }
             if (!ctx?.agentId) {
                 throw new Error('[ASSIGN-TASK] Missing context.agentId');
             }
             const parentOwnerPath: OwnerPathSegment[] = Array.isArray(ctx.ownerPath) ? ctx.ownerPath.map((s: any) => ({ ...s })) : [];
             const agentOwnerPath: OwnerPathSegment[] = [...parentOwnerPath, { type: 'agent', id: ctx.agentId }];
-            const agentEventService = bindWithOwnerPath(ctx.eventService, {
+            const agentEventService = bindWithOwnerPath(ctx.baseEventService, {
                 ownerType: 'agent',
                 ownerId: ctx.agentId,
                 ownerPath: agentOwnerPath,

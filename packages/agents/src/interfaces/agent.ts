@@ -3,9 +3,27 @@ import type { AbstractPlugin, BasePluginOptions, PluginStats } from '../abstract
 import type { AbstractTool } from '../abstracts/abstract-tool';
 import type { AbstractModule } from '../abstracts/abstract-module';
 import type { UtilLogLevel } from '../utils/logger';
-import type { ToolExecutionResult, ToolExecutionContext } from './tool'; // 🎯 [CONTEXT-INJECTION] Import ToolExecutionContext
+import type { ToolExecutionResult } from './tool';
 import type { Metadata, ConfigValue } from './types';
 import type { EventService } from '../services/event-service';
+import type { OwnerPathSegment } from '../services/event-service';
+
+/**
+ * ExecutionContextInjection
+ *
+ * Minimal context payload used to inject an existing ownerPath into a new agent instance
+ * (e.g., when a tool creates an agent and must preserve absolute ownerPath semantics).
+ *
+ * NOTE: This is intentionally NOT ToolExecutionContext. ToolExecutionContext is for tool calls
+ * and requires toolName/parameters; agent creation only needs ownerPath and execution linkage.
+ */
+export interface ExecutionContextInjection {
+    ownerPath?: OwnerPathSegment[];
+    parentExecutionId?: string;
+    rootExecutionId?: string;
+    executionLevel?: number;
+    sourceId?: string;
+}
 
 /**
  * Message metadata structure - specific type definition for agents
@@ -166,7 +184,7 @@ export interface AgentConfig {
     eventService?: EventService;
 
     // 🎯 [CONTEXT-INJECTION] Execution context for hierarchical agent management
-    executionContext?: ToolExecutionContext;
+    executionContext?: ExecutionContextInjection;
 }
 
 /**

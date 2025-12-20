@@ -104,8 +104,18 @@ export class ToolEventHandler implements EventHandler {
                         };
                     }
 
-                    // Path-only: tool response is always a child of the tool call.
-                    const parentForResponseId: string = toolCallId;
+                    // Path-only: tool response is a child of:
+                    // - the tool call node (default)
+                    // - OR the delegated agent response node (when explicitly provided by tool result)
+                    const delegatedResponseNodeId = (() => {
+                        const res = (eventData as any)?.result;
+                        if (!res || typeof res !== 'object') return undefined;
+                        const data = (res as any).data;
+                        if (!data || typeof data !== 'object') return undefined;
+                        const id = (data as any).delegatedResponseNodeId;
+                        return typeof id === 'string' && id.length > 0 ? id : undefined;
+                    })();
+                    const parentForResponseId: string = delegatedResponseNodeId ?? toolCallId;
 
                     // Create tool_response node
                     const toolResponseNode = this.createToolResponseNode(eventData, pathInfo);

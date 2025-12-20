@@ -1,11 +1,11 @@
-import { Message, AgentConfig, AssistantMessage, ToolMessage } from '../interfaces/agent';
+import { Message, AgentConfig, AssistantMessage, ToolMessage, ExecutionContextInjection } from '../interfaces/agent';
 import { PluginContext, Metadata } from '../interfaces/types';
 import { AbstractPlugin } from '../abstracts/abstract-plugin';
 import { ToolExecutionService } from './tool-execution-service';
 import type { AIProviderManagerInterface } from '../interfaces/manager';
 import type { ToolManagerInterface } from '../interfaces/manager';
 import { ConversationHistory } from '../managers/conversation-history-manager';
-import { ToolExecutionContext } from '../interfaces/tool'; // 🎯 [CONTEXT-INJECTION] Import ToolExecutionContext
+import type { ToolExecutionContext } from '../interfaces/tool';
 import { Logger, createLogger } from '../utils/logger';
 import { ChatOptions, ToolCall } from '../interfaces/provider';
 import {
@@ -116,9 +116,8 @@ export class ExecutionService {
     private plugins: AbstractPlugin[] = [];
     private logger: Logger;
     private baseEventService: EventService;
-    private executionContext?: ToolExecutionContext; // 🎯 [CONTEXT-INJECTION] Parent execution context
+    private executionContext?: ExecutionContextInjection; // 🎯 [CONTEXT-INJECTION] Parent execution context
     private ownerPathBase: OwnerPathSegment[];
-    private scopedAgentEventService?: EventService;
     private toolEventServices: Map<string, EventService>;
     private agentOwnerPathBase: OwnerPathSegment[];
     // Path-only: remove lastResponseExecutionId tracking
@@ -129,7 +128,7 @@ export class ExecutionService {
         tools: ToolManagerInterface,
         conversationHistory: ConversationHistory,
         eventService?: EventService,
-        executionContext?: ToolExecutionContext // 🎯 [CONTEXT-INJECTION] Accept parent context
+        executionContext?: ExecutionContextInjection // 🎯 [CONTEXT-INJECTION] Accept parent context
     ) {
         this.toolExecutionService = new ToolExecutionService(tools as any);
         this.aiProviders = aiProviders;
@@ -213,7 +212,7 @@ export class ExecutionService {
             ...(context?.metadata && { metadata: context.metadata })
         };
 
-        this.prepareEventServiceScopes(conversationId);
+        this.prepareOwnerPathBases(conversationId);
 
         this.logger.debug('Starting execution pipeline', {
             executionId,
@@ -449,8 +448,9 @@ export class ExecutionService {
                     ...(availableTools.length > 0 && { tools: availableTools })
                 };
 
-                // Emit assistant message start event for each thinking phase
-                this.emitExecution(
+                // Emit assistant message start event for each thinking phase.
+                // Absolute path-only: the path tail must be the thinking node id for this round.
+                this.emitWithContext(
                     EXECUTION_EVENTS.ASSISTANT_MESSAGE_START,
                     {
                         parameters: {
@@ -462,8 +462,14 @@ export class ExecutionService {
                             thinkingNodeId
                         }
                     },
-                    rootId,
-                    executionId
+                    () => this.buildThinkingOwnerContext(rootId, executionId, thinkingNodeId),
+                    ctx => bindWithOwnerPath(this.baseEventService, {
+                        ownerType: ctx.ownerType ?? 'thinking',
+                        ownerId: ctx.ownerId ?? thinkingNodeId,
+                        ownerPath: ctx.ownerPath,
+                        sourceType: 'agent',
+                        sourceId: rootId
+                    })
                 );
 
                 const response = await (provider as any).chat(conversationMessages, chatOptions);
@@ -542,7 +548,7 @@ export class ExecutionService {
                     const responseStartTime = assistantResponse.timestamp || new Date();
                     const responseDuration = new Date().getTime() - responseStartTime.getTime();
 
-                    this.emitExecution(
+                    this.emitWithContext(
                         EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE,
                         {
                             parameters: {
@@ -579,8 +585,14 @@ export class ExecutionService {
                                 }
                             }
                         },
-                        fullContext.conversationId || executionId,
-                        executionId
+                        () => this.buildResponseOwnerContext(rootId, executionId, thinkingNodeId),
+                        ctx => bindWithOwnerPath(this.baseEventService, {
+                            ownerType: ctx.ownerType ?? 'response',
+                            ownerId: ctx.ownerId ?? `response_${thinkingNodeId}`,
+                            ownerPath: ctx.ownerPath,
+                            sourceType: 'agent',
+                            sourceId: rootId
+                        })
                     );
 
                     this.logger.info(`🔍 [EXECUTION-VERIFICATION] Breaking execution loop - should prevent Round ${currentRound + 1}`);
@@ -603,7 +615,8 @@ export class ExecutionService {
                 // Ensure proper ID hierarchy for tool execution
                 const toolRootId = fullContext.conversationId ?? executionId;
                 const rootForTools = toolRootId;
-                const toolOwnerPathBase = this.buildExecutionOwnerContext(rootForTools, executionId).ownerPath;
+                // Absolute path-only: tool calls must be children of the thinking node (fork point).
+                const toolOwnerPathBase = this.buildThinkingOwnerContext(rootForTools, executionId, thinkingNodeId).ownerPath;
                 const expectedCountForBatch = assistantResponse.toolCalls.length;
                 const batchId = `${thinkingNodeId}`;
                 const toolRequestsBase = this.toolExecutionService.createExecutionRequestsWithContext(
@@ -622,7 +635,8 @@ export class ExecutionService {
                 );
                 const toolRequests = toolRequestsBase.map(request => ({
                     ...request,
-                    eventService: this.ensureToolEventService(request.ownerId ?? request.executionId, request.ownerPath)
+                    eventService: this.ensureToolEventService(request.ownerId ?? request.executionId, request.ownerPath),
+                    baseEventService: this.baseEventService
                 }));
                 const toolContext: ToolExecutionBatchContext = {
                     requests: toolRequests,
@@ -698,7 +712,7 @@ export class ExecutionService {
 
                 // Emit tool results ready (join trigger) and then delivery to LLM
                 const toolResultsRootId = rootId;
-                this.emitExecution(
+                this.emitWithContext(
                     EXECUTION_EVENTS.TOOL_RESULTS_READY,
                     {
                         parameters: {
@@ -709,11 +723,17 @@ export class ExecutionService {
                             thinkingId: thinkingNodeId
                         }
                     },
-                    rootId,
-                    executionId
+                    () => this.buildThinkingOwnerContext(rootId, executionId, thinkingNodeId),
+                    ctx => bindWithOwnerPath(this.baseEventService, {
+                        ownerType: ctx.ownerType ?? 'thinking',
+                        ownerId: ctx.ownerId ?? thinkingNodeId,
+                        ownerPath: ctx.ownerPath,
+                        sourceType: 'agent',
+                        sourceId: rootId
+                    })
                 );
 
-                this.emitExecution(
+                this.emitWithContext(
                     EXECUTION_EVENTS.TOOL_RESULTS_TO_LLM,
                     {
                         parameters: {
@@ -725,8 +745,14 @@ export class ExecutionService {
                             round: currentRound
                         }
                     },
-                    toolResultsRootId,
-                    executionId
+                    () => this.buildThinkingOwnerContext(toolResultsRootId, executionId, thinkingNodeId),
+                    ctx => bindWithOwnerPath(this.baseEventService, {
+                        ownerType: ctx.ownerType ?? 'thinking',
+                        ownerId: ctx.ownerId ?? thinkingNodeId,
+                        ownerPath: ctx.ownerPath,
+                        sourceType: 'agent',
+                        sourceId: toolResultsRootId
+                    })
                 );
 
                 // Continue to next round - let the AI decide if more tools are needed
@@ -848,7 +874,7 @@ export class ExecutionService {
 
             throw error;
         } finally {
-            this.resetEventServiceScopes();
+            this.resetOwnerPathBases();
         }
     }
 
@@ -866,7 +892,7 @@ export class ExecutionService {
         const executionId = this.generateExecutionId();
         const startTime = Date.now();
         const streamingConversationId = context?.conversationId || executionId;
-        this.prepareEventServiceScopes(streamingConversationId);
+        this.prepareOwnerPathBases(streamingConversationId);
 
         try {
             // Create conversation session for this execution
@@ -1101,7 +1127,7 @@ export class ExecutionService {
 
             throw error;
         } finally {
-            this.resetEventServiceScopes();
+            this.resetOwnerPathBases();
         }
     }
 
@@ -1234,8 +1260,7 @@ export class ExecutionService {
         if (this.toolEventServices.has(ownerId)) {
             return this.toolEventServices.get(ownerId)!;
         }
-        const baseService = this.scopedAgentEventService ?? this.baseEventService;
-        const scoped = bindWithOwnerPath(baseService, {
+        const scoped = bindWithOwnerPath(this.baseEventService, {
             ownerType: 'tool',
             ownerId,
             ownerPath: ownerPath ? ownerPath.map(segment => ({ ...segment })) : undefined,
@@ -1246,30 +1271,18 @@ export class ExecutionService {
         return scoped;
     }
 
-    private prepareEventServiceScopes(conversationId: string): void {
+    private prepareOwnerPathBases(conversationId: string): void {
         this.toolEventServices.clear();
         const ownerPath = [...this.ownerPathBase, { type: 'agent', id: conversationId }];
         this.agentOwnerPathBase = ownerPath;
-        if (isDefaultEventService(this.baseEventService)) {
-            this.scopedAgentEventService = undefined;
-            return;
-        }
-        this.scopedAgentEventService = bindWithOwnerPath(this.baseEventService, {
-            ownerType: 'agent',
-            ownerId: conversationId,
-            ownerPath,
-            sourceType: 'agent',
-            sourceId: conversationId
-        });
     }
 
-    private resetEventServiceScopes(): void {
-        this.scopedAgentEventService = undefined;
+    private resetOwnerPathBases(): void {
         this.toolEventServices.clear();
         this.agentOwnerPathBase = [];
     }
 
-    private buildBaseOwnerPath(executionContext?: ToolExecutionContext): OwnerPathSegment[] {
+    private buildBaseOwnerPath(executionContext?: ExecutionContextInjection): OwnerPathSegment[] {
         if (!executionContext?.ownerPath?.length) {
             return [];
         }
@@ -1290,7 +1303,19 @@ export class ExecutionService {
         };
     }
 
+    private buildThinkingOwnerContext(rootId: string, executionId: string, thinkingNodeId: string): EventContext {
+        const base = this.buildExecutionOwnerContext(rootId, executionId).ownerPath;
+        const path: OwnerPathSegment[] = [...base, { type: 'thinking', id: thinkingNodeId }];
+        return {
+            ownerType: 'thinking',
+            ownerId: thinkingNodeId,
+            ownerPath: path
+        };
+    }
+
     private buildToolOwnerContext(rootId: string, executionId: string, toolCallId: string): EventContext {
+        // Tool calls are always children of a specific thinking phase (fork point).
+        // The caller must provide an ownerPathBase that already includes `{ type: 'thinking', id }`.
         const base = this.buildExecutionOwnerContext(rootId, executionId).ownerPath;
         const path = [...base, { type: 'tool', id: toolCallId }];
         return {
@@ -1300,12 +1325,30 @@ export class ExecutionService {
         };
     }
 
+    private buildResponseOwnerContext(rootId: string, executionId: string, thinkingNodeId: string): EventContext {
+        const thinkingPath = this.buildThinkingOwnerContext(rootId, executionId, thinkingNodeId).ownerPath;
+        const responseNodeId = `response_${thinkingNodeId}`;
+        const path: OwnerPathSegment[] = [...thinkingPath, { type: 'response', id: responseNodeId }];
+        return {
+            ownerType: 'response',
+            ownerId: responseNodeId,
+            ownerPath: path
+        };
+    }
+
     private emitExecution(eventType: ServiceEventType, data: ExecutionEventData, rootId: string, executionId: string): void {
         this.emitWithContext(
             eventType,
             data,
             () => this.buildExecutionOwnerContext(rootId, executionId),
-            () => this.scopedAgentEventService ?? this.baseEventService
+            context => bindWithOwnerPath(this.baseEventService, {
+                ownerType: context.ownerType ?? 'execution',
+                ownerId: context.ownerId ?? executionId,
+                ownerPath: context.ownerPath,
+                // source stays as agent so handlers can map execution events to an agent instance
+                sourceType: 'agent',
+                sourceId: rootId
+            })
         );
     }
 

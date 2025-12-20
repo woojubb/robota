@@ -4,7 +4,7 @@
  * Automated Workflow Generation and Verification Script
  * 
  * This script automates the following process:
- * 1. Run example 05 to generate workflow data
+ * 1. Run the guarded example to generate workflow data (scenario playback)
  * 2. Verify the generated data with connection validation
  * 3. Copy validated data to web playground
  * 4. Display results and next steps
@@ -32,8 +32,8 @@ class WorkflowAutomation {
         console.log('='.repeat(60));
 
         try {
-            // Step 1: Run example 05
-            await this.runExample05();
+            // Step 1: Run guarded example to generate workflow data
+            await this.runGuardedExample26();
 
             // Step 2: Verify workflow connections
             const verificationResult = await this.verifyConnections();
@@ -52,13 +52,12 @@ class WorkflowAutomation {
         }
     }
 
-    private async runExample05(): Promise<void> {
-        console.log('📋 Step 1: Running playground example to generate workflow data...');
+    private async runGuardedExample26(): Promise<void> {
+        console.log('📋 Step 1: Running guarded example to generate workflow data...');
 
         try {
-            const { stdout, stderr } = await execAsync('npx tsx 26-playground-edge-verification.ts', {
-                cwd: this.examplesDir,
-                timeout: 60000 // 60 seconds timeout
+            const { stdout, stderr } = await execAsync('npx tsx 26-guarded-edge-verification.ts', {
+                cwd: this.examplesDir
             });
 
             console.log('✅ Playground example completed successfully');

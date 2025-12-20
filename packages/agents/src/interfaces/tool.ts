@@ -128,6 +128,17 @@ export interface ToolExecutionContext {
      * an ownerPath-bound EventService for this tool call.
      */
     eventService?: EventService;
+
+    /**
+     * Unbound base EventService instance.
+     *
+     * Required when a tool needs to create another owner-bound EventService
+     * for a different owner (e.g., creating an agent from a tool call).
+     *
+     * NOTE: Do not wrap an already owner-bound EventService to bind a different owner.
+     * Owner-bound instances must not be layered across different owners.
+     */
+    baseEventService?: EventService;
 }
 
 /**
