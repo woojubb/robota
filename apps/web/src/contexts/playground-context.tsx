@@ -17,7 +17,7 @@ import React, { createContext, useContext, useReducer, useEffect, useCallback, R
 import { PlaygroundExecutor, type PlaygroundExecutionResult, type PlaygroundAgentConfig, type PlaygroundMode, type ConversationEvent, type VisualizationData } from '@/lib/playground/robota-executor';
 import { DefaultConsoleLogger } from '@robota-sdk/agents';
 import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
-import { WorkflowSubscriberEventService } from '@/lib/playground/workflow-subscriber-event-service';
+import type { EventService, SimpleLogger } from '@robota-sdk/agents';
 // Import Universal types from their proper location (Feature Ownership principle)
 import type { UniversalWorkflowStructure } from '@robota-sdk/agents';
 
@@ -349,9 +349,10 @@ const PlaygroundContext = createContext<PlaygroundContextValue | undefined>(unde
 interface PlaygroundProviderProps {
     children: ReactNode;
     defaultServerUrl?: string;
+    createEventService: (workflowSubscriber: WorkflowEventSubscriber, logger: SimpleLogger) => EventService;
 }
 
-export function PlaygroundProvider({ children, defaultServerUrl = '' }: PlaygroundProviderProps) {
+export function PlaygroundProvider({ children, defaultServerUrl = '', createEventService }: PlaygroundProviderProps) {
     const logger = DefaultConsoleLogger;
     logger.debug('PlaygroundProvider rendering', { defaultServerUrl });
 
@@ -381,7 +382,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                 logger.debug('Creating PlaygroundExecutor');
 
                 const workflowSubscriber = new WorkflowEventSubscriber({ logger });
-                const eventService = new WorkflowSubscriberEventService(workflowSubscriber, logger);
+                const eventService = createEventService(workflowSubscriber, logger);
 
                 const executor = new PlaygroundExecutor(defaultServerUrl, 'playground-token', {
                     logger,

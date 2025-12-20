@@ -2,28 +2,21 @@
  * Agent event constants
  * 
  * Events emitted by Agent instances themselves.
- * Do not assume a specific prefix-injection implementation.
- * Event ownership must be enforced by the emitting service using EventService + ownerPath context.
- * 
- * 🎯 [PREFIX-INJECTION] These constants define only the event name without prefix.
- * The EventService with ownerPrefix='agent' will automatically convert:
- *   'created' → 'agent.created'
- *   'execution_start' → 'agent.execution_start'
- *   etc.
+ * Event names are fully prefixed and must be used via constants (no string literals).
  */
 export const AGENT_EVENTS = {
     /** Agent instance has been created and initialized */
-    CREATED: 'created',
+    CREATED: 'agent.created',
     /** Agent execution lifecycle - start */
-    EXECUTION_START: 'execution_start',
+    EXECUTION_START: 'agent.execution_start',
     /** Agent execution lifecycle - complete */
-    EXECUTION_COMPLETE: 'execution_complete',
+    EXECUTION_COMPLETE: 'agent.execution_complete',
     /** Agent execution lifecycle - error */
-    EXECUTION_ERROR: 'execution_error',
+    EXECUTION_ERROR: 'agent.execution_error',
     /** Agent aggregation process completed */
-    AGGREGATION_COMPLETE: 'aggregation_complete',
+    AGGREGATION_COMPLETE: 'agent.aggregation_complete',
     /** Agent configuration (e.g., tools) has been updated by the agent */
-    CONFIG_UPDATED: 'config_updated'
+    CONFIG_UPDATED: 'agent.config_updated'
 } as const;
 
 export type AgentEventType = typeof AGENT_EVENTS[keyof typeof AGENT_EVENTS];

@@ -1,5 +1,6 @@
 import type { EventService, ServiceEventData } from '../services/event-service';
-import { EXECUTION_EVENTS, TOOL_EVENTS } from '../services/execution-service';
+import { EXECUTION_EVENTS } from '../services/execution-service';
+import { TOOL_EVENTS } from '../services/tool-execution-service';
 import { AGENT_EVENTS } from '../agents/constants';
 
 // Local task events (legacy) kept as constants to avoid magic strings in code

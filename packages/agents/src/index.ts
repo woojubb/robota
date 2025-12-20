@@ -112,6 +112,13 @@ export type {
 } from './interfaces/agent';
 
 /**
+ * Tool contract types used across tools and integrations.
+ *
+ * @public
+ */
+export type { ToolParameters, ToolResult, ToolExecutionContext } from './interfaces/tool';
+
+/**
  * Universal message format and assistant message used internally by the conversation history manager.
  * Provides a common format that can be converted to/from provider-specific formats.
  * 
@@ -313,14 +320,19 @@ export {
     bindWithOwnerPath,
     DefaultEventService,
     StructuredEventService,
-    /**
-     * @deprecated Use EventService with ownerPath context instead.
-     */
-    ActionTrackingEventService
+    // ActionTrackingEventService intentionally not exported from the public API.
 } from './services/event-service';
 export { RelayMcpTool, type RelayMcpOptions, type RelayMcpContext } from './tools/implementations/relay-mcp-tool';
 
 export type { ExecutionNode } from './services/event-service';
+
+// ===== EVENT EMITTER (PLUGIN) EXPORTS =====
+export { EVENT_EMITTER_EVENTS } from './plugins/event-emitter/types';
+
+// ===== EVENT CONSTANT EXPORTS (PUBLIC) =====
+// NOTE: These are the single source of truth for event names. Do not hardcode strings.
+export { EXECUTION_EVENTS } from './services/execution-service';
+export { TOOL_EVENTS } from './services/tool-execution-service';
 
 // Workflow Services (Phase 2)
 export {
@@ -383,7 +395,7 @@ export { UniversalWorkflowValidator } from './validators/universal-workflow-vali
 // EventServiceHookFactory removed - simplified architecture
 export { ExecutionProxy, createExecutionProxy, withEventEmission } from './utils/execution-proxy';
 
-// ExecutionHierarchyTracker removed - functionality moved to ActionTrackingEventService
+// ExecutionHierarchyTracker removed
 
 // ================================
 // Universal Workflow Types (Core)
