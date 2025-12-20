@@ -1,11 +1,12 @@
 import type { PlaygroundBlockCollector } from './block-tracking/block-collector';
 import type { RealTimeBlockMessage, RealTimeBlockMetadata } from './block-tracking/types';
+import { WebLogger } from '@/lib/web-logger';
 
 /**
  * Generate demo execution data for testing the tree visualization
  */
 export function generateDemoExecutionData(blockCollector: PlaygroundBlockCollector): void {
-    console.log('🎬 Generating demo execution data...');
+    WebLogger.debug('Generating demo execution data');
 
     const now = new Date();
 
@@ -277,15 +278,14 @@ I recommend React for larger teams and complex applications, Vue for smaller pro
         blockCollector.collectBlock(block);
     });
 
-    console.log('✅ Demo execution data generated successfully!');
-    console.log(`📊 Created ${6} blocks with hierarchical relationships`);
+    WebLogger.debug('Demo execution data generated successfully', { blockCount: 6 });
 }
 
 /**
  * Generate a second demo scenario - Complex multi-tool execution
  */
 export function generateComplexDemoData(blockCollector: PlaygroundBlockCollector): void {
-    console.log('🎬 Generating complex demo execution data...');
+    WebLogger.debug('Generating complex demo execution data');
 
     const now = new Date();
     blockCollector.clearBlocks();
@@ -293,5 +293,5 @@ export function generateComplexDemoData(blockCollector: PlaygroundBlockCollector
     // Simple implementation for now - just call the regular demo
     generateDemoExecutionData(blockCollector);
 
-    console.log('✅ Complex demo data generation complete!');
+    WebLogger.debug('Complex demo data generation complete');
 } 

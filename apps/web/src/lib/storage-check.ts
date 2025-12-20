@@ -1,3 +1,5 @@
+import { WebLogger } from '@/lib/web-logger';
+
 /**
  * Check if localStorage is available and working
  */
@@ -12,7 +14,7 @@ export function isLocalStorageAvailable(): boolean {
         localStorage.removeItem(testKey);
         return true;
     } catch (e) {
-        console.warn('localStorage is not available:', e);
+        WebLogger.warn('localStorage is not available', { error: e instanceof Error ? e.message : String(e) });
         return false;
     }
 }
@@ -31,7 +33,7 @@ export function isSessionStorageAvailable(): boolean {
         sessionStorage.removeItem(testKey);
         return true;
     } catch (e) {
-        console.warn('sessionStorage is not available:', e);
+        WebLogger.warn('sessionStorage is not available', { error: e instanceof Error ? e.message : String(e) });
         return false;
     }
 }
@@ -44,20 +46,20 @@ export function debugStorageInfo() {
         return;
     }
 
-    console.group('Storage Debug Info');
-
-    console.log('localStorage available:', isLocalStorageAvailable());
-    console.log('sessionStorage available:', isSessionStorageAvailable());
+    WebLogger.debug('Storage Debug Info', {
+        localStorageAvailable: isLocalStorageAvailable(),
+        sessionStorageAvailable: isSessionStorageAvailable(),
+    });
 
     // Check if we're in an iframe
-    console.log('In iframe:', window !== window.top);
+    WebLogger.debug('In iframe', { inIframe: window !== window.top });
 
     // Check if we're in private/incognito mode
     try {
         const test = window.localStorage;
-        console.log('localStorage accessible:', !!test);
+        WebLogger.debug('localStorage accessible', { accessible: !!test });
     } catch (e) {
-        console.log('localStorage blocked:', e instanceof Error ? e.message : 'Unknown error');
+        WebLogger.warn('localStorage blocked', { error: e instanceof Error ? e.message : String(e) });
     }
 
     // Check current Firebase auth keys
@@ -66,16 +68,13 @@ export function debugStorageInfo() {
         const firebaseKeys = allKeys.filter(key =>
             key.includes('firebase') || key.includes('auth')
         );
-        console.log('All localStorage keys:', allKeys.length);
-        console.log('Firebase-related keys:', firebaseKeys);
+        WebLogger.debug('localStorage keys summary', { totalKeyCount: allKeys.length, firebaseKeys });
 
         firebaseKeys.forEach(key => {
             const value = localStorage.getItem(key);
-            console.log(`${key}:`, value ? 'Has value' : 'Empty');
+            WebLogger.debug('localStorage key', { key, hasValue: !!value });
         });
     }
-
-    console.groupEnd();
 }
 
 /**
@@ -83,7 +82,7 @@ export function debugStorageInfo() {
  */
 export function clearFirebaseStorage() {
     if (!isLocalStorageAvailable()) {
-        console.warn('localStorage not available, cannot clear Firebase storage');
+        WebLogger.warn('localStorage not available, cannot clear Firebase storage');
         return;
     }
 
@@ -93,8 +92,8 @@ export function clearFirebaseStorage() {
 
     firebaseKeys.forEach(key => {
         localStorage.removeItem(key);
-        console.log('Removed Firebase key:', key);
+        WebLogger.debug('Removed Firebase key', { key });
     });
 
-    console.log('Cleared Firebase storage');
+    WebLogger.info('Cleared Firebase storage');
 } 

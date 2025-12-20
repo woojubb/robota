@@ -5,6 +5,8 @@
  * from environment variables.
  */
 
+import { WebLogger } from '@/lib/web-logger';
+
 export interface PlaygroundConfig {
     enabled: boolean;
     serverUrl: string;
@@ -36,7 +38,7 @@ export function validatePlaygroundConfig(): PlaygroundConfig {
         try {
             new URL(serverUrl);
         } catch {
-            console.warn('Invalid serverUrl provided, using default localhost:3001');
+            WebLogger.warn('Invalid serverUrl provided, using default localhost:3001');
         }
     }
 
@@ -44,7 +46,7 @@ export function validatePlaygroundConfig(): PlaygroundConfig {
         try {
             new URL(apiUrl);
         } catch {
-            console.warn('Invalid apiUrl provided, using default localhost:3001');
+            WebLogger.warn('Invalid apiUrl provided, using default localhost:3001');
         }
     }
 
@@ -105,24 +107,21 @@ export function validateFirebaseConfig(): {
 export function logConfigurationStatus(): void {
     if (process.env.NODE_ENV !== 'development') return;
 
-    console.group('🔧 Playground Configuration');
-
     try {
         const config = validatePlaygroundConfig();
-        console.log('✅ Configuration valid');
-        console.log('📍 Server URL:', config.serverUrl);
-        console.log('🔗 API URL:', config.apiUrl);
-        console.log('🎮 Features:', config.features);
+        WebLogger.info('Playground configuration', {
+            serverUrl: config.serverUrl,
+            apiUrl: config.apiUrl,
+            features: config.features
+        });
     } catch (error) {
-        console.error('❌ Configuration invalid:', error);
+        WebLogger.error('Playground configuration invalid', { error: error instanceof Error ? error.message : String(error) });
     }
 
     const firebaseConfig = validateFirebaseConfig();
     if (firebaseConfig.valid) {
-        console.log('🔥 Firebase: Configured');
+        WebLogger.info('Firebase: Configured');
     } else {
-        console.warn('⚠️ Firebase: Missing variables:', firebaseConfig.missingVars);
+        WebLogger.warn('Firebase: Missing variables', { missingVars: firebaseConfig.missingVars });
     }
-
-    console.groupEnd();
 } 

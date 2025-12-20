@@ -42,6 +42,7 @@ import {
     Info
 } from 'lucide-react';
 import type { PlaygroundAgentConfig } from '@/lib/playground/robota-executor';
+import { WebLogger } from '@/lib/web-logger';
 
 export interface AgentConfigurationBlockProps {
     config: PlaygroundAgentConfig;
@@ -174,7 +175,7 @@ export function AgentConfigurationBlock({
                                     if (onExecute) {
                                         onExecute(editedConfig);
                                     } else {
-                                        console.warn('onExecute is not provided');
+                                        WebLogger.warn('onExecute is not provided');
                                     }
                                 }}
                                 disabled={!isValid}

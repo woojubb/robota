@@ -45,11 +45,9 @@ async function handlePlaygroundRateLimit(request: NextRequest): Promise<NextResp
                 } else {
                     // In production, you would verify the token here
                     // For now, continue with anonymous limits
-                    console.warn('Firebase Admin not available in middleware, using anonymous limits');
                 }
             } catch (error) {
                 // Continue with anonymous limits if token is invalid
-                console.warn('Invalid token in rate limiting:', error);
             }
         }
 
@@ -83,7 +81,6 @@ async function handlePlaygroundRateLimit(request: NextRequest): Promise<NextResp
         return response;
 
     } catch (error) {
-        console.error('Rate limiting middleware error:', error);
         // Continue without rate limiting on error
         return NextResponse.next();
     }

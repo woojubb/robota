@@ -1,4 +1,5 @@
 import { auth } from './config';
+import { WebLogger } from '@/lib/web-logger';
 
 const FIRESTORE_API_BASE = `https://firestore.googleapis.com/v1/projects/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/databases/robota-io/documents`;
 
@@ -12,7 +13,7 @@ async function getAuthToken(): Promise<string | null> {
     try {
         return await user.getIdToken();
     } catch (error) {
-        console.error('Error getting auth token:', error);
+        WebLogger.error('Error getting auth token', { error: error instanceof Error ? error.message : String(error) });
         return null;
     }
 }
@@ -54,7 +55,7 @@ export async function getDocument(collection: string, documentId: string): Promi
         const data = await firestoreRequest(`/${collection}/${documentId}`);
         return parseFirestoreDocument(data);
     } catch (error) {
-        console.error('Error getting document:', error);
+        WebLogger.error('Error getting document', { collection, documentId, error: error instanceof Error ? error.message : String(error) });
         return null;
     }
 }

@@ -179,7 +179,7 @@ export class DefaultExternalWorkflowStore implements ExternalWorkflowStore {
      * ❌ User Input 노드 추가 비활성화 - 이벤트 시스템이 자동으로 노드 생성
      */
     addUserInputNode(inputData: ManualUserInputData): void {
-        console.log('🎯 [EVENT-SYSTEM-ONLY] User Input node creation disabled - event system will handle');
+        this.logger.debug('User Input node creation disabled - event system will handle');
         // 인위적 노드 생성 제거됨
     }
 

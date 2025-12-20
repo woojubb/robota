@@ -4,36 +4,37 @@ import { db } from '@/lib/firebase/config';
 import { collection, query, where, orderBy, limit, startAfter, getDocs, doc, getDoc } from 'firebase/firestore';
 import { CreditTransaction } from '@/types/user-credit';
 import { apiCache, cacheKeys } from '@/lib/cache';
+import { WebLogger } from '@/lib/web-logger';
 
 /**
  * Get user transaction history
  * GET /api/v1/user/transactions?page=1&limit=20
  */
 export const GET = withAuth(async (request: NextRequest, { uid }) => {
-    console.log('Transactions API GET: Starting for user:', uid);
+    WebLogger.debug('Transactions API GET: start', { uid });
 
     try {
         const { searchParams } = new URL(request.url);
         const page = parseInt(searchParams.get('page') || '1');
         const pageLimit = Math.min(parseInt(searchParams.get('limit') || '20'), 100); // Max 100 items
 
-        console.log('Transactions API: Page:', page, 'Limit:', pageLimit);
+        WebLogger.debug('Transactions API: pagination', { uid, page, pageLimit });
 
         // Check cache first
-        console.log('Transactions API: Checking cache...');
+        WebLogger.debug('Transactions API: checking cache', { uid, page, pageLimit });
         const cacheKey = cacheKeys.userTransactions(uid, page, pageLimit);
         const cachedTransactions = apiCache.get(cacheKey);
         if (cachedTransactions) {
-            console.log('Transactions API: Cache hit, returning cached data');
+            WebLogger.debug('Transactions API: cache hit', { uid, page, pageLimit });
             return createSuccessResponse(cachedTransactions);
         }
-        console.log('Transactions API: Cache miss, fetching from Firestore');
+        WebLogger.debug('Transactions API: cache miss, fetching from Firestore', { uid, page, pageLimit });
 
         let transactions = [];
         let hasMore = false;
 
         try {
-            console.log('Transactions API: Fetching transactions from Firestore...');
+            WebLogger.debug('Transactions API: fetching transactions from Firestore', { uid, page, pageLimit });
 
             // Build query
             let transactionsQuery = query(
@@ -79,11 +80,11 @@ export const GET = withAuth(async (request: NextRequest, { uid }) => {
             // Check if there are more transactions
             hasMore = querySnapshot.docs.length === pageLimit;
 
-            console.log('Transactions API: Fetched', transactions.length, 'transactions');
+            WebLogger.debug('Transactions API: fetched transactions', { uid, count: transactions.length, hasMore });
 
         } catch (firestoreError) {
-            console.error('Transactions API: Firestore connection error:', firestoreError);
-            console.log('Transactions API: Returning default transactions due to Firestore connection issue');
+            WebLogger.error('Transactions API: Firestore connection error', { uid, error: firestoreError instanceof Error ? firestoreError.message : String(firestoreError) });
+            WebLogger.warn('Transactions API: returning default transactions due to Firestore connectivity issue', { uid, page, pageLimit });
 
             // Return default empty transactions when Firestore is unavailable
             const defaultResult = {
@@ -112,15 +113,14 @@ export const GET = withAuth(async (request: NextRequest, { uid }) => {
             }
         };
 
-        console.log('Transactions API: Transactions processed successfully');
+        WebLogger.debug('Transactions API: transactions processed successfully', { uid, page, pageLimit, count: transactions.length, hasMore });
 
         // Cache for 1 minute (short TTL for transaction data)
         apiCache.set(cacheKey, result, 1 * 60 * 1000);
 
         return createSuccessResponse(result);
     } catch (error) {
-        console.error('Transactions API: Error occurred:', error);
-        console.error('Transactions API: Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+        WebLogger.error('Transactions API: error occurred', { uid, error: error instanceof Error ? error.message : String(error) });
 
         // Return default empty transactions as last resort
         const fallbackResult = {
@@ -133,7 +133,7 @@ export const GET = withAuth(async (request: NextRequest, { uid }) => {
             }
         };
 
-        console.log('Transactions API: Returning fallback transactions due to error');
+        WebLogger.warn('Transactions API: returning fallback transactions due to error', { uid });
         return createSuccessResponse(fallbackResult, 'Fallback transactions returned due to error');
     }
 }); 

@@ -7,6 +7,7 @@
 
 import { auth } from '@/lib/firebase/config';
 import { User } from 'firebase/auth';
+import { WebLogger } from '@/lib/web-logger';
 
 interface PlaygroundSession {
     userToken: string;
@@ -52,7 +53,7 @@ export async function generatePlaygroundToken(user: User): Promise<string> {
         return token;
 
     } catch (error) {
-        console.error('Error generating playground token:', error);
+        WebLogger.error('Error generating playground token', { error: error instanceof Error ? error.message : String(error) });
         // Fallback to demo token for development
         return `playground-demo-${user.uid}-${Date.now()}`;
     }
@@ -91,7 +92,7 @@ export async function createPlaygroundCredentials(user: User | null): Promise<Pl
         };
 
     } catch (error) {
-        console.error('Error creating playground credentials:', error);
+        WebLogger.error('Error creating playground credentials', { error: error instanceof Error ? error.message : String(error) });
 
         // Fallback credentials
         return {
@@ -151,7 +152,7 @@ export async function hasPlaygroundAccess(user: User | null): Promise<{
         });
 
         if (!response.ok) {
-            console.warn('Could not verify playground access, allowing for now');
+            WebLogger.warn('Could not verify playground access, allowing for now');
             return { hasAccess: true }; // Allow access by default during development
         }
 
@@ -165,7 +166,7 @@ export async function hasPlaygroundAccess(user: User | null): Promise<{
         };
 
     } catch (error) {
-        console.error('Error checking playground access:', error);
+        WebLogger.error('Error checking playground access', { error: error instanceof Error ? error.message : String(error) });
         return { hasAccess: true }; // Allow access by default if check fails
     }
 }
@@ -212,7 +213,7 @@ export async function initializePlaygroundAuth(): Promise<{
         };
 
     } catch (error) {
-        console.error('Error initializing playground auth:', error);
+        WebLogger.error('Error initializing playground auth', { error: error instanceof Error ? error.message : String(error) });
         return {
             credentials: null,
             accessInfo: {
@@ -242,7 +243,7 @@ export async function refreshPlaygroundCredentials(): Promise<PlaygroundCredenti
         return await initializePlaygroundAuth();
 
     } catch (error) {
-        console.error('Error refreshing playground credentials:', error);
+        WebLogger.error('Error refreshing playground credentials', { error: error instanceof Error ? error.message : String(error) });
         return null;
     }
 }
@@ -291,7 +292,7 @@ export async function getPlaygroundLimits(user: User | null): Promise<{
         return await response.json();
 
     } catch (error) {
-        console.error('Error fetching playground limits:', error);
+        WebLogger.error('Error fetching playground limits', { error: error instanceof Error ? error.message : String(error) });
 
         // Default limits for authenticated users
         return {

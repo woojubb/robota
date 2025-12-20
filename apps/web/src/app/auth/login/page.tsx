@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Icons } from '@/components/ui/icons';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { WebLogger } from '@/lib/web-logger';
 
 function LoginPageContent() {
     const { signIn, user, loading } = useAuth();
@@ -30,7 +31,7 @@ function LoginPageContent() {
     // Redirect authenticated users
     useEffect(() => {
         if (!loading && user) {
-            console.log('User authenticated, redirecting to:', redirectTo);
+            WebLogger.debug('User authenticated, redirecting', { redirectTo });
             router.replace(redirectTo);
         }
     }, [user, loading, redirectTo, router]);

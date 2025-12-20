@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Play, Copy, Check } from 'lucide-react'
 import Editor from '@monaco-editor/react'
 import { useTheme } from 'next-themes'
+import { WebLogger } from '@/lib/web-logger'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -21,7 +22,8 @@ const agent = new Robota({
 
 const response = await agent.run('Hello, world!')
 
-console.log(response)`,
+// Use the response in your UI or return it from your function
+response`,
 
     tools: `import { Robota } from '@robota/sdk'
 
@@ -70,7 +72,7 @@ export function DemoSection() {
             setCopied(id)
             setTimeout(() => setCopied(''), 2000)
         } catch (err) {
-            console.error('Failed to copy:', err)
+            WebLogger.error('Failed to copy', { error: err instanceof Error ? err.message : String(err) })
         }
     }
 

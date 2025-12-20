@@ -16,6 +16,7 @@ import {
     Copy,
     Settings
 } from 'lucide-react';
+import { WebLogger } from '@/lib/web-logger';
 
 export function FirebaseSetupNotice() {
     const [configStatus, setConfigStatus] = useState<FirebaseConfigStatus | null>(null);
@@ -55,7 +56,7 @@ NEXT_PUBLIC_APP_NAME=Robota SDK`;
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch (err) {
-            console.error('Failed to copy:', err);
+            WebLogger.error('Failed to copy', { error: err instanceof Error ? err.message : String(err) });
         }
     };
 

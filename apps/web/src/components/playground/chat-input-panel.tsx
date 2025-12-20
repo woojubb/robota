@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Send, Loader2, Clock } from 'lucide-react';
 import { useChatInput } from '@/hooks/use-chat-input';
 import { useRobotaExecution } from '@/hooks/use-robota-execution';
+import { WebLogger } from '@/lib/web-logger';
 
 interface ChatInputPanelProps {
     onClose: () => void;
@@ -42,7 +43,7 @@ export function ChatInputPanel({ onClose }: ChatInputPanelProps) {
                 }
             }
         } catch (error) {
-            console.error('Failed to load recent prompts:', error);
+            WebLogger.error('Failed to load recent prompts', { error: error instanceof Error ? error.message : String(error) });
             setRecentPrompts([]);
         }
     }, []);
@@ -53,7 +54,7 @@ export function ChatInputPanel({ onClose }: ChatInputPanelProps) {
             localStorage.setItem(RECENT_PROMPTS_KEY, JSON.stringify(newPrompts));
             setRecentPrompts(newPrompts);
         } catch (error) {
-            console.error('Failed to save recent prompts:', error);
+            WebLogger.error('Failed to save recent prompts', { error: error instanceof Error ? error.message : String(error) });
         }
     }, []);
 
@@ -72,7 +73,7 @@ export function ChatInputPanel({ onClose }: ChatInputPanelProps) {
             try {
                 localStorage.setItem(RECENT_PROMPTS_KEY, JSON.stringify(updated));
             } catch (error) {
-                console.error('Failed to save recent prompts:', error);
+                WebLogger.error('Failed to save recent prompts', { error: error instanceof Error ? error.message : String(error) });
             }
 
             return updated;
@@ -97,7 +98,7 @@ export function ChatInputPanel({ onClose }: ChatInputPanelProps) {
                 await sendMessage(messageToSend);
             }
         } catch (error) {
-            console.error('Failed to send message:', error);
+            WebLogger.error('Failed to send message', { error: error instanceof Error ? error.message : String(error) });
             // TODO: Show error toast
         }
     }, [canSend, inputState.value, onClose, useStreaming, sendStreamingMessage, sendMessage, addToRecentPrompts]);

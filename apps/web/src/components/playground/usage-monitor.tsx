@@ -16,6 +16,7 @@ import {
     Users
 } from 'lucide-react';
 import { getUserTierConfig } from '@/lib/rate-limiting/rate-limiter';
+import { WebLogger } from '@/lib/web-logger';
 
 interface UsageStats {
     subscription: string;
@@ -109,7 +110,7 @@ export function UsageMonitor({ isVisible, onClose }: UsageMonitorProps) {
             setLastUpdate(new Date());
 
         } catch (error) {
-            console.error('Failed to fetch usage stats:', error);
+            WebLogger.error('Failed to fetch usage stats', { error: error instanceof Error ? error.message : String(error) });
         } finally {
             setIsLoading(false);
         }

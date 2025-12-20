@@ -3,6 +3,8 @@
  * Handles saving, loading, and managing playground projects
  */
 
+import { WebLogger } from '@/lib/web-logger'
+
 export interface PlaygroundProject {
     id: string
     name: string
@@ -74,7 +76,7 @@ export class ProjectManager {
                 )
             }
         } catch (error) {
-            console.error('Failed to load projects from storage:', error)
+            WebLogger.error('Failed to load projects from storage', { error: error instanceof Error ? error.message : String(error) })
             this.projects = new Map()
         }
     }
@@ -84,7 +86,7 @@ export class ProjectManager {
             const data = Array.from(this.projects.values())
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
         } catch (error) {
-            console.error('Failed to save projects to storage:', error)
+            WebLogger.error('Failed to save projects to storage', { error: error instanceof Error ? error.message : String(error) })
         }
     }
 

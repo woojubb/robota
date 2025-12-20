@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Icons } from '@/components/ui/icons';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { WebLogger } from '@/lib/web-logger';
 
 export default function RegisterPage() {
     const { signUp, user, loading } = useAuth();
@@ -29,7 +30,7 @@ export default function RegisterPage() {
     // Redirect authenticated users
     useEffect(() => {
         if (!loading && user) {
-            console.log('User registered and authenticated, redirecting to dashboard');
+            WebLogger.debug('User registered and authenticated, redirecting to dashboard');
             router.replace('/dashboard');
         }
     }, [user, loading, router]);

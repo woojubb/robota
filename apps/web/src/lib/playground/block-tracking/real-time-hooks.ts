@@ -4,6 +4,7 @@ import type {
     EventEmitterPlugin,
     HierarchicalEventData
 } from '@robota-sdk/agents';
+import { EVENT_EMITTER_EVENTS } from '@robota-sdk/agents';
 import type { PlaygroundBlockCollector } from './block-collector';
 import { ExecutionSubscriber } from '../execution-subscriber';
 import { RealTimeLLMTracker } from '../llm-tracking/llm-tracker';
@@ -92,7 +93,7 @@ export function createRealTimeTrackingHooks(options: RealTimeTrackingHooksOption
 
             // Emit hierarchical event
             const hierarchicalEventData: HierarchicalEventData = {
-                type: 'execution.hierarchy',
+                type: EVENT_EMITTER_EVENTS.EXECUTION_HIERARCHY,
                 timestamp: startTime,
                 executionId,
                 data: {
@@ -109,10 +110,10 @@ export function createRealTimeTrackingHooks(options: RealTimeTrackingHooksOption
                 }
             };
 
-            eventEmitter.emit('execution.hierarchy', hierarchicalEventData);
-            eventEmitter.emit('tool.beforeExecute', {
+            eventEmitter.emit(EVENT_EMITTER_EVENTS.EXECUTION_HIERARCHY, hierarchicalEventData);
+            eventEmitter.emit(EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE, {
                 ...hierarchicalEventData,
-                type: 'tool.beforeExecute'
+                type: EVENT_EMITTER_EVENTS.TOOL_BEFORE_EXECUTE
             });
         },
 
@@ -131,7 +132,7 @@ export function createRealTimeTrackingHooks(options: RealTimeTrackingHooksOption
 
             // Emit completion events with actual data
             const hierarchicalEventData: HierarchicalEventData = {
-                type: 'execution.realtime',
+                type: EVENT_EMITTER_EVENTS.EXECUTION_REALTIME,
                 timestamp: endTime,
                 executionId,
                 data: {
@@ -151,10 +152,10 @@ export function createRealTimeTrackingHooks(options: RealTimeTrackingHooksOption
                 }
             };
 
-            eventEmitter.emit('execution.realtime', hierarchicalEventData);
-            eventEmitter.emit('tool.afterExecute', {
+            eventEmitter.emit(EVENT_EMITTER_EVENTS.EXECUTION_REALTIME, hierarchicalEventData);
+            eventEmitter.emit(EVENT_EMITTER_EVENTS.TOOL_AFTER_EXECUTE, {
                 ...hierarchicalEventData,
-                type: 'tool.afterExecute'
+                type: EVENT_EMITTER_EVENTS.TOOL_AFTER_EXECUTE
             });
 
             // Cleanup stored context
@@ -176,7 +177,7 @@ export function createRealTimeTrackingHooks(options: RealTimeTrackingHooksOption
 
             // Emit error event with actual data
             const hierarchicalEventData: HierarchicalEventData = {
-                type: 'tool.error',
+                type: EVENT_EMITTER_EVENTS.TOOL_ERROR,
                 timestamp: endTime,
                 executionId,
                 error,
@@ -197,7 +198,7 @@ export function createRealTimeTrackingHooks(options: RealTimeTrackingHooksOption
                 }
             };
 
-            eventEmitter.emit('tool.error', hierarchicalEventData);
+            eventEmitter.emit(EVENT_EMITTER_EVENTS.TOOL_ERROR, hierarchicalEventData);
 
             // Cleanup stored context
             executionContexts.delete(executionId);

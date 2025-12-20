@@ -2,6 +2,7 @@ import { ko } from './translations/ko';
 import { en } from './translations/en';
 import { ja } from './translations/ja';
 import { i18n, Locale, detectLocale, saveLocale } from './config';
+import { WebLogger } from '@/lib/web-logger';
 
 export { type Locale, i18n, detectLocale, saveLocale };
 
@@ -34,13 +35,13 @@ function getNestedProperty(obj: any, path: string): string {
 export function t(key: TranslationKey, locale: Locale = 'ko'): string {
     const translation = translations[locale];
     if (!translation) {
-        console.warn(`Translation not found for locale: ${locale}`);
+        WebLogger.warn('Translation not found for locale', { locale });
         return key;
     }
 
     const value = getNestedProperty(translation, key);
     if (value === key) {
-        console.warn(`Translation key not found: ${key} for locale: ${locale}`);
+        WebLogger.warn('Translation key not found for locale', { key, locale });
         // Fallback to Korean if key not found
         if (locale !== 'ko') {
             return getNestedProperty(translations.ko, key) || key;

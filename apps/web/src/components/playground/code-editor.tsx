@@ -4,6 +4,7 @@ import { useRef, useEffect } from 'react'
 import Editor, { OnMount } from '@monaco-editor/react'
 import { useTheme } from 'next-themes'
 import type { editor } from 'monaco-editor'
+import { WebLogger } from '@/lib/web-logger'
 
 interface CodeEditorProps {
   value: string
@@ -23,7 +24,7 @@ import OpenAI from 'openai'
 import { Robota } from '@robota-sdk/agents'
 import { OpenAIProvider } from '@robota-sdk/openai'
 
-console.log('🤖 Basic Conversation Example Started...')
+// Basic Conversation Example Started
 
 // Create OpenAI client and provider
 const openaiClient = new OpenAI({ 
@@ -48,7 +49,7 @@ const robota = new Robota({
 
 // Simple conversation
 const response = await robota.run('Hello! What can you tell me about AI agents?')
-console.log('Assistant:', response)
+// response contains the assistant output
 
 // Clean up
 await robota.destroy()`
@@ -62,7 +63,7 @@ import OpenAI from 'openai'
 import { Robota, createFunctionTool } from '@robota-sdk/agents'
 import { OpenAIProvider } from '@robota-sdk/openai'
 
-console.log('🛠️ Tool Calling Example Started...')
+// Tool Calling Example Started
 
 // Create a calculator tool
 const calculatorTool = createFunctionTool(
@@ -83,7 +84,7 @@ const calculatorTool = createFunctionTool(
     },
     async (params) => {
         const { operation, a, b } = params
-        console.log(\`🧮 Calculating: \${a} \${operation} \${b}\`)
+        // Calculation executed
         
         switch (operation) {
             case 'add': return { result: a + b }
@@ -115,7 +116,7 @@ const weatherTool = createFunctionTool(
     },
     async (params) => {
         const { city, unit = 'celsius' } = params
-        console.log(\`🌤️ Getting weather for \${city}\`)
+        // Weather lookup executed
         
         // Mock weather data
         const temp = unit === 'celsius' ? 22 : 72
@@ -151,9 +152,9 @@ const queries = [
 ]
 
 for (const query of queries) {
-    console.log(\`\\nUser: \${query}\`)
+    // User: ${query}
     const response = await robota.run(query)
-    console.log(\`Assistant: \${response}\`)
+    // Assistant: ${response}
 }
 
 await robota.destroy()`
@@ -167,7 +168,7 @@ import OpenAI from 'openai'
 import { Robota } from '@robota-sdk/agents'
 import { OpenAIProvider } from '@robota-sdk/openai'
 
-console.log('🌊 Streaming Example Started...')
+// Streaming Example Started
 
 const robota = new Robota({
     name: 'StreamingAgent',
@@ -182,16 +183,16 @@ const robota = new Robota({
     }
 })
 
-console.log('Assistant: ')
+// Streaming output:
 
 // Stream response chunk by chunk
 for await (const chunk of robota.runStream('Tell me a short story about robots and humans working together')) {
-    console.log(chunk) // Use console.log instead of process.stdout.write for browser
+    // chunk received
     // Simulate real-time display with small delay
     await new Promise(resolve => setTimeout(resolve, 50))
 }
 
-console.log('\\n\\n✅ Story completed!')
+// Story completed
 
 await robota.destroy()`
   },
@@ -206,7 +207,7 @@ import { Robota } from '@robota-sdk/agents'
 import { OpenAIProvider } from '@robota-sdk/openai'
 import { AnthropicProvider } from '@robota-sdk/anthropic'
 
-console.log('🔄 Multi-Provider Example Started...')
+// Multi-Provider Example Started
 
 // Create multiple providers
 const openaiProvider = new OpenAIProvider({
@@ -233,18 +234,18 @@ const robota = new Robota({
 const question = 'Explain quantum computing in simple terms'
 
 // Test with OpenAI
-console.log('\\n🤖 OpenAI Response:')
-console.log('User:', question)
+// OpenAI Response:
+// User: ${question}
 let response = await robota.run(question)
-console.log('Assistant:', response)
+// Assistant: ${response}
 
 // Switch to Anthropic
 // Note: Provider switching would require additional configuration
 // This is a conceptual example
-console.log('\\n🧠 Anthropic Response:')
-console.log('User:', question)
+// Anthropic Response:
+// User: ${question}
 // response = await robota.run(question, { provider: 'anthropic' })
-console.log('Assistant:', 'Provider switching requires additional setup')
+// Provider switching requires additional setup
 
 await robota.destroy()`
   },
@@ -263,7 +264,7 @@ import {
 } from '@robota-sdk/agents'
 import { OpenAIProvider } from '@robota-sdk/openai'
 
-console.log('🔌 Plugins & Analytics Example Started...')
+// Plugins & Analytics Example Started
 
 // Create a simple tool for demonstration
 const timeTool = createFunctionTool(
@@ -341,23 +342,19 @@ const queries = [
 
 for (let i = 0; i < queries.length; i++) {
     const query = queries[i]
-    console.log(\`\\n\${i + 1}. User: \${query}\`)
+    // ${i + 1}. User: ${query}
     
     const startTime = Date.now()
     const response = await robota.run(query)
     const duration = Date.now() - startTime
     
-    console.log(\`   Assistant: \${response}\`)
-    console.log(\`   ⏱️ Duration: \${duration}ms\`)
+    // Assistant response and duration captured
 }
 
 // Show final statistics
-console.log('\\n📊 Final Analytics:')
+// Final Analytics:
 const stats = robota.getStats()
-console.log('- Agent Name:', stats.name)
-console.log('- Total Conversations:', stats.conversationCount || 'N/A')
-console.log('- Uptime:', \`\${Math.round(stats.uptime / 1000)}s\`)
-console.log('- Tools Available:', stats.tools?.join(', ') || 'None')
+// - stats contains agent metadata
 
 await robota.destroy()`
   }
@@ -526,12 +523,12 @@ export function CodeEditor({
     // Add keyboard shortcuts
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       // Handle save
-      console.log('Save triggered')
+      WebLogger.debug('Save triggered')
     })
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
       // Handle run
-      console.log('Run triggered')
+      WebLogger.debug('Run triggered')
     })
   }
 

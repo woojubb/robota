@@ -34,6 +34,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { formatCurrency, formatNumber, formatPercentage } from '@/lib/utils'
+import { WebLogger } from '@/lib/web-logger'
 
 interface UsageStats {
     totalRequests: number
@@ -96,7 +97,7 @@ export default function AnalyticsPage() {
                 setStats(data.stats)
             }
         } catch (error) {
-            console.error('Failed to fetch analytics:', error)
+            WebLogger.error('Failed to fetch analytics', { error: error instanceof Error ? error.message : String(error) })
         } finally {
             setLoading(false)
         }
@@ -117,7 +118,7 @@ export default function AnalyticsPage() {
                 setRecommendations(data.recommendations)
             }
         } catch (error) {
-            console.error('Failed to fetch rate limits:', error)
+            WebLogger.error('Failed to fetch rate limits', { error: error instanceof Error ? error.message : String(error) })
         }
     }
 
@@ -142,7 +143,7 @@ export default function AnalyticsPage() {
                 window.URL.revokeObjectURL(url)
             }
         } catch (error) {
-            console.error('Failed to export data:', error)
+            WebLogger.error('Failed to export data', { error: error instanceof Error ? error.message : String(error) })
         }
     }
 

@@ -15,6 +15,7 @@ import {
 } from 'firebase/auth';
 import { auth } from './config';
 import { User } from '@/types/auth';
+import { WebLogger } from '@/lib/web-logger';
 
 // Convert Firebase user to our User type
 export const convertFirebaseUser = (firebaseUser: FirebaseUser): User => {
@@ -46,7 +47,7 @@ export const signUp = async (
 
         return userCredential;
     } catch (error: any) {
-        console.error('Sign up error:', error);
+        WebLogger.error('Sign up error', { code: error?.code, message: error?.message });
         if (error.code === 'auth/email-already-in-use') {
             throw new Error('This email is already registered');
         } else if (error.code === 'auth/weak-password') {
@@ -63,7 +64,7 @@ export const signIn = async (email: string, password: string): Promise<UserCrede
     try {
         return await signInWithEmailAndPassword(auth, email, password);
     } catch (error: any) {
-        console.error('Sign in error:', error);
+        WebLogger.error('Sign in error', { code: error?.code, message: error?.message });
         if (error.code === 'auth/user-not-found') {
             throw new Error('No user found with this email');
         } else if (error.code === 'auth/wrong-password') {
@@ -81,7 +82,7 @@ export const signInWithGoogle = async (): Promise<UserCredential> => {
         const provider = new GoogleAuthProvider();
         return await signInWithPopup(auth, provider);
     } catch (error: any) {
-        console.error('Google sign in error:', error);
+        WebLogger.error('Google sign in error', { code: error?.code, message: error?.message });
         if (error.code === 'auth/popup-closed-by-user') {
             throw new Error('Sign in was cancelled');
         }
@@ -95,7 +96,7 @@ export const signInWithGitHub = async (): Promise<UserCredential> => {
         const provider = new GithubAuthProvider();
         return await signInWithPopup(auth, provider);
     } catch (error: any) {
-        console.error('GitHub sign in error:', error);
+        WebLogger.error('GitHub sign in error', { code: error?.code, message: error?.message });
         if (error.code === 'auth/popup-closed-by-user') {
             throw new Error('Sign in was cancelled');
         }
@@ -108,7 +109,7 @@ export const signOut = async (): Promise<void> => {
     try {
         await firebaseSignOut(auth);
     } catch (error: any) {
-        console.error('Sign out error:', error);
+        WebLogger.error('Sign out error', { code: error?.code, message: error?.message });
         throw new Error('Failed to sign out');
     }
 };
@@ -118,7 +119,7 @@ export const resetPassword = async (email: string): Promise<void> => {
     try {
         await sendPasswordResetEmail(auth, email);
     } catch (error: any) {
-        console.error('Password reset error:', error);
+        WebLogger.error('Password reset error', { code: error?.code, message: error?.message });
         if (error.code === 'auth/user-not-found') {
             throw new Error('No user found with this email');
         } else if (error.code === 'auth/invalid-email') {
@@ -146,7 +147,7 @@ export const changePassword = async (
         // Update password
         await updatePassword(user, newPassword);
     } catch (error: any) {
-        console.error('Change password error:', error);
+        WebLogger.error('Change password error', { code: error?.code, message: error?.message });
         if (error.code === 'auth/wrong-password') {
             throw new Error('Current password is incorrect');
         } else if (error.code === 'auth/weak-password') {

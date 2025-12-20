@@ -11,6 +11,7 @@ import type { EventEmitterPlugin } from '../plugins/event-emitter-plugin';
 import type { EventExecutionContextData, EventExecutionValue } from '../plugins/event-emitter-plugin';
 import type { SimpleLogger } from '../utils/simple-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
+import { EVENT_EMITTER_EVENTS } from '../plugins/event-emitter/types';
 
 /**
  * Module execution context for all modules
@@ -292,7 +293,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
                 ...(filteredOptions && Object.keys(filteredOptions).length > 0 && { options: filteredOptions })
             };
 
-            await this.eventEmitter.emit('module.initialize.start', {
+            await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_START, {
                 data: this.convertToEventData(eventData),
                 timestamp: new Date()
             });
@@ -314,7 +315,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
                     duration: Date.now() - startTime
                 };
 
-                await this.eventEmitter.emit('module.initialize.complete', {
+                await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_COMPLETE, {
                     data: this.convertToEventData(eventData),
                     timestamp: new Date()
                 });
@@ -339,7 +340,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
                     error: error instanceof Error ? error.message : String(error)
                 };
 
-                await this.eventEmitter.emit('module.initialize.error', {
+                await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_INITIALIZE_ERROR, {
                     data: this.convertToEventData(eventData),
                     error: error instanceof Error ? error : new Error(String(error)),
                     timestamp: new Date()
@@ -394,7 +395,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
                 ...(Object.keys(contextData).length > 0 && { context: contextData })
             };
 
-            await this.eventEmitter.emit('module.execution.start', {
+            await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_EXECUTION_START, {
                 data: this.convertToEventData(eventData),
                 timestamp: new Date()
             });
@@ -441,7 +442,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
                     ...(Object.keys(contextData).length > 0 && { context: contextData })
                 };
 
-                await this.eventEmitter.emit('module.execution.complete', {
+                await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_EXECUTION_COMPLETE, {
                     data: this.convertToEventData(eventData),
                     timestamp: new Date()
                 });
@@ -484,7 +485,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
                     ...(Object.keys(contextData).length > 0 && { context: contextData })
                 };
 
-                await this.eventEmitter.emit('module.execution.error', {
+                await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_EXECUTION_ERROR, {
                     data: this.convertToEventData(eventData),
                     error: errorResult.error!,
                     timestamp: new Date()
@@ -519,7 +520,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
                 timestamp: new Date()
             };
 
-            await this.eventEmitter.emit('module.dispose.start', {
+            await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_DISPOSE_START, {
                 data: this.convertToEventData(eventData),
                 timestamp: new Date()
             });
@@ -545,7 +546,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
                     resourcesReleased: ['memory', 'event-handlers', 'timers']
                 };
 
-                await this.eventEmitter.emit('module.dispose.complete', {
+                await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_DISPOSE_COMPLETE, {
                     data: this.convertToEventData(eventData),
                     timestamp: new Date()
                 });
@@ -567,7 +568,7 @@ export abstract class AbstractModule<TOptions extends BaseModuleOptions = BaseMo
                     error: error instanceof Error ? error.message : String(error)
                 };
 
-                await this.eventEmitter.emit('module.dispose.error', {
+                await this.eventEmitter.emit(EVENT_EMITTER_EVENTS.MODULE_DISPOSE_ERROR, {
                     data: this.convertToEventData(eventData),
                     error: error instanceof Error ? error : new Error(String(error)),
                     timestamp: new Date()

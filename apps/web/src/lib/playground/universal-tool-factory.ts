@@ -8,6 +8,7 @@ import {
     type ToolParameters,
     type ToolResult
 } from '@robota-sdk/agents';
+import { WebLogger } from '@/lib/web-logger';
 import type {
     BlockDataCollector,
     ToolHooks
@@ -115,7 +116,8 @@ export class UniversalToolFactory {
             logger?: SimpleLogger;
         } = {}
     ): any {
-        console.warn('OpenAPITool not available in current SDK version');
+        const logger = this.logger ?? WebLogger;
+        logger.warn('OpenAPITool not available in current SDK version');
         return null;
     }
 
@@ -132,7 +134,8 @@ export class UniversalToolFactory {
             logger?: SimpleLogger;
         } = {}
     ): any {
-        console.warn('MCPTool not available in current SDK version');
+        const logger = this.logger ?? WebLogger;
+        logger.warn('MCPTool not available in current SDK version');
         return null;
     }
 
@@ -149,7 +152,8 @@ export class UniversalToolFactory {
             logger?: SimpleLogger;
         } = {}
     ): any {
-        console.warn('AgentDelegationTool not available in current SDK version');
+        const logger = this.logger ?? WebLogger;
+        logger.warn('AgentDelegationTool not available in current SDK version');
         return null;
     }
 
@@ -198,7 +202,8 @@ export class UniversalToolFactory {
         // Note: This would require modifying the tool's hooks after creation
         // which might not be possible with the current BaseTool implementation
         // This is a conceptual method for future enhancement
-        console.warn('wrapTool is not yet implemented - tools should be created with tracking from the start');
+        const logger = this.logger ?? WebLogger;
+        logger.warn('wrapTool is not yet implemented - tools should be created with tracking from the start');
         return tool;
     }
 

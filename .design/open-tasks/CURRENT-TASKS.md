@@ -813,6 +813,7 @@ export class ActionTrackingEventService implements EventService {
 - 2025-12-20: (Priority 0 / 1순위) Tool→Agent ownerPath-only 보장 — `Robota.buildOwnerPath()`가 executionContext.ownerPath만을 base로 사용하고 `{ type:'agent', id }`를 append 하도록 고정. `ExecutionService.buildBaseOwnerPath()`도 ownerPath만 복제하도록 고정.
 - 2025-12-20: (Priority 0 / 1순위) DI-only 마감 — `PlaygroundProvider`에서 EventService 직접 생성 제거(외부 `createEventService` 주입). 사용처는 `apps/web/src/app/playground/page.tsx`로 이동. examples 범위에서 EventService 직접 `new` 0건 확인.
 - 2025-12-20: (Priority 0 / 1순위) 이벤트 상수/하드코딩 정리 — `EXECUTION_EVENTS`/`TOOL_EVENTS`/`AGENT_EVENTS`를 prefix 포함 상수로 고정하고, workflow/web 구독/핸들러에서 문자열 리터럴을 제거해 상수 import로 통일. `@robota-sdk/agents` public export에 `EXECUTION_EVENTS`/`TOOL_EVENTS` 추가로 workflow 빌드 호환성 확보. `pnpm --filter @robota-sdk/agents build` PASS, `pnpm --filter @robota-sdk/workflow build` PASS.
+- 2025-12-20: (검증/정리) `apps/web/src/**`에서 `console.*` 직접 호출 0건 달성 — `WebLogger`(DI-friendly wrapper) 도입 후, hooks/components/api routes/playground sandbox 포함 전수 치환 및 lint/grep 검증 완료.
 
 **다음 단계**:
 1. Agent Event Normalization 단계 3, 6.5, 6.6 완료

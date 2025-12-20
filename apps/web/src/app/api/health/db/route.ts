@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase/config';
 import { doc, getDoc } from 'firebase/firestore';
+import { WebLogger } from '@/lib/web-logger';
 
 export async function GET(request: NextRequest) {
     try {
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
             },
         });
     } catch (error) {
-        console.error('Database health check failed:', error);
+        WebLogger.error('Database health check failed', { error: error instanceof Error ? error.message : String(error) });
 
         return NextResponse.json(
             {

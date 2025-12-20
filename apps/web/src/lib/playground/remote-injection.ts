@@ -261,35 +261,30 @@ if (typeof window !== 'undefined') {
         constructor(options) { 
           this.options = options;
           this.name = options?.name || 'PlaygroundAgent';
-          console.log('🚀 PlaygroundAgent bridge created with options:', options);
           
           // Create real agent via PlaygroundExecutor
           if (window.__ROBOTA_PLAYGROUND_EXECUTOR__) {
-            window.__ROBOTA_PLAYGROUND_EXECUTOR__.createAgent(options).catch(console.error);
+            window.__ROBOTA_PLAYGROUND_EXECUTOR__.createAgent(options).catch(() => {});
           }
         }
         setSystemMessage(message) { 
-          console.log('System message set:', message);
           if (this.options?.defaultModel) {
             this.options.defaultModel.systemMessage = message;
           }
           return this;
         }
         async run(input, options) {
-          console.log('🚀 PlaygroundAgent.run() called with input:', input);
           if (window.__ROBOTA_PLAYGROUND_EXECUTOR__) {
             try {
               const result = await window.__ROBOTA_PLAYGROUND_EXECUTOR__.run(input);
               return result.response;
             } catch (error) {
-              console.error('PlaygroundExecutor execution failed:', error);
               return 'Error: Execution failed';
             }
           }
           return \`No executor available for: \${input}\`;
         }
         async* runStream(input, options) {
-          console.log('🚀 PlaygroundAgent.runStream() called with input:', input);
           if (window.__ROBOTA_PLAYGROUND_EXECUTOR__) {
             try {
               const result = await window.__ROBOTA_PLAYGROUND_EXECUTOR__.run(input);
@@ -299,7 +294,6 @@ if (typeof window !== 'undefined') {
                 await new Promise(resolve => setTimeout(resolve, 100));
               }
             } catch (error) {
-              console.error('PlaygroundExecutor stream failed:', error);
               yield 'Error: Stream failed';
             }
           } else {
@@ -318,35 +312,30 @@ if (typeof window !== 'undefined') {
           return [];
         }
         async destroy() {
-          console.log('PlaygroundAgent destroyed');
         }
       },
       Robota: class PlaygroundRobotaBridge {
         constructor(options) { 
           this.options = options;
           this.name = options?.name || 'PlaygroundRobota';
-          console.log('🚀 PlaygroundRobota bridge created with options:', options);
           
           // Create real agent via PlaygroundExecutor
           if (window.__ROBOTA_PLAYGROUND_EXECUTOR__) {
-            window.__ROBOTA_PLAYGROUND_EXECUTOR__.createAgent(options).catch(console.error);
+            window.__ROBOTA_PLAYGROUND_EXECUTOR__.createAgent(options).catch(() => {});
           }
         }
         async run(input, options) {
-          console.log('🚀 PlaygroundRobota.run() called with input:', input);
           if (window.__ROBOTA_PLAYGROUND_EXECUTOR__) {
             try {
               const result = await window.__ROBOTA_PLAYGROUND_EXECUTOR__.run(input);
               return result.response;
             } catch (error) {
-              console.error('PlaygroundExecutor execution failed:', error);
               return 'Error: Execution failed';
             }
           }
           return \`No executor available for: \${input}\`;
         }
         async* runStream(input, options) {
-          console.log('Robota.runStream() called with input:', input);
           const response = await this.run(input, options);
           const words = response.split(' ');
           for (const word of words) {
@@ -366,11 +355,9 @@ if (typeof window !== 'undefined') {
           return [];
         }
         async destroy() {
-          console.log('Robota destroyed');
         }
       },
       createFunctionTool: (name, description, schema, handler) => {
-        console.log('Function tool created:', name, description);
         return { 
           name, 
           description, 
@@ -381,17 +368,14 @@ if (typeof window !== 'undefined') {
       },
       LoggingPlugin: class MockLoggingPlugin {
         constructor(options) {
-          console.log('Logging plugin created:', options);
         }
       },
       UsagePlugin: class MockUsagePlugin {
         constructor(options) {
-          console.log('Usage plugin created:', options);
         }
       },
       PerformancePlugin: class MockPerformancePlugin {
         constructor(options) {
-          console.log('Performance plugin created:', options);
         }
       }
     },
@@ -400,22 +384,18 @@ if (typeof window !== 'undefined') {
         constructor(options) { 
           this.name = 'openai';
           this.options = options;
-          console.log('Mock OpenAI Provider created');
         }
         async chat(messages) {
-          console.log('OpenAI chat called with messages:', messages);
           return 'Mock OpenAI response';
         }
       },
       OpenAI: class MockOpenAI {
         constructor(options) {
           this.apiKey = options?.apiKey;
-          console.log('Mock OpenAI client created');
         }
         chat = {
           completions: {
             create: async (params) => {
-              console.log('OpenAI API call:', params);
               return {
                 choices: [{
                   message: {
@@ -433,17 +413,14 @@ if (typeof window !== 'undefined') {
         constructor(options) { 
           this.name = 'anthropic';
           this.options = options;
-          console.log('Mock Anthropic Provider created');
         }
       },
       Anthropic: class MockAnthropic {
         constructor(options) {
           this.apiKey = options?.apiKey;
-          console.log('Mock Anthropic client created');
         }
         messages = {
           create: async (params) => {
-            console.log('Anthropic API call:', params);
             return {
               content: [{
                 text: 'Mock Anthropic API response'
@@ -458,18 +435,15 @@ if (typeof window !== 'undefined') {
         constructor(options) { 
           this.name = 'google';
           this.options = options;
-          console.log('Mock Google Provider created');
         }
       },
       GoogleGenerativeAI: class MockGoogleGenerativeAI {
         constructor(apiKey) {
           this.apiKey = apiKey;
-          console.log('Mock Google Generative AI client created');
         }
         getGenerativeModel(config) {
           return {
             generateContent: async (prompt) => {
-              console.log('Google AI API call:', prompt);
               return {
                 response: {
                   text: () => 'Mock Google AI API response'
@@ -508,21 +482,18 @@ export function createPlaygroundSandbox(config: PlaygroundConfig): {
           typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
         ).join(' ');
         capturedLogs.push(message);
-        console.log('[Playground]', ...args); // Still show in browser console
       },
       error: (...args: any[]) => {
         const message = args.map(arg =>
           typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
         ).join(' ');
         capturedLogs.push(`ERROR: ${message}`);
-        console.error('[Playground]', ...args);
       },
       warn: (...args: any[]) => {
         const message = args.map(arg =>
           typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
         ).join(' ');
         capturedLogs.push(`WARN: ${message}`);
-        console.warn('[Playground]', ...args);
       }
     },
     setTimeout,
@@ -590,7 +561,7 @@ export function createPlaygroundSandbox(config: PlaygroundConfig): {
         };
 
       } catch (error) {
-        console.error('Playground execution error:', error);
+        capturedLogs.push(`ERROR: Playground execution error: ${error instanceof Error ? error.message : String(error)}`);
         throw error;
       }
     },

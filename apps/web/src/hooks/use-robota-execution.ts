@@ -17,6 +17,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { usePlayground } from '@/contexts/playground-context';
 import type { PlaygroundExecutionResult, PlaygroundAgentConfig } from '@/lib/playground/robota-executor';
+import { WebLogger } from '@/lib/web-logger';
 
 export type ExecutionState = 'idle' | 'initializing' | 'running' | 'streaming' | 'error' | 'completed';
 
@@ -88,7 +89,7 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
 
     // Debug log for canExecute (only when values change)
     useEffect(() => {
-        console.log('🔍 canExecute state check:', {
+        WebLogger.debug('canExecute state check', {
             isInitialized: state.isInitialized,
             isExecuting: isExecuting,
             hasAgentConfig: !!state.currentAgentConfig,
@@ -147,7 +148,7 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
 
             setExecutionState('idle');
         } catch (error) {
-            console.error('❌ createAgent error:', error);
+            WebLogger.error('createAgent error', { error: error instanceof Error ? error.message : String(error) });
             setExecutionState('error');
             setLastError(error instanceof Error ? error : new Error(String(error)));
             setErrorCount(prev => prev + 1);
@@ -158,7 +159,7 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
     const executePrompt = useCallback(async (prompt: string): Promise<PlaygroundExecutionResult> => {
         if (!canExecute) {
             const error = new Error('Cannot execute: executor not ready or already running');
-            console.error('❌ executePrompt blocked:', error);
+            WebLogger.warn('executePrompt blocked', { error: error.message });
             throw error;
         }
 
@@ -207,7 +208,7 @@ export function useRobotaExecution(): RobotaExecutionHookReturn {
     ): Promise<PlaygroundExecutionResult> => {
         if (!canExecute) {
             const error = new Error('Cannot execute: executor not ready or already running');
-            console.error('❌ executeStreamPrompt blocked:', error);
+            WebLogger.warn('executeStreamPrompt blocked', { error: error.message });
             throw error;
         }
 

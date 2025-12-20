@@ -418,7 +418,7 @@
 ### 핸들러 가이드
 - [ ] 핸들러는 `node.parentId = event.parentId`만 설정(메타, 변경 금지)
 - [ ] 엣지는 `prevId` 기준으로만 생성; `prevId` 미제공 시 즉시 에러로 표면화(기본 정책)
-- [ ] 예시 매핑(Execution 앵커 채택): execution/assistant/tool/sub-agent/aggregation 별 parent/prev 표 제공(ARCHITECTURE.md 링크)
+- [ ] 예시 매핑(Execution 앵커 채택): execution/assistant/tool/invoked-agent/aggregation 별 parent/prev 표 제공(ARCHITECTURE.md 링크)
 
 ### 검증/품질
 - [ ] 불변조건 문서화: 단일 인바운드, 순서 단조 증가, 사이클 금지, 존재성 보장

@@ -16,6 +16,7 @@ import {
 import type { PlaygroundBlockCollector } from '@/lib/playground/block-tracking/block-collector';
 import type { RealTimeBlockMessage, RealTimeBlockMetadata } from '@/lib/playground/block-tracking/types';
 import { generateDemoExecutionData, generateComplexDemoData } from '@/lib/playground/demo-execution-data';
+import { WebLogger } from '@/lib/web-logger';
 
 /**
  * Tree node structure for debugging
@@ -169,19 +170,18 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
 
     // Clear all blocks
     const handleClear = () => {
-        console.log('🧹 Clear button clicked!');
-        console.log('📊 Blocks before clear:', blockCollector.getBlocks().length);
+        WebLogger.debug('Clear button clicked');
+        WebLogger.debug('Blocks before clear', { count: blockCollector.getBlocks().length });
         blockCollector.clearBlocks();
-        console.log('📊 Blocks after clear:', blockCollector.getBlocks().length);
+        WebLogger.debug('Blocks after clear', { count: blockCollector.getBlocks().length });
         setLastRefresh(Date.now());
-        console.log('✅ Clear completed');
+        WebLogger.info('Clear completed');
     };
 
     // Generate demo data
     const handleGenerateDemo = () => {
-        console.log('🎬 Generate Demo button clicked!');
-        console.log('📊 Current block count before:', blockCollector.getBlocks().length);
-        console.log('📦 BlockCollector instance:', blockCollector);
+        WebLogger.debug('Generate Demo button clicked');
+        WebLogger.debug('Current block count before', { count: blockCollector.getBlocks().length });
 
         try {
             // First test with a simple manual block
@@ -206,29 +206,28 @@ export const ExecutionTreeDebug: React.FC<ExecutionTreeDebugProps> = ({
                 }
             };
 
-            console.log('📝 Adding test block:', testBlock);
+            WebLogger.debug('Adding test block', { testBlock });
             blockCollector.collectBlock(testBlock);
-            console.log('📊 Block count after test block:', blockCollector.getBlocks().length);
+            WebLogger.debug('Block count after test block', { count: blockCollector.getBlocks().length });
 
             // Then generate demo data
             generateDemoExecutionData(blockCollector);
-            console.log('📊 Current block count after demo:', blockCollector.getBlocks().length);
+            WebLogger.debug('Current block count after demo', { count: blockCollector.getBlocks().length });
             setLastRefresh(Date.now());
-            console.log('✅ Demo data generated successfully');
+            WebLogger.info('Demo data generated successfully');
         } catch (error) {
-            console.error('❌ Error generating demo data:', error);
-            console.error('❌ Error details:', error);
+            WebLogger.error('Error generating demo data', { error: error instanceof Error ? error.message : String(error) });
         }
     };
 
     const handleGenerateComplexDemo = () => {
-        console.log('🎬 Generate Complex Demo button clicked!');
+        WebLogger.debug('Generate Complex Demo button clicked');
         try {
             generateComplexDemoData(blockCollector);
             setLastRefresh(Date.now());
-            console.log('✅ Complex demo data generated successfully');
+            WebLogger.info('Complex demo data generated successfully');
         } catch (error) {
-            console.error('❌ Error generating complex demo data:', error);
+            WebLogger.error('Error generating complex demo data', { error: error instanceof Error ? error.message : String(error) });
         }
     };
 

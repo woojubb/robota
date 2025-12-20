@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAuth } from '@/lib/firebase/admin';
+import { WebLogger } from '@/lib/web-logger';
 
 /**
  * Check if user has playground access
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error('Error checking playground access:', error);
+        WebLogger.error('Error checking playground access', { error: error instanceof Error ? error.message : String(error) });
 
         return NextResponse.json(
             { error: 'Internal server error' },
@@ -77,7 +78,7 @@ async function checkPlaygroundAccess(userId: string) {
         };
 
     } catch (error) {
-        console.error('Error checking playground access:', error);
+        WebLogger.error('Error checking playground access', { error: error instanceof Error ? error.message : String(error) });
         return {
             hasAccess: false,
             subscription: 'free',

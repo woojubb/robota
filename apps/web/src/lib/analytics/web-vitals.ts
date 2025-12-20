@@ -1,5 +1,6 @@
 import { onCLS, onFID, onFCP, onLCP, onTTFB, Metric } from 'web-vitals';
 import { trackEvent } from './google-analytics';
+import { WebLogger } from '@/lib/web-logger';
 
 // Core Web Vitals thresholds
 const WEB_VITALS_THRESHOLDS = {
@@ -31,9 +32,8 @@ function sendToAnalytics(metric: Metric) {
         value: Math.round(metric.name === 'CLS' ? metric.value * 1000 : metric.value),
     });
 
-    // Send to console in development
     if (process.env.NODE_ENV === 'development') {
-        console.log('Web Vital:', {
+        WebLogger.debug('Web Vital', {
             name: metric.name,
             value: metric.value,
             rating,
@@ -54,7 +54,7 @@ export function initWebVitals(): void {
         onLCP(sendToAnalytics);
         onTTFB(sendToAnalytics);
     } catch (error) {
-        console.error('Failed to initialize Web Vitals:', error);
+        WebLogger.error('Failed to initialize Web Vitals', { error: error instanceof Error ? error.message : String(error) });
     }
 }
 
@@ -127,7 +127,7 @@ export function observePerformance(): void {
         resourceObserver.observe({ entryTypes: ['resource'] });
 
     } catch (error) {
-        console.error('Failed to observe performance:', error);
+        WebLogger.error('Failed to observe performance', { error: error instanceof Error ? error.message : String(error) });
     }
 }
 
