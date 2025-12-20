@@ -1,4 +1,4 @@
-// Node Edge Manager - Workflow node and edge creation with ordering and integrity
+// NodeEdgeManager - workflow node/edge creation with ordering and integrity
 // Migrated from agents package to workflow package
 
 import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
@@ -6,29 +6,35 @@ import type { UniversalWorkflowEdge } from '../types/universal-types.js';
 import type { WorkflowNode, WorkflowConnectionType } from '../interfaces/workflow-node.js';
 
 /**
- * NodeEdgeManager - 노드/엣지 생성 순서 및 무결성 보장
- * 
- * 핵심 원칙:
- * 1. 모든 노드는 자동 timestamp 할당
- * 2. 엣지는 source/target 노드 존재 확인 후 생성
- * 3. 순서 보장을 위한 즉시 실행 (큐 제거)
- * 4. 실패 시 즉시 에러 발생 (재시도 메커니즘 없음)
+ * NodeEdgeManager - guarantees sequential creation order and edge integrity.
+ *
+ * Core principles:
+ * 1. Nodes/edges receive an internal monotonic numeric timestamp (no Date.now collisions).
+ * 2. Edges are created only after validating source/target node existence.
+ * 3. Immediate execution (no queues, no waits, no retries).
+ * 4. Fail fast on design errors (no fallback).
  */
 export class NodeEdgeManager {
     private logger: SimpleLogger;
     private nodeMap = new Map<string, WorkflowNode>();
     private edges: UniversalWorkflowEdge[] = [];
+    private timestampCounter = 0;
 
     constructor(logger: SimpleLogger = SilentLogger) {
         this.logger = logger;
     }
 
+    private nextTimestamp(): number {
+        this.timestampCounter += 1;
+        return this.timestampCounter;
+    }
+
     /**
-     * 노드 추가 (자동 timestamp 설정 + Fork/Join 패턴 지원)
-     * @param node 노드 데이터 (timestamp 제외)
-     * @param parentNodeIds 부모 노드 ID (단일 또는 배열 - Join 패턴 지원)
-     * @param connectionType 연결 타입
-     * @param connectionLabel 연결 라벨
+     * Add a node (auto timestamp + fork/join pattern support)
+     * @param node Node data (without timestamp)
+     * @param parentNodeIds Parent node ids (single or array for join)
+     * @param connectionType Connection type
+     * @param connectionLabel Optional edge label
      */
     addNode(
         node: Omit<WorkflowNode, 'timestamp'>,
@@ -38,7 +44,7 @@ export class NodeEdgeManager {
     ): WorkflowNode {
         const nodeWithTimestamp: WorkflowNode = {
             ...node,
-            timestamp: Date.now()
+            timestamp: this.nextTimestamp()
         } as WorkflowNode;
 
         // Immediate creation without queue
@@ -65,7 +71,7 @@ export class NodeEdgeManager {
     }
 
     /**
-     * 엣지 추가 (순차 실행 큐 사용)
+     * Add an edge (sequential, no queue)
      */
     addEdge(
         sourceId: string,
@@ -95,14 +101,15 @@ export class NodeEdgeManager {
             return existingEdge;
         }
 
-        const edgeId = `edge_${sourceId}_${targetId}_${type}_${Date.now()}`;
+        const ts = this.nextTimestamp();
+        const edgeId = `edge_${sourceId}_${targetId}_${type}_${ts}`;
         const edge: UniversalWorkflowEdge = {
             id: edgeId,
             source: sourceId,
             target: targetId,
             type: type,
             label: label,
-            timestamp: Date.now(),
+            timestamp: ts,
             createdAt: new Date(),
             updatedAt: new Date(),
         };

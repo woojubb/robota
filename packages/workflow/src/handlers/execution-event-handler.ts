@@ -183,9 +183,6 @@ export class ExecutionEventHandler implements EventHandler {
                         }
                         const userMessageNode = this.createUserMessageNode(eventData);
                         if ((eventData as any).parentId) userMessageNode.parentId = String((eventData as any).parentId);
-                        if (eventData.parentExecutionId) {
-                            userMessageNode.parentId = String(eventData.parentExecutionId);
-                        }
                         updates.push({ action: 'create', node: userMessageNode });
                         this.userMessageNodeMap.set(localAgentId, userMessageNode.id);
 
@@ -285,6 +282,11 @@ export class ExecutionEventHandler implements EventHandler {
 
     private createExecutionStartNode(data: EventData): WorkflowNode {
         const nodeId = String(data.executionId);
+        const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;
+        const derivedLevel = Array.isArray(ownerPath) ? ownerPath.length : 0;
+        const derivedParentId = Array.isArray(ownerPath) && ownerPath.length > 1
+            ? String(ownerPath[ownerPath.length - 2]?.id ?? '')
+            : undefined;
 
         return {
             id: nodeId,
@@ -296,7 +298,6 @@ export class ExecutionEventHandler implements EventHandler {
                 sourceId: data.sourceId,
                 sourceType: 'execution',
                 executionId: data.executionId,
-                parentExecutionId: data.parentExecutionId,
                 // 🎯 Preserve original event timestamp from EventService
                 originalEventTimestamp: data.timestamp, // Original event occurrence time
                 label: 'Execution Start',
@@ -307,8 +308,7 @@ export class ExecutionEventHandler implements EventHandler {
                 executionInfo: {
                     executionId: data.executionId,
                     startTime: new Date().toISOString(),
-                    level: data.executionLevel || 1,
-                    isRoot: !data.parentExecutionId
+                    level: derivedLevel
                 },
                 extensions: {
                     robota: {
@@ -318,13 +318,18 @@ export class ExecutionEventHandler implements EventHandler {
                     }
                 }
             },
-            parentId: data.parentExecutionId ? String(data.parentExecutionId) : undefined,
+            parentId: derivedParentId,
             connections: []
         };
     }
 
     private createExecutionCompleteNode(data: EventData): WorkflowNode {
         const nodeId = `execution_complete_${data.executionId}_${Date.now()}`;
+        const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;
+        const derivedLevel = Array.isArray(ownerPath) ? ownerPath.length : 0;
+        const derivedParentId = Array.isArray(ownerPath) && ownerPath.length > 1
+            ? String(ownerPath[ownerPath.length - 2]?.id ?? '')
+            : undefined;
 
         return {
             id: nodeId,
@@ -336,7 +341,6 @@ export class ExecutionEventHandler implements EventHandler {
                 sourceId: data.sourceId,
                 sourceType: 'execution',
                 executionId: data.executionId,
-                parentExecutionId: data.parentExecutionId,
                 label: 'Execution Complete',
                 description: 'Agent execution completed successfully',
                 eventType: data.eventType,
@@ -346,7 +350,7 @@ export class ExecutionEventHandler implements EventHandler {
                 executionInfo: {
                     executionId: data.executionId,
                     endTime: new Date().toISOString(),
-                    level: data.executionLevel || 1,
+                    level: derivedLevel,
                     duration: data.metadata?.duration || 0,
                     success: true
                 },
@@ -358,7 +362,7 @@ export class ExecutionEventHandler implements EventHandler {
                     }
                 }
             },
-            parentId: data.parentExecutionId ? String(data.parentExecutionId) : undefined,
+            parentId: derivedParentId,
             connections: []
         };
     }
@@ -366,6 +370,11 @@ export class ExecutionEventHandler implements EventHandler {
     private createExecutionErrorNode(data: EventData): WorkflowNode {
         const nodeId = `execution_error_${data.executionId}_${Date.now()}`;
         const errorMessage = (data.error instanceof Error ? data.error.message : String(data.error || data.parameters?.error || 'Execution failed'));
+        const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;
+        const derivedLevel = Array.isArray(ownerPath) ? ownerPath.length : 0;
+        const derivedParentId = Array.isArray(ownerPath) && ownerPath.length > 1
+            ? String(ownerPath[ownerPath.length - 2]?.id ?? '')
+            : undefined;
 
         return {
             id: nodeId,
@@ -377,7 +386,6 @@ export class ExecutionEventHandler implements EventHandler {
                 sourceId: data.sourceId,
                 sourceType: 'execution',
                 executionId: data.executionId,
-                parentExecutionId: data.parentExecutionId,
                 label: 'Execution Error',
                 description: `Execution failed: ${errorMessage}`,
                 eventType: data.eventType,
@@ -387,7 +395,7 @@ export class ExecutionEventHandler implements EventHandler {
                 executionInfo: {
                     executionId: data.executionId,
                     errorTime: new Date().toISOString(),
-                    level: data.executionLevel || 1,
+                    level: derivedLevel,
                     success: false
                 },
                 extensions: {
@@ -398,13 +406,17 @@ export class ExecutionEventHandler implements EventHandler {
                     }
                 }
             },
-            parentId: data.parentExecutionId ? String(data.parentExecutionId) : undefined,
+            parentId: derivedParentId,
             connections: []
         };
     }
 
     private createAssistantMessageStartNode(data: EventData): WorkflowNode {
         const nodeId = `assistant_message_start_${data.executionId}_${Date.now()}`;
+        const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;
+        const derivedParentId = Array.isArray(ownerPath) && ownerPath.length > 1
+            ? String(ownerPath[ownerPath.length - 2]?.id ?? '')
+            : undefined;
 
         return {
             id: nodeId,
@@ -416,7 +428,6 @@ export class ExecutionEventHandler implements EventHandler {
                 sourceId: data.sourceId,
                 sourceType: 'execution',
                 executionId: data.executionId,
-                parentExecutionId: data.parentExecutionId,
                 label: 'Assistant Message Start',
                 description: 'Assistant started generating message',
                 eventType: data.eventType,
@@ -435,13 +446,17 @@ export class ExecutionEventHandler implements EventHandler {
                     }
                 }
             },
-            parentId: data.parentExecutionId ? String(data.parentExecutionId) : undefined,
+            parentId: derivedParentId,
             connections: []
         };
     }
 
     private createAssistantMessageCompleteNode(data: EventData): WorkflowNode {
         const nodeId = `assistant_message_complete_${data.executionId}_${Date.now()}`;
+        const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;
+        const derivedParentId = Array.isArray(ownerPath) && ownerPath.length > 1
+            ? String(ownerPath[ownerPath.length - 2]?.id ?? '')
+            : undefined;
         const messageContent = String(data.result?.content || data.parameters?.content || 'Assistant response');
         const messageLength = messageContent.length;
 
@@ -455,7 +470,6 @@ export class ExecutionEventHandler implements EventHandler {
                 sourceId: data.sourceId,
                 sourceType: 'execution',
                 executionId: data.executionId,
-                parentExecutionId: data.parentExecutionId,
                 label: `Assistant Message (${messageLength} chars)`,
                 description: 'Assistant message generation completed',
                 eventType: data.eventType,
@@ -484,7 +498,7 @@ export class ExecutionEventHandler implements EventHandler {
                     }
                 }
             },
-            parentId: data.parentExecutionId ? String(data.parentExecutionId) : undefined,
+            parentId: derivedParentId,
             connections: []
         };
     }
@@ -557,6 +571,10 @@ export class ExecutionEventHandler implements EventHandler {
     private createUserInputNode(data: EventData): WorkflowNode {
         const nodeId = `user_input_${data.sourceId}_${Date.now()}`;
         const inputContent = String(data.parameters?.input || data.parameters?.content || 'User input');
+        const ownerPath = (data as any)?.context?.ownerPath as Array<{ id: string }> | undefined;
+        const derivedParentId = Array.isArray(ownerPath) && ownerPath.length > 1
+            ? String(ownerPath[ownerPath.length - 2]?.id ?? '')
+            : undefined;
 
         return {
             id: nodeId,
@@ -568,7 +586,6 @@ export class ExecutionEventHandler implements EventHandler {
                 sourceId: data.sourceId,
                 sourceType: 'user',
                 executionId: data.executionId,
-                parentExecutionId: data.parentExecutionId,
                 label: 'User Input',
                 description: 'User provided input',
                 eventType: data.eventType,
@@ -588,6 +605,7 @@ export class ExecutionEventHandler implements EventHandler {
                     }
                 }
             },
+            ...(derivedParentId ? { parentId: derivedParentId } : {}),
             connections: []
         };
     }
@@ -617,19 +635,7 @@ export class ExecutionEventHandler implements EventHandler {
         return this.assistantMessageMap.get(executionId);
     }
 
-    /**
-     * Check if execution is root level (no parent)
-     */
-    isRootExecution(data: EventData): boolean {
-        return !data.parentExecutionId;
-    }
-
-    /**
-     * Get execution level from data
-     */
-    getExecutionLevel(data: EventData): number {
-        return data.executionLevel || (this.isRootExecution(data) ? 1 : 2);
-    }
+    // Legacy executionLevel/parentExecutionId removed: use context.ownerPath only.
 
     /**
      * Clear handler state (useful for testing and cleanup)

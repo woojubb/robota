@@ -15,7 +15,7 @@
 ### 작업 항목
 1. **기반 정리**
    - [x] `ActionTrackingEventService` 제거(새 구조에서는 사용 금지)
-   - [ ] 사용처 목록화 및 제거 계획 수립:
+   - [x] 사용처 목록화 및 제거 계획 수립:
       - [x] `packages/agents/src/core/robota.ts` (기존 `src/agents/`에서 이동 완료)
         - [x] `ActionTrackingEventService` 생성 분기 제거, 기본 EventService + ownerType='agent' 주입
         - [x] agent 이벤트 emit 시 ownerPath 기반 context helper 도입 (필요 시 즉시 계산)
@@ -24,17 +24,17 @@
       - [x] `packages/agents/src/services/execution-service.ts`
         - [x] `maybeClone` 로직 대체: ownerType 인자 전달 + ownerPath append
         - [x] legacy `clone({ ownerPrefix })` 호출 제거
-      - [ ] `packages/team/*` (deprecated) → 팀 패키지 사용 제거/의존 차단. 삭제 예정이므로 추가 수정 금지.
+      - [x] `packages/team/*` deprecated 취소(팀 관련 MCP 도구 유지). “팀 패키지 제거” 목표는 더 이상 유효하지 않음.
       - [ ] `apps/web/src/lib/playground/robota-executor.ts`, `apps/examples/26-playground-edge-verification.ts` 등
-        - [ ] Playground 환경에서 EventService를 직접 생성하지 말고 SDK에서 주입받은 것을 사용
-        - [ ] 테스트/예제 코드도 ownerPath 기반 context로 업데이트
+        - [x] Playground 환경에서 EventService를 직접 생성하지 말고 SDK에서 주입받은 것을 사용
+        - [x] 테스트/예제 코드도 ownerPath 기반 context로 업데이트
    - [x] 외부 re-export(`ContextualEventService` 등) deprecated 공지 및 향후 제거 계획 추가
    - [x] 기본 `EventService`에 `emit(eventType, payload, context)` 시그니처 표준화
-   - [ ] `SilentEventService` 제거 및 추상 클래스화
+   - [x] `SilentEventService` 제거 및 추상 클래스화
      - [x] `DEFAULT_ABSTRACT_EVENT_SERVICE` 단일 기준으로 통일(`DEFAULT_EVENT_SERVICE` 제거)
      - [x] DI 기본값을 Abstract no-op으로 교체 (agents/core/robota, execution-service, team container, delegated-agent relay, assign-task, create-team)
-     - [ ] Tools/Playground DI 전환 잔여
-     - [ ] **1순위(진행 예정): ToolExecutionService + Tools/Playground DI(ownerPath-only) 잔여 마감**
+     - [x] Tools/Playground DI 전환 잔여
+     - [x] **1순위: ToolExecutionService + Tools/Playground DI(ownerPath-only) 잔여 마감**
        - 배경(현상)
          - `ExecutionService`는 tool call 단위로 `ownerPath`를 만들고(`buildToolOwnerContext`), tool-call scoped `EventService`를 만들 수 있음(`ensureToolEventService`).
          - 하지만 현재 `ToolExecutionService`/`ToolExecutionContext` 경로에는 **tool-call scoped EventService를 Tool 실행까지 전달할 “단일 타입/경로”가 부재**하여, ownerPath-only 설계를 끝까지 관철하기 어려운 상태.
@@ -120,12 +120,12 @@
       - [x] Guarded 예제 27 실행(가드) + verify 통과
       - [x] 결과 기록(노드/엣지 수, 실패 시 rule 위반 유형) 및 리팩토링 개선점 제안 정리
 4. **문서 & 검증**
-   - [ ] `.design/event-system` 문서 업데이트 (prefix 제거, ownerPath 규칙)
-   - [ ] CURRENT-TASKS 진행 기록 추가 및 전환 조건 명시
+   - [x] `.design/event-system` 문서 업데이트 (prefix 제거, ownerPath 규칙)
+   - [x] CURRENT-TASKS 진행 기록 추가 및 전환 조건 명시
 5. **Payload/emit 헬퍼 단순화**
    - [ ] DOM 이벤트 모델처럼 `BaseEventData` + 파생 타입(Execution/Tool/Agent)을 정의하여 필드를 역할별로 분리
    - [x] `emitExecutionEvent<T extends ExecutionEventData>`/`emitToolEvent<T extends ToolEventData>` 헬퍼를 제네릭으로 재작성하고 context 생성만 담당하도록 축소 (2025-11-30)
-   - [ ] `ServiceEventData`에서 `rootExecutionId`, `parentExecutionId`, `executionLevel`, `path`, `thinkingId` 등 ownerPath로 유추 가능한 필드를 제거
+   - [x] `ServiceEventData`에서 `rootExecutionId`, `parentExecutionId`, `executionLevel`, `path`, `thinkingId` 등 ownerPath로 유추 가능한 필드를 제거
    - [ ] **ExecutionService 단계**
      1. [ ] `execution.start`/`user_message`/`assistant_message_*` payload 최소화 (이미 진행 중)  
      2. [x] Tool emit(`tool.call_*`, `tool_results_*`)에서 context로 이전 가능한 필드 제거 — 2025-11-30 ExecutionService emit helper 개편  
@@ -144,15 +144,15 @@
      5. Guard 예제 26/27 실행으로 ownerPath-only 설계가 기존 그래프와 동일하게 작동하는지 검증
    - [ ] **EventService 인스턴스 소유자 고정화 + source 자동화**
      1. [x] ExecutionService 실행 시점에 EventService를 `ownerType='agent'`, `ownerId=conversationId`로 바운드하고, 실행 종료/스트리밍 종료 후 scope를 초기화한다.  
-     2. [ ] ToolExecutionService는 각 tool call 마다 `createContextBoundInstance({ ownerType: 'tool', ownerId: toolCallId, ownerPath: parentPath + tool segment })`로 사본을 만들어 전달한다. (ExecutionService 내부 맵 구현 완료 → ToolExecutionService wiring만 남음)  
+     2. [x] ToolExecutionService/ExecutionService가 tool call마다 tool-call scoped `context.eventService`를 ToolExecutionContext로 전달한다(DI-only, ownerPath-only).  
      3. [x] `emitExecutionEvent`/`emitToolEvent`/`Robota.emitAgentEvent` helper에서 payload에 `sourceType`, `sourceId`, `timestamp`를 수동 전달하지 않고, owner-bound EventService가 자동으로 채우도록 정리했다.  
      4. [x] EventService는 내부 `ownerContext`를 통해 `ownerType/sourceId`를 고정하고, `emit` 호출 시 `context.ownerPath`와 병합하여 `ownerPath`를 자동 연장한다. timestamp는 `data.timestamp ?? new Date()`로 일괄 처리하고, payload에는 들어가지 않도록 강제했다.  
-     5. [ ] `.design/event-system/event-payload-normalization.md`에 “EventService 인스턴스=단일 owner, emit helper 자동 source/timestamp” 규칙을 명시하고, Guard 예제 문서에도 동일한 체크리스트를 추가한다.  
+     5. [x] `.design/event-system/event-payload-normalization.md`에 “EventService 인스턴스=단일 owner, emit helper 자동 source/timestamp” 규칙을 명시하고, Guard 예제 문서에도 동일한 체크리스트를 추가한다.  
      6. [ ] 완료 조건: `ExecutionService`, `ToolExecutionService`, `Robota`, `SubAgentEventRelay`, `team/create-team` 등 EventService 주입 지점 전부가 owner-context-bound 인스턴스만 사용하며, lint/rg 기준 `sourceType:` 수동 전달이 전부 제거된다. (현재 ExecutionService/Robota/SubAgentRelay 적용 완료, Team/ToolExecutionService 남음)
-   - [ ] **Workflow 핸들러 단계**
-     1. `ownerPath` 기반 헬퍼(`getNearestOwner(ownerPath, 'execution')`) 작성  
-     2. 기존 `parentExecutionId/rootExecutionId` 참조를 helper 호출로 교체  
-     3. Guard 예제 26/27 실행으로 회귀 테스트
+  - [x] **Workflow 핸들러 단계**
+    1. [x] `context.ownerPath` 기반으로 handler들이 노드/엣지를 생성한다(폴백/추론/지연 연결 없음).  
+    2. [x] 기존 `parentExecutionId/rootExecutionId` 참조를 제거하고 ownerPath-only로 고정한다.  
+    3. [x] Guard 예제 26/27 실행으로 회귀 테스트 PASS
 6. **이벤트 데이터 정규화 수준 평가**
    - [x] 이벤트 종류별(payload 구조) 전체 목록 작성: execution.*, agent.*, tool.*, team.* 각각 필드 표로 정리
    - [x] 각 필드가 context에서 파생 가능한지 여부를 체크리스트로 표시하고, “payload 필수/선택/제거 가능” 라벨링
@@ -698,6 +698,9 @@ npx tsx utils/verify-workflow-connections.ts | cat
 - 2025-12-20: (Priority 0 / 1순위) 이벤트 상수/하드코딩 정리 — `EXECUTION_EVENTS`/`TOOL_EVENTS`/`AGENT_EVENTS`를 prefix 포함 상수로 고정하고, workflow/web 구독/핸들러에서 문자열 리터럴을 제거해 상수 import로 통일. `@robota-sdk/agents` public export에 `EXECUTION_EVENTS`/`TOOL_EVENTS` 추가로 workflow 빌드 호환성 확보. `pnpm --filter @robota-sdk/agents build` PASS, `pnpm --filter @robota-sdk/workflow build` PASS.
 - 2025-12-20: (검증/정리) `apps/web/src/**`에서 `console.*` 직접 호출 0건 달성 — `WebLogger`(DI-friendly wrapper) 도입 후, hooks/components/api routes/playground sandbox 포함 전수 치환 및 lint/grep 검증 완료.
 - 2025-12-20: (검증/계획) Guarded 예제 경로 재정의 — legacy `26-playground-edge-verification.ts` 실행 방지(즉시 실패), `26-guarded-edge-verification.ts`/`27-continued-conversation-edge-verification.ts`로 분리. 자동화/스크립트도 guarded 파일만 호출하도록 전환.
+- 2025-12-20: (회귀 검증) Node/Edge timestamp를 내부 단조 증가로 고정(NodeEdgeManager). 예제 26/27 verify PASS 재확인.
+  - 예제 26(재검증): **nodes=18 / edges=18**, verify PASS (`SCENARIO_PLAY_ID=mandatory-delegation`)
+  - 예제 27(재검증): **nodes=15 / edges=14**, verify PASS (`SCENARIO_PLAY_ID=continued-conversation`)
 
 **다음 단계**:
 1. Agent Event Normalization 단계 3, 6.5, 6.6 완료
@@ -709,7 +712,7 @@ npx tsx utils/verify-workflow-connections.ts | cat
 
 ### 목표
 - **절대 규칙**: 모든 Agent/AgentConfig는 평등하며, assignTask는 순수 third-party MCP tool collection일 뿐이다. Agent/Tool/Service 어디에서도 assignTask 전용/특수 Agent 개념을 갖지 않는다.
-- deprecated 상태였던 Team 패키지를 assignTask tool collection 전용으로 축소 유지하고, 모든 소비자를 MCP `assignTask` 흐름으로 마이그레이션한다. (패키지 자체는 assignTask용으로 유지, legacy 팀/협업 기능은 전부 제거)
+- Team 패키지는 **deprecated 취소**. 팀 관련 MCP 도구(예: `assignTask`)를 포함하는 tool collection으로 유지하고, legacy 팀/협업 기능은 제거/미사용 상태로 둔다.
 
 ### 작업 항목
 1. **참조 인벤토리 확정 (리스트+담당)**

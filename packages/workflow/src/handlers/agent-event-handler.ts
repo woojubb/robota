@@ -27,7 +27,7 @@ export class AgentEventHandler implements EventHandler {
     private logger: SimpleLogger;
     private agentNodeIdMap = new Map<string, string>(); // sourceId → agentNodeId
     private agentNumberMap = new Map<string, number>(); // sourceId → agentNumber
-    private agentToThinkingMap = new Map<string, string>(); // "sourceId:executionId:timestamp" → thinkingNodeId
+    // Path-only: do not keep auxiliary mappings for relationship derivation.
     private agentCopyCounters = new Map<number, number>(); // agentNumber → copy counter
     private conversationIdToAgentIdMap = new Map<string, string>(); // conversationId → sourceId
 
@@ -67,7 +67,7 @@ export class AgentEventHandler implements EventHandler {
                     if (existing) {
                         break; // Already created for this sourceId
                     }
-                    const agentNode = this.createAgentNode({ ...data, executionLevel: data.executionLevel || 1 }, pathInfo);
+                    const agentNode = this.createAgentNode({ ...data }, pathInfo);
                     const rootId = pathInfo.rootId || String(data.sourceId || '');
 
                     updates.push({ action: 'create', node: agentNode });
@@ -75,12 +75,6 @@ export class AgentEventHandler implements EventHandler {
                     // In that case, the agent becomes the start node and later events will connect the flow.
                     if (!pathInfo.parentId) {
                         this.agentNodeIdMap.set(String(data.sourceId), agentNode.id);
-                        if (data.executionId) {
-                            WorkflowState.setAgentForExecution(String(data.executionId), agentNode.id);
-                        }
-                        if (rootId) {
-                            WorkflowState.setAgentForRoot(rootId, agentNode.id);
-                        }
                         {
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             const subscriber = (this as any).subscriber as { registerNode?: (k: string, id: string) => void } | undefined;
@@ -99,12 +93,6 @@ export class AgentEventHandler implements EventHandler {
                     updates.push({ action: 'create', edge } as any);
 
                     this.agentNodeIdMap.set(String(data.sourceId), agentNode.id);
-                    if (data.executionId) {
-                        WorkflowState.setAgentForExecution(String(data.executionId), agentNode.id);
-                    }
-                    if (rootId) {
-                        WorkflowState.setAgentForRoot(rootId, agentNode.id);
-                    }
                     // Register for cross-handler reference
                     {
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -116,10 +104,7 @@ export class AgentEventHandler implements EventHandler {
 
                 case EXECUTION_EVENTS.START: {
                     // Execution start must NOT create new agent nodes. Only map execution → existing agent.
-                    const existing = this.agentNodeIdMap.get(String(data.sourceId));
-                    if (existing && data.executionId) {
-                        WorkflowState.setAgentForExecution(String(data.executionId), existing);
-                    }
+                    void this.agentNodeIdMap;
                     // If no existing agent, do nothing (strict: agent.created must precede)
                     break;
                 }
@@ -140,13 +125,6 @@ export class AgentEventHandler implements EventHandler {
                         }
 
                         this.agentNodeIdMap.set(sourceId, existingAgentNodeId);
-                        if (data.executionId) {
-                            WorkflowState.setAgentForExecution(String(data.executionId), existingAgentNodeId);
-                        }
-                        const rootId = pathInfo.rootId || this.getRootIdFromEvent(data);
-                        if (rootId) {
-                            WorkflowState.setAgentForRoot(rootId, existingAgentNodeId);
-                        }
                         break;
                     }
 
@@ -226,7 +204,9 @@ export class AgentEventHandler implements EventHandler {
 
                     let sourceForThinking: string | undefined;
                     let typeForThinking: any = 'processes';
-                    let baseTimestamp = Date.now();
+                    // Ensure the thinking node timestamp is strictly greater than "now" to avoid
+                    // same-millisecond collisions with immediately preceding nodes (e.g., tool_result).
+                    let baseTimestamp = Date.now() + 1;
 
                     try {
                         const nodesAccessor: any[] = (this as any).subscriber?.getAllNodes?.() || [];
@@ -236,13 +216,23 @@ export class AgentEventHandler implements EventHandler {
                             const ts = Number(n?.timestamp || 0);
                             if (ts > maxObservedTs) maxObservedTs = ts;
                         }
-                        const parentExecId = pathInfo.parentId || String((data as any)?.executionId || '');
+                        const parentExecId = pathInfo.parentId;
                         let latestAgg: { id: string; ts: number } | undefined;
                         if (parentExecId) {
                             for (const n of nodesAccessor) {
                                 if (n?.type === WORKFLOW_NODE_TYPES.TOOL_RESULT) {
                                     const orig = n?.data?.extensions?.robota?.originalEvent;
-                                    const sameScope = String(orig?.parentExecutionId || '') === parentExecId;
+                                    const sameScope = (() => {
+                                        const op = orig?.context?.ownerPath;
+                                        if (!Array.isArray(op) || op.length === 0) return false;
+                                        for (let i = op.length - 1; i >= 0; i--) {
+                                            const seg = op[i];
+                                            if (seg?.type === 'execution') {
+                                                return String(seg.id ?? '') === parentExecId;
+                                            }
+                                        }
+                                        return false;
+                                    })();
                                     if (sameScope) {
                                         const ts = Number(n?.timestamp || 0);
                                         if (!latestAgg || ts > latestAgg.ts) {
@@ -267,9 +257,28 @@ export class AgentEventHandler implements EventHandler {
                     updates.push({ action: 'create', node: thinkingNode });
 
                     if (!sourceForThinking) {
-                        const rootId = String((data as any).rootExecutionId || data.sourceId || '');
-                        sourceForThinking = WorkflowState.getLastUserMessage(rootId)
-                            || WorkflowState.getLastUserMessage(String((data as any).executionId || ''));
+                        const ownerPath = (data as any)?.context?.ownerPath as Array<{ type: string; id: string }> | undefined;
+                        if (!Array.isArray(ownerPath) || ownerPath.length === 0) {
+                            throw new Error(`[PATH-ONLY] Missing context.ownerPath for ${EXECUTION_EVENTS.ASSISTANT_MESSAGE_START}`);
+                        }
+                        const agentId = (() => {
+                            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                                const seg = ownerPath[i];
+                                if (seg?.type === 'agent' && typeof seg.id === 'string' && seg.id.length > 0) return seg.id;
+                            }
+                            return undefined;
+                        })();
+                        const executionId = (() => {
+                            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                                const seg = ownerPath[i];
+                                if (seg?.type === 'execution' && typeof seg.id === 'string' && seg.id.length > 0) return seg.id;
+                            }
+                            return undefined;
+                        })();
+                        if (!agentId || !executionId) {
+                            throw new Error(`[PATH-ONLY] Missing agent/execution segments in context.ownerPath for ${EXECUTION_EVENTS.ASSISTANT_MESSAGE_START}`);
+                        }
+                        sourceForThinking = WorkflowState.getLastUserMessage(agentId) || WorkflowState.getLastUserMessage(executionId);
                     }
                     if (sourceForThinking) {
                         const edge: WorkflowEdge = {
@@ -281,10 +290,6 @@ export class AgentEventHandler implements EventHandler {
                         } as any;
                         updates.push({ action: 'create', edge } as any);
                     }
-                    try {
-                        const roundKey = this.createThinkingRoundKey(data, (thinkingNode as any)?.timestamp ?? Date.now());
-                        this.agentToThinkingMap.set(roundKey, thinkingNode.id);
-                    } catch { }
                     break;
                 }
 
@@ -299,7 +304,14 @@ export class AgentEventHandler implements EventHandler {
                         };
                     }
                     const thinkingId = pathInfo.parentId;
-                    const responseId = pathInfo.nodeId || String(data.executionId || data.sourceId);
+                    if (!pathInfo.nodeId) {
+                        return {
+                            success: false,
+                            updates: [],
+                            errors: [`[PATH-ONLY] Invalid ownerPath (missing tail id) for ${EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE}`]
+                        };
+                    }
+                    const responseId = pathInfo.nodeId;
 
                     // Strict path-only: thinking node MUST exist (no fallback creation)
                     const nodesAccessor: any[] = (this as any).subscriber?.getAllNodes?.() || [];
@@ -369,11 +381,6 @@ export class AgentEventHandler implements EventHandler {
     // =================================================================
 
     private createExecutionStartNode(data: any): WorkflowNode {
-        this.logger.debug('🚀 [EXECUTION-START]', {
-            sourceId: data.sourceId,
-            executionLevel: data.executionLevel
-        });
-
         // For execution start events, create agent node
         const pathInfo = this.extractPathInfo(data, AGENT_EVENTS.EXECUTION_START);
         return this.createAgentNode(data, pathInfo);
@@ -391,7 +398,7 @@ export class AgentEventHandler implements EventHandler {
         return {
             id: agentId,
             type: WORKFLOW_NODE_TYPES.AGENT,
-            level: data.executionLevel || 1,
+            level: pathInfo.segments.length,
             status: 'running',
             timestamp: Date.now(), // Node creation time for ordering
             data: {
@@ -400,7 +407,6 @@ export class AgentEventHandler implements EventHandler {
                 sourceType: 'agent',
                 agentNumber: agentNumber,
                 copyNumber: copyNumber,
-                parentExecutionId: pathInfo.parentId,
                 label: `Agent ${agentNumber}`,
                 description: 'AI Agent instance',
                 // Optional tools list propagated from agent.created event (if provided)
@@ -431,22 +437,6 @@ export class AgentEventHandler implements EventHandler {
             }
         }
 
-        const executionId = typeof eventData?.executionId !== 'undefined' ? String(eventData.executionId) : undefined;
-        if (executionId) {
-            const fromWorkflow = WorkflowState.getAgentForExecution(executionId);
-            if (fromWorkflow) {
-                return fromWorkflow;
-            }
-        }
-
-        const rootId = pathInfo.rootId || this.getRootIdFromEvent(eventData);
-        if (rootId) {
-            const fromRoot = WorkflowState.getAgentForRoot(rootId);
-            if (fromRoot) {
-                return fromRoot;
-            }
-        }
-
         if (sourceId) {
             try {
                 const nodesAccessor: WorkflowNode[] = (this as any).subscriber?.getAllNodes?.() || [];
@@ -458,7 +448,7 @@ export class AgentEventHandler implements EventHandler {
                     return String(found.id);
                 }
             } catch {
-                // Ignore read errors; fall back to legacy creation if needed
+                // Ignore read errors; caller will fail-fast if required.
             }
         }
 
@@ -587,24 +577,18 @@ export class AgentEventHandler implements EventHandler {
         return undefined;
     }
 
-    private getRootIdFromEvent(eventData: EventData): string | undefined {
-        const rawRoot = eventData?.rootExecutionId ?? eventData?.conversationId ?? eventData?.sourceId;
-        if (typeof rawRoot === 'undefined' || rawRoot === null) {
-            return undefined;
-        }
-        const rootId = String(rawRoot);
-        return rootId.length > 0 ? rootId : undefined;
-    }
-
     private createAgentThinkingNode(data: any, overrideId?: string, forcedTimestamp?: number): WorkflowNode {
         const agentNumber = this.agentNumberMap.get(String(data.sourceId)) || 0;
         const pathInfo = this.extractPathInfo(data, EXECUTION_EVENTS.ASSISTANT_MESSAGE_START);
-        const thinkingId = overrideId || pathInfo.nodeId || `thinking_unknown_${Date.now()}`;
+        const thinkingId = overrideId || pathInfo.nodeId;
+        if (!thinkingId) {
+            throw new Error(`[PATH-ONLY] Missing thinking node id for ${EXECUTION_EVENTS.ASSISTANT_MESSAGE_START}`);
+        }
 
         return {
             id: thinkingId,
             type: WORKFLOW_NODE_TYPES.AGENT_THINKING,
-            level: (data.executionLevel || 1) + 1,
+            level: pathInfo.segments.length,
             status: 'running',
             timestamp: typeof forcedTimestamp === 'number' ? forcedTimestamp : Date.now(),
             data: {
@@ -630,12 +614,15 @@ export class AgentEventHandler implements EventHandler {
 
     private createAgentResponseNode(data: any, pathInfo: PathInfo): WorkflowNode {
         const agentNumber = this.agentNumberMap.get(String(data.sourceId)) || 0;
-        const responseId = pathInfo.nodeId || String(data.executionId || '');
+        const responseId = pathInfo.nodeId;
+        if (!responseId) {
+            throw new Error(`[PATH-ONLY] Missing response node id for ${EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE}`);
+        }
 
         return {
             id: responseId,
             type: WORKFLOW_NODE_TYPES.RESPONSE,
-            level: (data.executionLevel || 1) + 2,
+            level: pathInfo.segments.length,
             status: 'completed',
             timestamp: Date.now(), // Node creation time for ordering
             data: {
@@ -663,48 +650,6 @@ export class AgentEventHandler implements EventHandler {
     // =================================================================
     // Helper Methods
     // =================================================================
-
-    /**
-     * Create round-safe key for thinking node mapping
-     * Format: "sourceId:executionId:timestamp"
-     */
-    private createThinkingRoundKey(data: any, timestamp: number): string {
-        const sourceId = String(data.sourceId);
-        const executionId = String(data.executionId || data.messageId || timestamp);
-        return `${sourceId}:${executionId}:${timestamp}`;
-    }
-
-    /**
-     * Find matching thinking round key for response
-     * Searches for most recent thinking node for the same sourceId
-     */
-    private findMatchingThinkingRoundKey(data: any): string | undefined {
-        const sourceId = String(data.sourceId);
-        const targetExecutionId = String(data.executionId || data.messageId || '');
-
-        let bestMatch: { key: string; timestamp: number } | undefined;
-
-        // Find the most recent thinking node for this sourceId
-        for (const [key, nodeId] of this.agentToThinkingMap.entries()) {
-            const [keySourceId, keyExecutionId, keyTimestamp] = key.split(':');
-
-            if (keySourceId === sourceId) {
-                const timestamp = parseInt(keyTimestamp, 10);
-
-                // Prefer exact executionId match, otherwise use most recent
-                if (keyExecutionId === targetExecutionId) {
-                    return key; // Exact match found
-                }
-
-                if (!bestMatch || timestamp > bestMatch.timestamp) {
-                    bestMatch = { key, timestamp };
-                }
-            }
-        }
-
-        this.logger.debug(`🔍 [THINKING-ROUND-SEARCH] For sourceId: ${sourceId}, executionId: ${targetExecutionId}, found: ${bestMatch?.key || 'none'}`);
-        return bestMatch?.key;
-    }
 
     private assignAgentNumber(sourceId: string): number {
         // Check if already assigned
@@ -745,89 +690,41 @@ export class AgentEventHandler implements EventHandler {
         return this.agentNumberMap.get(sourceId);
     }
 
-    getThinkingNodeId(sourceId: string): string | undefined {
-        // Find most recent thinking node for this sourceId
-        let latestThinking: { nodeId: string; timestamp: number } | undefined;
-
-        for (const [key, nodeId] of this.agentToThinkingMap.entries()) {
-            const [keySourceId, , keyTimestamp] = key.split(':');
-
-            if (keySourceId === sourceId) {
-                const timestamp = parseInt(keyTimestamp, 10);
-                if (!latestThinking || timestamp > latestThinking.timestamp) {
-                    latestThinking = { nodeId, timestamp };
-                }
-            }
-        }
-
-        return latestThinking?.nodeId;
-    }
+    // Path-only: thinking nodes are addressed by explicit context.ownerPath, not auxiliary indices.
 
     getAllAgentMappings(): {
         agentNodes: Map<string, string>;
         agentNumbers: Map<string, number>;
-        thinkingNodes: Map<string, string>;
     } {
         return {
             agentNodes: new Map(this.agentNodeIdMap),
-            agentNumbers: new Map(this.agentNumberMap),
-            thinkingNodes: new Map(this.agentToThinkingMap)
+            agentNumbers: new Map(this.agentNumberMap)
         };
     }
 
     private extractPathInfo(eventData: EventData, contextLabel: string): PathInfo {
-        const candidatePaths: unknown[] = [
-            // Canonical: EventService.emit(..., context) provides context.ownerPath (OwnerPathSegment[])
-            (eventData as any)?.context?.ownerPath,
-            // Secondary explicit fields: older emitters may provide plain string[] path/ownerPath
-            (eventData as any).path,
-            (eventData as any).ownerPath,
-            (eventData.metadata as any)?.path,
-            (eventData as any)?.extensions?.robota?.originalEvent?.ownerPath,
-            (eventData as any)?.extensions?.robota?.originalEvent?.path
-        ];
-
-        const extractIdsFromOwnerPath = (candidate: unknown): string[] | null => {
-            if (!Array.isArray(candidate) || candidate.length === 0) {
-                return null;
-            }
-
-            const first = candidate[0];
-            if (first && typeof first === 'object') {
-                // OwnerPathSegment[] shape: { type: string; id?: string }
-                const ids: string[] = [];
-                for (const seg of candidate as Array<{ id?: unknown }>) {
-                    const id = seg?.id;
-                    if (typeof id !== 'string' || id.length === 0) {
-                        throw new Error(`[PATH-ONLY] Invalid ownerPath (missing segment id) for ${contextLabel}`);
-                    }
-                    ids.push(id);
-                }
-                return ids;
-            }
-
-            // Legacy path shape: string[]
-            const ids = (candidate as unknown[]).map(seg => String(seg)).filter(Boolean);
-            return ids.length > 0 ? ids : null;
-        };
-
-        for (const candidate of candidatePaths) {
-            const segments = extractIdsFromOwnerPath(candidate);
-            if (segments && segments.length > 0) {
-                const nodeId = segments[segments.length - 1];
-                const parentId = segments.length > 1 ? segments[segments.length - 2] : undefined;
-                const rootId = segments[0];
-                return { segments, nodeId, parentId, rootId };
-            }
+        // Canonical: EventService.emit(..., context) provides context.ownerPath (OwnerPathSegment[])
+        const ownerPath = (eventData as any)?.context?.ownerPath as unknown;
+        if (!Array.isArray(ownerPath) || ownerPath.length === 0) {
+            throw new Error(`[PATH-ONLY] Missing context.ownerPath for ${contextLabel}`);
         }
-
-        throw new Error(`[PATH-ONLY] Missing path data for ${contextLabel}`);
+        const segments: string[] = [];
+        for (const seg of ownerPath as Array<{ id?: unknown }>) {
+            const id = seg?.id;
+            if (typeof id !== 'string' || id.length === 0) {
+                throw new Error(`[PATH-ONLY] Invalid context.ownerPath (missing segment id) for ${contextLabel}`);
+            }
+            segments.push(id);
+        }
+        const nodeId = segments[segments.length - 1];
+        const parentId = segments.length > 1 ? segments[segments.length - 2] : undefined;
+        const rootId = segments[0];
+        return { segments, nodeId, parentId, rootId };
     }
 
     clear(): void {
         this.agentNodeIdMap.clear();
         this.agentNumberMap.clear();
-        this.agentToThinkingMap.clear();
         this.conversationIdToAgentIdMap.clear();
         this.logger.debug('🧹 [AGENT-HANDLER] All mappings cleared');
     }
