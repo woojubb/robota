@@ -295,13 +295,11 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
             }
             // Adapter executor consistent with initialization
             const toolExecutor = async (parameters: AbstractToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
-                const finalContext: ToolExecutionContext = context || {
-                    executionId: `tool-exec-${Date.now()}`,
-                    toolName: tool.schema.name,
-                    parameters: parameters
-                };
-                const result = await tool.execute(parameters, finalContext);
-                return result.data ?? result;
+                if (!context) {
+                    throw new Error('[ROBOTA] Missing ToolExecutionContext for tool execution');
+                }
+                const result = await tool.execute(parameters, context);
+                return result.data;
             };
             this.tools.addTool(tool.schema, toolExecutor);
             const nm = tool?.schema?.name ?? (tool as any)?.name ?? (tool as any)?.toolName;
@@ -500,17 +498,11 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
                     // Convert AbstractTool to ToolSchema and executor
                     // Create an adapter to convert ToolResult to ToolExecutionData
                     const toolExecutor = async (parameters: AbstractToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
-                        // 🎯 FIXED: Ensure context is always a valid ToolExecutionContext
-                        const finalContext: ToolExecutionContext = context || {
-                            executionId: `tool-exec-${Date.now()}`,
-                            sourceId: this.conversationId,
-                            sourceType: 'agent',
-                            executionLevel: 2,
-                            toolName: tool.schema.name,
-                            parameters: parameters,
-                        };
-                        const result = await tool.execute(parameters, finalContext);
-                        return result.data ?? result;
+                        if (!context) {
+                            throw new Error('[ROBOTA] Missing ToolExecutionContext for tool execution');
+                        }
+                        const result = await tool.execute(parameters, context);
+                        return result.data;
                     };
                     this.tools.addTool(tool.schema, toolExecutor);
                     this.logger.debug('Tool registered during initialization', { toolName: tool.schema.name });
@@ -1267,17 +1259,11 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
 
         // Create an adapter to convert ToolResult to ToolExecutionData
         const toolExecutor = async (parameters: AbstractToolParameters, context?: ToolExecutionContext): Promise<ToolExecutionData> => {
-            // 🎯 FIXED: Ensure context is always a valid ToolExecutionContext
-            const finalContext: ToolExecutionContext = context || {
-                executionId: `tool-exec-${Date.now()}`,
-                sourceId: this.conversationId,
-                sourceType: 'agent',
-                executionLevel: 2,
-                toolName: tool.schema.name,
-                parameters: parameters,
-            };
-            const result = await tool.execute(parameters, finalContext);
-            return result.data ?? result;
+            if (!context) {
+                throw new Error('[ROBOTA] Missing ToolExecutionContext for tool execution');
+            }
+            const result = await tool.execute(parameters, context);
+            return result.data;
         };
         this.tools.addTool(tool.schema, toolExecutor);
         this.logger.debug('Tool registered', { toolName: tool.schema.name });

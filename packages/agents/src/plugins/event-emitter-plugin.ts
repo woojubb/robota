@@ -378,8 +378,10 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
      * Before tool execution - emits tool.beforeExecute event
      */
     override async beforeToolExecution(context: BaseExecutionContext, toolData: ToolExecutionContext): Promise<void> {
-        const toolCalls = Array.isArray(toolData?.['toolCalls']) ? toolData['toolCalls'] :
-            toolData ? [toolData] : [];
+        if (!toolData) {
+            return;
+        }
+        const toolCalls: ToolExecutionContext[] = [toolData];
 
         for (const toolCall of toolCalls) {
             await this.emit(TOOL_EVENTS_LOCAL.BEFORE, {
@@ -387,9 +389,9 @@ export class EventEmitterPlugin extends AbstractPlugin<EventEmitterPluginOptions
                 sessionId: context.sessionId,
                 userId: context.userId,
                 data: {
-                    toolName: toolCall.function?.name || toolCall.name,
-                    toolId: toolCall.id,
-                    arguments: toolCall.function?.arguments || toolCall.arguments
+                    toolName: toolCall.toolName,
+                    toolId: toolCall.executionId,
+                    arguments: JSON.stringify(toolCall.parameters ?? {})
                 }
             });
         }

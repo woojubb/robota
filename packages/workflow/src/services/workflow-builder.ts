@@ -14,6 +14,7 @@ import type {
 } from '../interfaces/workflow-builder.js';
 import type { WorkflowNode } from '../interfaces/workflow-node.js';
 import type { WorkflowEdge } from '../interfaces/workflow-edge.js';
+import type { WorkflowConnectionType } from '../interfaces/workflow-node.js';
 import type { UniversalWorkflowEdge } from '../types/universal-types.js';
 import { NodeEdgeManager } from './node-edge-manager.js';
 import { WORKFLOW_DEFAULTS, WORKFLOW_CONSTRAINTS } from '../constants/defaults.js';
@@ -48,7 +49,12 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
         this.logger = this.config.logger;
         this.nodeEdgeManager = new NodeEdgeManager(this.logger);
 
-        this.logger.debug('🏗️ [WORKFLOW-BUILDER] Initialized with config:', this.config);
+        this.logger.debug('🏗️ [WORKFLOW-BUILDER] Initialized', {
+            autoTimestamp: this.config.autoTimestamp,
+            validateConnections: this.config.validateConnections,
+            maxNodes: this.config.maxNodes,
+            maxEdges: this.config.maxEdges
+        });
     }
 
     // =================================================================
@@ -69,7 +75,12 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
                 edgeCount: edges.length,
                 createdAt: new Date(),
                 version: '1.0.0',
-                builderConfig: this.config,
+                builderOptions: {
+                    autoTimestamp: this.config.autoTimestamp,
+                    validateConnections: this.config.validateConnections,
+                    maxNodes: this.config.maxNodes,
+                    maxEdges: this.config.maxEdges
+                }
             },
         };
     }
@@ -236,9 +247,31 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
     }
 
     updateEdge(edgeId: string, updates: Partial<WorkflowEdge>): WorkflowEdge | null {
+        const nextData =
+            updates.data || typeof updates.executionOrder !== 'undefined' || typeof updates.dependsOn !== 'undefined'
+                ? {
+                    executionOrder: updates.executionOrder,
+                    dependsOn: updates.dependsOn,
+                    className: updates.data?.className,
+                    extensions: updates.data?.extensions,
+                    metadata: updates.data?.metadata,
+                    extra: updates.data?.extra
+                }
+                : undefined;
+
         // Convert updates to UniversalWorkflowEdge format
         const universalUpdates: Partial<UniversalWorkflowEdge> = {
-            ...updates,
+            id: updates.id,
+            source: updates.source,
+            target: updates.target,
+            type: updates.type,
+            label: updates.label,
+            description: updates.description,
+            sourceHandle: updates.sourceHandle,
+            targetHandle: updates.targetHandle,
+            hidden: updates.hidden,
+            conditional: updates.conditional,
+            data: nextData,
             updatedAt: new Date(),
         };
 
@@ -573,7 +606,7 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
             id: universalEdge.id,
             source: universalEdge.source,
             target: universalEdge.target,
-            type: universalEdge.type as any, // Type assertion needed due to string vs enum difference
+            type: universalEdge.type as WorkflowConnectionType,
             label: universalEdge.label,
             description: universalEdge.description,
             sourceHandle: universalEdge.sourceHandle,
@@ -582,7 +615,12 @@ export class CoreWorkflowBuilder implements ExtendedWorkflowBuilder, WorkflowQue
             dependsOn: universalEdge.data?.dependsOn,
             hidden: universalEdge.hidden,
             conditional: universalEdge.conditional,
-            data: universalEdge.data,
+            data: universalEdge.data ? {
+                className: universalEdge.data.className,
+                metadata: universalEdge.data.metadata,
+                extensions: universalEdge.data.extensions,
+                extra: universalEdge.data.extra
+            } : undefined,
             timestamp: universalEdge.timestamp || Date.now(),
             createdAt: universalEdge.createdAt,
             updatedAt: universalEdge.updatedAt,

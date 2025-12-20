@@ -4,6 +4,9 @@
 import type { WorkflowNode } from './workflow-node.js';
 import type { WorkflowEdge } from './workflow-edge.js';
 import type { WorkflowUpdate } from './workflow-builder.js';
+import type { ContextData, LoggerData, ToolParameters, ToolResult, UniversalValue } from '@robota-sdk/agents';
+
+type WorkflowEventExtensionValue = UniversalValue | Date | Error | LoggerData | ToolParameters | ToolResult | ContextData;
 
 /**
  * Event handler priority levels
@@ -52,15 +55,15 @@ export interface EventData {
     // Edge connectivity MUST be derived solely from immutable event.path values.
 
     // Event payload (flexible)
-    parameters?: Record<string, unknown>;
-    result?: Record<string, unknown>;
-    metadata?: Record<string, unknown>;
+    parameters?: ContextData;
+    result?: ToolResult | ContextData;
+    metadata?: LoggerData;
 
     // Error information
     error?: Error | string;
 
     // Extensible data
-    [key: string]: unknown;
+    [key: string]: WorkflowEventExtensionValue | undefined;
 }
 
 /**
@@ -71,7 +74,7 @@ export interface EventProcessingResult {
     updates: WorkflowUpdate[];
     errors?: string[];
     warnings?: string[];
-    metadata?: Record<string, unknown>;
+    metadata?: LoggerData;
 }
 
 /**
@@ -139,12 +142,12 @@ export interface EventHandlerConfig {
     enabled?: boolean;
     priority?: HandlerPriority;
     patterns?: EventPattern[];
-    options?: Record<string, unknown>;
+    options?: Record<string, WorkflowEventExtensionValue | undefined>;
     logger?: {
-        debug: (message: string, ...args: unknown[]) => void;
-        info: (message: string, ...args: unknown[]) => void;
-        warn: (message: string, ...args: unknown[]) => void;
-        error: (message: string, ...args: unknown[]) => void;
+        debug: (message: string, ...args: WorkflowEventExtensionValue[]) => void;
+        info: (message: string, ...args: WorkflowEventExtensionValue[]) => void;
+        warn: (message: string, ...args: WorkflowEventExtensionValue[]) => void;
+        error: (message: string, ...args: WorkflowEventExtensionValue[]) => void;
     };
 }
 
@@ -240,10 +243,10 @@ export interface EventProcessingContext {
      * Logger
      */
     logger: {
-        debug: (message: string, ...args: unknown[]) => void;
-        info: (message: string, ...args: unknown[]) => void;
-        warn: (message: string, ...args: unknown[]) => void;
-        error: (message: string, ...args: unknown[]) => void;
+        debug: (message: string, ...args: WorkflowEventExtensionValue[]) => void;
+        info: (message: string, ...args: WorkflowEventExtensionValue[]) => void;
+        warn: (message: string, ...args: WorkflowEventExtensionValue[]) => void;
+        error: (message: string, ...args: WorkflowEventExtensionValue[]) => void;
     };
 }
 

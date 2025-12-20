@@ -2,6 +2,36 @@
 // Based on existing implementations in agents package
 
 import type { WorkflowNodeType } from '../constants/workflow-types.js';
+import type { ContextData, LoggerData, OwnerPathSegment, ToolResult, UniversalValue } from '@robota-sdk/agents';
+
+type WorkflowNodeDataExtensionValue = UniversalValue | Date | Error | LoggerData | ToolResult | ContextData;
+
+export interface WorkflowOriginalEvent {
+    eventType: string;
+    timestamp: Date;
+    sourceType?: string;
+    sourceId?: string;
+    path?: string[];
+    parameters?: ContextData;
+    result?: ToolResult | ContextData;
+    metadata?: LoggerData;
+    error?: Error | string;
+    context?: {
+        ownerPath: OwnerPathSegment[];
+    };
+}
+
+export interface WorkflowNodeExtensions {
+    robota?: {
+        originalEvent?: WorkflowOriginalEvent;
+        handlerType: 'tool' | 'agent' | 'execution';
+        extra?: Record<string, WorkflowNodeDataExtensionValue>;
+    };
+    /**
+     * Other platform extensions must be explicit and constrained (no unknown).
+     */
+    other?: Record<string, Record<string, WorkflowNodeDataExtensionValue | undefined>>;
+}
 
 /**
  * Base workflow node status types
@@ -58,22 +88,67 @@ export interface WorkflowNodeData {
     // Display information
     label?: string;
     description?: string;
+    response?: string;
+    status?: WorkflowNodeStatus;
     
     // Tool-specific data
     toolName?: string;
     agentTemplate?: string;
-    parameters?: Record<string, unknown>;
-    result?: Record<string, unknown>;
+    parameters?: ContextData;
+    result?: ToolResult | ContextData;
+
+    // Optional tool list for agent nodes
+    tools?: string[];
+
+    // Optional reserved thinking node id used by some handlers
+    reservedThinkingId?: string;
+
+    // Optional cross-node references used by workflow construction
+    parentThinkingNodeId?: string;
+
+    // Tool response UI data
+    toolCall?: ContextData;
+    toolResponse?: {
+        toolName: string;
+        content: string;
+        success: boolean;
+        timestamp: string;
+    };
+    responseMetrics?: {
+        responseLength: number;
+        contentType: string;
+        hasError: boolean;
+    };
+    aggregationInfo?: {
+        parentThinking: string;
+        status: string;
+    };
+    error?: Error | string | ContextData;
+
+    // Execution/assistant/user message info blocks used by execution handler
+    executionInfo?: ContextData;
+    messageInfo?: ContextData;
+    messageMetrics?: ContextData;
+    inputInfo?: ContextData;
     
     // Agent-specific data
     agentNumber?: number;
     copyNumber?: number;
     
     // Execution metadata
-    metadata?: Record<string, unknown>;
-    
-    // Extensible data for domain-specific fields
-    [key: string]: unknown;
+    metadata?: LoggerData;
+
+    statusHistory?: Array<{
+        status: WorkflowNodeStatus;
+        eventType: string;
+        timestamp: number;
+    }>;
+
+    // Platform extensions (typed, no unknown)
+    extensions?: WorkflowNodeExtensions;
+
+    // Forward-compatible extra fields (typed, no unknown)
+    extra?: Record<string, WorkflowNodeDataExtensionValue>;
 }
 
 /**
@@ -113,10 +188,8 @@ export interface NodeCreationOptions {
 /**
  * Type guard for WorkflowNode
  */
-export function isWorkflowNode(obj: unknown): obj is WorkflowNode {
+export function isWorkflowNode(obj: object): obj is WorkflowNode {
     return (
-        typeof obj === 'object' &&
-        obj !== null &&
         typeof (obj as WorkflowNode).id === 'string' &&
         typeof (obj as WorkflowNode).type === 'string' &&
         typeof (obj as WorkflowNode).level === 'number' &&

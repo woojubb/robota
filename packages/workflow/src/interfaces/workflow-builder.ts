@@ -3,6 +3,9 @@
 
 import type { WorkflowNode, WorkflowNodeUpdate } from './workflow-node.js';
 import type { WorkflowEdge, WorkflowEdgeUpdate } from './workflow-edge.js';
+import type { LoggerData, UniversalValue } from '@robota-sdk/agents';
+
+type WorkflowBuilderExtensionValue = UniversalValue | Date | Error | LoggerData;
 
 /**
  * Workflow snapshot data structure
@@ -17,7 +20,7 @@ export interface WorkflowSnapshot {
         edgeCount: number;
         createdAt: Date;
         version: string;
-        [key: string]: unknown;
+        [key: string]: WorkflowBuilderExtensionValue | undefined;
     };
 }
 
@@ -25,6 +28,14 @@ export interface WorkflowSnapshot {
  * Workflow update types
  */
 export type WorkflowUpdate = WorkflowNodeUpdate | WorkflowEdgeUpdate;
+
+export type WorkflowBatchOperation =
+    | { type: 'addNode'; data: Omit<WorkflowNode, 'timestamp'> }
+    | { type: 'updateNode'; data: { nodeId: string; updates: Partial<WorkflowNode> } }
+    | { type: 'removeNode'; data: { nodeId: string } }
+    | { type: 'addEdge'; data: Omit<WorkflowEdge, 'timestamp'> }
+    | { type: 'updateEdge'; data: { edgeId: string; updates: Partial<WorkflowEdge> } }
+    | { type: 'removeEdge'; data: { edgeId: string } };
 
 /**
  * Workflow builder configuration
@@ -35,11 +46,11 @@ export interface WorkflowBuilderConfig {
     maxNodes?: number;
     maxEdges?: number;
     logger?: {
-        debug: (message: string, ...args: unknown[]) => void;
-        info: (message: string, ...args: unknown[]) => void;
-        warn: (message: string, ...args: unknown[]) => void;
-        error: (message: string, ...args: unknown[]) => void;
-        log: (message: string, ...args: unknown[]) => void;
+        debug: (message: string, ...args: WorkflowBuilderExtensionValue[]) => void;
+        info: (message: string, ...args: WorkflowBuilderExtensionValue[]) => void;
+        warn: (message: string, ...args: WorkflowBuilderExtensionValue[]) => void;
+        error: (message: string, ...args: WorkflowBuilderExtensionValue[]) => void;
+        log: (message: string, ...args: WorkflowBuilderExtensionValue[]) => void;
     };
 }
 
@@ -150,10 +161,7 @@ export interface ExtendedWorkflowBuilder extends WorkflowBuilder {
     /**
      * Batch operations for performance
      */
-    batch(operations: Array<{
-        type: 'addNode' | 'updateNode' | 'removeNode' | 'addEdge' | 'updateEdge' | 'removeEdge';
-        data: unknown;
-    }>): void;
+    batch(operations: WorkflowBatchOperation[]): void;
 
     /**
      * Validate current workflow state
@@ -184,7 +192,7 @@ export interface WorkflowQuery {
         level?: number | number[];
         parentId?: string;
         hasChildren?: boolean;
-        [key: string]: unknown;
+        [key: string]: WorkflowBuilderExtensionValue | undefined;
     }): WorkflowNode[];
 
     /**
@@ -195,7 +203,7 @@ export interface WorkflowQuery {
         sourceId?: string;
         targetId?: string;
         hidden?: boolean;
-        [key: string]: unknown;
+        [key: string]: WorkflowBuilderExtensionValue | undefined;
     }): WorkflowEdge[];
 
     /**
@@ -245,7 +253,7 @@ export interface WorkflowPortable {
             nodeCount: number;
             edgeCount: number;
             createdAt: Date;
-            [key: string]: unknown;
+            [key: string]: WorkflowBuilderExtensionValue | undefined;
         };
     };
 

@@ -4,6 +4,9 @@
 import type { WorkflowNode } from './workflow-node.js';
 import type { WorkflowEdge } from './workflow-edge.js';
 import type { WorkflowSnapshot } from './workflow-builder.js';
+import type { LoggerData, UniversalValue } from '@robota-sdk/agents';
+
+type WorkflowPluginValue = UniversalValue | Date | Error | LoggerData;
 
 /**
  * Plugin lifecycle hooks
@@ -30,7 +33,7 @@ export type PluginLifecycle =
 export interface PluginConfig {
     enabled?: boolean;
     priority?: number;
-    options?: Record<string, unknown>;
+    options?: Record<string, WorkflowPluginValue | undefined>;
     dependencies?: string[]; // Other plugin names this plugin depends on
     conflicts?: string[]; // Plugin names that conflict with this plugin
 }
@@ -56,17 +59,17 @@ export interface PluginContext {
 
     // Logger
     logger: {
-        debug: (message: string, ...args: unknown[]) => void;
-        info: (message: string, ...args: unknown[]) => void;
-        warn: (message: string, ...args: unknown[]) => void;
-        error: (message: string, ...args: unknown[]) => void;
+        debug: (message: string, ...args: WorkflowPluginValue[]) => void;
+        info: (message: string, ...args: WorkflowPluginValue[]) => void;
+        warn: (message: string, ...args: WorkflowPluginValue[]) => void;
+        error: (message: string, ...args: WorkflowPluginValue[]) => void;
     };
 }
 
 /**
  * Hook handler function type
  */
-export type PluginHookHandler<TInput = unknown, TOutput = unknown> = (
+export type PluginHookHandler<TInput = WorkflowPluginValue, TOutput = WorkflowPluginValue> = (
     input: TInput,
     context: PluginContext
 ) => Promise<TOutput> | TOutput;
@@ -130,7 +133,7 @@ export interface WorkflowPlugin {
     healthCheck?: () => Promise<{
         healthy: boolean;
         message?: string;
-        details?: Record<string, unknown>;
+        details?: Record<string, WorkflowPluginValue | undefined>;
     }>;
 }
 
@@ -212,7 +215,7 @@ export interface PluginManager {
         [pluginName: string]: {
             healthy: boolean;
             message?: string;
-            details?: Record<string, unknown>;
+            details?: Record<string, WorkflowPluginValue | undefined>;
         };
     }>;
 
@@ -272,7 +275,7 @@ export interface AuditPlugin extends WorkflowPlugin {
         operation: string;
         target: string;
         timestamp: Date;
-        metadata: Record<string, unknown>;
+        metadata: Record<string, WorkflowPluginValue | undefined>;
     }[];
     getAuditLog?: () => AuditPlugin['auditLog'];
     clearAuditLog?: () => void;

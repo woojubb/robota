@@ -1,5 +1,6 @@
-import type { ToolParameters, ToolResult, ToolExecutionContext } from './tool';
+import type { ToolResult, ToolExecutionContext } from './tool';
 import type { ContextData, LoggerData, MetadataValue, UniversalValue } from './types';
+import type { ToolParameters } from './types';
 
 export type EventExtensionValue = UniversalValue | Date | Error | LoggerData | ToolParameters | ToolResult;
 
