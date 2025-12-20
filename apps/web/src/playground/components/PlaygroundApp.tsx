@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { WorkflowView } from '@/workflow';
 import { PlaygroundProvider, usePlayground } from '@/contexts/playground-context';
 import { useRobotaExecution } from '@/hooks/use-robota-execution';
@@ -12,26 +12,74 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Bot, Wrench } from 'lucide-react';
+import { Bot, Trash2, Wrench } from 'lucide-react';
 import type { PlaygroundAgentConfig } from '@/lib/playground/robota-executor';
-import { getPlaygroundToolCatalog } from '@/tools/catalog';
+import type { PlaygroundToolMeta } from '@/tools/catalog';
 import { ChatInputPanel } from '@/components/playground/chat-input-panel';
 import type { EventService, SimpleLogger } from '@robota-sdk/agents';
 import type { WorkflowEventSubscriber } from '@robota-sdk/workflow';
 import { WebLogger } from '@/lib/web-logger';
+import { useToast } from '@/hooks/use-toast';
+import { ToolRegistry } from '@/tools/catalog';
+
+type ToolDraft = {
+  name: string;
+  description: string;
+};
+
+function slugifyKebab(input: string): string {
+  const raw = input.trim().toLowerCase();
+  const replaced = raw.replace(/[^a-z0-9]+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
+  return replaced.length > 0 ? replaced : 'tool';
+}
+
+function generateSixCharToken(): string {
+  const cryptoObj = globalThis.crypto;
+  if (!cryptoObj || typeof cryptoObj.getRandomValues !== 'function') {
+    throw new Error('Crypto API is not available in this environment.');
+  }
+  const bytes = new Uint8Array(3);
+  cryptoObj.getRandomValues(bytes);
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function buildToolId(name: string): string {
+  const base = slugifyKebab(name).slice(0, 40);
+  const token = generateSixCharToken();
+  return `${base}-${token}`;
+}
 
 function PlaygroundContent(): JSX.Element {
-  const { state, setWorkflow } = usePlayground();
+  const { state, setWorkflow, addToolToAgentOverlay, setToolItems } = usePlayground();
   const { createAgent, getDefaultAgentConfig } = useRobotaExecution();
   const { activeModal, isModalOpen, openModal, closeModal } = useModal();
   const [agentDraft, setAgentDraft] = useState<PlaygroundAgentConfig | null>(null);
+  const { toast } = useToast();
 
   // Chat state
   const [chatAgentId, setChatAgentId] = useState<string | null>(null);
   const [chatNodeData, setChatNodeData] = useState<any>(null);
 
-  // Catalog-driven tool list (static imports only)
-  const toolItems = getPlaygroundToolCatalog();
+  // Catalog-driven tool list (context-owned)
+  const toolItems = state.toolItems;
+  const toolItemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const [lastAddedToolId, setLastAddedToolId] = useState<string | null>(null);
+
+  const sortedToolItems = useMemo(() => {
+    return [...toolItems].sort((a, b) => a.name.localeCompare(b.name));
+  }, [toolItems]);
+
+  // Add Tool modal draft state
+  const [toolDraft, setToolDraft] = useState<ToolDraft>({ name: '', description: '' });
+
+  useEffect(() => {
+    if (!lastAddedToolId) return;
+    const el = toolItemRefs.current.get(lastAddedToolId);
+    if (!el) return;
+    el.scrollIntoView({ block: 'nearest' });
+    el.focus();
+    setLastAddedToolId(null);
+  }, [lastAddedToolId, toolItems.length]);
 
   // System prompt templates
   const systemPromptTemplates = {
@@ -89,10 +137,23 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
     openModal('chat');
   };
 
-  const handleToolDrop = async (agentId: string, tool: any) => {
-    WebLogger.debug('Tool dropped on agent', { agentId, toolId: tool?.id, toolName: tool?.name });
+  const handleToolDrop = async (agentId: string, tool: PlaygroundToolMeta) => {
+    WebLogger.debug('Tool dropped on agent', { agentId, toolId: tool.id, toolName: tool.name });
     try {
-      // Use PlaygroundExecutor to update agent tools
+      const isRegistered = Object.prototype.hasOwnProperty.call(ToolRegistry, tool.id);
+
+      // UI-only tools are allowed (overlay only). Registered tools additionally update runtime via executor.
+      if (!isRegistered) {
+        addToolToAgentOverlay(agentId, tool.id);
+        toast({
+          title: 'Tool added (UI only)',
+          description: `${tool.name} was added to the overlay for agent ${agentId}.`,
+          variant: 'default',
+        });
+        return;
+      }
+
+      // Use PlaygroundExecutor to update agent tools (registered tools only)
       if (!state.executor) {
         throw new Error('Executor not initialized');
       }
@@ -102,14 +163,63 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
         name: tool.name,
         description: tool.description
       });
-      WebLogger.info('Tool successfully added to agent', { agentId, toolId: tool?.id, result });
+      WebLogger.info('Tool successfully added to agent', { agentId, toolId: tool.id, result });
+      addToolToAgentOverlay(agentId, tool.id);
 
-      // Optional: Show success feedback
-      // TODO: Add toast notification for success
+      toast({
+        title: 'Tool added',
+        description: `${tool.name} was added to agent ${agentId}.`,
+        variant: 'default',
+      });
     } catch (error) {
       WebLogger.error('Failed to add tool to agent', { agentId, error: error instanceof Error ? error.message : String(error) });
-      // TODO: Add toast notification for error
+      toast({
+        title: 'Failed to add tool',
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive',
+      });
     }
+  };
+
+  const handleOpenAddTool = () => {
+    setToolDraft({ name: '', description: '' });
+    openModal('addTool');
+  };
+
+  const handleSubmitAddTool = () => {
+    const name = toolDraft.name.trim();
+    const description = toolDraft.description.trim();
+    if (!name) {
+      toast({ title: 'Tool name is required', variant: 'destructive' });
+      return;
+    }
+
+    const id = buildToolId(name);
+    const existingIds = new Set(toolItems.map((t) => t.id));
+    if (existingIds.has(id)) {
+      toast({
+        title: 'Tool ID collision',
+        description: 'Please submit again to generate a new id.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const next: PlaygroundToolMeta[] = [...toolItems, { id, name, description }];
+    setToolItems(next);
+    setLastAddedToolId(id);
+    closeModal();
+    toast({ title: 'Tool created', description: `${name} is now available in the sidebar.` });
+  };
+
+  const handleRemoveTool = (tool: PlaygroundToolMeta) => {
+    if (tool.type === 'builtin') {
+      toast({ title: 'Builtin tools cannot be removed', variant: 'destructive' });
+      return;
+    }
+    const next = toolItems.filter((t) => t.id !== tool.id);
+    setToolItems(next);
+    toast({ title: 'Tool removed', description: `${tool.name} was removed.` });
   };
 
   const handleCreateAgent = () => {
@@ -154,6 +264,8 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
               workflow={state.sdkWorkflow || undefined}
               onAgentNodeClick={handleAgentNodeClick}
               onToolDrop={handleToolDrop}
+              toolItems={toolItems}
+              addedToolsByAgent={state.addedToolsByAgent}
             />
           ) : (
             <div className="p-4 text-sm text-muted-foreground">Initializing playground...</div>
@@ -168,30 +280,48 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
               <h3 className="font-semibold">Tools</h3>
             </div>
             <div className="space-y-2 overflow-auto pr-1">
-              {toolItems.map((tool) => (
-                <div
-                  key={tool.id}
-                  className="border rounded bg-white p-3 cursor-grab select-none hover:shadow-sm transition-shadow"
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('application/robota-tool', JSON.stringify(tool));
-                  }}
-                  title="Drag into the canvas to add"
-                >
-                  <div className="text-sm font-medium">{tool.name}</div>
-                  <div className="text-xs text-gray-500 mt-1 leading-relaxed line-clamp-4">{tool.description}</div>
-                  {tool.tags && tool.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {tool.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+              {sortedToolItems.map((tool) => (
+                <div key={tool.id} className="border rounded bg-white hover:shadow-sm transition-shadow">
+                  <div className="flex items-start gap-2 p-3">
+                    <button
+                      type="button"
+                      className="flex-1 text-left cursor-grab select-none focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('application/robota-tool', JSON.stringify(tool));
+                      }}
+                      title="Drag onto an agent node to add"
+                      ref={(el) => {
+                        if (el) toolItemRefs.current.set(tool.id, el);
+                      }}
+                    >
+                      <div className="text-sm font-medium">{tool.name}</div>
+                      <div className="text-xs text-gray-500 mt-1 leading-relaxed line-clamp-4">{tool.description}</div>
+                      {tool.tags && tool.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {tool.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={tool.type === 'builtin'}
+                      onClick={() => handleRemoveTool(tool)}
+                      title={tool.type === 'builtin' ? 'Builtin tools cannot be removed' : 'Remove tool'}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -200,7 +330,7 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
                 variant="outline"
                 size="sm"
                 className="w-full"
-                onClick={() => alert('Add Tool feature coming soon')}
+                onClick={handleOpenAddTool}
               >
                 + Add Tool
               </Button>
@@ -304,6 +434,52 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
               Cancel
             </Button>
             <Button size="sm" onClick={handleAgentSubmit}>
+              Create
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Add Tool Modal */}
+      <Modal
+        isOpen={isModalOpen('addTool')}
+        onClose={() => {
+          closeModal();
+        }}
+        title="Add Tool"
+        size="md"
+      >
+        <div className="p-6 space-y-4">
+          <div className="space-y-1">
+            <Label className="text-xs">Name</Label>
+            <Input
+              value={toolDraft.name}
+              onChange={(e) => setToolDraft({ ...toolDraft, name: e.target.value })}
+              className="h-8 text-xs"
+              placeholder="Tool name"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Description</Label>
+            <Textarea
+              value={toolDraft.description}
+              onChange={(e) => setToolDraft({ ...toolDraft, description: e.target.value })}
+              className="min-h-[90px] text-xs resize-none"
+              placeholder="Short description"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                closeModal();
+              }}
+              type="button"
+            >
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSubmitAddTool} type="button">
               Create
             </Button>
           </div>
