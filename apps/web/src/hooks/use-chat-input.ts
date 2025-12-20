@@ -19,6 +19,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useRobotaExecution } from './use-robota-execution';
 import { usePlaygroundData } from './use-playground-data';
 import type { UseBlockTrackingResult } from './use-block-tracking';
+import { WebLogger } from '@/lib/web-logger';
 
 export interface ChatMessage {
     id: string;
@@ -224,7 +225,7 @@ export function useChatInput(options: ChatInputOptions = {}): ChatInputHookRetur
         const messageToSend = message || inputValue.trim();
 
         if (!canSend || !messageToSend) {
-            console.warn('⚠️ sendMessage blocked:', { canSend, messageToSend });
+            WebLogger.warn('sendMessage blocked', { canSend, hasMessage: !!messageToSend });
             return;
         }
 
@@ -233,18 +234,13 @@ export function useChatInput(options: ChatInputOptions = {}): ChatInputHookRetur
             clearInput();
             setHistoryIndex(-1);
 
-            console.log('📤 Sending message:', messageToSend);
+            WebLogger.debug('Sending message', { messageLength: messageToSend.length });
             const result = await executePrompt(messageToSend);
-            console.log('✅ sendMessage result:', result);
+            WebLogger.debug('sendMessage result', { success: !!result?.success });
             return result;
 
         } catch (error) {
-            console.error('❌ Failed to send message:', error);
-            console.error('❌ Error details:', {
-                message: error instanceof Error ? error.message : 'Unknown error',
-                stack: error instanceof Error ? error.stack : undefined,
-                messageToSend
-            });
+            WebLogger.error('Failed to send message', { error: error instanceof Error ? error.message : String(error) });
             // Restore input on error
             setValue(messageToSend);
             throw error; // Re-throw to let parent handle
@@ -255,7 +251,7 @@ export function useChatInput(options: ChatInputOptions = {}): ChatInputHookRetur
         const messageToSend = message || inputValue.trim();
 
         if (!canSend || !messageToSend) {
-            console.warn('⚠️ sendStreamingMessage blocked:', { canSend, messageToSend });
+            WebLogger.warn('sendStreamingMessage blocked', { canSend, hasMessage: !!messageToSend });
             return;
         }
 
@@ -265,18 +261,13 @@ export function useChatInput(options: ChatInputOptions = {}): ChatInputHookRetur
             setHistoryIndex(-1);
             clearStreamingResponse();
 
-            console.log('📤 Sending streaming message:', messageToSend);
+            WebLogger.debug('Sending streaming message', { messageLength: messageToSend.length });
             const result = await executeStreamPrompt(messageToSend);
-            console.log('✅ sendStreamingMessage result:', result);
+            WebLogger.debug('sendStreamingMessage result', { success: !!result?.success });
             return result;
 
         } catch (error) {
-            console.error('❌ Failed to send streaming message:', error);
-            console.error('❌ Error details:', {
-                message: error instanceof Error ? error.message : 'Unknown error',
-                stack: error instanceof Error ? error.stack : undefined,
-                messageToSend
-            });
+            WebLogger.error('Failed to send streaming message', { error: error instanceof Error ? error.message : String(error) });
             setValue(messageToSend);
             throw error; // Re-throw to let parent handle
         }
@@ -289,7 +280,7 @@ export function useChatInput(options: ChatInputOptions = {}): ChatInputHookRetur
                 // For now, we'll just re-execute the last prompt
                 await executePrompt(lastUserInputRef.current);
             } catch (error) {
-                console.error('Failed to retry message:', error);
+                WebLogger.error('Failed to retry message', { error: error instanceof Error ? error.message : String(error) });
                 setValue(lastUserInputRef.current);
             }
         }

@@ -1,4 +1,6 @@
 // Firebase configuration validator
+import { WebLogger } from '@/lib/web-logger';
+
 export interface FirebaseConfigStatus {
     isValid: boolean;
     missingVars: string[];
@@ -62,26 +64,29 @@ export function logFirebaseConfigStatus(): void {
         const status = validateFirebaseConfig();
         const summary = getFirebaseConfigSummary();
 
-        console.group('🔥 Firebase Configuration Status');
-
         if (status.isValid) {
-            console.log('✅ Firebase configuration is valid');
-            console.log(`📍 Project: ${summary.projectId}`);
-            console.log(`🔐 Auth Domain: ${summary.authDomain}`);
-            console.log(`📊 Analytics: ${summary.hasAnalytics ? 'Enabled' : 'Disabled'}`);
+            WebLogger.info('Firebase configuration is valid', {
+                projectId: summary.projectId,
+                authDomain: summary.authDomain,
+                analyticsEnabled: summary.hasAnalytics,
+                environment: summary.environment
+            });
         } else {
-            console.error('❌ Firebase configuration is incomplete');
-            console.error('Missing variables:', status.missingVars);
-            console.log('\n📋 Setup Instructions:');
-            console.log('1. Copy .env.example to .env.local');
-            console.log('2. Get your Firebase config from: https://console.firebase.google.com/');
-            console.log('3. Replace placeholder values with actual Firebase config');
+            WebLogger.error('Firebase configuration is incomplete', {
+                missingVars: status.missingVars,
+                environment: summary.environment
+            });
+            WebLogger.info('Firebase setup instructions', {
+                steps: [
+                    'Copy .env.example to .env.local',
+                    'Get your Firebase config from the Firebase console',
+                    'Replace placeholder values with actual Firebase config'
+                ]
+            });
         }
 
         if (status.warnings.length > 0) {
-            console.warn('⚠️ Warnings:', status.warnings);
+            WebLogger.warn('Firebase configuration warnings', { warnings: status.warnings });
         }
-
-        console.groupEnd();
     }
 } 

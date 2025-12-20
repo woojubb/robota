@@ -38,6 +38,7 @@ import { Badge } from '@/components/ui/badge';
 import { Modal } from '@/components/ui/modal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Bot, MessageSquare, MessageCircle, Settings, Wrench, LayoutGrid, RefreshCw, Clipboard } from 'lucide-react';
+import { WebLogger } from '@/lib/web-logger';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type {
@@ -302,7 +303,7 @@ const DynamicDagreLayout = ({
     useEffect(() => {
         // React Flow가 완전히 초기화되었는지 확인
         if (!getNodes || !getEdges || !setNodes) {
-            console.log('🔄 React Flow not ready yet, skipping layout');
+            WebLogger.debug('React Flow not ready yet, skipping layout');
             return;
         }
 
@@ -317,7 +318,7 @@ const DynamicDagreLayout = ({
 
         // nodeInternals가 존재하고 값이 있는지 확인
         if (!nodeInternals || typeof nodeInternals.values !== 'function') {
-            console.log('🔄 NodeInternals not ready yet, skipping layout');
+            WebLogger.debug('NodeInternals not ready yet, skipping layout');
             return;
         }
 
@@ -327,7 +328,7 @@ const DynamicDagreLayout = ({
             nodesWithDimensions.every((node: any) => node.width && node.height);
 
         if (allNodesHaveDimensions && !hasAppliedLayout && nodes.length > 0) {
-            console.log('🎯 Applying unified Dagre layout with actual node dimensions');
+            WebLogger.debug('Applying unified Dagre layout with actual node dimensions');
 
             try {
                 // 실제 측정된 크기를 노드 데이터에 업데이트
@@ -359,8 +360,8 @@ const DynamicDagreLayout = ({
                 setHasAppliedLayout(true);
                 onLayoutComplete?.();
             } catch (error) {
-                console.error('❌ Unified Dagre layout failed:', error);
-                console.log('🔄 Falling back to estimated dimensions');
+                WebLogger.error('Unified Dagre layout failed', { error: error instanceof Error ? error.message : String(error) });
+                WebLogger.warn('Falling back to estimated dimensions');
                 setHasAppliedLayout(true); // Prevent retry loop
             }
         }
@@ -1130,7 +1131,7 @@ const AgentDetailsContent = ({ data, node }: { data: any; node: any }) => {
         const token = Math.random().toString(36).slice(2, 10);
         const url = `${base}/api/agents/${encodeURIComponent(id)}/${token}`;
         setEndpoint(url);
-        console.info(`[PLAYGROUND] Mock API endpoint created: ${url}`);
+        WebLogger.info('Mock API endpoint created', { url });
     };
 
     const tools: string[] = Array.isArray(data?.tools)
@@ -1197,7 +1198,7 @@ const AgentDetailsContent = ({ data, node }: { data: any; node: any }) => {
                         onClick={() => {
                             if (endpoint) {
                                 setEndpoint(null);
-                                console.info('[PLAYGROUND] Mock API endpoint revoked');
+                                WebLogger.info('Mock API endpoint revoked');
                             } else {
                                 handleGenerateEndpoint();
                             }
@@ -1579,8 +1580,8 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
             const jsonString = JSON.stringify(dumpData, null, 2);
             await navigator.clipboard.writeText(jsonString);
 
-            console.log('📋 [DATA-DUMP] Workflow data copied to clipboard');
-            console.log('📊 Summary:', {
+            WebLogger.info('Workflow data copied to clipboard');
+            WebLogger.debug('Workflow data summary', {
                 nodes: dumpData.totalNodes,
                 edges: dumpData.totalEdges,
                 hasWorkflow: !!dumpData.workflow
@@ -1589,7 +1590,7 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
             // Toast 알림 (선택사항)
             alert(`✅ Workflow data copied to clipboard!\nNodes: ${dumpData.totalNodes}, Edges: ${dumpData.totalEdges}`);
         } catch (error) {
-            console.error('❌ Failed to copy workflow data:', error);
+            WebLogger.error('Failed to copy workflow data', { error: error instanceof Error ? error.message : String(error) });
             alert('❌ Failed to copy workflow data to clipboard');
         }
     }, [workflow]);
@@ -1612,7 +1613,7 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
                 hasAppliedMeasuredLayoutRef.current = false;
 
                 const reactFlowData = await converter.convert(workflow);
-                console.log('🧪 [REACT-FLOW-DATA] Conversion completed');
+                WebLogger.debug('React Flow data conversion completed');
 
                 // Determine target graph (pre-layout when enabled)
                 let targetNodes: Node[] = reactFlowData.nodes;
@@ -1672,7 +1673,7 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
                 setFullTargetEdges(targetEdges);
 
             } catch (error) {
-                console.error('Failed to convert workflow:', error);
+                WebLogger.error('Failed to convert workflow', { error: error instanceof Error ? error.message : String(error) });
                 setNodes([
                     {
                         id: 'error',
@@ -1791,7 +1792,7 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
                         if (prev.some(n => n.id === progressiveReveal.nodeToAdd!.id)) {
                             return prev;
                         }
-                        console.log('➕ [PROGRESSIVE] Adding node:', progressiveReveal.nodeToAdd!.id);
+                        WebLogger.debug('Progressive reveal: adding node', { nodeId: progressiveReveal.nodeToAdd!.id });
                         return [...prev, progressiveReveal.nodeToAdd!];
                     });
 
@@ -1801,7 +1802,7 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
                             const existingEdgeIds = new Set(prev.map(e => e.id));
                             const newEdges = progressiveReveal.edgesToAdd!.filter(e => !existingEdgeIds.has(e.id));
                             if (newEdges.length > 0) {
-                                console.log('🔗 [PROGRESSIVE] Adding edges:', newEdges.map(e => e.id));
+                                WebLogger.debug('Progressive reveal: adding edges', { edgeIds: newEdges.map(e => e.id) });
                                 return [...prev, ...newEdges];
                             }
                             return prev;
@@ -1815,7 +1816,7 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
                 break;
 
             case 'complete':
-                console.log('✅ [PROGRESSIVE] All nodes revealed');
+                WebLogger.info('Progressive reveal: all nodes revealed');
                 break;
         }
     }, [
@@ -1956,7 +1957,7 @@ function WorkflowVisualizationContent({ workflow, className, onAgentNodeClick, o
                             if (data) {
                                 try {
                                     const tool = JSON.parse(data);
-                                    console.info('[PLAYGROUND] Tool dropped:', tool);
+                                    WebLogger.info('Tool dropped', { toolId: tool?.id, toolName: tool?.name });
                                     // Future: create a tool_call node at drop position
                                 } catch { }
                             }

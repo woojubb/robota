@@ -32,6 +32,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePlayground } from '../contexts/playground-context';
 import type { PlaygroundMetrics } from '../types/playground-statistics';
 import type { PlaygroundExecutor } from '../lib/playground/robota-executor';
+import { WebLogger } from '@/lib/web-logger';
 
 /**
  * Hook 반환 타입 - UI에서 사용하기 편한 형태로 가공된 통계 데이터
@@ -119,7 +120,7 @@ export function usePlaygroundStatistics(): PlaygroundStatisticsHookResult {
                 const stats = executor.getPlaygroundStatistics();
                 setRawStatistics(stats);
             } catch (error) {
-                console.error('❌ usePlaygroundStatistics: Failed to get statistics:', error);
+                WebLogger.error('usePlaygroundStatistics: Failed to get statistics', { error: error instanceof Error ? error.message : String(error) });
                 setRawStatistics(null);
             }
         };
@@ -147,7 +148,7 @@ export function usePlaygroundStatistics(): PlaygroundStatisticsHookResult {
         try {
             await executor.recordPlaygroundAction(actionType, metadata);
         } catch (error) {
-            console.warn('Failed to record playground action:', error);
+            WebLogger.warn('Failed to record playground action', { error: error instanceof Error ? error.message : String(error) });
         }
     }, [isExecutorReady, executor]);
 
@@ -157,7 +158,7 @@ export function usePlaygroundStatistics(): PlaygroundStatisticsHookResult {
         try {
             await executor.recordBlockCreation(blockType, metadata);
         } catch (error) {
-            console.warn('Failed to record block creation:', error);
+            WebLogger.warn('Failed to record block creation', { error: error instanceof Error ? error.message : String(error) });
         }
     }, [isExecutorReady, executor]);
 
@@ -167,9 +168,9 @@ export function usePlaygroundStatistics(): PlaygroundStatisticsHookResult {
         try {
             // PlaygroundStatisticsPlugin의 resetStatistics 메서드 호출
             // 현재는 직접 액세스가 제한되므로 향후 executor에 메서드 추가 필요
-            console.log('Statistics reset requested');
+            WebLogger.info('Statistics reset requested');
         } catch (error) {
-            console.warn('Failed to reset statistics:', error);
+            WebLogger.warn('Failed to reset statistics', { error: error instanceof Error ? error.message : String(error) });
         }
     }, [isExecutorReady, executor]);
 

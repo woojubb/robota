@@ -18,6 +18,7 @@ import { getPlaygroundToolCatalog } from '@/tools/catalog';
 import { ChatInputPanel } from '@/components/playground/chat-input-panel';
 import type { EventService, SimpleLogger } from '@robota-sdk/agents';
 import type { WorkflowEventSubscriber } from '@robota-sdk/workflow';
+import { WebLogger } from '@/lib/web-logger';
 
 function PlaygroundContent(): JSX.Element {
   const { state, setWorkflow } = usePlayground();
@@ -81,7 +82,7 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
   };
 
   const handleAgentNodeClick = (nodeId: string, data?: any) => {
-    console.log('Agent node clicked:', nodeId, data);
+    WebLogger.debug('Agent node clicked', { nodeId, data });
     // Open chat modal for the selected agent
     setChatAgentId(nodeId);
     setChatNodeData(data);
@@ -89,7 +90,7 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
   };
 
   const handleToolDrop = async (agentId: string, tool: any) => {
-    console.log('Tool dropped on agent:', agentId, tool);
+    WebLogger.debug('Tool dropped on agent', { agentId, toolId: tool?.id, toolName: tool?.name });
     try {
       // Use PlaygroundExecutor to update agent tools
       if (!state.executor) {
@@ -101,12 +102,12 @@ Your expertise lies in knowing when, how, and how many times to call tools to ac
         name: tool.name,
         description: tool.description
       });
-      console.log('Tool successfully added to agent:', result);
+      WebLogger.info('Tool successfully added to agent', { agentId, toolId: tool?.id, result });
 
       // Optional: Show success feedback
       // TODO: Add toast notification for success
     } catch (error) {
-      console.error('Failed to add tool to agent:', error);
+      WebLogger.error('Failed to add tool to agent', { agentId, error: error instanceof Error ? error.message : String(error) });
       // TODO: Add toast notification for error
     }
   };

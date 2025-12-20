@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAuth } from '@/lib/firebase/admin';
+import { WebLogger } from '@/lib/web-logger';
 
 export async function POST(request: NextRequest) {
     try {
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error('Error generating playground token:', error);
+        WebLogger.error('Error generating playground token', { error: error instanceof Error ? error.message : String(error) });
         return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }
@@ -67,7 +68,7 @@ async function checkPlaygroundAccess(userId: string): Promise<boolean> {
         return !!userRecord.email && userRecord.emailVerified;
 
     } catch (error) {
-        console.error('Error checking playground access:', error);
+        WebLogger.error('Error checking playground access', { error: error instanceof Error ? error.message : String(error) });
         return false;
     }
 }
@@ -96,9 +97,9 @@ async function storeTokenMetadata(userId: string, token: string): Promise<void> 
     try {
         // In production, store in database for tracking/analytics
         // For now, just log
-        console.log(`Playground token generated for user ${userId}: ${token.substring(0, 20)}...`);
+        WebLogger.debug('Playground token generated', { userId, tokenPrefix: token.substring(0, 20) });
     } catch (error) {
-        console.error('Error storing token metadata:', error);
+        WebLogger.error('Error storing token metadata', { error: error instanceof Error ? error.message : String(error) });
         // Don't fail the request if metadata storage fails
     }
 } 

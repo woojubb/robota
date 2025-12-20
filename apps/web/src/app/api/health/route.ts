@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { WebLogger } from '@/lib/web-logger';
 
 export async function GET(request: NextRequest) {
     try {
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
             },
         });
     } catch (error) {
-        console.error('Health check failed:', error);
+        WebLogger.error('Health check failed', { error: error instanceof Error ? error.message : String(error) });
 
         return NextResponse.json(
             {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAuth } from '@/lib/firebase/admin';
+import { WebLogger } from '@/lib/web-logger';
 
 export async function GET(request: NextRequest) {
     try {
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(limits);
 
     } catch (error) {
-        console.error('Error fetching playground limits:', error);
+        WebLogger.error('Error fetching playground limits', { error: error instanceof Error ? error.message : String(error) });
 
         if (error instanceof Error && error.message.includes('Firebase ID token')) {
             return NextResponse.json(
@@ -100,7 +101,7 @@ async function getUserPlaygroundLimits(userId: string) {
         };
 
     } catch (error) {
-        console.error('Error getting user limits:', error);
+        WebLogger.error('Error getting user limits', { error: error instanceof Error ? error.message : String(error) });
 
         // Return default free tier limits on error
         return {
@@ -138,7 +139,7 @@ async function getCurrentUsage(userId: string) {
         };
 
     } catch (error) {
-        console.error('Error getting current usage:', error);
+        WebLogger.error('Error getting current usage', { error: error instanceof Error ? error.message : String(error) });
         return {
             dailyExecutions: 0,
             activeSessions: 0,

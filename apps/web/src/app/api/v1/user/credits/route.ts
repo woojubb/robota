@@ -2,34 +2,35 @@ import { NextRequest } from 'next/server';
 import { withAuth, createSuccessResponse, createErrorResponse } from '@/lib/auth-middleware';
 import { getUserCreditSummary } from '@/lib/firebase/user-credit-service';
 import { creditCache, cacheKeys } from '@/lib/cache';
+import { WebLogger } from '@/lib/web-logger';
 
 /**
  * Get user credit summary
  * GET /api/v1/user/credits
  */
 export const GET = withAuth(async (request: NextRequest, { uid }) => {
-    console.log('Credits API GET: Starting for user:', uid);
+    WebLogger.debug('Credits API GET: start', { uid });
 
     try {
         // Check cache first
-        console.log('Credits API: Checking cache...');
+        WebLogger.debug('Credits API: checking cache', { uid });
         const cacheKey = cacheKeys.userCredits(uid);
         const cachedCredits = creditCache.get(cacheKey);
         if (cachedCredits) {
-            console.log('Credits API: Cache hit, returning cached data');
+            WebLogger.debug('Credits API: cache hit', { uid });
             return createSuccessResponse(cachedCredits);
         }
-        console.log('Credits API: Cache miss, fetching from Firestore');
+        WebLogger.debug('Credits API: cache miss, fetching from Firestore', { uid });
 
         let creditSummary;
 
         try {
-            console.log('Credits API: Fetching credit summary from Firestore...');
+            WebLogger.debug('Credits API: fetching credit summary from Firestore', { uid });
             creditSummary = await getUserCreditSummary(uid);
-            console.log('Credits API: Credit summary fetched:', !!creditSummary);
+            WebLogger.debug('Credits API: credit summary fetched', { uid, hasCreditSummary: !!creditSummary });
         } catch (firestoreError) {
-            console.error('Credits API: Firestore connection error:', firestoreError);
-            console.log('Credits API: Returning default credits due to Firestore connection issue');
+            WebLogger.error('Credits API: Firestore connection error', { uid, error: firestoreError instanceof Error ? firestoreError.message : String(firestoreError) });
+            WebLogger.warn('Credits API: returning default credits due to Firestore connectivity issue', { uid });
 
             // Return default credit summary when Firestore is unavailable
             const defaultCredits = {
@@ -50,7 +51,7 @@ export const GET = withAuth(async (request: NextRequest, { uid }) => {
         }
 
         if (!creditSummary) {
-            console.log('Credits API: No credit summary found, creating default');
+            WebLogger.warn('Credits API: no credit summary found, returning default', { uid });
 
             // Create default credit summary if none exists
             const defaultCredits = {
@@ -70,15 +71,14 @@ export const GET = withAuth(async (request: NextRequest, { uid }) => {
             return createSuccessResponse(defaultCredits);
         }
 
-        console.log('Credits API: Credit summary processed successfully');
+        WebLogger.debug('Credits API: credit summary processed successfully', { uid });
 
         // Cache for 2 minutes (shorter TTL for credit data)
         creditCache.set(cacheKey, creditSummary, 2 * 60 * 1000);
 
         return createSuccessResponse(creditSummary);
     } catch (error) {
-        console.error('Credits API: Error occurred:', error);
-        console.error('Credits API: Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+        WebLogger.error('Credits API: error occurred', { uid, error: error instanceof Error ? error.message : String(error) });
 
         // Return default credits as last resort
         const fallbackCredits = {
@@ -92,7 +92,7 @@ export const GET = withAuth(async (request: NextRequest, { uid }) => {
             last_credit_update: new Date().toISOString(),
         };
 
-        console.log('Credits API: Returning fallback credits due to error');
+        WebLogger.warn('Credits API: returning fallback credits due to error', { uid });
         return createSuccessResponse(fallbackCredits, 'Fallback credits returned due to error');
     }
 }); 

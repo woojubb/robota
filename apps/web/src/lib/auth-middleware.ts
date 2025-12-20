@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ApiResponse } from './api-client';
+import { WebLogger } from '@/lib/web-logger';
 
 /**
  * Decode JWT token without verification (for development/testing)
@@ -16,7 +17,7 @@ function decodeJWTPayload(token: string): any {
         const decoded = Buffer.from(payload, 'base64url').toString('utf-8');
         return JSON.parse(decoded);
     } catch (error) {
-        console.error('JWT decode error:', error);
+        WebLogger.error('JWT decode error', { error: error instanceof Error ? error.message : String(error) });
         return null;
     }
 }
@@ -65,7 +66,7 @@ export async function verifyAuthToken(request: NextRequest): Promise<{
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.split('Bearer ')[1];
 
-    console.log('Token verification started:', {
+    WebLogger.debug('Token verification started', {
         hasAuthHeader: !!authHeader,
         hasToken: !!token,
         tokenLength: token?.length,
@@ -73,7 +74,7 @@ export async function verifyAuthToken(request: NextRequest): Promise<{
     });
 
     if (!token) {
-        console.log('No token provided');
+        WebLogger.warn('No token provided');
         return { error: 'No authentication token provided', status: 401 };
     }
 
@@ -81,7 +82,7 @@ export async function verifyAuthToken(request: NextRequest): Promise<{
         // Use basic JWT validation for now
         const validation = validateJWTToken(token);
 
-        console.log('Token validation result:', {
+        WebLogger.debug('Token validation result', {
             valid: validation.valid,
             uid: validation.uid ? `${validation.uid.substring(0, 8)}...` : undefined,
             error: validation.error
@@ -94,10 +95,10 @@ export async function verifyAuthToken(request: NextRequest): Promise<{
             };
         }
 
-        console.log('Token verification successful for user:', validation.uid);
+        WebLogger.debug('Token verification successful', { uid: validation.uid });
         return { uid: validation.uid };
     } catch (error) {
-        console.error('Token verification error:', error);
+        WebLogger.error('Token verification error', { error: error instanceof Error ? error.message : String(error) });
         return { error: 'Token verification failed', status: 401 };
     }
 }
@@ -165,22 +166,22 @@ export function withAuth(
     handler: (request: NextRequest, context: { uid: string }) => Promise<NextResponse>
 ) {
     return async (request: NextRequest): Promise<NextResponse> => {
-        console.log(`withAuth: Processing ${request.method} ${request.url}`);
+        WebLogger.debug('withAuth: processing request', { method: request.method, url: request.url });
 
         const { uid, error, status } = await verifyAuthToken(request);
 
         if (error || !uid) {
-            console.log('withAuth: Authentication failed:', { error, status, uid });
+            WebLogger.warn('withAuth: authentication failed', { error, status, uid });
             return createErrorResponse(error || 'Unauthorized', status || 401, 'AUTH_ERROR');
         }
 
         try {
-            console.log(`withAuth: Authentication successful, calling handler for user: ${uid}`);
+            WebLogger.debug('withAuth: authentication successful, calling handler', { uid });
             const response = await handler(request, { uid });
-            console.log(`withAuth: Handler completed successfully for ${request.url}`);
+            WebLogger.debug('withAuth: handler completed successfully', { url: request.url, uid });
             return response;
         } catch (error) {
-            console.error('withAuth: API handler error:', error);
+            WebLogger.error('withAuth: API handler error', { uid, error: error instanceof Error ? error.message : String(error) });
             return createErrorResponse(
                 error instanceof Error ? error.message : 'Internal server error',
                 500,

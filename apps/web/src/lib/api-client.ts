@@ -1,5 +1,6 @@
 import { auth } from './firebase/config';
 import { API_CONFIG } from '@/config/api';
+import { WebLogger } from '@/lib/web-logger';
 
 // Base URL for all API endpoints
 const API_BASE_URL = API_CONFIG.baseUrl;
@@ -60,7 +61,7 @@ async function getAuthToken(forceRefresh = false): Promise<string | null> {
 
         return await user.getIdToken(forceRefresh);
     } catch (error) {
-        console.error('Error getting auth token:', error);
+        WebLogger.error('Error getting auth token', { error: error instanceof Error ? error.message : String(error) });
         return null;
     }
 }
@@ -70,7 +71,7 @@ async function getAuthToken(forceRefresh = false): Promise<string | null> {
  */
 function handleAuthError(status: number, error: ApiClientError) {
     if (status === 401 || status === 403) {
-        console.warn('Authentication failed, handling auth error:', error.message);
+        WebLogger.warn('Authentication failed, handling auth error', { message: error.message, status });
 
         // Call auth redirect callback if available
         if (authRedirectCallback) {
@@ -172,7 +173,7 @@ async function apiRequest<T = any>(
                         if (shouldAttemptTokenRefresh(error, hasTriedTokenRefresh)) {
                             hasTriedTokenRefresh = true;
                             lastError = error;
-                            console.log('Authentication failed, attempting token refresh...');
+                            WebLogger.info('Authentication failed, attempting token refresh');
 
                             // Show toast for token refresh attempt
                             if (toastCallback) {
@@ -188,7 +189,7 @@ async function apiRequest<T = any>(
                             continue;
                         } else {
                             // Token refresh didn't work or can't be attempted, handle auth error
-                            console.log('Token refresh failed or not possible, redirecting to login');
+                            WebLogger.info('Token refresh failed or not possible, redirecting to login');
                             handleAuthError(response.status, error);
                         }
                     }

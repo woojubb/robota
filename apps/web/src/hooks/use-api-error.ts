@@ -1,11 +1,12 @@
 import { useToast } from './use-toast';
 import { ApiClientError } from '@/lib/api-client';
+import { WebLogger } from '@/lib/web-logger';
 
 export const useApiError = () => {
     const { toast } = useToast();
 
     const handleError = (error: unknown, customMessage?: string) => {
-        console.error('API Error:', error);
+        WebLogger.error('API Error', { error: error instanceof Error ? error.message : String(error) });
 
         if (error instanceof ApiClientError) {
             // Handle specific API errors

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase/config';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { WebLogger } from '@/lib/web-logger';
 
 /**
  * Test Firestore connectivity
@@ -8,20 +9,20 @@ import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
  */
 export async function GET(request: NextRequest) {
     try {
-        console.log('Testing Firestore connection...');
+        WebLogger.debug('Testing Firestore connection');
 
         // Test 1: Simple collection access
-        console.log('Test 1: Accessing users collection...');
+        WebLogger.debug('Test 1: Accessing users collection');
         const usersRef = collection(db, 'users');
-        console.log('Users collection reference created');
+        WebLogger.debug('Users collection reference created');
 
         // Test 2: Try to get a specific document (without fetching all docs)
-        console.log('Test 2: Attempting to get a test document...');
+        WebLogger.debug('Test 2: Attempting to get a test document');
         const testDocRef = doc(db, 'test', 'connection');
 
         // This should fail gracefully if the document doesn't exist
         const testDoc = await getDoc(testDocRef);
-        console.log('Test document fetch completed, exists:', testDoc.exists());
+        WebLogger.debug('Test document fetch completed', { exists: testDoc.exists() });
 
         return NextResponse.json({
             success: true,
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error('Firestore test error:', error);
+        WebLogger.error('Firestore test error', { error: error instanceof Error ? error.message : String(error) });
 
         return NextResponse.json({
             success: false,

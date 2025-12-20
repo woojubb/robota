@@ -9,6 +9,7 @@ import 'server-only';
 import { initializeApp, getApps, cert, type App } from 'firebase-admin/app';
 import { getAuth, type Auth } from 'firebase-admin/auth';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
+import { WebLogger } from '@/lib/web-logger';
 
 let app: App | undefined;
 
@@ -37,9 +38,9 @@ function initializeFirebaseAdmin(): App {
                     credential: cert(serviceAccount),
                     projectId: serviceAccount.project_id || projectId
                 });
-                console.log('Firebase Admin initialized with service account from environment variable');
+                WebLogger.info('Firebase Admin initialized with service account from environment variable');
             } catch (error) {
-                console.error('Error parsing Firebase service account key:', error);
+                WebLogger.error('Error parsing Firebase service account key', { error: error instanceof Error ? error.message : String(error) });
                 throw new Error('Invalid Firebase service account configuration');
             }
         }
@@ -70,17 +71,16 @@ function initializeFirebaseAdmin(): App {
                         credential: cert(serviceAccount),
                         projectId: serviceAccount.project_id || projectId
                     });
-                    console.log(`Firebase Admin initialized with service account from file: ${keyPath}`);
+                    WebLogger.info('Firebase Admin initialized with service account from file', { keyPath });
                 } else {
                     // Fallback to Application Default Credentials
                     app = initializeApp({
                         projectId: projectId
                     });
-                    console.log('Firebase Admin initialized with Application Default Credentials - no service account file found');
-                    console.log('Searched paths:', possiblePaths);
+                    WebLogger.info('Firebase Admin initialized with Application Default Credentials - no service account file found', { possiblePaths });
                 }
             } catch (error) {
-                console.error('Firebase Admin initialization failed:', error);
+                WebLogger.error('Firebase Admin initialization failed', { error: error instanceof Error ? error.message : String(error) });
                 throw new Error('Firebase Admin initialization failed. Ensure you have proper credentials configured.');
             }
         }

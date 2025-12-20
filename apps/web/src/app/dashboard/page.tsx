@@ -19,6 +19,7 @@ import {
     Activity
 } from 'lucide-react';
 import Link from 'next/link';
+import { WebLogger } from '@/lib/web-logger';
 
 function DashboardContent() {
     const { user, userProfile, signOut } = useAuth();
@@ -27,7 +28,7 @@ function DashboardContent() {
         try {
             await signOut();
         } catch (error) {
-            console.error('Sign out error:', error);
+            WebLogger.error('Sign out error', { error: error instanceof Error ? error.message : String(error) });
         }
     };
 

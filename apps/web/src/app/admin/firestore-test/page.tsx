@@ -19,6 +19,7 @@ import {
     testFirestoreRead,
     runAllFirestoreTests
 } from '@/lib/firebase/firestore-test';
+import { WebLogger } from '@/lib/web-logger';
 
 interface TestResult {
     success: boolean;
@@ -111,7 +112,7 @@ export default function FirestoreTestPage() {
             // Also run the console version for detailed logs
             await runAllFirestoreTests();
         } catch (error) {
-            console.error('Error running all tests:', error);
+            WebLogger.error('Error running all tests', { error: error instanceof Error ? error.message : String(error) });
         } finally {
             setIsLoading(false);
         }

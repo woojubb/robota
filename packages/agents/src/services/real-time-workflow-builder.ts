@@ -1,11 +1,11 @@
 /**
- * RealTimeWorkflowBuilder - 실시간 Workflow 구축 시스템
- * 
- * Purpose: WorkflowEventSubscriber의 Node 업데이트를 받아 실시간으로 Workflow 구조 구축
- * Architecture: Builder Pattern으로 점진적 Workflow 구성
- * 
- * 목표 구조:
- * User Input → Agent → Agent Thinking → Tool Call (assignTask) → Sub-Agent → Sub-Agent Thinking → Sub-Tool Calls → Sub-Response → Main Merge → Final Response
+ * RealTimeWorkflowBuilder
+ *
+ * Builds a workflow structure incrementally from real-time updates.
+ *
+ * NOTE:
+ * - Avoid hierarchy-implying terminology in identifiers and data models.
+ * - Use neutral terms like "invoked agent" and "root agent" only when necessary for context.
  */
 
 // Use local minimal types to avoid legacy subscriber dependency
@@ -53,7 +53,7 @@ export interface WorkflowBranch {
     id: string;
     name: string;                // "시장 분석", "메뉴 구성" 등
     assignTaskCallId: string;    // assignTask tool call ID
-    subAgentId: string;          // Sub-Agent ID
+    invokedAgentId: string;      // Invoked agent ID
     nodes: WorkflowNode[];       // 이 분기에 속한 모든 Node들
     status: 'pending' | 'running' | 'completed' | 'error';
 }
@@ -65,7 +65,7 @@ export interface WorkflowMetadata extends GenericMetadata {
     startTime: Date;
     endTime?: Date;
     totalDuration?: number;
-    mainAgentId: string;
+    rootAgentId: string;
     totalBranches: number;
     completedBranches: number;
     executionId: string; // 빌드 오류에서 요구되는 속성 추가
@@ -126,7 +126,7 @@ export class RealTimeWorkflowBuilder {
             branches: [],
             metadata: {
                 startTime: new Date(),
-                mainAgentId: '',
+                rootAgentId: '',
                 totalBranches: 0,
                 completedBranches: 0,
                 executionId: 'workflow-' + Date.now().toString()
@@ -230,11 +230,11 @@ export class RealTimeWorkflowBuilder {
     }
 
     /**
-     * Main Agent Node 처리
+     * Root Agent Node handling
      */
     private handleMainAgentNode(node: WorkflowNode): void {
-        this.currentWorkflow.metadata.mainAgentId = node.id;
-        this.logger.debug(`Main agent identified: ${node.id}`);
+        this.currentWorkflow.metadata.rootAgentId = node.id;
+        this.logger.debug(`Root agent identified: ${node.id}`);
     }
 
     /**
@@ -255,7 +255,7 @@ export class RealTimeWorkflowBuilder {
             id: `branch_${toolCallNode.id}`,
             name: this.extractBranchName(toolCallNode),
             assignTaskCallId: toolCallNode.id,
-            subAgentId: '', // Sub-Agent 생성 시 설정
+            invokedAgentId: '', // Set when an agent is invoked from this tool call
             nodes: [toolCallNode],
             status: 'pending'
         };
@@ -379,7 +379,7 @@ export class RealTimeWorkflowBuilder {
      * 특별한 연결 규칙 적용
      */
     private applySpecialConnectionRules(node: WorkflowNode): void {
-        // Agent Response → Main Agent Merge 연결 (도메인 중립적)
+        // Agent response → root agent merge connection (domain-neutral)
         if (node.type === WORKFLOW_NODE_TYPES.RESPONSE) {
             this.createReturnToMainConnection(node);
         }
@@ -391,16 +391,16 @@ export class RealTimeWorkflowBuilder {
     }
 
     /**
-     * Sub-Agent Response를 Main Agent로 반환하는 연결
+     * Connect an invoked agent response back to the root agent (when applicable).
      */
     private createReturnToMainConnection(subResponseNode: WorkflowNode): void {
-        const mainAgentId = this.currentWorkflow.metadata.mainAgentId;
-        if (mainAgentId) {
+        const rootAgentId = this.currentWorkflow.metadata.rootAgentId;
+        if (rootAgentId) {
             const connection: WorkflowConnection = {
                 fromId: subResponseNode.id,
-                toId: mainAgentId,
+                toId: rootAgentId,
                 type: 'return',
-                label: 'returns result to main agent'
+                label: 'returns result to root agent'
             };
 
             this.currentWorkflow.connections.push(connection);

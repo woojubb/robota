@@ -55,7 +55,7 @@ export interface ConversationEvent {
     // 🎯 계층 구조 핵심 필드들
     parentEventId?: string;   // 부모 이벤트 참조
     childEventIds: string[];  // 자식 이벤트들 (자동 관리)
-    executionLevel: number;   // 0=Team, 1=Tool, 2=Sub-Agent, 3=Sub-Tool
+    executionLevel: number;   // Levels are informational only; do not assume fixed taxonomy.
     executionPath: string;    // 'team→assignTask→agent_abc→webSearch'
 
     // 🔧 컨텍스트 추적
@@ -346,7 +346,7 @@ export class PlaygroundHistoryPlugin extends BasePlugin<PlaygroundHistoryPluginO
                 return 1; // assignTask
             }
             if (parentLevel === 1) {
-                return 2; // Sub-Agent level
+                return 2; // Invoked agent level (legacy)
             }
             if ((eventType === 'tool_call_start' || eventType === 'tool_call_complete') && parentLevel === 2) {
                 return 3; // Sub-Tool

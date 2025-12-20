@@ -28,6 +28,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { WebLogger } from "@/lib/web-logger";
 
 interface ApiKey {
     id: string;
@@ -83,7 +84,7 @@ export default function ApiKeysPage() {
             ];
             setApiKeys(mockApiKeys);
         } catch (error) {
-            console.error("Error fetching API keys:", error);
+            WebLogger.error("Error fetching API keys", { error: error instanceof Error ? error.message : String(error) });
             toast({
                 title: "Error",
                 description: "Failed to fetch API keys",
@@ -132,7 +133,7 @@ export default function ApiKeysPage() {
                 description: "API key created successfully",
             });
         } catch (error) {
-            console.error("Error creating API key:", error);
+            WebLogger.error("Error creating API key", { error: error instanceof Error ? error.message : String(error) });
             toast({
                 title: "Error",
                 description: "Failed to create API key",
@@ -153,7 +154,7 @@ export default function ApiKeysPage() {
                 description: "API key deleted successfully",
             });
         } catch (error) {
-            console.error("Error deleting API key:", error);
+            WebLogger.error("Error deleting API key", { error: error instanceof Error ? error.message : String(error) });
             toast({
                 title: "Error",
                 description: "Failed to delete API key",

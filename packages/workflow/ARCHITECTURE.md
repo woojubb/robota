@@ -164,7 +164,7 @@ interface WorkflowEdge {
 - `execution.assistant_message_start/complete`: `parentId = execution`, `prevId = 직전 execution/assistant`
 - `tool.call_start`: `parentId = execution`, `prevId = 라운드 시작 시점 노드(assistant_message_start 등)`
 - `tool.call_complete/response`: `parentId = execution`, `prevId = 해당 call 계열의 직전 노드`
-- `(툴이 만든) sub-agent execution.start`: `parentId = execution`, `prevId = 해당 tool_call`
+- `(tool-invoked) agent execution.start`: `parentId = execution`, `prevId = the invoking tool_call`
 - `aggregation_start`: `parentId = execution`, `prevId = 대표 브랜치 마지막 노드`
 
 ### 플러그인 시스템

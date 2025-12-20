@@ -8,6 +8,7 @@ import type {
     RealTimeBlockMessage,
     RealTimeBlockMetadata
 } from './types';
+import { WebLogger } from '@/lib/web-logger';
 
 /**
  * Playground-specific block collector implementation
@@ -40,7 +41,7 @@ export class PlaygroundBlockCollector implements BlockDataCollector {
             try {
                 listener(event);
             } catch (error) {
-                console.warn('Block collection listener error:', error);
+                WebLogger.warn('Block collection listener error', { error: error instanceof Error ? error.message : String(error) });
             }
         });
     }
@@ -76,7 +77,7 @@ export class PlaygroundBlockCollector implements BlockDataCollector {
     updateBlock(blockId: string, updates: Partial<BlockMetadata>): void {
         const block = this.blocks.get(blockId);
         if (!block) {
-            console.warn(`Block not found for update: ${blockId}`);
+            WebLogger.warn('Block not found for update', { blockId });
             return;
         }
 
@@ -92,7 +93,7 @@ export class PlaygroundBlockCollector implements BlockDataCollector {
     updateRealTimeBlock(blockId: string, updates: Partial<RealTimeBlockMetadata>): void {
         const block = this.blocks.get(blockId);
         if (!block) {
-            console.warn(`Block not found for real-time update: ${blockId}`);
+            WebLogger.warn('Block not found for real-time update', { blockId });
             return;
         }
 

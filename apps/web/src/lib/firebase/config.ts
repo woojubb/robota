@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator, initializeFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { WebLogger } from '@/lib/web-logger';
 
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -12,7 +13,7 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-console.log('Firebase config loaded:', {
+WebLogger.debug('Firebase config loaded', {
     projectId: firebaseConfig.projectId,
     authDomain: firebaseConfig.authDomain,
     hasApiKey: !!firebaseConfig.apiKey
@@ -27,7 +28,7 @@ export const auth = getAuth(app);
 // Set persistence to local storage explicitly
 if (typeof window !== 'undefined') {
     setPersistence(auth, browserLocalPersistence).catch((error) => {
-        console.error('Failed to set auth persistence:', error);
+        WebLogger.error('Failed to set auth persistence', { error: error instanceof Error ? error.message : String(error) });
     });
 }
 
@@ -38,18 +39,18 @@ let db: ReturnType<typeof getFirestore>;
 try {
     if (typeof window === 'undefined') {
         // Server-side: use standard Firestore without offline capabilities
-        console.log('Initializing Firestore for server-side');
+        WebLogger.debug('Initializing Firestore for server-side');
         db = getFirestore(app);
     } else {
         // Client-side: use initializeFirestore for offline support
-        console.log('Initializing Firestore for client-side');
+        WebLogger.debug('Initializing Firestore for client-side');
         db = initializeFirestore(app, {
             cacheSizeBytes: 1048576, // 1MB - minimum allowed size
             experimentalForceLongPolling: true, // Better for some network conditions
         });
     }
 } catch (error) {
-    console.error('Error initializing Firestore:', error);
+    WebLogger.error('Error initializing Firestore', { error: error instanceof Error ? error.message : String(error) });
     // Fallback to standard getFirestore
     db = getFirestore(app);
 }

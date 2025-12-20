@@ -25,6 +25,7 @@ import {
     SubscriptionPlan,
     CreditTopUpRequest
 } from '@/types/user-credit';
+import { WebLogger } from '@/lib/web-logger';
 
 /**
  * Collections in Firestore
@@ -103,7 +104,7 @@ export async function createUserExtendedRecord(
 
         return userExtended;
     } catch (error) {
-        console.error('Error creating user extended record:', error);
+        WebLogger.error('Error creating user extended record', { error: error instanceof Error ? error.message : String(error) });
         throw error;
     }
 }
@@ -140,7 +141,7 @@ export async function getUserExtended(uid: string): Promise<UserExtended | null>
             updated_at: data.updated_at?.toDate() || new Date()
         } as UserExtended;
     } catch (error) {
-        console.error('Error getting user extended record:', error);
+        WebLogger.error('Error getting user extended record', { error: error instanceof Error ? error.message : String(error) });
         return null;
     }
 }
@@ -185,7 +186,7 @@ export async function getUserCreditSummary(uid: string): Promise<UserCreditSumma
             estimated_days_remaining: estimatedDaysRemaining
         };
     } catch (error) {
-        console.error('Error getting user credit summary:', error);
+        WebLogger.error('Error getting user credit summary', { error: error instanceof Error ? error.message : String(error) });
         return null; // Return null instead of throwing to prevent error propagation
     }
 }
@@ -219,7 +220,7 @@ async function createCreditTransaction(
 
         return transactionRef.id;
     } catch (error) {
-        console.error('Error creating credit transaction:', error);
+        WebLogger.error('Error creating credit transaction', { error: error instanceof Error ? error.message : String(error) });
         throw error;
     }
 }
@@ -285,7 +286,7 @@ export async function useCredits(
             };
         });
     } catch (error) {
-        console.error('Error using credits:', error);
+        WebLogger.error('Error using credits', { error: error instanceof Error ? error.message : String(error) });
         return {
             success: false,
             remainingCredits: 0,
@@ -341,7 +342,7 @@ export async function addCredits(
             };
         });
     } catch (error) {
-        console.error('Error adding credits:', error);
+        WebLogger.error('Error adding credits', { error: error instanceof Error ? error.message : String(error) });
         return {
             success: false,
             newBalance: 0,
@@ -373,7 +374,7 @@ export async function getCreditTransactionHistory(
             created_at: doc.data().created_at?.toDate() || new Date()
         })) as CreditTransaction[];
     } catch (error) {
-        console.error('Error getting transaction history:', error);
+        WebLogger.error('Error getting transaction history', { error: error instanceof Error ? error.message : String(error) });
         return []; // Return empty array instead of throwing
     }
 }
@@ -396,7 +397,7 @@ export async function updateUserSubscription(
             updated_at: serverTimestamp()
         });
     } catch (error) {
-        console.error('Error updating user subscription:', error);
+        WebLogger.error('Error updating user subscription', { error: error instanceof Error ? error.message : String(error) });
         throw error;
     }
 }
@@ -420,7 +421,7 @@ export async function checkSufficientCredits(
             availableCredits: userExtended.credits.available
         };
     } catch (error) {
-        console.error('Error checking credits:', error);
+        WebLogger.error('Error checking credits', { error: error instanceof Error ? error.message : String(error) });
         return { sufficient: false, availableCredits: 0 };
     }
 } 

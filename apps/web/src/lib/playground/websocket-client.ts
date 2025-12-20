@@ -5,6 +5,8 @@
  * handling authentication, reconnection, and message routing for real-time updates.
  */
 
+import { WebLogger } from '@/lib/web-logger';
+
 export interface PlaygroundWebSocketMessage {
     type: 'playground_update' | 'auth' | 'ping' | 'pong';
     timestamp: string;
@@ -96,7 +98,7 @@ export class PlaygroundWebSocketClient {
                         const message: PlaygroundWebSocketMessage = JSON.parse(event.data);
                         this.handleMessage(message);
                     } catch (error) {
-                        console.error('Invalid WebSocket message:', error);
+                        WebLogger.error('Invalid WebSocket message', { error: error instanceof Error ? error.message : String(error) });
                     }
                 };
 
@@ -105,7 +107,7 @@ export class PlaygroundWebSocketClient {
                     this.status.authenticated = false;
                     this.stopPingPong();
 
-                    console.log('🔌 Playground WebSocket disconnected', event.code, event.reason);
+                    WebLogger.info('Playground WebSocket disconnected', { code: event.code, reason: event.reason });
                     this.emit('connection', { connected: false });
 
                     // Attempt reconnection if not intentional
@@ -115,14 +117,14 @@ export class PlaygroundWebSocketClient {
                 };
 
                 this.ws.onerror = (error) => {
-                    console.error('🔌 Playground WebSocket error:', error);
+                    WebLogger.error('Playground WebSocket error', { error: error instanceof Error ? error.message : String(error) });
                     this.status.error = 'Connection error';
                     this.emit('error', { error: 'Connection failed' });
                     reject(error);
                 };
 
             } catch (error) {
-                console.error('Failed to create WebSocket:', error);
+                WebLogger.error('Failed to create WebSocket', { error: error instanceof Error ? error.message : String(error) });
                 reject(error);
             }
         });
@@ -152,7 +154,7 @@ export class PlaygroundWebSocketClient {
      */
     private authenticate(): void {
         if (!this.userId || !this.sessionId || !this.authToken) {
-            console.warn('Missing authentication credentials');
+            WebLogger.warn('Missing authentication credentials');
             return;
         }
 
@@ -187,7 +189,7 @@ export class PlaygroundWebSocketClient {
      */
     sendMessage(message: Omit<PlaygroundWebSocketMessage, 'timestamp'>): boolean {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-            console.warn('WebSocket not connected, cannot send message');
+            WebLogger.warn('WebSocket not connected, cannot send message');
             return false;
         }
 
@@ -200,7 +202,7 @@ export class PlaygroundWebSocketClient {
             this.ws.send(JSON.stringify(messageWithTimestamp));
             return true;
         } catch (error) {
-            console.error('Failed to send WebSocket message:', error);
+            WebLogger.error('Failed to send WebSocket message', { error: error instanceof Error ? error.message : String(error) });
             return false;
         }
     }
@@ -263,7 +265,7 @@ export class PlaygroundWebSocketClient {
                 break;
 
             default:
-                console.warn('Unknown message type:', message.type);
+                WebLogger.warn('Unknown WebSocket message type', { type: message.type });
         }
     }
 
@@ -279,12 +281,12 @@ export class PlaygroundWebSocketClient {
             this.status.authenticated = true;
             this.status.connectionId = clientId;
             this.status.error = undefined;
-            console.log('✅ Playground WebSocket authenticated', { userId, sessionId });
+            WebLogger.info('Playground WebSocket authenticated', { userId, sessionId });
             this.emit('authenticated', { success: true, userId, sessionId });
         } else {
             this.status.authenticated = false;
             this.status.error = error || 'Authentication failed';
-            console.error('❌ Playground WebSocket authentication failed:', error);
+            WebLogger.error('Playground WebSocket authentication failed', { error });
             this.emit('authenticated', { success: false, error });
         }
     }
@@ -296,7 +298,7 @@ export class PlaygroundWebSocketClient {
                 try {
                     handler({ type: event as any, timestamp: new Date().toISOString(), data });
                 } catch (error) {
-                    console.error('Error in WebSocket event handler:', error);
+                    WebLogger.error('Error in WebSocket event handler', { error: error instanceof Error ? error.message : String(error) });
                 }
             }
         }
@@ -306,11 +308,15 @@ export class PlaygroundWebSocketClient {
         this.reconnectAttempts++;
         const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000);
 
-        console.log(`🔄 Scheduling WebSocket reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
+        WebLogger.info('Scheduling WebSocket reconnect', {
+            attempt: this.reconnectAttempts,
+            maxAttempts: this.maxReconnectAttempts,
+            delayMs: delay
+        });
 
         this.reconnectTimeout = setTimeout(() => {
             this.connect().catch(error => {
-                console.error('Reconnect attempt failed:', error);
+                WebLogger.error('Reconnect attempt failed', { error: error instanceof Error ? error.message : String(error) });
             });
         }, delay);
     }

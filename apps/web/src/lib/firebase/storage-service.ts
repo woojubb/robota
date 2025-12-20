@@ -1,5 +1,6 @@
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from './config';
+import { WebLogger } from '@/lib/web-logger';
 
 export interface UploadResult {
     url: string;
@@ -51,7 +52,7 @@ export const uploadProfileImage = async (file: File, userId: string): Promise<Up
             fileName: fileName
         };
     } catch (error: any) {
-        console.error('Error uploading profile image:', error);
+        WebLogger.error('Error uploading profile image', { code: error?.code, message: error?.message });
         throw new Error(`Failed to upload image: ${error.message}`);
     }
 };
@@ -66,7 +67,7 @@ export const deleteProfileImage = async (fileName: string): Promise<void> => {
         const storageRef = ref(storage, `profile-images/${fileName}`);
         await deleteObject(storageRef);
     } catch (error: any) {
-        console.error('Error deleting profile image:', error);
+        WebLogger.error('Error deleting profile image', { code: error?.code, message: error?.message });
         // Don't throw error for delete operations as the file might not exist
     }
 };
@@ -81,7 +82,7 @@ export const extractFileNameFromUrl = (url: string): string | null => {
         const match = url.match(/profile-images%2F([^?]+)/);
         return match ? decodeURIComponent(match[1]) : null;
     } catch (error) {
-        console.error('Error extracting filename from URL:', error);
+        WebLogger.error('Error extracting filename from URL', { error: error instanceof Error ? error.message : String(error) });
         return null;
     }
 };

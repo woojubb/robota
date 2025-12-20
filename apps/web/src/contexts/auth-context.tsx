@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { trackEvents } from '@/lib/analytics/google-analytics';
 import { apiClient, setAuthRedirectCallback, setToastCallback } from '@/lib/api-client';
 import { debugStorageInfo, isLocalStorageAvailable } from '@/lib/storage-check';
+import { WebLogger } from '@/lib/web-logger';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -102,10 +103,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Listen to auth state changes
     useEffect(() => {
-        console.log('Setting up auth state listener');
+        WebLogger.debug('Setting up auth state listener');
 
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-            console.log('Auth state changed:', {
+            WebLogger.debug('Auth state changed', {
                 user: firebaseUser ? {
                     uid: firebaseUser.uid,
                     email: firebaseUser.email,
@@ -121,7 +122,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
                 // Only load user data if we haven't already loaded it for this user AND auth is initialized
                 if (loadedUserRef.current !== firebaseUser.uid && authInitialized) {
-                    console.log('Loading user data for new user:', firebaseUser.uid);
+                    WebLogger.debug('Loading user data for new user', { uid: firebaseUser.uid });
                     loadedUserRef.current = firebaseUser.uid;
 
                     try {
@@ -130,15 +131,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
                         // Get fresh token for API call
                         const token = await firebaseUser.getIdToken(false);
-                        console.log('Got token for API call:', {
+                        WebLogger.debug('Got token for API call', {
                             tokenLength: token.length,
                             uid: firebaseUser.uid
                         });
 
                         // Load user profile only once per session
-                        console.log('Calling profile API...');
+                        WebLogger.debug('Calling profile API');
                         const profileResponse = await apiClient.user.getProfile();
-                        console.log('Profile API response:', {
+                        WebLogger.debug('Profile API response', {
                             success: profileResponse.success,
                             hasData: !!profileResponse.data,
                             error: profileResponse.error
@@ -156,22 +157,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
                             setUserProfile(profileData);
                             setUserExtended(profileData as any);
-                            console.log('User profile loaded successfully');
+                            WebLogger.debug('User profile loaded successfully');
                         } else {
-                            console.error('Profile API failed:', profileResponse.error);
+                            WebLogger.error('Profile API failed', { error: profileResponse.error });
                         }
 
                         // Don't load credit summary on initial load - let components request it when needed
                         // This reduces unnecessary API calls
                     } catch (error) {
-                        console.error('Error loading user data:', error);
+                        WebLogger.error('Error loading user data', { error: error instanceof Error ? error.message : String(error) });
                         // Don't show error toast on initial load failures
                     }
                 } else if (firebaseUser.uid === loadedUserRef.current) {
-                    console.log('User data already loaded for:', firebaseUser.uid);
+                    WebLogger.debug('User data already loaded for user', { uid: firebaseUser.uid });
                 }
             } else {
-                console.log('User signed out, clearing auth state');
+                WebLogger.debug('User signed out, clearing auth state');
                 setUser(null);
                 setUserProfile(null);
                 setUserExtended(null);
@@ -187,7 +188,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
 
         return () => {
-            console.log('Cleaning up auth state listener');
+            WebLogger.debug('Cleaning up auth state listener');
             unsubscribe();
         };
     }, [authInitialized]);
@@ -199,7 +200,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 const firebaseKeys = Object.keys(localStorage).filter(key =>
                     key.includes('firebase') || key.includes('auth')
                 );
-                console.log('Firebase/Auth localStorage keys:', firebaseKeys);
+                WebLogger.debug('Firebase/Auth localStorage keys', { keys: firebaseKeys });
 
                 // Check for specific Firebase auth keys
                 const authKeys = [
@@ -210,7 +211,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 authKeys.forEach(key => {
                     const value = localStorage.getItem(key);
                     if (value) {
-                        console.log(`Found auth data in localStorage for ${key}:`, !!value);
+                        WebLogger.debug('Found auth data in localStorage', { key, hasValue: !!value });
                     }
                 });
             };
@@ -233,7 +234,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 setCreditSummary(creditsResponse.data);
             }
         } catch (error) {
-            console.error('Error loading credit summary:', error);
+            WebLogger.error('Error loading credit summary', { error: error instanceof Error ? error.message : String(error) });
         }
     };
 
@@ -281,7 +282,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     body: JSON.stringify({ email, displayName }),
                 });
             } catch (profileError) {
-                console.error('Error creating user profile:', profileError);
+                WebLogger.error('Error creating user profile', { error: profileError instanceof Error ? profileError.message : String(profileError) });
                 // Don't throw here, as the user is already created
             }
 

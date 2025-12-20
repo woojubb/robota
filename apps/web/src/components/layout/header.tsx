@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { NAVIGATION } from '@/config/brand'
 import { useAuth } from '@/contexts/auth-context'
+import { WebLogger } from '@/lib/web-logger'
 
 export function Header() {
     const pathname = usePathname()
@@ -34,7 +35,7 @@ export function Header() {
         try {
             await signOut();
         } catch (error) {
-            console.error('Sign out error:', error);
+            WebLogger.error('Sign out error', { error: error instanceof Error ? error.message : String(error) });
         }
     }
 
