@@ -12,9 +12,9 @@
     "toolRegistry": { /* tool id → handler/meta */ },
     "providerOrder": ["anthropic", "openai"],
     "executionContext": {
-      "rootExecutionId": "conv_...",
       "recordScenarioId": "26-mandatory-delegation",
-      "mockScenarioId": null
+      "mockScenarioId": null,
+      "ownerPath": []
     }
   },
   "steps": []
@@ -48,8 +48,8 @@
 - step 미존재 시 `ScenarioMissingError`를 던져 Guard 실패를 유도한다.
 
 ## 3. Agent Recorder/Mock 체인
-- ExecutionService가 Agent를 생성할 때 현재 `ScenarioContext`를 clone하여 주입한다.
-- child agent가 생성되면 `ScenarioContext.child('agent', childId)`로 전파하여 provider/ tool recorder 모두 동일 시나리오를 사용하도록 한다.
+- ExecutionService가 agent를 생성할 때 현재 `ScenarioContext`를 clone하여 주입한다.
+- delegated agent가 생성되면 `ownerPath`를 **absolute full path**로 전파한다(예: parentPath + `{type:'agent', id: childId}`).
 - playback 모드에서는 실제 Provider/Tool 호출이 0회가 되어야 하므로, Recorder/Mock는 항상 쌍으로 동작해야 한다.
 
 ## 4. CLI 및 검증 흐름

@@ -314,17 +314,13 @@ export {
     OwnerPathSegment,
     AbstractEventService,
     DEFAULT_ABSTRACT_EVENT_SERVICE,
-    DEFAULT_EVENT_SERVICE,
     isDefaultEventService,
     bindEventServiceOwner,
     bindWithOwnerPath,
     DefaultEventService,
     StructuredEventService,
-    // ActionTrackingEventService intentionally not exported from the public API.
 } from './services/event-service';
 export { RelayMcpTool, type RelayMcpOptions, type RelayMcpContext } from './tools/implementations/relay-mcp-tool';
-
-export type { ExecutionNode } from './services/event-service';
 
 // ===== EVENT EMITTER (PLUGIN) EXPORTS =====
 export { EVENT_EMITTER_EVENTS } from './plugins/event-emitter/types';

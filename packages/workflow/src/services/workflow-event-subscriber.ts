@@ -400,27 +400,33 @@ export class WorkflowEventSubscriber {
     private normalizeEventData(eventType: string, eventData: unknown): EventData {
         // If already in EventData format, return as-is
         if (typeof eventData === 'object' && eventData !== null && 'eventType' in eventData) {
-            return eventData as EventData;
+            const existing = eventData as any;
+            if (!existing.timestamp) {
+                throw new Error(`[PATH-ONLY] Missing timestamp for event: ${eventType}`);
+            }
+            if (!existing.context?.ownerPath?.length) {
+                throw new Error(`[PATH-ONLY] Missing context.ownerPath for event: ${eventType}`);
+            }
+            return existing as EventData;
         }
 
         // Convert to EventData format
         const data = eventData as any || {};
+        if (!data.timestamp) {
+            throw new Error(`[PATH-ONLY] Missing timestamp for event: ${eventType}`);
+        }
+        if (!data.context?.ownerPath?.length) {
+            throw new Error(`[PATH-ONLY] Missing context.ownerPath for event: ${eventType}`);
+        }
         return {
             eventType,
-            // 🎯 Use timestamp from EventService, don't override it
-            // EventService should automatically inject timestamp when emitting events
-            timestamp: data.timestamp || new Date(), // Preserve original event timestamp from EventService
-            sourceType: data.sourceType || 'unknown',
-            sourceId: data.sourceId || 'unknown',
-            executionId: data.executionId,
-            parentExecutionId: data.parentExecutionId,
-            rootExecutionId: data.rootExecutionId,
-            executionLevel: data.executionLevel || 1,
+            timestamp: data.timestamp,
+            context: data.context,
             parameters: data.parameters || data,
-            result: data.result,
-            metadata: data.metadata,
-            error: data.error,
-            ...data // Include all other properties
+            ...(data.metadata ? { metadata: data.metadata } : {}),
+            ...(data.result ? { result: data.result } : {}),
+            ...(data.error ? { error: data.error } : {}),
+            ...data
         };
     }
 

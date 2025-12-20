@@ -59,15 +59,33 @@ export class ExecutionEventHandler implements EventHandler {
 
             switch (eventType) {
                 case EXECUTION_EVENTS.TOOL_RESULTS_READY: {
-                    // Path-only: thinking scope = eventData.path
-                    const parentPath = Array.isArray((eventData as any).path) ? (eventData as any).path : [];
-                    const thinkingId = String(parentPath[parentPath.length - 1] || '');
-                    if (!thinkingId) break;
-                    // Collect existing tool_response nodes by checking originalEvent.path prefix match
+                    // Path-only: thinking scope = context.ownerPath (absolute)
+                    const ownerPath = (eventData as any)?.context?.ownerPath as Array<{ type: string; id: string }> | undefined;
+                    if (!Array.isArray(ownerPath) || ownerPath.length === 0) {
+                        return {
+                            success: false,
+                            updates: [],
+                            errors: [`[PATH-ONLY] Missing context.ownerPath for ${EXECUTION_EVENTS.TOOL_RESULTS_READY}`]
+                        };
+                    }
+                    const thinkingId = String(ownerPath[ownerPath.length - 1]?.id || '');
+                    if (!thinkingId) {
+                        return {
+                            success: false,
+                            updates: [],
+                            errors: [`[PATH-ONLY] Invalid context.ownerPath (missing tail id) for ${EXECUTION_EVENTS.TOOL_RESULTS_READY}`]
+                        };
+                    }
+                    const thinkingScopeKey = ownerPath.map(s => String(s.id)).join('\u0000');
+
+                    // Collect existing tool_response nodes by checking originalEvent.context.ownerPath prefix match
                     const nodesAccessor: any = (this as any).subscriber?.getAllNodes?.() || [];
                     const toolResponses = nodesAccessor.filter((n: any) => n?.type === WORKFLOW_NODE_TYPES.TOOL_RESPONSE &&
-                        Array.isArray(n?.data?.extensions?.robota?.originalEvent?.path) &&
-                        n.data.extensions.robota.originalEvent.path.slice(0, -1).join('\u0000') === parentPath.join('\u0000'));
+                        Array.isArray(n?.data?.extensions?.robota?.originalEvent?.context?.ownerPath) &&
+                        n.data.extensions.robota.originalEvent.context.ownerPath
+                            .map((s: any) => String(s?.id ?? ''))
+                            .slice(0, -1)
+                            .join('\u0000') === thinkingScopeKey);
                     if (toolResponses.length === 0) break;
                     const nodeId = `tool_result_${thinkingId}_${Date.now()}`;
                     const toolResultNode: WorkflowNode = {
@@ -77,7 +95,7 @@ export class ExecutionEventHandler implements EventHandler {
                         status: 'running',
                         timestamp: Date.now(),
                         data: {
-                            sourceId: String(eventData.sourceId || 'execution'),
+                            sourceId: String((eventData as any)?.sourceId ?? 'execution'),
                             sourceType: 'execution',
                             parentThinkingNodeId: thinkingId,
                             label: 'Tool Result Aggregation',
@@ -130,59 +148,63 @@ export class ExecutionEventHandler implements EventHandler {
 
                 case EXECUTION_EVENTS.USER_MESSAGE:
                     {
-                        const pathArr = (eventData as any)?.path as string[] | undefined;
-                        if (!Array.isArray(pathArr) || pathArr.length < 2) {
+                        const ctxOwnerPath = (eventData as any)?.context?.ownerPath as Array<{ type: string; id: string }> | undefined;
+                        if (!Array.isArray(ctxOwnerPath) || ctxOwnerPath.length === 0) {
                             return {
                                 success: false,
                                 updates: [],
-                                errors: [`[PATH-ONLY] Invalid path for ${EXECUTION_EVENTS.USER_MESSAGE}: ${JSON.stringify(pathArr)}`]
+                                errors: [`[PATH-ONLY] Missing context.ownerPath for ${EXECUTION_EVENTS.USER_MESSAGE}`]
                             };
                         }
-                        const ctxOwnerPath = (eventData as any)?.context?.ownerPath as Array<{ type: string; id: string }> | undefined;
                         const localAgentId = (() => {
-                            if (Array.isArray(ctxOwnerPath)) {
-                                for (let i = ctxOwnerPath.length - 1; i >= 0; i--) {
-                                    const seg = ctxOwnerPath[i];
-                                    if (seg?.type === 'agent' && typeof seg.id === 'string' && seg.id.length > 0) {
-                                        return seg.id;
-                                    }
+                            for (let i = ctxOwnerPath.length - 1; i >= 0; i--) {
+                                const seg = ctxOwnerPath[i];
+                                if (seg?.type === 'agent' && typeof seg.id === 'string' && seg.id.length > 0) {
+                                    return seg.id;
                                 }
                             }
-                            return String(pathArr[0]);
+                            return undefined;
                         })();
                         const localExecutionId = (() => {
-                            if (Array.isArray(ctxOwnerPath)) {
-                                for (let i = ctxOwnerPath.length - 1; i >= 0; i--) {
-                                    const seg = ctxOwnerPath[i];
-                                    if (seg?.type === 'execution' && typeof seg.id === 'string' && seg.id.length > 0) {
-                                        return seg.id;
-                                    }
+                            for (let i = ctxOwnerPath.length - 1; i >= 0; i--) {
+                                const seg = ctxOwnerPath[i];
+                                if (seg?.type === 'execution' && typeof seg.id === 'string' && seg.id.length > 0) {
+                                    return seg.id;
                                 }
                             }
-                            return String(pathArr[1]);
+                            return undefined;
                         })();
+                        if (!localAgentId || !localExecutionId) {
+                            return {
+                                success: false,
+                                updates: [],
+                                errors: [`[PATH-ONLY] Missing agent/execution segments in context.ownerPath for ${EXECUTION_EVENTS.USER_MESSAGE}`]
+                            };
+                        }
                         const userMessageNode = this.createUserMessageNode(eventData);
                         if ((eventData as any).parentId) userMessageNode.parentId = String((eventData as any).parentId);
                         if (eventData.parentExecutionId) {
                             userMessageNode.parentId = String(eventData.parentExecutionId);
                         }
                         updates.push({ action: 'create', node: userMessageNode });
-                        this.userMessageNodeMap.set(String(eventData.sourceId), userMessageNode.id);
+                        this.userMessageNodeMap.set(localAgentId, userMessageNode.id);
 
                         // Path-Only connection logic: parentPath based filtering
                         let sourceNodeForConnection: string | undefined;
                         let edgeType = 'receives';
 
-                        const parentPath = pathArr.slice(0, -1).join('/');
+                        const parentPath = localAgentId;
 
                         // Try to find the most recent response or tool_result node in the same parentPath scope
                         const allNodes = (this as any).subscriber?.getAllNodes?.() || [];
                         const candidateSourceNodes = allNodes
                             .filter((node: any) => {
-                                const nodePath = Array.isArray(node.data?.extensions?.robota?.originalEvent?.path)
-                                    ? node.data.extensions.robota.originalEvent.path.join('/')
-                                    : '';
-                                return (node.type === 'response' || node.type === 'tool_result') && nodePath.startsWith(parentPath);
+                                const op = node?.data?.extensions?.robota?.originalEvent?.context?.ownerPath;
+                                if (!Array.isArray(op) || op.length === 0) return false;
+                                const ids = op.map((s: any) => String(s?.id ?? '')).filter(Boolean);
+                                if (ids.length === 0) return false;
+                                const nodeScope = ids[0];
+                                return (node.type === 'response' || node.type === 'tool_result') && nodeScope === parentPath;
                             })
                             .sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0));
 
@@ -190,7 +212,6 @@ export class ExecutionEventHandler implements EventHandler {
                             sourceNodeForConnection = candidateSourceNodes[0].id;
                             edgeType = 'continues';
                         } else {
-                            // First message in this root/sub-flow: connect to agent
                             let agentNodeForExec: string | undefined;
                             const nodesAccessor: any[] = allNodes;
                             agentNodeForExec = nodesAccessor.find(n => n.type === 'agent' && n.data?.sourceId === localAgentId)?.id;
@@ -470,11 +491,35 @@ export class ExecutionEventHandler implements EventHandler {
 
     private createUserMessageNode(data: EventData): WorkflowNode {
         // Generate unique node ID for each user message to support continued conversations
-        const executionId = data.executionId || data.metadata?.executionId;
-        const nodeId = executionId
-            ? `${data.sourceId}_user_${executionId}`
-            : `${data.sourceId}_user_${Date.now()}`;
-        const messageContent = String(data.parameters?.content || data.parameters?.message || 'User message');
+        const ownerPath = (data as any)?.context?.ownerPath as Array<{ type: string; id: string }> | undefined;
+        if (!Array.isArray(ownerPath) || ownerPath.length === 0) {
+            throw new Error('[PATH-ONLY] Missing context.ownerPath for execution.user_message');
+        }
+        const agentId = (() => {
+            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                const seg = ownerPath[i];
+                if (seg?.type === 'agent' && typeof seg.id === 'string' && seg.id.length > 0) return seg.id;
+            }
+            return undefined;
+        })();
+        const executionId = (() => {
+            for (let i = ownerPath.length - 1; i >= 0; i--) {
+                const seg = ownerPath[i];
+                if (seg?.type === 'execution' && typeof seg.id === 'string' && seg.id.length > 0) return seg.id;
+            }
+            return undefined;
+        })();
+        if (!agentId || !executionId) {
+            throw new Error('[PATH-ONLY] Missing agent/execution segments in context.ownerPath for execution.user_message');
+        }
+        const nodeId = `${agentId}_user_${executionId}`;
+        const messageContent = String(
+            (data as any)?.parameters?.input ??
+            (data as any)?.parameters?.userMessageContent ??
+            (data as any)?.parameters?.content ??
+            (data as any)?.parameters?.message ??
+            'User message'
+        );
 
         return {
             id: nodeId,
@@ -483,17 +528,16 @@ export class ExecutionEventHandler implements EventHandler {
             status: 'completed',
             timestamp: Date.now(),
             data: {
-                sourceId: data.sourceId,
+                sourceId: agentId,
                 sourceType: 'user',
-                executionId: data.executionId,
-                parentExecutionId: data.parentExecutionId,
+                executionId,
                 label: 'User Message',
                 description: 'User input message',
                 eventType: data.eventType,
                 parameters: data.parameters || {},
                 metadata: data.metadata || {},
                 messageInfo: {
-                    messageId: data.sourceId,
+                    messageId: agentId,
                     content: messageContent,
                     length: messageContent.length,
                     timestamp: new Date().toISOString()

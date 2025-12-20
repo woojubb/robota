@@ -21,25 +21,17 @@ export class WorkflowSubscriberEventService implements EventService {
     ) { }
 
     emit(eventType: ServiceEventType, data: ServiceEventData, context?: EventContext): void {
-        const derivedPath = (() => {
-            if (!context?.ownerPath?.length) {
-                return undefined;
-            }
-            const ids: string[] = [];
+        if (context?.ownerPath?.length) {
             for (const seg of context.ownerPath) {
                 const id = seg?.id;
                 if (typeof id !== 'string' || id.length === 0) {
                     throw new Error('[PATH-ONLY] Invalid context.ownerPath (missing segment id) for workflow bridge');
                 }
-                ids.push(id);
             }
-            return ids;
-        })();
-
+        }
         const payload = {
             eventType,
             ...data,
-            ...(derivedPath ? { path: derivedPath } : {}),
             ...(context ? { context } : {})
         };
 
