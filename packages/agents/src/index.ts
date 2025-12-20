@@ -310,6 +310,7 @@ export {
     DEFAULT_EVENT_SERVICE,
     isDefaultEventService,
     bindEventServiceOwner,
+    bindWithOwnerPath,
     DefaultEventService,
     StructuredEventService,
     /**
@@ -318,15 +319,6 @@ export {
     ActionTrackingEventService
 } from './services/event-service';
 export { RelayMcpTool, type RelayMcpOptions, type RelayMcpContext } from './tools/implementations/relay-mcp-tool';
-
-/**
- * @deprecated Replaced by EventService + ownerPath context pipeline.
- */
-export { ActionTrackingEventService as ContextualEventService } from './services/event-service';
-/**
- * @deprecated Replaced by EventService + ownerPath context pipeline.
- */
-export { ActionTrackingEventService as SilentContextualEventService } from './services/event-service';
 
 export type { ExecutionNode } from './services/event-service';
 

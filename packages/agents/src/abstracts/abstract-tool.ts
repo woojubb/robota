@@ -7,18 +7,25 @@
  * for all tools. It follows strict architectural principles:
  * 
  * - Depends ONLY on interfaces (EventService interface, not concrete implementations)
- * - Does NOT import concrete classes (ActionTrackingEventService, DEFAULT_EVENT_SERVICE, etc.)
+ * - Does NOT import concrete classes
  * - Uses Dependency Injection for all dependencies
  * - Handles undefined dependencies gracefully (Null Object Pattern)
  * 
- * Concrete implementations (ActionTrackingEventService, etc.) should be handled
+ * Concrete implementations should be handled
  * by the caller who creates the tool instance, not by this abstract class.
  * 
  * @example
  * ```typescript
- * // ✅ CORRECT: Caller prepares concrete EventService
- * const eventService = new ActionTrackingEventService(...).clone({ ownerPrefix: 'tool' });
- * const tool = new MyTool({ eventService });
+ * // ✅ CORRECT: Caller prepares an owner-bound EventService and injects it
+ * // (Example: bind to the current tool call identity and ownerPath.)
+ * const toolEventService = bindWithOwnerPath(baseEventService, {
+ *   ownerType: 'tool',
+ *   ownerId: toolCallId,
+ *   ownerPath,
+ *   sourceType: 'tool',
+ *   sourceId: toolCallId
+ * });
+ * const tool = new MyTool({ eventService: toolEventService });
  * 
  * // ❌ WRONG: AbstractTool creates concrete EventService
  * // This violates Dependency Inversion Principle

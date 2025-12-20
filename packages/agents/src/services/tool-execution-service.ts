@@ -1,6 +1,7 @@
 import { ToolExecutionResult, ToolResult, ToolExecutionContext, ToolOwnerPathSegment, ToolMetadata } from '../interfaces/tool';
 import type { ToolManagerInterface } from '../interfaces/manager';
 import type { ToolParameters } from '../interfaces/tool';
+import type { EventService, OwnerPathSegment } from '../interfaces/event-service';
 import { SimpleLogger, SilentLogger } from '../utils/simple-logger';
 import { ToolExecutionError, ValidationError } from '../utils/errors';
 
@@ -12,7 +13,8 @@ export interface ToolExecutionRequest {
     metadata?: ToolMetadata;
     ownerType?: string;
     ownerId?: string;
-    ownerPath?: ToolOwnerPathSegment[];
+    ownerPath?: OwnerPathSegment[];
+    eventService?: EventService;
 }
 
 export interface ToolExecutionBatchContext {
@@ -52,27 +54,25 @@ export class ToolExecutionService {
         this.logger.debug(`Executing tool: ${toolName}`);
 
         try {
-            // Create execution context if not provided
+            if (!context?.executionId) {
+                throw new ValidationError('ToolExecutionService requires executionId (toolCallId) in ToolExecutionContext');
+            }
+
+            // Normalize execution context without duplicating keys from the spread.
+            const {
+                toolName: _toolName,
+                parameters: _parameters,
+                ...restContext
+            } = context;
+            void _toolName;
+            void _parameters;
+
             const executionContext: ToolExecutionContext = {
+                ...restContext,
                 toolName,
                 parameters,
-                executionId: context?.executionId || `${toolName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                ...(context?.ownerType ? { ownerType: context.ownerType } : {}),
-                ...(context?.ownerId ? { ownerId: context.ownerId } : {}),
-                ...(context?.ownerPath ? { ownerPath: context.ownerPath } : {}),
-                ...(context?.sourceId ? { sourceId: context.sourceId } : {}),
-                ...context
+                executionId: context.executionId
             };
-
-            // Tool Execution Context validation for assignTask
-            if (toolName === 'assignTask') {
-                this.logger.info(`[ToolExecutionService] Executing assignTask with context`, {
-                    hasContext: !!context,
-                    executionId: executionContext.executionId,
-                    ownerPathLength: executionContext.ownerPath?.length || 0,
-                    ownerPath: executionContext.ownerPath
-                });
-            }
 
             // Execute the tool with full context
             // Context already contains all necessary information including tool call ID
@@ -95,7 +95,7 @@ export class ToolExecutionService {
                 success: false,
                 error: toolError.message,
                 toolName,
-                executionId: context?.executionId || `${toolName}-error-${Date.now()}`
+                executionId: context?.executionId
             };
         }
     }
@@ -109,7 +109,7 @@ export class ToolExecutionService {
     createExecutionRequestsWithContext(
         toolCalls: Array<{ id: string; function: { name: string; arguments: string } }>,
         context: {
-            ownerPathBase: ToolOwnerPathSegment[];
+            ownerPathBase: OwnerPathSegment[];
             metadataFactory?: (toolCall: { id: string; function: { name: string; arguments: string } }) => ToolMetadata | undefined;
         }
     ): ToolExecutionRequest[] {
@@ -144,7 +144,8 @@ export class ToolExecutionService {
                     ownerType: request.ownerType || 'tool',
                     ownerId: request.ownerId || request.executionId,
                     ownerPath: request.ownerPath,
-                    metadata: request.metadata
+                    metadata: request.metadata,
+                    eventService: request.eventService
                 }).catch(error => ({
                     toolName: request.toolName || 'unknown',
                     result: null,
@@ -178,7 +179,8 @@ export class ToolExecutionService {
                         ownerType: request.ownerType || 'tool',
                         ownerId: request.ownerId || request.executionId,
                         ownerPath: request.ownerPath,
-                        metadata: request.metadata
+                        metadata: request.metadata,
+                        eventService: request.eventService
                     });
                     results.push(result);
 

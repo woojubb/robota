@@ -9,127 +9,44 @@
  */
 
 import { SimpleLogger, DefaultConsoleLogger } from '../utils/simple-logger';
-import type { ToolParameters, ToolResult, ToolExecutionContext } from '../interfaces/tool';
+import type { ToolExecutionContext } from '../interfaces/tool';
 import type { LoggerData, MetadataValue } from '../interfaces/types';
+import type {
+    AgentEventData,
+    BaseEventData,
+    EventContext,
+    EventService,
+    EventServiceOwnerBinding,
+    ExecutionEventData,
+    OwnerPathSegment,
+    OwnerType,
+    ServiceEventData,
+    ServiceEventType,
+    ToolEventData
+} from '../interfaces/event-service';
+export type {
+    AgentEventData,
+    BaseEventData,
+    EventContext,
+    EventService,
+    EventServiceOwnerBinding,
+    ExecutionEventData,
+    OwnerPathSegment,
+    OwnerType,
+    ServiceEventData,
+    ServiceEventType,
+    ToolEventData
+} from '../interfaces/event-service';
 
 // Step 1: ❌ Can't assign MetadataValue to string directly (type mismatch)
 // Step 2: ✅ MetadataValue includes primitives but needs safe conversion
 // Step 3: ✅ Create type guards for safe metadata value extraction
 // Step 4: ✅ Provide fallback values for type safety
-function safeStringFromMetadata(value: MetadataValue | undefined): string | undefined {
-    if (typeof value === 'string') return value;
-    if (typeof value === 'number') return String(value);
-    if (typeof value === 'boolean') return String(value);
-    if (value instanceof Date) return value.toISOString();
-    if (value instanceof Error) return value.message;
-    return undefined;
-}
+import { safeStringFromMetadata } from '../interfaces/event-service';
 
 function hasMetadataProperty(obj: any, prop: string): boolean {
     return obj && typeof obj === 'object' && prop in obj;
 }
-
-/**
- * Service event types for unified tracking
- * 
- * IMPORTANT: EventService is domain-neutral infrastructure.
- * It does NOT know about specific events from other packages.
- * Event names follow the pattern: '{owner}.{event}' where owner
- * is the package/component that emits the event.
- */
-export type ServiceEventType = string;
-
-export type OwnerType =
-    | 'execution'
-    | 'agent'
-    | 'tool'
-    | 'team'
-    | 'task'
-    | 'integration'
-    | (string & {});
-
-export interface OwnerPathSegment {
-    type: OwnerType | (string & {});
-    id?: string;
-}
-
-export interface EventContext {
-    ownerType: OwnerType | (string & {});
-    ownerId?: string;
-    ownerPath: OwnerPathSegment[];
-    sourceId?: string;
-    timestamp?: Date;
-}
-
-/**
- * Service event data structure with hierarchical tracking information
- */
-export interface BaseEventData {
-    /** Event type identifier (e.g., execution.start) */
-    eventType?: ServiceEventType;
-
-    /** Source type: agent, team, or tool */
-    sourceType?: 'agent' | 'team' | 'tool';
-
-    /** Source identifier (agent ID, team ID, etc.) */
-    sourceId?: string;
-
-    /** Event timestamp (auto-generated if not provided) */
-    timestamp?: Date;
-
-    /** Additional metadata */
-    metadata?: LoggerData;
-
-    /** Derived owner path expressed as string identifiers */
-    path?: string[];
-
-    /** @deprecated Use EventContext.ownerPath to derive hierarchy */
-    executionLevel?: number;
-    /** @deprecated Use EventContext.ownerPath to derive hierarchy */
-    parentExecutionId?: string;
-    /** @deprecated Use EventContext.ownerPath to derive hierarchy */
-    rootExecutionId?: string;
-    /** @deprecated Use EventContext.ownerPath to derive hierarchy */
-    executionPath?: string[];
-    /** @deprecated Use domain-specific payload fields instead */
-    toolName?: string;
-    /** @deprecated Use domain-specific payload fields instead */
-    parameters?: ToolParameters | Record<string, unknown>;
-    /** @deprecated Use domain-specific payload fields instead */
-    result?: ToolResult;
-    /** @deprecated Use domain-specific payload fields instead */
-    error?: string;
-    /** @deprecated Use domain-specific payload fields instead */
-    taskDescription?: string;
-    /** @deprecated Migrate to AgentEventData.statusHistory */
-    statusHistory?: Array<{ status: string; eventType: string; timestamp: number }>;
-    /** Legacy context attachment (EventServiceHookFactory) */
-    context?: Record<string, unknown>;
-
-    /** Allow forward-compat extension fields */
-    [key: string]: unknown;
-}
-
-export interface ExecutionEventData extends BaseEventData {
-    parameters?: Record<string, unknown>;
-    result?: ToolResult;
-}
-
-export interface ToolEventData extends BaseEventData {
-    toolName?: string;
-    parameters?: ToolParameters;
-    result?: ToolResult;
-    error?: string;
-}
-
-export interface AgentEventData extends BaseEventData {
-    parameters?: Record<string, unknown>;
-    result?: ToolResult;
-    statusHistory?: Array<{ status: string; eventType: string; timestamp: number }>;
-}
-
-/** @deprecated Use BaseEventData/ExecutionEventData/ToolEventData/AgentEventData instead */
-export type ServiceEventData = BaseEventData;
 
 /**
  * Execution node for hierarchy tracking
@@ -158,53 +75,10 @@ export interface ExecutionNode {
     };
 }
 
-/**
- * EventService interface - Single event emission point
- * 
- * Enhanced with optional methods for hierarchical tracking.
- * These methods are detected via Duck Typing pattern for zero-configuration.
- */
-export interface EventService {
-    /**
-     * Emit an event with data
-     * @param eventType - Type of event to emit
-     * @param data - Event data with hierarchical information
-     */
-    emit<TEvent extends BaseEventData = BaseEventData>(eventType: ServiceEventType, data: TEvent, context?: EventContext): void;
-
-    /**
-     * Optional: Track execution hierarchy (Duck Typing detection)
-     * Enables automatic hierarchical context for all events
-     * 
-     * @param executionId - Unique execution ID
-     * @param parentExecutionId - Parent execution ID
-     * @param level - Execution level (0=Team, 1=Agent, 2=Tool)
-     */
-    trackExecution?(executionId: string, parentExecutionId?: string, level?: number): void;
-
-    /**
-     * Optional: Create bound emit function with automatic context (Duck Typing detection)
-     * Returns an emit function that automatically includes hierarchical context
-     * 
-     * @param executionId - Execution ID to bind context to
-     * @returns Bound emit function with automatic parent/level context
-     */
-    createBoundEmit?(executionId: string): (eventType: ServiceEventType, data: ServiceEventData) => void;
-
-    /**
-     * Optional: Create new EventService instance with injected context (Duck Typing detection)
-     * Returns a new EventService that inherits from this one but has additional context
-     * 
-     * @param executionContext - Context to inject into the new instance
-     * @returns New EventService instance with context binding
-     */
-    createContextBoundInstance?(executionContext: ToolExecutionContext): EventService;
-}
 
 /**
  * AbstractEventService - base class providing no-op defaults.
- * Previously SilentEventService handled this behavior; the abstract
- * class now offers the same default implementations for inheritance.
+ * This is the single no-op implementation baseline for EventService DI.
  */
 export abstract class AbstractEventService implements EventService {
     emit<TEvent extends BaseEventData = BaseEventData>(eventType: ServiceEventType, data: TEvent, context?: EventContext): void {
@@ -251,14 +125,6 @@ export const DEFAULT_EVENT_SERVICE: EventService = DEFAULT_ABSTRACT_EVENT_SERVIC
 
 export const isDefaultEventService = (eventService: EventService): boolean => eventService === DEFAULT_ABSTRACT_EVENT_SERVICE;
 
-export interface EventServiceOwnerBinding {
-    ownerType: OwnerType | (string & {});
-    ownerId?: string;
-    ownerPath?: OwnerPathSegment[];
-    sourceType: 'agent' | 'team' | 'tool';
-    sourceId?: string;
-}
-
 const mergeOwnerPathSegments = (base?: OwnerPathSegment[], extension?: OwnerPathSegment[]): OwnerPathSegment[] => {
     const segments: OwnerPathSegment[] = [];
     if (base?.length) {
@@ -270,18 +136,7 @@ const mergeOwnerPathSegments = (base?: OwnerPathSegment[], extension?: OwnerPath
     return segments;
 };
 
-const deriveOwnerPathFromExecutionContext = (executionContext?: ToolExecutionContext): OwnerPathSegment[] => {
-    if (!executionContext) {
-        return [];
-    }
-    if (executionContext.ownerPath?.length) {
-        return executionContext.ownerPath.map(segment => ({ ...segment }));
-    }
-    if (executionContext.executionPath?.length) {
-        return executionContext.executionPath.map(id => ({ type: 'execution', id }));
-    }
-    return [];
-};
+const isNonEmptyString = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
 
 class OwnerBoundEventService extends AbstractEventService {
     constructor(
@@ -326,25 +181,41 @@ class OwnerBoundEventService extends AbstractEventService {
     }
 
     override createContextBoundInstance(executionContext: ToolExecutionContext): EventService {
-        const derivedOwnerPath = mergeOwnerPathSegments(this.ownerBinding.ownerPath, deriveOwnerPathFromExecutionContext(executionContext));
-        if (executionContext.executionId) {
-            derivedOwnerPath.push({ type: 'execution', id: executionContext.executionId });
+        const ownerType = executionContext.ownerType as OwnerType | (string & {});
+        if (!isNonEmptyString(ownerType)) {
+            throw new Error('[EVENT-SERVICE] Missing ownerType for createContextBoundInstance');
         }
-        const childOwnerId = executionContext.ownerId || executionContext.executionId || this.ownerBinding.ownerId;
-        const inferredOwnerType = (executionContext.ownerType as OwnerType | (string & {})) || this.ownerBinding.ownerType;
-        const inferredSourceType: 'agent' | 'team' | 'tool' =
-            executionContext.ownerType === 'team'
-                ? 'team'
-                : executionContext.ownerType === 'tool'
-                    ? 'tool'
-                    : this.ownerBinding.sourceType;
+
+        const ownerIdCandidate = executionContext.ownerId ?? executionContext.executionId;
+        if (!isNonEmptyString(ownerIdCandidate)) {
+            throw new Error('[EVENT-SERVICE] Missing ownerId/executionId for createContextBoundInstance');
+        }
+
+        const ownerPathProvided = executionContext.ownerPath?.length
+            ? executionContext.ownerPath.map(segment => ({ ...segment }))
+            : undefined;
+
+        let ownerPath: OwnerPathSegment[];
+        if (ownerPathProvided) {
+            const last = ownerPathProvided[ownerPathProvided.length - 1];
+            if (!last || last.type !== ownerType || last.id !== ownerIdCandidate) {
+                throw new Error('[EVENT-SERVICE] Invalid ownerPath for createContextBoundInstance (last segment must match ownerType/ownerId)');
+            }
+            ownerPath = ownerPathProvided;
+        } else {
+            const parentPath = this.ownerBinding.ownerPath ?? [];
+            ownerPath = [
+                ...parentPath.map(segment => ({ ...segment })),
+                { type: ownerType, id: ownerIdCandidate }
+            ];
+        }
 
         const childBinding: EventServiceOwnerBinding = {
-            ownerType: inferredOwnerType,
-            ownerId: childOwnerId,
-            ownerPath: derivedOwnerPath,
-            sourceType: inferredSourceType,
-            sourceId: executionContext.sourceId || executionContext.executionId || this.ownerBinding.sourceId
+            ownerType,
+            ownerId: ownerIdCandidate,
+            ownerPath,
+            sourceType: ownerType,
+            sourceId: executionContext.sourceId ?? ownerIdCandidate
         };
         return new OwnerBoundEventService(this.baseEventService, childBinding);
     }
@@ -355,6 +226,16 @@ export const bindEventServiceOwner = (eventService: EventService, binding: Event
         return eventService;
     }
     return new OwnerBoundEventService(eventService, binding);
+};
+
+/**
+ * bindWithOwnerPath
+ *
+ * Canonical ownerPath binder for EventService DI.
+ * This is the single helper that should be used for creating owner-bound instances.
+ */
+export const bindWithOwnerPath = (eventService: EventService, binding: EventServiceOwnerBinding): EventService => {
+    return bindEventServiceOwner(eventService, binding);
 };
 
 /**

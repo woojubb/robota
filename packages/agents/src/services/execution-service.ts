@@ -18,6 +18,7 @@ import {
     ExecutionEventData,
     ToolEventData,
     bindEventServiceOwner,
+    bindWithOwnerPath,
     BaseEventData
 } from './event-service';
 import type { ToolExecutionBatchContext } from './tool-execution-service';
@@ -672,7 +673,7 @@ export class ExecutionService {
                 const toolRootId = fullContext.conversationId ?? executionId;
                 const rootForTools = toolRootId;
                 const toolOwnerPathBase = this.buildExecutionOwnerContext(rootForTools, executionId).ownerPath;
-                const toolRequests = this.toolExecutionService.createExecutionRequestsWithContext(
+                const toolRequestsBase = this.toolExecutionService.createExecutionRequestsWithContext(
                     assistantResponse.toolCalls,
                     {
                         ownerPathBase: toolOwnerPathBase,
@@ -686,6 +687,10 @@ export class ExecutionService {
                         })
                     }
                 );
+                const toolRequests = toolRequestsBase.map(request => ({
+                    ...request,
+                    eventService: this.ensureToolEventService(request.ownerId ?? request.executionId, request.ownerPath)
+                }));
                 const toolContext: ToolExecutionBatchContext = {
                     requests: toolRequests,
                     mode: 'parallel',
@@ -1448,7 +1453,7 @@ export class ExecutionService {
             return this.toolEventServices.get(ownerId)!;
         }
         const baseService = this.scopedAgentEventService ?? this.baseEventService;
-        const scoped = bindEventServiceOwner(baseService, {
+        const scoped = bindWithOwnerPath(baseService, {
             ownerType: 'tool',
             ownerId,
             ownerPath: ownerPath ? ownerPath.map(segment => ({ ...segment })) : undefined,
@@ -1467,7 +1472,7 @@ export class ExecutionService {
             this.scopedAgentEventService = undefined;
             return;
         }
-        this.scopedAgentEventService = bindEventServiceOwner(this.baseEventService, {
+        this.scopedAgentEventService = bindWithOwnerPath(this.baseEventService, {
             ownerType: 'agent',
             ownerId: conversationId,
             ownerPath,

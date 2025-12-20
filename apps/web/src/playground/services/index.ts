@@ -1,6 +1,5 @@
 // Playground services surface (re-export legacy implementations under new layer)
 
-export * from '@/lib/playground/playground-event-service';
 export * from '@/lib/playground/execution-subscriber';
 export * from '@/lib/playground/universal-tool-factory';
 export * from '@/lib/playground/robota-executor';

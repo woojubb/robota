@@ -16,6 +16,8 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { PlaygroundExecutor, type PlaygroundExecutionResult, type PlaygroundAgentConfig, type PlaygroundMode, type ConversationEvent, type VisualizationData } from '@/lib/playground/robota-executor';
 import { DefaultConsoleLogger } from '@robota-sdk/agents';
+import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
+import { WorkflowSubscriberEventService } from '@/lib/playground/workflow-subscriber-event-service';
 // Import Universal types from their proper location (Feature Ownership principle)
 import type { UniversalWorkflowStructure } from '@robota-sdk/agents';
 
@@ -262,8 +264,10 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
             };
 
         case 'UPDATE_WORKFLOW_FROM_SDK':
-            console.log('🔄 [STEP 10.1] SDK Workflow updated (no merge):', action.payload ? 'Success' : 'Null');
-            console.log('🔄 [STEP 10.1] SDK Workflow nodes count:', action.payload?.nodes?.length || 0);
+            DefaultConsoleLogger.debug('SDK workflow updated (no merge)', {
+                hasWorkflow: !!action.payload,
+                nodeCount: action.payload?.nodes?.length || 0
+            });
             // UI 상태 업데이트
             if (typeof document !== 'undefined') {
                 const nodesCountElement = document.getElementById('workflow-nodes-count');
@@ -348,14 +352,15 @@ interface PlaygroundProviderProps {
 }
 
 export function PlaygroundProvider({ children, defaultServerUrl = '' }: PlaygroundProviderProps) {
-    console.log('🚨 [PLAYGROUND-PROVIDER] Component rendering! defaultServerUrl:', defaultServerUrl);
+    const logger = DefaultConsoleLogger;
+    logger.debug('PlaygroundProvider rendering', { defaultServerUrl });
 
     const [state, dispatch] = useReducer(playgroundReducer, {
         ...initialState,
         serverUrl: defaultServerUrl
     });
 
-    console.log('🚨 [PLAYGROUND-PROVIDER] Current state.executor:', !!state.executor);
+    logger.debug('PlaygroundProvider state', { hasExecutor: !!state.executor });
 
     // Use ref to track executor for cleanup without causing re-renders
     const executorRef = useRef<PlaygroundExecutor | null>(null);
@@ -370,25 +375,28 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
 
     // Auto-initialize executor on mount
     useEffect(() => {
-        console.log('🚨 [EXECUTOR-INIT] useEffect triggered! state.executor:', !!state.executor, 'defaultServerUrl:', defaultServerUrl);
+        logger.debug('Executor init effect triggered', { hasExecutor: !!state.executor, defaultServerUrl });
         if (!state.executor && defaultServerUrl) {
             try {
-                console.log('🚨 [EXECUTOR-INIT] Creating new PlaygroundExecutor...');
-                // Create executor directly (no separate initialization needed)
-                const executor = new PlaygroundExecutor(
-                    defaultServerUrl,
-                    'playground-token',
-                    DefaultConsoleLogger // Add logger for development
-                );
+                logger.debug('Creating PlaygroundExecutor');
+
+                const workflowSubscriber = new WorkflowEventSubscriber({ logger });
+                const eventService = new WorkflowSubscriberEventService(workflowSubscriber, logger);
+
+                const executor = new PlaygroundExecutor(defaultServerUrl, 'playground-token', {
+                    logger,
+                    workflowSubscriber,
+                    eventService
+                });
 
                 // Update state and ref
                 dispatch({ type: 'SET_INITIALIZED', payload: true });
                 dispatch({ type: 'SET_EXECUTOR', payload: executor });
                 executorRef.current = executor;
-                console.log('🚨 [EXECUTOR-INIT] PlaygroundExecutor created and state updated!');
+                logger.debug('PlaygroundExecutor created and stored');
 
             } catch (error) {
-                console.error('Failed to create executor:', error);
+                logger.error('Failed to create executor', { error: error instanceof Error ? error.message : String(error) });
                 dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to create executor' });
             }
         }
@@ -411,11 +419,10 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
 
         // Tool Call Event Listener - 범용적인 Tool Call 감지
         const handleToolCallStart = (event: any) => {
-            console.log('🔧 [EVENT DETECTED] Tool Call started:', event);
-            console.log('🔧 [EVENT DETECTED] Current workflow exists:', !!currentWorkflowRef.current);
+            logger.debug('Tool call started', { hasWorkflow: !!currentWorkflowRef.current });
 
             if (!currentWorkflowRef.current) {
-                console.log('⚠️ [EVENT DETECTED] No current workflow to update');
+                logger.warn('No current workflow to update for tool call start');
                 return;
             }
 
@@ -456,11 +463,10 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
 
         // Agent Creation Event Listener
         const handleAgentCreated = (event: any) => {
-            console.log('🤖 [EVENT DETECTED] Agent created:', event);
-            console.log('🤖 [EVENT DETECTED] Current workflow exists:', !!currentWorkflowRef.current);
+            logger.debug('Agent created event detected', { hasWorkflow: !!currentWorkflowRef.current });
 
             if (!currentWorkflowRef.current) {
-                console.log('⚠️ [EVENT DETECTED] No current workflow to update');
+                logger.warn('No current workflow to update for agent created');
                 return;
             }
 
@@ -504,29 +510,29 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
 
     // STEP 7.2.3: SDK Workflow 구독 useEffect
     useEffect(() => {
-        console.log('🚨 [STEP 7.2.3] Setting up SDK workflow subscription');
+        logger.debug('Setting up SDK workflow subscription');
 
         // UI 상태 업데이트: 연결 시도 중
         const statusElement = document.getElementById('sdk-subscription-status');
         if (statusElement) statusElement.textContent = 'Connecting...';
 
         if (!state.executor?.subscribeToWorkflowUpdates) {
-            console.log('🔍 [STEP 7.2.3] No workflow subscription available');
+            logger.debug('No workflow subscription available');
             if (statusElement) statusElement.textContent = 'Not Available';
             return;
         }
 
-        console.log('✅ [STEP 7.2.3] Setting up workflow subscription');
+        logger.debug('Setting up workflow subscription');
 
         // 실제 SDK 구독 설정
         state.executor.subscribeToWorkflowUpdates((workflow) => {
-            console.log('🔄 [STEP 7.2.3] Workflow update received:', !!workflow);
+            logger.debug('Workflow update received', { hasWorkflow: !!workflow });
             dispatch({ type: 'UPDATE_WORKFLOW_FROM_SDK', payload: workflow });
         });
 
         // UI 상태 업데이트: 연결 완료
         if (statusElement) statusElement.textContent = 'Connected';
-        console.log('🎉 [STEP 7.2.3] SDK subscription setup completed');
+        logger.debug('SDK subscription setup completed');
 
     }, [state.executor, state.isInitialized]);
 
@@ -534,17 +540,19 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
     useEffect(() => {
         if (!state.executor?.getCurrentWorkflow) return;
 
-        console.log('🔄 [STEP 7.2.4] Loading initial workflow');
+        logger.debug('Loading initial workflow');
 
         const loadInitialWorkflow = async () => {
             try {
                 const workflow = await state.executor?.getCurrentWorkflow();
-                console.log('🔄 [STEP 7.2.4] Initial workflow loaded:', !!workflow);
+                logger.debug('Initial workflow loaded', { hasWorkflow: !!workflow });
                 if (workflow && workflow.nodes.length > 0) {
                     dispatch({ type: 'UPDATE_WORKFLOW_FROM_SDK', payload: workflow });
                 }
             } catch (error) {
-                console.warn('⚠️ [STEP 7.2.4] Failed to load initial workflow:', error);
+                logger.warn('Failed to load initial workflow', {
+                    error: error instanceof Error ? error.message : String(error)
+                });
             }
         };
 
@@ -556,7 +564,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
     const createAgent = useCallback(async (config: PlaygroundAgentConfig) => {
         if (!state.executor || !state.isInitialized) {
             const error = new Error('Executor not initialized');
-            console.error('❌ Executor not ready:', error);
+            logger.error('Executor not ready', { error: error.message });
             throw error;
         }
 
@@ -669,14 +677,14 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             dispatch({ type: 'SET_EXECUTING', payload: true });
             dispatch({ type: 'SET_ERROR', payload: null });
 
-            console.log('🎯 [26-EXAMPLE-STRUCTURE] Executing prompt via real workflow system');
+            logger.debug('Executing prompt via real workflow system');
             const timestamp = Date.now();
             const userInputNodeId = `user-input-${timestamp}`;
 
             const externalStore = state.executor?.getExternalWorkflowStore();
             if (externalStore) {
                 // ❌ 인위적 User Input 노드 생성 제거됨 - 이벤트 시스템이 자동으로 노드 생성
-                console.log('🎯 [EVENT-SYSTEM-ONLY] User input processing - no artificial node creation');
+                logger.debug('User input processing (no artificial node creation)');
                 // ❌ 인위적 노드/엣지 생성 관련 코드 제거됨
 
                 // ❌ 인위적 Edge 생성 로직 제거됨
@@ -684,7 +692,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                 // ❌ 인위적 Edge 추가 제거됨
                 // 사용되지 않는 코드 블록 제거됨
             } else {
-                console.warn('⚠️ [STEP 9.1.3] External Store not available');
+                logger.warn('External Store not available');
             }
 
             // SDK owns workflow updates; no manual node status mutation
@@ -699,11 +707,11 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             }
 
             // 🎯 26번 예제 구조: 단순한 executor.execute 호출
-            console.log('🚀 [26-EXAMPLE-STRUCTURE] Starting execution with prompt:', prompt.substring(0, 100));
+            logger.debug('Starting execution with prompt', { preview: prompt.substring(0, 100) });
 
             const result = await state.executor.execute(prompt, onChunk);
 
-            console.log('✅ [26-EXAMPLE-STRUCTURE] Execution completed');
+            logger.debug('Execution completed');
 
             dispatch({ type: 'SET_EXECUTION_RESULT', payload: result });
 
@@ -758,11 +766,9 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
             return result;
 
         } catch (error) {
-            console.error('❌ executeStreamPrompt error in context:', error);
-            console.error('❌ Context error details:', {
-                message: error instanceof Error ? error.message : 'Unknown error',
+            logger.error('executeStreamPrompt error', {
+                error: error instanceof Error ? error.message : String(error),
                 stack: error instanceof Error ? error.stack : undefined,
-                prompt,
                 hasExecutor: !!state.executor,
                 isInitialized: state.isInitialized
             });
@@ -807,7 +813,7 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
                 await executorRef.current.dispose();
                 executorRef.current = null;
             } catch (error) {
-                console.error('Error disposing executor:', error);
+                logger.error('Error disposing executor', { error: error instanceof Error ? error.message : String(error) });
             }
         }
         // Dispose는 state.executor가 null이 되는 것으로 처리됨
@@ -864,7 +870,9 @@ export function PlaygroundProvider({ children, defaultServerUrl = '' }: Playgrou
         return () => {
             // Clean up executor on unmount using ref
             if (executorRef.current) {
-                executorRef.current.dispose().catch(console.error);
+                executorRef.current.dispose().catch((error) => {
+                    logger.error('Executor dispose failed', { error: error instanceof Error ? error.message : String(error) });
+                });
             }
         };
     }, []); // Empty dependency array - only cleanup on unmount

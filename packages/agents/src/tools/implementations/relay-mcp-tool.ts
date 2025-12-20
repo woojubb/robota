@@ -16,8 +16,6 @@ export interface RelayMcpContext {
 export interface RelayMcpOptions extends AbstractToolOptions {
     /** MCP schema describing this relay tool */
     schema: ToolSchema;
-    /** EventService already bound to tool ownerPath (caller responsibility) */
-    eventService: EventService;
     /**
      * Relay executor that performs the actual work (e.g., create Robota agent and run).
      * Must not perform ownerPath inference; receives the augmented agent ownerPath.
@@ -44,9 +42,9 @@ export class RelayMcpTool extends AbstractTool<ToolParameters, ToolResult> {
     }
 
     protected override async executeImpl(parameters: ToolParameters, context?: ToolExecutionContext): Promise<ToolResult> {
-        const eventService = this.getEventService() as EventService | undefined;
+        const eventService = context?.eventService;
         if (!eventService) {
-            throw new ToolExecutionError('RelayMcpTool requires bound EventService', this.schema.name);
+            throw new ToolExecutionError('RelayMcpTool requires tool-call scoped EventService in ToolExecutionContext', this.schema.name);
         }
 
         const baseOwnerPath = context?.ownerPath;

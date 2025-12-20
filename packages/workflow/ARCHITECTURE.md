@@ -22,7 +22,7 @@ Workflow 패키지는 Robota SDK의 이벤트 기반 워크플로우 시각화 �
 - 도메인별 타입 확장 지원
 
 ### 4. 통합 EventService 아키텍처
-- EventService (ActionTrackingEventService) 기반 컨텍스트 전파
+- EventService (ownerPath context) based context propagation
 - `createChild(this)` 패턴을 통한 계층적 이벤트 관리
 - 단일 `extractors` 배열 방식으로 도메인 중립적 컨텍스트 추출
 
@@ -52,7 +52,7 @@ apps/web
     ↓ uses
 packages/workflow (EventService 통합)
     ↓ imports
-packages/agents (ActionTrackingEventService), team
+packages/agents (EventService + ownerPath context)
 ```
 
 ## 🔧 핵심 컴포넌트
@@ -251,10 +251,10 @@ workflowSubscriber.registerHandler(new CustomEventHandler({
 ### 기본 사용 (EventService 통합)
 ```typescript
 import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
-import { ActionTrackingEventService, DEFAULT_EVENT_SERVICE } from '@robota-sdk/agents';
+import { DEFAULT_ABSTRACT_EVENT_SERVICE } from '@robota-sdk/agents';
 
 // EventService 설정
-const rootEventService = new ActionTrackingEventService(DEFAULT_EVENT_SERVICE);
+const rootEventService = DEFAULT_ABSTRACT_EVENT_SERVICE;
 
 // WorkflowEventSubscriber와 통합
 const subscriber = new WorkflowEventSubscriber(rootEventService);
@@ -266,10 +266,10 @@ subscriber.subscribeToWorkflowUpdates((update) => {
 ### 커스텀 핸들러 추가 (EventService 활용)
 ```typescript
 import { EventHandler } from '@robota-sdk/workflow';
-import { ActionTrackingEventService } from '@robota-sdk/agents';
+import type { EventService } from '@robota-sdk/agents';
 
 class MyCustomHandler implements EventHandler {
-  constructor(private eventService: ActionTrackingEventService) {}
+  constructor(private eventService: EventService) {}
   
   canHandle(eventType: string): boolean {
     return eventType.startsWith('my-domain.');
@@ -317,13 +317,13 @@ subscriber.registerHandler(new MyCustomHandler(rootEventService));
 - ✅ 모든 핸들러 완전 구현 및 테스트
 - ✅ 타입 안전성 100% 달성
 
-### Phase 6: ContextualEventService 통합 준비 ✅ **완료**
-- ✅ ContextualEventService 단일 배열 `extractors` 방식 완성
+### Phase 6: EventService context propagation
+- Use EventService + ownerPath context (no legacy contextual aliases)
 - ✅ `createChild(this)` 패턴 구현 완료
 - ✅ 도메인 중립적 컨텍스트 추출 시스템 완성
 - ✅ EventService 인터페이스 표준화 준비
 
-## 🎯 **패키지 완성도: 100% + ContextualEventService 통합 준비 완료**
+## 🎯 Package status: EventService ownerPath context ready
 
 **workflow 패키지는 독립적으로 완전히 동작 가능하며, ContextualEventService와의 통합을 위한 모든 준비가 완료된 상태입니다.**
 

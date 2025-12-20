@@ -2,8 +2,8 @@
  * Agent event constants
  * 
  * Events emitted by Agent instances themselves.
- * The 'agent.' prefix is automatically prepended by ActionTrackingEventService
- * when ownerPrefix is set to 'agent'.
+ * Do not assume a specific prefix-injection implementation.
+ * Event ownership must be enforced by the emitting service using EventService + ownerPath context.
  * 
  * 🎯 [PREFIX-INJECTION] These constants define only the event name without prefix.
  * The EventService with ownerPrefix='agent' will automatically convert:
