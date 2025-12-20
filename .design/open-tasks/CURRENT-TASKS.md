@@ -166,7 +166,7 @@
 
 ---
 
-## 🔥 Priority 1: Agent Event Normalization (진행중)
+## 📝 Priority 1: .design Documentation Maintenance (선택)
 
 ### 목적
 - `.design` 전역 문서를 최신 상태로 유지하고, CURRENT-TASKS 단일 소스로 계획을 집중한다.
@@ -207,7 +207,7 @@ rg "Priority" -g"*.md"
 
 ---
 
-## 🔥 Priority 1: Agent Event Normalization (진행중)
+## 🔥 Priority 1-B: Agent Event Normalization (진행중)
 
 ### 완료된 단계
 - [x] 단계 1: Agent가 스스로 올바른 이벤트 emit 보장
@@ -223,8 +223,8 @@ rg "Priority" -g"*.md"
         - [ ] ExecutionService가 Agent를 생성할 때 현재 scenario context를 복제해 child agent에 주입
         - [ ] Provider Recorder/Mock는 기존대로 context만 받으면 자동으로 동작하므로, Tool mock → Agent → Provider로 이어지는 체인이 완성
       - [ ] 검증/감시
-        - [ ] playback 모드에서 실제 Tool/Provider 호출이 발생하면 즉시 예외
-        - [ ] scenario step 소비 여부(tracking) → replay 후 미사용 step 존재 시 실패 처리
+        - [x] playback 모드에서 실제 Provider 호출이 발생하면 즉시 예외 (playback에서는 delegate provider 주입을 거부)
+        - [x] scenario step 소비 여부 추적 후, 미사용 step 존재 시 실패 처리 (`[SCENARIO-UNUSED]`)
   - [ ] 추가 세분화:
     - [ ] Mock Provider 응답 시퀀스 로더 구현 계획 (파일→메모리→provider)
     - [ ] Recorder가 파일에 append 시 concurrency/ordering을 어떻게 보장할지 결정 (예: timestamp-based filename)
@@ -379,9 +379,12 @@ rg "Priority" -g"*.md"
         - 규칙: `ScenarioStore.appendStep()`는 `scenarios/.locks/<scenarioId>.lock`를 `wx`로 획득하지 못하면 즉시 실패(대기/재시도 없음).
         - stale lock: recorder 프로세스 크래시로 lockfile이 남을 수 있으며, 이 경우 개발자가 lockfile을 수동 삭제 후 재시도한다(자동 우회/폴백 금지).
    4. Guard 통합
-      - [ ] Guard 스크립트가 `SCENARIO_RECORD_ID`/`SCENARIO_PLAY_ID`를 감지해 Recorder/Mock를 자동 주입하도록 업데이트.
-      - [ ] playback 모드에서 실제 Provider/Tool 호출 감지 시 즉시 실패하도록 감시 로직 추가 (`assertNoRealCalls()`).
-      - [ ] scenario step 소비 여부 추적 후, 미사용 step이 남으면 “[SCENARIO-UNUSED] …” 경고를 띄우고 실패 처리.
+      - [x] Guard 스크립트가 `SCENARIO_RECORD_ID`/`SCENARIO_PLAY_ID`를 감지해 Recorder/Mock를 자동 주입하도록 업데이트.
+      - [x] playback 모드에서 실제 Provider/Tool 호출 감지 시 즉시 실패하도록 감시 로직 추가 (`assertNoRealCalls()`).
+      - [x] scenario step 소비 여부 추적 후, 미사용 step이 남으면 “[SCENARIO-UNUSED] …” 경고를 띄우고 실패 처리.
+      - 구현 메모:
+        - `apps/examples/lib/scenario-provider.ts`: `createScenarioProviderFromEnv()`로 record/play/none 단일 진입점 고정
+        - guarded 예제(26/27)는 play 모드만 허용하며, 종료 시 `assertNoUnusedSteps()`로 unused step이면 즉시 실패
 
 #### 단계 6.5: 단일 전환 단계 (Decision Gate)
 - [x] Agent 핸들러: `agent.execution_start`는 상태 전이만 (노드 생성 절대 금지)
@@ -546,9 +549,9 @@ npx tsx utils/verify-workflow-connections.ts | cat
   - [x] 검증 에러 메시지에 `[EVENT-SERVICE]`/`[PATH-ONLY]` prefix를 사용해 필터링 가능하게 표준화
 
 ### A-2. WorkflowState 경량화
-- [ ] `packages/workflow/src/services/workflow-state.ts`
-  - [ ] 보류/임시 큐/배리어 관련 상태·API 제거
-  - [ ] Path-Only 원칙에 맞게 단순화
+- [x] `packages/workflow/src/services/workflow-state.ts`
+  - [x] 보류/임시 큐/배리어 관련 상태·API 제거 (최소 read-only indices만 유지)
+  - [x] Path-Only 원칙에 맞게 단순화
 
 ### A-3. 이벤트 소유권 정비
 **목표**: 이벤트 접두어를 원천적으로 보호하여 잘못된 소유권 사용 방지
@@ -601,31 +604,33 @@ npx tsx utils/verify-workflow-connections.ts | cat
   - [ ] executor 에러를 UI 표준 에러로 변환
 
 ### B-2. Tools 목록 관리(UI)
-- [ ] `ToolItem` 타입 선언 및 유효성 체크
-- [ ] `toolItems` 상태 초기값 및 setter
-- [ ] 사이드바 카드 리스트 렌더 (스크롤/접근성)
-- [ ] `+ Add Tool` 모달 (name, description)
-- [ ] ID 생성 규칙 (kebab + 6자리 토큰) 및 중복 방지
-- [ ] 추가 후 정렬 및 포커스 이동
-- [ ] 삭제/이름변경 (선택)
+- [x] `ToolItem` 타입 선언 및 유효성 체크 (`PlaygroundToolMeta`)
+- [x] `toolItems` 상태 초기값 및 setter (PlaygroundContext: `getPlaygroundToolCatalog()` + `setToolItems`)
+- [x] 사이드바 카드 리스트 렌더 (스크롤/접근성)
+- [x] `+ Add Tool` 모달 (name, description)
+- [x] ID 생성 규칙 (kebab + 6자리 토큰) 및 중복 방지 (충돌 시 fail-fast + 재시도)
+- [x] 추가 후 정렬 및 포커스 이동 (scrollIntoView + focus)
+- [x] 삭제 (builtin 제외)
 
 ### B-3. DnD 상호작용 보강
 - [ ] 빠른 연속 드롭 디바운스
 - [ ] 중복 드롭 시 UI 유지
 
 ### B-4. UI 오버레이 상태 (addedToolsByAgent)
-- [ ] 타입 정의: `AddedToolsByAgent = Record<AgentId, string[]>`
-- [ ] 상위 페이지 상태 `addedToolsByAgent` 구현
-- [ ] `onToolDrop(agentId, tool)` 집합 추가
-- [ ] `WorkflowVisualization`에 props 전달
-- [ ] `AgentNode` 렌더 시 합집합 뱃지 표시
-- [ ] 병합 규칙: SDK 도구 ∪ 오버레이 도구
-- [ ] 성공/실패 토스트 표준화
+- [x] 타입 정의: `AddedToolsByAgent = Record<AgentId, string[]>` (web: `Record<string, string[]>`)
+- [x] 상위 페이지 상태 `addedToolsByAgent` 구현 (PlaygroundContext로 전역 고정)
+- [x] `onToolDrop(agentId, tool)` 집합 추가 (drop 성공 시 overlay 갱신)
+- [x] `WorkflowVisualization`에 props 전달 (`addedToolsByAgent`, `toolItems`)
+- [x] `AgentNode` 렌더 시 합집합 뱃지 표시 (추가된 tool badge + 목록)
+- [x] 병합 규칙: SDK 도구 ∪ 오버레이 도구
+  - 정의: Agent 노드의 “Tools” 표시는 `(SDK tools from workflow) ∪ (UI overlay tools)`의 합집합으로 계산/표시한다.
+  - 원칙: SDK 그래프/노드/엣지는 변경하지 않고, UI는 overlay만 추가로 보여준다(Path-only 보존).
+- [x] 성공/실패 토스트 표준화 (`useToast()` 기반)
 
 ### B-5. 수용 기준
-- [ ] 드래그 시 Agent 노드 시각적 반응
-- [ ] 드롭 시 툴 뱃지 즉시 추가 (중복 없음)
-- [ ] Workflow Path-Only 보존
+- [x] 드래그 시 Agent 노드 시각적 반응
+- [x] 드롭 시 툴 뱃지 즉시 추가 (중복 없음)
+- [x] Workflow Path-Only 보존
 
 ---
 
@@ -669,7 +674,7 @@ npx tsx utils/verify-workflow-connections.ts | cat
 ### Fork/Join Path-Only
 - [ ] `groupId`/`branchId`/`responseExecutionId` 제거
 - [ ] WorkflowState 경량화 완료
-- [ ] 이벤트 소유권 ESLint 룰 적용
+- [x] 이벤트 소유권 ESLint 룰 적용 (emit/on/once/off 문자열 리터럴 금지)
 - [x] Continued Conversation 예제 27 통과
 
 ### Tools DnD

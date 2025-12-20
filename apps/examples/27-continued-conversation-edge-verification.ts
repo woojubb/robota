@@ -8,7 +8,7 @@ import { DefaultConsoleLogger } from '@robota-sdk/agents';
 import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
 
 import { ScenarioStore } from './utils/scenario-store';
-import { createScenarioMockProvider } from './lib/scenario-provider';
+import { createScenarioProviderFromEnv } from './lib/scenario-provider';
 import { WorkflowSubscriberEventService } from './lib/workflow-subscriber-event-service';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -74,16 +74,18 @@ const buildAssignTaskTool = (aiProvider: AIProvider): FunctionTool => {
 };
 
 async function main(): Promise<void> {
-    const scenarioId = requireNonEmptyEnv('SCENARIO_PLAY_ID');
     const store = new ScenarioStore({ baseDir: path.resolve(__dirname, 'scenarios') });
 
-    const provider = createScenarioMockProvider({
-        scenarioId,
+    const scenario = createScenarioProviderFromEnv({
         store,
-        strategy: 'sequential',
+        defaultPlayStrategy: 'sequential',
         providerName: 'openai',
         providerVersion: 'mock-scenario'
     });
+    if (scenario.mode !== 'play') {
+        throw new Error(`[GUARD] This example requires scenario playback. Set SCENARIO_PLAY_ID (mode=${scenario.mode}).`);
+    }
+    const provider = scenario.provider;
 
     const subscriber = new WorkflowEventSubscriber({ logger: DefaultConsoleLogger });
     const bridge = new WorkflowSubscriberEventService(subscriber, DefaultConsoleLogger);
@@ -109,6 +111,7 @@ async function main(): Promise<void> {
     await agent.run('First message: delegate one task using assignTask, then respond briefly.');
     await agent.run('Second message: continue based on previous response; do not reset context.');
     await bridge.flush();
+    await scenario.assertNoUnusedSteps();
 
     const snapshot = subscriber.getWorkflowSnapshot();
     const nodes = snapshot.nodes;

@@ -20,6 +20,7 @@ import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
 import type { EventService, SimpleLogger } from '@robota-sdk/agents';
 // Import Universal types from their proper location (Feature Ownership principle)
 import type { UniversalWorkflowStructure } from '@robota-sdk/agents';
+import { getPlaygroundToolCatalog, type PlaygroundToolMeta } from '@/tools/catalog';
 
 // ===== State Types =====
 
@@ -69,6 +70,10 @@ export interface PlaygroundState {
         agentModeExecutions: 0,
         successRate: 100
     };
+
+    // Tools DnD state (UI overlay)
+    toolItems: PlaygroundToolMeta[];
+    addedToolsByAgent: Record<string, string[]>;
 }
 
 export type PlaygroundAction =
@@ -90,7 +95,9 @@ export type PlaygroundAction =
     | { type: 'SET_EXECUTION_RESULT'; payload: PlaygroundExecutionResult }
     | { type: 'SET_CURRENT_WORKFLOW'; payload: UniversalWorkflowStructure | null }
     | { type: 'UPDATE_WORKFLOW_FROM_SDK'; payload: UniversalWorkflowStructure }  // STEP 7.2.2: 새로 추가
-    | { type: 'UPDATE_NODE_STATUS'; payload: { nodeId: string; status: 'pending' | 'ready' | 'running' | 'completed' | 'error' } };
+    | { type: 'UPDATE_NODE_STATUS'; payload: { nodeId: string; status: 'pending' | 'ready' | 'running' | 'completed' | 'error' } }
+    | { type: 'SET_TOOL_ITEMS'; payload: PlaygroundToolMeta[] }
+    | { type: 'ADD_TOOL_TO_AGENT_OVERLAY'; payload: { agentId: string; toolId: string } };
 
 // ===== Initial State =====
 
@@ -126,7 +133,9 @@ const initialState: PlaygroundState = {
         streamingExecutions: 0,
         agentModeExecutions: 0,
         successRate: 100
-    }
+    },
+    toolItems: getPlaygroundToolCatalog(),
+    addedToolsByAgent: {}
 };
 
 // ===== Reducer =====
@@ -254,7 +263,28 @@ function playgroundReducer(state: PlaygroundState, action: PlaygroundAction): Pl
                     ...action.payload
                 } as any
             };
+ 
+        case 'SET_TOOL_ITEMS':
+            return {
+                ...state,
+                toolItems: [...action.payload]
+            };
 
+        case 'ADD_TOOL_TO_AGENT_OVERLAY': {
+            const { agentId, toolId } = action.payload;
+            const prev = state.addedToolsByAgent[agentId] ?? [];
+            const next = prev.includes(toolId) ? prev : [...prev, toolId];
+            if (next === prev) {
+                return state;
+            }
+            return {
+                ...state,
+                addedToolsByAgent: {
+                    ...state.addedToolsByAgent,
+                    [agentId]: next
+                }
+            };
+        }
 
 
         case 'SET_CURRENT_WORKFLOW':
@@ -336,6 +366,8 @@ interface PlaygroundContextValue {
     setWorkflow: (workflow: UniversalWorkflowStructure | null) => void;
     updateNodeStatus: (nodeId: string, status: 'pending' | 'ready' | 'running' | 'completed' | 'error') => void;
     setExecuting: (isExecuting: boolean) => void;
+    setToolItems: (tools: PlaygroundToolMeta[]) => void;
+    addToolToAgentOverlay: (agentId: string, toolId: string) => void;
 
     // Getters
     getVisualizationData: () => any;
@@ -826,6 +858,14 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
         }
     }, []);
 
+    const setToolItems = useCallback((tools: PlaygroundToolMeta[]) => {
+        dispatch({ type: 'SET_TOOL_ITEMS', payload: tools });
+    }, []);
+
+    const addToolToAgentOverlay = useCallback((agentId: string, toolId: string) => {
+        dispatch({ type: 'ADD_TOOL_TO_AGENT_OVERLAY', payload: { agentId, toolId } });
+    }, []);
+
     const updateNodeStatus = useCallback((nodeId: string, status: 'pending' | 'ready' | 'running' | 'completed' | 'error') => {
         dispatch({ type: 'UPDATE_NODE_STATUS', payload: { nodeId, status } });
     }, []);
@@ -893,6 +933,8 @@ export function PlaygroundProvider({ children, defaultServerUrl = '', createEven
         setWorkflow,
         updateNodeStatus,
         setExecuting,
+        setToolItems,
+        addToolToAgentOverlay,
         getVisualizationData,
         getConnectionStatus
     };
