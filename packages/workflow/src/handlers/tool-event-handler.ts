@@ -18,7 +18,6 @@ import type { WorkflowEdge } from '../interfaces/workflow-edge.js';
 import { EdgeUtils } from '../interfaces/workflow-edge.js';
 import type { WorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES, type WorkflowNodeType } from '../constants/workflow-types.js';
-import { WorkflowState } from '../services/workflow-state.js';
 import { HandlerPriority as Priority } from '../interfaces/event-handler.js';
 import { TOOL_EVENTS } from '@robota-sdk/agents';
 

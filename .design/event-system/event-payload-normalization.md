@@ -10,7 +10,7 @@
 | execution | `start`, `user_message`, `assistant_message_start`, `assistant_message_complete`, `tool_results_ready`, `tool_results_to_llm`, `complete`, `error` | `parameters.input`, `parameters.agentConfiguration`, `metadata.*`, `result.*`, `toolsInfo`, `aiProviderInfo`, `responseMetrics.*` | `rootExecutionId`, `parentExecutionId`, `executionLevel`, `executionPath`, `path`, `sourceType/sourceId` | 모든 emit 지점에서 동일 패턴. path/level은 ownerPath segment로 100% 표현 가능. |
 | tool | `call_start`, `call_complete`, `call_response_ready`, `call_error`(예약) | `toolName`, `parameters`, `result`, `metadata.success`, `delegatedExecId` | `executionId`, `rootExecutionId`, `executionLevel`, `executionPath`, `parentExecutionId` | `executionId`는 사실상 tool_call node id → ownerPath에 `{ type: 'tool', id: toolCallId }` segment로 대체 가능. |
 | agent | `created`, `config_updated`, `execution_start`, `execution_complete`, `execution_error`, `aggregation_complete` | `parameters.tools`, `configVersion`, `statusHistory`, `agentCapabilities`, `originalEvent` | `executionLevel`, `rootExecutionId`, `parentExecutionId`, `sourceId`, `timestamp` | `agentOwnerContext` 제거 후 helper로 대체 예정. |
-| team (향후) | `team.*` 미사용 | - | - | TeamContainer는 현재 이벤트 미발행. |
+| team | `team.*` (미사용) | - | - | 현재 설계의 기본 흐름은 team에 의존하지 않으며, team 이벤트는 emit하지 않는다. |
 
 ### 세부 비고
 - `execution.*` payload에 포함된 `path`, `executionPath` 필드는 ownerPath의 스냅샷과 중복되므로 context helper(`buildOwnerContext`)만으로 파생 가능.
@@ -28,17 +28,22 @@
 | `originalEvent` | raw event snapshot | object | 유지, 단 `extensions.robota.originalEvent` 내에만 존재 |
 
 ## Context 파생 규칙 요약
-- `ownerPath`는 `[rootExecutionId, executionId, toolCallId?, agentId?]` 순으로 누적되며, handler는 `getNearestOwner(ownerPath, type)` helper로 필요 ID를 조회.
-- `sourceId`, `rootExecutionId`, `parentExecutionId`, `executionLevel`, `executionPath`, `path` → `ownerPath`에서 파생 가능하므로 payload 제거 대상.
-- EventService 인스턴스는 단일 owner에 바인딩되며 emit 시 `sourceType/sourceId/timestamp`를 자동 주입한다. 호출부는 도메인 데이터만 전달하고 timestamp를 명시하지 않는다.
-- 기본 EventService는 `DEFAULT_ABSTRACT_EVENT_SERVICE` no-op 인스턴스를 사용하고, `DEFAULT_EVENT_SERVICE`는 호환용 deprecated alias로 유지한다. ActionTracking 생성 대신 ownerPath 바운드 인스턴스를 사용한다.
+- `context.ownerPath`는 **absolute full path**이며, 세그먼트는 `{ type: string; id: string }` 형태로 누적된다.
+  - 예: `[ {type:'agent', id:'agent_0'}, {type:'execution', id:'exec_...'}, {type:'thinking', id:'thinking_agent_0_round1'}, {type:'tool', id:'call_...'} ]`
+- `path: string[]`는 브릿지 계층(예: `WorkflowSubscriberEventService`)에서 `context.ownerPath[].id`를 펼친 파생 값이다.
+- `rootExecutionId`, `parentExecutionId`, `executionLevel`, `executionPath`, `path` 등 계층/관계 필드는 ownerPath에서 파생 가능하므로 payload 제거 대상.
+- EventService 인스턴스는 **단일 owner에 바인딩(owner-bound)** 되며 emit 시 `timestamp` 등 공통 필드를 자동 처리한다. 호출부는 **도메인 데이터만 전달**한다.
+- Tool이 다른 owner(예: agent)를 생성해야 한다면, tool-call owner-bound 인스턴스를 재바인딩하지 말고 **unbound baseEventService**에서 새 owner-bound 인스턴스를 만든다(레이어 충돌 금지).
 
 ## Context Binder 규약 (제안)
 - 단일 헬퍼: `bindWithOwnerPath(eventService, ctx: ToolExecutionContext & { ownerType: OwnerType; ownerId?: string })`는 ownerPath append + ownerType/ownerId/sourceId/timestamp 자동 주입만 수행한다. 기존 인스턴스는 불변.
 - 엄격 검증: 필수 필드(executionId/ownerType/ownerPath segment)가 없으면 즉시 throw. fallback/no-op 금지.
 - 금지사항: 접두어(prefix) 처리, ID 파싱/regex, dedup/cache/lastX 상태, 지연 연결/재시도, 수동 timestamp/source 주입.
 - payload 최소화: 바운드 EventService 사용 시 payload에 계층/타임스탬프 필드가 들어오면 lint/런타임 가드로 차단하는 것을 검토한다.
-- 타입 제약: ToolExecutionContext는 `ownerPath` 필수, `ownerType` 필수, `ownerId` 선택으로 좁히고, createContextBoundInstance는 이 제약을 요구한다.
+- 타입 제약(최신 방향): ToolExecutionContext는
+  - `eventService`(tool-call owner-bound)와
+  - `baseEventService`(unbound base)
+  를 함께 제공해야 한다(“툴이 agent를 생성”하는 실제 케이스를 지원하기 위함).
 - 적용 순서: (1) binder 헬퍼 추가 및 createContextBoundInstance 단순화 (2) ToolExecutionService/Robota/team 호출부를 binder로 통일하며 수동 계층 필드 제거 (3) 타입 좁히기 및 가드 추가 (4) CURRENT-TASKS 반영.
 
 ## 다음 단계
@@ -53,14 +58,7 @@
   "type": "object",
   "properties": {
     "eventType": { "type": "string" },
-    "source": {
-      "type": "object",
-      "properties": {
-        "type": { "enum": ["agent", "execution", "tool", "team"] },
-        "id": { "type": "string" }
-      },
-      "required": ["type", "id"]
-    },
+    "context": { "type": "object" },
     "timestamp": { "type": "string", "format": "date-time" },
     "parameters": { "type": "object" },
     "metadata": { "type": "object" },
@@ -78,7 +76,7 @@
       }
     }
   },
-  "required": ["eventType", "source"]
+  "required": ["eventType"]
 }
 ```
 

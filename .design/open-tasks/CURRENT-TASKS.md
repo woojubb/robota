@@ -9,12 +9,12 @@
 ## 🚨 Priority 0: 이벤트 서비스 표준화
 
 ### 목표
-- `ActionTrackingEventService`를 완전히 대체하고, `EventService`가 context 기반 ownerPath 구조를 표준으로 사용하도록 리팩터링한다.
-- prefix 기반 로직을 제거하고, 핸들러가 `ownerPath`/공통 필드만으로 이벤트 출처를 판별하도록 한다.
+- `EventService`가 **context 기반 absolute ownerPath**를 표준으로 사용하도록 리팩터링한다.
+- prefix 기반 로직을 제거하고, 핸들러가 **`context.ownerPath`만으로** 이벤트 출처/관계를 판별하도록 한다.
 
 ### 작업 항목
 1. **기반 정리**
-   - [x] `ActionTrackingEventService`에 `@deprecated` 주석/문구 추가
+   - [x] `ActionTrackingEventService` 제거(새 구조에서는 사용 금지)
    - [ ] 사용처 목록화 및 제거 계획 수립:
       - [x] `packages/agents/src/core/robota.ts` (기존 `src/agents/`에서 이동 완료)
         - [x] `ActionTrackingEventService` 생성 분기 제거, 기본 EventService + ownerType='agent' 주입
@@ -31,8 +31,8 @@
    - [x] 외부 re-export(`ContextualEventService` 등) deprecated 공지 및 향후 제거 계획 추가
    - [x] 기본 `EventService`에 `emit(eventType, payload, context)` 시그니처 표준화
    - [ ] `SilentEventService` 제거 및 추상 클래스화
-     - [x] `DEFAULT_ABSTRACT_EVENT_SERVICE` 도입 및 `DEFAULT_EVENT_SERVICE`를 deprecated alias로 전환
-     - [x] DI 기본값을 Abstract no-op으로 교체 (agents/core/robota, execution-service, team container, sub-agent relay, assign-task, create-team)
+     - [x] `DEFAULT_ABSTRACT_EVENT_SERVICE` 단일 기준으로 통일(`DEFAULT_EVENT_SERVICE` 제거)
+     - [x] DI 기본값을 Abstract no-op으로 교체 (agents/core/robota, execution-service, team container, delegated-agent relay, assign-task, create-team)
      - [ ] Tools/Playground DI 전환 잔여
      - [ ] **1순위(진행 예정): ToolExecutionService + Tools/Playground DI(ownerPath-only) 잔여 마감**
        - 배경(현상)
@@ -72,7 +72,7 @@
        - 완료 조건(이 항목만)
          - [x] Tool/Playground 코드에서 **EventService 직접 생성 경로가 0**이 된다(DI-only).
          - [x] Tool이 agent를 생성하는 경우에도 ownerPath-only로 연결된다(툴 세그먼트 포함 ownerPath를 그대로 이어받고 `{ type: 'agent', id }`만 append).
-         - [ ] 이벤트명 하드코딩 금지(소유 모듈 상수만 사용), prefix/ID 파싱/추론/지연 연결/폴백 없음.
+         - [x] 이벤트명 하드코딩 금지(소유 모듈 상수만 사용), prefix/ID 파싱/추론/지연 연결/폴백 없음.
      - [x] `SilentEventService` 파일 삭제: `AbstractEventService`가 기본 no-op 구현을 내장하고, 필요 시 `DEFAULT_ABSTRACT_EVENT_SERVICE` 상수로 제공
      - [x] SilentEventService 잔여 참조 0건 확인 및 문서/코드에서 관련 문구 제거 (삭제가 목표, deprecated 문구 금지)
      - [x] Context binder 규약 적용: `bindWithOwnerPath` 단일 헬퍼 도입, createContextBoundInstance 단순화(ownerPath-only), 필수 필드 미제공 시 throw(노-폴백), prefix/ID 파싱/캐시 금지
@@ -311,20 +311,21 @@ rg "Priority" -g"*.md"
 | 3 | `tool.call_start` | `tool_call` | `thinking_round1 → tool_call (invokes)` | `ts0 + 2` |
 | 4 | `agent.created` (delegated) | 하위 Agent 노드 | `tool_call → agent (spawn)` | `ts_child` |
 | 5 | `agent.execution_start` | 기존 Agent 노드 상태 전이만 | 엣지 없음 | `ts_child + ε` |
-| 6 | `execution.assistant_message_complete` (delegated) | sub-agent response | `agent_thinking → response (return)` | 증가 |
-| 7 | `tool.call_response_ready` | `tool_response` | `response → tool_response (result)` | parent 증가 |
+| 6 | `execution.assistant_message_complete` (delegated) | delegated agent response | `agent_thinking → response (return)` | 증가 |
+| 7 | `tool.call_response_ready` | `tool_response` | `delegated response → tool_response (result)` | parent 증가 |
 | 8 | `execution.tool_results_ready` | `tool_result` | 모든 `tool_response → tool_result (result)` | `parent + ε` |
 | 9 | `execution.assistant_message_start` (round2) | `thinking_round2` | `tool_result → thinking_round2 (analyze)` | `parent + 2ε` |
 | 10 | `execution.assistant_message_complete` (final) | 최종 response | `thinking_round2 → response (return)` | 증가 |
 
 - Timestamp 규칙: 동일 path 내 신규 노드는 직전 노드보다 최소 +1, round2 thinking은 `tool_result`보다 항상 커야 함.
-- WorkflowState 규칙: `agent.created`에서 map을 등록하고, `agent.execution_start`는 동일 sourceId 노드만 갱신(모두 실패 시 fallback + 경고).
+- WorkflowState 규칙: `agent.created`에서 map을 등록하고, `agent.execution_start`는 동일 sourceId 노드만 갱신한다(연결 정보 부족 시 즉시 실패, No-Fallback).
 
 ##### 남은 작업
 1. **이론 시뮬레이션 기록**
-   - [ ] assignTask fork 시나리오(user_message → thinking → tool_call → sub-agent → tool_result → thinking_round2 → response)를 표/다이어그램으로 정리하고 Path-only 조건을 명시한다.
-   - [ ] 각 이벤트의 edge 타입, timestamp 공식, WorkflowState 업데이트 요건을 정의하여 “start node 1개·단일 컴포넌트·순차 timestamp” 조건을 체크한다.
-   - [ ] 시나리오별(예제 26/27) 차이를 비교하고, 필요한 수정 포인트 목록을 `.design` 문서에 요약한다.
+  - [x] assignTask fork 시나리오(user_message → thinking → tool_call → delegated agent → tool_result → thinking_round2 → response)를 표/다이어그램으로 정리하고 Path-only 조건을 명시한다.
+    - 문서: `.design/event-system/assign-task-fork-scenario.md`
+  - [x] 각 이벤트의 edge 타입, timestamp 공식, WorkflowState 업데이트 요건을 정의하여 “start node 1개·단일 컴포넌트·순차 timestamp” 조건을 체크한다.
+  - [x] 시나리오별(예제 26/27) 차이를 비교하고, 필요한 수정 포인트 목록을 `.design` 문서에 요약한다.
 2. **구현/검증 순서**
    1. 코드 준비
       - [ ] `agent-event-handler.ts`에 `updateAgentExecutionState(event)` 헬퍼 추가 (status 갱신, WorkflowState 연동, logger.warn fallback).
@@ -358,7 +359,7 @@ rg "Priority" -g"*.md"
       - [ ] “fallback warn 0회, Guard PASS 2회 연속”을 단계 6.5 진입 조건으로 명시.
       - [ ] 조건 충족 시 Priority 1 섹션에 “Stage3 → Stage6.5 hand-off ready” 메모 추가.
 3. **이벤트 서비스 표준화**
-   - [ ] `ActionTrackingEventService`는 deprecated 처리하고, 기본 `EventService`가 context 기반으로 동작하도록 정리한다.
+   - [x] `ActionTrackingEventService` 제거하고, 기본 `EventService`를 ownerPath context 기반으로 고정한다.
    - [ ] emit 시그니처를 `emit(eventType, payload, context)`로 통일하고, context에는 `ownerPath`와 공통 필드(`ownerType`, `sourceId` 등)만 포함한다. 계층별 특수 필드는 허용하지 않는다.
    - [ ] `ownerPath`는 `Array<{ type: OwnerType; id?: string }>`와 같이 타입/클래스를 명확히 선언하고, EventService clone 시 부모 → 자식 순서로 `{ type: ownerType, id: ownerId }` segment를 append하여 자동 확장한다.
    - [ ] 각 소유자는 `new EventService({ ownerType: 'execution' })` 또는 `ownerContextProvider`로 자신이 속한 타입을 명시하고, 동일한 context 구조를 유지한다. 필요 시 helper로 `appendOwnerSegment(ownerType, ownerId)` 제공.
@@ -409,7 +410,7 @@ rg "Priority" -g"*.md"
   - [ ] EventService, ownerPrefix, DIP 위반 여부 코드 리뷰
 - [ ] 참조 교체 단계:
   - [ ] 관련 import/타입을 `abstract-*`로 전환 (Path-Only 검증)
-  - [ ] 예제/서비스에서 `ActionTrackingEventService` 직접 참조 금지 확인
+  - [x] 예제/서비스에서 `ActionTrackingEventService` 직접 참조 금지 확인 (코드 기준 0건)
 - [ ] 품질 게이트:
   - [ ] `pnpm --filter @robota-sdk/agents build`
   - [ ] `cd apps/examples && npx tsx 10-agents-basic-usage.ts` (로그 가드 규칙 준수)
@@ -530,10 +531,10 @@ npx tsx utils/verify-workflow-connections.ts | cat
 ## 🔧 Priority 2: Fork/Join Path-Only 마무리
 
 ### A-1. ExecutionService path 자동 주입/검증 강화
-- [ ] `packages/agents/src/services/execution-service.ts`
-  - [ ] emit 전 path 검증 로직 추가
-  - [ ] clone tail(required) 누락 시 즉시 throw
-  - [ ] 검증 에러 메시지 표준화
+- [x] `packages/agents/src/services/execution-service.ts`
+  - [x] emit 시 `context.ownerPath`가 absolute full path가 되도록 보장(thinking/response 세그먼트 포함)
+  - [x] owner-bound EventService emit에서 ownerPath 누락/불일치 시 즉시 throw (No-Fallback)
+  - [x] 검증 에러 메시지에 `[EVENT-SERVICE]`/`[PATH-ONLY]` prefix를 사용해 필터링 가능하게 표준화
 
 ### A-2. WorkflowState 경량화
 - [ ] `packages/workflow/src/services/workflow-state.ts`
@@ -543,176 +544,16 @@ npx tsx utils/verify-workflow-connections.ts | cat
 ### A-3. 이벤트 소유권 정비
 **목표**: 이벤트 접두어를 원천적으로 보호하여 잘못된 소유권 사용 방지
 
-> **중요**: 접두어 자동 부착/검증은 `ActionTrackingEventService` 같이 `EventService`를 확장한 구현에서만 제공된다. `EventService` 인터페이스의 기본 기능으로 간주하지 말고, Robota/ExecutionService/Tool 구현에서 반드시 이 확장 서비스를 주입하거나 clone하여 사용해야 한다. 기본 EventService를 직접 사용할 경우에는 접두어 검증이 수행되지 않으므로, 모든 emit 지점은 ownerPrefix 주입이 된 ActionTrackingEventService 인스턴스를 사용하도록 계획에 포함한다.
+> **중요(최신)**: 이벤트 소유권은 prefix 주입이 아니라 **owner-bound EventService + 상수 기반 eventType**로 보호한다.
+> - `execution.*` / `tool.*` / `agent.*` 이벤트 문자열은 소유 모듈 상수만 사용
+> - 계층/관계는 absolute `context.ownerPath`로만 표현
+> - prefix/ownerPrefix/clone 기반 설계는 사용하지 않는다(레거시 문서/코드 경로 제거됨)
 
-#### 현재 문제점
-```typescript
-// ❌ 현재: 어디서든 execution.* 이벤트를 발생시킬 수 있음
-someService.emit('execution.start', data);  // 잘못된 소유권
-toolService.emit('execution.complete', data);  // 잘못된 소유권
-```
-
-#### 해결 방안: Prefix Injection via Clone Pattern
-**주입(Injection) 패턴 기반**: EventService를 외부에서 주입받고, clone 시 `ownerPrefix` 추가
-
-```typescript
-// 1️⃣ Robota Agent 생성 - 외부에서 EventService 주입
-const agent = new Robota({
-  name: 'MyAgent',
-  eventService: workflowEventSubscriber,  // 외부에서 생성된 EventService 주입
-  // ...
-});
-
-// 2️⃣ ExecutionService - 주입받은 EventService를 clone하면서 ownerPrefix 추가
-class ExecutionService {
-  constructor(
-    aiProviders: AIProviderManagerInterface,
-    tools: ToolManagerInterface,
-    conversationHistory: ConversationHistory,
-    eventService?: EventService,  // ✅ 외부에서 주입받음
-    executionContext?: ToolExecutionContext
-  ) {
-    this.baseEventService = eventService || new SilentEventService();
-    
-    // 🎯 핵심: clone 시 ownerPrefix 주입
-    const maybeClone = (svc: EventService, ownerPrefix: 'execution' | 'tool'): EventService => {
-      const svcAny = svc as any;
-      if (svcAny && typeof svcAny.clone === 'function') {
-        // clone 메서드가 있으면 ownerPrefix와 함께 clone
-        return svcAny.clone({ ownerPrefix, executionContext });
-      }
-      // 없으면 ActionTrackingEventService로 감싸서 ownerPrefix 주입
-      return new ActionTrackingEventService(svc, undefined, executionContext, { ownerPrefix });
-    };
-    
-    // execution.* 전용 EventService
-    this.execEventService = maybeClone(this.baseEventService, 'execution');
-    // tool.* 전용 EventService  
-    this.toolEventService = maybeClone(this.baseEventService, 'tool');
-  }
-  
-  async execute() {
-    // 접두어 없이 나머지 부분만 사용
-    this.execEventService.emit('start', data);      // 내부적으로 'execution.start'로 변환
-    this.execEventService.emit('complete', data);   // 내부적으로 'execution.complete'로 변환
-  }
-}
-
-// 3️⃣ Tool 구현체 - 동일 패턴 적용
-class MyTool extends BaseTool {
-  constructor(eventService?: EventService) {
-    const toolEventService = eventService 
-      ? eventService.clone?.({ ownerPrefix: 'tool' }) || eventService
-      : new SilentEventService();
-    
-    this.eventService = toolEventService;
-  }
-  
-  async execute() {
-    // 접두어 없이 나머지 부분만 사용
-    this.eventService.emit('call_start', data);     // 내부적으로 'tool.call_start'로 변환
-    this.eventService.emit('call_complete', data);  // 내부적으로 'tool.call_complete'로 변환
-  }
-}
-```
-
-#### ActionTrackingEventService 내부 구현 (이미 완료)
-```typescript
-// packages/agents/src/services/event-service.ts
-export class ActionTrackingEventService implements EventService {
-  private readonly ownerPrefix?: string;
-  private readonly strictPrefix: boolean;
-
-  constructor(
-    baseEventService?: EventService, 
-    logger?: SimpleLogger, 
-    executionContext?: ToolExecutionContext, 
-    options?: { ownerPrefix?: string; strictPrefix?: boolean }
-  ) {
-    this.baseEventService = baseEventService || new SilentEventService();
-    this.ownerPrefix = options?.ownerPrefix;
-    this.strictPrefix = options?.strictPrefix ?? true;
-  }
-
-  emit(eventType: string, data: any): void {
-    let fullEventType = eventType;
-    
-    // 🎯 접두어 자동 추가
-    if (this.ownerPrefix && !eventType.includes('.')) {
-      fullEventType = `${this.ownerPrefix}.${eventType}`;
-    }
-    
-    // 🎯 접두어 검증 (다른 접두어 사용 시 에러)
-    if (this.ownerPrefix && this.strictPrefix && eventType.includes('.')) {
-      const [prefix] = eventType.split('.');
-      if (prefix !== this.ownerPrefix) {
-        throw new Error(
-          `[EVENT-PREFIX-VIOLATION] Cannot emit '${eventType}'. ` +
-          `This EventService owns '${this.ownerPrefix}.*' events only.`
-        );
-      }
-    }
-    
-    // 실제 이벤트 발생
-    this.baseEventService.emit(fullEventType, data);
-  }
-  
-  // clone 메서드 지원
-  clone(options?: { ownerPrefix?: string; executionContext?: ToolExecutionContext }): EventService {
-    return new ActionTrackingEventService(
-      this.baseEventService,
-      this.logger,
-      options?.executionContext || this.executionContext,
-      { 
-        ownerPrefix: options?.ownerPrefix || this.ownerPrefix,
-        strictPrefix: this.strictPrefix
-      }
-    );
-  }
-}
-```
-
-#### 주요 흐름
-```
-1. 최상위: WorkflowEventSubscriber (모든 이벤트 수신)
-           ↓ (주입)
-2. Robota: eventService로 받음
-           ↓ (주입)
-3. ExecutionService: 받은 eventService를 clone
-   - execEventService = clone({ ownerPrefix: 'execution' })
-   - toolEventService = clone({ ownerPrefix: 'tool' })
-           ↓
-4. 각 서비스에서 emit 시:
-   - this.execEventService.emit('start', data) → 'execution.start'
-   - this.toolEventService.emit('call_start', data) → 'tool.call_start'
-```
-
-#### 장점
-1. **원천 차단**: clone 시점에 접두어가 고정되어 변경 불가
-2. **주입 패턴 유지**: 기존 DI 구조를 해치지 않음
-3. **간결한 코드**: emit 시 `start` 대신 `execution.start` 반복 불필요
-4. **명확한 소유권**: 각 서비스가 자신의 접두어만 사용
-5. **Workflow 추적 호환**: WorkflowEventSubscriber가 모든 이벤트 수신 가능
-
-#### 구현 체크리스트
-- [x] `ActionTrackingEventService`에 `ownerPrefix` 옵션 추가 (이미 완료)
-- [x] `emit()` 메서드에서 접두어 자동 추가 로직 구현 (이미 완료)
-- [x] 잘못된 접두어 사용 시 에러 throw (이미 완료)
-- [x] `ExecutionService`에 `maybeClone` 패턴 적용 (이미 완료)
-- [ ] `Agent` (Robota)에서 자체 이벤트 발생 시 `ownerPrefix: 'agent'` 적용
-- [ ] `Tool` 기본 클래스에 `ownerPrefix: 'tool'` 패턴 적용
-- [ ] 기존 emit 호출부 수정 (접두어 제거)
-  ```typescript
-  // Before
-  this.execEventService.emit('execution.start', data);
-  
-  // After  
-  this.execEventService.emit('start', data);  // 'execution.' 자동 추가
-  ```
-- [ ] 타 모듈의 `execution.*` emit 전역 검사 및 제거
-- [ ] ESLint 룰 추가: "하드코딩된 접두어 사용 금지"
-- [ ] 단위 테스트 작성 (접두어 검증, 에러 케이스)
-- [x] 통합 테스트: 예제 26 가드 실행 및 검증
+#### 구현 체크리스트(최신)
+- [x] `EXECUTION_EVENTS`/`TOOL_EVENTS`/`AGENT_EVENTS` 상수만 사용(하드코딩 문자열 금지)
+- [x] ExecutionService는 thinking/tool/response를 포함한 absolute ownerPath를 emit context로 제공
+- [x] ToolExecutionContext는 `eventService`(tool-call owner-bound) + `baseEventService`(unbound)로 “tool→agent 생성”을 지원
+- [x] Guarded 예제 26/27로 Path-only + ownership 규칙을 verify로 검증
 
 #### 참고 코드 위치
 - `packages/agents/src/services/execution-service.ts` (line 142-154): maybeClone 구현
@@ -720,8 +561,8 @@ export class ActionTrackingEventService implements EventService {
 - `packages/agents/src/agents/robota.ts` (line 514-520): EventService 주입
 
 ### A-4. Continued Conversation Path-Only
-- [ ] ExecutionService(user_message) path = [rootId, executionId] 보장
-- [ ] `response(last) → user_message(continues) → thinking(processes)` 시퀀스
+- [x] Continued conversation에서도 user_message가 local agent/execution scope에 연결되도록 ownerPath를 사용해 보장
+- [x] `response(last) → user_message(continues) → thinking(processes)` 시퀀스 verify로 통과
 - [x] 예제 27 재검증
 
 ---

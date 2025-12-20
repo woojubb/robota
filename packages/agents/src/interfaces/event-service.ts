@@ -51,17 +51,8 @@ export interface BaseEventData {
     /** Additional metadata */
     metadata?: LoggerData;
 
-    /** Derived owner path expressed as string identifiers */
-    path?: string[];
-
-    /** @deprecated Use EventContext.ownerPath to derive hierarchy */
-    executionLevel?: number;
-    /** @deprecated Use EventContext.ownerPath to derive hierarchy */
-    parentExecutionId?: string;
-    /** @deprecated Use EventContext.ownerPath to derive hierarchy */
-    rootExecutionId?: string;
-    /** @deprecated Use EventContext.ownerPath to derive hierarchy */
-    executionPath?: string[];
+    // NOTE: ownerPath-derivable hierarchy fields have been removed from payload.
+    // Use `context.ownerPath` exclusively for any hierarchy/path decisions.
     /** @deprecated Use domain-specific payload fields instead */
     toolName?: string;
     /** @deprecated Use domain-specific payload fields instead */

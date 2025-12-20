@@ -263,7 +263,7 @@
 ### EventService 인터페이스 표준화
 - [ ] `packages/agents/src/services/event-service.ts` 업데이트
   - [ ] Do not enforce a fixed owner type taxonomy in types or binders (ownerType must be open-ended).
-  - [x] Removed `ActionTrackingEventService` → `ContextualEventService` alias exports in `@robota-sdk/agents`
+- [x] Removed legacy contextual alias exports in `@robota-sdk/agents`
 - [ ] 전체 시스템 EventService 생성 패턴 통일
   - [ ] Prefer EventService + ownerPath context (no legacy contextual alias concepts).
 
@@ -278,7 +278,7 @@
 ### 통합 검증
 - [ ] 전체 시스템 빌드 및 실행 테스트
 - [ ] **단일 배열 `extractors` 방식** EventService 생성 및 컨텍스트 전파 검증
-- [ ] Verify workflow package relies on EventContext.ownerPath and does not depend on legacy contextual aliases (e.g., ContextualEventService naming)
+- [x] Verify workflow package relies on EventContext.ownerPath and does not depend on legacy contextual aliases
 - [ ] **도메인 중립적 컨텍스트 추출** 기존 기능 동작 검증
 
 ## ⏸️ Phase 8: 테스트 작성 (3-4일) **미구현 (향후 확장)**
@@ -399,7 +399,7 @@
    - [x] **단일 배열 `extractors` 방식** 완성
    - [x] **`createChild(this)` 패턴** 완성
    - [x] **도메인 중립적 컨텍스트 추출** 완성
-   - [ ] Remove ContextualEventService alias references and use EventService ownerPath context
+   - [x] Remove legacy contextual alias references and use EventService ownerPath context
    - [ ] 전체 시스템 EventService 생성 패턴 통일
 
 ### ⏸️ **향후 확장** (우선순위 2)

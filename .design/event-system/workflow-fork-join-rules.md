@@ -29,9 +29,15 @@
 6. 다음 라운드 thinking 필요 시 `tool_result → thinking_round2(analyze)` 엣지 생성, thinking 직접 연결 금지
 
 ## 4. Path 주입 및 클론 규칙
-- 모든 이벤트에는 `EventService`가 `path`를 자동 주입
-- 클론 시 tail(required) 누락 또는 빈 문자열이면 emit 전 즉시 throw
-- Tool/Agent 생성 시 `eventService.clone({ ownerPrefix, executionContext })` 패턴 필수
+- 모든 이벤트의 관계 판단은 **absolute `context.ownerPath`**만을 근거로 한다.
+  - `path: string[]`는 **브릿지 계층**(예: `WorkflowSubscriberEventService`)에서 `context.ownerPath[].id`를 그대로 펼친 파생 값이다.
+  - 따라서 핵심은 `path`가 아니라 **`context.ownerPath`가 full path를 갖는 것**이다.
+- EventService는 **owner-bound 인스턴스**를 사용한다(단일 owner에 바인딩된 인스턴스).
+  - 바인딩된 인스턴스는 emit 시 **자신의 owner를 검증**하고, `context.ownerPath`를 병합해 full path를 보장한다(누락/불일치 즉시 throw).
+- Tool 실행 컨텍스트 규칙(중요):
+  - `ToolExecutionContext.eventService`: **tool-call owner-bound**(마지막 세그먼트가 `{ type: 'tool', id: toolCallId }`).
+  - `ToolExecutionContext.baseEventService`: **unbound base**. Tool이 다른 owner(예: agent)를 생성해야 할 때, 이 base에서 새 owner-bound 인스턴스를 만든다.
+  - tool-bound EventService를 다시 agent-bound로 “겹쳐 바인딩”하는 것은 금지(소유자 충돌).
 
 ## 5. WorkflowState/Subscriber 지침
 - `WorkflowState`는 expected/collected 세트 정도의 최소 상태만 유지, 큐/보류/임시 연결 금지

@@ -9,7 +9,8 @@
 - 이벤트명은 선언형 상수만 사용하고, 소유자 접두어 규칙을 준수한다(`execution.*`, `tool.*`, `agent.*`). 하드코딩 문자열 금지.
 
 ## 2) Path 주입과 검증
-- 모든 이벤트에는 `path`가 자동 주입되어야 하며, 주입 책임은 `EventService`에 있다.
+- 모든 이벤트에는 **absolute `context.ownerPath`**가 제공되어야 하며, 이것이 단일 정답 경로이다.
+- `path: string[]`는 브릿지 계층에서 `context.ownerPath[].id`를 펼친 파생 값이며, 검증/핸들러는 ownerPath-only 설계를 전제로 한다.
 - 클론/위임 시 tail 세그먼트는 필수(required)이며, 누락/공백이면 emit 직전 즉시 에러로 중단한다.
 - 경로는 불변 확장 방식으로 누적된다.
 
