@@ -14,7 +14,7 @@ The agent templates example shows how to:
 
 ```typescript
 /**
- * 07-team-templates.ts
+ * 07-agent-templates.ts
  * 
  * Simplified Agent Templates Example
  * Demonstrates using different AI providers and models for specialized tasks

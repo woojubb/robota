@@ -76,11 +76,10 @@ const robota = new Robota({
 - **Parameter Validation**: Automatic type checking and parameter validation
 - **MCP Integration**: Model Context Protocol support for external tools
 
-### Intelligent Team Collaboration
-- **Template-Based Experts**: 6 built-in specialist templates (coordinator, researcher, creative ideator, etc.)
-- **Automatic Task Analysis**: AI-powered request analysis and expert selection
-- **Dynamic Agent Creation**: On-demand expert agent instantiation
-- **Workflow Visualization**: Team interaction flowcharts and relationship diagrams
+### Task Assignment Tools (assignTask)
+- **Tool collection**: `@robota-sdk/team` provides an assignTask MCP tool collection
+- **Bundled templates**: JSON templates shipped with the package
+- **No team creation APIs**: Orchestration is expressed via tools + events (ownerPath-only)
 
 ### Comprehensive Plugin Ecosystem
 
@@ -372,7 +371,7 @@ const customTool = createFunctionTool(
 - **UsagePlugin**: Cost and consumption analytics
 - **LoggingPlugin**: Structured logging across all components
 
-### Team Collaboration Analytics
+### Task Assignment Analytics
 - **Workflow Visualization**: Generate flowcharts of agent interactions
 - **Expert Usage Statistics**: Track which templates are used most frequently
 - **Performance Optimization**: Identify bottlenecks in multi-agent workflows

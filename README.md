@@ -70,7 +70,7 @@ robota/
 │   ├── anthropic/      # Anthropic integration
 │   ├── google/         # Google AI integration
 │   ├── sessions/       # Multi-session management
-│   ├── team/           # Multi-agent team collaboration
+│   ├── team/           # assignTask MCP tool collection (no team creation APIs)
 │   ├── mcp/            # Model Context Protocol implementation
 │   ├── tools/          # Tool system (Zod-based function calling)
 │   └── ...

@@ -327,4 +327,4 @@ Assistant: An AI agent is a software program that uses artificial intelligence t
 - Try [Agents Streaming](./agents-streaming.md) for real-time response streaming
 - Explore [Tool Calling](./ai-with-tools.md) with the new agents package
 - Learn about [Multi-Provider](./multi-provider.md) configurations
-- Dive into [Team Collaboration](./team-collaboration.md) for multi-agent systems 
+- Explore the [assignTask Tool Collection](./team-collaboration.md) for MCP-style task assignment tools

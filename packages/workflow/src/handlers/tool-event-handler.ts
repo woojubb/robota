@@ -133,8 +133,6 @@ export class ToolEventHandler implements EventHandler {
                     break;
                 }
 
-                // tool.agent_execution_started removed by Decision Gate (6.5)
-
                 default:
                     this.logger.warn(`⚠️ [TOOL-HANDLER] Unknown event type: ${eventType}`);
                     success = false;

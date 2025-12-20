@@ -18,7 +18,7 @@ Robota SDK is a TypeScript-first library for building sophisticated AI agents wi
 - **🛠️ Advanced Tools**: Type-safe function calling and tool integration
 - **📊 Built-in Analytics**: Performance monitoring and usage tracking
 - **🌊 Real-time Streaming**: Streaming responses across all providers
-- **🤝 Team Collaboration**: Multi-agent workflows and task assignment
+- **🧰 assignTask Tool Collection**: MCP-style task assignment tools (no team creation APIs)
 - **🧠 Future Planning**: Advanced planning strategies on the roadmap
 
 ## Architecture Overview
@@ -62,7 +62,7 @@ Master advanced features like tools, streaming, and analytics.
 
 - **[Function Calling](./function-calling.md)** - Tool integration and custom functions
 - **[Multi-Provider](../examples/multi-provider.md)** - Provider switching and management
-- **[Team Collaboration](../examples/team-collaboration.md)** - Multi-agent workflows
+- **[assignTask Tool Collection](../examples/team-collaboration.md)** - MCP-style task assignment tools
 
 ### 4. 🏗️ Production Ready
 **Perfect for**: Production deployments, enterprise applications

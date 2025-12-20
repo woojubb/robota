@@ -44,23 +44,19 @@ Use Robota SDK in browsers, WebWorkers, and modern JavaScript frameworks.
 
 ## Advanced Features
 
-### [Team Collaboration](team-collaboration.md)
-Leverage intelligent multi-agent collaboration with template-based expert selection.
+### [assignTask Tool Collection](team-collaboration.md)
+Use the `@robota-sdk/team` package as an assignTask MCP tool collection (no team creation APIs).
 
 **Features Demonstrated:**
-- Automatic expert template selection
-- Task decomposition and delegation
-- Built-in specialist templates (researchers, creative ideators, etc.)
-- Workflow visualization and analytics
-- Multi-provider collaboration
+- Built-in template registry (bundled JSON)
+- Template listing and detail lookup
+- assignTask tool execution via Relay MCP Tool
 
-### [Team Templates](team-templates.md)
-Use pre-built expert templates for specialized tasks.
+### [Agent Templates](team-templates.md)
+Use pre-built agent configurations (templates) for specialized tasks.
 
 **Features Demonstrated:**
 - Template-based agent creation
-- Expert template registry
-- Custom template development
 - Optimized AI provider selection per template
 
 ### [Execution Analytics](execution-analytics.md)
@@ -292,7 +288,7 @@ npx tsx 02-tool-calling.ts
 npx tsx 03-multi-providers.ts
 
 # Agent templates
-npx tsx 07-team-templates.ts
+npx tsx 07-agent-templates.ts
 
 # Performance analytics
 npx tsx 08-execution-analytics.ts

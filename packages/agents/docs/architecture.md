@@ -219,7 +219,7 @@ interface ExtendedRunContext {
 ## 📊 Analytics and Monitoring
 
 ### Team Integration
-- **TeamContainer**: Multi-agent orchestration
+- **assignTask tool collection**: MCP-style task assignment tools (no team creation APIs)
 - **Workflow Management**: Complex task coordination
 - **Performance Aggregation**: Team-wide metrics collection
 

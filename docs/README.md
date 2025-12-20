@@ -195,13 +195,11 @@ npm install @robota-sdk/team
 | **Anthropic** | Claude 3.5 Sonnet, Claude 3 | Large context, advanced reasoning | Complex analysis, ethical considerations |
 | **Google** | Gemini 1.5 Pro, Gemini Flash | Multimodal, long context | Speed, multimedia processing |
 
-## Team Collaboration Features
+## assignTask Tool Collection
 
-- **Automatic Agent Selection** - Natural language task assignment
-- **Template-based Configuration** - Pre-optimized settings for each role
-- **Workflow Visualization** - Generate Mermaid diagrams of team processes
-- **Performance Analytics** - Track team efficiency and token usage
-- **Cross-Provider Teams** - Mix different AI providers in one team
+- **MCP-style tools** - `listTemplateCategories`, `listTemplates`, `getTemplateDetail`, `assignTask`
+- **Bundled templates** - JSON templates shipped with `@robota-sdk/team`
+- **No team creation APIs** - Use Robota agents + tools; relationships come from events/ownerPath only
 
 ## 🎯 Key Benefits
 

@@ -715,13 +715,23 @@ The `@robota-sdk/team` package now provides assignTask MCP tools (no legacy team
 import { createAssignTaskRelayTool, listTemplatesTool, getTemplateDetailTool } from '@robota-sdk/team';
 import { Robota } from '@robota-sdk/agents';
 import { OpenAIProvider } from '@robota-sdk/openai';
+import { DefaultEventService, bindWithOwnerPath } from '@robota-sdk/agents';
 
 const openaiProvider = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
 
 const tools = [
     listTemplatesTool,
     getTemplateDetailTool,
-    createAssignTaskRelayTool({ emit: () => undefined } as any) // caller must inject ownerPath-bound eventService in real flows
+    // In real flows, ExecutionService/ToolExecutionService provides a tool-call scoped (ownerPath-bound) EventService.
+    createAssignTaskRelayTool(
+        bindWithOwnerPath(new DefaultEventService(), {
+            ownerType: 'tool',
+            ownerId: 'tool_call_0',
+            ownerPath: [{ type: 'tool', id: 'tool_call_0' }],
+            sourceType: 'tool',
+            sourceId: 'tool_call_0'
+        })
+    )
 ];
 
 const agent = new Robota({

@@ -13,7 +13,6 @@ import type { WorkflowEdge } from '../interfaces/workflow-edge.js';
 import { EdgeUtils } from '../interfaces/workflow-edge.js';
 import type { WorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
-import { WorkflowState } from '../services/workflow-state.js';
 
 /**
  * Agent Event Handler
@@ -278,7 +277,42 @@ export class AgentEventHandler implements EventHandler {
                         if (!agentId || !executionId) {
                             throw new Error(`[PATH-ONLY] Missing agent/execution segments in context.ownerPath for ${EXECUTION_EVENTS.ASSISTANT_MESSAGE_START}`);
                         }
-                        sourceForThinking = WorkflowState.getLastUserMessage(agentId) || WorkflowState.getLastUserMessage(executionId);
+
+                        // Path-only, no-fallback: find the most recent user_message node within the same execution scope.
+                        // Do not rely on WorkflowState or any auxiliary memory.
+                        const nodesAccessor: any[] = (this as any).subscriber?.getAllNodes?.() || [];
+                        let latestUserMessage: { id: string; ts: number } | undefined;
+                        for (const n of nodesAccessor) {
+                            if (n?.type !== WORKFLOW_NODE_TYPES.USER_MESSAGE) continue;
+                            const op = n?.data?.extensions?.robota?.originalEvent?.context?.ownerPath;
+                            if (!Array.isArray(op) || op.length === 0) continue;
+                            const sameExec = (() => {
+                                for (let i = op.length - 1; i >= 0; i--) {
+                                    const seg = op[i];
+                                    if (seg?.type === 'execution') {
+                                        return String(seg.id ?? '') === executionId;
+                                    }
+                                }
+                                return false;
+                            })();
+                            if (!sameExec) continue;
+                            const ts = Number(n?.timestamp || 0);
+                            if (!latestUserMessage || ts > latestUserMessage.ts) {
+                                latestUserMessage = { id: String(n.id), ts };
+                            }
+                        }
+
+                        if (!latestUserMessage) {
+                            return {
+                                success: false,
+                                updates: [],
+                                errors: [
+                                    `[PATH-ONLY] Missing user_message node for ${EXECUTION_EVENTS.ASSISTANT_MESSAGE_START}. ` +
+                                    `No prior user_message found in execution="${executionId}".`
+                                ]
+                            };
+                        }
+                        sourceForThinking = latestUserMessage.id;
                     }
                     if (sourceForThinking) {
                         const edge: WorkflowEdge = {

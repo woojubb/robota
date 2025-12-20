@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import * as fsSync from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
 import type { UniversalMessage, ChatOptions, RawProviderResponse } from '@robota-sdk/agents';
@@ -78,6 +79,8 @@ const DEFAULT_VERSION = 1;
 export class ScenarioStore {
     private readonly baseDir: string;
     private writeQueue: Promise<void> = Promise.resolve();
+    private readonly writeLocks = new Map<string, { lockPath: string; fd: number }>();
+    private exitHandlerRegistered = false;
 
     constructor(options?: ScenarioStoreOptions) {
         const envBaseDir = process.env.SCENARIO_BASE_DIR;
@@ -114,6 +117,7 @@ export class ScenarioStore {
 
     async appendStep(scenarioId: string, step: ScenarioStep): Promise<void> {
         this.writeQueue = this.writeQueue.then(async () => {
+            await this.ensureWriteLock(scenarioId);
             const record = await this.load(scenarioId);
             record.steps.push(step);
             await this.saveRecord(record);
@@ -128,6 +132,79 @@ export class ScenarioStore {
 
     private getScenarioPath(scenarioId: string): string {
         return path.join(this.baseDir, `${scenarioId}.json`);
+    }
+
+    private getLockDir(): string {
+        return path.join(this.baseDir, '.locks');
+    }
+
+    private getLockPath(scenarioId: string): string {
+        return path.join(this.getLockDir(), `${scenarioId}.lock`);
+    }
+
+    private registerExitHandler(): void {
+        if (this.exitHandlerRegistered) {
+            return;
+        }
+        this.exitHandlerRegistered = true;
+
+        // Best-effort cleanup for graceful exits. This is not a fallback path:
+        // - lock acquisition is still strict (fail-fast on contention).
+        // - stale locks from crashes must be removed manually by the developer.
+        process.once('exit', () => {
+            for (const { lockPath, fd } of this.writeLocks.values()) {
+                try {
+                    fsSync.closeSync(fd);
+                } catch {
+                    // ignore
+                }
+                try {
+                    fsSync.unlinkSync(lockPath);
+                } catch {
+                    // ignore
+                }
+            }
+        });
+    }
+
+    private async ensureWriteLock(scenarioId: string): Promise<void> {
+        if (this.writeLocks.has(scenarioId)) {
+            return;
+        }
+
+        await this.ensureDirectory();
+        await fs.mkdir(this.getLockDir(), { recursive: true });
+
+        const lockPath = this.getLockPath(scenarioId);
+
+        try {
+            const handle = await fs.open(lockPath, 'wx');
+            const fd = handle.fd;
+            const info = {
+                scenarioId,
+                pid: process.pid,
+                createdAt: Date.now(),
+                cwd: process.cwd()
+            };
+            await handle.writeFile(`${JSON.stringify(info)}\n`, 'utf8');
+            await handle.close();
+
+            // Re-open in read-only mode to keep an OS-level handle associated with the lock file.
+            // This makes the "locked by this process" state explicit in memory and simplifies cleanup on exit.
+            const keepHandle = await fs.open(lockPath, 'r');
+            this.writeLocks.set(scenarioId, { lockPath, fd: keepHandle.fd });
+            this.registerExitHandler();
+        } catch (error) {
+            const code = (error as NodeJS.ErrnoException).code;
+            if (code === 'EEXIST') {
+                throw new Error(
+                    `[SCENARIO-LOCK] Scenario "${scenarioId}" is already locked for recording. ` +
+                    `Refusing to append to prevent corrupt ordering. ` +
+                    `If this is a stale lock, remove: ${lockPath}`
+                );
+            }
+            throw error;
+        }
     }
 
     private async ensureDirectory(): Promise<void> {

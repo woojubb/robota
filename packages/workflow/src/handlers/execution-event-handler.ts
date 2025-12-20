@@ -18,7 +18,6 @@ import type { WorkflowEdge } from '../interfaces/workflow-edge.js';
 import { EdgeUtils } from '../interfaces/workflow-edge.js';
 import type { WorkflowUpdate } from '../interfaces/workflow-builder.js';
 import { WORKFLOW_NODE_TYPES } from '../constants/workflow-types.js';
-import { WorkflowState } from '../services/workflow-state.js';
 import { HandlerPriority as Priority } from '../interfaces/event-handler.js';
 
 /**
@@ -134,7 +133,6 @@ export class ExecutionEventHandler implements EventHandler {
 
                 case EXECUTION_EVENTS.ASSISTANT_MESSAGE_START:
                     // AgentEventHandler will create the thinking node; skip assistant_message node
-                    // Maintain internal mapping to allow fallbacks if needed
                     break;
 
                 case EXECUTION_EVENTS.ASSISTANT_MESSAGE_COMPLETE:
@@ -212,29 +210,29 @@ export class ExecutionEventHandler implements EventHandler {
                             let agentNodeForExec: string | undefined;
                             const nodesAccessor: any[] = allNodes;
                             agentNodeForExec = nodesAccessor.find(n => n.type === 'agent' && n.data?.sourceId === localAgentId)?.id;
-
-                            if (!agentNodeForExec) {
-                                // Fallback to WorkflowState if direct scan fails (e.g., agent not yet in allNodes)
-                                agentNodeForExec = WorkflowState.getAgentForRoot(localAgentId);
-                            }
                             sourceNodeForConnection = agentNodeForExec;
                             edgeType = 'receives';
                         }
 
-                        if (sourceNodeForConnection) {
-                            const edge: WorkflowEdge = {
-                                id: EdgeUtils.generateId(sourceNodeForConnection, userMessageNode.id, edgeType as any),
-                                source: sourceNodeForConnection,
-                                target: userMessageNode.id,
-                                type: edgeType,
-                                timestamp: Date.now()
-                            } as any;
-                            updates.push({ action: 'create', edge } as any);
+                        if (!sourceNodeForConnection) {
+                            return {
+                                success: false,
+                                updates: [],
+                                errors: [
+                                    `[PATH-ONLY] Missing source node for ${EXECUTION_EVENTS.USER_MESSAGE}. ` +
+                                    `Expected a prior response/tool_result in-scope or an agent node for agentId="${localAgentId}".`
+                                ]
+                            };
                         }
 
-                        // Record last user message for root and exec for thinking linkage
-                        WorkflowState.setLastUserMessage(localAgentId, userMessageNode.id);
-                        WorkflowState.setLastUserMessage(localExecutionId, userMessageNode.id);
+                        const edge: WorkflowEdge = {
+                            id: EdgeUtils.generateId(sourceNodeForConnection, userMessageNode.id, edgeType as any),
+                            source: sourceNodeForConnection,
+                            target: userMessageNode.id,
+                            type: edgeType,
+                            timestamp: Date.now()
+                        } as any;
+                        updates.push({ action: 'create', edge } as any);
 
                         break;
                     }
