@@ -17,7 +17,7 @@
         "tools": [
           "assignTask"
         ],
-        "originalEventTimestamp": "2025-12-20T16:58:33.863Z",
+        "originalEventTimestamp": "2025-12-20T18:15:01.393Z",
         "reservedThinkingId": "thinking_agent_0_copy_1",
         "extensions": {
           "robota": {
@@ -33,7 +33,7 @@
               },
               "sourceType": "agent",
               "sourceId": "agent_0",
-              "timestamp": "2025-12-20T16:58:33.875Z",
+              "timestamp": "2025-12-20T18:15:01.403Z",
               "context": {
                 "ownerType": "agent",
                 "ownerId": "agent_0",
@@ -44,13 +44,16 @@
                   }
                 ],
                 "sourceId": "agent_0",
-                "timestamp": "2025-12-20T16:58:33.875Z"
+                "timestamp": "2025-12-20T18:15:01.403Z"
               }
             },
-            "ownerPath": [
-              "agent_0"
-            ],
-            "agentNumber": 0
+            "handlerType": "agent",
+            "extra": {
+              "ownerPath": [
+                "agent_0"
+              ],
+              "agentNumber": 0
+            }
           }
         },
         "status": "running"
@@ -58,7 +61,7 @@
       "connections": []
     },
     {
-      "id": "agent_0_user_exec_1766249913866_8ohi31u27",
+      "id": "agent_0_user_exec_1766254501395_f7as7xc2w",
       "type": "user_message",
       "level": 0,
       "status": "completed",
@@ -66,7 +69,7 @@
       "data": {
         "sourceId": "agent_0",
         "sourceType": "user",
-        "executionId": "exec_1766249913866_8ohi31u27",
+        "executionId": "exec_1766254501395_f7as7xc2w",
         "label": "User Message",
         "description": "User input message",
         "eventType": "execution.user_message",
@@ -90,7 +93,7 @@
           "messageId": "agent_0",
           "content": "First message: delegate one task using assignTask, then respond briefly.",
           "length": 72,
-          "timestamp": "2025-12-20T16:58:33.868Z"
+          "timestamp": "2025-12-20T18:15:01.397Z"
         },
         "extensions": {
           "robota": {
@@ -114,10 +117,10 @@
               },
               "sourceType": "agent",
               "sourceId": "agent_0",
-              "timestamp": "2025-12-20T16:58:33.867Z",
+              "timestamp": "2025-12-20T18:15:01.396Z",
               "context": {
                 "ownerType": "execution",
-                "ownerId": "exec_1766249913866_8ohi31u27",
+                "ownerId": "exec_1766254501395_f7as7xc2w",
                 "ownerPath": [
                   {
                     "type": "agent",
@@ -125,15 +128,17 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766249913866_8ohi31u27"
+                    "id": "exec_1766254501395_f7as7xc2w"
                   }
                 ],
                 "sourceId": "agent_0",
-                "timestamp": "2025-12-20T16:58:33.867Z"
+                "timestamp": "2025-12-20T18:15:01.396Z"
               }
             },
             "handlerType": "execution",
-            "isUserMessage": true
+            "extra": {
+              "isUserMessage": true
+            }
           }
         }
       },
@@ -152,7 +157,7 @@
         "agentNumber": 0,
         "label": "Agent 0 Thinking",
         "description": "Agent processing and reasoning",
-        "originalEventTimestamp": "2025-12-20T16:58:33.867Z",
+        "originalEventTimestamp": "2025-12-20T18:15:01.396Z",
         "extensions": {
           "robota": {
             "originalEvent": {
@@ -167,7 +172,7 @@
               },
               "sourceType": "agent",
               "sourceId": "agent_0",
-              "timestamp": "2025-12-20T16:58:33.867Z",
+              "timestamp": "2025-12-20T18:15:01.396Z",
               "context": {
                 "ownerType": "thinking",
                 "ownerId": "thinking_agent_0_round1",
@@ -178,7 +183,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766249913866_8ohi31u27"
+                    "id": "exec_1766254501395_f7as7xc2w"
                   },
                   {
                     "type": "thinking",
@@ -186,15 +191,18 @@
                   }
                 ],
                 "sourceId": "agent_0",
-                "timestamp": "2025-12-20T16:58:33.867Z"
+                "timestamp": "2025-12-20T18:15:01.396Z"
               }
             },
-            "ownerPath": [
-              "agent_0",
-              "exec_1766249913866_8ohi31u27",
-              "thinking_agent_0_round1"
-            ],
-            "agentNumber": 0
+            "handlerType": "agent",
+            "extra": {
+              "ownerPath": [
+                "agent_0",
+                "exec_1766254501395_f7as7xc2w",
+                "thinking_agent_0_round1"
+              ],
+              "agentNumber": 0
+            }
           }
         }
       },
@@ -231,7 +239,7 @@
               },
               "sourceType": "tool",
               "sourceId": "call_assign_1",
-              "timestamp": "2025-12-20T16:58:33.869Z",
+              "timestamp": "2025-12-20T18:15:01.398Z",
               "context": {
                 "ownerType": "tool",
                 "ownerId": "call_assign_1",
@@ -242,7 +250,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766249913866_8ohi31u27"
+                    "id": "exec_1766254501395_f7as7xc2w"
                   },
                   {
                     "type": "thinking",
@@ -254,11 +262,13 @@
                   }
                 ],
                 "sourceId": "call_assign_1",
-                "timestamp": "2025-12-20T16:58:33.869Z"
+                "timestamp": "2025-12-20T18:15:01.398Z"
               }
             },
             "handlerType": "tool",
-            "toolName": "assignTask"
+            "extra": {
+              "toolName": "assignTask"
+            }
           }
         }
       },
@@ -278,7 +288,7 @@
         "copyNumber": 1,
         "label": "Agent 1",
         "description": "AI Agent instance",
-        "originalEventTimestamp": "2025-12-20T16:58:33.869Z",
+        "originalEventTimestamp": "2025-12-20T18:15:01.398Z",
         "reservedThinkingId": "thinking_agent_1_copy_1",
         "extensions": {
           "robota": {
@@ -291,7 +301,7 @@
               },
               "sourceType": "agent",
               "sourceId": "agent_1",
-              "timestamp": "2025-12-20T16:58:33.870Z",
+              "timestamp": "2025-12-20T18:15:01.399Z",
               "context": {
                 "ownerType": "agent",
                 "ownerId": "agent_1",
@@ -302,7 +312,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766249913866_8ohi31u27"
+                    "id": "exec_1766254501395_f7as7xc2w"
                   },
                   {
                     "type": "thinking",
@@ -318,17 +328,20 @@
                   }
                 ],
                 "sourceId": "agent_1",
-                "timestamp": "2025-12-20T16:58:33.870Z"
+                "timestamp": "2025-12-20T18:15:01.399Z"
               }
             },
-            "ownerPath": [
-              "agent_0",
-              "exec_1766249913866_8ohi31u27",
-              "thinking_agent_0_round1",
-              "call_assign_1",
-              "agent_1"
-            ],
-            "agentNumber": 1
+            "handlerType": "agent",
+            "extra": {
+              "ownerPath": [
+                "agent_0",
+                "exec_1766254501395_f7as7xc2w",
+                "thinking_agent_0_round1",
+                "call_assign_1",
+                "agent_1"
+              ],
+              "agentNumber": 1
+            }
           }
         },
         "status": "running"
@@ -336,7 +349,7 @@
       "connections": []
     },
     {
-      "id": "agent_1_user_exec_1766249913870_c3r2bkh9g",
+      "id": "agent_1_user_exec_1766254501399_c8r63uh83",
       "type": "user_message",
       "level": 0,
       "status": "completed",
@@ -344,7 +357,7 @@
       "data": {
         "sourceId": "agent_1",
         "sourceType": "user",
-        "executionId": "exec_1766249913870_c3r2bkh9g",
+        "executionId": "exec_1766254501399_c8r63uh83",
         "label": "User Message",
         "description": "User input message",
         "eventType": "execution.user_message",
@@ -368,7 +381,7 @@
           "messageId": "agent_1",
           "content": "Summarize the key risks for a cafe startup.\n\nContext: Keep it short and actionable.",
           "length": 83,
-          "timestamp": "2025-12-20T16:58:33.871Z"
+          "timestamp": "2025-12-20T18:15:01.400Z"
         },
         "extensions": {
           "robota": {
@@ -392,10 +405,10 @@
               },
               "sourceType": "agent",
               "sourceId": "agent_1",
-              "timestamp": "2025-12-20T16:58:33.870Z",
+              "timestamp": "2025-12-20T18:15:01.399Z",
               "context": {
                 "ownerType": "execution",
-                "ownerId": "exec_1766249913870_c3r2bkh9g",
+                "ownerId": "exec_1766254501399_c8r63uh83",
                 "ownerPath": [
                   {
                     "type": "agent",
@@ -403,7 +416,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766249913866_8ohi31u27"
+                    "id": "exec_1766254501395_f7as7xc2w"
                   },
                   {
                     "type": "thinking",
@@ -419,15 +432,17 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766249913870_c3r2bkh9g"
+                    "id": "exec_1766254501399_c8r63uh83"
                   }
                 ],
                 "sourceId": "agent_1",
-                "timestamp": "2025-12-20T16:58:33.870Z"
+                "timestamp": "2025-12-20T18:15:01.399Z"
               }
             },
             "handlerType": "execution",
-            "isUserMessage": true
+            "extra": {
+              "isUserMessage": true
+            }
           }
         }
       },
@@ -446,7 +461,7 @@
         "agentNumber": 1,
         "label": "Agent 1 Thinking",
         "description": "Agent processing and reasoning",
-        "originalEventTimestamp": "2025-12-20T16:58:33.870Z",
+        "originalEventTimestamp": "2025-12-20T18:15:01.399Z",
         "extensions": {
           "robota": {
             "originalEvent": {
@@ -461,7 +476,7 @@
               },
               "sourceType": "agent",
               "sourceId": "agent_1",
-              "timestamp": "2025-12-20T16:58:33.870Z",
+              "timestamp": "2025-12-20T18:15:01.399Z",
               "context": {
                 "ownerType": "thinking",
                 "ownerId": "thinking_agent_1_round1",
@@ -472,7 +487,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766249913866_8ohi31u27"
+                    "id": "exec_1766254501395_f7as7xc2w"
                   },
                   {
                     "type": "thinking",
@@ -488,7 +503,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766249913870_c3r2bkh9g"
+                    "id": "exec_1766254501399_c8r63uh83"
                   },
                   {
                     "type": "thinking",
@@ -496,19 +511,22 @@
                   }
                 ],
                 "sourceId": "agent_1",
-                "timestamp": "2025-12-20T16:58:33.870Z"
+                "timestamp": "2025-12-20T18:15:01.399Z"
               }
             },
-            "ownerPath": [
-              "agent_0",
-              "exec_1766249913866_8ohi31u27",
-              "thinking_agent_0_round1",
-              "call_assign_1",
-              "agent_1",
-              "exec_1766249913870_c3r2bkh9g",
-              "thinking_agent_1_round1"
-            ],
-            "agentNumber": 1
+            "handlerType": "agent",
+            "extra": {
+              "ownerPath": [
+                "agent_0",
+                "exec_1766254501395_f7as7xc2w",
+                "thinking_agent_0_round1",
+                "call_assign_1",
+                "agent_1",
+                "exec_1766254501399_c8r63uh83",
+                "thinking_agent_1_round1"
+              ],
+              "agentNumber": 1
+            }
           }
         }
       },
@@ -528,7 +546,7 @@
         "label": "Agent 1 Response",
         "description": "Agent response and output",
         "response": "",
-        "originalEventTimestamp": "2025-12-20T16:58:33.872Z",
+        "originalEventTimestamp": "2025-12-20T18:15:01.401Z",
         "extensions": {
           "robota": {
             "originalEvent": {
@@ -537,7 +555,7 @@
                 "assistantMessage": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buffer, test menu, track unit economics weekly.",
                 "responseLength": 243,
                 "wordCount": 33,
-                "responseTime": 66249913572,
+                "responseTime": 66254501101,
                 "contentPreview": "Key risks: (1) Location foot traffic mismatch, (2) Underestimating fixed costs, (3) Weak differentiation, (4) Seasonal demand swings, (5) Staffing churn. Mitigation: validate location, build cash buff..."
               },
               "result": {
@@ -553,7 +571,7 @@
                 }
               },
               "metadata": {
-                "executionId": "exec_1766249913870_c3r2bkh9g",
+                "executionId": "exec_1766254501399_c8r63uh83",
                 "round": 1,
                 "completed": true,
                 "reason": "no_tool_calls",
@@ -566,7 +584,7 @@
               },
               "sourceType": "agent",
               "sourceId": "agent_1",
-              "timestamp": "2025-12-20T16:58:33.872Z",
+              "timestamp": "2025-12-20T18:15:01.401Z",
               "context": {
                 "ownerType": "response",
                 "ownerId": "response_thinking_agent_1_round1",
@@ -577,7 +595,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766249913866_8ohi31u27"
+                    "id": "exec_1766254501395_f7as7xc2w"
                   },
                   {
                     "type": "thinking",
@@ -593,7 +611,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766249913870_c3r2bkh9g"
+                    "id": "exec_1766254501399_c8r63uh83"
                   },
                   {
                     "type": "thinking",
@@ -605,20 +623,23 @@
                   }
                 ],
                 "sourceId": "agent_1",
-                "timestamp": "2025-12-20T16:58:33.872Z"
+                "timestamp": "2025-12-20T18:15:01.401Z"
               }
             },
-            "ownerPath": [
-              "agent_0",
-              "exec_1766249913866_8ohi31u27",
-              "thinking_agent_0_round1",
-              "call_assign_1",
-              "agent_1",
-              "exec_1766249913870_c3r2bkh9g",
-              "thinking_agent_1_round1",
-              "response_thinking_agent_1_round1"
-            ],
-            "agentNumber": 1
+            "handlerType": "agent",
+            "extra": {
+              "ownerPath": [
+                "agent_0",
+                "exec_1766254501395_f7as7xc2w",
+                "thinking_agent_0_round1",
+                "call_assign_1",
+                "agent_1",
+                "exec_1766254501399_c8r63uh83",
+                "thinking_agent_1_round1",
+                "response_thinking_agent_1_round1"
+              ],
+              "agentNumber": 1
+            }
           }
         }
       },
@@ -653,7 +674,7 @@
           "toolName": "unknown_tool",
           "content": "Tool response",
           "success": true,
-          "timestamp": "2025-12-20T16:58:33.873Z"
+          "timestamp": "2025-12-20T18:15:01.402Z"
         },
         "responseMetrics": {
           "responseLength": 13,
@@ -675,7 +696,7 @@
               },
               "sourceType": "tool",
               "sourceId": "call_assign_1",
-              "timestamp": "2025-12-20T16:58:33.872Z",
+              "timestamp": "2025-12-20T18:15:01.401Z",
               "context": {
                 "ownerType": "tool",
                 "ownerId": "call_assign_1",
@@ -686,7 +707,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766249913866_8ohi31u27"
+                    "id": "exec_1766254501395_f7as7xc2w"
                   },
                   {
                     "type": "thinking",
@@ -698,19 +719,21 @@
                   }
                 ],
                 "sourceId": "call_assign_1",
-                "timestamp": "2025-12-20T16:58:33.872Z"
+                "timestamp": "2025-12-20T18:15:01.401Z"
               }
             },
             "handlerType": "tool",
-            "toolName": "unknown_tool",
-            "toolCallId": "call_assign_1"
+            "extra": {
+              "toolName": "unknown_tool",
+              "toolCallId": "call_assign_1"
+            }
           }
         }
       },
       "connections": []
     },
     {
-      "id": "tool_result_thinking_agent_0_round1_1766249913873",
+      "id": "tool_result_thinking_agent_0_round1_1766254501402",
       "type": "tool_result",
       "level": 2,
       "status": "running",
@@ -734,7 +757,7 @@
               },
               "sourceType": "agent",
               "sourceId": "agent_0",
-              "timestamp": "2025-12-20T16:58:33.873Z",
+              "timestamp": "2025-12-20T18:15:01.402Z",
               "context": {
                 "ownerType": "thinking",
                 "ownerId": "thinking_agent_0_round1",
@@ -745,7 +768,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766249913866_8ohi31u27"
+                    "id": "exec_1766254501395_f7as7xc2w"
                   },
                   {
                     "type": "thinking",
@@ -753,9 +776,10 @@
                   }
                 ],
                 "sourceId": "agent_0",
-                "timestamp": "2025-12-20T16:58:33.873Z"
+                "timestamp": "2025-12-20T18:15:01.402Z"
               }
-            }
+            },
+            "handlerType": "execution"
           }
         }
       },
@@ -774,7 +798,7 @@
         "agentNumber": 0,
         "label": "Agent 0 Thinking",
         "description": "Agent processing and reasoning",
-        "originalEventTimestamp": "2025-12-20T16:58:33.873Z",
+        "originalEventTimestamp": "2025-12-20T18:15:01.402Z",
         "extensions": {
           "robota": {
             "originalEvent": {
@@ -789,7 +813,7 @@
               },
               "sourceType": "agent",
               "sourceId": "agent_0",
-              "timestamp": "2025-12-20T16:58:33.873Z",
+              "timestamp": "2025-12-20T18:15:01.402Z",
               "context": {
                 "ownerType": "thinking",
                 "ownerId": "thinking_agent_0_round2",
@@ -800,7 +824,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766249913866_8ohi31u27"
+                    "id": "exec_1766254501395_f7as7xc2w"
                   },
                   {
                     "type": "thinking",
@@ -808,15 +832,18 @@
                   }
                 ],
                 "sourceId": "agent_0",
-                "timestamp": "2025-12-20T16:58:33.873Z"
+                "timestamp": "2025-12-20T18:15:01.402Z"
               }
             },
-            "ownerPath": [
-              "agent_0",
-              "exec_1766249913866_8ohi31u27",
-              "thinking_agent_0_round2"
-            ],
-            "agentNumber": 0
+            "handlerType": "agent",
+            "extra": {
+              "ownerPath": [
+                "agent_0",
+                "exec_1766254501395_f7as7xc2w",
+                "thinking_agent_0_round2"
+              ],
+              "agentNumber": 0
+            }
           }
         }
       },
@@ -836,7 +863,7 @@
         "label": "Agent 0 Response",
         "description": "Agent response and output",
         "response": "",
-        "originalEventTimestamp": "2025-12-20T16:58:33.874Z",
+        "originalEventTimestamp": "2025-12-20T18:15:01.403Z",
         "extensions": {
           "robota": {
             "originalEvent": {
@@ -845,7 +872,7 @@
                 "assistantMessage": "Got it. I delegated the risk analysis and will use it to keep the plan grounded. Next, I’ll outline a minimal launch plan with weekly checkpoints.",
                 "responseLength": 146,
                 "wordCount": 26,
-                "responseTime": 66249913374,
+                "responseTime": 66254500903,
                 "contentPreview": "Got it. I delegated the risk analysis and will use it to keep the plan grounded. Next, I’ll outline a minimal launch plan with weekly checkpoints."
               },
               "result": {
@@ -861,7 +888,7 @@
                 }
               },
               "metadata": {
-                "executionId": "exec_1766249913866_8ohi31u27",
+                "executionId": "exec_1766254501395_f7as7xc2w",
                 "round": 2,
                 "completed": true,
                 "reason": "no_tool_calls",
@@ -874,7 +901,7 @@
               },
               "sourceType": "agent",
               "sourceId": "agent_0",
-              "timestamp": "2025-12-20T16:58:33.874Z",
+              "timestamp": "2025-12-20T18:15:01.403Z",
               "context": {
                 "ownerType": "response",
                 "ownerId": "response_thinking_agent_0_round2",
@@ -885,7 +912,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766249913866_8ohi31u27"
+                    "id": "exec_1766254501395_f7as7xc2w"
                   },
                   {
                     "type": "thinking",
@@ -897,23 +924,26 @@
                   }
                 ],
                 "sourceId": "agent_0",
-                "timestamp": "2025-12-20T16:58:33.874Z"
+                "timestamp": "2025-12-20T18:15:01.403Z"
               }
             },
-            "ownerPath": [
-              "agent_0",
-              "exec_1766249913866_8ohi31u27",
-              "thinking_agent_0_round2",
-              "response_thinking_agent_0_round2"
-            ],
-            "agentNumber": 0
+            "handlerType": "agent",
+            "extra": {
+              "ownerPath": [
+                "agent_0",
+                "exec_1766254501395_f7as7xc2w",
+                "thinking_agent_0_round2",
+                "response_thinking_agent_0_round2"
+              ],
+              "agentNumber": 0
+            }
           }
         }
       },
       "connections": []
     },
     {
-      "id": "agent_0_user_exec_1766249913875_itxzk0xrv",
+      "id": "agent_0_user_exec_1766254501404_dkphfgw0q",
       "type": "user_message",
       "level": 0,
       "status": "completed",
@@ -921,7 +951,7 @@
       "data": {
         "sourceId": "agent_0",
         "sourceType": "user",
-        "executionId": "exec_1766249913875_itxzk0xrv",
+        "executionId": "exec_1766254501404_dkphfgw0q",
         "label": "User Message",
         "description": "User input message",
         "eventType": "execution.user_message",
@@ -945,7 +975,7 @@
           "messageId": "agent_0",
           "content": "Second message: continue based on previous response; do not reset context.",
           "length": 74,
-          "timestamp": "2025-12-20T16:58:33.875Z"
+          "timestamp": "2025-12-20T18:15:01.404Z"
         },
         "extensions": {
           "robota": {
@@ -969,10 +999,10 @@
               },
               "sourceType": "agent",
               "sourceId": "agent_0",
-              "timestamp": "2025-12-20T16:58:33.875Z",
+              "timestamp": "2025-12-20T18:15:01.404Z",
               "context": {
                 "ownerType": "execution",
-                "ownerId": "exec_1766249913875_itxzk0xrv",
+                "ownerId": "exec_1766254501404_dkphfgw0q",
                 "ownerPath": [
                   {
                     "type": "agent",
@@ -980,15 +1010,17 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766249913875_itxzk0xrv"
+                    "id": "exec_1766254501404_dkphfgw0q"
                   }
                 ],
                 "sourceId": "agent_0",
-                "timestamp": "2025-12-20T16:58:33.875Z"
+                "timestamp": "2025-12-20T18:15:01.404Z"
               }
             },
             "handlerType": "execution",
-            "isUserMessage": true
+            "extra": {
+              "isUserMessage": true
+            }
           }
         }
       },
@@ -1007,7 +1039,7 @@
         "agentNumber": 0,
         "label": "Agent 0 Thinking",
         "description": "Agent processing and reasoning",
-        "originalEventTimestamp": "2025-12-20T16:58:33.875Z",
+        "originalEventTimestamp": "2025-12-20T18:15:01.404Z",
         "extensions": {
           "robota": {
             "originalEvent": {
@@ -1022,7 +1054,7 @@
               },
               "sourceType": "agent",
               "sourceId": "agent_0",
-              "timestamp": "2025-12-20T16:58:33.875Z",
+              "timestamp": "2025-12-20T18:15:01.404Z",
               "context": {
                 "ownerType": "thinking",
                 "ownerId": "thinking_agent_0_round3",
@@ -1033,7 +1065,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766249913875_itxzk0xrv"
+                    "id": "exec_1766254501404_dkphfgw0q"
                   },
                   {
                     "type": "thinking",
@@ -1041,15 +1073,18 @@
                   }
                 ],
                 "sourceId": "agent_0",
-                "timestamp": "2025-12-20T16:58:33.875Z"
+                "timestamp": "2025-12-20T18:15:01.404Z"
               }
             },
-            "ownerPath": [
-              "agent_0",
-              "exec_1766249913875_itxzk0xrv",
-              "thinking_agent_0_round3"
-            ],
-            "agentNumber": 0
+            "handlerType": "agent",
+            "extra": {
+              "ownerPath": [
+                "agent_0",
+                "exec_1766254501404_dkphfgw0q",
+                "thinking_agent_0_round3"
+              ],
+              "agentNumber": 0
+            }
           }
         }
       },
@@ -1069,7 +1104,7 @@
         "label": "Agent 0 Response",
         "description": "Agent response and output",
         "response": "",
-        "originalEventTimestamp": "2025-12-20T16:58:33.876Z",
+        "originalEventTimestamp": "2025-12-20T18:15:01.405Z",
         "extensions": {
           "robota": {
             "originalEvent": {
@@ -1078,7 +1113,7 @@
                 "assistantMessage": "Continuation: Week 1 validate location + supplier quotes; Week 2 soft launch with 3 drinks; Week 3 measure margins and adjust; Week 4 marketing push. I’ll keep the delegated risks as constraints throughout.",
                 "responseLength": 206,
                 "wordCount": 33,
-                "responseTime": 66249913176,
+                "responseTime": 66254500705,
                 "contentPreview": "Continuation: Week 1 validate location + supplier quotes; Week 2 soft launch with 3 drinks; Week 3 measure margins and adjust; Week 4 marketing push. I’ll keep the delegated risks as constraints throu..."
               },
               "result": {
@@ -1094,7 +1129,7 @@
                 }
               },
               "metadata": {
-                "executionId": "exec_1766249913875_itxzk0xrv",
+                "executionId": "exec_1766254501404_dkphfgw0q",
                 "round": 1,
                 "completed": true,
                 "reason": "no_tool_calls",
@@ -1107,7 +1142,7 @@
               },
               "sourceType": "agent",
               "sourceId": "agent_0",
-              "timestamp": "2025-12-20T16:58:33.876Z",
+              "timestamp": "2025-12-20T18:15:01.405Z",
               "context": {
                 "ownerType": "response",
                 "ownerId": "response_thinking_agent_0_round3",
@@ -1118,7 +1153,7 @@
                   },
                   {
                     "type": "execution",
-                    "id": "exec_1766249913875_itxzk0xrv"
+                    "id": "exec_1766254501404_dkphfgw0q"
                   },
                   {
                     "type": "thinking",
@@ -1130,16 +1165,19 @@
                   }
                 ],
                 "sourceId": "agent_0",
-                "timestamp": "2025-12-20T16:58:33.876Z"
+                "timestamp": "2025-12-20T18:15:01.405Z"
               }
             },
-            "ownerPath": [
-              "agent_0",
-              "exec_1766249913875_itxzk0xrv",
-              "thinking_agent_0_round3",
-              "response_thinking_agent_0_round3"
-            ],
-            "agentNumber": 0
+            "handlerType": "agent",
+            "extra": {
+              "ownerPath": [
+                "agent_0",
+                "exec_1766254501404_dkphfgw0q",
+                "thinking_agent_0_round3",
+                "response_thinking_agent_0_round3"
+              ],
+              "agentNumber": 0
+            }
           }
         }
       },
@@ -1148,22 +1186,22 @@
   ],
   "edges": [
     {
-      "id": "edge_agent_0_copy_1_agent_0_user_exec_1766249913866_8ohi31u27_receives_3",
+      "id": "edge_agent_0_copy_1_agent_0_user_exec_1766254501395_f7as7xc2w_receives_3",
       "source": "agent_0_copy_1",
-      "target": "agent_0_user_exec_1766249913866_8ohi31u27",
+      "target": "agent_0_user_exec_1766254501395_f7as7xc2w",
       "type": "receives",
       "timestamp": 3,
-      "createdAt": "2025-12-20T16:58:33.868Z",
-      "updatedAt": "2025-12-20T16:58:33.868Z"
+      "createdAt": "2025-12-20T18:15:01.397Z",
+      "updatedAt": "2025-12-20T18:15:01.397Z"
     },
     {
-      "id": "edge_agent_0_user_exec_1766249913866_8ohi31u27_thinking_agent_0_round1_processes_5",
-      "source": "agent_0_user_exec_1766249913866_8ohi31u27",
+      "id": "edge_agent_0_user_exec_1766254501395_f7as7xc2w_thinking_agent_0_round1_processes_5",
+      "source": "agent_0_user_exec_1766254501395_f7as7xc2w",
       "target": "thinking_agent_0_round1",
       "type": "processes",
       "timestamp": 5,
-      "createdAt": "2025-12-20T16:58:33.868Z",
-      "updatedAt": "2025-12-20T16:58:33.868Z"
+      "createdAt": "2025-12-20T18:15:01.398Z",
+      "updatedAt": "2025-12-20T18:15:01.398Z"
     },
     {
       "id": "edge_thinking_agent_0_round1_call_assign_1_executes_7",
@@ -1171,8 +1209,8 @@
       "target": "call_assign_1",
       "type": "executes",
       "timestamp": 7,
-      "createdAt": "2025-12-20T16:58:33.870Z",
-      "updatedAt": "2025-12-20T16:58:33.870Z"
+      "createdAt": "2025-12-20T18:15:01.399Z",
+      "updatedAt": "2025-12-20T18:15:01.399Z"
     },
     {
       "id": "edge_call_assign_1_agent_1_copy_1_creates_9",
@@ -1180,26 +1218,26 @@
       "target": "agent_1_copy_1",
       "type": "creates",
       "timestamp": 9,
-      "createdAt": "2025-12-20T16:58:33.870Z",
-      "updatedAt": "2025-12-20T16:58:33.870Z"
+      "createdAt": "2025-12-20T18:15:01.399Z",
+      "updatedAt": "2025-12-20T18:15:01.399Z"
     },
     {
-      "id": "edge_agent_1_copy_1_agent_1_user_exec_1766249913870_c3r2bkh9g_receives_11",
+      "id": "edge_agent_1_copy_1_agent_1_user_exec_1766254501399_c8r63uh83_receives_11",
       "source": "agent_1_copy_1",
-      "target": "agent_1_user_exec_1766249913870_c3r2bkh9g",
+      "target": "agent_1_user_exec_1766254501399_c8r63uh83",
       "type": "receives",
       "timestamp": 11,
-      "createdAt": "2025-12-20T16:58:33.871Z",
-      "updatedAt": "2025-12-20T16:58:33.871Z"
+      "createdAt": "2025-12-20T18:15:01.400Z",
+      "updatedAt": "2025-12-20T18:15:01.400Z"
     },
     {
-      "id": "edge_agent_1_user_exec_1766249913870_c3r2bkh9g_thinking_agent_1_round1_processes_13",
-      "source": "agent_1_user_exec_1766249913870_c3r2bkh9g",
+      "id": "edge_agent_1_user_exec_1766254501399_c8r63uh83_thinking_agent_1_round1_processes_13",
+      "source": "agent_1_user_exec_1766254501399_c8r63uh83",
       "target": "thinking_agent_1_round1",
       "type": "processes",
       "timestamp": 13,
-      "createdAt": "2025-12-20T16:58:33.871Z",
-      "updatedAt": "2025-12-20T16:58:33.871Z"
+      "createdAt": "2025-12-20T18:15:01.400Z",
+      "updatedAt": "2025-12-20T18:15:01.400Z"
     },
     {
       "id": "edge_thinking_agent_1_round1_response_thinking_agent_1_round1_return_15",
@@ -1207,8 +1245,8 @@
       "target": "response_thinking_agent_1_round1",
       "type": "return",
       "timestamp": 15,
-      "createdAt": "2025-12-20T16:58:33.872Z",
-      "updatedAt": "2025-12-20T16:58:33.872Z"
+      "createdAt": "2025-12-20T18:15:01.401Z",
+      "updatedAt": "2025-12-20T18:15:01.401Z"
     },
     {
       "id": "edge_response_thinking_agent_1_round1_tool_response_call_call_assign_1_result_17",
@@ -1216,26 +1254,26 @@
       "target": "tool_response_call_call_assign_1",
       "type": "result",
       "timestamp": 17,
-      "createdAt": "2025-12-20T16:58:33.873Z",
-      "updatedAt": "2025-12-20T16:58:33.873Z"
+      "createdAt": "2025-12-20T18:15:01.402Z",
+      "updatedAt": "2025-12-20T18:15:01.402Z"
     },
     {
-      "id": "edge_tool_response_call_call_assign_1_tool_result_thinking_agent_0_round1_1766249913873_result_19",
+      "id": "edge_tool_response_call_call_assign_1_tool_result_thinking_agent_0_round1_1766254501402_result_19",
       "source": "tool_response_call_call_assign_1",
-      "target": "tool_result_thinking_agent_0_round1_1766249913873",
+      "target": "tool_result_thinking_agent_0_round1_1766254501402",
       "type": "result",
       "timestamp": 19,
-      "createdAt": "2025-12-20T16:58:33.873Z",
-      "updatedAt": "2025-12-20T16:58:33.873Z"
+      "createdAt": "2025-12-20T18:15:01.402Z",
+      "updatedAt": "2025-12-20T18:15:01.402Z"
     },
     {
-      "id": "edge_tool_result_thinking_agent_0_round1_1766249913873_thinking_agent_0_round2_analyze_21",
-      "source": "tool_result_thinking_agent_0_round1_1766249913873",
+      "id": "edge_tool_result_thinking_agent_0_round1_1766254501402_thinking_agent_0_round2_analyze_21",
+      "source": "tool_result_thinking_agent_0_round1_1766254501402",
       "target": "thinking_agent_0_round2",
       "type": "analyze",
       "timestamp": 21,
-      "createdAt": "2025-12-20T16:58:33.874Z",
-      "updatedAt": "2025-12-20T16:58:33.874Z"
+      "createdAt": "2025-12-20T18:15:01.403Z",
+      "updatedAt": "2025-12-20T18:15:01.403Z"
     },
     {
       "id": "edge_thinking_agent_0_round2_response_thinking_agent_0_round2_return_23",
@@ -1243,26 +1281,26 @@
       "target": "response_thinking_agent_0_round2",
       "type": "return",
       "timestamp": 23,
-      "createdAt": "2025-12-20T16:58:33.875Z",
-      "updatedAt": "2025-12-20T16:58:33.875Z"
+      "createdAt": "2025-12-20T18:15:01.404Z",
+      "updatedAt": "2025-12-20T18:15:01.404Z"
     },
     {
-      "id": "edge_response_thinking_agent_0_round2_agent_0_user_exec_1766249913875_itxzk0xrv_continues_25",
+      "id": "edge_response_thinking_agent_0_round2_agent_0_user_exec_1766254501404_dkphfgw0q_continues_25",
       "source": "response_thinking_agent_0_round2",
-      "target": "agent_0_user_exec_1766249913875_itxzk0xrv",
+      "target": "agent_0_user_exec_1766254501404_dkphfgw0q",
       "type": "continues",
       "timestamp": 25,
-      "createdAt": "2025-12-20T16:58:33.875Z",
-      "updatedAt": "2025-12-20T16:58:33.875Z"
+      "createdAt": "2025-12-20T18:15:01.404Z",
+      "updatedAt": "2025-12-20T18:15:01.404Z"
     },
     {
-      "id": "edge_agent_0_user_exec_1766249913875_itxzk0xrv_thinking_agent_0_round3_processes_27",
-      "source": "agent_0_user_exec_1766249913875_itxzk0xrv",
+      "id": "edge_agent_0_user_exec_1766254501404_dkphfgw0q_thinking_agent_0_round3_processes_27",
+      "source": "agent_0_user_exec_1766254501404_dkphfgw0q",
       "target": "thinking_agent_0_round3",
       "type": "processes",
       "timestamp": 27,
-      "createdAt": "2025-12-20T16:58:33.875Z",
-      "updatedAt": "2025-12-20T16:58:33.875Z"
+      "createdAt": "2025-12-20T18:15:01.404Z",
+      "updatedAt": "2025-12-20T18:15:01.404Z"
     },
     {
       "id": "edge_thinking_agent_0_round3_response_thinking_agent_0_round3_return_29",
@@ -1270,8 +1308,8 @@
       "target": "response_thinking_agent_0_round3",
       "type": "return",
       "timestamp": 29,
-      "createdAt": "2025-12-20T16:58:33.876Z",
-      "updatedAt": "2025-12-20T16:58:33.876Z"
+      "createdAt": "2025-12-20T18:15:01.405Z",
+      "updatedAt": "2025-12-20T18:15:01.405Z"
     }
   ]
 }

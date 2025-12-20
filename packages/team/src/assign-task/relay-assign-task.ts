@@ -82,7 +82,7 @@ const assignTaskSchema: ToolSchema = {
     }
 };
 
-export const listTemplateCategoriesTool = new FunctionTool(listTemplateCategoriesSchema, async (): Promise<ToolResult> => {
+export const listTemplateCategoriesTool = new FunctionTool(listTemplateCategoriesSchema, async () => {
     const categories = [
         {
             id: 'default',
@@ -90,26 +90,30 @@ export const listTemplateCategoriesTool = new FunctionTool(listTemplateCategorie
             description: 'Built-in assignTask templates'
         }
     ];
-    return { success: true, data: { categories } as any };
+    return { categories };
 });
 
-export const listTemplatesTool = new FunctionTool(listTemplatesSchema, async (params: ToolParameters): Promise<ToolResult> => {
+export const listTemplatesTool = new FunctionTool(listTemplatesSchema, async (params: ToolParameters) => {
+    void params;
     const filtered = TEMPLATE_LIST.map(t => ({
         id: t.id,
         name: t.name,
         description: t.description,
         categoryId: 'default'
     }));
-    return { success: true, data: { templates: filtered } as any };
+    return { templates: filtered };
 });
 
-export const getTemplateDetailTool = new FunctionTool(getTemplateDetailSchema, async (params: ToolParameters): Promise<ToolResult> => {
-    const templateId = params.templateId as string;
+export const getTemplateDetailTool = new FunctionTool(getTemplateDetailSchema, async (params: ToolParameters) => {
+    const templateId = typeof params.templateId === 'string' ? params.templateId : '';
+    if (!templateId) {
+        throw new Error('Missing required parameter: templateId');
+    }
     const tmpl = TEMPLATE_LIST.find(t => t.id === templateId);
     if (!tmpl) {
-        return { success: false, error: `Template not found: ${templateId}` };
+        throw new Error(`Template not found: ${templateId}`);
     }
-    return { success: true, data: tmpl };
+    return tmpl;
 });
 
 export function createAssignTaskRelayTool(eventService: EventService): RelayMcpTool {
@@ -117,7 +121,21 @@ export function createAssignTaskRelayTool(eventService: EventService): RelayMcpT
         schema: assignTaskSchema,
         eventService,
         run: async (params: ToolParameters, ctx): Promise<ToolResult> => {
-            const { templateId, jobDescription, provider, model, temperature, maxTokens, context: jobContext } = params as AssignTaskParams;
+            const templateId = typeof params.templateId === 'string' ? params.templateId : '';
+            const jobDescription = typeof params.jobDescription === 'string' ? params.jobDescription : '';
+            if (!templateId) {
+                return { success: false, error: 'Missing required parameter: templateId' };
+            }
+            if (!jobDescription) {
+                return { success: false, error: 'Missing required parameter: jobDescription' };
+            }
+
+            const provider = typeof params.provider === 'string' ? params.provider : undefined;
+            const model = typeof params.model === 'string' ? params.model : undefined;
+            const temperature = typeof params.temperature === 'number' ? params.temperature : undefined;
+            const maxTokens = typeof params.maxTokens === 'number' ? params.maxTokens : undefined;
+            const jobContext = typeof params.context === 'string' ? params.context : '';
+
             const tmpl = TEMPLATE_LIST.find(t => t.id === templateId);
             if (!tmpl) {
                 return { success: false, error: `Template not found: ${templateId}` };
@@ -132,7 +150,7 @@ export function createAssignTaskRelayTool(eventService: EventService): RelayMcpT
             if (!ctx?.agentId) {
                 throw new Error('[ASSIGN-TASK] Missing context.agentId');
             }
-            const parentOwnerPath: OwnerPathSegment[] = Array.isArray(ctx.ownerPath) ? ctx.ownerPath.map((s: any) => ({ ...s })) : [];
+            const parentOwnerPath: OwnerPathSegment[] = Array.isArray(ctx.ownerPath) ? ctx.ownerPath.map((s: OwnerPathSegment) => ({ ...s })) : [];
             const agentOwnerPath: OwnerPathSegment[] = [...parentOwnerPath, { type: 'agent', id: ctx.agentId }];
             const agentEventService = bindWithOwnerPath(ctx.baseEventService, {
                 ownerType: 'agent',

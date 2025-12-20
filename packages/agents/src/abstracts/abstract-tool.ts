@@ -32,7 +32,7 @@
  * ```
  */
 
-import type { ToolInterface, ToolResult, ToolExecutionContext, ParameterValidationResult } from '../interfaces/tool';
+import type { ToolInterface, ToolResult, ToolExecutionContext, ParameterValidationResult, ToolParameters } from '../interfaces/tool';
 import type { ToolSchema } from '../interfaces/provider';
 import type { AbstractLogger } from '../utils/abstract-logger';
 import { DEFAULT_ABSTRACT_LOGGER } from '../utils/abstract-logger';
@@ -61,30 +61,13 @@ export interface AbstractToolOptions {
 }
 
 /**
- * Abstract tool parameters type - extended for full ToolParameters compatibility
- * Used for parameter validation and execution in abstract tool context
- * 
- * REASON: Extended to include all ToolParameterValue types for complete compatibility
- * ALTERNATIVES_CONSIDERED: 
- * 1. Keep narrow type and use type assertions everywhere (increases maintenance burden)
- * 2. Create separate conversion functions (adds complexity without benefit)
- * 3. Use intersection types (unnecessary complexity for this use case)
- * 4. Modify ToolParameters to remove complex types (breaks existing APIs)
- * 5. Create type conversion utilities (adds runtime overhead)
- * TODO: Monitor usage patterns and consider narrowing if complex types cause runtime issues
+ * Canonical tool parameters type for AbstractTool.
+ *
+ * IMPORTANT:
+ * - This must stay aligned with `ToolParameters` from the interfaces layer.
+ * - Do not introduce a separate parameter taxonomy here.
  */
-export type AbstractToolParameters = Record<string,
-    | string
-    | number
-    | boolean
-    | string[]
-    | number[]
-    | boolean[]
-    | Array<string | number | boolean>
-    | Record<string, string | number | boolean>
-    | null
-    | undefined
->;
+export type AbstractToolParameters = ToolParameters;
 
 /**
  * Tool execution function type with proper parameter constraints

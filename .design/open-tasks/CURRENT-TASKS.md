@@ -691,6 +691,98 @@ npx tsx utils/verify-workflow-connections.ts | cat
 
 ---
 
+## 🧩 Type Audit Summary (SDK core only)
+
+> Scope: `packages/agents` → `packages/workflow` → `packages/team`  
+> Priority: **type duplication / cohesion (single ground-truth axis)**  
+> Output: keep this section as the single source of truth (no separate doc).
+
+### Ground-truth axis (proposed)
+- **agents owns**: Event axis + Tool axis + Agent axis (domain-neutral)
+- **workflow owns**: node/edge graph types only (import event/tool/agent types from `agents`, no duplication)
+- **team owns**: minimal assignTask/MCP tool-collection surface only (reuse `agents` types)
+
+### packages/agents — export surface (high-level)
+- Public exports are centralized via `packages/agents/src/index.ts` → `export * from './interfaces'` + selected re-exports.
+- Key exported axes:
+  - Event: `EventContext`, `OwnerPathSegment`, `BaseEventData`/`ExecutionEventData`/`ToolEventData`/`AgentEventData`, `EventService`
+  - Tool: `ToolExecutionContext`, `ToolParameters`, `ToolResult`, tool schema/registry types
+  - Agent: `AgentConfig`, messages (`Message`/`UserMessage`/`ToolMessage`), `RunOptions`
+
+### packages/agents — duplication / cohesion issues (Top candidates)
+1) **ToolParameters duplicated**
+   - `interfaces/types.ts`: `ToolParameters` already exists
+   - `interfaces/tool.ts`: defines another `ToolParameters` + `ToolParameterValue`
+   - Impact: multiple “same-name, different-shape” types leak across layers → fragile imports
+2) **ToolExecutionContext contains legacy hierarchy fields + broad index signature**
+   - `interfaces/tool.ts` still carries `parentExecutionId/rootExecutionId/executionLevel/executionPath` etc.
+   - Also includes an index signature that permits `unknown` (with eslint disable) → weakens strict typing
+3) **AssistantMessage duplication**
+   - `interfaces/agent.ts` has `AssistantMessage` marked deprecated, while `conversation-history-manager` exports another `AssistantMessage`
+   - Impact: callers may import the wrong one; deprecation is not enforced at compile time
+4) **OwnerPathSegment type split**
+   - `interfaces/event-service.ts` defines `OwnerPathSegment`
+   - `interfaces/tool.ts` aliases `ToolOwnerPathSegment = OwnerPathSegment`
+   - Impact: redundant aliasing increases surface area with no benefit
+
+### Proposed refactor outline (agents first; apply after explicit approval)
+- [x] **Consolidate ToolParameters** into a single owner module (prefer `interfaces/types.ts`), and make `interfaces/tool.ts` reuse it (no duplicate name).
+- [ ] **Tighten ToolExecutionContext**:
+  - [ ] remove legacy hierarchy fields that conflict with ownerPath-only design (or move to a clearly named legacy-only interface if still required)
+  - [x] remove `unknown` from index signatures; replace with a constrained “extension value” union (similar to `EventExtensionValue`)
+- [ ] **Unify AssistantMessage**:
+  - decide one canonical export (likely `conversation-history-manager`), update public export guidance, and remove/replace the deprecated interface usage sites
+- [ ] **Minimize OwnerPath segment types**:
+  - keep `OwnerPathSegment` only in the Event axis; avoid tool-specific alias unless a real semantic difference exists
+
+### packages/workflow — export surface (high-level)
+- Public exports via `packages/workflow/src/index.ts`:
+  - interfaces: `workflow-node`, `workflow-edge`, `workflow-builder`, `event-handler`, `workflow-plugin`
+  - services: `node-edge-manager`, `workflow-builder`, `workflow-event-subscriber`
+  - handlers: `agent-event-handler`, `tool-event-handler`, `execution-event-handler`
+  - types: `types/universal-types.ts`
+
+### packages/workflow — duplication / cohesion issues (Top candidates)
+1) **EventData duplicates agents event axis**
+   - `interfaces/event-handler.ts` defines `EventData` with `executionId/rootExecutionId/executionLevel/path` and `[key: string]: unknown`
+   - This overlaps with `@robota-sdk/agents` (`BaseEventData` + `EventContext.ownerPath`) and can drift from ownerPath-only rules
+2) **WorkflowNodeData is overly loose**
+   - `interfaces/workflow-node.ts`: `parameters?: Record<string, unknown>`, `result?: Record<string, unknown>`, `[key: string]: unknown`
+   - This weakens type safety and makes cross-package contracts unclear
+3) **Universal types carry UI-ish “fallback” semantics**
+   - `types/universal-types.ts` includes `UniversalWorkflowEdge.conditional.fallbackEdge?: string`
+   - Even if UI-only, the name encourages fallback semantics and increases surface area; consider a domain-neutral alternative
+4) **Terminology drift: copyNumber**
+   - `workflow-node.ts` includes `copyNumber?: number` in node data (terminology should avoid “copy” wording)
+
+### Proposed refactor outline (workflow; apply after explicit approval)
+- [ ] Define a single workflow event envelope that reuses agents axis:
+  - `EventContext` + `BaseEventData` (import from `@robota-sdk/agents`)
+  - workflow-specific “rendering metadata” must live under `extensions.*` with constrained value types (no `unknown`)
+- [ ] Replace `EventData` in `interfaces/event-handler.ts` with a type derived from agents axis (or make it explicitly internal and not re-exported).
+- [x] Tighten `WorkflowNodeData`:
+  - [x] replace `Record<string, unknown>`/`[key: string]: unknown` with constrained unions aligned with `agents` (`UniversalValue`/`LoggerData`-like)
+- [ ] Rename/remove `fallbackEdge` field from universal edge types to avoid fallback semantics leakage.
+- [ ] Replace `copyNumber` terminology with `replicaNumber` (or remove if only UI-derived).
+
+### packages/team — export surface (high-level)
+- Public exports are intentionally minimal (`packages/team/src/index.ts`):
+  - `listTemplateCategoriesTool`, `listTemplatesTool`, `getTemplateDetailTool`, `createAssignTaskRelayTool`
+
+### packages/team — duplication / cohesion issues (Top candidates)
+1) **Type escapes (`as any`) in ToolResult payloads**
+   - `assign-task/relay-assign-task.ts` returns `{ data: ... } as any` in a few places
+2) **`any` usage in ownerPath cloning**
+   - ownerPath clone uses `(s: any) => ({ ...s })` instead of a typed clone over `OwnerPathSegment`
+3) **Unvalidated parameter casts**
+   - `params as AssignTaskParams` assumes shape without runtime validation; prefer field-level extraction + validation
+
+### Proposed refactor outline (team; apply after explicit approval)
+- [x] Remove `as any` payload escapes by shaping `ToolResult.data` to a typed object (or introduce a constrained “assignTask result payload” type).
+- [x] Replace `any` ownerPath cloning with `OwnerPathSegment[]`-typed cloning.
+- [x] Replace `params as AssignTaskParams` with explicit field checks to keep ToolResult deterministic and type-safe.
+
+
 ## 📝 작업 진행 기록
 
 **시작일**: 2025-10-16
@@ -733,6 +825,12 @@ npx tsx utils/verify-workflow-connections.ts | cat
 - 2025-12-20: (회귀 검증) Node/Edge timestamp를 내부 단조 증가로 고정(NodeEdgeManager). 예제 26/27 verify PASS 재확인.
   - 예제 26(재검증): **nodes=18 / edges=18**, verify PASS (`SCENARIO_PLAY_ID=mandatory-delegation`)
   - 예제 27(재검증): **nodes=15 / edges=14**, verify PASS (`SCENARIO_PLAY_ID=continued-conversation`)
+- 2025-12-20: (Type axis 정리) agents/workflow/team 타입 축 정리 적용 + 빌드/회귀 검증 PASS
+  - `pnpm --filter @robota-sdk/agents build` PASS
+  - `pnpm --filter @robota-sdk/workflow build` PASS
+  - `pnpm --filter @robota-sdk/team build` PASS
+  - Guarded 26 재검증: **nodes=18 / edges=18**, verify PASS (`SCENARIO_PLAY_ID=mandatory-delegation`, sequential)
+  - Guarded 27 재검증: **nodes=15 / edges=14**, verify PASS (`SCENARIO_PLAY_ID=continued-conversation`, sequential)
 - 2025-12-20: (team 정리) docs/README/examples에서 “Team Collaboration” 잔여 제거, 05 스크립트 제거, 07은 `07-agent-templates.ts`로 교체. api-reference(team) stale 문서 삭제.
 - 2025-12-20: (scenario CLI) `pnpm scenario:record/play/verify` 추가, verify는 예제 실패/strict-policy violation 시 즉시 중단. `apps/examples/README.md`에 실행 플로우 문서화.
 - 2025-12-20: (Stage 6.5/6.6) workflow handlers에서 `WorkflowState` fallback 제거 → path-only scan + fail-fast로 고정.

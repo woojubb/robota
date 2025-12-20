@@ -99,7 +99,7 @@ export class ExecutionEventHandler implements EventHandler {
                             parentThinkingNodeId: thinkingId,
                             label: 'Tool Result Aggregation',
                             description: 'Aggregating tool call results',
-                            extensions: { robota: { originalEvent: eventData } }
+                            extensions: { robota: { originalEvent: eventData, handlerType: 'execution' } }
                         },
                         connections: []
                     } as unknown as WorkflowNode;
@@ -312,7 +312,7 @@ export class ExecutionEventHandler implements EventHandler {
                     robota: {
                         originalEvent: data,
                         handlerType: 'execution',
-                        isExecutionStart: true
+                        extra: { isExecutionStart: true }
                     }
                 }
             },
@@ -349,14 +349,14 @@ export class ExecutionEventHandler implements EventHandler {
                     executionId: data.executionId,
                     endTime: new Date().toISOString(),
                     level: derivedLevel,
-                    duration: data.metadata?.duration || 0,
+                    duration: typeof data.metadata?.duration === 'number' ? data.metadata.duration : 0,
                     success: true
                 },
                 extensions: {
                     robota: {
                         originalEvent: data,
                         handlerType: 'execution',
-                        isExecutionComplete: true
+                        extra: { isExecutionComplete: true }
                     }
                 }
             },
@@ -400,7 +400,7 @@ export class ExecutionEventHandler implements EventHandler {
                     robota: {
                         originalEvent: data,
                         handlerType: 'execution',
-                        isExecutionError: true
+                        extra: { isExecutionError: true }
                     }
                 }
             },
@@ -440,7 +440,7 @@ export class ExecutionEventHandler implements EventHandler {
                     robota: {
                         originalEvent: data,
                         handlerType: 'execution',
-                        isAssistantMessage: true
+                        extra: { isAssistantMessage: true }
                     }
                 }
             },
@@ -482,8 +482,8 @@ export class ExecutionEventHandler implements EventHandler {
                     wordCount: messageContent.split(/\s+/).filter((word: string) => word.length > 0).length
                 },
                 messageMetrics: {
-                    responseTime: data.metadata?.responseTime || 0,
-                    tokenCount: data.metadata?.tokenCount || 0,
+                    responseTime: typeof data.metadata?.responseTime === 'number' ? data.metadata.responseTime : 0,
+                    tokenCount: typeof data.metadata?.tokenCount === 'number' ? data.metadata.tokenCount : 0,
                     hasCodeBlocks: /```/.test(messageContent),
                     hasLinks: /https?:\/\//.test(messageContent),
                     complexity: messageLength > 1000 ? 'high' : messageLength > 300 ? 'medium' : 'low'
@@ -492,7 +492,7 @@ export class ExecutionEventHandler implements EventHandler {
                     robota: {
                         originalEvent: data,
                         handlerType: 'execution',
-                        isAssistantMessage: true
+                        extra: { isAssistantMessage: true }
                     }
                 }
             },
@@ -558,7 +558,7 @@ export class ExecutionEventHandler implements EventHandler {
                     robota: {
                         originalEvent: data,
                         handlerType: 'execution',
-                        isUserMessage: true
+                        extra: { isUserMessage: true }
                     }
                 }
             },
@@ -599,7 +599,7 @@ export class ExecutionEventHandler implements EventHandler {
                     robota: {
                         originalEvent: data,
                         handlerType: 'execution',
-                        isUserInput: true
+                        extra: { isUserInput: true }
                     }
                 }
             },

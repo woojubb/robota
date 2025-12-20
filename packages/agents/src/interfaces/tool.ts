@@ -1,25 +1,19 @@
 import type { ToolSchema } from './provider';
 import type { EventService, OwnerPathSegment } from './event-service';
+import type { ContextData, LoggerData, ToolParameterValue, ToolParameters, ToolResultData, UniversalValue } from './types';
 
-/**
- * Specific tool parameter value types - declarative type system
- */
-export type ToolParameterValue =
-    | string
-    | number
-    | boolean
-    | string[]
-    | number[]
-    | boolean[]
-    | Array<string | number | boolean>
-    | Record<string, string | number | boolean>
-    | null
-    | undefined;
+// Re-export canonical tool parameter types from the shared "types" axis.
+export type { ToolParameterValue, ToolParameters } from './types';
 
-/**
- * Tool parameters collection - declarative type system
- */
-export type ToolParameters = Record<string, ToolParameterValue>;
+export type ToolContextExtensionValue =
+    | UniversalValue
+    | Date
+    | Error
+    | LoggerData
+    | ContextData
+    | ToolParameters
+    | ToolResultData
+    | ToolMetadata;
 
 /**
  * Tool metadata structure - specific type definition
@@ -27,18 +21,13 @@ export type ToolParameters = Record<string, ToolParameterValue>;
 export type ToolMetadata = Record<string, string | number | boolean | string[] | number[] | boolean[] | ToolParameters>;
 
 /**
- * Generic tool execution data - supports complex nested structures including ToolResult
+ * Tool execution data - domain payload for tool results.
+ *
+ * IMPORTANT:
+ * - This must support structured tool outputs without resorting to `any`.
+ * - Prefer `ToolResultData` (derived from the canonical `UniversalValue` axis).
  */
-export type ToolExecutionData =
-    | string
-    | number
-    | boolean
-    | Record<string, string | number | boolean | ToolParameters>
-    | Array<string | number | boolean | ToolParameters>
-    | ToolParameters
-    | ToolResult
-    | null
-    | undefined;
+export type ToolExecutionData = ToolResultData;
 
 /**
  * Tool execution result - extended for ToolExecutionData compatibility
@@ -48,7 +37,7 @@ export interface ToolResult {
     data?: ToolExecutionData;
     error?: string;
     metadata?: ToolMetadata;
-    [key: string]: string | number | boolean | ToolParameters | ToolExecutionData | ToolMetadata | undefined;
+    [key: string]: ToolContextExtensionValue | undefined;
 }
 
 /**
@@ -112,9 +101,14 @@ export interface ToolExecutionContext {
         estimatedDuration?: number;
     };
 
-    // Additional context data - expanded to support new field types  
-    // eslint-disable-next-line @typescript-eslint/ban-types -- tried-alternatives, generic-constraint
-    [key: string]: string | number | boolean | string[] | Date | ToolParameters | ToolMetadata | unknown | undefined;
+    /**
+     * Additional tool execution context extensions.
+     *
+     * IMPORTANT:
+     * - Avoid ad-hoc top-level fields to keep the contract stable.
+     * - Use this map for forward-compatible extra data with constrained value types.
+     */
+    extensions?: Record<string, ToolContextExtensionValue>;
 
     /** Owner context propagated from EventService */
     ownerType?: string;

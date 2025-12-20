@@ -4,6 +4,7 @@
 import type { WorkflowNode } from '../interfaces/workflow-node.js';
 import type { WorkflowSnapshot } from '../interfaces/workflow-builder.js';
 import type { WorkflowNodeType } from '../constants/workflow-types.js';
+import type { LoggerData, UniversalValue } from '@robota-sdk/agents';
 
 /**
  * Universal position information for nodes
@@ -126,6 +127,8 @@ export interface UniversalEdgeStyle {
     labelPosition?: number; // 0-1 along the edge
 }
 
+type UniversalWorkflowExtensionValue = UniversalValue | Date | Error | LoggerData;
+
 /**
  * Universal Workflow Edge
  * Represents connections between nodes with rich styling and metadata
@@ -165,11 +168,12 @@ export interface UniversalWorkflowEdge {
 
         // Platform-agnostic extensions
         extensions?: {
-            [platformName: string]: Record<string, unknown>;
+            [platformName: string]: Record<string, UniversalWorkflowExtensionValue | undefined>;
         };
 
         // Additional metadata
-        metadata?: Record<string, unknown>;
+        metadata?: LoggerData;
+        extra?: Record<string, UniversalWorkflowExtensionValue>;
     };
 
     // Timestamps

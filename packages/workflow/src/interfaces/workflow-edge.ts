@@ -2,6 +2,9 @@
 // Based on existing UniversalWorkflowEdge implementation
 
 import type { WorkflowConnectionType } from './workflow-node.js';
+import type { LoggerData, UniversalValue } from '@robota-sdk/agents';
+
+type WorkflowEdgeDataExtensionValue = UniversalValue | Date | Error | LoggerData;
 
 /**
  * Edge validation rule interface
@@ -46,8 +49,9 @@ export interface WorkflowEdge {
     // Additional metadata
     data?: {
         className?: string;
-        metadata?: Record<string, unknown>;
-        [key: string]: unknown;
+        metadata?: LoggerData;
+        extensions?: { [platformName: string]: Record<string, WorkflowEdgeDataExtensionValue | undefined> };
+        extra?: Record<string, WorkflowEdgeDataExtensionValue>;
     };
     
     // Timestamps for ordering
@@ -68,7 +72,7 @@ export interface EdgeCreationOptions {
     dependsOn?: string[];
     hidden?: boolean;
     autoTimestamp?: boolean;
-    metadata?: Record<string, unknown>;
+    metadata?: LoggerData;
 }
 
 /**
@@ -94,10 +98,8 @@ export interface EdgeQueryFilter {
 /**
  * Type guard for WorkflowEdge
  */
-export function isWorkflowEdge(obj: unknown): obj is WorkflowEdge {
+export function isWorkflowEdge(obj: object): obj is WorkflowEdge {
     return (
-        typeof obj === 'object' &&
-        obj !== null &&
         typeof (obj as WorkflowEdge).id === 'string' &&
         typeof (obj as WorkflowEdge).source === 'string' &&
         typeof (obj as WorkflowEdge).target === 'string' &&

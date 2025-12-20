@@ -196,7 +196,9 @@ export class ToolEventHandler implements EventHandler {
                     robota: {
                         originalEvent: data,
                         handlerType: 'tool',
-                        toolName: toolName
+                        extra: {
+                            toolName: toolName
+                        }
                     }
                 }
             },
@@ -232,7 +234,9 @@ export class ToolEventHandler implements EventHandler {
                     robota: {
                         originalEvent: data,
                         handlerType: 'tool',
-                        toolName: toolName
+                        extra: {
+                            toolName: toolName
+                        }
                     }
                 }
             },
@@ -269,8 +273,10 @@ export class ToolEventHandler implements EventHandler {
                     robota: {
                         originalEvent: data,
                         handlerType: 'tool',
-                        toolName: toolName,
-                        isError: true
+                        extra: {
+                            toolName: toolName,
+                            isError: true
+                        }
                     }
                 }
             },
@@ -325,8 +331,10 @@ export class ToolEventHandler implements EventHandler {
                     robota: {
                         originalEvent: data,
                         handlerType: 'tool',
-                        toolName: toolName,
-                        toolCallId: toolCallId
+                        extra: {
+                            toolName: toolName,
+                            toolCallId: toolCallId
+                        }
                     }
                 }
             },
@@ -396,8 +404,10 @@ export class ToolEventHandler implements EventHandler {
                 extensions: {
                     robota: {
                         handlerType: 'tool',
-                        isAggregation: true,
-                        parentThinkingNodeId: thinkingNodeId
+                        extra: {
+                            isAggregation: true,
+                            parentThinkingNodeId: thinkingNodeId
+                        }
                     }
                 }
             },

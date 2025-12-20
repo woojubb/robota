@@ -453,8 +453,11 @@ export class AgentEventHandler implements EventHandler {
                 extensions: {
                     robota: {
                         originalEvent: data,
-                        ownerPath: pathInfo.segments,
-                        agentNumber: agentNumber
+                        handlerType: 'agent',
+                        extra: {
+                            ownerPath: pathInfo.segments,
+                            agentNumber: agentNumber
+                        }
                     }
                 }
             },
@@ -637,8 +640,11 @@ export class AgentEventHandler implements EventHandler {
                 extensions: {
                     robota: {
                         originalEvent: data,
-                        ownerPath: pathInfo.segments,
-                        agentNumber: agentNumber
+                        handlerType: 'agent',
+                        extra: {
+                            ownerPath: pathInfo.segments,
+                            agentNumber: agentNumber
+                        }
                     }
                 }
             },
@@ -672,8 +678,11 @@ export class AgentEventHandler implements EventHandler {
                 extensions: {
                     robota: {
                         originalEvent: data,
-                        ownerPath: pathInfo.segments,
-                        agentNumber: agentNumber
+                        handlerType: 'agent',
+                        extra: {
+                            ownerPath: pathInfo.segments,
+                            agentNumber: agentNumber
+                        }
                     }
                 }
             },
