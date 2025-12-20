@@ -13,12 +13,12 @@
  * - Statistics Collection: PlaygroundStatisticsPlugin integration
  */
 
-import { Robota, ActionTrackingEventService } from '@robota-sdk/agents';
-import { WorkflowEventSubscriber } from '@robota-sdk/workflow';
+import { Robota } from '@robota-sdk/agents';
+import type { EventService } from '@robota-sdk/agents';
+import type { WorkflowEventSubscriber } from '@robota-sdk/workflow';
 import { DefaultExternalWorkflowStore, type ExternalWorkflowStore } from './external-workflow-store';
 import { OpenAIProvider } from '@robota-sdk/openai';
 import { AnthropicProvider } from '@robota-sdk/anthropic';
-import { AGENT_EVENTS } from '@robota-sdk/agents';
 import { FunctionTool } from '@robota-sdk/agents';
 // Note: local interface ToolSchema is defined below for browser-only runtime use.
 import {
@@ -35,7 +35,6 @@ import { SimpleLogger, SilentLogger } from '@robota-sdk/agents';
 export type { VisualizationData, ConversationEvent } from './plugins/playground-history-plugin';
 import { PlaygroundWebSocketClient } from './websocket-client';
 import { RemoteExecutor } from '@robota-sdk/remote';
-import { PlaygroundEventService, createPlaygroundEventService } from './playground-event-service';
 import { createBlockTrackingHooks } from './block-tracking/block-hooks';
 import { ToolRegistry } from '@/tools/catalog';
 
@@ -143,7 +142,7 @@ export class PlaygroundExecutor {
     // Playground-specific plugins
     private historyPlugin: PlaygroundHistoryPlugin;
     private statisticsPlugin: PlaygroundStatisticsPlugin;
-    private eventService: ActionTrackingEventService;
+    private eventService: EventService;
     private websocketClient: PlaygroundWebSocketClient | null = null;
 
     // SDK Workflow system
@@ -157,10 +156,14 @@ export class PlaygroundExecutor {
     constructor(
         private serverUrl: string,
         private authToken: string,
-        logger?: SimpleLogger
+        options: {
+            eventService: EventService;
+            workflowSubscriber: WorkflowEventSubscriber;
+            logger?: SimpleLogger;
+        }
     ) {
         // Initialize logger with dependency injection
-        this.logger = logger || SilentLogger;
+        this.logger = options.logger || SilentLogger;
 
         // HierarchyTracker will be added later
 
@@ -182,62 +185,16 @@ export class PlaygroundExecutor {
             errorRateThreshold: 10 // 10%
         });
 
-        // Create PlaygroundEventService that connects to historyPlugin
-        const basePlaygroundEventService = createPlaygroundEventService(this.historyPlugin);
-
-        // STEP 7.1.1: Create WorkflowEventSubscriber
-        this.workflowSubscriber = new WorkflowEventSubscriber({ logger: this.logger } as any);
-        console.log('🏗️ [STEP 7.1.1] WorkflowEventSubscriber created:', !!this.workflowSubscriber);
-
-        // 🎯 26번 예제 구조: ActionTrackingEventService with BridgeEventService → WorkflowEventSubscriber
-        class BridgeEventService {
-            private subscriber: any;
-            private queue: Array<{ type: string; data: unknown }> = [];
-            private processing = false;
-            private onEmitHook?: (type: string, data: any) => void;
-            constructor(subscriber: any, onEmitHook?: (type: string, data: any) => void) {
-                this.subscriber = subscriber;
-                this.onEmitHook = onEmitHook;
-            }
-            emit(eventType: unknown, data: unknown): void {
-                this.queue.push({ type: String(eventType), data });
-                try {
-                    if (this.onEmitHook) this.onEmitHook(String(eventType), data as any);
-                } catch { /* ignore hook errors */ }
-                void this.drain();
-            }
-            private async drain(): Promise<void> {
-                if (this.processing) return;
-                this.processing = true;
-                try {
-                    while (this.queue.length > 0) {
-                        const { type, data } = this.queue.shift()!;
-                        await this.subscriber.processEvent(type, data);
-                    }
-                } finally {
-                    this.processing = false;
-                }
-            }
-        }
-        const bridge = new BridgeEventService(this.workflowSubscriber, (type, data) => {
-            // Register agent instance on agent.created events for precise targeting
-            try {
-                if (type === AGENT_EVENTS.CREATED) {
-                    const sourceId = (data as any)?.sourceId;
-                    if (typeof sourceId === 'string' && this.currentAgent) {
-                        this.agentRegistry.set(sourceId, this.currentAgent);
-                    }
-                }
-            } catch { /* best-effort */ }
-        });
-        this.eventService = new ActionTrackingEventService(bridge as any);
-        console.log('🎯 [26-STRUCTURE] ActionTrackingEventService created with WorkflowEventSubscriber');
+        // Injected workflow subscriber + event service (single DI path)
+        this.workflowSubscriber = options.workflowSubscriber;
+        this.eventService = options.eventService;
+        this.logger.debug('PlaygroundExecutor initialized with injected EventService and WorkflowEventSubscriber');
 
         // STEP 8.3.2: Create ExternalWorkflowStore
         this.externalWorkflowStore = new DefaultExternalWorkflowStore(this.logger);
-        console.log('🏪 [STEP 8.3.2] ExternalWorkflowStore created:', !!this.externalWorkflowStore);
+        this.logger.debug('ExternalWorkflowStore created');
 
-        // 🎯 26번 예제 구조: 워크플로우 실시간 업데이트 구독 (Subscriber만 사용)
+        // Subscribe to workflow snapshots (SDK source of truth)
         this.setupWorkflowSubscription();
 
         // PlaygroundExecutor is ready immediately
@@ -250,20 +207,19 @@ export class PlaygroundExecutor {
     private setupWorkflowSubscription(): void {
         let snapCount = 0;
         // Subscribe to snapshots emitted AFTER each applied update
-        (this.workflowSubscriber as any).subscribeToWorkflowSnapshots((snapshot: any) => {
+        this.workflowSubscriber.subscribeToWorkflowSnapshots((snapshot: any) => {
             if (!snapshot) return;
             snapCount++;
-            console.log(`📸 [26-STRUCTURE] Workflow Snapshot #${snapCount}:`, {
+            this.logger.debug(`Workflow snapshot received (${snapCount})`, {
                 nodeCount: snapshot.nodes?.length || 0,
-                edgeCount: snapshot.edges?.length || 0,
-                workflowType: snapshot.__workflowType
+                edgeCount: snapshot.edges?.length || 0
             });
             if (this.uiUpdateCallback) {
                 this.uiUpdateCallback(snapshot);
             }
         });
 
-        console.log('🎯 [26-STRUCTURE] Workflow snapshot subscription setup completed');
+        this.logger.debug('Workflow snapshot subscription setup completed');
     }
 
     // 🎯 UI 업데이트 콜백 저장소
@@ -273,7 +229,7 @@ export class PlaygroundExecutor {
      * 🎯 플레이그라운드 UI가 워크플로우 업데이트를 구독할 수 있는 메서드
      */
     subscribeToWorkflowUpdates(callback: (workflow: any) => void): void {
-        console.log('🎯 [UI-SUBSCRIPTION] Playground UI subscribed to workflow updates');
+        this.logger.debug('Playground UI subscribed to workflow updates');
         this.uiUpdateCallback = callback;
     }
 
@@ -317,34 +273,13 @@ export class PlaygroundExecutor {
             // Create AI providers with remote executor
             const aiProviders = this.createProvidersWithExecutor();
 
-            // 🎯 26번 예제 구조: Context-bound EventService 사용
-            console.log('🚀 [26-STRUCTURE] Creating agent with context-bound EventService');
-
-            // Generate execution context for agent
-            const agentContext = {
-                executionId: `agent_${Date.now()}`,
-                rootExecutionId: `agent_${Date.now()}`,
-                executionLevel: 0, // Agent level
-                executionPath: [],
-                sourceType: 'agent' as const,
-                sourceId: config.name,
-                toolName: 'agent',
-                parameters: {}
-            };
-
-            // Create context-bound EventService
-            const contextBoundEventService = this.eventService.createContextBoundInstance &&
-                typeof this.eventService.createContextBoundInstance === 'function'
-                ? this.eventService.createContextBoundInstance(agentContext)
-                : this.eventService;
-
             this.currentAgent = new Robota({
                 name: config.name,
                 aiProviders: aiProviders as any,
                 defaultModel: config.defaultModel,
                 plugins: [this.historyPlugin as any, this.statisticsPlugin as any],
                 tools: (config.tools || []) as any,
-                eventService: contextBoundEventService // Context-bound EventService 사용
+                eventService: this.eventService
             });
 
             // Immediate registry registration with conversationId/root id
@@ -355,7 +290,7 @@ export class PlaygroundExecutor {
                 }
             } catch { /* ignore */ }
 
-            console.log('🚀 [26-STRUCTURE] Agent created with context-bound EventService');
+            this.logger.debug('Agent created');
 
             this.setMode('agent');
 
@@ -505,7 +440,7 @@ export class PlaygroundExecutor {
      * 🎯 26번 예제와 동일한 단순 실행 구조
      */
     async execute(prompt: string, onChunk?: (chunk: string) => void): Promise<PlaygroundExecutionResult> {
-        console.log('🚀 [PLAYGROUND] Direct execution (team mode removed)');
+        this.logger.debug('Playground execute called');
 
         const startTime = Date.now();
 
@@ -513,10 +448,10 @@ export class PlaygroundExecutor {
             let result: string;
 
             if (this.currentAgent) {
-                console.log('🎯 [AGENT-EXECUTE] Direct agent.run() call');
+                this.logger.debug('Executing current agent run');
                 result = await this.currentAgent.run(prompt);
             } else {
-                console.error('❌ [MODE-ERROR] No active executor found:', {
+                this.logger.error('No active agent configured for execution', {
                     mode: this.mode,
                     hasAgent: !!this.currentAgent
                 });
@@ -539,7 +474,9 @@ export class PlaygroundExecutor {
 
         } catch (error) {
             const duration = Date.now() - startTime;
-            console.error('❌ [26-DIRECT-EXECUTION] Execution failed:', error);
+            this.logger.error('Playground execution failed', {
+                error: error instanceof Error ? error.message : String(error)
+            });
 
             const executionResult: PlaygroundExecutionResult = {
                 success: false,
@@ -721,11 +658,9 @@ export class PlaygroundExecutor {
         const startTime = Date.now();
         const executionId = this.generateExecutionId();
 
-        // Debug: Log current execution state
-        console.log('🔍 PlaygroundExecutor.executeChat debug:', {
+        this.logger.debug('PlaygroundExecutor.executeChat debug', {
             mode: this.mode,
-            hasAgent: !!this.currentAgent,
-            message: messages[0]?.content?.substring(0, 50) + '...'
+            hasAgent: !!this.currentAgent
         });
 
         try {
@@ -735,7 +670,7 @@ export class PlaygroundExecutor {
             let response: UniversalMessage;
 
             if (this.mode === 'agent' && this.currentAgent) {
-                console.log('✅ Executing in AGENT mode');
+                this.logger.debug('Executing in agent mode');
                 const prompt = messages[0].content || '';
                 const result = await this.currentAgent.run(prompt);
                 response = {
@@ -790,8 +725,8 @@ export class PlaygroundExecutor {
         const executionId = this.generateExecutionId();
 
         try {
-            console.log('🚀 executeChatStream starting:', { executionId, mode: this.mode, messagesCount: messages.length });
-            console.log('🚀 [CRITICAL] Current execution state:', {
+            this.logger.debug('executeChatStream starting', { executionId, mode: this.mode, messagesCount: messages.length });
+            this.logger.debug('Current execution state', {
                 mode: this.mode,
                 hasAgent: !!this.currentAgent,
                 agentType: this.currentAgent?.constructor?.name
@@ -801,7 +736,7 @@ export class PlaygroundExecutor {
             await this.recordExecutionStart(executionId, messages);
 
             if (this.mode === 'agent' && this.currentAgent) {
-                console.log('📡 Starting agent stream...');
+                this.logger.debug('Starting agent stream');
                 const prompt = messages[0].content || '';
                 const stream = this.currentAgent.runStream(prompt);
 
@@ -821,15 +756,14 @@ export class PlaygroundExecutor {
 
             } else {
                 const error = new Error('No agent configured for streaming execution');
-                console.error('❌ No configured executor:', { mode: this.mode, hasAgent: !!this.currentAgent });
+                this.logger.error('No configured executor for streaming', { mode: this.mode, hasAgent: !!this.currentAgent });
                 throw error;
             }
 
-            console.log('✅ executeChatStream completed successfully');
+            this.logger.debug('executeChatStream completed successfully');
 
         } catch (error) {
-            console.error('❌ executeChatStream error:', error);
-            console.error('❌ Execution context:', {
+            this.logger.error('executeChatStream error', {
                 executionId,
                 mode: this.mode,
                 hasAgent: !!this.currentAgent,
@@ -926,19 +860,13 @@ export class PlaygroundExecutor {
      * Set execution mode and update state
      */
     private setMode(mode: PlaygroundMode): void {
-        console.log(`🔧 [MODE] Setting mode to:`, mode);
-        console.log(`🔧 [MODE] Previous mode:`, this.mode);
-
-        // 🔍 [DEBUG] Mode 변경 추적
-        const stack = new Error().stack?.split('\n').slice(1, 4).join('\n');
-        console.log('🔍 [MODE-TRACE] Call stack:', stack);
-        console.log('🔍 [MODE-STATE] Current state:', {
-            hasCurrentAgent: !!this.currentAgent,
-            newMode: mode
+        this.logger.debug('Setting playground mode', {
+            previousMode: this.mode,
+            nextMode: mode,
+            hasCurrentAgent: !!this.currentAgent
         });
 
         this.mode = mode;
-        console.log(`🔧 [MODE] Mode set successfully to:`, this.mode);
         this.logDebug('Mode changed', { mode });
     }
 

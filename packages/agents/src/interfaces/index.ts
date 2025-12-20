@@ -49,6 +49,19 @@ export type {
     ToolExecutionData
 } from './tool';
 
+export type {
+    EventService,
+    EventContext,
+    OwnerPathSegment,
+    OwnerType,
+    ServiceEventType,
+    BaseEventData,
+    ExecutionEventData,
+    ToolEventData,
+    AgentEventData,
+    EventServiceOwnerBinding
+} from './event-service';
+
 // 🆕 Progress reporting interface exports
 export type {
     ProgressReportingTool,

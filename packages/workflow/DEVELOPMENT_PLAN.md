@@ -237,9 +237,9 @@
 - [ ] `utils/timestamp.ts` (필요시 구현)
 - [ ] `utils/graph-utils.ts` (필요시 구현)
 
-## ✅ Phase 7: EventService(ActionTrackingEventService) 통합 (2-3일) **완료**
+## ✅ Phase 7: EventService (ownerPath context) integration (completed)
 
-### ActionTrackingEventService 통합 ✅ **완료**
+### Legacy notes: avoid contextual aliases
 - [x] **단일 `extractors` 배열 방식** 완성
   - [x] `ContextExtractor` 인터페이스: `ctor`/`name` + `extract` 함수
   - [x] 이중 구조(typeMap/nameMap) 제거, 단일 배열로 통합
@@ -253,28 +253,19 @@
   - [x] `extractContextFromSource()` 메서드로 자동 컨텍스트 추출
   - [x] 도메인 중립성 유지하며 Duck typing 제거
 
-### EventService(ActionTrackingEventService) 마이그레이션 (요약)
+### EventService migration summary
 - [x] ExecutionService에 ownerPrefix 기반 emit 검증 적용 및 clone 주입
 - [x] Robota/Team 생성 시 표준 EventService 주입
 - [x] 예제/웹은 단계별 교체 진행 중 (검증 PASS 기준)
-  - [ ] `packages/team/src/team-container.ts` 업데이트
-    - [ ] `createContextBoundInstance` → `createChild(this)` 교체
-    - [ ] ContextualEventService 기반으로 변경
-  - [ ] `packages/team/src/services/sub-agent-event-relay.ts` 업데이트
-    - [ ] ContextualEventService 상속으로 변경
-  - [ ] `packages/workflow/src/services/workflow-event-subscriber.ts` 호환성 확인
-    - [ ] ContextualEventService 인터페이스 호환성 검증
-    - [ ] 필요시 EventService 주입 방식 업데이트
+  - [ ] Remove references to team-specific concepts; do not introduce team as a known owner type.
+  - [ ] Ensure workflow components rely on EventContext.ownerPath (path-only) and do not depend on legacy contextual alias concepts.
 
 ### EventService 인터페이스 표준화
 - [ ] `packages/agents/src/services/event-service.ts` 업데이트
-  - [ ] `createChild` 메서드를 필수로 변경
-  - [ ] `ActionTrackingEventService` → `ContextualEventService` 별칭 설정
-  - [ ] `createContextBoundInstance` 메서드 제거 또는 deprecated 표시
+  - [ ] Do not enforce a fixed owner type taxonomy in types or binders (ownerType must be open-ended).
+  - [x] Removed `ActionTrackingEventService` → `ContextualEventService` alias exports in `@robota-sdk/agents`
 - [ ] 전체 시스템 EventService 생성 패턴 통일
-  - [ ] **단일 배열 방식**: `new ContextualEventService({ contextExtractors: [...] })`
-  - [ ] **Child 생성 패턴**: `parentService.createChild(this)` 적용
-  - [ ] **도메인 중립적 컨텍스트 전파**: `instanceof`/`constructor.name` 기반 매칭
+  - [ ] Prefer EventService + ownerPath context (no legacy contextual alias concepts).
 
 ### 마이그레이션 전용 기능 정리
 - [ ] 마이그레이션 완료 후 정리 작업
@@ -287,7 +278,7 @@
 ### 통합 검증
 - [ ] 전체 시스템 빌드 및 실행 테스트
 - [ ] **단일 배열 `extractors` 방식** EventService 생성 및 컨텍스트 전파 검증
-- [ ] **`createChild(this)` 패턴** workflow 패키지와 ContextualEventService 호환성 확인
+- [ ] Verify workflow package relies on EventContext.ownerPath and does not depend on legacy contextual aliases (e.g., ContextualEventService naming)
 - [ ] **도메인 중립적 컨텍스트 추출** 기존 기능 동작 검증
 
 ## ⏸️ Phase 8: 테스트 작성 (3-4일) **미구현 (향후 확장)**
@@ -404,11 +395,11 @@
    - agents 패키지에서 중복 기능 제거
    - workflow 패키지 기능으로 일원화
    
-2. **Phase 7: ContextualEventService 통합** (2-3일) ✅ **핵심 완성**
+2. **Phase 7: EventService ownerPath context** (completed)
    - [x] **단일 배열 `extractors` 방식** 완성
    - [x] **`createChild(this)` 패턴** 완성
    - [x] **도메인 중립적 컨텍스트 추출** 완성
-   - [ ] 기존 EventService → ContextualEventService 마이그레이션
+   - [ ] Remove ContextualEventService alias references and use EventService ownerPath context
    - [ ] 전체 시스템 EventService 생성 패턴 통일
 
 ### ⏸️ **향후 확장** (우선순위 2)
@@ -495,11 +486,11 @@
 - **핵심 기능**: 100% 완료
 - **품질 평가**: A급 (우수)
 - **독립 사용**: 준비 완료
-- **ContextualEventService**: 단일 배열 방식 완성
+- **EventService**: ownerPath context pipeline
 
-## 🎯 **ContextualEventService 통합 준비 완료**
+## 🎯 EventService ownerPath context ready
 
-**@robota-sdk/workflow 패키지와 ContextualEventService 핵심 구현이 완전히 완성되었습니다!**
+The workflow package should consume EventContext.ownerPath and avoid legacy contextual alias concepts.
 
 ### ✅ **완성된 핵심 기능**
 - **단일 `extractors` 배열 방식**: 이중 구조 제거, 명확한 우선순위

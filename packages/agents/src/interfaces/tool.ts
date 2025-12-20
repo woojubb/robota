@@ -1,4 +1,5 @@
 import type { ToolSchema } from './provider';
+import type { EventService, OwnerPathSegment } from './event-service';
 
 /**
  * Specific tool parameter value types - declarative type system
@@ -76,10 +77,8 @@ export interface ToolExecutionResult {
  * Tool execution context - type-safe context for tool execution
  * Enhanced with hierarchical execution tracking support
  */
-export type ToolOwnerPathSegment = {
-    type: string;
-    id?: string;
-};
+// Align Tool ownerPath segments with the canonical ownerPath segment type.
+export type ToolOwnerPathSegment = OwnerPathSegment;
 
 export interface ToolExecutionContext {
     toolName: string;
@@ -122,6 +121,13 @@ export interface ToolExecutionContext {
     ownerId?: string;
     ownerPath?: ToolOwnerPathSegment[];
     sourceId?: string;
+
+    /**
+     * Tool-call scoped EventService instance.
+     * Caller (ExecutionService/ToolExecutionService) is responsible for providing
+     * an ownerPath-bound EventService for this tool call.
+     */
+    eventService?: EventService;
 }
 
 /**

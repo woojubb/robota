@@ -17,7 +17,8 @@ import {
     EventContext,
     OwnerPathSegment,
     AgentEventData,
-    bindEventServiceOwner
+    bindEventServiceOwner,
+    bindWithOwnerPath
 } from '../services/event-service';
 
 
@@ -225,7 +226,7 @@ export class Robota extends AbstractAgent<AgentConfig, RunOptions, Message> impl
         // If parent provided EventService, use it directly
         // Otherwise, fall back to default no-op EventService
         this.eventService = config.eventService || DEFAULT_ABSTRACT_EVENT_SERVICE;
-        this.eventService = bindEventServiceOwner(this.eventService, {
+        this.eventService = bindWithOwnerPath(this.eventService, {
             ownerType: 'agent',
             ownerId: this.conversationId,
             ownerPath: this.buildOwnerPath(this.config.executionContext),
